@@ -9,7 +9,9 @@ workspace source and record their exact commit here. `sync-pipeline` is not inst
 
 ## Source versions
 
-- Installed selected set: workspace `5cdf9b286b6b3244fd498e6f12ed58f0684a4ee8`.
+- Installed selected set: workspace `490520af93abc3c73ae1a035566a106082dbff3e`.
+  This adds the canonical wizard correction to the initial `5cdf9b286b6b3244fd498e6f12ed58f0684a4ee8`
+  update; other selected skill files are identical between those revisions.
 - Complete upstream sync: `a496f5513d4a4cf889bc48e189e579f4b0bdf6aa` (2026-10-29).
   This supersedes the earlier complete baseline and selective source pins below for all 25
   directories in Set. Every selected directory, including supporting files and Codex metadata,
@@ -23,6 +25,11 @@ workspace source and record their exact commit here. `sync-pipeline` is not inst
   WORKFLOW.md exceptions are retained. This update performs no conversational-routing migration.
 - Canonical source includes the verified GitLab list flags (`glab mr list -F json`,
   `glab issue list -O json`) and wizard Readline `${e}` marker fix.
+- Wizard correction resolves dotenv apostrophe/default round-trip and preserves the original
+  file on write failures, including symlink, file-mode and exported CDPATH handling.
+  It writes single-line dotenv data for consumers, not a shell script to source/eval.
+  Unsupported values fail before mutation. Tracked regression: [#1841](https://github.com/sachkov-inside/platform/issues/1841).
+  `wizard/template.sh` SHA-256: `82838835c1bed714d7adbfa4d6ef39fbe90f63e8641ba6397c1e52b8d8fcd0ec`.
 - Shared adaptations remain canonical; project controls stay in WORKFLOW.md and docs/agents.
   No missing skill is added. Recommendations from a partial set may name an absent skill;
   that recommendation does not install or invoke it.

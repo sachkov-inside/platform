@@ -89,16 +89,19 @@ confirm() {
   [[ "$reply" =~ ^[Yy] ]]
 }
 
-# _existing KEY: current value of KEY in ENV_FILE, if any, with write_env's single
-# quotes or a plain dotenv double-quoted value undone.
+# _existing KEY: a saved single-line dotenv value, decoded as data, never eval'd.
+# write_env uses one whole-value delimiter, with no shell quote concatenation.
 _existing() {
   [[ -f "$ENV_FILE" ]] || return 1
-  local line value sq="'\\''"; line=$(grep -E "^${1}=" "$ENV_FILE" | tail -n1) || return 1
+  local line value; line=$(grep -E "^${1}=" "$ENV_FILE" | tail -n1) || return 1
   value="${line#*=}"
-  if [[ "$value" == \'*\' ]]; then value="${value:1:${#value}-2}"; value="${value//"$sq"/\'}"
+  if [[ "$value" == \'*\' || "$value" == \`*\` ]]; then
+    value="${value:1:${#value}-2}"
   elif [[ "$value" == \"*\" ]]; then
     value="${value:1:${#value}-2}"
-    [[ "$value" == *[\\\$\"]* ]] && return 1   # escapes, $ or ": can't decode safely; ask again
+    # Other producers may use newline escapes; ask again rather than return
+    # a different value from the one a dotenv parser reads.
+    [[ "$value" == *'\n'* || "$value" == *'\r'* ]] && return 1
   fi
   printf '%s' "$value"
 }
@@ -134,17 +137,59 @@ ask_secret() {
   printf -v "$key" '%s' "$input"
 }
 
-# write_env KEY VALUE upserts KEY='VALUE' into ENV_FILE (replaces any existing
-# line) and sets $KEY. Idempotent. Creates ENV_FILE at mode 0600; writes through
-# a symlink and keeps an existing file's mode.
+# Resolve the final symlink target without replacing ENV_FILE's symlinks.
+# Resolve parent directories physically too, so relative link targets work.
+_env_target() {
+  local target="$ENV_FILE" parent link count=0
+  while :; do
+    parent=$(CDPATH='' cd -P -- "$(dirname -- "$target")" && pwd) || return 1
+    target="$parent/$(basename -- "$target")"
+    if [[ ! -L "$target" ]]; then printf '%s\n' "$target"; return 0; fi
+    if (( count >= 40 )); then
+      printf 'Too many symlinks in ENV_FILE: %s\n' "$ENV_FILE" >&2
+      return 1
+    fi
+    link=$(readlink "$target") || return 1
+    if [[ "$link" == /* ]]; then target="$link"; else target="$parent/$link"; fi
+    count=$((count + 1))
+  done
+}
+
+# write_env KEY VALUE upserts one single-line dotenv value and sets $KEY.
+# ENV_FILE is data for dotenv consumers (including Node util.parseEnv), not a
+# script to source/eval. Choose an absent single/backtick/double delimiter;
+# double quotes cannot represent literal \n/\r faithfully. Reject unsupported
+# values before touching the file. Never use shell quote concatenation here.
+# Build beside the resolved target, then atomically replace it: failed reads,
+# writes, or renames leave the original intact. New files are 0600; existing
+# file modes and ENV_FILE's symlinks are preserved.
 write_env() {
-  local key="$1" value="$2" tmp sq="'\\''"
-  [[ -e "$ENV_FILE" ]] || (umask 077 && : > "$ENV_FILE")
-  tmp=$(mktemp)
-  grep -vE "^${key}=" "$ENV_FILE" > "$tmp" || true
-  printf "%s='%s'\n" "$key" "${value//\'/$sq}" >> "$tmp"
-  cat "$tmp" > "$ENV_FILE"
-  rm -f "$tmp"
+  local key="$1" value="$2" tmp target status quote
+  [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || return 1
+  if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
+    printf 'Cannot save %s: use a single-line credential or configure it directly in the consumer.\n' "$key" >&2
+    return 1
+  fi
+  if [[ "$value" != *"'"* ]]; then quote="'"
+  elif [[ "$value" != *'`'* ]]; then quote='`'
+  elif [[ "$value" != *'"'* && "$value" != *'\n'* && "$value" != *'\r'* ]]; then quote='"'
+  else
+    printf 'Cannot save %s faithfully as dotenv: configure this value directly in the consumer.\n' "$key" >&2
+    return 1
+  fi
+  target=$(_env_target) || return 1
+  [[ ! -e "$target" || -f "$target" ]] || return 1
+  tmp=$(umask 077; mktemp "${target}.tmp.XXXXXX") || return 1
+  if [[ -f "$target" ]]; then
+    if ! cp -p -- "$target" "$tmp"; then rm -f -- "$tmp"; return 1; fi
+    if grep -vE "^${key}=" "$target" > "$tmp"; then :; else
+      status=$?
+      # grep returns 1 for an empty result, 2 for a read/write error.
+      if (( status != 1 )); then rm -f -- "$tmp"; return "$status"; fi
+    fi
+  fi
+  if ! printf '%s=%s%s%s\n' "$key" "$quote" "$value" "$quote" >> "$tmp"; then rm -f -- "$tmp"; return 1; fi
+  if ! mv -f -- "$tmp" "$target"; then rm -f -- "$tmp"; return 1; fi
   printf -v "$key" '%s' "$value"
   WRITTEN_ENV+=("$key")
   printf '  %s✓ wrote%s %s → %s\n' "$GREEN" "$RESET" "$key" "$ENV_FILE"
