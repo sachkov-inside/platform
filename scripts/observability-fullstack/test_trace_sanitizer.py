@@ -46,6 +46,31 @@ def reap_process(process):
 
 
 @contextmanager
+def parser_worker(code):
+    # The existing external owner survives launcher death and forks the measured
+    # worker from its clean Python interpreter (Linux ru_maxrss survives exec).
+    owner=(Path(__file__).resolve().parents[1]/'owned-process.mjs').as_uri()
+    launcher="""import {spawnOwned,stopOwned} from OWNER;
+const child=spawnOwned(process.argv[1],['-B','-c',process.argv[2]],{stdio:'inherit',ownerExitGraceMilliseconds:0});
+const timer=setTimeout(()=>{void stopOwned(child,0)},8000);
+child.once('error',error=>{clearTimeout(timer);console.error(error);process.exitCode=127});
+child.once('exit',(code,signal)=>{clearTimeout(timer);process.exitCode=code??1});
+""".replace('OWNER',json.dumps(owner))
+    deadline=time.monotonic()+10
+    child=subprocess.Popen(['node','--input-type=module','-e',launcher,sys.executable,code],
+        cwd=Path(__file__).resolve().parent,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+    try:yield child,deadline
+    finally:
+        try:
+            # Kill only our unreaped direct child. The independent owner receives
+            # control-pipe EOF and cleans descendants even when this launcher died.
+            if child.poll() is None:child.kill()
+            child.communicate(timeout=max(.001,deadline-time.monotonic()))
+        finally:
+            child.stdout.close();child.stderr.close()
+
+
+@contextmanager
 def wire_edge(body=b'{}',status=200,headers=None,pause=None):
     requests=[]
     class Collector(BaseHTTPRequestHandler):
@@ -265,10 +290,126 @@ rss=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*(1 if sys.platform=='darw
 print(json.dumps({'peak_traced_bytes':peak,'max_rss_bytes':rss,'input_bytes':sizes}))
 assert peak<32*1024**2 and rss<64*1024**2
 """
-        result=subprocess.run([sys.executable,'-B','-c',code],cwd=Path(__file__).resolve().parent,capture_output=True,text=True,timeout=10)
+        def measure(worker):
+            with parser_worker(worker) as (child,deadline):
+                stdout,stderr=child.communicate(timeout=deadline-time.monotonic())
+                return subprocess.CompletedProcess(child.args,child.returncode,stdout,stderr)
+        result=measure(code)
         self.assertEqual(result.returncode,0,result.stderr+result.stdout)
         measured=json.loads(result.stdout);self.assertEqual(len(measured['input_bytes']),3)
         self.assertGreater(max(measured['input_bytes']),1000000)
+        # A real resident allocation before tracing must still fail the unchanged
+        # RSS bound even when the traced parser allocation fits its separate bound.
+        oversized=measure("resident=bytearray(96*1024**2)\nfor page in range(0,len(resident),4096):resident[page]=1\n"+code)
+        self.assertNotEqual(oversized.returncode,0)
+        rejected=json.loads(oversized.stdout)
+        self.assertEqual(rejected['input_bytes'],measured['input_bytes'])
+        self.assertLess(rejected['peak_traced_bytes'],32*1024**2)
+        self.assertGreaterEqual(rejected['max_rss_bytes'],64*1024**2)
+
+        # Exercise the same real owner at the leader-death seam. A worker keeps
+        # both inherited pipes open and ignores TERM, so launcher-only cleanup fails.
+        with patch.object(sys,'path',[str(Path(__file__).resolve().parents[1]/'heavy-check'),*sys.path]):
+            from processes import process_row
+        for outcome in ('success','failure','timeout','launcher-kill','launcher-term','interruption'):
+            with self.subTest(outcome=outcome),ExitStack() as cleanup:
+                unrelated=subprocess.Popen([sys.executable,'-c','import signal;signal.pause()'],start_new_session=True)
+                cleanup.callback(reap_process,unrelated)
+                identities={}
+                controlled="""import json,os,signal,sys
+signal.signal(signal.SIGTERM,signal.SIG_IGN)
+print(json.dumps({'pid':os.getpid(),'owner':os.getppid(),'group':os.getpgrp()}),flush=True)
+"""
+                controlled+=("raise SystemExit(0)" if outcome=='success' else
+                    "raise SystemExit(19)" if outcome=='failure' else "signal.pause()")
+                marker=RuntimeError('controlled_parser_interruption')
+                try:
+                    try:
+                        with parser_worker(controlled) as (child,deadline):
+                            with selectors.DefaultSelector() as ready:
+                                ready.register(child.stdout,selectors.EVENT_READ)
+                                self.assertTrue(ready.select(min(3,deadline-time.monotonic())))
+                                row=json.loads(child.stdout.readline());worker_pid=row['pid']
+                                for pid in (worker_pid,row['owner']):
+                                    identity=process_row(pid)
+                                    if identity is not None:identities[pid]=identity[3]
+                            if outcome=='launcher-kill':child.kill()
+                            elif outcome=='launcher-term':child.terminate()
+                            elif outcome=='interruption':raise marker
+                            child.communicate(timeout=deadline-time.monotonic())
+                            if outcome=='success':self.assertEqual(child.returncode,0)
+                            elif outcome=='failure':self.assertEqual(child.returncode,19)
+                            else:self.assertNotEqual(child.returncode,0)
+                    except RuntimeError as error:
+                        if outcome!='interruption':raise
+                        self.assertIs(error,marker)
+                    self.assertLess(time.monotonic(),deadline)
+                    self.assertTrue(child.stdout.closed);self.assertTrue(child.stderr.closed)
+                    for pid,birth in identities.items():
+                        current=process_row(pid)
+                        self.assertTrue(current is None or current[2]=='Z' or current[3]!=birth,
+                            f'owned parser process {pid} survived {outcome}: {current}')
+                    self.assertIsNone(unrelated.poll())
+                finally:
+                    # A failing regression may leave its worker. Bind fallback
+                    # cleanup to observed births, never a stale leader PID.
+                    for pid,birth in identities.items():
+                        current=process_row(pid)
+                        if current is not None and current[2]!='Z' and current[3]==birth:
+                            os.kill(pid,signal.SIGKILL)
+
+    def test_late_parser_owner_loss_reaps_every_born_identity_before_original_deadline(self):
+        with patch.object(sys,'path',[str(Path(__file__).resolve().parents[1]/'heavy-check'),*sys.path]):
+            from processes import process_row
+        controlled="""import json,os,signal
+signal.signal(signal.SIGTERM,signal.SIG_IGN)
+print(json.dumps({'pid':os.getpid(),'owner':os.getppid()}),flush=True)
+signal.pause()
+"""
+        for at_seconds in (4.9,5.1,6,7.8):
+            for outcome in ('interruption','launcher-kill','launcher-term'):
+                with self.subTest(at_seconds=at_seconds,outcome=outcome),ExitStack() as cleanup:
+                    unrelated=subprocess.Popen([sys.executable,'-c','import signal;signal.pause()'],start_new_session=True)
+                    cleanup.callback(reap_process,unrelated)
+                    identities={};marker=RuntimeError('controlled_late_parser_interruption')
+                    try:
+                        try:
+                            with parser_worker(controlled) as (child,deadline):
+                                for pid in (child.pid,):
+                                    identity=process_row(pid);self.assertIsNotNone(identity)
+                                    identities[pid]=identity[3]
+                                with selectors.DefaultSelector() as ready:
+                                    ready.register(child.stdout,selectors.EVENT_READ)
+                                    self.assertTrue(ready.select(min(3,deadline-time.monotonic())))
+                                    row=json.loads(child.stdout.readline())
+                                for pid in row.values():
+                                    identity=process_row(pid);self.assertIsNotNone(identity)
+                                    identities[pid]=identity[3]
+                                # A real delay selects the late failure boundary, never proves cleanup.
+                                time.sleep(max(0,deadline-10+at_seconds-time.monotonic()))
+                                if outcome=='interruption':raise marker
+                                if outcome=='launcher-kill':child.kill()
+                                else:child.terminate()
+                                child.communicate(timeout=deadline-time.monotonic())
+                        except RuntimeError as error:
+                            if outcome!='interruption':raise
+                            self.assertIs(error,marker)
+                        self.assertLess(time.monotonic(),deadline)
+                        self.assertIsNotNone(child.returncode)
+                        self.assertTrue(child.stdout.closed);self.assertTrue(child.stderr.closed)
+                        # Pipe EOF alone is not a supervisor-exit receipt. Observe every birth.
+                        while True:
+                            live={pid:current for pid,birth in identities.items()
+                                if (current:=process_row(pid)) is not None and current[3]==birth}
+                            if not live:break
+                            self.assertLess(time.monotonic(),deadline,f'owned identities survived: {live}')
+                            time.sleep(.01)
+                        self.assertIsNone(unrelated.poll())
+                    finally:
+                        for pid,birth in identities.items():
+                            current=process_row(pid)
+                            if current is not None and current[2]!='Z' and current[3]==birth:
+                                os.kill(pid,signal.SIGKILL)
 
     def test_no_read_admin_arbitrary_path_or_cli_destination_can_reach_collector(self):
         with wire_edge() as (server,receipt,requests):
