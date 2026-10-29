@@ -122,17 +122,35 @@ def wire(config,deadline,*,path=SOCKET,body=None,key=None):
         stream.settimeout(min(10,deadline-time.monotonic()));stream.connect(str(path))
         _pid,uid,gid=peer(stream);need(uid==os.getuid() and gid==os.getgid() and socket_identity(path)==config['socket_identity'])
     connection.connect=connect
-    first=None
+    first=None;response=None
     try:
-        connection.request('POST','/read',json.dumps(body,separators=(',',':')),{'Authorization':'Bearer '+(config['agent_key'] if key is None else key),'Content-Type':'application/json','Connection':'close'})
-        response=connection.getresponse();raw=response.read(8193)
-        need(len(raw)<=8192 and time.monotonic()<deadline and socket_identity(path)==config['socket_identity'])
-        return response.status,json.loads(raw,object_pairs_hook=unique,parse_constant=lambda _:need(False))
+        send_failure=None
+        try:
+            connection.request('POST','/read',json.dumps(body,separators=(',',':')),{'Authorization':'Bearer '+(config['agent_key'] if key is None else key),'Content-Type':'application/json','Connection':'close'})
+        except BrokenPipeError:
+            # An authenticated peer may reject headers and close before our body
+            # send. Read that SAME response once; a reset is never a denial.
+            send_failure=sys.exc_info()
+        try:
+            remaining=deadline-time.monotonic();need(remaining>0)
+            if connection.sock is not None:connection.sock.settimeout(min(10,remaining))
+            response=connection.getresponse();raw=response.read(8193)
+            need(len(raw)<=8192 and time.monotonic()<deadline and socket_identity(path)==config['socket_identity'])
+            value=json.loads(raw,object_pairs_hook=unique,parse_constant=lambda _:need(False))
+            if send_failure is not None:
+                need(response.status==403 and value=={'state':'denied'},'representative_early_denial_unproved')
+        except BaseException:
+            if send_failure is not None:raise send_failure[1].with_traceback(send_failure[2])
+            raise
+        return response.status,value
     except BaseException as error:first=error;raise
     finally:
-        try:connection.close()
-        except BaseException:
-            if first is None:raise
+        cleanup=None
+        for close in ((response.close,) if response is not None else ())+(connection.close,):
+            try:close()
+            except BaseException:
+                if cleanup is None:cleanup=sys.exc_info()
+        if first is None and cleanup is not None:raise cleanup[1].with_traceback(cleanup[2])
 
 
 def deny_tcp(address,port,remaining):
