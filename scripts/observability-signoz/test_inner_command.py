@@ -110,11 +110,21 @@ time.sleep(30)
                     self.assertEqual(public['disk_helper_stage'],expected)
                     self.assertEqual(public['native_exit'],7);self.assertFalse(engine.child)
                     self.assertNotIn('private-',json.dumps(public));self.assertNotIn('signoz-disk-stage',json.dumps(public))
-                    with self.assertRaises(lifecycle.Refusal) as unrelated:
-                        engine.raw(['private-unrelated-command'],timeout=3)
-                    other=evidence.inner_command(lifecycle.first_raw_command(unrelated.exception))
-                    self.assertTrue(other['available']);self.assertNotIn('disk_helper_stage',other)
                 finally:engine.cancel_children()
+        # One real unrelated command suffices to prove isolation from the same
+        # valid marker stream, independently of the nine selected-command cases.
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);helper=root/'owned-cli';payload=entered+imported+finished
+            helper.write_text('#!'+sys.executable+'\nimport sys\nsys.stderr.buffer.write('+repr(payload)+');sys.stderr.flush()\nraise SystemExit(7)\n');helper.chmod(0o700)
+            engine=benign_engine(root);engine.invocation=helper;engine.cli=helper.resolve()
+            native=helper.lstat();engine.invocation_identity=(native.st_dev,native.st_ino,native.st_mode,str(engine.cli))
+            try:
+                with self.assertRaises(lifecycle.Refusal) as unrelated:
+                    engine.raw(['private-unrelated-command'],timeout=3)
+                other=evidence.inner_command(lifecycle.first_raw_command(unrelated.exception))
+                self.assertTrue(other['available']);self.assertNotIn('disk_helper_stage',other)
+                self.assertEqual(other['native_exit'],7);self.assertFalse(engine.child)
+            finally:engine.cancel_children()
 
     def test_incomplete_stderr_pipe_after_owned_reap_cannot_establish_disk_stage(self):
         with tempfile.TemporaryDirectory() as tmp:
