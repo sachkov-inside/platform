@@ -1097,7 +1097,7 @@ export const CompactMobileRoute: Story = {
     ).toHaveAttribute("href", expect.stringContaining("series-material-1"));
     await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
     await expect(rows.queryAllByText("Бесплатно")).toHaveLength(0);
-    // В строках нет слов «Гайд» и «Видео»: формат материала не подписывается.
+    // Ни одна строка не подписана форматом материала отдельным словом.
     await expect(rows.queryByText("Гайд")).not.toBeInTheDocument();
     await expect(rows.queryByText("Видео")).not.toBeInTheDocument();
     await expect(rows.queryByText("По подписке")).not.toBeInTheDocument();
@@ -1150,6 +1150,7 @@ export const DesktopRouteDetails: Story = {
     );
     await expect(durations).toHaveLength(1);
     await expect(durations[0]).toBeVisible();
+    await expect(durations[0]?.querySelector("svg")).toBeVisible();
     await expect(cards[0]).toContainElement(durations[0] ?? null);
     const card = cards[2];
     const title = card?.querySelector("h3,h4");
@@ -1160,7 +1161,7 @@ export const DesktopRouteDetails: Story = {
       const box = element.getBoundingClientRect();
       return box.top + box.height / 2;
     };
-    // По центру строки стоит текстовый блок: название и строка формата под ним.
+    // По центру строки стоит текстовый блок с названием.
     const text = title.parentElement ?? title;
     await expect(Math.abs(center(text) - center(card))).toBeLessThan(1);
     // Номер урока — мелкая цифра у первой строки названия, без плитки и обложки.

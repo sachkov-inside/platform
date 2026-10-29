@@ -524,8 +524,8 @@ The current Material keeps its visual highlight; inaccessible covers remain blur
 
 On wide screens the centered Product page is capped at 1040 px. Equal-height rows use 16:9 covers,
 a two-line title and an optional one-line published summary. On narrow screens the cover is square
-and summaries are hidden. Format labels and video duration follow the programme lesson-row rule
-below. Enlarged text permits taller rows.
+and summaries are hidden. Format labels and video duration follow the lesson-row rule in
+[Страница руководства](#страница-руководства). Enlarged text permits taller rows.
 The presentation neither invents descriptions nor reads body content for previews.
 
 Material covers use the existing upload/replace/remove lifecycle. Landscape 16:9 source images
