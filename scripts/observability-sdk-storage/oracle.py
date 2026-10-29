@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'observability-pilot'))
 import source_status
+import sdk_semantics
 from diagnostics import ResponseDecode, OracleRefusal, TraceGateRefusal, trace_refusal
 from collector_privacy import TRACE_STORE_METRICS
 
@@ -168,6 +169,15 @@ def metrics(raw, *, release):
                         raise ValueError()
         if set(sdk) != expected:
             return None
+        sdk_semantics.metrics([{
+            'name': row['metric']['__name__'], 'native_name': row['metric']['__name__'],
+            'value': number(row['value'][1]), 'timestamp': row['value'][0],
+            'resource': {key: row['metric'][key] for key in ('service.name', 'deployment.environment.name', 'service.version')},
+            'scope': {'name': row['metric']['scope.name'], 'version': row['metric'].get('scope.version'), 'attributes': None},
+            'attributes': {key: value for key, value in row['metric'].items()
+                           if key not in ('__name__', 'service.name', 'deployment.environment.name', 'service.version', 'scope.name', 'scope.version')},
+            **{key: None for key in ('kind', 'unit', 'temporality', 'monotonic', 'flags', 'exemplars')},
+        } for row in rows if 'job' not in row['metric']], release=release)
         return {'s3_dependency_series': 38, 'other_sdk_series': 29, 'self_scrape_series': scrape,
                 'full_vector_series': len(rows), 'privacy': 'passed', 'sdk_metrics': 'passed'}
     except (ValueError, TypeError, KeyError, UnicodeError, OverflowError, RecursionError) as error:
@@ -247,6 +257,18 @@ def traces(raw, *, trace_id, root_id, release):
                     raise TraceGateRefusal('sdk','trace_gate_12')
         if len(roles) != 3:
             return None
+        sdk_semantics.spans([{
+            'name': row['name'], 'trace_id': row['trace_id'], 'span_id': row['span_id'],
+            'parent_span_id': row.get('parent_span_id', ''),
+            'start': int(row['start_time_unix_nano']), 'end': int(row['end_time_unix_nano']), 'duration': int(row['duration']),
+            'kind': int(row['kind']), 'status_code': int(row['status_code']), 'flags': int(row['flags']),
+            'resource': {key.removeprefix('resource_attr:'): value for key, value in row.items() if key.startswith('resource_attr:')},
+            'scope': {'name': row['scope_name'], 'version': row.get('scope_version'), 'attributes': None},
+            'attributes': {key.removeprefix('span_attr:'): value for key, value in row.items() if key.startswith('span_attr:')},
+            'extras': {**{key: row.get(key) for key in ('trace_state', 'status_message')},
+                       **{key: int(row[key]) if key in row else None for key in
+                          ('dropped_attributes_count', 'dropped_events_count', 'dropped_links_count')}, 'link_metadata': None},
+        } for row in rows], trace_id=trace_id, root_id=root_id, release=release)
         return {'stored_spans': 3, 'test_owned_root': 'passed', 's3_read_http_causality': 'passed', 'privacy': 'passed'}
     except (ValueError,TypeError,KeyError,UnicodeError,OverflowError,RecursionError) as error:
         raise trace_refusal(error,scope='sdk') from None
