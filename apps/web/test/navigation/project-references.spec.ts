@@ -35,6 +35,8 @@ test("reference navigation preserves nine steps and restores the originating les
   await expect(
     page.getByRole("heading", { name: "Урок 5", exact: true }),
   ).toBeVisible();
+  // The saved reader view below records the rail of whichever tree exists, so scroll after the handoff.
+  await expect(page.locator("[data-course-reading-host]")).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(
