@@ -2,6 +2,8 @@
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -11,6 +13,7 @@ from unittest.mock import patch
 import agent_probe
 import lifecycle
 import runtime
+from test_lifecycle import benign_engine
 
 
 IDENTITY={'device':1,'inode':2,'uid':1001,'gid':1001,'mode':0o600,'links':1}
@@ -137,6 +140,93 @@ class FunctionalClient(unittest.TestCase):
                     self.assertEqual(boundary.client_calls,client_calls);self.assertEqual(boundary.delivered,[])
                     self.assert_reaped(boundary)
                 finally:boundary.release.set()
+
+
+class NativeFunctionalCancellation(unittest.TestCase):
+    def test_poll_failure_reaps_only_functional_native_group_and_preserves_first_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'private').mkdir();(root/'agent-admission').mkdir()
+            helper=root/'native-cli'
+            helper.write_text('#!'+sys.executable+'\n'+'''import json,os,pathlib,subprocess,sys,time
+root=pathlib.Path(__file__).parent
+if sys.argv[-1]=='socket-identity':raise SystemExit(7)
+role=sys.argv[1]
+assert role in ('functional','unrelated')
+child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])
+pending=root/(role+'.pending');pending.write_text(json.dumps([os.getpid(),child.pid]))
+pending.rename(root/(role+'.json'))
+time.sleep(30)
+''');helper.chmod(0o700)
+            engine=benign_engine(root);engine.invocation=helper;engine.cli=helper.resolve()
+            native=helper.lstat();engine.invocation_identity=(native.st_dev,native.st_ino,native.st_mode,str(engine.cli))
+            engine.anon=root;engine.endpoint='benign-owned-fixture';engine.identity={'fixture':'owned'}
+            engine.identify=lambda:engine.identity
+            boundary=ClientBoundary(root,[]);boundary.engine=engine;first=[];unrelated_errors=[];identities={}
+            original_call=engine.call
+            def call(args,timeout):
+                try:return original_call(args,timeout)
+                except BaseException as error:first.append(error);raise
+            engine.call=call
+            def functional(args,timeout):
+                self.assertEqual(args,['functional']);boundary.functional_thread=threading.current_thread()
+                return engine.raw(['functional'],timeout)
+            boundary.exec=functional
+            def process(pid):
+                native=subprocess.run(['ps','-o','pid=,pgid=,lstart=,stat=','-p',str(pid)],
+                    capture_output=True,text=True,timeout=1,check=False)
+                fields=native.stdout.split()
+                return (int(fields[0]),int(fields[1]),tuple(fields[2:7]),fields[7]) if fields else None
+            def live(pid):
+                current=process(pid)
+                if current is None:return False
+                self.assertEqual(current[:3],identities[pid],'owned PID generation changed')
+                return not current[3].startswith('Z')
+            def ready():
+                end=time.monotonic()+1
+                for role in ('functional','unrelated'):
+                    path=root/(role+'.json')
+                    while not path.exists():
+                        self.assertLess(time.monotonic(),end,'native fixture admission deadline');time.sleep(.005)
+                    pids=json.loads(path.read_text())
+                    for pid in pids:
+                        current=process(pid);self.assertIsNotNone(current)
+                        self.assertEqual(current[1],pids[0]);identities[pid]=current[:3]
+                    with engine.lock:
+                        owner=[p for p in engine.child if p.pid==pids[0]]
+                        self.assertEqual(len(owner),1)
+                        thread=boundary.functional_thread if role=='functional' else unrelated
+                        self.assertEqual(engine.child_threads[owner[0]],thread.ident)
+                return pids
+            def validate(role):
+                self.assertEqual(role,'agent');ready();return {}
+            boundary.validate=validate
+            def unrelated_command():
+                try:engine.raw(['unrelated'],timeout=4)
+                except BaseException as error:unrelated_errors.append(error)
+            unrelated=threading.Thread(target=unrelated_command,name='owned-unrelated-fixture',daemon=False)
+            unrelated.start()
+            try:
+                with self.assertRaises(lifecycle.Refusal) as caught:runtime.functional_with_client(boundary,root,3)
+                self.assertEqual(len(first),1);self.assertIs(caught.exception,first[0])
+                self.assertEqual(caught.exception.reason,'command_failed')
+                self.assertFalse(boundary.functional_thread.is_alive())
+                functional_pids=json.loads((root/'functional.json').read_text())
+                self.assertTrue(all(not live(pid) for pid in functional_pids))
+                unrelated_pids=json.loads((root/'unrelated.json').read_text())
+                self.assertTrue(unrelated.is_alive());self.assertTrue(all(live(pid) for pid in unrelated_pids))
+                with engine.lock:
+                    self.assertEqual({p.pid for p in engine.child},{unrelated_pids[0]})
+                # The other thread retains its group until its own exact cancellation.
+                engine.cancel_thread_children(unrelated);unrelated.join(timeout=1)
+                self.assertFalse(unrelated.is_alive());self.assertEqual(len(unrelated_errors),1)
+                self.assertTrue(all(not live(pid) for pid in unrelated_pids));self.assertFalse(engine.child)
+            finally:
+                engine.cancel_children();unrelated.join(timeout=1)
+                if boundary.functional_thread is not None:boundary.functional_thread.join(timeout=1)
+                self.assertFalse(unrelated.is_alive())
+                self.assertFalse(boundary.functional_thread is not None and boundary.functional_thread.is_alive())
+                self.assertFalse(engine.child)
+
 
 
 if __name__=='__main__':unittest.main()
