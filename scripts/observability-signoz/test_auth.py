@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import runpy
 import sys
+import tempfile
 import threading
 import time
 from types import SimpleNamespace
@@ -13,6 +14,8 @@ import unittest
 from unittest.mock import patch
 
 import control
+import evidence
+import lifecycle
 
 ORG='00000000-0000-0000-0000-000000000001'
 USER='00000000-0000-0000-0000-000000000002'
@@ -22,7 +25,7 @@ KEY='00000000-0000-0000-0000-000000000005'
 
 
 class AuthWire(unittest.TestCase):
-    def exercise(self,wrong_identity,*,project_failure=False,revoke_status=204,failure_hook=None,observed_errors=None,expected_revoke_calls=1,responses=None):
+    def exercise(self,wrong_identity,*,project_failure=False,revoke_status=204,failure_hook=None,observed_errors=None,expected_revoke_calls=1,responses=None,query_wire=None,observed_calls=None):
         calls=[];revoked=[False]
         deadlines=[]
         failure=None
@@ -53,6 +56,7 @@ class AuthWire(unittest.TestCase):
                 else:status=404
                 if responses and self.path in responses:value=responses[self.path]
                 encoded=b'' if status==204 else json.dumps({'status':'success' if status<300 else 'error','data':value}).encode()
+                if self.path=='/api/v5/query_range' and query_wire is not None:status,encoded=query_wire
                 self.send_response(status);self.send_header('Content-Length',str(len(encoded)));self.end_headers();self.wfile.write(encoded)
             do_GET=request
             do_POST=request
@@ -88,10 +92,105 @@ class AuthWire(unittest.TestCase):
         self.assertIs(revoked[0],revoke_status==204)
         self.assertEqual(calls.count(('DELETE','/api/v1/service_accounts/'+ACCOUNT+'/keys/'+KEY)),expected_revoke_calls)
         self.assertTrue(deadlines and all(value==deadline for value in deadlines))
+        if observed_calls is not None:observed_calls.extend(calls)
         return failure
 
     def test_actual_HTTP_bootstrap_viewer_admin403_revoke204_then401(self):self.exercise(False)
     def test_wrong_service_account_identity_still_revokes_created_key(self):self.exercise(True)
+
+    def test_HTTP200_fixed_read_reports_first_results_validation_before_revoke204(self):
+        failure=self.exercise(False,project_failure=True,responses={'/api/v5/query_range':{'type':'scalar','data':{'results':[]}}})
+        self.assertEqual(failure,{'inside_failed':1,'stage':'bootstrap_read_results','category':'ControlFailure',
+                                 'http_status':200,'transport':'query_v5'})
+
+    def test_HTTP200_fixed_read_reports_envelope_validation_without_an_extra_query(self):
+        calls=[]
+        failure=self.exercise(False,project_failure=True,query_wire=(200,b'{"status":"error","data":"private-sentinel"}'),observed_calls=calls)
+        self.assertEqual(failure,{'inside_failed':1,'stage':'bootstrap_read_envelope','category':'ControlFailure',
+                                 'http_status':200,'transport':'query_v5'})
+        self.assertEqual(calls.count(('POST','/api/v5/query_range')),1)
+        self.assertNotIn('private-sentinel',json.dumps(failure))
+
+    def test_actual_fixed_read_predicate_groups_remain_failed_and_project_only_closed_fields(self):
+        def scalar(count):
+            return {'type':'scalar','data':{'results':[{'queryName':'A','columns':[{}],'data':[[count]]}]}}
+        cases=[(None,'bootstrap_read_type'),({},'bootstrap_read_type'),
+            ({**scalar(0),'warning':['private-sentinel']},'bootstrap_read_warning'),
+            ({'type':'scalar','data':{'results':[]}},'bootstrap_read_results'),
+            ({'type':'scalar','data':{'results':[{'queryName':'private-sentinel'}]}},'bootstrap_read_query'),
+            ({'type':'scalar','data':{'results':[{'queryName':'A','columns':[],'data':[[0]]}]}},'bootstrap_read_columns'),
+            ({'type':'scalar','data':{'results':[{'queryName':'A','columns':[{}],'data':[]}]}},'bootstrap_read_rows'),
+            *[(scalar(count),'bootstrap_read_number') for count in (None,True,'private-sentinel',float('nan'),float('inf'))],
+            *[(scalar(count),'bootstrap_read_number_range') for count in (-1,-.5,.5)],
+            (scalar(1),'bootstrap_read_count_nonzero'),(scalar(1.0),'bootstrap_read_count_nonzero')]
+        for reply,stage in cases:
+            with self.subTest(stage=stage,reply=repr(reply)),tempfile.TemporaryDirectory() as tmp:
+                calls=[]
+                failure=self.exercise(False,project_failure=True,responses={'/api/v5/query_range':reply},observed_calls=calls)
+                self.assertEqual(failure,{'inside_failed':1,'stage':stage,'category':'ControlFailure','http_status':200,'transport':'query_v5'})
+                self.assertEqual(calls.count(('POST','/api/v5/query_range')),1)
+                root=Path(tmp);engine=root/'engine-1-12345678';engine.mkdir()
+                lifecycle.private_json(engine/'inside-failure.json',failure)
+                self.assertEqual(evidence.inside_failures(root),{'available':True,'samples':[{k:v for k,v in failure.items() if k!='inside_failed'}]})
+                self.assertNotIn('private-sentinel',json.dumps(evidence.inside_failures(root)))
+
+    def test_actual_fixed_read_transport_object_decode_and_envelope_guards(self):
+        for status,payload,stage,category in (
+            (503,b'{"status":"error","data":"private-sentinel"}','bootstrap_read_response','ControlFailure'),
+            (200,b'x'*65537,'bootstrap_read_response','ControlFailure'),
+            (200,b'["private-sentinel"]','bootstrap_read_object','ControlFailure'),
+            (200,b'{private-sentinel','bootstrap_read_decode','JSONDecodeError'),
+            (200,b'{"status":"success"}','bootstrap_read_envelope','ControlFailure')):
+            with self.subTest(stage=stage,status=status):
+                failure=self.exercise(False,project_failure=True,query_wire=(status,payload))
+                self.assertEqual(failure,{'inside_failed':1,'stage':stage,'category':category,'http_status':status,'transport':'query_v5'})
+                self.assertNotIn('private-sentinel',json.dumps(failure))
+
+    def test_fixed_read_keeps_native_expression_exceptions_instead_of_inventing_ControlFailure(self):
+        for reply,native_type in (
+            ({'type':'scalar','data':None},AttributeError),
+            ({'type':'scalar','data':{'results':[{'queryName':'A','columns':[{}],'data':[None]}]}},TypeError),
+            ({'type':'scalar','data':{'results':[{'queryName':'A','columns':[{}],'data':[[10**400]]}]}},OverflowError)):
+            with self.subTest(native=native_type.__name__):
+                errors=[];failure=self.exercise(False,project_failure=True,responses={'/api/v5/query_range':reply},observed_errors=errors)
+                self.assertIs(type(errors[0]),native_type)
+                self.assertEqual(failure,{'inside_failed':1,'stage':'bootstrap_fixed_read','category':'unavailable','http_status':200,'transport':'query_v5'})
+
+    def test_validation_primary_object_traceback_and_stage_survive_both_revoke_outcomes(self):
+        preserve=control.preserve_failure
+        for status in (204,500):
+            with self.subTest(revoke_status=status):
+                before=[];errors=[]
+                def snapshot(error):
+                    before.append((error,error.__traceback__));preserve(error)
+                with patch.object(control,'preserve_failure',side_effect=snapshot):
+                    failure=self.exercise(False,project_failure=True,revoke_status=status,
+                        responses={'/api/v5/query_range':{'type':'scalar','data':{'results':[]}}},observed_errors=errors)
+                self.assertEqual(len(before),1);self.assertEqual(len(errors),1)
+                self.assertIs(errors[0],before[0][0])
+                self.assertTrue(any(frame is before[0][1] for frame in self.traceback_frames(errors[0].__traceback__)))
+                self.assertEqual(failure,{'inside_failed':1,'stage':'bootstrap_read_results','category':'ControlFailure','http_status':200,'transport':'query_v5'})
+
+    def test_foreign_or_private_validation_tags_do_not_override_the_original_context(self):
+        with self.assertRaises(control.ControlFailure) as original:
+            control.scalar({'type':'scalar','warning':['private-sentinel']},bootstrap_read=True)
+        tags=[None,[],{},'private-sentinel',(object(),'bootstrap_read_results'),
+            original.exception._signoz_bootstrap_validation,
+            (control._BOOTSTRAP_READ_AUTHORITY,'private-sentinel'),
+            (control._BOOTSTRAP_READ_AUTHORITY,[]),(control._BOOTSTRAP_READ_AUTHORITY,{'private-sentinel':1})]
+        for tag in tags:
+            with self.subTest(tag_type=type(tag).__name__):
+                error=RuntimeError('private-sentinel');error._signoz_bootstrap_validation=tag
+                with patch.object(control,'FUNCTIONAL_STAGE','bootstrap_fixed_read',create=True),\
+                     patch.object(control,'STEP','query_v5',create=True),patch.object(control,'LAST_HTTP_STATUS',200,create=True):
+                    control.preserve_failure(error);failure=control.failure_context(error)
+                self.assertEqual(failure,{'inside_failed':1,'stage':'bootstrap_fixed_read','category':'RuntimeError','http_status':200,'transport':'query_v5'})
+                self.assertNotIn('private-sentinel',json.dumps(failure))
+        for stage in ('private-sentinel',[],{}):
+            error=RuntimeError('private-sentinel')
+            error._signoz_bootstrap_validation=(control._BOOTSTRAP_READ_AUTHORITY,id(error),stage)
+            with patch.object(control,'FUNCTIONAL_STAGE','bootstrap_fixed_read',create=True):
+                self.assertEqual(control.failure_context(error)['stage'],'bootstrap_fixed_read')
 
     def test_actual_inside_failure_keeps_identity200_before_finally_revoke204(self):
         failure=self.exercise(True,project_failure=True)
@@ -119,7 +218,7 @@ class AuthWire(unittest.TestCase):
     def test_bootstrap_key_roles_and_fixed_read_requirements_have_finite_substages(self):
         cases=[('/api/v1/service_accounts/'+ACCOUNT+'/keys',{'id':KEY,'key':None},'bootstrap_key','service_account_setup',201),
                ('/api/v1/service_accounts/me',{'id':ACCOUNT,'orgId':ORG,'serviceAccountRoles':[]},'bootstrap_roles','reader_identity',200),
-               ('/api/v5/query_range',{'type':'scalar','data':{'results':[]}},'bootstrap_fixed_read','query_v5',200)]
+               ('/api/v5/query_range',{'type':'scalar','data':{'results':[]}},'bootstrap_read_results','query_v5',200)]
         for path,reply,stage,transport,status in cases:
             with self.subTest(stage=stage):
                 failure=self.exercise(False,project_failure=True,responses={path:reply})
@@ -177,7 +276,7 @@ class AuthWire(unittest.TestCase):
 
 
 class RequestBounds(unittest.TestCase):
-    def call(self,status,payload,elapsed=0,deadline=100):
+    def call(self,status,payload,elapsed=0,deadline=100,*,bootstrap_read=False):
         class Handler(BaseHTTPRequestHandler):
             def log_message(self,*_args):pass
             def do_GET(self):
@@ -188,7 +287,7 @@ class RequestBounds(unittest.TestCase):
         ticks=iter((0.,0.,elapsed))
         try:
             with patch.object(control,'HOST','127.0.0.1'),patch.object(control,'PORT',server.server_port),patch.object(control,'DEADLINE',deadline),patch.object(control,'time',SimpleNamespace(monotonic=lambda:next(ticks))):
-                return control.request('GET','/api/v1/service_accounts/me')
+                return control.request('GET','/api/v1/service_accounts/me',bootstrap_read=bootstrap_read)
         finally:
             server.shutdown();server.server_close();thread.join(timeout=2);self.assertFalse(thread.is_alive())
 
@@ -199,6 +298,18 @@ class RequestBounds(unittest.TestCase):
                 (200,b'x'*65537,0,100),(200,good,0,0)):
             with self.subTest(status=status,bytes=len(payload),elapsed=elapsed,deadline=deadline):
                 with self.assertRaises(control.ControlFailure):self.call(status,payload,elapsed,deadline)
+
+    def test_deadline_tag_is_opt_in_and_other_request_and_scalar_callers_keep_original_context(self):
+        good=b'{"status":"success","data":{}}'
+        with patch.object(control,'FUNCTIONAL_STAGE','bootstrap_fixed_read',create=True):
+            for elapsed,deadline in ((10.0001,100),(0,0)):
+                with self.subTest(elapsed=elapsed,deadline=deadline):
+                    with self.assertRaises(control.ControlFailure) as tagged:self.call(200,good,elapsed,deadline,bootstrap_read=True)
+                    self.assertEqual(control.failure_context(tagged.exception)['stage'],'bootstrap_read_deadline')
+                    with self.assertRaises(control.ControlFailure) as original:self.call(200,good,elapsed,deadline)
+                    self.assertEqual(control.failure_context(original.exception)['stage'],'bootstrap_fixed_read')
+            with self.assertRaises(control.ControlFailure) as scalar:control.scalar({'type':'scalar','warning':['private-sentinel']})
+            self.assertEqual(control.failure_context(scalar.exception)['stage'],'bootstrap_fixed_read')
 
 
 if __name__=='__main__':unittest.main()

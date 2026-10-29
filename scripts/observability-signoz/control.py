@@ -12,13 +12,18 @@ PORT = 8080
 OWNER = 'monitoring-1566-signoz-functional'
 MAX_BODY = 65536
 DEADLINE = None
+BOOTSTRAP_READ_STAGES = frozenset(('bootstrap_read_response','bootstrap_read_deadline','bootstrap_read_decode',
+    'bootstrap_read_object','bootstrap_read_envelope','bootstrap_read_type','bootstrap_read_warning',
+    'bootstrap_read_results','bootstrap_read_query','bootstrap_read_columns','bootstrap_read_rows',
+    'bootstrap_read_number','bootstrap_read_number_range','bootstrap_read_count_nonzero'))
 FAILURE_STAGES = frozenset(('entry','bootstrap','bootstrap_key','bootstrap_identity','bootstrap_roles','bootstrap_fixed_read',
     'mcp_ready','mcp_initialize','mcp_inventory','ingest','retained_metrics','trace_log','mcp_read','finite_gateway',
-    'viewer_admin_denial','viewer_revoke','viewer_revoked_denial'))
+    'viewer_admin_denial','viewer_revoke','viewer_revoked_denial')) | BOOTSTRAP_READ_STAGES
 FAILURE_TRANSPORTS = frozenset(('none','query_v5','register','session','roles','reader_identity','revoke','service_account_setup'))
 FAILURE_CATEGORIES = frozenset(('ControlFailure','RuntimeError','TimeoutError','ConnectionRefusedError','ConnectionResetError',
     'RemoteDisconnected','JSONDecodeError','OSError','BrokenPipeError','ValueError'))
 _FAILURE_AUTHORITY = object()
+_BOOTSTRAP_READ_AUTHORITY = object()
 
 class ControlFailure(Exception):
     pass
@@ -28,7 +33,12 @@ def _closed_name(value, allowed):
 
 def _current_failure(error):
     status=globals().get('LAST_HTTP_STATUS',0)
-    return (_closed_name(globals().get('FUNCTIONAL_STAGE','entry'),FAILURE_STAGES),
+    stage=globals().get('FUNCTIONAL_STAGE','entry')
+    tagged=vars(error).get('_signoz_bootstrap_validation')
+    if (type(tagged) is tuple and len(tagged)==3 and tagged[0] is _BOOTSTRAP_READ_AUTHORITY
+            and type(tagged[1]) is int and tagged[1]==id(error)
+            and _closed_name(tagged[2],BOOTSTRAP_READ_STAGES)!='unavailable'):stage=tagged[2]
+    return (_closed_name(stage,FAILURE_STAGES),
             _closed_name(globals().get('STEP','none'),FAILURE_TRANSPORTS),
             status if type(status) is int and 0<=status<=599 else 0,
             _closed_name(type(error).__name__,FAILURE_CATEGORIES))
@@ -50,25 +60,31 @@ def failure_context(error):
         'category':_closed_name(row[3],FAILURE_CATEGORIES),'http_status':row[2],
         'transport':_closed_name(row[1],FAILURE_TRANSPORTS)}
 
-def require(ok):
+def _tag_bootstrap_failure(error,stage):
+    if _closed_name(stage,BOOTSTRAP_READ_STAGES)!='unavailable':
+        vars(error)['_signoz_bootstrap_validation']=(_BOOTSTRAP_READ_AUTHORITY,id(error),stage)
+
+def require(ok,*,bootstrap_stage=None):
     if not ok:
-        raise ControlFailure()
+        error=ControlFailure()
+        _tag_bootstrap_failure(error,bootstrap_stage)
+        raise error
 
 def uid(value):
     require(isinstance(value, str) and str(uuid.UUID(value)) == value)
     return value
 
-def remaining():
+def remaining(*,bootstrap_read=False):
     value = DEADLINE - time.monotonic()
-    require(value > 0)
+    require(value > 0,bootstrap_stage='bootstrap_read_deadline' if bootstrap_read else None)
     return min(10, value)
 
-def request(method, path, body=None, auth=None, accepted=(200,)):
+def request(method, path, body=None, auth=None, accepted=(200,),*,bootstrap_read=False):
     # Only internal call sites supply this path/body. No URL or raw query CLI exists.
     global STEP, LAST_HTTP_STATUS
     LAST_HTTP_STATUS=0
     STEP = 'query_v5' if path=='/api/v5/query_range' else 'register' if path=='/api/v1/register' else 'session' if path=='/api/v2/sessions/email_password' else 'roles' if path=='/api/v1/roles' else 'reader_identity' if path=='/api/v1/service_accounts/me' else 'revoke' if method=='DELETE' else 'service_account_setup'
-    conn = http.client.HTTPConnection(HOST, PORT, timeout=remaining())
+    conn = http.client.HTTPConnection(HOST, PORT, timeout=remaining(bootstrap_read=bootstrap_read))
     headers = {'Accept': 'application/json', 'Connection': 'close'}
     if auth:
         headers.update(auth)
@@ -82,33 +98,36 @@ def request(method, path, body=None, auth=None, accepted=(200,)):
         response = conn.getresponse()
         LAST_HTTP_STATUS=response.status
         payload = response.read(MAX_BODY + 1)
-        require(len(payload) <= MAX_BODY and response.status in accepted)
+        require(len(payload) <= MAX_BODY and response.status in accepted,bootstrap_stage='bootstrap_read_response' if bootstrap_read else None)
         elapsed = time.monotonic() - started
-        require(elapsed <= 10)
+        require(elapsed <= 10,bootstrap_stage='bootstrap_read_deadline' if bootstrap_read else None)
         if response.status == 204:
             require(not payload)
             return response.status, None, elapsed
-        value = json.loads(payload)
-        require(isinstance(value, dict))
+        try:value = json.loads(payload)
+        except Exception as error:
+            if bootstrap_read:_tag_bootstrap_failure(error,'bootstrap_read_decode')
+            raise
+        require(isinstance(value, dict),bootstrap_stage='bootstrap_read_object' if bootstrap_read else None)
         if response.status == 200 or response.status == 201:
-            require(value.get('status') == 'success' and 'data' in value)
+            require(value.get('status') == 'success' and 'data' in value,bootstrap_stage='bootstrap_read_envelope' if bootstrap_read else None)
         return response.status, value.get('data'), elapsed
     finally:
         conn.close()
 
-def scalar(value):
-    require(isinstance(value, dict) and value.get('type') == 'scalar')
-    require(not value.get('warning'))
+def scalar(value,*,bootstrap_read=False):
+    require(isinstance(value, dict) and value.get('type') == 'scalar',bootstrap_stage='bootstrap_read_type' if bootstrap_read else None)
+    require(not value.get('warning'),bootstrap_stage='bootstrap_read_warning' if bootstrap_read else None)
     results = value.get('data', {}).get('results')
-    require(isinstance(results, list) and len(results) == 1)
+    require(isinstance(results, list) and len(results) == 1,bootstrap_stage='bootstrap_read_results' if bootstrap_read else None)
     result = results[0]
-    require(isinstance(result, dict) and result.get('queryName') == 'A')
+    require(isinstance(result, dict) and result.get('queryName') == 'A',bootstrap_stage='bootstrap_read_query' if bootstrap_read else None)
     columns, rows = result.get('columns'), result.get('data')
-    require(isinstance(columns, list) and len(columns) == 1)
-    require(isinstance(rows, list) and len(rows) == 1 and len(rows[0]) == 1)
+    require(isinstance(columns, list) and len(columns) == 1,bootstrap_stage='bootstrap_read_columns' if bootstrap_read else None)
+    require(isinstance(rows, list) and len(rows) == 1 and len(rows[0]) == 1,bootstrap_stage='bootstrap_read_rows' if bootstrap_read else None)
     count = rows[0][0]
-    require(type(count) in (int, float) and math.isfinite(count))
-    require(count >= 0 and count.is_integer() if type(count) is float else count >= 0)
+    require(type(count) in (int, float) and math.isfinite(count),bootstrap_stage='bootstrap_read_number' if bootstrap_read else None)
+    require(count >= 0 and count.is_integer() if type(count) is float else count >= 0,bootstrap_stage='bootstrap_read_number_range' if bootstrap_read else None)
     return int(count)
 
 class FixedRead:
@@ -126,8 +145,8 @@ class FixedRead:
                          'name': 'A', 'signal': 'traces',
                          'aggregations': [{'expression': 'count()', 'alias': 'span_count'}],
                          'filter': {'expression': "service.name = 'platform-fallback-control'"}}}]}}
-        _, value, elapsed = request('POST', '/api/v5/query_range', query, self._auth)
-        return scalar(value), elapsed
+        _, value, elapsed = request('POST', '/api/v5/query_range', query, self._auth,bootstrap_read=True)
+        return scalar(value,bootstrap_read=True), elapsed
 
 def bootstrap():
     global FUNCTIONAL_STAGE
@@ -185,7 +204,7 @@ def bootstrap():
         # One actual backend read. No retry hiding migration/query failure.
         FUNCTIONAL_STAGE='bootstrap_fixed_read'
         count, query_seconds = proxy.call('empty_fixture_span_count', {})
-        require(count == 0)
+        require(count == 0,bootstrap_stage='bootstrap_read_count_nonzero')
         hook = globals().get('FUNCTIONAL_HOOK')
         if hook is not None:
             hook(proxy, key['key'])
