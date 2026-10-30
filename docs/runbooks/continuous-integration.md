@@ -768,8 +768,13 @@ For local investigation, run `node scripts/ci-stability-report.mjs owner/reposit
 `--until=ISO-UTC` fixes the end of the seven-day period. The report records collector source, period,
 run source, PR references supplied by GitHub, every fetched attempt, stage duration and outcome.
 Limits are explicit in JSON: 100 runs, three attempts per run, 500 jobs, two pages per collection
-(`--max-pages=1..5`), 300 GET requests, 1 MiB per failed-job log, 20 MiB total logs and 120 seconds
-of collection. API failures, malformed responses, expired/missing logs, pagination or budget limits
+(`--max-pages=1..5`), 300 GET requests, 1 MiB stdout allowance per failed-job log, a 20 MiB shared log admission budget
+and 120 seconds of collection. Each log read reserves its allowance before starting. Success charges
+actual stdout bytes; failure charges the full reservation or observed partial stdout when larger.
+JSON separates captured stdout (`logBytes`) from charged budget (`logBudgetBytesCharged`). Node's
+`maxBuffer` may capture an extra chunk, so the final capture/charge can exceed the admission budget;
+no further log read is admitted afterward. Hidden `gh` buffering and network traffic are outside
+this budget, which is not a wire-transfer limit. API failures, malformed responses, expired/missing logs, pagination or budget limits
 mark coverage incomplete. A collector success means the report was written; it never overrides CI.
 
 The existing nightly identity helper owns suite/file/project/test hashing. Recognized Vitest

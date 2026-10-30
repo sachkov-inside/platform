@@ -19,6 +19,9 @@ const outputSchema = z.object({
     complete: z.boolean(),
     incomplete: z.array(z.string()),
     requests: z.number(),
+    logBytes: z.number(),
+    logBudgetBytesCharged: z.number(),
+    logBudgetScope: z.string(),
   }),
   causes: z.array(
     z.object({
@@ -51,7 +54,7 @@ function report(responses, args = []) {
     const gh = resolve(root, "gh");
     writeFileSync(
       gh,
-      `#!/usr/bin/env node\nconst fs=require('node:fs');const p=process.argv.at(-1);if(process.argv.slice(2,5).join(' ')!=='api --method GET')process.exit(2);const data=JSON.parse(fs.readFileSync(process.env.STABILITY_FIXTURE,'utf8'));if(!(p in data)){console.error('missing fixture '+p);process.exit(1)}const v=data[p];process.stdout.write(typeof v==='string'?v:JSON.stringify(v));`,
+      `#!/usr/bin/env node\nconst fs=require('node:fs');const p=process.argv.at(-1);fs.appendFileSync(process.env.STABILITY_CALLS,p+'\\n');if(process.argv.slice(2,5).join(' ')!=='api --method GET')process.exit(2);const data=JSON.parse(fs.readFileSync(process.env.STABILITY_FIXTURE,'utf8'));if(!(p in data)){console.error('missing fixture '+p);process.exit(1)}const v=data[p];process.stdout.write(v==='__OVERSIZED_LOG__'?'private failure payload '+ 'x'.repeat(1048576+65536):typeof v==='string'?v:JSON.stringify(v));`,
     );
     chmodSync(gh, 0o755);
     const result = spawnSync(
@@ -70,13 +73,21 @@ function report(responses, args = []) {
           ...process.env,
           PATH: `${root}:${process.env["PATH"]}`,
           STABILITY_FIXTURE: resolve(root, "responses.json"),
+          STABILITY_CALLS: resolve(root, "calls.txt"),
         },
       },
     );
     assert.equal(result.status, 0, result.stderr);
-    return outputSchema.parse(
-      JSON.parse(readFileSync(resolve(root, "report/history.json"), "utf8")),
-    );
+    assert.equal(result.stdout, "");
+    assert.equal(result.stderr, "");
+    return {
+      ...outputSchema.parse(
+        JSON.parse(readFileSync(resolve(root, "report/history.json"), "utf8")),
+      ),
+      apiReads: readFileSync(resolve(root, "calls.txt"), "utf8")
+        .trim()
+        .split("\n"),
+    };
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -321,4 +332,47 @@ test("overlapping PR runs retain the earliest completed failure rather than run 
       " FAIL  scripts/access.test.mjs > rejects invalid input",
   });
   assert.equal(result.causes[0]?.firstFailure.run, 2);
+});
+
+test("failed oversized log reads exhaust the shared budget instead of receiving unlimited free retries", () => {
+  /** @type {Record<string,unknown>} */
+  const responses = {
+    [runsPath]: { total_count: 1, workflow_runs: [run(1, 11)] },
+    [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
+      total_count: 24,
+      jobs: Array.from({ length: 24 }, (_, i) => job(i + 1, "failure")),
+    },
+  };
+  for (let id = 1; id <= 24; id++)
+    responses[`${prefix}/jobs/${id}/logs`] = "__OVERSIZED_LOG__";
+  const result = report(responses);
+  assert.equal(result.coverage.complete, false);
+  assert.ok(
+    result.apiReads.filter((path) => path.endsWith("/logs")).length <= 20,
+  );
+  assert.ok(result.coverage.logBytes > 0);
+  assert.ok(result.coverage.logBudgetBytesCharged >= 20971520);
+  assert.ok(result.coverage.logBudgetBytesCharged >= result.coverage.logBytes);
+  assert.match(result.coverage.logBudgetScope, /hidden gh\/network buffering/u);
+  assert.equal(result.jobs.length, 24);
+  assert.equal(result.causes.length, 0);
+  assert.doesNotMatch(JSON.stringify(result), /private failure payload/u);
+});
+
+test("failed log commands with no captured stdout still consume their reserved allowance", () => {
+  const result = report({
+    [runsPath]: { total_count: 1, workflow_runs: [run(1, 11)] },
+    [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
+      total_count: 24,
+      jobs: Array.from({ length: 24 }, (_, i) => job(i + 1, "failure")),
+    },
+  });
+  assert.equal(
+    result.apiReads.filter((path) => path.endsWith("/logs")).length,
+    20,
+  );
+  assert.equal(result.coverage.logBytes, 0);
+  assert.equal(result.coverage.logBudgetBytesCharged, 20971520);
+  assert.equal(result.coverage.complete, false);
+  assert.equal(result.jobs.length, 24);
 });

@@ -128,20 +128,54 @@ async function main() {
   const deadline = Date.now() + limits.maxWallSeconds * 1000;
   let requests = 0;
   let logBytes = 0;
+  let logBudgetBytesCharged = 0;
   /** @param {string} path @param {boolean} [log] */
   function read(path, log = false) {
     if (requests >= limits.maxRequests)
       throw new Error("request budget exhausted");
     if (Date.now() >= deadline) throw new Error("wall-time budget exhausted");
+    const reservation = log
+      ? Math.min(
+          limits.maxLogBytes,
+          limits.maxTotalLogBytes - logBudgetBytesCharged,
+        )
+      : 0;
+    if (log && reservation <= 0) throw new Error("log budget exhausted");
+    // A failed command still consumed an admitted read, even when no stdout is exposed.
+    if (log) logBudgetBytesCharged += reservation;
     requests++;
-    return execFileSync("gh", ["api", "--method", "GET", path], {
-      encoding: "utf8",
-      timeout: Math.min(15000, Math.max(1, deadline - Date.now())),
-      maxBuffer: log
-        ? Math.min(limits.maxLogBytes, limits.maxTotalLogBytes - logBytes)
-        : 4194304,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    try {
+      const output = execFileSync("gh", ["api", "--method", "GET", path], {
+        encoding: "utf8",
+        timeout: Math.min(15000, Math.max(1, deadline - Date.now())),
+        maxBuffer: log ? reservation : 4194304,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      if (log) {
+        const captured = Buffer.byteLength(output);
+        logBytes += captured;
+        logBudgetBytesCharged += captured - reservation;
+      }
+      return output;
+    } catch (error) {
+      if (log) {
+        const stdout =
+          error instanceof Error && "stdout" in error
+            ? error.stdout
+            : undefined;
+        const captured =
+          typeof stdout === "string"
+            ? Buffer.byteLength(stdout)
+            : Buffer.isBuffer(stdout)
+              ? stdout.length
+              : 0;
+        logBytes += captured;
+        // maxBuffer can overread one chunk. Charge it and stop subsequent admission.
+        logBudgetBytesCharged += Math.max(0, captured - reservation);
+      }
+      // Both callers discard the exception payload and retain only bounded coverage metadata.
+      throw error;
+    }
   }
   /** @template T @param {string} path @param {string} key @param {z.ZodType<T>} schema @returns {T[]} */
   function pages(path, key, schema) {
@@ -241,10 +275,7 @@ async function main() {
         let tests = [];
         if (input.conclusion === "failure") {
           try {
-            if (logBytes >= limits.maxTotalLogBytes)
-              throw new Error("log budget exhausted");
             const log = read(`${base}/jobs/${job.id}/logs`, true);
-            logBytes += Buffer.byteLength(log);
             tests = observations(log, job.name);
             job.classification =
               tests.length > 0
@@ -333,6 +364,9 @@ async function main() {
       complete: incomplete.length === 0,
       requests,
       logBytes,
+      logBudgetBytesCharged,
+      logBudgetScope:
+        "Successful stdout bytes; failed reads reserve their full allowance or observed partial stdout when larger. Admission budget excludes hidden gh/network buffering; a final capture can overread maxBuffer.",
       runs: runs.slice(0, limits.maxRuns).length,
       jobs: jobs.length,
       incomplete: [...new Set(incomplete)],
@@ -364,7 +398,7 @@ async function main() {
         `| ${markdownText(name).replaceAll("|", " ")} | ${row.attempts} | ${row.seconds} | ${row.missing} |`,
     )
     .join("\n");
-  const markdown = `## CI history\n\nPeriod: ${period.since} to ${period.until}. Runs: ${report.coverage.runs}; job attempts: ${jobs.length}; GET requests: ${requests}. Coverage: ${report.coverage.complete ? "complete within configured CI period and limits" : "incomplete"}.\n\n${report.coverage.incomplete.join("; ")}\n\n${report.causes.map((cause) => `- ${cause.identity}: ${markdownText(cause.test.file)}, ${markdownText(cause.test.name)}. First failure: run ${cause.firstFailure.run}, attempt ${cause.firstFailure.attempt}, source ${cause.firstFailure.source}. PRs: ${cause.pullRequests.join(", ")}. ${cause.priority}. Rechecks: ${cause.rechecks.map((check) => `${check.attempt}: ${check.outcome}`).join(", ") || "none"}.`).join("\n")}\n\nFailure signatures are observations requiring diagnosis, including possible regressions. A passing job does not confirm a particular test passed. Missing test identities remain unknown job failures. This report grants no retry, closure, review or required-CI exemption. Durations and all outcomes are in history.json.\n\n| Stage | Attempts | Total seconds | Missing durations |\n|---|---|---|---|\n${durationTable}\n`;
+  const markdown = `## CI history\n\nPeriod: ${period.since} to ${period.until}. Runs: ${report.coverage.runs}; job attempts: ${jobs.length}; GET requests: ${requests}. Captured log stdout: ${logBytes} bytes; log budget charged: ${logBudgetBytesCharged} bytes (admission budget, excluding hidden gh/network buffering and possible final maxBuffer overread). Coverage: ${report.coverage.complete ? "complete within configured CI period and limits" : "incomplete"}.\n\n${report.coverage.incomplete.join("; ")}\n\n${report.causes.map((cause) => `- ${cause.identity}: ${markdownText(cause.test.file)}, ${markdownText(cause.test.name)}. First failure: run ${cause.firstFailure.run}, attempt ${cause.firstFailure.attempt}, source ${cause.firstFailure.source}. PRs: ${cause.pullRequests.join(", ")}. ${cause.priority}. Rechecks: ${cause.rechecks.map((check) => `${check.attempt}: ${check.outcome}`).join(", ") || "none"}.`).join("\n")}\n\nFailure signatures are observations requiring diagnosis, including possible regressions. A passing job does not confirm a particular test passed. Missing test identities remain unknown job failures. This report grants no retry, closure, review or required-CI exemption. Durations and all outcomes are in history.json.\n\n| Stage | Attempts | Total seconds | Missing durations |\n|---|---|---|---|\n${durationTable}\n`;
   writeFileSync(resolve(output, "summary.md"), markdown);
   if (process.env["GITHUB_STEP_SUMMARY"])
     appendFileSync(process.env["GITHUB_STEP_SUMMARY"], markdown);
