@@ -173,10 +173,18 @@ function assertResourceProtocol(source) {
     assert.equal([...body.matchAll(/^ {4}needs:/gmu)].length, 1);
     let original = body.replace("    needs: fullstack-protocol\n", "");
     if (name === "fullstack") {
+      // Reverse only the approved technical step name and conditional budget.
+      // The legacy full profile and every other native budget stay fingerprinted.
+      const scopedMeasureStep =
+        "      - name: Measure paired full-process corpus through scope-bound supervisor\n        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}\n";
+      const legacyMeasureStep =
+        "      - name: Measure paired full-process corpus through unchanged 600-second supervisor\n        timeout-minutes: 12\n";
+      assert.equal(original.split(scopedMeasureStep).length, 2);
       assert.equal(original.split(resourceScopeStep).length, 2);
       assert.equal(original.split(resourceScopeArgument).length, 5);
       assert.equal(original.split(resourceScopePrefix).length, 14);
       original = original
+        .replace(scopedMeasureStep, legacyMeasureStep)
         .replace(resourceScopeStep, "")
         .replaceAll(resourceScopeArgument, "")
         .replaceAll(resourceScopePrefix, "fullstack");
@@ -1610,6 +1618,28 @@ it("rejects missing coverage, graph bypasses, source drift and native policy cha
     ["<!-- monitoring-cpu-control: app-unlimited-v1 -->", ""],
     ["name: Matched CPU-policy diagnostic", "name: Capacity acceptance"],
     ["timeout-minutes: 60", "timeout-minutes: 61"],
+    ["scope == 'technical' && 30 || 12", "scope == 'technical' && 17 || 12"],
+    ["scope == 'technical' && 30 || 12", "scope == 'technical' && 30 || 30"],
+    [
+      "timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}",
+      "timeout-minutes: 30",
+    ],
+    [
+      "Measure paired full-process corpus through scope-bound supervisor",
+      "Measure paired full-process corpus through unlimited supervisor",
+    ],
+    [
+      "Representative whole-process monitoring OFF/ON resource proof\n    runs-on: ubuntu-24.04\n    timeout-minutes: 60",
+      "Representative whole-process monitoring OFF/ON resource proof\n    runs-on: ubuntu-24.04\n    timeout-minutes: 61",
+    ],
+    [
+      "Measure diagnostic control through unchanged 600-second supervisor\n        timeout-minutes: 12",
+      "Measure diagnostic control through unchanged 600-second supervisor\n        timeout-minutes: 13",
+    ],
+    [
+      "    timeout-minutes: 1\n    env:\n      RESULT:",
+      "    timeout-minutes: 2\n    env:\n      RESULT:",
+    ],
     ["unchanged 600-second supervisor", "unlimited supervisor"],
     ["fullstack.py run\n", "fullstack.py run --p95 1.10\n"],
     ["fullstack.py cpu-control-recover", "fullstack.py cpu-control-collect"],
