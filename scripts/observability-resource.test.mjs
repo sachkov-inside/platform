@@ -228,9 +228,9 @@ test("resource source progress projects canonical complete and active ordered pr
         `RESOURCE_SOURCE_V1 start ${id}\nRESOURCE_SOURCE_V1 completed ${id}\n`,
     )
     .join("");
-  assert.equal(sourceIds.length, 115);
-  assert.equal(Buffer.byteLength(complete), 28752);
-  assert.equal(sourceProgress(complete)?.completedCount, 115);
+  assert.equal(sourceIds.length, 117);
+  assert.equal(Buffer.byteLength(complete), 29254);
+  assert.equal(sourceProgress(complete)?.completedCount, 117);
   assert.notEqual(sourceIds[83], originalTimingSource);
   assert.equal(
     resourceTimingSummary({

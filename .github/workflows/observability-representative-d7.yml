@@ -104,7 +104,7 @@ jobs:
 
   d7:
     needs: [all-seven, minimal]
-    if: ${{ needs.all-seven.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha }}
+    if: ${{ !cancelled() && needs.all-seven.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:

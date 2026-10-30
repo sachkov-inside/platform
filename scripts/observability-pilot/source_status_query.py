@@ -305,9 +305,10 @@ def _publish_rejection(output, anchor, detail):
             return
         descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
                              0o600, dir_fd=directory)
-        created = None
-        try:
-            with os.fdopen(descriptor, 'wb') as stream:
+        # Hold the inode through cleanup so a replacement cannot reuse its identity.
+        with os.fdopen(descriptor, 'wb') as stream:
+            created = None
+            try:
                 created = os.fstat(stream.fileno())
                 if (not stat.S_ISREG(created.st_mode) or created.st_uid != os.getuid()
                         or stat.S_IMODE(created.st_mode) != 0o600 or created.st_nlink != 1):
@@ -318,24 +319,24 @@ def _publish_rejection(output, anchor, detail):
                 linked = os.stat(temporary, dir_fd=directory, follow_symlinks=False)
                 if _file_identity(final) != _file_identity(linked):
                     raise ValueError()
-            _check_directory(output, directory, identity)
-            # link publishes complete bytes atomically without replacing a competing first failure.
-            os.link(temporary, status.REJECTION_NAME, src_dir_fd=directory, dst_dir_fd=directory,
-                    follow_symlinks=False)
-            published = os.stat(status.REJECTION_NAME, dir_fd=directory, follow_symlinks=False)
-            if ((published.st_dev, published.st_ino, published.st_uid, published.st_mode,
-                 published.st_nlink, published.st_size, published.st_mtime_ns)
-                    != (created.st_dev, created.st_ino, created.st_uid, created.st_mode,
-                        2, len(raw), final.st_mtime_ns)):
-                current = os.stat(status.REJECTION_NAME, dir_fd=directory, follow_symlinks=False)
-                if _file_identity(current) == _file_identity(published):
-                    os.unlink(status.REJECTION_NAME, dir_fd=directory)
-                raise ValueError()
-        finally:
-            if created is not None:
-                linked = os.stat(temporary, dir_fd=directory, follow_symlinks=False)
-                if (linked.st_dev, linked.st_ino) == (created.st_dev, created.st_ino):
-                    os.unlink(temporary, dir_fd=directory)
+                _check_directory(output, directory, identity)
+                # link publishes complete bytes atomically without replacing a competing first failure.
+                os.link(temporary, status.REJECTION_NAME, src_dir_fd=directory, dst_dir_fd=directory,
+                        follow_symlinks=False)
+                published = os.stat(status.REJECTION_NAME, dir_fd=directory, follow_symlinks=False)
+                if ((published.st_dev, published.st_ino, published.st_uid, published.st_mode,
+                     published.st_nlink, published.st_size, published.st_mtime_ns)
+                        != (created.st_dev, created.st_ino, created.st_uid, created.st_mode,
+                            2, len(raw), final.st_mtime_ns)):
+                    current = os.stat(status.REJECTION_NAME, dir_fd=directory, follow_symlinks=False)
+                    if _file_identity(current) == _file_identity(published):
+                        os.unlink(status.REJECTION_NAME, dir_fd=directory)
+                    raise ValueError()
+            finally:
+                if created is not None:
+                    linked = os.stat(temporary, dir_fd=directory, follow_symlinks=False)
+                    if (linked.st_dev, linked.st_ino) == (created.st_dev, created.st_ino):
+                        os.unlink(temporary, dir_fd=directory)
         stored = _anchored_json(directory, status.REJECTION_NAME, status.REJECTION_MAX_BYTES, private=True)
         if status.validate_rejection(stored, source) != value:
             raise ValueError()

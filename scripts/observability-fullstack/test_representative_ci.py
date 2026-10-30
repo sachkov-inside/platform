@@ -208,7 +208,7 @@ class Workflow(unittest.TestCase):
         self.assertIn('group: [1, 2, 3, 4, 5, 6, 7]',value)
         self.assertEqual(value.count('ref: ${{ github.sha }}'),3)
         self.assertIn('needs: [all-seven, minimal]',value)
-        self.assertIn("needs.all-seven.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha",value)
+        self.assertIn("if: ${{ !cancelled() && needs.all-seven.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha }}",value)
         self.assertEqual(value.count('persist-credentials: false'),3)
         self.assertIn('representative-d7: verify',value)
         self.assertNotIn('workflow_dispatch',value)
