@@ -46,13 +46,49 @@ jobs:
         run: |
           echo 'status=release-not-applicable' >> "$GITHUB_OUTPUT"
           echo 'Review evidence: release-not-applicable. Integration review belongs to PR and merge queue; release source coverage remains mandatory.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Select trusted review source
+        id: review-source
+        if: ${{ inputs.source_sha == '' }}
+        env:
+          REVIEW_EVENT_NAME: ${{ github.event_name }}
+          REVIEW_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          REVIEW_QUEUE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+        run: |
+          case "$REVIEW_EVENT_NAME" in
+            pull_request) base="$REVIEW_PR_BASE_SHA" ;;
+            merge_group) base="$REVIEW_QUEUE_BASE_SHA" ;;
+            *) echo 'Unsupported review event' >&2; exit 1 ;;
+          esac
+          if ! [[ "$base" =~ ^[0-9a-f]{40}$ ]]; then
+            echo 'Missing or invalid authoritative review base' >&2
+            exit 1
+          fi
+          source="$base"
+          migration=false
+          if test "$base" = cfa6b52fed6792f67affcb1ab245c2ec591dd016; then
+            source=0d7693f6774abdf5d13fc278d6026e05ed9a0efe
+            migration=true
+          fi
+          echo "source_sha=$source" >> "$GITHUB_OUTPUT"
+          echo "migration=$migration" >> "$GITHUB_OUTPUT"
       - name: Check out trusted target rules
         if: ${{ inputs.source_sha == '' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          ref: ${{ steps.review-source.outputs.source_sha }}
           path: review-trusted
           persist-credentials: false
+      - name: Validate trusted review checkout
+        if: ${{ inputs.source_sha == '' }}
+        working-directory: review-trusted
+        env:
+          REVIEW_TRUSTED_SOURCE: ${{ steps.review-source.outputs.source_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$REVIEW_TRUSTED_SOURCE"
+          if test "$REVIEW_TRUSTED_SOURCE" = 0d7693f6774abdf5d13fc278d6026e05ed9a0efe; then
+            digest="$(sha256sum scripts/review-evidence.mjs)"
+            test "${digest%% *}" = a925df89ac1d67fc36f89875be5193ff33c61d75a2332583b30d83a80924ba36
+          fi
       - name: Check out candidate as data
         if: ${{ inputs.source_sha == '' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -66,6 +102,40 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "26.10.0"
+      - name: Verify migration queue read capability
+        if: ${{ inputs.source_sha == '' && steps.review-source.outputs.migration == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'NODE'
+          const query = 'query ReviewQueueCapability($owner:String!,$name:String!) { repository(owner:$owner,name:$name) { mergeQueue(branch:"main") { entries(first:1) { nodes { headCommit { oid } pullRequest { number headRefOid } } } } } }';
+          const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+          const sha = (value) => typeof value === 'string' && /^[0-9a-f]{40}$/.test(value);
+          try {
+            const token = process.env.GH_TOKEN;
+            const repository = process.env.GITHUB_REPOSITORY?.split('/');
+            if (!token || repository?.length !== 2 || !repository.every((part) => /^[A-Za-z0-9_.-]+$/.test(part))) throw new Error();
+            const queueProbeTimeoutMilliseconds = 10000;
+            const response = await fetch('https://api.github.com/graphql', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query, variables: { owner: repository[0], name: repository[1] } }),
+              signal: AbortSignal.timeout(queueProbeTimeoutMilliseconds),
+            });
+            if (response.status !== 200) throw new Error();
+            const result = await response.json();
+            if (!object(result) || Object.hasOwn(result, 'errors') || !object(result.data) || !object(result.data.repository)) throw new Error();
+            const queue = result.data.repository.mergeQueue;
+            if (!object(queue) || !object(queue.entries) || !Array.isArray(queue.entries.nodes) || queue.entries.nodes.length > 1) throw new Error();
+            for (const entry of queue.entries.nodes) {
+              if (!object(entry) || !(entry.headCommit === null || (object(entry.headCommit) && sha(entry.headCommit.oid))) || !object(entry.pullRequest) || !Number.isSafeInteger(entry.pullRequest.number) || entry.pullRequest.number <= 0 || !sha(entry.pullRequest.headRefOid)) throw new Error();
+            }
+            console.log('GitHub queue read capability verified; positive queue integration remains unproven.');
+          } catch {
+            console.error('GitHub queue read capability probe failed.');
+            process.exitCode = 1;
+          }
+          NODE
       - name: Verify current GitHub reviews under trusted target rules
         id: review
         if: ${{ inputs.source_sha == '' }}

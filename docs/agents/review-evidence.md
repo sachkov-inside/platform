@@ -20,7 +20,8 @@ existence, semantic independence or review quality. Distinct strings cannot prov
 Keep actual native reports available for inspection. Invented identities and omitted findings violate
 the existing review procedure even when JSON validation cannot detect them.
 
-CI executes the verifier from the trusted target revision with a read-only token. The candidate is
+CI executes the verifier from the trusted target revision, subject to the bounded immutable transition
+under [Adoption and rollback](#adoption-and-rollback), with a read-only token. The candidate is
 Git data: no candidate dependencies or scripts run in that job. Workflow invocation remains subject
 to the existing CI trust model and prior-policy independent review of candidate workflow changes.
 This is not a separately protected, tamper-proof status authority. Such an authority would require a
@@ -101,15 +102,31 @@ merge main. An unrelated target advance preserves review when head and compariso
 unchanged. Task title/body edits invalidate review independently of code. There is no discretionary
 applicability override.
 
-For synthetic PR/queue checkouts, all pages of commit-to-PR associations and comments are read. Every
-source must be a current main-target PR in this repository with its own valid receipt. Every commit
-outside the trusted target must belong to a reviewed PR history or be an exact deterministic,
-conflict-free two-parent merge of reviewed inputs. `git merge-tree` must reproduce its tree. A squash
-merge queue entry is a new single-parent commit that GitHub associates with no PR; its subject's
-trailing `(#N)` names the candidate PR, and the commit counts only when `git merge-tree` of its parent
-and that PR's reviewed head reproduces its tree (#1878). Unknown commits, altered merge resolutions,
-unsupported topology, missing history and API failures fail closed. Multi-PR queue groups need
-evidence for every source.
+For synthetic PR/queue checkouts, all pages of non-merge candidate commit-to-PR associations and
+comments are read. Every source targets `main` in this repository and has its own valid receipt.
+Every commit outside the event's trusted target belongs to a reviewed PR history, is an exact
+deterministic conflict-free two-parent merge, or is a supported one-parent queue squash.
+`git merge-tree` must reproduce each synthetic transition's exact tree from its parent and reviewed
+source head. Squash source heads may live on independent branches outside the candidate ancestry.
+An open squash source additionally requires GitHub's authenticated `mergeQueue(branch: "main")`
+entry binding that exact transition's `headCommit` to the PR number and its current source head.
+A fixed read-only GraphQL query reads every page, requires the candidate head in the current queue,
+and rechecks each used entry before returning. REST associations observed after merge do not
+establish open squash provenance. Matching a tree or a branch name alone is insufficient. A source
+cannot authorize repeated squash transitions, and ambiguous source matches fail closed.
+
+A preceding squash source may already be closed only when GitHub reports it merged with that exact
+`merge_commit_sha`, a REST association for that exact transition, and membership in authenticated
+`refs/heads/main` history extending the event base. Its historical receipt remains required. A closed
+source's comparison merge-base uses its authenticated retained PR base snapshot and head, rather
+than an older event base or main's current tip. An open source uses its current authenticated PR
+base and head. Neither source type has a fallback to another comparison base when receipt matching
+fails. At least one current open source is required for a queue run.
+For an open source, an advance that enters its history therefore needs a new receipt, even when
+the event base is older. Unrelated advances retain review only when the comparison merge-base stays unchanged.
+An event starting after a merged prefix verifies only the remaining sources. Unknown
+commits, altered merge resolutions, conflicting inputs, unsupported topology, missing Git objects
+and API failures fail closed. Multi-PR groups need evidence for every source outside the event base.
 
 The verifier rechecks current PR freshness before returning. API reads form a time-of-check snapshot,
 not an atomic GitHub transaction. Required immutable-head CI and merge queue remain necessary.
@@ -128,11 +145,45 @@ attempt, security and coverage requirements remain mandatory.
 
 A trusted target without `scripts/review-evidence.mjs` explicitly reports `bootstrap-prior-policy`.
 Prior-policy independent Standards/Spec, classification, required checks and owner acceptance of the
-prepared agent controls still govern first adoption. File absence on the trusted target alone
+prepared agent controls still govern first adoption. File absence on the ordinary trusted target alone
 selects bootstrap; candidate flags, receipt fields and discretionary exceptions cannot select it.
+The immutable transition below requires its verifier file and cannot select bootstrap.
 A present broken verifier fails. Proposed controls cannot authorize their own first merge.
 
 After the owner accepts the prepared controls and the adoption PR merges, later PRs/queue groups run
 the trusted target's verifier. Deleting or changing a candidate copy cannot select bootstrap. Changes
 to the verifier, invocation or mandatory status remain authority changes assessed under prior policy.
 Restore prior controls through a reviewed revert with the same owner gate and preserve review history.
+
+### Bounded squash-verifier transition (#1856)
+
+The initial trusted baseline `cfa6b52fed6792f67affcb1ab245c2ec591dd016` contains a verifier
+that cannot validate its own corrective squash-queue delivery. This transition changes the source
+of review authority. Activation requires independent review under the prior trusted policy and the
+owner's explicit acceptance of the concrete reviewed algorithm A and workflow B. Acceptance of the
+earlier #1855 adoption does not approve this new transition. Preparation and passing checks do not
+supply that acceptance. Ordinary tasks acquire no new human-approval requirement.
+
+Only an authoritative `pull_request.base.sha` or `merge_group.base_sha` exactly equal to that old
+baseline selects immutable A `0d7693f6774abdf5d13fc278d6026e05ed9a0efe`. Before execution, CI
+requires the actual trusted checkout HEAD to equal the selected SHA and its
+`scripts/review-evidence.mjs` SHA-256 to equal
+`a925df89ac1d67fc36f89875be5193ff33c61d75a2332583b30d83a80924ba36`.
+Missing or invalid event bases fail before checkout. Missing/unavailable A, a wrong checkout, or
+missing/changed verifier content fails without fallback to bootstrap or the old verifier.
+The read-only verifier still performs full receipt, source, tree and provider verification and
+returns its real result; candidate dependencies and scripts remain unexecuted in this job.
+Release `workflow_call` applicability remains `release-not-applicable`, with these checkouts skipped.
+
+After pinned Node setup, only that old-baseline migration also probes queue GraphQL read capability
+with the actual job's read-only token. Its constant query reads at most one queue entry's head and
+PR identity, validates HTTP/GraphQL response structure, and bounds the request by an abort timeout.
+Permission, provider or malformed responses fail the job without logging raw responses or tokens.
+An empty queue is valid capability evidence. This probe establishes access/schema for that job;
+it does not prove a positive live queue integration or replace A's complete verification. It writes
+no review status. Later ordinary bases and release calls skip this migration-only probe.
+
+Every other valid event base automatically uses that exact ordinary trusted target. Once main
+advances beyond the old baseline, the transition is inactive without changing flags, labels, inputs
+or branch rules. The historical condition may remain for reproducibility; its removal is an
+ordinary reviewed authority change under the existing prior-policy and owner gates.

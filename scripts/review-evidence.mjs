@@ -201,28 +201,6 @@ function git(...args) {
     maxBuffer: 16 * 1024 * 1024,
   }).trim();
 }
-/**
- * True when `commit` has one parent and its tree is the conflict-free merge of `head` into that
- * parent, which is how a squash merge queue builds an entry.
- * @param {string} commit @param {string} head
- */
-function squashOf(commit, head) {
-  if (!sha.test(head)) return false;
-  const parents = git("rev-list", "--parents", "-n", "1", commit).split(" ");
-  if (parents.length !== 2 || parents[1] === undefined) return false;
-  try {
-    git("cat-file", "-e", `${head}^{commit}`);
-  } catch {
-    throw new Error("Reviewed PR head is missing from the candidate checkout");
-  }
-  let merged;
-  try {
-    merged = git("merge-tree", "--write-tree", parents[1], head);
-  } catch {
-    return false;
-  }
-  return sha.test(merged) && merged === git("rev-parse", `${commit}^{tree}`);
-}
 /** @param {string} base @param {string} head */
 function ancestor(base, head) {
   try {
@@ -315,26 +293,98 @@ export async function verify({
     }
     throw new Error("GitHub pagination incomplete");
   }
+  // This is a fixed read-only operation. Candidate data is only supplied as
+  // validated variables; it cannot select a GraphQL operation or endpoint.
+  const queueQuery = `query ReviewQueue($owner:String!,$name:String!,$after:String) {
+    repository(owner:$owner,name:$name) {
+      mergeQueue(branch:"main") {
+        entries(first:100,after:$after) {
+          nodes { id baseCommit { oid } headCommit { oid }
+            pullRequest { number headRefOid state } }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    }
+  }`;
+  async function readQueue() {
+    const [owner, name] = repository.split("/");
+    /** @type {string | null} */
+    let after = null;
+    /** @type {Array<{id:string, baseSha:string | null, headSha:string | null, number:number, sourceHead:string, state:string}>} */
+    const entries = [];
+    const cursors = new Set();
+    const ids = new Set();
+    for (let page = 1; page <= 100; page++) {
+      const response = await request("https://api.github.com/graphql", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({
+          query: queueQuery,
+          variables: { owner, name, after },
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      requireValue(
+        response.ok,
+        `GitHub queue read failed (${response.status})`,
+      );
+      const result = object(await response.json());
+      requireValue(!result["errors"], "GitHub queue query failed");
+      const repo = object(object(result["data"])["repository"]);
+      const connection = object(object(repo["mergeQueue"])["entries"]);
+      const nodes = array(connection["nodes"]);
+      requireValue(nodes.length <= 100, "Invalid queue page size");
+      for (const raw of nodes) {
+        const entry = object(raw);
+        const pr = object(entry["pullRequest"]);
+        const id = stringField(entry, "id");
+        requireValue(!ids.has(id), "Duplicate queue entry");
+        ids.add(id);
+        /** @param {unknown} value */
+        function commitOid(value) {
+          if (value === null) return null;
+          const oid = stringField(object(value), "oid");
+          requireValue(sha.test(oid), "Invalid queue commit");
+          return oid;
+        }
+        const sourceHead = stringField(pr, "headRefOid");
+        requireValue(sha.test(sourceHead), "Invalid queued PR head");
+        entries.push({
+          id,
+          baseSha: commitOid(entry["baseCommit"]),
+          headSha: commitOid(entry["headCommit"]),
+          number: numberField(pr, "number"),
+          sourceHead,
+          state: stringField(pr, "state"),
+        });
+      }
+      const pageInfo = object(connection["pageInfo"]);
+      requireValue(
+        typeof pageInfo["hasNextPage"] === "boolean",
+        "Missing queue pagination state",
+      );
+      if (!pageInfo["hasNextPage"]) return entries;
+      after = stringField(pageInfo, "endCursor");
+      requireValue(!cursors.has(after), "Repeated queue pagination cursor");
+      cursors.add(after);
+    }
+    throw new Error("GitHub queue pagination incomplete");
+  }
   /** @param {number} number */
   async function readPr(number) {
-    return pullRequest(await api(`pulls/${number}`));
-  }
-  /** A number that names no pull request, such as an issue, yields nothing. @param {number} number */
-  async function readPrIfPresent(number) {
-    const response = await read(`pulls/${number}`);
-    requireRead(response, true);
-    return response.ok
-      ? pullRequest(/** @type {unknown} */ (await response.json()))
-      : undefined;
-  }
-  /** @param {unknown} value */
-  function pullRequest(value) {
-    const pr = object(value);
+    const pr = object(await api(`pulls/${number}`));
     const base = object(pr["base"]);
     const repo = object(base["repo"]);
     return {
       number: numberField(pr, "number"),
       state: stringField(pr, "state"),
+      merged: pr["merged"] === true,
+      mergeCommitSha: pr["merge_commit_sha"],
       body: pr["body"] === null ? "" : stringField(pr, "body", true),
       base: {
         sha: stringField(base, "sha"),
@@ -362,13 +412,30 @@ export async function verify({
   );
   /** @type {Map<number, Awaited<ReturnType<typeof readPr>>>} */
   const prs = new Map();
-  /**
-   * Squash queue commits proven equal to a reviewed PR head applied to their parent.
-   * @type {Map<string, number>}
-   */
-  const squashes = new Map();
-  /** @type {Set<number>} */
-  const squashedPrs = new Set();
+  /** @type {Map<string, Set<number>>} */
+  const associations = new Map();
+  /** @type {Map<number, Awaited<ReturnType<typeof readQueue>>[number]>} */
+  const queueBindings = new Map();
+  let candidateInQueue = false;
+  const candidateCommits = git("rev-list", "--parents", `${base}..${candidate}`)
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line.split(" "));
+  /** @param {string[]} transition @param {string} head */
+  function exactSquash(transition, head) {
+    const [commit, parent, ...extra] = transition;
+    if (!commit || !parent || extra.length || ancestor(commit, head))
+      return false;
+    try {
+      const tree = git("rev-parse", `${commit}^{tree}`);
+      return (
+        tree !== git("rev-parse", `${parent}^{tree}`) &&
+        git("merge-tree", "--write-tree", parent, head) === tree
+      );
+    } catch {
+      return false;
+    }
+  }
   if (eventName === "pull_request") {
     requireValue(
       Number.isSafeInteger(numberField(eventObject, "number")),
@@ -380,49 +447,108 @@ export async function verify({
     );
   } else {
     requireValue(eventGroup["head_sha"] === candidate, "Queue source mismatch");
-    // Query every source commit and every page. Matching a comment on an unrelated
-    // PR is insufficient: its current head must cover this candidate's ancestry.
-    const commits = git("rev-list", "--no-merges", `${base}..${candidate}`)
-      .split("\n")
-      .filter(Boolean);
-    requireValue(commits.length > 0, "Empty merge queue");
-    for (const commit of commits) {
-      let associated = false;
-      for (const rawAssociated of await pages(`commits/${commit}/pulls`)) {
-        const association = object(rawAssociated);
-        if (association["state"] !== "open") continue;
-        associated = true;
-        if (prs.has(numberField(association, "number"))) continue;
-        const pr = await readPr(numberField(association, "number"));
-        if (sha.test(pr["head"]?.sha) && ancestor(pr["head"].sha, candidate))
-          prs.set(pr["number"], pr);
-      }
-      if (associated) continue;
-      // GitHub associates no PR with a squash queue commit. Its subject only names a candidate;
-      // the commit counts when its tree equals that PR's reviewed head applied to its parent.
-      const named = /\(#(\d+)\)$/u.exec(
-        git("log", "-1", "--format=%s", commit),
+    // Associations authenticate the concrete queue commit, never a branch name
+    // or a tree alone. A squash source need not be in the candidate ancestry.
+    requireValue(candidateCommits.length > 0, "Empty merge queue");
+    const queue = await readQueue();
+    candidateInQueue = queue.some(
+      (entry) => entry.headSha === candidate && entry.state === "OPEN",
+    );
+    for (const entry of queue) {
+      if (
+        !candidateCommits.some((transition) => transition[0] === entry.headSha)
+      )
+        continue;
+      requireValue(
+        entry.state === "OPEN" &&
+          entry.baseSha &&
+          entry.headSha &&
+          ancestor(entry.baseSha, entry.headSha) &&
+          (ancestor(base, entry.baseSha) || ancestor(entry.baseSha, base)),
+        "Unrelated queue entry",
       );
-      if (named?.[1] === undefined) continue;
-      const pr = await readPrIfPresent(Number(named[1]));
-      if (pr?.["state"] === "open" && squashOf(commit, pr["head"].sha)) {
-        prs.set(pr["number"], pr);
-        squashes.set(commit, pr["number"]);
-        squashedPrs.add(pr["number"]);
+      requireValue(
+        !queueBindings.has(entry.number),
+        "Duplicate queued PR source",
+      );
+      const pr = await readPr(entry.number);
+      requireValue(
+        pr.number === entry.number &&
+          pr.state === "open" &&
+          pr.head.sha === entry.sourceHead,
+        "Queue PR changed or mismatched",
+      );
+      queueBindings.set(entry.number, entry);
+      prs.set(entry.number, pr);
+      const numbers = associations.get(entry.headSha) ?? new Set();
+      numbers.add(entry.number);
+      associations.set(entry.headSha, numbers);
+    }
+    for (const transition of candidateCommits) {
+      const commit = transition[0];
+      requireValue(commit, "Missing candidate commit");
+      if (transition.length !== 2) continue;
+      /** @type {Set<number>} */
+      const associatedNumbers = associations.get(commit) ?? new Set();
+      associations.set(commit, associatedNumbers);
+      for (const rawAssociated of await pages(`commits/${commit}/pulls`)) {
+        const associated = object(rawAssociated);
+        if (!["open", "closed"].includes(String(associated["state"]))) continue;
+        const number = numberField(associated, "number");
+        if (prs.has(number)) continue;
+        const pr = await readPr(number);
+        requireValue(pr.number === number, "PR association identity mismatch");
+        let introduced = false;
+        if (
+          pr.state === "closed" &&
+          pr.merged &&
+          pr.mergeCommitSha === commit
+        ) {
+          const mainRef = object(await api("git/ref/heads/main"));
+          const mainObject = object(mainRef["object"]);
+          requireValue(
+            mainRef["ref"] === "refs/heads/main" &&
+              mainObject["type"] === "commit",
+            "Invalid authoritative main ref",
+          );
+          const main = stringField(mainObject, "sha");
+          requireValue(
+            sha.test(main) && ancestor(base, main),
+            "Unrelated authoritative main",
+          );
+          introduced = ancestor(commit, main);
+        }
+        if (
+          sha.test(pr.head.sha) &&
+          ((pr.state === "open" && ancestor(pr.head.sha, candidate)) ||
+            (introduced && exactSquash(transition, pr.head.sha)))
+        ) {
+          associatedNumbers.add(number);
+          prs.set(number, pr);
+        }
       }
     }
   }
   requireValue(prs.size > 0, "No current PR covers candidate");
+  requireValue(
+    [...prs.values()].some((pr) => pr.state === "open"),
+    "No open reviewed queue source",
+  );
   const sources = [];
   for (const [number, pr] of prs) {
     requireValue(
       pr["number"] === number &&
-        pr["state"] === "open" &&
+        (pr.state === "open" ||
+          (eventName === "merge_group" &&
+            pr.state === "closed" &&
+            pr.merged)) &&
         pr["base"]?.repo.full_name === repository &&
         pr["base"].ref === "main" &&
-        pr["base"].sha === base &&
+        sha.test(pr.base.sha) &&
+        (ancestor(base, pr.base.sha) ||
+          (pr.merged && ancestor(pr.base.sha, base))) &&
         sha.test(pr["head"]?.sha) &&
-        (ancestor(pr["head"].sha, candidate) || squashedPrs.has(number)),
+        (eventName === "merge_group" || ancestor(pr["head"].sha, candidate)),
       "Stale, unrelated or incomplete PR source",
     );
     if (eventName === "pull_request")
@@ -431,7 +557,10 @@ export async function verify({
           pr["base"].sha === stringField(object(eventPr["base"]), "sha"),
         "PR changed since event",
       );
-    const comparisonBase = git("merge-base", base, pr["head"].sha);
+    // Open PR bases follow current main. A merged PR retains its historical
+    // provider base snapshot; neither an older event nor moving main can replace
+    // that authenticated comparison input. Receipt matching has no fallback.
+    const comparisonBase = git("merge-base", pr.base.sha, pr.head.sha);
     const comments = await pages(`issues/${number}/comments`);
     const receipts = [];
     for (const rawComment of comments) {
@@ -501,16 +630,39 @@ export async function verify({
       ...current,
     });
   }
-  // The queue/PR checkout is usually synthetic. Only deterministic, conflict-free
-  // merges of reviewed sources may add commits outside the reviewed PR histories.
-  for (const line of git("rev-list", "--parents", `${base}..${candidate}`)
-    .split("\n")
-    .filter(Boolean)) {
-    const [commit, ...parents] = line.split(" ");
+  // Every commit outside reviewed histories needs an exact transition proof.
+  // Two-parent test merges retain their Git proof; one-parent queue squashes
+  // additionally need an authenticated PR association for that very commit.
+  const squashedSources = new Set();
+  for (const transition of candidateCommits) {
+    const [commit, ...parents] = transition;
     requireValue(commit, "Missing commit");
     if (sources.some((source) => ancestor(commit, source.headSha))) continue;
-    const squashed = squashes.get(commit);
-    if (sources.some((source) => source.pullRequest === squashed)) continue;
+    if (parents.length === 1 && eventName === "merge_group") {
+      const matches = sources.filter((source) => {
+        const pr = prs.get(source.pullRequest);
+        return (
+          associations.get(commit)?.has(source.pullRequest) &&
+          pr &&
+          (pr.state === "open"
+            ? candidateInQueue &&
+              queueBindings.get(source.pullRequest)?.headSha === commit
+            : pr.mergeCommitSha === commit) &&
+          exactSquash(transition, source.headSha)
+        );
+      });
+      requireValue(
+        matches.length === 1,
+        "Missing or ambiguous authenticated squash source",
+      );
+      const source = matches[0];
+      requireValue(
+        source && !squashedSources.has(source.pullRequest),
+        "Repeated squash source",
+      );
+      squashedSources.add(source.pullRequest);
+      continue;
+    }
     requireValue(parents.length === 2, "Unreviewed candidate commit");
     const [first, second] = parents;
     requireValue(first && second, "Missing synthetic parents");
@@ -525,11 +677,12 @@ export async function verify({
   // required checks/queue still bind the run to its immutable candidate SHA.
   for (const source of sources) {
     const fresh = await readPr(source.pullRequest);
+    const original = prs.get(source.pullRequest);
     requireValue(
-      fresh.state === "open" &&
+      original &&
+        JSON.stringify(fresh) === JSON.stringify(original) &&
         fresh.head.sha === source.headSha &&
-        fresh.base["sha"] === base &&
-        fresh.body?.includes(source.task),
+        fresh.body.includes(source.task),
       "PR changed during verification",
     );
     requireValue(
@@ -545,6 +698,23 @@ export async function verify({
         stringField(object(comment["user"]), "login") === source.publisher,
       "Receipt changed during verification",
     );
+  }
+  if (queueBindings.size > 0) {
+    const freshQueue = await readQueue();
+    requireValue(
+      freshQueue.some(
+        (entry) => entry.headSha === candidate && entry.state === "OPEN",
+      ),
+      "Candidate left merge queue",
+    );
+    for (const [number, original] of queueBindings) {
+      const fresh = freshQueue.filter((entry) => entry.number === number);
+      requireValue(
+        fresh.length === 1 &&
+          JSON.stringify(fresh[0]) === JSON.stringify(original),
+        "Queue entry changed during verification",
+      );
+    }
   }
   return { status: "verified", candidate, targetBaseSha: base, sources };
 }
