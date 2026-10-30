@@ -49,7 +49,8 @@ export async function PersonalProduct({
   let onboarding:
     Extract<ProductReaderState, { kind: "learning" }>["onboarding"] | null =
     null;
-  let productOpen = false;
+  // Доступ из уже прочитанного состояния не теряется, если не ответит сервис аккаунтов.
+  let productOpen = readerState?.access === "open";
   if (accessToken !== undefined) {
     try {
       accountId = (await resolveAccount(accessToken)).accountId;

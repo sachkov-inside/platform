@@ -294,7 +294,7 @@ export const HolderSeesNoFreeMark: Story = {
     await expect(
       canvas.getByRole("img", { name: "Материал 1, изучен" }),
     ).toBeVisible();
-    // Столбец доступа не меняет ширину от личной части: длительности стоят колонкой.
+    // Без слова длительности по-прежнему стоят одной колонкой.
     await expect(
       rightEdges(canvasElement.querySelectorAll("[data-product-duration]"))
         .size,
