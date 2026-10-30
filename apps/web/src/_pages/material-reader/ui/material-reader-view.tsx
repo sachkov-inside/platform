@@ -60,7 +60,7 @@ export interface MaterialReaderViewProps {
   readonly submissionWorkspace?: ReactNode;
   /** Streaming practice precedes completion actions and course navigation. */
   readonly deferredPracticeActions?: ReactNode;
-  /** Призыв к покупке в конце бесплатного урока курса: стоит перед действиями и шагами (#1647). */
+  /** Призыв к покупке в конце бесплатного урока курса: стоит перед действиями в конце (#1647). */
   readonly purchaseCall?: ReactNode;
   /**
    * Подсказка о двух режимах и место, куда она встаёт: перед шагом с этим номером. Место выбирает
@@ -245,9 +245,6 @@ export function MaterialReaderView({
               }
               readingAction={endReadingAction}
             />
-            {productContext?.programme == null ? null : (
-              <MaterialReaderFooter productContext={productContext} />
-            )}
           </div>
         </div>
       </ReaderFrame>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   courseReadingContext,
   isProgrammeStepOpenedForReference,
+  programmeStepLinkHref,
 } from "@/features/library-discovery";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
@@ -485,4 +486,43 @@ it("keeps repeated Material positions distinct with a single shared Material ide
   expect(
     context?.chapters[0]?.steps.filter((step) => step.id === "task:a"),
   ).toHaveLength(1);
+});
+
+describe("body links to programme steps", () => {
+  const context = courseReadingContext({
+    product: {
+      ...product,
+      items: [
+        ...product.items,
+        { materialId: "project", slug: "aie-project", title: "Проект" },
+      ],
+    },
+    current: { kind: "material", slug: "first" },
+    returnTarget: parseMaterialReaderReturnTarget(
+      "/products/course/programme?at=first",
+    ),
+  });
+  if (context === null) throw new Error("Missing course context");
+
+  it("opens another programme lesson as its step and keeps the authored section", () => {
+    expect(programmeStepLinkHref(context, "/materials/second#практика")).toBe(
+      "/materials/second?from=%2Fproducts%2Fcourse%2Fprogramme%3Fat%3Dfirst#практика",
+    );
+    expect(programmeStepLinkHref(context, "/materials/second")).toBe(
+      "/materials/second?from=%2Fproducts%2Fcourse%2Fprogramme%3Fat%3Dfirst",
+    );
+  });
+
+  it("leaves references, outside Materials and other addresses to the reference view", () => {
+    expect(programmeStepLinkHref(context, "/materials/aie-project")).toBe(
+      undefined,
+    );
+    expect(programmeStepLinkHref(context, "/materials/elsewhere")).toBe(
+      undefined,
+    );
+    expect(
+      programmeStepLinkHref(context, "https://example.com/materials/second"),
+    ).toBe(undefined);
+    expect(programmeStepLinkHref(context, "#практика")).toBe(undefined);
+  });
 });

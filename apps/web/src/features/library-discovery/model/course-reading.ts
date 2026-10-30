@@ -319,6 +319,33 @@ export function courseReadingContext({
   };
 }
 
+/**
+ * A body link to another lesson of this programme opens that lesson as its step, so the chapter
+ * steps follow the reader; the authored section survives. Other links are not programme steps.
+ */
+export function programmeStepLinkHref(
+  context: CourseReadingContext,
+  href: string,
+): Route | undefined {
+  const slug = /^\/materials\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:[?#]|$)/u.exec(
+    href,
+  )?.[1];
+  if (slug === undefined) return undefined;
+  const step = context.chapters
+    .flatMap((chapter) => chapter.steps)
+    .find(
+      (entry) =>
+        entry.kind === "material" &&
+        (entry.id === `material:${slug}` ||
+          entry.id.startsWith(`material:${slug}:`)),
+    );
+  if (step === undefined) return undefined;
+  const fragment = href.indexOf("#");
+  return internalRoute(
+    fragment < 0 ? step.href : `${step.href}${href.slice(fragment)}`,
+  );
+}
+
 /** A programme step opened for reference keeps its chapter label, though it claims no position. */
 export function isProgrammeStepOpenedForReference(
   context: CourseReadingContext,

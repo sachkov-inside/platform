@@ -5,6 +5,7 @@ import { materialSourceAnchors } from "@/entities/material";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import {
   CourseTaskSubmissionStatuses,
+  programmeStepLinkHref,
   withDeferredTaskStatuses,
 } from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
@@ -464,12 +465,9 @@ async function ResolvedMaterialReader({
                 programme.currentPosition === 0
                   ? undefined
                   : parseReaderCourseAnchor(current.id);
-              const target = anchoredMaterialHref(
-                href,
-                programme.href,
-                contextAnchor,
-                true,
-              );
+              const target =
+                programmeStepLinkHref(programme, href) ??
+                anchoredMaterialHref(href, programme.href, contextAnchor, true);
               return target === undefined ? undefined : (
                 <IntentPrefetchLink
                   className={proseLinkClassName}

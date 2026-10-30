@@ -88,6 +88,46 @@ test("reference navigation preserves nine steps and restores the originating les
   await expect.poll(() => scrollPosition(page)).toBe(500);
 });
 
+test("a body link to another programme step moves the chapter steps; a body link to a reference stays a reference", async ({
+  page,
+}) => {
+  await page.goto(lesson);
+  await expect(
+    page.getByRole("heading", { name: "Урок 5", exact: true }),
+  ).toBeVisible();
+  const body = page.locator("[data-reader-body]").filter({ visible: true });
+  await expect(
+    body.getByRole("link", { name: "проект из текста", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    /view=reference&anchor=material%3Areference-lesson-5/u,
+  );
+  const step = body.getByRole("link", { name: "Сразу к уроку 7", exact: true });
+  const href = await step.getAttribute("href");
+  expect(href).not.toContain("view=reference");
+  expect(href).not.toContain("anchor=");
+  expect(href).toMatch(
+    /^\/materials\/reference-lesson-7\?from=.*#раздел-урока$/u,
+  );
+  await step.click();
+  await expect(
+    page.getByRole("heading", { name: "Урок 7", exact: true }),
+  ).toBeVisible();
+  await expectCourseReadingHost(page);
+  if (page.viewportSize()?.width === 390)
+    await page.getByRole("button", { name: "Вся программа" }).click();
+  const navigation =
+    page.viewportSize()?.width === 390
+      ? page.getByRole("dialog")
+      : page.getByRole("complementary", { name: "Текущая глава" });
+  await expect(
+    navigation.locator('[data-course-step="material:reference-lesson-7"]'),
+  ).toHaveAttribute("aria-current", "step");
+  await expect(
+    page.getByText("Шаг 7 из 9").filter({ visible: true }).first(),
+  ).toBeVisible();
+});
+
 test("a programme lesson opened from the catalogue keeps its chapter without step navigation", async ({
   page,
 }) => {
@@ -113,7 +153,9 @@ test("a programme lesson opened from the catalogue keeps its chapter without ste
       .getByRole("dialog")
       .getByRole("button", { name: "Закрыть" })
       .click();
-  await expect(page.getByRole("link", { name: "К уроку" })).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "К уроку", exact: true }),
+  ).toHaveCount(0);
   for (const name of ["Предыдущий шаг", "Следующий шаг"])
     await expect(page.getByRole("link", { name })).toHaveCount(0);
   await expect(
@@ -143,9 +185,15 @@ test("programme references keep course navigation without adding a numbered step
       .getByRole("dialog")
       .getByRole("button", { name: "Закрыть" })
       .click();
+  // The end action panel returns to the programme; no second return link repeats it below.
+  await expect(
+    page
+      .getByRole("navigation", { name: "Действия в конце материала" })
+      .getByRole("link", { name: "Назад", exact: true }),
+  ).toHaveAttribute("href", programme);
   await expect(
     page.getByRole("link", { name: "К программе", exact: true }),
-  ).toHaveAttribute("href", programme);
+  ).toHaveCount(0);
   await page.goto("/materials/aie-project");
   await expect(
     page.getByRole("heading", { name: "Описание проекта", exact: true }),

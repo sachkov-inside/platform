@@ -8,7 +8,21 @@ export function BodyFragmentNavigation() {
   useEffect(() => {
     const body = marker.current?.parentElement;
     if (body === undefined || body === null) return;
+    // Only a followed same-page link animates; a load, a reload or history traversal jumps.
+    let smooth = false;
+    let smoothRoots: HTMLElement[] = [];
+    let settle: number | undefined;
+    const releaseSmooth = () => {
+      smooth = false;
+      if (settle !== undefined) window.clearTimeout(settle);
+      settle = undefined;
+      for (const root of smoothRoots)
+        root.style.removeProperty("scroll-behavior");
+      smoothRoots = [];
+    };
     const navigate = () => {
+      const behavior = smooth ? "smooth" : "instant";
+      releaseSmooth();
       if (body.getClientRects().length === 0) return;
       if (window.location.hash === "") return;
       let id: string;
@@ -29,7 +43,7 @@ export function BodyFragmentNavigation() {
         ) {
           if (parent instanceof HTMLDetailsElement) parent.open = true;
         }
-        target.scrollIntoView({ block: "start", behavior: "instant" });
+        target.scrollIntoView({ block: "start", behavior });
       } else {
         for (
           let parent: HTMLElement | null = body;
@@ -41,7 +55,7 @@ export function BodyFragmentNavigation() {
       }
     };
     let frame: number | undefined;
-    const repeatFragment = (event: MouseEvent) => {
+    const followFragment = (event: MouseEvent) => {
       if (
         event.defaultPrevented ||
         event.button !== 0 ||
@@ -62,8 +76,29 @@ export function BodyFragmentNavigation() {
       )
         return;
       const target = new URL(link.href);
+      const current = new URL(window.location.href);
+      if (target.hash === "" || target.origin !== current.origin) return;
+      target.hash = "";
+      current.hash = "";
+      if (target.href !== current.href) return;
+      // Without an animation the jump feels like opening another page.
+      smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (link.href !== window.location.href) {
+        if (!smooth) return;
+        // The browser scrolls before `hashchange`; let that native scroll animate as well.
+        smoothRoots = [];
+        for (
+          let parent: HTMLElement | null = body;
+          parent !== null;
+          parent = parent.parentElement
+        ) {
+          parent.style.setProperty("scroll-behavior", "smooth");
+          smoothRoots.push(parent);
+        }
+        settle = window.setTimeout(releaseSmooth, 1000);
+        return;
+      }
       // A repeated fragment emits no hashchange; native lookup may select a retained hidden page.
-      if (target.hash === "" || target.href !== window.location.href) return;
       if (frame !== undefined) cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         frame = undefined;
@@ -71,11 +106,12 @@ export function BodyFragmentNavigation() {
       });
     };
     navigate();
-    body.addEventListener("click", repeatFragment);
+    body.addEventListener("click", followFragment);
     window.addEventListener("hashchange", navigate);
     return () => {
+      releaseSmooth();
       if (frame !== undefined) cancelAnimationFrame(frame);
-      body.removeEventListener("click", repeatFragment);
+      body.removeEventListener("click", followFragment);
       window.removeEventListener("hashchange", navigate);
     };
   }, []);

@@ -81,6 +81,57 @@ test("same-page links, repeated clicks and legacy fragments keep working", async
   await expectHeadingInView(page);
 });
 
+/** Distinct scroll positions the shell passes through after the next same-page link click. */
+async function recordScroll(page: Page) {
+  await page.evaluate(() => {
+    const positions: number[] = [];
+    Reflect.set(window, "__scrollPositions", positions);
+    document.addEventListener(
+      "scroll",
+      () => {
+        const content = document.querySelector<HTMLElement>(
+          "[data-application-content]",
+        );
+        positions.push(Math.max(window.scrollY, content?.scrollTop ?? 0));
+      },
+      true,
+    );
+  });
+  return () =>
+    page.evaluate(() => {
+      const positions: unknown = Reflect.get(window, "__scrollPositions");
+      return Array.isArray(positions) ? new Set(positions).size : 0;
+    });
+}
+
+test("a same-page link scrolls to its section smoothly", async ({ page }) => {
+  await page.goto(target);
+  await expect(
+    page.getByRole("heading", { name: "Целевой материал", exact: true }),
+  ).toBeVisible();
+  const positions = await recordScroll(page);
+  await page
+    .getByRole("link", { name: "grill-with-docs", exact: true })
+    .click();
+  await expectHeadingInView(page);
+  // An instant jump lands in one step; an animation passes through intermediate positions.
+  expect(await positions()).toBeGreaterThan(2);
+});
+
+test("reduced motion keeps the same-page jump instant", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(target);
+  await expect(
+    page.getByRole("heading", { name: "Целевой материал", exact: true }),
+  ).toBeVisible();
+  const positions = await recordScroll(page);
+  await page
+    .getByRole("link", { name: "grill-with-docs", exact: true })
+    .click();
+  await expectHeadingInView(page);
+  expect(await positions()).toBeLessThanOrEqual(1);
+});
+
 test("a repeated fragment selects the visible body instead of a retained hidden page", async ({
   page,
 }) => {

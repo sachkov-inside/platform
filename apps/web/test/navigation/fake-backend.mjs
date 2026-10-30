@@ -323,6 +323,34 @@ function body(lesson, entitled) {
   };
   const written =
     lesson.productMemberships[0]?.product.id === modesProductId ? [step] : [];
+  // Текст урока ссылается и на другой шаг программы, и на справочный документ курса.
+  /** @type {import("@inside/material-blocks").RenderedBlock[]} */
+  const crossLinks =
+    lesson.slug === "reference-lesson-5"
+      ? [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                text: "Сразу к уроку 7",
+                marks: [
+                  {
+                    kind: "link",
+                    href: "/materials/reference-lesson-7#раздел-урока",
+                  },
+                ],
+              },
+              { kind: "text", text: " и ", marks: [] },
+              {
+                kind: "text",
+                text: "проект из текста",
+                marks: [{ kind: "link", href: "/materials/aie-project" }],
+              },
+            ],
+          },
+        ]
+      : [];
   return {
     schemaVersion: 1,
     blocks: [
@@ -332,6 +360,7 @@ function body(lesson, entitled) {
         content: [{ kind: "text", marks: [], text: "Раздел урока" }],
       },
       ...written,
+      ...crossLinks,
       ...paragraphs,
     ],
   };

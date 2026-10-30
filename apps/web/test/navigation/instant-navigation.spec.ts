@@ -1254,8 +1254,8 @@ test("смена режима прохождения сбрасывает стр
   await expect(step("example")).toBeVisible();
 
   const next = page
-    .locator("[data-application-content] [data-course-reading]:visible")
-    .getByRole("link", { name: /^Следующий шаг/u })
+    .getByRole("navigation", { name: "Действия в конце материала" })
+    .getByRole("link", { name: "Дальше", exact: true })
     .filter({ visible: true });
   await next.click();
   await lessonReady(page, "navigation-lesson-6")();
@@ -1263,11 +1263,21 @@ test("смена режима прохождения сбрасывает стр
   await expect(step("own")).toBeVisible();
 
   // Первый урок открыт меньше минуты назад и лежит в памяти браузера в прежнем режиме.
-  const previous = page
-    .locator("[data-application-content] [data-course-reading]:visible")
-    .getByRole("link", { name: /^Предыдущий шаг/u })
-    .filter({ visible: true });
-  await previous.click();
+  // Конец урока ведёт только вперёд. Назад ведут стрелка нижней панели телефона или шаг в сайдбаре,
+  // где прошлый урок лежит в предыдущей главе.
+  if (page.viewportSize()?.width === 390) {
+    await page
+      .getByRole("navigation", { name: "Навигация по урокам" })
+      .getByRole("link", { name: "Предыдущий шаг", exact: true })
+      .click();
+  } else {
+    const rail = page.getByRole("complementary", { name: "Текущая глава" });
+    await rail.locator("button[aria-expanded]").first().click();
+    await rail.locator("[data-course-chapter-choice]").first().click();
+    await rail
+      .locator('[data-course-step="material:navigation-lesson-5"]')
+      .click();
+  }
   await lessonReady(page, "navigation-lesson-5")();
   await expect(step("own")).toBeVisible();
   await expect(step("example")).toHaveCount(0);
