@@ -358,9 +358,9 @@ test("a publisher permission read failure fails closed and repeat publishers are
     id: 128,
     body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(historical)}`,
   });
-  // One response only: a second permission read for the same login would fail with 404.
+  // The second response is an empty body: a repeated read for the same login would fail the run.
   f.routes["collaborators/publisher/permission"] = {
-    $responses: [{ permission: "write" }, undefined],
+    $responses: [{ permission: "write" }, null],
   };
   const cached = await f.check();
   assert.equal(cached.status, 0, cached.stderr);
@@ -372,6 +372,14 @@ test("a publisher permission read failure fails closed and repeat publishers are
   });
   assert.equal(failing.status, 1);
   assert.match(failing.stderr, /GitHub read failed \(503\)/u);
+});
+
+test("a revoked publisher's receipt is ignored, leaving no current receipt", async (t) => {
+  const f = await fixture(t);
+  f.routes["collaborators/publisher/permission"] = { permission: "read" };
+  const result = await f.check();
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Missing or duplicate current review receipt/u);
 });
 
 test("a write publisher counts whatever association the read-only token sees", async (t) => {
