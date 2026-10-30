@@ -155,8 +155,10 @@ host diagnostics. `preparation-before.json` and `preparation-after.json` record 
 phase and original exit status. The fixed command list captures Docker/buildx versions, selected
 Docker server properties, service PID/restart state, memory/cgroup/disk/inode facts, Docker/containerd
 journals and kernel OOM messages. Journal reads use noninteractive `sudo -n`, ten-minute windows
-and at most 200 entries. Each command has a 1.5-second budget, supervised process-tree cleanup and
+and at most 200 entries. Each observation command has a 1.5-second budget, supervised process-tree cleanup and
 65,536 retained output characters. Capture status, timeout and truncation remain explicit.
+Owned-tag cleanup uses a separate 30-second budget because healthy image removal can exceed the
+observation budget. Cleanup retains the same supervised process-tree cleanup and failure handling.
 Cleanup stderr joins the after snapshot. The existing failure artifact uploader also covers preparation.
 
 The collector reads no environment dumps, process arguments, container/image inspection or auth files.

@@ -5,7 +5,8 @@ import { stripVTControlCharacters } from "node:util";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 
-const commandBudgetMilliseconds = 1500;
+const observationBudgetMilliseconds = 1500;
+const cleanupBudgetMilliseconds = 30000;
 const outputLimit = 65536;
 /** Drop sensitive lines before persistence, including truncated secrets and URL credentials/queries.
  * @param {string} value
@@ -14,7 +15,9 @@ function redact(value) {
   return stripVTControlCharacters(value)
     .split(/\r?\n/u)
     .map((line) =>
-      /(?:[a-z][a-z0-9+.-]*:\/\/|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|token|secret|password|passwd|credential|authorization|bearer|gh[pousr]_|AKIA)/iu.test(
+      line.includes("://") ||
+      line.toLowerCase().includes("eyj") ||
+      /(?:token|secret|password|passwd|credential|authorization|bearer|gh[pousr]_|AKIA)/iu.test(
         line,
       )
         ? "[REDACTED]"
@@ -24,8 +27,13 @@ function redact(value) {
 }
 /** Fixed diagnostic/cleanup boundary. No arbitrary executable or arguments come from the CLI.
  * @param {string} command @param {string[]} args
+ * @param {number} [budgetMilliseconds]
  */
-async function capture(command, args) {
+async function capture(
+  command,
+  args,
+  budgetMilliseconds = observationBudgetMilliseconds,
+) {
   let output = "";
   let truncated = false;
   let timedOut = false;
@@ -41,7 +49,7 @@ async function capture(command, args) {
   const timer = setTimeout(() => {
     timedOut = true;
     void stopOwned(child, 100);
-  }, commandBudgetMilliseconds);
+  }, budgetMilliseconds);
   try {
     const status = await commandExit(child);
     return { status, timedOut, truncated, output: redact(output) };
@@ -181,14 +189,18 @@ async function main() {
     results[names[index] ?? `capture-${index}`] = await capture(command, args);
   }
   if (mode === "after")
-    results["cleanup"] = await capture("docker", [
-      "image",
-      "rm",
-      `${owner}-backend:v1`,
-      `${owner}-backend:v2`,
-      `${owner}-web:v1`,
-      `${owner}-foundation:local`,
-    ]);
+    results["cleanup"] = await capture(
+      "docker",
+      [
+        "image",
+        "rm",
+        `${owner}-backend:v1`,
+        `${owner}-backend:v2`,
+        `${owner}-web:v1`,
+        `${owner}-foundation:local`,
+      ],
+      cleanupBudgetMilliseconds,
+    );
   try {
     writeFileSync(
       filename,
