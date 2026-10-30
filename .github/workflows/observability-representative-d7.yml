@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4, 5]
+        group: [1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,7 +56,7 @@ jobs:
         timeout-minutes: 2
         run: bash scripts/heavy-check.sh python3 -B scripts/observability-fullstack/representative_ci.py protocol --group "${{ matrix.group }}"
 
-  all-five:
+  all-seven:
     needs: [protocol]
     if: >-
       ${{ always() && contains(github.event.pull_request.body, '<!-- representative-d7: verify -->') }}
@@ -69,8 +69,8 @@ jobs:
         run: test "$RESULT" = success
 
   minimal:
-    needs: [all-five]
-    if: ${{ needs.all-five.result == 'success' }}
+    needs: [all-seven]
+    if: ${{ needs.all-seven.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
@@ -103,12 +103,12 @@ jobs:
         run: python3 -B scripts/observability-fullstack/representative_ci.py minimal-gate
 
   d7:
-    needs: [all-five, minimal]
-    if: ${{ needs.all-five.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha }}
+    needs: [all-seven, minimal]
+    if: ${{ needs.all-seven.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      D7_PROTOCOL_RESULT: ${{ needs.all-five.result }}
+      D7_PROTOCOL_RESULT: ${{ needs.all-seven.result }}
       D7_MINIMAL_RESULT: ${{ needs.minimal.result }}
       D7_MINIMAL_SHA: ${{ needs.minimal.outputs.sha }}
     steps:

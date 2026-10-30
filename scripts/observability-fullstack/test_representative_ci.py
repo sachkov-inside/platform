@@ -33,6 +33,17 @@ class Gates(unittest.TestCase):
             result=Result();setattr(result,name,value)
             with self.subTest(name=name),self.assertRaises(ValueError):bridge.require_protocol_result(result,2)
 
+    def test_fixed_private_cli_accepts_seven_groups_and_refuses_outside_or_mixed_selection(self):
+        import io
+        from contextlib import redirect_stderr
+        for group in ('1','2','3','4','5','6','7'):
+            with self.subTest(group=group),patch.object(bridge.sys,'argv',['private-d7','protocol','--group',group]),patch.object(bridge,'protocol') as selected:
+                bridge.main();selected.assert_called_once_with(group)
+        for group in ('0','8','1,2','private'):
+            with self.subTest(group=group),redirect_stderr(io.StringIO()),patch.object(bridge.sys,'argv',['private-d7','protocol','--group',group]),patch.object(bridge,'protocol') as selected:
+                with self.assertRaises(SystemExit) as refused:bridge.main()
+                self.assertEqual(refused.exception.code,2);selected.assert_not_called()
+
 
 class PrivateReads(unittest.TestCase):
     def test_private_reader_refuses_links_extra_hardlinks_nonfinite_duplicate_and_replacement(self):
@@ -188,10 +199,10 @@ class FunctionalProjection(unittest.TestCase):
 class Workflow(unittest.TestCase):
     def test_private_workflow_uses_closed_discovery_same_sha_and_two_strict_prerequisites(self):
         value=(bridge.ROOT/'.github/workflows/observability-representative-d7.yml').read_text()
-        self.assertIn('group: [1, 2, 3, 4, 5]',value)
+        self.assertIn('group: [1, 2, 3, 4, 5, 6, 7]',value)
         self.assertEqual(value.count('ref: ${{ github.sha }}'),3)
-        self.assertIn('needs: [all-five, minimal]',value)
-        self.assertIn("needs.all-five.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha",value)
+        self.assertIn('needs: [all-seven, minimal]',value)
+        self.assertIn("needs.all-seven.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha",value)
         self.assertEqual(value.count('persist-credentials: false'),3)
         self.assertIn('representative-d7: verify',value)
         self.assertNotIn('workflow_dispatch',value)
