@@ -8,9 +8,11 @@ permission or an exception to another gate. Ordinary tasks acquire no new mandat
 ## Trust boundary
 
 GitHub authenticates the publishing account. The verifier reads current PRs, issue title/body,
-comments and the publisher's current repository permission. A publisher must be an
-owner/member/collaborator with `write`, `maintain` or `admin` permission. One authorized account may
-publish reports from separate native workers operating under the same owner.
+comments and the publisher's current repository permission. A publisher must currently hold
+`write`, `maintain` or `admin` permission. Comment `author_association` does not select publishers:
+the read-only Actions token sees hidden organization membership as `CONTRIBUTOR` (#1872). Marker
+comments from accounts without that permission, including unknown or deleted accounts, are ignored.
+One authorized account may publish reports from separate native workers operating under the same owner.
 
 Native worker IDs, transcript references, completeness and finding dispositions are accountable
 claims by that publisher. GitHub does **not** authenticate native worker IDs, prove transcript
@@ -102,9 +104,12 @@ applicability override.
 For synthetic PR/queue checkouts, all pages of commit-to-PR associations and comments are read. Every
 source must be a current main-target PR in this repository with its own valid receipt. Every commit
 outside the trusted target must belong to a reviewed PR history or be an exact deterministic,
-conflict-free two-parent merge of reviewed inputs. `git merge-tree` must reproduce its tree. Unknown
-commits, altered merge resolutions, unsupported topology, missing history and API failures fail
-closed. Multi-PR queue groups need evidence for every source.
+conflict-free two-parent merge of reviewed inputs. `git merge-tree` must reproduce its tree. A squash
+merge queue entry is a new single-parent commit that GitHub associates with no PR; its subject's
+trailing `(#N)` names the candidate PR, and the commit counts only when `git merge-tree` of its parent
+and that PR's reviewed head reproduces its tree (#1878). Unknown commits, altered merge resolutions,
+unsupported topology, missing history and API failures fail closed. Multi-PR queue groups need
+evidence for every source.
 
 The verifier rechecks current PR freshness before returning. API reads form a time-of-check snapshot,
 not an atomic GitHub transaction. Required immutable-head CI and merge queue remain necessary.
