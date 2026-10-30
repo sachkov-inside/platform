@@ -48,6 +48,7 @@ export default function insideTelegramRoutes<T extends AnonymousRouter>(...[rout
       callback.searchParams.set('inside_state', session.state);
       callback.searchParams.set('code', session.requestRef);
       ctx.body = { status: status.status, requestRef: session.requestRef, expiresAt: session.expiresAt,
+        expiresInMilliseconds: Math.max(0, Date.parse(session.expiresAt) - Date.now()),
         ...(status.status === 'pending' ? { deepLink: session.deepLink, confirmationCode: session.confirmationCode } : {}),
         ...(status.status === 'approved' ? { callback: callback.href } : {}),
       } satisfies InsideTelegramPresentation;

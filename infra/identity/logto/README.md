@@ -81,6 +81,13 @@ redacts sensitive audit/webhook fields, removes raw SMTP provider errors and pro
 Russian rate-limit copy. Platform does not add a mail relay, quota table, attempt cookie, CAPTCHA,
 reauthentication protocol or second authentication session.
 
+Fork revision `inside.14` makes Telegram sign-in independent of the device wall clock.
+The identity status route returns the remaining lifetime in `expiresInMilliseconds`, calculated
+on the server. The waiting page uses that duration and a monotonic five-minute polling budget;
+`expiresAt` remains available for compatibility. Server expiration and callback validation remain
+authoritative. Browser regressions cover clock skew, a wall-clock adjustment during waiting and
+expiration while the provider is unavailable.
+
 Fork revision `inside.13` simplifies the Telegram sign-in copy (#1715, PR #1750) in
 `fork/packages/core/src/routes/inside-telegram-view.ts`: the loading, expired and consumed statuses,
 the return action and the page title. Polling, the app handoff and the HTTPS fallback are unchanged.
