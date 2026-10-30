@@ -109,13 +109,14 @@ class ProtocolRunner(unittest.TestCase):
 
     def test_all_groups_execute_real_cases_and_preserve_failure_error_skip_and_fixtures(self):
         from unittest.mock import patch
-        for outcome, expected in [('pass', 0), ('fail', 1), ('error', 1), ('skip', 0)]:
+        for outcome, expected in [('pass', 0), ('fail', 1), ('error', 1), ('timeout', 1), ('skip', 0)]:
             for group in protocol_runner.GROUPS:
                 events = []
                 def method(self):
                     events.append('method')
                     if outcome == 'fail': self.fail('synthetic failure')
                     if outcome == 'error': raise RuntimeError('synthetic error')
+                    if outcome == 'timeout': raise TimeoutError('synthetic timeout')
                     if outcome == 'skip': self.skipTest('existing skip')
                 fixture = type('Fixture', (unittest.TestCase,), {'__module__': __name__, 'setUpClass': classmethod(lambda cls: events.append('class setup')), 'tearDownClass': classmethod(lambda cls: events.append('class teardown')), 'setUp': lambda self: events.append('setup'), 'tearDown': lambda self: events.append('teardown'), **{f'test_{i}': method for i in range(4)}})
                 suite = unittest.defaultTestLoader.loadTestsFromTestCase(fixture)
