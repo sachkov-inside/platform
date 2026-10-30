@@ -43,9 +43,12 @@ import {
 
 import { classifyFailure } from "./failure-cause.js";
 import { acquireTechnicalContext } from "./technical-context.js";
-import { TELEMETRY_EXPORT_TIMEOUT_MS } from "./technical-telemetry-policy.js";
+import {
+  TELEMETRY_EXPORT_TIMEOUT_MS,
+  TELEMETRY_MAX_PENDING_SPANS,
+  TELEMETRY_SPAN_BATCH_SIZE,
+} from "./technical-telemetry-policy.js";
 
-const MAX_PENDING_SPANS = 512;
 // Local reference budget, independent of pool connection limits and metric cardinality.
 const MAX_OBSERVED_POSTGRES_POOLS = 16;
 
@@ -1046,12 +1049,22 @@ export function createTechnicalTelemetry(
       flush: () => Promise.resolve(),
       shutdown: () => Promise.resolve(),
     };
+  let spanClosing: Promise<void> | undefined;
+  let metricClosing: Promise<void> | undefined;
+  const shutdownSpans = () =>
+    (spanClosing ??= Promise.resolve().then(() =>
+      configuration.exporters.spans.shutdown(),
+    ));
+  const shutdownMetrics = () =>
+    (metricClosing ??= Promise.resolve().then(() =>
+      configuration.exporters.metrics.shutdown(),
+    ));
   const lease = acquireTechnicalContext();
   if (lease === undefined) {
     configuration.onContextUnavailable?.();
     const cleanup = Promise.allSettled([
-      Promise.resolve().then(() => configuration.exporters.spans.shutdown()),
-      Promise.resolve().then(() => configuration.exporters.metrics.shutdown()),
+      shutdownSpans(),
+      shutdownMetrics(),
     ]).then(() => undefined);
     return {
       ...createTechnicalTelemetry({ enabled: false }),
@@ -1073,26 +1086,49 @@ export function createTechnicalTelemetry(
     });
     const queues = new Set<string>();
     let pending = 0;
+    let terminal = false;
     const spanExporter: SpanExporter = {
       export: (spans, callback) => {
         const started = performance.now();
-        configuration.exporters.spans.export(spans, (result) => {
+        const state = { settled: false };
+        const complete: Parameters<SpanExporter["export"]>[1] = (result) => {
+          if (state.settled) return;
+          state.settled = true;
           pending -= spans.length;
           if (result.code !== ExportResultCode.SUCCESS) {
             failedTraceExports++;
             notifyExportFailure(configuration, "traces", result, started);
           }
           callback(result);
-        });
+        };
+        try {
+          configuration.exporters.spans.export(spans, complete);
+        } catch (error) {
+          if (state.settled) throw error;
+          complete({ code: ExportResultCode.FAILED });
+        }
       },
-      shutdown: () => configuration.exporters.spans.shutdown(),
+      shutdown: shutdownSpans,
     };
     const batch = new BatchSpanProcessor(spanExporter, {
-      maxQueueSize: MAX_PENDING_SPANS,
-      maxExportBatchSize: 64,
+      maxQueueSize: TELEMETRY_MAX_PENDING_SPANS,
+      maxExportBatchSize: TELEMETRY_SPAN_BATCH_SIZE,
       scheduledDelayMillis: EXPORT_INTERVAL_MS,
       exportTimeoutMillis: TELEMETRY_EXPORT_TIMEOUT_MS,
     });
+    // BSP2.12 forceFlush omits its already-running background batch. The public
+    // exporter barrier also waits for the OTLP limiting queue to pop each slot,
+    // which happens after the callback releases our pending-span admission.
+    const flushSpans = async () => {
+      const results = await Promise.allSettled([
+        batch.forceFlush(),
+        Promise.resolve().then(() =>
+          configuration.exporters.spans.forceFlush?.(),
+        ),
+      ]);
+      for (const result of results)
+        if (result.status === "rejected") throw result.reason;
+    };
     const traces = (traceRuntime = new BasicTracerProvider({
       resource,
       sampler: new TraceIdRatioBasedSampler(configuration.sampleRatio),
@@ -1108,7 +1144,7 @@ export function createTechnicalTelemetry(
           onEnd: (span) => {
             if ((span.spanContext().traceFlags & TraceFlags.SAMPLED) === 0)
               return;
-            if (pending >= MAX_PENDING_SPANS) {
+            if (terminal || pending >= TELEMETRY_MAX_PENDING_SPANS) {
               droppedSpans++;
               return;
             }
@@ -1121,8 +1157,18 @@ export function createTechnicalTelemetry(
                   : span,
             );
           },
-          forceFlush: () => batch.forceFlush(),
-          shutdown: () => batch.shutdown(),
+          forceFlush: flushSpans,
+          shutdown: async () => {
+            try {
+              await flushSpans();
+            } finally {
+              try {
+                await batch.shutdown();
+              } finally {
+                await shutdownSpans();
+              }
+            }
+          },
         },
       ],
     }));
@@ -1138,7 +1184,7 @@ export function createTechnicalTelemetry(
         });
       },
       forceFlush: () => configuration.exporters.metrics.forceFlush(),
-      shutdown: () => configuration.exporters.metrics.shutdown(),
+      shutdown: shutdownMetrics,
       ...(configuration.exporters.metrics.selectAggregationTemporality ===
       undefined
         ? {}
@@ -1326,6 +1372,41 @@ export function createTechnicalTelemetry(
       waitlistDuration.record(seconds, attributes);
     };
     let closing: Promise<void> | undefined;
+    let activeFlush: Promise<void> | undefined;
+    let nextFlush:
+      { promise: Promise<void>; readonly resolve: () => void } | undefined;
+    const startFlush = (): Promise<void> => {
+      // Publish this generation before invoking exporters, whose failure
+      // observers may synchronously call flush again.
+      const current = Promise.resolve()
+        .then(() =>
+          Promise.allSettled([traces.forceFlush(), meters.forceFlush()]),
+        )
+        .then(() => undefined);
+      activeFlush = current;
+      void current.then(() => {
+        activeFlush = undefined;
+        const next = nextFlush;
+        nextFlush = undefined;
+        if (next !== undefined) void startFlush().then(next.resolve);
+      });
+      return current;
+    };
+    const flush = (): Promise<void> => {
+      if (closing !== undefined) return closing;
+      if (activeFlush === undefined) return startFlush();
+      // One next generation covers all callers that arrived after the active
+      // snapshot. Its snapshot starts after those callers' ended spans exist.
+      if (nextFlush === undefined) {
+        let resolve: () => void = () => undefined;
+        const promise = new Promise<void>((done) => {
+          resolve = done;
+        });
+        nextFlush = { promise, resolve };
+      }
+      return nextFlush.promise;
+    };
+
     return {
       pgBoss: (names) => {
         for (const name of names) queues.add(name);
@@ -1576,19 +1657,25 @@ export function createTechnicalTelemetry(
         failedTraceExports,
         failedMetricExports,
       }),
-      flush: async () => {
-        await Promise.allSettled([traces.forceFlush(), meters.forceFlush()]);
-      },
+      flush,
       shutdown: () => {
         if (closing === undefined) {
+          terminal = true;
           poolClosed = true;
           pools.clear();
-          closing = Promise.allSettled([
-            traces.shutdown(),
-            meters.shutdown(),
-          ]).then(() => {
-            lease.release();
-          });
+          const generations = [
+            activeFlush ?? Promise.resolve(),
+            nextFlush?.promise ?? Promise.resolve(),
+          ];
+          closing = (async () => {
+            try {
+              await Promise.allSettled(generations);
+              await Promise.allSettled([traces.shutdown(), meters.shutdown()]);
+            } finally {
+              await Promise.allSettled([shutdownSpans(), shutdownMetrics()]);
+              lease.release();
+            }
+          })();
         }
         return closing;
       },
@@ -1596,16 +1683,20 @@ export function createTechnicalTelemetry(
   } catch {
     // Telemetry construction is optional infrastructure; keep application startup independent.
     const cleanup = Promise.allSettled([
-      Promise.resolve().then(() =>
-        traceRuntime === undefined
-          ? configuration.exporters.spans.shutdown()
-          : traceRuntime.shutdown(),
-      ),
-      Promise.resolve().then(() =>
-        metricRuntime === undefined
-          ? configuration.exporters.metrics.shutdown()
-          : metricRuntime.shutdown(),
-      ),
+      Promise.resolve().then(async () => {
+        try {
+          await traceRuntime?.shutdown();
+        } finally {
+          await shutdownSpans();
+        }
+      }),
+      Promise.resolve().then(async () => {
+        try {
+          await metricRuntime?.shutdown();
+        } finally {
+          await shutdownMetrics();
+        }
+      }),
     ]).then(() => {
       lease.release();
     });

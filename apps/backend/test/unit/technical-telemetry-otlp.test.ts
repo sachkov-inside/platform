@@ -1,5 +1,5 @@
 // deterministic-test-allow unit-io: owned loopback OTLP exporter contract, server closed in finally.
-import { createServer } from "node:http";
+import { createServer, type ServerResponse } from "node:http";
 import { once } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 
@@ -144,4 +144,159 @@ describe("OTLP runtime transport", () => {
       vi.unstubAllEnvs();
     }
   });
+});
+
+it.each(["success", "stream"] as const)(
+  "bounds and owns actual native %s requests through shutdown",
+  async (mode) => {
+    const bodies: string[] = [];
+    const intervals = new Set<ReturnType<typeof setInterval>>();
+    const socketCloses: Promise<void>[] = [];
+    const receiver = createServer((request, response) => {
+      let body = "";
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        body += chunk;
+      });
+      request.on("end", () => {
+        if (request.url === "/v1/traces") bodies.push(body);
+        response.writeHead(200, { "content-type": "application/json" });
+        if (mode === "stream" && request.url === "/v1/traces") {
+          response.write("{");
+          const interval = setInterval(() => response.write(" "), 50);
+          intervals.add(interval);
+          response.once("close", () => {
+            clearInterval(interval);
+            intervals.delete(interval);
+          });
+        } else response.end("{}");
+      });
+    });
+    receiver.on("connection", (socket) =>
+      socketCloses.push(
+        new Promise<void>((resolve) => socket.once("close", resolve)),
+      ),
+    );
+    // deterministic-test-allow duration-wait: resource watchdog closes the real receiver after a deadline regression and fails the assertion; no polling/sleep.
+    const watchdog = setTimeout(() => receiver.closeAllConnections(), 2500);
+    let telemetry:
+      ReturnType<typeof technicalTelemetryFromEnvironment> | undefined;
+    isolateAmbientOtlp();
+    try {
+      receiver.listen(0, "127.0.0.1");
+      await once(receiver, "listening");
+      const address = receiver.address();
+      if (address === null || typeof address === "string")
+        throw new Error("listener unavailable");
+      telemetry = technicalTelemetryFromEnvironment({
+        environment: {
+          INSIDE_OTEL_ENABLED: "true",
+          INSIDE_OTEL_ENDPOINT: `http://127.0.0.1:${address.port}`,
+        },
+        service: "platform-api",
+        mode: "test",
+        identity: { release: "test", sourceSha: "test" },
+      });
+      const count = mode === "stream" ? 64 : 130;
+      const began = performance.now();
+      for (let i = 0; i < count; i++)
+        telemetry.startHttp({ method: "GET", route: "/health" }).finish(200, 1);
+      await telemetry.shutdown();
+      const elapsed = performance.now() - began;
+      expect(elapsed).toBeLessThan(2000);
+      if (mode === "stream") expect(elapsed).toBeGreaterThanOrEqual(990);
+      await Promise.all(socketCloses);
+      expect(intervals.size).toBe(0);
+      expect(
+        new Set(bodies.join("").match(/"spanId":"[a-f0-9]+"/gu)).size,
+      ).toBe(count);
+      expect(telemetry.diagnostics()).toEqual({
+        droppedSpans: 0,
+        failedTraceExports: mode === "stream" ? 1 : 0,
+        failedMetricExports: 0,
+      });
+    } finally {
+      clearTimeout(watchdog);
+      for (const interval of intervals) clearInterval(interval);
+      await telemetry?.shutdown();
+      receiver.closeAllConnections();
+      await new Promise<void>((resolve) => receiver.close(() => resolve()));
+      vi.unstubAllEnvs();
+    }
+  },
+);
+
+it("retains the ninth callback-before-queue-pop slot without losing newly admitted spans", async () => {
+  const held: ServerResponse[] = [];
+  const ids = new Set<string>();
+  const failures: string[] = [];
+  let replenished = false;
+  const receiver = createServer((request, response) => {
+    let body = "";
+    request.setEncoding("utf8");
+    request.on("data", (chunk: string) => {
+      body += chunk;
+    });
+    request.on("end", () => {
+      if (request.url !== "/v1/traces") {
+        response.writeHead(200).end("{}");
+        return;
+      }
+      for (const match of body.matchAll(/"spanId":"([a-f0-9]+)"/gu))
+        if (match[1] !== undefined) ids.add(match[1]);
+      held.push(response);
+      if (held.length === 8) held[0]?.writeHead(400).end("fixed-rejection");
+      if (held.length === 9)
+        for (const pending of held.slice(1)) pending.writeHead(200).end("{}");
+    });
+  });
+  let telemetry:
+    ReturnType<typeof technicalTelemetryFromEnvironment> | undefined;
+  isolateAmbientOtlp();
+  try {
+    receiver.listen(0, "127.0.0.1");
+    await once(receiver, "listening");
+    const address = receiver.address();
+    if (address === null || typeof address === "string")
+      throw new Error("listener unavailable");
+    telemetry = technicalTelemetryFromEnvironment({
+      environment: {
+        INSIDE_OTEL_ENABLED: "true",
+        INSIDE_OTEL_ENDPOINT: `http://127.0.0.1:${address.port}`,
+      },
+      service: "platform-api",
+      mode: "test",
+      identity: { release: "test", sourceSha: "test" },
+      onExportFailureObservation: (signal, failure) => {
+        if (signal !== "traces") return;
+        failures.push(failure.kind);
+        // Refill admission inside the real callback, before the SDK promise
+        // queue removes its completed background slot.
+        if (!replenished) {
+          replenished = true;
+          for (let i = 0; i < 64; i++)
+            telemetry
+              ?.startHttp({ method: "GET", route: "/health" })
+              .finish(200, 1);
+        }
+      },
+    });
+    for (let i = 0; i < 512; i++)
+      telemetry.startHttp({ method: "GET", route: "/health" }).finish(200, 1);
+    await telemetry.flush();
+    await telemetry.shutdown();
+    expect(held).toHaveLength(9);
+    expect(ids.size).toBe(576);
+    expect(failures).toEqual(["http"]);
+    expect(telemetry.diagnostics()).toEqual({
+      droppedSpans: 0,
+      failedTraceExports: 1,
+      failedMetricExports: 0,
+    });
+  } finally {
+    await telemetry?.shutdown();
+    receiver.closeAllConnections();
+    await new Promise<void>((resolve) => receiver.close(() => resolve()));
+    vi.unstubAllEnvs();
+  }
 });

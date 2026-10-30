@@ -38,7 +38,23 @@ No client trace context or baggage is accepted by this HTTP slice.
 
 Pending sampled spans are bounded to 512, including exports in progress. Excess spans increment
 `telemetry.trace.dropped`. SDK batches contain at most 64 spans. Both exporter timeouts are one
-second; export intervals are five seconds. Metric cardinality is bounded to 128 series per instrument
+second; export intervals are five seconds. Trace transport concurrency is derived as
+`ceil(512 / 64) + 1 = 9`; metrics retain concurrency one. The extra trace slot covers the
+pinned exporter's callback preceding removal of its completed queue entry. Concurrent flush callers
+share at most an active and a next generation, so each caller covers spans ended before its call.
+Shutdown stops span admission, waits for these generations and the background export, and closes
+each exporter once even after a failed batch flush.
+
+Each OTLP exporter owns its memoized HTTP/HTTPS agents through the public `httpAgentOptions`
+factory. An absolute one-second deadline destroys the actual `ClientRequest`, including a streaming
+200 response; shutdown awaits request and socket closure. This adapter uses the guarded, undocumented
+and untyped `Agent.addRequest` hook in pinned
+[Node 26.10.0](https://github.com/nodejs/node/blob/v26.10.0/lib/_http_agent.js).
+An unsupported hook refuses telemetry export without stopping business startup. Node upgrades must
+repeat native transport regressions, including trusted and untrusted HTTPS. Default keep-alive,
+certificate trust, hostname validation and SDK response/retry parsing remain in effect.
+
+Metric cardinality is bounded to 128 series per instrument
 with SDK overflow aggregation marked by `otel.metric.overflow=true`; totals remain counted but
 route/status detail in that series is unavailable. Metric batches are bounded to 128 data points. Export failure counters
 are `telemetry.trace.export.failures` and `telemetry.metric.export.failures`; the runtime also emits

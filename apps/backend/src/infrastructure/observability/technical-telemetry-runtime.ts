@@ -11,7 +11,11 @@ import {
   type ExportFailureObservation,
 } from "./technical-telemetry.js";
 
-import { TELEMETRY_EXPORT_TIMEOUT_MS } from "./technical-telemetry-policy.js";
+import {
+  TELEMETRY_EXPORT_TIMEOUT_MS,
+  TELEMETRY_TRACE_CONCURRENCY,
+} from "./technical-telemetry-policy.js";
+import { createOtlpRequestOwner } from "./otlp-request-owner.js";
 
 const runtimeSchema = z.object({
   INSIDE_OTEL_ENDPOINT: z.url().refine((value) => {
@@ -58,6 +62,20 @@ export function technicalTelemetryFromEnvironment(input: {
     return createTechnicalTelemetry({ enabled: false });
   }
   const endpoint = parsed.data.INSIDE_OTEL_ENDPOINT.replace(/\/$/u, "");
+  const traceRequests = createOtlpRequestOwner();
+  const metricRequests = createOtlpRequestOwner();
+  const spans = new OTLPTraceExporter({
+    url: `${endpoint}/v1/traces`,
+    timeoutMillis: TELEMETRY_EXPORT_TIMEOUT_MS,
+    concurrencyLimit: TELEMETRY_TRACE_CONCURRENCY,
+    httpAgentOptions: traceRequests.factory,
+  });
+  const metrics = new OTLPMetricExporter({
+    url: `${endpoint}/v1/metrics`,
+    timeoutMillis: TELEMETRY_EXPORT_TIMEOUT_MS,
+    concurrencyLimit: 1,
+    httpAgentOptions: metricRequests.factory,
+  });
   return createTechnicalTelemetry({
     enabled: true,
     service: input.service,
@@ -80,16 +98,31 @@ export function technicalTelemetryFromEnvironment(input: {
       }
     },
     exporters: {
-      spans: new OTLPTraceExporter({
-        url: `${endpoint}/v1/traces`,
-        timeoutMillis: TELEMETRY_EXPORT_TIMEOUT_MS,
-        concurrencyLimit: 1,
-      }),
-      metrics: new OTLPMetricExporter({
-        url: `${endpoint}/v1/metrics`,
-        timeoutMillis: TELEMETRY_EXPORT_TIMEOUT_MS,
-        concurrencyLimit: 1,
-      }),
+      spans: {
+        export: (batch, callback) => spans.export(batch, callback),
+        forceFlush: () => spans.forceFlush(),
+        shutdown: async () => {
+          try {
+            await spans.shutdown();
+          } finally {
+            await traceRequests.shutdown();
+          }
+        },
+      },
+      metrics: {
+        export: (batch, callback) => metrics.export(batch, callback),
+        forceFlush: () => metrics.forceFlush(),
+        selectAggregationTemporality:
+          metrics.selectAggregationTemporality.bind(metrics),
+        selectAggregation: metrics.selectAggregation.bind(metrics),
+        shutdown: async () => {
+          try {
+            await metrics.shutdown();
+          } finally {
+            await metricRequests.shutdown();
+          }
+        },
+      },
     },
   });
 }
