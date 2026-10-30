@@ -868,6 +868,8 @@ export const ReaderProgress: Story = {
           element?.hasAttribute("data-course-chapter-progress") === true,
       ),
     ).toHaveTextContent(/^Пройдено 8 из 13$/);
+    // Only the numbers are visible beside the bar; «Пройдено» is for screen readers.
+    await expect(programme.getByText("8 из 13", { exact: true })).toBeVisible();
     const step = (title: string) =>
       programme.getByRole("link", {
         name: new RegExp(`^(Задание \\d )?${title}`),
