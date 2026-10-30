@@ -43,6 +43,12 @@ class Gates(unittest.TestCase):
             with self.subTest(group=group),redirect_stderr(io.StringIO()),patch.object(bridge.sys,'argv',['private-d7','protocol','--group',group]),patch.object(bridge,'protocol') as selected:
                 with self.assertRaises(SystemExit) as refused:bridge.main()
                 self.assertEqual(refused.exception.code,2);selected.assert_not_called()
+        import subprocess
+        result=subprocess.run([bridge.sys.executable,'-B',str(Path(bridge.__file__).resolve()),'protocol','--group','PRIVATE_ARGV_SENTINEL'],
+            capture_output=True,timeout=5)
+        self.assertEqual(result.returncode,1)
+        self.assertEqual(result.stdout,b'{"private_d7_refused":1}\n')
+        self.assertEqual(result.stderr,b'')
 
 
 class PrivateReads(unittest.TestCase):

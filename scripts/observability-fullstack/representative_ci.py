@@ -555,7 +555,9 @@ def publish(destination,values):
 
 def main():
     import argparse
-    parser=argparse.ArgumentParser(description=__doc__)
+    class ClosedArguments(argparse.ArgumentParser):
+        def error(self,_message):raise SystemExit(2)
+    parser=ClosedArguments(description=__doc__)
     parser.add_argument('action',choices=('protocol','minimal-gate','host-measure','host-prepare','trial','recover','collect'))
     parser.add_argument('--group',choices=('1','2','3','4','5','6','7'))
     args=parser.parse_args();need((args.action=='protocol')==(args.group is not None))
