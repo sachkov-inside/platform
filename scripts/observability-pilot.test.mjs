@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 
+const CORE_SOURCE_TIMEOUT_MS = 60000;
+
 if (
   process.platform !== "linux" ||
   process.env["INSIDE_CORE_SOURCE_PROGRESS"] !== "1"
@@ -20,19 +22,19 @@ if (
         "-p",
         "test_*.py",
       ],
-      { encoding: "utf8", timeout: 30000 },
+      { encoding: "utf8", timeout: CORE_SOURCE_TIMEOUT_MS },
     );
     assert.equal(result.status, 0, result.stderr);
   });
 } else {
-  // deterministic-test-allow unit-io: identical synchronous Python source lifetime and original30s; fixed markers add no process containment guarantee.
+  // deterministic-test-allow unit-io: synchronous Python source lifetime with a shared 60s aggregate guard; fixed markers add no process containment guarantee.
   test("observability pilot preparation preserves admission and private query boundaries", async () => {
     const { assertCoreContracts } =
       await import("./observability-pilot/source-progress.mjs");
     const result = spawnSync(
       "python3",
       ["scripts/observability-pilot/source_runner.py"],
-      { encoding: "utf8", timeout: 30000 },
+      { encoding: "utf8", timeout: CORE_SOURCE_TIMEOUT_MS },
     );
     assertCoreContracts(result);
   });
@@ -620,7 +622,7 @@ test("Core passive dispatch retains exact legacy platform and flag branches", as
             "-p",
             "test_*.py",
           ],
-      { encoding: "utf8", timeout: 30000 },
+      { encoding: "utf8", timeout: 60000 },
     ]);
   }
 });

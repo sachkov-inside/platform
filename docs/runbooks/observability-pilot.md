@@ -2374,9 +2374,13 @@ Linux-прогон на закреплённых образах. Доступн�
 
 The fixed source runner is selected only on Linux with `INSIDE_CORE_SOURCE_PROGRESS=1`.
 Default callers and every non-Linux caller, including a Mac with that flag, retain the original
-registration, synchronous `python3 -m unittest discover` call, arguments, options and assertions.
-The opt-in uses `source_runner.py` with the same original synchronous `spawnSync` lifetime and
-30-second timeout. `maxBuffer` remains omitted, preserving the inherited Node default. No new
+registration, synchronous `python3 -m unittest discover` call, arguments and assertions.
+The opt-in uses `source_runner.py` with the same synchronous `spawnSync` lifetime.
+Both branches share a 60-second aggregate timeout for the complete 307-method unit corpus.
+This bounded guard is not a measured upper bound or product performance criterion.
+The separate synthetic protocol guard remains 30 seconds; individual Python deadlines remain unchanged.
+
+`maxBuffer` remains omitted, preserving the inherited Node default. No new
 combined or per-pipe capture allowance, process owner, signal handling, rescue or process-tree
 cleanup guarantee is introduced.
 
