@@ -104,6 +104,12 @@ The external CLI also accepts `--command <executable> <args...>` for synchronous
 Their deadline sends TERM to this owner. The owner waits for the separate supervisor to clear the
 command tree with bounded TERM/KILL cleanup before it exits.
 
+For a first-failure timing trace, set `INSIDE_OWNED_PROCESS_TRACE` to a writable file path.
+The optional JSON-lines trace contains at most five monotonic phase timestamps: supervisor start,
+command start/exit, cleanup start/completion, plus an exit status when available. It records no
+arguments, environment values or command output, and is not inherited by the supervised command.
+The trace is flushed at each boundary so an interrupted owner leaves its last completed phase.
+
 On macOS, a unique inherited `INSIDE_OWNED_PROCESS_*` environment entry also identifies detached
 descendants after an intermediate launcher has been reaped. `spawnOwned` preserves outer entries
 when a nested owner supplies a replacement environment. Commands that construct their own child

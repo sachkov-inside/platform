@@ -226,6 +226,13 @@ pnpm --filter @inside/telegram check:full
 pnpm check
 ```
 
+Deployment gateway contracts retain per-case command timings and supervisor lifecycle traces in
+`ci-artifacts/telegram-deploy-gateway/`. On a failing case the runner prints the report path.
+The report separates payload preparation, gateway execution and process cleanup, and includes
+only the changed operation journal's allowlisted phase. It survives temporary host-fixture cleanup;
+arguments, environment values, payloads and command output are excluded. A case interrupted before
+its command returns retains an `active` boundary and the corresponding raw lifecycle trace.
+
 Identity-linking rollback checks create and drop disposable PostgreSQL databases. The test role
 needs `CREATEDB`; the owned Compose and CI PostgreSQL user already has it. These checks never roll
 back the shared runtime fixture's tables. Timeout cleanup cancels blocked migration connections before
