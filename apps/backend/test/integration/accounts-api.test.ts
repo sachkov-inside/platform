@@ -234,7 +234,7 @@ describe("Accounts API", () => {
         })
       ).statusCode,
     ).toBe(401);
-    // Действительный токен без Account не получает прав и не создаёт Account.
+    // Действительный токен без Account прав не получает.
     const unknown = await inject(
       "GET",
       url,
