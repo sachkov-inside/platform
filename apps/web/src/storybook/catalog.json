@@ -1,0 +1,263 @@
+{
+  "routes": [
+    {
+      "route": "/",
+      "stories": ["_pages/home/ui/home-page.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/account",
+      "stories": ["_pages/account-access/ui/account-access-page.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/account/access",
+      "stories": [],
+      "reason": "Перенаправляет в /account. Отдельного раздела доступа нет."
+    },
+    {
+      "route": "/account/notifications",
+      "stories": [],
+      "reason": "Перенаправляет в /account. Отдельной страницы уведомлений нет."
+    },
+    {
+      "route": "/account/purchases",
+      "stories": [],
+      "reason": "Перенаправляет в /account#purchases. Покупки находятся в личном кабинете."
+    },
+    {
+      "route": "/authoring",
+      "stories": [
+        "_pages/authoring-overview/ui/authoring-overview.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/communications",
+      "stories": [],
+      "reason": "Снятый адрес возвращает 404. Рассылки перенесены в приложение Telegram."
+    },
+    {
+      "route": "/authoring/communications/broadcasts",
+      "stories": [],
+      "reason": "Снятый адрес возвращает 404. Рассылки перенесены в приложение Telegram."
+    },
+    {
+      "route": "/authoring/materials",
+      "stories": [
+        "_pages/authoring-materials/ui/authoring-materials.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/materials/[materialId]",
+      "stories": [
+        "_pages/material-authoring/ui/material-authoring-page.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/materials/[materialId]/preview",
+      "stories": [
+        "_pages/material-authoring/ui/material-preview-page.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/materials/new",
+      "stories": [
+        "_pages/material-authoring/ui/material-authoring-new-page.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/people",
+      "stories": ["_pages/authoring-people/ui/authoring-people.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/people/[accountId]",
+      "stories": ["_pages/authoring-person/ui/authoring-person.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/playlists",
+      "stories": [],
+      "reason": "Старый адрес /authoring/products. Использует ту же страницу продуктов."
+    },
+    {
+      "route": "/authoring/playlists/[productId]",
+      "stories": [],
+      "reason": "Старый адрес /authoring/products/[productId]. Использует тот же редактор."
+    },
+    {
+      "route": "/authoring/products",
+      "stories": ["_pages/content-collections/ui/products-page.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/products/[productId]",
+      "stories": [
+        "_pages/content-collections/ui/product-editor-page.stories.tsx",
+        "_pages/content-collections/ui/product-order-route-states.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/sales/discounts",
+      "stories": ["_pages/sales-discounts/ui/sales-discounts-page.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/sales/funnel",
+      "stories": [
+        "_pages/sales-funnel-report/ui/sales-funnel-report-view.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/sales/links",
+      "stories": ["_pages/sales-links/ui/sales-links-page.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/sales/payments",
+      "stories": ["_pages/sales-payments/ui/sales-payments.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/sales/payments/[purchaseRef]",
+      "stories": ["_pages/sales-payment/ui/sales-payment.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/submissions",
+      "stories": [
+        "_pages/task-submissions/ui/task-submissions-view.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/authoring/topics",
+      "stories": [
+        "_pages/content-collections/ui/content-collections-page.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/bookmarks",
+      "stories": ["_pages/bookmarks/ui/bookmarks-page.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/learning",
+      "stories": [],
+      "reason": "Перенаправляет в программу купленного курса или на главную. Собственной страницы нет."
+    },
+    {
+      "route": "/legal",
+      "stories": ["_pages/legal/ui/legal-section-page.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/legal/[slug]",
+      "stories": ["_pages/legal/ui/legal-document-page.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/legal/[slug]/[version]",
+      "stories": ["_pages/legal/ui/legal-document-page.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/map",
+      "stories": ["_pages/map/ui/map-page.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/materials/[slug]",
+      "stories": [
+        "_pages/material-reader/ui/material-reader.stories.tsx",
+        "_pages/material-reader/ui/material-reader-actions.stories.tsx",
+        "_pages/material-reader/ui/material-reader-quiz.stories.tsx",
+        "_pages/material-reader/ui/material-reader-loading.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/payment/checkout",
+      "stories": [
+        "_pages/subscription/ui/payment-checkout-unavailable.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/payment/links/[id]",
+      "stories": ["_pages/product-purchase/ui/product-purchase.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/payment/return",
+      "stories": [
+        "_pages/subscription/ui/subscription-return-page.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/products/[slug]",
+      "stories": [
+        "_pages/library-discovery/ui/product-landing-page.stories.tsx",
+        "_pages/library-discovery/ui/ai-first-product-view.stories.tsx",
+        "_pages/library-discovery/ui/ai-engineering-course-view.stories.tsx",
+        "_pages/library-discovery/ui/product-landing-loading.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/products/[slug]/buy",
+      "stories": ["_pages/product-purchase/ui/product-purchase.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/products/[slug]/programme",
+      "stories": [
+        "_pages/library-discovery/ui/product-journey.stories.tsx",
+        "_pages/library-discovery/ui/course-programme-overview.stories.tsx",
+        "_pages/library-discovery/ui/product-onboarding.stories.tsx",
+        "_pages/library-discovery/ui/product-programme-loading.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/products/[slug]/tasks/[code]",
+      "stories": ["_pages/product-task/ui/product-task-view.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/telegram/continue",
+      "stories": [
+        "_pages/telegram-continuation/ui/telegram-continuation-page.stories.tsx"
+      ],
+      "reason": ""
+    },
+    {
+      "route": "/welcome",
+      "stories": ["_app/ui/welcome-route.stories.tsx"],
+      "reason": ""
+    }
+  ],
+  "systemStories": [
+    "_pages/route-states/ui/route-states.stories.tsx",
+    "_pages/route-states/ui/route-states-authoring.stories.tsx",
+    "_pages/route-states/ui/route-states-standalone.stories.tsx"
+  ],
+  "sharedModuleExceptions": {
+    "shared/ui/body-fragment-navigation.client.tsx": "Invisible fragment navigation helper; verified by route navigation tests.",
+    "shared/ui/full-load-link.client.tsx": "Unstyled document navigation adapter; rendered in the application shell stories.",
+    "shared/ui/hide-mobile-navigation.client.tsx": "Invisible shell visibility effect; rendered by page stories.",
+    "shared/ui/hide-public-footer.client.tsx": "Invisible footer visibility effect; rendered by page stories.",
+    "shared/ui/intent-prefetch-link.client.tsx": "Unstyled prefetch adapter; visual states belong to its calling component.",
+    "shared/ui/reader-history.client.tsx": "History and scroll restoration adapters; verified by route navigation tests.",
+    "shared/ui/sidebar.tsx": "Legacy module outside the current production import graph; current shells have their own stories."
+  }
+}

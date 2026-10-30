@@ -5,7 +5,8 @@ import { AiFirstProcessArtwork } from "./ai-first-process-artwork.client";
 
 const meta = {
   component: AiFirstProcessArtwork,
-  title: "Features/Product/AI-first process",
+  id: "features-product-ai-first-process",
+  title: "Components/Product/AI-first process",
   parameters: { layout: "centered" },
   play: async ({ canvasElement }) => {
     const host = canvasElement.querySelector(".ai-process-artwork");

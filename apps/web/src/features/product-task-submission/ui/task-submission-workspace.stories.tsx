@@ -13,7 +13,8 @@ const returnTo =
 const meta = {
   ...publicPageEnvironment(returnTo),
   component: TaskSubmissionWorkspace,
-  title: "Features/Product Task/Submission Workspace",
+  id: "features-product-task-submission-workspace",
+  title: "Patterns/Product/Task submission",
   args: {
     code: "practice-task",
     version: 2 as const,

@@ -123,7 +123,8 @@ const commandSchema = z.object({
 
 const meta = {
   ...environment,
-  title: "Pages/Product/Payment/Recovery",
+  id: "pages-product-payment-recovery",
+  title: "Patterns/Billing/Checkout recovery",
   component: CheckoutFlow,
   render: (args) => <SelectionScenario {...args} />,
   args: {

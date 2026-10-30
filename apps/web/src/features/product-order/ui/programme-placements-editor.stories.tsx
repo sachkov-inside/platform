@@ -29,7 +29,8 @@ const order = {
 };
 const meta = {
   ...authoringPageEnvironment(`/authoring/products/${productId}`),
-  title: "Features/Product order/Programme placements",
+  id: "features-product-order-programme-placements",
+  title: "Patterns/Authoring/Programme placements",
   component: ProgrammePlacementsEditor,
   args: { productId, onClose: () => undefined },
   beforeEach: fetchBeforeRender((_input, init) =>

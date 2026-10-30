@@ -43,7 +43,8 @@ const meta = {
   args: { productId: saleProductId, productName: saleProductName },
   beforeEach: [environment.beforeEach, replies({ rules: activationRules })],
   component: ProductCommunityTab,
-  title: "Features/Product/Сообщество и активация",
+  id: "features-product-сообщество-и-активация",
+  title: "Patterns/Authoring/Product community tab",
 } satisfies Meta<typeof ProductCommunityTab>;
 
 export default meta;

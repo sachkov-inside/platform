@@ -98,7 +98,8 @@ const meta = {
       },
     },
   },
-  title: "Pages/Authoring/Платежи",
+  id: "pages-authoring-платежи",
+  title: "Pages/Authoring/Sales/Платежи",
 } satisfies Meta<typeof PaymentsPage>;
 
 export default meta;

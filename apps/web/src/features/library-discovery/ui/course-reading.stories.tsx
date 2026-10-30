@@ -25,7 +25,8 @@ import {
 const meta = {
   ...publicPageEnvironment("/materials/course-intro"),
   component: CourseReadingLayout,
-  title: "Features/Library/Course Reading",
+  id: "features-library-course-reading",
+  title: "Patterns/Product/Course reading",
   args: { context: courseGuide, children: <p>Текст материала</p> },
 } satisfies Meta<typeof CourseReadingLayout>;
 export default meta;
