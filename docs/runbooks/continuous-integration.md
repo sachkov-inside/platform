@@ -780,7 +780,7 @@ mark coverage incomplete. A collector success means the report was written; it n
 The existing nightly identity helper owns suite/file/project/test hashing. Recognized Vitest
 `FAIL file > test` and Playwright numbered failure lines retain file and test identity; GitHub
 log timestamps and workspace command prefixes are stripped. Matrix job names for Unit checks,
-Web browser, Integration checks and Production checks use their suite family for hashing, so shard
+Web browser, Full-stack browser, Integration checks and Production checks use their suite family for hashing, so shard
 placement changes do not split a test signature. Original job names remain in failure/job provenance,
 and Playwright project remains part of test identity. Raw logs and assertion payloads are
 not saved in this report. Unrecognized output remains an unknown job failure, rather than one

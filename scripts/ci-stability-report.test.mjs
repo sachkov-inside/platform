@@ -603,3 +603,46 @@ setInterval(()=>{},1000);
     },
   );
 }
+
+for (const shardNames of [
+  ["1", "2"],
+  ["1/2", "2/2"],
+]) {
+  test(`CLI follows Full-stack browser across PR shards ${shardNames.join(" to ")} with distinct projects`, async () => {
+    const firstName = `Full-stack browser (desktop-chromium, ${shardNames[0]})`;
+    const nextName = `Full-stack browser (desktop-chromium, ${shardNames[1]})`;
+    const result = await report({
+      [runsPath]: { total_count: 2, workflow_runs: [run(1, 11), run(2, 22)] },
+      [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
+        total_count: 1,
+        jobs: [{ ...job(101, "failure"), name: firstName }],
+      },
+      [`${prefix}/runs/2/attempts/1/jobs?per_page=100&page=1`]: {
+        total_count: 1,
+        jobs: [{ ...job(201, "failure"), name: nextName }],
+      },
+      [`${prefix}/jobs/101/logs`]:
+        "  1) [desktop-chromium] › test/full-stack/access.spec.ts:3:2 › access",
+      [`${prefix}/jobs/201/logs`]:
+        "  1) [desktop-chromium] › test/full-stack/access.spec.ts:3:2 › access\n  2) [mobile-chromium] › test/full-stack/access.spec.ts:3:2 › access",
+    });
+    assert.equal(result.causes.length, 2);
+    const desktop = result.causes.find(
+      (cause) => cause.test.project === "desktop-chromium",
+    );
+    assert.ok(desktop);
+    assert.equal(desktop.test.suite, "Full-stack browser");
+    assert.deepEqual(desktop.pullRequests, [11, 22]);
+    assert.equal(desktop.priority, "diagnose-recurring");
+    assert.deepEqual(
+      desktop.failures.map((failure) => failure.name),
+      [firstName, nextName],
+    );
+    const mobile = result.causes.find(
+      (cause) => cause.test.project === "mobile-chromium",
+    );
+    assert.ok(mobile);
+    assert.notEqual(mobile.identity, desktop.identity);
+    assert.deepEqual(mobile.pullRequests, [22]);
+  });
+}

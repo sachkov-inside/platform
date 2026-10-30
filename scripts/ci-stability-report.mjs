@@ -36,7 +36,7 @@ export function observations(log, suite) {
   const found = [];
   // CI matrix placement is provenance, not part of a test's stable suite family.
   suite = suite.replace(
-    /^(Unit checks|Web browser|Integration checks|Production checks) \(.+\)$/u,
+    /^(Unit checks|Web browser|Full-stack browser|Integration checks|Production checks) \(.+\)$/u,
     "$1",
   );
   let commandDirectory = "";
