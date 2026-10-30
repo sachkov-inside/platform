@@ -418,7 +418,7 @@ def functional_projection(value,source):
     import representative_stored
     need(type(value) is dict and set(value)=={'schema','source','control','agent','sdk_host_cost','helper_requests',
         'helper_acknowledged_spans','full_workload','capacity_acceptance','privacy','loadgen_isolation','native_known_probe_cases'}
-        and value['schema']==1 and value['source']==source and value['full_workload'] is False
+        and type(value['schema']) is int and value['schema']==1 and value['source']==source and value['full_workload'] is False
         and value['capacity_acceptance'] is False and value['privacy']=='unknown')
     control=value['control'];need(type(control) is dict and set(control)=={'bootstrap','viewer_admin_denied','viewer_revoked_denied','reads','sdk'}
         and all(control[key] is True for key in ('bootstrap','viewer_admin_denied','viewer_revoked_denied')) and integer(control['reads'],10)==10)
@@ -472,7 +472,7 @@ def cleanup_projection(witness,prepared,layout):
 
 
 def outcome_projection(witness,value):
-    need(type(value) is dict and set(value)=={'schema','worker_status','cause','cleanup'} and value['schema']==1)
+    need(type(value) is dict and set(value)=={'schema','worker_status','cause','cleanup'} and type(value['schema']) is int and value['schema']==1)
     status=value['worker_status'];need(status is None or type(status) is int and -255<=status<=255)
     cleanup=value['cleanup'];need(type(cleanup) is dict and set(cleanup)=={'stop','recovery','reap'}
         and all(type(v) is str and v in ('not_attempted','passed','failed') for v in cleanup.values()))

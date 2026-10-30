@@ -141,7 +141,7 @@ class Projection(unittest.TestCase):
         import representative_witness
         valid={'schema':1,'worker_status':0,'cause':{'availability':'unavailable'},'cleanup':dict.fromkeys(('stop','recovery','reap'),'passed')}
         self.assertEqual(bridge.outcome_projection(representative_witness,valid)['worker_status'],0)
-        for invalid in ({**valid,'argv':['PRIVATE']},{**valid,'worker_status':True},{**valid,'cause':{'availability':'unavailable','secret':'PRIVATE'}}):
+        for invalid in ({**valid,'schema':True},{**valid,'argv':['PRIVATE']},{**valid,'worker_status':True},{**valid,'cause':{'availability':'unavailable','secret':'PRIVATE'}}):
             with self.assertRaises(ValueError):bridge.outcome_projection(representative_witness,invalid)
 
 
@@ -163,7 +163,7 @@ class FunctionalProjection(unittest.TestCase):
         value=self.fixture();source=value['source'];projection=bridge.functional_projection(value,source)
         self.assertEqual(projection['privacy'],'unknown');self.assertFalse(projection['capacity_acceptance'])
         self.assertNotIn('source',projection)
-        for path,bad in ((('source','commit'),'c'*40),(('control','sdk','unknown_fields'),['private.sentinel']),
+        for path,bad in ((('schema',),True),(('source','commit'),'c'*40),(('control','sdk','unknown_fields'),['private.sentinel']),
                 (('sdk_host_cost','wall_seconds'),float('nan')),(('agent','reads'),True),(('privacy',),'passed')):
             invalid=copy.deepcopy(value);target=invalid
             for key in path[:-1]:target=target[key]
