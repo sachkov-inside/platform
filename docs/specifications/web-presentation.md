@@ -55,13 +55,14 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
 - In checked programme context, Course B supplies the course frame (#1414, owner 2026-10-13):
   a 272 px left chapter rail, position/title, the matching Material action panels, and
   a desktop previous/next footer with neighbor titles. Reserve this composition in shared pending and
-  access states. Owner correction 2026-10-15: below 48rem, phones use a floating rounded lesson dock without backdrop blur
-  with previous/next arrows, chapter/step position and a programme opener. Owner correction
+  access states. Owner correction 2026-10-15: a floating rounded lesson dock without backdrop blur
+  holds previous/next arrows, chapter/step position and a programme opener; its breakpoint and
+  styling follow the 2026-10-30 correction below. Owner correction
   2026-10-27 (#1748): bottom navigation belongs only to learning, including programme sections
   and materials. The course landing keeps its existing action text and button without a bottom bar.
   Keep the compact pill styling of the programme: the current section has a dark surface and
-  visible label, other sections use named icons. The lesson bar reuses this styling for previous/next,
-  and programme disclosure. The return link to the course learning page lives at the top of the
+  visible label, other sections use named icons. The lesson bar keeps the dark programme opener and
+  the bar shape. The return link to the course learning page lives at the top of the
   expanded programme, never in the dock; its target is the learning page, not the landing page.
   Supplementary materials keep programme disclosure without step arrows.
   Keep all text within the surface; reflow at enlarged text sizes and reserve the bar's actual height
@@ -70,7 +71,7 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   and desktop resize. Owner correction 2026-10-30 (#1854): the lesson dock serves phones and
   tablets below 64rem, at most 22rem wide with at least 24 px side margins. Previous and next are
   44 px round buttons on the secondary surface; the dark centre shows a list icon (hidden on the
-  narrowest phones), «Программа», a one-line caption and an upward chevron. The caption reads
+  narrowest phones), «Программа», a caption that describes the button and an upward chevron. The caption reads
   «Пройдено N из M» for the chapter once the reader's progress is known, otherwise the chapter and
   step position. Tablets keep the previous/next footer, and their sheet fits its content. The
   programme sections bar keeps its compact width and stays phone-only. At 64rem the rail stays visible.

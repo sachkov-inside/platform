@@ -152,10 +152,7 @@
   font-weight: 600;
 }
 .bar[data-layout="lesson"] .label small {
-  overflow: hidden;
   opacity: 0.8;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .bar[data-layout="lesson"] .opens {
   display: block;

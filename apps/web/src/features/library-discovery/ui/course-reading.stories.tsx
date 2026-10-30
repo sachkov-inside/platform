@@ -424,6 +424,13 @@ export const NarrowSupplementaryProgramme: Story = {
       within(navigation).queryByRole("link", { name: "Следующий шаг" }),
     ).toBeNull();
     await document.fonts.ready;
+    // The narrowest phones keep the words and drop the list icon.
+    const opener = within(navigation).getByRole("button", {
+      name: "Вся программа",
+    });
+    const icon = opener.querySelector("svg");
+    if (icon === null) throw new Error("Programme icon missing");
+    await expect(getComputedStyle(icon).display).toBe("none");
     for (const control of navigation.querySelectorAll<HTMLElement>(
       "a, button",
     )) {
@@ -1010,5 +1017,52 @@ export const DeferredTaskStatuses: Story = {
     await expect(
       programmeAfter.getByRole("link", { current: "step" }),
     ).toHaveAttribute("data-progress", "done");
+  },
+};
+
+/** The dock names the programme and describes chapter progress on phones and tablets alike. */
+async function expectLessonDock(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement);
+  const dialog = canvasElement.querySelector("dialog[open]");
+  if (dialog instanceof HTMLDialogElement) dialog.close();
+  const navigation = canvas.getByRole("navigation", {
+    name: "Навигация по урокам",
+  });
+  const opener = within(navigation).getByRole("button", {
+    name: "Вся программа",
+  });
+  await expect(opener).toHaveAccessibleDescription("Пройдено 8 из 13");
+  const bounds = navigation.getBoundingClientRect();
+  await expect(bounds.left).toBeGreaterThanOrEqual(24);
+  await expect(window.innerWidth - bounds.right).toBeGreaterThanOrEqual(24);
+  await expect(bounds.width).toBeLessThanOrEqual(22 * 16);
+}
+
+export const LessonDockPhone: Story = {
+  render: () => <ProgressCourse />,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expectLessonDock(canvasElement);
+  },
+};
+
+export const LessonDockTablet: Story = {
+  render: () => <ProgressCourse />,
+  globals: { viewport: { value: "tablet820", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expectLessonDock(canvasElement);
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вся программа" }),
+    );
+    const dialog = canvas.getByRole("dialog", {
+      name: "Программа: AI Engineering",
+    });
+    // A tablet sheet fits the chapter instead of covering the page.
+    await waitFor(async () => {
+      await expect(dialog.getBoundingClientRect().height).toBeLessThan(
+        window.innerHeight - 64,
+      );
+    });
   },
 };
