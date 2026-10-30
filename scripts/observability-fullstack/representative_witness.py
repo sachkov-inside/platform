@@ -17,6 +17,8 @@ import time
 import stat
 
 ROOT=Path(__file__).resolve().parents[2]
+# Complete current source hashes remain private; public/read/query limits are unchanged.
+PRIVATE_ADMISSION_MAX_BYTES=1048576
 
 
 def need(ok,reason='representative_witness_contract'):
@@ -55,7 +57,7 @@ def _controller_modules(prepared=None):
         need(stat.S_IMODE(path.lstat().st_mode)==0o600,'representative_bootstrap_admission')
         def unique(pairs):
             value=dict(pairs);need(len(value)==len(pairs));return value
-        admission=json.loads(read(path,65536),object_pairs_hook=unique)
+        admission=json.loads(read(path,PRIVATE_ADMISSION_MAX_BYTES),object_pairs_hook=unique)
         source=admission['source'];need(type(source) is dict)
         def git(*args):
             return subprocess.run(['git',*args],cwd=ROOT,check=True,capture_output=True,timeout=5).stdout
@@ -238,7 +240,7 @@ def _worker_cause(prepared,raw,identity,record,runtime):
     try:
         need(record is not None and owners._worker(prepared)==record
             and runtime.process_start(record['pid'])==record['start_ticks'])
-        need(scopes._read(prepared/'representative-trial.json',private=True,maximum=65536)==(raw,identity))
+        need(scopes._read(prepared/'representative-trial.json',private=True,maximum=PRIVATE_ADMISSION_MAX_BYTES)==(raw,identity))
         admission=json.loads(raw,object_pairs_hook=scopes._unique)
         body,_=scopes._read(prepared/'representative-failure.json',private=True,maximum=4096)
         value=json.loads(body,object_pairs_hook=scopes._unique)
@@ -267,6 +269,7 @@ def coordinate(prepared,bindings,images):
     deadline=time.monotonic()+600
     admission={'schema':1,'bindings':bindings,'images':images,'deadline_mono_ns':int(deadline*10**9),'source':source}
     raw=scopes._encoded(admission)
+    need(0<len(raw)<=PRIVATE_ADMISSION_MAX_BYTES,'representative_private_admission_size')
     identity=scopes._write(prepared/'representative-trial.json',raw)
     process=None;record=None;first=None;status=None;cleanup=None;cause={'availability':'unavailable'}
     outcomes={'stop':'not_attempted','recovery':'not_attempted','reap':'not_attempted'}
@@ -325,7 +328,7 @@ def _worker(prepared):
     need(sys.stdin.buffer.read(1)==b'1','representative_registration_barrier')
     record=owners._worker(prepared)
     need(record=={'pid':os.getpid(),'group':os.getpgrp(),'start_ticks':runtime.process_start(os.getpid())})
-    raw,_=scopes._read(prepared/'representative-trial.json',private=True,maximum=65536)
+    raw,_=scopes._read(prepared/'representative-trial.json',private=True,maximum=PRIVATE_ADMISSION_MAX_BYTES)
     admission=json.loads(raw,object_pairs_hook=scopes._unique)
     need(type(admission) is dict and set(admission)=={'schema','bindings','images','deadline_mono_ns','source'}
         and admission['schema']==1 and type(admission['deadline_mono_ns']) is int)

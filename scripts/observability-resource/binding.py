@@ -19,7 +19,7 @@ def inputs():
         'apps/backend', 'apps/web', 'apps/telegram', 'packages', 'docs/contracts', 'scripts', 'infra', 'patches',
         ':(top,glob)*.json', ':(top,glob)*.yaml', ':(top,glob)*.yml',
         'apps/web/package.json', 'apps/telegram/package.json', '.node-version', '.npmrc', '.dockerignore',
-        '.github/actions/setup-platform', '.github/workflows/ci.yml', '.github/workflows/observability-resource.yml'],
+        '.github/actions/setup-platform', '.github/workflows/ci.yml', '.github/workflows/observability-resource.yml', '.github/workflows/observability-representative-d7.yml'],
         check=True, capture_output=True, timeout=10).stdout.decode().split('\0')
     return tuple(sorted(set(ROOT / name for name in names if name) |
         set(SCRIPTS.glob('*.py')) | set(SCRIPTS.glob('*.mjs')) |

@@ -5,6 +5,8 @@ from pathlib import Path
 import stat
 
 VOLUMES=('metrics','logs','traces','grafana','application-database','broker-data','caddy-data','caddy-config')
+CANDIDATE_VOLUMES=('application-database','broker-data','caddy-data','caddy-config',
+    'sig-ch-data','sig-keeper-data','sig-keeper-default-data','sig-pg-data','sig-histogram','sig-probe','sig-gateway')
 MAX_ENTRIES=100_000
 
 
@@ -61,8 +63,18 @@ def configure(output,plan):
             *(name+':/volumes/'+name+':ro' for name in VOLUMES)]}
 
 
+def read_mounted(root):
+    """Select one complete literal mount catalogue; never infer extra authority."""
+    if root.is_symlink() or not root.is_dir():raise ValueError('owned_mount_catalogue')
+    with os.scandir(root) as entries:
+        names={entry.name for entry in entries}
+    catalogue=next((catalogue for catalogue in (VOLUMES,CANDIDATE_VOLUMES) if names==set(catalogue)),None)
+    if catalogue is None:raise ValueError('owned_mount_catalogue')
+    return {name:measure(root/name) for name in catalogue}
+
+
 if __name__=='__main__':
-    print(json.dumps({name:measure(Path('/volumes')/name) for name in VOLUMES},allow_nan=False))
+    print(json.dumps(read_mounted(Path('/volumes')),allow_nan=False))
 
 FIELDS={'entries','unique_inodes','files','directories','symlinks','logical_file_bytes','allocated_bytes','filesystem_inodes_total','filesystem_inodes_available','vanished_entries'}
 DATABASES=('inside','umami','logto','inside_telegram')

@@ -34,3 +34,29 @@ class Metadata(unittest.TestCase):
         for invalid in ({'unexpected':row},{**volumes,'metrics':{**row,'file_names':['secret']}},{**volumes,'metrics':{**row,'allocated_bytes':True}}):
             with self.assertRaises(ValueError):storage.validate_volumes(invalid)
         with self.assertRaises(ValueError):storage.observe([],lambda *args,**kwargs:json.dumps(volumes),lambda *args,**kwargs:'{"inside":8192}')
+
+
+class MountedCatalogues(unittest.TestCase):
+    def test_candidate_reads_all_eleven_real_directories_and_rejects_partial_or_mixed_sets(self):
+        import core_layout
+        expected=(*core_layout.APP_VOLUMES,*("sig-"+name for name in core_layout.signoz_lifecycle().VOLUMES))
+        self.assertEqual(set(storage.CANDIDATE_VOLUMES),set(expected))
+        for catalogue in (storage.VOLUMES,expected):
+            with tempfile.TemporaryDirectory() as directory:
+                root=Path(directory)
+                for name in catalogue:
+                    (root/name).mkdir();(root/name/'data').write_bytes(b'abc')
+                values=storage.read_mounted(root)
+                self.assertEqual(set(values),set(catalogue))
+                self.assertEqual({row['logical_file_bytes'] for row in values.values()},{3})
+                (root/catalogue[0]).rename(root/'unknown')
+                with self.assertRaises(ValueError):storage.read_mounted(root)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            for name in expected:(root/name).mkdir()
+            (root/'metrics').mkdir()
+            with self.assertRaises(ValueError):storage.read_mounted(root)
+            (root/'metrics').rmdir();(root/expected[0]).rmdir();(root/expected[0]).symlink_to(root/expected[1])
+            with self.assertRaises(ValueError):storage.read_mounted(root)
+        # The original public observer remains deliberately eight-volume only.
+        with self.assertRaises(ValueError):storage.validate_volumes({name:{} for name in expected})

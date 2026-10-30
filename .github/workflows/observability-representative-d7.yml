@@ -1,0 +1,150 @@
+name: Private representative D7 verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/observability-representative-d7.yml
+      - .github/actions/setup-platform/**
+      - scripts/**
+      - infra/**
+      - apps/**
+      - packages/**
+      - patches/**
+      - docs/contracts/**
+      - docs/runbooks/observability-signoz.md
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+      - .node-version
+      - .npmrc
+      - .dockerignore
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-d7-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+env:
+  CI: "true"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PILOT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  protocol:
+    if: >-
+      ${{ contains(github.event.pull_request.body, '<!-- representative-d7: verify -->') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          architecture: x64
+      - name: Require complete discovery and every original case without skips
+        timeout-minutes: 2
+        run: bash scripts/heavy-check.sh python3 -B scripts/observability-fullstack/representative_ci.py protocol --group "${{ matrix.group }}"
+
+  all-five:
+    needs: [protocol]
+    if: >-
+      ${{ always() && contains(github.event.pull_request.body, '<!-- representative-d7: verify -->') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - name: Refuse any missing or non-success matrix member
+        env:
+          RESULT: ${{ needs.protocol.result }}
+        run: test "$RESULT" = success
+
+  minimal:
+    needs: [all-five]
+    if: ${{ needs.all-five.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      sha: ${{ steps.native-pass.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          architecture: x64
+      - name: Run the original isolated minimal native MCP512 prerequisite
+        timeout-minutes: 13
+        run: >-
+          bash scripts/heavy-check.sh python3 -B scripts/observability-signoz/runtime.py run
+          --output "$RUNNER_TEMP/representative-d7-minimal"
+          --profile signoz-native-mcp512-4480m-under8g-v1
+      - name: Recover exact minimal owner after any result
+        if: ${{ always() }}
+        timeout-minutes: 2
+        run: >-
+          python3 -B scripts/observability-signoz/runtime.py recover
+          --output "$RUNNER_TEMP/representative-d7-minimal"
+          --profile signoz-native-mcp512-4480m-under8g-v1
+      - name: Require actual source-bound functional success and healthy eleven roles
+        id: native-pass
+        timeout-minutes: 1
+        run: python3 -B scripts/observability-fullstack/representative_ci.py minimal-gate
+
+  d7:
+    needs: [all-five, minimal]
+    if: ${{ needs.all-five.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      D7_PROTOCOL_RESULT: ${{ needs.all-five.result }}
+      D7_MINIMAL_RESULT: ${{ needs.minimal.result }}
+      D7_MINIMAL_SHA: ${{ needs.minimal.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Measure native host filesystems before tool setup
+        timeout-minutes: 1
+        run: python3 -B scripts/observability-fullstack/representative_ci.py host-measure
+      - name: Install pinned tools only, with no browsers
+        uses: ./.github/actions/setup-platform
+        with:
+          browsers: ""
+          install: "false"
+      - name: Own frozen host installation and original SDK build commands
+        timeout-minutes: 20
+        run: bash scripts/heavy-check.sh python3 -B scripts/observability-fullstack/representative_ci.py host-prepare
+      - name: One private representative trial under original preparation and runtime guards
+        timeout-minutes: 38
+        run: bash scripts/heavy-check.sh python3 -B scripts/observability-fullstack/representative_ci.py trial
+      - name: Recover original registered birth and deadline only
+        if: ${{ always() }}
+        timeout-minutes: 2
+        run: python3 -B scripts/observability-fullstack/representative_ci.py recover
+      - name: Collect six finite source-bound projections
+        id: collection
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: python3 -B scripts/observability-fullstack/representative_ci.py collect
+      - name: Upload only the six curated private-verification projections
+        if: ${{ always() && steps.collection.outputs.safe == 'true' }}
+        timeout-minutes: 2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: representative-d7-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/representative-d7-public
+          if-no-files-found: error
+          retention-days: 7

@@ -20,17 +20,39 @@ def preparation_budget(platform, free):
     return FULLSTACK_IMAGE_PREPARATION_GROWTH_BYTES
 
 
+def signoz_preloads():
+    import core_layout
+    lifecycle=core_layout.signoz_lifecycle()
+    lock=lifecycle.verify_packet(lifecycle.MCP512_PROFILE)
+    proofs=lifecycle.image_proof.load(lifecycle.CONFIG/'oci',lock)
+    return tuple(proofs[row['pinned']].runtime_reference for row in lock['images'])
+
+
+def preload_inventory(*, representative=False):
+    pins=json.loads((binding.ROOT/'infra/observability/pilot/inputs.lock.json').read_text())['images']
+    pins.update(json.loads((binding.ROOT/'infra/observability/umami/inputs.lock.json').read_text())['images'])
+    pins.pop('postgres',None)
+    pins['rabbitmq']='ghcr.io/sachkov-inside/rabbitmq:4.2.4-alpine@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47'
+    return tuple(sorted(set(pins.values()) | (set(signoz_preloads()) if representative else set())))
+
+
 def prepare(metadata, images, consumer):
+    return _prepare(metadata,images,consumer,representative=False)
+
+
+def prepare_representative(metadata, images, consumer):
+    """Private combined preparation, same owner and one original 16GiB baseline."""
+    return _prepare(metadata,images,consumer,representative=True)
+
+
+def _prepare(metadata, images, consumer, *, representative):
     source,disk=hosted.metadata_source(metadata)
     if not disk['ready'] or images.exists():raise ValueError('fresh_admitted_fullstack_required')
     identity=hosted.runtime.pilot.daemon.identify(hosted.runtime.ci.read_command)
     pilot=hosted.runtime.pilot
     pilot.FROZEN_DOCKER_ENDPOINT=identity['endpoint'];pilot.FROZEN_DOCKER_IDENTITY=identity
     owner='inside-platform-production-smoke-cache-'+source['run_id']+'-'+source['run_attempt']+'-full'
-    pins=json.loads((binding.ROOT/'infra/observability/pilot/inputs.lock.json').read_text())['images']
-    pins.update(json.loads((binding.ROOT/'infra/observability/umami/inputs.lock.json').read_text())['images'])
-    pins.pop('postgres',None)
-    pins['rabbitmq']='ghcr.io/sachkov-inside/rabbitmq:4.2.4-alpine@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47'
+    pins=preload_inventory(representative=representative)
     growth=preparation_budget(sys.platform,pilot.shutil.disk_usage(identity['storage']).free)
     record=disk_feedback.Record(source['checkout_sha'])
     evidence=preparation_evidence.Record(metadata,source['checkout_sha'],record)
@@ -54,9 +76,9 @@ def prepare(metadata, images, consumer):
                     evidence.completed()
                     if role=='backend':record.after_backend_build()
                 record.first_pull()
-                for index,image in enumerate(sorted(set(pins.values()))):
+                for index,image in enumerate(pins):
                     evidence.mark('preload_'+str(index))
-                    hosted.command(['docker','pull',image],90,pass_fds=stage.pass_fds())
+                    hosted.command(['docker','pull',*(['--platform','linux/amd64'] if representative and image in signoz_preloads() else []),image],90,pass_fds=stage.pass_fds())
                     evidence.completed()
                 evidence.mark('manifest')
                 value={'schema':3,'source':source['checkout_sha'],'owner':owner}
