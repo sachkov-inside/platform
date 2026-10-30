@@ -213,54 +213,71 @@ test("migration checkout requires exact source and verifier digest before execut
   mkdirSync(resolve(trusted, "scripts"), { recursive: true });
   const initialized = await runReviewProcess("git", ["init", trusted]);
   assert.equal(initialized.status, 0, initialized.stderr);
-  const objects = await runReviewProcess("git", [
-    "rev-parse",
-    "--path-format=absolute",
-    "--git-path",
-    "objects",
-  ]);
-  assert.equal(objects.status, 0, objects.stderr);
-  writeFileSync(
-    resolve(trusted, ".git/objects/info/alternates"),
-    objects.stdout,
-  );
-  async function checkoutSource(/** @type {string} */ source) {
-    const result = await runReviewProcess("git", [
-      "-C",
-      trusted,
-      "update-ref",
-      "HEAD",
-      source,
-    ]);
-    assert.equal(result.status, 0, result.stderr);
-  }
   const verifier = resolve(trusted, "scripts/review-evidence.mjs");
-  const pinnedFile = await runReviewProcess("git", [
-    "show",
-    `${migrationSource}:scripts/review-evidence.mjs`,
-  ]);
-  assert.equal(pinnedFile.status, 0, pinnedFile.stderr);
-  const original = pinnedFile.stdout;
-  async function check(/** @type {string} */ source = migrationSource) {
-    return runReviewProcess(
-      "bash",
-      ["-euc", command("Validate trusted review checkout")],
-      {
-        cwd: trusted,
-        env: { ...process.env, REVIEW_TRUSTED_SOURCE: source },
+  const original = "console.log('fixture trusted verifier');\n";
+  const fixtureDigest =
+    "2899a610f8a28ab8e2c3e10d8576973b346a93ed92979268c4b5676351611f00";
+  const productionDigest =
+    "a925df89ac1d67fc36f89875be5193ff33c61d75a2332583b30d83a80924ba36";
+  async function git(/** @type {string[]} */ args) {
+    const result = await runReviewProcess("git", args, {
+      cwd: trusted,
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Review fixture",
+        GIT_AUTHOR_EMAIL: "review@example.invalid",
+        GIT_COMMITTER_NAME: "Review fixture",
+        GIT_COMMITTER_EMAIL: "review@example.invalid",
+        GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z",
+        GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z",
       },
-    );
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
   }
-  await checkoutSource(migrationSource);
+  const ordinarySource = await git([
+    "commit-tree",
+    await git(["write-tree"]),
+    "-m",
+    "ordinary fixture",
+  ]);
+  writeFileSync(verifier, original);
+  await git(["add", "scripts/review-evidence.mjs"]);
+  const fixtureSource = await git([
+    "commit-tree",
+    await git(["write-tree"]),
+    "-p",
+    ordinarySource,
+    "-m",
+    "pinned fixture",
+  ]);
+  const productionIntegrity = command("Validate trusted review checkout");
+  // Literal authority checks stay separate from the self-contained process fixture.
+  assert.ok(
+    productionIntegrity.includes(
+      `if test "$REVIEW_TRUSTED_SOURCE" = ${migrationSource}; then`,
+    ),
+  );
+  assert.ok(
+    productionIntegrity.includes(`test "\${digest%% *}" = ${productionDigest}`),
+  );
+  // Substitute only the pin and digest at the extracted shell boundary. No host Git history is used.
+  const integrity = productionIntegrity
+    .replaceAll(migrationSource, fixtureSource)
+    .replaceAll(productionDigest, fixtureDigest);
+  async function check(/** @type {string} */ source = fixtureSource) {
+    return runReviewProcess("bash", ["-euc", integrity], {
+      cwd: trusted,
+      env: { ...process.env, REVIEW_TRUSTED_SOURCE: source },
+    });
+  }
+  await git(["update-ref", "HEAD", fixtureSource]);
   writeFileSync(verifier, original);
   assert.equal((await check()).status, 0);
-  const wrongDigest = command("Validate trusted review checkout").replace(
-    "a925df89ac1d67fc36f89875be5193ff33c61d75a2332583b30d83a80924ba36",
-    "0".repeat(64),
-  );
+  const wrongDigest = integrity.replace(fixtureDigest, "0".repeat(64));
   const rejectedDigest = await runReviewProcess("bash", ["-euc", wrongDigest], {
     cwd: trusted,
-    env: { ...process.env, REVIEW_TRUSTED_SOURCE: migrationSource },
+    env: { ...process.env, REVIEW_TRUSTED_SOURCE: fixtureSource },
   });
   assert.equal(rejectedDigest.status, 1);
   writeFileSync(verifier, "throw new Error('TAMPERED VERIFIER EXECUTED');");
@@ -270,11 +287,11 @@ test("migration checkout requires exact source and verifier digest before execut
   rmSync(verifier);
   assert.equal((await check()).status, 1);
   writeFileSync(verifier, original);
-  await checkoutSource(migrationBase);
+  await git(["update-ref", "HEAD", ordinarySource]);
   assert.equal((await check()).status, 1);
   // Ordinary target sources use their own verifier, without the historical A digest.
   writeFileSync(verifier, "throw new Error('ordinary trusted verifier');");
-  assert.equal((await check(migrationBase)).status, 0);
+  assert.equal((await check(ordinarySource)).status, 0);
   rmSync(resolve(trusted, ".git"), { recursive: true });
   assert.notEqual((await check()).status, 0);
 });
