@@ -351,7 +351,7 @@ describe("application CI workflow contract", () => {
       "utf8",
     );
     const command = reusable
-      .match(/        run: \|\n([\s\S]*?)\n  recover:/u)?.[1]
+      .match(/ {8}run: \|\n([\s\S]*?)\n {2}recover:/u)?.[1]
       ?.replace(/^ {10}/gmu, "");
     assert.ok(command);
     const fixture = mkdtempSync(resolve(tmpdir(), "inside-recovery-paths-"));
@@ -362,6 +362,7 @@ describe("application CI workflow contract", () => {
       ]) {
         const output = resolve(fixture, "output");
         rmSync(output, { force: true });
+        /** @type {import("node:child_process").SpawnSyncReturns<string>} */
         const execution = spawnSync(
           "bash",
           [
