@@ -237,8 +237,15 @@ export async function verify({
   /** @param {string} path @returns {Promise<unknown>} */
   async function api(path) {
     const response = await read(path);
-    requireValue(response.ok, `GitHub read failed (${response.status})`);
+    requireRead(response);
     return /** @type {unknown} */ (await response.json());
+  }
+  /** @param {Response} response @param {boolean} [absentAllowed] */
+  function requireRead(response, absentAllowed = false) {
+    requireValue(
+      response.ok || (absentAllowed && response.status === 404),
+      `GitHub read failed (${response.status})`,
+    );
   }
   /** @param {string} path */
   function read(path) {
@@ -252,29 +259,26 @@ export async function verify({
     });
   }
   /** @type {Map<string, boolean>} */
-  const writers = new Map();
+  const publishing = new Map();
   /**
-   * The read-only Actions token sees hidden organisation membership as CONTRIBUTOR, so
+   * The read-only Actions token sees hidden organization membership as CONTRIBUTOR, so
    * `author_association` cannot select publishers. Current repository permission decides; an
    * unknown or deleted account answers 404 and publishes nothing.
    * @param {string} login
    */
   async function canPublish(login) {
-    const known = writers.get(login);
+    const known = publishing.get(login);
     if (known !== undefined) return known;
     const response = await read(
       `collaborators/${encodeURIComponent(login)}/permission`,
     );
-    requireValue(
-      response.ok || response.status === 404,
-      `GitHub read failed (${response.status})`,
-    );
+    requireRead(response, true);
     const permitted =
       response.ok &&
       ["admin", "maintain", "write"].includes(
         stringField(object(await response.json()), "permission"),
       );
-    writers.set(login, permitted);
+    publishing.set(login, permitted);
     return permitted;
   }
   /** @param {string} path */
@@ -384,7 +388,9 @@ export async function verify({
         !comment["body"].includes(marker)
       )
         continue;
-      const publisher = stringField(object(comment["user"]), "login");
+      // A comment without an account publishes nothing.
+      if (!isObject(comment["user"])) continue;
+      const publisher = stringField(comment["user"], "login");
       // Outsiders and revoked publishers can neither supply nor block a receipt.
       if (!(await canPublish(publisher))) continue;
       requireValue(

@@ -144,6 +144,7 @@ async function fixture(t) {
         const path = url.split('/platform/')[1];
         const route = routes[path];
         const value = route?.$responses ? (route.$responses.length > 1 ? route.$responses.shift() : route.$responses[0]) : route;
+        if (value?.$status) return { ok: false, status: value.$status, json: async () => ({}) };
         return { ok: value !== undefined, status: value === undefined ? 404 : 200, json: async () => value };
       };`,
     );
@@ -333,13 +334,49 @@ test("outsiders cannot forge a receipt or deny service by posting malformed revi
     },
   );
   f.routes["collaborators/outsider/permission"] = { permission: "none" };
+  // GitHub allows a comment without an account.
+  f.routes["issues/42/comments?per_page=100&page=1"] = [
+    ...f.comments,
+    {
+      ...f.comment,
+      id: 126,
+      user: null,
+      body: "<!-- platform-review-evidence:v1 -->\n{",
+    },
+  ];
   const result = await f.check();
   assert.equal(result.status, 0, result.stderr);
 });
 
+test("a publisher permission read failure fails closed and repeat publishers are read once", async (t) => {
+  const f = await fixture(t);
+  f.comments.push({ ...f.comment, id: 127, body: "unrelated discussion" });
+  const historical = structuredClone(f.body);
+  historical.headSha = "d".repeat(40);
+  f.comments.push({
+    ...f.comment,
+    id: 128,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(historical)}`,
+  });
+  // One response only: a second permission read for the same login would fail with 404.
+  f.routes["collaborators/publisher/permission"] = {
+    $responses: [{ permission: "write" }, undefined],
+  };
+  const cached = await f.check();
+  assert.equal(cached.status, 0, cached.stderr);
+  const failing = await f.check({
+    responseRoutes: {
+      ...f.routes,
+      "collaborators/publisher/permission": { $status: 503 },
+    },
+  });
+  assert.equal(failing.status, 1);
+  assert.match(failing.stderr, /GitHub read failed \(503\)/u);
+});
+
 test("a write publisher counts whatever association the read-only token sees", async (t) => {
   const f = await fixture(t);
-  // An organisation member with hidden membership reads as CONTRIBUTOR to the Actions token.
+  // An organization member with hidden membership reads as CONTRIBUTOR to the Actions token.
   f.comment.author_association = "CONTRIBUTOR";
   const result = await f.check();
   assert.equal(result.status, 0, result.stderr);
