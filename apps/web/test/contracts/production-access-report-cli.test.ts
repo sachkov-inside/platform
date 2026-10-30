@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
@@ -10,8 +10,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { expect, it } from "vitest";
+import { expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
+
+import { spawnOwned, stopOwned } from "../../../../scripts/owned-process.mjs";
+import { commandExit } from "../../../../scripts/diagnostic-command.mjs";
 
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const schema = z.object({
@@ -36,19 +39,47 @@ const schema = z.object({
 });
 
 it.each([
-  ["valid", "green", "valid"],
-  ["ready", "red", "ready"],
-  ["free-practice-ready", "red", "ready"],
-  ["expired", "red", "expired"],
-  ["incomplete", "red", "invalid"],
-  ["missing", "red", "unknown"],
-  ["empty", "red", undefined],
-  ["no-observations", "red", "valid"],
+  ["valid", "green", "valid", "root"],
+  ["valid", "green", "valid", "web"],
+  ["valid", "green", "valid", "outside"],
+  ["valid", "green", "valid", "other-repo"],
+  ["ready", "red", "ready", "root"],
+  ["free-practice-ready", "red", "ready", "root"],
+  ["expired", "red", "expired", "root"],
+  ["incomplete", "red", "invalid", "root"],
+  ["missing", "red", "unknown", "root"],
+  ["empty", "red", undefined, "root"],
+  ["no-observations", "red", "valid", "root"],
 ] as const)(
-  "reports %s fixture evidence through the real CLI exit and artifacts",
-  (scenario, verdict, deferralStatus) => {
+  "reports %s fixture evidence (%s, %s) from %s through the real CLI exit and artifacts",
+  async (scenario, verdict, deferralStatus, workingDirectory) => {
     const directory = mkdtempSync(join(tmpdir(), "inside-pass-cli-"));
     try {
+      if (workingDirectory === "other-repo") {
+        execFileSync("git", ["init", "--quiet", directory]);
+        execFileSync(
+          "git",
+          [
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.test",
+            "commit",
+            "--quiet",
+            "--allow-empty",
+            "-m",
+            "Unrelated checkout",
+          ],
+          {
+            cwd: directory,
+            env: {
+              ...process.env,
+              GIT_AUTHOR_DATE: "2026-10-30T12:00:00Z",
+              GIT_COMMITTER_DATE: "2026-10-30T12:00:00Z",
+            },
+          },
+        );
+      }
       if (scenario !== "no-observations")
         mkdirSync(join(directory, "observations"));
       if (scenario !== "empty" && scenario !== "no-observations")
@@ -59,7 +90,7 @@ it.each([
             observed: "allowed",
           }),
         );
-      const result = spawnSync(
+      const child = spawnOwned(
         process.execPath,
         [
           join(root, "apps/backend/node_modules/tsx/dist/cli.mjs"),
@@ -67,19 +98,46 @@ it.each([
           scenario,
         ],
         {
-          cwd: root,
-          encoding: "utf8",
-          timeout: 20_000,
+          cwd:
+            workingDirectory === "outside" || workingDirectory === "other-repo"
+              ? directory
+              : workingDirectory === "web"
+                ? join(root, "apps/web")
+                : root,
           env: {
             ...process.env,
             PRODUCTION_ACCESS_REPORT_DIR: directory,
             PRODUCTION_ACCESS_DEPLOYED_SHA: "c".repeat(40),
             GITHUB_SHA: "d".repeat(40),
+            PRODUCTION_PASS_FIXTURE_DESCENDANT: "true",
           },
         },
       );
-      expect(result.error).toBeUndefined();
-      expect(result.status, result.stderr).toBe(verdict === "green" ? 0 : 1);
+      onTestFinished(() => stopOwned(child));
+      // The existing supervisor owns the complete tsx tree; exit follows its cleanup.
+      let stderr = "";
+      child.stdout?.resume();
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      // deterministic-test-allow duration-wait: Failure budget stops a stuck supervised CLI tree; command exit observes completion.
+      const deadline = setTimeout(() => {
+        void stopOwned(child, 0);
+      }, 20_000);
+      let status: number | null;
+      try {
+        status = await commandExit(child);
+      } finally {
+        clearTimeout(deadline);
+        await stopOwned(child);
+      }
+      const descendant = z.coerce
+        .number()
+        .int()
+        .positive()
+        .parse(readFileSync(join(directory, "descendant.pid"), "utf8"));
+      expect(() => process.kill(descendant, 0)).toThrow(/ESRCH/u);
+      expect(status, stderr).toBe(verdict === "green" ? 0 : 1);
       const report = schema.parse(
         JSON.parse(readFileSync(join(directory, "report.json"), "utf8")),
       );
@@ -114,8 +172,8 @@ it.each([
             : {
                 total: 2,
                 passed: 1,
-                failed: verdict === "green" ? 0 : 1,
-                deferred: verdict === "green" ? 1 : 0,
+                failed: deferralStatus === "valid" ? 0 : 1,
+                deferred: deferralStatus === "valid" ? 1 : 0,
                 not_checked: 0,
                 skipped_excluded: 0,
               },
@@ -124,7 +182,7 @@ it.each([
       const markdown = readFileSync(join(directory, "report.md"), "utf8");
       expect(markdown).toContain("skipped/excluded=0");
       expect(markdown).toContain(
-        `deferred=${verdict === "green" || scenario === "no-observations" ? "1" : "0"}`,
+        `deferred=${deferralStatus === "valid" ? "1" : "0"}`,
       );
       expect(markdown).toContain(
         `Source SHA (checked-out runner): \`${report.sourceSha}\``,
