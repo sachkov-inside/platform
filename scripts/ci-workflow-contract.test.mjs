@@ -545,7 +545,9 @@ describe("application CI workflow contract", () => {
 
   it("keeps the workflow read-only and independent of secrets", () => {
     assert.equal(topLevelBlock("permissions").trim(), "contents: read");
-    assert.doesNotMatch(workflow, /^ {2,}permissions:/mu);
+    const jobOverrides = [...workflow.matchAll(/^ {4}permissions:/gmu)];
+    assert.equal(jobOverrides.length, 1);
+    assert.match(jobBlock("review-evidence"), /^ {4}permissions:/mu);
     assert.doesNotMatch(workflow, /secrets\./u);
     assert.doesNotMatch(workflow, /packages:\s*write/u);
   });
@@ -959,7 +961,7 @@ describe("application CI workflow contract", () => {
       [...gate.matchAll(/^ {6}- ([a-z0-9-]+)$/gmu)]
         .map((match) => match[1])
         .sort(),
-      ["security", "plan", ...coverageIds].sort(),
+      ["security", "review-evidence", "plan", ...coverageIds].sort(),
     );
     assert.match(gate, /run: node scripts\/ci-coverage-run\.mjs gate/u);
   });

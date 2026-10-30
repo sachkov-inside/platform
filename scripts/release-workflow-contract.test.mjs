@@ -50,12 +50,21 @@ describe("ordinal release workflow contract", () => {
       ci,
       /source_sha: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u,
     );
-    // Every checkout of the reusable path verifies the captured SHA, however many jobs there are.
+    // Review checkouts run only for PR/queue events. Every checkout that can
+    // execute in a release call must still verify the captured immutable SHA.
+    const review = jobBlock(ciWorkflow, "review-evidence");
+    const reviewCheckouts = review
+      .split("      - name:")
+      .filter((step) => /uses: actions\/checkout@/u.test(step));
+    assert.equal(reviewCheckouts.length, 2);
+    for (const step of reviewCheckouts)
+      assert.match(step, /if: \$\{\{ inputs.source_sha == '' \}\}/u);
+    const releaseCi = ciWorkflow.replace(review, "");
     const checkouts =
-      ciWorkflow.match(/uses: actions\/checkout@/gu)?.length ?? 0;
+      releaseCi.match(/uses: actions\/checkout@/gu)?.length ?? 0;
     assert.ok(checkouts > 0);
     assert.equal(
-      ciWorkflow.match(/ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/gu)
+      releaseCi.match(/ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/gu)
         ?.length,
       checkouts,
     );
@@ -254,7 +263,7 @@ function jobPermissions(workflow, job) {
 function assertReleasePermissions(workflow) {
   const expected = {
     plan: { contents: "read", actions: "read" },
-    ci: { contents: "read" },
+    ci: { contents: "read", "pull-requests": "read", issues: "read" },
     "build-images": { contents: "read", packages: "write" },
     finalize: { actions: "read", contents: "write" },
   };

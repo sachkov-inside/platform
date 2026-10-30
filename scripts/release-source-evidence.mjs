@@ -42,6 +42,7 @@ const candidateSchema = z.object({
   providerTreeSha: sha,
   evidence: z.object({
     schemaVersion: z.literal(1),
+    reviewStatus: z.enum(["verified", "bootstrap-prior-policy"]),
     repository: z.string(),
     sourceSha: sha,
     treeSha: sha,
@@ -97,6 +98,7 @@ export function selectReleaseEvidence(value) {
         `ci-source-evidence-${String(run.run_attempt)}` ||
       !provedJob(jobNames["ci-gate"] ?? "") ||
       !provedJob(jobNames["plan"] ?? "") ||
+      !provedJob(jobNames["review-evidence"] ?? "") ||
       evidence.selectedCoverage.some(
         (job) => !jobNames[job] || !provedJob(jobNames[job]),
       ) ||
@@ -134,6 +136,7 @@ export function selectReleaseEvidence(value) {
         .filter(
           (job) =>
             job.name === jobNames["ci-gate"] ||
+            job.name === jobNames["review-evidence"] ||
             reusedCoverage.some((id) => jobNames[id] === job.name),
         )
         .map((job) => ({ id: job.id, name: job.name })),
