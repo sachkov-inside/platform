@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -13,9 +14,11 @@ import {
   type PassObservation,
   type PassProblem,
   type PassReport,
+  type PassCell,
 } from "./pass-cells";
-import { passCells } from "./pass-config";
+import { passCells, deferralFacts } from "./pass-config";
 import { redactPassText } from "./pass-redaction";
+import { sourceDirectory } from "./source-location.cjs";
 
 /** Каталог отчёта прохода; job загружает его в artifact. */
 export const passReportDirectory = resolve(
@@ -168,10 +171,40 @@ export function readDeployedSha(): string | null {
     .parse(value);
 }
 
+/** The module's checkout identifies runner code, independently of cwd or workflow SHA. */
+export function readSourceSha(): string | null {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: resolve(sourceDirectory, "../../../../"),
+      timeout: 5_000,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
 /** Global teardown: собирает отчёт и роняет прогон, если итог красный. */
 export default function writePassReport(): void {
-  const report: PassReport = evaluatePass({
+  generatePassReport({
     cells: passCells,
+    deferralFacts,
+    // deterministic-test-allow wall-clock: Production teardown records real evaluation time; fixture CLI injects evaluatedAt into generatePassReport.
+    evaluatedAt: new Date().toISOString(),
+  });
+}
+
+/** Report boundary shared by the production teardown and fixture-controlled CLI contracts. */
+export function generatePassReport(definition: {
+  readonly cells: readonly PassCell[];
+  readonly deferralFacts: Readonly<Record<string, boolean>>;
+  readonly evaluatedAt: string;
+}): void {
+  const report: PassReport = evaluatePass({
+    ...definition,
+    sourceSha: readSourceSha(),
+    workflowSha: process.env["GITHUB_SHA"] ?? null,
     observations: readDirectory(observationsDirectory, (text) =>
       observationSchema.parse(JSON.parse(text)),
     ),

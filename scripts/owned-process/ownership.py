@@ -10,6 +10,10 @@ TOKEN_PREFIX = 'INSIDE_OWNED_PROCESS_'
 
 class ProcessOwnership:
     def __init__(self):
+        from lock import process_snapshot
+        # A process already alive before this unpredictable marker is minted cannot
+        # inherit it. Bind this exclusion to birth identity, never to a reusable PID.
+        self.preexisting = {pid: row[3] for pid, row in process_snapshot().items()}
         token = secrets.token_hex(24)
         key = f'{TOKEN_PREFIX}{token}'
         # A nested supervisor keeps every outer ownership marker.
@@ -60,7 +64,8 @@ class ProcessOwnership:
         if self.library is None:
             return
         candidates = {pid: row for pid, row in snapshot.items()
-                      if 'Z' not in row[2] and self.carries_marker(pid) is True}
+                      if 'Z' not in row[2] and self.preexisting.get(pid) != row[3]
+                      and self.carries_marker(pid) is True}
         # exec/exit can race procargs: bind positive evidence to the same birth identity.
         from lock import process_snapshot
         current = process_snapshot()

@@ -545,7 +545,9 @@ describe("application CI workflow contract", () => {
 
   it("keeps the workflow read-only and independent of secrets", () => {
     assert.equal(topLevelBlock("permissions").trim(), "contents: read");
-    assert.doesNotMatch(workflow, /^ {2,}permissions:/mu);
+    const jobOverrides = [...workflow.matchAll(/^ {4}permissions:/gmu)];
+    assert.equal(jobOverrides.length, 1);
+    assert.match(jobBlock("review-evidence"), /^ {4}permissions:/mu);
     assert.doesNotMatch(workflow, /secrets\./u);
     assert.doesNotMatch(workflow, /packages:\s*write/u);
   });
@@ -807,12 +809,12 @@ describe("application CI workflow contract", () => {
   it("retains bounded failure diagnostics and source evidence for seven days", () => {
     assert.equal(
       workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
-      7,
+      9,
     );
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 7);
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 9);
     assert.equal(
       workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
-      8,
+      10,
     );
     // A failed smoke keeps the Playwright results and the dev-server log (#863).
     assert.match(jobBlock("integration-checks"), /apps\/web\/test-results/u);
@@ -959,7 +961,7 @@ describe("application CI workflow contract", () => {
       [...gate.matchAll(/^ {6}- ([a-z0-9-]+)$/gmu)]
         .map((match) => match[1])
         .sort(),
-      ["security", "plan", ...coverageIds].sort(),
+      ["security", "review-evidence", "plan", ...coverageIds].sort(),
     );
     assert.match(gate, /run: node scripts\/ci-coverage-run\.mjs gate/u);
   });
@@ -1182,3 +1184,38 @@ function assertFocusedSupersets(scripts) {
   invokes("check:unit", "check:contracts");
   invokes("check:contracts", "test:contracts");
 }
+
+/** @param {string} source */
+function requireGatewayDiagnostics(source) {
+  for (const id of ["unit-checks", "telegram"]) {
+    const block =
+      source.split(`\n  ${id}:\n`)[1]?.split(/\n {2}[a-z][\w-]*:\n/u)[0] ?? "";
+    const upload =
+      block.split("- name: Upload Telegram gateway failure diagnostics")[1] ??
+      "";
+    assert.match(upload, /if: \$\{\{ failure\(\) \}\}/u);
+    assert.match(upload, /uses: actions\/upload-artifact@[0-9a-f]{40}/u);
+    assert.match(upload, /path: ci-artifacts\/telegram-deploy-gateway/u);
+    assert.match(
+      upload,
+      /name: telegram-gateway-.+github.run_id.+github.run_attempt/u,
+    );
+    assert.match(upload, /retention-days: 7/u);
+    assert.doesNotMatch(upload, /continue-on-error/u);
+  }
+}
+it("retains gateway diagnostics in both contract execution jobs and rejects lost uploads", () => {
+  requireGatewayDiagnostics(workflow);
+  for (const mutation of [
+    workflow.replaceAll(
+      "path: ci-artifacts/telegram-deploy-gateway",
+      "path: missing",
+    ),
+    workflow.replaceAll(
+      "name: Upload Telegram gateway failure diagnostics",
+      "name: Lost upload",
+    ),
+    workflow.replaceAll("retention-days: 7", "retention-days: 90"),
+  ])
+    assert.throws(() => requireGatewayDiagnostics(mutation));
+});

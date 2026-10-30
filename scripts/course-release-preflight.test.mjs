@@ -451,6 +451,7 @@ function correspondenceFixture() {
       "Full-stack smoke",
       "CI Gate",
       "Coverage plan (isolated reruns)",
+      "Independent review evidence",
     ].map((name, index) => ({
       id: index + 1,
       run_id: 567,
@@ -462,6 +463,7 @@ function correspondenceFixture() {
     })),
     evidence: {
       schemaVersion: 1,
+      reviewStatus: "verified",
       repository: "sachkov-inside/platform",
       sourceSha: actualSha,
       treeSha,
@@ -498,6 +500,54 @@ function correspondenceCandidate(input) {
   assert.ok(candidate);
   return candidate;
 }
+
+test("v3 correspondence requires a successful review job bound to the actual source and attempt", () => {
+  for (const change of ["missing", "failed", "source", "attempt"]) {
+    const input = correspondenceFixture();
+    assert.equal(assessCourseRelease(input, now).sourceSha, sha);
+    const candidate = correspondenceCandidate(input);
+    const review = candidate.providerJobs.find(
+      (job) => job.name === "Independent review evidence",
+    );
+    assert.ok(review);
+    if (change === "missing")
+      candidate.providerJobs = candidate.providerJobs.filter(
+        (job) => job !== review,
+      );
+    if (change === "failed") review.conclusion = "failure";
+    if (change === "source") review.head_sha = sha;
+    if (change === "attempt") review.run_attempt = 2;
+    assert.throws(
+      () => assessCourseRelease(input, now),
+      /check evidence/u,
+      change,
+    );
+  }
+});
+
+test("v3 correspondence rejects a successful review job without artifact review status", () => {
+  const input = correspondenceFixture();
+  assert.equal(assessCourseRelease(input, now).sourceSha, sha);
+  const candidate = correspondenceCandidate(input);
+  const { reviewStatus: _reviewStatus, ...withoutReviewStatus } =
+    candidate.evidence;
+  assert.throws(
+    () =>
+      assessCourseRelease(
+        {
+          ...input,
+          evidence: {
+            ...input.evidence,
+            sourceCorrespondence: {
+              candidates: [{ ...candidate, evidence: withoutReviewStatus }],
+            },
+          },
+        },
+        now,
+      ),
+    /check evidence/u,
+  );
+});
 
 test("v3 rejects absent correspondence, wrong tree and untrusted provider facts", () => {
   const absent = correspondenceFixture();

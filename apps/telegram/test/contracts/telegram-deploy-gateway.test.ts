@@ -1,4 +1,5 @@
-import { runOwnedCommandSync } from "../support/owned-command.js";
+import type { runOwnedCommandSync } from "../support/owned-command.js";
+import { GatewayDiagnostics } from "../support/gateway-diagnostics.js";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -13,7 +14,14 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFailed,
+} from "vitest";
 import { jsonRecord, record } from "../support/json.js";
 
 const gatewayPath = path.resolve(
@@ -39,9 +47,18 @@ let root: string;
 let bin: string;
 let github: string;
 let payloads: string;
+let diagnostics: GatewayDiagnostics;
 
 beforeEach(() => {
   root = mkdtempSync(path.join(tmpdir(), "telegram-deploy-"));
+  const artifacts = path.resolve("../../ci-artifacts/telegram-deploy-gateway");
+  mkdirSync(artifacts, { recursive: true });
+  diagnostics = new GatewayDiagnostics(
+    mkdtempSync(path.join(artifacts, "case-")),
+  );
+  onTestFailed(() => {
+    console.error(`Gateway first-failure phases: ${diagnostics.reportPath}`);
+  });
   bin = path.join(root, "fake-bin");
   github = path.join(root, "fake-github");
   payloads = path.join(root, "payloads");
@@ -77,6 +94,9 @@ fi
     "docker",
     `#!/usr/bin/env bash
 printf '%s|%s\\n' "\${TELEGRAM_IMAGE:-}" "$*" >>"$FAKE_ROOT/docker.log"
+if [[ -n "\${FAKE_DOCKER_STALL:-}" && "$*" == *" migrate" ]]; then
+  exec node -e 'require("node:fs").writeFileSync(process.env.FAKE_ROOT+"/stalled.pid",String(process.pid));setInterval(()=>{},1000)'
+fi
 if [[ -n "\${FAKE_DOCKER_FAIL:-}" && "$*" == *"$FAKE_DOCKER_FAIL"* ]]; then
   exit 1
 fi
@@ -466,6 +486,39 @@ describe("inside-telegram-deploy gateway", { timeout: 30_000 }, () => {
     expect(existsSync(migrationGuard())).toBe(false);
   });
 
+  it("retains the migration phase and cleans the real command after a gateway deadline", () => {
+    const v1 = publishRelease("v1", identityA);
+    const result = runWithInput(
+      "deploy v1 710",
+      payloadFor(v1),
+      { FAKE_DOCKER_STALL: "1" },
+      3_000,
+    );
+    expect(result.error).toMatchObject({ code: "ETIMEDOUT" });
+    expect(result.status).toBe(143);
+    const pid = Number(readFileSync(path.join(root, "stalled.pid"), "utf8"));
+    expect(() => process.kill(pid, 0)).toThrow();
+    rmSync(root, { recursive: true, force: true });
+    const report = jsonRecord(readFileSync(diagnostics.reportPath, "utf8"));
+    expect(report).toMatchObject({
+      commands: [
+        { boundary: "payload", status: 0 },
+        {
+          boundary: "gateway",
+          status: 143,
+          error: "ETIMEDOUT",
+          operationPhase: "migrate",
+          lifecycle: [
+            { phase: "supervisor-start" },
+            { phase: "command-start" },
+            { phase: "cleanup-start" },
+            { phase: "cleanup-complete" },
+          ],
+        },
+      ],
+    });
+  });
+
   it("records a failed readiness check", () => {
     const v1 = publishRelease("v1", identityA);
 
@@ -797,7 +850,8 @@ describe("inside-telegram-deploy gateway", { timeout: 30_000 }, () => {
 describe("install-deploy-access.sh", () => {
   it("installs the gateway behind one sudoers rule and a forced-command key", () => {
     const key = path.join(root, "deploy");
-    const generated = runOwnedCommandSync(
+    const generated = diagnostics.run(
+      "ssh-keygen",
       "ssh-keygen",
       ["-q", "-t", "ed25519", "-N", "", "-C", "coordinator", "-f", key],
       { encoding: "utf8" },
@@ -805,10 +859,18 @@ describe("install-deploy-access.sh", () => {
     expectSuccess(generated);
     const keyBody = readFileSync(`${key}.pub`, "utf8").split(" ")[1];
 
-    const result = runOwnedCommandSync("bash", [installerPath, `${key}.pub`], {
-      encoding: "utf8",
-      env: { ...process.env, INSIDE_TELEGRAM_DEPLOY_TEST_ROOT: `${root}/host` },
-    });
+    const result = diagnostics.run(
+      "installer",
+      "bash",
+      [installerPath, `${key}.pub`],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          INSIDE_TELEGRAM_DEPLOY_TEST_ROOT: `${root}/host`,
+        },
+      },
+    );
 
     expectSuccess(result);
     expect(
@@ -842,7 +904,7 @@ describe("install-deploy-access.sh", () => {
     const key = path.join(root, "deploy.pub");
     writeFileSync(key, "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ bad\n");
 
-    const result = runOwnedCommandSync("bash", [installerPath, key], {
+    const result = diagnostics.run("installer", "bash", [installerPath, key], {
       encoding: "utf8",
       env: { ...process.env, INSIDE_TELEGRAM_DEPLOY_TEST_ROOT: `${root}/host` },
     });
@@ -950,7 +1012,8 @@ function publishRelease(
 function tarGzip(directory: string, entries: string[]): Buffer {
   // A file target avoids bsdtar padding a gzip stream written to stdout.
   const archive = `${directory}.tar.gz`;
-  const result = runOwnedCommandSync(
+  const result = diagnostics.run(
+    "payload",
     "tar",
     ["-C", directory, "-czf", archive, ...entries],
     { encoding: "utf8", env: { ...process.env, COPYFILE_DISABLE: "1" } },
@@ -990,20 +1053,28 @@ function runWithInput(
   command: string,
   input: Buffer,
   environment: Record<string, string> = {},
+  timeout?: number,
 ) {
-  return runOwnedCommandSync("bash", [gatewayPath], {
-    input,
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      PATH: `${bin}:${process.env["PATH"] ?? ""}`,
-      SSH_ORIGINAL_COMMAND: command,
-      INSIDE_TELEGRAM_DEPLOY_TEST_ROOT: `${root}/host`,
-      FAKE_ROOT: root,
-      FAKE_GITHUB: github,
-      ...environment,
+  return diagnostics.run(
+    "gateway",
+    "bash",
+    [gatewayPath],
+    {
+      input,
+      ...(timeout === undefined ? {} : { timeout }),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env["PATH"] ?? ""}`,
+        SSH_ORIGINAL_COMMAND: command,
+        INSIDE_TELEGRAM_DEPLOY_TEST_ROOT: `${root}/host`,
+        FAKE_ROOT: root,
+        FAKE_GITHUB: github,
+        ...environment,
+      },
     },
-  });
+    path.join(root, "host/var/lib/inside/telegram-deployments/operation.json"),
+  );
 }
 
 function expectSuccess(result: ReturnType<typeof runOwnedCommandSync>): void {

@@ -1,6 +1,7 @@
 import {
   request as playwrightRequest,
   type APIRequestContext,
+  type APIResponse,
   type BrowserContext,
   type Page,
 } from "@playwright/test";
@@ -127,19 +128,54 @@ export async function passFirstSignInScreen(
   }
 }
 
-/** Что приложение думает о текущей сессии: `authenticated`, `guest` или `unavailable`. */
+/** Checks the real session response without forwarding Playwright's credential-bearing call log. */
 export async function fullStackSessionState(
-  context: BrowserContext,
+  context: Pick<BrowserContext, "request">,
 ): Promise<string> {
-  const response = await context.request.get(
-    `${fullStackBaseUrl()}/auth/status`,
-  );
-  if (!response.ok()) {
-    return `HTTP ${String(response.status())}`;
+  let response: APIResponse;
+  try {
+    response = await context.request.get(`${fullStackBaseUrl()}/auth/status`);
+  } catch (error) {
+    throw sessionTransportFailure("request", error);
   }
-  return String(
-    z.object({ state: z.string() }).safeParse(await response.json()).data
-      ?.state,
+  if (!response.ok()) return `HTTP ${String(response.status())}`;
+  let text: string;
+  try {
+    text = await response.text();
+  } catch (error) {
+    throw sessionTransportFailure("body", error);
+  }
+  let body: unknown;
+  try {
+    body = JSON.parse(text) as unknown;
+  } catch {
+    return "invalid JSON";
+  }
+  const parsed = z
+    .object({ state: z.enum(["authenticated", "guest", "unavailable"]) })
+    .safeParse(body);
+  return parsed.success ? parsed.data.state : "invalid state";
+}
+
+function sessionTransportFailure(
+  phase: "request" | "body",
+  error: unknown,
+): Error {
+  // Playwright embeds headers in error.message. Retain only a recognized network category,
+  // never the message, cause or response body, including in HTML/trace error attachments.
+  const message =
+    error instanceof Error ? (error.message.split("\n", 1)[0] ?? "") : "";
+  const code = /socket hang up|ECONNRESET|aborted/iu.test(message)
+    ? "ECONNRESET"
+    : /ECONNREFUSED/iu.test(message)
+      ? "ECONNREFUSED"
+      : /ENOTFOUND/iu.test(message)
+        ? "ENOTFOUND"
+        : /timeout|timed out/iu.test(message)
+          ? "TIMEOUT"
+          : "NETWORK_ERROR";
+  return new Error(
+    `Full-stack /auth/status failed: phase=${phase} code=${code}. Session state is unknown.`,
   );
 }
 
