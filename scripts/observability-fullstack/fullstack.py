@@ -573,8 +573,9 @@ class SourcePublicationTiming:
 
 def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,group=-1,index=-1,diagnostic_ordinal=None,diagnostic_protocol=stability.COLD_PROTOCOL):
     call=partial(stage_timing.call,timing,group=group,phase=index)
+    scope=prepared_scope(output)
     states=call('phase_ownership_before',technical.owned,compose,project,active)
-    def captured():
+    def captured(*,boundary=None):
         # Counter and Node clocks need an explicit host bridge, never inferred phase timing.
         def clock_ms(read):
             try:
@@ -591,9 +592,12 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
         if (before is not None and epoch is not None and after is not None
                 and type(at) in (int,float) and 0<=at<=(2**53-1)/1000 and math.isfinite(at)
                 and before<=at*1000<=after):anchor=[before,epoch,after]
-        return {'counters':counters,'host':host_sample,'counter_clock_anchor':anchor,**({'diagnostic_context':diagnostic_context} if diagnostic_ordinal is not None else {})}
+        result={'counters':counters,'host':host_sample,'counter_clock_anchor':anchor,**({'diagnostic_context':diagnostic_context} if diagnostic_ordinal is not None else {})}
+        if scope=='technical' and diagnostic_ordinal is None and boundary is not None:
+            result['primary_host_context']=stability.primary_context(boundary)
+        return result
     # A delayed native source read must not let the load outrun its CPU baseline.
-    samples=[call('phase_baseline',captured)]
+    samples=[call('phase_baseline',captured,boundary='baseline')]
     stop=threading.Event();errors=[];storage_samples=[];source_samples=[]
     publications=SourcePublicationTiming(enabled)
     def sampling():
@@ -617,7 +621,7 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
         return storage.observe(compose,
             lambda *args,**options:call('phase_storage_'+position+'_reader',invoke,*args,**options),
             lambda *args,**options:call('phase_storage_'+position+'_database',sql,*args,**options),
-            **({'scope':'technical'} if prepared_scope(output)=='technical' else {}))
+            **({'scope':'technical'} if scope=='technical' else {}))
     try:
         storage_samples.append(observed('before'))
         if diagnostic_ordinal is None:
@@ -634,13 +638,13 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
     finally:
         stop.set();call('phase_sampler_join',worker.join,timeout=15)
         if worker.is_alive():raise RuntimeError('fullstack_sampler_unsettled')
-    samples.append(call('phase_final_counters',captured))
+    samples.append(call('phase_final_counters',captured,boundary='final'))
     current=call('phase_ownership_after',technical.owned,compose,project,active)
     if any(current[name]['id']!=states[name]['id'] or current[name]['oom'] or current[name]['restarts']!=states[name]['restarts'] for name in active):errors.append('process_replaced_or_oom')
     pressure=loadgen_cpu_pressure(samples)
     if pressure['state']!='unthrottled':errors.append('fixture_loadgen_cpu_'+pressure['state'])
     result={'loadgen_cpu_pressure':pressure,'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'storage_samples':storage_samples,'source_cache_samples':source_samples,'source_publication_timing':publications.value,'errors':errors}
-    if prepared_scope(output)=='technical':
+    if scope=='technical':
         result['process_roles']=list(states)
         result['scope_binding']=stage_timing.read_json(output/'fullstack-source.json',1_048_576)['scope_binding']
     # Outside the original latency/counter/pressure windows; next-phase offsets can change.
@@ -974,6 +978,7 @@ def collect(output, metadata, destination, *, scope='full'):
             if scope=='technical':
                 if load.get('scope')!=scope or row.get('scope_binding')!=prepared['scope_binding']:raise ValueError('fullstack_scope_evidence')
                 validate_technical_phase(row,pair,mode,definition)
+                stability.primary_endpoints(row.get('samples',[]))
             leaf=slot_refusal.validate(load.get('slot_refusal'),phase,mode=='on',load.get('missed'))
             if load.get('completed') is True and leaf['state']=='captured':raise ValueError('closed_slot_refusal')
             if 'health_probe_timing' in row:health_timing.validate(row['health_probe_timing'],source['checkout_sha'],output,ordinal)

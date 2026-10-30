@@ -107,6 +107,69 @@ def context(proc=Path('/proc')):
     return {key:value if number(value) else None for key,value in result.items()}
 
 
+PRIMARY_CONTEXT_MAX_BYTES=2048
+PRIMARY_CONTEXT_INTEGERS=tuple(key for key in CONTEXT if key not in ('process_cpu_seconds','capture_elapsed_ms'))
+
+
+def primary_number(value):
+    return type(value) in (int,float) and 0<=value<=2**53-1 and math.isfinite(value)
+
+
+def validate_primary_context(value,boundary):
+    def need(ok):
+        if not ok:raise ValueError('closed_primary_host_context')
+    need(type(value) is dict and set(value)=={'schema','boundary','anchor','values','children_cpu_seconds'})
+    need(type(value['schema']) is int and value['schema']==1 and type(value['boundary']) is str
+         and value['boundary']==boundary and boundary in ('baseline','final'))
+    values=value['values']
+    need(type(values) is dict and set(values)==set(CONTEXT))
+    for key,item in values.items():
+        need(item is None or primary_number(item) and (key not in PRIMARY_CONTEXT_INTEGERS or type(item) is int))
+    children=value['children_cpu_seconds']
+    need(children is None or primary_number(children))
+    anchor=value['anchor']
+    need(anchor is None or type(anchor) is list and len(anchor)==3
+         and all(primary_number(item) for item in anchor) and anchor[0]<=anchor[2])
+    need(len(json.dumps(value).encode('utf-8'))<=PRIMARY_CONTEXT_MAX_BYTES)
+    return value
+
+
+def primary_endpoints(samples):
+    """Entirely absent legacy context is UNKNOWN; partial or misplaced context is malformed."""
+    if type(samples) is not list or any(type(sample) is not dict for sample in samples):raise ValueError('closed_primary_host_context')
+    positions=[index for index,sample in enumerate(samples) if 'primary_host_context' in sample]
+    if not positions:return None
+    if len(samples)<2 or positions!=[0,len(samples)-1]:raise ValueError('closed_primary_host_context')
+    endpoints=tuple(validate_primary_context(samples[index]['primary_host_context'],boundary)
+                    for index,boundary in ((0,'baseline'),(len(samples)-1,'final')))
+    if sum(len(json.dumps({'primary_host_context':leaf},indent=2).encode('utf-8')) for leaf in endpoints)>4096:
+        raise ValueError('closed_primary_host_context')
+    return endpoints
+
+
+def primary_context(boundary):
+    """Two primary endpoints only; the bracket follows the original counter bracket."""
+    if type(boundary) is not str or boundary not in ('baseline','final'):raise ValueError('closed_primary_host_context')
+    def clock(read):
+        try:
+            value=read()
+            return value*1000 if primary_number(value) and primary_number(value*1000) else None
+        except (OSError,ValueError,TypeError,OverflowError):return None
+    before=clock(time.monotonic);epoch=clock(time.time)
+    try:values=context()
+    except (OSError,ValueError,TypeError,AttributeError,OverflowError):values={}
+    values={key:item if primary_number(item) and (key not in PRIMARY_CONTEXT_INTEGERS or type(item) is int) else None
+            for key in CONTEXT for item in (values.get(key),)}
+    children=None
+    try:
+        usage=resource.getrusage(resource.RUSAGE_CHILDREN);item=usage.ru_utime+usage.ru_stime
+        if primary_number(item):children=item
+    except (OSError,ValueError,TypeError,AttributeError,OverflowError):pass
+    after=clock(time.monotonic)
+    anchor=[before,epoch,after] if all(item is not None for item in (before,epoch,after)) and before<=after else None
+    return validate_primary_context({'schema':1,'boundary':boundary,'anchor':anchor,'values':values,'children_cpu_seconds':children},boundary)
+
+
 def record(source,roles=(),images=None,*,protocol=COLD_PROTOCOL):
     return {'schema':4,'protocol':require_protocol(protocol),'definitions':definitions(protocol),'source':source,'scope':'diagnostic_only','state':'incomplete','acceptance':dict(ACCEPTANCE),
         'service_roles':list(roles),'images':images or {},'warmup':[],'measurements':[]}

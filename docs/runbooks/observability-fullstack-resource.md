@@ -66,6 +66,26 @@ domain tracking, waitlist, Horizon, production, resource, protocol и impact
 маркером. Изменение не выполняет provisioning или deployment.
 
 
+Технический primary trial сохраняет `primary_host_context` в первом и последнем sample каждой фазы.
+Это 24 числовых снимка за 12 фаз. Поле содержит schema 1, boundary baseline/final,
+отдельный anchor, прежние `stability.CONTEXT` values и nullable `children_cpu_seconds`.
+Снимок переиспользует aggregate `/proc/stat`, `/proc/pressure/cpu`, `RUSAGE_SELF` и добавляет `RUSAGE_CHILDREN`.
+Снимок не читает процессы, сеть или Docker. Sampler не снимает этот контекст.
+Отдельный bracket следует после исходного `counter_clock_anchor`; границы счётчиков сохраняют прежние позиции.
+Baseline завершается до sampler и нагрузки. Final следует после sampler join и последних счётчиков.
+Файлы фаз сохраняют снимки; компактная сводка удаляет samples. Collector проверяет закрытую числовую схему до копирования.
+Один снимок ограничен 2 KiB; два поля фазы ограничены 4 KiB, а RAW сохраняет предел 1 MiB.
+Legacy RAW без обоих снимков означает UNKNOWN. Частичная пара, лишний снимок или malformed schema запрещают публикацию.
+Недоступные значения становятся null. Исключения, пути, PID и произвольные строки не входят в снимок.
+Для offline delta нужны оба endpoints, неизменные logical CPUs/CLK_TCK и монотонные counters; иначе результат UNKNOWN.
+Runqueue/blocked являются endpoint gauges, их разность не используется. Max RSS является lifetime high-water mark observer.
+SELF включает Python threads. CHILDREN включает только завершённых и учтённых потомков observer, без Docker daemon и контейнеров.
+Потомок, пересекающий baseline, ограничивает фазовую атрибуцию. Context и counters имеют разные границы; механическое вычитание запрещено.
+За trial добавляются 48 aggregate reads, 48 rusage calls и 120 clock reads, без новых threads, sleep или retry.
+Фактическая Linux walltime этой добавки не измерена. Снимки не изменяют acceptance, HTTP timers, rates, caps или recovery protocol.
+Полный профиль и optional diagnostic schema сохраняют прежнее поведение.
+
+
 В обычном полном прогоне поле `health_probe_timing` сохраняет недавнюю историю
 Docker healthcheck для MCP и пяти workers. Один общий `inspect` с пределом 2 секунды
 выполняется после HTTP-нагрузки, остановки sampler, последних счётчиков, проверки
