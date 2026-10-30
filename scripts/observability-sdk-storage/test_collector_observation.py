@@ -245,6 +245,106 @@ class RefusalMatrix(unittest.TestCase):
 
 
 class IntegrationBoundary(unittest.TestCase):
+    def inactive_import_probe(self, mode):
+        """Exercise actual dynamic imports in an isolated process, before native launch."""
+        from pathlib import Path
+        import subprocess
+        import sys
+        import textwrap
+        root=Path(__file__).resolve().parents[2]
+        code=textwrap.dedent('''
+            import hashlib
+            import importlib.util
+            from pathlib import Path
+            import shutil
+            import subprocess
+            import sys
+            import tempfile
+            import time
+            import types
+            from unittest.mock import patch
+            source=Path(sys.argv[1]);mode=sys.argv[2]
+            def load(name,path):
+                spec=importlib.util.spec_from_file_location(name,path)
+                module=importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                return module
+            with tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();sdk=root/'scripts/observability-sdk-storage'
+                sdk.mkdir(parents=True)
+                for path in (source/'scripts/observability-sdk-storage').glob('*.py'):
+                    shutil.copyfile(path,sdk/path.name)
+                observer=sdk/'collector_observation.py';before=hashlib.sha256(observer.read_bytes()).hexdigest()
+                marker=root/'observer-executed';accesses=[]
+                if mode=='foreign':
+                    class Foreign(types.ModuleType):
+                        def __getattribute__(self,name):
+                            accesses.append(name)
+                            raise AssertionError('foreign observer accessed: '+name)
+                    foreign=Foreign('collector_observation')
+                    foreign.__file__='/foreign/unadmitted/collector_observation.py'
+                    sys.modules['collector_observation']=foreign
+                elif mode=='changed':
+                    observer.write_text('from pathlib import Path\\nPath('+repr(str(marker))+').touch()\\nraise AssertionError("changed observer executed")\\n')
+                    assert hashlib.sha256(observer.read_bytes()).hexdigest()!=before
+                else:raise AssertionError('unknown probe')
+                sys.path[:0]=[str(sdk),str(source/'scripts/observability-pilot')]
+                module=load('_inactive_sdk',sdk/'sdk_storage.py')
+                # The real SDK emitter uses its default collector=None and owns this tiny child.
+                assert module.emitter(argv=[sys.executable,'-I','-B','-c','print("{}")'],budget=2)=={}
+                witness=load('_actual_representative_witness',source/'scripts/observability-fullstack/representative_witness.py')
+                witness.ROOT=root
+                stopped=RuntimeError('native launch boundary reached')
+                def before_native(*args,**kwargs):raise stopped
+                with patch.object(module.emitter_phase,'OwnedSdkPhase',side_effect=before_native), \\
+                     patch.object(subprocess,'Popen',side_effect=AssertionError('native launch forbidden')):
+                    try:witness._emit_sdk(root,'a'*40,time.monotonic()+30)
+                    except RuntimeError as error:assert error is stopped
+                    else:raise AssertionError('representative path did not reach native boundary')
+                assert not accesses,accesses
+                assert not marker.exists(),'changed observer executed'
+                if mode=='foreign':assert sys.modules['collector_observation'] is foreign
+                else:assert 'collector_observation' not in sys.modules
+        ''')
+        result=subprocess.run([sys.executable,'-I','-B','-c',code,str(root),mode],
+                              capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,0,result.stderr)
+
+    def test_inactive_dynamic_sdk_and_representative_never_access_foreign_observer(self):
+        self.inactive_import_probe('foreign')
+
+    def test_inactive_dynamic_sdk_and_representative_never_execute_changed_observer(self):
+        self.inactive_import_probe('changed')
+
+    def test_active_sdk_admission_binds_observer_source_bytes(self):
+        import hashlib
+        import io
+        import os
+        from pathlib import Path
+        import tempfile
+        from unittest.mock import patch
+        import sdk_storage
+        observer=Path(observation.__file__).resolve()
+        inputs=sdk_storage.source_inputs()
+        self.assertIn(observer,inputs)
+        source='a'*40
+        def external_command(argv):
+            if argv==['git','-C',str(sdk_storage.ci.ROOT),'rev-parse','HEAD']:return source
+            if argv==['git','-C',str(sdk_storage.ci.ROOT),'rev-parse','HEAD^{tree}']:return 'b'*40
+            if argv==['git','-C',str(sdk_storage.ci.ROOT),'status','--porcelain']:return ''
+            if argv==['docker','info','--format','{{.DockerRootDir}}']:raise OSError('Engine unavailable in source model')
+            self.fail('unexpected external command')
+        with tempfile.TemporaryDirectory() as directory:
+            metadata=Path(directory)/'metadata'
+            with patch.object(sdk_storage.ci,'read_command',side_effect=external_command), \
+                 patch.dict(os.environ,{'GITHUB_SHA':source}),patch('sys.stdout',new_callable=io.StringIO):
+                # Actual admission writes source evidence before the refused Engine check.
+                self.assertEqual(sdk_storage.ci.admission(metadata,inputs=inputs,scope=sdk_storage.SCOPE),1)
+            bound=json.loads((metadata/'source.json').read_text())
+            name='scripts/observability-sdk-storage/collector_observation.py'
+            self.assertEqual(bound['inputs'][name],hashlib.sha256(observer.read_bytes()).hexdigest())
+            self.assertEqual(bound['scope'],sdk_storage.SCOPE)
+
     def test_observer_setup_never_renews_emitter_deadline_or_hides_interrupt(self):
         import io
         from unittest.mock import patch
@@ -292,4 +392,5 @@ class IntegrationBoundary(unittest.TestCase):
                 sdk_storage.collect(output,root/'metadata',public)
             self.assertNotIn(observation.NAME,calls[0])
             self.assertIn(observation.NAME,sdk_storage.ARTIFACTS)
+            self.assertEqual(sdk_storage.COLLECTOR_ARTIFACT,observation.NAME)
             self.assertEqual(observation.read(public/observation.NAME,source='a'*40)['close'],'unknown')

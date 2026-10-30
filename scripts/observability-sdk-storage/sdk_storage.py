@@ -22,10 +22,11 @@ import source_status_scenario
 import oracle
 import diagnostics
 import emitter_phase
-import collector_observation
 
 SCOPE = 'One production SDK S3 cold read under a test-owned HTTP scope; not genuine API-to-store or resource acceptance'
-ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'sdk-storage.json', 'runtime-modules.json', 'recovery.json', diagnostics.NAME, emitter_phase.NAME, collector_observation.NAME)
+# Keep inactive representative imports independent of the SDK-only observer.
+COLLECTOR_ARTIFACT = 'sdk-collector-observation.json'
+ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'sdk-storage.json', 'runtime-modules.json', 'recovery.json', diagnostics.NAME, emitter_phase.NAME, COLLECTOR_ARTIFACT)
 EMITTER_SECONDS = 30
 STORAGE_SECONDS = 60
 CHILD_BYTES = 512 * 1024
@@ -318,6 +319,7 @@ def worker(output):
             release = ci.read_command(['git', '-C', str(pilot.ROOT), 'rev-parse', 'HEAD'])
             # Frozen daemon and exact owned plan/logging are established before secret ingress.
             pilot.assert_docker_identity()
+            import collector_observation
             collector = collector_observation.OwnedCollector(output,source=release,
                 admitted=pilot.FROZEN_DOCKER_IDENTITY,
                 target={key:targets.targets['alloy'][key] for key in ('id','image','project','service')},
@@ -386,6 +388,7 @@ def collect_unacquired(output,metadata,destination):
 
 def collect(output, metadata, destination):
     if collect_unacquired(output,metadata,destination):return
+    import collector_observation
     source=emitter_phase.source_from_metadata(metadata)
     projected = diagnostics.read(output/diagnostics.NAME, scope='sdk')
     phase=emitter_phase.load_for_collection(output,source=source)
