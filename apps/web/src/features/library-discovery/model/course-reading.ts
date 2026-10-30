@@ -70,6 +70,13 @@ export interface CourseReadingContext {
   readonly next: CourseReadingStep | null;
 }
 
+/** Marks a context read from guest-cached composition, whose Task submissions stream in later. */
+export function withDeferredTaskStatuses(
+  context: CourseReadingContext,
+): CourseReadingContext {
+  return { ...context, taskStatusesDeferred: true };
+}
+
 interface CourseSource {
   readonly programmePlacements?:
     | readonly {

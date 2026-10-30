@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { courseReadingContext } from "@/features/library-discovery";
+import {
+  courseReadingContext,
+  withDeferredTaskStatuses,
+} from "@/features/library-discovery";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import {
@@ -941,4 +944,56 @@ export const ReaderProgressPhone: Story = {
 export const ReaderProgressPhoneOtherChapter: Story = {
   ...ReaderProgressOtherChapter,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const DeferredTaskStatuses: Story = {
+  render: function Deferred() {
+    const [personal, setPersonal] = useState(false);
+    return (
+      <MaterialReadingScope
+        value={{
+          accountId: "story-account",
+          resolved: true,
+          failed: false,
+          states: new Map(),
+          register: () => () => undefined,
+          refresh: () => Promise.resolve(),
+        }}
+      >
+        <CourseReadingLayout context={withDeferredTaskStatuses(taskOnlyCourse)}>
+          <button
+            onClick={() => {
+              setPersonal(true);
+            }}
+          >
+            Получить личные статусы
+          </button>
+          {personal ? (
+            <CourseTaskSubmissionStatuses
+              courseHref={taskOnlyCourse.courseHref}
+              submittedTaskIds={[taskOnlyCourse.current.id]}
+            />
+          ) : null}
+        </CourseReadingLayout>
+      </MaterialReadingScope>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const programme = within(await openProgramme(canvasElement));
+    const task = programme.getByRole("link", { current: "step" });
+    // Guest-cached composition says nothing about the reader's submission yet.
+    await expect(task).toHaveAttribute("data-progress", "unknown");
+    await expect(programme.queryByText(/пройдено/)).toBeNull();
+    const dialog = canvasElement.querySelector("dialog[open]");
+    if (dialog instanceof HTMLDialogElement) dialog.close();
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "Получить личные статусы",
+      }),
+    );
+    const programmeAfter = within(await openProgramme(canvasElement));
+    await expect(
+      programmeAfter.getByRole("link", { current: "step" }),
+    ).toHaveAttribute("data-progress", "done");
+  },
 };
