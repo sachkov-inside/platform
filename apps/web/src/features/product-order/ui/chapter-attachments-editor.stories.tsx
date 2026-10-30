@@ -14,7 +14,8 @@ const meta = {
   ...authoringPageEnvironment(
     "/authoring/products/95000000-0000-4000-8000-000000000010",
   ),
-  title: "Features/Product order/Chapter attachments",
+  id: "features-product-order-chapter-attachments",
+  title: "Patterns/Authoring/Chapter attachments",
   component: ChapterAttachmentsEditor,
   args: {
     productId: "95000000-0000-4000-8000-000000000010",

@@ -30,7 +30,23 @@ env:
   PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
 
 jobs:
+  scope:
+    name: Select assigned observability scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: scope
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+
   functional:
+    needs: scope
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical' }}
     name: Isolated Umami functional smoke
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -85,6 +101,8 @@ jobs:
           retention-days: 7
 
   recovery:
+    needs: scope
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical' }}
     name: Isolated PG18 pgBackRest recovery
     runs-on: ubuntu-24.04
     timeout-minutes: 45

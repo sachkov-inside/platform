@@ -62,11 +62,6 @@ for (const engine of [chromium, webkit])
         "/products/course/tasks/start",
       );
       await page.waitForFunction(() => "readerHistoryReady" in window);
-      await page
-        .locator("[data-reader-history-root] details")
-        .evaluate((element) => {
-          if (element instanceof HTMLDetailsElement) element.open = true;
-        });
       await page.locator("main").evaluate((element) => {
         element.scrollTop = 600;
       });
@@ -109,9 +104,10 @@ for (const engine of [chromium, webkit])
           page.locator("main").evaluate((element) => element.scrollTop),
         )
         .toBe(600);
-      await browserExpect(
-        page.locator("[data-reader-history-root] details"),
-      ).toHaveAttribute("open", "");
+      await browserExpect(page.locator("html")).toHaveAttribute(
+        "data-restored-chapter",
+        "second",
+      );
       await browserExpect
         .poll(() =>
           page
@@ -119,9 +115,6 @@ for (const engine of [chromium, webkit])
             .evaluate((element) => element.scrollTop),
         )
         .toBe(100);
-      await browserExpect(
-        page.locator("section[hidden] details"),
-      ).not.toHaveAttribute("open");
     } finally {
       await browser?.close();
     }

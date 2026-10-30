@@ -530,6 +530,45 @@ describe("durable author intake", () => {
       botIdentity: "inside",
     });
   });
+  it("saves native photo captions with custom emoji, quotes and links without changing their entities", async () => {
+    await seedLink();
+    await intake(1, { text: "/template" });
+    const caption = "Ранний набор\nКурс развивается.\n👾 Открыть уроки";
+    const entities = [
+      { type: "bold", offset: 0, length: "Ранний набор".length },
+      {
+        type: "blockquote",
+        offset: caption.indexOf("Курс"),
+        length: "Курс развивается.".length,
+      },
+      {
+        type: "custom_emoji",
+        offset: caption.indexOf("👾"),
+        length: 2,
+        custom_emoji_id: "5432109876543210987",
+      },
+      {
+        type: "text_link",
+        offset: caption.indexOf("Открыть"),
+        length: "Открыть уроки".length,
+        url: "https://inside.example/products/ai-engineering/programme",
+      },
+    ];
+    await intake(2, {
+      photo: [{ file_id: "synthetic_photo" }],
+      caption,
+      caption_entities: entities,
+    });
+    expect(await rows()).toHaveLength(1);
+    expect(required((await rows())[0]).content).toEqual({
+      type: "photo",
+      fileId: "synthetic_photo",
+      text: caption,
+      entities,
+      buttons: [],
+    });
+  });
+
   for (const type of [
     "text",
     "photo",

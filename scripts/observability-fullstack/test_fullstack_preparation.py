@@ -362,7 +362,10 @@ class Preparation(unittest.TestCase):
                 for role in ('web','telegram','logto'):
                     if '-'+role+':v1' in ' '.join(args):return pins[role]
                 return pins['backend']
-            with patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot,'assert_docker_identity'),patch.object(fullstack.pilot,'install_horizon'):
+            # Pure topology fixture, not a capacity claim about this checkout filesystem.
+            from collections import namedtuple
+            usage=namedtuple('usage','total used free')
+            with patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot,'assert_docker_identity'),patch.object(fullstack.pilot,'install_horizon'),patch.object(fullstack.pilot.shutil,'disk_usage',return_value=usage(128*1024**3,64*1024**3,64*1024**3)):
                 fullstack.inputs(output,images)
             plan=json.loads((output/'compose.json').read_text())
             self.assertEqual(set(plan['services']),set(fullstack.SERVICES))

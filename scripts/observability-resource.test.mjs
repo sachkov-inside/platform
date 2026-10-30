@@ -1,9 +1,12 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { runOwnedProcess } from "./observability-umami/process-owner.mjs";
+import {
+  processGroupExists,
+  runOwnedProcess,
+} from "./observability-umami/process-owner.mjs";
 import { fileURLToPath } from "node:url";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
@@ -761,6 +764,135 @@ test("fullstack ON load reads native stats and reconciles the admitted privacy c
     }
   } finally {
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+// deterministic-test-allow unit-io: existing external owner bounds the actual technical HTTP helper/client group; all private files and sockets remain caller-owned.
+test("fullstack technical client keeps seven real HTTP lanes in OFF, ON and MCP failure", async () => {
+  for (const mode of ["off", "on", "on-failure"]) {
+    const directory = await mkdtemp(join(tmpdir(), "inside-technical-load-"));
+    try {
+      const result = await runOwnedProcess(
+        process.execPath,
+        [
+          fileURLToPath(
+            new URL(
+              "./observability-fullstack/load-contract.mjs",
+              import.meta.url,
+            ),
+          ),
+          directory,
+          mode === "off" ? "off" : "on",
+          mode === "on-failure" ? "technical-failure" : "technical",
+        ],
+        { timeoutMs: 15000 },
+      );
+      assert.equal(result.reason, "exit", result.stderr);
+      assert.equal(result.code, 0, result.stdout + result.stderr);
+      assert.ok(result.pid !== undefined);
+      assert.equal(processGroupExists(result.pid), false);
+      /** @type {unknown} */
+      const value = JSON.parse(
+        await readFile(join(directory, "technical-client-result.json"), "utf8"),
+      );
+      assert.ok(typeof value === "object" && value !== null);
+      assert.partialDeepStrictEqual(value, {
+        scope: "technical",
+        scheduled: 400,
+        disabled_operations: 50,
+        attempted_probe_points: mode === "off" ? 0 : 400,
+        completed: mode !== "on-failure",
+        unexpected_failures: mode === "on-failure" ? 1 : 0,
+      });
+      assert.deepEqual(
+        Reflect.get(value, "http_operations"),
+        Object.fromEntries(
+          [
+            "web_home",
+            "web_material",
+            "api_catalog",
+            "api_account",
+            "mcp_discovery",
+            "telegram_webhook",
+            "logto_discovery",
+          ].map((label) => [
+            label,
+            {
+              attempted: 50,
+              completed: 50,
+              successful:
+                mode === "on-failure" && label === "mcp_discovery" ? 49 : 50,
+            },
+          ]),
+        ),
+      );
+      /** @type {unknown} */
+      const monitoring = Reflect.get(value, "monitoring_http");
+      assert.ok(typeof monitoring === "object" && monitoring !== null);
+      /** @type {unknown} */
+      const attempted = Reflect.get(monitoring, "attempted");
+      assert.ok(typeof attempted === "number");
+      assert.equal(attempted > 0, mode !== "off");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+});
+
+// deterministic-test-allow unit-io: actual helper/client inherit the existing owner group; test-only spawn receipt proves the actual client is reaped even when the helper cannot execute finally.
+test("fullstack technical helper loss and timeout reap the actual client", async () => {
+  for (const scenario of ["failure", "timeout", "sigkill"]) {
+    const directory = await mkdtemp(join(tmpdir(), "inside-technical-owner-"));
+    try {
+      const preload = join(directory, "owner-receipt.mjs");
+      const receipt = join(directory, "owner-receipt.json");
+      await writeFile(
+        preload,
+        `import cp from 'node:child_process';import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
+const spawn=cp.spawn;cp.spawn=(...args)=>{const child=spawn(...args);fs.writeFileSync(${JSON.stringify(receipt)},JSON.stringify([process.pid,child.pid]));
+${scenario === "failure" ? "process.exit(7);" : scenario === "sigkill" ? "process.kill(process.pid,'SIGKILL');" : ""}return child;};syncBuiltinESMExports();`,
+      );
+      const result = await runOwnedProcess(
+        process.execPath,
+        [
+          "--import",
+          preload,
+          fileURLToPath(
+            new URL(
+              "./observability-fullstack/load-contract.mjs",
+              import.meta.url,
+            ),
+          ),
+          directory,
+          "on",
+          "technical",
+        ],
+        { timeoutMs: scenario === "timeout" ? 1000 : 15000 },
+      );
+      /** @type {unknown} */
+      const pids = JSON.parse(await readFile(receipt, "utf8"));
+      assert.ok(
+        Array.isArray(pids) &&
+          pids.length === 2 &&
+          typeof pids[0] === "number" &&
+          typeof pids[1] === "number",
+      );
+      assert.equal(result.pid, pids[0]);
+      assert.equal(processGroupExists(pids[0]), false);
+      /** @type {unknown} */
+      const clientPid = pids[1];
+      assert.ok(
+        typeof clientPid === "number" &&
+          Number.isSafeInteger(clientPid) &&
+          clientPid > 0,
+      );
+      assert.throws(() => process.kill(clientPid, 0), { code: "ESRCH" });
+      if (scenario === "timeout") assert.equal(result.reason, "timeout");
+      if (scenario === "failure") assert.equal(result.code, 7);
+      if (scenario === "sigkill") assert.equal(result.signal, "SIGKILL");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   }
 });
 

@@ -84,7 +84,8 @@ const productResult = {
 const meta = {
   ...publicPageEnvironment("/products/platform-inside"),
   component: LibraryDiscoveryView,
-  title: "Pages/Product/Product",
+  id: "pages-product-product",
+  title: "Pages/Product/Landing/General",
   tags: ["autodocs"],
   args: { result: productResult },
 } satisfies Meta<typeof LibraryDiscoveryView>;

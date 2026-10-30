@@ -62,7 +62,8 @@ const bookmarkState = () => ({
 
 const meta = {
   ...environment,
-  title: "Pages/Material Reader actions",
+  id: "pages-material-reader-actions",
+  title: "Pages/Material Reader/Actions",
   component: MaterialReaderView,
   beforeEach: ({ parameters }) => {
     holdReadingSave = parameters["holdReadingSave"] !== false;
@@ -91,8 +92,27 @@ const meta = {
         });
         return Response.json({ kind: "unavailable" }, { status: 503 });
       }
-      if (path === "/api/reading-progress/states")
-        return Response.json({ kind: "ready", states: [readingState()] });
+      if (path === "/api/reading-progress/states") {
+        // The course rail asks for every course Material in the same batch.
+        const raw = input instanceof Request ? await input.text() : init?.body;
+        const requested = z
+          .object({ materialIds: z.array(z.string()) })
+          .parse(JSON.parse(typeof raw === "string" ? raw : "{}")).materialIds;
+        return Response.json({
+          kind: "ready",
+          states: requested.map((id) =>
+            id === materialId
+              ? readingState()
+              : {
+                  materialId: id,
+                  isRead: false,
+                  version: 0,
+                  readAt: null,
+                  updatedAt: null,
+                },
+          ),
+        });
+      }
       if (path === "/api/bookmarks/states")
         return Response.json({ kind: "ready", states: [bookmarkState()] });
       const raw = input instanceof Request ? await input.text() : init?.body;

@@ -27,8 +27,11 @@ def assess(value):
         'required_bytes_with_25pct_reserve':math.ceil(required)}
 
 
-def validate_profile(value):
-    if (type(value) is not dict or value.get('schema')!=1 or value.get('name')!='platform-representative-v1'
+def validate_profile(value, *, scope='full'):
+    if type(scope) is not str or scope not in ('full','technical'):raise ValueError('closed_fullstack_scope')
+    name='platform-technical-v1' if scope=='technical' else 'platform-representative-v1'
+    analytics='analytics_disabled' if scope=='technical' else 'analytics_send'
+    if (type(value) is not dict or value.get('schema')!=1 or value.get('name')!=name
             or type(value.get('accounts')) is not int or value['accounts']!=256
             or type(value.get('materials')) is not int or not 256<=value['materials']<=512
             or value.get('pairs')!=[['off','on'],['on','off']]
@@ -37,6 +40,7 @@ def validate_profile(value):
                 {'name':'steady','seconds':40,'requests_per_second':10},{'name':'spike','seconds':10,'requests_per_second':40}]
             or value.get('thresholds')!={'query_seconds':10,'ingestion_lag_seconds':60,'http_p95_overhead_percent':5,
                 'additional_host_cpu_fraction':.1,'application_reserve_fraction':.25}
-            or set(value.get('operations',[]))!={'web_home','web_material','api_catalog','api_account','mcp_discovery','analytics_send','telegram_webhook','logto_discovery'}):
+            or set(value.get('operations',[]))!={'web_home','web_material','api_catalog','api_account','mcp_discovery',analytics,'telegram_webhook','logto_discovery'}):
         raise ValueError('representative_fullstack_profile_required')
+    if scope=='technical' and (value.get('request_timeout_ms')!=2000 or value.get('sample_interval_seconds')!=2 or value.get('candidate_memory_gib')!=[4,8]):raise ValueError('technical_fullstack_profile_required')
     return value

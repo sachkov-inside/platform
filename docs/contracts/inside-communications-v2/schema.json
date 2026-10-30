@@ -21,54 +21,88 @@
       ]
     },
     "entity": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "enum": [
-            "mention",
-            "hashtag",
-            "cashtag",
-            "bot_command",
-            "url",
-            "email",
-            "phone_number",
-            "bold",
-            "italic",
-            "underline",
-            "strikethrough",
-            "spoiler",
-            "code",
-            "pre",
-            "text_link",
-            "blockquote",
-            "expandable_blockquote"
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "enum": [
+                "mention",
+                "hashtag",
+                "cashtag",
+                "bot_command",
+                "url",
+                "email",
+                "phone_number",
+                "bold",
+                "italic",
+                "underline",
+                "strikethrough",
+                "spoiler",
+                "code",
+                "pre",
+                "text_link",
+                "blockquote",
+                "expandable_blockquote"
+              ]
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "length": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 2048,
+              "pattern": "^https://"
+            },
+            "language": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "type",
+            "offset",
+            "length"
           ]
         },
-        "offset": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 2147483647
-        },
-        "length": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "url": {
-          "type": "string",
-          "format": "uri",
-          "maxLength": 2048,
-          "pattern": "^https://"
-        },
-        "language": {
-          "type": "string",
-          "maxLength": 64
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "enum": [
+                "custom_emoji"
+              ]
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "length": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "custom_emoji_id": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,19}$"
+            }
+          },
+          "required": [
+            "type",
+            "offset",
+            "length",
+            "custom_emoji_id"
+          ]
         }
-      },
-      "required": [
-        "type",
-        "offset",
-        "length"
       ]
     },
     "button": {

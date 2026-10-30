@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { courseReadingContext } from "@/features/library-discovery";
+import {
+  courseReadingContext,
+  withDeferredTaskStatuses,
+} from "@/features/library-discovery";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import {
@@ -9,7 +12,10 @@ import {
   courseSource,
   courseNext,
   taskOnlyCourse,
+  progressCourse,
+  progressCourseMarks,
 } from "@/storybook/course-reading.fixtures";
+import { MaterialReadingScope } from "@/entities/material";
 import {
   CourseTaskSubmissionStatuses,
   CourseReadingLayout,
@@ -19,7 +25,8 @@ import {
 const meta = {
   ...publicPageEnvironment("/materials/course-intro"),
   component: CourseReadingLayout,
-  title: "Features/Library/Course Reading",
+  id: "features-library-course-reading",
+  title: "Patterns/Product/Course reading",
   args: { context: courseGuide, children: <p>Текст материала</p> },
 } satisfies Meta<typeof CourseReadingLayout>;
 export default meta;
@@ -164,9 +171,9 @@ export const ChapterNavigation: Story = {
         .getAllByRole("button")
         .map((option) => option.textContent),
     ).toEqual([
-      "Глава 1Подготовь проект к разработке с агентом и проверь настройкуВы здесь",
-      "Глава 2Продолжение",
-      "Глава 3Следующая глава",
+      "Глава 1 Подготовь проект к разработке с агентом и проверь настройку, вы здесь",
+      "Глава 2 Продолжение",
+      "Глава 3 Следующая глава",
     ]);
     const nextChapter = within(chapters).getByRole("button", {
       name: "Глава 2 Продолжение",
@@ -227,7 +234,7 @@ export const LongChapterTitles: Story = {
     await expect(
       within(chapters).getByRole("button", { current: true }),
     ).toHaveTextContent("Разработка с агентом на практике");
-    await expect(within(chapters).getByText("Вы здесь")).toBeInTheDocument();
+    await expect(within(chapters).getByText(", вы здесь")).toBeInTheDocument();
     await expect(chapters.getBoundingClientRect().right).toBeLessThanOrEqual(
       rail.getBoundingClientRect().right,
     );
@@ -317,16 +324,23 @@ export const TabletProgramme: Story = {
   globals: { viewport: { value: "tablet820", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(
-      canvasElement.querySelector('nav[aria-label="Навигация по урокам"]'),
-    ).not.toBeVisible();
-    const trigger = canvas.getByRole("button", { name: "Вся программа" });
+    // Tablets share the phone's lesson dock; the programme opens as the same bottom sheet.
+    const dock = within(
+      canvas.getByRole("navigation", { name: "Навигация по урокам" }),
+    );
+    const trigger = dock.getByRole("button", { name: "Вся программа" });
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toHaveTextContent("Глава 1 · Шаг 2 из 3");
     await userEvent.click(trigger);
     const dialog = canvas.getByRole("dialog", {
       name: "Программа: AI Engineering",
     });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getBoundingClientRect().left).toBe(0);
+    await waitFor(async () => {
+      await expect(Math.round(dialog.getBoundingClientRect().bottom)).toBe(
+        window.innerHeight,
+      );
+    });
     await expect(
       within(dialog).getByRole("link", { current: "step" }),
     ).toBeVisible();
@@ -351,6 +365,15 @@ export const PhoneProgramme: Story = {
     await expect(
       dock.queryByRole("link", { name: "К прохождению курса" }),
     ).toBeNull();
+    // The dock is wide enough to read as controls yet keeps clear side margins.
+    const dockBounds = canvas
+      .getByRole("navigation", { name: "Навигация по урокам" })
+      .getBoundingClientRect();
+    await expect(dockBounds.left).toBeGreaterThanOrEqual(24);
+    await expect(window.innerWidth - dockBounds.right).toBeGreaterThanOrEqual(
+      24,
+    );
+    await expect(dockBounds.width).toBeGreaterThan(300);
     await document.fonts.ready;
     const label = dock.getByText("Программа", {
       selector: "span",
@@ -401,6 +424,13 @@ export const NarrowSupplementaryProgramme: Story = {
       within(navigation).queryByRole("link", { name: "Следующий шаг" }),
     ).toBeNull();
     await document.fonts.ready;
+    // The narrowest phones keep the words and drop the list icon.
+    const opener = within(navigation).getByRole("button", {
+      name: "Вся программа",
+    });
+    const icon = opener.querySelector("svg");
+    if (icon === null) throw new Error("Programme icon missing");
+    await expect(getComputedStyle(icon).display).toBe("none");
     for (const control of navigation.querySelectorAll<HTMLElement>(
       "a, button",
     )) {
@@ -484,13 +514,13 @@ export const NumberedAssignments: Story = {
                 code: "harness",
                 lastSubmittedAt: "2026-10-14T09:00:00.000Z",
                 title: "Подготовь проект к работе с агентом",
-                afterMaterialId: "first-id",
+                afterMaterialId: "00000000-0000-4000-8000-0000000000a2",
               },
               {
                 ...firstTask,
                 code: "foundation",
                 title: "Заложи основу проекта",
-                afterMaterialId: "first-id",
+                afterMaterialId: "00000000-0000-4000-8000-0000000000a2",
               },
             ],
           },
@@ -535,8 +565,9 @@ export const NumberedAssignments: Story = {
       '[data-task-submitted="true"]',
     );
     if (savedTitle === null) throw new Error("Saved Task title missing");
-    await expect(getComputedStyle(savedTitle).textDecorationLine).toBe(
-      "line-through",
+    await expect(savedTitle.closest("[data-course-step]")).toHaveAttribute(
+      "data-progress",
+      "done",
     );
     const current = canvas.getByRole("link", {
       name: "Задание 2 Заложи основу проекта",
@@ -544,10 +575,8 @@ export const NumberedAssignments: Story = {
     await expect(current).toHaveAttribute("aria-current", "step");
     const title = current.querySelector('[class*="stepTitle"]');
     if (title === null) throw new Error("Current title missing");
+    // Emphasis paints over the glyphs, so the line breaks stay where they were.
     await expect(getComputedStyle(title).fontWeight).toBe("400");
-    await expect(getComputedStyle(current).backgroundColor).toBe(
-      "rgba(0, 0, 0, 0)",
-    );
     await userEvent.click(selector);
     await userEvent.click(
       canvas.getByRole("button", { name: "Глава 2 Продолжение" }),
@@ -599,10 +628,10 @@ export const SubmittedCurrentAssignment: Story = {
     const title = link.querySelector('[data-task-submitted="true"]');
     if (title === null) throw new Error("Submitted title missing");
     await expect(getComputedStyle(title).fontWeight).toBe("400");
-    await expect(getComputedStyle(title).textDecorationLine).toBe(
-      "line-through",
-    );
-    await expect(getComputedStyle(link).backgroundColor).toBe(
+    await expect(getComputedStyle(title).textDecorationLine).toBe("none");
+    // The current step keeps the accent marker even when it is already passed.
+    await expect(link).toHaveAttribute("data-progress", "done");
+    await expect(getComputedStyle(link).backgroundColor).not.toBe(
       "rgba(0, 0, 0, 0)",
     );
   },
@@ -784,5 +813,261 @@ export const SupplementaryMaterials: Story = {
     await expect(group.getAllByRole("link")).toHaveLength(4);
     await userEvent.click(group.getByRole("button", { name: "Скрыть" }));
     await expect(group.getAllByRole("link")).toHaveLength(3);
+  },
+};
+
+function ProgressCourse({
+  marks = progressCourseMarks,
+  failed = false,
+}: {
+  readonly marks?: typeof progressCourseMarks;
+  readonly failed?: boolean;
+}) {
+  return (
+    <MaterialReadingScope
+      value={{
+        accountId: "story-account",
+        resolved: true,
+        failed,
+        states: marks,
+        register: () => () => undefined,
+        refresh: () => Promise.resolve(),
+      }}
+    >
+      <CourseReadingLayout context={progressCourse}>
+        <CourseReadingHeader
+          context={progressCourse}
+          title={progressCourse.current.title}
+          metadata={null}
+        />
+        <p>Текст материала</p>
+      </CourseReadingLayout>
+    </MaterialReadingScope>
+  );
+}
+
+/** Rail or programme sheet, whichever the viewport shows. */
+async function openProgramme(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement);
+  const rail = canvas.queryByRole("complementary", { name: "Текущая глава" });
+  if (rail !== null && rail.getClientRects().length > 0) return rail;
+  await userEvent.click(
+    canvas.getAllByRole("button", { name: /^Вся программа/ })[0] ??
+      canvasElement,
+  );
+  return canvas.getByRole("dialog", { name: "Программа: AI Engineering" });
+}
+
+export const ReaderProgress: Story = {
+  render: () => <ProgressCourse />,
+  play: async ({ canvasElement }) => {
+    const programme = within(await openProgramme(canvasElement));
+    await expect(
+      programme.getByText(
+        (_, element) =>
+          element?.hasAttribute("data-course-chapter-progress") === true,
+      ),
+    ).toHaveTextContent(/^Пройдено 8 из 13$/);
+    // Only the numbers are visible beside the bar; «Пройдено» is for screen readers.
+    await expect(programme.getByText("8 из 13", { exact: true })).toBeVisible();
+    const step = (title: string) =>
+      programme.getByRole("link", {
+        name: new RegExp(`^(Задание \\d )?${title}`),
+      });
+    await expect(step("Как устроен курс")).toHaveAttribute(
+      "data-progress",
+      "done",
+    );
+    await expect(
+      step("Подготовка проекта: инструкции, скиллы и репозиторий"),
+    ).toHaveAttribute("data-progress", "todo");
+    await expect(
+      step("Работа над задачей: от обсуждения до pull request"),
+    ).toHaveAttribute("data-progress", "done");
+    await expect(
+      programme.getByRole("link", { current: "step" }),
+    ).toHaveAccessibleName("Выбор стека и границ модулей");
+  },
+};
+
+export const ReaderProgressChapters: Story = {
+  render: () => <ProgressCourse />,
+  play: async ({ canvasElement }) => {
+    const programme = within(await openProgramme(canvasElement));
+    await userEvent.click(
+      programme.getByRole("button", { name: /^Глава 1 из 4/ }),
+    );
+    await expect(
+      programme.getByRole("button", { name: /^4 главы · 8 из 20 пройдено/ }),
+    ).toHaveAttribute("aria-expanded", "true");
+    const chapters = within(
+      programme.getByRole("navigation", { name: "Главы курса" }),
+    );
+    await expect(
+      chapters.getByRole("button", {
+        name: /^Глава 1 Подготовка.*вы здесь.*пройдено 8 из 13$/,
+      }),
+    ).toHaveAttribute("data-reading", "true");
+    await expect(
+      chapters.getByRole("button", { name: /^Глава 2 .*пройдено 0 из 3$/ }),
+    ).toBeVisible();
+  },
+};
+
+export const ReaderProgressOtherChapter: Story = {
+  render: () => <ProgressCourse />,
+  play: async ({ canvasElement }) => {
+    const programme = within(await openProgramme(canvasElement));
+    await userEvent.click(
+      programme.getByRole("button", { name: /^Глава 1 из 4/ }),
+    );
+    await userEvent.click(
+      programme.getByRole("button", { name: /^Глава 3 Релизы/ }),
+    );
+    await expect(programme.getByText("Вы читаете главу 1")).toBeVisible();
+    await expect(programme.queryByRole("link", { current: "step" })).toBeNull();
+    await userEvent.click(
+      programme.getByRole("button", { name: "К текущему шагу" }),
+    );
+    await expect(
+      programme.getByRole("link", { current: "step" }),
+    ).toHaveAccessibleName("Выбор стека и границ модулей");
+    await expect(programme.queryByText("Вы читаете главу 1")).toBeNull();
+  },
+};
+
+export const ReaderProgressUnavailable: Story = {
+  render: () => <ProgressCourse marks={new Map()} failed />,
+  play: async ({ canvasElement }) => {
+    const programme = within(await openProgramme(canvasElement));
+    await expect(programme.queryByText(/пройдено/)).toBeNull();
+    // A failed mark never reads as passed or unread; a saved submission is still known.
+    for (const link of programme.getAllByRole("link"))
+      if (link.dataset["courseStep"]?.startsWith("material:") === true)
+        await expect(link).toHaveAttribute("data-progress", "unknown");
+  },
+};
+
+export const ReaderProgressNarrowDesktop: Story = {
+  ...ReaderProgress,
+  globals: { viewport: { value: "desktop1036", isRotated: false } },
+};
+
+export const ReaderProgressTablet: Story = {
+  ...ReaderProgress,
+  globals: { viewport: { value: "tablet820", isRotated: false } },
+};
+
+export const ReaderProgressTabletChapters: Story = {
+  ...ReaderProgressChapters,
+  globals: { viewport: { value: "tablet820", isRotated: false } },
+};
+
+export const ReaderProgressPhone: Story = {
+  ...ReaderProgress,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const ReaderProgressPhoneOtherChapter: Story = {
+  ...ReaderProgressOtherChapter,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const DeferredTaskStatuses: Story = {
+  render: function Deferred() {
+    const [personal, setPersonal] = useState(false);
+    return (
+      <MaterialReadingScope
+        value={{
+          accountId: "story-account",
+          resolved: true,
+          failed: false,
+          states: new Map(),
+          register: () => () => undefined,
+          refresh: () => Promise.resolve(),
+        }}
+      >
+        <CourseReadingLayout context={withDeferredTaskStatuses(taskOnlyCourse)}>
+          <button
+            onClick={() => {
+              setPersonal(true);
+            }}
+          >
+            Получить личные статусы
+          </button>
+          {personal ? (
+            <CourseTaskSubmissionStatuses
+              courseHref={taskOnlyCourse.courseHref}
+              submittedTaskIds={[taskOnlyCourse.current.id]}
+            />
+          ) : null}
+        </CourseReadingLayout>
+      </MaterialReadingScope>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const programme = within(await openProgramme(canvasElement));
+    const task = programme.getByRole("link", { current: "step" });
+    // Guest-cached composition says nothing about the reader's submission yet.
+    await expect(task).toHaveAttribute("data-progress", "unknown");
+    await expect(programme.queryByText(/пройдено/)).toBeNull();
+    const dialog = canvasElement.querySelector("dialog[open]");
+    if (dialog instanceof HTMLDialogElement) dialog.close();
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "Получить личные статусы",
+      }),
+    );
+    const programmeAfter = within(await openProgramme(canvasElement));
+    await expect(
+      programmeAfter.getByRole("link", { current: "step" }),
+    ).toHaveAttribute("data-progress", "done");
+  },
+};
+
+/** The dock names the programme and describes chapter progress on phones and tablets alike. */
+async function expectLessonDock(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement);
+  const dialog = canvasElement.querySelector("dialog[open]");
+  if (dialog instanceof HTMLDialogElement) dialog.close();
+  const navigation = canvas.getByRole("navigation", {
+    name: "Навигация по урокам",
+  });
+  const opener = within(navigation).getByRole("button", {
+    name: "Вся программа",
+  });
+  await expect(opener).toHaveAccessibleDescription("Пройдено 8 из 13");
+  const bounds = navigation.getBoundingClientRect();
+  await expect(bounds.left).toBeGreaterThanOrEqual(24);
+  await expect(window.innerWidth - bounds.right).toBeGreaterThanOrEqual(24);
+  await expect(bounds.width).toBeLessThanOrEqual(22 * 16);
+}
+
+export const LessonDockPhone: Story = {
+  render: () => <ProgressCourse />,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expectLessonDock(canvasElement);
+  },
+};
+
+export const LessonDockTablet: Story = {
+  render: () => <ProgressCourse />,
+  globals: { viewport: { value: "tablet820", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expectLessonDock(canvasElement);
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вся программа" }),
+    );
+    const dialog = canvas.getByRole("dialog", {
+      name: "Программа: AI Engineering",
+    });
+    // A tablet sheet fits the chapter instead of covering the page.
+    await waitFor(async () => {
+      await expect(dialog.getBoundingClientRect().height).toBeLessThan(
+        window.innerHeight - 64,
+      );
+    });
   },
 };

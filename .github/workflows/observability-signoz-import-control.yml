@@ -35,10 +35,25 @@ env:
   PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
 
 jobs:
+  scope:
+    name: Select assigned observability scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: scope
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+
   import_control:
+    needs: scope
     name: Independent same-cgroup import diagnostic, no acceptance
     if: >-
-      ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.body, '<!-- signoz-disk-component: run -->') }}
+      ${{ needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical' && github.event_name == 'pull_request' && contains(github.event.pull_request.body, '<!-- signoz-disk-component: run -->') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:

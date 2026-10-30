@@ -13,7 +13,8 @@ const meta = {
   ...publicPageEnvironment("/"),
   component: PublicNavigationPending,
   tags: ["autodocs"],
-  title: "Pages/Navigation pending",
+  id: "pages-navigation-pending",
+  title: "Patterns/Navigation/Pending",
   args: { href: "/" },
 } satisfies Meta<typeof PublicNavigationPending>;
 export default meta;

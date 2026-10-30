@@ -50,6 +50,59 @@ PREFIX='inside-observability-fullstack-'
 ARTIFACTS=(*(f'fullstack-phase-{index}.json' for index in range(12)),'fullstack-proof.json','fullstack-source.json',stage_timing.NAME,stage_timing.CONTACTS_NAME,'evidence.json','cleanup.json','worker-outcome.json','monitor-failure.json')
 
 
+def profile(scope='full'):
+    if type(scope) is not str or scope not in ('full','technical'):raise ValueError('closed_fullstack_scope')
+    path=PROFILE if scope=='full' else PROFILE.with_name('technical-profile.json')
+    return acceptance.validate_profile(json.loads(path.read_text()),scope=scope)
+
+
+def services(scope='full'):
+    profile(scope)
+    return tuple(name for name in SERVICES if scope=='full' or name not in ('umami','umami-ingest','umami-query'))
+
+
+def prepared_scope(output, *, expected=None, source=None):
+    path=output/'fullstack-source.json'
+    if not path.exists() and not path.is_symlink():
+        # The supervisor passes only output. Surviving technical inputs must never
+        # become legacy authority merely because their binding file disappeared.
+        selected=output/'selected-profile.json';monitor=output/'monitoring/inputs.json';compose=output/'compose.json'
+        if selected.exists() or selected.is_symlink():raise ValueError('fullstack_scope_binding')
+        if monitor.exists() or monitor.is_symlink():
+            record=stage_timing.read_json(monitor,1_048_576)
+            if type(record) is not dict or record.get('scope','full')!='full':raise ValueError('fullstack_scope_binding')
+        if compose.exists() or compose.is_symlink():
+            plan=stage_timing.read_json(compose,4_194_304)
+            if type(plan) is not dict or type(plan.get('services')) is not dict:raise ValueError('fullstack_scope_binding')
+            if set(plan['services'])==set(services('technical')):raise ValueError('fullstack_scope_binding')
+        if expected not in (None,'full'):raise ValueError('fullstack_scope_binding')
+        return 'full'
+    value=stage_timing.read_json(path,1_048_576)
+    if type(value) is not dict or type(value.get('profile',{})) is not dict or type(value.get('images',{})) is not dict:raise ValueError('fullstack_scope_binding')
+    scope=value.get('scope','full')
+    settings=profile(scope)
+    if expected is not None and scope!=expected:raise ValueError('fullstack_scope_binding')
+    if source is not None and value.get('source')!=source:raise ValueError('fullstack_scope_source')
+    if scope=='full' and ('scope_binding' in value or value.get('profile',{}).get('name')=='platform-technical-v1' or value.get('images',{}).get('scope')=='technical'):raise ValueError('fullstack_scope_binding')
+    if scope=='technical':
+        binding=value.get('scope_binding')
+        if (type(binding) is not dict or set(binding)!={'scope','source','nonce','output_sha256','profile','services','databases'}
+                or binding['scope']!=scope or binding['source']!=value.get('source')
+                or not stage_timing.source_ok(binding['source'])
+                or type(binding['nonce']) is not str or re.fullmatch('[0-9a-f]{64}',binding['nonce']) is None
+                or binding['output_sha256']!=stage_timing.output_binding(output)
+                or binding['profile']!=settings['name'] or value.get('profile')!=settings
+                or binding['services']!=list(services(scope)) or binding['databases']!=['inside','logto','inside_telegram']
+                or value.get('images',{}).get('scope')!=scope or value['images'].get('source')!=binding['source']):raise ValueError('fullstack_scope_binding')
+        plan=stage_timing.read_json(output/'compose.json',4_194_304)
+        if (type(plan) is not dict or type(plan.get('services')) is not dict or type(plan.get('volumes')) is not dict
+                or set(plan['services'])!=set(services(scope)) or set(plan['volumes'])!=set(storage.VOLUMES)):raise ValueError('fullstack_scope_topology')
+        mounted=stage_timing.read_json(output/'selected-profile.json',1_048_576)
+        if mounted!=settings or any((output/'monitoring').glob('umami*')):raise ValueError('fullstack_scope_inputs')
+        production.prepared_scope(output/'monitoring',scope=scope)
+    return scope
+
+
 def invoke(compose,args,**options):return resource_runtime.invoke(compose,args,**options)
 
 
@@ -62,7 +115,9 @@ def assemble_core(primary, core, **binding):
     return core_layout.construct(primary,core,**binding)
 
 
-def inputs(output, images, *, core=None):
+def inputs(output, images, *, core=None, scope='full'):
+    settings=profile(scope)
+    if scope=='technical' and core is not None:raise ValueError('technical_primary_core_required')
     if core is not None:core_layout.require_runtime(core)
     acceptance.validate_profile(json.loads(PROFILE.read_text()))
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
@@ -72,7 +127,7 @@ def inputs(output, images, *, core=None):
         cpu_control.selector(output.name)
         cpu_control.need(not cpu_control.present(output) and cpu_control.read(images)==pins
                          and {k:pins[k] for k in cpu_control.IMAGES}==request['images'])
-    if (set(pins)!={'schema','source','owner','backend','foundation','web','telegram','logto'} or pins['schema']!=3
+    if (set(pins)!=({'schema','source','owner','backend','foundation','web','telegram','logto'}|({'scope'} if scope=='technical' else set())) or pins.get('scope','full')!=scope or pins['schema']!=3
             or pins['source']!=source or any(type(pins[role]) is not str or re.fullmatch(r'sha256:[0-9a-f]{64}',pins[role]) is None for role in ('web','telegram','logto'))):raise ValueError('fullstack_source_images')
     base={key:pins[key] for key in ('source','owner','backend','foundation')}|{'schema':1}
     fixture.prepare(output,base,telegram_provider=True)
@@ -87,9 +142,8 @@ def inputs(output, images, *, core=None):
     seeder['volumes']=[str(HERE/'seed-runtime.mjs')+':/resource/seed-runtime.mjs:ro',
         *(str(ROOT/'apps/backend/src/development'/(name+'.ts'))+':/resource/development/'+name+'.ts:ro'
           for name in ('seed-local-development','seed-local-offer-catalog'))]
-    settings=acceptance.validate_profile(json.loads(PROFILE.read_text()))
     monitor=output/'monitoring'
-    production.prepare(monitor,data=output/'monitoring-data',project='inside-observability-full-'+os.urandom(6).hex())
+    production.prepare(monitor,data=output/'monitoring-data',project='inside-observability-full-'+os.urandom(6).hex(),**({'scope':scope} if scope=='technical' else {}))
     core=json.loads((monitor/'compose.json').read_text())
     # Every fixture service is acquired explicitly; unprofiled down must include this owner.
     core['services']['host-agent'].pop('profiles',None)
@@ -135,24 +189,34 @@ def inputs(output, images, *, core=None):
     plan['services']['broker-config'].pop('healthcheck',None)
     plan['services']['broker-config']['command']=['node','dist/release/write-notification-broker-definitions.js']
     plan['services']['broker-config']['environment']['NOTIFICATIONS_TELEGRAM_BROKER_URL']='amqps://telegram:inside-production-smoke-telegram-password@rabbitmq:5671/inside-production-smoke?heartbeat=30'
-    analytics=json.loads((monitor/'umami.compose.json').read_text())
-    for name,item in analytics['services'].items():
-        name='umami-query' if name=='query' else name
-        item.pop('profiles',None);item['networks']=['pilot'] if name=='umami' else ['pilot','telemetry']
-        plan['services'][name]=item
+    if scope=='full':
+        analytics=json.loads((monitor/'umami.compose.json').read_text())
+        for name,item in analytics['services'].items():
+            name='umami-query' if name=='query' else name
+            item.pop('profiles',None);item['networks']=['pilot'] if name=='umami' else ['pilot','telemetry']
+            plan['services'][name]=item
     extra.configure(output,plan,pins)
     telegram.configure(output,plan,pins)
     storage.configure(output,plan)
     for item in plan['services'].values():item['pull_policy']='never';item.pop('restart',None)
+    selected=PROFILE
+    if scope=='technical':
+        selected=output/'selected-profile.json';pilot.write_json(selected,settings)
     for name in ('loadgen','provider'):
-        plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(HERE/'phase-timing.mjs')+':/resource/phase-timing.mjs:ro',str(HERE/'stability-protocol.mjs')+':/resource/stability-protocol.mjs:ro',str(HERE/'responses.mjs')+':/resource/responses.mjs:ro',str(HERE/'test-responses.mjs')+':/resource/test-responses.mjs:ro',str(PROFILE)+':/resource/full-profile.json:ro']
+        plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(HERE/'phase-timing.mjs')+':/resource/phase-timing.mjs:ro',str(HERE/'stability-protocol.mjs')+':/resource/stability-protocol.mjs:ro',str(HERE/'responses.mjs')+':/resource/responses.mjs:ro',str(HERE/'test-responses.mjs')+':/resource/test-responses.mjs:ro',str(selected)+':/resource/full-profile.json:ro']
         plan['services'][name]['networks']=['pilot','telemetry',*(['storage'] if name=='loadgen' else [])]
     if cpu_control.present(output.parent/cpu_control.PAIR):
         plan=cpu_control.prepare_plan(sys.modules[__name__],output,source,plan)
     pilot.write_json(output/'compose.json',plan)
     (output/'compose.json').chmod(0o600)
-    pilot.write_json(output/'fullstack-source.json',{'source':source,'images':pins,'profile':settings,
-        'capacity_scope':'whole isolated process topology; source-cache sampler workload, physical Timeweb verification and seven days remain open'})
+    prepared={'source':source,'images':pins,'profile':settings,
+        'capacity_scope':'whole isolated process topology; source-cache sampler workload, physical Timeweb verification and seven days remain open'}
+    if scope=='technical':
+        prepared.update({'scope':scope,'scope_binding':{'scope':scope,'source':source,'nonce':os.urandom(32).hex(),
+            'output_sha256':stage_timing.output_binding(output),'profile':settings['name'],
+            'services':list(services(scope)),'databases':['inside','logto','inside_telegram']}})
+    pilot.write_json(output/'fullstack-source.json',prepared)
+    prepared_scope(output,expected=scope,source=source)
     # Compiler output can reside on another filesystem than Docker's storage.
     compiler_storage=monitor/'horizon'
     disk=pilot.shutil.disk_usage(compiler_storage)
@@ -267,7 +331,8 @@ def ready(compose,path,host='api',port=3001):
 
 def seed(compose,output,*,timing=None):
     call=partial(stage_timing.call,timing)
-    actors=acceptance.validate_profile(json.loads(PROFILE.read_text()))['accounts']
+    scope=prepared_scope(output)
+    actors=profile(scope)['accounts']
     call('seed_database_ready',resource_runtime.wait_ready,compose)
     call('seed_migrate',invoke,compose,['run','--rm','--no-deps','migrations'],timeout=60)
     definitions=call('seed_broker_config',invoke,compose,['run','--rm','--no-deps','broker-config'],timeout=15)
@@ -287,22 +352,24 @@ def seed(compose,output,*,timing=None):
     call('seed_logto_ready',ready,compose,'/oidc/.well-known/openid-configuration','logto',3001)
     argv=[sys.executable,str(Path(__file__).resolve()),'contacts','--output',str(output)]
     with contact_job.start(output,argv,timing=timing) as contacts:
-        from importlib.util import spec_from_file_location,module_from_spec
-        spec=spec_from_file_location('fullstack_database_setup',HERE.parent/'observability-umami/setup_database.py');owner=module_from_spec(spec);spec.loader.exec_module(owner)
         # Own fresh fixture only: establish a real statistics epoch before the ordinary reader.
         call('seed_statistics_epoch',sql,compose,'SELECT pg_stat_reset();',database='inside')
-        password=(output/'monitoring/umami.database.password').read_text().strip()
-        call('seed_umami_database',sql,compose,owner.sql(password))
+        if scope=='full':
+            from importlib.util import spec_from_file_location,module_from_spec
+            spec=spec_from_file_location('fullstack_database_setup',HERE.parent/'observability-umami/setup_database.py');owner=module_from_spec(spec);spec.loader.exec_module(owner)
+            password=(output/'monitoring/umami.database.password').read_text().strip()
+            call('seed_umami_database',sql,compose,owner.sql(password))
         # Umami first preserves existing PUBLIC CONNECT rights before it revokes PUBLIC.
         # Establish the dedicated source reader afterward with only its own inside CONNECT.
         bootstrap=source_cache.postgres_setup_sql()
         call('seed_source_bootstrap',sql,compose,bootstrap)
         guard_proof=call('seed_source_authority',source_guard.prove,compose,sql,bootstrap)
-        call('seed_umami_up',invoke,compose,['up','-d','umami','umami-query','umami-ingest'],timeout=30)
-        call('seed_umami_ready',ready,compose,'/api/heartbeat','umami',3000)
-        seeded=json.loads(call('seed_umami',invoke,compose,['exec','-T','umami-query','python','/pilot/fixture.py','seed'],timeout=45))
-        (output/'provider/umami.json').write_text(json.dumps(seeded));(output/'provider/umami.json').chmod(0o600)
-        (output/'monitoring/umami.reader.key').write_text(seeded['key']+'\n')
+        if scope=='full':
+            call('seed_umami_up',invoke,compose,['up','-d','umami','umami-query','umami-ingest'],timeout=30)
+            call('seed_umami_ready',ready,compose,'/api/heartbeat','umami',3000)
+            seeded=json.loads(call('seed_umami',invoke,compose,['exec','-T','umami-query','python','/pilot/fixture.py','seed'],timeout=45))
+            (output/'provider/umami.json').write_text(json.dumps(seeded));(output/'provider/umami.json').chmod(0o600)
+            (output/'monitoring/umami.reader.key').write_text(seeded['key']+'\n')
         established=json.loads(call('seed_establish',invoke,compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','establish'],timeout=45))
         if (set(established)!={'created','accounts'} or established['created']!=actors or not isinstance(established['accounts'],list) or len(established['accounts'])!=actors or any(not isinstance(value,str) or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is None for value in established['accounts']) or len(set(established['accounts']))!=actors):raise ValueError('all_accounts_required')
         (output/'provider/accounts.json').write_text(json.dumps(established['accounts']));(output/'provider/accounts.json').chmod(0o600)
@@ -321,10 +388,12 @@ def contacts_worker(output,token):
     if sys.platform!='linux':raise ValueError('fullstack_linux_required')
     source=contact_job.verify(output,token)
     if pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()!=source:raise ValueError('contacts_source_changed')
+    prepared_scope(output,source=source)
     owner=json.loads((output/'owner.json').read_text())
     pilot.restore_daemon(owner)
     compose=['docker','compose','-p',owner['project'],'-f',str(output/'compose.json')]
-    actors=acceptance.validate_profile(json.loads(PROFILE.read_text()))['accounts']
+    scope=prepared_scope(output)
+    actors=profile(scope)['accounts']
     timing=stage_timing.Timing(output,source,name=stage_timing.CONTACTS_NAME)
     call=partial(stage_timing.call,timing)
     try:
@@ -547,7 +616,8 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
     def observed(position):
         return storage.observe(compose,
             lambda *args,**options:call('phase_storage_'+position+'_reader',invoke,*args,**options),
-            lambda *args,**options:call('phase_storage_'+position+'_database',sql,*args,**options))
+            lambda *args,**options:call('phase_storage_'+position+'_database',sql,*args,**options),
+            **({'scope':'technical'} if prepared_scope(output)=='technical' else {}))
     try:
         storage_samples.append(observed('before'))
         if diagnostic_ordinal is None:
@@ -570,6 +640,9 @@ def phase(compose,project,definition,active,enabled,pair,output,*,timing=None,gr
     pressure=loadgen_cpu_pressure(samples)
     if pressure['state']!='unthrottled':errors.append('fixture_loadgen_cpu_'+pressure['state'])
     result={'loadgen_cpu_pressure':pressure,'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'storage_samples':storage_samples,'source_cache_samples':source_samples,'source_publication_timing':publications.value,'errors':errors}
+    if prepared_scope(output)=='technical':
+        result['process_roles']=list(states)
+        result['scope_binding']=stage_timing.read_json(output/'fullstack-source.json',1_048_576)['scope_binding']
     # Outside the original latency/counter/pressure windows; next-phase offsets can change.
     if diagnostic_ordinal is None and timing is not None and stage_timing.source_ok(timing.source) and type(index) is int and 0<=index<12:
         result['health_probe_timing']=health_timing.capture(project,states,current,timing.source,output,index,resource_runtime.invoke)
@@ -619,12 +692,15 @@ def await_startup_role(compose,output,role,command):
 def configure_mode(compose,output,enabled,*,timing=None,group=-1,report=None):
     mode_call=partial(stage_timing.call,timing,group=group)
     report={} if report is None else report
+    scope=prepared_scope(output)
+    apps=tuple(name for name in APPS if scope=='full' or name!='umami')
+    core=tuple(name for name in CORE if scope=='full' or name not in ('umami-ingest','umami-query'))
     mode_call('mode_configure',mode,output,enabled)
     if enabled:
         mode_call('mode_core_up',invoke,compose,['up','-d',*pilot.SERVICES],timeout=30)
-        mode_call('mode_source_up',invoke,compose,['--profile','host-metrics','up','-d','host-agent','umami-ingest','umami-query'],timeout=30)
+        mode_call('mode_source_up',invoke,compose,['--profile','host-metrics','up','-d','host-agent',*(['umami-ingest','umami-query'] if scope=='full' else [])],timeout=30)
     else:
-        mode_call('mode_core_stop',invoke,compose,['stop','--timeout','2',*CORE],timeout=30)
+        mode_call('mode_core_stop',invoke,compose,['stop','--timeout','2',*core],timeout=30)
     mode_call('mode_database_broker_recreate',invoke,compose,['up','-d','--force-recreate','--no-deps','postgres','rabbitmq'],timeout=30)
     mode_call('mode_database_ready',resource_runtime.wait_ready,compose)
     # Preserve production's RabbitMQ service_healthy dependency before worker startup.
@@ -643,7 +719,7 @@ def configure_mode(compose,output,enabled,*,timing=None,group=-1,report=None):
         report.setdefault('web_http',[]).append(mode_call('mode_web_witness',prove_web_http,compose))
     # The bounded Web witness must not age a previously ready source cohort.
     mode_call('mode_source_barrier',await_sources,compose,output,enabled=enabled)
-    active=(*APPS,*CORE) if enabled else APPS
+    active=(*apps,*core) if enabled else apps
     return active
 
 
@@ -658,8 +734,12 @@ def worker(output,*,cpu=False):
     cpu_enabled=False
     if (output/stability.MARKER).exists() or (output/stability.MARKER).is_symlink():
         return stability_worker(output,owner,compose)
-    profile=acceptance.validate_profile(json.loads(PROFILE.read_text()))
-    report={'schema':1,'state':'running','profile':profile,'phases':[],'acceptance':{'state':'incomplete'},'measured_linux_acceptance':{'state':'incomplete'},'missing':['PG/Caddy source-cache sampler workload','physical Timeweb host verification','seven days'],'source_cache_workload':False,'controlled_outage':None}
+    scope=prepared_scope(output,source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
+    settings=profile(scope)
+    report={'schema':1,'state':'running','profile':settings,'phases':[],'acceptance':{'state':'incomplete'},'measured_linux_acceptance':{'state':'incomplete'},'missing':['PG/Caddy source-cache sampler workload','physical Timeweb host verification','seven days'],'source_cache_workload':False,'controlled_outage':None}
+    if scope=='technical':
+        report.update({'scope':scope,'scope_binding':stage_timing.read_json(output/'fullstack-source.json',1_048_576)['scope_binding'],
+            'full_spec_acceptance':'deferred'})
     pilot.write_json(output/'fullstack-proof.json',report)
     timing=stage_timing.Timing(output,stage_timing.source(output))
     call=partial(stage_timing.call,timing)
@@ -670,7 +750,7 @@ def worker(output,*,cpu=False):
             call('response_contract',invoke,compose,['exec','-T','loadgen','node','--test','/resource/test-responses.mjs'],timeout=10)
             report['source_role_authority']=seed(compose,output,timing=timing)
             pilot.write_json(output/'fullstack-proof.json',report)
-            for pair,order in enumerate(profile['pairs']):
+            for pair,order in enumerate(settings['pairs']):
                 for position,state in enumerate(order):
                     group=pair*2+position
                     active=configure_mode(compose,output,enabled=state=='on',timing=timing,group=group,report=report)
@@ -678,7 +758,7 @@ def worker(output,*,cpu=False):
                     if cpu:
                         cpu_enabled=enabled
                         cpu_control.capture(sys.modules[__name__],output,compose,cpu_source,group,enabled)
-                    for definition in profile['phases']:
+                    for definition in settings['phases']:
                         index=len(report['phases'])
                         measured=phase(compose,owner['project'],definition,active,enabled,pair,output,timing=timing,group=group,index=index)
                         call('phase_report',pilot.write_json,output/('fullstack-phase-'+str(index)+'.json'),measured,group=group,phase=index)
@@ -762,28 +842,128 @@ def assessment_inputs(report):
         'peak_host_used_bytes':max((row['used_bytes'] for row in hosts),default=None)}
 
 
+HTTP_LANES=('web_home','web_material','api_catalog','api_account','mcp_discovery','telegram_webhook','logto_discovery')
+
+
+def validate_technical_phase(row,pair,mode,definition,*,complete=False):
+    def need(condition):
+        if not condition:raise ValueError('technical_fullstack_closure')
+    count=definition['seconds']*definition['requests_per_second']
+    need(type(row) is dict and row.get('pair')==pair and type(row.get('pair')) is int and row.get('mode')==mode and row.get('name')==definition['name'])
+    apps=tuple(name for name in APPS if name!='umami')
+    roles=(*apps,*(name for name in CORE if name not in ('umami-ingest','umami-query'))) if mode=='on' else apps
+    observed=row.get('process_roles')
+    need(type(observed) is list and all(type(name) is str for name in observed) and len(observed)==len(roles) and set(observed)==set(roles))
+    samples=row.get('storage_samples')
+    need(type(samples) is list and len(samples)==2)
+    for sample in samples:
+        need(type(sample) is dict and sample.get('absent_databases')==['umami'])
+        storage.validate_volumes(sample.get('volumes'))
+        databases=sample.get('database_bytes')
+        need(type(databases) is dict and set(databases)=={'inside','logto','inside_telegram'}
+             and all(type(number) is int and 0<number<2**63 for number in databases.values()))
+    load=row.get('load')
+    need(type(load) is dict and load.get('scope')=='technical')
+    for key in ('scheduled','success','missed','disabled_operations','attempted_probe_points','acknowledged_probe_points'):
+        need(type(load.get(key)) is int and 0<=load[key]<=count)
+    need(load['success']+load['missed']<=load['scheduled'])
+    operations=load.get('http_operations')
+    need(type(operations) is dict and set(operations)==set(HTTP_LANES))
+    attempted=completed=successful=0
+    for value in operations.values():
+        need(type(value) is dict and set(value)=={'attempted','completed','successful'}
+            and all(type(number) is int and 0<=number<=count//8 for number in value.values()))
+        need(value['successful']<=value['completed']<=value['attempted'])
+        attempted+=value['attempted'];completed+=value['completed'];successful+=value['successful']
+        if complete:need(value=={'attempted':count//8,'completed':count//8,'successful':count//8})
+    need(attempted+load['disabled_operations']<=load['scheduled']-load['missed'])
+    need(successful+load['disabled_operations']==load['success'])
+    probes=load['attempted_probe_points']
+    need((mode=='on' and load['acknowledged_probe_points']<=probes<=load['scheduled']-load['missed']) or (mode=='off' and probes==load['acknowledged_probe_points']==0))
+    monitoring=load.get('monitoring_http')
+    need(type(monitoring) is dict and set(monitoring)=={'attempted','completed'}
+         and all(type(number) is int and 0<=number<100_000 for number in monitoring.values())
+         and monitoring['completed']<=monitoring['attempted'])
+    if mode=='off':need(monitoring=={'attempted':0,'completed':0})
+    if complete:
+        need(load.get('completed') is True and load['scheduled']==count and load['success']==count and load['missed']==0 and load['disabled_operations']==count//8)
+        need(probes==(count if mode=='on' else 0) and load['acknowledged_probe_points']==probes)
+        if mode=='on':need(monitoring['attempted']>0 and monitoring['completed']==monitoring['attempted'])
+    return {'scheduled_slots':load['scheduled'],'disabled_slots':load['disabled_operations'],
+        'application_http_attempted':attempted,'application_http_completed':completed,
+        'otlp_probe_attempted':probes,'monitoring_http':monitoring,'per_lane':operations}
+
+
+def technical_closure(report):
+    settings=profile('technical')
+    if report.get('scope')!='technical' or report.get('profile')!=settings or report.get('full_spec_acceptance')!='deferred':raise ValueError('technical_fullstack_closure')
+    expected=[(pair,mode,definition) for pair,modes in enumerate(settings['pairs']) for mode in modes for definition in settings['phases']]
+    phases=report.get('phases')
+    if type(phases) is not list or len(phases)!=len(expected):raise ValueError('technical_fullstack_closure')
+    summary={'scheduled_slots':0,'disabled_slots':0,'application_http_attempted':0,'application_http_completed':0,'otlp_probe_attempted':0,
+        'monitoring_http':{'attempted':0,'completed':0},'per_lane':{label:{'attempted':0,'completed':0,'successful':0} for label in HTTP_LANES}}
+    binding=report.get('scope_binding')
+    if type(binding) is not dict:raise ValueError('technical_fullstack_closure')
+    for row,(pair,mode,definition) in zip(phases,expected):
+        if row.get('scope_binding')!=binding:raise ValueError('technical_fullstack_closure')
+        measured=validate_technical_phase(row,pair,mode,definition,complete=True)
+        for key in ('scheduled_slots','disabled_slots','application_http_attempted','application_http_completed','otlp_probe_attempted'):summary[key]+=measured[key]
+        for key in ('attempted','completed'):summary['monitoring_http'][key]+=measured['monitoring_http'][key]
+        for label in HTTP_LANES:
+            for key in ('attempted','completed','successful'):summary['per_lane'][label][key]+=measured['per_lane'][label][key]
+    return summary
+
+
 def evaluate(report):
+    if report.get('scope')=='technical' or report.get('profile',{}).get('name')=='platform-technical-v1':
+        report['technical_workload']=technical_closure(report)
     return acceptance.assess(assessment_inputs(report))
 
 
-def collect(output, metadata, destination):
+def collect(output, metadata, destination, *, scope='full'):
+    profile(scope)
     cpu_control.reject(output)
     if any((output/name).exists() or (output/name).is_symlink() for name in (stability.MARKER,stability.NAME)):raise ValueError('diagnostic_is_not_acceptance')
     import preparation_evidence
     if output.is_symlink() or metadata.is_symlink():raise ValueError('unsafe fullstack timing source')
     source,_=hosted.metadata_source(metadata)
-    refusal=startup_refusal.read(output,source['checkout_sha'],BACKENDS)
     path=metadata/preparation_evidence.NAME
     evidence=preparation_evidence.read(path,source['checkout_sha']) if path.exists() or path.is_symlink() else None
+    # Admission and image preparation precede creation of the runtime directory.
+    # Publish only metadata and an explicit incomplete result in that case. An
+    # existing output still requires its runtime binding, even after record loss.
+    if scope=='technical' and not output.exists():
+        resource_runtime.ci.collect(output,metadata,destination,artifacts=())
+        pilot.write_json(destination/'fullstack-proof.json',{'schema':1,'state':'preparation_only','scope':scope,
+            'source':source['checkout_sha'],'profile':profile(scope),'phases':[],
+            'measured_linux_acceptance':{'state':'incomplete'},'full_spec_acceptance':'deferred'})
+        if evidence is not None:pilot.write_json(destination/preparation_evidence.NAME,evidence)
+        return
+    prepared_scope(output,expected=scope,source=source['checkout_sha'])
+    if scope=='technical':
+        prepared=stage_timing.read_json(output/'fullstack-source.json',1_048_576)
+        proof_path=output/'fullstack-proof.json'
+        if proof_path.exists() or proof_path.is_symlink():
+            proof=stage_timing.read_json(proof_path,4_194_304)
+            if type(proof) is not dict or type(proof.get('measured_linux_acceptance',{})) is not dict:raise ValueError('fullstack_scope_evidence')
+            if proof.get('scope')!=scope or proof.get('scope_binding')!=prepared['scope_binding'] or proof.get('profile')!=prepared['profile'] or proof.get('full_spec_acceptance')!='deferred':raise ValueError('fullstack_scope_evidence')
+            expected=[(pair,mode,definition) for pair,modes in enumerate(prepared['profile']['pairs']) for mode in modes for definition in prepared['profile']['phases']]
+            phases=proof.get('phases')
+            if type(phases) is not list or len(phases)>len(expected):raise ValueError('fullstack_scope_evidence')
+            for row,(pair,mode,definition) in zip(phases,expected):
+                if type(row) is not dict or row.get('scope_binding')!=prepared['scope_binding']:raise ValueError('fullstack_scope_evidence')
+                validate_technical_phase(row,pair,mode,definition)
+            if proof.get('measured_linux_acceptance',{}).get('state')=='passed':technical_closure(proof)
+    refusal=startup_refusal.read(output,source['checkout_sha'],BACKENDS)
     timings={}
     for name in (stage_timing.NAME,stage_timing.CONTACTS_NAME):
         path=output/name
         if path.exists() or path.is_symlink():timings[name]=stage_timing.read(output,source['checkout_sha'],name=name)
-    profile=acceptance.validate_profile(json.loads(PROFILE.read_text()))
-    definitions=profile['phases'];canonical_modes=profile['pairs'][0]
+    settings=profile(scope)
+    definitions=settings['phases'];canonical_modes=settings['pairs'][0]
     # Filenames follow execution order; client phases retain canonical OFF/ON order.
     expected=[(pair,mode,definition,pair*len(canonical_modes)*len(definitions)+canonical_modes.index(mode)*len(definitions)+index)
-        for pair,modes in enumerate(profile['pairs']) for mode in modes for index,definition in enumerate(definitions)]
+        for pair,modes in enumerate(settings['pairs']) for mode in modes for index,definition in enumerate(definitions)]
     for ordinal,(pair,mode,definition,phase) in enumerate(expected):
         path=output/('fullstack-phase-'+str(ordinal)+'.json')
         if path.exists() or path.is_symlink():
@@ -791,6 +971,9 @@ def collect(output, metadata, destination):
             if (type(row) is not dict or type(row.get('load')) is not dict or type(row.get('pair')) is not int
                     or row['pair']!=pair or row.get('mode')!=mode or row.get('name')!=definition['name']):raise ValueError('closed_slot_refusal')
             load=row['load']
+            if scope=='technical':
+                if load.get('scope')!=scope or row.get('scope_binding')!=prepared['scope_binding']:raise ValueError('fullstack_scope_evidence')
+                validate_technical_phase(row,pair,mode,definition)
             leaf=slot_refusal.validate(load.get('slot_refusal'),phase,mode=='on',load.get('missed'))
             if load.get('completed') is True and leaf['state']=='captured':raise ValueError('closed_slot_refusal')
             if 'health_probe_timing' in row:health_timing.validate(row['health_probe_timing'],source['checkout_sha'],output,ordinal)
@@ -852,7 +1035,10 @@ def main():
     parser.add_argument('--output',type=Path);parser.add_argument('--images',type=Path)
     parser.add_argument('--protocol',choices=(stability.COLD_PROTOCOL,stability.PRIMED_PROTOCOL))
     parser.add_argument('--core',choices=core_layout.CORES)
+    parser.add_argument('--scope',choices=('full','technical'),default='full')
     parser.add_argument('--contacts-token');parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
+    if args.scope=='technical' and args.action not in ('run','recover','collect'):parser.error('--scope technical requires acceptance run, recover or collect')
+    if args.scope=='technical' and args.core is not None:parser.error('technical scope uses primary core')
     if args.core is not None:
         if args.action!='run':parser.error('--core requires run action')
         core_layout.require_runtime(args.core)
@@ -874,23 +1060,29 @@ def main():
     if args.action=='worker':return worker(args.output)
     if args.action=='diagnostic-collect':return stability_collect(args.output,args.metadata,args.public,protocol=protocol)
     if args.action=='collect':
-        return collect(args.output,args.metadata,args.public)
+        return collect(args.output,args.metadata,args.public,scope=args.scope)
     if args.action=='recover':
-        if args.images is None or not preparation.directory(args.images).exists():return resource_runtime.ci.recover(args.output,project_prefix=PREFIX,services=SERVICES)
+        bound=(args.output/'fullstack-source.json').exists() or (args.output/'fullstack-source.json').is_symlink()
+        registered=(args.output/'owner.json').exists() or (args.output/'owner.json').is_symlink()
+        # Check surviving prepared inputs even without the binding, before either
+        # project recovery or image retirement. No acquired project remains safe.
+        prepared_scope(args.output,expected=args.scope if bound or registered else None,
+            **({'source':pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()} if args.scope=='technical' and bound else {}))
+        if args.images is None or not preparation.directory(args.images).exists():return resource_runtime.ci.recover(args.output,project_prefix=PREFIX,services=services(args.scope))
         stage=preparation.recover_stage(args.images)
         with stage.in_use():
             if not (args.output/'owner.json').exists() and not (args.output/'owner.json').is_symlink():
                 return stage.release(str(args.output.resolve()),cleanup_ok=True)
-            result=resource_runtime.ci.recover(args.output,project_prefix=PREFIX,services=SERVICES)
+            result=resource_runtime.ci.recover(args.output,project_prefix=PREFIX,services=services(args.scope))
             stage.release(str(args.output.resolve()),cleanup_ok=result.get('down')=='passed' and result.get('residue')=='passed')
             return result
     if args.images is None:parser.error('--images required')
     stage=preparation.recover_stage(args.images)
     with stage.in_use():
         stage.require_consumer(str(args.output.resolve()))
-        pilot.run(args.output,prepare_inputs=lambda output:stability_inputs(output,args.images,protocol) if args.action=='diagnostic-run' else inputs(output,args.images),worker_script=Path(__file__).resolve(),
-            ports=(18427,13000,14318,1514,13301),services=SERVICES,project_prefix=PREFIX,
-            scope=('diagnostic_only; not capacity acceptance' if args.action=='diagnostic-run' else 'representative whole-process Linux resource corpus; production rollout evidence incomplete'),missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
+        pilot.run(args.output,prepare_inputs=lambda output:stability_inputs(output,args.images,protocol) if args.action=='diagnostic-run' else inputs(output,args.images,scope='technical') if args.scope=='technical' else inputs(output,args.images),worker_script=Path(__file__).resolve(),
+            ports=(18427,13000,14318,1514,13301),services=services(args.scope),project_prefix=PREFIX,
+            scope=('diagnostic_only; not capacity acceptance' if args.action=='diagnostic-run' else 'technical-only platform-technical-v1 whole-process Linux resource corpus; full-spec acceptance deferred' if args.scope=='technical' else 'representative whole-process Linux resource corpus; production rollout evidence incomplete'),missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
 
 
 if __name__=='__main__':

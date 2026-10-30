@@ -20,7 +20,8 @@ const meta = {
   ...environment,
   args: { state: { kind: "not_found" } },
   component: ProductOrderRouteState,
-  title: "Pages/Authoring/Состояния редактора продукта",
+  id: "pages-authoring-состояния-редактора-продукта",
+  title: "Pages/Authoring/Редактор продукта/Route states",
 } satisfies Meta<typeof ProductOrderRouteState>;
 
 export default meta;

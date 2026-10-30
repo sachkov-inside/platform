@@ -108,8 +108,63 @@
   }
 }
 @media (width >= 48rem) {
-  .bar,
+  .bar:not([data-layout="lesson"]),
   .space {
+    display: none;
+  }
+}
+.opens {
+  display: none;
+}
+
+/* Lesson dock: previous, programme opener and next stay apart on phones and tablets. */
+.bar[data-layout="lesson"] {
+  width: min(calc(100% - 3rem), 22rem);
+  padding: 4px;
+}
+.bar[data-layout="lesson"] .items {
+  gap: 6px;
+}
+.bar[data-layout="lesson"] .items > :is(a, button):not([aria-current]) {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.bar[data-layout="lesson"] .items > :is(a, button):not([aria-current]):hover {
+  background: var(--muted);
+}
+.bar[data-layout="lesson"] .items > [aria-current] {
+  justify-content: flex-start;
+  gap: 10px;
+  padding-inline: 14px 12px;
+  text-align: left;
+}
+.bar[data-layout="lesson"] .items > [aria-current] > svg {
+  color: inherit;
+  opacity: 0.85;
+}
+.bar[data-layout="lesson"] .items > [aria-current] .label {
+  display: flex;
+  flex: 1;
+  flex-direction: column-reverse;
+  line-height: 1.25;
+}
+.bar[data-layout="lesson"] .label > span {
+  font-weight: 600;
+}
+.bar[data-layout="lesson"] .label small {
+  opacity: 0.8;
+}
+.bar[data-layout="lesson"] .opens {
+  display: block;
+}
+@container (width < 20em) {
+  /* The narrowest phones keep the words and drop the list icon. */
+  .bar[data-layout="lesson"] .items > [aria-current] > svg:first-child {
+    display: none;
+  }
+}
+@media (width >= 64rem) {
+  .bar[data-layout="lesson"] {
     display: none;
   }
 }

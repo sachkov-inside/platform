@@ -11,8 +11,15 @@ import { setTimeout as delay } from "node:timers/promises";
 const directory = process.argv[2];
 assert.ok(directory);
 const client = fileURLToPath(new URL("./client.mjs", import.meta.url));
+const technicalFailure = process.argv[4] === "technical-failure";
+const technicalScope = process.argv[4] === "technical" || technicalFailure;
 const profile = fileURLToPath(
-  new URL("../../infra/observability/fullstack/profile.json", import.meta.url),
+  new URL(
+    technicalScope
+      ? "../../infra/observability/fullstack/technical-profile.json"
+      : "../../infra/observability/fullstack/profile.json",
+    import.meta.url,
+  ),
 );
 /** @param {unknown} value @param {string} key @returns {unknown} */
 function field(value, key) {
@@ -238,6 +245,7 @@ const server = createServer(async (request, response) => {
       token_endpoint: "http://logto:3001/oidc/token",
     };
   }
+  if (technicalFailure && host === "mcp" && counts[host] === 1) status = 503;
   if (queryFailures) {
     if (host === "gateway") {
       if (request.url?.includes("query=1&")) {
@@ -302,9 +310,9 @@ else
     await writeFile(
       loader,
       `import fs from 'node:fs';import http from 'node:http';import https from 'node:https';import timers from 'node:timers/promises';import {syncBuiltinESMExports} from 'node:module';
-const read=fs.readFileSync;fs.readFileSync=(p,...a)=>p==='/resource/full-profile.json'?read(${JSON.stringify(profile)},...a):p==='/private/token.json'?JSON.stringify({tokens:Array.from({length:256},(_,index)=>'synthetic-'+index)}):p==='/private/accounts.json'?JSON.stringify(Array(256).fill(${JSON.stringify(account)})):p==='/private/caddy-root.pem'?'unused':p==='/query/key'?'synthetic':p==='/private/umami.json'?JSON.stringify({site:'synthetic',key:'synthetic'}):read(p,...a);
+const read=fs.readFileSync;fs.readFileSync=(p,...a)=>{if(${technicalScope}&&p==='/private/umami.json')throw new Error('technical analytics identity forbidden');return p==='/resource/full-profile.json'?read(${JSON.stringify(profile)},...a):p==='/private/token.json'?JSON.stringify({tokens:Array.from({length:256},(_,index)=>'synthetic-'+index)}):p==='/private/accounts.json'?JSON.stringify(Array(256).fill(${JSON.stringify(account)})):p==='/private/caddy-root.pem'?'unused':p==='/query/key'?'synthetic':p==='/private/umami.json'?JSON.stringify({site:'synthetic',key:'synthetic'}):read(p,...a);};
 const timer=timers.setTimeout;let requested=0,selected=false,completed=0,overflow=0;timers.setTimeout=(ms,...a)=>{if(ms===500){if(requested<128)requested++;else overflow=1;if(${enabled && !queryFailures}&&!selected){selected=true;return timer(0,...a).then(value=>{completed=1;return value;});}}return timer(ms,...a);};process.on('exit',()=>fs.writeFileSync(${JSON.stringify(timerReceipt)},JSON.stringify([requested,completed,overflow])));
-const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.resource.test','mcp','telegram','logto','alloy','gateway','umami-query','umami-ingest'].includes(o.hostname))throw new Error('fixture target');return request({...o,hostname:'127.0.0.1',port:${address.port},headers:{...o.headers,'x-fixture-host':o.hostname}},cb);};http.request=mapped;https.request=mapped;syncBuiltinESMExports();`,
+const request=http.request;const mapped=(o,cb)=>{if(${technicalScope}&&o.hostname.startsWith('umami'))throw new Error('technical analytics transport forbidden');if(!['site.resource.test','api.resource.test','mcp','telegram','logto','alloy','gateway','umami-query','umami-ingest'].includes(o.hostname))throw new Error('fixture target');return request({...o,hostname:'127.0.0.1',port:${address.port},headers:{...o.headers,'x-fixture-host':o.hostname}},cb);};http.request=mapped;https.request=mapped;syncBuiltinESMExports();`,
     );
     // deterministic-test-allow process-cleanup: inherited group, externally owned by the root tooling runOwnedProcess; no detached CLI group can escape worker termination.
     child = spawn(
@@ -373,6 +381,14 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
           directory,
           `actual-client-result-${String(diagnosticOrdinal)}.json`,
         ),
+        JSON.stringify(result),
+      );
+    }
+    if (technicalScope) {
+      assert.equal(counts["umami-query"], undefined);
+      assert.equal(counts["umami-ingest"], undefined);
+      await writeFile(
+        join(directory, "technical-client-result.json"),
         JSON.stringify(result),
       );
     }
@@ -580,9 +596,9 @@ const request=http.request;const mapped=(o,cb)=>{if(!['site.resource.test','api.
         {
           scheduled: 400,
           missed: 0,
-          success: 400,
-          unexpected: 0,
-          completed: true,
+          success: technicalFailure ? 399 : 400,
+          unexpected: technicalFailure ? 1 : 0,
+          completed: !technicalFailure,
         },
       );
       const applicationCounts = Object.fromEntries(

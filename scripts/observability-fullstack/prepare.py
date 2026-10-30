@@ -28,16 +28,18 @@ def signoz_preloads():
     return tuple(proofs[row['pinned']].runtime_reference for row in lock['images'])
 
 
-def preload_inventory(*, representative=False):
+def preload_inventory(*, representative=False, scope='full'):
+    if type(scope) is not str or scope not in ('full','technical') or representative and scope!='full':raise ValueError('closed_fullstack_scope')
     pins=json.loads((binding.ROOT/'infra/observability/pilot/inputs.lock.json').read_text())['images']
     pins.update(json.loads((binding.ROOT/'infra/observability/umami/inputs.lock.json').read_text())['images'])
     pins.pop('postgres',None)
+    if scope=='technical':pins.pop('umami')
     pins['rabbitmq']='ghcr.io/sachkov-inside/rabbitmq:4.2.4-alpine@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47'
     return tuple(sorted(set(pins.values()) | (set(signoz_preloads()) if representative else set())))
 
 
-def prepare(metadata, images, consumer):
-    return _prepare(metadata,images,consumer,representative=False)
+def prepare(metadata, images, consumer, *, scope='full'):
+    return _prepare(metadata,images,consumer,representative=False,scope=scope)
 
 
 def prepare_representative(metadata, images, consumer):
@@ -45,14 +47,15 @@ def prepare_representative(metadata, images, consumer):
     return _prepare(metadata,images,consumer,representative=True)
 
 
-def _prepare(metadata, images, consumer, *, representative):
+def _prepare(metadata, images, consumer, *, representative, scope='full'):
+    if type(scope) is not str or scope not in ('full','technical') or representative and scope!='full':raise ValueError('closed_fullstack_scope')
     source,disk=hosted.metadata_source(metadata)
     if not disk['ready'] or images.exists():raise ValueError('fresh_admitted_fullstack_required')
     identity=hosted.runtime.pilot.daemon.identify(hosted.runtime.ci.read_command)
     pilot=hosted.runtime.pilot
     pilot.FROZEN_DOCKER_ENDPOINT=identity['endpoint'];pilot.FROZEN_DOCKER_IDENTITY=identity
     owner='inside-platform-production-smoke-cache-'+source['run_id']+'-'+source['run_attempt']+'-full'
-    pins=preload_inventory(representative=representative)
+    pins=preload_inventory(representative=representative,scope=scope)
     growth=preparation_budget(sys.platform,pilot.shutil.disk_usage(identity['storage']).free)
     record=disk_feedback.Record(source['checkout_sha'])
     evidence=preparation_evidence.Record(metadata,source['checkout_sha'],record)
@@ -82,6 +85,7 @@ def _prepare(metadata, images, consumer, *, representative):
                     evidence.completed()
                 evidence.mark('manifest')
                 value={'schema':3,'source':source['checkout_sha'],'owner':owner}
+                if scope=='technical':value['scope']=scope
                 for role in ('backend','foundation','web','telegram','logto'):value[role]=stage.iidfile(role).read_text().strip()
                 with os.fdopen(os.open(images,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w') as stream:json.dump(value,stream)
                 evidence.completed()
@@ -93,5 +97,5 @@ if __name__=='__main__':
     signal.signal(signal.SIGTERM,lambda *_:(_ for _ in ()).throw(KeyboardInterrupt()))
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--metadata',type=Path,required=True);parser.add_argument('--images',type=Path,required=True)
-    parser.add_argument('--consumer',required=True);args=parser.parse_args()
-    prepare(args.metadata,args.images,args.consumer)
+    parser.add_argument('--consumer',required=True);parser.add_argument('--scope',choices=('full','technical'),default='full');args=parser.parse_args()
+    prepare(args.metadata,args.images,args.consumer,scope=args.scope)

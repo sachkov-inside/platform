@@ -15,7 +15,8 @@ const environment = publicPageEnvironment("/products/working-with-agents");
 const meta = {
   ...environment,
   component: ProductLandingView,
-  title: "Pages/Product/AI-first",
+  id: "pages-product-ai-first",
+  title: "Pages/Product/Landing/AI-first",
   args: {
     // A historical offer still keeps its support term outside page copy.
     offerTerms: { materialsMonths: 24, chatMonths: 24, supportMonths: 6 },

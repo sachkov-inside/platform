@@ -34,9 +34,27 @@ if (
   !record(rawProfile) ||
   rawProfile["accounts"] !== 256 ||
   rawProfile["materials"] !== 512 ||
-  rawProfile["concurrency"] !== 8
+  rawProfile["concurrency"] !== 8 ||
+  !["platform-representative-v1", "platform-technical-v1"].includes(
+    String(rawProfile["name"]),
+  )
 )
   throw new Error("fixed profile required");
+const technicalScope = rawProfile["name"] === "platform-technical-v1";
+const monitoringHttp = { attempted: 0, completed: 0 };
+/** @type {Record<string, {attempted:number,completed:number,successful:number}> | undefined} */
+let applicationHttp;
+/** @param {string} host @param {string} path */
+function applicationLane(host, path) {
+  if (host === "site.resource.test")
+    return path === "/" ? "web_home" : "web_material";
+  if (host === "api.resource.test")
+    return path === "/accounts/current" ? "api_account" : "api_catalog";
+  if (host === "mcp") return "mcp_discovery";
+  if (host === "telegram") return "telegram_webhook";
+  if (host === "logto") return "logto_discovery";
+  return undefined;
+}
 const profile = { accounts: 256, materials: 512, concurrency: 8 };
 const privateTokens = () => {
   const raw = parse(readFileSync("/private/token.json", "utf8"));
@@ -127,6 +145,7 @@ async function call(
         method !== "GET" ||
         body !== undefined ||
         Object.keys(headers).length !== 0)) ||
+    (technicalScope && host.startsWith("umami")) ||
     ![
       "api",
       "web",
@@ -144,6 +163,12 @@ async function call(
     ].includes(host)
   )
     throw new Error("private target only");
+  const lane =
+    technicalScope && applicationHttp ? applicationLane(host, path) : undefined;
+  const application = lane === undefined ? undefined : applicationHttp?.[lane];
+  if (application) application.attempted++;
+  const monitoring = host === "gateway";
+  if (technicalScope && monitoring) monitoringHttp.attempted++;
   const started = performance.now();
   let observerFault = false;
   /** @param {()=>void} action */
@@ -168,6 +193,9 @@ async function call(
       const finish = (status, value, failure = 0) => {
         if (done) return;
         done = true;
+        if (application && status > 0) application.completed++;
+        if (technicalScope && monitoring && status > 0)
+          monitoringHttp.completed++;
         clearTimeout(timer);
         const ended = performance.now();
         observe(() => observer?.finish(ended, observerFault ? 5 : failure));
@@ -491,27 +519,31 @@ async function readMonitoring() {
       return { failure: target + "_response", status: result.status };
     maximum = Math.max(maximum, result.seconds);
   }
-  const state = analytics();
-  const stats = await call(
-    "umami-query",
-    3001,
-    "/api/websites/" +
-      state.site +
-      "/stats?startAt=" +
-      String(Date.now() - 3600000) +
-      "&endAt=" +
-      String(Date.now()),
-    "GET",
-    undefined,
-    { authorization: "Bearer " + state.key },
-  );
-  if (stats.status !== 200)
-    return { failure: "umami_http", status: stats.status };
-  if (!nativeStats(stats.value))
-    return { failure: "umami_response", status: stats.status };
+  let analyticsSeconds = 0;
+  if (!technicalScope) {
+    const state = analytics();
+    const stats = await call(
+      "umami-query",
+      3001,
+      "/api/websites/" +
+        state.site +
+        "/stats?startAt=" +
+        String(Date.now() - 3600000) +
+        "&endAt=" +
+        String(Date.now()),
+      "GET",
+      undefined,
+      { authorization: "Bearer " + state.key },
+    );
+    if (stats.status !== 200)
+      return { failure: "umami_http", status: stats.status };
+    if (!nativeStats(stats.value))
+      return { failure: "umami_response", status: stats.status };
+    analyticsSeconds = stats.seconds;
+  }
   const sources = await sourceCacheReady();
   return sources.ok
-    ? { seconds: Math.max(maximum, stats.seconds, sources.seconds) }
+    ? { seconds: Math.max(maximum, analyticsSeconds, sources.seconds) }
     : {
         failure: sources.failure,
         status: sources.status,
@@ -652,7 +684,7 @@ async function operation(
       ...(await call("logto", 3001, "/oidc/.well-known/openid-configuration")),
       label: "logto_discovery",
     };
-  if (!enabled)
+  if (!enabled || technicalScope)
     return {
       status: 204,
       value: null,
@@ -756,6 +788,25 @@ async function retained(phase) {
 async function load(definition, enabled, pair, diagnosticOrdinal) {
   const start = performance.now(),
     end = start + definition.seconds * 1000;
+  const operationLabels = [
+    "web_home",
+    "web_material",
+    "api_catalog",
+    "api_account",
+    "mcp_discovery",
+    "analytics_disabled",
+    "telegram_webhook",
+    "logto_discovery",
+  ];
+  /** @type {Record<string, {attempted:number,completed:number,successful:number}>} */
+  const httpOperations = Object.fromEntries(
+    operationLabels
+      .filter((label) => label !== "analytics_disabled")
+      .map((label) => [label, { attempted: 0, completed: 0, successful: 0 }]),
+  );
+  if (technicalScope) applicationHttp = httpOperations;
+  let disabledOperations = 0,
+    attemptedProbes = 0;
   let scheduled = 0,
     missed = 0,
     unexpected = 0,
@@ -863,6 +914,7 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
       const slot = occupancy.acquire(index % 8);
       const work = (async () => {
         if (enabled) {
+          attemptedProbes++;
           const response = await probe(
             phase,
             index,
@@ -892,7 +944,16 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
                 : value.label === "mcp_discovery"
                   ? String(index + 1)
                   : "";
-          if (!operationOk(value, value.label, expected)) unexpected++;
+          const semanticSuccess = operationOk(value, value.label, expected);
+          if (technicalScope) {
+            if (value.label === "analytics_disabled") disabledOperations++;
+            else {
+              const counter = httpOperations[value.label];
+              if (!counter) throw new Error("closed HTTP operation required");
+              if (semanticSuccess) counter.successful++;
+            }
+          }
+          if (!semanticSuccess) unexpected++;
           else {
             success++;
             if (value.label === "telegram_webhook") telegramAccepted++;
@@ -950,6 +1011,15 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
           actor_cohort: 0,
           maximum_inflight: maximumInflight,
         }),
+    ...(technicalScope
+      ? {
+          scope: "technical",
+          http_operations: httpOperations,
+          disabled_operations: disabledOperations,
+          attempted_probe_points: attemptedProbes,
+          monitoring_http: { ...monitoringHttp },
+        }
+      : {}),
     telegram_acknowledged: telegramAccepted,
     acknowledged_probe_points: acknowledged,
     stored_probe_points: stored,

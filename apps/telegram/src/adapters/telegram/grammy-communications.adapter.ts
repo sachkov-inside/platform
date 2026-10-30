@@ -182,6 +182,13 @@ function telegramEntities(
       });
     else if (entity.type === "text_link" && entity.url !== undefined)
       mapped.push({ type: "text_link", offset, length, url: entity.url });
+    else if (entity.type === "custom_emoji" && hasText(entity.custom_emoji_id))
+      mapped.push({
+        type: "custom_emoji",
+        offset,
+        length,
+        custom_emoji_id: entity.custom_emoji_id,
+      });
     else if (type !== undefined) mapped.push({ type, offset, length });
     else return undefined;
   }

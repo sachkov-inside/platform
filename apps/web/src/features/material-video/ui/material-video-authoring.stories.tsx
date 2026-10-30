@@ -47,7 +47,8 @@ const meta = {
       },
     },
   },
-  title: "Components/Material video/Authoring",
+  id: "components-material-video-authoring",
+  title: "Components/Админка/Редактор/Material video",
 } satisfies Meta<typeof MaterialVideoAuthoringView>;
 
 export default meta;

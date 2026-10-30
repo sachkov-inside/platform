@@ -51,6 +51,7 @@ jobs:
           git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
             pnpm-lock.yaml package.json pnpm-workspace.yaml \
             infra/production/database scripts/foundation-recovery-proof.py \
+            scripts/heavy-check/processes.py \
             scripts/test_foundation_recovery_proof.py scripts/test_foundation_recovery_lifecycle_docker.py \
             scripts/foundation-repository-transition.py scripts/backup-repository-inventory.py \
             scripts/test_backup_repository_inventory.py scripts/test_backup_repository_transition.py \
