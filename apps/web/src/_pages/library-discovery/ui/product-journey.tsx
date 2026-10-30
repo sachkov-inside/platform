@@ -41,12 +41,15 @@ type ProductResult = Extract<
  */
 export function ProductJourney({
   accessPending = false,
+  productOpen = false,
   result,
   currentHref,
   onboarding,
 }: {
   /** Личная часть ещё идёт: строки стоят на общих данных, отметки доступа уточняются. */
   readonly accessPending?: boolean;
+  /** Продукт открыт читателю покупкой или тарифом: строки не отмечают бесплатные уроки. */
+  readonly productOpen?: boolean;
   readonly artifacts?: ReaderProductArtifactsResult;
   readonly result: ProductResult;
   readonly currentHref: Route;
@@ -113,7 +116,13 @@ export function ProductJourney({
         label,
         ...(shortLabel === undefined ? {} : { shortLabel }),
         runs: productChapterRuns(partItems, chapters, chapterOf).map((run) =>
-          journeyRun(run, { accessPending, currentHref, ledChapters, result }),
+          journeyRun(run, {
+            accessPending,
+            currentHref,
+            ledChapters,
+            productOpen,
+            result,
+          }),
         ),
       }),
     ),
@@ -168,11 +177,13 @@ function journeyRun(
     accessPending,
     currentHref,
     ledChapters,
+    productOpen,
     result,
   }: {
     readonly accessPending: boolean;
     readonly currentHref: Route;
     readonly ledChapters: Set<string>;
+    readonly productOpen: boolean;
     readonly result: ProductResult;
   },
 ): JourneyRun {
@@ -314,6 +325,7 @@ function journeyRun(
             key={`card-${placementId ?? material.slug}`}
             readerContext={{ placementId }}
             accessPending={accessPending}
+            productOpen={productOpen}
             productOrdinal={ordinal}
             readingStatus={
               <ProductMaterialMarker

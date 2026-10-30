@@ -49,6 +49,7 @@ export async function PersonalProduct({
   let onboarding:
     Extract<ProductReaderState, { kind: "learning" }>["onboarding"] | null =
     null;
+  let productOpen = false;
   if (accessToken !== undefined) {
     try {
       accountId = (await resolveAccount(accessToken)).accountId;
@@ -60,6 +61,7 @@ export async function PersonalProduct({
               result.reference.id,
               result.reference.slug,
             ));
+      productOpen = state?.access === "open";
       if (state?.kind === "learning") {
         client.setQueryData(
           productContinuationQueryKey(accountId, result.reference.slug),
@@ -76,6 +78,7 @@ export async function PersonalProduct({
       artifacts={artifacts}
       preorder={preorder}
       productOffer={productOffer}
+      productOpen={productOpen}
       result={result}
       subscriptionOffered={subscriptionOffered}
     />
