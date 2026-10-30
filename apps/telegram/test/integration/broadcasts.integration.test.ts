@@ -293,7 +293,7 @@ it.each([
         await http(
           command("broadcasts.read", { broadcastId: unlaunched.broadcastId }),
         )
-      ).json<CommunicationsBody>().broadcast?.state,
+      ).json<CommunicationsBody>().broadcast.state,
     ).toBe("draft");
   },
 );
