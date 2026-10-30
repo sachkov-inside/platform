@@ -573,3 +573,104 @@ class DeadlineAwareRecovery(unittest.TestCase):
             path.write_bytes(original);self.assertTrue(owner.cleanup_exact())
 
 if __name__=='__main__':unittest.main()
+
+
+class NativeCommands(unittest.TestCase):
+    prepare=NativeOwner.prepare
+    def test_no_generic_exec_interface_and_literal_reader_claim_releases_owner_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+            self.assertFalse(hasattr(owner,'exec'));self.assertFalse(hasattr(owner,'run'))
+            import representative_scope as scopes
+            from test_representative_scope import MODEL
+            from test_signoz_queries import START,CUT
+            import threading
+            entered=threading.Event();release=threading.Event();failures=[]
+            original=native.call
+            def call(args,timeout=10):
+                if args[0]!='exec':return original(args,timeout)
+                entered.set();release.wait(3)
+                doc=json.loads((output/'signoz/private/representative-scope/current.json').read_text())
+                return json.dumps({'read_verified':True,'generation':doc['generation'],'digest':args[-1],'reads':10})
+            native.call=call
+            with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                with scopes.mint(owner,4,START,CUT) as dispatch:
+                    def invoke():
+                        try:dispatch.read()
+                        except BaseException as error:failures.append(error)
+                    worker=threading.Thread(target=invoke);worker.start();self.assertTrue(entered.wait(3))
+                    # Real owner validation can proceed while the native call is
+                    # waiting for the agent. No owner RLock is held by that call.
+                    checked=threading.Event()
+                    check=threading.Thread(target=lambda:(owner.validate('sig-disk'),checked.set()));check.start()
+                    try:self.assertTrue(checked.wait(1))
+                    finally:release.set();worker.join(3);check.join(3)
+                    self.assertEqual(failures,[])
+            self.assertTrue(owner.cleanup_exact())
+
+
+class ClosedSession(unittest.TestCase):
+    """Actual source/hash files plus an Engine boundary double, never native SDK proof."""
+    prepare=NativeOwner.prepare
+    def prepare_session(self,root):
+        output,native,owner,layout=self.prepare(root)
+        (output/'signoz').mkdir(mode=0o700)
+        for name in ('private','agent-driver','agent-admission'):(output/'signoz'/name).mkdir(mode=0o700)
+        (output/'signoz/agent-driver/agent_probe.py').write_bytes((owners.ROOT/'scripts/observability-signoz/agent_probe.py').read_bytes())
+        (output/'signoz/agent-driver/agent_probe.py').chmod(0o600)
+        owner.create();owner.start('sig-disk','sig-agent')
+        model=root/'source-model';model.mkdir(mode=0o700)
+        for name in owners._SOURCE:
+            target=model/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes((owners.ROOT/name).read_bytes())
+        names=('apps/backend/dist/infrastructure/observability/technical-telemetry-runtime.js',
+            'apps/backend/dist/infrastructure/observability/technical-telemetry.js',
+            'apps/backend/dist/infrastructure/object-storage/s3-object-storage.js',
+            'apps/backend/dist/infrastructure/object-storage/s3-request-observation.js')
+        modules={}
+        for name in names:
+            target=model/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text('// SOURCE-MODEL only\n')
+            modules[name]=hashlib.sha256(target.read_bytes()).hexdigest()
+        observed={'schema':2,'trace_id':'a'*32,'root_id':'b'*16,'provider_requests':1,'body_read':'passed','runtime_modules':modules}
+        return output,native,owner,model,observed
+    def test_fixed_noargv_bootstrap_does_not_hold_owner_lock_and_replay_refuses(self):
+        from test_representative_scope import MODEL
+        import representative_scope as scopes
+        import threading
+        with tempfile.TemporaryDirectory() as temporary:
+            output,native,owner,model,observed=self.prepare_session(Path(temporary).resolve())
+            entered=threading.Event();release=threading.Event();results=[];calls=[];original=native.call
+            def call(args,timeout=10):
+                if args[0]!='exec':return original(args,timeout)
+                calls.append((args,timeout));entered.set();release.wait(3)
+                return json.dumps({'bootstrap':True,'viewer_admin_denied':True,'viewer_revoked_denied':True,'reads':10,
+                    'sdk':{'sdk_span_semantics':'passed','sdk_metric_semantics':'passed','stored_spans':3,'logical_series':67,
+                        'unknown_fields':['metric.exemplars'],'full_privacy':'unknown','original_vm_oracle':'not_applicable','native_probe_cases':['zero','latest_zero','future']}})
+            native.call=call
+            with patch.object(owners,'ROOT',model),patch.object(scopes,'_process_receipt',return_value=MODEL):
+                owner.prepare_native_session(observed)
+                control=threading.Thread(target=lambda:results.append(owner.bootstrap()),name='representative-control');control.start()
+                try:
+                    self.assertTrue(entered.wait(3));self.assertTrue(owner.validate('sig-disk')['State']['Running'])
+                finally:release.set();control.join(3)
+                self.assertFalse(control.is_alive());self.assertEqual(len(results),1)
+                self.assertEqual(calls[0][0][2:],['python','-I','-B','/driver/scripts/observability-fullstack/representative_reader.py'])
+                self.assertLessEqual(calls[0][1],600)
+                with self.assertRaisesRegex(ValueError,'replay'):owner.bootstrap()
+                self.assertTrue(owner.cleanup_exact())
+    def test_bootstrap_failure_is_same_object_for_waiting_agent_and_no_agent_query_runs(self):
+        from test_representative_scope import MODEL
+        import representative_scope as scopes
+        with tempfile.TemporaryDirectory() as temporary:
+            output,native,owner,model,observed=self.prepare_session(Path(temporary).resolve());first=RuntimeError('first-engine')
+            original=native.call;calls=[]
+            def call(args,timeout=10):
+                if args[0]!='exec':return original(args,timeout)
+                calls.append(args);raise first
+            native.call=call
+            with patch.object(owners,'ROOT',model),patch.object(scopes,'_process_receipt',return_value=MODEL):
+                owner.prepare_native_session(observed)
+                with self.assertRaises(RuntimeError) as error:owner.bootstrap()
+                self.assertIs(error.exception,first)
+                with self.assertRaises(RuntimeError) as error:owner.prepare_agent()
+                self.assertIs(error.exception,first);self.assertEqual(len(calls),1)
+                self.assertTrue(owner.cleanup_exact())

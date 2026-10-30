@@ -527,3 +527,30 @@ class RemediationScope(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class ReaderDispatch(unittest.TestCase):
+    prepare=owner_tests.NativeOwner.prepare
+    def test_read_uses_literal_entrypoint_same_generation_and_preserves_verify_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create();owner.start('sig-disk')
+            original=native.call;commands=[]
+            def call(args,timeout=10):
+                if args[0]!='exec':return original(args,timeout)
+                commands.append((args,timeout));document=json.loads((output/'signoz/private/representative-scope/current.json').read_text())
+                if args[-2].endswith('representative_reader.py'):
+                    return json.dumps({'read_verified':True,'generation':document['generation'],'digest':args[-1],'reads':10})
+                return json.dumps({'scope_verified':True,'generation':document['generation'],'digest':args[-1]})
+            native.call=call
+            with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=CUT/1000):
+                with scopes.mint(owner,4,START,CUT) as dispatch:
+                    self.assertEqual(dispatch.read(),{'ok':True})
+                    with self.assertRaises(ValueError):dispatch.execute()
+            with patch.object(scopes,'_process_receipt',return_value=MODEL),patch.object(scopes.time,'time',return_value=(CUT+1)/1000):
+                with scopes.mint(owner,4,START,CUT+1) as dispatch:
+                    self.assertEqual(dispatch.execute(),{'ok':True})
+                    with self.assertRaises(ValueError):dispatch.read()
+            self.assertTrue(commands[0][0][-2].endswith('/representative_reader.py'))
+            self.assertTrue(commands[1][0][-2].endswith('/representative_scope.py'))
+            self.assertTrue(all(timeout==10 and len(args)==7 for args,timeout in commands))
+            self.assertTrue(owner.cleanup_exact())
