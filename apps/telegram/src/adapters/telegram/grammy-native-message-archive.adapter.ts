@@ -26,6 +26,7 @@ export class GrammyNativeMessageArchive implements NativeMessageArchive {
       sources.length > 10 ||
       sources.some(
         (source, index) =>
+          source.rejection !== undefined ||
           !Number.isSafeInteger(source.messageId) ||
           source.messageId <= 0 ||
           (index > 0 &&
@@ -85,7 +86,8 @@ export class GrammyNativeMessageArchive implements NativeMessageArchive {
         )
           return { kind: "transport_unknown" };
         const actual = nativeMessageSource(value);
-        if (!actual) return { kind: "transport_unknown" };
+        if (!actual || actual.rejection !== undefined)
+          return { kind: "transport_unknown" };
         if (sources.length > 1) {
           if (
             actual.mediaGroupId === undefined ||

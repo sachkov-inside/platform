@@ -189,7 +189,9 @@ export class NativeMessages {
     );
     const refs = [
       ...new Set(
-        nativeContents.map((content) => requiredField(content.nativeRef)),
+        nativeContents.map((content) =>
+          requiredField(content.nativeRef).toLowerCase(),
+        ),
       ),
     ];
     if (refs.length === 0) return;
@@ -205,7 +207,7 @@ export class NativeMessages {
       for (const row of rows) byRef.set(row.archive_id, row);
     }
     for (const content of nativeContents) {
-      const row = byRef.get(requiredField(content.nativeRef));
+      const row = byRef.get(requiredField(content.nativeRef).toLowerCase());
       if (!row) throw new CommunicationsError("not_found");
       if (
         row.state !== "ready" ||
@@ -297,16 +299,32 @@ export class NativeMessages {
           media_group_id: source.mediaGroupId ?? null,
           sources: JSON.stringify([source]),
           copied_message_ids: "[]",
-          state: source.mediaGroupId !== undefined ? "collecting" : "pending",
+          state:
+            source.rejection !== undefined
+              ? "rejected"
+              : source.mediaGroupId !== undefined
+                ? "collecting"
+                : "pending",
           created_at: now,
           attempted_at: null,
           available_at: now,
           attempt_count: 0,
-          diagnostic_code: null,
+          diagnostic_code: source.rejection ?? null,
         })
         .returningAll()
         .executeTakeFirstOrThrow();
     } else if (source) {
+      if (row.state === "unknown" || row.state === "rejected")
+        return status(row);
+      if (source.rejection !== undefined && row.state === "collecting") {
+        row = await tx
+          .updateTable("communication_native_copies")
+          .set({ state: "rejected", diagnostic_code: source.rejection })
+          .where("archive_id", "=", row.archive_id)
+          .returningAll()
+          .executeTakeFirstOrThrow();
+        return status(row);
+      }
       const previous = row.sources.find(
         (item) => item.messageId === source.messageId,
       );
@@ -493,6 +511,12 @@ function ready(row: CopyRow): NativePreparation {
   };
 }
 function status(row: CopyRow): NativePreparation {
+  if (row.diagnostic_code === "album_caption_too_long")
+    return {
+      kind: "waiting",
+      message:
+        "Альбом не сохранён: подпись длиннее 1024 символов. Сократите подпись или вынесите текст отдельным сообщением. Выйдите через /cancel и отправьте альбом заново. Ни одна часть этого альбома не сохранена в заготовку.",
+    };
   if (row.diagnostic_code === "content_limit")
     return {
       kind: "waiting",

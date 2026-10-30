@@ -207,3 +207,34 @@ describe("nested native entities and embedded actions", () => {
     ).toBeUndefined();
   });
 });
+
+it("maps real spoiler/live-photo compatibility fields", () => {
+  const source = nativeMessageSource({
+    message_id: 42,
+    media_group_id: "album",
+    has_media_spoiler: true,
+    show_caption_above_media: true,
+    photo: [{ file_id: "static_photo" }],
+    live_photo: { file_id: "live_video", photo: [{ file_id: "static_photo" }] },
+    caption: "Live",
+  });
+  expect(source?.albumMedia).toEqual({
+    type: "live_photo",
+    media: "live_video",
+    photo: "static_photo",
+    caption: "Live",
+    caption_entities: [],
+    has_spoiler: true,
+    show_caption_above_media: true,
+  });
+});
+it("reports a long album caption instead of truncating or pretending it was accepted", () => {
+  const source = nativeMessageSource({
+    message_id: 42,
+    media_group_id: "album",
+    photo: [{ file_id: "synthetic_file" }],
+    caption: "x".repeat(1025),
+  });
+  expect(source?.rejection).toBe("album_caption_too_long");
+  expect(source?.albumMedia).toBeUndefined();
+});

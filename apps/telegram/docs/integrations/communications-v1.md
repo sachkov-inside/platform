@@ -433,13 +433,18 @@ entities. Ordinary text, photos, video, circles, voice, audio, documents, GIFs, 
 polls, contacts, locations, venues and dice use the same path. Telegram excludes service messages,
 paid media, invoices, giveaways and giveaway winners; a quiz can be copied only when the bot knows
 its correct answer. The bot reports provider rejection, rather than silently dropping content.
-Forward/reply provenance is not part of the saved post. Only URL inline buttons are supported;
+Forwarded-origin labels may appear on private archive messages; outbound copy operations do not
+add a link to the original. Only URL inline buttons are supported;
 callback, payment and login markup is refused. Existing saved snapshots and delivery-disabled
 intake keep the legacy representation described below.
+
 
 An album is collected by `media_group_id`, deduplicated and sorted by Telegram message ID, up to
 10 parts. The author sends `/done` after its upload finishes. Until then no native copy or saved
 post is reported ready. The saved album is created from frozen input with `sendMediaGroup`; later grouped sends use `copyMessages`.
+Owner scope decision (2026-10-30, #1863): album captions remain limited to 1024 UTF-16 units.
+A longer caption rejects the entire collected album with an explicit correction message, without
+truncation or a partial template. Other ordinary formats remain in scope.
 Telegram does not accept an inline keyboard on that operation, so album button editing is hidden
 and album content with buttons is refused. Use a separate message for the call to action.
 
@@ -460,8 +465,10 @@ A native snapshot carries only an opaque UUID `nativeRef`, part count, a summary
 units, complete discovered body URLs and editable URL buttons. The provider keeps the bot/Account/
 Telegram identity, original IDs, archived copy IDs and summary metadata in
 `communication_native_copies`. Pending album sources additionally retain frozen media descriptors, full captions and entities until
-archive completion. It does not store full Telegram payloads, media bytes, author profiles,
-reply bodies or forwarded-origin metadata in that table. Media and full content remain in Telegram.
+archive completion. It does not store full Telegram payloads, media bytes, envelope author profiles,
+reply bodies or forwarded-origin metadata in that table. Frozen caption entities can include
+mention user objects (IDs and display/profile fields); they are retained as part of the caption
+until archive completion, rather than as an author-profile projection. Media and full content remain in Telegram.
 Account/bot ownership and canonical summary/count/URLs are checked when saving templates,
 broadcasts, intro or sequence parts; the caller cannot select a source chat or inject source IDs.
 The existing recipient selection and final delivery authorization remain authoritative.

@@ -499,7 +499,14 @@ describe("native message archive on PostgreSQL with synthetic Telegram", () => {
       await actualNative.assertOwned(
         tx,
         "synthetic-author",
-        Array.from({ length: 100 }, () => content),
+        Array.from({ length: 100 }, (_value, index) =>
+          index % 2 === 0
+            ? content
+            : {
+                ...content,
+                nativeRef: required(content.nativeRef).toUpperCase(),
+              },
+        ),
       );
       expect(
         reads.mock.calls.filter(
@@ -575,6 +582,31 @@ describe("native message archive on PostgreSQL with synthetic Telegram", () => {
       .where("source_key", "=", "native-copy-kept:inside:4")
       .executeTakeFirst();
     expect(reminder?.message_text).toContain("Оставьте первую копию");
+  });
+  it("rejects the whole album when a later part has a caption over the accepted limit", async () => {
+    await open();
+    await posts.intake(input("2", { nativeSource: source(7, "album") }));
+    await posts.intake(
+      input("3", {
+        nativeSource: {
+          ...source(8, "album"),
+          rejection: "album_caption_too_long",
+        },
+      }),
+    );
+    await posts.intake(input("4", { action: "finish", text: "/done" }));
+    expect(calls).toHaveLength(0);
+    expect(await templates()).toHaveLength(0);
+    expect((await archives())[0]).toMatchObject({
+      state: "rejected",
+      diagnostic_code: "album_caption_too_long",
+    });
+    const reply = await database
+      .selectFrom("start_response_deliveries")
+      .select("message_text")
+      .where("source_key", "=", "native-capture:inside:3")
+      .executeTakeFirst();
+    expect(reply?.message_text).toContain("подпись длиннее 1024");
   });
   it("captures native content from the author replacement dialog through the same archive", async () => {
     const legacyPost = await posts.execute(

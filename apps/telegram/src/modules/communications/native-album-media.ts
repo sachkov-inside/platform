@@ -7,7 +7,11 @@ export function nativeAlbumMedia(
   message: Record<string, unknown>,
 ): NativeAlbumMedia | undefined {
   const kinds = ["photo", "video", "audio", "document", "live_photo"] as const;
-  const present = kinds.filter((kind) => message[kind] !== undefined);
+  const present = kinds.filter(
+    (kind) =>
+      message[kind] !== undefined &&
+      !(kind === "photo" && message["live_photo"] !== undefined),
+  );
   const type = present[0];
   if (present.length !== 1 || type === undefined) return;
   const value = message[type];
@@ -18,7 +22,7 @@ export function nativeAlbumMedia(
   const entities: unknown = message["caption_entities"] ?? [];
   if (
     typeof caption !== "string" ||
-    caption.length > 4096 ||
+    caption.length > 1024 ||
     !Array.isArray(entities) ||
     entities.length > 1000
   )
@@ -46,10 +50,13 @@ export function nativeAlbumMedia(
     caption_entities: structuredClone(entityValues),
   };
   if (type === "photo" || type === "video" || type === "live_photo") {
-    for (const key of ["has_spoiler", "show_caption_above_media"]) {
-      if (message[key] !== undefined && typeof message[key] !== "boolean")
+    for (const [source, target] of [
+      ["has_media_spoiler", "has_spoiler"],
+      ["show_caption_above_media", "show_caption_above_media"],
+    ] as const) {
+      if (message[source] !== undefined && typeof message[source] !== "boolean")
         return;
-      if (message[key] !== undefined) media[key] = message[key];
+      if (message[source] !== undefined) media[target] = message[source];
     }
   }
   if (type === "audio" || type === "video") {
@@ -71,7 +78,8 @@ export function nativeAlbumMedia(
       if (file[key] !== undefined) media[key] = file[key];
     }
   if (type === "video" || type === "live_photo") {
-    const photos = file[type === "video" ? "cover" : "photo"];
+    const photos =
+      type === "video" ? file["cover"] : (file["photo"] ?? message["photo"]);
     const photo: unknown = Array.isArray(photos) ? photos.at(-1) : undefined;
     if (type === "live_photo" || photos !== undefined) {
       if (!record(photo) || !fileId(photo["file_id"])) return;

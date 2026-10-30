@@ -16,6 +16,7 @@ export interface NativeMessageSource {
   readonly links: readonly string[];
   readonly buttons?: TemplateContent["buttons"];
   readonly albumMedia?: NativeAlbumMedia;
+  readonly rejection?: "album_caption_too_long";
 }
 
 export function nativeMessageSource(
@@ -42,6 +43,14 @@ export function nativeMessageSource(
       : typeof message["caption"] === "string"
         ? message["caption"]
         : "";
+  if (typeof group === "string" && rawText.length > 1024)
+    return {
+      messageId: id,
+      mediaGroupId: group,
+      text: "",
+      links: [],
+      rejection: "album_caption_too_long",
+    };
   const links = new Set<string>();
   const ignored = new Set([
     "from",

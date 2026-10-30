@@ -38,7 +38,7 @@ describe("authoritative native archive", () => {
       photo: [{ file_id: "synthetic_file" }],
       caption,
       caption_entities: [{ type: "bold", offset: 0, length: 8 }],
-      has_spoiler: true,
+      has_media_spoiler: true,
     };
     const first = required(nativeMessageSource(message));
     message.caption =
