@@ -12,7 +12,9 @@ import subprocess
 import sys
 
 # Preparation optimization only. The owning admission independently remeasures.
-MINIMUM_FREE_BYTES = 16 * 1024**3
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'observability-pilot'))
+from storage_policy import MINIMUM_FREE_BYTES
+
 DELETE_TIMEOUT_SECONDS = 120
 DELETE_KILL_AFTER_SECONDS = 5
 DELETE_WAIT_SECONDS = 135

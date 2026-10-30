@@ -1,6 +1,7 @@
 """Hosted preparation contracts. Filesystem/process doubles never delete a real SDK."""
 import contextlib
 import io
+import importlib.util
 import json
 import os
 import re
@@ -140,6 +141,34 @@ class HostedCommandTests(unittest.TestCase):
                 self.process.reset_mock()
                 self.mounts.reset_mock()
                 self.disk.reset_mock()
+
+    def test_capacity_preparation_uses_changed_lightweight_owner_policy(self):
+        helper_path = Path(hosted_disk.__file__)
+        policy_path = helper_path.resolve().parents[1] / 'observability-pilot/storage_policy.py'
+        policy_spec = importlib.util.spec_from_file_location('storage_policy', policy_path)
+        policy = importlib.util.module_from_spec(policy_spec)
+        policy_spec.loader.exec_module(policy)
+        with mock.patch.object(policy, 'MINIMUM_FREE_BYTES', 17179869186), mock.patch.dict(
+                sys.modules, {'storage_policy': policy, 'production': None, 'check': None,
+                              'ci': None, 'pilot': None}), mock.patch.object(sys, 'path', sys.path.copy()):
+            helper_spec = importlib.util.spec_from_file_location('hosted_disk_policy_probe', helper_path)
+            helper = importlib.util.module_from_spec(helper_spec)
+            helper_spec.loader.exec_module(helper)
+            for free, outcome in ((17179869185, 'prepared'), (17179869186, 'already_sufficient')):
+                with self.subTest(free=free):
+                    self.output.seek(0)
+                    self.output.truncate()
+                    self.process.reset_mock()
+                    self.mounts.reset_mock()
+                    self.disk.return_value.free = free
+                    self.assertEqual(helper.main([]), 0)
+                    self.assertEqual(json.loads(self.output.getvalue())['outcome'], outcome)
+                    if outcome == 'already_sufficient':
+                        self.process.assert_not_called()
+                        self.mounts.assert_not_called()
+                    else:
+                        self.process.assert_called_once()
+                        self.mounts.assert_called_once()
 
     def test_no_target_argument_is_accepted(self):
         self.disk.return_value.free = 17179869184
