@@ -12,8 +12,8 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  Check,
   ChevronDown,
-  ChevronRight,
   List,
   X,
 } from "lucide-react";
@@ -34,11 +34,18 @@ import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import { readerHistoryRestoreEvent } from "@/shared/lib/reader-history";
 import { subscribeShellBreakpoint } from "@/shared/lib/shell-scroll";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+import { useMaterialReading } from "@/entities/material";
 import {
   isProgrammeStepOpenedForReference,
   type CourseReadingContext,
   type CourseReadingStep,
 } from "../model/course-reading";
+import {
+  courseChapterProgress,
+  courseStepProgress,
+  type CourseReadMarks,
+  type CourseStepProgress,
+} from "../model/course-step-progress";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import styles from "./course-reading.module.css";
 import { CourseReadingHostContext } from "./course-reading-host-context.client";
@@ -79,31 +86,37 @@ export function CourseReadingLayout({
   const host = useContext(CourseReadingHostContext);
   const publish = host?.publish;
   const content = useRef<HTMLDivElement>(null);
-  const displayedContext = useMemo(
-    () =>
-      context !== null && submissionOverlay?.courseHref === context.courseHref
-        ? {
-            ...context,
-            chapters: context.chapters.map((chapter) => ({
-              ...chapter,
-              steps: chapter.steps.map((step) =>
-                step.kind === "task" || step.practiceTaskCode !== undefined
-                  ? {
-                      ...step,
-                      taskSubmitted:
-                        submissionOverlay.submittedTaskIds.includes(
-                          step.practiceTaskCode === undefined
-                            ? step.id
-                            : `task:${step.practiceTaskCode}`,
-                        ),
-                    }
-                  : step,
-              ),
-            })),
-          }
-        : context,
-    [context, submissionOverlay],
-  );
+  const displayedContext = useMemo(() => {
+    if (context === null) return context;
+    const overlay =
+      submissionOverlay?.courseHref === context.courseHref
+        ? submissionOverlay
+        : null;
+    if (overlay === null && context.taskStatusesDeferred !== true)
+      return context;
+    return {
+      ...context,
+      chapters: context.chapters.map((chapter) => ({
+        ...chapter,
+        steps: chapter.steps.map((step) => {
+          if (step.kind !== "task" && step.practiceTaskCode === undefined)
+            return step;
+          // Without the private statuses a submission is unknown, not absent.
+          const { taskSubmitted: _guest, ...rest } = step;
+          return overlay === null
+            ? rest
+            : {
+                ...rest,
+                taskSubmitted: overlay.submittedTaskIds.includes(
+                  step.practiceTaskCode === undefined
+                    ? step.id
+                    : `task:${step.practiceTaskCode}`,
+                ),
+              };
+        }),
+      })),
+    };
+  }, [context, submissionOverlay]);
   useLayoutEffect(() => {
     if (
       content.current === null ||
@@ -276,8 +289,11 @@ export function CourseReadingFooter({
 
 export function CourseRail({
   context,
+  variant = "rail",
 }: {
   readonly context: CourseReadingContext;
+  /** The sheet repeats the rail inside the programme dialog without owning saved rail history. */
+  readonly variant?: "rail" | "sheet";
 }) {
   // Next preserves this component between steps; a new server-selected step owns the selection.
   const selectionKey = `${context.current.id}:${context.currentChapterId}`;
@@ -305,10 +321,16 @@ export function CourseRail({
   const readingChapterIndex = context.chapters.findIndex(
     (entry) => entry.id === context.currentChapterId,
   );
+  const readingChapter = context.chapters[readingChapterIndex];
+  const marks = useCourseReadMarks(context);
+  const chapterProgress =
+    chapter === undefined ? null : courseChapterProgress(chapter.steps, marks);
+  const courseProgress = courseChapterProgress(
+    context.chapters.flatMap((entry) => entry.steps),
+    marks,
+  );
   const chapterListId = useId();
   const chapterToggle = useRef<HTMLButtonElement>(null);
-  const currentStepIndex =
-    chapter?.steps.findIndex((step) => step.id === context.current.id) ?? -1;
   const rail = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const restore = (event: Event) => {
@@ -335,33 +357,43 @@ export function CourseRail({
     if (element === null || active === undefined || active === null) return;
     const railRect = element.getBoundingClientRect();
     const activeStepRect = active.getBoundingClientRect();
-    if (activeStepRect.bottom > railRect.bottom)
-      element.scrollTop += activeStepRect.bottom - railRect.bottom + 12;
-    else if (activeStepRect.top < railRect.top)
-      element.scrollTop -= railRect.top - activeStepRect.top + 12;
+    // A hidden current step comes to the middle, so the steps around it stay in view.
+    if (
+      activeStepRect.bottom > railRect.bottom ||
+      activeStepRect.top < railRect.top
+    )
+      element.scrollTop +=
+        (activeStepRect.top + activeStepRect.bottom) / 2 -
+        (railRect.top + railRect.bottom) / 2;
   }, [context.current.id, chapterId, choosing]);
   function chooseChapter(id: string) {
     setSelection({ key: selectionKey, chapter: id, choosing: false });
     chapterToggle.current?.focus();
   }
+  const Root = variant === "rail" ? "aside" : "div";
   return (
-    <aside
-      className={styles["rail"]}
-      aria-label="Текущая глава"
-      data-course-chapter={chapterId}
+    <Root
+      className={styles[variant === "rail" ? "rail" : "sheetRail"]}
+      {...(variant === "rail"
+        ? { "aria-label": "Текущая глава", "data-course-chapter": chapterId }
+        : {})}
       onKeyDown={(event) => {
         if (!choosing || event.key !== "Escape") return;
         event.preventDefault();
+        // The dialog would otherwise close on the same Escape that only leaves the chapter list.
+        event.stopPropagation();
         chooseChapter(chapterId);
       }}
     >
-      <IntentPrefetchLink
-        className={styles["programmeLink"]}
-        href={context.courseHref}
-      >
-        <BookOpen size={16} aria-hidden="true" />
-        Страница курса
-      </IntentPrefetchLink>
+      {variant === "rail" ? (
+        <IntentPrefetchLink
+          className={styles["programmeLink"]}
+          href={context.courseHref}
+        >
+          <BookOpen size={16} aria-hidden="true" />
+          Страница курса
+        </IntentPrefetchLink>
+      ) : null}
       <button
         ref={chapterToggle}
         type="button"
@@ -376,83 +408,136 @@ export function CourseRail({
           });
         }}
       >
-        <span className={styles["chapterHeading"]}>
-          <span className={styles["chapterOrdinal"]}>
-            Глава {chapter?.ordinal ?? chapterIndex + 1} из{" "}
-            {context.chapters.length}
+        {choosing ? (
+          <span className={styles["chapterHeading"]}>
+            <span className={styles["chapterOrdinal"]}>
+              {formatChapterCount(context.chapters.length)}
+              {courseProgress === null
+                ? null
+                : ` · ${String(courseProgress.done)} из ${String(courseProgress.total)} пройдено`}
+            </span>
+            <span className={styles["chapterName"]}>Выберите главу</span>
           </span>
-          <span className={styles["chapterName"]}>{chapter?.name}</span>
-        </span>
+        ) : (
+          <span className={styles["chapterHeading"]}>
+            <span className={styles["chapterOrdinal"]}>
+              Глава {chapter?.ordinal ?? chapterIndex + 1} из{" "}
+              {context.chapters.length}
+            </span>
+            <span className={styles["chapterName"]}>{chapter?.name}</span>
+          </span>
+        )}
         <ChevronDown size={16} aria-hidden="true" />
       </button>
+      {!choosing && chapterProgress !== null ? (
+        <p className={styles["chapterProgress"]} data-course-chapter-progress>
+          <span aria-hidden="true" className={styles["progressTrack"]}>
+            <span
+              style={{
+                inlineSize: `${String((chapterProgress.done / chapterProgress.total) * 100)}%`,
+              }}
+            />
+          </span>
+          <span className="sr-only">Пройдено </span>
+          {chapterProgress.done} из {chapterProgress.total}
+        </p>
+      ) : (
+        <div aria-hidden="true" className={styles["chapterDivider"]} />
+      )}
+      {!choosing &&
+      readingChapter !== undefined &&
+      chapterId !== context.currentChapterId ? (
+        <p className={styles["browsing"]}>
+          <span>
+            Вы читаете главу {readingChapter.ordinal ?? readingChapterIndex + 1}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              chooseChapter(context.currentChapterId);
+            }}
+          >
+            К текущему шагу
+          </button>
+        </p>
+      ) : null}
       {choosing ? (
         <nav
           id={chapterListId}
           className={styles["railSteps"]}
           aria-label="Главы курса"
         >
-          <ol>
-            {context.chapters.map((entry, index) => (
-              <li
-                key={entry.id}
-                data-course-position={
-                  index < readingChapterIndex
-                    ? "before"
-                    : index === readingChapterIndex
-                      ? "current"
-                      : undefined
-                }
-              >
-                <button
-                  type="button"
-                  className={styles["step"]}
-                  data-course-chapter-choice={entry.id}
-                  data-reading={
-                    index === readingChapterIndex ? true : undefined
-                  }
-                  aria-current={entry.id === chapterId ? "true" : undefined}
-                  onClick={() => {
-                    chooseChapter(entry.id);
-                  }}
-                >
-                  <span aria-hidden="true" className={styles["mark"]} />
-                  <span>
-                    <small>Глава {entry.ordinal ?? index + 1}</small>
-                    <span className={styles["stepTitle"]}>{entry.name}</span>
+          <ol className={styles["chapterChoices"]}>
+            {context.chapters.map((entry, index) => {
+              const progress = courseChapterProgress(entry.steps, marks);
+              const complete =
+                progress !== null && progress.done === progress.total;
+              return (
+                <li key={entry.id}>
+                  <button
+                    type="button"
+                    className={styles["chapterChoice"]}
+                    data-course-chapter-choice={entry.id}
+                    data-reading={
+                      index === readingChapterIndex ? true : undefined
+                    }
+                    aria-current={entry.id === chapterId ? "true" : undefined}
+                    onClick={() => {
+                      chooseChapter(entry.id);
+                    }}
+                  >
+                    <span className={styles["chapterNumber"]}>
+                      <span className="sr-only">Глава </span>
+                      {entry.ordinal ?? index + 1}
+                    </span>{" "}
+                    <span className={styles["chapterChoiceName"]}>
+                      {entry.name}
+                    </span>
                     {index === readingChapterIndex ? (
-                      <span className="sr-only">Вы здесь</span>
+                      <span className="sr-only">, вы здесь</span>
                     ) : null}
-                  </span>
-                </button>
-              </li>
-            ))}
+                    {progress === null ? null : (
+                      <span
+                        className={styles["chapterCount"]}
+                        data-complete={complete ? true : undefined}
+                      >
+                        {complete ? (
+                          <Check size={12} strokeWidth={3} aria-hidden="true" />
+                        ) : null}
+                        <span aria-hidden="true">
+                          {progress.done}/{progress.total}
+                        </span>
+                        <span className="sr-only">
+                          , пройдено {progress.done} из {progress.total}
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
           </ol>
         </nav>
       ) : (
         <div
           className={styles["railSteps"]}
           ref={rail}
-          data-course-rail-scroll
+          data-course-rail-scroll={variant === "rail" ? true : undefined}
           role="navigation"
           aria-label="Шаги текущей главы"
-          tabIndex={0}
+          tabIndex={variant === "rail" ? 0 : undefined}
         >
           {chapter?.steps.length === 0 ? (
             <p className={styles["empty"]}>Глава готовится</p>
           ) : (
-            <ol>
-              {chapter?.steps.map((step, index) => (
-                <li
-                  key={step.id}
-                  data-course-position={
-                    index < currentStepIndex
-                      ? "before"
-                      : index === currentStepIndex
-                        ? "current"
-                        : undefined
-                  }
-                >
-                  <StepLink step={step} current={context.current.id} />
+            <ol className={styles["stepList"]}>
+              {chapter?.steps.map((step) => (
+                <li key={step.id}>
+                  <StepLink
+                    step={step}
+                    current={context.current.id}
+                    progress={courseStepProgress(step, marks)}
+                  />
                 </li>
               ))}
             </ol>
@@ -479,25 +564,70 @@ export function CourseRail({
           />
         </div>
       )}
-    </aside>
+    </Root>
   );
+}
+
+/** Joins the Account's batched reading marks; a guest or an unresolved Account shows no progress. */
+function useCourseReadMarks(context: CourseReadingContext): CourseReadMarks {
+  const { accountId, resolved, states, register } = useMaterialReading();
+  const ids = useMemo(
+    () => [
+      ...new Set(
+        context.chapters.flatMap((chapter) =>
+          chapter.steps.flatMap((step) =>
+            step.materialId === undefined ? [] : [step.materialId],
+          ),
+        ),
+      ),
+    ],
+    [context.chapters],
+  );
+  useEffect(() => {
+    const releases = ids.map(register);
+    return () => {
+      for (const release of releases) release();
+    };
+  }, [ids, register]);
+  return resolved && accountId !== null ? states : null;
+}
+
+function formatChapterCount(count: number) {
+  const tens = count % 100;
+  const units = count % 10;
+  const word =
+    tens >= 11 && tens <= 14
+      ? "глав"
+      : units === 1
+        ? "глава"
+        : units >= 2 && units <= 4
+          ? "главы"
+          : "глав";
+  return `${String(count)} ${word}`;
 }
 
 function StepLink({
   step,
   current,
+  progress,
 }: {
   readonly step: CourseReadingStep;
   readonly current: string;
+  readonly progress: CourseStepProgress;
 }) {
   return (
     <IntentPrefetchLink
       className={styles["step"]}
       data-course-step={step.id}
+      data-progress={progress}
       aria-current={step.id === current ? "step" : undefined}
       href={step.href}
     >
-      <span aria-hidden="true" className={styles["mark"]} />
+      <span aria-hidden="true" className={styles["markSlot"]}>
+        <span className={styles["mark"]}>
+          {progress === "done" ? <Check size={9} strokeWidth={3.5} /> : null}
+        </span>
+      </span>
       <span>
         {step.kind === "task" ? (
           <small>
@@ -515,6 +645,8 @@ function StepLink({
         </span>
         {step.taskSubmitted === true ? (
           <span className="sr-only">Сдано</span>
+        ) : progress === "done" ? (
+          <span className="sr-only">Пройдено</span>
         ) : null}
       </span>
     </IntentPrefetchLink>
@@ -546,6 +678,13 @@ export function ProgrammeDialog({
   const chapterStep =
     (chapter?.steps.findIndex((step) => step.id === context.current.id) ?? -1) +
     1;
+  const chapterTotal = chapter?.steps.length ?? 0;
+  const chapterLabel = `Глава ${String(chapter?.ordinal ?? 1)}`;
+  const marks = useCourseReadMarks(context);
+  const progress =
+    chapter === undefined ? null : courseChapterProgress(chapter.steps, marks);
+  const atProgrammeStep =
+    !supplementary || isProgrammeStepOpenedForReference(context);
   function openProgramme() {
     dialog.current?.showModal();
     dialog.current
@@ -554,16 +693,7 @@ export function ProgrammeDialog({
   }
   return (
     <div className={styles["mobileProgramme"]}>
-      <button
-        type="button"
-        className={styles["tabletTrigger"]}
-        onClick={openProgramme}
-        aria-haspopup="dialog"
-        aria-label="Вся программа"
-      >
-        <List size={18} aria-hidden="true" /> Вся программа
-      </button>
-      <CourseNavigationBar label="Навигация по урокам">
+      <CourseNavigationBar label="Навигация по урокам" layout="lesson">
         {supplementary ? null : context.previous === null ? (
           <button type="button" disabled aria-label="Предыдущий шаг">
             <ArrowLeft size={16} aria-hidden="true" />
@@ -577,23 +707,19 @@ export function ProgrammeDialog({
           />
         )}
         <CourseNavigationItem
+          icon={List}
           label="Программа"
           onClick={openProgramme}
           opensProgramme
           current
           caption={
-            supplementary && !isProgrammeStepOpenedForReference(context) ? (
-              context.currentPosition === 0 ? (
-                "Дополнительный материал"
-              ) : (
-                "Ваше место в курсе"
-              )
-            ) : (
-              <>
-                Глава {chapter?.ordinal ?? 1} · {chapterStep}/
-                {chapter?.steps.length ?? 0}
-              </>
-            )
+            !atProgrammeStep
+              ? context.currentPosition === 0
+                ? "Дополнительный материал"
+                : "Ваше место в курсе"
+              : progress === null
+                ? `${chapterLabel} · Шаг ${String(chapterStep)} из ${String(chapterTotal)}`
+                : `Пройдено ${String(progress.done)} из ${String(progress.total)}`
           }
         />
         {supplementary ? null : context.next === null ? (
@@ -651,67 +777,7 @@ export function ProgrammeDialog({
             <span>К прохождению курса</span>
           </IntentPrefetchLink>
         </div>
-        <nav aria-label="Вся программа">
-          {context.chapters.map((chapter) => (
-            <details
-              key={chapter.id}
-              data-course-chapter-id={chapter.id}
-              open={
-                chapter.id === context.currentChapterId ||
-                chapter.references?.some(
-                  (reference) => reference.id === context.activeReferenceId,
-                )
-              }
-            >
-              <summary>
-                <span className={styles["chapterLabel"]}>
-                  <span>Глава {chapter.ordinal ?? 1}</span>
-                  <strong>{chapter.name}</strong>
-                </span>
-                <ChevronRight size={18} aria-hidden="true" />
-              </summary>
-              <ol>
-                {chapter.steps.map((step) => (
-                  <li key={step.id}>
-                    <StepLink step={step} current={context.current.id} />
-                  </li>
-                ))}
-              </ol>
-              <CourseReferenceNavigation
-                references={chapter.references ?? []}
-                activeReferenceId={context.activeReferenceId}
-                courseHref={context.href}
-                anchor={
-                  context.currentPosition > 0
-                    ? parseReaderCourseAnchor(context.current.id)
-                    : undefined
-                }
-              />
-              {chapter.steps.length === 0 ? (
-                <p className={styles["empty"]}>Глава готовится</p>
-              ) : null}
-            </details>
-          ))}
-          <CourseReferenceNavigation
-            references={(context.references ?? []).filter(
-              (reference) =>
-                reference.id === context.activeReferenceId &&
-                !context.chapters.some(
-                  (chapter) =>
-                    chapter.references?.some(
-                      (item) => item.id === reference.id,
-                    ) === true,
-                ),
-            )}
-            activeReferenceId={context.activeReferenceId}
-            courseHref={context.href}
-            anchor={
-              context.currentPosition > 0
-                ? parseReaderCourseAnchor(context.current.id)
-                : undefined
-            }
-          />
-        </nav>
+        <CourseRail context={context} variant="sheet" />
       </dialog>
     </div>
   );

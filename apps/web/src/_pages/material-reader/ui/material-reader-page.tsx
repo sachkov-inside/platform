@@ -3,7 +3,10 @@ import { learnerMcpConnectPrompt } from "@/features/learner-mcp";
 import { MaterialTaskWorkspace } from "@/features/product-task-submission/index.server";
 import { materialSourceAnchors } from "@/entities/material";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
-import { CourseTaskSubmissionStatuses } from "@/features/library-discovery";
+import {
+  CourseTaskSubmissionStatuses,
+  withDeferredTaskStatuses,
+} from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { proseLinkClassName } from "@/shared/ui/prose-link";
 import {
@@ -139,6 +142,14 @@ export async function MaterialReaderPage({
     anchor,
     query,
   );
+  // The cached composition carries no personal Task submissions; they stream in separately.
+  const publicProductContext =
+    productContext?.programme == null
+      ? productContext
+      : {
+          ...productContext,
+          programme: withDeferredTaskStatuses(productContext.programme),
+        };
   const effectiveReturnTarget = resolveReaderReturnTarget({
     returnTarget,
     material: material.material,
@@ -167,7 +178,7 @@ export async function MaterialReaderPage({
         }
         result={material}
         returnTarget={effectiveReturnTarget}
-        productContext={productContext}
+        productContext={publicProductContext}
         slug={slug}
       />
     );
@@ -178,7 +189,7 @@ export async function MaterialReaderPage({
         <MaterialReaderPending
           material={material.material}
           returnTarget={effectiveReturnTarget}
-          productContext={productContext}
+          productContext={publicProductContext}
         />
       }
     >
