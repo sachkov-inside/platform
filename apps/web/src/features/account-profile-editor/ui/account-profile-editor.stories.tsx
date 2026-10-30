@@ -10,7 +10,8 @@ import { AccountProfileEditor } from "./account-profile-editor.client";
 
 const meta = {
   component: AccountProfileEditor,
-  title: "Features/Account/Display name",
+  id: "features-account-display-name",
+  title: "Components/Account/Display name",
   args: {
     initialProfile: memberProfile,
     suggestedName: "Имя из Telegram",

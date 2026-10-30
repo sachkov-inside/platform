@@ -1,76 +1,109 @@
 import { Meta } from "@storybook/addon-docs/blocks";
+import catalog from "./catalog.json";
 
 <Meta title="Foundations/Overview" />
 
-# Platform UI catalog
+# Каталог интерфейса Platform
 
-Storybook shows the platform as production renders it today, for people and agents. Start with the
-smallest layer that answers the question at hand:
+Здесь собран текущий интерфейс продукта. Страницы и компоненты используют тот же код,
+шрифты и тему, что и приложение. Данные демонстрационные: оплаты, выдача доступа и
+публикация материалов не выполняются.
 
-1. **Foundations** explain the visual language: tokens and typography from `app/globals.css`.
-2. **Components** document bounded controls, states, props, and accessible behavior.
-3. **Patterns** show components collaborating around a reusable product responsibility.
-4. **Pages** show every production route in its shell, with the states the route really has.
+## Где искать
 
-Proofs and prototypes stay on their `prototype/*` branches. The catalog keeps only what the product
-still shows; Git history and the issue keep earlier decisions.
+| Раздел          | Содержимое                                                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Foundations** | Этот путеводитель, цвета и типографика из `app/globals.css`.                                                                |
+| **Components**  | Отдельные элементы: кнопки, поля, карточки материалов, видео, элементы аккаунта и админки.                                  |
+| **Patterns**    | Совместная работа элементов: оболочки сайта и админки, вкладки редактора продукта, оплата, состояния аккаунта и навигация.  |
+| **Pages**       | Действующие страницы в своей оболочке: главная, продукт и программа, Reader, задания, аккаунт, документы и авторская часть. |
 
-## Story contract
+Для работы над страницей начинайте с **Pages**. Для изменения одного элемента переходите
+в **Components**, для целого блока внутри страницы, например вкладки продукта, в **Patterns**.
+В **Pages / Product / Landing** находятся разные действующие виды витрины, а в
+**Pages / Product / Programme** программа, её загрузка и подключение ученика.
+Это состояния одних маршрутов, а не дополнительные разделы сайта.
 
-Each story captures one meaningful use case, explains why it exists, uses realistic Russian
-product content, and asserts its critical behavior in a `play` test. Controls are for exploring
-supported props; they are not a substitute for named states. Page stories are checked at 390 and
-1440 wide and keep the same information hierarchy at both widths.
+**Pages / Account / Cabinet** показывает личный кабинет с загрузкой данных.
+**Patterns / Account / Cabinet states** изолирует его состояния: загрузку, ошибку,
+истёкшую сессию и журнал документов. Так можно проверить нужный случай без повторной страницы.
 
-A story shows the production module in its production environment: a page-level story wraps it in
-the shell of its route, a component story uses the containers its real page gives it, and neither
-re-creates page markup of its own. `src/storybook/story-environment` owns those wrappers. When a
-story and the application disagree, the application is the reference and the story changes.
+## Состояния и размеры
 
-A pull request that adds or changes a surface updates its stories in the same pull request.
+Именованная история описывает отдельный сценарий: готовые данные, пустой список,
+ошибку, отсутствие доступа или результат действия. Варианты mobile и desktop проверяют
+один сценарий при разной ширине. Controls меняют поддерживаемые свойства компонента.
+Вкладка Docs объясняет назначение, а Interactions показывает проверяемые действия.
 
-## Routes without a page story
+Оболочка, отступы и доступные действия должны совпадать с приложением. Обёртки страниц
+задаёт `src/storybook/story-environment`. Прототипы и предыдущие варианты остаются на
+своих ветках `prototype/*` и в истории Git. Локальный выбор тестового аккаунта и
+отключённая форма почты для входа не входят в текущий каталог продукта.
 
-Every route under `apps/web/app` has a page story, except:
+## Карта маршрутов
 
-| Route                                                               | Reason                                                                                                                                                                                                              |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/authoring/communications`, `/authoring/communications/broadcasts` | The layout answers 404 since #419: broadcasts and funnels moved to the Telegram bot (#396).                                                                                                                         |
-| `/authoring/playlists`, `/authoring/playlists/[productId]`          | Legacy route aliases share `src/_pages/content-collections`, the owner of this surface, with `/authoring/products` and `/authoring/products/[productId]`. Production links and page stories use the Product routes. |
+Карта берётся из `catalog.json`. Модульная проверка сравнивает её с фактическими
+`app/**/page.tsx` и проверяет наличие историй. Перенаправления и снятые адреса перечислены
+отдельно, чтобы их не принимать за недостающие страницы.
 
-`/authoring` is the Overview of #1719 (`Pages/Authoring/Обзор`); its product tab is
-`Pages/Authoring/Обзор продукта`. The admin shell around every authoring page is shown in
-`Patterns/Каркас админки`; the shared admin list modules, the person label, the people search and
-the access dialogs of the person card live under `Components/Админка`. The people list and the
-person card of #1721 are `Pages/Authoring/Люди` and `Pages/Authoring/Карточка человека`; the former
-`/authoring/access` has no page and `next.config.ts` redirects it to `/authoring/people`.
+<table>
+  <thead>
+    <tr>
+      <th>Маршрут</th>
+      <th>Наборы историй в Pages</th>
+    </tr>
+  </thead>
+  <tbody>
+    {catalog.routes
+      .filter((entry) => entry.stories.length > 0)
+      .map((entry) => (
+        <tr key={entry.route}>
+          <td>
+            <code>{entry.route}</code>
+          </td>
+          <td>{entry.stories.length}</td>
+        </tr>
+      ))}
+  </tbody>
+</table>
 
-`/payment/checkout` resolves an Offer and redirects to `/products/<slug>/buy`.
-Its guest sign-in and signed-in denied states are shown in `Pages/Payment/Checkout`;
-the redirect itself has no rendered page.
+### Адреса без собственной страницы
 
-The product page and the «Продажи» section of #1718 are shown in:
+<table>
+  <thead>
+    <tr>
+      <th>Маршрут</th>
+      <th>Причина</th>
+    </tr>
+  </thead>
+  <tbody>
+    {catalog.routes
+      .filter((entry) => entry.stories.length === 0)
+      .map((entry) => (
+        <tr key={entry.route}>
+          <td>
+            <code>{entry.route}</code>
+          </td>
+          <td>{entry.reason}</td>
+        </tr>
+      ))}
+  </tbody>
+</table>
 
-- `Pages/Authoring/Редактор продукта` with the tabs «Программа», «Описание и витрина», «Продажа»
-  (price, sale state and the product's payment links), «Ученики» and «Сообщество и активация»;
-  the tab modules alone are `Features/Product/Продажа продукта`,
-  `Features/Product/Сообщество и активация`, `Pages/Authoring/Продукт/Ученики` and
-  `Pages/Authoring/Продукт/Выдать продукт`.
-- `Pages/Authoring/Платежи`, `Pages/Authoring/Платёж` and `Pages/Authoring/Платёж/Email заказа`
-  for `/authoring/sales/payments` and one payment.
-- `Pages/Authoring/Sales/Payment links` with `Components/Админка/Продажи/Создание ссылки на оплату`,
-  `Pages/Authoring/Sales/Discounts` with `Components/Админка/Продажи/Форма скидки`, and
-  `Pages/Authoring/Sales funnel report` for `/authoring/sales/funnel`.
-- `Components/Админка/AdminConfirmDialog` and `Components/Админка/Выбор из длинного списка`, the
-  confirmation and long-list choice these pages share.
+`/payment/checkout` показывает только вход и недоступную покупку; успешный выбор
+предложения перенаправляет на `/products/<slug>/buy`. Индивидуальная ссылка
+`/payment/links/[id]` использует ту же страницу покупки с отдельными состояниями.
+Telegram sign-in в **Patterns / Identity** использует действующую страницу сервиса
+идентификации, который находится вне `apps/web`.
 
-The former `/authoring/billing` and `/authoring/sales-funnel` have no page: `next.config.ts`
-redirects them to `/authoring/sales/payments` and `/authoring/sales/funnel`.
+## Обновление каталога
 
-## Agent workflow
+При изменении страницы или общего элемента обновляйте его истории в том же PR.
+Удаление поверхности включает удаление её историй и неиспользуемых фикстур.
+Новый маршрут добавляется в карту с историей либо конкретной причиной исключения.
+Сохраняйте существующий `id` при перемещении истории между разделами: на него ссылаются
+проверки и сохранённые свидетельства ревью.
 
-When Storybook is running, inspect the catalog and rendered Docs at `http://localhost:6006`. Read
-the component documentation before editing UI, preview every changed story, and run
-`pnpm test:storybook` and `pnpm build:storybook` before handing work back. JSDoc, story
-descriptions, controls, and hierarchy should make intent recoverable without opening
-implementation files.
+Перед передачей изменений запустите `pnpm test:storybook` и `pnpm build:storybook`.
+Проверьте затронутые страницы при ширине 390 и 1440, включая основные действия.
+Production-модули не импортируют истории, фикстуры или `src/storybook`.

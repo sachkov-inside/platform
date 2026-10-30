@@ -14,7 +14,8 @@ const environment = publicPageEnvironment("/products/ai-engineering/programme");
 const meta = {
   ...environment,
   component: ProductProgrammeView,
-  title: "Pages/Product/AI Engineering Programme",
+  id: "pages-product-ai-engineering-programme",
+  title: "Pages/Product/Programme/Course overview",
   args: {
     result: {
       kind: "empty",

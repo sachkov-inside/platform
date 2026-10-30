@@ -28,7 +28,8 @@ function ready(overview: ProductOverview) {
 
 const meta = {
   ...environment,
-  title: "Pages/Authoring/Обзор продукта",
+  id: "pages-authoring-обзор-продукта",
+  title: "Patterns/Authoring/Product overview tab",
   component: ProductOverviewPanel,
   args: {
     state: ready(storyProductOverview()),

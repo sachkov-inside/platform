@@ -75,7 +75,8 @@ const meta = {
     replies({ price: runningPrice, salesState: runningState }),
   ],
   component: ProductSalePanel,
-  title: "Features/Product/Продажа продукта",
+  id: "features-product-продажа-продукта",
+  title: "Patterns/Authoring/Product sale tab",
 } satisfies Meta<typeof ProductSalePanel>;
 
 export default meta;

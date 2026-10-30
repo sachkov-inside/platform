@@ -4,7 +4,8 @@ import { HarnessDiagram } from "./harness-diagram";
 import styles from "./harness-diagram.module.css";
 const meta = {
   component: HarnessDiagram,
-  title: "Features/Project Harness",
+  id: "features-project-harness",
+  title: "Components/Product/Harness diagram",
   decorators: [
     (Story) => (
       <div className={cn(styles["canvas"], "mx-auto max-w-[43rem]")}>

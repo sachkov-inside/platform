@@ -4,7 +4,8 @@ import { MaterialModelComparison } from "./material-model-comparison.client";
 
 const meta = {
   component: MaterialModelComparison,
-  title: "Entities/Material Model Comparison",
+  id: "entities-material-model-comparison",
+  title: "Components/Material/Model comparison",
   decorators: [
     (Story) => (
       <article className="mx-auto max-w-[72ch] px-4 py-8">

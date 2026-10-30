@@ -170,7 +170,8 @@ function DialogHost(props: BulkGrantProductDialogProps) {
 
 const meta = {
   ...environment,
-  title: "Pages/Authoring/Продукт/Выдать продукт",
+  id: "pages-authoring-продукт-выдать-продукт",
+  title: "Components/Админка/Bulk product grant",
   component: BulkGrantProductDialog,
   render: (args) => <DialogHost {...args} />,
   args: {

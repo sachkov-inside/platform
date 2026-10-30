@@ -53,7 +53,8 @@ const heroCallWithoutCohort = (
 const meta = {
   ...environment,
   component: ProductLandingView,
-  title: "Pages/Product/AI Engineering",
+  id: "pages-product-ai-engineering",
+  title: "Pages/Product/Landing/AI Engineering",
   args: {
     heroCall: heroCallWithoutCohort,
     returnTarget: homeMaterialReaderReturnTarget,

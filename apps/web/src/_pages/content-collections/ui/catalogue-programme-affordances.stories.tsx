@@ -79,7 +79,8 @@ const environment = authoringPageEnvironment(
 );
 const meta = {
   ...environment,
-  title: "Features/Product order/Catalogue programme affordances",
+  id: "features-product-order-catalogue-programme-affordances",
+  title: "Patterns/Authoring/Catalogue programme",
   component: ProductOrderManager,
   decorators: [withMutationFetch(save), ...environment.decorators],
   args: {

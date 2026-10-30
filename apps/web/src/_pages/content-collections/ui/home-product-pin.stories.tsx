@@ -16,7 +16,8 @@ const onChange = fn();
 const meta = {
   ...environment,
   component: HomeProductPinView,
-  title: "Features/Product/Home pin",
+  id: "features-product-home-pin",
+  title: "Patterns/Authoring/Home pin",
   args: {
     productId,
     controls: {

@@ -51,7 +51,8 @@ const hrefFor = (address: HoldersAddress) =>
 
 const meta = {
   ...environment,
-  title: "Pages/Authoring/Продукт/Ученики",
+  id: "pages-authoring-продукт-ученики",
+  title: "Patterns/Authoring/Product holders tab",
   component: ProductHoldersTable,
   args: {
     state: { kind: "ready", items: storyHolders(1), nextCursor: null },

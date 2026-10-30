@@ -3,7 +3,8 @@ import { expect, within } from "storybook/test";
 import { ProductCommunitySettings } from "./product-community-settings.client";
 const productId = "22222222-2222-4222-8222-222222222222";
 const meta = {
-  title: "Features/ProductCommunitySettings",
+  id: "features-productcommunitysettings",
+  title: "Components/Authoring/Product community",
   component: ProductCommunitySettings,
   args: { productId },
   parameters: { layout: "padded" },

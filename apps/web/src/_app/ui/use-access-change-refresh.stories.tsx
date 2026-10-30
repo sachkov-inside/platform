@@ -33,7 +33,8 @@ function ProgressRefreshSurface() {
 }
 const meta = {
   ...environment,
-  title: "App/Personal navigation refresh",
+  id: "app-personal-navigation-refresh",
+  title: "Patterns/Navigation/Personal refresh",
   component: ProgressRefreshSurface,
   beforeEach: () => {
     getQueryClient().clear();
