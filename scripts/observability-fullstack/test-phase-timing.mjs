@@ -2,7 +2,396 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { EventEmitter } from "node:events";
+import { PerformanceObserver, constants } from "node:perf_hooks";
 import { phaseTiming, slotOccupancy } from "./phase-timing.mjs";
+
+/** @param {number} startTime @param {number} duration @param {unknown} [kind] */
+function gcEntry(
+  startTime,
+  duration,
+  kind = constants.NODE_PERFORMANCE_GC_MINOR,
+) {
+  return {
+    entryType: /** @type {const} */ ("gc"),
+    name: "private-token-url-account-sentinel",
+    startTime,
+    duration,
+    detail: { kind },
+    toJSON: () => ({ private: "sentinel" }),
+  };
+}
+function gcBoundary() {
+  /** @type {string[]} */ const calls = [];
+  /** @type {import('node:perf_hooks').PerformanceEntry[]} */ const pending =
+    [];
+  /** @type {(entries:import('node:perf_hooks').PerformanceEntry[])=>void} */ let deliver =
+    () => {};
+  class Observer extends PerformanceObserver {
+    /** @param {import('node:perf_hooks').PerformanceObserverCallback} callback */
+    constructor(callback) {
+      super(callback);
+      deliver = (entries) =>
+        callback(
+          {
+            getEntries: () => entries,
+            getEntriesByName: () => [],
+            getEntriesByType: () => [],
+          },
+          this,
+        );
+    }
+    /** @override */ observe() {
+      calls.push("observe");
+    }
+    /** @override */ takeRecords() {
+      calls.push("drain");
+      return pending.splice(0);
+    }
+    /** @override */ disconnect() {
+      calls.push("disconnect");
+    }
+  }
+  return {
+    Observer,
+    calls,
+    pending,
+    deliver: (
+      /** @type {import('node:perf_hooks').PerformanceEntry[]} */ entries,
+    ) => deliver(entries),
+  };
+}
+
+test("six-lane transport separates body and decode on the original clock", (t) => {
+  let now = 1000;
+  t.mock.method(performance, "now", () => now);
+  const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000);
+  const socket = new EventEmitter(),
+    req = Object.assign(new EventEmitter(), { socket });
+  const observer = timing.requestTransport(2, 2);
+  assert.ok(observer);
+  observer.begin(1000);
+  observer.attach(req);
+  now = 1001;
+  observer.submitted();
+  now = 1002;
+  req.emit("socket");
+  now = 1003;
+  socket.emit("connect");
+  now = 1004;
+  socket.emit("secureConnect");
+  now = 1005;
+  req.emit("finish");
+  now = 1006;
+  observer.headers();
+  now = 1007;
+  observer.bodyEnd();
+  now = 1008;
+  observer.decoded();
+  observer.finish(1009, 0);
+  assert.deepEqual(timing.result.request_transport, {
+    schema: 1,
+    width: 13,
+    state: "complete",
+    rows: [2, 2, 0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 0],
+    overflow: 0,
+    invalid: 0,
+  });
+  assert.equal("web_transport" in timing.result, false);
+});
+
+test("client work retains numeric overlap and propagates the original action failure", (t) => {
+  let now = 1000;
+  t.mock.method(performance, "now", () => now);
+  const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000);
+  const original = new Error("private-token-url-account-sentinel");
+  assert.equal(
+    timing.work(0, () => {
+      now = 1001;
+      return 42;
+    }),
+    42,
+  );
+  assert.throws(
+    () =>
+      timing.work(1, () => {
+        now = 1002;
+        throw original;
+      }),
+    (error) => error === original,
+  );
+  assert.deepEqual(timing.result.client_work, {
+    schema: 1,
+    width: 4,
+    state: "observed",
+    rows: [0, 0, 1000, 0, 1, 1000, 2000, 1],
+    overflow: 0,
+    invalid: 0,
+  });
+  assert.equal(JSON.stringify(timing.result).includes("private"), false);
+});
+
+test("GC drains delivered entries on the phase clock and always leaves tail coverage unknown", (t) => {
+  let now = 1000;
+  t.mock.method(performance, "now", () => now);
+  /** @type {string[]} */ const calls = [];
+  class Observer extends PerformanceObserver {
+    /** @override */ observe() {
+      calls.push("observe");
+    }
+    /** @override */ takeRecords() {
+      calls.push("drain");
+      return [
+        Object.assign(
+          {
+            entryType: /** @type {const} */ ("gc"),
+            name: "private-sentinel",
+            startTime: 1001,
+            duration: 2,
+            toJSON: () => ({}),
+          },
+          { detail: { kind: constants.NODE_PERFORMANCE_GC_MINOR } },
+        ),
+      ];
+    }
+    /** @override */ disconnect() {
+      calls.push("disconnect");
+    }
+  }
+  const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000);
+  timing.startGc(Observer);
+  now = 1004;
+  timing.finish(1004, 1800000000004, 1004);
+  timing.stopClient();
+  timing.stopClient();
+  assert.deepEqual(calls, ["observe", "drain", "disconnect"]);
+  assert.deepEqual(timing.result.client_gc, {
+    schema: 1,
+    width: 3,
+    state: "observed",
+    capture_start_us: 0,
+    capture_end_us: 4000,
+    tail_complete: false,
+    rows: [1, 1000, 3000],
+    overflow: 0,
+    invalid: 0,
+    excluded: 0,
+  });
+});
+
+test("GC crossing the final raw boundary is unavailable even when microseconds collapse", (t) => {
+  t.mock.method(performance, "now", () => 1000);
+  const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000),
+    boundary = gcBoundary();
+  timing.startGc(boundary.Observer);
+  boundary.deliver([gcEntry(1000, 0.0009)]);
+  timing.finish(1000.0008, 1800000000000, 1000.0008);
+  timing.stopClient();
+  assert.equal(timing.result.client_gc?.state, "unavailable");
+  assert.ok((timing.result.client_gc?.invalid ?? 0) > 0);
+});
+
+test("plain transport omits TLS while legacy Web keeps unquantized milliseconds", (t) => {
+  let now = 1000;
+  t.mock.method(performance, "now", () => now);
+  const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000);
+  for (const kind of [0, 1, 2, 3, 6, 7]) {
+    const socket = new EventEmitter(),
+      req = Object.assign(new EventEmitter(), { socket });
+    const observer = timing.requestTransport(kind, kind);
+    assert.ok(observer);
+    observer.begin(1000);
+    observer.attach(req);
+    now = 1001.000123;
+    observer.submitted();
+    now = 1002;
+    req.emit("socket");
+    now = 1003;
+    socket.emit("connect");
+    if (kind < 6) {
+      now = 1004;
+      socket.emit("secureConnect");
+    }
+    now = 1005;
+    req.emit("finish");
+    now = 1006;
+    observer.headers();
+    now = 1007;
+    observer.bodyEnd();
+    now = 1008;
+    observer.decoded();
+    observer.finish(1009, 0);
+    assert.equal(socket.listenerCount("secureConnect"), 0);
+    assert.equal(req.listenerCount("socket"), 0);
+  }
+  assert.equal(timing.result.request_transport?.state, "complete");
+  assert.equal(timing.result.request_transport?.rows.length, 78);
+  assert.equal(timing.result.request_transport?.rows[4 * 13 + 6], null);
+  assert.equal(timing.result.web_transport?.state, "complete");
+  assert.equal(timing.result.web_transport?.rows[0]?.[3], 1001.000123 - 1000);
+  assert.equal(timing.result.request_transport?.rows[3], 1000);
+});
+
+test("additive hook faults preserve the existing Web transport verdict", (t) => {
+  let now = 1000;
+  t.mock.method(performance, "now", () => now);
+  const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000);
+  const socket = new EventEmitter(),
+    req = Object.assign(new EventEmitter(), { socket });
+  const observer = timing.requestTransport(0, 0);
+  assert.ok(observer);
+  observer.begin(1000);
+  observer.attach(req);
+  now = 1001;
+  observer.submitted();
+  now = 1002;
+  req.emit("socket");
+  now = 1003;
+  socket.emit("connect");
+  now = 1004;
+  socket.emit("secureConnect");
+  now = 1005;
+  req.emit("finish");
+  now = 1006;
+  observer.headers();
+  now = 1007;
+  observer.bodyEnd();
+  now = 1008;
+  observer.decoded();
+  observer.finish(1009, 0, true);
+  assert.equal(timing.result.web_transport?.state, "complete");
+  assert.equal(timing.result.web_transport?.rows[0]?.[10], 0);
+  assert.equal(timing.result.request_transport?.state, "partial");
+  assert.equal(timing.result.request_transport?.rows[12], 5);
+});
+
+test("raw clocks fail closed before quantization and settled observers stop reading clocks", (t) => {
+  let now = 1000.0009,
+    reads = 0;
+  t.mock.method(performance, "now", () => {
+    reads++;
+    return now;
+  });
+  const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000);
+  timing.work(0, () => {
+    now = 1000.0008;
+  });
+  assert.equal(timing.result.client_work?.state, "unavailable");
+  assert.deepEqual(timing.result.client_work?.rows, []);
+  const observer = timing.requestTransport(2, 2);
+  assert.ok(observer);
+  observer.begin(1000.0009);
+  observer.submitted();
+  observer.finish(1001, 0);
+  assert.equal(timing.result.request_transport?.state, "partial");
+  assert.equal(timing.result.request_transport?.rows[12], 5);
+  const snapshot = JSON.stringify(timing.result),
+    before = reads;
+  observer.submitted();
+  observer.headers();
+  observer.bodyEnd();
+  observer.decoded();
+  observer.finish(1002, 0);
+  assert.equal(reads, before);
+  assert.equal(JSON.stringify(timing.result), snapshot);
+  for (const bad of [NaN, Infinity, 999, 601001]) {
+    now = bad;
+    const error = new Error("private-token-sentinel");
+    assert.throws(
+      () =>
+        timing.work(1, () => {
+          throw error;
+        }),
+      (caught) => caught === error,
+    );
+  }
+  assert.equal(JSON.stringify(timing.result).includes("private"), false);
+});
+
+test("diagnostic caps retain first rows and saturation stays explicitly unknown", (t) => {
+  t.mock.method(performance, "now", () => 1000);
+  const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000),
+    boundary = gcBoundary();
+  let actions = 0;
+  for (let i = 0; i < 4097; i++) timing.work(0, () => actions++);
+  assert.equal(actions, 4097);
+  assert.equal(timing.result.client_work?.rows.length, 16384);
+  assert.equal(timing.result.client_work?.state, "overflow");
+  assert.equal(timing.result.client_work?.overflow, 1);
+  for (let ordinal = 0; ordinal < 400; ordinal++)
+    if ([0, 1, 2, 3, 6, 7].includes(ordinal % 8)) {
+      const observer = timing.requestTransport(ordinal, ordinal % 8);
+      assert.ok(observer);
+      observer.begin(1000);
+      observer.finish(1001, 3);
+    }
+  assert.equal(timing.result.request_transport?.rows.length, 3900);
+  assert.equal(timing.requestTransport(2, 2), undefined);
+  assert.equal(timing.result.request_transport?.state, "overflow");
+  assert.equal(timing.result.web_transport?.rows.length, 100);
+  timing.startGc(boundary.Observer);
+  boundary.deliver(Array.from({ length: 513 }, () => gcEntry(1000, 0)));
+  assert.equal(timing.result.client_gc?.rows.length, 1536);
+  assert.equal(timing.result.client_gc?.state, "overflow");
+  assert.deepEqual(boundary.calls, ["observe", "disconnect"]);
+  const snapshot = JSON.stringify(timing.result);
+  boundary.deliver([gcEntry(1001, 1)]);
+  timing.stopClient();
+  assert.equal(JSON.stringify(timing.result), snapshot);
+});
+
+test("GC faults, unsupported observation and late delivery never imply zero GC", (t) => {
+  let now = 1000;
+  t.mock.method(performance, "now", () => now);
+  for (const method of /** @type {const} */ ([
+    "observe",
+    "takeRecords",
+    "disconnect",
+  ])) {
+    const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000),
+      boundary = gcBoundary();
+    t.mock.method(boundary.Observer.prototype, method, () => {
+      throw new Error("private-token-url-account-sentinel");
+    });
+    timing.startGc(boundary.Observer);
+    now = 1004;
+    timing.finish(1004, 1800000000004, 1004);
+    timing.stopClient();
+    assert.equal(timing.result.client_gc?.state, "unavailable");
+    assert.equal(timing.result.client_gc?.tail_complete, false);
+    assert.equal(JSON.stringify(timing.result).includes("private"), false);
+    now = 1000;
+  }
+  const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000),
+    boundary = gcBoundary();
+  Object.defineProperty(boundary.Observer, "supportedEntryTypes", {
+    value: [],
+  });
+  timing.startGc(boundary.Observer);
+  timing.stopClient();
+  assert.equal(timing.result.client_gc?.state, "unavailable");
+  assert.deepEqual(boundary.calls, []);
+  const active = phaseTiming(2, 0, 1000, 1800000000000, 1000),
+    feed = gcBoundary();
+  now = 1001;
+  active.startGc(feed.Observer);
+  feed.deliver([
+    gcEntry(1000, 0.5),
+    gcEntry(1001, -1),
+    gcEntry(1001, NaN),
+    gcEntry(1001, 0, "private-token"),
+  ]);
+  now = 1004;
+  active.finish(1004, 1800000000004, 1004);
+  feed.deliver([gcEntry(1005, 0), gcEntry(1003, 2)]);
+  active.stopClient();
+  assert.equal(active.result.client_gc?.excluded, 2);
+  assert.equal(active.result.client_gc?.invalid, 4);
+  assert.equal(active.result.client_gc?.state, "unavailable");
+  const snapshot = JSON.stringify(active.result);
+  feed.deliver([gcEntry(1001, 1)]);
+  assert.equal(JSON.stringify(active.result), snapshot);
+  assert.equal(snapshot.includes("private"), false);
+});
 
 test("phase timing records numeric HTTP and complete observer windows against one anchor", () => {
   const timing = phaseTiming(5, 0, 1000, 1800000000000, 1001);

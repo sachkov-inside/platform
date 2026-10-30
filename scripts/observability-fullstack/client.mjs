@@ -56,26 +56,41 @@ function applicationLane(host, path) {
   return undefined;
 }
 const profile = { accounts: 256, materials: 512, concurrency: 8 };
+/** One CLI load owns the passive phase recorder; setup/readiness calls keep their original path.
+ * @type {ReturnType<typeof phaseTiming> | undefined} */
+let clientTiming;
+/** @template T @param {number} kind @param {()=>T} action @returns {T} */
+function clientWork(kind, action) {
+  return clientTiming ? clientTiming.work(kind, action) : action();
+}
 const privateTokens = () => {
-  const raw = parse(readFileSync("/private/token.json", "utf8"));
-  if (
-    !record(raw) ||
-    !Array.isArray(raw["tokens"]) ||
-    raw["tokens"].length !== profile.accounts ||
-    !raw["tokens"].every((value) => typeof value === "string")
-  )
-    throw new Error("256 private tokens required");
-  return raw["tokens"];
+  const text = clientWork(0, () => readFileSync("/private/token.json", "utf8"));
+  return clientWork(1, () => {
+    const raw = parse(text);
+    if (
+      !record(raw) ||
+      !Array.isArray(raw["tokens"]) ||
+      raw["tokens"].length !== profile.accounts ||
+      !raw["tokens"].every((value) => typeof value === "string")
+    )
+      throw new Error("256 private tokens required");
+    return raw["tokens"];
+  });
 };
 const privateAccounts = () => {
-  const raw = parse(readFileSync("/private/accounts.json", "utf8"));
-  if (
-    !Array.isArray(raw) ||
-    raw.length !== profile.accounts ||
-    !raw.every((value) => typeof value === "string")
-  )
-    throw new Error("256 private Account identities required");
-  return raw;
+  const text = clientWork(2, () =>
+    readFileSync("/private/accounts.json", "utf8"),
+  );
+  return clientWork(3, () => {
+    const raw = parse(text);
+    if (
+      !Array.isArray(raw) ||
+      raw.length !== profile.accounts ||
+      !raw.every((value) => typeof value === "string")
+    )
+      throw new Error("256 private Account identities required");
+    return raw;
+  });
 };
 const analytics = () => {
   const raw = parse(readFileSync("/private/umami.json", "utf8"));
@@ -170,13 +185,15 @@ async function call(
   const monitoring = host === "gateway";
   if (technicalScope && monitoring) monitoringHttp.attempted++;
   const started = performance.now();
-  let observerFault = false;
-  /** @param {()=>void} action */
-  const observe = (action) => {
+  let observerFault = false,
+    additiveFault = false;
+  /** @param {()=>void} action @param {boolean} [additive] */
+  const observe = (action, additive = false) => {
     try {
       action();
     } catch {
-      observerFault = true;
+      if (additive) additiveFault = true;
+      else observerFault = true;
     }
   };
   observe(() => observer?.begin(started));
@@ -188,7 +205,10 @@ async function call(
         bytes = 0;
       /** @type {Buffer[]} */
       const chunks = [];
-      const payload = body === undefined ? undefined : JSON.stringify(body);
+      const payload =
+        body === undefined
+          ? undefined
+          : clientWork(6, () => JSON.stringify(body));
       /** @param {number} status @param {unknown} value */
       const finish = (status, value, failure = 0) => {
         if (done) return;
@@ -198,7 +218,9 @@ async function call(
           monitoringHttp.completed++;
         clearTimeout(timer);
         const ended = performance.now();
-        observe(() => observer?.finish(ended, observerFault ? 5 : failure));
+        observe(() =>
+          observer?.finish(ended, observerFault ? 5 : failure, additiveFault),
+        );
         resolve({
           status,
           value,
@@ -212,7 +234,12 @@ async function call(
       const req = request(
         {
           ...(tls
-            ? { ca: readFileSync("/private/caddy-root.pem"), servername: host }
+            ? {
+                ca: clientWork(4, () =>
+                  readFileSync("/private/caddy-root.pem"),
+                ),
+                servername: host,
+              }
             : {}),
           hostname: host,
           port,
@@ -244,22 +271,24 @@ async function call(
             } else chunks.push(chunk);
           });
           response.on("end", () => {
-            const text = Buffer.concat(chunks).toString("utf8");
-            let value;
-            try {
-              value =
-                host === "mcp" &&
-                port === 3002 &&
-                path === "/mcp" &&
-                method === "POST"
+            observe(() => observer?.bodyEnd?.(), true);
+            const value = clientWork(monitoring ? 8 : 7, () => {
+              const text = Buffer.concat(chunks).toString("utf8");
+              try {
+                return host === "mcp" &&
+                  port === 3002 &&
+                  path === "/mcp" &&
+                  method === "POST"
                   ? mcpInitializeResponse(
                       text,
                       response.headers["content-type"],
                     )
                   : parse(text);
-            } catch {
-              value = text;
-            }
+              } catch {
+                return text;
+              }
+            });
+            observe(() => observer?.decoded?.(), true);
             finish(response.statusCode ?? 0, value);
           });
           response.on("error", () => finish(0, null, 2));
@@ -276,7 +305,8 @@ async function call(
     },
   );
 }
-const key = () => readFileSync("/query/key", "utf8").trim();
+const key = () =>
+  clientWork(5, () => readFileSync("/query/key", "utf8").trim());
 async function sourceCacheReady() {
   const expression =
     'count(count by(source) ((inside_production_source_available{job="platform-owner-cache",instance="production-host",source=~"postgresql|caddy"} == 1) and on(source,job,instance) ((time() - inside_production_source_observed_at_seconds{job="platform-owner-cache",instance="production-host"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job="platform-owner-cache",instance="production-host"}) <= 10)))';
@@ -291,7 +321,7 @@ async function sourceCacheReady() {
     { authorization: "Bearer " + key() },
     4096,
   );
-  const observation = sourceCacheObservation(result);
+  const observation = clientWork(9, () => sourceCacheObservation(result));
   return {
     ...observation,
     failure:
@@ -512,9 +542,13 @@ async function readMonitoring() {
     if (result.status !== 200)
       return { failure: target + "_http", status: result.status };
     if (
-      (index === 0 && !queryOne(result.value)) ||
-      (index === 2 &&
-        (!record(result.value) || !Array.isArray(result.value["data"])))
+      clientWork(
+        9,
+        () =>
+          (index === 0 && !queryOne(result.value)) ||
+          (index === 2 &&
+            (!record(result.value) || !Array.isArray(result.value["data"]))),
+      )
     )
       return { failure: target + "_response", status: result.status };
     maximum = Math.max(maximum, result.seconds);
@@ -565,8 +599,8 @@ async function lag() {
   const age = value === null ? NaN : Date.now() / 1000 - value;
   return Number.isFinite(age) && age >= 0 ? age : null;
 }
-/** @param {number} actor @param {number} update */
-async function telegramUpdate(actor, update) {
+/** @param {number} actor @param {number} update @param {import("./phase-timing.mjs").RequestObserver} [observer] */
+async function telegramUpdate(actor, update, observer) {
   const id = 1000001 + actor;
   return await call(
     "telegram",
@@ -588,6 +622,8 @@ async function telegramUpdate(actor, update) {
       "x-telegram-bot-api-secret-token":
         "synthetic_webhook_secret_for_runtime_smoke",
     },
+    1_048_576,
+    observer,
   );
 }
 /** @param {number} index @param {boolean} enabled @param {number} phase @param {number} [cohort] @param {ReturnType<ReturnType<typeof phaseTiming>["webRequest"]>} [observer] */
@@ -632,7 +668,16 @@ async function operation(
     };
   if (kind === 2)
     return {
-      ...(await call("api.resource.test", 443, "/library/site-index")),
+      ...(await call(
+        "api.resource.test",
+        443,
+        "/library/site-index",
+        "GET",
+        undefined,
+        {},
+        1_048_576,
+        observer,
+      )),
       label: "api_catalog",
     };
   if (kind === 3)
@@ -646,6 +691,8 @@ async function operation(
         {
           authorization: "Bearer " + bearer,
         },
+        1_048_576,
+        observer,
       )),
       label: "api_account",
     };
@@ -676,12 +723,25 @@ async function operation(
     };
   if (kind === 6)
     return {
-      ...(await telegramUpdate(actor, 2000000 + phase * 1000 + index)),
+      ...(await telegramUpdate(
+        actor,
+        2000000 + phase * 1000 + index,
+        observer,
+      )),
       label: "telegram_webhook",
     };
   if (kind === 7)
     return {
-      ...(await call("logto", 3001, "/oidc/.well-known/openid-configuration")),
+      ...(await call(
+        "logto",
+        3001,
+        "/oidc/.well-known/openid-configuration",
+        "GET",
+        undefined,
+        {},
+        1_048_576,
+        observer,
+      )),
       label: "logto_discovery",
     };
   if (!enabled || technicalScope)
@@ -823,236 +883,252 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
   const cohort = diagnosticOrdinal === undefined ? phase : 0;
   let maximumInflight = 0;
   const timing = phaseTiming(phase, pair, start, epoch, anchorAfter);
-  const occupancy = slotOccupancy(phase, enabled, start);
-  /** @type {{label:string,elapsed_ms:number}[]} */ const latency = [];
-  /** @type {number[]} */ const querySeconds = [];
-  /** Closed finite corpus keys only; no response, URL or credential is retained.
-   * @type {Record<string, number>} */ const queryFailureCounts = {};
-  /** @type {Record<string, Record<string, number>>} */ const queryFailureStatuses =
-    {};
-  /** @type {Record<string,number>} */ const sourceCacheFailureCounts = {};
-  /** @type {import("./responses.mjs").SourceCacheDiagnostic[]} */ const sourceCacheFailures =
-    [];
-  let sourceCacheFailureOverflow = 0;
-  let sourceCacheSampleAttempted = false;
-  /** @type {import("./responses.mjs").SourceCacheSampleDiagnostic|undefined} */
-  let sourceCacheSampleDiagnostic;
-  /** @type {Set<Promise<void>>} */ const active = new Set();
-  let querying = true,
-    queryFailure = false,
-    queryOrdinal = 0;
-  const queries = enabled
-    ? (async () => {
-        while (querying) {
-          const roundStart = performance.now();
-          const value = await readMonitoring();
-          timing.observer(
-            queryOrdinal++,
-            roundStart,
-            performance.now(),
-            "failure" in value ? value.failure : undefined,
+  if (clientTiming !== undefined)
+    throw new Error("one diagnostic phase at a time required");
+  clientTiming = timing;
+  timing.startGc();
+  try {
+    const occupancy = slotOccupancy(phase, enabled, start);
+    /** @type {{label:string,elapsed_ms:number}[]} */ const latency = [];
+    /** @type {number[]} */ const querySeconds = [];
+    /** Closed finite corpus keys only; no response, URL or credential is retained.
+     * @type {Record<string, number>} */ const queryFailureCounts = {};
+    /** @type {Record<string, Record<string, number>>} */ const queryFailureStatuses =
+      {};
+    /** @type {Record<string,number>} */ const sourceCacheFailureCounts = {};
+    /** @type {import("./responses.mjs").SourceCacheDiagnostic[]} */ const sourceCacheFailures =
+      [];
+    let sourceCacheFailureOverflow = 0;
+    let sourceCacheSampleAttempted = false;
+    /** @type {import("./responses.mjs").SourceCacheSampleDiagnostic|undefined} */
+    let sourceCacheSampleDiagnostic;
+    /** @type {Set<Promise<void>>} */ const active = new Set();
+    let querying = true,
+      queryFailure = false,
+      queryOrdinal = 0;
+    const queries = enabled
+      ? (async () => {
+          while (querying) {
+            const roundStart = performance.now();
+            const value = await readMonitoring();
+            timing.observer(
+              queryOrdinal++,
+              roundStart,
+              performance.now(),
+              "failure" in value ? value.failure : undefined,
+            );
+            if ("failure" in value) {
+              queryFailure = true;
+              if (
+                !sourceCacheSampleAttempted &&
+                value.failure === "source_cache_response" &&
+                "sourceCache" in value &&
+                value.sourceCache?.reason === "stale"
+              ) {
+                sourceCacheSampleAttempted = true;
+                try {
+                  sourceCacheSampleDiagnostic = await sourceCacheSampleAt(
+                    value.sourceCache.evaluation_seconds,
+                  );
+                } catch {
+                  // Optional evidence cannot replace the already sticky source failure.
+                }
+              }
+              if ("sourceCache" in value && value.sourceCache) {
+                const diagnostic = value.sourceCache;
+                sourceCacheFailureCounts[diagnostic.reason] =
+                  (sourceCacheFailureCounts[diagnostic.reason] ?? 0) + 1;
+                if (sourceCacheFailures.length < 4)
+                  sourceCacheFailures.push(diagnostic);
+                else sourceCacheFailureOverflow++;
+              }
+              queryFailureCounts[value.failure] =
+                (queryFailureCounts[value.failure] ?? 0) + 1;
+              const statuses = (queryFailureStatuses[value.failure] ??= {});
+              const status =
+                typeof value.status === "number" &&
+                Number.isSafeInteger(value.status) &&
+                (value.status === 0 ||
+                  (value.status >= 100 && value.status <= 599))
+                  ? String(value.status)
+                  : "unknown";
+              statuses[status] = (statuses[status] ?? 0) + 1;
+            } else querySeconds.push(value.seconds);
+            await delay(500);
+          }
+        })()
+      : Promise.resolve();
+    try {
+      while (
+        performance.now() < end &&
+        scheduled < definition.seconds * definition.requests_per_second
+      ) {
+        if (definition.requests_per_second === 0) {
+          await delay(Math.max(0, end - performance.now()));
+          break;
+        }
+        const at = start + (scheduled * 1000) / definition.requests_per_second;
+        await delay(Math.max(0, at - performance.now()));
+        if (performance.now() >= end) break;
+        const index = scheduled++;
+        if (active.size >= profile.concurrency) {
+          occupancy.refuse();
+          missed++;
+          continue;
+        }
+        const slot = occupancy.acquire(index % 8);
+        const work = (async () => {
+          if (enabled) {
+            attemptedProbes++;
+            const response = await probe(
+              phase,
+              index,
+              epoch + (index * 1000) / definition.requests_per_second,
+            );
+            if (response.status === 200) acknowledged++;
+            else unexpected++;
+          }
+          if (enabled) occupancy.stage(slot, 1);
+          return await operation(
+            index,
+            enabled,
+            phase,
+            cohort,
+            [0, 1, 2, 3, 6, 7].includes(index % 8)
+              ? timing.requestTransport(index, index % 8)
+              : undefined,
           );
-          if ("failure" in value) {
-            queryFailure = true;
-            if (
-              !sourceCacheSampleAttempted &&
-              value.failure === "source_cache_response" &&
-              "sourceCache" in value &&
-              value.sourceCache?.reason === "stale"
-            ) {
-              sourceCacheSampleAttempted = true;
-              try {
-                sourceCacheSampleDiagnostic = await sourceCacheSampleAt(
-                  value.sourceCache.evaluation_seconds,
-                );
-              } catch {
-                // Optional evidence cannot replace the already sticky source failure.
+        })()
+          .then((value) => {
+            occupancy.stage(slot, 2);
+            const expected =
+              value.label === "api_account"
+                ? (privateAccounts()[
+                    (cohort * 50 + Math.floor(index / 8)) % profile.accounts
+                  ] ?? "")
+                : value.label === "web_material"
+                  ? "Synthetic " + String((index % profile.materials) + 1)
+                  : value.label === "mcp_discovery"
+                    ? String(index + 1)
+                    : "";
+            const semanticSuccess = operationOk(value, value.label, expected);
+            if (technicalScope) {
+              if (value.label === "analytics_disabled") disabledOperations++;
+              else {
+                const counter = httpOperations[value.label];
+                if (!counter) throw new Error("closed HTTP operation required");
+                if (semanticSuccess) counter.successful++;
               }
             }
-            if ("sourceCache" in value && value.sourceCache) {
-              const diagnostic = value.sourceCache;
-              sourceCacheFailureCounts[diagnostic.reason] =
-                (sourceCacheFailureCounts[diagnostic.reason] ?? 0) + 1;
-              if (sourceCacheFailures.length < 4)
-                sourceCacheFailures.push(diagnostic);
-              else sourceCacheFailureOverflow++;
-            }
-            queryFailureCounts[value.failure] =
-              (queryFailureCounts[value.failure] ?? 0) + 1;
-            const statuses = (queryFailureStatuses[value.failure] ??= {});
-            const status =
-              typeof value.status === "number" &&
-              Number.isSafeInteger(value.status) &&
-              (value.status === 0 ||
-                (value.status >= 100 && value.status <= 599))
-                ? String(value.status)
-                : "unknown";
-            statuses[status] = (statuses[status] ?? 0) + 1;
-          } else querySeconds.push(value.seconds);
-          await delay(500);
-        }
-      })()
-    : Promise.resolve();
-  try {
-    while (
-      performance.now() < end &&
-      scheduled < definition.seconds * definition.requests_per_second
-    ) {
-      if (definition.requests_per_second === 0) {
-        await delay(Math.max(0, end - performance.now()));
-        break;
-      }
-      const at = start + (scheduled * 1000) / definition.requests_per_second;
-      await delay(Math.max(0, at - performance.now()));
-      if (performance.now() >= end) break;
-      const index = scheduled++;
-      if (active.size >= profile.concurrency) {
-        occupancy.refuse();
-        missed++;
-        continue;
-      }
-      const slot = occupancy.acquire(index % 8);
-      const work = (async () => {
-        if (enabled) {
-          attemptedProbes++;
-          const response = await probe(
-            phase,
-            index,
-            epoch + (index * 1000) / definition.requests_per_second,
-          );
-          if (response.status === 200) acknowledged++;
-          else unexpected++;
-        }
-        if (enabled) occupancy.stage(slot, 1);
-        return await operation(
-          index,
-          enabled,
-          phase,
-          cohort,
-          index % 8 < 2 ? timing.webRequest(index, index % 8) : undefined,
-        );
-      })()
-        .then((value) => {
-          occupancy.stage(slot, 2);
-          const expected =
-            value.label === "api_account"
-              ? (privateAccounts()[
-                  (cohort * 50 + Math.floor(index / 8)) % profile.accounts
-                ] ?? "")
-              : value.label === "web_material"
-                ? "Synthetic " + String((index % profile.materials) + 1)
-                : value.label === "mcp_discovery"
-                  ? String(index + 1)
-                  : "";
-          const semanticSuccess = operationOk(value, value.label, expected);
-          if (technicalScope) {
-            if (value.label === "analytics_disabled") disabledOperations++;
+            if (!semanticSuccess) unexpected++;
             else {
-              const counter = httpOperations[value.label];
-              if (!counter) throw new Error("closed HTTP operation required");
-              if (semanticSuccess) counter.successful++;
+              success++;
+              if (value.label === "telegram_webhook") telegramAccepted++;
             }
-          }
-          if (!semanticSuccess) unexpected++;
-          else {
-            success++;
-            if (value.label === "telegram_webhook") telegramAccepted++;
-          }
-          if (
-            [
-              "web_home",
-              "web_material",
-              "api_catalog",
-              "api_account",
-              "telegram_webhook",
-              "logto_discovery",
-            ].includes(value.label)
-          ) {
-            latency.push({
-              label: value.label,
-              elapsed_ms: value.seconds * 1000,
-            });
-            timing.request(index, index % 8, value.started_ms, value.ended_ms);
-          }
-        })
-        .finally(() => {
-          occupancy.release(work);
-          active.delete(work);
-        });
-      active.add(work);
-      occupancy.attach(work, slot);
-      if (diagnosticOrdinal !== undefined)
-        maximumInflight = Math.max(maximumInflight, active.size);
+            if (
+              [
+                "web_home",
+                "web_material",
+                "api_catalog",
+                "api_account",
+                "telegram_webhook",
+                "logto_discovery",
+              ].includes(value.label)
+            ) {
+              latency.push({
+                label: value.label,
+                elapsed_ms: value.seconds * 1000,
+              });
+              timing.request(
+                index,
+                index % 8,
+                value.started_ms,
+                value.ended_ms,
+              );
+            }
+          })
+          .finally(() => {
+            occupancy.release(work);
+            active.delete(work);
+          });
+        active.add(work);
+        occupancy.attach(work, slot);
+        if (diagnosticOrdinal !== undefined)
+          maximumInflight = Math.max(maximumInflight, active.size);
+      }
+      while (performance.now() < end)
+        await delay(Math.max(0, end - performance.now()));
+      await Promise.all(active);
+    } finally {
+      querying = false;
+      await queries;
     }
-    while (performance.now() < end)
-      await delay(Math.max(0, end - performance.now()));
-    await Promise.all(active);
+    timing.finish(performance.now(), Date.now(), performance.now());
+    let stored = enabled ? await retained(phase) : 0;
+    const flushStart = performance.now();
+    while (
+      enabled &&
+      stored !== acknowledged &&
+      performance.now() - flushStart < 60000
+    ) {
+      await delay(250);
+      stored = await retained(phase);
+    }
+    const age = enabled ? await lag() : null;
+    return {
+      ...(diagnosticOrdinal === undefined
+        ? {}
+        : {
+            diagnostic_only: true,
+            actor_cohort: 0,
+            maximum_inflight: maximumInflight,
+          }),
+      ...(technicalScope
+        ? {
+            scope: "technical",
+            http_operations: httpOperations,
+            disabled_operations: disabledOperations,
+            attempted_probe_points: attemptedProbes,
+            monitoring_http: { ...monitoringHttp },
+          }
+        : {}),
+      telegram_acknowledged: telegramAccepted,
+      acknowledged_probe_points: acknowledged,
+      stored_probe_points: stored,
+      unexplained_probe_loss:
+        enabled && stored !== null
+          ? Math.abs(acknowledged - stored)
+          : enabled
+            ? null
+            : 0,
+      completed:
+        scheduled === definition.seconds * definition.requests_per_second &&
+        missed === 0 &&
+        success === scheduled &&
+        unexpected === 0 &&
+        !queryFailure,
+      scheduled,
+      missed,
+      success,
+      unexpected_failures: unexpected,
+      latency,
+      timing_diagnostics: timing.result,
+      slot_refusal: occupancy.result(),
+      query_seconds: querySeconds,
+      query_failure_counts: queryFailureCounts,
+      query_failure_status_counts: queryFailureStatuses,
+      source_cache_failure_counts: sourceCacheFailureCounts,
+      source_cache_failures: sourceCacheFailures,
+      source_cache_failure_overflow: sourceCacheFailureOverflow,
+      ...(sourceCacheSampleDiagnostic === undefined
+        ? {}
+        : { source_cache_sample_diagnostic: sourceCacheSampleDiagnostic }),
+      ingestion_lag_seconds: age,
+    };
   } finally {
-    querying = false;
-    await queries;
+    timing.stopClient();
+    clientTiming = undefined;
   }
-  timing.finish(performance.now(), Date.now(), performance.now());
-  let stored = enabled ? await retained(phase) : 0;
-  const flushStart = performance.now();
-  while (
-    enabled &&
-    stored !== acknowledged &&
-    performance.now() - flushStart < 60000
-  ) {
-    await delay(250);
-    stored = await retained(phase);
-  }
-  const age = enabled ? await lag() : null;
-  return {
-    ...(diagnosticOrdinal === undefined
-      ? {}
-      : {
-          diagnostic_only: true,
-          actor_cohort: 0,
-          maximum_inflight: maximumInflight,
-        }),
-    ...(technicalScope
-      ? {
-          scope: "technical",
-          http_operations: httpOperations,
-          disabled_operations: disabledOperations,
-          attempted_probe_points: attemptedProbes,
-          monitoring_http: { ...monitoringHttp },
-        }
-      : {}),
-    telegram_acknowledged: telegramAccepted,
-    acknowledged_probe_points: acknowledged,
-    stored_probe_points: stored,
-    unexplained_probe_loss:
-      enabled && stored !== null
-        ? Math.abs(acknowledged - stored)
-        : enabled
-          ? null
-          : 0,
-    completed:
-      scheduled === definition.seconds * definition.requests_per_second &&
-      missed === 0 &&
-      success === scheduled &&
-      unexpected === 0 &&
-      !queryFailure,
-    scheduled,
-    missed,
-    success,
-    unexpected_failures: unexpected,
-    latency,
-    timing_diagnostics: timing.result,
-    slot_refusal: occupancy.result(),
-    query_seconds: querySeconds,
-    query_failure_counts: queryFailureCounts,
-    query_failure_status_counts: queryFailureStatuses,
-    source_cache_failure_counts: sourceCacheFailureCounts,
-    source_cache_failures: sourceCacheFailures,
-    source_cache_failure_overflow: sourceCacheFailureOverflow,
-    ...(sourceCacheSampleDiagnostic === undefined
-      ? {}
-      : { source_cache_sample_diagnostic: sourceCacheSampleDiagnostic }),
-    ingestion_lag_seconds: age,
-  };
 }
 /** @param {string} text */
 function parseDefinition(text) {

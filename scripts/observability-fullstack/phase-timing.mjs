@@ -1,7 +1,12 @@
 // @ts-check
+import { PerformanceObserver, constants } from "node:perf_hooks";
 /** Numeric diagnostics only. None of these fields participates in acceptance. */
 /** @typedef {[number,number,number|null,number|null,number|null,number|null,number|null,number|null,number|null,number|null,number]} WebRow */
 /** @typedef {{schema:number,state:string,rows:WebRow[],overflow:number,invalid:number}} WebTransport */
+/** @typedef {{schema:number,width:number,state:string,rows:(number|null)[],overflow:number,invalid:number}} FlatTransport */
+/** @typedef {{schema:number,width:number,state:string,rows:number[],overflow:number,invalid:number}} ClientWork */
+/** @typedef {ClientWork & {capture_start_us:number|null,capture_end_us:number|null,tail_complete:false,excluded:number}} ClientGc */
+/** @typedef {{begin:(at:number)=>void,attach:(req:import('node:events').EventEmitter & {socket?:import('node:events').EventEmitter|null})=>void,submitted:()=>void,headers:()=>void,bodyEnd:()=>void,decoded:()=>void,finish:(at:number,failure:number,additiveFault?:boolean)=>void}} RequestObserver */
 const REQUEST_LIMIT = 400;
 const OBSERVER_LIMIT = 128;
 const PHASE_WINDOW_MS = 600_000;
@@ -42,7 +47,7 @@ export function phaseTiming(phase, pair, before, epoch, after) {
     pair < 2 &&
     Math.floor(phase / 6) === pair;
   const valid = validPhase && anchor !== null;
-  /** @type {{phase:number|null,pair:number|null,phase_start:number[]|null,phase_end:number[]|null,state:string,requests:number[][],observer_rounds:number[][],request_overflow:number,observer_overflow:number,invalid_rows:number,web_transport?:WebTransport}} */
+  /** @type {{phase:number|null,pair:number|null,phase_start:number[]|null,phase_end:number[]|null,state:string,requests:number[][],observer_rounds:number[][],request_overflow:number,observer_overflow:number,invalid_rows:number,web_transport?:WebTransport,request_transport?:FlatTransport,client_work?:ClientWork,client_gc?:ClientGc}} */
   const result = {
     phase: validPhase ? phase : null,
     pair: validPhase ? pair : null,
@@ -73,189 +78,469 @@ export function phaseTiming(phase, pair, before, epoch, after) {
       end - before <= PHASE_WINDOW_MS
     );
   }
+  let webPending = 0,
+    requestPending = 0,
+    workSealed = false;
+  /** @type {PerformanceObserver | undefined} */ let gcObserver;
+  let gcSealed = false;
+  /** @type {number | undefined} */ let gcStart;
+  /** @type {number | undefined} */ let gcEnd;
+  /** Retained only until settlement; validate the original clock before quantization. @type {number[]} */ const gcRawEnds =
+    [];
+  /** @param {ClientGc} leaf */
+  function gcFault(leaf) {
+    leaf.invalid = Math.min(Number.MAX_SAFE_INTEGER, leaf.invalid + 1);
+    if (leaf.state !== "overflow") leaf.state = "unavailable";
+  }
+  function disconnectGc() {
+    gcSealed = true;
+    try {
+      gcObserver?.disconnect();
+    } catch {
+      if (result.client_gc) gcFault(result.client_gc);
+    }
+    gcObserver = undefined;
+  }
+  /** Native delivery can still be pending after takeRecords; never claim a complete tail.
+   * @param {unknown[]} entries
+   */
+  function gcEntries(entries) {
+    const leaf = result.client_gc;
+    if (gcSealed || !leaf) return;
+    for (const raw of entries) {
+      if (gcSealed) break;
+      try {
+        if (raw === null || typeof raw !== "object") throw new Error("entry");
+        /** @type {unknown} */ const type = Reflect.get(raw, "entryType");
+        /** @type {unknown} */ const start = Reflect.get(raw, "startTime");
+        /** @type {unknown} */ const duration = Reflect.get(raw, "duration");
+        /** @type {unknown} */ const detail = Reflect.get(raw, "detail");
+        if (
+          type !== "gc" ||
+          typeof start !== "number" ||
+          typeof duration !== "number" ||
+          !Number.isFinite(duration) ||
+          duration < 0 ||
+          detail === null ||
+          typeof detail !== "object"
+        )
+          throw new Error("entry");
+        /** @type {unknown} */ const rawKind = Reflect.get(detail, "kind");
+        if (typeof rawKind !== "number") throw new Error("kind");
+        const kind = [
+          constants.NODE_PERFORMANCE_GC_MINOR,
+          constants.NODE_PERFORMANCE_GC_MAJOR,
+          constants.NODE_PERFORMANCE_GC_INCREMENTAL,
+          constants.NODE_PERFORMANCE_GC_WEAKCB,
+        ].indexOf(rawKind);
+        const end = start + duration;
+        if (kind < 0 || !window(start, end) || gcStart === undefined)
+          throw new Error("entry");
+        if (start < gcStart || (gcEnd !== undefined && start > gcEnd)) {
+          leaf.excluded = Math.min(Number.MAX_SAFE_INTEGER, leaf.excluded + 1);
+          continue;
+        }
+        if (gcEnd !== undefined && end > gcEnd) throw new Error("boundary");
+        leaf.rows.push(
+          kind + 1,
+          Math.floor((start - before) * 1000),
+          Math.floor((end - before) * 1000),
+        );
+        gcRawEnds.push(end);
+        if (leaf.rows.length >= 512 * 3) {
+          leaf.state = "overflow";
+          leaf.overflow++;
+          disconnectGc();
+        }
+      } catch {
+        gcFault(leaf);
+      }
+    }
+  }
+  const ordinals = new Set();
+  /** One event/clock feeds both views; the legacy view retains raw millisecond precision.
+   * @param {number} ordinal @param {number} kind @param {boolean} general
+   * @returns {RequestObserver | undefined}
+   */
+  function requestObserver(ordinal, kind, general) {
+    const web =
+      kind < 2 || !general
+        ? (result.web_transport ??= {
+            schema: 1,
+            state: "complete",
+            rows: [],
+            overflow: 0,
+            invalid: 0,
+          })
+        : undefined;
+    const leaf = general
+      ? (result.request_transport ??= {
+          schema: 1,
+          width: 13,
+          state: "complete",
+          rows: [],
+          overflow: 0,
+          invalid: 0,
+        })
+      : undefined;
+    const refused =
+      !valid ||
+      !Number.isSafeInteger(ordinal) ||
+      ordinal < 0 ||
+      ordinal >= REQUEST_LIMIT ||
+      !(general ? [0, 1, 2, 3, 6, 7] : [0, 1]).includes(kind) ||
+      ordinal % 8 !== kind;
+    const fail = () => {
+      for (const item of [web, leaf])
+        if (item) {
+          item.invalid++;
+          item.state = "unavailable";
+        }
+    };
+    if (refused) {
+      fail();
+      return undefined;
+    }
+    if (
+      (web && web.rows.length >= 100) ||
+      (leaf && leaf.rows.length >= 300 * 13)
+    ) {
+      for (const item of [web, leaf])
+        if (item) {
+          item.overflow++;
+          item.state = "overflow";
+        }
+      return undefined;
+    }
+    if (
+      (leaf && ordinals.has(ordinal)) ||
+      web?.rows.some((row) => row[0] === ordinal)
+    ) {
+      fail();
+      return undefined;
+    }
+    /** @type {(number|null)[]} */ const raw = [
+      ordinal,
+      kind,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      0,
+    ];
+    /** @type {WebRow | undefined} */ const legacy = web
+      ? [ordinal, kind, null, null, null, null, null, null, null, null, 0]
+      : undefined;
+    const offset = leaf?.rows.length ?? 0;
+    if (leaf) {
+      leaf.rows.push(...raw);
+      ordinals.add(ordinal);
+      requestPending++;
+      if (leaf.state === "complete") leaf.state = "partial";
+    }
+    if (web && legacy) {
+      web.rows.push(legacy);
+      webPending++;
+      if (web.state === "complete") web.state = "partial";
+    }
+    /** @type {[import('node:events').EventEmitter,string,()=>void][]} */ const listeners =
+      [];
+    let settled = false,
+      broken = false,
+      webBroken = false,
+      attached = false;
+    /** @param {boolean} [shared] */
+    const bad = (shared = true) => {
+      if (leaf && !broken) {
+        leaf.invalid++;
+        broken = true;
+      }
+      if (web && shared && !webBroken) {
+        web.invalid++;
+        webBroken = true;
+      }
+    };
+    const detach = () => {
+      for (const [emitter, event, fn] of listeners.splice(0)) {
+        try {
+          emitter.off(event, fn);
+        } catch {
+          bad();
+        }
+      }
+    };
+    /** @param {number} column @param {number} at */
+    const mark = (column, at) => {
+      if (settled) return;
+      if (
+        raw[column] !== null ||
+        !Number.isFinite(at) ||
+        at < before ||
+        at - before > PHASE_WINDOW_MS
+      ) {
+        bad(column !== 9 && column !== 10);
+        return;
+      }
+      const elapsed = at - before;
+      raw[column] = elapsed;
+      if (leaf) leaf.rows[offset + column] = Math.floor(elapsed * 1000);
+      if (legacy && column <= 8) legacy[column] = elapsed;
+      if (legacy && column === 11) legacy[9] = elapsed;
+    };
+    /** @param {()=>void} action @param {boolean} [shared] */
+    const safe = (action, shared = true) => {
+      if (settled) return;
+      try {
+        action();
+      } catch {
+        bad(shared);
+        detach();
+      }
+    };
+    /** @param {import('node:events').EventEmitter} emitter @param {string} event @param {()=>void} action */
+    const listen = (emitter, event, action) => {
+      const fn = () => safe(action);
+      listeners.push([emitter, event, fn]);
+      emitter.once(event, fn);
+    };
+    return {
+      begin(at) {
+        safe(() => mark(2, at));
+      },
+      attach(req) {
+        safe(() => {
+          if (attached) {
+            bad();
+            detach();
+            return;
+          }
+          attached = true;
+          listen(req, "socket", () => {
+            mark(4, performance.now());
+            const socket = req.socket;
+            if (socket == null) {
+              bad();
+              return;
+            }
+            listen(socket, "connect", () => mark(5, performance.now()));
+            listen(socket, "secureConnect", () => mark(6, performance.now()));
+          });
+          listen(req, "finish", () => mark(7, performance.now()));
+        });
+      },
+      submitted() {
+        safe(() => mark(3, performance.now()));
+      },
+      headers() {
+        safe(() => mark(8, performance.now()));
+      },
+      bodyEnd() {
+        if (leaf) safe(() => mark(9, performance.now()), false);
+      },
+      decoded() {
+        if (leaf) safe(() => mark(10, performance.now()), false);
+      },
+      finish(at, failure, additiveFault = false) {
+        if (settled) return;
+        safe(() => {
+          mark(11, at);
+          if (additiveFault) bad(false);
+          if (!Number.isInteger(failure) || failure < 0 || failure > 5) {
+            bad();
+            failure = 5;
+          }
+          /** @type {[number,number][]} */ const branches = [
+            [2, 3],
+            [2, 4],
+            [4, 5],
+            [5, 6],
+            [3, 7],
+            [6, 8],
+            [2, 11],
+          ];
+          if (leaf) branches.push([8, 9], [9, 10], [10, 11]);
+          for (const [left, right] of branches) {
+            const a = raw[left],
+              b = raw[right];
+            if (typeof a === "number" && typeof b === "number" && a > b)
+              bad(right !== 9 && right !== 10 && left !== 10);
+          }
+          for (let col = 2; col < 12; col++) {
+            const value = raw[col],
+              end = raw[11],
+              start = raw[2];
+            if (
+              typeof value === "number" &&
+              ((typeof end === "number" && value > end) ||
+                (typeof start === "number" && value < start))
+            )
+              bad(col !== 9 && col !== 10);
+          }
+          if (legacy && legacy.slice(2, 9).some((v) => v === null)) bad();
+          if (
+            leaf &&
+            raw
+              .slice(2, 12)
+              .some((v, index) => v === null && !(index + 2 === 6 && kind >= 6))
+          )
+            bad(false);
+          if (leaf && kind >= 6 && raw[6] !== null) bad(false);
+          if (failure === 5) bad();
+          if (legacy) legacy[10] = webBroken && failure === 0 ? 5 : failure;
+          if (leaf)
+            leaf.rows[offset + 12] = broken && failure === 0 ? 5 : failure;
+        });
+        detach();
+        settled = true;
+        if (
+          web &&
+          --webPending === 0 &&
+          web.invalid === 0 &&
+          web.overflow === 0
+        )
+          web.state = "complete";
+        if (
+          leaf &&
+          --requestPending === 0 &&
+          leaf.invalid === 0 &&
+          leaf.overflow === 0
+        )
+          leaf.state = "complete";
+      },
+    };
+  }
   return {
     result,
-    /** Passive listeners belong only to this request; failures never enter transport control.
-     * @param {number} ordinal @param {number} kind
-     */
-    webRequest(ordinal, kind) {
-      const leaf = (result.web_transport ??= {
+    /** @param {typeof PerformanceObserver} [Observer] */
+    startGc(Observer = PerformanceObserver) {
+      if (result.client_gc) {
+        gcFault(result.client_gc);
+        disconnectGc();
+        return;
+      }
+      /** @type {ClientGc} */ const leaf = (result.client_gc = {
         schema: 1,
-        state: "complete",
+        width: 3,
+        state: "observed",
+        capture_start_us: null,
+        capture_end_us: null,
+        tail_complete: false,
+        rows: [],
+        overflow: 0,
+        invalid: 0,
+        excluded: 0,
+      });
+      try {
+        gcStart = performance.now();
+        if (
+          !valid ||
+          !window(gcStart, gcStart) ||
+          !Observer.supportedEntryTypes.includes("gc")
+        )
+          throw new Error("gc");
+        leaf.capture_start_us = Math.floor((gcStart - before) * 1000);
+        gcObserver = new Observer((list) => {
+          try {
+            gcEntries(list.getEntries());
+          } catch {
+            gcFault(leaf);
+            disconnectGc();
+          }
+        });
+        gcObserver.observe({ entryTypes: ["gc"] });
+      } catch {
+        gcFault(leaf);
+        disconnectGc();
+      }
+    },
+    stopClient() {
+      workSealed = true;
+      if (gcSealed) return;
+      const leaf = result.client_gc;
+      try {
+        if (leaf && gcEnd === undefined) {
+          const end = performance.now();
+          if (!window(before, end)) throw new Error("clock");
+          gcEnd = end;
+          leaf.capture_end_us = Math.floor((end - before) * 1000);
+        }
+        if (gcObserver) gcEntries(gcObserver.takeRecords());
+      } catch {
+        if (leaf) gcFault(leaf);
+      } finally {
+        disconnectGc();
+      }
+    },
+    /** @param {number} ordinal @param {number} kind */
+    webRequest(ordinal, kind) {
+      return requestObserver(ordinal, kind, false);
+    },
+    /** @param {number} ordinal @param {number} kind */
+    requestTransport(ordinal, kind) {
+      return requestObserver(ordinal, kind, true);
+    },
+    /** The action always runs exactly once, including when diagnostics fail.
+     * @template T @param {number} kind @param {()=>T} action @returns {T}
+     */
+    work(kind, action) {
+      if (workSealed) return action();
+      const leaf = (result.client_work ??= {
+        schema: 1,
+        width: 4,
+        state: "observed",
         rows: [],
         overflow: 0,
         invalid: 0,
       });
-      const refused =
-        !valid ||
-        !Number.isSafeInteger(ordinal) ||
-        ordinal < 0 ||
-        ordinal >= 400 ||
-        ![0, 1].includes(kind) ||
-        ordinal % 8 !== kind;
-      if (refused) {
-        leaf.invalid++;
-        leaf.state = "unavailable";
-        return undefined;
-      }
-      if (leaf.rows.length >= 100) {
-        leaf.overflow++;
+      if (leaf.rows.length >= 4096 * 4) {
+        leaf.overflow = Math.min(Number.MAX_SAFE_INTEGER, leaf.overflow + 1);
         leaf.state = "overflow";
-        return undefined;
+        return action();
       }
-      if (leaf.rows.some((row) => row[0] === ordinal)) {
-        leaf.invalid++;
-        leaf.state = "unavailable";
-        return undefined;
+      /** @type {number | undefined} */ let start;
+      try {
+        start = performance.now();
+      } catch {
+        /* Original action still owns its exception. */
       }
-      /** @type {WebRow} */ const row = [
-        ordinal,
-        kind,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        0,
-      ];
-      leaf.rows.push(row);
-      if (leaf.state === "complete") leaf.state = "partial";
-      /** @type {[import('node:events').EventEmitter,string,()=>void][]} */ const listeners =
-        [];
-      let settled = false,
-        broken = false,
-        attached = false;
-      const bad = () => {
-        if (!broken) {
-          leaf.invalid++;
-          broken = true;
-        }
-        if (leaf.state !== "overflow" && leaf.state !== "unavailable")
-          leaf.state = "partial";
-      };
-      const detach = () => {
-        for (const [emitter, event, fn] of listeners.splice(0)) {
-          try {
-            emitter.off(event, fn);
-          } catch {
-            bad();
-          }
-        }
-      };
-      /** @param {number} column @param {number} at */
-      const mark = (column, at) => {
-        if (settled) return;
-        if (
-          row[column] !== null ||
-          !Number.isFinite(at) ||
-          at < before ||
-          at - before > PHASE_WINDOW_MS
-        ) {
-          bad();
-          return;
-        }
-        row[column] = at - before;
-      };
-      /** @param {()=>void} action */
-      const safe = (action) => {
+      let failure = 0;
+      const recordWork = () => {
         try {
-          action();
+          const end = performance.now();
+          if (
+            !valid ||
+            !Number.isInteger(kind) ||
+            kind < 0 ||
+            kind > 10 ||
+            start === undefined ||
+            !window(start, end)
+          )
+            throw new Error("clock");
+          leaf.rows.push(
+            kind,
+            Math.floor((start - before) * 1000),
+            Math.floor((end - before) * 1000),
+            failure,
+          );
         } catch {
-          bad();
-          detach();
+          leaf.invalid = Math.min(Number.MAX_SAFE_INTEGER, leaf.invalid + 1);
+          if (leaf.state !== "overflow") leaf.state = "unavailable";
         }
       };
-      /** @param {import('node:events').EventEmitter} emitter @param {string} event @param {()=>void} action */
-      const listen = (emitter, event, action) => {
-        const fn = () => safe(action);
-        listeners.push([emitter, event, fn]);
-        emitter.once(event, fn);
-      };
-      return {
-        /** @param {number} at */ begin(at) {
-          safe(() => mark(2, at));
-        },
-        /** @param {import('node:events').EventEmitter & {socket?:import('node:events').EventEmitter|null}} req */
-        attach(req) {
-          safe(() => {
-            if (attached) {
-              bad();
-              detach();
-              return;
-            }
-            attached = true;
-            listen(req, "socket", () => {
-              mark(4, performance.now());
-              const socket = req.socket;
-              if (socket == null) {
-                bad();
-                return;
-              }
-              // A socket already connected when observed has no inferred connect/TLS time.
-              listen(socket, "connect", () => mark(5, performance.now()));
-              listen(socket, "secureConnect", () => mark(6, performance.now()));
-            });
-            listen(req, "finish", () => mark(7, performance.now()));
-          });
-        },
-        submitted() {
-          safe(() => mark(3, performance.now()));
-        },
-        headers() {
-          safe(() => mark(8, performance.now()));
-        },
-        /** @param {number} at @param {number} failure */
-        finish(at, failure) {
-          safe(() => {
-            if (settled) return;
-            mark(9, at);
-            if (!Number.isInteger(failure) || failure < 0 || failure > 5) {
-              bad();
-              row[10] = 5;
-            } else row[10] = failure;
-            /** @type {[number,number][]} */ const branches = [
-              [2, 3],
-              [2, 4],
-              [4, 5],
-              [5, 6],
-              [3, 7],
-              [6, 8],
-              [2, 9],
-            ];
-            for (const [left, right] of branches) {
-              const a = row[left],
-                b = row[right];
-              if (typeof a === "number" && typeof b === "number" && a > b)
-                bad();
-            }
-            if (
-              row.slice(2, 10).some((value) => value === null) ||
-              row
-                .slice(2, 9)
-                .some(
-                  (value) =>
-                    value !== null && row[9] !== null && value > row[9],
-                )
-            )
-              bad();
-            if (failure === 5) bad();
-            if (broken) row[10] = failure === 0 ? 5 : failure;
-            settled = true;
-            if (
-              leaf.invalid === 0 &&
-              leaf.overflow === 0 &&
-              leaf.rows.every((item) =>
-                item.slice(2, 10).every((value) => value !== null),
-              )
-            )
-              leaf.state = "complete";
-          });
-          detach();
-        },
-      };
+      try {
+        return action();
+      } catch (error) {
+        failure = 1;
+        throw error;
+      } finally {
+        recordWork();
+      }
     },
     /** @param {number} ordinal @param {number} kind @param {number} start @param {number} end */
     request(ordinal, kind, start, end) {
@@ -305,6 +590,14 @@ export function phaseTiming(phase, pair, before, epoch, after) {
     },
     /** @param {number} start @param {number} at @param {number} end */
     finish(start, at, end) {
+      workSealed = true;
+      if (result.client_gc && window(before, end)) {
+        gcEnd = end;
+        result.client_gc.capture_end_us = Math.floor((end - before) * 1000);
+        // Reject a delivered entry crossing the final original phase boundary.
+        for (const rawEnd of gcRawEnds)
+          if (rawEnd > end) gcFault(result.client_gc);
+      }
       const anchorEnd = clock(start, at, end);
       if (anchorEnd === null || !window(start, end)) invalid();
       else result.phase_end = anchorEnd;

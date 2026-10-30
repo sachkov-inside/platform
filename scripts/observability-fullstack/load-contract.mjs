@@ -346,7 +346,8 @@ const request=http.request;const mapped=(o,cb)=>{if(${technicalScope}&&o.hostnam
       stderr = "";
     child.stdout?.on("data", (chunk) => {
       stdout += String(chunk);
-      if (Buffer.byteLength(stdout) > 65536) child?.kill("SIGKILL");
+      // Test output uses the existing 1 MiB artifact budget for the additive ledger.
+      if (Buffer.byteLength(stdout) > 1_048_576) child?.kill("SIGKILL");
     });
     child.stderr?.on("data", (chunk) => {
       stderr += String(chunk);
@@ -419,6 +420,37 @@ const request=http.request;const mapped=(o,cb)=>{if(${technicalScope}&&o.hostnam
     assert.ok(phaseEnd[0] - phaseStart[0] >= phaseSeconds * 1000);
     const requests = field(timing, "requests");
     const rounds = field(timing, "observer_rounds");
+    const work = flatDiagnostic(field(timing, "client_work"), 4, 4096);
+    const gc = field(timing, "client_gc");
+    flatDiagnostic(gc, 3, 512);
+    assert.equal(field(gc, "tail_complete"), false);
+    if (!queryFailures && slotControl === undefined) {
+      const transport = flatDiagnostic(
+        field(timing, "request_transport"),
+        13,
+        300,
+      );
+      assert.equal(transport.length, 300 * 13);
+      for (let index = 0; index < transport.length; index += 13) {
+        const ordinal = transport[index],
+          kind = transport[index + 1];
+        assert.ok(typeof ordinal === "number" && typeof kind === "number");
+        assert.equal(ordinal % 8, kind);
+        assert.ok([0, 1, 2, 3, 6, 7].includes(kind));
+        assert.ok(
+          transport[index + 9] !== null && transport[index + 10] !== null,
+        );
+      }
+      const workCounts = Array(10).fill(0);
+      for (let index = 0; index < work.length; index += 4) {
+        const kind = work[index];
+        assert.ok(typeof kind === "number" && kind >= 0 && kind <= 9);
+        workCounts[kind]++;
+      }
+      assert.deepEqual(workCounts.slice(0, 5), [400, 400, 50, 50, 200]);
+      assert.equal(field(field(timing, "client_work"), "overflow"), 0);
+      assert.equal(field(field(timing, "client_work"), "invalid"), 0);
+    }
     if (!queryFailures) {
       const web = field(timing, "web_transport"),
         rows = field(web, "rows");
@@ -684,6 +716,32 @@ function transportRow(value) {
   );
 }
 
+/** @param {unknown} leaf @param {number} width @param {number} cap */
+function flatDiagnostic(leaf, width, cap) {
+  assert.equal(field(leaf, "schema"), 1);
+  assert.equal(field(leaf, "width"), width);
+  const rows = field(leaf, "rows");
+  assert.ok(diagnosticScalars(rows));
+  assert.equal(rows.length % width, 0);
+  assert.ok(rows.length <= cap * width);
+  return rows;
+}
+
+/** @param {unknown} value @returns {value is (number|null)[]} */
+function diagnosticScalars(value) {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        item === null ||
+        (typeof item === "number" &&
+          Number.isSafeInteger(item) &&
+          item >= 0 &&
+          item <= 600_000_000),
+    )
+  );
+}
+
 /** Real TLS and actual client functions, with only private-file and destination routing doubled. */
 async function webTransportContract() {
   assert.ok(directory);
@@ -709,9 +767,11 @@ async function webTransportContract() {
     releaseBody = () => {},
     received = () => {};
   let behavior = "ok",
+    automatic = false,
     connections = 0,
     requests = 0;
-  const listener = https.createServer({ key, cert: ca }, async (_req, res) => {
+  /** @param {import('node:http').IncomingMessage} incoming @param {import('node:http').ServerResponse} res */
+  const respond = async (incoming, res) => {
     requests++;
     const headers = new Promise((resolve) => {
       releaseHeaders = () => resolve(undefined);
@@ -720,33 +780,86 @@ async function webTransportContract() {
       releaseBody = () => resolve(undefined);
     });
     received();
+    if (automatic) {
+      releaseHeaders();
+      releaseBody();
+    }
     if (behavior === "disconnect") {
       res.destroy();
       return;
     }
     await headers;
-    res.writeHead(200, { "content-type": "text/html" });
+    res.writeHead(incoming.url === "/webhooks/telegram" ? 202 : 200, {
+      "content-type": "text/html",
+    });
     res.flushHeaders();
     await body;
     if (behavior === "response-error") {
       res.destroy();
       return;
     }
-    res.end(
-      behavior === "large"
-        ? "x".repeat(1024)
-        : '<html><body class="home-page">Главная</body></html>',
-    );
-  });
+    let value = '<html><body class="home-page">Главная</body></html>';
+    if (incoming.url === "/accounts/current")
+      value = JSON.stringify({ account: { accountId: account } });
+    if (incoming.url === "/library/site-index")
+      value = JSON.stringify({
+        items: [],
+        nextCursor: null,
+        productSlugs: [],
+        topicSlugs: [],
+      });
+    if (incoming.url === "/webhooks/telegram")
+      value = JSON.stringify({ accepted: true });
+    if (incoming.url === "/oidc/.well-known/openid-configuration")
+      value = JSON.stringify({
+        issuer: "http://logto:3001/oidc",
+        jwks_uri: "http://logto:3001/oidc/jwks",
+        authorization_endpoint: "http://logto:3001/oidc/auth",
+        token_endpoint: "http://logto:3001/oidc/token",
+      });
+    if (incoming.url?.startsWith("/metrics/"))
+      value = JSON.stringify(
+        incoming.url.includes("inside_production_source_available")
+          ? sourceVector()
+          : {
+              status: "success",
+              data: {
+                resultType: "vector",
+                result: [{ metric: {}, value: [1800000000, "1"] }],
+              },
+            },
+      );
+    if (incoming.url?.startsWith("/logs/")) value = "";
+    if (incoming.url?.startsWith("/traces/"))
+      value = JSON.stringify({ data: [] });
+    if (incoming.url?.startsWith("/api/websites/"))
+      value = JSON.stringify({
+        pageviews: 1,
+        visitors: 1,
+        visits: 1,
+        bounces: 1,
+        totaltime: 0,
+      });
+    res.end(behavior === "large" ? "x".repeat(1024) : value);
+  };
+  const listener = https.createServer({ key, cert: ca }, respond),
+    plain = createServer(respond);
   listener.on("secureConnection", () => connections++);
   const read = fs.readFileSync,
     request = https.request;
+  const http = (await import("node:http")).default,
+    plainRequest = http.request;
   /** @type {import("node:http").ClientRequest[]} */ const seen = [];
+  /** @type {import("node:http").ClientRequest[]} */ const plainSeen = [];
   try {
     listener.listen(0, "127.0.0.1");
     await once(listener, "listening");
     const address = listener.address();
     assert.ok(address && typeof address !== "string");
+    plain.listen(0, "127.0.0.1");
+    await once(plain, "listening");
+    const plainAddress = plain.address();
+    assert.ok(plainAddress && typeof plainAddress !== "string");
     /** @param {import("node:fs").PathOrFileDescriptor} path @param {Parameters<typeof read>[1]} options */
     const mappedRead = (path, options) =>
       path === "/resource/full-profile.json"
@@ -757,17 +870,35 @@ async function webTransportContract() {
             ? JSON.stringify({
                 tokens: Array(256).fill("private-token-sentinel"),
               })
-            : read(path, options);
+            : path === "/private/accounts.json"
+              ? JSON.stringify(Array(256).fill(account))
+              : path === "/query/key"
+                ? "private-query-sentinel"
+                : path === "/private/umami.json"
+                  ? JSON.stringify({
+                      site: "synthetic",
+                      key: "private-query-sentinel",
+                    })
+                  : read(path, options);
     assert.ok(Reflect.set(fs, "readFileSync", mappedRead));
     /** @param {import("node:https").RequestOptions} options @param {(response:import("node:http").IncomingMessage)=>void} callback */
     const mappedRequest = (options, callback) => {
-      assert.equal(options.hostname, "site.resource.test");
+      assert.ok(
+        ["site.resource.test", "api.resource.test"].includes(
+          String(options.hostname),
+        ),
+      );
       assert.equal(options.port, 443);
-      assert.equal(options.servername, "site.resource.test");
+      assert.equal(options.servername, options.hostname);
       assert.equal(options.agent, false);
       assert.deepEqual(options.ca, ca);
       assert.equal(options.method, "GET");
-      assert.deepEqual(options.headers, {});
+      assert.deepEqual(
+        options.headers,
+        options.path === "/accounts/current"
+          ? { authorization: "Bearer private-token-sentinel" }
+          : {},
+      );
       const req = request(
         {
           ...options,
@@ -781,6 +912,35 @@ async function webTransportContract() {
       return req;
     };
     assert.ok(Reflect.set(https, "request", mappedRequest));
+    /** @param {import('node:http').RequestOptions} options @param {(response:import('node:http').IncomingMessage)=>void} callback */
+    const mappedPlain = (options, callback) => {
+      assert.ok(
+        ["telegram", "logto", "gateway", "umami-query"].includes(
+          String(options.hostname),
+        ),
+      );
+      assert.equal(options.agent, false);
+      if (options.hostname === "telegram") {
+        assert.equal(options.port, 3002);
+        assert.equal(options.method, "POST");
+        assert.equal(options.path, "/webhooks/telegram");
+        assert.equal(
+          Reflect.get(options.headers ?? {}, "x-telegram-bot-api-secret-token"),
+          "synthetic_webhook_secret_for_runtime_smoke",
+        );
+      }
+      if (options.hostname === "logto") {
+        assert.equal(options.port, 3001);
+        assert.equal(options.method, "GET");
+      }
+      const req = plainRequest(
+        { ...options, hostname: "127.0.0.1", port: plainAddress.port },
+        callback,
+      );
+      plainSeen.push(req);
+      return req;
+    };
+    assert.ok(Reflect.set(http, "request", mappedPlain));
     syncBuiltinESMExports();
     const sourcePart = (await readFile(client, "utf8"))
       .split("const [action, ...args] = process.argv.slice(2);")
@@ -792,7 +952,11 @@ async function webTransportContract() {
       (_all, path) => `from "${new URL(path, pathToFileURL(client)).href}"`,
     );
     const modulePath = join(directory, "actual-web-client.mjs");
-    await writeFile(modulePath, source + "\nexport {call,operation};\n");
+    await writeFile(
+      modulePath,
+      source +
+        "\nexport {call,operation,readMonitoring};export function recording(timing){clientTiming=timing;}\n",
+    );
     /** @type {unknown} */ const actual = await import(
       pathToFileURL(modulePath).href
     );
@@ -862,8 +1026,62 @@ async function webTransportContract() {
     assert.equal(requests, 1);
     assert.equal(leaf.state, "complete");
     assert.equal(JSON.stringify(leaf).includes("private"), false);
+    const catalog = timing.requestTransport(2, 2);
+    assert.ok(catalog);
+    let catalogArrived = () => {};
+    const catalogArrival = new Promise((resolve) => {
+      catalogArrived = () => resolve(undefined);
+    });
+    received = () => catalogArrived();
+    const catalogPending = invoke("operation", [2, false, 2, 2, catalog]);
+    await catalogArrival;
+    releaseHeaders();
+    releaseBody();
+    const catalogResult = await catalogPending;
+    assert.equal(field(catalogResult, "label"), "api_catalog");
+    const transport = timing.result.request_transport;
+    assert.ok(transport);
+    assert.equal(
+      transport.state,
+      "complete",
+      "actual catalog must plumb body/decode transport marks",
+    );
+    assert.equal(transport.rows[12], 0);
+    assert.ok(transport.rows[9] !== null && transport.rows[10] !== null);
+    for (const ordinal of [8, 1, 3, 6, 7]) {
+      let arrived = () => {};
+      const arrival = new Promise((resolve) => {
+        arrived = () => resolve(undefined);
+      });
+      received = () => arrived();
+      const recorder = timing.requestTransport(ordinal, ordinal % 8);
+      assert.ok(recorder);
+      const pending = invoke("operation", [ordinal, false, 2, 2, recorder]);
+      await arrival;
+      releaseHeaders();
+      releaseBody();
+      const value = await pending;
+      assert.equal(field(value, "status"), ordinal === 6 ? 202 : 200);
+      const start = field(value, "started_ms"),
+        end = field(value, "ended_ms");
+      assert.ok(typeof start === "number" && typeof end === "number");
+      /** @type {number} */ const at = transport.rows.length - 13;
+      assert.equal(transport.rows[at + 2], Math.floor((start - origin) * 1000));
+      assert.equal(transport.rows[at + 11], Math.floor((end - origin) * 1000));
+      assert.equal(transport.rows[at + 12], 0);
+    }
+    assert.equal(transport.rows.length, 6 * 13);
+    assert.equal(transport.state, "complete");
     // Each observer hook may fail independently without changing real transport results.
-    for (const hook of ["begin", "attach", "submitted", "headers", "finish"]) {
+    for (const hook of [
+      "begin",
+      "attach",
+      "submitted",
+      "headers",
+      "bodyEnd",
+      "decoded",
+      "finish",
+    ]) {
       let arrived = () => {};
       const arrival = new Promise((resolve) => {
         arrived = () => resolve(undefined);
@@ -890,6 +1108,12 @@ async function webTransportContract() {
         headers() {
           recorder.headers();
           fail("headers");
+        },
+        bodyEnd() {
+          fail("bodyEnd");
+        },
+        decoded() {
+          fail("decoded");
         },
         /** @param {number} at @param {number} code */ finish(at, code) {
           recorder.finish(at, code);
@@ -963,8 +1187,68 @@ async function webTransportContract() {
     }
     // All requests use fresh TLS connections; observer cleanup retains unrelated listeners.
     assert.equal(connections, seen.length);
-    assert.equal(requests, seen.length);
-    for (const req of seen) {
+    behavior = "ok";
+    automatic = true;
+    received = () => {};
+    /** @type {Record<string,number>[]} */ const overhead = [];
+    for (const mode of [0, 1, 1, 0]) {
+      const origin = performance.now(),
+        cpu = process.cpuUsage(),
+        beforeRequests = requests;
+      const recorder =
+        mode === 1
+          ? phaseTiming(2, 0, origin, Date.now(), performance.now())
+          : undefined;
+      if (recorder) recorder.startGc();
+      await invoke("recording", [recorder]);
+      try {
+        for (const ordinal of [0, 1, 2, 3, 6, 7]) {
+          const response = await invoke("operation", [
+            ordinal,
+            false,
+            2,
+            2,
+            recorder?.requestTransport(ordinal, ordinal),
+          ]);
+          assert.equal(field(response, "status"), ordinal === 6 ? 202 : 200);
+        }
+        const monitoring = await invoke("readMonitoring", []);
+        assert.equal(field(monitoring, "seconds") !== null, true);
+      } finally {
+        recorder?.finish(performance.now(), Date.now(), performance.now());
+        recorder?.stopClient();
+        await invoke("recording", [undefined]);
+      }
+      const used = process.cpuUsage(cpu);
+      overhead.push({
+        mode,
+        operations: 6,
+        query_rounds: 1,
+        requests: requests - beforeRequests,
+        cpu_us: used.user + used.system,
+        wall_us: Math.floor((performance.now() - origin) * 1000),
+        work_rows: (recorder?.result.client_work?.rows.length ?? 0) / 4,
+        gc_rows: (recorder?.result.client_gc?.rows.length ?? 0) / 3,
+        bytes: Buffer.byteLength(JSON.stringify(recorder?.result ?? {})),
+      });
+      if (recorder) {
+        assert.equal(recorder.result.client_work?.state, "observed");
+        assert.equal(recorder.result.client_gc?.tail_complete, false);
+      }
+    }
+    assert.equal(overhead[0]?.["requests"], overhead[1]?.["requests"]);
+    assert.equal(overhead[2]?.["requests"], overhead[3]?.["requests"]);
+    await writeFile(
+      join(directory, "transport-overhead.json"),
+      JSON.stringify({
+        schema: 1,
+        scope: "loopback_diagnostic_not_acceptance",
+        windows: overhead,
+      }),
+    );
+    assert.equal(connections, seen.length);
+    assert.equal(requests, seen.length + plainSeen.length);
+    for (const req of [...seen, ...plainSeen]) {
       assert.equal(req.listenerCount("socket"), 0);
       assert.ok(req.listenerCount("finish") <= 1);
     }
@@ -975,7 +1259,11 @@ async function webTransportContract() {
     releaseBody();
     fs.readFileSync = read;
     https.request = request;
+    http.request = plainRequest;
     syncBuiltinESMExports();
+    plain.closeAllConnections();
+    if (plain.listening)
+      await new Promise((resolve) => plain.close(() => resolve(undefined)));
     listener.closeAllConnections();
     if (listener.listening)
       await new Promise((resolve) => listener.close(() => resolve(undefined)));
