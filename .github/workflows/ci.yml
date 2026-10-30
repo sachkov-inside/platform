@@ -29,6 +29,58 @@ env:
   CI: "true"
 
 jobs:
+  review-evidence:
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    name: Independent review evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      status: ${{ steps.review.outputs.status || steps.release.outputs.status }}
+    steps:
+      - name: Preserve release coverage applicability
+        id: release
+        if: ${{ inputs.source_sha != '' }}
+        run: |
+          echo 'status=release-not-applicable' >> "$GITHUB_OUTPUT"
+          echo 'Review evidence: release-not-applicable. Integration review belongs to PR and merge queue; release source coverage remains mandatory.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Check out trusted target rules
+        if: ${{ inputs.source_sha == '' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          path: review-trusted
+          persist-credentials: false
+      - name: Check out candidate as data
+        if: ${{ inputs.source_sha == '' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: review-candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install trusted verifier runtime
+        if: ${{ inputs.source_sha == '' }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.10.0"
+      - name: Verify current GitHub reviews under trusted target rules
+        id: review
+        if: ${{ inputs.source_sha == '' }}
+        working-directory: review-candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEW_CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          if test -f ../review-trusted/scripts/review-evidence.mjs; then
+            node ../review-trusted/scripts/review-evidence.mjs verify
+          else
+            echo 'status=bootstrap-prior-policy' >> "$GITHUB_OUTPUT"
+            echo 'Review evidence: bootstrap-prior-policy. Trusted target has not adopted this verifier. Prior-policy independent Standards/Spec review and owner approval of prepared controls are required before adoption.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   security:
     name: Secrets and production advisories
     runs-on: ubuntu-24.04
@@ -161,6 +213,15 @@ jobs:
       - name: Run release, deployment and process contracts
         if: ${{ matrix.part == 'contracts' }}
         run: pnpm check:contracts
+
+      - name: Upload Telegram gateway failure diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: telegram-gateway-unit-${{ matrix.part }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-artifacts/telegram-deploy-gateway
+          if-no-files-found: ignore
+          retention-days: 7
 
   unit:
     name: Unit tests
@@ -518,6 +579,15 @@ jobs:
             node --input-type=module -e "await import(\"./dist/app.module.js\")"
           '
 
+      - name: Upload Telegram gateway failure diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: telegram-gateway-telegram-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-artifacts/telegram-deploy-gateway
+          if-no-files-found: ignore
+          retention-days: 7
+
   fullstack-browser:
     name: Full-stack browser (${{ matrix.project }}, ${{ matrix.shard }})
     needs: plan
@@ -588,6 +658,7 @@ jobs:
     if: ${{ always() }}
     needs:
       - security
+      - review-evidence
       - plan
       - docs
       - contracts
@@ -602,6 +673,10 @@ jobs:
       - telegram
       - fullstack
     steps:
+      - name: Require independent review verification
+        env:
+          REVIEW_RESULT: ${{ needs.review-evidence.result }}
+        run: test "$REVIEW_RESULT" = success
       - name: Require security checks for every change
         env:
           SECURITY_RESULT: ${{ needs.security.result }}
@@ -623,6 +698,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           COVERAGE_JSON: ${{ inputs.coverage_json }}
           SOURCE_SHA: ${{ inputs.source_sha }}
+          REVIEW_RESULT: ${{ needs.review-evidence.result }}
+          REVIEW_STATUS: ${{ needs.review-evidence.outputs.status }}
           SELECTED_PLAN_SHA256: ${{ needs.plan.outputs.plan_sha256 }}
           JOB_RESULTS: >-
             {

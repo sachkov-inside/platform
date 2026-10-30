@@ -62,6 +62,7 @@ const tableOwners = {
   communication_sources: "modules/communications",
   communication_step_ids: "modules/communications",
   communication_templates: "modules/communications",
+  communication_native_copies: "modules/communications",
   communication_tracking_hits: "modules/communications",
   communication_material_announcements: "modules/communications",
   communication_waitlist_openings: "modules/communications",

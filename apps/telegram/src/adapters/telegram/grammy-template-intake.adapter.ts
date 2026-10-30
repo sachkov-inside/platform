@@ -1,6 +1,8 @@
+import { finishesNativeCapture } from "../../modules/communications/native-message-input.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import type { TemplateContent } from "../../modules/communications/communications-contract.js";
 import type { TemplateIntake } from "../../modules/communications/author-input.js";
+import { nativeMessageSource } from "../../modules/communications/native-message-source.js";
 
 // Called only after the existing update router returns ignored. No callback, edit or /start handling.
 export function translateTemplateIntake(
@@ -27,14 +29,21 @@ export function translateTemplateIntake(
     ? "open"
     : /^\/cancel(?:@[A-Za-z0-9_]+)?$/.test(text)
       ? "close"
-      : "capture";
+      : finishesNativeCapture(text)
+        ? "finish"
+        : "capture";
   if (action === "capture" && text.startsWith("/")) return undefined;
+  const source = nativeMessageSource(message);
   return {
     botIdentity,
     updateId,
     telegramUserId: String(message["from"]["id"]),
     privateChatId: String(message["chat"]["id"]),
     action,
+    text,
+    ...(action === "capture" && source !== undefined
+      ? { nativeSource: source }
+      : {}),
     content: snapshot(message),
   };
 }

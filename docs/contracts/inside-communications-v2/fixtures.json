@@ -2156,5 +2156,143 @@
       "custom_emoji_id": "111111111111111111111"
     },
     "valid": false
+  },
+  {
+    "name": "native-content",
+    "definition": "content",
+    "valid": true,
+    "value": {
+      "type": "native",
+      "text": "Synthetic native summary",
+      "entities": [],
+      "buttons": [],
+      "nativeRef": "33333333-3333-4333-8333-333333333333",
+      "nativeCount": 1,
+      "nativeLinks": [
+        "https://inside.example/materials/free"
+      ]
+    }
+  },
+  {
+    "name": "native-missing-ref",
+    "definition": "content",
+    "valid": false,
+    "value": {
+      "type": "native",
+      "text": "Synthetic native summary",
+      "entities": [],
+      "buttons": [],
+      "nativeCount": 1,
+      "nativeLinks": [
+        "https://inside.example/materials/free"
+      ]
+    }
+  },
+  {
+    "name": "native-raw-source-id",
+    "definition": "content",
+    "valid": false,
+    "value": {
+      "type": "native",
+      "text": "Synthetic native summary",
+      "entities": [],
+      "buttons": [],
+      "nativeRef": "33333333-3333-4333-8333-333333333333",
+      "nativeCount": 1,
+      "nativeLinks": [
+        "https://inside.example/materials/free"
+      ],
+      "sourceChatId": "42"
+    }
+  },
+  {
+    "name": "native-bad-count",
+    "definition": "content",
+    "valid": false,
+    "value": {
+      "type": "native",
+      "text": "Synthetic native summary",
+      "entities": [],
+      "buttons": [],
+      "nativeRef": "33333333-3333-4333-8333-333333333333",
+      "nativeCount": 11,
+      "nativeLinks": [
+        "https://inside.example/materials/free"
+      ]
+    }
+  },
+  {
+    "name": "native-rebuilt-entities",
+    "definition": "content",
+    "valid": false,
+    "value": {
+      "type": "native",
+      "text": "Synthetic native summary",
+      "entities": [
+        {
+          "type": "bold",
+          "offset": 0,
+          "length": 3
+        }
+      ],
+      "buttons": [],
+      "nativeRef": "33333333-3333-4333-8333-333333333333",
+      "nativeCount": 1,
+      "nativeLinks": [
+        "https://inside.example/materials/free"
+      ]
+    }
+  },
+  {
+    "name": "native-foreign-media",
+    "definition": "content",
+    "valid": false,
+    "value": {
+      "type": "native",
+      "text": "Synthetic native summary",
+      "entities": [],
+      "buttons": [],
+      "nativeRef": "33333333-3333-4333-8333-333333333333",
+      "nativeCount": 1,
+      "nativeLinks": [
+        "https://inside.example/materials/free"
+      ],
+      "fileId": "synthetic-file"
+    }
+  },
+  {
+    "name": "native-bad-url",
+    "definition": "content",
+    "valid": false,
+    "value": {
+      "type": "native",
+      "text": "Synthetic native summary",
+      "entities": [],
+      "buttons": [],
+      "nativeRef": "33333333-3333-4333-8333-333333333333",
+      "nativeCount": 1,
+      "nativeLinks": [
+        "http://inside.example"
+      ]
+    }
+  },
+  {
+    "name": "native-extra-source-ids",
+    "definition": "content",
+    "valid": false,
+    "value": {
+      "type": "native",
+      "text": "Synthetic native summary",
+      "entities": [],
+      "buttons": [],
+      "nativeRef": "33333333-3333-4333-8333-333333333333",
+      "nativeCount": 1,
+      "nativeLinks": [
+        "https://inside.example/materials/free"
+      ],
+      "messageIds": [
+        42
+      ]
+    }
   }
 ]

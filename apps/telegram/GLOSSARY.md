@@ -53,8 +53,13 @@ An author's saved message snapshot that can be reused in communication steps and
 Editing a template does not change an already published communication.
 _Avoid_: Published post, delivered message, Material
 
+**Saved Telegram Copy**:
+An independent copy kept by the bot for reuse in a CommunicationTemplate, separate from the
+message the author originally sent. Removing the original does not remove this copy.
+_Avoid_: Original message, publication, backup
+
 **AuthorMode**:
-An explicit request by an authorized, linked Telegram person to save the next supported message
+An explicit request by an authorized, linked Telegram person to save the next supported message or completed album
 as a CommunicationTemplate.
 _Avoid_: Marketing subscription, publication, Account permission
 

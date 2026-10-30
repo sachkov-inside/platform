@@ -147,9 +147,11 @@ it.each(["communications-first", "sign-in-first"] as const)(
     await assertPreserved();
     await migrateToLatest(database);
     await assertPreserved();
-    await migrateDown(database); // 039: additive confirmed-activity observation.
+    await migrateDown(database); // 041: additive confirmed-activity observation.
     await assertPreserved();
-    await migrateDown(database); // 038: additive nullable receipt carrier.
+    await migrateDown(database); // 040: additive nullable receipt carrier.
+    await assertPreserved();
+    await migrateDown(database); // 039-native-message-copies: empty archive.
     await assertPreserved();
     await migrateDown(database); // 038-platform-link-profiles: additive profile projection.
     await assertPreserved();
@@ -166,14 +168,14 @@ it.each(["communications-first", "sign-in-first"] as const)(
     const ledger = await sql<{
       count: string;
     }>`select count(*) from kysely_migration`.execute(database);
-    expect(ledger.rows[0]?.count).toBe("41");
+    expect(ledger.rows[0]?.count).toBe("42");
     const receipt = await sql<{
       name: string;
-    }>`select name from kysely_migration where name = '038-waitlist-receipt-tracing'`.execute(
+    }>`select name from kysely_migration where name = '040-waitlist-receipt-tracing'`.execute(
       database,
     );
     expect(receipt.rows.map((row) => row.name)).toEqual([
-      "038-waitlist-receipt-tracing",
+      "040-waitlist-receipt-tracing",
     ]);
   },
 );
@@ -216,9 +218,11 @@ it("preserves legacy restriction receipts without inventing an audit during upgr
   expect(await read()).toEqual(historical);
   await migrateToLatest(database);
   expect(await read()).toEqual(historical);
-  await migrateDown(database); // 039
+  await migrateDown(database); // 041
   expect(await read()).toEqual(historical);
-  await migrateDown(database); // 038
+  await migrateDown(database); // 040
+  expect(await read()).toEqual(historical);
+  await migrateDown(database); // 039-native-message-copies
   expect(await read()).toEqual(historical);
   await migrateDown(database); // 038-platform-link-profiles
   expect(await read()).toEqual(historical);
@@ -230,6 +234,73 @@ it("preserves legacy restriction receipts without inventing an audit during upgr
     },
   });
   expect(await read()).toEqual(historical);
+});
+
+it("upgrades the pinned main native-copy prefix without changing its archive or ledger", async () => {
+  // cfa6b52 has exactly this 40-migration prefix. Telemetry additions must follow it.
+  await migrateTo(database, "039-native-message-copies");
+  const ledger = async () => {
+    const result = await sql<{
+      name: string;
+      timestamp: string;
+    }>`select name, timestamp from kysely_migration order by name`.execute(
+      database,
+    );
+    return result.rows;
+  };
+  const prefix = await ledger();
+  expect(prefix).toHaveLength(40);
+  const archiveId = randomUUID();
+  const now = new Date(fixedTestInstant());
+  await database
+    .insertInto("communication_native_copies")
+    .values({
+      archive_id: archiveId,
+      bot_identity: "synthetic",
+      owner_account_ref: "synthetic-owner",
+      telegram_user_id: "42",
+      telegram_identity_ref: "synthetic-identity",
+      context_kind: "template",
+      context_hash: "synthetic-context",
+      sources: JSON.stringify([]),
+      copied_message_ids: JSON.stringify([1]),
+      state: "ready",
+      created_at: now,
+      available_at: now,
+      attempt_count: 1,
+      media_group_id: null,
+      attempted_at: null,
+      diagnostic_code: null,
+    })
+    .execute();
+  const archive = () =>
+    database
+      .selectFrom("communication_native_copies")
+      .selectAll()
+      .where("archive_id", "=", archiveId)
+      .executeTakeFirstOrThrow();
+  const retained = await archive();
+  await migrateToLatest(database);
+  expect(await archive()).toEqual(retained);
+  const upgraded = await ledger();
+  expect(upgraded.slice(0, prefix.length)).toEqual(prefix);
+  expect(upgraded.slice(prefix.length).map((row) => row.name)).toEqual([
+    "040-waitlist-receipt-tracing",
+    "041-confirmed-user-activity",
+  ]);
+  await migrateDown(database);
+  await migrateDown(database);
+  expect(await ledger()).toEqual(prefix);
+  expect(await archive()).toEqual(retained);
+  await expect(migrateDown(database)).rejects.toMatchObject({
+    message: "Database rollback failed",
+    cause: {
+      message:
+        "Native copies exist. Preserve the archive and roll forward; see communications recovery.",
+    },
+  });
+  await migrateToLatest(database);
+  expect(await archive()).toEqual(retained);
 });
 
 it.each([

@@ -1,10 +1,14 @@
+import { z } from "zod";
+
+const shaSchema = z.hash("sha1").lowercase();
+
 /**
  * Клетки production-прохода и итог job (#905, #906). Логика чистая: она не ходит в сеть, поэтому её
  * доказывает module-тест `test/module/production-access-pass.test.ts`.
  *
- * Клетка с пометкой `deferred` пока не на чем проверить (решения владельца в #905 и #906). Она
- * видна в отчёте своим статусом и не делает job красным. Любая другая клетка без наблюдения
- * получает «не проверено» и делает job красным.
+ * Клетка `deferred` видна отдельно от успешных наблюдений. Её owner policy действует только до
+ * срока пересмотра и пока fixture не настроен. Неизвестный факт, неполная или устаревшая политика
+ * делают job красным. Любая живая клетка без наблюдения получает «не проверено» и красный итог.
  */
 
 export const passIdentities = [
@@ -26,6 +30,12 @@ export interface PassCell {
   readonly expected: PassOutcome;
   /** Почему клетка пока не проверяется. Только решение владельца, не обход сбоя. */
   readonly deferred?: string;
+  readonly deferral?: {
+    readonly owner: string;
+    readonly reference: string;
+    readonly fixture: string;
+    readonly reviewBy: string;
+  };
 }
 
 export interface PassCellParts {
@@ -140,6 +150,58 @@ export interface BlockedPassRequest {
 
 export type PassCellStatus = "passed" | "failed" | "not_checked" | "deferred";
 
+export interface DeferralEvaluation {
+  readonly status: "valid" | "ready" | "expired" | "invalid" | "unknown";
+  readonly reason: string;
+}
+
+const deferralSchema = z
+  .object({
+    owner: z.string().trim().min(1),
+    reference: z.string().regex(/^#[1-9][0-9]*$/u),
+    fixture: z.enum(["product-b", "free-practice"]),
+    reviewBy: z.iso.datetime(),
+  })
+  .strict();
+
+function evaluateDeferral(
+  cell: PassCell,
+  facts: Readonly<Record<string, boolean>>,
+  evaluatedAt: string,
+): DeferralEvaluation {
+  const policy = deferralSchema.safeParse(cell.deferral);
+  if (
+    !policy.success ||
+    cell.deferred?.trim() === "" ||
+    !Number.isFinite(Date.parse(evaluatedAt))
+  )
+    return {
+      status: "invalid",
+      reason: "неполная политика отсрочки или время проверки",
+    };
+  if (Date.parse(evaluatedAt) >= Date.parse(policy.data.reviewBy))
+    return {
+      status: "expired",
+      reason: `требуется пересмотр отсрочки: срок ${policy.data.reviewBy} истёк`,
+    };
+  const available = facts[policy.data.fixture];
+  if (typeof available !== "boolean")
+    return {
+      status: "unknown",
+      reason: "нет проверенного факта fixture-конфигурации",
+    };
+  if (available)
+    return {
+      status: "ready",
+      reason: "fixture настроен: требуется снять отсрочку и наблюдать клетку",
+    };
+  return {
+    status: "valid",
+    reason:
+      "fixture не настроен; состояние публикации production автоматически не проверялось",
+  };
+}
+
 export interface PassCellResult {
   readonly id: string;
   readonly identity: PassIdentity | "anonymous";
@@ -151,10 +213,20 @@ export interface PassCellResult {
   readonly observed: PassOutcome | null;
   readonly status: PassCellStatus;
   readonly reason?: string;
+  readonly deferral?: PassCell["deferral"];
+  readonly deferralEvaluation?: DeferralEvaluation;
   readonly note?: string;
 }
 
 export interface PassReport {
+  readonly sourceSha: string | null;
+  readonly workflowSha: string | null;
+  readonly evaluatedAt: string;
+  readonly scope: "configured production access cells; Chromium, learner MCP and owner MCP";
+  readonly counts: Readonly<
+    Record<PassCellStatus | "skipped_excluded", number>
+  > & { readonly total: number };
+  readonly errors: readonly string[];
   readonly deployedSha: string | null;
   /** Проход после deploy обязан знать SHA выпуска; без него итог красный. */
   readonly deployedShaRequired: boolean;
@@ -165,6 +237,10 @@ export interface PassReport {
 
 export function evaluatePass(input: {
   readonly cells: readonly PassCell[];
+  readonly sourceSha?: string | null;
+  readonly workflowSha?: string | null;
+  readonly evaluatedAt?: string;
+  readonly deferralFacts?: Readonly<Record<string, boolean>>;
   readonly observations: readonly PassObservation[];
   readonly problems?: readonly PassProblem[];
   readonly deployedSha: string | null;
@@ -172,6 +248,29 @@ export function evaluatePass(input: {
   readonly blockedRequests?: readonly BlockedPassRequest[];
 }): PassReport {
   const known = new Set(input.cells.map((cell) => cell.id));
+  const evaluatedAt = input.evaluatedAt ?? "";
+  const errors: string[] = [];
+  const sourceSha = input.sourceSha ?? null;
+  const workflowSha = input.workflowSha ?? null;
+  if (input.cells.length === 0) errors.push("empty configured scope");
+  if (known.size !== input.cells.length)
+    errors.push("duplicate configured cells");
+  if (!shaSchema.safeParse(sourceSha).success)
+    errors.push("missing or invalid source SHA");
+  if (workflowSha !== null && !shaSchema.safeParse(workflowSha).success)
+    errors.push("invalid workflow SHA");
+  if (!z.iso.datetime().safeParse(evaluatedAt).success)
+    errors.push("missing or invalid evaluation time");
+  if (
+    input.deployedSha !== null &&
+    !shaSchema.safeParse(input.deployedSha).success
+  )
+    errors.push("invalid deployed SHA");
+  const observationIds = input.observations.map(({ cellId }) => cellId);
+  if (new Set(observationIds).size !== observationIds.length)
+    errors.push("duplicate observations");
+  if (input.problems?.some(({ cellId }) => !known.has(cellId)) === true)
+    errors.push("problem for unknown cell");
   const unknown = input.observations.find(({ cellId }) => !known.has(cellId));
   if (unknown !== undefined) {
     throw new Error(`Observation for unknown cell ${unknown.cellId}`);
@@ -188,11 +287,28 @@ export function evaluatePass(input: {
       expected: cell.expected,
     };
     if (cell.deferred !== undefined) {
+      const evaluation = evaluateDeferral(
+        cell,
+        input.deferralFacts ?? {},
+        evaluatedAt,
+      );
+      const contradictory =
+        input.observations.some(({ cellId }) => cellId === cell.id) ||
+        input.problems?.some(({ cellId }) => cellId === cell.id) === true;
       return {
         ...base,
         observed: null,
-        status: "deferred",
-        reason: cell.deferred,
+        status:
+          evaluation.status === "valid" && !contradictory
+            ? "deferred"
+            : "failed",
+        reason: contradictory
+          ? "отсроченная клетка содержит наблюдение или ошибку: требуется пересмотр"
+          : evaluation.status === "valid"
+            ? cell.deferred
+            : evaluation.reason,
+        ...(cell.deferral === undefined ? {} : { deferral: cell.deferral }),
+        deferralEvaluation: evaluation,
       };
     }
     const observation = input.observations.find(
@@ -210,17 +326,39 @@ export function evaluatePass(input: {
     return {
       ...base,
       observed: observation.observed,
-      status: observation.observed === cell.expected ? "passed" : "failed",
+      status:
+        observation.observed === cell.expected &&
+        input.problems?.some(({ cellId }) => cellId === cell.id) !== true
+          ? "passed"
+          : "failed",
       ...(observation.note === undefined ? {} : { note: observation.note }),
     };
   });
   const deployedShaRequired = input.deployedShaRequired ?? false;
   const blockedRequests = input.blockedRequests ?? [];
+  const counts = {
+    total: cells.length,
+    passed: cells.filter(({ status }) => status === "passed").length,
+    failed: cells.filter(({ status }) => status === "failed").length,
+    not_checked: cells.filter(({ status }) => status === "not_checked").length,
+    deferred: cells.filter(({ status }) => status === "deferred").length,
+    // No configured-cell exclusion is authorized. Missing observations are not_checked.
+    skipped_excluded: 0,
+  };
+  if (counts.passed === 0) errors.push("no successfully observed cells");
   const green =
+    errors.length === 0 &&
     cells.every(({ status }) => status === "passed" || status === "deferred") &&
     (input.deployedSha !== null || !deployedShaRequired) &&
     blockedRequests.every(({ sent }) => sent !== true);
   return {
+    sourceSha,
+    workflowSha,
+    evaluatedAt,
+    scope:
+      "configured production access cells; Chromium, learner MCP and owner MCP",
+    counts,
+    errors,
     deployedSha: input.deployedSha,
     deployedShaRequired,
     verdict: green ? "green" : "red",
@@ -245,6 +383,9 @@ export function renderPassMarkdown(report: PassReport): string {
         : `${outcomeLabels[cell.observed]}${cell.note === undefined ? "" : ` (${cell.note})`}`,
       cell.level,
       statusLabel(cell),
+      cell.deferral === undefined
+        ? ""
+        : `${cell.deferral.owner}; ${cell.deferral.reference}; fixture ${cell.deferral.fixture}; review by ${cell.deferral.reviewBy}; ${cell.deferralEvaluation?.reason ?? ""}`,
     ].join(" | "),
   );
   const blocked = report.blockedRequests.map(
@@ -254,12 +395,19 @@ export function renderPassMarkdown(report: PassReport): string {
   return [
     "# Production-проход доступа",
     "",
+    `Source SHA (checked-out runner): ${report.sourceSha === null ? "не передан" : `\`${report.sourceSha}\``}`,
+    `Workflow SHA (GitHub context): ${report.workflowSha === null ? "не передан" : `\`${report.workflowSha}\``}`,
     `Deployed SHA: ${deployedShaLabel(report)}`,
+    `Checked at: ${report.evaluatedAt}`,
+    `Scope: ${report.scope}`,
+    `Counts: total=${String(report.counts.total)}, passed=${String(report.counts.passed)}, failed=${String(report.counts.failed)}, not_checked=${String(report.counts.not_checked)}, skipped/excluded=${String(report.counts.skipped_excluded)}, deferred=${String(report.counts.deferred)}`,
+    "Deferred и skipped/excluded не входят в passed. Полный доступ через Telegram и полный WebKit E2E этим проходом не проверяются.",
+    ...report.errors.map((error) => `Ошибка отчёта: ${error}`),
     "",
     `Итог: **${report.verdict === "green" ? "зелёный" : "красный"}**`,
     "",
-    "| Клетка | Проверка | Ожидание | Факт | Уровень | Статус |",
-    "|---|---|---|---|---|---|",
+    "| Клетка | Проверка | Ожидание | Факт | Уровень | Статус | Отсрочка |",
+    "|---|---|---|---|---|---|---|",
     ...rows.map((row) => `| ${row} |`),
     "",
     "## Запросы вне allowlist",
@@ -281,7 +429,9 @@ function statusLabel(cell: PassCellResult): string {
     case "passed":
       return "совпало";
     case "failed":
-      return "расхождение";
+      return cell.reason === undefined
+        ? "расхождение"
+        : `ошибка: ${cell.reason}`;
     case "not_checked":
       return cell.reason === undefined
         ? "не проверено"

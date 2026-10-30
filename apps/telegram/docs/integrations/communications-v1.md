@@ -419,36 +419,99 @@ are part of the local verification; real Telegram appearance remains owner accep
 ## Author intake and snapshots
 
 `/template` in a private human conversation opens one-message author mode after authorization.
-The next supported message saves a snapshot and returns its UUID for the authorized communications
+The next supported message or completed album saves a snapshot and returns its UUID for the authorized communications
 API or MCP operations. `/cancel` exits. Successful capture exits; unsupported content leaves the mode open for a
 correction. Media outside author mode is ignored. Authorization is checked again at capture, and
 revocation clears the mode. An unavailable author check retries through the existing bounded inbox
 policy; exhausted updates retain only their redacted failure class until retention
 (`src/database/retention.ts`) removes them, and the author must retry explicitly.
 
-The adapter accepts text, photo (largest provided size), video, video_note, voice and document.
-Text/caption, supported entities, explicitly supplied URL buttons and bot-scoped `file_id` are
-stored; provider metadata and media bytes are not copied. Edits, deletion, callbacks and source
-message existence are not consulted after capture. Text is bounded to 4096 UTF-16 code units and
-captions to 1024; video_note has no caption. A circle plus explanation is represented by separate
-parts in later step/broadcast contracts.
+With live delivery, the provider archives an independent native copy in the authorized author's
+private bot conversation, then sends from that archive using Telegram
+[`copyMessage` / `copyMessages`](https://core.telegram.org/bots/api#copymessage) (checked 2026-10-30). This preserves the provider's body, media and formatting without reconstructing
+entities. Ordinary text, photos, video, circles, voice, audio, documents, GIFs, stickers, regular
+polls, contacts, locations, venues and dice use the same path. Telegram excludes service messages,
+paid media, invoices, giveaways and giveaway winners; a quiz can be copied only when the bot knows
+its correct answer. The bot reports provider rejection, rather than silently dropping content.
+Forwarded-origin labels may appear on private archive messages; outbound copy operations do not
+add a link to the original. Only URL inline buttons are supported;
+callback, payment and login markup is refused. Existing saved snapshots and delivery-disabled
+intake keep the legacy representation described below.
 
-The `entity` definition enumerates the supported subset. Validation rejects invalid UTF-16 ranges,
-split surrogate pairs, illegal overlapping/nested entities, unknown entity types, albums, polls,
-animation/audio/sticker/rich/paid/live media, and non-URL reply markup. URL buttons and text links
-use HTTPS without embedded credentials; Telegram download endpoints are rejected. A failed
-validation never truncates text or silently drops an entity. These constraints use the official
-[MessageEntity](https://core.telegram.org/bots/api#messageentity) and
-[sendVideoNote](https://core.telegram.org/bots/api#sendvideonote) documentation, checked 2026-09-06.
 
-Native custom emoji entities are preserved in text and media captions, including their decimal
-`custom_emoji_id`. The shared schema requires that ID only on `custom_emoji` and rejects missing,
-malformed or unrelated entity fields. Saved templates, author previews and subscriber delivery use
-the same representation. Telegram permits custom emoji in direct bot messages when the bot owner
-has Premium or the bot has an eligible additional username; saving a template does not prove that
-provider capability. Provider rejections keep the existing delivery outcome and do not silently
-remove the emoji or retry a different message. This capability follows the official
-[formatting rules](https://core.telegram.org/bots/api#formatting-options), checked 2026-10-30.
+An album is collected by `media_group_id`, deduplicated and sorted by Telegram message ID, up to
+10 parts. The author sends `/done` after its upload finishes. Until then no native copy or saved
+post is reported ready. The saved album is created from frozen input with `sendMediaGroup`; later grouped sends use `copyMessages`.
+Owner scope decision (2026-10-30, #1863): album captions remain limited to 1024 UTF-16 units.
+A longer caption rejects the entire collected album with an explicit correction message, without
+truncation or a partial template. Other ordinary formats remain in scope.
+Telegram does not accept an inline keyboard on that operation, so album button editing is hidden
+and album content with buttons is refused. Use a separate message for the call to action.
+
+`NativeMessages` owns the capture lifecycle used by `/template`, author replacements, composer
+and batch input. Single messages use `forwardMessage`, which returns the full saved message;
+protected content cannot be forwarded. Albums use `sendMediaGroup` with frozen received file IDs,
+caption entities and presentation flags for photo/video/live-photo, audio or document groups.
+The archive validates metadata from every returned message before reporting ready. It never reads
+mutable original album IDs again at `/done`. Unsupported album media are explicitly refused.
+It rechecks the confirmed link and current permission before copying, commits a
+sending claim, then calls Telegram outside the transaction. Before attachment it rechecks the
+original dialog and link. A cancellation or changed dialog cannot receive stale captured content.
+An ambiguous, partial or expired sending claim becomes `unknown` and never retries automatically.
+A confirmed 429/5xx rejection can be retried with `/done` after its deadline, at most three attempts.
+No delivery of a template to the audience follows from capture.
+
+A native snapshot carries only an opaque UUID `nativeRef`, part count, a summary up to 4096 UTF-16
+units, complete discovered body URLs and editable URL buttons. The provider keeps the bot/Account/
+Telegram identity, original IDs, archived copy IDs and summary metadata in
+`communication_native_copies`. Pending album sources additionally retain frozen media descriptors, full captions and entities until
+archive completion. It does not store full Telegram payloads, media bytes, envelope author profiles,
+reply bodies or forwarded-origin metadata in that table. Frozen caption entities can include
+mention user objects (IDs and display/profile fields); they are retained as part of the caption
+until archive completion, rather than as an author-profile projection. Media and full content remain in Telegram.
+Account/bot ownership and canonical summary/count/URLs are checked when saving templates,
+broadcasts, intro or sequence parts; the caller cannot select a source chat or inject source IDs.
+The existing recipient selection and final delivery authorization remain authoritative.
+
+HTTPS, embedded-credential and Telegram-endpoint restrictions apply to discovered body URLs and
+buttons. All discovered links from every album part are validated through Platform's public-target
+check, including links beyond the summary. Body links are copied verbatim, so only URL buttons can
+receive per-delivery tracking URLs. Saving a native message does not prove Telegram will accept a
+future copy or that a poll/other provider object becomes an independent business object.
+
+**Keep the bot-created copies in the chat while they are used.** Original-message edits/deletion
+do not alter the archive. Deleting an archived bot copy breaks future sends of that native reference;
+provider rejection is recorded without rebuilding or silently sending another message. Capture a
+new message and explicitly replace the affected saved/draft parts. Published snapshots remain
+immutable until an explicit new publication. Archive metadata and provider copies have no automatic
+expiry or garbage collection, because drafts, publications and historical delivery snapshots can
+still refer to them. This also applies to abandoned/unknown capture attempts. Removing data requires
+an explicit scoped owner operation after checking references; this change adds no deletion command.
+
+Legacy snapshots store text/caption, entities, bot-scoped `file_id` and URL buttons. Text is bounded
+to 4096 UTF-16 units and captions to 1024; a video note has no caption. Legacy entity validation still
+rejects unknown types, broken UTF-16 ranges and illegal overlaps without truncation. Custom emoji
+retain their decimal `custom_emoji_id`. Direct bot sending follows Telegram's
+[formatting capability rules](https://core.telegram.org/bots/api#formatting-options), checked 2026-10-30;
+provider rejection never causes formatting to be stripped.
+
+### Native archive rollout and recovery
+
+Deploy Platform's expanded reader/target validator first, then the Telegram release containing
+migration `039-native-message-copies`. Old native-unaware Telegram rejects the new wire variant;
+legacy content remains compatible. Do not enable native intake before both readers are current.
+After the first native capture, rollback must preserve the archive table and use a native-capable
+release. Migration down refuses a nonempty archive. Repair native behavior by rolling forward;
+a legacy release cannot render already saved native snapshots.
+
+Database backup does not back up Telegram messages. Restoring an earlier database can leave orphan
+bot copies and can lose evidence of an already attempted copy. During an authorized restore, keep
+workers stopped and quarantine restored `collecting`, `pending` and `sending` archive rows as
+`unknown` before resuming; do not replay them from inbox or `/done`. An operator must reconcile the
+restore's inbox/capture boundary and existing unknown delivery ledger under the production recovery
+procedure. Ready rows can be used only if their recorded Telegram copies still exist; otherwise
+recapture and explicitly replace the content. Never infer that an unrecorded copy was not sent.
+The owner-selected storage trade-off is recorded in [ADR 0003](../adr/0003-native-message-copies.md).
 
 ## Persistence and verification
 
@@ -461,8 +524,8 @@ both orders and reject missing dependencies; `012-marketing-preferences` follows
 Transaction-scoped PostgreSQL advisory locks serialize each author and template/operation. The
 confirmed identity link is held against transfer during intake authorization and save. A unique
 bot/update receipt, snapshot and durable reply intent commit in one transaction, making replay
-after a lost acknowledgement safe. A later update cannot overtake an earlier pending message for
-the sender. Existing inbox payload removal and start-response transport policies remain; a
+after a lost acknowledgement safe. Inbox ordering prevents later queued updates from overtaking an earlier pending update for
+the sender; direct native capture additionally uses a durable claim and dialog guard. Existing inbox payload removal and start-response transport policies remain; a
 transport-unknown receipt may repeat the same ID, but cannot create a second template. This is not
 the future marketing delivery transport.
 
@@ -562,7 +625,7 @@ The current `/admin` menu contains «Рассылки», «Последоват�
 Create a broadcast or sequence, send one native message, choose its time, then send the next.
 «Готово» returns to the short summary. The incoming order is the delivery order; elapsed times
 cannot decrease. Text, photo, video, video note, voice and document preserve native formatting and
-file IDs. Albums are rejected without losing accepted messages. The first message supplies the name.
+file IDs for legacy snapshots. Native messages and completed albums use the archive path above. The first message supplies the name.
 Broadcasts allow 20 messages; sequences allow 100 across entry and delayed steps.
 
 A broadcast time is elapsed from its actual launch: «Сразу», «Через 1 час», «Через 2 часа», or

@@ -167,6 +167,93 @@ def finish_fixture(identities, *operations):
             failure.add_note(f'fixture cleanup failed: {error!r}')
 
 
+class LifecycleDiagnostics(unittest.TestCase):
+    def test_opt_in_trace_contains_only_ordered_lifecycle_facts(self):
+        secret = 'private-argument-and-environment-sentinel'
+        with tempfile.TemporaryDirectory() as directory:
+            trace = Path(directory) / 'trace.jsonl'
+            process = subprocess.run(
+                ['node', 'scripts/owned-node.mjs', '--command', 'node', '-e',
+                 'console.log(process.argv[1]); process.exit(19)', secret],
+                cwd=ROOT, capture_output=True, timeout=10,
+                env=dict(os.environ, INSIDE_OWNED_PROCESS_TRACE=str(trace), PRIVATE_TOKEN=secret))
+            self.assertEqual(process.returncode, 19, process.stderr.decode())
+            rows = [json.loads(line) for line in trace.read_text().splitlines()]
+            self.assertEqual([row['phase'] for row in rows], [
+                'supervisor-start', 'command-start', 'command-exit',
+                'cleanup-start', 'cleanup-complete'])
+            self.assertEqual(rows[2]['status'], 19)
+            self.assertEqual(sorted(row['elapsedMs'] for row in rows),
+                             [row['elapsedMs'] for row in rows])
+            self.assertNotIn(secret, trace.read_text())
+            self.assertEqual(process.stdout.strip(), secret.encode())
+            self.assertEqual(process.stderr, b'')
+
+
+    def test_interruption_retains_cleanup_boundary_and_stops_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            trace = Path(directory) / 'trace.jsonl'
+            process = subprocess.Popen(
+                ['node', 'scripts/owned-node.mjs', '--command', 'node', '-e',
+                 "console.log('READY',process.pid);setInterval(()=>{},1000)"],
+                cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                env=dict(os.environ, INSIDE_OWNED_PROCESS_TRACE=str(trace)))
+            pids = []
+            try:
+                pids = read_ready(process)
+                process.terminate()
+                _, stderr = process.communicate(timeout=10)
+                self.assertEqual(process.returncode, 143, stderr.decode())
+                rows = [json.loads(line) for line in trace.read_text().splitlines()]
+                self.assertEqual(rows[-2]['phase'], 'cleanup-start')
+                self.assertEqual(rows[-1]['phase'], 'cleanup-complete')
+                for pid in pids:
+                    self.assertTrue(stopped(pid))
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    process.communicate(timeout=10)
+
+    def test_disabled_trace_preserves_plain_output(self):
+        environment = dict(os.environ)
+        environment.pop('INSIDE_OWNED_PROCESS_TRACE', None)
+        process = subprocess.run(
+            ['node', 'scripts/owned-node.mjs', '--command', 'node', '-e',
+             "console.log('plain');process.exit(7)"],
+            cwd=ROOT, capture_output=True, env=environment, timeout=10)
+        self.assertEqual((process.returncode, process.stdout, process.stderr), (7, b'plain\n', b''))
+
+
+class OwnershipCensus(unittest.TestCase):
+    def test_preexisting_process_births_cannot_inherit_new_marker(self):
+        old = (1, 10, 'S', (100, 1))
+        new = (2, 20, 'S', (200, 1))
+        with patch('lock.process_snapshot', return_value={10: old}):
+            ownership = ProcessOwnership()
+        ownership.library = object()
+        snapshot = {10: old, 20: new}
+        with patch.object(ownership, 'carries_marker', return_value=True) as marker, \
+                patch('lock.process_snapshot', return_value=snapshot):
+            tracked, groups = {}, set()
+            ownership.include(snapshot, tracked, groups)
+        self.assertEqual(marker.call_args_list, [unittest.mock.call(20)])
+        self.assertEqual(tracked, {20: (200, 1)})
+        self.assertEqual(groups, {20})
+
+    def test_reused_preexisting_pid_is_still_checked(self):
+        old = (1, 10, 'S', (100, 1))
+        replacement = (2, 10, 'S', (200, 1))
+        with patch('lock.process_snapshot', return_value={10: old}):
+            ownership = ProcessOwnership()
+        ownership.library = object()
+        with patch.object(ownership, 'carries_marker', return_value=True) as marker, \
+                patch('lock.process_snapshot', return_value={10: replacement}):
+            tracked, groups = {}, set()
+            ownership.include({10: replacement}, tracked, groups)
+        marker.assert_called_once_with(10)
+        self.assertEqual(tracked, {10: (200, 1)})
+
+
 class Ownership(unittest.TestCase):
     def test_fixture_adoption_reaps_only_registered_child_births_and_restores_state(self):
         # The kernel boundary is modeled on macOS; this is not Linux physical proof.

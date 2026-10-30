@@ -8,6 +8,7 @@ const scenarios = [
   "archive",
   "waitlist",
   "unknown",
+  "refresh",
 ];
 /** @type {{path: string, authorized: boolean, status: number}[]} */
 let reads = [];
@@ -93,7 +94,7 @@ const pricesSchema = z.object({
 /** @param {string} slug */
 function fixture(slug) {
   const match =
-    /^reader-state-(guest|paid|manual|stopped|archive|waitlist|unknown)(-mobile)?$/u.exec(
+    /^reader-state-(guest|paid|manual|stopped|archive|waitlist|unknown|refresh)(-mobile)?$/u.exec(
       slug,
     );
   if (match === null) return null;
@@ -145,7 +146,8 @@ export function productReaderStateRoute(request, url, owner) {
   const signedIn =
     request.headers.authorization === `Bearer reader-state:${selected.slug}`;
   const holder =
-    signedIn && ["paid", "manual", "archive"].includes(selected.scenario);
+    signedIn &&
+    ["paid", "manual", "archive", "refresh"].includes(selected.scenario);
   /** @param {unknown} value @param {number} [status] */
   const reply = (value, status = 200) => {
     reads.push({
@@ -194,6 +196,21 @@ export function productReaderStateRoute(request, url, owner) {
     const value = productSchema.parse(original.value);
     return reply({
       ...value,
+      ...(selected.scenario === "refresh"
+        ? {
+            chapters: [],
+            items: value.items.slice(0, 13),
+            programmePlacements: value.items
+              .slice(0, 13)
+              .map((item, index) => ({
+                id: `17100000-0000-4000-9000-${String(index + 1).padStart(12, "0")}`,
+                materialId: z.object({ materialId: z.string() }).parse(item)
+                  .materialId,
+                chapterId: null,
+                stepGroup: null,
+              })),
+          }
+        : {}),
       reference: {
         ...value.reference,
         id: selected.id,
@@ -288,17 +305,22 @@ export function productReaderStateRoute(request, url, owner) {
         name: `Reader state ${selected.scenario}`,
         summary: null,
         cover: null,
-        count: 120,
+        count: selected.scenario === "refresh" ? 13 : 120,
         previewItems: [],
       },
       read: 1,
-      total: 120,
+      total: selected.scenario === "refresh" ? 13 : 120,
       started: true,
       continuation: {
         materialSlug: "performance-lesson-2",
         resume: { kind: "start" },
       },
     });
+  if (
+    selected.scenario === "refresh" &&
+    url.pathname === "/reading-activity/opens"
+  )
+    return reply({ openedAt: "2026-10-10T08:00:00.000Z", replayed: false });
   if (url.pathname === "/accounts/current")
     return reply({
       account: { accountId: "17100000-0000-4000-8000-000000008888" },
@@ -312,7 +334,9 @@ export function productReaderStateRoute(request, url, owner) {
         grounds: holder
           ? [
               {
-                source: selected.scenario === "paid" ? "paid" : "manual",
+                source: ["paid", "refresh"].includes(selected.scenario)
+                  ? "paid"
+                  : "manual",
                 capabilities: [`product:${selected.id}`],
                 startsAt: null,
                 validUntil: null,

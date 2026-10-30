@@ -1,4 +1,5 @@
 import type { ConfirmedTelegramActionKind } from "../modules/update-inbox/telegram-user-activity.js";
+import type { NativeMessageSource } from "../modules/communications/native-message-source.js";
 import type { MaterialAnnouncement } from "@inside/contracts/material-announcements";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import type { TransportTables } from "../modules/outbound/transport-storage.js";
@@ -323,6 +324,25 @@ export interface DatabaseSchema
     NotificationTables,
     CommunityTables,
     SalesFunnelTables {
+  communication_native_copies: {
+    archive_id: string;
+    bot_identity: string;
+    owner_account_ref: string;
+    telegram_user_id: BigIntColumn;
+    telegram_identity_ref: string;
+    context_kind: "template" | "admin";
+    context_hash: string;
+    media_group_id: string | null;
+    sources: JsonColumn<NativeMessageSource[]>;
+    copied_message_ids: JsonColumn<number[]>;
+    state:
+      "collecting" | "pending" | "sending" | "ready" | "unknown" | "rejected";
+    created_at: Timestamp;
+    attempted_at: Timestamp | null;
+    available_at: Timestamp;
+    attempt_count: number;
+    diagnostic_code: string | null;
+  };
   communication_author_compositions: {
     bot_identity: string;
     owner_account_ref: string;
