@@ -604,7 +604,7 @@ test("Core passive dispatch retains exact legacy platform and flag branches", as
     assert.ok(callback !== undefined);
     await callback();
     const admitted = platform === "linux" && flag === "1";
-    assert.equal(callbacks.length, 4);
+    assert.equal(callbacks.length, 5);
     assert.equal(imports, admitted ? 1 : 0);
     assert.equal(calls.length, 1);
     assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), [
@@ -623,4 +623,17 @@ test("Core passive dispatch retains exact legacy platform and flag branches", as
       { encoding: "utf8", timeout: 30000 },
     ]);
   }
+});
+
+// deterministic-test-allow unit-io: the existing owner reaps the separate virtual-clock Python contracts; Core discovery remains unchanged.
+test("fixture polling preserves its one-second fact deadline", async () => {
+  const { runOwnedProcess } =
+    await import("./observability-umami/process-owner.mjs");
+  const result = await runOwnedProcess("python3", [
+    "-B",
+    "scripts/observability-pilot/fixtures/fixture_poll_contracts.py",
+  ]);
+  assert.equal(result.reason, "exit");
+  assert.equal(result.signal, null);
+  assert.equal(result.code, 0, result.stderr);
 });

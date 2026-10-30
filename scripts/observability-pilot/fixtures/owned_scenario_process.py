@@ -6,8 +6,26 @@ from pathlib import Path
 import signal
 import subprocess
 import sys
+import time
 
-import pilot
+FIXTURE_FACT_TIMEOUT_SECONDS = 1
+FIXTURE_POLL_INTERVAL_SECONDS = .01
+
+
+def await_fixture_fact(read, *, clock=time.monotonic, pause=time.sleep):
+    deadline = clock() + FIXTURE_FACT_TIMEOUT_SECONDS
+    while clock() < deadline:
+        try:
+            last = read()
+            if bool(last) and clock() < deadline:
+                return last
+        except OSError:
+            pass
+        remaining = deadline - clock()
+        if remaining <= 0:
+            break
+        pause(min(FIXTURE_POLL_INTERVAL_SECONDS, remaining))
+    raise RuntimeError('pilot fact unlabelled did not become visible before deadline')
 
 
 def group_absent(group):
@@ -47,7 +65,7 @@ def owned_scenario_process(output, mode, *, slow_profile_write=False):
         return False
     try:
         # Cache ownership before the caller can fail or remove its temporary files.
-        pilot.await_fact(registered, bool, budget=1)
+        await_fixture_fact(registered)
         yield parent
     finally:
         try:
@@ -68,4 +86,4 @@ def owned_scenario_process(output, mode, *, slow_profile_write=False):
             for stream in (parent.stdout, parent.stderr):
                 stream.close()
             for group in groups:
-                pilot.await_fact(lambda: group_absent(group), bool, budget=1)
+                await_fixture_fact(lambda: group_absent(group))
