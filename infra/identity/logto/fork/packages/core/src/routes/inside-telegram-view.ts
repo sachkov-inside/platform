@@ -7,6 +7,7 @@ export interface InsideTelegramPresentation {
   confirmationCode?: string;
   callback?: string;
   expiresAt?: string;
+  expiresInMilliseconds?: number;
 }
 
 export type InsideTelegramView = {
@@ -105,7 +106,8 @@ let attemptedBotOpen = false;
 let stopped = false;
 let inFlight = false;
 let pollTimer;
-let deadline = Date.now() + ${maximumWaitingMilliseconds};
+// Wall clocks may be wrong or change while Telegram is open. Only elapsed time is local.
+let deadline = performance.now() + ${maximumWaitingMilliseconds};
 function present(view) {
   const content = render(view);
   if (content === previousContent) return;
@@ -121,7 +123,7 @@ function present(view) {
 async function poll() {
   if (stopped || inFlight) return;
   clearTimeout(pollTimer);
-  if (Date.now() >= deadline) {
+  if (performance.now() >= deadline) {
     stopped = true;
     present({ status: 'expired' });
     return;
@@ -133,9 +135,12 @@ async function poll() {
     const response = await fetch('/api/inside-telegram/status', { cache: 'no-store', signal: controller.signal });
     if (!response.ok) throw new Error('Status unavailable');
     const state = await response.json();
-    const expiresAt = Date.parse(state.expiresAt);
-    if (Number.isFinite(expiresAt)) deadline = Math.min(deadline, expiresAt);
-    if (Date.now() >= deadline) {
+    // The identity server owns expiration; never compare its timestamp with the device clock.
+    const remaining = state.expiresInMilliseconds;
+    if (typeof remaining === 'number' && Number.isFinite(remaining)) {
+      deadline = Math.min(deadline, performance.now() + Math.max(0, remaining));
+    }
+    if (performance.now() >= deadline) {
       stopped = true;
       present({ status: 'expired' });
       return;
