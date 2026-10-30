@@ -55,7 +55,7 @@ class HostedCommandTests(unittest.TestCase):
         self.mounts = self.stack.enter_context(mock.patch.object(
             Path, 'read_text', return_value='1 0 8:1 / / rw - ext4 /dev/root rw\n'))
         self.disk = self.stack.enter_context(mock.patch.object(hosted_disk.shutil, 'disk_usage',
-            return_value=SimpleNamespace(free=17179869184)))
+            return_value=SimpleNamespace(free=17179869183)))
         self.process = self.stack.enter_context(mock.patch.object(hosted_disk.subprocess, 'Popen'))
         self.process.return_value.wait.return_value = 0
         self.handlers = {}
@@ -66,11 +66,88 @@ class HostedCommandTests(unittest.TestCase):
         self.stack.enter_context(mock.patch.object(hosted_disk.signal, 'signal', side_effect=register))
         self.output = self.stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
 
+    def test_sufficient_capacity_skips_android_inspection_and_process(self):
+        self.disk.return_value.free = 91420139520
+        with mock.patch.object(Path, 'lstat', autospec=True, side_effect=Path.lstat) as inspect, mock.patch.dict(
+                os.environ, {'ANDROID_HOME': '/irrelevant', 'ANDROID_SDK_ROOT': '',
+                             'GITHUB_WORKSPACE': '.', 'RUNNER_TEMP': '/usr/local/lib/android'}):
+            self.assertEqual(hosted_disk.main([]), 0)
+        self.assertEqual(json.loads(self.output.getvalue()), {
+            'outcome': 'already_sufficient', 'free_before_bytes': 91420139520})
+        self.assertEqual([str(call.args[0]) for call in inspect.call_args_list],
+                         ['/var/lib/docker', '/var/lib', '/var', '/'])
+        self.disk.assert_called_once_with('/var/lib/docker')
+        self.mounts.assert_not_called()
+        self.process.assert_not_called()
+
+    def test_sufficient_capacity_needs_no_android_or_workspace_environment(self):
+        self.disk.return_value.free = 17179869184
+        core = {name: self.env[name] for name in (
+            'GITHUB_ACTIONS', 'RUNNER_ENVIRONMENT', 'RUNNER_OS', 'RUNNER_ARCH', 'ImageOS')}
+        with mock.patch.dict(os.environ, core, clear=True):
+            self.assertEqual(hosted_disk.main([]), 0)
+        self.assertEqual(json.loads(self.output.getvalue()), {
+            'outcome': 'already_sufficient', 'free_before_bytes': 17179869184})
+        self.mounts.assert_not_called()
+        self.process.assert_not_called()
+
+    def test_sufficient_capacity_still_requires_every_core_inventory_flag(self):
+        self.disk.return_value.free = 91420139520
+        for name in ('GITHUB_ACTIONS', 'RUNNER_ENVIRONMENT', 'RUNNER_OS', 'RUNNER_ARCH', 'ImageOS'):
+            for value in ('', 'self-hosted', 'ubuntu22'):
+                with self.subTest(name=name, value=value), mock.patch.dict(os.environ, {name: value}):
+                    self.assert_rejected()
+                    self.output.seek(0)
+                    self.output.truncate()
+        self.disk.assert_not_called()
+        self.mounts.assert_not_called()
+
+    def test_sufficient_capacity_still_rejects_noncanonical_docker_storage(self):
+        self.disk.return_value.free = 91420139520
+        for path in ('/', '/var', '/var/lib', '/var/lib/docker'):
+            with self.subTest(path=path):
+                self.links.add(path)
+                self.assert_rejected()
+                self.links.clear()
+                self.output.seek(0)
+                self.output.truncate()
+        self.disk.assert_not_called()
+        self.mounts.assert_not_called()
+
+    def test_measured_capacity_boundary_matches_owning_admission(self):
+        import check as production_check
+        for free, sufficient in ((13625421824, False), (17179869183, False),
+                                 (17179869184, True), (17179869185, True)):
+            with self.subTest(free=free):
+                self.assertEqual(production_check.ci.check_disk(
+                    total=107374182400, free=free)['ready'], sufficient)
+                self.disk.return_value.free = free
+                self.assertEqual(hosted_disk.main([]), 0)
+                report = json.loads(self.output.getvalue())
+                self.assertEqual(report['free_before_bytes'], free)
+                if sufficient:
+                    self.assertEqual(report, {'outcome': 'already_sufficient', 'free_before_bytes': free})
+                    self.process.assert_not_called()
+                    self.mounts.assert_not_called()
+                    self.disk.assert_called_once_with('/var/lib/docker')
+                else:
+                    self.assertEqual(report, {
+                        'outcome': 'prepared', 'free_before_bytes': free, 'free_after_bytes': free})
+                    self.process.assert_called_once()
+                    self.mounts.assert_called_once()
+                self.output.seek(0)
+                self.output.truncate()
+                self.process.reset_mock()
+                self.mounts.reset_mock()
+                self.disk.reset_mock()
+
     def test_no_target_argument_is_accepted(self):
+        self.disk.return_value.free = 17179869184
         self.assertEqual(hosted_disk.main(['/tmp/android']), 1)
         self.process.assert_not_called()
 
     def test_foreign_real_operating_system_is_rejected(self):
+        self.disk.return_value.free = 17179869184
         with mock.patch.object(hosted_disk.platform, 'system', return_value='Darwin'):
             self.assertEqual(hosted_disk.main([]), 1)
         self.process.assert_not_called()
@@ -84,7 +161,7 @@ class HostedCommandTests(unittest.TestCase):
             start_new_session=True)
         self.process.return_value.wait.assert_called_once_with(timeout=135)
         self.assertEqual(json.loads(self.output.getvalue()), {
-            'outcome': 'prepared', 'free_before_bytes': 17179869184, 'free_after_bytes': 17179869184})
+            'outcome': 'prepared', 'free_before_bytes': 17179869183, 'free_after_bytes': 17179869183})
 
     def assert_rejected(self):
         self.assertEqual(hosted_disk.main([]), 1)
@@ -101,6 +178,7 @@ class HostedCommandTests(unittest.TestCase):
                     self.assert_rejected()
 
     def test_real_distribution_version_and_architecture_must_match(self):
+        self.disk.return_value.free = 17179869184
         for release in ({'ID': 'debian', 'VERSION_ID': '24.04'},
                         {'ID': 'ubuntu', 'VERSION_ID': '22.04'}, {}):
             with self.subTest(release=release), mock.patch.object(

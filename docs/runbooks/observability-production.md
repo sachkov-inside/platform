@@ -297,7 +297,11 @@ Linux CI запускает этот публичный путь с теми ж�
 из-за недоступности Mac registry или занятого локального стенда.
 
 Перед проверкой диска workflow готовит свежую стандартную GitHub-hosted VM `ubuntu-24.04` без job container.
-`scripts/observability-production/hosted_disk.py` проверяет hosted/Linux/X64, Ubuntu 24.04, `ImageOS=ubuntu24` и точные `ANDROID_HOME`/`ANDROID_SDK_ROOT`.
+`scripts/observability-production/hosted_disk.py` проверяет hosted/Linux/X64, Ubuntu 24.04, `ImageOS=ubuntu24` и канонический `/var/lib/docker`.
+Затем скрипт измеряет свободное место этого каталога.
+Если доступно не менее 16 GiB, скрипт сообщает `already_sufficient` и числовой `free_before_bytes`, затем завершается успешно.
+Этот путь не проверяет Android, workspace/temp или точки монтирования и не запускает удаление.
+При меньшем объёме скрипт требует точные `ANDROID_HOME`/`ANDROID_SDK_ROOT` и проверяет прежние ограничения удаления.
 Скрипт проверяет канонические каталоги, symlinks, точки монтирования, bind aliases, общий filesystem с Docker и внешние workspace/temp.
 Затем одна фиксированная команда удаляет только предустановленный `/usr/local/lib/android`, без shell или настраиваемого пути.
 Фиксированные `/usr/bin/sudo -n /usr/bin/timeout` ограничивают `/usr/bin/rm` временем 120 s и дают 5 s до KILL.
@@ -305,8 +309,9 @@ Python ждёт 135 s, затем максимум 5 s; при прерыван�
 
 Привилегированный timeout управляет root-процессом; свежая VM завершает жизненный цикл, а проверки окружения предотвращают случайный запуск без доказательства одноразовости.
 Скрипт сообщает закрытый outcome и доступные числовые свободные байты; stdout/stderr subprocess подавлены.
-Если оба фиксированных пути отсутствуют, скрипт сообщает `already_absent`; частичная структура получает отказ.
-Подготовка не гарантирует освобождённый объём; прежний admission повторно измеряет Docker filesystem и требует 16 GiB.
+При недостаточном месте отсутствие обоих фиксированных путей Android даёт `already_absent`; частичная структура получает отказ.
+Порог helper служит только оптимизации подготовки; успешный outcome не подтверждает достаточную ёмкость для runtime.
+Прежний admission независимо измеряет Docker filesystem и требует 16 GiB, включая после `already_sufficient` или `already_absent`.
 При ошибке скрипта workflow пропускает admission/runtime; прежние recovery и curated collection сохраняются.
 Локальный компьютер, self-hosted runner и shared stand не входят в этот рецепт.
 

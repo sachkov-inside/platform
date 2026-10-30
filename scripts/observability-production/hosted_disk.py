@@ -11,6 +11,8 @@ import stat
 import subprocess
 import sys
 
+# Preparation optimization only. The owning admission independently remeasures.
+MINIMUM_FREE_BYTES = 16 * 1024**3
 DELETE_TIMEOUT_SECONDS = 120
 DELETE_KILL_AFTER_SECONDS = 5
 DELETE_WAIT_SECONDS = 135
@@ -128,9 +130,7 @@ def remove_preinstalled_sdk():
 
 def main(argv=None):
     expected = {'GITHUB_ACTIONS': 'true', 'RUNNER_ENVIRONMENT': 'github-hosted',
-                'RUNNER_OS': 'Linux', 'RUNNER_ARCH': 'X64', 'ImageOS': 'ubuntu24',
-                'ANDROID_HOME': '/usr/local/lib/android/sdk',
-                'ANDROID_SDK_ROOT': '/usr/local/lib/android/sdk'}
+                'RUNNER_OS': 'Linux', 'RUNNER_ARCH': 'X64', 'ImageOS': 'ubuntu24'}
     try:
         if (argv if argv is not None else sys.argv[1:]) or any(
                 os.environ.get(key) != value for key, value in expected.items()):
@@ -140,8 +140,15 @@ def main(argv=None):
         release = platform.freedesktop_os_release()
         if release.get('ID') != 'ubuntu' or release.get('VERSION_ID') != '24.04':
             raise ValueError('guard_rejected')
-        present = verified_sdk()
+        canonical_directory(Path('/var/lib/docker'))
         before = shutil.disk_usage('/var/lib/docker').free
+        if before >= MINIMUM_FREE_BYTES:
+            print(json.dumps({'outcome': 'already_sufficient', 'free_before_bytes': before}))
+            return 0
+        if any(os.environ.get(name) != '/usr/local/lib/android/sdk'
+               for name in ('ANDROID_HOME', 'ANDROID_SDK_ROOT')):
+            raise ValueError('guard_rejected')
+        present = verified_sdk()
     except (ValueError, OSError, RuntimeError):
         # pathlib before Python 3.13 reports symlink loops as RuntimeError.
         print(json.dumps({'outcome': 'guard_rejected'}))
