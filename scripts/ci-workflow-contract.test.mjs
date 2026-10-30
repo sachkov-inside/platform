@@ -544,11 +544,10 @@ describe("application CI workflow contract", () => {
   });
 
   it("keeps the workflow read-only and independent of secrets", () => {
-    assert.equal(
-      topLevelBlock("permissions").trim(),
-      "contents: read\n  pull-requests: read\n  issues: read",
-    );
-    assert.doesNotMatch(workflow, /^ {2,}permissions:/mu);
+    assert.equal(topLevelBlock("permissions").trim(), "contents: read");
+    const jobOverrides = [...workflow.matchAll(/^ {4}permissions:/gmu)];
+    assert.equal(jobOverrides.length, 1);
+    assert.match(jobBlock("review-evidence"), /^ {4}permissions:/mu);
     assert.doesNotMatch(workflow, /secrets\./u);
     assert.doesNotMatch(workflow, /packages:\s*write/u);
   });

@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -120,7 +121,7 @@ test("release workflow_call needs no open PR, token or candidate execution", (t)
 test("read-only review is unconditional for PR/queue and required by CI Gate", () => {
   assert.doesNotMatch(
     review,
-    /^ {4}if:|continue-on-error|permissions:|pnpm|\.\/\.github\/actions|: write|secrets\./mu,
+    /^ {4}if:|continue-on-error|pnpm|\.\/\.github\/actions|: write|secrets\./mu,
   );
   assert.match(
     review,
@@ -152,4 +153,68 @@ test("read-only review is unconditional for PR/queue and required by CI Gate", (
     });
     assert.equal(checked.status, result === "success" ? 0 : 1);
   }
+});
+
+/** @param {string} source @param {number} indent */
+function permissions(source, indent) {
+  const block =
+    source.match(
+      new RegExp(
+        `^ {${indent}}permissions:\\n((?: {${indent + 2}}[a-z-]+: (?:read|write|none)\\n)+)`,
+        "mu",
+      ),
+    )?.[1] ?? "";
+  return Object.fromEntries(
+    [...block.matchAll(/([a-z-]+): (read|write|none)/gu)].map(
+      ([, key = "", level = ""]) => [key, level],
+    ),
+  );
+}
+/** @param {Record<string, string>} required @param {Record<string, string>} granted */
+function assertPermissionCeiling(required, granted) {
+  const levels = new Map([
+    ["none", 0],
+    ["read", 1],
+    ["write", 2],
+  ]);
+  for (const [name, level] of Object.entries(required)) {
+    assert.ok(
+      (levels.get(granted[name] ?? "none") ?? -1) >= (levels.get(level) ?? 3),
+      `Caller cannot grant ${name}:${level}`,
+    );
+  }
+}
+
+test("review API permissions are job-scoped and admitted by every actual reusable CI caller", () => {
+  const required = {
+    contents: "read",
+    "pull-requests": "read",
+    issues: "read",
+  };
+  assert.deepEqual(permissions(workflow, 0), { contents: "read" });
+  assert.deepEqual(permissions(review, 4), required);
+  const directory = new URL("../.github/workflows/", import.meta.url);
+  const callers = [];
+  for (const filename of readdirSync(directory).filter((name) =>
+    name.endsWith(".yml"),
+  )) {
+    const source = readFileSync(new URL(filename, directory), "utf8");
+    const blocks = source.split(/^ {2}([a-z][a-z0-9-]*):\n/gmu);
+    for (let index = 1; index < blocks.length; index += 2) {
+      const body = blocks[index + 1] ?? "";
+      if (!/^ {4}uses: \.\/\.github\/workflows\/ci\.yml$/mu.test(body))
+        continue;
+      callers.push(filename);
+      assertPermissionCeiling(required, permissions(body, 4));
+    }
+  }
+  assert.deepEqual(callers.sort(), ["release.yml", "telegram-release.yml"]);
+  assert.throws(
+    () => assertPermissionCeiling(required, { contents: "read" }),
+    /Caller cannot grant/u,
+  );
+  assert.throws(
+    () => assertPermissionCeiling(required, { ...required, issues: "none" }),
+    /Caller cannot grant issues/u,
+  );
 });
