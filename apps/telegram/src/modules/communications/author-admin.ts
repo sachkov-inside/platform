@@ -214,6 +214,16 @@ export class AuthorAdmin {
           now: new Date(),
         });
       } else {
+        if (input.nativeCapture)
+          await enqueueReply(tx, {
+            botIdentity: input.botIdentity,
+            telegramUserId: input.telegramUserId,
+            privateChatId: input.privateChatId,
+            messageText:
+              "Копия сохранена. Оставьте первую копию этого сообщения или альбома, присланную ботом, пока она используется. Повторные образцы можно удалять.",
+            sourceKey: `native-copy-kept:${input.botIdentity}:${input.updateId}`,
+            now: new Date(),
+          });
         const context: Context = {
           tx,
           input,

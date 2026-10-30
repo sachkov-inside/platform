@@ -1,3 +1,4 @@
+import { finishesNativeCapture } from "../../modules/communications/native-message-input.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import type { TemplateContent } from "../../modules/communications/communications-contract.js";
 import type { TemplateIntake } from "../../modules/communications/author-input.js";
@@ -28,7 +29,7 @@ export function translateTemplateIntake(
     ? "open"
     : /^\/cancel(?:@[A-Za-z0-9_]+)?$/.test(text)
       ? "close"
-      : text === "/done"
+      : finishesNativeCapture(text)
         ? "finish"
         : "capture";
   if (action === "capture" && text.startsWith("/")) return undefined;

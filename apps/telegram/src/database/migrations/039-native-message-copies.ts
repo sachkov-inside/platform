@@ -23,6 +23,7 @@ export const nativeMessageCopiesMigration: Migration = {
       diagnostic_code text,
       unique(bot_identity, telegram_user_id, context_kind, context_hash)
     )`.execute(db);
+    await sql`create unique index communication_native_copies_group on communication_native_copies(bot_identity,telegram_user_id,media_group_id) where media_group_id is not null`.execute(db);
     await sql`create index communication_native_copies_owner on communication_native_copies(bot_identity,owner_account_ref)`.execute(db);
   },
   async down(db: Kysely<unknown>) {

@@ -427,8 +427,8 @@ policy; exhausted updates retain only their redacted failure class until retenti
 (`src/database/retention.ts`) removes them, and the author must retry explicitly.
 
 With live delivery, the provider archives an independent native copy in the authorized author's
-private bot conversation using Telegram [`copyMessage` / `copyMessages`](https://core.telegram.org/bots/api#copymessage)
-(checked 2026-10-30). This preserves the provider's body, media and formatting without reconstructing
+private bot conversation, then sends from that archive using Telegram
+[`copyMessage` / `copyMessages`](https://core.telegram.org/bots/api#copymessage) (checked 2026-10-30). This preserves the provider's body, media and formatting without reconstructing
 entities. Ordinary text, photos, video, circles, voice, audio, documents, GIFs, stickers, regular
 polls, contacts, locations, venues and dice use the same path. Telegram excludes service messages,
 paid media, invoices, giveaways and giveaway winners; a quiz can be copied only when the bot knows
@@ -439,12 +439,17 @@ intake keep the legacy representation described below.
 
 An album is collected by `media_group_id`, deduplicated and sorted by Telegram message ID, up to
 10 parts. The author sends `/done` after its upload finishes. Until then no native copy or saved
-post is reported ready. The grouped copy and all later grouped sends use `copyMessages`.
+post is reported ready. The saved album is created from frozen input with `sendMediaGroup`; later grouped sends use `copyMessages`.
 Telegram does not accept an inline keyboard on that operation, so album button editing is hidden
 and album content with buttons is refused. Use a separate message for the call to action.
 
 `NativeMessages` owns the capture lifecycle used by `/template`, author replacements, composer
-and batch input. It rechecks the confirmed link and current permission before copying, commits a
+and batch input. Single messages use `forwardMessage`, which returns the full saved message;
+protected content cannot be forwarded. Albums use `sendMediaGroup` with frozen received file IDs,
+caption entities and presentation flags for photo/video/live-photo, audio or document groups.
+The archive validates metadata from every returned message before reporting ready. It never reads
+mutable original album IDs again at `/done`. Unsupported album media are explicitly refused.
+It rechecks the confirmed link and current permission before copying, commits a
 sending claim, then calls Telegram outside the transaction. Before attachment it rechecks the
 original dialog and link. A cancellation or changed dialog cannot receive stale captured content.
 An ambiguous, partial or expired sending claim becomes `unknown` and never retries automatically.
@@ -454,7 +459,8 @@ No delivery of a template to the audience follows from capture.
 A native snapshot carries only an opaque UUID `nativeRef`, part count, a summary up to 4096 UTF-16
 units, complete discovered body URLs and editable URL buttons. The provider keeps the bot/Account/
 Telegram identity, original IDs, archived copy IDs and summary metadata in
-`communication_native_copies`. It does not store raw Telegram payloads, media bytes, author profiles,
+`communication_native_copies`. Pending album sources additionally retain frozen media descriptors, full captions and entities until
+archive completion. It does not store full Telegram payloads, media bytes, author profiles,
 reply bodies or forwarded-origin metadata in that table. Media and full content remain in Telegram.
 Account/bot ownership and canonical summary/count/URLs are checked when saving templates,
 broadcasts, intro or sequence parts; the caller cannot select a source chat or inject source IDs.
@@ -612,7 +618,7 @@ The current `/admin` menu contains «Рассылки», «Последоват�
 Create a broadcast or sequence, send one native message, choose its time, then send the next.
 «Готово» returns to the short summary. The incoming order is the delivery order; elapsed times
 cannot decrease. Text, photo, video, video note, voice and document preserve native formatting and
-file IDs. Albums are rejected without losing accepted messages. The first message supplies the name.
+file IDs for legacy snapshots. Native messages and completed albums use the archive path above. The first message supplies the name.
 Broadcasts allow 20 messages; sequences allow 100 across entry and delayed steps.
 
 A broadcast time is elapsed from its actual launch: «Сразу», «Через 1 час», «Через 2 часа», or

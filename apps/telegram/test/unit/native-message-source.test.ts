@@ -30,22 +30,18 @@ describe("native Telegram message source", () => {
     });
   });
 
-  it("keeps album identity and extracts links beyond the summary without leaking source IDs", () => {
-    const caption =
-      "x".repeat(4100) + " https://inside.example/products/course";
+  it("extracts URLs beyond a bounded summary and from nested content", () => {
+    const text = "x".repeat(4100) + " https://inside.example/products/course";
     expect(
       nativeMessageSource({
         message_id: 42,
-        media_group_id: "synthetic-album",
-        photo: [],
-        caption,
+        text,
         rich_message: {
           blocks: [{ url: "https://inside.example/materials/sample" }],
         },
       }),
     ).toEqual({
       messageId: 42,
-      mediaGroupId: "synthetic-album",
       text: "x".repeat(4096),
       links: [
         "https://inside.example/materials/sample",
@@ -53,7 +49,27 @@ describe("native Telegram message source", () => {
       ],
     });
   });
-
+  it("freezes album media separately from its summary", () => {
+    expect(
+      nativeMessageSource({
+        message_id: 42,
+        media_group_id: "album",
+        photo: [{ file_id: "synthetic_file" }],
+        caption: "Caption",
+      }),
+    ).toEqual({
+      messageId: 42,
+      mediaGroupId: "album",
+      text: "Caption",
+      links: [],
+      albumMedia: {
+        type: "photo",
+        media: "synthetic_file",
+        caption: "Caption",
+        caption_entities: [],
+      },
+    });
+  });
   it.each([undefined, 0, -1, 1.5, "42", Number.MAX_SAFE_INTEGER + 1])(
     "rejects an invalid source identifier %s",
     (messageId) => {
@@ -118,5 +134,76 @@ describe("native content metadata boundary", () => {
     });
     expect(value?.text).toBe("x".repeat(4095));
     expect(value?.links).toEqual(["https://inside.example/materials/free"]);
+  });
+});
+
+describe("nested native entities and embedded actions", () => {
+  it.each(["explanation", "description", "question", "caption", "text"])(
+    "extracts bare URLs paired with nested %s entities",
+    (field) => {
+      const url = "inside.example/materials/private";
+      const entityField = field === "text" ? "entities" : `${field}_entities`;
+      expect(
+        nativeMessageSource({
+          message_id: 42,
+          poll: {
+            [field]: url,
+            [entityField]: [{ type: "url", offset: 0, length: url.length }],
+          },
+        })?.links,
+      ).toEqual(["https://inside.example/materials/private"]);
+      const forbidden = "api.telegram.org/botSynthetic/sendMessage";
+      expect(
+        nativeMessageSource({
+          message_id: 42,
+          poll: {
+            [field]: forbidden,
+            [entityField]: [
+              { type: "url", offset: 0, length: forbidden.length },
+            ],
+          },
+        }),
+      ).toBeUndefined();
+    },
+  );
+  it.each([
+    "callback_data",
+    "web_app",
+    "login_url",
+    "switch_inline_query",
+    "unknown_action",
+  ])("refuses embedded non-URL action %s", (action) => {
+    expect(
+      nativeMessageSource({
+        message_id: 42,
+        rich_message: {
+          blocks: [
+            {
+              type: "buttons",
+              buttons: [{ text: "Act", [action]: "synthetic" }],
+            },
+          ],
+        },
+      }),
+    ).toBeUndefined();
+    expect(
+      nativeMessageSource({
+        message_id: 42,
+        rich_message: {
+          blocks: [
+            {
+              text: {
+                type: "button",
+                button: {
+                  text: "Act",
+                  url: "https://inside.example",
+                  [action]: "synthetic",
+                },
+              },
+            },
+          ],
+        },
+      }),
+    ).toBeUndefined();
   });
 });

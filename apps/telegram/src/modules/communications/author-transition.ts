@@ -360,7 +360,7 @@ function perform(t: Turn, a: AuthorAction): void {
       if (!template) return t.reply("Выберите пост.", HOME);
       s.prompt = { kind: "replace" };
       return t.reply(
-        "Пришлите одно сообщение: текст, фото, видео, кружок, голосовое или документ. Используйте форматирование Telegram. Альбомы и опросы пока не поддерживаются. /cancel — выйти.",
+        "Пришлите сообщение или альбом с нужным оформлением. После загрузки альбома отправьте /done. Первую копию, присланную ботом при сохранении, нужно оставить в переписке. Поздние образцы можно удалять. /cancel, чтобы выйти.",
       );
     case "posts":
       return t.ask({
@@ -683,7 +683,7 @@ function batchMenu(t: Turn) {
   t.reply(
     isTruthy(count)
       ? `Сохранено сообщений: ${count}.\nПришлите ещё или нажмите «Готово».`
-      : `Подготовка сообщений\nПришлите несколько сообщений подряд: текст, фото, видео, кружки, голосовые или документы. Каждый отдельный пост сохраняется сразу в черновик. Когда закончите, нажмите «Готово».`,
+      : `Подготовка сообщений\nПришлите несколько сообщений или альбомов подряд. После загрузки каждого альбома отправьте /done. Каждый принятый пост сохраняется в черновик. Первые копии, присланные ботом при сохранении, нужно оставить в переписке. Поздние образцы можно удалять. Когда закончите, нажмите «Готово».`,
     [
       ["Готово", { kind: "batch:done" }],
       ["Назад", { kind: "batch:done" }],
@@ -1036,7 +1036,7 @@ function answer(t: Turn, input: { text: string; content: unknown }): void {
       validateContent(content);
     } catch {
       return t.reply(
-        "Не удалось принять сообщение. Пришлите отдельный текст, фото, видео, кружок, голосовое или документ. Принятые сообщения сохранены.",
+        "Не удалось принять сообщение. Пришлите другое обычное сообщение или альбом. Принятые сообщения сохранены.",
         [
           ["Продолжить", { kind: `batch:${s.batch}` }],
           ["Готово", { kind: "batch:done" }],
@@ -1081,10 +1081,15 @@ function answer(t: Turn, input: { text: string; content: unknown }): void {
       }
       const template = s.template;
       if (!template) throw new CommunicationsError("not_found");
+      const album = content.type === "native" && (content.nativeCount ?? 0) > 1;
+      if (album && template.content.buttons.length > 0)
+        t.reply(
+          "У альбома нет кнопок. Добавьте ссылку отдельным сообщением; прежние кнопки в альбом не переносятся.",
+        );
       return t.ask({
         kind: "save-post",
         templateId: template.templateId,
-        content: { ...content, buttons: template.content.buttons },
+        content: { ...content, buttons: album ? [] : template.content.buttons },
         revision: template.revision,
         reportConflict: true,
       });

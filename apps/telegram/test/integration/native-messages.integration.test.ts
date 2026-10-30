@@ -1,4 +1,6 @@
+import { GrammyNativeMessageArchive } from "../../src/adapters/telegram/grammy-native-message-archive.adapter.js";
 import { nativeMessageCopiesMigration } from "../../src/database/migrations/039-native-message-copies.js";
+import type { NativeMessageSource } from "../../src/modules/communications/native-message-source.js";
 import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
 import {
@@ -62,6 +64,20 @@ const calls: NativeCopyCommand[] = [];
 let result: NativeCopyResult;
 let duringCopy: (() => Promise<void>) | undefined;
 const copy = {
+  archive: async (command: {
+    chatId: string;
+    sources: readonly NativeMessageSource[];
+  }) => {
+    const outcome = await copy.copy({
+      chatId: command.chatId,
+      sourceChatId: command.chatId,
+      messageIds: command.sources.map((item) => item.messageId),
+      buttons: [],
+    });
+    return outcome.kind === "delivered"
+      ? { ...outcome, sources: command.sources }
+      : outcome;
+  },
   copy: vi.fn(async (command: NativeCopyCommand): Promise<NativeCopyResult> => {
     calls.push(structuredClone(command));
     await duringCopy?.();
@@ -187,6 +203,7 @@ beforeEach(async () => {
     })
     .execute();
   calls.length = 0;
+  // deterministic-test-allow shared-mutation: This beforeEach owns and resets the synthetic authorization result for every sequential case.
   authorization.result = "allowed";
   duringCopy = undefined;
   result = { kind: "delivered", messageIds: [501] };
@@ -384,6 +401,7 @@ describe("native message archive on PostgreSQL with synthetic Telegram", () => {
     "does not copy for a currently %s author",
     async (permission) => {
       await open();
+      // deterministic-test-allow shared-mutation: The suite's beforeEach restores this synthetic authorization result before every case.
       authorization.result = permission;
       if (permission === "unavailable")
         await expect(
@@ -447,6 +465,116 @@ describe("native message archive on PostgreSQL with synthetic Telegram", () => {
         }),
       ).rejects.toMatchObject({ code: "not_found" });
     }
+  });
+  it("deduplicates native ownership reads and records canonical provider metadata", async () => {
+    await open();
+    const port = new GrammyNativeMessageArchive({
+      forwardMessage: vi.fn().mockResolvedValue({
+        message_id: 501,
+        chat: { id: 42, type: "private" },
+        text: "Changed https://inside.example/materials/private",
+      }),
+      sendMediaGroup: vi.fn(),
+    });
+    const actualNative = new NativeMessages(
+      database,
+      config,
+      authorization,
+      port,
+      clock,
+    );
+    const actualPosts = new Communications(
+      database,
+      config,
+      authorization,
+      actualNative,
+    );
+    await actualPosts.intake(input("2", { nativeSource: source(7) }));
+    const content = required((await templates())[0]).content;
+    expect(content.nativeLinks).toEqual([
+      "https://inside.example/materials/private",
+    ]);
+    await database.transaction().execute(async (tx) => {
+      const reads = vi.spyOn(tx, "selectFrom");
+      await actualNative.assertOwned(
+        tx,
+        "synthetic-author",
+        Array.from({ length: 100 }, () => content),
+      );
+      expect(
+        reads.mock.calls.filter(
+          ([table]) => table === "communication_native_copies",
+        ),
+      ).toHaveLength(1);
+    });
+  });
+  it("does not reopen an already finalized media group in another author context", async () => {
+    await open();
+    await posts.intake(input("2", { nativeSource: source(7, "album") }));
+    await posts.intake(input("3", { nativeSource: source(8, "album") }));
+    result = { kind: "delivered", messageIds: [501, 502] };
+    await posts.intake(input("4", { action: "finish", text: "/done" }));
+    await open("5");
+    await posts.intake(input("6", { nativeSource: source(9, "album") }));
+    await posts.intake(input("7", { action: "finish", text: "/done" }));
+    expect(calls).toHaveLength(1);
+    expect(await templates()).toHaveLength(1);
+    expect(await archives()).toHaveLength(1);
+  });
+  it("replaces a post with buttons by an album and reminds the author which copies to keep", async () => {
+    const legacyPost = await posts.execute(
+      request({
+        type: "text",
+        text: "Old",
+        entities: [],
+        buttons: [{ text: "Open", url: "https://inside.example" }],
+      }),
+    );
+    await database
+      .insertInto("communication_author_sessions")
+      .values({
+        bot_identity: "inside",
+        telegram_user_id: "42",
+        account_ref: "synthetic-author",
+        state: JSON.stringify({
+          ...emptyAuthorState(randomUUID()),
+          template: legacyPost,
+          prompt: { kind: "replace" },
+        }),
+      })
+      .execute();
+    await admin.handle({
+      ...identity,
+      updateId: "2",
+      text: "",
+      content: null,
+      nativeSource: source(7, "album"),
+    });
+    await admin.handle({
+      ...identity,
+      updateId: "3",
+      text: "",
+      content: null,
+      nativeSource: source(8, "album"),
+    });
+    result = { kind: "delivered", messageIds: [501, 502] };
+    await admin.handle({
+      ...identity,
+      updateId: "4",
+      text: "/done",
+      content: null,
+    });
+    expect(required((await templates())[0]).content).toMatchObject({
+      type: "native",
+      nativeCount: 2,
+      buttons: [],
+    });
+    const reminder = await database
+      .selectFrom("start_response_deliveries")
+      .select("message_text")
+      .where("source_key", "=", "native-copy-kept:inside:4")
+      .executeTakeFirst();
+    expect(reminder?.message_text).toContain("Оставьте первую копию");
   });
   it("captures native content from the author replacement dialog through the same archive", async () => {
     const legacyPost = await posts.execute(

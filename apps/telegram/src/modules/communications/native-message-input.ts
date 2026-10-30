@@ -15,3 +15,7 @@ export interface NativeMessageInput {
   readonly nativeSource?: NativeMessageSource;
   readonly nativeCapture?: NativeCaptureGuard;
 }
+
+export function finishesNativeCapture(text: string | undefined): boolean {
+  return /^\/done(?:@[A-Za-z0-9_]+)?$/u.test(text ?? "");
+}

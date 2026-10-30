@@ -2,8 +2,9 @@
 
 On 2026-10-30 the owner chose to retain independent bot-created copies in their private bot
 conversation instead of provisioning a service channel. Telegram copy operations preserve ordinary
-message formats and albums as the provider evolves, while rebuilding every format in the shared
-wire contract would keep rejecting legitimate authored content. The provider owns opaque archive
+message formats and albums for delivery, while rebuilding every format in the shared
+wire contract would keep rejecting legitimate authored content. Capture uses returned full Messages
+from single forwarding or frozen album sending, so validated metadata describes the saved body. The provider owns opaque archive
 references and private Telegram identifiers; Platform receives a bounded summary and discovered
 links for authorization and target checks.
 

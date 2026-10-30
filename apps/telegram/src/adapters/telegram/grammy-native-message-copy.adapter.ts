@@ -1,4 +1,5 @@
-import { GrammyError, type Api } from "grammy";
+import { telegramCommunicationFailure } from "./telegram-communication-failure.js";
+import { type Api } from "grammy";
 import type {
   NativeCopyCommand,
   NativeCopyResult,
@@ -68,17 +69,7 @@ export class GrammyNativeMessageCopy implements NativeMessageCopy {
         messageIds,
       };
     } catch (error) {
-      if (!(error instanceof GrammyError)) return { kind: "transport_unknown" };
-      if (error.error_code === 429 || error.error_code >= 500)
-        return {
-          kind: "api_retryable",
-          providerErrorCode: error.error_code,
-          ...(Number.isSafeInteger(error.parameters.retry_after) &&
-          (error.parameters.retry_after ?? 0) > 0
-            ? { retryAfterSeconds: error.parameters.retry_after }
-            : {}),
-        };
-      return { kind: "api_rejected", providerErrorCode: error.error_code };
+      return telegramCommunicationFailure(error);
     }
   }
 }

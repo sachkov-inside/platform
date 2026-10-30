@@ -1,3 +1,8 @@
+import {
+  NATIVE_MESSAGE_ARCHIVE,
+  DisabledNativeMessageArchive,
+} from "./modules/communications/native-message-archive.js";
+import { GrammyNativeMessageArchive } from "./adapters/telegram/grammy-native-message-archive.adapter.js";
 import { NativeMessages } from "./modules/communications/native-messages.js";
 import { NativeCommunicationTransport } from "./modules/communications/native-communication-transport.js";
 import {
@@ -408,6 +413,15 @@ export class AppModule {
         CommunicationTracking,
         Communications,
         NativeMessages,
+        {
+          provide: NATIVE_MESSAGE_ARCHIVE,
+          useFactory: () =>
+            config.deliveryMode === "live" && hasText(config.botToken)
+              ? new GrammyNativeMessageArchive(
+                  new Api(config.botToken, { timeoutSeconds: 10 }),
+                )
+              : new DisabledNativeMessageArchive(),
+        },
         {
           provide: NATIVE_MESSAGE_COPY,
           useFactory: () =>
