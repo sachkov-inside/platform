@@ -18,11 +18,13 @@ class SourceProgress(unittest.TestCase):
             'test_source_progress.SourceProgress.test_discovery_matches_fixed_inventory_and_original_methods_once',
             'test_source_progress.SourceProgress.test_emitters_use_inventory_literals_and_completed_does_not_claim_success',
             'test_source_progress.SourceProgress.test_emitter_faults_do_not_replace_original_outcome',
-            'test_hosted.EvidenceTrust.test_transient_git_lock_disappearance_preserves_source_binding'}
+            'test_hosted.EvidenceTrust.test_transient_git_lock_disappearance_preserves_source_binding',
+            'test_binding.D7Binding.test_changed_new_workflow_bytes_are_rejected_by_existing_metadata_admission',
+            'test_binding.D7Binding.test_new_workflow_and_bridge_are_in_the_exact_resource_and_runtime_closure'}
         added.update(name for name in source_progress.SOURCE_IDS if name.startswith('test_preparation.'))
         added.update(name for name in source_progress.SOURCE_IDS if name.startswith('test_transport.'))
-        self.assertEqual(len(source_progress.SOURCE_IDS),115)
-        self.assertEqual(len(set(source_progress.SOURCE_IDS)),115)
+        self.assertEqual(len(source_progress.SOURCE_IDS),117)
+        self.assertEqual(len(set(source_progress.SOURCE_IDS)),117)
         self.assertTrue(added<=set(source_progress.SOURCE_IDS))
         baseline=[name for name in source_progress.SOURCE_IDS if name not in added]
         self.assertEqual(len(baseline),95)
@@ -78,7 +80,7 @@ class SourceProgress(unittest.TestCase):
         # The legacy item84 label names this original body, not a mutable ordinal.
         anchor='test_process.Processes.test_resource_project_uses_external_supervisor_cleanup_for_every_worker_outcome'
         anchor_index=source_progress.SOURCE_IDS.index(anchor)
-        self.assertEqual(anchor_index,84)
+        self.assertEqual(anchor_index,86)
         self.assertNotEqual(source_progress.SOURCE_IDS[83],anchor)
         # Pure synthetic callbacks never run the original process modes.
         runner=runpy.run_path(str(Path(__file__).with_name('source_runner.py')))
