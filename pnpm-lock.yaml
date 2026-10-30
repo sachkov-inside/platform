@@ -12,6 +12,7 @@ patchedDependencies:
   '@storybook/addon-vitest@10.6.1': 4eea57d49079c9e38386b7c485cfe11befe9e1947dae4df090fd82c4ed9872dd
   '@vitest/browser-playwright@4.1.11': 8865e11d2203925baf4366fd8eb09a2ec762a756d5275616ab4be87045687e84
   testcontainers@12.2.0: 294d6dbbddafcb16fa7f3f51c810d1ef0257247ab31a3ca51a2030b682a8d801
+  vitest@4.1.11: b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3
 
 importers:
 
@@ -195,7 +196,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 4.1.11
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+        version: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   apps/telegram:
     dependencies:
@@ -268,7 +269,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 4.1.11
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+        version: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -422,7 +423,7 @@ importers:
         version: 8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)
       vitest:
         specifier: 4.1.11
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
+        version: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
 
   docs/contracts:
     dependencies:
@@ -451,7 +452,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 4.1.11
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+        version: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/legal:
     devDependencies:
@@ -463,7 +464,7 @@ importers:
         version: 7.0.2
       vitest:
         specifier: 4.1.11
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+        version: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/material-blocks:
     dependencies:
@@ -9564,7 +9565,7 @@ snapshots:
       '@vitest/browser': 4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11)
       '@vitest/browser-playwright': 4.1.11(patch_hash=8865e11d2203925baf4366fd8eb09a2ec762a756d5275616ab4be87045687e84)(playwright@1.63.0)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11)
       '@vitest/runner': 4.1.11
-      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
+      vitest: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
     transitivePeerDependencies:
       - react
 
@@ -10243,7 +10244,7 @@ snapshots:
       '@vitest/mocker': 4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       playwright: 1.63.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
+      vitest: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -10256,7 +10257,7 @@ snapshots:
       '@vitest/mocker': 4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       playwright: 1.63.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+      vitest: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
     transitivePeerDependencies:
       - bufferutil
       - msw
@@ -10273,7 +10274,7 @@ snapshots:
       pngjs: 7.0.0
       sirv: 3.0.2
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
+      vitest: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
       ws: 8.21.3
     transitivePeerDependencies:
       - bufferutil
@@ -10290,7 +10291,7 @@ snapshots:
       pngjs: 7.0.0
       sirv: 3.0.2
       tinyrainbow: 3.1.1
-      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+      vitest: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       ws: 8.21.3
     transitivePeerDependencies:
       - bufferutil
@@ -13377,7 +13378,7 @@ snapshots:
       tsx: 4.23.15
       yaml: 2.9.1
 
-  vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)):
+  vitest@4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0)):
     dependencies:
       '@vitest/expect': 4.1.11
       '@vitest/mocker': 4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
@@ -13406,7 +13407,7 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
-  vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)):
+  vitest@4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)):
     dependencies:
       '@vitest/expect': 4.1.11
       '@vitest/mocker': 4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
