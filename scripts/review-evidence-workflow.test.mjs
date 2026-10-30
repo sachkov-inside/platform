@@ -1,6 +1,6 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { runReviewProcess } from "./review-evidence.test-support.mjs";
 import {
   mkdtempSync,
   mkdirSync,
@@ -30,7 +30,7 @@ function command(step) {
   return script.replace(/^ {10}/gmu, "").trim();
 }
 
-test("trusted verifier executes instead of candidate and broken adopted verifier cannot bootstrap", (t) => {
+test("trusted verifier executes instead of candidate and broken adopted verifier cannot bootstrap", async (t) => {
   const cwd = mkdtempSync(resolve(tmpdir(), "review-workflow-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   const candidate = resolve(cwd, "review-candidate");
@@ -43,10 +43,10 @@ test("trusted verifier executes instead of candidate and broken adopted verifier
   );
   const output = resolve(cwd, "output");
   const summary = resolve(cwd, "summary");
-  function run() {
+  async function run() {
     writeFileSync(output, "");
     writeFileSync(summary, "");
-    return spawnSync(
+    return runReviewProcess(
       "bash",
       [
         "-euc",
@@ -54,7 +54,6 @@ test("trusted verifier executes instead of candidate and broken adopted verifier
       ],
       {
         cwd: candidate,
-        encoding: "utf8",
         env: {
           ...process.env,
           GITHUB_OUTPUT: output,
@@ -63,7 +62,7 @@ test("trusted verifier executes instead of candidate and broken adopted verifier
       },
     );
   }
-  assert.equal(run().status, 0);
+  assert.equal((await run()).status, 0);
   assert.match(readFileSync(output, "utf8"), /status=bootstrap-prior-policy/u);
   assert.match(
     readFileSync(summary, "utf8"),
@@ -73,7 +72,7 @@ test("trusted verifier executes instead of candidate and broken adopted verifier
     resolve(trustedScripts, "review-evidence.mjs"),
     "throw new Error('trusted verifier failed');",
   );
-  const broken = run();
+  const broken = await run();
   assert.equal(broken.status, 1);
   assert.match(broken.stderr, /trusted verifier failed/u);
   assert.equal(readFileSync(output, "utf8"), "");
@@ -81,23 +80,22 @@ test("trusted verifier executes instead of candidate and broken adopted verifier
     resolve(trustedScripts, "review-evidence.mjs"),
     "console.log('TRUSTED VERIFIER');",
   );
-  const trusted = run();
+  const trusted = await run();
   assert.equal(trusted.status, 0);
   assert.match(trusted.stdout, /TRUSTED VERIFIER/u);
   assert.doesNotMatch(trusted.stderr, /CANDIDATE EXECUTED/u);
 });
 
-test("release workflow_call needs no open PR, token or candidate execution", (t) => {
+test("release workflow_call needs no open PR, token or candidate execution", async (t) => {
   const cwd = mkdtempSync(resolve(tmpdir(), "review-release-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   const output = resolve(cwd, "output");
   const summary = resolve(cwd, "summary");
-  const result = spawnSync(
+  const result = await runReviewProcess(
     "bash",
     ["-euc", command("Preserve release coverage applicability")],
     {
       cwd,
-      encoding: "utf8",
       env: {
         PATH: process.env["PATH"],
         GITHUB_OUTPUT: output,
@@ -118,7 +116,7 @@ test("release workflow_call needs no open PR, token or candidate execution", (t)
   assert.match(review, /if: \$\{\{ inputs.source_sha != '' \}\}/u);
 });
 
-test("read-only review is unconditional for PR/queue and required by CI Gate", () => {
+test("read-only review is unconditional for PR/queue and required by CI Gate", async () => {
   assert.doesNotMatch(
     review,
     /^ {4}if:|continue-on-error|pnpm|\.\/\.github\/actions|: write|secrets\./mu,
@@ -146,9 +144,7 @@ test("read-only review is unconditional for PR/queue and required by CI Gate", (
   const shell = gate.match(/run: (test "\$REVIEW_RESULT" = success)/u)?.[1];
   assert.ok(shell);
   for (const result of ["success", "failure", "skipped", "cancelled", ""]) {
-    /** @type {import("node:child_process").SpawnSyncReturns<string>} */
-    const checked = spawnSync("bash", ["-euc", shell], {
-      encoding: "utf8",
+    const checked = await runReviewProcess("bash", ["-euc", shell], {
       env: { ...process.env, REVIEW_RESULT: result },
     });
     assert.equal(checked.status, result === "success" ? 0 : 1);

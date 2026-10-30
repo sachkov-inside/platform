@@ -1,7 +1,7 @@
 // @ts-check
 import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { runReviewProcess } from "./review-evidence.test-support.mjs";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -11,10 +11,9 @@ import { z } from "zod";
 
 const cli = fileURLToPath(new URL("./review-evidence.mjs", import.meta.url));
 /** @param {string[]} args @param {unknown} input */
-function run(args, input) {
-  return spawnSync(process.execPath, [cli, ...args], {
+async function run(args, input) {
+  return runReviewProcess(process.execPath, [cli, ...args], {
     input: JSON.stringify(input),
-    encoding: "utf8",
   });
 }
 const baseSha = "a".repeat(40);
@@ -52,8 +51,8 @@ function receipt() {
   };
 }
 
-test("publisher renders a review receipt without committing evidence into the reviewed head", () => {
-  const result = run(["render"], receipt());
+test("publisher renders a review receipt without committing evidence into the reviewed head", async () => {
+  const result = await run(["render"], receipt());
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^<!-- platform-review-evidence:v1 -->\n/u);
   assert.deepEqual(
@@ -63,32 +62,32 @@ test("publisher renders a review receipt without committing evidence into the re
 });
 
 /** @param {import("node:test").TestContext} t */
-function fixture(t) {
+async function fixture(t) {
   const cwd = mkdtempSync(resolve(tmpdir(), "review-evidence-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
   /** @param {...string} args */
-  function git(...args) {
-    const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+  async function git(...args) {
+    const result = await runReviewProcess("git", args, { cwd });
     assert.equal(result.status, 0, result.stderr);
     return result.stdout.trim();
   }
-  git("init", "-b", "main");
-  git("config", "user.name", "Test");
-  git("config", "user.email", "test@example.invalid");
+  await git("init", "-b", "main");
+  await git("config", "user.name", "Test");
+  await git("config", "user.email", "test@example.invalid");
   writeFileSync(resolve(cwd, "base"), "base");
-  git("add", ".");
-  git("commit", "-m", "base");
-  const base = git("rev-parse", "HEAD");
+  await git("add", ".");
+  await git("commit", "-m", "base");
+  const base = await git("rev-parse", "HEAD");
   let targetBase = base;
-  git("checkout", "-b", "feature");
+  await git("checkout", "-b", "feature");
   writeFileSync(resolve(cwd, "feature"), "reviewed");
-  git("add", ".");
-  git("commit", "-m", "feature");
-  const head = git("rev-parse", "HEAD");
-  git("checkout", "main");
+  await git("add", ".");
+  await git("commit", "-m", "feature");
+  const head = await git("rev-parse", "HEAD");
+  await git("checkout", "main");
   // Force a synthetic merge even when main has not advanced.
-  git("merge", "--no-ff", "feature", "-m", "synthetic");
-  let candidate = git("rev-parse", "HEAD");
+  await git("merge", "--no-ff", "feature", "-m", "synthetic");
+  let candidate = await git("rev-parse", "HEAD");
   const body = receipt();
   body.baseSha = base;
   body.headSha = head;
@@ -122,7 +121,7 @@ function fixture(t) {
     return pr.head.sha;
   }
   /** @param {{eventName?: string, event?: unknown, responseRoutes?: Record<string, unknown>}} [options] */
-  function check({
+  async function check({
     eventName = "pull_request",
     event,
     responseRoutes = routes,
@@ -148,19 +147,22 @@ function fixture(t) {
         return { ok: value !== undefined, status: value === undefined ? 404 : 200, json: async () => value };
       };`,
     );
-    return spawnSync(process.execPath, ["--import", preload, cli, "verify"], {
-      cwd,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        GITHUB_EVENT_PATH: resolve(cwd, "event.json"),
-        GITHUB_REPOSITORY: body.repository,
-        GITHUB_EVENT_NAME: eventName,
-        REVIEW_CANDIDATE_SHA: candidate,
-        GH_TOKEN: "test-read-token",
-        GITHUB_STEP_SUMMARY: "",
+    return runReviewProcess(
+      process.execPath,
+      ["--import", preload, cli, "verify"],
+      {
+        cwd,
+        env: {
+          ...process.env,
+          GITHUB_EVENT_PATH: resolve(cwd, "event.json"),
+          GITHUB_REPOSITORY: body.repository,
+          GITHUB_EVENT_NAME: eventName,
+          REVIEW_CANDIDATE_SHA: candidate,
+          GH_TOKEN: "test-read-token",
+          GITHUB_STEP_SUMMARY: "",
+        },
       },
-    });
+    );
   }
   return {
     cwd,
@@ -188,10 +190,10 @@ function fixture(t) {
   };
 }
 
-test("CLI verifies authenticated external receipts against real PR and synthetic queue histories", (t) => {
-  const f = fixture(t);
+test("CLI verifies authenticated external receipts against real PR and synthetic queue histories", async (t) => {
+  const f = await fixture(t);
   for (const eventName of ["pull_request", "merge_group"]) {
-    const result = f.check({ eventName });
+    const result = await f.check({ eventName });
     assert.equal(result.status, 0, result.stderr);
     const report = z
       .object({
@@ -208,15 +210,15 @@ test("CLI verifies authenticated external receipts against real PR and synthetic
   }
 });
 
-test("CLI rejects missing, stale, duplicate, incomplete and blocking review evidence", (t) => {
-  const f = fixture(t);
+test("CLI rejects missing, stale, duplicate, incomplete and blocking review evidence", async (t) => {
+  const f = await fixture(t);
   const commentsPath = "issues/42/comments?per_page=100&page=1";
   for (const comments of [
     [],
     [f.comment, f.comment],
     [{ ...f.comment, body: "<!-- platform-review-evidence:v1 -->\n{" }],
   ]) {
-    const result = f.check({
+    const result = await f.check({
       responseRoutes: { ...f.routes, [commentsPath]: comments },
     });
     assert.equal(result.status, 1, result.stdout);
@@ -276,7 +278,7 @@ test("CLI rejects missing, stale, duplicate, incomplete and blocking review evid
   for (const mutate of mutations) {
     const value = structuredClone(f.body);
     mutate(value);
-    const result = f.check({
+    const result = await f.check({
       responseRoutes: {
         ...f.routes,
         [commentsPath]: [
@@ -291,8 +293,8 @@ test("CLI rejects missing, stale, duplicate, incomplete and blocking review evid
   }
 });
 
-test("CLI accepts complete dispositions and retained historical receipts", (t) => {
-  const f = fixture(t);
+test("CLI accepts complete dispositions and retained historical receipts", async (t) => {
+  const f = await fixture(t);
   f.body.reviews[0].findings.push({
     id: "B1",
     severity: "blocking",
@@ -308,23 +310,23 @@ test("CLI accepts complete dispositions and retained historical receipts", (t) =
     id: 122,
     body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(old)}`,
   });
-  assert.equal(f.check().status, 0);
+  assert.equal((await f.check()).status, 0);
 });
 
-test("outsiders cannot forge a receipt or deny service by posting malformed review markers", (t) => {
-  const f = fixture(t);
+test("outsiders cannot forge a receipt or deny service by posting malformed review markers", async (t) => {
+  const f = await fixture(t);
   f.comments.push({
     ...f.comment,
     author_association: "NONE",
     user: { login: "outsider" },
     body: "<!-- platform-review-evidence:v1 -->\n{",
   });
-  const result = f.check();
+  const result = await f.check();
   assert.equal(result.status, 0, result.stderr);
 });
 
-test("CLI rejects API failures, revoked publishers, unrelated sources and modified synthetic trees", (t) => {
-  const f = fixture(t);
+test("CLI rejects API failures, revoked publishers, unrelated sources and modified synthetic trees", async (t) => {
+  const f = await fixture(t);
   for (const responseRoutes of [
     { ...f.routes, "pulls/42": undefined },
     {
@@ -338,21 +340,21 @@ test("CLI rejects API failures, revoked publishers, unrelated sources and modifi
     { ...f.routes, [`commits/${f.head}/pulls?per_page=100&page=1`]: [] },
   ]) {
     assert.equal(
-      f.check({ eventName: "merge_group", responseRoutes }).status,
+      (await f.check({ eventName: "merge_group", responseRoutes })).status,
       1,
     );
   }
   writeFileSync(resolve(f.cwd, "feature"), "unreviewed merge resolution");
-  f.git("add", ".");
-  f.git("commit", "--amend", "--no-edit");
-  f.setCandidate(f.git("rev-parse", "HEAD"));
-  const result = f.check({ eventName: "merge_group" });
+  await f.git("add", ".");
+  await f.git("commit", "--amend", "--no-edit");
+  f.setCandidate(await f.git("rev-parse", "HEAD"));
+  const result = await f.check({ eventName: "merge_group" });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Synthetic merge differs/u);
 });
 
-test("CLI paginates comment and queue associations instead of trusting the first matching receipt", (t) => {
-  const f = fixture(t);
+test("CLI paginates comment and queue associations instead of trusting the first matching receipt", async (t) => {
+  const f = await fixture(t);
   const irrelevant = { body: "ordinary discussion" };
   f.routes["issues/42/comments?per_page=100&page=1"] = Array.from(
     { length: 100 },
@@ -367,21 +369,21 @@ test("CLI paginates comment and queue associations instead of trusting the first
   f.routes[`commits/${f.head}/pulls?per_page=100&page=2`] = [
     { number: 42, state: "open" },
   ];
-  assert.equal(f.check({ eventName: "merge_group" }).status, 0);
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 0);
   secondPage.push(f.comment);
-  assert.equal(f.check({ eventName: "merge_group" }).status, 1);
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
 });
 
-test("CLI verifies every reviewed source in a multi-PR queue", (t) => {
-  const f = fixture(t);
-  f.git("checkout", "-b", "second", f.base);
+test("CLI verifies every reviewed source in a multi-PR queue", async (t) => {
+  const f = await fixture(t);
+  await f.git("checkout", "-b", "second", f.base);
   writeFileSync(resolve(f.cwd, "second"), "second reviewed source");
-  f.git("add", "second");
-  f.git("commit", "-m", "second source");
-  const second = f.git("rev-parse", "HEAD");
-  f.git("checkout", "main");
-  f.git("merge", "--no-ff", "second", "-m", "second synthetic");
-  f.setCandidate(f.git("rev-parse", "HEAD"));
+  await f.git("add", "second");
+  await f.git("commit", "-m", "second source");
+  const second = await f.git("rev-parse", "HEAD");
+  await f.git("checkout", "main");
+  await f.git("merge", "--no-ff", "second", "-m", "second synthetic");
+  f.setCandidate(await f.git("rev-parse", "HEAD"));
   const secondReceipt = structuredClone(f.body);
   secondReceipt.pullRequest = 43;
   secondReceipt.headSha = second;
@@ -396,7 +398,7 @@ test("CLI verifies every reviewed source in a multi-PR queue", (t) => {
   };
   f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
   f.routes["issues/comments/124"] = secondComment;
-  const result = f.check({ eventName: "merge_group" });
+  const result = await f.check({ eventName: "merge_group" });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
     z.object({ sources: z.array(z.unknown()) }).parse(JSON.parse(result.stdout))
@@ -404,68 +406,68 @@ test("CLI verifies every reviewed source in a multi-PR queue", (t) => {
     2,
   );
   f.routes["issues/43/comments?per_page=100&page=1"] = [];
-  assert.equal(f.check({ eventName: "merge_group" }).status, 1);
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
 });
 
-test("unrelated main advance retains exact comparison inputs but changed merge-base/head invalidates review", (t) => {
-  const f = fixture(t);
-  f.git("checkout", "-b", "advanced-main", f.base);
+test("unrelated main advance retains exact comparison inputs but changed merge-base/head invalidates review", async (t) => {
+  const f = await fixture(t);
+  await f.git("checkout", "-b", "advanced-main", f.base);
   writeFileSync(resolve(f.cwd, "main-advance"), "unrelated target change");
-  f.git("add", "main-advance");
-  f.git("commit", "-m", "advance main");
-  const target = f.git("rev-parse", "HEAD");
-  f.git("merge", "--no-ff", "feature", "-m", "new synthetic");
-  f.setCandidate(f.git("rev-parse", "HEAD"));
+  await f.git("add", "main-advance");
+  await f.git("commit", "-m", "advance main");
+  const target = await f.git("rev-parse", "HEAD");
+  await f.git("merge", "--no-ff", "feature", "-m", "new synthetic");
+  f.setCandidate(await f.git("rev-parse", "HEAD"));
   f.setTargetBase(target);
-  assert.equal(f.check().status, 0);
-  assert.equal(f.check({ eventName: "merge_group" }).status, 0);
+  assert.equal((await f.check()).status, 0);
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 0);
   // Updating the actual branch head requires new review, including an otherwise
   // innocuous merge of main into that branch.
-  f.git("checkout", "feature");
-  f.git("merge", "--no-ff", target, "-m", "update branch");
-  f.pr.head.sha = f.git("rev-parse", "HEAD");
+  await f.git("checkout", "feature");
+  await f.git("merge", "--no-ff", target, "-m", "update branch");
+  f.pr.head.sha = await f.git("rev-parse", "HEAD");
   f.setCandidate(f.pr.head.sha);
-  assert.equal(f.check().status, 1);
+  assert.equal((await f.check()).status, 1);
   f.body.headSha = f.pr.head.sha;
   f.publish();
   assert.equal(
-    f.check().status,
+    (await f.check()).status,
     1,
     "old comparison base must not match a changed merge base",
   );
   f.body.baseSha = target;
   f.publish();
-  assert.equal(f.check().status, 0);
+  assert.equal((await f.check()).status, 0);
 });
 
-test("task scope edits invalidate receipts while labels and comments leave the task digest unchanged", (t) => {
-  const f = fixture(t);
+test("task scope edits invalidate receipts while labels and comments leave the task digest unchanged", async (t) => {
+  const f = await fixture(t);
   f.routes["issues/1856"] = {
     ...task,
     labels: ["ready-for-agent"],
     comments: 5,
   };
-  assert.equal(f.check().status, 0);
+  assert.equal((await f.check()).status, 0);
   for (const change of [
     { title: "Different task" },
     { body: "Changed acceptance criteria" },
     { pull_request: { url: "PR" } },
   ]) {
     f.routes["issues/1856"] = { ...task, ...change };
-    assert.equal(f.check().status, 1);
+    assert.equal((await f.check()).status, 1);
   }
-  const digest = run(["task-digest"], { ...task, labels: ["other"] });
+  const digest = await run(["task-digest"], { ...task, labels: ["other"] });
   assert.equal(digest.status, 0, digest.stderr);
   assert.equal(digest.stdout.trim(), taskSha256);
 });
 
-test("draft lifecycle does not require a new head to record applicable review", (t) => {
-  const f = fixture(t);
+test("draft lifecycle does not require a new head to record applicable review", async (t) => {
+  const f = await fixture(t);
   f.pr.draft = true;
-  assert.equal(f.check().status, 0);
+  assert.equal((await f.check()).status, 0);
 });
 
-test("renderer rejects malformed structures and duplicate identities before publication", () => {
+test("renderer rejects malformed structures and duplicate identities before publication", async () => {
   const valid = receipt();
   for (const value of [
     null,
@@ -479,14 +481,14 @@ test("renderer rejects malformed structures and duplicate identities before publ
       reviews: [valid.reviews[0], { ...valid.reviews[1], agentId: " author " }],
     },
   ]) {
-    const result = run(["render"], value);
+    const result = await run(["render"], value);
     assert.equal(result.status, 1);
     assert.equal(result.stdout, "");
   }
 });
 
-test("CLI fails if PR, task or receipt changes during verification", (t) => {
-  const f = fixture(t);
+test("CLI fails if PR, task or receipt changes during verification", async (t) => {
+  const f = await fixture(t);
   const changes = [
     ["pulls/42", { ...f.pr, head: { sha: "e".repeat(40) } }],
     ["issues/1856", { ...task, body: "updated while verifying" }],
@@ -499,8 +501,11 @@ test("CLI fails if PR, task or receipt changes during verification", (t) => {
         ? changed
         : { $responses: [original, changed] };
     assert.equal(
-      f.check({ responseRoutes: { ...f.routes, [String(path)]: route } })
-        .status,
+      (
+        await f.check({
+          responseRoutes: { ...f.routes, [String(path)]: route },
+        })
+      ).status,
       1,
     );
   }
