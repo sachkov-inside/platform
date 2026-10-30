@@ -4,10 +4,10 @@ import { readFileSync } from "node:fs";
 import { types } from "node:util";
 
 const raw = readFileSync(new URL("./source-tests.json", import.meta.url));
-if (raw.length > 32768) throw new Error("closed Core source inventory refused");
+if (raw.length > 65536) throw new Error("closed Core source inventory refused");
 /** @type {unknown} */
 const inventory = JSON.parse(raw.toString("utf8"));
-if (!Array.isArray(inventory) || inventory.length !== 284)
+if (!Array.isArray(inventory) || inventory.length !== 307)
   throw new Error("closed Core source inventory refused");
 /** @type {string[]} */
 const ids = [];
@@ -184,7 +184,7 @@ function protocolFailureMessage(stderr) {
   return PROTOCOL_UNKNOWN;
 }
 
-/** The separate three-method protocol retains its native verdict; no284 progress claim.
+/** The separate three-method protocol retains its native verdict; no307 progress claim.
  * @param {unknown} result
  */
 export function assertCoreProtocolContracts(result) {

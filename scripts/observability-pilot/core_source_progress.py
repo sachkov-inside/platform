@@ -11,8 +11,8 @@ def _refuse():raise ValueError('closed Core source inventory refused')
 
 def _inventory():
     try:
-        with Path(__file__).with_name('source-tests.json').open('rb') as stream:raw=stream.read(32769)
-        if len(raw)>32768:_refuse()
+        with Path(__file__).with_name('source-tests.json').open('rb') as stream:raw=stream.read(65537)
+        if len(raw)>65536:_refuse()
         values=json.loads(raw)
         if (type(values) is not list or len(values)>512 or not values
                 or any(type(value) is not str or len(value)>192 or not value.isascii()

@@ -48,7 +48,7 @@ test("Core passive progress validates the entire bounded fixed prefix", async ()
   );
   assert.ok(
     Array.isArray(raw) &&
-      raw.length === 284 &&
+      raw.length === 307 &&
       raw.every((value) => typeof value === "string"),
   );
   const additions = [
@@ -62,6 +62,29 @@ test("Core passive progress validates the entire bounded fixed prefix", async ()
     "test_pilot.PilotPreparationTest.test_cleanup_captures_native_host_failure_before_down_without_reading_logs",
     "test_pilot.PilotPreparationTest.test_native_host_failure_witness_uses_actual_exit_and_refuses_foreign_owner",
     "test_privacy.CollectorPrivacyContract.test_shared_native_writer_keeps_one_second_batch_without_other_queue_overrides",
+    "test_ci.FiniteRejectionCollectionTests.test_absent_diagnostic_stays_absent",
+    "test_ci.FiniteRejectionCollectionTests.test_basename_aliases_never_reach_generic_copy",
+    "test_ci.FiniteRejectionCollectionTests.test_every_changed_runtime_byte_and_map_membership_are_freshly_bound",
+    "test_ci.FiniteRejectionCollectionTests.test_exact_file_cap_is_reconstructed_and_foreign_owner_or_read_race_is_refused",
+    "test_ci.FiniteRejectionCollectionTests.test_only_strict_projection_is_collected_for_default_and_explicit_selection",
+    "test_ci.FiniteRejectionCollectionTests.test_private_file_and_closed_schema_attacks_are_refused_before_publication",
+    "test_ci.FiniteRejectionCollectionTests.test_stale_sha_tree_dirty_source_and_private_source_replacement_refuse",
+    "test_ci.QueryHelperAdmissionTests.test_actual_collect_validates_before_execution_and_never_reopens_or_reuses_query_code",
+    "test_ci.QueryHelperAdmissionTests.test_actual_protected_worker_refuses_mac_before_loading_changed_query_helper",
+    "test_ci.RejectionCollectionTests.test_explicit_selection_never_copies_unvalidated_rejection_content",
+    "test_source_status.FiniteRejectionContractTests.test_clock_completion_internal_and_actual_output_cap_slots",
+    "test_source_status.FiniteRejectionContractTests.test_current_and_previous_context_and_first_rejection_are_preserved",
+    "test_source_status.FiniteRejectionContractTests.test_each_parser_branch_has_its_fixed_code_and_vector_slot",
+    "test_source_status.FiniteRejectionContractTests.test_projection_rejects_extras_unknowns_bools_and_getters",
+    "test_source_status.FiniteRejectionContractTests.test_real_body_and_row_limits_keep_unknown_counts_null",
+    "test_source_status.RejectionDiagnosticTests.test_decode_rejection_is_closed_and_public_report_is_unchanged",
+    "test_source_status_query.PrivateRejectionTests.test_private_first_refusal_is_source_bound_and_does_not_change_report",
+    "test_source_status_query.RejectionSafetyTests.test_diagnostic_exception_or_interruption_cannot_replace_malformed",
+    "test_source_status_query.RejectionSafetyTests.test_directory_replacement_after_credentials_keeps_original_anchor",
+    "test_source_status_query.RejectionSafetyTests.test_private_existing_file_modes_links_fifo_and_size_are_never_overwritten",
+    "test_source_status_query.RejectionSafetyTests.test_public_query_and_private_reader_have_identical_original_report_bytes",
+    "test_source_status_query.RejectionSafetyTests.test_source_or_directory_replacement_during_http_refuses_diagnostic_only",
+    "test_source_status_query.RejectionSafetyTests.test_temporary_name_collision_and_inode_replacement_refuse_without_leaking",
   ];
   assert.ok(additions.every((id) => raw.includes(id)));
   const baseline = raw.filter((id) => !additions.includes(id));
@@ -71,6 +94,46 @@ test("Core passive progress validates the entire bounded fixed prefix", async ()
     createHash("sha256").update(JSON.stringify(baseline)).digest("hex"),
     "e0fac579823df0df2d5658f678db37241c367c0dcdfe7f840262a903d2512051",
   );
+  // Run the real module reader with controlled file bytes, without a second source run.
+  const { runInNewContext } = await import("node:vm");
+  const reader = (
+    await readFile("scripts/observability-pilot/source-progress.mjs", "utf8")
+  )
+    .replace(/^import [^\n]+;\n/gmu, "")
+    .replaceAll("import.meta.url", '"file:///fixed/source-progress.mjs"')
+    .replaceAll("export function ", "function ");
+  /** @param {Buffer} bytes */
+  const readInventory = (bytes) => {
+    runInNewContext(reader, {
+      readFileSync: () => bytes,
+      URL,
+      Buffer,
+      assert,
+    });
+  };
+  const compact = Buffer.from(JSON.stringify(raw));
+  assert.doesNotThrow(() =>
+    readInventory(
+      Buffer.concat([compact, Buffer.alloc(65536 - compact.length, " ")]),
+    ),
+  );
+  for (const invalid of [
+    Buffer.concat([compact, Buffer.alloc(65537 - compact.length, " ")]),
+    Buffer.from("NaN"),
+    Buffer.from("["),
+    Buffer.from("[]"),
+    Buffer.from(JSON.stringify(raw.slice(1))),
+    Buffer.from(JSON.stringify([...raw].reverse())),
+    Buffer.from(JSON.stringify(Array(307).fill(raw[0]))),
+    Buffer.from(
+      JSON.stringify([
+        "test_fixed.Fixed.test_" + "x".repeat(192),
+        ...raw.slice(1),
+      ]),
+    ),
+    Buffer.from(JSON.stringify(["test_fixed.Fixed.test_é", ...raw.slice(1)])),
+  ])
+    assert.throws(() => readInventory(invalid));
   const first = raw[0];
   const second = raw[1];
   assert.ok(typeof first === "string" && typeof second === "string");
@@ -89,8 +152,8 @@ test("Core passive progress validates the entire bounded fixed prefix", async ()
   const full = raw
     .map((id) => `CORE_SOURCE_V1 start ${id}\nCORE_SOURCE_V1 completed ${id}\n`)
     .join("");
-  assert.equal(Buffer.byteLength(full), 75676);
-  assert.equal(sourceProgress(full)?.completedCount, 284);
+  assert.equal(Buffer.byteLength(full), 81788);
+  assert.equal(sourceProgress(full)?.completedCount, 307);
   for (const invalid of [
     "",
     "legacy private-canary",
@@ -127,7 +190,7 @@ test("Core passive progress validates the entire bounded fixed prefix", async ()
     sourceProgress(start + "x".repeat(1_048_576 - Buffer.byteLength(start))),
     { lastStarted: first, lastCompleted: null, completedCount: 0 },
   );
-  // deterministic-test-allow unit-io: the fixed separate three-method synthetic entry acquires only private stdio; it never runs the 284 discovered fixtures.
+  // deterministic-test-allow unit-io: the fixed separate three-method synthetic entry acquires only private stdio; it never runs the 307 discovered fixtures.
   assertCoreProtocolContracts(
     spawnSync(
       "python3",
@@ -498,7 +561,7 @@ test("Core passive assertions retain native outcome and redact foreign captures"
       throw new Error("never inspect getter");
     },
   });
-  assert.equal(sourceProgress(full)?.completedCount, 284);
+  assert.equal(sourceProgress(full)?.completedCount, 307);
 });
 
 test("Core passive dispatch retains exact legacy platform and flag branches", async () => {
