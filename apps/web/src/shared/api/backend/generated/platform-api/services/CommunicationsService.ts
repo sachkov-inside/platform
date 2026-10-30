@@ -34,13 +34,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           text: string;
           type: 'text';
         } | {
@@ -49,13 +54,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'photo';
@@ -65,13 +75,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video';
@@ -81,13 +96,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video_note';
@@ -97,13 +117,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'voice';
@@ -113,13 +138,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'document';
@@ -156,13 +186,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               text: string;
               type: 'text';
             } | {
@@ -171,13 +206,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'photo';
@@ -187,13 +227,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video';
@@ -203,13 +248,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video_note';
@@ -219,13 +269,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'voice';
@@ -235,13 +290,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'document';
@@ -268,13 +328,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               text: string;
               type: 'text';
             } | {
@@ -283,13 +348,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'photo';
@@ -299,13 +369,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video';
@@ -315,13 +390,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video_note';
@@ -331,13 +411,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'voice';
@@ -347,13 +432,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'document';
@@ -428,13 +518,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             text: string;
             type: 'text';
           } | {
@@ -443,13 +538,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'photo';
@@ -459,13 +559,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video';
@@ -475,13 +580,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video_note';
@@ -491,13 +601,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'voice';
@@ -507,13 +622,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'document';
@@ -589,13 +709,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             text: string;
             type: 'text';
           } | {
@@ -604,13 +729,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'photo';
@@ -620,13 +750,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video';
@@ -636,13 +771,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video_note';
@@ -652,13 +792,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'voice';
@@ -668,13 +813,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'document';
@@ -761,13 +911,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           text: string;
           type: 'text';
         } | {
@@ -776,13 +931,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'photo';
@@ -792,13 +952,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video';
@@ -808,13 +973,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video_note';
@@ -824,13 +994,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'voice';
@@ -840,13 +1015,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'document';
@@ -865,13 +1045,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               text: string;
               type: 'text';
             } | {
@@ -880,13 +1065,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'photo';
@@ -896,13 +1086,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video';
@@ -912,13 +1107,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video_note';
@@ -928,13 +1128,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'voice';
@@ -944,13 +1149,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'document';
@@ -980,13 +1190,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               text: string;
               type: 'text';
             } | {
@@ -995,13 +1210,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'photo';
@@ -1011,13 +1231,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video';
@@ -1027,13 +1252,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video_note';
@@ -1043,13 +1273,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'voice';
@@ -1059,13 +1294,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'document';
@@ -1088,13 +1328,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               text: string;
               type: 'text';
             } | {
@@ -1103,13 +1348,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'photo';
@@ -1119,13 +1369,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video';
@@ -1135,13 +1390,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video_note';
@@ -1151,13 +1411,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'voice';
@@ -1167,13 +1432,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'document';
@@ -1203,13 +1473,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               text: string;
               type: 'text';
             } | {
@@ -1218,13 +1493,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'photo';
@@ -1234,13 +1514,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video';
@@ -1250,13 +1535,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video_note';
@@ -1266,13 +1556,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'voice';
@@ -1282,13 +1577,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'document';
@@ -1339,13 +1639,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             text: string;
             type: 'text';
           } | {
@@ -1354,13 +1659,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'photo';
@@ -1370,13 +1680,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video';
@@ -1386,13 +1701,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video_note';
@@ -1402,13 +1722,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'voice';
@@ -1418,13 +1743,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'document';
@@ -1524,13 +1854,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             text: string;
             type: 'text';
           } | {
@@ -1539,13 +1874,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'photo';
@@ -1555,13 +1895,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video';
@@ -1571,13 +1916,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video_note';
@@ -1587,13 +1937,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'voice';
@@ -1603,13 +1958,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'document';
@@ -1649,13 +2009,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             text: string;
             type: 'text';
           } | {
@@ -1664,13 +2029,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'photo';
@@ -1680,13 +2050,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video';
@@ -1696,13 +2071,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video_note';
@@ -1712,13 +2092,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'voice';
@@ -1728,13 +2113,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'document';
@@ -1766,13 +2156,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             text: string;
             type: 'text';
           } | {
@@ -1781,13 +2176,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'photo';
@@ -1797,13 +2197,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video';
@@ -1813,13 +2218,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video_note';
@@ -1829,13 +2239,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'voice';
@@ -1845,13 +2260,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'document';
@@ -1895,13 +2315,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           text: string;
           type: 'text';
         } | {
@@ -1910,13 +2335,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'photo';
@@ -1926,13 +2356,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video';
@@ -1942,13 +2377,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video_note';
@@ -1958,13 +2398,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'voice';
@@ -1974,13 +2419,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'document';
@@ -2055,13 +2505,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           text: string;
           type: 'text';
         } | {
@@ -2070,13 +2525,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'photo';
@@ -2086,13 +2546,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video';
@@ -2102,13 +2567,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video_note';
@@ -2118,13 +2588,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'voice';
@@ -2134,13 +2609,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'document';
@@ -2159,13 +2639,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               text: string;
               type: 'text';
             } | {
@@ -2174,13 +2659,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'photo';
@@ -2190,13 +2680,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video';
@@ -2206,13 +2701,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video_note';
@@ -2222,13 +2722,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'voice';
@@ -2238,13 +2743,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'document';
@@ -2274,13 +2784,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               text: string;
               type: 'text';
             } | {
@@ -2289,13 +2804,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'photo';
@@ -2305,13 +2825,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video';
@@ -2321,13 +2846,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video_note';
@@ -2337,13 +2867,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'voice';
@@ -2353,13 +2888,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'document';
@@ -2382,13 +2922,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               text: string;
               type: 'text';
             } | {
@@ -2397,13 +2942,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'photo';
@@ -2413,13 +2963,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video';
@@ -2429,13 +2984,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video_note';
@@ -2445,13 +3005,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'voice';
@@ -2461,13 +3026,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'document';
@@ -2497,13 +3067,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               text: string;
               type: 'text';
             } | {
@@ -2512,13 +3087,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'photo';
@@ -2528,13 +3108,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video';
@@ -2544,13 +3129,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'video_note';
@@ -2560,13 +3150,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'voice';
@@ -2576,13 +3171,18 @@ export class CommunicationsService {
                 text: string;
                 url: string;
               }>;
-              entities: Array<{
+              entities: Array<({
                 language?: string;
                 length: number;
                 offset: number;
                 type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
                 url?: string;
-              }>;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
               fileId: string;
               text: string;
               type: 'document';
@@ -2633,13 +3233,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             text: string;
             type: 'text';
           } | {
@@ -2648,13 +3253,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'photo';
@@ -2664,13 +3274,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video';
@@ -2680,13 +3295,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video_note';
@@ -2696,13 +3316,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'voice';
@@ -2712,13 +3337,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'document';
@@ -2818,13 +3448,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             text: string;
             type: 'text';
           } | {
@@ -2833,13 +3468,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'photo';
@@ -2849,13 +3489,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video';
@@ -2865,13 +3510,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video_note';
@@ -2881,13 +3531,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'voice';
@@ -2897,13 +3552,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'document';
@@ -2943,13 +3603,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             text: string;
             type: 'text';
           } | {
@@ -2958,13 +3623,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'photo';
@@ -2974,13 +3644,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video';
@@ -2990,13 +3665,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video_note';
@@ -3006,13 +3686,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'voice';
@@ -3022,13 +3707,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'document';
@@ -3060,13 +3750,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             text: string;
             type: 'text';
           } | {
@@ -3075,13 +3770,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'photo';
@@ -3091,13 +3791,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video';
@@ -3107,13 +3812,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'video_note';
@@ -3123,13 +3833,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'voice';
@@ -3139,13 +3854,18 @@ export class CommunicationsService {
               text: string;
               url: string;
             }>;
-            entities: Array<{
+            entities: Array<({
               language?: string;
               length: number;
               offset: number;
               type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
               url?: string;
-            }>;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
             fileId: string;
             text: string;
             type: 'document';
@@ -3189,13 +3909,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           text: string;
           type: 'text';
         } | {
@@ -3204,13 +3929,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'photo';
@@ -3220,13 +3950,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video';
@@ -3236,13 +3971,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video_note';
@@ -3252,13 +3992,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'voice';
@@ -3268,13 +4013,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'document';
@@ -3399,13 +4149,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           text: string;
           type: 'text';
         } | {
@@ -3414,13 +4169,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'photo';
@@ -3430,13 +4190,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video';
@@ -3446,13 +4211,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'video_note';
@@ -3462,13 +4232,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'voice';
@@ -3478,13 +4253,18 @@ export class CommunicationsService {
             text: string;
             url: string;
           }>;
-          entities: Array<{
+          entities: Array<({
             language?: string;
             length: number;
             offset: number;
             type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
             url?: string;
-          }>;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
           fileId: string;
           text: string;
           type: 'document';
