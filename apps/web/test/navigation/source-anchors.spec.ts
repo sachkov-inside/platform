@@ -189,14 +189,34 @@ test("a video moment fragment keeps the reader's place", async ({ page }) => {
 test("a video moment on another page opens that page from the start", async ({
   page,
 }) => {
-  await page.goto(`${target}#${anchor}`);
-  await expectHeadingInView(page);
-  await page
-    .getByRole("link", { name: "момент на другой странице", exact: true })
-    .click();
+  const programme = "/products/reference-course/programme";
+  await page.goto(
+    `/materials/reference-lesson-5?from=${encodeURIComponent(programme)}`,
+  );
   await expect(
-    page.getByRole("heading", { name: "Ссылки на раздел", exact: true }),
-  ).toBeInViewport();
+    page.getByRole("heading", { name: "Урок 5", exact: true }),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>(
+      "[data-application-content]",
+    );
+    if (root !== null && root.scrollHeight > root.clientHeight)
+      root.scrollTop = 600;
+    else window.scrollTo(0, 600);
+  });
+  await expect.poll(() => shellPosition(page)).toBeGreaterThan(0);
+  // A client transition from a scrolled lesson; clicking without scrolling keeps that position.
+  await page
+    .locator("[data-reader-body]")
+    .filter({ visible: true })
+    .getByRole("link", { name: "момент урока 6", exact: true })
+    .evaluate((link) => {
+      if (link instanceof HTMLElement) link.click();
+    });
+  await expect(
+    page.getByRole("heading", { name: "Урок 6", exact: true }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/#t=90$/u);
   await expect.poll(() => shellPosition(page)).toBe(0);
 });
 

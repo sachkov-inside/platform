@@ -325,9 +325,8 @@ function isMaterialStep(step: CourseReadingStep, slug: string): boolean {
 
 /**
  * A body link to a lesson of this programme opens that lesson as its step, so the chapter steps
- * follow the reader. A repeated Material opens the reader's own placement, else its placement in the
- * reader's chapter. The authored
- * section is kept verbatim. Other links are not programme steps.
+ * follow the reader. A repeated Material opens the reader's own placement, else its placement in
+ * the reader's chapter. The authored section is kept verbatim. Other links are not programme steps.
  */
 export function programmeStepLink(
   context: CourseReadingContext,
