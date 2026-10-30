@@ -75,7 +75,9 @@ disk_sample = SimpleNamespace(total=disk_total, free=disk_free, used=disk_total-
 # This process fixture owns orchestration/cleanup with protocol doubles.
 # Source-outage behavior has its own injected Docker/query/clock seam contracts.
 original_supervise = pilot.supervise_worker
-def supervise(execute, compose, output, project, *, pass_fds=()):
+def supervise(execute, compose, output, project, *, pass_fds=(), deadline_seconds=pilot.PILOT_DEADLINE_SECONDS):
+    if deadline_seconds != pilot.PILOT_DEADLINE_SECONDS:
+        raise AssertionError('legacy Mac fixture expects the default pilot worker deadline')
     return original_supervise([sys.executable,__file__,'worker',directory,mode], compose, output, project,
                               deadline_seconds=WORKER_FIXTURE_BUDGET_SECONDS, pass_fds=pass_fds)
 
