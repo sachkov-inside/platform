@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { requireAuthoringEntry } from "@/_app/authoring-entry.server";
 import { ProductEditorPage } from "@/_pages/content-collections.server";
 
 /** Раздел целиком зависит от сессии и на слои не разложен: проверка мгновенности с него снята (ADR 0027). */
@@ -14,6 +15,7 @@ export default async function Page({
   readonly params: Promise<{ readonly productId: string }>;
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requireAuthoringEntry();
   const [{ productId }, { tab }] = await Promise.all([params, searchParams]);
   return (
     <ProductEditorPage

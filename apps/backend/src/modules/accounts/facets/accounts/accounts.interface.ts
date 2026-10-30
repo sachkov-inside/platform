@@ -41,6 +41,13 @@ export type PermissionDecision =
   | { readonly ok: true; readonly allowed: boolean }
   | { readonly ok: false; readonly error: PermissionError };
 
+export type PermissionList =
+  | {
+      readonly ok: true;
+      readonly permissions: readonly PlatformPermission[];
+    }
+  | { readonly ok: false; readonly error: PermissionError };
+
 export interface Accounts {
   /** Current Account-set decisions; result keys retain requested UUID spelling. */
   checkPermissionsMany?(query: {
@@ -86,6 +93,11 @@ export interface Accounts {
     },
     transaction?: TransactionHandle,
   ): Promise<PermissionDecision>;
+
+  /** Effective permissions of one Account; `platform:admin` lists every permission. */
+  listPermissions(query: {
+    readonly accountId: string;
+  }): Promise<PermissionList>;
 }
 
 export type { VerifiedAccountIdentity, VerifiedAccountSignIn };

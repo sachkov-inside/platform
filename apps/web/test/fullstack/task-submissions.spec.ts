@@ -283,15 +283,18 @@ test("the author comments an agent's submission; the learner reads the comment t
   await expect(learnerView.getByText(/Посмотрел автор/u)).toHaveCount(0);
 });
 
-test("an Account without materials:manage sees no submissions (#948)", async ({
+test("an Account without permissions gets the 404 page in place of the admin (#948, #1879)", async ({
   context,
   page,
 }) => {
   await signInFullStack(context, "NON_MEMBER");
   await page.goto("/authoring/submissions");
   await expect(
-    page.locator('[data-task-submissions-state="forbidden"]'),
+    page.getByRole("heading", { level: 1, name: "Страница не найдена" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("complementary", { name: "Админка" }),
+  ).toHaveCount(0);
   await expect(page.locator("[data-submission]")).toHaveCount(0);
 });
 

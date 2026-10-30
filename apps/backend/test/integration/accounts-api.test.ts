@@ -222,6 +222,53 @@ describe("Accounts API", () => {
     expect(resolved.json<unknown>()).toEqual(establishedBody);
   });
 
+  test("lists only the current Account's effective permissions", async () => {
+    const url = "/accounts/current/permissions";
+    expect((await server.inject({ method: "GET", url })).statusCode).toBe(401);
+
+    const memberToken = await signToken({
+      subject: "permissions-member",
+      email: "permissions-member@example.test",
+    });
+    const authorToken = await signToken({
+      subject: "permissions-author",
+      email: "permissions-author@example.test",
+    });
+    const adminToken = await signToken({
+      subject: "permissions-admin",
+      email: "permissions-admin@example.test",
+    });
+    await inject("POST", "/accounts", memberToken);
+    const author = readAccountId(
+      (await inject("POST", "/accounts", authorToken)).json(),
+    );
+    const admin = readAccountId(
+      (await inject("POST", "/accounts", adminToken)).json(),
+    );
+    await database.prisma.accountPermission.createMany({
+      data: [
+        { accountId: author, permission: "billing:manage" },
+        { accountId: admin, permission: "platform:admin" },
+      ],
+    });
+
+    const memberRead = await inject("GET", url, memberToken);
+    expect(memberRead.statusCode).toBe(200);
+    expect(memberRead.headers["cache-control"]).toBe("private, no-store");
+    expect(memberRead.json()).toEqual({ permissions: [] });
+    expect((await inject("GET", url, authorToken)).json()).toEqual({
+      permissions: ["billing:manage"],
+    });
+    expect((await inject("GET", url, adminToken)).json()).toEqual({
+      permissions: [
+        "materials:manage",
+        "communications:manage",
+        "billing:manage",
+        "platform:admin",
+      ],
+    });
+  });
+
   test("ordinary resolve never provisions and M2M fails the human path", async () => {
     const unknown = await inject(
       "GET",

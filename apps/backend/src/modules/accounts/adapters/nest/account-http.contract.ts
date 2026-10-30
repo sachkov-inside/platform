@@ -1,9 +1,15 @@
 import { z } from "zod";
 
+import { platformPermissions } from "../../domain/platform-permission.js";
+
 export const accountResponseSchema = z.object({
   account: z.object({
     accountId: z.uuid(),
   }),
+});
+
+export const permissionsResponseSchema = z.object({
+  permissions: z.array(z.enum(platformPermissions)),
 });
 
 export const accountProblemSchema = z.object({
