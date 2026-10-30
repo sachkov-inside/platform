@@ -127,6 +127,24 @@ class HostedCommandTests(unittest.TestCase):
         with mock.patch.object(Path, 'resolve', return_value=Path('/other')):
             self.assert_rejected()
 
+    def test_resolver_runtime_error_is_closed_before_starting_command(self):
+        error = io.StringIO()
+        with mock.patch.object(
+                Path, 'resolve', side_effect=RuntimeError('secret-symlink-loop')) as resolve, \
+                contextlib.redirect_stderr(error):
+            self.assert_rejected()
+        resolve.assert_called_once_with(strict=True)
+        self.assertEqual(error.getvalue(), '')
+        self.assertNotIn('secret-symlink-loop', self.output.getvalue())
+
+    def test_guard_does_not_swallow_keyboard_interrupt_or_system_exit(self):
+        for exception in (KeyboardInterrupt, SystemExit):
+            with self.subTest(exception=exception.__name__), mock.patch.object(
+                    Path, 'resolve', side_effect=exception), self.assertRaises(exception):
+                hosted_disk.main([])
+            self.process.assert_not_called()
+            self.assertEqual(self.output.getvalue(), '')
+
     def test_different_docker_filesystem_is_rejected(self):
         self.devices['/var/lib/docker'] = 2
         self.assert_rejected()
@@ -249,6 +267,17 @@ class HostedCommandTests(unittest.TestCase):
 
 
 class CanonicalDirectoryTests(unittest.TestCase):
+    def test_real_symlink_loop_is_rejected_without_resolution_or_process(self):
+        with tempfile.TemporaryDirectory(dir=str(Path(tempfile.gettempdir()).resolve())) as directory:
+            loop = Path(directory) / 'loop'
+            loop.symlink_to(loop, target_is_directory=True)
+            with mock.patch.object(hosted_disk.subprocess, 'Popen') as process, \
+                    mock.patch.object(Path, 'resolve') as resolve:
+                with self.assertRaises(ValueError):
+                    hosted_disk.canonical_directory(loop)
+            process.assert_not_called()
+            resolve.assert_not_called()
+
     def test_real_temporary_directory_accepts_only_canonical_directory_and_parents(self):
         with tempfile.TemporaryDirectory(dir=str(Path(tempfile.gettempdir()).resolve())) as directory:
             root = Path(directory)

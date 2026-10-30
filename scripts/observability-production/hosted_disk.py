@@ -17,8 +17,9 @@ DELETE_WAIT_SECONDS = 135
 
 
 def canonical_directory(path):
-    if (not path.is_absolute() or '..' in path.parts or path.resolve(strict=True) != path
-            or any(not stat.S_ISDIR(parent.lstat().st_mode) for parent in (path, *path.parents))):
+    if (not path.is_absolute() or '..' in path.parts
+            or any(not stat.S_ISDIR(parent.lstat().st_mode) for parent in (path, *path.parents))
+            or path.resolve(strict=True) != path):
         raise ValueError('guard_rejected')
 
 
@@ -141,7 +142,8 @@ def main(argv=None):
             raise ValueError('guard_rejected')
         present = verified_sdk()
         before = shutil.disk_usage('/var/lib/docker').free
-    except (ValueError, OSError):
+    except (ValueError, OSError, RuntimeError):
+        # pathlib before Python 3.13 reports symlink loops as RuntimeError.
         print(json.dumps({'outcome': 'guard_rejected'}))
         return 1
     outcome, status = remove_preinstalled_sdk() if present else ('already_absent', 0)
