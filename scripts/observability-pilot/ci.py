@@ -98,7 +98,15 @@ def _fresh_rejection_source(metadata):
             or read_command(['git', '-C', str(ROOT), 'rev-parse', 'HEAD^{tree}']) != value['checkout_tree']
             or read_command(['git', '-C', str(ROOT), 'status', '--porcelain', '--untracked-files=no', '--', *expected])):
         raise ValueError('closed rejection source contract')
-    return value['checkout_sha'], inputs['scripts/observability-pilot/source_status_query.py']
+    query_path = 'scripts/observability-pilot/source_status_query.py'
+    raw = inputs[query_path]
+    # Metadata and a later clean status alone cannot pin a snapshot: a changed
+    # file could be restored before status. Bind these exact bytes to the fixed
+    # blob at the admitted immutable commit before executing any helper code.
+    blob = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+    if read_command(['git', '-C', str(ROOT), 'rev-parse', value['checkout_sha'] + ':' + query_path]) != blob:
+        raise ValueError('closed rejection query source contract')
+    return value['checkout_sha'], raw
 
 
 def _rejection_query(raw):

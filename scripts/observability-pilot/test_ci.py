@@ -332,6 +332,9 @@ class FiniteRejectionCollectionTests(unittest.TestCase):
         if args[-1] == 'HEAD': return 'a' * 40
         if args[-1] == 'HEAD^{tree}': return 'b' * 40
         if 'status' in args: return ''
+        if args[-1] == 'a' * 40 + ':scripts/observability-pilot/source_status_query.py':
+            raw = (ci.ROOT / 'scripts/observability-pilot/source_status_query.py').read_bytes()
+            return hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
         raise AssertionError('unexpected external command')
 
     def test_only_strict_projection_is_collected_for_default_and_explicit_selection(self):
@@ -348,7 +351,7 @@ class FiniteRejectionCollectionTests(unittest.TestCase):
                 self.assertNotEqual(path.read_bytes(), original)
                 self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
                 self.assertLessEqual(path.stat().st_size, 4096)
-                self.assertEqual(commands.call_count, 3)
+                self.assertEqual(commands.call_count, 4)
                 if selection is None:
                     self.assertEqual((root / 'public' / 'source-freshness.json').read_text(), '{"state":"failed"}')
 
@@ -547,13 +550,14 @@ print('NATIVE_HOST_REFUSED_BEFORE_QUERY_HELPER')
                 (root / path.relative_to(ci.ROOT)).read_bytes()).hexdigest() for path in ci._admission_inputs()}
             query_path = root / 'scripts/observability-pilot/source_status_query.py'
             original_query = query_path.read_bytes()
-            code = """import json, sys, types
+            code = """import hashlib, json, sys, types
 from pathlib import Path
 from unittest.mock import patch
 root, attack = Path(sys.argv[1]), sys.argv[2]
 query_path = root / 'scripts/observability-pilot/source_status_query.py'
+original_query = query_path.read_bytes()
 marker = b"raise AssertionError('QUERY_HELPER_UNVERIFIED_BYTES_EXECUTED')\\n"
-if attack in ('inactive', 'absent', 'changed'):
+if attack in ('inactive', 'absent', 'changed', 'coordinated'):
     query_path.write_bytes(marker)
 sys.path.insert(0, str(query_path.parent))
 import ci
@@ -561,6 +565,10 @@ assert 'source_status_query' not in sys.modules
 assert ci.REJECTION_NAME == ci.source_status.REJECTION_NAME
 assert ci.REJECTION_MAX_BYTES == ci.source_status.REJECTION_MAX_BYTES == 4096
 output, metadata, public = root / 'private', root / 'metadata', root / 'public'
+if attack == 'coordinated':
+    value = json.loads((metadata / 'source.json').read_bytes())
+    value['inputs']['scripts/observability-pilot/source_status_query.py'] = hashlib.sha256(marker).hexdigest()
+    (metadata / 'source.json').write_text(json.dumps(value))
 if attack in ('inactive', 'absent'):
     if attack == 'absent':
         (output / ci.REJECTION_NAME).unlink()
@@ -581,6 +589,8 @@ if attack.startswith('foreign') or attack == 'cached':
 command = ci.read_command
 raced = []
 def read_command(args):
+    if attack == 'coordinated' and 'status' in args:
+        query_path.write_bytes(original_query)
     value = command(args)
     if attack == 'race' and 'status' in args:
         query_path.write_bytes(marker)
@@ -590,7 +600,7 @@ try:
     with patch.object(ci, 'read_command', side_effect=read_command):
         ci.collect(output, metadata, public, artifacts=(ci.REJECTION_NAME,))
 except ValueError:
-    assert attack in ('changed', 'foreign_file', 'foreign_origin', 'foreign_object'), attack
+    assert attack in ('changed', 'coordinated', 'foreign_file', 'foreign_origin', 'foreign_object'), attack
     assert not public.exists()
     print('UNTRUSTED_QUERY_REFUSED_BEFORE_EXECUTION')
 else:
@@ -607,7 +617,7 @@ else:
             raise AssertionError('fresh source was cached')
     print('VERIFIED_BYTES_ONLY')
 """
-            for attack in ('inactive', 'absent', 'changed', 'foreign_file', 'foreign_origin', 'foreign_object',
+            for attack in ('inactive', 'absent', 'changed', 'coordinated', 'foreign_file', 'foreign_origin', 'foreign_object',
                            'valid', 'race', 'cached'):
                 with self.subTest(attack=attack):
                     query_path.write_bytes(original_query)
