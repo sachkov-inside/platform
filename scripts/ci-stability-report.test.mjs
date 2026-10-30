@@ -9,10 +9,12 @@ import {
   readFileSync,
   rmSync,
   chmodSync,
+  existsSync,
+  watch,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
 
 const outputSchema = z.object({
   coverage: z.object({
@@ -30,11 +32,24 @@ const outputSchema = z.object({
         file: z.string(),
         project: z.string(),
         name: z.string(),
+        suite: z.string(),
       }),
       pullRequests: z.array(z.number()),
       priority: z.string(),
-      firstFailure: z.object({ run: z.number(), source: z.string() }),
-      rechecks: z.array(z.object({ outcome: z.string() })),
+      firstFailure: z.object({
+        run: z.number(),
+        source: z.string(),
+        name: z.string(),
+      }),
+      failures: z.array(z.object({ name: z.string() })),
+      rechecks: z.array(
+        z.object({
+          run: z.number(),
+          attempt: z.number(),
+          source: z.string(),
+          outcome: z.string(),
+        }),
+      ),
     }),
   ),
   jobs: z.array(
@@ -46,8 +61,57 @@ const outputSchema = z.object({
   ),
 });
 
+/** Real CLI boundary; fake gh is the only external provider.
+ * @param {string} root @param {string[]} [args]
+ */
+async function collect(root, args = []) {
+  const child = spawnOwned(
+    process.execPath,
+    [
+      "scripts/ci-stability-report.mjs",
+      "sachkov-inside/platform",
+      resolve(root, "report"),
+      "--until=2026-10-30T00:00:00Z",
+      ...args,
+    ],
+    {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        PATH: `${root}:${process.env["PATH"]}`,
+        STABILITY_FIXTURE: resolve(root, "responses.json"),
+        STABILITY_CALLS: resolve(root, "calls.txt"),
+      },
+    },
+  );
+  let stdout = "";
+  let stderr = "";
+  child.stdout?.on("data", (chunk) => {
+    stdout += String(chunk);
+  });
+  child.stderr?.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
+  // deterministic-test-allow duration-wait: bounds the real CLI contract; supervisor close, after whole-tree cleanup, is completion.
+  const timeout = setTimeout(() => {
+    void stopOwned(child, 100);
+  }, 10000);
+  try {
+    /** @type {Promise<number | null>} */
+    const closed = new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", resolve);
+    });
+    const status = await closed;
+    return { status, stdout, stderr };
+  } finally {
+    clearTimeout(timeout);
+    await stopOwned(child, 100);
+  }
+}
+
 /** @param {Record<string, unknown>} responses @param {string[]} [args] */
-function report(responses, args = []) {
+async function report(responses, args = []) {
   const root = mkdtempSync(resolve(tmpdir(), "ci-history-"));
   try {
     writeFileSync(resolve(root, "responses.json"), JSON.stringify(responses));
@@ -57,26 +121,7 @@ function report(responses, args = []) {
       `#!/usr/bin/env node\nconst fs=require('node:fs');const p=process.argv.at(-1);fs.appendFileSync(process.env.STABILITY_CALLS,p+'\\n');if(process.argv.slice(2,5).join(' ')!=='api --method GET')process.exit(2);const data=JSON.parse(fs.readFileSync(process.env.STABILITY_FIXTURE,'utf8'));if(!(p in data)){console.error('missing fixture '+p);process.exit(1)}const v=data[p];process.stdout.write(v==='__OVERSIZED_LOG__'?'private failure payload '+ 'x'.repeat(1048576+65536):typeof v==='string'?v:JSON.stringify(v));`,
     );
     chmodSync(gh, 0o755);
-    const result = spawnSync(
-      process.execPath,
-      [
-        "scripts/ci-stability-report.mjs",
-        "sachkov-inside/platform",
-        resolve(root, "report"),
-        "--until=2026-10-30T00:00:00Z",
-        ...args,
-      ],
-      {
-        encoding: "utf8",
-        timeout: 10000,
-        env: {
-          ...process.env,
-          PATH: `${root}:${process.env["PATH"]}`,
-          STABILITY_FIXTURE: resolve(root, "responses.json"),
-          STABILITY_CALLS: resolve(root, "calls.txt"),
-        },
-      },
-    );
+    const result = await collect(root, args);
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout, "");
     assert.equal(result.stderr, "");
@@ -84,6 +129,7 @@ function report(responses, args = []) {
       ...outputSchema.parse(
         JSON.parse(readFileSync(resolve(root, "report/history.json"), "utf8")),
       ),
+      summary: readFileSync(resolve(root, "report/summary.md"), "utf8"),
       apiReads: readFileSync(resolve(root, "calls.txt"), "utf8")
         .trim()
         .split("\n"),
@@ -113,8 +159,8 @@ const job = (id, conclusion) => ({
 });
 const runsPath = `${prefix}/workflows/ci.yml/runs?created=2026-10-23T00%3A00%3A00.000Z..2026-10-30T00%3A00%3A00.000Z&per_page=100&page=1`;
 
-test("CLI groups a real test signature across PRs and retains first failure and rerun outcome", () => {
-  const result = report({
+test("CLI groups a real test signature across PRs and retains first failure and rerun outcome", async () => {
+  const result = await report({
     [runsPath]: { total_count: 2, workflow_runs: [run(1, 11, 2), run(2, 22)] },
     [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
       total_count: 1,
@@ -148,7 +194,7 @@ test("CLI groups a real test signature across PRs and retains first failure and 
   assert.doesNotMatch(JSON.stringify(result), /sensitive payload|flaky/u);
 });
 
-test("distinct file/project identities survive and arbitrary failure text stays unknown", () => {
+test("distinct file/project identities survive and arbitrary failure text stays unknown", async () => {
   const parsed = observations(
     "2026-10-29T01:01:00Z apps/web test:module:  FAIL  apps/web/test/access.test.ts > denies access\n  1) [desktop-chromium] › test/e2e/login.spec.ts:3:2 › login\n  2) [mobile-chromium] › test/e2e/login.spec.ts:3:2 › login\n✖ anonymous test\nError: failed to load\nnot ok 4 - ambiguous",
     "unit",
@@ -158,7 +204,7 @@ test("distinct file/project identities survive and arbitrary failure text stays 
     parsed.map((row) => row.project),
     ["", "desktop-chromium", "mobile-chromium"],
   );
-  const result = report({
+  const result = await report({
     [runsPath]: { total_count: 1, workflow_runs: [run(1, 11)] },
     [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
       total_count: 3,
@@ -173,7 +219,7 @@ test("distinct file/project identities survive and arbitrary failure text stays 
   );
 });
 
-test("pagination follows runs and jobs and reports an exhausted page budget", () => {
+test("pagination follows runs and jobs and reports an exhausted page budget", async () => {
   const jobsPath = `${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`;
   const responses = {
     [runsPath]: { total_count: 2, workflow_runs: [run(1, 11)] },
@@ -191,10 +237,10 @@ test("pagination follows runs and jobs and reports an exhausted page budget", ()
       jobs: [job(3, "success")],
     },
   };
-  const full = report(responses);
+  const full = await report(responses);
   assert.equal(full.coverage.complete, true);
   assert.equal(full.jobs.length, 3);
-  const limited = report(responses, ["--max-pages=1"]);
+  const limited = await report(responses, ["--max-pages=1"]);
   assert.equal(limited.coverage.complete, false);
   assert.deepEqual(limited.coverage.incomplete, [
     "workflow_runs: pagination limit",
@@ -202,21 +248,21 @@ test("pagination follows runs and jobs and reports an exhausted page budget", ()
   ]);
 });
 
-test("malformed, missing, truncated and type-ambiguous API inputs retain incomplete evidence", () => {
+test("malformed, missing, truncated and type-ambiguous API inputs retain incomplete evidence", async () => {
   for (const response of [
     "{broken",
     { workflow_runs: [], total_count: "1" },
     { workflow_runs: [{ ...run(1, 11), run_attempt: "2" }], total_count: 1 },
   ]) {
-    const result = report({ [runsPath]: response });
+    const result = await report({ [runsPath]: response });
     assert.equal(result.coverage.complete, false);
     assert.equal(result.causes.length, 0);
   }
-  const noJobs = report({
+  const noJobs = await report({
     [runsPath]: { total_count: 1, workflow_runs: [run(1, 11)] },
   });
   assert.equal(noJobs.coverage.complete, false);
-  const truncated = report({
+  const truncated = await report({
     [runsPath]: { total_count: 1, workflow_runs: [run(1, 11, 4)] },
     [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
       total_count: 1,
@@ -234,8 +280,8 @@ test("malformed, missing, truncated and type-ambiguous API inputs retain incompl
   assert.equal(truncated.jobs[0]?.classification, "unknown");
 });
 
-test("provider/setup errors, cancellation and new evidence completion do not become test signatures", () => {
-  const result = report({
+test("provider/setup errors, cancellation and new evidence completion do not become test signatures", async () => {
+  const result = await report({
     [runsPath]: { total_count: 1, workflow_runs: [run(1, 11, 2)] },
     [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
       total_count: 4,
@@ -315,8 +361,8 @@ test("workspace-relative Vitest failures use their package prefix or pnpm comman
   );
 });
 
-test("overlapping PR runs retain the earliest completed failure rather than run creation order", () => {
-  const result = report({
+test("overlapping PR runs retain the earliest completed failure rather than run creation order", async () => {
+  const result = await report({
     [runsPath]: { total_count: 2, workflow_runs: [run(1, 11), run(2, 22)] },
     [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
       total_count: 1,
@@ -334,7 +380,7 @@ test("overlapping PR runs retain the earliest completed failure rather than run 
   assert.equal(result.causes[0]?.firstFailure.run, 2);
 });
 
-test("failed oversized log reads exhaust the shared budget instead of receiving unlimited free retries", () => {
+test("failed oversized log reads exhaust the shared budget instead of receiving unlimited free retries", async () => {
   /** @type {Record<string,unknown>} */
   const responses = {
     [runsPath]: { total_count: 1, workflow_runs: [run(1, 11)] },
@@ -345,7 +391,7 @@ test("failed oversized log reads exhaust the shared budget instead of receiving 
   };
   for (let id = 1; id <= 24; id++)
     responses[`${prefix}/jobs/${id}/logs`] = "__OVERSIZED_LOG__";
-  const result = report(responses);
+  const result = await report(responses);
   assert.equal(result.coverage.complete, false);
   assert.ok(
     result.apiReads.filter((path) => path.endsWith("/logs")).length <= 20,
@@ -359,8 +405,8 @@ test("failed oversized log reads exhaust the shared budget instead of receiving 
   assert.doesNotMatch(JSON.stringify(result), /private failure payload/u);
 });
 
-test("failed log commands with no captured stdout still consume their reserved allowance", () => {
-  const result = report({
+test("failed log commands with no captured stdout still consume their reserved allowance", async () => {
+  const result = await report({
     [runsPath]: { total_count: 1, workflow_runs: [run(1, 11)] },
     [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
       total_count: 24,
@@ -376,3 +422,184 @@ test("failed log commands with no captured stdout still consume their reserved a
   assert.equal(result.coverage.complete, false);
   assert.equal(result.jobs.length, 24);
 });
+
+test("CLI follows one test across PR shard moves while retaining job provenance and project separation", async () => {
+  const result = await report({
+    [runsPath]: { total_count: 2, workflow_runs: [run(1, 11), run(2, 22)] },
+    [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
+      total_count: 1,
+      jobs: [
+        { ...job(101, "failure"), name: "Web browser (desktop-chromium, 1/2)" },
+      ],
+    },
+    [`${prefix}/runs/2/attempts/1/jobs?per_page=100&page=1`]: {
+      total_count: 1,
+      jobs: [
+        { ...job(201, "failure"), name: "Web browser (desktop-chromium, 2/2)" },
+      ],
+    },
+    [`${prefix}/jobs/101/logs`]:
+      "  1) [desktop-chromium] › test/e2e/login.spec.ts:3:2 › login",
+    [`${prefix}/jobs/201/logs`]:
+      "  1) [desktop-chromium] › test/e2e/login.spec.ts:3:2 › login\n  2) [mobile-chromium] › test/e2e/login.spec.ts:3:2 › login",
+  });
+  assert.equal(result.causes.length, 2);
+  const desktop = result.causes.find(
+    (cause) => cause.test.project === "desktop-chromium",
+  );
+  assert.ok(desktop);
+  assert.equal(desktop.test.suite, "Web browser");
+  assert.deepEqual(desktop.pullRequests, [11, 22]);
+  assert.equal(desktop.priority, "diagnose-recurring");
+  assert.deepEqual(
+    desktop.failures.map((failure) => failure.name),
+    [
+      "Web browser (desktop-chromium, 1/2)",
+      "Web browser (desktop-chromium, 2/2)",
+    ],
+  );
+});
+
+test("CLI retains deduplicated later attempts from every run observing a recurring signature", async () => {
+  const failure =
+    " FAIL  apps/web/test/access.test.ts > access > denies expired session";
+  const result = await report({
+    [runsPath]: {
+      total_count: 2,
+      workflow_runs: [run(1, 11, 2), run(2, 22, 3)],
+    },
+    [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
+      total_count: 1,
+      jobs: [job(101, "failure")],
+    },
+    [`${prefix}/runs/1/attempts/2/jobs?per_page=100&page=1`]: {
+      total_count: 1,
+      jobs: [job(102, "success")],
+    },
+    [`${prefix}/runs/2/attempts/1/jobs?per_page=100&page=1`]: {
+      total_count: 1,
+      jobs: [job(201, "failure")],
+    },
+    [`${prefix}/runs/2/attempts/2/jobs?per_page=100&page=1`]: {
+      total_count: 1,
+      jobs: [job(202, "failure")],
+    },
+    [`${prefix}/runs/2/attempts/3/jobs?per_page=100&page=1`]: {
+      total_count: 1,
+      jobs: [job(203, "success")],
+    },
+    [`${prefix}/jobs/101/logs`]: failure,
+    [`${prefix}/jobs/201/logs`]: failure,
+    [`${prefix}/jobs/202/logs`]: failure,
+  });
+  assert.equal(result.causes.length, 1);
+  assert.deepEqual(result.causes[0]?.rechecks, [
+    {
+      run: 1,
+      attempt: 2,
+      source: "source1",
+      outcome: "job-success-test-unconfirmed",
+    },
+    {
+      run: 2,
+      attempt: 2,
+      source: "source2",
+      outcome: "test-failure-unclassified",
+    },
+    {
+      run: 2,
+      attempt: 3,
+      source: "source2",
+      outcome: "job-success-test-unconfirmed",
+    },
+  ]);
+  assert.match(
+    result.summary,
+    /run 2, attempt 3, source source2: job-success-test-unconfirmed/u,
+  );
+});
+
+/** @param {number} pid */
+function alive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ESRCH")
+      return false;
+    throw error;
+  }
+}
+
+const treeSchema = z.object({
+  pid: z.number().int().positive(),
+  gh: z.number().int().positive(),
+  collector: z.number().int().positive(),
+});
+
+for (const mode of ["success", "failure", "timeout", "SIGTERM", "SIGKILL"]) {
+  test(
+    `CLI ${mode} cleans real gh and signal-resistant detached descendants before returning`,
+    { timeout: 30000 },
+    async () => {
+      const root = mkdtempSync(resolve(tmpdir(), "ci-history-tree-"));
+      const record = resolve(root, "tree.json");
+      const watcher = watch(root);
+      // Watch before acquisition; signals are triggered by committed descendant readiness, never a pause.
+      watcher.on("change", () => {
+        if ((mode === "SIGTERM" || mode === "SIGKILL") && existsSync(record)) {
+          const tree = treeSchema.parse(
+            JSON.parse(readFileSync(record, "utf8")),
+          );
+          if (alive(tree.collector)) process.kill(tree.collector, mode);
+        }
+      });
+      try {
+        if (mode === "failure")
+          writeFileSync(resolve(root, "report"), "output is a file");
+        writeFileSync(
+          resolve(root, "gh"),
+          `#!${process.execPath}
+const {spawn} = require('node:child_process');
+const fs = require('node:fs');
+const leaf = spawn(process.execPath, ['-e', "process.on('SIGTERM',()=>{});setInterval(()=>{},1000);process.send(process.pid)"], {detached:true, stdio:['ignore','ignore','ignore','ipc']});
+leaf.once('message', pid => {
+  fs.writeFileSync(${JSON.stringify(record + ".tmp")}, JSON.stringify({pid, gh:process.pid, collector:process.ppid}));
+  fs.renameSync(${JSON.stringify(record + ".tmp")}, ${JSON.stringify(record)});
+  if (${JSON.stringify(mode === "success" || mode === "failure")}) {
+    process.stdout.write(JSON.stringify({total_count:0, workflow_runs:[]}), () => process.exit(0));
+  }
+});
+setInterval(()=>{},1000);
+`,
+          { mode: 0o755 },
+        );
+        const result = await collect(root);
+        assert.ok(
+          existsSync(record),
+          "real gh descendant reached readiness before the failure budget",
+        );
+        const tree = treeSchema.parse(JSON.parse(readFileSync(record, "utf8")));
+        if (mode === "success") assert.equal(result.status, 0, result.stderr);
+        else assert.notEqual(result.status, 0);
+        for (const pid of [tree.pid, tree.gh, tree.collector])
+          assert.equal(
+            alive(pid),
+            false,
+            `owned process ${pid} must be gone before fixture removal`,
+          );
+      } finally {
+        watcher.close();
+        // Failure fallback handles the red contract too; the supervisor owns normal cleanup.
+        if (existsSync(record)) {
+          const tree = treeSchema.parse(
+            JSON.parse(readFileSync(record, "utf8")),
+          );
+          for (const pid of [tree.pid, tree.gh, tree.collector])
+            if (alive(pid)) process.kill(pid, "SIGKILL");
+        }
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+}

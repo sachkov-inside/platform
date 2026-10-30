@@ -779,12 +779,16 @@ mark coverage incomplete. A collector success means the report was written; it n
 
 The existing nightly identity helper owns suite/file/project/test hashing. Recognized Vitest
 `FAIL file > test` and Playwright numbered failure lines retain file and test identity; GitHub
-log timestamps and workspace command prefixes are stripped. Raw logs and assertion payloads are
+log timestamps and workspace command prefixes are stripped. Matrix job names for Unit checks,
+Web browser, Integration checks and Production checks use their suite family for hashing, so shard
+placement changes do not split a test signature. Original job names remain in failure/job provenance,
+and Playwright project remains part of test identity. Raw logs and assertion payloads are
 not saved in this report. Unrecognized output remains an unknown job failure, rather than one
 shared test signature. Cancelled jobs and confirmed runner/setup failures stay separate. A test
 signature identifies an observation, not a proven root cause or an automatic flaky label. A
-regression needs diagnosis even if another attempt passes. First failure and later same-run job
-outcomes remain visible; a successful job without matching per-test evidence is explicitly
+regression needs diagnosis even if another attempt passes. First failure and later job attempts
+from every run observing the signature remain visible, deduplicated by run/attempt/job. A recheck
+compares the same original job name within its run; the summary names its run, attempt and source; a successful job without matching per-test evidence is explicitly
 `job-success-test-unconfirmed`. New review evidence can complete verification without constituting
 a flaky-test retry. Cross-PR recurrence raises diagnosis priority under [WORKFLOW](../../WORKFLOW.md).
 
