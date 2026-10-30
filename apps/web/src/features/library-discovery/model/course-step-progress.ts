@@ -1,3 +1,4 @@
+import type { MaterialReadingSnapshot } from "@/entities/material";
 import type { CourseReadingStep } from "./course-reading";
 
 export type CourseStepProgress = "done" | "todo" | "unknown";
@@ -5,7 +6,7 @@ export type CourseStepProgress = "done" | "todo" | "unknown";
 /** Saved reading marks of one Account; `null` when the reader has no personal progress to show. */
 export type CourseReadMarks = ReadonlyMap<
   string,
-  { readonly isRead: boolean }
+  Pick<MaterialReadingSnapshot, "isRead">
 > | null;
 
 /** A step is passed by its own saved mark or submission, never by its position in the chapter. */
@@ -16,7 +17,8 @@ export function courseStepProgress(
   // A saved submission is known on its own; reading marks may still be absent.
   if (step.taskSubmitted === true) return "done";
   if (marks === null) return "unknown";
-  if (step.kind === "task") return "todo";
+  if (step.kind === "task")
+    return step.taskSubmitted === false ? "todo" : "unknown";
   const mark =
     step.materialId === undefined ? undefined : marks.get(step.materialId);
   if (mark === undefined) return "unknown";

@@ -12,31 +12,31 @@ export const courseSource = {
   },
   items: [
     {
-      materialId: "project-id",
+      materialId: "00000000-0000-4000-8000-0000000000a1",
       slug: "aie-project",
       title: "Описание проекта",
       availability: "available" as const,
     },
     {
-      materialId: "first-id",
+      materialId: "00000000-0000-4000-8000-0000000000a2",
       slug: "first",
       title: "Первый урок",
       availability: "available" as const,
     },
     {
-      materialId: "course-intro-id",
+      materialId: "00000000-0000-4000-8000-0000000000a3",
       slug: "course-intro",
       title: "Как устроен курс",
       availability: "available" as const,
     },
     {
-      materialId: "next-id",
+      materialId: "00000000-0000-4000-8000-0000000000a4",
       slug: "next",
       title: "Следующий урок",
       availability: "locked" as const,
     },
     {
-      materialId: "brief-id",
+      materialId: "00000000-0000-4000-8000-0000000000a5",
       slug: "aie-product-brief",
       title: "Бриф заказчика",
       availability: "available" as const,
@@ -44,17 +44,23 @@ export const courseSource = {
   ],
   chapters: [
     {
-      supplementaryMaterialIds: ["project-id", "brief-id"],
+      supplementaryMaterialIds: [
+        "00000000-0000-4000-8000-0000000000a1",
+        "00000000-0000-4000-8000-0000000000a5",
+      ],
       id: "start",
       name: "Подготовь проект к разработке с агентом и проверь настройку",
-      materialIds: ["first-id", "course-intro-id"],
+      materialIds: [
+        "00000000-0000-4000-8000-0000000000a2",
+        "00000000-0000-4000-8000-0000000000a3",
+      ],
       tasks: [
         {
           code: "aie-ch1-onboarding",
           title: "Онбординг нового разработчика за час",
           access: "closed" as const,
           availability: "available" as const,
-          afterMaterialId: "course-intro-id",
+          afterMaterialId: "00000000-0000-4000-8000-0000000000a3",
           lastSubmittedAt: null,
         },
       ],
@@ -62,7 +68,7 @@ export const courseSource = {
     {
       id: "continue",
       name: "Продолжение",
-      materialIds: ["next-id"],
+      materialIds: ["00000000-0000-4000-8000-0000000000a4"],
       tasks: [],
     },
     { id: "soon", name: "Следующая глава", materialIds: [], tasks: [] },

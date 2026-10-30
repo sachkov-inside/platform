@@ -366,7 +366,7 @@ button.step {
   font-variant-numeric: tabular-nums;
 }
 .chapterChoice[data-reading] .chapterNumber {
-  color: var(--action);
+  color: var(--foreground);
   font-weight: 600;
 }
 .chapterChoiceName {

@@ -167,7 +167,17 @@ export async function MaterialReaderPage({
         }
         result={material}
         returnTarget={effectiveReturnTarget}
-        productContext={productContext}
+        productContext={
+          productContext?.programme == null
+            ? productContext
+            : {
+                ...productContext,
+                programme: {
+                  ...productContext.programme,
+                  taskStatusesDeferred: true,
+                },
+              }
+        }
         slug={slug}
       />
     );

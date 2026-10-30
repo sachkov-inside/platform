@@ -57,6 +57,8 @@ describe("course step progress", () => {
     expect(courseStepProgress(task("open", false), null)).toBe("unknown");
     expect(courseStepProgress(task("sent", true), null)).toBe("done");
     expect(courseStepProgress(material("pending"), marks({}))).toBe("unknown");
+    const { taskSubmitted: _status, ...pendingTask } = task("pending", false);
+    expect(courseStepProgress(pendingTask, marks({}))).toBe("unknown");
   });
 
   it("summarises a chapter by its rows once every row is known", () => {

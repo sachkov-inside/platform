@@ -86,31 +86,37 @@ export function CourseReadingLayout({
   const host = useContext(CourseReadingHostContext);
   const publish = host?.publish;
   const content = useRef<HTMLDivElement>(null);
-  const displayedContext = useMemo(
-    () =>
-      context !== null && submissionOverlay?.courseHref === context.courseHref
-        ? {
-            ...context,
-            chapters: context.chapters.map((chapter) => ({
-              ...chapter,
-              steps: chapter.steps.map((step) =>
-                step.kind === "task" || step.practiceTaskCode !== undefined
-                  ? {
-                      ...step,
-                      taskSubmitted:
-                        submissionOverlay.submittedTaskIds.includes(
-                          step.practiceTaskCode === undefined
-                            ? step.id
-                            : `task:${step.practiceTaskCode}`,
-                        ),
-                    }
-                  : step,
-              ),
-            })),
-          }
-        : context,
-    [context, submissionOverlay],
-  );
+  const displayedContext = useMemo(() => {
+    if (context === null) return context;
+    const overlay =
+      submissionOverlay?.courseHref === context.courseHref
+        ? submissionOverlay
+        : null;
+    if (overlay === null && context.taskStatusesDeferred !== true)
+      return context;
+    return {
+      ...context,
+      chapters: context.chapters.map((chapter) => ({
+        ...chapter,
+        steps: chapter.steps.map((step) => {
+          if (step.kind !== "task" && step.practiceTaskCode === undefined)
+            return step;
+          // Without the private statuses a submission is unknown, not absent.
+          const { taskSubmitted: _guest, ...rest } = step;
+          return overlay === null
+            ? rest
+            : {
+                ...rest,
+                taskSubmitted: overlay.submittedTaskIds.includes(
+                  step.practiceTaskCode === undefined
+                    ? step.id
+                    : `task:${step.practiceTaskCode}`,
+                ),
+              };
+        }),
+      })),
+    };
+  }, [context, submissionOverlay]);
   useLayoutEffect(() => {
     if (
       content.current === null ||
@@ -671,6 +677,10 @@ export function ProgrammeDialog({
   const chapterStep =
     (chapter?.steps.findIndex((step) => step.id === context.current.id) ?? -1) +
     1;
+  const chapterTotal = chapter?.steps.length ?? 0;
+  const chapterLabel = `Глава ${String(chapter?.ordinal ?? 1)}`;
+  const atProgrammeStep =
+    !supplementary || isProgrammeStepOpenedForReference(context);
   function openProgramme() {
     dialog.current?.showModal();
     dialog.current
@@ -684,19 +694,20 @@ export function ProgrammeDialog({
         className={styles["tabletTrigger"]}
         onClick={openProgramme}
         aria-haspopup="dialog"
-        aria-label="Вся программа"
       >
         <List size={18} aria-hidden="true" />
-        {supplementary && !isProgrammeStepOpenedForReference(context) ? (
-          "Вся программа"
-        ) : (
+        {atProgrammeStep ? (
           <>
-            Глава {chapter?.ordinal ?? 1}
+            {/* The visible position stays inside the accessible name. */}
+            <span className="sr-only">Вся программа: </span>
+            {chapterLabel}
             <span aria-hidden="true">·</span>
             <span className={styles["triggerPosition"]}>
-              {chapterStep} из {chapter?.steps.length ?? 0}
+              {chapterStep} из {chapterTotal}
             </span>
           </>
+        ) : (
+          "Вся программа"
         )}
       </button>
       <CourseNavigationBar label="Навигация по урокам">
@@ -718,18 +729,11 @@ export function ProgrammeDialog({
           opensProgramme
           current
           caption={
-            supplementary && !isProgrammeStepOpenedForReference(context) ? (
-              context.currentPosition === 0 ? (
-                "Дополнительный материал"
-              ) : (
-                "Ваше место в курсе"
-              )
-            ) : (
-              <>
-                Глава {chapter?.ordinal ?? 1} · {chapterStep}/
-                {chapter?.steps.length ?? 0}
-              </>
-            )
+            atProgrammeStep
+              ? `${chapterLabel} · ${String(chapterStep)}/${String(chapterTotal)}`
+              : context.currentPosition === 0
+                ? "Дополнительный материал"
+                : "Ваше место в курсе"
           }
         />
         {supplementary ? null : context.next === null ? (

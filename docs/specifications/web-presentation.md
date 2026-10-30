@@ -66,24 +66,32 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   Supplementary materials keep programme disclosure without step arrows.
   Keep all text within the surface; reflow at enlarged text sizes and reserve the bar's actual height
   after programme content so its final action remains reachable. Its bottom sheet leaves
-  a dismissible top gap and expands the current chapter. Close the sheet on navigation, route hide
-  and desktop resize. From 48rem to below 64rem, a top button opens a left modal drawer;
-  omit the bottom dock and retain the previous/next footer. At 64rem the rail stays visible.
+  a dismissible top gap and shows the rail content for the current chapter. Close the sheet on navigation, route hide
+  and desktop resize. From 48rem to below 64rem, a top button showing chapter and step position
+  opens a left modal drawer with the same rail content; omit the bottom dock and retain the
+  previous/next footer. At 64rem the rail stays visible.
   Prose uses 16 px below 80rem and 18 px above; retain 15 px phone prose.
   Keep the mobile course heading at 20 px; omit format, course and topic metadata.
-  Rail rows and chapter selection use 16 px and 1.6 line height. Keep step titles at weight 400
-  in every selection state so their wrapping stays stable. Distinguish the current step with
-  foreground text and a subtle action-coloured glow at its left marker; omit selected-row fill
-  and visible status badges.
+  Rail rows use 16 px and 1.6 line height. Keep step titles at weight 400 in every selection
+  state so their wrapping stays stable (#1854, owner 2026-10-30). Each marker shows the reader's
+  saved progress: a filled check for a passed step, an empty ring for an unpassed one, a neutral
+  dot while progress is unknown or for a guest. Passed titles are muted, unpassed ones use
+  foreground text. Only the current step uses the action colour: an action dot with a soft halo
+  and a muted row fill. A neutral line joins the markers.
   The rail heading names the shown chapter, wrapping up to three lines at 1.4 line height, with
-  its ordinal out of the chapter count.
-  Activating it replaces the step list in place with the chapter list, drawn as rail rows with
-  the same markers, and never overlays the reading column. Choosing a chapter or pressing Escape
-  restores the step list and returns focus to the heading. The reading chapter carries a
-  visually hidden «Вы здесь» label.
-  Strike through a Task title only when its persisted submission timestamp is present, including
-  the currently open Task. Keep the submitted state accessible without a visible label or date;
-  an unsent review report does not count as a submission or imply acceptance by the author.
+  its ordinal out of the chapter count. Below it, a signed-in reader sees a thin progress bar and
+  «N из M пройдено» over the chapter's rows; otherwise a plain divider.
+  Activating it replaces the step list in place with the chapter list and never overlays the
+  reading column. The heading then reads «Выберите главу» with the chapter count and course
+  progress. Chapter rows differ from step rows: a number column, a title clamped to two lines and
+  a right-aligned «N/M» count, with a check once every row is passed; the reading chapter has a
+  muted fill and a visually hidden «вы здесь» label. Choosing a chapter or pressing Escape
+  restores the step list and returns focus to the heading. While another chapter is shown,
+  «Вы читаете главу N» with «К текущему шагу» returns to the reading chapter.
+  A Task counts as passed only when its persisted submission timestamp is present, including
+  the currently open Task; until private statuses arrive, a Task is unknown, not unpassed. Keep
+  the submitted state accessible without a visible label or date; an unsent review report does
+  not count as a submission or imply acceptance by the author.
   Chapter titles wrap without clipping the chevron.
   The header shows the authored chapter ordinal and its mixed step position/count. Keep the legal
   footer only on course landing, purchase, payment and legal routes. Navigation rows make no personal access claim from guest-cached composition; target

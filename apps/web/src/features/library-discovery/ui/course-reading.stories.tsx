@@ -323,7 +323,9 @@ export const TabletProgramme: Story = {
     await expect(
       canvasElement.querySelector('nav[aria-label="Навигация по урокам"]'),
     ).not.toBeVisible();
-    const trigger = canvas.getByRole("button", { name: "Вся программа" });
+    const trigger = canvas.getByRole("button", {
+      name: "Вся программа: Глава 1 2 из 3",
+    });
     await userEvent.click(trigger);
     const dialog = canvas.getByRole("dialog", {
       name: "Программа: AI Engineering",
@@ -487,13 +489,13 @@ export const NumberedAssignments: Story = {
                 code: "harness",
                 lastSubmittedAt: "2026-10-14T09:00:00.000Z",
                 title: "Подготовь проект к работе с агентом",
-                afterMaterialId: "first-id",
+                afterMaterialId: "00000000-0000-4000-8000-0000000000a2",
               },
               {
                 ...firstTask,
                 code: "foundation",
                 title: "Заложи основу проекта",
-                afterMaterialId: "first-id",
+                afterMaterialId: "00000000-0000-4000-8000-0000000000a2",
               },
             ],
           },
@@ -825,7 +827,7 @@ async function openProgramme(canvasElement: HTMLElement) {
   const rail = canvas.queryByRole("complementary", { name: "Текущая глава" });
   if (rail !== null && rail.getClientRects().length > 0) return rail;
   await userEvent.click(
-    canvas.getAllByRole("button", { name: "Вся программа" })[0] ??
+    canvas.getAllByRole("button", { name: /^Вся программа/ })[0] ??
       canvasElement,
   );
   return canvas.getByRole("dialog", { name: "Программа: AI Engineering" });

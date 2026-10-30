@@ -61,6 +61,11 @@ export interface CourseReadingContext {
   readonly totalSteps: number;
   readonly totalMaterials: number;
   readonly hasModeVariants: boolean;
+  /**
+   * The context was read without the reader's Task submissions; they arrive later through
+   * `CourseTaskSubmissionStatuses` and stay unknown until then.
+   */
+  readonly taskStatusesDeferred?: boolean;
   readonly previous: CourseReadingStep | null;
   readonly next: CourseReadingStep | null;
 }
