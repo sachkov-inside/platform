@@ -371,17 +371,74 @@ r=Path(__file__).parent;(r/'entered').touch();time.sleep(30)
                         report=json.loads((root/str(index)/'component.json').read_text())
                         self.assertNotIn('private-token',json.dumps(report));self.assertFalse(report['diagnostic_complete'])
 
-    def test_original_functional_workflow_is_byte_identical_and_new_job_is_opt_in(self):
-        workflow=(runtime.ROOT/'.github/workflows/observability-signoz.yml').read_text()
+    def assert_original_functional_and_opt_in_disk_after_scope_inverse(self,workflow):
         original,separator,job=workflow.partition('\n  disk_component:')
-        self.assertTrue(separator)
+        self.assertTrue(separator);self.assertEqual(workflow.count(separator),1)
+        # Only the three closed scope changes accepted in 00b4e43455 are reversible.
+        scope='''  scope:
+    name: Select assigned observability scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: scope
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+
+'''
+        functional='''  functional:
+    needs: scope
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical' }}
+'''
+        for changed,baseline in ((scope,''),(functional,'  functional:\n')):
+            self.assertEqual(original.count(changed),1)
+            original=original.replace(changed,baseline,1)
         self.assertEqual(hashlib.sha256(original.encode()).hexdigest(),'623312eb0dc195d05ec8ce051c459d1dbfdc8fa8839183c8e3fc2eb986f2eae6')
+        needs='    needs: scope\n'
+        self.assertTrue(job.startswith('\n'+needs));self.assertEqual(job.count(needs),1)
+        closed_guard="    if: >-\n      ${{ needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical' && github.event_name == 'pull_request' && contains(github.event.pull_request.body, '<!-- signoz-disk-component: run -->') }}\n"
+        opt_in_guard="    if: >-\n      ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.body, '<!-- signoz-disk-component: run -->') }}\n"
+        self.assertEqual(job.count(closed_guard),1);self.assertEqual(job.count('\n    if:'),1)
+        job=job.replace(needs,'',1).replace(closed_guard,opt_in_guard,1)
         self.assertIn("${{ github.event_name == 'pull_request' && contains(github.event.pull_request.body, '<!-- signoz-disk-component: run -->') }}",job)
         self.assertIn('if: >-',job);self.assertIn('timeout-minutes: 12',job);self.assertIn('persist-credentials: false',job)
         self.assertIn('node scripts/observability-signoz/verify.mjs',job)
         self.assertIn('timeout-minutes: 8\n        run: >-\n          bash scripts/heavy-check.sh python3 -B scripts/observability-signoz/disk_component.py run',job)
         self.assertEqual(job.count('scripts/observability-signoz/disk_component.py'),3)
         self.assertNotIn('secrets.',job);self.assertNotIn('permissions:',job);self.assertNotIn('environment:',job)
+
+    def test_original_functional_workflow_is_byte_identical_and_new_job_is_opt_in(self):
+        self.assert_original_functional_and_opt_in_disk_after_scope_inverse((runtime.ROOT/'.github/workflows/observability-signoz.yml').read_text())
+
+    def test_scope_inverse_refuses_missing_duplicate_wrong_or_relaxed_selection_and_opt_in(self):
+        workflow=(runtime.ROOT/'.github/workflows/observability-signoz.yml').read_text()
+        prefix,separator,job=workflow.partition('\n  disk_component:')
+        cases={
+            'missing_scope':prefix.replace('  scope:\n','  absent:\n',1)+separator+job,
+            'duplicate_scope':prefix.replace('  scope:\n','  scope:\n  scope:\n',1)+separator+job,
+            'different_selector':workflow.replace('production.py select-scope','production.py different-scope',1),
+            'foreign_source':workflow.replace('ref: ${{ github.sha }}','ref: main',1),
+            'missing_functional_need':prefix.replace('    needs: scope\n','',1)+separator+job,
+            'functional_technical':prefix.replace("scope != 'technical'","scope == 'technical'",1)+separator+job,
+            'functional_failed_scope':prefix.replace("result == 'success'","result != 'success'",1)+separator+job,
+            'missing_disk_need':prefix+separator+job.replace('    needs: scope\n','',1),
+            'duplicate_disk_need':prefix+separator+job.replace('    needs: scope\n','    needs: scope\n    needs: scope\n',1),
+            'disk_technical':prefix+separator+job.replace("scope != 'technical'","scope == 'technical'",1),
+            'disk_failed_scope':prefix+separator+job.replace("result == 'success'","result != 'success'",1),
+            'disk_missing_non_technical':prefix+separator+job.replace("needs.scope.outputs.scope != 'technical' && ",'',1),
+            'disk_wrong_event':prefix+separator+job.replace("event_name == 'pull_request'","event_name == 'push'",1),
+            'disk_missing_marker':prefix+separator+job.replace(" && contains(github.event.pull_request.body, '<!-- signoz-disk-component: run -->')",'',1),
+            'disk_alternate_guard':workflow+"    if: ${{ always() }}\n",
+            'duplicate_disk_job':workflow+separator+job,
+            'unrelated_functional_command':prefix.replace('runtime.py run','runtime.py recover',1)+separator+job,
+            'larger_component_budget':prefix+separator+job.replace('timeout-minutes: 12','timeout-minutes: 13',1),
+        }
+        for label,changed in cases.items():
+            with self.subTest(label=label),self.assertRaises(AssertionError):self.assert_original_functional_and_opt_in_disk_after_scope_inverse(changed)
 
     def test_external_phase_real_process_is_reaped_on_exit_and_deadline(self):
         import subprocess
