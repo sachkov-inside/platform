@@ -200,6 +200,34 @@ def verify_process_absence(test, processes):
 
 
 class RealProcessBoundary(unittest.TestCase):
+    def test_permission_error_for_live_group_is_not_exit(self):
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
+                                 start_new_session=True)
+        try:
+            denied = PermissionError(1, "Operation not permitted")
+            with mock.patch.object(proof.os, "killpg", side_effect=denied):
+                with self.assertRaises(PermissionError) as failure:
+                    proof.stop_process_group(child.pid)
+            self.assertIs(failure.exception, denied)
+            self.assertIsNone(child.poll(), "permission denial is not evidence of exit")
+        finally:
+            child.kill()
+            child.wait(timeout=5)
+
+    @unittest.skipUnless(sys.platform == "darwin", "macOS retains zombie-only process groups")
+    def test_cleanup_accepts_exited_unreaped_group(self):
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
+                                 start_new_session=True)
+        try:
+            # Keep the child unreaped so the group persists after SIGTERM. Darwin
+            # then returns EPERM, not ESRCH, even though no member can run.
+            proof.stop_process_group(child.pid)
+            self.assertEqual(child.wait(timeout=5), -signal.SIGTERM)
+        finally:
+            if child.poll() is None:
+                child.kill()
+            child.wait(timeout=5)
+
     def test_binary_metadata_reads_preserve_bytes_without_text_decoding(self):
         binary = proof.invoke([sys.executable, "-c",
                                "import sys; sys.stdout.buffer.write(bytes([160]))"],
