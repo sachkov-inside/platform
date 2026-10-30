@@ -7,13 +7,13 @@ import { z } from "zod";
 import { requestCurrentAccountPermissions } from "@/shared/api/backend/index.server";
 import { readAuthenticatedSession } from "@/shared/auth/index.server";
 
-const permissionsSchema = z.strictObject({ permissions: z.array(z.string()) });
+const permissionsSchema = z.object({ permissions: z.array(z.string()) });
 
 /**
  * Вход в админку (#1879): её открывает аккаунт хотя бы с одним правом платформы, а права
  * отдельных разделов backend проверяет на каждом запросе. Гость и аккаунт без прав получают
- * страницу 404 без оболочки и навигации. Сбой проверки раздел не открывает: ошибку показывает
- * `app/error.tsx`.
+ * страницу 404 публичного сайта, без оболочки и навигации админки. Сбой проверки раздел не
+ * открывает: ошибку показывает `app/error.tsx`.
  *
  * Layout не останавливает рендер страниц под ним: страница попала бы в ответ и без его
  * разрешения. Поэтому проверку вызывает и layout, и каждая страница раздела, а `cache` оставляет

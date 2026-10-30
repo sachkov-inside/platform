@@ -225,6 +225,23 @@ describe("Accounts API", () => {
   test("lists only the current Account's effective permissions", async () => {
     const url = "/accounts/current/permissions";
     expect((await server.inject({ method: "GET", url })).statusCode).toBe(401);
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url,
+          headers: { authorization: "Bearer not-a-jwt" },
+        })
+      ).statusCode,
+    ).toBe(401);
+    // Действительный токен без Account не получает прав и не создаёт Account.
+    const unknown = await inject(
+      "GET",
+      url,
+      await signToken({ subject: "permissions-unknown" }),
+    );
+    expect(unknown.statusCode).toBe(401);
+    expect(unknown.json()).toMatchObject({ code: "account_not_found" });
 
     const memberToken = await signToken({
       subject: "permissions-member",
@@ -245,8 +262,13 @@ describe("Accounts API", () => {
     const admin = readAccountId(
       (await inject("POST", "/accounts", adminToken)).json(),
     );
+    const member = readAccountId(
+      (await inject("GET", "/accounts/current", memberToken)).json(),
+    );
     await database.prisma.accountPermission.createMany({
       data: [
+        // Неизвестное сохранённое значение не даёт ни одного права, а значит и входа в админку.
+        { accountId: member, permission: "legacy:unknown" },
         { accountId: author, permission: "billing:manage" },
         { accountId: admin, permission: "platform:admin" },
       ],

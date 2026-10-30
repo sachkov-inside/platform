@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,6 +30,14 @@ function backendFailure(status: number) {
     response: new Response(null, { status }),
   };
 }
+
+/** Адреса, которые только отвечают 404 или перенаправляют на проверенную страницу. */
+const rendersNothing = new Set([
+  "communications/page.tsx",
+  "communications/broadcasts/page.tsx",
+  "playlists/page.tsx",
+  "playlists/[productId]/page.tsx",
+]);
 
 /** `notFound()` бросает ошибку с этим digest; по нему Next.js отвечает страницей 404. */
 const notFoundDigest = "NEXT_HTTP_ERROR_FALLBACK;404";
@@ -95,18 +103,18 @@ describe("Authoring entry", () => {
 
   it("is checked by every admin page, since the layout does not stop a page from rendering", () => {
     const root = fileURLToPath(new URL("../../app/authoring", import.meta.url));
-    const pages = readdirSync(root, { recursive: true, encoding: "utf8" })
-      .filter((path) => path.endsWith("page.tsx"))
-      .map((path) => join(root, path));
-    const unchecked = pages.filter((path) => {
-      const source = readFileSync(path, "utf8");
-      // Адрес, который только отвечает 404 или перенаправляет, ничего не показывает.
-      const rendersNothing = /^\s+(notFound|redirect)\(/mu.test(source);
-      return (
-        !rendersNothing && !source.includes("await requireAuthoringEntry();")
-      );
-    });
+    const pages = readdirSync(root, {
+      recursive: true,
+      encoding: "utf8",
+    }).filter((path) => path.endsWith("page.tsx"));
+    const unchecked = pages.filter(
+      (path) =>
+        !rendersNothing.has(path) &&
+        !readFileSync(join(root, path), "utf8").includes(
+          "await requireAuthoringEntry();",
+        ),
+    );
     expect(pages.length).toBeGreaterThan(10);
-    expect(unchecked.map((path) => relative(root, path))).toEqual([]);
+    expect(unchecked).toEqual([]);
   });
 });

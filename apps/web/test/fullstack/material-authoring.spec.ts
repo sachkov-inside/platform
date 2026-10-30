@@ -2121,7 +2121,10 @@ test("trusted author walks a product chapter through Previews that stay closed t
       const guestPage = await guest.newPage();
       await guestPage.goto(secondUrl.href);
       await expect(
-        guestPage.getByRole("heading", { name: "Нет доступа к предпросмотру" }),
+        guestPage.getByRole("heading", {
+          level: 1,
+          name: "Страница не найдена",
+        }),
       ).toBeVisible();
       await expect(guestPage.getByText(outside.title)).toHaveCount(0);
       await expect(guestPage.getByText(inChapter.title)).toHaveCount(0);
@@ -2183,28 +2186,25 @@ test("trusted author walks a product chapter through Previews that stay closed t
   }
 });
 
-test("guest cannot reach the production Material editor", async ({ page }) => {
-  const response = await page.goto("/authoring/materials/new");
-  expect(response?.status()).toBe(200);
-  await expect(
-    page.getByRole("heading", { name: "Нет доступа к редактору" }),
-  ).toBeVisible();
-  await expect(page.getByRole("textbox")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Создать черновик" }),
-  ).toHaveCount(0);
-});
-
-test("guest cannot reach the production playlist manager", async ({ page }) => {
-  const response = await page.goto("/authoring/products");
-  expect(response?.status()).toBe(200);
-  await expect(
-    page.getByRole("heading", { name: "Нет доступа к редактору" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Сохранить", exact: true }),
-  ).toHaveCount(0);
-});
+// Гость получает страницу 404 без оболочки админки (#1879).
+for (const [path, action] of [
+  ["/authoring/materials/new", "Создать черновик"],
+  ["/authoring/products", "Сохранить"],
+] as const) {
+  test(`guest cannot reach the production admin: ${path}`, async ({ page }) => {
+    await page.goto(path);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Страница не найдена" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("complementary", { name: "Админка" }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("textbox")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: action, exact: true }),
+    ).toHaveCount(0);
+  });
+}
 
 async function fillPublishableDraft(page: Page, title: string) {
   await page.getByRole("tab", { name: "Параметры", exact: true }).click();

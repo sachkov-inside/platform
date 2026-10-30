@@ -20,7 +20,7 @@ import {
 } from "../../infrastructure/prisma/index.js";
 import { EstablishAccountController } from "./features/establish-account/establish-account.controller.js";
 import { ResolveAccountController } from "./features/resolve-account/resolve-account.controller.js";
-import { ListPermissionsController } from "./features/check-permission/list-permissions.controller.js";
+import { ListPermissionsController } from "./features/list-permissions/list-permissions.controller.js";
 import { assembleAccounts } from "./facets/accounts/assemble-accounts.js";
 import type { Accounts } from "./facets/accounts/accounts.interface.js";
 import { ACCOUNTS, LOGTO_ACCESS_TOKEN_VERIFIER } from "./accounts.tokens.js";

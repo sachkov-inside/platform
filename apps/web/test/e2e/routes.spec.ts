@@ -482,7 +482,7 @@ test("manager shell preserves desktop editor access and the four-item mobile doc
   }
 });
 
-test("a guest gets the 404 page and no admin shell on every admin address (#1879)", async ({
+test("a guest gets the 404 page and no admin shell on admin addresses (#1879)", async ({
   page,
   request,
 }) => {
