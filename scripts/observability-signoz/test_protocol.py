@@ -95,6 +95,40 @@ class ClosedProtocol(unittest.TestCase):
         prefix += [(200,json.dumps({'status':'success','data':retained}).encode())]
         return prefix
 
+    def test_fixed_trace_payload_uses_canonical_span_key_and_preserves_every_other_field(self):
+        # Pinned da556 Normalize/storage resolve span.trace_id to the same FixedString32.
+        for trace_id in ('00000000000000000000000000001566','00000000000000000000000000000000'):
+            original={'schemaVersion':'v1','start':1729999940125,'end':1730000000125,'requestType':'scalar',
+                'compositeQuery':{'queries':[{'type':'builder_query','spec':{'name':'A','signal':'traces',
+                    'aggregations':[{'expression':'count()','alias':'count'}],
+                    'filter':{'expression':"service.name = 'platform-fallback-control' AND trace_id = '"+trace_id+"'"},'limit':1}}]}}
+            expected=copy.deepcopy(original)
+            expected['compositeQuery']['queries'][0]['spec']['filter']['expression']=(
+                "service.name = 'platform-fallback-control' AND span.trace_id = '"+trace_id+"'")
+            with self.subTest(trace_id=trace_id),patch.object(witness.time,'time',return_value=1730000000.125):
+                actual=witness.scalar_query('traces',trace_id)
+                self.assertEqual(actual,expected)
+                restored=copy.deepcopy(actual)
+                restored['compositeQuery']['queries'][0]['spec']['filter']=original['compositeQuery']['queries'][0]['spec']['filter']
+                self.assertEqual(restored,original)
+
+    def test_fixed_log_payload_bytes_and_closed_correlation_ids_remain_unchanged(self):
+        for trace_id in ('00000000000000000000000000001566','00000000000000000000000000000000'):
+            expected={'schemaVersion':'v1','start':1729999940125,'end':1730000000125,'requestType':'scalar',
+                'compositeQuery':{'queries':[{'type':'builder_query','spec':{'name':'A','signal':'logs',
+                    'aggregations':[{'expression':'count()','alias':'count'}],
+                    'filter':{'expression':"service.name = 'platform-fallback-control' AND trace_id = '"+trace_id+"'"},'limit':1}}]}}
+            with self.subTest(trace_id=trace_id),patch.object(witness.time,'time',return_value=1730000000.125):
+                self.assertEqual(json.dumps(witness.scalar_query('logs',trace_id),separators=(',',':')).encode(),
+                    json.dumps(expected,separators=(',',':')).encode())
+        for signal in ('traces','logs'):
+            for trace_id in ('1'*32,'',None,"x' OR 1=1",'00000000000000000000000000001566 '):
+                with self.subTest(signal=signal,trace_id=trace_id),self.assertRaises(control.ControlFailure):
+                    witness.scalar_query(signal,trace_id)
+        for signal in ('metrics','span.traces','',None):
+            with self.subTest(signal=signal),self.assertRaises(control.ControlFailure):
+                witness.scalar_query(signal,'00000000000000000000000000001566')
+
     def test_actual_trace_log_chain_distinguishes_signal_polarity_and_scalar_refusal(self):
         # Source counterexample to ambiguity, not a reproduction of the native fault.
         prefix=self.trace_log_prefix()
@@ -173,7 +207,7 @@ class ClosedProtocol(unittest.TestCase):
                 self.assertEqual(payload,{'schemaVersion':'v1','start':payload['end']-60000,'end':payload['end'],
                     'requestType':'scalar','compositeQuery':{'queries':[{'type':'builder_query','spec':{'name':'A','signal':signal,
                     'aggregations':[{'expression':'count()','alias':'count'}],
-                    'filter':{'expression':"service.name = 'platform-fallback-control' AND trace_id = '"+trace_id+"'"},'limit':1}}]}})
+                    'filter':{'expression':"service.name = 'platform-fallback-control' AND "+('span.trace_id' if signal=='traces' else 'trace_id')+" = '"+trace_id+"'"},'limit':1}}]}})
                 self.assertEqual(headers['SIGNOZ-API-KEY'],'fixture-viewer-key')
             self.assertEqual(len(calls),13)
             self.assertTrue(all(connection.fixture_timeout==10 for connection in connections))

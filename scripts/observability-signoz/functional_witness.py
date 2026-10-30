@@ -63,9 +63,10 @@ def wire(host,port,path,method='GET',body=None,headers=None,accepted=(200,),*,de
 def scalar_query(signal_name,trace_id):
     require(signal_name in ('traces','logs') and trace_id in (TRACE_ID,'0'*32))
     now=int(time.time()*1000)
+    trace_key='span.trace_id' if signal_name=='traces' else 'trace_id'
     return {'schemaVersion':'v1','start':now-60000,'end':now,'requestType':'scalar','compositeQuery':{'queries':[
         {'type':'builder_query','spec':{'name':'A','signal':signal_name,'aggregations':[{'expression':'count()','alias':'count'}],
-            'filter':{'expression':"service.name = '"+SERVICE+"' AND trace_id = '"+trace_id+"'"},'limit':1}}]}}
+            'filter':{'expression':"service.name = '"+SERVICE+"' AND "+trace_key+" = '"+trace_id+"'"},'limit':1}}]}}
 
 
 def query(payload,key):
