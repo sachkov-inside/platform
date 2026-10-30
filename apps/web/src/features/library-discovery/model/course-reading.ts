@@ -17,6 +17,8 @@ export interface CourseReadingStep {
   readonly href: Route;
   readonly kind: "material" | "task";
   readonly placementId?: string;
+  /** Identity of the saved reading mark; only Material steps have one. */
+  readonly materialId?: string;
   readonly availability: "available" | "locked" | "unavailable";
   /** Уровень доступа шага, не зависящий от читателя; без него шаг считается открытым. */
   readonly access?: "free" | "closed";
@@ -207,6 +209,7 @@ export function courseReadingContext({
                 id: `material:${item.slug}${repeated ? `:${placement.id}` : ""}`,
                 kind: "material",
                 title: item.title,
+                materialId: placement.materialId,
                 ...(product.programmePlacements === undefined
                   ? {}
                   : { placementId: placement.id }),

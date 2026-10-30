@@ -9,7 +9,10 @@ import {
   courseSource,
   courseNext,
   taskOnlyCourse,
+  progressCourse,
+  progressCourseMarks,
 } from "@/storybook/course-reading.fixtures";
+import { MaterialReadingScope } from "@/entities/material";
 import {
   CourseTaskSubmissionStatuses,
   CourseReadingLayout,
@@ -164,9 +167,9 @@ export const ChapterNavigation: Story = {
         .getAllByRole("button")
         .map((option) => option.textContent),
     ).toEqual([
-      "Глава 1Подготовь проект к разработке с агентом и проверь настройкуВы здесь",
-      "Глава 2Продолжение",
-      "Глава 3Следующая глава",
+      "Глава 1 Подготовь проект к разработке с агентом и проверь настройку, вы здесь",
+      "Глава 2 Продолжение",
+      "Глава 3 Следующая глава",
     ]);
     const nextChapter = within(chapters).getByRole("button", {
       name: "Глава 2 Продолжение",
@@ -227,7 +230,7 @@ export const LongChapterTitles: Story = {
     await expect(
       within(chapters).getByRole("button", { current: true }),
     ).toHaveTextContent("Разработка с агентом на практике");
-    await expect(within(chapters).getByText("Вы здесь")).toBeInTheDocument();
+    await expect(within(chapters).getByText(", вы здесь")).toBeInTheDocument();
     await expect(chapters.getBoundingClientRect().right).toBeLessThanOrEqual(
       rail.getBoundingClientRect().right,
     );
@@ -535,8 +538,9 @@ export const NumberedAssignments: Story = {
       '[data-task-submitted="true"]',
     );
     if (savedTitle === null) throw new Error("Saved Task title missing");
-    await expect(getComputedStyle(savedTitle).textDecorationLine).toBe(
-      "line-through",
+    await expect(savedTitle.closest("[data-course-step]")).toHaveAttribute(
+      "data-progress",
+      "done",
     );
     const current = canvas.getByRole("link", {
       name: "Задание 2 Заложи основу проекта",
@@ -544,10 +548,8 @@ export const NumberedAssignments: Story = {
     await expect(current).toHaveAttribute("aria-current", "step");
     const title = current.querySelector('[class*="stepTitle"]');
     if (title === null) throw new Error("Current title missing");
+    // Emphasis paints over the glyphs, so the line breaks stay where they were.
     await expect(getComputedStyle(title).fontWeight).toBe("400");
-    await expect(getComputedStyle(current).backgroundColor).toBe(
-      "rgba(0, 0, 0, 0)",
-    );
     await userEvent.click(selector);
     await userEvent.click(
       canvas.getByRole("button", { name: "Глава 2 Продолжение" }),
@@ -599,10 +601,10 @@ export const SubmittedCurrentAssignment: Story = {
     const title = link.querySelector('[data-task-submitted="true"]');
     if (title === null) throw new Error("Submitted title missing");
     await expect(getComputedStyle(title).fontWeight).toBe("400");
-    await expect(getComputedStyle(title).textDecorationLine).toBe(
-      "line-through",
-    );
-    await expect(getComputedStyle(link).backgroundColor).toBe(
+    await expect(getComputedStyle(title).textDecorationLine).toBe("none");
+    // The current step keeps the accent marker even when it is already passed.
+    await expect(link).toHaveAttribute("data-progress", "done");
+    await expect(getComputedStyle(link).backgroundColor).not.toBe(
       "rgba(0, 0, 0, 0)",
     );
   },
@@ -785,4 +787,156 @@ export const SupplementaryMaterials: Story = {
     await userEvent.click(group.getByRole("button", { name: "Скрыть" }));
     await expect(group.getAllByRole("link")).toHaveLength(3);
   },
+};
+
+function ProgressCourse({
+  marks = progressCourseMarks,
+  failed = false,
+}: {
+  readonly marks?: typeof progressCourseMarks;
+  readonly failed?: boolean;
+}) {
+  return (
+    <MaterialReadingScope
+      value={{
+        accountId: "story-account",
+        resolved: true,
+        failed,
+        states: marks,
+        register: () => () => undefined,
+        refresh: () => Promise.resolve(),
+      }}
+    >
+      <CourseReadingLayout context={progressCourse}>
+        <CourseReadingHeader
+          context={progressCourse}
+          title={progressCourse.current.title}
+          metadata={null}
+        />
+        <p>Текст материала</p>
+      </CourseReadingLayout>
+    </MaterialReadingScope>
+  );
+}
+
+/** Rail or programme sheet, whichever the viewport shows. */
+async function openProgramme(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement);
+  const rail = canvas.queryByRole("complementary", { name: "Текущая глава" });
+  if (rail !== null && rail.getClientRects().length > 0) return rail;
+  await userEvent.click(
+    canvas.getAllByRole("button", { name: "Вся программа" })[0] ??
+      canvasElement,
+  );
+  return canvas.getByRole("dialog", { name: "Программа: AI Engineering" });
+}
+
+export const ReaderProgress: Story = {
+  render: () => <ProgressCourse />,
+  play: async ({ canvasElement }) => {
+    const programme = within(await openProgramme(canvasElement));
+    await expect(
+      programme.getByText("8 из 13 пройдено", { exact: true }),
+    ).toBeVisible();
+    const step = (title: string) =>
+      programme.getByRole("link", {
+        name: new RegExp(`^(Задание \\d )?${title}`),
+      });
+    await expect(step("Как устроен курс")).toHaveAttribute(
+      "data-progress",
+      "done",
+    );
+    await expect(
+      step("Подготовка проекта: инструкции, скиллы и репозиторий"),
+    ).toHaveAttribute("data-progress", "todo");
+    await expect(
+      step("Работа над задачей: от обсуждения до pull request"),
+    ).toHaveAttribute("data-progress", "done");
+    await expect(
+      programme.getByRole("link", { current: "step" }),
+    ).toHaveAccessibleName("Выбор стека и границ модулей");
+  },
+};
+
+export const ReaderProgressChapters: Story = {
+  render: () => <ProgressCourse />,
+  play: async ({ canvasElement }) => {
+    const programme = within(await openProgramme(canvasElement));
+    await userEvent.click(
+      programme.getByRole("button", { name: /^Глава 1 из 4/ }),
+    );
+    await expect(
+      programme.getByRole("button", { name: /^4 главы · 8 из 20 пройдено/ }),
+    ).toHaveAttribute("aria-expanded", "true");
+    const chapters = within(
+      programme.getByRole("navigation", { name: "Главы курса" }),
+    );
+    await expect(
+      chapters.getByRole("button", {
+        name: /^Глава 1 Подготовка.*вы здесь.*пройдено 8 из 13$/,
+      }),
+    ).toHaveAttribute("data-reading", "true");
+    await expect(
+      chapters.getByRole("button", { name: /^Глава 2 .*пройдено 0 из 3$/ }),
+    ).toBeVisible();
+  },
+};
+
+export const ReaderProgressOtherChapter: Story = {
+  render: () => <ProgressCourse />,
+  play: async ({ canvasElement }) => {
+    const programme = within(await openProgramme(canvasElement));
+    await userEvent.click(
+      programme.getByRole("button", { name: /^Глава 1 из 4/ }),
+    );
+    await userEvent.click(
+      programme.getByRole("button", { name: /^Глава 3 Релизы/ }),
+    );
+    await expect(programme.getByText("Вы читаете главу 1")).toBeVisible();
+    await expect(programme.queryByRole("link", { current: "step" })).toBeNull();
+    await userEvent.click(
+      programme.getByRole("button", { name: "К текущему шагу" }),
+    );
+    await expect(
+      programme.getByRole("link", { current: "step" }),
+    ).toHaveAccessibleName("Выбор стека и границ модулей");
+    await expect(programme.queryByText("Вы читаете главу 1")).toBeNull();
+  },
+};
+
+export const ReaderProgressUnavailable: Story = {
+  render: () => <ProgressCourse marks={new Map()} failed />,
+  play: async ({ canvasElement }) => {
+    const programme = within(await openProgramme(canvasElement));
+    await expect(programme.queryByText(/пройдено/)).toBeNull();
+    // A failed mark never reads as passed or unread; a saved submission is still known.
+    for (const link of programme.getAllByRole("link"))
+      if (link.dataset["courseStep"]?.startsWith("material:") === true)
+        await expect(link).toHaveAttribute("data-progress", "unknown");
+  },
+};
+
+export const ReaderProgressNarrowDesktop: Story = {
+  ...ReaderProgress,
+  globals: { viewport: { value: "desktop1036", isRotated: false } },
+};
+
+export const ReaderProgressTablet: Story = {
+  ...ReaderProgress,
+  globals: { viewport: { value: "tablet820", isRotated: false } },
+};
+
+export const ReaderProgressTabletChapters: Story = {
+  ...ReaderProgressChapters,
+  globals: { viewport: { value: "tablet820", isRotated: false } },
+};
+
+export const ReaderProgressPhone: Story = {
+  ...ReaderProgress,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const ReaderProgressPhoneOtherChapter: Story = {
+  ...ReaderProgressOtherChapter,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };

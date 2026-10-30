@@ -26,6 +26,12 @@ export {
   type CourseReferenceMaterial,
 } from "./model/course-reading";
 export {
+  courseChapterProgress,
+  courseStepProgress,
+  type CourseReadMarks,
+  type CourseStepProgress,
+} from "./model/course-step-progress";
+export {
   CourseTaskSubmissionStatuses,
   CourseReadingLayout,
   CourseReadingHeader,
