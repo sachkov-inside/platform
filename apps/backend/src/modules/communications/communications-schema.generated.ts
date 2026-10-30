@@ -7,13 +7,21 @@ export const actorSchema = z.strictObject({
   "accountRef": z.string().min(1).max(128),
 });
 
-export const entitySchema = z.strictObject({
+export const entitySchema = z.union([
+z.strictObject({
   "type": z.enum(["mention","hashtag","cashtag","bot_command","url","email","phone_number","bold","italic","underline","strikethrough","spoiler","code","pre","text_link","blockquote","expandable_blockquote"]),
   "offset": z.number().int().min(0).max(2147483647),
   "length": z.number().int().min(1),
   "url": z.url().max(2048).regex(new RegExp("^https://")).optional(),
   "language": z.string().max(64).optional(),
-});
+}),
+z.strictObject({
+  "type": z.literal("custom_emoji"),
+  "offset": z.number().int().min(0).max(2147483647),
+  "length": z.number().int().min(1),
+  "custom_emoji_id": z.string().regex(new RegExp("^[1-9][0-9]{0,19}$")),
+})
+]);
 
 export const buttonSchema = z.strictObject({
   "text": z.string().min(1).max(64),

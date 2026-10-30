@@ -441,6 +441,15 @@ validation never truncates text or silently drops an entity. These constraints u
 [MessageEntity](https://core.telegram.org/bots/api#messageentity) and
 [sendVideoNote](https://core.telegram.org/bots/api#sendvideonote) documentation, checked 2026-09-06.
 
+Native custom emoji entities are preserved in text and media captions, including their decimal
+`custom_emoji_id`. The shared schema requires that ID only on `custom_emoji` and rejects missing,
+malformed or unrelated entity fields. Saved templates, author previews and subscriber delivery use
+the same representation. Telegram permits custom emoji in direct bot messages when the bot owner
+has Premium or the bot has an eligible additional username; saving a template does not prove that
+provider capability. Provider rejections keep the existing delivery outcome and do not silently
+remove the emoji or retry a different message. This capability follows the official
+[formatting rules](https://core.telegram.org/bots/api#formatting-options), checked 2026-10-30.
+
 ## Persistence and verification
 
 Migration `010-communications-templates` adds templates, author modes, operation results and intake

@@ -19,6 +19,7 @@ export interface FormattingEntity {
   readonly length: number;
   readonly url?: string;
   readonly language?: string;
+  readonly custom_emoji_id?: string;
 }
 export interface TemplateContent {
   readonly type:
