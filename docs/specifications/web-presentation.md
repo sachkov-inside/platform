@@ -85,7 +85,8 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   and a muted row fill. A neutral line joins the markers.
   The rail heading names the shown chapter, wrapping up to three lines at 1.4 line height, with
   its ordinal out of the chapter count. Below it, a signed-in reader sees a thin progress bar and
-  «N из M пройдено» over the chapter's rows; otherwise a plain divider.
+  «N из M» over the chapter's rows (announced as «Пройдено N из M»); otherwise a plain divider.
+  Rail rows and the current-step fill keep a 12 px gap from the rail's scrollbar.
   Activating it replaces the step list in place with the chapter list and never overlays the
   reading column. The heading then reads «Выберите главу» with the chapter count and course
   progress. Chapter rows differ from step rows: a number column, a title clamped to two lines and

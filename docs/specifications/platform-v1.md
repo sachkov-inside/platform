@@ -466,7 +466,7 @@ counts, progress or previous/next. The sidebar selects the originating step; bre
 Sidebar step markers show the reader's saved progress, not position (#1854, owner 2026-10-30): a check
 marks a Material marked as studied or a submitted Task, an empty ring an unpassed step, and a neutral line
 joins the markers. Studied titles are muted. Only the current step uses the accent: an accent dot and a
-tinted row. A signed-in chapter header shows a thin bar and «N из M пройдено» over its rows. Guests and
+tinted row. A signed-in chapter header shows a thin bar and «N из M» over its rows. Guests and
 unloaded or failed marks show neutral dots and no counts; a saved submission still shows its check.
 The chapter switch titles its list «Выберите главу» with chapter and course counts; each row shows its
 number and «N/M», a complete chapter adds a check and the reading chapter is tinted. Browsing another

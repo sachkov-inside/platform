@@ -155,6 +155,8 @@
   /* Keep the halo inside the scroll viewport without moving the marker or text. */
   padding-inline-start: 1rem;
   margin-inline-start: -1rem;
+  /* Rows and the current-step fill stop short of the scrollbar. */
+  padding-inline-end: 0.75rem;
   min-height: 0;
   padding-bottom: 2rem;
   overflow-y: auto;
@@ -176,6 +178,7 @@
   margin-top: 0;
 }
 .sheetRail .railSteps {
+  padding-inline-end: 0;
   overflow: visible;
   padding-bottom: 0.5rem;
 }

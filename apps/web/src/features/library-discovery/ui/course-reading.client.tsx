@@ -438,7 +438,8 @@ export function CourseRail({
               }}
             />
           </span>
-          {chapterProgress.done} из {chapterProgress.total} пройдено
+          <span className="sr-only">Пройдено </span>
+          {chapterProgress.done} из {chapterProgress.total}
         </p>
       ) : (
         <div aria-hidden="true" className={styles["chapterDivider"]} />

@@ -863,8 +863,11 @@ export const ReaderProgress: Story = {
   play: async ({ canvasElement }) => {
     const programme = within(await openProgramme(canvasElement));
     await expect(
-      programme.getByText("8 из 13 пройдено", { exact: true }),
-    ).toBeVisible();
+      programme.getByText(
+        (_, element) =>
+          element?.hasAttribute("data-course-chapter-progress") === true,
+      ),
+    ).toHaveTextContent(/^Пройдено 8 из 13$/);
     const step = (title: string) =>
       programme.getByRole("link", {
         name: new RegExp(`^(Задание \\d )?${title}`),
