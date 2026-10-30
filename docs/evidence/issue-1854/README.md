@@ -1,6 +1,6 @@
 # Сайдбар материала: прогресс читателя и текущее место (#1854)
 
-Дата: 2026-10-30. Снимки историй Storybook `Features/Library/Course Reading` с ветки
+Дата: 2026-10-30. Снимки историй Storybook `Patterns/Product/Course reading` (id `features-library-course-reading`) с ветки
 `feat/1854-course-rail-progress`. Набор данных `progressCourse` повторяет первую главу курса:
 13 шагов, изучены уроки 1–8 кроме четвёртого, сдано задание 1, читатель на шаге 10. Горизонтальной
 прокрутки нет ни на одной ширине (`scrollWidth === clientWidth`).
