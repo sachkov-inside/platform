@@ -927,6 +927,18 @@ def collect(output, metadata, destination, *, scope='full'):
     import preparation_evidence
     if output.is_symlink() or metadata.is_symlink():raise ValueError('unsafe fullstack timing source')
     source,_=hosted.metadata_source(metadata)
+    path=metadata/preparation_evidence.NAME
+    evidence=preparation_evidence.read(path,source['checkout_sha']) if path.exists() or path.is_symlink() else None
+    # Admission and image preparation precede creation of the runtime directory.
+    # Publish only metadata and an explicit incomplete result in that case. An
+    # existing output still requires its runtime binding, even after record loss.
+    if scope=='technical' and not output.exists():
+        resource_runtime.ci.collect(output,metadata,destination,artifacts=())
+        pilot.write_json(destination/'fullstack-proof.json',{'schema':1,'state':'preparation_only','scope':scope,
+            'source':source['checkout_sha'],'profile':profile(scope),'phases':[],
+            'measured_linux_acceptance':{'state':'incomplete'},'full_spec_acceptance':'deferred'})
+        if evidence is not None:pilot.write_json(destination/preparation_evidence.NAME,evidence)
+        return
     prepared_scope(output,expected=scope,source=source['checkout_sha'])
     if scope=='technical':
         prepared=stage_timing.read_json(output/'fullstack-source.json',1_048_576)
@@ -943,8 +955,6 @@ def collect(output, metadata, destination, *, scope='full'):
                 validate_technical_phase(row,pair,mode,definition)
             if proof.get('measured_linux_acceptance',{}).get('state')=='passed':technical_closure(proof)
     refusal=startup_refusal.read(output,source['checkout_sha'],BACKENDS)
-    path=metadata/preparation_evidence.NAME
-    evidence=preparation_evidence.read(path,source['checkout_sha']) if path.exists() or path.is_symlink() else None
     timings={}
     for name in (stage_timing.NAME,stage_timing.CONTACTS_NAME):
         path=output/name
@@ -1052,7 +1062,12 @@ def main():
     if args.action=='collect':
         return collect(args.output,args.metadata,args.public,scope=args.scope)
     if args.action=='recover':
-        if (args.output/'fullstack-source.json').exists() or (args.output/'fullstack-source.json').is_symlink():prepared_scope(args.output,expected=args.scope,**({'source':pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()} if args.scope=='technical' else {}))
+        bound=(args.output/'fullstack-source.json').exists() or (args.output/'fullstack-source.json').is_symlink()
+        registered=(args.output/'owner.json').exists() or (args.output/'owner.json').is_symlink()
+        # Check surviving prepared inputs even without the binding, before either
+        # project recovery or image retirement. No acquired project remains safe.
+        prepared_scope(args.output,expected=args.scope if bound or registered else None,
+            **({'source':pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()} if args.scope=='technical' and bound else {}))
         if args.images is None or not preparation.directory(args.images).exists():return resource_runtime.ci.recover(args.output,project_prefix=PREFIX,services=services(args.scope))
         stage=preparation.recover_stage(args.images)
         with stage.in_use():
@@ -1065,7 +1080,7 @@ def main():
     stage=preparation.recover_stage(args.images)
     with stage.in_use():
         stage.require_consumer(str(args.output.resolve()))
-        pilot.run(args.output,prepare_inputs=lambda output:stability_inputs(output,args.images,protocol) if args.action=='diagnostic-run' else inputs(output,args.images,scope=args.scope),worker_script=Path(__file__).resolve(),
+        pilot.run(args.output,prepare_inputs=lambda output:stability_inputs(output,args.images,protocol) if args.action=='diagnostic-run' else inputs(output,args.images,scope='technical') if args.scope=='technical' else inputs(output,args.images),worker_script=Path(__file__).resolve(),
             ports=(18427,13000,14318,1514,13301),services=services(args.scope),project_prefix=PREFIX,
             scope=('diagnostic_only; not capacity acceptance' if args.action=='diagnostic-run' else 'technical-only platform-technical-v1 whole-process Linux resource corpus; full-spec acceptance deferred' if args.scope=='technical' else 'representative whole-process Linux resource corpus; production rollout evidence incomplete'),missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
 

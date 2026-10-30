@@ -17,6 +17,13 @@ scope, профиль, checkout, nonce, приватный output и закры�
 Worker и contacts читают scope из этих файлов, поскольку supervisor передаёт worker
 только output. Recover/collect получают выбранный scope явно и отклоняют несовпадение.
 Collector проверяет связь доказательств до прежнего ограниченного копирования JSON.
+Если проверка допуска или подготовка образов завершились с ошибкой до создания `output`,
+collector публикует source/admission, проверенные контрольные точки подготовки при наличии
+и технический `fullstack-proof.json` со `state=preparation_only`, пустыми фазами и
+`measured_linux_acceptance.state=incomplete`. Это данные об отказе, без приёмки и
+без runtime nonce. При существующем output привязка обязательна; recover проверяет
+сохранившиеся технические входы до очистки проекта и освобождения образов, даже
+если `fullstack-source.json` исчез.
 
 Технический runtime исключает `umami`, `umami-ingest`, `umami-query`, создание
 Umami DB, seed, identities, отправку событий и чтение статистики. Образ Umami

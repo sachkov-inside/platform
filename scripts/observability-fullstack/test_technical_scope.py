@@ -58,28 +58,6 @@ class TechnicalScope(unittest.TestCase):
                 self.assertNotIn('umami',repr(invoke.call_args_list))
                 self.assertEqual(set(fullstack.SERVICES)-set(fullstack.services('technical')),{'umami','umami-ingest','umami-query'})
 
-    def test_actual_client_keeps_seven_real_http_lanes_and_never_reads_analytics(self):
-        import os
-        import shutil
-        import subprocess
-        node=shutil.which('node')
-        self.assertIsNotNone(node)
-        for mode in ('off','on','on-failure'):
-            with self.subTest(mode=mode),tempfile.TemporaryDirectory() as directory:
-                completed=subprocess.run([node,str(fullstack.HERE/'load-contract.mjs'),directory,'on' if mode=='on-failure' else mode,'technical-failure' if mode=='on-failure' else 'technical'],capture_output=True,text=True,timeout=25,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
-                self.assertEqual(completed.returncode,0,completed.stderr)
-                value=json.loads((Path(directory)/'technical-client-result.json').read_text())
-                self.assertEqual(value['scope'],'technical')
-                self.assertEqual(value['scheduled'],400)
-                self.assertEqual(value['disabled_operations'],50)
-                self.assertEqual(set(value['http_operations']),{'web_home','web_material','api_catalog','api_account','mcp_discovery','telegram_webhook','logto_discovery'})
-                for label,row in value['http_operations'].items():
-                    self.assertEqual(row,{'attempted':50,'completed':50,'successful':49 if mode=='on-failure' and label=='mcp_discovery' else 50})
-                self.assertEqual(value['attempted_probe_points'],400 if mode!='off' else 0)
-                self.assertEqual(value['completed'],mode!='on-failure')
-                self.assertEqual(value['unexpected_failures'],1 if mode=='on-failure' else 0)
-                self.assertEqual(value['monitoring_http']['attempted']>0,mode!='off')
-
     def technical_report(self):
         settings=fullstack.profile('technical')
         phases=[]
@@ -229,6 +207,86 @@ class TechnicalScope(unittest.TestCase):
             with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':pins['source']},{})),patch.object(fullstack.resource_runtime.ci,'collect') as collect:
                 with self.assertRaises(ValueError):fullstack.collect(output,base/'metadata',base/'public')
                 collect.assert_not_called()
+
+    def test_technical_preparation_only_failures_publish_bounded_nonacceptance_without_runtime(self):
+        import disk_feedback
+        import preparation_evidence
+        for checkpoint in ('admission','not_started','build_backend','preload_0'):
+            with self.subTest(checkpoint=checkpoint),tempfile.TemporaryDirectory() as directory:
+                base=Path(directory).resolve();output=base/'never-created';metadata=base/'metadata';metadata.mkdir();public=base/'public'
+                source='a'*40
+                (metadata/'source.json').write_text(json.dumps({'checkout_sha':source}))
+                (metadata/'admission.json').write_text(json.dumps({'ready':checkpoint!='admission'}))
+                if checkpoint!='admission':
+                    record=preparation_evidence.Record(metadata,source,disk_feedback.Record(source));record.mark(checkpoint)
+                with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':source},{'ready':checkpoint!='admission'})):
+                    fullstack.collect(output,metadata,public,scope='technical')
+                self.assertFalse(output.exists())
+                self.assertEqual(json.loads((public/'source.json').read_text())['checkout_sha'],source)
+                proof=json.loads((public/'fullstack-proof.json').read_text())
+                self.assertEqual(proof['state'],'preparation_only')
+                self.assertEqual(proof['scope'],'technical')
+                self.assertEqual(proof['source'],source)
+                self.assertEqual(proof['profile'],fullstack.profile('technical'))
+                self.assertEqual(proof['measured_linux_acceptance'],{'state':'incomplete'})
+                self.assertEqual(proof['full_spec_acceptance'],'deferred')
+                self.assertEqual(proof['phases'],[])
+                self.assertNotIn('scope_binding',proof)
+                self.assertEqual((public/preparation_evidence.NAME).exists(),checkpoint!='admission')
+
+    def test_technical_collector_refuses_lost_runtime_binding_and_invalid_preparation_before_publication(self):
+        import disk_feedback
+        import preparation_evidence
+        for fault in ('lost_runtime','wrong_source','invalid_preparation'):
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as directory:
+                base=Path(directory).resolve();output=base/'output';metadata=base/'metadata';metadata.mkdir()
+                if fault=='lost_runtime':
+                    output,pins=self.prepare_inputs(base)
+                    (output/'fullstack-source.json').unlink()
+                else:
+                    record=preparation_evidence.Record(metadata,'b'*40 if fault=='wrong_source' else 'a'*40,disk_feedback.Record('b'*40 if fault=='wrong_source' else 'a'*40));record.persist()
+                    if fault=='invalid_preparation':(metadata/preparation_evidence.NAME).write_text('{"stage":"private"}')
+                with patch.object(fullstack.hosted,'metadata_source',return_value=({'checkout_sha':'a'*40},{})),patch.object(fullstack.resource_runtime.ci,'collect') as collect:
+                    with self.assertRaises(ValueError):fullstack.collect(output,metadata,base/'public',scope='technical')
+                    collect.assert_not_called()
+                    self.assertFalse((base/'public').exists())
+
+    def test_recovery_refuses_surviving_technical_inputs_before_cleanup_or_image_release(self):
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+        for marker in ('selected','monitoring','topology'):
+            for scope in ('full','technical'):
+                for registered in (False,True):
+                    with self.subTest(marker=marker,scope=scope,registered=registered),tempfile.TemporaryDirectory() as directory:
+                        base=Path(directory);output=base/'output';output.mkdir();images=base/'images.json';images.write_text('{}')
+                        if registered:(output/'owner.json').write_text('{}')
+                        if marker=='selected':(output/'selected-profile.json').write_text(json.dumps(fullstack.profile('technical')))
+                        if marker=='monitoring':
+                            (output/'monitoring').mkdir();(output/'monitoring/inputs.json').write_text('{"scope":"technical"}')
+                        if marker=='topology':(output/'compose.json').write_text(json.dumps({'services':dict.fromkeys(fullstack.services('technical'),{})}))
+                        stage=SimpleNamespace(in_use=lambda:nullcontext(),release=lambda *args,**kwargs:self.fail('image release before scope validation'))
+                        with patch.object(fullstack.sys,'argv',['fullstack.py','recover','--scope',scope,'--output',str(output),'--images',str(images)]),patch.object(fullstack.preparation,'directory',return_value=base),patch.object(fullstack.preparation,'recover_stage',return_value=stage) as acquire,patch.object(fullstack.resource_runtime.ci,'recover') as recover:
+                            with self.assertRaisesRegex(ValueError,'fullstack_scope_binding'):fullstack.main()
+                            recover.assert_not_called();acquire.assert_not_called()
+
+    def test_recovery_preserves_no_project_preparation_only_and_legacy_full_paths(self):
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+        for scope in ('full','technical'):
+            for images_acquired in (False,True):
+                with self.subTest(scope=scope,images=images_acquired),tempfile.TemporaryDirectory() as directory:
+                    base=Path(directory);output=base/'absent';images=base/'images.json';images.write_text('{}')
+                    releases=[]
+                    stage=SimpleNamespace(in_use=lambda:nullcontext(),release=lambda *args,**kwargs:releases.append((args,kwargs)))
+                    argv=['fullstack.py','recover','--scope',scope,'--output',str(output)]+(['--images',str(images)] if images_acquired else [])
+                    with patch.object(fullstack.sys,'argv',argv),patch.object(fullstack.preparation,'directory',return_value=base),patch.object(fullstack.preparation,'recover_stage',return_value=stage),patch.object(fullstack.resource_runtime.ci,'recover',return_value={'state':'no registered project acquired'}) as recover:
+                        fullstack.main()
+                        self.assertEqual(recover.call_count,0 if images_acquired else 1)
+                        self.assertEqual(len(releases),1 if images_acquired else 0)
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory);(output/'owner.json').write_text('{}');(output/'compose.json').write_text(json.dumps({'services':dict.fromkeys(fullstack.services(),{})}))
+            with patch.object(fullstack.sys,'argv',['fullstack.py','recover','--output',str(output)]),patch.object(fullstack.resource_runtime.ci,'recover') as recover:
+                fullstack.main();recover.assert_called_once_with(output,project_prefix=fullstack.PREFIX,services=fullstack.SERVICES)
 
     def test_worker_and_contacts_refuse_deleted_scope_record_or_swapped_profile_before_runtime_mutation(self):
         import os

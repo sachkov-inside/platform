@@ -23,7 +23,7 @@ const observed=new Promise(resolve=>release=resolve);
 Object.defineProperty(globalThis,'performance',{value:{now:()=>clock},configurable:true});
 // Deliberately distinct from native cut1000; diagnostic must never use client wall time.
 Date.now=()=>2000000+clock;
-fs.readFileSync=(path,...args)=>path==='/resource/full-profile.json'?JSON.stringify({accounts:256,materials:512,concurrency:8})
+fs.readFileSync=(path,...args)=>path==='/resource/full-profile.json'?read(setup.profile,...args)
  :path==='/private/umami.json'?JSON.stringify({site:'synthetic-site',key:'synthetic-key'})
  :path==='/query/key'?'synthetic-key':read(path,...args);
 timers.setTimeout=async milliseconds=>{
@@ -98,7 +98,7 @@ class SourceAgeDiagnostic(unittest.TestCase):
         node=shutil.which('node');self.assertIsNotNone(node)
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);preload=root/'preload.mjs';meta=root/'meta.json';preload.write_text(PRELOAD)
-            setup=dict(kind=kind,rounds=rounds,meta=str(meta))
+            setup=dict(kind=kind,rounds=rounds,meta=str(meta),profile=str(fullstack.PROFILE))
             args=[node,'--import',str(preload),str(fullstack.HERE/'client.mjs'),action]
             if action=='load':args += [json.dumps(dict(name='idle',seconds=10,requests_per_second=0)),'on','0']
             result=subprocess.run(args,env={**os.environ,'INSIDE_SOURCE_AGE_TEST':json.dumps(setup)},capture_output=True,text=True,timeout=3)

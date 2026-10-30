@@ -60,7 +60,9 @@ def assemble(root,profile,*,control=True):
             if any(arg.endswith(suffix) for arg in args):return pins()[role]
         raise AssertionError('unexpected native boundary')
     output=root/profile
-    with patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot,'assert_docker_identity'),patch.object(fullstack.pilot,'install_horizon'):
+    from collections import namedtuple
+    usage=namedtuple('usage','total used free')
+    with patch.object(fullstack.pilot,'command',side_effect=command),patch.object(fullstack.pilot,'assert_docker_identity'),patch.object(fullstack.pilot,'install_horizon'),patch.object(fullstack.pilot.shutil,'disk_usage',return_value=usage(128*1024**3,64*1024**3,64*1024**3)):
         fullstack.inputs(output,images)
     return output,json.loads((output/'compose.json').read_text())
 
