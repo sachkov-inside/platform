@@ -296,6 +296,20 @@ HTTP p95 ON/OFF, полная история/restore и запас физиче�
 Linux CI запускает этот публичный путь с теми же pin, storage guard и cleanup; не ослабляет их
 из-за недоступности Mac registry или занятого локального стенда.
 
+Перед проверкой диска workflow готовит свежую стандартную GitHub-hosted VM `ubuntu-24.04` без job container.
+`scripts/observability-production/hosted_disk.py` проверяет hosted/Linux/X64, Ubuntu 24.04, `ImageOS=ubuntu24` и точные `ANDROID_HOME`/`ANDROID_SDK_ROOT`.
+Скрипт проверяет канонические каталоги, symlinks, точки монтирования, bind aliases, общий filesystem с Docker и внешние workspace/temp.
+Затем одна фиксированная команда удаляет только предустановленный `/usr/local/lib/android`, без shell или настраиваемого пути.
+Фиксированные `/usr/bin/sudo -n /usr/bin/timeout` ограничивают `/usr/bin/rm` временем 120 s и дают 5 s до KILL.
+Python ждёт 135 s, затем максимум 5 s; при прерывании он передаёт TERM через sudo.
+
+Привилегированный timeout управляет root-процессом; свежая VM завершает жизненный цикл, а проверки окружения предотвращают случайный запуск без доказательства одноразовости.
+Скрипт сообщает закрытый outcome и доступные числовые свободные байты; stdout/stderr subprocess подавлены.
+Если оба фиксированных пути отсутствуют, скрипт сообщает `already_absent`; частичная структура получает отказ.
+Подготовка не гарантирует освобождённый объём; прежний admission повторно измеряет Docker filesystem и требует 16 GiB.
+При ошибке скрипта workflow пропускает admission/runtime; прежние recovery и curated collection сохраняются.
+Локальный компьютер, self-hosted runner и shared stand не входят в этот рецепт.
+
 Обзор Grafana подготовлен в `owner-overview/dashboard.json`: сравнение HTTP API/MCP,
 host/container metrics, queue/dependency/export symptoms. Его production data и визуальная приёмка
 проверяются отдельно. NoData не заменяется нулём. Семь суток production-наблюдений и измерения
