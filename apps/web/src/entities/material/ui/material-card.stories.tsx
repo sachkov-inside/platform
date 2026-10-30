@@ -6,7 +6,8 @@ import { MaterialCard } from "./material-card";
 
 const meta = {
   ...publicPageEnvironment("/"),
-  title: "Entities/Material Card",
+  id: "entities-material-card",
+  title: "Components/Material/Card",
   component: MaterialCard,
   args: {
     variant: "feed",

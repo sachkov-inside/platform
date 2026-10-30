@@ -31,7 +31,8 @@ const meta = {
     },
     layout: "padded",
   },
-  title: "Pages/Authoring/Платёж/Email заказа",
+  id: "pages-authoring-платёж-email-заказа",
+  title: "Components/Админка/Продажи/Order email",
 } satisfies Meta<typeof OrderEmailView>;
 
 export default meta;

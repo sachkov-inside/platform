@@ -6,7 +6,8 @@ import { MaterialBodyView } from "./material-body-view";
 
 const meta = {
   component: MaterialBodyView,
-  title: "Entities/Material Body",
+  id: "entities-material-body",
+  title: "Components/Material/Body",
   args: {
     blocks: [
       {

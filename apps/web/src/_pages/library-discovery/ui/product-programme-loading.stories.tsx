@@ -179,7 +179,8 @@ const environment = publicPageEnvironment(
 const meta = {
   ...environment,
   component: ProductProgrammeView,
-  title: "Pages/Product/Programme loading",
+  id: "pages-product-programme-loading",
+  title: "Pages/Product/Programme/Loading",
   parameters: {
     ...environment.parameters,
     docs: {
