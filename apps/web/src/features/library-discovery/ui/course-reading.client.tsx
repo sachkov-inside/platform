@@ -41,6 +41,7 @@ import {
 } from "../model/course-reading";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import styles from "./course-reading.module.css";
+import { useCourseRailSelection } from "./course-reading-handoff.client";
 import { CourseReadingHostContext } from "./course-reading-host-context.client";
 
 interface TaskSubmissionOverlay {
@@ -281,11 +282,14 @@ export function CourseRail({
 }) {
   // Next preserves this component between steps; a new server-selected step owns the selection.
   const selectionKey = `${context.current.id}:${context.currentChapterId}`;
-  const [selection, setSelection] = useState({
-    key: selectionKey,
-    chapter: context.currentChapterId,
-    choosing: false,
-  });
+  const [selection, setSelection] = useCourseRailSelection(
+    `rail:${context.courseHref}:${selectionKey}`,
+    {
+      key: selectionKey,
+      chapter: context.currentChapterId,
+      choosing: false,
+    },
+  );
   if (selection.key !== selectionKey) {
     setSelection({
       key: selectionKey,
@@ -328,8 +332,9 @@ export function CourseRail({
     return () => {
       window.removeEventListener(readerHistoryRestoreEvent, restore);
     };
-  }, [context.chapters, selectionKey]);
-  useEffect(() => {
+  }, [context.chapters, selectionKey, setSelection]);
+  // Reveal the current step before the host restores a reader-owned scroll position.
+  useLayoutEffect(() => {
     const element = rail.current;
     const active = element?.querySelector<HTMLElement>('[aria-current="step"]');
     if (element === null || active === undefined || active === null) return;
@@ -458,6 +463,7 @@ export function CourseRail({
             </ol>
           )}
           <CourseReferenceNavigation
+            stateKey={`rail:${context.courseHref}:${selectionKey}`}
             key={chapter?.id}
             references={[
               ...(chapter?.references ?? []),
@@ -553,7 +559,7 @@ export function ProgrammeDialog({
       ?.scrollIntoView({ block: "nearest" });
   }
   return (
-    <div className={styles["mobileProgramme"]}>
+    <div className={styles["mobileProgramme"]} data-course-programme>
       <button
         type="button"
         className={styles["tabletTrigger"]}
@@ -678,6 +684,7 @@ export function ProgrammeDialog({
                 ))}
               </ol>
               <CourseReferenceNavigation
+                stateKey={`dialog:${context.courseHref}:${context.current.id}:${chapter.id}`}
                 references={chapter.references ?? []}
                 activeReferenceId={context.activeReferenceId}
                 courseHref={context.href}
@@ -693,6 +700,7 @@ export function ProgrammeDialog({
             </details>
           ))}
           <CourseReferenceNavigation
+            stateKey={`dialog:${context.courseHref}:${context.current.id}:outside`}
             references={(context.references ?? []).filter(
               (reference) =>
                 reference.id === context.activeReferenceId &&

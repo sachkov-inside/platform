@@ -339,3 +339,52 @@ test("rapid mobile arrows keep the programme selection on the displayed lesson",
     await request.post(control, { data: { delayMs: 0 } });
   }
 });
+
+test("Back and Forward keep the current chapter step aligned with the displayed material", async ({
+  page,
+}, info) => {
+  await page.goto(
+    `/materials/reference-lesson-5?from=${encodeURIComponent(programme)}`,
+  );
+  await expect(page.locator("[data-course-reading-host]")).toBeVisible();
+  const actions = page.getByRole("navigation", {
+    name: "Действия материала",
+    exact: true,
+  });
+  for (const lesson of [6, 7]) {
+    await actions.getByRole("link", { name: "Дальше", exact: true }).click();
+    await expect(
+      page.getByRole("heading", {
+        name: `Урок ${String(lesson)}`,
+        exact: true,
+      }),
+    ).toBeVisible();
+  }
+  for (const [direction, lesson] of [
+    ["back", 6],
+    ["back", 5],
+    ["forward", 6],
+    ["forward", 7],
+  ] as const) {
+    if (direction === "back") await page.goBack();
+    else await page.goForward();
+    await expect(
+      page.getByRole("heading", {
+        name: `Урок ${String(lesson)}`,
+        exact: true,
+      }),
+    ).toBeVisible();
+    const mobile = info.project.name === "mobile-chromium";
+    if (mobile)
+      await page
+        .getByRole("button", { name: "Вся программа", exact: true })
+        .click();
+    const navigation = mobile
+      ? page.getByRole("dialog")
+      : page.getByRole("complementary", { name: "Текущая глава" });
+    await expect(navigation.locator('[aria-current="step"]')).toHaveText(
+      `Урок ${String(lesson)}`,
+    );
+    if (mobile) await page.keyboard.press("Escape");
+  }
+});
