@@ -213,10 +213,10 @@ test("CLI verifies authenticated external receipts against real PR and synthetic
 
 test("CLI accepts current writers independently of public membership labels", async (t) => {
   const f = await fixture(t);
-  for (const [association, permission] of [
-    ["CONTRIBUTOR", "write"],
-    ["NONE", "maintain"],
-    ["MEMBER", "admin"],
+  for (const { association, permission } of [
+    { association: "CONTRIBUTOR", permission: "write" },
+    { association: "NONE", permission: "maintain" },
+    { association: "MEMBER", permission: "admin" },
   ]) {
     f.comment.author_association = association;
     f.routes["collaborators/publisher/permission"] = { permission };
