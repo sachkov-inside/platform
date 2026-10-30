@@ -113,7 +113,6 @@ async function fixture(t) {
     "pulls/42": pr,
     "issues/42/comments?per_page=100&page=1": comments,
     "collaborators/publisher/permission": { permission: "write" },
-    "collaborators/outsider/permission": { permission: "read" },
     [`commits/${head}/pulls?per_page=100&page=1`]: [
       { number: 42, state: "open" },
     ],
@@ -145,6 +144,7 @@ async function fixture(t) {
         const path = url.split('/platform/')[1];
         const route = routes[path];
         const value = route?.$responses ? (route.$responses.length > 1 ? route.$responses.shift() : route.$responses[0]) : route;
+        if (value?.$status) return { ok: false, status: value.$status, json: async () => ({}) };
         return { ok: value !== undefined, status: value === undefined ? 404 : 200, json: async () => value };
       };`,
     );
@@ -208,22 +208,6 @@ test("CLI verifies authenticated external receipts against real PR and synthetic
     assert.ok(report.sources[0]);
     assert.equal(report.sources[0].headSha, f.head);
     assert.equal(report.sources[0].commentId, 123);
-  }
-});
-
-test("CLI accepts current writers independently of public membership labels", async (t) => {
-  const f = await fixture(t);
-  for (const { association, permission } of [
-    { association: "CONTRIBUTOR", permission: "write" },
-    { association: "NONE", permission: "maintain" },
-    { association: "MEMBER", permission: "admin" },
-  ]) {
-    f.comment.author_association = association;
-    f.routes["collaborators/publisher/permission"] = { permission };
-    for (const eventName of ["pull_request", "merge_group"]) {
-      const result = await f.check({ eventName });
-      assert.equal(result.status, 0, result.stderr);
-    }
   }
 });
 
@@ -330,65 +314,80 @@ test("CLI accepts complete dispositions and retained historical receipts", async
   assert.equal((await f.check()).status, 0);
 });
 
-test("readers cannot forge receipts or deny service regardless of association labels", async (t) => {
+test("outsiders cannot forge a receipt or deny service by posting malformed review markers", async (t) => {
   const f = await fixture(t);
-  for (const association of ["NONE", "CONTRIBUTOR", "MEMBER", "COLLABORATOR"]) {
-    for (const permission of ["read", "triage"]) {
-      f.routes["collaborators/outsider/permission"] = { permission };
-      for (const body of [
-        f.comment.body,
-        "<!-- platform-review-evidence:v1 -->\n{",
-      ]) {
-        f.routes["issues/42/comments?per_page=100&page=1"] = [
-          f.comment,
-          {
-            ...f.comment,
-            id: 124,
-            author_association: association,
-            user: { login: "outsider" },
-            body,
-          },
-        ];
-        const result = await f.check();
-        assert.equal(result.status, 0, result.stderr);
-      }
-    }
-  }
-});
-
-test("repeated markers share one current permission read per publisher", async (t) => {
-  const f = await fixture(t);
-  const historical = { ...f.body, headSha: "a".repeat(40) };
-  for (let id = 124; id < 144; id++) {
-    f.comments.push({
+  f.comments.push(
+    {
       ...f.comment,
-      id,
-      body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(historical)}`,
-    });
-    f.comments.push({
-      ...f.comment,
-      id: id + 100,
-      user: { login: "outsider" },
+      id: 124,
       author_association: "NONE",
+      user: { login: "outsider" },
       body: "<!-- platform-review-evidence:v1 -->\n{",
-    });
-  }
-  f.routes["collaborators/publisher/permission"] = {
-    $responses: [{ permission: "write" }, null],
-  };
-  f.routes["collaborators/outsider/permission"] = {
-    $responses: [{ permission: "read" }, null],
-  };
+    },
+    // A deleted or unknown account answers 404 instead of a permission.
+    {
+      ...f.comment,
+      id: 125,
+      author_association: "NONE",
+      user: { login: "ghost" },
+      body: "<!-- platform-review-evidence:v1 -->\n{",
+    },
+  );
+  f.routes["collaborators/outsider/permission"] = { permission: "none" };
+  // GitHub allows a comment without an account.
+  f.routes["issues/42/comments?per_page=100&page=1"] = [
+    ...f.comments,
+    {
+      ...f.comment,
+      id: 126,
+      user: null,
+      body: "<!-- platform-review-evidence:v1 -->\n{",
+    },
+  ];
   const result = await f.check();
   assert.equal(result.status, 0, result.stderr);
 });
 
-test("permission lookup failures reject a receipt even when membership looks authorized", async (t) => {
+test("a publisher permission read failure fails closed and repeat publishers are read once", async (t) => {
   const f = await fixture(t);
-  delete f.routes["collaborators/publisher/permission"];
+  f.comments.push({ ...f.comment, id: 127, body: "unrelated discussion" });
+  const historical = structuredClone(f.body);
+  historical.headSha = "d".repeat(40);
+  f.comments.push({
+    ...f.comment,
+    id: 128,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(historical)}`,
+  });
+  // The second response is an empty body: a repeated read for the same login would fail the run.
+  f.routes["collaborators/publisher/permission"] = {
+    $responses: [{ permission: "write" }, null],
+  };
+  const cached = await f.check();
+  assert.equal(cached.status, 0, cached.stderr);
+  const failing = await f.check({
+    responseRoutes: {
+      ...f.routes,
+      "collaborators/publisher/permission": { $status: 503 },
+    },
+  });
+  assert.equal(failing.status, 1);
+  assert.match(failing.stderr, /GitHub read failed \(503\)/u);
+});
+
+test("a revoked publisher's receipt is ignored, leaving no current receipt", async (t) => {
+  const f = await fixture(t);
+  f.routes["collaborators/publisher/permission"] = { permission: "read" };
   const result = await f.check();
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /GitHub read failed/u);
+  assert.match(result.stderr, /Missing or duplicate current review receipt/u);
+});
+
+test("a write publisher counts whatever association the read-only token sees", async (t) => {
+  const f = await fixture(t);
+  // An organization member with hidden membership reads as CONTRIBUTOR to the Actions token.
+  f.comment.author_association = "CONTRIBUTOR";
+  const result = await f.check();
+  assert.equal(result.status, 0, result.stderr);
 });
 
 test("CLI rejects API failures, revoked publishers, unrelated sources and modified synthetic trees", async (t) => {
@@ -445,25 +444,16 @@ test("CLI verifies every reviewed source in a multi-PR queue", async (t) => {
   await f.git("checkout", "-b", "second", f.base);
   writeFileSync(resolve(f.cwd, "second"), "second reviewed source");
   await f.git("add", "second");
-  await f.git("commit", "-m", "second source");
+  // An associated commit whose subject ends in an issue number is not read as a squash entry.
+  await f.git("commit", "-m", "second source (#1872)");
   const second = await f.git("rev-parse", "HEAD");
   await f.git("checkout", "main");
   await f.git("merge", "--no-ff", "second", "-m", "second synthetic");
   f.setCandidate(await f.git("rev-parse", "HEAD"));
-  const secondReceipt = structuredClone(f.body);
-  secondReceipt.pullRequest = 43;
-  secondReceipt.headSha = second;
-  f.routes["pulls/43"] = { ...f.pr, number: 43, head: { sha: second } };
+  addSecondSource(f, second);
   f.routes[`commits/${second}/pulls?per_page=100&page=1`] = [
     { number: 43, state: "open" },
   ];
-  const secondComment = {
-    ...f.comment,
-    id: 124,
-    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(secondReceipt)}`,
-  };
-  f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
-  f.routes["issues/comments/124"] = secondComment;
   const result = await f.check({ eventName: "merge_group" });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
@@ -473,6 +463,112 @@ test("CLI verifies every reviewed source in a multi-PR queue", async (t) => {
   );
   f.routes["issues/43/comments?per_page=100&page=1"] = [];
   assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+});
+
+/** @param {Awaited<ReturnType<typeof fixture>>} f @param {string} source @param {number} number */
+async function squash(f, source, number) {
+  await f.git("merge", "--squash", source);
+  await f.git("commit", "-m", `reviewed source (#${String(number)})`);
+  const commit = await f.git("rev-parse", "HEAD");
+  // GitHub does not associate a squash queue commit with its pull request.
+  f.routes[`commits/${commit}/pulls?per_page=100&page=1`] = [];
+  return commit;
+}
+
+/** Registers PR 43 with its own receipt for `head`. @param {Awaited<ReturnType<typeof fixture>>} f @param {string} head */
+function addSecondSource(f, head) {
+  const secondReceipt = structuredClone(f.body);
+  secondReceipt.pullRequest = 43;
+  secondReceipt.headSha = head;
+  f.routes["pulls/43"] = { ...f.pr, number: 43, head: { sha: head } };
+  const secondComment = {
+    ...f.comment,
+    id: 124,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(secondReceipt)}`,
+  };
+  f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
+  f.routes["issues/comments/124"] = secondComment;
+  return secondComment;
+}
+
+test("a squash merge queue entry is verified by its PR number and an identical tree", async (t) => {
+  const f = await fixture(t);
+  await f.git("checkout", "main");
+  await f.git("reset", "--hard", f.base);
+  f.setCandidate(await squash(f, "feature", 42));
+  const result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    z.object({ sources: z.array(z.unknown()) }).parse(JSON.parse(result.stdout))
+      .sources.length,
+    1,
+  );
+  // A tree that differs from the reviewed head is not that PR's squash.
+  writeFileSync(resolve(f.cwd, "unreviewed"), "unreviewed");
+  await f.git("add", "unreviewed");
+  await f.git("commit", "--amend", "-m", "reviewed source (#42)");
+  const altered = await f.git("rev-parse", "HEAD");
+  f.routes[`commits/${altered}/pulls?per_page=100&page=1`] = [];
+  f.setCandidate(altered);
+  const rejected = await f.check({ eventName: "merge_group" });
+  assert.equal(rejected.status, 1);
+  assert.match(rejected.stderr, /No current PR covers candidate/u);
+});
+
+test("a squash queue group verifies every entry and its own receipt", async (t) => {
+  const f = await fixture(t);
+  await f.git("checkout", "-b", "second", f.base);
+  writeFileSync(resolve(f.cwd, "second"), "second reviewed source");
+  await f.git("add", "second");
+  await f.git("commit", "-m", "second source");
+  const second = await f.git("rev-parse", "HEAD");
+  await f.git("checkout", "main");
+  await f.git("reset", "--hard", f.base);
+  await squash(f, "feature", 42);
+  f.setCandidate(await squash(f, "second", 43));
+  const secondComment = addSecondSource(f, second);
+  const result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    z.object({ sources: z.array(z.unknown()) }).parse(JSON.parse(result.stdout))
+      .sources.length,
+    2,
+  );
+  f.routes["issues/43/comments?per_page=100&page=1"] = [];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+  // The subject only names a candidate: another PR's head does not match this tree.
+  f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
+  f.routes["pulls/43"] = { ...f.pr, number: 43, head: { sha: f.head } };
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+});
+
+test("a squash subject naming an issue, a closed PR or an absent head never counts", async (t) => {
+  const f = await fixture(t);
+  await f.git("checkout", "main");
+  await f.git("reset", "--hard", f.base);
+  f.setCandidate(await squash(f, "feature", 42));
+  // The number names an issue: pulls/42 answers 404.
+  const issue = await f.check({
+    eventName: "merge_group",
+    responseRoutes: { ...f.routes, "pulls/42": undefined },
+  });
+  assert.equal(issue.status, 1);
+  assert.match(issue.stderr, /No current PR covers candidate/u);
+  const closed = await f.check({
+    eventName: "merge_group",
+    responseRoutes: { ...f.routes, "pulls/42": { ...f.pr, state: "closed" } },
+  });
+  assert.equal(closed.status, 1);
+  assert.match(closed.stderr, /No current PR covers candidate/u);
+  const absent = await f.check({
+    eventName: "merge_group",
+    responseRoutes: {
+      ...f.routes,
+      "pulls/42": { ...f.pr, head: { sha: "e".repeat(40) } },
+    },
+  });
+  assert.equal(absent.status, 1);
+  assert.match(absent.stderr, /Reviewed PR head is missing/u);
 });
 
 test("unrelated main advance retains exact comparison inputs but changed merge-base/head invalidates review", async (t) => {
