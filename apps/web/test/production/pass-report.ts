@@ -1,5 +1,4 @@
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -19,6 +18,7 @@ import {
 } from "./pass-cells";
 import { passCells, deferralFacts } from "./pass-config";
 import { redactPassText } from "./pass-redaction";
+import { sourceDirectory } from "./source-location.cjs";
 
 /** Каталог отчёта прохода; job загружает его в artifact. */
 export const passReportDirectory = resolve(
@@ -171,11 +171,12 @@ export function readDeployedSha(): string | null {
     .parse(value);
 }
 
-/** The checkout commit identifies the runner code; GITHUB_SHA identifies its workflow context. */
+/** The module's checkout identifies runner code, independently of cwd or workflow SHA. */
 export function readSourceSha(): string | null {
   try {
     return execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: fileURLToPath(new URL("../../../../", import.meta.url)),
+      cwd: resolve(sourceDirectory, "../../../../"),
+      timeout: 5_000,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
@@ -186,10 +187,10 @@ export function readSourceSha(): string | null {
 
 /** Global teardown: собирает отчёт и роняет прогон, если итог красный. */
 export default function writePassReport(): void {
-  // deterministic-test-allow wall-clock: Records the actual production evaluation instant; contract tests inject their evaluation time.
   generatePassReport({
     cells: passCells,
     deferralFacts,
+    // deterministic-test-allow wall-clock: Production teardown records real evaluation time; fixture CLI injects evaluatedAt into generatePassReport.
     evaluatedAt: new Date().toISOString(),
   });
 }

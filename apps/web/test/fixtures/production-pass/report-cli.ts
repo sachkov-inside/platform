@@ -1,3 +1,7 @@
+import { spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { z } from "zod";
 
 import {
@@ -5,6 +9,22 @@ import {
   configuredDeferralFacts,
 } from "../../production/pass-config";
 import { generatePassReport } from "../../production/pass-report";
+
+// Leave a real descendant behind on both CLI success and failure. The contract runner's
+// existing ownership supervisor must reap it before returning the report's exit status.
+if (process.env["PRODUCTION_PASS_FIXTURE_DESCENDANT"] === "true") {
+  const directory = z
+    .string()
+    .parse(process.env["PRODUCTION_ACCESS_REPORT_DIR"]);
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    stdio: "ignore",
+  });
+  if (child.pid === undefined)
+    throw new Error("Fixture descendant did not start");
+  process.kill(child.pid, 0);
+  writeFileSync(join(directory, "descendant.pid"), String(child.pid));
+  child.unref();
+}
 
 const scenario = z
   .enum([
