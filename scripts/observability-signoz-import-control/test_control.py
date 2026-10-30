@@ -37,6 +37,36 @@ def record(case='contended'):
         'actor_raw':{**raw,'started':9.,'finished':13.,'timeout_seconds':10,'raw_window_seconds':10.},'actor_error':False,'failure_reason':'none','cleanup_complete':True,'cleanup_fault':False}
 
 
+def receipt_summary(receipt):
+    """Closed assertion context only; no absolute clocks or foreign receipt values."""
+    raw=receipt if type(receipt) is dict and all(type(key) is str for key in receipt) else {}
+    def number(value):
+        try:return control.receipts.number(value)
+        except OverflowError:return False
+    fields=('started','finished','timeout_seconds','raw_window_seconds','outer_remaining_seconds')
+    numbers=all(number(raw.get(key)) for key in fields)
+    elapsed=raw['finished']-raw['started'] if numbers else None
+    native=raw.get('native_exit')
+    predicates={
+        'shape':type(receipt) is dict and all(type(key) is str for key in raw) and set(raw)=={
+            'available',*fields,'native_exit','reaped'},
+        'numbers':numbers,
+        'elapsed':numbers and 0<=raw['started']<=raw['finished'] and 0<=elapsed<=90,
+        'native_exit':type(native) is int and -128<=native<=255,
+        'available':raw.get('available') is True,
+        'reaped':raw.get('reaped') is True,
+        'timeout':number(raw.get('timeout_seconds')) and raw['timeout_seconds']==3,
+        'raw_window':number(raw.get('raw_window_seconds')) and raw['raw_window_seconds']==3,
+        'outer_window':number(raw.get('outer_remaining_seconds')) and raw['outer_remaining_seconds']>=3}
+    def finite(value):
+        return value if number(value) and -1000000<=value<=1000000 else None
+    return {'failed_predicate':next((key for key,passed in predicates.items() if not passed),'none'),
+        'predicates':predicates,'available':predicates['available'],'reaped':predicates['reaped'],
+        'timeout_seconds':finite(raw.get('timeout_seconds')),'raw_window_seconds':finite(raw.get('raw_window_seconds')),
+        'outer_remaining_seconds':finite(raw.get('outer_remaining_seconds')),'elapsed_seconds':finite(elapsed),
+        'native_exit':native if predicates['native_exit'] else None}
+
+
 class Projection(unittest.TestCase):
     def test_only_actual_total_raw_window_overlap_with_same_clock_is_interpretable(self):
         rows=[record('quiet'),record()];result=control.interpret(rows)
@@ -88,15 +118,25 @@ class ActualCoordinator(unittest.TestCase):
                 with patch.object(control.lifecycle,'vm_sample',wraps=lifecycle.vm_sample) as real:
                     row,error=control.sample(own)
                 self.assertIsNone(error);self.assertEqual(real.call_count,1)
-                self.assertEqual(row['status'],'succeeded');self.assertTrue(control.receipts.full_window(row['raw']))
+                self.assertEqual(row['status'],'succeeded',receipt_summary(row['raw']));self.assertTrue(control.receipts.full_window(row['raw']),receipt_summary(row['raw']))
                 self.assertFalse(engine.child)
                 (root/'failure.json').write_text('{"native_exit":99,"private":"fixture-key"}')
                 (root/'mode').write_text('probe_exit')
                 row,error=control.sample(own)
                 self.assertEqual(row['status'],'failed');self.assertEqual(error.reason,'command_failed')
                 self.assertEqual(row['inner']['native_exit'],7);self.assertNotIn('private',json.dumps(row['inner']))
-                self.assertIsNone(sys.getprofile());self.assertFalse(engine.child)
-            finally:engine.cancel_children()
+            finally:
+                primary=sys.exc_info()[1];cleanup=[]
+                # Run every check even if cancellation or a previous check fails.
+                for category,action in (('cancel',engine.cancel_children),
+                        ('profile',lambda:self.assertIsNone(sys.getprofile())),
+                        ('children',lambda:self.assertFalse(engine.child)),
+                        ('live',lambda:native_fixture.Feedback().no_live(root))):
+                    try:action()
+                    except BaseException as error:cleanup.append((category,error))
+                if cleanup:
+                    if primary is None:raise cleanup[0][1]
+                    BaseException.add_note(primary,'owned sample cleanup failed: '+','.join(category for category,_ in cleanup))
 
     def test_importer_failure_keeps_first_sample_error_object_and_joins(self):
         class Boundary:
