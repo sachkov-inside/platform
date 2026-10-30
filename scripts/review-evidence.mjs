@@ -262,6 +262,88 @@ export async function verify({
     }
     throw new Error("GitHub pagination incomplete");
   }
+  // This is a fixed read-only operation. Candidate data is only supplied as
+  // validated variables; it cannot select a GraphQL operation or endpoint.
+  const queueQuery = `query ReviewQueue($owner:String!,$name:String!,$after:String) {
+    repository(owner:$owner,name:$name) {
+      mergeQueue(branch:"main") {
+        entries(first:100,after:$after) {
+          nodes { id baseCommit { oid } headCommit { oid }
+            pullRequest { number headRefOid state } }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    }
+  }`;
+  async function readQueue() {
+    const [owner, name] = repository.split("/");
+    /** @type {string | null} */
+    let after = null;
+    /** @type {Array<{id:string, baseSha:string | null, headSha:string | null, number:number, sourceHead:string, state:string}>} */
+    const entries = [];
+    const cursors = new Set();
+    const ids = new Set();
+    for (let page = 1; page <= 100; page++) {
+      const response = await request("https://api.github.com/graphql", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({
+          query: queueQuery,
+          variables: { owner, name, after },
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      requireValue(
+        response.ok,
+        `GitHub queue read failed (${response.status})`,
+      );
+      const result = object(await response.json());
+      requireValue(!result["errors"], "GitHub queue query failed");
+      const repo = object(object(result["data"])["repository"]);
+      const connection = object(object(repo["mergeQueue"])["entries"]);
+      const nodes = array(connection["nodes"]);
+      requireValue(nodes.length <= 100, "Invalid queue page size");
+      for (const raw of nodes) {
+        const entry = object(raw);
+        const pr = object(entry["pullRequest"]);
+        const id = stringField(entry, "id");
+        requireValue(!ids.has(id), "Duplicate queue entry");
+        ids.add(id);
+        /** @param {unknown} value */
+        function commitOid(value) {
+          if (value === null) return null;
+          const oid = stringField(object(value), "oid");
+          requireValue(sha.test(oid), "Invalid queue commit");
+          return oid;
+        }
+        const sourceHead = stringField(pr, "headRefOid");
+        requireValue(sha.test(sourceHead), "Invalid queued PR head");
+        entries.push({
+          id,
+          baseSha: commitOid(entry["baseCommit"]),
+          headSha: commitOid(entry["headCommit"]),
+          number: numberField(pr, "number"),
+          sourceHead,
+          state: stringField(pr, "state"),
+        });
+      }
+      const pageInfo = object(connection["pageInfo"]);
+      requireValue(
+        typeof pageInfo["hasNextPage"] === "boolean",
+        "Missing queue pagination state",
+      );
+      if (!pageInfo["hasNextPage"]) return entries;
+      after = stringField(pageInfo, "endCursor");
+      requireValue(!cursors.has(after), "Repeated queue pagination cursor");
+      cursors.add(after);
+    }
+    throw new Error("GitHub queue pagination incomplete");
+  }
   /** @param {number} number */
   async function readPr(number) {
     const pr = object(await api(`pulls/${number}`));
@@ -301,6 +383,9 @@ export async function verify({
   const prs = new Map();
   /** @type {Map<string, Set<number>>} */
   const associations = new Map();
+  /** @type {Map<number, Awaited<ReturnType<typeof readQueue>>[number]>} */
+  const queueBindings = new Map();
+  let candidateInQueue = false;
   const candidateCommits = git("rev-list", "--parents", `${base}..${candidate}`)
     .split("\n")
     .filter(Boolean)
@@ -334,18 +419,51 @@ export async function verify({
     // Associations authenticate the concrete queue commit, never a branch name
     // or a tree alone. A squash source need not be in the candidate ancestry.
     requireValue(candidateCommits.length > 0, "Empty merge queue");
+    const queue = await readQueue();
+    candidateInQueue = queue.some(
+      (entry) => entry.headSha === candidate && entry.state === "OPEN",
+    );
+    for (const entry of queue) {
+      if (
+        !candidateCommits.some((transition) => transition[0] === entry.headSha)
+      )
+        continue;
+      requireValue(
+        entry.state === "OPEN" &&
+          entry.baseSha &&
+          entry.headSha &&
+          ancestor(entry.baseSha, entry.headSha) &&
+          (ancestor(base, entry.baseSha) || ancestor(entry.baseSha, base)),
+        "Unrelated queue entry",
+      );
+      requireValue(
+        !queueBindings.has(entry.number),
+        "Duplicate queued PR source",
+      );
+      const pr = await readPr(entry.number);
+      requireValue(
+        pr.number === entry.number &&
+          pr.state === "open" &&
+          pr.head.sha === entry.sourceHead,
+        "Queue PR changed or mismatched",
+      );
+      queueBindings.set(entry.number, entry);
+      prs.set(entry.number, pr);
+      const numbers = associations.get(entry.headSha) ?? new Set();
+      numbers.add(entry.number);
+      associations.set(entry.headSha, numbers);
+    }
     for (const transition of candidateCommits) {
       const commit = transition[0];
       requireValue(commit, "Missing candidate commit");
       if (transition.length !== 2) continue;
       /** @type {Set<number>} */
-      const associatedNumbers = new Set();
+      const associatedNumbers = associations.get(commit) ?? new Set();
       associations.set(commit, associatedNumbers);
       for (const rawAssociated of await pages(`commits/${commit}/pulls`)) {
         const associated = object(rawAssociated);
         if (!["open", "closed"].includes(String(associated["state"]))) continue;
         const number = numberField(associated, "number");
-        associatedNumbers.add(number);
         if (prs.has(number)) continue;
         const pr = await readPr(number);
         requireValue(pr.number === number, "PR association identity mismatch");
@@ -372,10 +490,11 @@ export async function verify({
         if (
           sha.test(pr.head.sha) &&
           ((pr.state === "open" && ancestor(pr.head.sha, candidate)) ||
-            ((pr.state === "open" || introduced) &&
-              exactSquash(transition, pr.head.sha)))
-        )
+            (introduced && exactSquash(transition, pr.head.sha)))
+        ) {
+          associatedNumbers.add(number);
           prs.set(number, pr);
+        }
       }
     }
   }
@@ -407,7 +526,11 @@ export async function verify({
           pr["base"].sha === stringField(object(eventPr["base"]), "sha"),
         "PR changed since event",
       );
-    const comparisonBase = git("merge-base", base, pr["head"].sha);
+    const comparisonBase = git(
+      "merge-base",
+      pr.state === "open" ? pr.base.sha : base,
+      pr.head.sha,
+    );
     const comments = await pages(`issues/${number}/comments`);
     const receipts = [];
     for (const rawComment of comments) {
@@ -502,7 +625,10 @@ export async function verify({
         return (
           associations.get(commit)?.has(source.pullRequest) &&
           pr &&
-          (pr.state === "open" || pr.mergeCommitSha === commit) &&
+          (pr.state === "open"
+            ? candidateInQueue &&
+              queueBindings.get(source.pullRequest)?.headSha === commit
+            : pr.mergeCommitSha === commit) &&
           exactSquash(transition, source.headSha)
         );
       });
@@ -553,6 +679,23 @@ export async function verify({
         stringField(object(comment["user"]), "login") === source.publisher,
       "Receipt changed during verification",
     );
+  }
+  if (queueBindings.size > 0) {
+    const freshQueue = await readQueue();
+    requireValue(
+      freshQueue.some(
+        (entry) => entry.headSha === candidate && entry.state === "OPEN",
+      ),
+      "Candidate left merge queue",
+    );
+    for (const [number, original] of queueBindings) {
+      const fresh = freshQueue.filter((entry) => entry.number === number);
+      requireValue(
+        fresh.length === 1 &&
+          JSON.stringify(fresh[0]) === JSON.stringify(original),
+        "Queue entry changed during verification",
+      );
+    }
   }
   return { status: "verified", candidate, targetBaseSha: base, sources };
 }

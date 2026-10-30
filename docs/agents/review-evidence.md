@@ -105,15 +105,21 @@ Every commit outside the event's trusted target belongs to a reviewed PR history
 deterministic conflict-free two-parent merge, or is a supported one-parent queue squash.
 `git merge-tree` must reproduce each synthetic transition's exact tree from its parent and reviewed
 source head. Squash source heads may live on independent branches outside the candidate ancestry.
-A squash additionally requires GitHub's authenticated association between that exact candidate
-commit and its PR; matching a tree or a branch name alone is insufficient. A source cannot authorize
-repeated squash transitions, and ambiguous source matches fail closed.
+An open squash source additionally requires GitHub's authenticated `mergeQueue(branch: "main")`
+entry binding that exact transition's `headCommit` to the PR number and its current source head.
+A fixed read-only GraphQL query reads every page, requires the candidate head in the current queue,
+and rechecks each used entry before returning. REST associations observed after merge do not
+establish open squash provenance. Matching a tree or a branch name alone is insufficient. A source
+cannot authorize repeated squash transitions, and ambiguous source matches fail closed.
 
 A preceding squash source may already be closed only when GitHub reports it merged with that exact
-`merge_commit_sha` and the transition is in authenticated `refs/heads/main` history extending the
-event base. Its receipt remains required. At least one current open source is required for a queue
-run. Current PR base snapshots may advance on main without changing the reviewed comparison
-merge-base; an event starting after a merged prefix verifies only the remaining sources. Unknown
+`merge_commit_sha`, a REST association for that exact transition, and membership in authenticated
+`refs/heads/main` history extending the event base. Its historical receipt remains required and
+uses the event base for comparison. At least one current open source is required for a queue run.
+An open source's comparison merge-base is computed from its current authenticated PR base and head.
+An advance that enters the source history therefore needs a new receipt, even when the event base
+is older. Unrelated advances retain review only when the comparison merge-base stays unchanged.
+An event starting after a merged prefix verifies only the remaining sources. Unknown
 commits, altered merge resolutions, conflicting inputs, unsupported topology, missing Git objects
 and API failures fail closed. Multi-PR groups need evidence for every source outside the event base.
 
