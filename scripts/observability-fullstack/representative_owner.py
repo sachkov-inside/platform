@@ -43,6 +43,12 @@ def encoded(value):return core_layout.encoded(value)
 def sha(raw):return hashlib.sha256(raw).hexdigest()
 
 
+def _deadline_ns(value):
+    # Multiplying a float first can round above the original deadline before int().
+    numerator,denominator=value.as_integer_ratio()
+    return numerator*10**9//denominator
+
+
 def _identity(info):return [info.st_dev,info.st_ino,info.st_uid]
 
 
@@ -164,7 +170,7 @@ class CompositeOwner:
         own.__directory.mkdir(mode=0o700)
         own.__registry={'schema':1,'status':'prepared','daemon':json.loads(encoded(engine.identity)),'binding':json.loads(own.__binding),
             'root':layout.manifest['root_identity'],'plan_sha256':layout.manifest['plan_sha256'],
-            'manifest_sha256':sha(layout._manifest.encode()),'deadline_mono_ns':int(engine.deadline*10**9),'inputs':json.loads(own.__inputs),
+            'manifest_sha256':sha(layout._manifest.encode()),'deadline_mono_ns':_deadline_ns(engine.deadline),'inputs':json.loads(own.__inputs),
             'containers':{},'volumes':{},'networks':{},'images':{},'generation':0,'dispatch':None,'phase_cuts':{},'worker':None}
         own.__write('compose.json',layout.plan)
         own.__record()
@@ -528,7 +534,7 @@ class CompositeOwner:
                 'plan_sha256':manifest['plan_sha256'],'manifest_sha256':sha(self.__layout._manifest.encode()),
                 'generator_sha256':sha(encoded(manifest['generator_inputs']).encode()),
                 'native':{'cid':native['Id'],'created':native['Created'],'image':native['Image'],'init_pid':native['State']['Pid']},
-                'owner_deadline_ns':int(self.__deadline*10**9)},self.__run/'signoz'
+                'owner_deadline_ns':_deadline_ns(self.__deadline)},self.__run/'signoz'
 
     def _scope_acquire(self,generation,*,directory=None,file=None):
         with self.__lock:
@@ -592,7 +598,7 @@ class CompositeOwner:
             manifest=self.__layout.manifest
             document={'schema':1,'binding':{k:manifest[k] for k in ('source','root','root_identity','profile','project','nonce')},
                 'native':{'cid':native['Id'],'created':native['Created'],'image':native['Image'],'init_pid':native['State']['Pid'],
-                    **scopes._process_receipt(native['State']['Pid'])},'deadline_mono_ns':int(self.__deadline*10**9),
+                    **scopes._process_receipt(native['State']['Pid'])},'deadline_mono_ns':_deadline_ns(self.__deadline),
                 'mirror':{name:value[0] for name,value in mirror.items()},'agent_key':secrets.token_hex(32),'sdk':observed}
             body=scopes._encoded(document);need(len(body)<=65536)
             session=run/'private/representative-session.json';identity=scopes._write(session,body)

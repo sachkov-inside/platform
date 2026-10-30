@@ -219,20 +219,55 @@ class Workflow(unittest.TestCase):
         self.assertIn('install: "false"',value)
         self.assertIn('browsers: ""',value)
 
-    def test_default_shared_setup_semantics_are_byte_identical_after_inverse_of_closed_delta(self):
+    def assert_original_shared_setup_after_closed_inverse(self,value):
         import hashlib
         baseline_sha256='110e21a760321af418e043fd9bbce364a4f3c8fefcf54e9c9c9064f6ca6f856f'
-        value=(bridge.ROOT/'.github/actions/setup-platform/action.yml').read_text()
-        value=value.replace('''  install:
+        deltas=(('''  install:
     description: Install frozen workspace dependencies and check peers (false only for owned private preparation)
     required: false
     default: "true"
-''','',1).replace('''    - name: Validate closed dependency installation choice
+''',''),('''    - name: Validate closed dependency installation choice
       if: ${{ inputs.install != 'true' && inputs.install != 'false' || inputs.install == 'false' && inputs.browsers != '' }}
       shell: bash
       run: exit 1
-''','',1).replace("      if: ${{ inputs.install == 'true' }}\n",'')
+''',''),('''    - name: Install dependencies
+      if: ${{ inputs.install == 'true' }}
+''','''    - name: Install dependencies
+'''),('''    - name: Check peer dependencies
+      if: ${{ inputs.install == 'true' }}
+''','''    - name: Check peer dependencies
+'''),('''    - name: Install Node.js
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"
+''','''    - name: Install Node.js
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+'''))
+        for changed,original in deltas:
+            self.assertEqual(value.count(changed),1)
+            value=value.replace(changed,original,1)
         self.assertEqual(hashlib.sha256(value.encode()).hexdigest(),baseline_sha256)
+
+    def test_default_shared_setup_semantics_are_byte_identical_after_inverse_of_closed_delta(self):
+        self.assert_original_shared_setup_after_closed_inverse((bridge.ROOT/'.github/actions/setup-platform/action.yml').read_text())
+
+    def test_shared_setup_inverse_refuses_wrong_missing_extra_or_relocated_cache_environment_and_other_drift(self):
+        value=(bridge.ROOT/'.github/actions/setup-platform/action.yml').read_text()
+        env='      env:\n        SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"\n'
+        cases={
+            'wrong_value':value.replace('SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"','SEGMENT_DOWNLOAD_TIMEOUT_MINS: "3"',1),
+            'missing':value.replace(env,'',1),
+            'duplicate':value.replace(env,env+env,1),
+            'unexpected_key':value.replace(env,env+'        UNEXPECTED: "2"\n',1),
+            'global':value.replace(env,'',1).replace('runs:\n','env:\n  SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"\n\nruns:\n',1),
+            'different_step':value.replace(env,'',1).replace('    - name: Install pnpm\n','    - name: Install pnpm\n'+env,1),
+            'different_action':value.replace('uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1','uses: actions/setup-node@'+'a'*40,1),
+            'additional_condition':value+"      if: ${{ inputs.install == 'true' }}\n",
+            'missing_condition':value.replace("      if: ${{ inputs.install == 'true' }}\n",'',1),
+            'unrelated_command':value.replace('run: pnpm peers check','run: pnpm --version',1),
+        }
+        for label,changed in cases.items():
+            with self.subTest(label=label),self.assertRaises(AssertionError):self.assert_original_shared_setup_after_closed_inverse(changed)
 
 
 class CanonicalPreparation(unittest.TestCase):

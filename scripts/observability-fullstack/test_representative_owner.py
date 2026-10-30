@@ -1,5 +1,6 @@
 """SOURCE-MODEL ownership using the real fixture producer; no Docker acquisition."""
 import json
+from fractions import Fraction
 import os
 from pathlib import Path
 import tempfile
@@ -300,16 +301,34 @@ class RecoveryOwner(unittest.TestCase):
     prepare=NativeOwner.prepare
 
     def test_recovery_uses_remaining_original_cleanup_tail_and_is_idempotent(self):
-        with tempfile.TemporaryDirectory() as directory:
+        # The first clock reproduces the Linux CI one-ULP extension exactly.
+        for clock in (64.2979483619999,400.000000001,999400.000000001,999999400.0000001,1073741224.125):
+            with self.subTest(clock=clock),patch.object(owners.time,'monotonic',return_value=clock),tempfile.TemporaryDirectory() as directory:
+                output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create()
+                original_deadline=native.deadline
+                record=json.loads((output/'representative-owner/resources.json').read_text())
+                persisted=Fraction(record['deadline_mono_ns'],10**9)
+                self.assertLessEqual(persisted,Fraction(original_deadline))
+                self.assertLess(Fraction(original_deadline)-persisted,Fraction(1,10**9))
+                with patch.object(owners.time,'monotonic',return_value=original_deadline+1):
+                    recovered=owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                    self.assertLessEqual(native.deadline,original_deadline+90)
+                    self.assertTrue(recovered.cleanup_exact());self.assertEqual(native.acquired,set())
+                    again=owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                    self.assertTrue(again.cleanup_exact());self.assertEqual(native.acquired,set())
+                    self.assertEqual(len(json.loads((output/'representative-owner/states.json').read_text())),38)
+
+    def test_expired_original_cleanup_tail_refuses_before_any_authority(self):
+        with patch.object(owners.time,'monotonic',return_value=64.2979483619999),tempfile.TemporaryDirectory() as directory:
             output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create()
-            original_deadline=native.deadline
-            with patch.object(owners.time,'monotonic',return_value=original_deadline+1):
-                recovered=owners.CompositeOwner.recover(native,output,BINDINGS,pins())
-                self.assertLessEqual(native.deadline,original_deadline+90)
-                self.assertTrue(recovered.cleanup_exact());self.assertEqual(native.acquired,set())
-                again=owners.CompositeOwner.recover(native,output,BINDINGS,pins())
-                self.assertTrue(again.cleanup_exact());self.assertEqual(native.acquired,set())
-                self.assertEqual(len(json.loads((output/'representative-owner/states.json').read_text())),38)
+            original_deadline=native.deadline;before=list(native.calls)
+            for elapsed in (87,90,91):
+                with self.subTest(elapsed=elapsed),patch.object(owners.time,'monotonic',return_value=original_deadline+elapsed), \
+                        patch.object(native,'identify',side_effect=AssertionError('expired native authority')) as identify,patch.object(owners,'_stop_worker') as stop:
+                    with self.assertRaisesRegex(ValueError,'recovery_cleanup_budget'):owners.CompositeOwner.recover(native,output,BINDINGS,pins())
+                    identify.assert_not_called();stop.assert_not_called()
+                    self.assertEqual(native.calls,before);self.assertEqual(native.deadline,original_deadline)
+            self.assertTrue(owner.cleanup_exact())
 
 
     def test_recovery_rejects_damaged_closed_registry_before_worker_or_native_authority(self):
@@ -651,6 +670,30 @@ class ClosedSession(unittest.TestCase):
             modules[name]=hashlib.sha256(target.read_bytes()).hexdigest()
         observed={'schema':2,'trace_id':'a'*32,'root_id':'b'*16,'provider_requests':1,'body_read':'passed','runtime_modules':modules}
         return output,native,owner,model,observed
+
+    def test_session_and_dispatch_never_extend_original_deadline_when_serialized(self):
+        from test_representative_scope import MODEL
+        from test_signoz_queries import START,CUT
+        import representative_scope as scopes
+        for clock in (64.2979483619999,999999400.0000001,1073741224.125):
+            with self.subTest(clock=clock),patch.object(owners.time,'monotonic',return_value=clock),tempfile.TemporaryDirectory() as temporary:
+                output,native,owner,model,observed=self.prepare_session(Path(temporary).resolve())
+                original_deadline=native.deadline
+                with patch.object(owners,'ROOT',model),patch.object(scopes,'_process_receipt',return_value=MODEL):
+                    owner.prepare_native_session(observed)
+                    session=json.loads((output/'signoz/private/representative-session.json').read_text())
+                    with patch.object(owners.time,'monotonic',return_value=original_deadline-5), \
+                            patch.object(scopes.time,'monotonic_ns',return_value=int((original_deadline-5)*10**9)), \
+                            patch.object(scopes.time,'time',return_value=CUT/1000):
+                        with scopes.mint(owner,4,START,CUT):
+                            dispatch=json.loads((output/'signoz/private/representative-scope/current.json').read_text())
+                            for kind,document in (('session',session),('dispatch',dispatch)):
+                                with self.subTest(kind=kind):
+                                    persisted=Fraction(document['deadline_mono_ns'],10**9)
+                                    self.assertLessEqual(persisted,Fraction(original_deadline))
+                                    self.assertLess(Fraction(original_deadline)-persisted,Fraction(1,10**9))
+                    self.assertTrue(owner.cleanup_exact());self.assertEqual(native.acquired,set())
+
     def test_fixed_noargv_bootstrap_does_not_hold_owner_lock_and_replay_refuses(self):
         from test_representative_scope import MODEL
         import representative_scope as scopes
