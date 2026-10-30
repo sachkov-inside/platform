@@ -313,7 +313,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4]
+        group: [1, 2, 3, 4, 5]
     steps:
       - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -351,5 +351,5 @@ jobs:
     env:
       RESULT: ${{ needs.fullstack-protocol-shard.result }}
     steps:
-      - name: Require all four provider results to succeed
+      - name: Require all five provider results to succeed
         run: test "$RESULT" = success
