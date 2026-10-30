@@ -1,5 +1,6 @@
 import type { Route } from "next";
 import { internalRoute } from "@/shared/routing/internal-route";
+import { materialLinkSlug } from "@/shared/routing/reader-course-anchor";
 import { placeChapterTasks } from "@/entities/product-task.model";
 import {
   materialReaderHref,
@@ -248,17 +249,12 @@ export function courseReadingContext({
     },
   );
   const steps = chapters.flatMap((chapter) => chapter.steps);
-  const id =
-    current.kind === "material"
-      ? `material:${current.slug}`
-      : `task:${current.code}`;
   const stepIndex = steps.findIndex((step) =>
     current.kind === "material"
-      ? step.kind === "material" &&
-        (step.id === id || step.id.startsWith(`${id}:`)) &&
+      ? isMaterialStep(step, current.slug) &&
         (current.placementId === undefined ||
           step.placementId === current.placementId)
-      : step.id === id,
+      : step.id === `task:${current.code}`,
   );
   const position = referenceView ? -1 : stepIndex;
   // A programme step opened for reference stays selected in its chapter without claiming a position;
@@ -319,31 +315,42 @@ export function courseReadingContext({
   };
 }
 
+/** Every placement of a Material in the programme is one of its steps. */
+function isMaterialStep(step: CourseReadingStep, slug: string): boolean {
+  return (
+    step.kind === "material" &&
+    (step.id === `material:${slug}` || step.id.startsWith(`material:${slug}:`))
+  );
+}
+
 /**
- * A body link to another lesson of this programme opens that lesson as its step, so the chapter
- * steps follow the reader; the authored section survives. Other links are not programme steps.
+ * A body link to a lesson of this programme opens that lesson as its step, so the chapter steps
+ * follow the reader. A repeated Material opens its placement in the reader's chapter. The authored
+ * section is kept verbatim. Other links are not programme steps.
  */
-export function programmeStepLinkHref(
+export function programmeStepLink(
   context: CourseReadingContext,
   href: string,
-): Route | undefined {
-  const slug = /^\/materials\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:[?#]|$)/u.exec(
-    href,
-  )?.[1];
+): { readonly step: CourseReadingStep; readonly href: Route } | undefined {
+  const slug = materialLinkSlug(href);
   if (slug === undefined) return undefined;
-  const step = context.chapters
-    .flatMap((chapter) => chapter.steps)
-    .find(
-      (entry) =>
-        entry.kind === "material" &&
-        (entry.id === `material:${slug}` ||
-          entry.id.startsWith(`material:${slug}:`)),
-    );
+  const placements = context.chapters.flatMap((chapter) =>
+    chapter.steps
+      .filter((step) => isMaterialStep(step, slug))
+      .map((step) => ({ chapterId: chapter.id, step })),
+  );
+  const step = (
+    placements.find((entry) => entry.chapterId === context.currentChapterId) ??
+    placements[0]
+  )?.step;
   if (step === undefined) return undefined;
   const fragment = href.indexOf("#");
-  return internalRoute(
-    fragment < 0 ? step.href : `${step.href}${href.slice(fragment)}`,
-  );
+  return {
+    step,
+    href: internalRoute(
+      fragment < 0 ? step.href : `${step.href}${href.slice(fragment)}`,
+    ),
+  };
 }
 
 /** A programme step opened for reference keeps its chapter label, though it claims no position. */

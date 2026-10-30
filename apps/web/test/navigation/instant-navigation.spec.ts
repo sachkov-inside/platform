@@ -1272,8 +1272,11 @@ test("смена режима прохождения сбрасывает стр
       .click();
   } else {
     const rail = page.getByRole("complementary", { name: "Текущая глава" });
-    await rail.locator("button[aria-expanded]").first().click();
-    await rail.locator("[data-course-chapter-choice]").first().click();
+    await rail.getByRole("button", { name: /^Глава 2 из 2/u }).click();
+    await rail
+      .getByRole("navigation", { name: "Главы курса" })
+      .getByRole("button", { name: /^Глава 1 /u })
+      .click();
     await rail
       .locator('[data-course-step="material:navigation-lesson-5"]')
       .click();

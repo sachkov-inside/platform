@@ -150,10 +150,13 @@ export function MaterialReaderPending({
           >
             <ReaderBodySkeleton />
           </div>
-          <MaterialReaderFooter
-            productContext={productContext}
-            format={material.format.slug}
-          />
+          {/* В курсе готовый урок заканчивается панелью действий, она приходит вместе с текстом. */}
+          {productContext?.programme == null ? (
+            <MaterialReaderFooter
+              productContext={productContext}
+              format={material.format.slug}
+            />
+          ) : null}
         </div>
       </ReaderFrame>
     </div>

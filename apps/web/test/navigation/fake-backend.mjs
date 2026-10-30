@@ -323,7 +323,7 @@ function body(lesson, entitled) {
   };
   const written =
     lesson.productMemberships[0]?.product.id === modesProductId ? [step] : [];
-  // Текст урока ссылается и на другой шаг программы, и на справочный документ курса.
+  // Текст урока ссылается на другой шаг программы, справочный документ курса и свой раздел.
   /** @type {import("@inside/material-blocks").RenderedBlock[]} */
   const crossLinks =
     lesson.slug === "reference-lesson-5"
@@ -346,6 +346,17 @@ function body(lesson, entitled) {
                 kind: "text",
                 text: "проект из текста",
                 marks: [{ kind: "link", href: "/materials/aie-project" }],
+              },
+              { kind: "text", text: ", ", marks: [] },
+              {
+                kind: "text",
+                text: "раздел этого урока",
+                marks: [
+                  {
+                    kind: "link",
+                    href: "/materials/reference-lesson-5#раздел-урока",
+                  },
+                ],
               },
             ],
           },

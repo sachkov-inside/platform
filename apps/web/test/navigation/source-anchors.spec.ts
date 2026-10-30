@@ -116,6 +116,22 @@ test("a same-page link scrolls to its section smoothly", async ({ page }) => {
   await expectHeadingInView(page);
   // An instant jump lands in one step; an animation passes through intermediate positions.
   expect(await positions()).toBeGreaterThan(2);
+  // The same link again emits no hashchange, yet still animates from the top.
+  await page.evaluate(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+    document
+      .querySelector("[data-application-content]")
+      ?.scrollTo({ top: 0, behavior: "instant" });
+  });
+  await expect(
+    page.getByRole("heading", { name: "Целевой материал", exact: true }),
+  ).toBeInViewport();
+  const repeated = await recordScroll(page);
+  await page
+    .getByRole("link", { name: "grill-with-docs", exact: true })
+    .click();
+  await expectHeadingInView(page);
+  expect(await repeated()).toBeGreaterThan(2);
 });
 
 test("reduced motion keeps the same-page jump instant", async ({ page }) => {
@@ -130,6 +146,33 @@ test("reduced motion keeps the same-page jump instant", async ({ page }) => {
     .click();
   await expectHeadingInView(page);
   expect(await positions()).toBeLessThanOrEqual(1);
+});
+
+test("a video moment fragment keeps the reader's place", async ({ page }) => {
+  await page.goto(`${target}#${anchor}`);
+  await expectHeadingInView(page);
+  const position = () =>
+    page.evaluate(() =>
+      Math.max(
+        window.scrollY,
+        document.querySelector<HTMLElement>("[data-application-content]")
+          ?.scrollTop ?? 0,
+      ),
+    );
+  const before = await position();
+  expect(before).toBeGreaterThan(0);
+  // Video chapters link to `#t=<seconds>`: the player seeks, the page stays where it is.
+  await page.evaluate(() => {
+    window.location.hash = "t=90";
+  });
+  await expect(page).toHaveURL(/#t=90$/u);
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+  expect(await position()).toBe(before);
 });
 
 test("a repeated fragment selects the visible body instead of a retained hidden page", async ({

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   courseReadingContext,
   isProgrammeStepOpenedForReference,
-  programmeStepLinkHref,
+  programmeStepLink,
 } from "@/features/library-discovery";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
@@ -505,24 +505,57 @@ describe("body links to programme steps", () => {
   if (context === null) throw new Error("Missing course context");
 
   it("opens another programme lesson as its step and keeps the authored section", () => {
-    expect(programmeStepLinkHref(context, "/materials/second#практика")).toBe(
+    const link = programmeStepLink(context, "/materials/second#практика");
+    expect(link?.step.id).toBe("material:second");
+    expect(link?.href).toBe(
       "/materials/second?from=%2Fproducts%2Fcourse%2Fprogramme%3Fat%3Dfirst#практика",
     );
-    expect(programmeStepLinkHref(context, "/materials/second")).toBe(
+    expect(programmeStepLink(context, "/materials/second")?.href).toBe(
       "/materials/second?from=%2Fproducts%2Fcourse%2Fprogramme%3Fat%3Dfirst",
     );
   });
 
+  it("opens a repeated Material at its placement in the reader's chapter", () => {
+    const repeated = courseReadingContext({
+      product: {
+        ...product,
+        programmePlacements: [
+          {
+            id: "p1",
+            materialId: "second-id",
+            chapterId: "one",
+            stepGroup: null,
+          },
+          {
+            id: "p2",
+            materialId: "first-id",
+            chapterId: "two",
+            stepGroup: null,
+          },
+          {
+            id: "p3",
+            materialId: "second-id",
+            chapterId: "two",
+            stepGroup: null,
+          },
+        ],
+      },
+      current: { kind: "material", slug: "first" },
+    });
+    if (repeated === null) throw new Error("Missing course context");
+    expect(repeated.currentChapterId).toBe("two:1");
+    expect(programmeStepLink(repeated, "/materials/second")?.step.id).toBe(
+      "material:second:p3",
+    );
+  });
+
   it("leaves references, outside Materials and other addresses to the reference view", () => {
-    expect(programmeStepLinkHref(context, "/materials/aie-project")).toBe(
-      undefined,
-    );
-    expect(programmeStepLinkHref(context, "/materials/elsewhere")).toBe(
-      undefined,
-    );
-    expect(
-      programmeStepLinkHref(context, "https://example.com/materials/second"),
-    ).toBe(undefined);
-    expect(programmeStepLinkHref(context, "#практика")).toBe(undefined);
+    for (const href of [
+      "/materials/aie-project",
+      "/materials/elsewhere",
+      "https://example.com/materials/second",
+      "#практика",
+    ])
+      expect(programmeStepLink(context, href)).toBe(undefined);
   });
 });

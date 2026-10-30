@@ -5,7 +5,7 @@ import { materialSourceAnchors } from "@/entities/material";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import {
   CourseTaskSubmissionStatuses,
-  programmeStepLinkHref,
+  programmeStepLink,
   withDeferredTaskStatuses,
 } from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
@@ -465,8 +465,22 @@ async function ResolvedMaterialReader({
                 programme.currentPosition === 0
                   ? undefined
                   : parseReaderCourseAnchor(current.id);
+              // Ссылка урока на шаг программы открывает этот шаг; дополнительный материал
+              // сохраняет исходный шаг и для своих ссылок.
+              const step =
+                productContext?.supplementary === true
+                  ? undefined
+                  : programmeStepLink(programme, href);
+              const fragment = href.indexOf("#");
+              // Раздел этого же урока остаётся переходом внутри страницы.
+              if (step?.step.id === current.id && fragment >= 0)
+                return (
+                  <a className={proseLinkClassName} href={href.slice(fragment)}>
+                    {label}
+                  </a>
+                );
               const target =
-                programmeStepLinkHref(programme, href) ??
+                step?.href ??
                 anchoredMaterialHref(href, programme.href, contextAnchor, true);
               return target === undefined ? undefined : (
                 <IntentPrefetchLink

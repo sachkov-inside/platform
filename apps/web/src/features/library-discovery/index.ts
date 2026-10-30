@@ -21,7 +21,7 @@ export {
 export {
   courseReadingContext,
   isProgrammeStepOpenedForReference,
-  programmeStepLinkHref,
+  programmeStepLink,
   withDeferredTaskStatuses,
   type CourseReadingContext,
   type CourseReadingStep,

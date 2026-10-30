@@ -91,6 +91,7 @@ test("reference navigation preserves nine steps and restores the originating les
 test("a body link to another programme step moves the chapter steps; a body link to a reference stays a reference", async ({
   page,
 }) => {
+  const phone = page.viewportSize()?.width === 390;
   await page.goto(lesson);
   await expect(
     page.getByRole("heading", { name: "Урок 5", exact: true }),
@@ -102,7 +103,13 @@ test("a body link to another programme step moves the chapter steps; a body link
     "href",
     /view=reference&anchor=material%3Areference-lesson-5/u,
   );
-  const step = body.getByRole("link", { name: "Сразу к уроку 7", exact: true });
+  await expect(
+    body.getByRole("link", { name: "раздел этого урока", exact: true }),
+  ).toHaveAttribute("href", "#раздел-урока");
+  const step = body.getByRole("link", {
+    name: "Сразу к уроку 7",
+    exact: true,
+  });
   const href = await step.getAttribute("href");
   expect(href).not.toContain("view=reference");
   expect(href).not.toContain("anchor=");
@@ -114,12 +121,10 @@ test("a body link to another programme step moves the chapter steps; a body link
     page.getByRole("heading", { name: "Урок 7", exact: true }),
   ).toBeVisible();
   await expectCourseReadingHost(page);
-  if (page.viewportSize()?.width === 390)
-    await page.getByRole("button", { name: "Вся программа" }).click();
-  const navigation =
-    page.viewportSize()?.width === 390
-      ? page.getByRole("dialog")
-      : page.getByRole("complementary", { name: "Текущая глава" });
+  if (phone) await page.getByRole("button", { name: "Вся программа" }).click();
+  const navigation = phone
+    ? page.getByRole("dialog")
+    : page.getByRole("complementary", { name: "Текущая глава" });
   await expect(
     navigation.locator('[data-course-step="material:reference-lesson-7"]'),
   ).toHaveAttribute("aria-current", "step");

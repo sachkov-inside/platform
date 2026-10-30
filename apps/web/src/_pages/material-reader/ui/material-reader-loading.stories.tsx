@@ -313,9 +313,15 @@ export const PendingVideo: Story = {
     for (const mark of marks) await expect(mark).toBeDisabled();
     const top = canvas.getByRole("navigation", { name: "Действия материала" });
     await expect(top).toBeVisible();
-    await expect(
-      canvas.getByRole("navigation", { name: "Шаги курса" }),
-    ).toBeVisible();
+    // Готовый урок курса заканчивается одной панелью действий, поэтому скелет не рисует шагов под
+    // текстом. У закрытого урока панели в конце нет, и шаги курса остаются.
+    const steps = canvas.queryByRole("navigation", { name: "Шаги курса" });
+    if (
+      canvasElement.querySelector('[data-material-reader-state="pending"]') ===
+      null
+    )
+      await expect(steps).toBeVisible();
+    else await expect(steps).toBeNull();
     await expect(
       canvas.queryByRole("navigation", { name: "Действия в конце материала" }),
     ).toBeNull();

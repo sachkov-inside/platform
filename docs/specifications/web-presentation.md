@@ -19,7 +19,9 @@ issues and evidence keep the history.
 
 Owner decision #1591 (accepted prototype A, desktop and mobile): Material action panels group
 Back, Save, Studied and Share at the left, with Next at the right. Repeat the same panel before
-the title and after practice/workspace, before course navigation. Omit Next when no successor
+the title and after practice/workspace. Owner correction 2026-10-30 (#1867): on a Material page
+the end panel is the only navigation after the text; no previous/next footer or supplementary
+return footer repeats it below. Omit Next when no successor
 exists. Preserve the computed Back destination, canonical sharing address and existing mutation
 adapters. The article has no automatic contents disclosure.
 
@@ -54,8 +56,9 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   padding. Full-width actions need a named layout reason.
 - In checked programme context, Course B supplies the course frame (#1414, owner 2026-10-13):
   a 272 px left chapter rail, position/title, the matching Material action panels, and
-  a desktop previous/next footer with neighbor titles. Reserve this composition in shared pending and
-  access states. Owner correction 2026-10-15: a floating rounded lesson dock without backdrop blur
+  a desktop previous/next footer with neighbor titles on task pages, which have no end action panel
+  (Material pages end with the action panel, #1867). Reserve this composition in shared pending and
+  access states; a pending Material page in a programme reserves no footer. Owner correction 2026-10-15: a floating rounded lesson dock without backdrop blur
   holds previous/next arrows, chapter/step position and a programme opener; its breakpoint and
   styling follow the 2026-10-30 correction below. Owner correction
   2026-10-27 (#1748): bottom navigation belongs only to learning, including programme sections
@@ -73,7 +76,7 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   44 px round buttons on the secondary surface; the dark centre shows a list icon (hidden on the
   narrowest phones), «Программа», a caption that describes the button and an upward chevron. The caption reads
   «Пройдено N из M» for the chapter once the reader's progress is known, otherwise the chapter and
-  step position. Tablets keep the previous/next footer, and their sheet fits its content. The
+  step position. Tablets keep the task-page previous/next footer, and their sheet fits its content. The
   programme sections bar keeps its compact width and stays phone-only. At 64rem the rail stays visible.
   Prose uses 16 px below 80rem and 18 px above; retain 15 px phone prose.
   Keep the mobile course heading at 20 px; omit format, course and topic metadata.
