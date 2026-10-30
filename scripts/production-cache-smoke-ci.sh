@@ -6,16 +6,19 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 owner="inside-platform-production-smoke-cache-ci-$$"
 source_sha="$(git rev-parse HEAD)"
 override="$(mktemp "${TMPDIR:-/tmp}/inside-production-cache.XXXXXX")"
-tags=("$owner-backend:v1" "$owner-backend:v2" "$owner-web:v1" "$owner-foundation:local")
+artifact_dir="${PRODUCTION_SMOKE_ARTIFACT_DIR:-ci-artifacts/compose-production-cache}"
+phase=preparation
+mkdir -p "$artifact_dir" || true
 cleanup() {
-  local status=$?
+  local original_status=$?
+  local status="$original_status"
   trap - EXIT
   if ! rm -f "$override"; then
     echo 'Failed to remove the owned cache override' >&2
     if ((status == 0)); then status=1; fi
   fi
-  if ! docker image rm "${tags[@]}" >/dev/null 2>&1; then
-    echo 'Failed to remove owned cache preparation tags' >&2
+  if ! node scripts/production-cache-diagnostics.mjs after "$artifact_dir" "$owner" "$source_sha" "$phase" "$original_status"; then
+    echo 'Owned cache preparation tag cleanup failed or unavailable' >&2
     if ((status == 0)); then status=1; fi
   fi
   exit "$status"
@@ -24,10 +27,12 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
+node scripts/production-cache-diagnostics.mjs before "$artifact_dir" "$owner" "$source_sha" "$phase" || true
 
 # Read only the checked-in model. Linux Compose parses bind mounts even with --no-normalize,
 # so use synthetic values for unrelated interpolation instead of unresolved ${NAME:?} paths.
 # No application env files are resolved; only the two literal digest pins leave preparation.
+phase=pinned-images
 echo '::group::Prepare pinned broker and edge images'
 pins="$(python3 - "$owner" <<'PYTHON'
 import json
@@ -78,13 +83,16 @@ echo '::endgroup::'
 
 echo '::group::Prepare exact-source cached production images'
 for release in v1 v2; do
+  phase="build-backend-$release"
   docker build --file apps/backend/Dockerfile --target backend-production \
     --build-arg "INSIDE_RELEASE_VERSION=$release" --build-arg "INSIDE_SOURCE_SHA=$source_sha" \
     --tag "$owner-backend:$release" .
 done
+phase=build-web
 docker build --file apps/web/Dockerfile --target web-production \
   --build-arg INSIDE_RELEASE_VERSION=v1 --build-arg "INSIDE_SOURCE_SHA=$source_sha" \
   --tag "$owner-web:v1" .
+phase=build-foundation
 docker build --file infra/production/database/Dockerfile --tag "$owner-foundation:local" infra/production/database
 foundation_id="$(docker image inspect "$owner-foundation:local" --format '{{.Id}}')"
 backend_id="$(docker image inspect "$owner-backend:v1" --format '{{.Id}}')"
@@ -94,6 +102,7 @@ printf 'services:\n  postgres:\n    image: %s\n    pull_policy: never\n  pgbackr
   "$foundation_id" "$foundation_id" "$foundation_id" >"$override"
 echo '::endgroup::'
 
+phase=runtime
 echo '::group::Run production smoke entirely from admitted cache'
 PRODUCTION_SMOKE_CACHE_ONLY=1 \
 PRODUCTION_SMOKE_CACHE_OWNER="$owner" \
