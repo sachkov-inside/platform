@@ -676,6 +676,79 @@ test("CLI accounts for independent squash sources and a merged prefix while main
   );
 });
 
+test("closed prefix retains its authenticated historical PR base when event base is older", async (t) => {
+  const initial = await fixture(t);
+  const historicalBase = initial.head;
+  await initial.git("checkout", "feature");
+  writeFileSync(resolve(initial.cwd, "historical-source"), "reviewed from X");
+  await initial.git("add", "historical-source");
+  await initial.git("commit", "-m", "historical head H");
+  const historicalHead = await initial.git("rev-parse", "HEAD");
+  initial.pr.base.sha = historicalBase;
+  initial.pr.head.sha = historicalHead;
+  initial.body.baseSha = historicalBase;
+  initial.body.headSha = historicalHead;
+  initial.publish();
+  await initial.git("checkout", "-b", "squash-queue", historicalBase);
+  await initial.git("merge", "--squash", "feature");
+  await initial.git("commit", "-m", "already merged historical prefix");
+  const prefix = await initial.git("rev-parse", "HEAD");
+  const f = { ...initial, candidate: prefix };
+  const { secondPr, candidate } = await addSecondSquash(f);
+  const closed = {
+    ...f.pr,
+    state: "closed",
+    merged: true,
+    merge_commit_sha: prefix,
+  };
+  f.routes["pulls/42"] = closed;
+  f.routes[`commits/${prefix}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "closed" },
+  ];
+  f.routes[`commits/${historicalBase}/pulls?per_page=100&page=1`] = [];
+  f.routes["git/ref/heads/main"] = {
+    ref: "refs/heads/main",
+    object: { type: "commit", sha: prefix },
+  };
+  secondPr.base = { ...secondPr.base, sha: prefix };
+  const secondComment = {
+    ...f.comment,
+    id: 124,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify({ ...f.body, pullRequest: 43, baseSha: f.base, headSha: secondPr.head.sha })}`,
+  };
+  f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
+  f.routes["issues/comments/124"] = secondComment;
+  f.routes["graphql:"] = queuePage([
+    queueEntry(43, prefix, candidate, secondPr.head.sha),
+  ]);
+  const valid = await f.check({ eventName: "merge_group" });
+  assert.equal(valid.status, 0, valid.stderr);
+  // The event's older B is not the authenticated historical comparison X.
+  f.body.baseSha = f.base;
+  f.publish();
+  const stale = await f.check({ eventName: "merge_group" });
+  assert.equal(stale.status, 1);
+  assert.match(stale.stderr, /Missing or duplicate current review receipt/u);
+  f.body.baseSha = historicalBase;
+  f.publish();
+  for (const responseRoutes of [
+    { ...f.routes, "pulls/42": { ...closed, merged: false } },
+    { ...f.routes, "pulls/42": { ...closed, merge_commit_sha: candidate } },
+    {
+      ...f.routes,
+      "git/ref/heads/main": {
+        ref: "refs/heads/main",
+        object: { type: "commit", sha: historicalBase },
+      },
+    },
+    { ...f.routes, [`commits/${prefix}/pulls?per_page=100&page=1`]: [] },
+  ])
+    assert.equal(
+      (await f.check({ eventName: "merge_group", responseRoutes })).status,
+      1,
+    );
+});
+
 test("squash verification invalidates stale PR, task and comment snapshots", async (t) => {
   const f = await squashFixture(t);
   for (const [path, changed] of [

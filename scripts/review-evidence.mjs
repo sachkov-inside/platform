@@ -526,11 +526,10 @@ export async function verify({
           pr["base"].sha === stringField(object(eventPr["base"]), "sha"),
         "PR changed since event",
       );
-    const comparisonBase = git(
-      "merge-base",
-      pr.state === "open" ? pr.base.sha : base,
-      pr.head.sha,
-    );
+    // Open PR bases follow current main. A merged PR retains its historical
+    // provider base snapshot; neither an older event nor moving main can replace
+    // that authenticated comparison input. Receipt matching has no fallback.
+    const comparisonBase = git("merge-base", pr.base.sha, pr.head.sha);
     const comments = await pages(`issues/${number}/comments`);
     const receipts = [];
     for (const rawComment of comments) {

@@ -114,11 +114,13 @@ cannot authorize repeated squash transitions, and ambiguous source matches fail 
 
 A preceding squash source may already be closed only when GitHub reports it merged with that exact
 `merge_commit_sha`, a REST association for that exact transition, and membership in authenticated
-`refs/heads/main` history extending the event base. Its historical receipt remains required and
-uses the event base for comparison. At least one current open source is required for a queue run.
-An open source's comparison merge-base is computed from its current authenticated PR base and head.
-An advance that enters the source history therefore needs a new receipt, even when the event base
-is older. Unrelated advances retain review only when the comparison merge-base stays unchanged.
+`refs/heads/main` history extending the event base. Its historical receipt remains required. A closed
+source's comparison merge-base uses its authenticated retained PR base snapshot and head, rather
+than an older event base or main's current tip. An open source uses its current authenticated PR
+base and head. Neither source type has a fallback to another comparison base when receipt matching
+fails. At least one current open source is required for a queue run.
+For an open source, an advance that enters its history therefore needs a new receipt, even when
+the event base is older. Unrelated advances retain review only when the comparison merge-base stays unchanged.
 An event starting after a merged prefix verifies only the remaining sources. Unknown
 commits, altered merge resolutions, conflicting inputs, unsupported topology, missing Git objects
 and API failures fail closed. Multi-PR groups need evidence for every source outside the event base.
