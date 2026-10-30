@@ -364,8 +364,10 @@ docker compose -f /srv/inside/observability/releases/COMMIT/compose.json \
 
 Native PostgreSQL/Caddy projection использует отдельный textfile scrape:
 `job="platform-owner-cache", instance="production-host"`. Единственный dedicated scrape этого кэша
-выполняется раз в 1 s с timeout 1 s; существующая очередь `prometheus.remote_write.host`
-имеет `batch_send_deadline = "1s"`. Producer PG/Caddy по-прежнему обновляет native наблюдения
+выполняется раз в 500 ms с более строгим timeout 500 ms; существующая общая очередь
+`prometheus.remote_write.host` имеет `batch_send_deadline = "100ms"`. Более короткий batch
+касается также host/container streams, которые по-прежнему собираются раз в 15 s.
+Producer PG/Caddy по-прежнему обновляет native наблюдения
 раз в 5 s. Более частое чтение уже подготовленных файлов и короткий batch уменьшают суммарную
 задержку до хранилища; timestamps наблюдений и требование свежести 0..10 s не меняются.
 Это подготовленная конфигурация, её применение на production требует отдельного запуска.
