@@ -345,6 +345,51 @@ describe("application CI workflow contract", () => {
       /ref: \$\{\{ inputs.source_sha \|\| github.sha \}\}/u,
     );
   });
+  it("selects native recovery when its process-exit dependency changes", () => {
+    const reusable = readFileSync(
+      resolve(repositoryRoot, ".github/workflows/foundation-recovery.yml"),
+      "utf8",
+    );
+    const command = reusable
+      .match(/ {8}run: \|\n([\s\S]*?)\n {2}recover:/u)?.[1]
+      ?.replace(/^ {10}/gmu, "");
+    assert.ok(command);
+    const fixture = mkdtempSync(resolve(tmpdir(), "inside-recovery-paths-"));
+    /** @type {Array<[string, string]>} */
+    const cases = [
+      ["scripts/heavy-check/processes.py", "required=true\n"],
+      ["apps/web/src/unrelated.ts", "required=false\n"],
+    ];
+    try {
+      for (const [changedPath, expected] of cases) {
+        const output = resolve(fixture, "output");
+        rmSync(output, { force: true });
+        /** @type {import("node:child_process").SpawnSyncReturns<string>} */
+        const execution = spawnSync(
+          "bash",
+          [
+            "-euc",
+            `git() { for path in "$@"; do if [ "$path" = "$CHANGED_PATH" ]; then return 1; fi; done; return 0; }\n${command}`,
+          ],
+          {
+            encoding: "utf8",
+            env: {
+              ...process.env,
+              BASE_SHA: "a".repeat(40),
+              HEAD_SHA: "b".repeat(40),
+              CHANGED_PATH: changedPath,
+              GITHUB_OUTPUT: output,
+            },
+            timeout: 5_000,
+          },
+        );
+        assert.equal(execution.status, 0, execution.stderr);
+        assert.equal(readFileSync(output, "utf8"), expected, changedPath);
+      }
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
   it("excludes focused jobs only while selected package commands execute their complete coverage", () => {
     assert.deepEqual(coverageSupersets, { docs: "static", contracts: "unit" });
     assertFocusedSupersets(rootScripts);
