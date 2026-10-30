@@ -326,6 +326,20 @@ export const CohortPreorderMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
+/** Действие внутри тёмного блока, ниже сцены: панели анимации остаются открыты. */
+async function expectFilmActionPlacement(film: HTMLElement) {
+  const scene = film.querySelector(".aie-film") ?? fail("Сцена анимации");
+  const link =
+    film.querySelector(".aie-learning-link") ?? fail("Действие обучения");
+  const frame = film.getBoundingClientRect();
+  const sceneBounds = scene.getBoundingClientRect();
+  const actionBounds = link.getBoundingClientRect();
+  await expect(actionBounds.top).toBeGreaterThanOrEqual(sceneBounds.bottom);
+  await expect(actionBounds.bottom).toBeLessThan(frame.bottom);
+  await expect(actionBounds.left).toBeGreaterThan(frame.left);
+  await expect(actionBounds.right).toBeLessThan(frame.right);
+}
+
 /** Участник продолжает обучение с анимации; нижний блок «что входит» ему не нужен. */
 async function expectParticipantActions(canvasElement: HTMLElement) {
   const film =
@@ -334,6 +348,7 @@ async function expectParticipantActions(canvasElement: HTMLElement) {
   await expect(
     within(film).getByRole("link", { name: "Продолжить обучение" }),
   ).toHaveAttribute("href", "/products/ai-engineering/programme");
+  await expectFilmActionPlacement(film);
   const status =
     canvasElement.querySelector<HTMLElement>(".aie-status") ??
     fail("Нижний блок");
@@ -555,6 +570,7 @@ async function expectFreeStart(
   await expect(
     within(film).getByRole("link", { name: "Попробовать бесплатно" }),
   ).toHaveAttribute("href", "/products/ai-engineering/programme");
+  await expectFilmActionPlacement(film);
   const ticket =
     canvasElement.querySelector<HTMLElement>(".aie-cohort-ticket") ??
     fail("Билет нижнего блока");
