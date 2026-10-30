@@ -23,7 +23,7 @@ export interface FormattingEntity {
 }
 export interface TemplateContent {
   readonly type:
-    "text" | "photo" | "video" | "video_note" | "voice" | "document";
+    "text" | "photo" | "video" | "video_note" | "voice" | "document" | "native";
   readonly text: string;
   readonly entities: readonly FormattingEntity[];
   readonly buttons: readonly {
@@ -32,6 +32,9 @@ export interface TemplateContent {
     readonly row?: number;
   }[];
   readonly fileId?: string;
+  readonly nativeRef?: string;
+  readonly nativeCount?: number;
+  readonly nativeLinks?: readonly string[];
 }
 export interface TemplateSnapshot {
   readonly templateId: string;
@@ -123,17 +126,27 @@ export function validateContent(
   if (
     content.type === "text"
       ? !hasText(content.text) || content.fileId !== undefined
-      : !hasText(content.fileId)
+      : content.type !== "native" && !hasText(content.fileId)
   )
     throw new CommunicationsError("unsupported_content");
   if (
-    (content.type === "text" && content.text.length > 4096) ||
-    (content.type !== "text" && content.text.length > 1024) ||
+    ((content.type === "text" || content.type === "native") &&
+      content.text.length > 4096) ||
+    (content.type !== "text" &&
+      content.type !== "native" &&
+      content.text.length > 1024) ||
     (content.type === "video_note" &&
       (content.text !== "" || content.entities.length > 0))
   )
     throw new CommunicationsError("unsupported_content");
+  if (
+    content.type === "native" &&
+    (content.nativeCount ?? 0) > 1 &&
+    content.buttons.length > 0
+  )
+    throw new CommunicationsError("unsupported_content");
   for (const button of content.buttons) assertSafeUrl(button.url);
+  for (const url of content.nativeLinks ?? []) assertSafeUrl(url);
   const rows = new Map<number, number>();
   content.buttons.forEach((b, index) =>
     rows.set(b.row ?? index, (rows.get(b.row ?? index) ?? 0) + 1),
@@ -205,7 +218,7 @@ function splitsSurrogate(text: string, index: number): boolean {
 }
 const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
 const isLowSurrogate = (code: number) => code >= 0xdc00 && code <= 0xdfff;
-function assertSafeUrl(value: string, allowBareDomain = false): void {
+export function assertSafeUrl(value: string, allowBareDomain = false): void {
   let url: URL;
   try {
     const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(value);

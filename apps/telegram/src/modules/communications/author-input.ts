@@ -1,5 +1,7 @@
 /** A private-chat message or `author:` callback that may belong to the author admin dialog. */
-export interface AuthorInput {
+import type { NativeMessageInput } from "./native-message-input.js";
+
+export interface AuthorInput extends NativeMessageInput {
   readonly botIdentity: string;
   readonly updateId: string;
   readonly telegramUserId: string;
@@ -12,11 +14,11 @@ export interface AuthorInput {
 }
 
 /** A private-chat message for the `/template` intake mode. */
-export interface TemplateIntake {
+export interface TemplateIntake extends NativeMessageInput {
   readonly botIdentity: string;
   readonly updateId: string;
   readonly telegramUserId: string;
   readonly privateChatId: string;
-  readonly action: "open" | "close" | "capture";
+  readonly action: "open" | "close" | "capture" | "finish";
   readonly content: unknown;
 }
