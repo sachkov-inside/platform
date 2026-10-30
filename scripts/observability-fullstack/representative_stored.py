@@ -49,41 +49,48 @@ _JSON_FIELDS={
 }
 
 
+def _string_json(value,*,required=False):
+    from representative_reader import decode,MAX_BYTES
+    # Encoding failures are policy failures even for ordinary text. Optional
+    # recognition catches syntax errors only; strict decoder failures propagate.
+    raw=value.encode('utf-8')
+    if required:return True,decode(raw)
+    if not value.lstrip().startswith(('{','[','"')):return False,None
+    need(0<len(raw)<=MAX_BYTES,'representative_response_size')
+    try:json.loads(value)
+    except json.JSONDecodeError:return False,None
+    except RecursionError:need(False,'representative_stored_size')
+    return True,decode(raw)
+
+
 def scan(value,*,signal=None,table=None,columns=None,bundle=False):
     # Bind row contexts without removing the raw wrapper. One original budget
     # includes the envelope, every cell/copy, and all nested decoded expansions.
+    # Every exact String/key is considered for complete JSON by default. Row
+    # context only strengthens decoding to required JSON; it never excludes it.
     need(signal is None or signal in _JSON_FIELDS)
     count=0;characters=0
     def cell(item,key,owner,depth):
         visit(item,depth,required=key in _JSON_FIELDS[owner],
-            events=owner=='traces' and key=='events',text=True)
-    def visit(item,depth=0,*,rows=None,row=None,required=False,events=False,text=False):
+            events=owner=='traces' and key=='events')
+    def visit(item,depth=0,*,rows=None,row=None,required=False,events=False):
         nonlocal count,characters
         count+=1;need(depth<=16 and count<=65536,'representative_stored_size')
         if type(item) is dict:
             for key,child in item.items():
-                visit(key,depth+1,text=text or row is not None)
+                visit(key,depth+1)
                 if row is not None:cell(child,key,row,depth+1)
-                else:visit(child,depth+1,rows=key if bundle and depth==0 else None,text=text)
+                else:visit(child,depth+1,rows=key if bundle and depth==0 else None)
         elif type(item) is list:
             if item is table:rows=signal
             for index,child in enumerate(item):
                 if row is not None:cell(child,columns[index],row,depth+1)
-                else:visit(child,depth+1,row=rows,required=events,text=text)
+                else:visit(child,depth+1,row=rows,required=events)
         elif type(item) is str:
             characters+=len(item);need(characters<=1048576,'representative_stored_size')
             _PRIVACY.assert_clean(item)
-            from representative_reader import decode
-            if required:
-                visit(decode(item.encode('utf-8')),depth+1,text=True)
-            elif text and item.lstrip().startswith(('{','[','"')):
-                # Only a schema-owned String cell/leaf may fall back to text.
-                # Recognize syntax, then strictly re-decode complete JSON so
-                # duplicates, depth/bytes and hidden copies cannot be discarded.
-                try:json.loads(item)
-                except json.JSONDecodeError:return
-                except RecursionError:need(False,'representative_stored_size')
-                visit(decode(item.encode('utf-8')),depth+1,text=True)
+            decoded,representation=_string_json(item,required=required)
+            if decoded:visit(representation,depth+1)
         elif type(item) in (int,float):need(math.isfinite(item),'representative_stored_number')
         else:need(item is None or type(item) is bool)
     visit(value,rows=signal if table is None else None)

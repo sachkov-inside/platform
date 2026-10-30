@@ -295,6 +295,109 @@ class DecodedPrivacy(unittest.TestCase):
                 stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},release='c'*40,start=1800000000000,cut=1800000020000)
 
 
+class FullEnvelopeStringPrivacy(unittest.TestCase):
+    def envelope(self):
+        bundle=NativeSdkProjection().bundle()
+        return bundle,json.loads(scalar_wire(stored.TRACE_COLUMNS,bundle['traces']))
+
+    def verdict(self,bundle,envelope):
+        bundle['traces']=stored.raw_rows(json.dumps(envelope,separators=(',',':')).encode(),'traces')
+        return stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+            release='c'*40,start=1800000000000,cut=1800000020000)
+
+    def test_descriptor_unit_escaped_marker_refuses_before_discard_and_full_verdict(self):
+        escaped=''.join('\\u%04x'%ord(char) for char in stored._PRIVACY.SENTINEL)
+        bundle,envelope=self.envelope()
+        envelope['data']['data']['results'][0]['columns'][0]['meta']={'unit':'{"hidden":"'+escaped+'"}'}
+        with self.subTest(boundary='raw_rows'),self.assertRaisesRegex(RuntimeError,'privacy'):
+            stored.raw_rows(json.dumps(envelope,separators=(',',':')).encode(),'traces')
+        with self.subTest(boundary='raw_rows_to_validate_bundle'),self.assertRaisesRegex(RuntimeError,'privacy'):
+            self.verdict(bundle,envelope)
+
+    def test_descriptor_and_untyped_wrapper_strings_and_keys_are_inspected(self):
+        escaped=''.join('\\u%04x'%ord(char) for char in stored._PRIVACY.SENTINEL)
+        hidden='{"hidden":"'+escaped+'"}'
+        hidden_key='{"'+escaped+'":"clean"}'
+        # Each admitted sibling is visited before descriptor removal. This is
+        # generic inspection, not a claim about these optional fields' types.
+        cases=[('descriptor',name,hidden) for name in ('queryName','aggregationIndex','columnType',
+            'signal','fieldContext','fieldDataType','materialized')]
+        cases += [('descriptor','meta',{'unit':value}) for value in (
+            stored._PRIVACY.SENTINEL,hidden_key,json.dumps([json.dumps({'copy':hidden})]),
+            '"'+escaped+'"')]
+        cases += [('descriptor','meta',{hidden_key:'clean'}),
+            ('descriptor','meta',{'unit':{json.dumps(hidden):['clean']}}),
+            ('wrapper','meta',hidden),('wrapper','meta',{hidden_key:'clean'}),
+            ('wrapper','meta',[{'copy':json.dumps(hidden)}])]
+        for owner,name,value in cases:
+            bundle,envelope=self.envelope()
+            target=envelope['data'] if owner=='wrapper' else envelope['data']['data']['results'][0]['columns'][0]
+            target[name]=value
+            with self.subTest(owner=owner,name=name,value=value):
+                with self.assertRaisesRegex(RuntimeError,'privacy'):
+                    stored.raw_rows(json.dumps(envelope,separators=(',',':')).encode(),'traces')
+                with self.assertRaisesRegex(RuntimeError,'privacy'):self.verdict(bundle,envelope)
+
+    def test_clean_complete_json_and_benign_prefixes_preserve_original_envelope_strings(self):
+        texts=('s','[INFO] native unit','{request} completed','"request" completed',
+            '{"unit":"s"}','["s"]','"seconds"')
+        for text in texts:
+            bundle,envelope=self.envelope();original=copy.deepcopy(bundle['traces'])
+            envelope['data']['data']['results'][0]['columns'][0].update(meta={'unit':text,text:'clean'},queryName=text)
+            envelope['data']['meta']={text:[text]}
+            with self.subTest(text=text):
+                raw=json.dumps(envelope,separators=(',',':')).encode()
+                self.assertEqual(stored.raw_rows(raw,'traces'),original)
+                result=self.verdict(bundle,envelope)
+                self.assertEqual(result['sdk_span_semantics'],'passed')
+                self.assertEqual(result['sdk_metric_semantics'],'passed')
+                self.assertEqual(result['full_privacy'],'unknown')
+
+    def test_complete_optional_json_policy_failures_never_fall_back_to_text(self):
+        cases=(' {"x":0,"\\u0078":1}', '['*17+'0'+']'*17, '['*8+'0'+']'*8,
+            '{"x":NaN}','[Infinity]','{"x":1e400}',json.dumps('\ud800'))
+        for payload in cases:
+            for key in (False,True):
+                bundle,envelope=self.envelope()
+                envelope['data']['data']['results'][0]['columns'][0]['meta']=({payload:'clean'} if key else {'unit':payload})
+                with self.subTest(payload=payload,key=key):
+                    with self.assertRaises(ValueError):
+                        stored.raw_rows(json.dumps(envelope,separators=(',',':')).encode(),'traces')
+                    with self.assertRaises(ValueError):self.verdict(bundle,envelope)
+
+    def test_string_expansion_depth_bytes_and_unicode_are_checked_at_complete_bundle(self):
+        nested='clean'
+        for _ in range(18):nested=json.dumps(nested)
+        for payload in (nested,'['*13+'0'+']'*13,json.dumps('a'*65536),'\ud800','[1,2,3]'+(' '*65536)):
+            bundle=NativeSdkProjection().bundle();bundle['metrics'][0]['description']=payload
+            with self.subTest(size=len(payload)),self.assertRaises(ValueError):
+                stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                    release='c'*40,start=1800000000000,cut=1800000020000)
+
+    def test_whole_bundle_shares_visit_and_character_budgets_across_two_copies(self):
+        # Each copy fits alone, but together the complete input must refuse.
+        # The character case crosses signal arrays as well as row boundaries.
+        for kind,payload in (('visits','['+','.join(['0']*30000)+']'),('characters','a'*524288)):
+            for index in (0,1):
+                bundle=NativeSdkProjection().bundle()
+                if kind=='visits':bundle['metrics'][index]['description']=payload
+                elif index==0:bundle['traces'][-1]['status_message']=payload
+                else:bundle['metadata']=[dict.fromkeys(stored.META_COLUMNS,'')|{'description':payload}]
+                with self.subTest(kind=kind,single=index):
+                    result=stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                        release='c'*40,start=1800000000000,cut=1800000020000)
+                    self.assertEqual(result['sdk_metric_semantics'],'passed')
+            bundle=NativeSdkProjection().bundle()
+            if kind=='visits':
+                for row in bundle['metrics'][:2]:row['description']=payload
+            else:
+                bundle['traces'][-1]['status_message']=payload
+                bundle['metadata']=[dict.fromkeys(stored.META_COLUMNS,'')|{'description':payload}]
+            with self.subTest(kind=kind,together=True),self.assertRaisesRegex(ValueError,'representative_stored_size'):
+                stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                    release='c'*40,start=1800000000000,cut=1800000020000)
+
+
 class StoredTextContracts(unittest.TestCase):
     def test_ordinary_prefixed_text_survives_raw_rows_and_full_validation(self):
         for text in ('[INFO] request complete','{request} completed','"request" completed'):
@@ -398,12 +501,19 @@ class StoredTextContracts(unittest.TestCase):
 
     def test_foreign_objects_refuse_without_executing_hooks(self):
         hooks=[]
-        class Hostile(dict):
+        class HostileDict(dict):
             def items(self):hooks.append('items');raise AssertionError('hook')
             def __iter__(self):hooks.append('iter');raise AssertionError('hook')
             def __str__(self):hooks.append('str');raise AssertionError('hook')
-        for value in (Hostile(secret='hidden'),object()):
-            with self.assertRaises(ValueError):stored.scan(value)
+        class HostileList(list):
+            def __iter__(self):hooks.append('list.iter');raise AssertionError('hook')
+        class HostileString(str):
+            def encode(self,*args,**kwargs):hooks.append('encode');raise AssertionError('hook')
+            def lstrip(self,*args,**kwargs):hooks.append('lstrip');raise AssertionError('hook')
+            def __str__(self):hooks.append('string.str');raise AssertionError('hook')
+        class HostileObject:
+            def __str__(self):hooks.append('object.str');raise AssertionError('hook')
+        for value in (HostileDict(secret='hidden'),HostileList(['hidden']),HostileString('hidden'),HostileObject(),object()):
             bundle=NativeSdkProjection().bundle();bundle['traces'][-1]['scope']=value
             with self.assertRaises(ValueError):stored.span_facts(bundle['traces'],trace_id='a'*32,release='c'*40)
             with self.assertRaises(ValueError):
@@ -412,4 +522,9 @@ class StoredTextContracts(unittest.TestCase):
             bundle=NativeSdkProjection().bundle();bundle['metrics'][-1]['resource_attrs']=value
             with self.assertRaises(ValueError):stored.metric_facts(bundle['metrics'],release='c'*40,start=1800000000000,cut=1800000020000)
             with self.assertRaises(ValueError):stored.native_probe_cases(bundle['metrics'],release='c'*40,cut=1800000020000)
+        bundle=NativeSdkProjection().bundle();bundle['traces'][-1]['scope']={HostileString('key'):'clean'}
+        with self.assertRaises(ValueError):stored.span_facts(bundle['traces'],trace_id='a'*32,release='c'*40)
+        with self.assertRaises(ValueError):
+            stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                release='c'*40,start=1800000000000,cut=1800000020000)
         self.assertEqual(hooks,[])
