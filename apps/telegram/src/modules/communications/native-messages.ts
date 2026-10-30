@@ -260,6 +260,13 @@ export class NativeMessages {
       .where("context_hash", "=", context.hash)
       .forUpdate()
       .executeTakeFirst();
+    // Scope must be checked before any early refusal can mutate an existing capture.
+    if (
+      row &&
+      (row.owner_account_ref !== context.accountRef ||
+        row.telegram_identity_ref !== context.identityRef)
+    )
+      throw new CommunicationsError("not_found");
     const source = input.nativeSource;
     const now = this.clock.now();
     if (!row && source?.mediaGroupId !== undefined) {
@@ -316,7 +323,11 @@ export class NativeMessages {
     } else if (source) {
       if (row.state === "unknown" || row.state === "rejected")
         return status(row);
-      if (source.rejection !== undefined && row.state === "collecting") {
+      if (
+        source.rejection !== undefined &&
+        row.state === "collecting" &&
+        source.mediaGroupId === row.media_group_id
+      ) {
         row = await tx
           .updateTable("communication_native_copies")
           .set({ state: "rejected", diagnostic_code: source.rejection })
@@ -373,11 +384,6 @@ export class NativeMessages {
           .executeTakeFirstOrThrow();
       }
     }
-    if (
-      row.owner_account_ref !== context.accountRef ||
-      row.telegram_identity_ref !== context.identityRef
-    )
-      throw new CommunicationsError("not_found");
     if (row.state === "ready") return ready(row);
     if (row.state === "unknown" || row.state === "rejected") return status(row);
     if (row.state === "sending") {

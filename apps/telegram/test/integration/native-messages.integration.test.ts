@@ -583,6 +583,59 @@ describe("native message archive on PostgreSQL with synthetic Telegram", () => {
       .executeTakeFirst();
     expect(reminder?.message_text).toContain("Оставьте первую копию");
   });
+  it("preserves a collecting album when a different album has a rejected caption", async () => {
+    await open();
+    await posts.intake(input("2", { nativeSource: source(7, "album-a") }));
+    await posts.intake(
+      input("3", {
+        nativeSource: {
+          ...source(9, "album-b"),
+          rejection: "album_caption_too_long",
+        },
+      }),
+    );
+    expect((await archives())[0]).toMatchObject({
+      state: "collecting",
+      media_group_id: "album-a",
+    });
+    await posts.intake(input("4", { nativeSource: source(8, "album-a") }));
+    expect(calls).toHaveLength(0);
+    result = { kind: "delivered", messageIds: [501, 502] };
+    await posts.intake(input("5", { action: "finish", text: "/done" }));
+    expect(calls[0]?.messageIds).toEqual([7, 8]);
+    expect(await templates()).toHaveLength(1);
+  });
+  it.each(["owner", "identity"] as const)(
+    "rejects stale archive %s before mutating a rejected input",
+    async (field) => {
+      await open();
+      await posts.intake(input("2", { nativeSource: source(7, "album") }));
+      await database
+        .updateTable("communication_native_copies")
+        .set(
+          field === "owner"
+            ? { owner_account_ref: "foreign" }
+            : { telegram_identity_ref: "foreign" },
+        )
+        .execute();
+      await expect(
+        posts.intake(
+          input("3", {
+            nativeSource: {
+              ...source(8, "album"),
+              rejection: "album_caption_too_long",
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({ code: "not_found" });
+      expect((await archives())[0]).toMatchObject({
+        state: "collecting",
+        diagnostic_code: null,
+      });
+      expect((await archives())[0]?.sources).toHaveLength(1);
+      expect(calls).toHaveLength(0);
+    },
+  );
   it("rejects the whole album when a later part has a caption over the accepted limit", async () => {
     await open();
     await posts.intake(input("2", { nativeSource: source(7, "album") }));
