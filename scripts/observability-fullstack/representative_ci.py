@@ -105,9 +105,19 @@ def admitted():
 
 def minimal_gate():
     _,runtime,source=admitted();output=paths().minimal
-    runtime.verify_source(read(output/'source.json',1048576),runtime.lifecycle.MCP512_PROFILE)
+    metadata=read(output/'source.json',1048576)
+    need(type(metadata) is dict and type(metadata.get('schema')) is int and metadata['schema']==2)
+    runtime.verify_source(metadata,runtime.lifecycle.MCP512_PROFILE)
     outcome=read(output/'outcome.json');clean=read(output/'cleanup.json')
     functional=read(output/'functional.json');states=read(output/'states.json')
+    need(type(outcome) is dict and set(outcome)=={'profile_id','passed','worker_exit','worker_seconds',
+        'runtime_limit_seconds','cleanup','full_workload','capacity_acceptance'}
+        and type(outcome['runtime_limit_seconds']) is int and outcome['runtime_limit_seconds']==600
+        and type(outcome['cleanup']) is dict and set(outcome['cleanup'])=={'passed','roles_healthy'})
+    need(type(clean) is dict and set(clean)=={'passed','failed_operations','exact_containers','exact_volumes','exact_networks'})
+    need(type(functional) is dict and set(functional)==set(runtime.evidence.FACTS)|{'query_seconds',
+        'empty_fixture_span_count','local_raw_input_negatives','full_workload_acceptance','capacity_acceptance'}
+        and type(functional['local_raw_input_negatives']) is int and functional['local_raw_input_negatives']==3)
     runtime.evidence.functional(functional)
     observed=runtime.evidence.outcome(outcome,runtime.lifecycle.MCP512_PROFILE)
     cleanup=runtime.evidence.cleanup(clean);healthy=runtime.evidence.states(states)

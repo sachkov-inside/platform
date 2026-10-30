@@ -339,3 +339,42 @@ class RecoveryAuthority(unittest.TestCase):
             bridge.write(prepared/'representative-trial.json',{'schema':1,'source':{},'bindings':BINDINGS,'images':pins(),'deadline_mono_ns':registry['deadline_mono_ns']})
             runtime=SimpleNamespace(verify_source=lambda *_:None,lifecycle=SimpleNamespace(MCP512_PROFILE='fixed'),stop_worker=lambda *_:self.fail('foreign worker stopped'))
             with self.assertRaises(ValueError):bridge._recover_project(representative_witness,runtime,fixed)
+
+
+class MinimalPrerequisite(unittest.TestCase):
+    def test_gate_accepts_actual_typed_shape_and_refuses_boolean_float_or_extra_metadata_before_output(self):
+        import copy
+        from types import SimpleNamespace
+        _,real=bridge.modules();source={'schema':2,'commit':'a'*40,'tree':'b'*40}
+        runtime=SimpleNamespace(lifecycle=real.lifecycle,evidence=real.evidence,
+            verify_source=lambda value,_:bridge.need(value==source))
+        fixtures={'source.json':source,
+            'outcome.json':{'profile_id':real.lifecycle.MCP512_PROFILE,'passed':True,'worker_exit':0,'worker_seconds':321.5,
+                'runtime_limit_seconds':600,'cleanup':{'passed':True,'roles_healthy':True},'full_workload':False,'capacity_acceptance':False},
+            'functional.json':{**dict.fromkeys(real.evidence.FACTS,1),'empty_fixture_span_count':0,'query_seconds':.5,
+                'local_raw_input_negatives':3,'full_workload_acceptance':0,'capacity_acceptance':0},
+            'cleanup.json':{'passed':True,'failed_operations':[],'exact_containers':11,'exact_volumes':7,'exact_networks':1},
+            'states.json':{role:{'exit_code':0,'running':role not in real.lifecycle.EXITED_ROLES,'oom_killed':False,'restart_count':0}
+                for role in real.lifecycle.SERVICES}}
+        invalid=(('source.json',('schema',),2.0),('outcome.json',('runtime_limit_seconds',),600.0),
+            ('outcome.json',('worker_exit',),False),('outcome.json',('passed',),1),
+            ('outcome.json',('worker_seconds',),False),('outcome.json',('cleanup','roles_healthy'),1),
+            ('functional.json',('bootstrap',),True),('functional.json',('empty_fixture_span_count',),False),
+            ('functional.json',('local_raw_input_negatives',),3.0),('functional.json',('schema',),True),
+            ('cleanup.json',('exact_containers',),11.0),('cleanup.json',('passed',),1),
+            ('states.json',(real.lifecycle.SERVICES[0],'restart_count'),False))
+        for mutation in (None,*invalid):
+            with self.subTest(mutation=mutation),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();minimal=root/'minimal';minimal.mkdir(mode=0o700);output=root/'output'
+                values=copy.deepcopy(fixtures)
+                if mutation is not None:
+                    name,keys,bad=mutation;target=values[name]
+                    for key in keys[:-1]:target=target[key]
+                    target[keys[-1]]=bad
+                for name,value in values.items():bridge.write(minimal/name,value)
+                with patch.object(bridge,'admitted',return_value=(None,runtime,source)),patch.object(bridge,'paths',return_value=SimpleNamespace(minimal=minimal)),patch.dict(os.environ,{'GITHUB_OUTPUT':str(output)}):
+                    if mutation is None:
+                        bridge.minimal_gate();self.assertEqual(output.read_text(),'sha='+'a'*40+'\n')
+                    else:
+                        with self.assertRaises(ValueError):bridge.minimal_gate()
+                        self.assertFalse(output.exists())
