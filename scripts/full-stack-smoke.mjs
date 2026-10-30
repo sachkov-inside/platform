@@ -26,6 +26,10 @@ import {
 } from "./full-stack-options.mjs";
 
 import { z } from "zod";
+import {
+  createDiagnosticStream,
+  firstFailureSnapshot,
+} from "./full-stack-diagnostics.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpmExecutable = process.env["npm_execpath"];
@@ -191,6 +195,10 @@ const fixtureDirectory = mkdtempSync(
 );
 /** @type {Set<ProcessEntry>} */
 const activeProcesses = new Set();
+const captureFirstFailure = firstFailureSnapshot(
+  () => processes,
+  (line) => process.stdout.write(line),
+);
 /** @type {Promise<void> | undefined} */
 let cleanupPromise;
 /** @type {NodeJS.Signals | undefined} */
@@ -516,13 +524,31 @@ function startPnpm(name, arguments_, environment) {
   });
   const entry = { name, child, output };
   activeProcesses.add(entry);
-  child.once("error", (error) => output.push(String(error)));
+  const secrets = Object.entries(environment)
+    .filter(([key]) => /TOKEN|SECRET|SESSION|PASSWORD|KEY/u.test(key))
+    .flatMap(([, value]) => (value === undefined ? [] : [value]));
+  const browser = arguments_.includes(fullStackBrowserCommand);
+  /** @param {NodeJS.WriteStream} destination */
+  function diagnosticStream(destination) {
+    return createDiagnosticStream((line) => {
+      retainOutput(output, line);
+      if (browser) {
+        captureFirstFailure(line);
+        destination.write(line);
+      }
+    }, secrets);
+  }
+  const stdout = diagnosticStream(process.stdout);
+  const stderr = diagnosticStream(process.stderr);
+  child.once("error", () => output.push("Process failed to start\n"));
   child.stdout?.on("data", (/** @type {Buffer} */ chunk) =>
-    retainOutput(output, chunk),
+    stdout.write(chunk),
   );
   child.stderr?.on("data", (/** @type {Buffer} */ chunk) =>
-    retainOutput(output, chunk),
+    stderr.write(chunk),
   );
+  child.stdout?.once("end", () => stdout.end());
+  child.stderr?.once("end", () => stderr.end());
   return entry;
 }
 
@@ -535,11 +561,6 @@ async function runPnpm(arguments_, environment = childEnvironment) {
   const entry = startPnpm("pnpm", arguments_, environment);
   /** @type {number | null} */
   let exitCode = null;
-  if (arguments_.includes(fullStackBrowserCommand)) {
-    // Stream browser measurements before the bounded failure log can evict their chunks.
-    entry.child.stdout?.pipe(process.stdout, { end: false });
-    entry.child.stderr?.pipe(process.stderr, { end: false });
-  }
   try {
     exitCode = await commandExit(entry.child);
     if (exitCode !== 0) {
@@ -688,10 +709,10 @@ async function handleSignal(signal) {
 
 /**
  * @param {string[]} output
- * @param {Buffer} chunk
+ * @param {string} line
  */
-function retainOutput(output, chunk) {
-  output.push(chunk.toString());
+function retainOutput(output, line) {
+  output.push(line);
   while (output.join("").length > 40_000) {
     output.shift();
   }

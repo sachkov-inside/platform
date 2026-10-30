@@ -91,6 +91,8 @@ it("git/Actions adapter plans the complete rename set and records actual checkou
       };
     const gateEnv = {
       ...env,
+      REVIEW_RESULT: "success",
+      REVIEW_STATUS: "verified",
       SELECTED_PLAN_SHA256: digest,
       JOB_RESULTS: JSON.stringify(results),
     };
@@ -101,6 +103,23 @@ it("git/Actions adapter plans the complete rename set and records actual checkou
       timeout: 10_000,
     });
     assert.equal(gate.status, 0, gate.stderr);
+    for (const review of [
+      { REVIEW_RESULT: undefined },
+      { REVIEW_RESULT: "skipped" },
+      { REVIEW_RESULT: "failure" },
+      { REVIEW_RESULT: "cancelled" },
+      { REVIEW_STATUS: undefined },
+      { REVIEW_STATUS: "unknown" },
+      { REVIEW_STATUS: "release-not-applicable" },
+    ]) {
+      const rejected = spawnSync(process.execPath, [runner, "gate"], {
+        cwd,
+        env: { ...gateEnv, ...review },
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      assert.equal(rejected.status, 1);
+    }
     const evidence = z
       .object({
         sourceSha: z.string(),
@@ -221,6 +240,42 @@ it("release adapter validates immutable checkout and executes only allowlisted m
     });
     assert.equal(run.status, 0, run.stderr);
     assert.match(readFileSync(output, "utf8"), /required=\["fullstack"\]/u);
+    const releaseResults = Object.fromEntries(
+      ["plan", ...coverageIds].map((id) => [
+        id,
+        { result: ["plan", "fullstack"].includes(id) ? "success" : "skipped" },
+      ]),
+    );
+    const serialized =
+      readFileSync(output, "utf8").split("\n")[0]?.slice("plan=".length) ?? "";
+    const releaseGate = spawnSync(process.execPath, [runner, "gate"], {
+      cwd,
+      env: {
+        ...env,
+        REVIEW_RESULT: "success",
+        REVIEW_STATUS: "release-not-applicable",
+        SELECTED_PLAN_SHA256: createHash("sha256")
+          .update(serialized)
+          .digest("hex"),
+        JOB_RESULTS: JSON.stringify(releaseResults),
+      },
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    assert.equal(releaseGate.status, 0, releaseGate.stderr);
+    assert.equal(
+      z
+        .object({ sourceSha: z.string() })
+        .parse(
+          JSON.parse(
+            readFileSync(
+              resolve(cwd, "ci-source-evidence/source-evidence.json"),
+              "utf8",
+            ),
+          ),
+        ).sourceSha,
+      sha,
+    );
     for (const selection of [
       undefined,
       '["docs","contracts","static","unit"]',

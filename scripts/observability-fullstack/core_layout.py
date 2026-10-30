@@ -29,7 +29,7 @@ BASE_MEMORY={**dict.fromkeys(BACKENDS,512),'web':512,'postgres':512,'migrations'
     'metrics':768,'logs':768,'traces':768,'grafana':512,'vmauth':128,'gateway':128,'horizon':128,
     'alloy':512,'host-agent':512,'umami':1024,'umami-ingest':64,'umami-query':64,'volume-reader':64}
 BASE_CPU={**dict.fromkeys(BASE_MEMORY,1),**dict.fromkeys(('metrics','logs','traces'),.4),
-    'alloy':.25,'host-agent':.25,'grafana':.25,'vmauth':.1,'gateway':.1,'horizon':.1,
+    'alloy':.5,'host-agent':.25,'grafana':.25,'vmauth':.1,'gateway':.1,'horizon':.1,
     'provider':.25,'bot-provider':.25,'loadgen':2,'caddy':.5,'umami-ingest':.1,'umami-query':.25,'volume-reader':.25}
 
 

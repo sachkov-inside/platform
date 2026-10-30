@@ -18,6 +18,41 @@ from ownership import ProcessOwnership
 SIGNAL_WAIT_SECONDS = 0.5
 
 
+class LifecycleTrace:
+    """Opt-in bounded facts; never capture commands, environment or command output."""
+    def __init__(self):
+        self.started = time.monotonic()
+        self.output = None
+        destination = os.environ.pop('INSIDE_OWNED_PROCESS_TRACE', None)
+        if destination:
+            try:
+                descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC |
+                                     os.O_NOFOLLOW, 0o600)
+                self.output = os.fdopen(descriptor, 'w')
+            except OSError:
+                print('owned-process: lifecycle trace unavailable', file=sys.stderr)
+
+    def record(self, phase, status=None):
+        if self.output is None:
+            return
+        row = dict(phase=phase, elapsedMs=round((time.monotonic() - self.started) * 1000, 3))
+        if status is not None:
+            row['status'] = status
+        try:
+            self.output.write(json.dumps(row) + '\n')
+            self.output.flush()
+        except OSError:
+            self.close()
+            self.output = None
+
+    def close(self):
+        if self.output is not None:
+            try:
+                self.output.close()
+            except OSError:
+                pass
+
+
 def reap_descendants(process, tracked):
     if sys.platform == 'linux':
         for pid in list(tracked):
@@ -76,6 +111,8 @@ def main():
     tracked = {}
     groups = set()
     grace = 5
+    trace = LifecycleTrace()
+    trace.record('supervisor-start')
     ownership = ProcessOwnership()
     try:
         command = json.loads(sys.argv[1])
@@ -91,6 +128,7 @@ def main():
         adopt_orphans()
         process = subprocess.Popen(command, start_new_session=True,
                                    preexec_fn=command_signals, env=ownership.environment)
+        trace.record('command-start')
         groups.add(process.pid)
         events.watch(process.pid, forks=True)
         track_tree(process, tracked, groups, ownership)
@@ -118,6 +156,7 @@ def main():
                 for pid in tracked:
                     events.watch(pid, forks=True)
         status = process.wait()
+        trace.record('command-exit', status)
         return status if status >= 0 else 128 - status
     except OSError as error:
         print(f'owned-process: {error}', file=sys.stderr, flush=True)
@@ -125,10 +164,13 @@ def main():
     finally:
         try:
             if process is not None:
+                trace.record('cleanup-start')
                 stop_tree(process, tracked, groups, grace, ownership)
+                trace.record('cleanup-complete', process.returncode)
         finally:
             if events is not None:
                 events.close()
+            trace.close()
 
 
 if __name__ == '__main__':

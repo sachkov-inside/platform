@@ -33,7 +33,7 @@ class CoreLayout(unittest.TestCase):
             self.assertEqual(layout.manifest['supervisor'],{'count':1,'deadline_seconds':600,'cleanup_seconds':90})
             self.assertEqual(layout.manifest['sig_memory_bytes'],4480*1024**2)
             self.assertEqual(layout.manifest['memory_bytes'],16288*1024**2)
-            self.assertEqual(layout.manifest['nano_cpus'],23_150_000_000)
+            self.assertEqual(layout.manifest['nano_cpus'],23_400_000_000)
             for role in set(primary['services'])-{'metrics','logs','traces','grafana','vmauth','gateway','horizon','volume-reader'}:
                 observed=copy.deepcopy(combined['services'][role]);observed.pop('labels')
                 expected=copy.deepcopy(primary['services'][role])

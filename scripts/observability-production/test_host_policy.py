@@ -52,10 +52,16 @@ class ContainerOwnership(unittest.TestCase):
         config = (Path(__file__).resolve().parents[2] / 'infra/observability/production/host.alloy').read_text()
         self.assertNotIn('textfile', config.split('prometheus.exporter.cadvisor', 1)[0])
         cache = config.split('prometheus.scrape "owner_cache" {', 1)[1].split('\n}', 1)[0]
-        self.assertIn('scrape_interval = "1s"', cache)
-        self.assertIn('scrape_timeout = "1s"', cache)
+        self.assertEqual(config.count('prometheus.scrape "owner_cache" {'), 1)
+        self.assertIn('scrape_interval = "500ms"', cache)
+        self.assertIn('scrape_timeout = "500ms"', cache)
+        self.assertIn('body_size_limit = "1MiB"', cache)
+        self.assertIn('sample_limit = 2000', cache)
+        for name in ('host', 'containers'):
+            scrape = config.split('prometheus.scrape "' + name + '" {', 1)[1].split('\n}', 1)[0]
+            self.assertIn('scrape_interval = "15s"', scrape)
         queue=config.split('prometheus.remote_write "host" {',1)[1]
-        self.assertIn('batch_send_deadline = "1s"',queue)
+        self.assertIn('batch_send_deadline = "100ms"',queue)
         self.assertIn('capacity = 1000',queue)
         self.assertIn('max_shards = 1',queue)
         self.assertIn('max_samples_per_send = 200',queue)

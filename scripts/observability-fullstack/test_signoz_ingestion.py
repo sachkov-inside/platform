@@ -35,7 +35,7 @@ class Ingestion(unittest.TestCase):
                 self.assertTrue(plan['networks'][network]['internal'])
             self.assertNotIn('[a-z][a-z0-9-]{0,63}',host)
             self.assertEqual(layout.manifest['memory_bytes'],16288*1024**2)
-            self.assertEqual(layout.manifest['nano_cpus'],23_150_000_000)
+            self.assertEqual(layout.manifest['nano_cpus'],23_400_000_000)
             self.assertTrue(layout.manifest['generated_files'])
 
     def test_generated_private_inputs_materialize_only_fresh_owned_fixed_files(self):

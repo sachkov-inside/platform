@@ -18,6 +18,7 @@ import {
   expectProgrammeReturnTarget,
 } from "../support/linear-programme";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
+import { scrollProgrammeBoundaryIntoView } from "../support/programme-scroll";
 
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
 // материала в программе и `at=` в адресе; шапка показывает личный прогресс.
@@ -332,19 +333,10 @@ test("product programme appends a real composition and restores Reader return po
     await expect(
       page.getByText("13 материалов · всё открыто").filter({ visible: true }),
     ).toBeVisible();
-    // Early reveal can already append row 13 and remove the fallback button. Optional onboarding
-    // can still replace the personal programme, so resolve and scroll its live row in one task.
-    const scrollLoadedBoundary = () =>
-      page.evaluate(() => {
-        const boundaries = Array.from(
-          document.querySelectorAll<HTMLElement>('[data-product-ordinal="12"]'),
-        ).filter((node) => node.getClientRects().length > 0);
-        const [boundary] = boundaries;
-        if (boundaries.length !== 1 || boundary === undefined)
-          throw new Error("Expected one visible programme boundary");
-        boundary.scrollIntoView({ block: "center", behavior: "instant" });
-      });
-    await scrollLoadedBoundary();
+    // Early reveal can already append row 13 and remove the fallback button. Row 12 remains
+    // mounted in either state, so approaching it must reveal the rest without clicking a button.
+    const loadedBoundary = page.locator('[data-product-ordinal="12"]:visible');
+    await scrollProgrammeBoundaryIntoView(page, 12);
     await expect(page.locator("[data-product-ordinal]:visible")).toHaveCount(
       13,
     );
@@ -391,9 +383,15 @@ test("product programme appends a real composition and restores Reader return po
       page.getByText("13 материалов · всё открыто").filter({ visible: true }),
     ).toBeVisible();
     const sections = page.getByRole("navigation", { name: "Разделы продукта" });
-    await sections.getByRole("button", { name: /^Материалы/u }).click();
-    await sections.getByRole("button", { name: /^Программа/u }).click();
-    await scrollLoadedBoundary();
+    const materialsTab = sections.getByRole("button", { name: /^Материалы/u });
+    const programmeTab = sections.getByRole("button", { name: /^Программа/u });
+    await materialsTab.click();
+    await expect(materialsTab).toHaveAttribute("aria-current", "true");
+    await programmeTab.click();
+    await scrollProgrammeBoundaryIntoView(page, 12);
+    await expect(programmeTab).toHaveAttribute("aria-current", "true");
+    await expect(loadedBoundary).toBeInViewport();
+    await expect(row).toBeInViewport();
     await expect(page.locator("[data-product-ordinal]:visible")).toHaveCount(
       13,
     );

@@ -61,6 +61,37 @@ export const expiredGrantEndsAt = "2026-10-05T07:08:00Z";
 /** Второго Product в production нет: решение владельца в #905. */
 export const productBDeferred = "отложено до второго Product";
 
+/** Fixture configuration facts only. Live publication state requires review by the deadline. */
+export const productB: { readonly id: string; readonly slug: string } | null =
+  null;
+export function configuredDeferralFacts(fixtures: {
+  readonly productB: { readonly id: string; readonly slug: string } | null;
+  readonly freeTaskCode: string | null;
+}): Readonly<Record<string, boolean>> {
+  return {
+    "product-b": fixtures.productB !== null,
+    "free-practice": fixtures.freeTaskCode !== null,
+  };
+}
+export const deferralFacts = configuredDeferralFacts({
+  productB,
+  freeTaskCode,
+});
+export const deferralPolicies = {
+  "product-b": {
+    owner: "Product owner",
+    reference: "#905",
+    fixture: "product-b",
+    reviewBy: "2026-11-30T00:00:00Z",
+  },
+  "free-practice": {
+    owner: "Product owner",
+    reference: "#1540",
+    fixture: "free-practice",
+    reviewBy: "2026-11-30T00:00:00Z",
+  },
+} as const;
+
 /** Read-only tools учебного MCP, которые проход вызывает; другой tool allowlist не пропустит. */
 export const learnerMcpReadTools = [
   "learning_material_read",
@@ -96,7 +127,17 @@ function cell<const Id extends string>(
   expected: PassOutcome,
   deferred?: string,
 ): PassCell & { readonly id: Id } {
-  return deferred === undefined ? { id, expected } : { id, expected, deferred };
+  return deferred === undefined
+    ? { id, expected }
+    : {
+        id,
+        expected,
+        deferred,
+        deferral:
+          deferralPolicies[
+            deferred === productBDeferred ? "product-b" : "free-practice"
+          ],
+      };
 }
 
 /**

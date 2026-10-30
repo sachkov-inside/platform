@@ -7,6 +7,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -22,6 +23,13 @@ import {
   CourseReadingHostContext,
   type CourseFramePublication,
 } from "./course-reading-host-context.client";
+import {
+  CourseReadingHandoffContext,
+  captureCourseReadingHandoff,
+  restoreCourseReadingHandoff,
+  type CourseReadingHandoffView,
+  type CourseReadingHandoffStates,
+} from "./course-reading-handoff.client";
 import styles from "./course-reading.module.css";
 
 interface CourseLocation {
@@ -55,6 +63,12 @@ export function CourseReadingHost({
   readonly children: ReactNode;
   readonly pathname: string;
 }) {
+  const [handoffStates] = useState<CourseReadingHandoffStates>(() => ({
+    rail: new Map(),
+    references: new Map(),
+  }));
+  const handoffView = useRef<CourseReadingHandoffView>([]);
+  const hostRoot = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState<CourseFramePublication | null>(null);
   const [intent, setIntent] = useState<CourseNavigationIntent | null>(null);
   const selectedId = intent?.id ?? null;
@@ -68,7 +82,12 @@ export function CourseReadingHost({
     };
   }, []);
   const [location, setLocation] = useState<CourseLocation | null>(null);
+  const recordLocation = useCallback((next: CourseLocation) => {
+    handoffView.current = captureCourseReadingHandoff(hostRoot.current);
+    setLocation(next);
+  }, []);
   const publish = useCallback((next: CourseFramePublication) => {
+    handoffView.current = captureCourseReadingHandoff(hostRoot.current);
     setIntent((previous) => reconcileCourseNavigation(previous, next.context));
     setFrame((previous) =>
       previous?.context === next.context &&
@@ -102,83 +121,98 @@ export function CourseReadingHost({
     (!pathname.startsWith("/materials/") ||
       location?.courseSlug === courseSlug);
   const publication = useMemo(() => ({ publish, active }), [publish, active]);
+  // A fresh provider value would restart still-hydrating page Suspense boundaries.
+  const handoff = useMemo(
+    () => ({ states: handoffStates, active }),
+    [handoffStates, active],
+  );
+  useLayoutEffect(() => {
+    if (!active || hostRoot.current === null) return;
+    restoreCourseReadingHandoff(hostRoot.current, handoffView.current);
+    handoffStates.rail.clear();
+    handoffStates.references.clear();
+    handoffView.current = [];
+  }, [active, handoffStates]);
   return (
-    <CourseReadingHostContext.Provider value={publication}>
-      <Suspense fallback={null}>
-        <CourseLocationObserver onChange={setLocation} />
-      </Suspense>
-      <div
-        className={active ? styles["host"] : undefined}
-        data-course-reading-host={active ? "" : undefined}
-        data-course-reading={active ? "" : undefined}
-        // Let the link consume its href before optimistic arrows point to the next step.
-        onClick={(event) => {
-          if (
-            !active ||
-            context == null ||
-            event.button !== 0 ||
-            event.metaKey ||
-            event.ctrlKey ||
-            event.shiftKey ||
-            event.altKey
-          )
-            return;
-          const link =
-            event.target instanceof Element
-              ? event.target.closest<HTMLAnchorElement>("a[href]")
-              : null;
-          if (
-            link === null ||
-            link.hasAttribute("download") ||
-            (link.target !== "" && link.target !== "_self")
-          )
-            return;
-          const target = new URL(link.href);
-          if (target.origin !== window.location.origin) return;
-          if (
-            target.pathname.startsWith("/materials/") &&
-            parseMaterialReaderReturnTarget(
-              target.searchParams.get("from") ?? undefined,
-            ).productSlug !== courseSlug
-          )
-            return;
-          const destination = [
-            ...context.chapters.flatMap((chapter) => chapter.steps),
-            ...(context.references ?? []),
-          ].find((item) => {
-            const candidate = new URL(item.href, window.location.origin);
-            return (
-              candidate.pathname === target.pathname &&
-              candidate.searchParams.get("placement") ===
-                target.searchParams.get("placement") &&
-              candidate.searchParams.get("view") ===
-                target.searchParams.get("view")
-            );
-          });
-          if (destination !== undefined)
-            setIntent({ id: destination.id, courseHref: context.courseHref });
-        }}
-      >
-        {active ? (
-          <>
-            <HidePublicFooter />
-            <CourseRail context={navigation} />
-          </>
-        ) : null}
-        <div className={styles["hostDocument"]}>
+    <CourseReadingHandoffContext.Provider value={handoff}>
+      <CourseReadingHostContext.Provider value={publication}>
+        <Suspense fallback={null}>
+          <CourseLocationObserver onChange={recordLocation} />
+        </Suspense>
+        <div
+          ref={hostRoot}
+          className={active ? styles["host"] : undefined}
+          data-course-reading-host={active ? "" : undefined}
+          data-course-reading={active ? "" : undefined}
+          // Let the link consume its href before optimistic arrows point to the next step.
+          onClick={(event) => {
+            if (
+              !active ||
+              context == null ||
+              event.button !== 0 ||
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey
+            )
+              return;
+            const link =
+              event.target instanceof Element
+                ? event.target.closest<HTMLAnchorElement>("a[href]")
+                : null;
+            if (
+              link === null ||
+              link.hasAttribute("download") ||
+              (link.target !== "" && link.target !== "_self")
+            )
+              return;
+            const target = new URL(link.href);
+            if (target.origin !== window.location.origin) return;
+            if (
+              target.pathname.startsWith("/materials/") &&
+              parseMaterialReaderReturnTarget(
+                target.searchParams.get("from") ?? undefined,
+              ).productSlug !== courseSlug
+            )
+              return;
+            const destination = [
+              ...context.chapters.flatMap((chapter) => chapter.steps),
+              ...(context.references ?? []),
+            ].find((item) => {
+              const candidate = new URL(item.href, window.location.origin);
+              return (
+                candidate.pathname === target.pathname &&
+                candidate.searchParams.get("placement") ===
+                  target.searchParams.get("placement") &&
+                candidate.searchParams.get("view") ===
+                  target.searchParams.get("view")
+              );
+            });
+            if (destination !== undefined)
+              setIntent({ id: destination.id, courseHref: context.courseHref });
+          }}
+        >
           {active ? (
-            <ProgrammeDialog
-              context={navigation}
-              supplementary={
-                selectedId === null
-                  ? frame?.supplementaryTitle !== undefined
-                  : navigation.activeReferenceId !== undefined
-              }
-            />
+            <>
+              <HidePublicFooter />
+              <CourseRail context={navigation} />
+            </>
           ) : null}
-          {children}
+          <div className={styles["hostDocument"]}>
+            {active ? (
+              <ProgrammeDialog
+                context={navigation}
+                supplementary={
+                  selectedId === null
+                    ? frame?.supplementaryTitle !== undefined
+                    : navigation.activeReferenceId !== undefined
+                }
+              />
+            ) : null}
+            {children}
+          </div>
         </div>
-      </div>
-    </CourseReadingHostContext.Provider>
+      </CourseReadingHostContext.Provider>
+    </CourseReadingHandoffContext.Provider>
   );
 }

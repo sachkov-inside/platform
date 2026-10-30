@@ -1,7 +1,7 @@
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { randomUUID } from "node:crypto";
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { sql, type Transaction } from "kysely";
 import { unhandled } from "../../shared/unhandled.js";
 import {
@@ -55,6 +55,7 @@ import {
   type CommunicationsRequest,
 } from "./communications-contract.js";
 import { CommunicationSequences } from "./communication-sequences.js";
+import { NativeMessages } from "./native-messages.js";
 
 type Tx = Transaction<DatabaseSchema>;
 /** One author update being handled: its transaction, input and authorized author. */
@@ -92,12 +93,29 @@ export class AuthorAdmin {
     @Inject(AuthorDelivery) private readonly delivery: AuthorDelivery,
     @Inject(AUTHOR_CONTENT_VALIDATION)
     private readonly validation: AuthorContentValidation,
+    @Optional()
+    @Inject(NativeMessages)
+    private readonly native?: NativeMessages,
   ) {
     this.broadcastDrafts = new AuthorBroadcastDrafts(sequences);
     this.sequenceDrafts = new AuthorSequenceDrafts(sequences);
   }
   async handle(input: AuthorInput): Promise<boolean> {
     if (input.botIdentity !== this.config.botIdentity) return false;
+    if (this.native && !hasText(input.callbackData)) {
+      const prepared = await this.native.prepare(input, "admin");
+      if (prepared.kind === "waiting") {
+        await this.native.report(input, prepared.message);
+        return true;
+      }
+      if (prepared.kind === "ready")
+        input = {
+          ...input,
+          text: "",
+          content: prepared.content,
+          nativeCapture: prepared.guard,
+        };
+    }
     // Platform answers are fetched with no transaction open; see transactionWithExternalReads.
     return transactionWithExternalReads(this.database, async (tx) => {
       await communicationLock(
@@ -130,6 +148,7 @@ export class AuthorAdmin {
       if (
         !open &&
         !hasText(input.callbackData) &&
+        !input.nativeCapture &&
         (!session || (!close && input.text.startsWith("/")))
       )
         return false;
@@ -152,6 +171,29 @@ export class AuthorAdmin {
       if (allowed === "unavailable")
         throw new CommunicationsError("authorization_unavailable");
       if (
+        link &&
+        this.native &&
+        !(await this.native.guardMatches(tx, input, link.accountRef))
+      ) {
+        await enqueueReply(tx, {
+          botIdentity: input.botIdentity,
+          telegramUserId: input.telegramUserId,
+          privateChatId: input.privateChatId,
+          messageText:
+            "Диалог изменился во время сохранения. Копия не добавлена. Пришлите сообщение в текущем диалоге снова.",
+          sourceKey: `native-stale:${input.botIdentity}:${input.updateId}`,
+          now: new Date(),
+        });
+        await tx
+          .insertInto("communication_author_receipts")
+          .values({
+            bot_identity: input.botIdentity,
+            update_id: input.updateId,
+          })
+          .execute();
+        return true;
+      }
+      if (
         allowed !== "allowed" ||
         !link ||
         (!open && session && session.account_ref !== link.accountRef)
@@ -172,6 +214,16 @@ export class AuthorAdmin {
           now: new Date(),
         });
       } else {
+        if (input.nativeCapture)
+          await enqueueReply(tx, {
+            botIdentity: input.botIdentity,
+            telegramUserId: input.telegramUserId,
+            privateChatId: input.privateChatId,
+            messageText:
+              "Копия сохранена. Оставьте первую копию этого сообщения или альбома, присланную ботом, пока она используется. Повторные образцы можно удалять.",
+            sourceKey: `native-copy-kept:${input.botIdentity}:${input.updateId}`,
+            now: new Date(),
+          });
         const context: Context = {
           tx,
           input,

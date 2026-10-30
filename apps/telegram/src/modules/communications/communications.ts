@@ -5,7 +5,7 @@ import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
 import { randomUUID } from "node:crypto";
 import { transactionWithExternalReads } from "../../database/external-reads.js";
 import { isDeepStrictEqual } from "node:util";
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { sql, type Transaction } from "kysely";
 import {
   DATABASE,
@@ -32,6 +32,7 @@ import {
 } from "./communications-contract.js";
 import { nextCursor } from "./communication-queries.js";
 import { replayedResult } from "./communication-state.js";
+import { NativeMessages } from "./native-messages.js";
 
 @Injectable()
 export class Communications {
@@ -40,6 +41,9 @@ export class Communications {
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
     @Inject(AUTHOR_AUTHORIZATION)
     private readonly authorization: AuthorAuthorization,
+    @Optional()
+    @Inject(NativeMessages)
+    private readonly native?: NativeMessages,
   ) {}
 
   async list(
@@ -114,6 +118,12 @@ export class Communications {
     if (request.operation === "templates.save")
       validateContent(request.payload.content);
     const work = async (tx: Transaction<DatabaseSchema>) => {
+      if (request.payload.content?.type === "native") {
+        if (!this.native) throw new CommunicationsError("unsupported_content");
+        await this.native.assertOwned(tx, actor.accountRef, [
+          request.payload.content,
+        ]);
+      }
       await lock(
         tx,
         `communications-operation:${this.config.botIdentity}:${request.operationId}`,
@@ -215,6 +225,25 @@ export class Communications {
   }
 
   async intake(input: TemplateIntake): Promise<void> {
+    if (input.botIdentity !== this.config.botIdentity) return;
+    if (
+      this.native &&
+      (input.action === "capture" || input.action === "finish")
+    ) {
+      const prepared = await this.native.prepare(input, "template");
+      if (prepared.kind === "waiting") {
+        await this.native.report(input, prepared.message);
+        return;
+      }
+      if (prepared.kind === "ready")
+        input = {
+          ...input,
+          action: "capture",
+          content: prepared.content,
+          nativeCapture: prepared.guard,
+        };
+    }
+    if (input.action === "finish") return;
     await transactionWithExternalReads(this.database, async (tx) => {
       await lock(
         tx,
@@ -310,7 +339,19 @@ export class Communications {
         await reply(
           tx,
           input,
-          "Пришлите текст, фото, видео, кружок, голосовое сообщение или документ. /cancel — выйти.",
+          "Пришлите сообщение или альбом. Когда альбом загрузится, отправьте /done. Бот сохранит копию в этой переписке. Её нужно оставить, пока используется заготовка. /cancel, чтобы выйти.",
+        );
+        return;
+      }
+      if (
+        this.native &&
+        !(await this.native.guardMatches(tx, input, link.accountRef))
+      ) {
+        await receipt(tx, input, "capture_context_changed");
+        await reply(
+          tx,
+          input,
+          "Диалог изменился во время сохранения. Копия не добавлена. Откройте /template и пришлите сообщение снова.",
         );
         return;
       }
@@ -322,7 +363,7 @@ export class Communications {
         await reply(
           tx,
           input,
-          "Не удалось сохранить: формат или оформление не поддерживается. Альбомы и опросы не принимаются. Пришлите отдельное сообщение.",
+          "Не удалось сохранить сообщение. Telegram не разрешает копировать служебные сообщения, счета, платные медиа и розыгрыши. Пришлите другое сообщение или выйдите через /cancel.",
         );
         return;
       }
@@ -349,7 +390,7 @@ export class Communications {
       await reply(
         tx,
         input,
-        `Заготовка сохранена: ${templateId}\nВставьте ID в редактор на платформе. /template — новая заготовка.`,
+        `Заготовка сохранена: ${templateId}\nОткройте /admin, чтобы выбрать её для рассылки. ${input.nativeCapture ? "Сохранённую ботом копию в этой переписке нужно оставить, пока используется заготовка. " : ""}/template, чтобы сохранить новую.`,
       );
     });
   }
