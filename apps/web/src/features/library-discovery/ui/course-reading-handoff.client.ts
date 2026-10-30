@@ -69,6 +69,11 @@ interface FrameView {
     readonly left: number;
   }[];
   readonly open: boolean;
+  readonly dialogAnimations: readonly {
+    readonly name: string;
+    readonly time: number;
+    readonly paused: boolean;
+  }[];
   readonly details: readonly {
     readonly path: readonly number[];
     readonly open: boolean;
@@ -123,6 +128,22 @@ export function captureCourseReadingHandoff(
           left: node.scrollLeft,
         })),
       open: root.querySelector("dialog")?.open === true,
+      dialogAnimations:
+        root
+          .querySelector("dialog")
+          ?.getAnimations()
+          .flatMap((animation) =>
+            animation instanceof CSSAnimation &&
+            typeof animation.currentTime === "number"
+              ? [
+                  {
+                    name: animation.animationName,
+                    time: animation.currentTime,
+                    paused: animation.playState === "paused",
+                  },
+                ]
+              : [],
+          ) ?? [],
       details: [...root.querySelectorAll("details")].map((node) => ({
         path: pathTo(root, node),
         open: node.open,
@@ -153,6 +174,18 @@ export function restoreCourseReadingHandoff(
       ].find((node) => node.getClientRects().length > 0);
       trigger?.focus({ preventScroll: true });
       dialog.showModal();
+      // Reopening the transferred sheet must continue its entrance, not replay it.
+      for (const animation of dialog.getAnimations()) {
+        if (!(animation instanceof CSSAnimation)) continue;
+        const previous = frame.dialogAnimations.find(
+          (item) => item.name === animation.animationName,
+        );
+        if (previous === undefined) animation.finish();
+        else {
+          animation.currentTime = previous.time;
+          if (previous.paused) animation.pause();
+        }
+      }
     }
     if (frame.focus !== null) {
       const control = atPath(region, frame.focus);

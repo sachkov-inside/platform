@@ -1,16 +1,24 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, expect } from "@playwright/test";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, test } from "vitest";
 
 let server: ViteDevServer;
+let cacheDirectory: string;
 let origin: string;
 beforeAll(async () => {
   const root = fileURLToPath(new URL("../../", import.meta.url));
+  // Other browser fixtures have their own optimizer config and must not replace our dependency cache.
+  cacheDirectory = await mkdtemp(join(tmpdir(), "inside-reader-handoff-"));
   server = await createServer({
     configFile: false,
+    cacheDir: cacheDirectory,
     root,
     oxc: { jsx: { runtime: "automatic" } },
+    optimizeDeps: { include: ["react-dom/server"] },
     resolve: {
       alias: {
         "@": `${root}/src`,
@@ -18,7 +26,8 @@ beforeAll(async () => {
         "next/link": `${root}/.storybook/mocks/next-link.tsx`,
       },
     },
-    server: { host: "127.0.0.1", port: 0 },
+    // This immutable fixture must not reload when a concurrent production build writes HTML.
+    server: { host: "127.0.0.1", port: 0, watch: null },
     plugins: [
       {
         name: "reader-handoff",
@@ -44,7 +53,11 @@ beforeAll(async () => {
   origin = `http://127.0.0.1:${String(address.port)}`;
 });
 afterAll(async () => {
-  await server.close();
+  try {
+    await server.close();
+  } finally {
+    await rm(cacheDirectory, { recursive: true, force: true });
+  }
 });
 
 test("desktop retains an early chapter choice and focus through host activation", async () => {
@@ -108,13 +121,20 @@ test("desktop retains early reference expansion and rail scroll through host act
     await expect(collapse).toHaveAttribute("aria-expanded", "true");
     await expect(collapse).toBeFocused();
     expect(await scroll.evaluate((node) => node.scrollTop)).toBe(position);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page
+      .getByRole("button", { name: "Вся программа", exact: true })
+      .click();
+    await expect(
+      page.getByRole("dialog").getByRole("button", { name: "Показать ещё" }),
+    ).toHaveAttribute("aria-expanded", "false");
   } finally {
     await browser.close();
   }
 }, 30_000);
 
 for (const width of [390, 820])
-  test(`width ${String(width)} retains the early open programme, chapter expansion, focus and scroll`, async () => {
+  test(`width ${String(width)} retains the early open programme, chapter choice, reference expansion, focus and scroll`, async () => {
     const browser = await chromium.launch();
     try {
       const page = await browser.newPage({
@@ -132,12 +152,18 @@ for (const width of [390, 820])
       await trigger.click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
-      const first = dialog.locator('details[data-course-chapter-id="first"]');
-      await first.locator("summary").click();
-      const second = dialog.locator('details[data-course-chapter-id="second"]');
-      await second.locator("summary").click();
-      await second.getByRole("button", { name: "Показать ещё" }).click();
-      const collapse = second.getByRole("button", { name: "Скрыть" });
+      await dialog
+        .getByRole("button", { name: /Глава 1 из 2 First chapter/ })
+        .click();
+      await dialog
+        .getByRole("button", { name: /Глава 2 Second chapter/ })
+        .click();
+      const selected = dialog.getByRole("button", {
+        name: /Глава 2 из 2 Second chapter/,
+      });
+      await expect(selected).toBeFocused();
+      await dialog.getByRole("button", { name: "Показать ещё" }).click();
+      const collapse = dialog.getByRole("button", { name: "Скрыть" });
       await expect(collapse).toBeFocused();
       const position = await dialog.evaluate((node) => {
         node.scrollTop -= 24;
@@ -145,17 +171,33 @@ for (const width of [390, 820])
       });
       expect(position).toBeGreaterThan(0);
       await expect(page.locator("[data-course-reading-host]")).toHaveCount(0);
+      const before = await page
+        .getByRole("heading", { name: "Reader body" })
+        .boundingBox();
+      const dialogBefore = await dialog.boundingBox();
       await page.locator("#release").dispatchEvent("click");
       await expect(page.locator("[data-course-reading-host]")).toBeVisible();
       await expect(dialog).toBeVisible();
-      await expect(second).toHaveAttribute("open", "");
-      await expect(first).not.toHaveAttribute("open");
+      expect(await dialog.boundingBox()).toEqual(dialogBefore);
+      expect(
+        await page.getByRole("heading", { name: "Reader body" }).boundingBox(),
+      ).toEqual(before);
+      await expect(selected).toBeVisible();
       await expect(collapse).toHaveAttribute("aria-expanded", "true");
       await expect(collapse).toBeFocused();
       expect(await dialog.evaluate((node) => node.scrollTop)).toBe(position);
       await page.keyboard.press("Escape");
       await expect(dialog).not.toBeVisible();
       await expect(trigger).toBeFocused();
+      // The sheet and desktop rail are independent controls, even during their first transfer.
+      await page.setViewportSize({ width: 1440, height: 1024 });
+      const rail = page.getByRole("complementary", { name: "Текущая глава" });
+      await expect(
+        rail.getByRole("button", { name: /Глава 1 из 2 First chapter/ }),
+      ).toBeVisible();
+      await expect(
+        rail.getByRole("button", { name: "Показать ещё" }),
+      ).toHaveAttribute("aria-expanded", "false");
     } finally {
       await browser.close();
     }
@@ -183,6 +225,82 @@ test("desktop preserves an early scroll back to the top instead of revealing the
     await expect(page.locator("[data-course-reading-host]")).toBeVisible();
     await expect(scroll).toBeFocused();
     expect(await scroll.evaluate((node) => node.scrollTop)).toBe(0);
+  } finally {
+    await browser.close();
+  }
+}, 30_000);
+
+test("an in-progress programme entrance keeps its animation position through host activation", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+    });
+    await page.goto(
+      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme`,
+    );
+    await page
+      .getByRole("button", { name: "Вся программа", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog");
+    // Hold the real CSS animation at an intermediate frame without a wall-clock wait.
+    const before = await dialog.evaluate((node) => {
+      const animation = node.getAnimations()[0];
+      if (animation === undefined)
+        throw new Error("Missing programme entrance animation");
+      animation.pause();
+      animation.currentTime = 40;
+      const { x, y, width, height } = node.getBoundingClientRect();
+      return { x, y, width, height };
+    });
+    await expect(page.locator("[data-course-reading-host]")).toHaveCount(0);
+    await page.locator("#release").dispatchEvent("click");
+    await expect(page.locator("[data-course-reading-host]")).toBeVisible();
+    const after = await dialog.boundingBox();
+    expect(after).not.toBeNull();
+    if (after === null)
+      throw new Error("Transferred programme has no geometry");
+    // Transformed rects can differ by floating-point rounding below a thousandth of a pixel.
+    for (const coordinate of ["x", "y", "width", "height"] as const)
+      expect(after[coordinate]).toBeCloseTo(before[coordinate], 3);
+    expect(
+      await dialog.evaluate((node) =>
+        node.getAnimations().map((animation) => ({
+          currentTime: animation.currentTime,
+          playState: animation.playState,
+        })),
+      ),
+    ).toEqual([{ currentTime: 40, playState: "paused" }]);
+  } finally {
+    await browser.close();
+  }
+}, 30_000);
+
+test("reduced-motion programme stays still through host activation", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+      reducedMotion: "reduce",
+    });
+    await page.goto(
+      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme`,
+    );
+    await page
+      .getByRole("button", { name: "Вся программа", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog");
+    expect(await dialog.evaluate((node) => node.getAnimations().length)).toBe(
+      0,
+    );
+    const before = await dialog.boundingBox();
+    await expect(page.locator("[data-course-reading-host]")).toHaveCount(0);
+    await page.locator("#release").dispatchEvent("click");
+    await expect(page.locator("[data-course-reading-host]")).toBeVisible();
+    expect(await dialog.boundingBox()).toEqual(before);
+    expect(await dialog.evaluate((node) => node.getAnimations().length)).toBe(
+      0,
+    );
   } finally {
     await browser.close();
   }

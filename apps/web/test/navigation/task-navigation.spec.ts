@@ -304,7 +304,11 @@ test("free lesson without mode variants reads saved Task state privately", async
       .click();
   const title = page.locator('[data-task-submitted="true"]:visible');
   await expect(title).toHaveText("Сохранённое задание");
-  await expect(title).toHaveCSS("text-decoration-line", "line-through");
+  await expect(
+    page.locator(
+      '[data-course-step]:has([data-task-submitted="true"]):visible',
+    ),
+  ).toHaveAttribute("data-progress", "done");
 });
 
 test("optional private Task status failure preserves the free lesson and public programme", async ({
