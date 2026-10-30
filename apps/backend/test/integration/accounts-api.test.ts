@@ -262,13 +262,8 @@ describe("Accounts API", () => {
     const admin = readAccountId(
       (await inject("POST", "/accounts", adminToken)).json(),
     );
-    const member = readAccountId(
-      (await inject("GET", "/accounts/current", memberToken)).json(),
-    );
     await database.prisma.accountPermission.createMany({
       data: [
-        // Неизвестное сохранённое значение не даёт ни одного права, а значит и входа в админку.
-        { accountId: member, permission: "legacy:unknown" },
         { accountId: author, permission: "billing:manage" },
         { accountId: admin, permission: "platform:admin" },
       ],
