@@ -160,7 +160,7 @@ function assertResourceProtocol(source) {
   assert.match(shard, /timeout-minutes: 5\n/u);
   assert.match(
     shard,
-    /fail-fast: false\n {6}matrix:\n {8}group: \[1, 2, 3, 4, 5\]/u,
+    /fail-fast: false\n {6}matrix:\n {8}group: \[1, 2, 3, 4, 5, 6, 7\]/u,
   );
   assert.match(
     shard,
@@ -191,8 +191,26 @@ function assertResourceProtocol(source) {
   assert.match(aggregate, /run: test "\$RESULT" = success\n/u);
   // Exact new blocks reject duplicate/shadowing fields, conditional cells and
   // hidden alternatives as well as the explicit graph checks above.
-  // The only new workflow delta is the fifth mandatory cell and its factual
-  // aggregate label. Its exact inverse must still match both four-cell goldens.
+  // Reverse exactly the two new mandatory cells and their factual label first.
+  // Keep the five-cell fingerprints and the earlier four-cell inverse below;
+  // these are cumulative scheduling inverses, never candidate rebaselines.
+  const previousJobs = new Map(jobs);
+  for (const [name = "", current = "", previous = ""] of [
+    [
+      "fullstack-protocol-shard",
+      "group: [1, 2, 3, 4, 5, 6, 7]",
+      "group: [1, 2, 3, 4, 5]",
+    ],
+    [
+      "fullstack-protocol",
+      "Require all seven provider results to succeed",
+      "Require all five provider results to succeed",
+    ],
+  ]) {
+    const body = jobs.get(name) ?? "";
+    assert.equal(body.split(current).length, 2);
+    previousJobs.set(name, body.replace(current, previous));
+  }
   const previousProtocol = [
     [
       "fullstack-protocol-shard",
@@ -213,7 +231,7 @@ function assertResourceProtocol(source) {
     previous = "",
     expected = "",
   ] of previousProtocol) {
-    const body = jobs.get(name) ?? "";
+    const body = previousJobs.get(name) ?? "";
     assert.equal(body.split(current).length, 2);
     assert.equal(digest(body.replace(current, previous)), expected);
   }
@@ -225,7 +243,7 @@ function assertResourceProtocol(source) {
   };
   for (const [name, expected] of Object.entries(protocolHashes)) {
     assert.equal(
-      digest(jobs.get(name) ?? ""),
+      digest(previousJobs.get(name) ?? ""),
       expected,
       `${name}: protocol policy drift`,
     );
@@ -1403,13 +1421,26 @@ it("requires complete fixed protocol coverage before all native Resource jobs", 
 
 it("rejects missing coverage, graph bypasses, source drift and native policy changes", () => {
   const mutations = [
-    ["group: [1, 2, 3, 4, 5]", "group: [1, 2, 3, 4]"],
-    ["group: [1, 2, 3, 4, 5]", "group: [1, 2, 3, 4, 5, 5]"],
-    ["group: [1, 2, 3, 4, 5]", "group: [1, 2, 3]"],
-    ["group: [1, 2, 3, 4, 5]", "group: [1, 2, 3, 3]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5, 5]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 3]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5, 7]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5, 6]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5, 6, 6]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5, 6, 8]"],
     [
-      "group: [1, 2, 3, 4, 5]",
-      "group: [1, 2, 3, 4, 5]\n        exclude: [{group: 5}]",
+      "group: [1, 2, 3, 4, 5, 6, 7]",
+      "group: [1, 2, 3, 4, 5, 6, 7]\n        exclude: [{group: 5}]",
+    ],
+    [
+      "group: [1, 2, 3, 4, 5, 6, 7]",
+      "group: [1, 2, 3, 4, 5, 6, 7]\n        exclude: [{group: 6}]",
+    ],
+    [
+      "group: [1, 2, 3, 4, 5, 6, 7]",
+      "group: [1, 2, 3, 4, 5, 6, 7]\n        exclude: [{group: 7}]",
     ],
     ["    needs: fullstack-protocol\n", ""],
     [
@@ -1528,7 +1559,7 @@ it("keeps fixed stdlib discovery and binds every tracked protocol source", () =>
     /loader\.discover\(str\(START\), pattern='test_\*\.py'\)/u,
   );
   assert.match(runner, /partition\(suite, loader\.errors\)/u);
-  assert.match(runner, /GROUPS = \('1', '2', '3', '4', '5'\)/u);
+  assert.match(runner, /GROUPS = \('1', '2', '3', '4', '5', '6', '7'\)/u);
   assert.match(
     runner,
     /LATE_CASE = 'test_trace_sanitizer\.Sanitizer\.test_late_parser_owner_loss_reaps_every_born_identity_before_original_deadline'/u,
