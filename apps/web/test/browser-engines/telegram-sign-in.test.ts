@@ -384,7 +384,7 @@ it.each([-60, 60])(
       await page.clock.install({
         time: new Date(serverNow + offsetMinutes * 60_000),
       });
-      await open(page, "pending");
+      await open(page, "unavailable");
       state = {
         status: "pending",
         deepLink: botLink,
@@ -412,7 +412,8 @@ it("keeps waiting when the device wall clock jumps forward", async () => {
   const page = await browser.newPage();
   try {
     await page.clock.install({ time: new Date("2026-10-30T09:00:00Z") });
-    await open(page, "pending");
+    await open(page, "unavailable");
+    state = { status: "pending", deepLink: botLink };
     await page.clock.setSystemTime(new Date("2026-10-30T10:00:00Z"));
     await poll(page);
     await expect
