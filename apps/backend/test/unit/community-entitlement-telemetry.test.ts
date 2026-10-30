@@ -545,9 +545,35 @@ test("foreign context ownership and repeated telemetry leases preserve native de
   expect(calls).toBe(3);
 });
 
-for (const exportStatus of [200, 503] as const) {
-  test(`native community exchange survives OTLP HTTP ${exportStatus} without exporting private protocol data`, async (owner) => {
+for (const { name, exportStatus, traceResponseLatencyMs } of [
+  {
+    name: "native community exchange survives OTLP HTTP 200 without exporting private protocol data",
+    exportStatus: 200,
+    traceResponseLatencyMs: 0,
+  },
+  {
+    name: "native community exchange survives OTLP HTTP 503 without exporting private protocol data",
+    exportStatus: 503,
+    traceResponseLatencyMs: 0,
+  },
+  {
+    name: "native community exchange waits for delayed OTLP HTTP 503 failure callbacks without exporting private protocol data",
+    exportStatus: 503,
+    traceResponseLatencyMs: 150,
+  },
+] as const) {
+  test(name, async (owner) => {
+    if (traceResponseLatencyMs > 0) {
+      // Pin only the SDK's retry jitter (800ms); keep its real clock and deadlines.
+      const jitter = vi.spyOn(Math, "random").mockReturnValue(0);
+      owner.onTestFinished(() => jitter.mockRestore());
+    }
     const exported: string[] = [];
+    const responseTimers = new Set<ReturnType<typeof setTimeout>>();
+    owner.onTestFinished(() => {
+      for (const timer of responseTimers) clearTimeout(timer);
+      responseTimers.clear();
+    });
     const exporter = await listen(owner, (request, response) => {
       let body = "";
       request.setEncoding("utf8");
@@ -557,9 +583,23 @@ for (const exportStatus of [200, 503] as const) {
       });
       request.on("end", () => {
         exported.push(body);
-        response
-          .writeHead(exportStatus, { "content-type": "application/json" })
-          .end(exportStatus === 200 ? "{}" : "private-export-error");
+        const finish = () => {
+          response
+            .writeHead(exportStatus, { "content-type": "application/json" })
+            .end(exportStatus === 200 ? "{}" : "private-export-error");
+        };
+        if (request.url === "/v1/traces" && traceResponseLatencyMs > 0) {
+          // deterministic-test-allow duration-wait: owned OTLP response latency reproduces the retry/batch deadline race; callbacks prove completion.
+          const timer = setTimeout(() => {
+            responseTimers.delete(timer);
+            finish();
+          }, traceResponseLatencyMs);
+          responseTimers.add(timer);
+          response.once("close", () => {
+            clearTimeout(timer);
+            responseTimers.delete(timer);
+          });
+        } else finish();
       });
     });
     let calls = 0;
@@ -579,6 +619,8 @@ for (const exportStatus of [200, 503] as const) {
     owner.onTestFinished(() => {
       warnings.mockRestore();
     });
+    const traceExportFailed = deferred<undefined>();
+    const metricExportFailed = deferred<undefined>();
     const telemetry = technicalTelemetryFromEnvironment({
       environment: {
         INSIDE_OTEL_ENABLED: "true",
@@ -587,6 +629,10 @@ for (const exportStatus of [200, 503] as const) {
       service: "platform-api",
       mode: "test",
       identity: { release: "proof", sourceSha: "a".repeat(40) },
+      onExportFailureObservation: (signal) => {
+        if (signal === "traces") traceExportFailed.resolve(undefined);
+        else metricExportFailed.resolve(undefined);
+      },
     });
     owner.onTestFinished(() => telemetry.shutdown());
     const provider = new HttpCommunityEntitlementProvider(
@@ -598,6 +644,13 @@ for (const exportStatus of [200, 503] as const) {
       result,
     });
     await telemetry.flush();
+    // The SDK's bounded flush can settle before the native transport callback.
+    // Observe both failures before reading diagnostics or the final exported wire.
+    if (exportStatus === 503)
+      await Promise.all([
+        traceExportFailed.promise,
+        metricExportFailed.promise,
+      ]);
     expect(calls).toBe(1);
     const wire = exported.join("\n");
     for (const value of [
