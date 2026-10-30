@@ -319,7 +319,7 @@ export class SequenceScheduler {
         bot,
         now,
         this.waitlist,
-        this.config.marketingEnabled,
+        this.config.marketingEnabled || this.config.broadcastsEnabled === true,
       );
       await completeBroadcasts(tx, bot);
     });
@@ -376,6 +376,10 @@ export class SequenceScheduler {
     if (!this.config.marketingEnabled)
       query = query.where((eb) =>
         eb.or([
+          eb.and([
+            eb.val(this.config.broadcastsEnabled === true),
+            eb("d.kind", "=", "broadcast"),
+          ]),
           eb.exists(
             eb
               .selectFrom("communication_material_announcements as m")

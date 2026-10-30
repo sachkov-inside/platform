@@ -315,7 +315,7 @@ export async function launchDueBroadcasts(
   bot: string,
   now: Date,
   waitlist: WaitlistAuthorization,
-  marketingEnabled = true,
+  ordinaryBroadcastsEnabled = true,
 ): Promise<void> {
   const scheduled = await tx
     .selectFrom("communication_broadcasts")
@@ -327,7 +327,7 @@ export async function launchDueBroadcasts(
     )
     .execute();
   for (const row of scheduled)
-    if (marketingEnabled || row.audience.kind === "waitlist")
+    if (ordinaryBroadcastsEnabled || row.audience.kind === "waitlist")
       await launchBroadcast(tx, row, now, waitlist);
 }
 // Completes launched broadcasts without unfinished recipients: one broadcast after its result,

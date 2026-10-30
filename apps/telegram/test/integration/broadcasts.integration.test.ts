@@ -32,6 +32,7 @@ import {
   type CommunicationMessage,
 } from "../../src/modules/communications/communication-delivery.js";
 import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
 import { SequenceScheduler } from "../../src/modules/communications/sequence-scheduler.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import type {
@@ -214,6 +215,202 @@ async function start(updateId = "1", source?: string, user = "42") {
   await app.get(BotContacts).observeStart(value, "none");
   await entry.enter(value, source);
 }
+it("delivers an explicitly launched broadcast without an intro or default sequence in broadcasts-only mode", async () => {
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "1",
+      observedAt: now,
+    },
+    "none",
+  );
+  const manualConfig = {
+    ...config,
+    marketingEnabled: false,
+    broadcastsEnabled: true,
+  };
+  const manual = new SequenceScheduler(
+    database,
+    manualConfig,
+    clock,
+    transport,
+    signInReplyEligibility,
+  );
+  await expect(manual.assertConfigured()).resolves.toBeUndefined();
+  await launch();
+  now = new Date(+now + 1000);
+  await manual.processAvailable();
+  expect(sent.map((message) => message.content.text)).toEqual(["broadcast"]);
+});
+
+it.each([
+  { marketingEnabled: false, broadcastsEnabled: false, delivered: [] },
+  {
+    marketingEnabled: false,
+    broadcastsEnabled: true,
+    delivered: ["scheduled"],
+  },
+  {
+    marketingEnabled: true,
+    broadcastsEnabled: false,
+    delivered: ["scheduled"],
+  },
+  { marketingEnabled: true, broadcastsEnabled: true, delivered: ["scheduled"] },
+])(
+  "scheduled broadcasts respect the independent flags: $marketingEnabled / $broadcastsEnabled",
+  async ({ delivered, ...flags }) => {
+    await oldContact();
+    const runtime = { ...config, ...flags };
+    const worker = () =>
+      new SequenceScheduler(
+        database,
+        runtime,
+        clock,
+        transport,
+        signInReplyEligibility,
+      );
+    const unlaunched = broadcast([part("unlaunched draft")], now.toISOString());
+    expect(
+      (await http(command("broadcasts.save", unlaunched))).statusCode,
+    ).toBe(200);
+    await launch(
+      broadcast([part("scheduled")], new Date(+now + 60_000).toISOString()),
+    );
+    await worker().processAvailable();
+    expect(sent).toHaveLength(0);
+    now = new Date(+now + 61_000);
+    await Promise.all([
+      worker().processAvailable(),
+      worker().processAvailable(),
+    ]);
+    now = new Date(+now + 1000);
+    await worker().processAvailable();
+    expect(sent.map((message) => message.content.text)).toEqual(delivered);
+    expect(
+      (
+        await http(
+          command("broadcasts.read", { broadcastId: unlaunched.broadcastId }),
+        )
+      ).json<CommunicationsBody>().broadcast.state,
+    ).toBe("draft");
+  },
+);
+
+it("broadcasts-only mode leaves automatic deliveries pending and still excludes stopped or blocked recipients", async () => {
+  await setup();
+  for (const user of ["42", "43", "44"]) await start(user, undefined, user);
+  const manualConfig = {
+    ...config,
+    marketingEnabled: false,
+    broadcastsEnabled: true,
+  };
+  const manualEntry = new MarketingEntry(database, manualConfig, clock);
+  await manualEntry.setPreference(
+    {
+      botIdentity: "inside",
+      telegramUserId: "43",
+      privateChatId: "43",
+      updateId: "100",
+      observedAt: now,
+    },
+    false,
+  );
+  await app.get(BotContacts).observeContactability({
+    botIdentity: "inside",
+    telegramUserId: "44",
+    contactability: "blocked",
+    updateId: "100",
+    observedAt: now,
+  });
+  const manual = new SequenceScheduler(
+    database,
+    manualConfig,
+    clock,
+    transport,
+    signInReplyEligibility,
+  );
+  await launch();
+  expect(await manual.processAvailable()).toBe(0); // The /stop service response has priority.
+  await app.get(StartResponseDeliveryProcessor).processAvailable(10, now);
+  now = new Date(+now + 100_000);
+  await manual.processAvailable();
+  expect(sent.map((message) => [message.chatId, message.content.text])).toEqual(
+    [["42", "broadcast"]],
+  );
+  await manualEntry.setPreference(
+    {
+      botIdentity: "inside",
+      telegramUserId: "43",
+      privateChatId: "43",
+      updateId: "101",
+      observedAt: now,
+    },
+    true,
+  );
+  now = new Date(+now + 1000);
+  await app.get(StartResponseDeliveryProcessor).processAvailable(10, now);
+  now = new Date(+now + 1000);
+  await launch(broadcast([part("future broadcast")]));
+  await manual.processAvailable();
+  now = new Date(+now + 1000);
+  await manual.processAvailable();
+  expect(
+    sent
+      .filter((message) => message.chatId === "43")
+      .map((message) => message.content.text),
+  ).toEqual(["future broadcast"]);
+  expect(
+    sent.every((message) =>
+      ["broadcast", "future broadcast"].includes(message.content.text),
+    ),
+  ).toBe(true);
+});
+
+it("disabling broadcasts-only mode stops new claims without losing unfinished parts", async () => {
+  await oldContact();
+  const manualConfig = {
+    ...config,
+    marketingEnabled: false,
+    broadcastsEnabled: true,
+  };
+  const worker = (enabled: boolean) =>
+    new SequenceScheduler(
+      database,
+      { ...manualConfig, broadcastsEnabled: enabled },
+      clock,
+      transport,
+      signInReplyEligibility,
+    );
+  await launch(broadcast([part("first"), part("second")]));
+  now = new Date(+now + 1000);
+  await worker(true).processAvailable(1);
+  expect(sent.map((message) => message.content.text)).toEqual(["first"]);
+  now = new Date(+now + 1000);
+  await worker(false).processAvailable();
+  expect(sent.map((message) => message.content.text)).toEqual(["first"]);
+  now = new Date(+now + 1000);
+  await worker(true).processAvailable();
+  expect(sent.map((message) => message.content.text)).toEqual([
+    "first",
+    "second",
+  ]);
+});
+
+it("automatic marketing still requires its intro and published default when broadcasts are independently enabled", async () => {
+  const both = new SequenceScheduler(
+    database,
+    { ...config, broadcastsEnabled: true },
+    clock,
+    transport,
+    signInReplyEligibility,
+  );
+  await expect(both.assertConfigured()).rejects.toThrow("Marketing requires");
+  await setup();
+  await expect(both.assertConfigured()).resolves.toBeUndefined();
+});
+
 function tick(seconds = 1) {
   now = new Date(now.getTime() + seconds * 1000);
   return scheduler.processAvailable();

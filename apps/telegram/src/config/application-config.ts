@@ -78,6 +78,8 @@ export interface ApplicationConfig {
   readonly databaseUrl: string;
   readonly deliveryMode: DeliveryMode;
   readonly marketingEnabled: boolean;
+  /** Allows explicitly launched ordinary broadcasts without automatic marketing scenarios. */
+  readonly broadcastsEnabled?: boolean;
   readonly materialAnnouncements?:
     | { readonly mode: "all" }
     | { readonly mode: "test"; readonly telegramUserId: string };
@@ -493,6 +495,11 @@ export function loadApplicationConfig(
             },
           }
         : {}),
+    broadcastsEnabled: parseBoolean(
+      environment["TELEGRAM_BROADCASTS_ENABLED"],
+      false,
+      "TELEGRAM_BROADCASTS_ENABLED",
+    ),
     marketingEnabled: parseBoolean(
       environment["TELEGRAM_MARKETING_ENABLED"],
       false,
