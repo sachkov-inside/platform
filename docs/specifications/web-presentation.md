@@ -67,9 +67,13 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   Keep all text within the surface; reflow at enlarged text sizes and reserve the bar's actual height
   after programme content so its final action remains reachable. Its bottom sheet leaves
   a dismissible top gap and shows the rail content for the current chapter. Close the sheet on navigation, route hide
-  and desktop resize. From 48rem to below 64rem, a top button showing chapter and step position
-  opens a left modal drawer with the same rail content; omit the bottom dock and retain the
-  previous/next footer. At 64rem the rail stays visible.
+  and desktop resize. Owner correction 2026-10-30 (#1854): the lesson dock serves phones and
+  tablets below 64rem, at most 22rem wide with at least 24 px side margins. Previous and next are
+  44 px round buttons on the secondary surface; the dark centre shows a list icon (hidden on the
+  narrowest phones), «Программа», a one-line caption and an upward chevron. The caption reads
+  «Пройдено N из M» for the chapter once the reader's progress is known, otherwise the chapter and
+  step position. Tablets keep the previous/next footer, and their sheet fits its content. The
+  programme sections bar keeps its compact width and stays phone-only. At 64rem the rail stays visible.
   Prose uses 16 px below 80rem and 18 px above; retain 15 px phone prose.
   Keep the mobile course heading at 20 px; omit format, course and topic metadata.
   Rail rows use 16 px and 1.6 line height. Keep step titles at weight 400 in every selection

@@ -472,11 +472,12 @@ The chapter switch titles its list «Выберите главу» with chapter 
 number and «N/M», a complete chapter adds a check and the reading chapter is tinted. Browsing another
 chapter shows «Вы читаете главу N» with «К текущему шагу».
 Rail text uses 16 px. Prose uses 16 px below 80rem and 18 px above, with 15 px phone prose.
-The tablet drawer and phone sheet repeat the desktop rail content and chapter switch.
-Below 48rem, the floating lesson dock opens the bottom programme sheet.
+The programme sheet repeats the desktop rail content and chapter switch.
+Below 64rem, the floating lesson dock opens the bottom programme sheet (#1854, owner 2026-10-30):
+previous and next sit on light round buttons, and the dark centre names «Программа» with a list icon,
+an upward chevron and either «Пройдено N из M» or the chapter and step position.
 Mobile bottom navigation, including programme bars and sticky programme links, uses no backdrop blur.
-From 48rem to below 64rem, a top button showing chapter and step position opens a left overlay drawer;
-the bottom dock is absent.
+From 48rem to below 64rem, tablets use the same dock and sheet; there is no top programme button.
 At 64rem and above, the chapter rail stays visible. Tablet and desktop retain the named previous/next footer.
 The supplementary footer returns to the originating lesson or Task; it does not offer primary-step arrows.
 Nested supplementary links retain the anchor. Selecting a primary step ends supplementary browsing.

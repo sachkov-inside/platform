@@ -679,6 +679,9 @@ export function ProgrammeDialog({
     1;
   const chapterTotal = chapter?.steps.length ?? 0;
   const chapterLabel = `Глава ${String(chapter?.ordinal ?? 1)}`;
+  const marks = useCourseReadMarks(context);
+  const progress =
+    chapter === undefined ? null : courseChapterProgress(chapter.steps, marks);
   const atProgrammeStep =
     !supplementary || isProgrammeStepOpenedForReference(context);
   function openProgramme() {
@@ -689,28 +692,7 @@ export function ProgrammeDialog({
   }
   return (
     <div className={styles["mobileProgramme"]}>
-      <button
-        type="button"
-        className={styles["tabletTrigger"]}
-        onClick={openProgramme}
-        aria-haspopup="dialog"
-      >
-        <List size={18} aria-hidden="true" />
-        {atProgrammeStep ? (
-          <>
-            {/* The visible position stays inside the accessible name. */}
-            <span className="sr-only">Вся программа: </span>
-            {chapterLabel}
-            <span aria-hidden="true">·</span>
-            <span className={styles["triggerPosition"]}>
-              {chapterStep} из {chapterTotal}
-            </span>
-          </>
-        ) : (
-          "Вся программа"
-        )}
-      </button>
-      <CourseNavigationBar label="Навигация по урокам">
+      <CourseNavigationBar label="Навигация по урокам" layout="lesson">
         {supplementary ? null : context.previous === null ? (
           <button type="button" disabled aria-label="Предыдущий шаг">
             <ArrowLeft size={16} aria-hidden="true" />
@@ -724,16 +706,19 @@ export function ProgrammeDialog({
           />
         )}
         <CourseNavigationItem
+          icon={List}
           label="Программа"
           onClick={openProgramme}
           opensProgramme
           current
           caption={
-            atProgrammeStep
-              ? `${chapterLabel} · ${String(chapterStep)}/${String(chapterTotal)}`
-              : context.currentPosition === 0
+            !atProgrammeStep
+              ? context.currentPosition === 0
                 ? "Дополнительный материал"
                 : "Ваше место в курсе"
+              : progress === null
+                ? `${chapterLabel} · Шаг ${String(chapterStep)} из ${String(chapterTotal)}`
+                : `Пройдено ${String(progress.done)} из ${String(progress.total)}`
           }
         />
         {supplementary ? null : context.next === null ? (

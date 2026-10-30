@@ -561,8 +561,7 @@ button.step {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
-.dialogHead button,
-.mobileProgramme > button {
+.dialogHead button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -584,9 +583,6 @@ button.step {
 .host button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
-}
-.mobileProgramme > .tabletTrigger {
-  display: none;
 }
 @media (min-width: 40rem) {
   .actions,
@@ -665,9 +661,6 @@ button.step {
   overscroll-behavior: contain;
 }
 @media (width < 48rem) {
-  .document {
-    padding-bottom: 9rem;
-  }
   .header h1 {
     font-size: 1.25rem;
     text-wrap: initial;
@@ -675,6 +668,12 @@ button.step {
   }
   .footer {
     display: none;
+  }
+}
+/* Phones and tablets open the programme from the lesson dock as one bottom sheet. */
+@media (width < 64rem) {
+  .document {
+    padding-bottom: 9rem;
   }
   .dialog {
     position: fixed;
@@ -706,45 +705,10 @@ button.step {
   }
 }
 @media (48rem <= width < 64rem) {
-  .mobileProgramme {
-    display: contents;
-  }
-  .mobileProgramme > .tabletTrigger {
-    position: sticky;
-    top: 0.5rem;
-    z-index: 20;
-    display: inline-flex;
-    width: max-content;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--background);
-    color: var(--foreground);
-  }
+  /* A tablet sheet fits a short chapter instead of covering the whole page. */
   .dialog {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: min(22rem, calc(100vw - 3rem));
-    height: 100dvh;
-    max-height: none;
-    margin: 0;
-    padding: max(1rem, env(safe-area-inset-top)) 1.25rem
-      max(1.25rem, env(safe-area-inset-bottom));
-    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-    overflow-y: auto;
-  }
-  .dialogHead {
-    position: sticky;
-    top: -1rem;
-    z-index: 1;
-    align-items: center;
-    padding-block: 0.5rem;
-    background: var(--background);
-  }
-  .grabber {
-    display: none;
+    height: auto;
+    max-height: calc(100dvh - max(4rem, env(safe-area-inset-top)));
   }
 }
 @keyframes sheet-enter {
@@ -897,11 +861,6 @@ button.step {
     display: block;
   }
 }
-@media (48rem <= width < 64rem) {
-  .hostDocument > .mobileProgramme > .tabletTrigger {
-    margin-inline-start: max(0px, calc((100% - 43rem) / 2));
-  }
-}
 .content {
   min-width: 0;
   animation: course-content-arrive var(--motion-duration-fast)
@@ -919,11 +878,4 @@ button.step {
   .content {
     animation: none;
   }
-}
-.tabletTrigger > span[aria-hidden="true"] {
-  color: var(--muted-foreground);
-}
-.triggerPosition {
-  color: var(--muted-foreground);
-  font-variant-numeric: tabular-nums;
 }

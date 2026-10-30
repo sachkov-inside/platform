@@ -1,6 +1,6 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
+import { ChevronUp, type LucideIcon } from "lucide-react";
 import type { Route } from "next";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -11,10 +11,13 @@ export function CourseNavigationBar({
   children,
   label,
   reserveSpace = false,
+  layout = "sections",
 }: {
   readonly children: ReactNode;
   readonly label: string;
   readonly reserveSpace?: boolean;
+  /** The lesson dock is wider, stays on tablets and reads its programme opener as a button. */
+  readonly layout?: "sections" | "lesson";
 }) {
   const bar = useRef<HTMLElement>(null);
   const [space, setSpace] = useState(0);
@@ -42,7 +45,12 @@ export function CourseNavigationBar({
           style={{ height: space }}
         />
       ) : null}
-      <nav ref={bar} aria-label={label} className={styles["bar"]}>
+      <nav
+        ref={bar}
+        aria-label={label}
+        className={styles["bar"]}
+        data-layout={layout}
+      >
         <div className={styles["items"]}>{children}</div>
       </nav>
     </>
@@ -73,6 +81,9 @@ export function CourseNavigationItem(props: NavigationItemProps) {
         {props.caption === undefined ? null : <small>{props.caption}</small>}
         <span>{props.label}</span>
       </span>
+      {"opensProgramme" in props && props.opensProgramme ? (
+        <ChevronUp size={16} aria-hidden="true" className={styles["opens"]} />
+      ) : null}
     </>
   );
   return "href" in props ? (

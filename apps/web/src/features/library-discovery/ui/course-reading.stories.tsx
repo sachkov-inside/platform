@@ -324,18 +324,23 @@ export const TabletProgramme: Story = {
   globals: { viewport: { value: "tablet820", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(
-      canvasElement.querySelector('nav[aria-label="Навигация по урокам"]'),
-    ).not.toBeVisible();
-    const trigger = canvas.getByRole("button", {
-      name: "Вся программа: Глава 1 2 из 3",
-    });
+    // Tablets share the phone's lesson dock; the programme opens as the same bottom sheet.
+    const dock = within(
+      canvas.getByRole("navigation", { name: "Навигация по урокам" }),
+    );
+    const trigger = dock.getByRole("button", { name: "Вся программа" });
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toHaveTextContent("Глава 1 · Шаг 2 из 3");
     await userEvent.click(trigger);
     const dialog = canvas.getByRole("dialog", {
       name: "Программа: AI Engineering",
     });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getBoundingClientRect().left).toBe(0);
+    await waitFor(async () => {
+      await expect(Math.round(dialog.getBoundingClientRect().bottom)).toBe(
+        window.innerHeight,
+      );
+    });
     await expect(
       within(dialog).getByRole("link", { current: "step" }),
     ).toBeVisible();
@@ -360,6 +365,15 @@ export const PhoneProgramme: Story = {
     await expect(
       dock.queryByRole("link", { name: "К прохождению курса" }),
     ).toBeNull();
+    // The dock is wide enough to read as controls yet keeps clear side margins.
+    const dockBounds = canvas
+      .getByRole("navigation", { name: "Навигация по урокам" })
+      .getBoundingClientRect();
+    await expect(dockBounds.left).toBeGreaterThanOrEqual(24);
+    await expect(window.innerWidth - dockBounds.right).toBeGreaterThanOrEqual(
+      24,
+    );
+    await expect(dockBounds.width).toBeGreaterThan(300);
     await document.fonts.ready;
     const label = dock.getByText("Программа", {
       selector: "span",
