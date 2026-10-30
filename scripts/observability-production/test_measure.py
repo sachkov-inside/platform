@@ -10,6 +10,17 @@ import measure
 
 
 class Summaries(unittest.TestCase):
+    def test_technical_measurement_inherits_scope_and_persists_host_opt_in(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory).resolve() / 'technical'
+            measure.prepare(output, host_metrics=True, scope='technical')
+            self.assertEqual(json.loads((output / 'measurement-mode.json').read_text()),
+                             {'host_metrics': True, 'production_scope': 'technical'})
+            self.assertFalse(list(output.glob('umami*')))
+            (output / 'measurement-mode.json').write_text(json.dumps({'host_metrics': True, 'production_scope': 'full'}))
+            with self.assertRaisesRegex(ValueError, 'scope_mismatch'):
+                measure.worker(output)
+
     def test_explicit_fixture_host_opt_in_survives_unprofiled_cleanup(self):
         for enabled in (False, True):
             with self.subTest(enabled=enabled), tempfile.TemporaryDirectory() as directory:
