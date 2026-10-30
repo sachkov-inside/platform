@@ -501,6 +501,24 @@ class StoredTextContracts(unittest.TestCase):
 
     def test_foreign_objects_refuse_without_executing_hooks(self):
         hooks=[]
+        class Hostile(dict):
+            def items(self):hooks.append('items');raise AssertionError('hook')
+            def __iter__(self):hooks.append('iter');raise AssertionError('hook')
+            def __str__(self):hooks.append('str');raise AssertionError('hook')
+        for value in (Hostile(secret='hidden'),object()):
+            with self.assertRaises(ValueError):stored.scan(value)
+            bundle=NativeSdkProjection().bundle();bundle['traces'][-1]['scope']=value
+            with self.assertRaises(ValueError):stored.span_facts(bundle['traces'],trace_id='a'*32,release='c'*40)
+            with self.assertRaises(ValueError):
+                stored.validate_bundle(bundle,observed={'trace_id':'a'*32,'root_id':'b'*16},
+                    release='c'*40,start=1800000000000,cut=1800000020000)
+            bundle=NativeSdkProjection().bundle();bundle['metrics'][-1]['resource_attrs']=value
+            with self.assertRaises(ValueError):stored.metric_facts(bundle['metrics'],release='c'*40,start=1800000000000,cut=1800000020000)
+            with self.assertRaises(ValueError):stored.native_probe_cases(bundle['metrics'],release='c'*40,cut=1800000020000)
+        self.assertEqual(hooks,[])
+
+    def test_list_string_and_custom_objects_refuse_at_owning_boundaries_without_hooks(self):
+        hooks=[]
         class HostileDict(dict):
             def items(self):hooks.append('items');raise AssertionError('hook')
             def __iter__(self):hooks.append('iter');raise AssertionError('hook')
