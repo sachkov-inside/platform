@@ -137,12 +137,7 @@ try {
   // Админка отвечает 404 гостю (#1879), поэтому адреса проверяются с сессией владельца сценария.
   await startWithRoutes({
     baseUrl: webUrl,
-    request: (url) =>
-      fetch(url, {
-        headers: { cookie: `${env.FULLSTACK_LOGTO_COOKIE_NAME}=${session}` },
-        redirect: "manual",
-        signal: AbortSignal.timeout(60_000),
-      }),
+    headers: { cookie: `${env.FULLSTACK_LOGTO_COOKIE_NAME}=${session}` },
     routes: [
       "/",
       "/welcome",
