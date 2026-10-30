@@ -24,7 +24,9 @@ import diagnostics
 import emitter_phase
 
 SCOPE = 'One production SDK S3 cold read under a test-owned HTTP scope; not genuine API-to-store or resource acceptance'
-ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'sdk-storage.json', 'runtime-modules.json', 'recovery.json', diagnostics.NAME, emitter_phase.NAME)
+# Keep inactive representative imports independent of the SDK-only observer.
+COLLECTOR_ARTIFACT = 'sdk-collector-observation.json'
+ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'sdk-storage.json', 'runtime-modules.json', 'recovery.json', diagnostics.NAME, emitter_phase.NAME, COLLECTOR_ARTIFACT)
 EMITTER_SECONDS = 30
 STORAGE_SECONDS = 60
 CHILD_BYTES = 512 * 1024
@@ -44,7 +46,7 @@ def source_inputs():
     return tuple(pilot.ROOT / name for name in sorted(selected))
 
 
-def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS, diagnostic=None):
+def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS, diagnostic=None, collector=None):
     """Own the single native Node child and its in-process HTTP listener until reaped.
 
     No new process group: the existing outside supervisor also owns this child on
@@ -54,11 +56,16 @@ def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS, diagnostic=N
         raise ValueError('closed emitter budget')
     if diagnostic is not None: diagnostic.start('capture')
     child = None
+    primary = None
     try:
         child = subprocess.Popen(argv or ['node', str(HERE / 'emitter.mjs')], cwd=pilot.ROOT,
                                  env=environment, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        launched = time.monotonic()
+        deadline = launched + budget
+        if collector is not None:
+            try:collector.start(origin=launched)
+            except Exception:pass
         assert child.stdout is not None
-        deadline = time.monotonic() + budget
         data = bytearray()
         with selectors.DefaultSelector() as selector:
             selector.register(child.stdout, selectors.EVENT_READ)
@@ -66,8 +73,13 @@ def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS, diagnostic=N
                 remaining = deadline-time.monotonic()
                 if remaining <= 0:
                     raise TimeoutError()
-                if not selector.select(remaining):
-                    raise TimeoutError()
+                wait = remaining
+                if collector is not None:
+                    try:wait = min(wait,collector.poll())
+                    except Exception:pass
+                if not selector.select(wait):
+                    if time.monotonic() >= deadline:raise TimeoutError()
+                    continue
                 part = os.read(child.stdout.fileno(), min(65536, CHILD_BYTES+1-len(data)))
                 if not part:
                     break
@@ -75,7 +87,19 @@ def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS, diagnostic=N
                 if len(data) > CHILD_BYTES:
                     if diagnostic is not None: diagnostic.fail('protocol_cap')
                     raise ValueError()
-        if child.wait(timeout=max(.001, deadline-time.monotonic())) != 0:
+        while True:
+            remaining = deadline-time.monotonic()
+            if remaining <= 0:raise TimeoutError()
+            wait = remaining
+            if collector is not None:
+                try:wait = min(wait,collector.poll())
+                except Exception:pass
+            try:
+                exit_code = child.wait(timeout=max(.001,wait))
+                break
+            except subprocess.TimeoutExpired:
+                if collector is None:raise
+        if exit_code != 0:
             if diagnostic is not None: diagnostic.fail('native_exit')
             raise RuntimeError()
         if diagnostic is not None: diagnostic.start('protocol_decode')
@@ -87,24 +111,39 @@ def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS, diagnostic=N
         if diagnostic is not None: diagnostic.observed(True)
         return value
     except BaseException as error:
+        primary = error
         if diagnostic is not None:
             diagnostic.fail('interrupted' if isinstance(error, KeyboardInterrupt) else
                             'deadline' if isinstance(error, (TimeoutError, subprocess.TimeoutExpired)) else
                             'transport' if isinstance(error, OSError) else 'unknown')
         raise
     finally:
-        if child is not None:
-            try:
-                if child.poll() is None:
-                    child.terminate()
-                    try:
-                        child.wait(timeout=2)
-                    except subprocess.TimeoutExpired:
-                        child.kill()
-                child.wait(timeout=2)
-            finally:
-                if child.stdout is not None:
-                    child.stdout.close()
+        try:
+            if child is not None:
+                def reap(timeout):
+                    if collector is None:return child.wait(timeout=timeout)
+                    until=time.monotonic()+timeout
+                    while True:
+                        try:collector.poll()
+                        except Exception:pass
+                        remaining=until-time.monotonic()
+                        if remaining<=0:raise subprocess.TimeoutExpired('owned emitter',timeout)
+                        try:return child.wait(timeout=min(.05,remaining))
+                        except subprocess.TimeoutExpired:pass
+                try:
+                    if child.poll() is None:
+                        child.terminate()
+                        try:reap(2)
+                        except subprocess.TimeoutExpired:child.kill()
+                    reap(2)
+                finally:
+                    if child.stdout is not None:
+                        child.stdout.close()
+        finally:
+            if collector is not None:
+                try:collector.finish()
+                except BaseException as error:
+                    if primary is None and isinstance(error, KeyboardInterrupt):raise
 
 
 def witness(value):
@@ -173,12 +212,13 @@ def trace_response(compose, targets, trace_id, *, budget=10):
             raise diagnostics.ResponseDecode('SDK storage response cap')
         return raw
 
-def producer_observation(output, *, environment, diagnostic, phase_source=None):
+def producer_observation(output, *, environment, diagnostic, phase_source=None, collector=None):
+    observation_options = {} if collector is None else {"collector":collector}
     if phase_source is None:
-        wire = emitter(environment=environment, diagnostic=diagnostic)
+        wire = emitter(environment=environment, diagnostic=diagnostic, **observation_options)
     else:
         with emitter_phase.OwnedSdkPhase(output,source=phase_source) as phase:
-            wire = emitter(environment=phase.environment(environment), diagnostic=diagnostic)
+            wire = emitter(environment=phase.environment(environment), diagnostic=diagnostic, **observation_options)
     diagnostic.start('witness')
     try:
         observed = witness(wire)
@@ -270,15 +310,22 @@ def worker(output):
             pilot.verify_trace_store_logging(output, compose)
             if pilot.command(['docker', 'inspect', '--format', '{{.HostConfig.LogConfig.Type}}', targets.targets['alloy']['id']]).strip() != 'none':
                 raise RuntimeError('SDK storage collector logging unproved')
+            readiness_start = time.monotonic()
             pilot.await_otlp_ready(output=output)
+            readiness_end = time.monotonic()
             token = source_status_query._read_private_token(output)
             pilot.await_fact(lambda: pilot.request('/metrics/api/v1/query?query=1', token=token),
                              lambda response: response[0] == 200, output=output, probe='sdk_storage_query_ready')
             release = ci.read_command(['git', '-C', str(pilot.ROOT), 'rev-parse', 'HEAD'])
             # Frozen daemon and exact owned plan/logging are established before secret ingress.
             pilot.assert_docker_identity()
+            import collector_observation
+            collector = collector_observation.OwnedCollector(output,source=release,
+                admitted=pilot.FROZEN_DOCKER_IDENTITY,
+                target={key:targets.targets['alloy'][key] for key in ('id','image','project','service')},
+                readiness_times=(readiness_start,readiness_end))
             result['stage'] = 'producer'
-            observed = producer_observation(output, environment={**os.environ, 'SDK_STORAGE_RELEASE': release}, diagnostic=diagnostic, phase_source=release)
+            observed = producer_observation(output, environment={**os.environ, 'SDK_STORAGE_RELEASE': release}, diagnostic=diagnostic, phase_source=release, collector=collector)
             metrics, traces, attempts = stored_metrics_and_traces(token=token, compose=compose, targets=targets,
                 observed=observed, release=release, result=result, diagnostic=diagnostic)
             result['stage'] = 'complete'
@@ -341,12 +388,15 @@ def collect_unacquired(output,metadata,destination):
 
 def collect(output, metadata, destination):
     if collect_unacquired(output,metadata,destination):return
+    import collector_observation
     source=emitter_phase.source_from_metadata(metadata)
     projected = diagnostics.read(output/diagnostics.NAME, scope='sdk')
     phase=emitter_phase.load_for_collection(output,source=source)
-    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name not in (diagnostics.NAME,emitter_phase.NAME)))
+    collector=collector_observation.load_for_collection(output,source=source)
+    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name not in (diagnostics.NAME,emitter_phase.NAME,collector_observation.NAME)))
     diagnostics.write(destination/diagnostics.NAME, projected, scope='sdk')
     emitter_phase.write(destination/emitter_phase.NAME,phase,source=source)
+    collector_observation.write(destination/collector_observation.NAME,collector,source=source)
 
 
 def main():
