@@ -30,6 +30,171 @@ function command(step) {
   return script.replace(/^ {10}/gmu, "").trim();
 }
 
+const migrationBase = "cfa6b52fed6792f67affcb1ab245c2ec591dd016";
+const migrationSource = "0d7693f6774abdf5d13fc278d6026e05ed9a0efe";
+const advancedBase = "1111111111111111111111111111111111111111";
+
+test("authoritative PR and queue bases alone select the immutable squash migration", async (t) => {
+  const cwd = mkdtempSync(resolve(tmpdir(), "review-source-"));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  const output = resolve(cwd, "output");
+  for (const event of ["pull_request", "merge_group"]) {
+    for (const base of [
+      migrationBase,
+      advancedBase,
+      "",
+      "main",
+      "a".repeat(39),
+      `${migrationBase}\n`,
+    ]) {
+      writeFileSync(output, "");
+      const result = await runReviewProcess(
+        "bash",
+        ["-euc", command("Select trusted review source")],
+        {
+          cwd,
+          env: {
+            ...process.env,
+            GITHUB_OUTPUT: output,
+            REVIEW_EVENT_NAME: event,
+            REVIEW_PR_BASE_SHA: event === "pull_request" ? base : migrationBase,
+            REVIEW_QUEUE_BASE_SHA:
+              event === "merge_group" ? base : migrationBase,
+          },
+        },
+      );
+      const valid = base === migrationBase || base === advancedBase;
+      assert.equal(
+        result.status,
+        valid ? 0 : 1,
+        `${event}: ${JSON.stringify(base)}: ${result.stderr}`,
+      );
+      assert.equal(
+        readFileSync(output, "utf8"),
+        valid
+          ? `source_sha=${base === migrationBase ? migrationSource : base}\n`
+          : "",
+      );
+    }
+  }
+  const unsupported = await runReviewProcess(
+    "bash",
+    ["-euc", command("Select trusted review source")],
+    {
+      cwd,
+      env: {
+        ...process.env,
+        GITHUB_OUTPUT: output,
+        REVIEW_EVENT_NAME: "push",
+        REVIEW_PR_BASE_SHA: migrationBase,
+        REVIEW_QUEUE_BASE_SHA: migrationBase,
+      },
+    },
+  );
+  assert.equal(unsupported.status, 1);
+});
+
+test("migration checkout requires exact source and verifier digest before execution", async (t) => {
+  const cwd = mkdtempSync(resolve(tmpdir(), "review-pin-"));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  const trusted = resolve(cwd, "review-trusted");
+  mkdirSync(resolve(trusted, "scripts"), { recursive: true });
+  const initialized = await runReviewProcess("git", ["init", trusted]);
+  assert.equal(initialized.status, 0, initialized.stderr);
+  const objects = await runReviewProcess("git", [
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-path",
+    "objects",
+  ]);
+  assert.equal(objects.status, 0, objects.stderr);
+  writeFileSync(
+    resolve(trusted, ".git/objects/info/alternates"),
+    objects.stdout,
+  );
+  async function checkoutSource(/** @type {string} */ source) {
+    const result = await runReviewProcess("git", [
+      "-C",
+      trusted,
+      "update-ref",
+      "HEAD",
+      source,
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+  }
+  const verifier = resolve(trusted, "scripts/review-evidence.mjs");
+  const pinnedFile = await runReviewProcess("git", [
+    "show",
+    `${migrationSource}:scripts/review-evidence.mjs`,
+  ]);
+  assert.equal(pinnedFile.status, 0, pinnedFile.stderr);
+  const original = pinnedFile.stdout;
+  async function check(/** @type {string} */ source = migrationSource) {
+    return runReviewProcess(
+      "bash",
+      ["-euc", command("Validate trusted review checkout")],
+      {
+        cwd: trusted,
+        env: { ...process.env, REVIEW_TRUSTED_SOURCE: source },
+      },
+    );
+  }
+  await checkoutSource(migrationSource);
+  writeFileSync(verifier, original);
+  assert.equal((await check()).status, 0);
+  const wrongDigest = command("Validate trusted review checkout").replace(
+    "a925df89ac1d67fc36f89875be5193ff33c61d75a2332583b30d83a80924ba36",
+    "0".repeat(64),
+  );
+  const rejectedDigest = await runReviewProcess("bash", ["-euc", wrongDigest], {
+    cwd: trusted,
+    env: { ...process.env, REVIEW_TRUSTED_SOURCE: migrationSource },
+  });
+  assert.equal(rejectedDigest.status, 1);
+  writeFileSync(verifier, "throw new Error('TAMPERED VERIFIER EXECUTED');");
+  const tampered = await check();
+  assert.equal(tampered.status, 1);
+  assert.doesNotMatch(tampered.stderr, /TAMPERED VERIFIER EXECUTED/u);
+  rmSync(verifier);
+  assert.equal((await check()).status, 1);
+  writeFileSync(verifier, original);
+  await checkoutSource(migrationBase);
+  assert.equal((await check()).status, 1);
+  // Ordinary target sources use their own verifier, without the historical A digest.
+  writeFileSync(verifier, "throw new Error('ordinary trusted verifier');");
+  assert.equal((await check(migrationBase)).status, 0);
+  rmSync(resolve(trusted, ".git"), { recursive: true });
+  assert.notEqual((await check()).status, 0);
+});
+
+test("unavailable pinned checkout stops the workflow without bootstrap or fallback", async (t) => {
+  const cwd = mkdtempSync(resolve(tmpdir(), "review-unavailable-"));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  const initialized = await runReviewProcess("git", ["init", cwd]);
+  assert.equal(initialized.status, 0, initialized.stderr);
+  const result = await runReviewProcess(
+    "bash",
+    [
+      "-euc",
+      `git checkout '${migrationSource}'\n${command("Validate trusted review checkout")}\necho UNCHECKED_EXECUTION`,
+    ],
+    {
+      cwd,
+      env: { ...process.env, REVIEW_TRUSTED_SOURCE: migrationSource },
+    },
+  );
+  assert.notEqual(result.status, 0);
+  assert.doesNotMatch(
+    result.stdout,
+    /UNCHECKED_EXECUTION|bootstrap-prior-policy/u,
+  );
+  assert.doesNotMatch(review, /continue-on-error|always\(\)|failure\(\)/u);
+  assert.ok(
+    review.indexOf("Validate trusted review checkout") <
+      review.indexOf("Check out candidate as data"),
+  );
+});
+
 test("trusted verifier executes instead of candidate and broken adopted verifier cannot bootstrap", async (t) => {
   const cwd = mkdtempSync(resolve(tmpdir(), "review-workflow-"));
   t.after(() => rmSync(cwd, { recursive: true, force: true }));
@@ -111,7 +276,7 @@ test("release workflow_call needs no open PR, token or candidate execution", asy
   );
   assert.equal(
     (review.match(/if: \$\{\{ inputs.source_sha == '' \}\}/gu) ?? []).length,
-    4,
+    6,
   );
   assert.match(review, /if: \$\{\{ inputs.source_sha != '' \}\}/u);
 });
@@ -123,7 +288,24 @@ test("read-only review is unconditional for PR/queue and required by CI Gate", a
   );
   assert.match(
     review,
-    /ref: \$\{\{ github.event.pull_request.base.sha \|\| github.event.merge_group.base_sha \}\}/u,
+    /ref: \$\{\{ steps.review-source.outputs.source_sha \}\}/u,
+  );
+  assert.match(review, /REVIEW_EVENT_NAME: \$\{\{ github.event_name \}\}/u);
+  assert.match(
+    review,
+    /REVIEW_PR_BASE_SHA: \$\{\{ github.event.pull_request.base.sha \}\}/u,
+  );
+  assert.match(
+    review,
+    /REVIEW_QUEUE_BASE_SHA: \$\{\{ github.event.merge_group.base_sha \}\}/u,
+  );
+  assert.match(
+    review,
+    /REVIEW_TRUSTED_SOURCE: \$\{\{ steps.review-source.outputs.source_sha \}\}/u,
+  );
+  assert.ok(
+    review.indexOf("Select trusted review source") <
+      review.indexOf("Check out trusted target rules"),
   );
   assert.match(review, /working-directory: review-candidate/u);
   assert.match(

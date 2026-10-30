@@ -18,7 +18,8 @@ existence, semantic independence or review quality. Distinct strings cannot prov
 Keep actual native reports available for inspection. Invented identities and omitted findings violate
 the existing review procedure even when JSON validation cannot detect them.
 
-CI executes the verifier from the trusted target revision with a read-only token. The candidate is
+CI executes the verifier from the trusted target revision, subject to the bounded immutable transition
+under [Adoption and rollback](#adoption-and-rollback), with a read-only token. The candidate is
 Git data: no candidate dependencies or scripts run in that job. Workflow invocation remains subject
 to the existing CI trust model and prior-policy independent review of candidate workflow changes.
 This is not a separately protected, tamper-proof status authority. Such an authority would require a
@@ -142,11 +143,37 @@ attempt, security and coverage requirements remain mandatory.
 
 A trusted target without `scripts/review-evidence.mjs` explicitly reports `bootstrap-prior-policy`.
 Prior-policy independent Standards/Spec, classification, required checks and owner acceptance of the
-prepared agent controls still govern first adoption. File absence on the trusted target alone
+prepared agent controls still govern first adoption. File absence on the ordinary trusted target alone
 selects bootstrap; candidate flags, receipt fields and discretionary exceptions cannot select it.
+The immutable transition below requires its verifier file and cannot select bootstrap.
 A present broken verifier fails. Proposed controls cannot authorize their own first merge.
 
 After the owner accepts the prepared controls and the adoption PR merges, later PRs/queue groups run
 the trusted target's verifier. Deleting or changing a candidate copy cannot select bootstrap. Changes
 to the verifier, invocation or mandatory status remain authority changes assessed under prior policy.
 Restore prior controls through a reviewed revert with the same owner gate and preserve review history.
+
+### Bounded squash-verifier transition (#1856)
+
+The initial trusted baseline `cfa6b52fed6792f67affcb1ab245c2ec591dd016` contains a verifier
+that cannot validate its own corrective squash-queue delivery. This transition changes the source
+of review authority. Activation requires independent review under the prior trusted policy and the
+owner's explicit acceptance of the concrete reviewed algorithm A and workflow B. Acceptance of the
+earlier #1855 adoption does not approve this new transition. Preparation and passing checks do not
+supply that acceptance. Ordinary tasks acquire no new human-approval requirement.
+
+Only an authoritative `pull_request.base.sha` or `merge_group.base_sha` exactly equal to that old
+baseline selects immutable A `0d7693f6774abdf5d13fc278d6026e05ed9a0efe`. Before execution, CI
+requires the actual trusted checkout HEAD to equal the selected SHA and its
+`scripts/review-evidence.mjs` SHA-256 to equal
+`a925df89ac1d67fc36f89875be5193ff33c61d75a2332583b30d83a80924ba36`.
+Missing or invalid event bases fail before checkout. Missing/unavailable A, a wrong checkout, or
+missing/changed verifier content fails without fallback to bootstrap or the old verifier.
+The read-only verifier still performs full receipt, source, tree and provider verification and
+returns its real result; candidate dependencies and scripts remain unexecuted in this job.
+Release `workflow_call` applicability remains `release-not-applicable`, with these checkouts skipped.
+
+Every other valid event base automatically uses that exact ordinary trusted target. Once main
+advances beyond the old baseline, the transition is inactive without changing flags, labels, inputs
+or branch rules. The historical condition may remain for reproducibility; its removal is an
+ordinary reviewed authority change under the existing prior-policy and owner gates.

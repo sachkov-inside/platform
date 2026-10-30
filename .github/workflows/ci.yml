@@ -46,13 +46,46 @@ jobs:
         run: |
           echo 'status=release-not-applicable' >> "$GITHUB_OUTPUT"
           echo 'Review evidence: release-not-applicable. Integration review belongs to PR and merge queue; release source coverage remains mandatory.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Select trusted review source
+        id: review-source
+        if: ${{ inputs.source_sha == '' }}
+        env:
+          REVIEW_EVENT_NAME: ${{ github.event_name }}
+          REVIEW_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          REVIEW_QUEUE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+        run: |
+          case "$REVIEW_EVENT_NAME" in
+            pull_request) base="$REVIEW_PR_BASE_SHA" ;;
+            merge_group) base="$REVIEW_QUEUE_BASE_SHA" ;;
+            *) echo 'Unsupported review event' >&2; exit 1 ;;
+          esac
+          if ! [[ "$base" =~ ^[0-9a-f]{40}$ ]]; then
+            echo 'Missing or invalid authoritative review base' >&2
+            exit 1
+          fi
+          source="$base"
+          if test "$base" = cfa6b52fed6792f67affcb1ab245c2ec591dd016; then
+            source=0d7693f6774abdf5d13fc278d6026e05ed9a0efe
+          fi
+          echo "source_sha=$source" >> "$GITHUB_OUTPUT"
       - name: Check out trusted target rules
         if: ${{ inputs.source_sha == '' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          ref: ${{ steps.review-source.outputs.source_sha }}
           path: review-trusted
           persist-credentials: false
+      - name: Validate trusted review checkout
+        if: ${{ inputs.source_sha == '' }}
+        working-directory: review-trusted
+        env:
+          REVIEW_TRUSTED_SOURCE: ${{ steps.review-source.outputs.source_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$REVIEW_TRUSTED_SOURCE"
+          if test "$REVIEW_TRUSTED_SOURCE" = 0d7693f6774abdf5d13fc278d6026e05ed9a0efe; then
+            digest="$(sha256sum scripts/review-evidence.mjs)"
+            test "${digest%% *}" = a925df89ac1d67fc36f89875be5193ff33c61d75a2332583b30d83a80924ba36
+          fi
       - name: Check out candidate as data
         if: ${{ inputs.source_sha == '' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
