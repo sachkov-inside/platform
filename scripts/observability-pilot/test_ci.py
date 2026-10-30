@@ -9,6 +9,7 @@ import tempfile
 import unittest
 import os
 import signal
+import shutil
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -17,6 +18,7 @@ from unittest.mock import patch
 import ci
 
 FIXTURE_LEADER_EXIT_BUDGET_SECONDS = 2
+FIXTURE_SOURCE_PROCESS_TIMEOUT_SECONDS = 10
 LINUX_IDENTITY = {'platform': 'linux', 'context': 'default', 'endpoint': 'unix:///fixture/docker.sock',
                   'daemon_id': 'owned', 'storage': '/var/lib/docker', 'socket_device': 1, 'socket_inode': 2}
 MAC_IDENTITY = {'context': 'orbstack', 'endpoint': 'unix:///fixture/docker.sock',
@@ -413,7 +415,8 @@ class FiniteRejectionCollectionTests(unittest.TestCase):
                 self.assertFalse((root / 'public' / ci.source_status.REJECTION_NAME).exists())
 
     def test_exact_file_cap_is_reconstructed_and_foreign_owner_or_read_race_is_refused(self):
-        for attack in ('exact_cap', 'uid', 'file_race', 'directory_mode', 'metadata_link'):
+        for attack in ('exact_cap', 'uid', 'file_race', 'directory_mode', 'metadata_link',
+                       'metadata_hardlink', 'metadata_fifo', 'metadata_uid', 'metadata_race', 'metadata_directory'):
             with self.subTest(attack=attack), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory).resolve(); output, metadata, _, value = self.fixture(root)
                 path = output / ci.source_status.REJECTION_NAME
@@ -423,11 +426,28 @@ class FiniteRejectionCollectionTests(unittest.TestCase):
                 if attack == 'metadata_link':
                     (metadata / 'source.json').rename(metadata / 'target')
                     (metadata / 'source.json').symlink_to(metadata / 'target')
+                if attack in ('metadata_hardlink', 'metadata_fifo'):
+                    (metadata / 'source.json').rename(metadata / 'target')
+                    if attack == 'metadata_hardlink': os.link(metadata / 'target', metadata / 'source.json')
+                    else: os.mkfifo(metadata / 'source.json', 0o600)
+                metadata_inode = (metadata / 'source.json').stat().st_ino
                 inode = path.stat().st_ino
                 native_stat = os.fstat
                 reads = []
                 def fstat(descriptor):
                     info = native_stat(descriptor)
+                    if info.st_ino == metadata_inode:
+                        if attack == 'metadata_uid':
+                            fields = list(info); fields[4] = os.getuid() + 1
+                            return os.stat_result(fields)
+                        if attack == 'metadata_race' and not reads:
+                            reads.append(True)
+                            (metadata / 'source.json').rename(metadata / 'moved')
+                            (metadata / 'source.json').write_bytes((metadata / 'moved').read_bytes())
+                        if attack == 'metadata_directory' and not reads:
+                            reads.append(True)
+                            metadata.rename(root / 'original-metadata'); metadata.mkdir(mode=0o700)
+                            (metadata / 'source.json').write_bytes((root / 'original-metadata/source.json').read_bytes())
                     if info.st_ino == inode:
                         if attack == 'uid':
                             fields = list(info); fields[4] = os.getuid() + 1
@@ -462,6 +482,155 @@ class FiniteRejectionCollectionTests(unittest.TestCase):
             (output / ci.source_status.REJECTION_NAME).unlink()
             ci.collect(output, metadata, root / 'public')
             self.assertFalse((root / 'public' / ci.source_status.REJECTION_NAME).exists())
+
+
+class QueryHelperAdmissionTests(unittest.TestCase):
+    @staticmethod
+    def copy_sources(root):
+        for name in ('observability-fullstack', 'observability-signoz',
+                     'observability-resource', 'observability-pilot'):
+            target = root / 'scripts' / name
+            target.mkdir(parents=True)
+            for original in (ci.ROOT / 'scripts' / name).glob('*.py'):
+                shutil.copyfile(original, target / original.name)
+
+    def test_actual_protected_worker_refuses_mac_before_loading_changed_query_helper(self):
+        # Copy real runtime owners, so this catches the introduced ci import in
+        # _worker -> _native_runtime, without replacing that call chain.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            self.copy_sources(root)
+            (root / 'scripts/observability-pilot/source_status_query.py').write_text(
+                "raise ValueError('QUERY_HELPER_UNVERIFIED_BYTES_EXECUTED')\n")
+            code = """import importlib.util, platform, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+platform.system = lambda: 'Darwin'
+platform.machine = lambda: 'arm64'
+spec = importlib.util.spec_from_file_location('probe_witness', path)
+witness = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(witness)
+try:
+    witness._worker(path.parent / 'nonexistent-prepared-not-read')
+except ValueError as error:
+    assert str(error) == 'native_linux_amd64_required', str(error)
+else:
+    raise AssertionError('worker unexpectedly completed')
+assert 'source_status_query' not in sys.modules
+print('NATIVE_HOST_REFUSED_BEFORE_QUERY_HELPER')
+"""
+            result = subprocess.run([sys.executable, '-I', '-B', '-c', code,
+                str(root / 'scripts/observability-fullstack/representative_witness.py')],
+                capture_output=True, text=True, timeout=FIXTURE_SOURCE_PROCESS_TIMEOUT_SECONDS)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), 'NATIVE_HOST_REFUSED_BEFORE_QUERY_HELPER')
+
+
+    def test_actual_collect_validates_before_execution_and_never_reopens_or_reuses_query_code(self):
+        # Each process imports the actual copied CI and uses real Git source
+        # admission. Only a filesystem race is injected, after real git status.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            self.copy_sources(root)
+            for original in ci._admission_inputs():
+                target = root / original.relative_to(ci.ROOT)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(original, target)
+            def git(*args):
+                return subprocess.run(['git', '-c', 'core.hooksPath=/dev/null',
+                    '-c', 'user.name=Source fixture', '-c', 'user.email=fixture@invalid',
+                    '-c', 'commit.gpgSign=false', '-c', 'core.fsmonitor=false', *args], cwd=root,
+                    capture_output=True, text=True, check=True, timeout=FIXTURE_SOURCE_PROCESS_TIMEOUT_SECONDS).stdout.strip()
+            git('init', '-q'); git('add', '.'); git('commit', '-qm', 'fixed source fixture')
+            sha, tree = git('rev-parse', 'HEAD'), git('rev-parse', 'HEAD^{tree}')
+            inputs = {str(path.relative_to(ci.ROOT)): hashlib.sha256(
+                (root / path.relative_to(ci.ROOT)).read_bytes()).hexdigest() for path in ci._admission_inputs()}
+            query_path = root / 'scripts/observability-pilot/source_status_query.py'
+            original_query = query_path.read_bytes()
+            code = """import json, sys, types
+from pathlib import Path
+from unittest.mock import patch
+root, attack = Path(sys.argv[1]), sys.argv[2]
+query_path = root / 'scripts/observability-pilot/source_status_query.py'
+marker = b"raise AssertionError('QUERY_HELPER_UNVERIFIED_BYTES_EXECUTED')\\n"
+if attack in ('inactive', 'absent', 'changed'):
+    query_path.write_bytes(marker)
+sys.path.insert(0, str(query_path.parent))
+import ci
+assert 'source_status_query' not in sys.modules
+assert ci.REJECTION_NAME == ci.source_status.REJECTION_NAME
+assert ci.REJECTION_MAX_BYTES == ci.source_status.REJECTION_MAX_BYTES == 4096
+output, metadata, public = root / 'private', root / 'metadata', root / 'public'
+if attack in ('inactive', 'absent'):
+    if attack == 'absent':
+        (output / ci.REJECTION_NAME).unlink()
+    ci.collect(output, metadata, public, artifacts=() if attack == 'inactive' else None)
+    assert 'source_status_query' not in sys.modules
+    print('INACTIVE_QUERY_UNLOADED')
+    raise SystemExit(0)
+if attack.startswith('foreign') or attack == 'cached':
+    from importlib.machinery import ModuleSpec
+    alias = types.ModuleType('source_status_query')
+    alias.__file__ = str(query_path) if attack != 'foreign_file' else '/foreign/query.py'
+    alias.__spec__ = ModuleSpec('source_status_query', None,
+        origin='/foreign/query.py' if attack == 'foreign_origin' else str(query_path))
+    def untrusted(*args, **kwargs):
+        raise AssertionError('CACHED_QUERY_FUNCTION_EXECUTED')
+    alias._read_rejection = untrusted
+    sys.modules['source_status_query'] = object() if attack == 'foreign_object' else alias
+command = ci.read_command
+raced = []
+def read_command(args):
+    value = command(args)
+    if attack == 'race' and 'status' in args:
+        query_path.write_bytes(marker)
+        raced.append(True)
+    return value
+try:
+    with patch.object(ci, 'read_command', side_effect=read_command):
+        ci.collect(output, metadata, public, artifacts=(ci.REJECTION_NAME,))
+except ValueError:
+    assert attack in ('changed', 'foreign_file', 'foreign_origin', 'foreign_object'), attack
+    assert not public.exists()
+    print('UNTRUSTED_QUERY_REFUSED_BEFORE_EXECUTION')
+else:
+    assert attack in ('valid', 'race', 'cached'), attack
+    assert json.loads((public / ci.REJECTION_NAME).read_bytes()) == json.loads(
+        (output / ci.REJECTION_NAME).read_bytes())
+    if attack == 'race':
+        assert raced and query_path.read_bytes() == marker
+        try:
+            ci.collect(output, metadata, root / 'second-public', artifacts=(ci.REJECTION_NAME,))
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('fresh source was cached')
+    print('VERIFIED_BYTES_ONLY')
+"""
+            for attack in ('inactive', 'absent', 'changed', 'foreign_file', 'foreign_origin', 'foreign_object',
+                           'valid', 'race', 'cached'):
+                with self.subTest(attack=attack):
+                    query_path.write_bytes(original_query)
+                    for name in ('private', 'metadata', 'public', 'second-public'):
+                        shutil.rmtree(root / name, ignore_errors=True)
+                    output, metadata = root / 'private', root / 'metadata'
+                    output.mkdir(mode=0o700); metadata.mkdir(mode=0o700)
+                    (metadata / 'source.json').write_text(json.dumps({'checkout_sha': sha,
+                        'checkout_tree': tree, 'provider_execution_sha': sha,
+                        'scope': ci.core_timing.METADATA_SCOPE, 'inputs': inputs}))
+                    (output / 'evidence.json').write_text(json.dumps({'source': sha,
+                        'scope': ci.core_timing.EVIDENCE_SCOPE}))
+                    value = ci.source_status.rejection({'context': 'current', 'slot': 'internal',
+                        'code': 'internal_shape', **dict.fromkeys(ci.source_status.REJECTION_COUNTS)}, sha)
+                    rejection = output / ci.source_status.REJECTION_NAME
+                    rejection.write_text(json.dumps(value)); rejection.chmod(0o600)
+                    result = subprocess.run([sys.executable, '-I', '-B', '-c', code, str(root), attack],
+                                            capture_output=True, text=True, timeout=FIXTURE_SOURCE_PROCESS_TIMEOUT_SECONDS)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    expected = ('INACTIVE_QUERY_UNLOADED' if attack in ('inactive', 'absent') else
+                        'VERIFIED_BYTES_ONLY' if attack in ('valid', 'race', 'cached') else
+                        'UNTRUSTED_QUERY_REFUSED_BEFORE_EXECUTION')
+                    self.assertEqual(result.stdout.strip(), expected)
 
 
 if __name__ == "__main__":

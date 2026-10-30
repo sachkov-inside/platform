@@ -1,18 +1,21 @@
 """No-secrets hosted pilot admission, exact-project recovery and curated artifacts."""
 
 import argparse
+import contextlib
 import hashlib
+from importlib.machinery import ModuleSpec
 import json
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import stat
+import types
 import sys
 import pilot
 import core_timing
 import source_status
-import source_status_query
 import orbstack
 
 from pilot import CONFIG, ROOT, check_disk, cleanup_project, write_json
@@ -27,27 +30,94 @@ PILOT_ARTIFACTS = (
     "stats-idle.jsonl", "stats-steady.jsonl", "stats-spike.jsonl",
 )
 METADATA_ARTIFACTS = ("source.json", "admission.json")
+# Keep inactive controller imports independent of the diagnostic query helper.
+REJECTION_NAME = 'source-status-rejection.json'
+REJECTION_MAX_BYTES = 4096
+
+
+def _directory_identity(info):
+    return info.st_dev, info.st_ino, info.st_uid, info.st_mode
+
+
+def _file_identity(info):
+    return (info.st_dev, info.st_ino, info.st_uid, info.st_mode, info.st_nlink,
+            info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def _rejection_metadata(metadata):
+    # This reader must remain independent of the as-yet-unverified query code.
+    if (not metadata.is_absolute() or len(metadata.parts) > 64
+            or metadata != metadata.resolve(strict=True)):
+        raise ValueError('closed rejection metadata contract')
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    with contextlib.ExitStack() as stack:
+        directory = os.open(metadata.anchor, flags)
+        stack.callback(os.close, directory)
+        for component in metadata.parts[1:]:
+            directory = os.open(component, flags, dir_fd=directory)
+            stack.callback(os.close, directory)
+        owner = os.fstat(directory)
+        identity = _directory_identity(owner)
+        if (not stat.S_ISDIR(owner.st_mode) or owner.st_uid != os.getuid()
+                or stat.S_IMODE(owner.st_mode) != 0o700):
+            raise ValueError('closed rejection metadata contract')
+        descriptor = os.open('source.json', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                             dir_fd=directory)
+        with os.fdopen(descriptor, 'rb') as stream:
+            info = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                    or info.st_nlink != 1 or info.st_size > PUBLIC_ARTIFACT_MAX_BYTES):
+                raise ValueError('closed rejection metadata contract')
+            raw = stream.read(PUBLIC_ARTIFACT_MAX_BYTES + 1)
+            linked = os.stat('source.json', dir_fd=directory, follow_symlinks=False)
+            if (len(raw) > PUBLIC_ARTIFACT_MAX_BYTES
+                    or _file_identity(info) != _file_identity(os.fstat(stream.fileno()))
+                    or _file_identity(info) != _file_identity(linked)):
+                raise ValueError('closed rejection metadata contract')
+        if (metadata != metadata.resolve(strict=True)
+                or _directory_identity(os.fstat(directory)) != identity
+                or _directory_identity(metadata.stat(follow_symlinks=False)) != identity):
+            raise ValueError('closed rejection metadata contract')
+    return source_status.decode_json(raw)
 
 
 def _fresh_rejection_source(metadata):
     # Re-read the current immutable execution and every admitted byte. No reduced
     # diagnostic input list can accidentally authorize a stale runtime helper.
-    with source_status_query._owned_directory(metadata) as (directory, _):
-        value = source_status_query._anchored_json(directory, 'source.json', PUBLIC_ARTIFACT_MAX_BYTES)
+    value = _rejection_metadata(metadata)
     if (type(value) is not dict or type(value.get('inputs')) is not dict
             or value.get('scope') != core_timing.METADATA_SCOPE
             or not core_timing.source_ok(value.get('checkout_sha'))
             or not core_timing.source_ok(value.get('checkout_tree'))
             or value.get('provider_execution_sha') != value['checkout_sha']):
         raise ValueError('closed rejection source contract')
-    expected = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
-                for path in _admission_inputs()}
+    inputs = {str(path.relative_to(ROOT)): path.read_bytes() for path in _admission_inputs()}
+    expected = {name: hashlib.sha256(raw).hexdigest() for name, raw in inputs.items()}
     if (value['inputs'] != expected
             or read_command(['git', '-C', str(ROOT), 'rev-parse', 'HEAD']) != value['checkout_sha']
             or read_command(['git', '-C', str(ROOT), 'rev-parse', 'HEAD^{tree}']) != value['checkout_tree']
             or read_command(['git', '-C', str(ROOT), 'status', '--porcelain', '--untracked-files=no', '--', *expected])):
         raise ValueError('closed rejection source contract')
-    return value['checkout_sha']
+    return value['checkout_sha'], inputs['scripts/observability-pilot/source_status_query.py']
+
+
+def _rejection_query(raw):
+    path = ROOT / 'scripts/observability-pilot/source_status_query.py'
+    existing = sys.modules.get('source_status_query')
+    if existing is not None:
+        if type(existing) is not types.ModuleType:
+            raise ValueError('closed rejection query import contract')
+        attributes = vars(existing)
+        spec = attributes.get('__spec__')
+        if (type(attributes.get('__file__')) is not str or attributes['__file__'] != str(path)
+                or type(spec) is not ModuleSpec or type(spec.origin) is not str or spec.origin != str(path)):
+            raise ValueError('closed rejection query import contract')
+    # Never import/reopen the path after validation, or reuse a cached module's
+    # functions. Only the fixed helper bytes from the fresh complete map execute.
+    module = types.ModuleType('source_status_query')
+    module.__file__ = str(path)
+    exec(compile(raw, str(path), 'exec'), module.__dict__)
+    return module
 
 
 def collect(output, metadata, destination, *, artifacts=None):
@@ -55,12 +125,13 @@ def collect(output, metadata, destination, *, artifacts=None):
     if artifacts is not None and any(type(name) is not str or Path(name).name != name for name in artifacts):
         raise ValueError('artifact selection requires basenames')
     rejection = None
-    diagnostic = output / source_status.REJECTION_NAME
-    if (artifacts is None or source_status.REJECTION_NAME in artifacts) and (diagnostic.exists() or diagnostic.is_symlink()):
+    diagnostic = output / REJECTION_NAME
+    if (artifacts is None or REJECTION_NAME in artifacts) and (diagnostic.exists() or diagnostic.is_symlink()):
         try:
-            output_identity = source_status_query._directory_identity(output.stat(follow_symlinks=False))
-            source = _fresh_rejection_source(metadata)
-            rejection = source_status_query._read_rejection(output, source, output_identity)
+            output_identity = _directory_identity(output.stat(follow_symlinks=False))
+            source, raw = _fresh_rejection_source(metadata)
+            query = _rejection_query(raw)
+            rejection = query._read_rejection(output, source, output_identity)
         except OSError:
             raise ValueError('closed rejection file contract') from None
     timing=None
@@ -69,12 +140,12 @@ def collect(output, metadata, destination, *, artifacts=None):
         timing_source=core_timing.source_from_metadata(metadata/'source.json')
         timing=core_timing.read(output/core_timing.NAME,timing_source)
     destination.mkdir(mode=0o700, parents=True, exist_ok=False)
-    destination_identity = source_status_query._directory_identity(destination.stat(follow_symlinks=False))
+    destination_identity = _directory_identity(destination.stat(follow_symlinks=False))
     for source_root, names in ((metadata, METADATA_ARTIFACTS), (output, PILOT_ARTIFACTS if artifacts is None else artifacts)):
         if source_root.is_symlink():
             raise ValueError("artifact source directory cannot be a symlink")
         for name in names:
-            if name == source_status.REJECTION_NAME:
+            if name == REJECTION_NAME:
                 continue  # This basename never reaches generic raw copying, including explicit selection.
             source = source_root / name
             if not source.exists():
@@ -94,18 +165,18 @@ def collect(output, metadata, destination, *, artifacts=None):
     if timing is not None:core_timing.write(destination/core_timing.NAME,timing,timing_source)
     if rejection is not None:
         raw = (json.dumps(rejection, sort_keys=True, separators=(',', ':'), allow_nan=False) + '\n').encode()
-        if len(raw) > source_status.REJECTION_MAX_BYTES:
+        if len(raw) > REJECTION_MAX_BYTES:
             raise ValueError('closed rejection size contract')
-        with source_status_query._owned_directory(destination, destination_identity) as (directory, _):
-            descriptor = os.open(source_status.REJECTION_NAME,
+        with query._owned_directory(destination, destination_identity) as (directory, _):
+            descriptor = os.open(REJECTION_NAME,
                                  os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
                                  0o600, dir_fd=directory)
             with os.fdopen(descriptor, 'wb') as stream:
                 stream.write(raw)
                 stream.flush()
                 info = os.fstat(stream.fileno())
-                linked = os.stat(source_status.REJECTION_NAME, dir_fd=directory, follow_symlinks=False)
-                if (source_status_query._file_identity(info) != source_status_query._file_identity(linked)
+                linked = os.stat(REJECTION_NAME, dir_fd=directory, follow_symlinks=False)
+                if (_file_identity(info) != _file_identity(linked)
                         or info.st_nlink != 1):
                     raise ValueError('closed rejection publication contract')
 
