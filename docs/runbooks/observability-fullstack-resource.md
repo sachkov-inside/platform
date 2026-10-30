@@ -1,5 +1,64 @@
 # Ресурсный профиль #1566
 
+## Технический профиль текущего задания
+
+Для #1566 и PR #1716 выбран `platform-technical-v1`: метрики сервисов и хоста,
+очищенные логи, связанные трассировки, Grafana и свежесть источников PostgreSQL/Caddy.
+Аналитика Umami/browser analytics и новый специальный monitoring-agent/native-MCP
+доступ отложены. Существующий Platform MCP остаётся в корпусе приложений.
+Ниже сохранены прежние полные и диагностические процедуры для отдельного назначения;
+они не входят в техническую приёмку и сами по себе не включаются этим выбором.
+
+`fullstack.py` и `prepare.py` принимают только `--scope full|technical`.
+Отсутствующий параметр сохраняет полный `platform-representative-v1`. Технический
+вариант использует тот же runner и единственного внешнего владельца с бюджетами
+600 секунд и 90 секунд очистки. Подготовленный `fullstack-source.json` связывает
+scope, профиль, checkout, nonce, приватный output и закрытый состав ролей/баз.
+Worker и contacts читают scope из этих файлов, поскольку supervisor передаёт worker
+только output. Recover/collect получают выбранный scope явно и отклоняют несовпадение.
+Collector проверяет связь доказательств до прежнего ограниченного копирования JSON.
+
+Технический runtime исключает `umami`, `umami-ingest`, `umami-query`, создание
+Umami DB, seed, identities, отправку событий и чтение статистики. Образ Umami
+не загружается. Закреплённый Python для volume-reader сохраняется, хотя его pin
+хранится в Umami lock. Все восемь volumes и пять source-bound образов приложений
+сохраняются. До и после каждой фазы читатель проверяет размеры `inside`, `logto`,
+`inside_telegram` и подтверждает отсутствие `umami` запросом того же каталога,
+который включал бы её при наличии. Фильтрация присутствующей базы запрещена.
+
+Полный технический корпус содержит 3200 scheduled slots: 400
+`analytics_disabled` и 2800 настоящих HTTP-операций приложений, по 400 для
+`web_home`, `web_material`, `api_catalog`, `api_account`, `mcp_discovery`,
+`telegram_webhook`, `logto_discovery`. Для каждой полосы сохраняются реальные
+attempted/completed/successful counts, а отключённый слот не считается HTTP.
+Отдельно публикуются фактически отправленные ON OTLP probes, ожидаемые 1600 при
+полном выполнении, и переменное число loadgen HTTP-запросов мониторинга/источников.
+Host source observations и затраты sampler остаются в прежних счётчиках и отчётах.
+Неполный или неуспешный прогон сохраняет наблюдавшиеся поля, но не получает приёмку.
+
+Остаются 12 фаз в прежнем противоположном порядке OFF/ON, расписание `index % 8`,
+все actors/cohorts, concurrency 8, HTTP timeout 2 секунды, sample interval 2 секунды,
+source interval 5 секунд, sample ratio 1 и прежний прогрев. Проверка закрытого
+профиля, ролей, баз и счётчиков предшествует прежнему `assess`: query ≤10 секунд,
+lag ≤60 секунд, p95 overhead ≤5%, дополнительный host CPU ≤0.1, свободные память,
+диск и inode ≥25%. Исходные image/runtime guards 16/4 GiB не меняются.
+`full_spec_acceptance=deferred` не позволяет назвать этот результат приёмкой всей
+спецификации. Физический хост, production history/retention и семь дней наблюдения
+остаются отдельной будущей проверкой. Старые полные результаты с Umami не становятся
+техническими доказательствами.
+
+CI выбирает technical только для целого номера PR `1716` и точного,
+чувствительного к регистру маркера `<!-- observability-scope: technical -->` в его
+описании. Другой PR, отсутствующий или неизвестный маркер сохраняют full.
+Resource использует отдельные пути и artifact `observability-fullstack-technical-*`.
+Пять workflows `observability-{signoz,signoz-import-control,representative-d7,umami,browser-analytics}`
+в этом единственном назначении не выбирают native задачи. Пропуск означает
+«отложено», а не успешную проверку. Все Application CI, технические SDK/Caddy,
+domain tracking, waitlist, Horizon, production, resource, protocol и impact
+проверки остаются. Прежние optional CPU/stability markers не включены техническим
+маркером. Изменение не выполняет provisioning или deployment.
+
+
 В обычном полном прогоне поле `health_probe_timing` сохраняет недавнюю историю
 Docker healthcheck для MCP и пяти workers. Один общий `inspect` с пределом 2 секунды
 выполняется после HTTP-нагрузки, остановки sampler, последних счётчиков, проверки

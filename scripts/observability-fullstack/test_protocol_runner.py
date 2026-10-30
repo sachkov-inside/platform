@@ -230,6 +230,9 @@ class WorkflowInverse(unittest.TestCase):
         workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/observability-resource.yml').read_text()
         mutations = [
             ('needs: fullstack-protocol\n', ''),
+            ('select-scope >>', 'select-scope-invalid >>'),
+            ('--scope "${{ steps.scope.outputs.scope }}"', '--scope full'),
+            ("scope == 'technical'", "scope == 'unknown'"),
             ('needs: fullstack-protocol', 'needs: [fullstack-protocol, foreign]'),
             ('needs: fullstack-protocol', 'needs: fullstack-protocol\n    needs: fullstack-protocol'),
             ('timeout-minutes: 60', 'timeout-minutes: 61'),
@@ -259,9 +262,24 @@ class WorkflowInverse(unittest.TestCase):
                 inverse_protocol_workflow(workflow.replace(before, after, 1))
 
 
+def inverse_technical_scope(source):
+    """Undo only the assigned closed scope addition, retaining all prior goldens."""
+    step='''      - name: Select exact assigned technical profile, otherwise full
+        id: scope
+        timeout-minutes: 1
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+'''
+    prefix="${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}"
+    argument='          --scope "${{ steps.scope.outputs.scope }}"\n'
+    if source.count(step)!=1 or source.count(prefix)!=13 or source.count(argument)!=4:
+        raise ValueError('Missing or changed technical scope delta')
+    return source.replace(step,'',1).replace(prefix,'fullstack').replace(argument,'')
+
+
 def inverse_seven_group_workflow(source):
     """Reverse only this allowance; recover the entire Root 4c9715e workflow."""
     import hashlib
+    source=inverse_technical_scope(source)
     for current, previous in [
         ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5]'),
         ('Require all seven provider results to succeed', 'Require all five provider results to succeed'),

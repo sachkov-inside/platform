@@ -134,39 +134,47 @@ jobs:
           throw new Error("Resource host Node contract refused");
           console.log(JSON.stringify({ node: process.version, architecture: process.arch, platform: process.platform }));
           '
+      - name: Select exact assigned technical profile, otherwise full
+        id: scope
+        timeout-minutes: 1
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
       - name: Bind complete source and existing disk admission
         timeout-minutes: 1
-        run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/fullstack-metadata"
+        run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-metadata"
       - name: Build five source-bound process images under existing storage guard
         timeout-minutes: 30
         run: >-
           bash scripts/heavy-check.sh python3 scripts/observability-fullstack/prepare.py
-          --metadata "$RUNNER_TEMP/fullstack-metadata" --images "$RUNNER_TEMP/fullstack-images.json"
-          --consumer "$RUNNER_TEMP/fullstack-private"
+          --scope "${{ steps.scope.outputs.scope }}"
+          --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-metadata" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-images.json"
+          --consumer "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-private"
       - name: Measure paired full-process corpus through unchanged 600-second supervisor
         timeout-minutes: 12
         run: >-
           bash scripts/heavy-check.sh python3 scripts/observability-fullstack/fullstack.py run
-          --output "$RUNNER_TEMP/fullstack-private" --images "$RUNNER_TEMP/fullstack-images.json"
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-private" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-images.json"
       - name: Recover only the registered project and preparation images
         if: ${{ always() }}
         timeout-minutes: 5
         run: >-
           python3 scripts/observability-fullstack/fullstack.py recover
-          --output "$RUNNER_TEMP/fullstack-private" --images "$RUNNER_TEMP/fullstack-images.json"
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-private" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-images.json"
       - name: Collect bounded numerical evidence only
         if: ${{ always() }}
         timeout-minutes: 1
         run: >-
           python3 scripts/observability-fullstack/fullstack.py collect
-          --output "$RUNNER_TEMP/fullstack-private" --metadata "$RUNNER_TEMP/fullstack-metadata"
-          --public "$RUNNER_TEMP/fullstack-public"
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-private" --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-metadata"
+          --public "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-public"
       - name: Upload curated resource results
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: observability-fullstack-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/fullstack-public
+          name: observability-${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-public
           if-no-files-found: warn
           retention-days: 7
 

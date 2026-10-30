@@ -89,9 +89,11 @@ def validate_volumes(value):
     return value
 
 
-def observe(compose,invoke,sql):
+def observe(compose,invoke,sql,*,scope='full'):
+    if type(scope) is not str or scope not in ('full','technical'):raise ValueError('closed_fullstack_scope')
+    required=DATABASES if scope=='full' else tuple(name for name in DATABASES if name!='umami')
     volumes=validate_volumes(json.loads(invoke(compose,['run','--rm','--no-deps','volume-reader'],timeout=10)))
     databases=json.loads(sql(compose,"SELECT json_object_agg(datname,pg_database_size(oid)) FROM pg_database WHERE datname IN ('inside','umami','logto','inside_telegram');",timeout=10))
-    if (type(databases) is not dict or set(databases)!=set(DATABASES)
+    if (type(databases) is not dict or set(databases)!=set(required)
             or any(type(number) is not int or not 0<number<2**63 for number in databases.values())):raise ValueError('owned_database_counters')
-    return {'volumes':volumes,'database_bytes':databases}
+    return {'volumes':volumes,'database_bytes':databases,**({'absent_databases':['umami']} if scope=='technical' else {})}

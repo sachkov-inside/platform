@@ -29,7 +29,23 @@ env:
   INSIDE_UMAMI_BROWSER_PROOF: "true"
 
 jobs:
+  scope:
+    name: Select assigned observability scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: scope
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+
   browser-native:
+    needs: scope
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical' }}
     name: Isolated Chromium to Web handler to native Umami
     runs-on: ubuntu-24.04
     timeout-minutes: 30

@@ -118,6 +118,16 @@ function resourceJobs(source) {
   return new Map(matches.map(([, name = "", body = ""]) => [name, body]));
 }
 
+const resourceScopeStep = `      - name: Select exact assigned technical profile, otherwise full
+        id: scope
+        timeout-minutes: 1
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+`;
+const resourceScopePrefix =
+  "${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}";
+const resourceScopeArgument =
+  '          --scope "${{ steps.scope.outputs.scope }}"\n';
+
 /** @param {string} source */
 function assertResourceProtocol(source) {
   const jobs = resourceJobs(source);
@@ -144,6 +154,15 @@ function assertResourceProtocol(source) {
     assert.ok(body.startsWith("    needs: fullstack-protocol\n"));
     assert.equal([...body.matchAll(/^ {4}needs:/gmu)].length, 1);
     let original = body.replace("    needs: fullstack-protocol\n", "");
+    if (name === "fullstack") {
+      assert.equal(original.split(resourceScopeStep).length, 2);
+      assert.equal(original.split(resourceScopeArgument).length, 5);
+      assert.equal(original.split(resourceScopePrefix).length, 14);
+      original = original
+        .replace(resourceScopeStep, "")
+        .replaceAll(resourceScopeArgument, "")
+        .replaceAll(resourceScopePrefix, "fullstack");
+    }
     if (name !== "resource") {
       const anchor =
         name === "stability"
@@ -1602,4 +1621,64 @@ it("runs the cheap partition and inverse contracts inside required tooling withi
   assert.equal(execution.status, 0, execution.stderr);
   const count = execution.stderr.match(/Ran (\d+) tests? in /u)?.[1];
   assert.ok(count && Number(count) > 0, execution.stderr);
+});
+
+const deferredScopeJob =
+  '  scope:\n    name: Select assigned observability scope\n    runs-on: ubuntu-24.04\n    timeout-minutes: 1\n    outputs:\n      scope: ${{ steps.scope.outputs.scope }}\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n        with:\n          ref: ${{ github.sha }}\n          persist-credentials: false\n      - id: scope\n        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"\n\n';
+const deferredWorkflowHashes = {
+  signoz: "1efe0ae0ffaf0c1a687a5b9a6453bae514a922d74cf6e12af8fe22f0b2eecb35",
+  "signoz-import-control":
+    "15075f8ee4a80ac477d0fe350acc156d0c2d9bf39610bff6d11518a0288a84f6",
+  "representative-d7":
+    "e95699764ef66b30e6efe936a9b25dc2aea4cf4621d4b8b0c2e5bad6c137ca2d",
+  umami: "f3f320bac4e0bd2684599b6a8f8b074fb1e027a5ad1d0177bcd119e96ac6a48c",
+  "browser-analytics":
+    "92af13ecde77052e2b8686f19ae49ee981292c9b0a8882bb9b7c457f6bf792ff",
+};
+
+/** @param {string} source @param {string} expected */
+function assertDeferredScope(source, expected) {
+  assert.equal(source.split(deferredScopeJob).length, 2);
+  const gate =
+    "needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical'";
+  let original = source.replace(deferredScopeJob, "");
+  const jobs = [
+    ...(original.split("jobs:\n")[1] ?? "").matchAll(
+      /^ {2}([a-z][a-z0-9_-]*):\n([\s\S]*?)(?=^ {2}[a-z][a-z0-9_-]*:\n|(?![\s\S]))/gmu,
+    ),
+  ];
+  assert.ok(jobs.length > 0);
+  for (const [, , body = ""] of jobs) {
+    assert.equal(body.split(gate).length, 2);
+    assert.match(body, /^ {4}needs: (scope|\[scope, [^\]]+\])$/mu);
+  }
+  original = original
+    .replaceAll(`    if: \${{ ${gate} }}\n`, "")
+    .replaceAll(`${gate} && `, "")
+    .replaceAll("    needs: scope\n", "")
+    .replaceAll("    needs: [scope, ", "    needs: [");
+  assert.equal(createHash("sha256").update(original).digest("hex"), expected);
+}
+
+it("defers only the five native analytics/comparison workflows through the exact PR selector", () => {
+  for (const [name, expected] of Object.entries(deferredWorkflowHashes)) {
+    const source = readFileSync(
+      resolve(repositoryRoot, `.github/workflows/observability-${name}.yml`),
+      "utf8",
+    );
+    assertDeferredScope(source, expected);
+    for (const [before = "", after = ""] of [
+      ["select-scope >>", "select-other >>"],
+      ["needs: scope\n", "needs: []\n"],
+      ["needs.scope.outputs.scope != 'technical'", "true"],
+      ["contents: read", "contents: write"],
+      ["persist-credentials: false", "persist-credentials: true"],
+      ["scope.outputs.scope", "scope.outputs.other"],
+    ]) {
+      assert.ok(source.includes(before));
+      assert.throws(() =>
+        assertDeferredScope(source.replace(before, after), expected),
+      );
+    }
+  }
 });

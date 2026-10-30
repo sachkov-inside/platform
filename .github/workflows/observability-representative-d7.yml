@@ -34,9 +34,24 @@ env:
   PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
 
 jobs:
+  scope:
+    name: Select assigned observability scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    outputs:
+      scope: ${{ steps.scope.outputs.scope }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: scope
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+
   protocol:
+    needs: scope
     if: >-
-      ${{ contains(github.event.pull_request.body, '<!-- representative-d7: verify -->') }}
+      ${{ needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical' && contains(github.event.pull_request.body, '<!-- representative-d7: verify -->') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 4
     strategy:
@@ -57,9 +72,9 @@ jobs:
         run: bash scripts/heavy-check.sh python3 -B scripts/observability-fullstack/representative_ci.py protocol --group "${{ matrix.group }}"
 
   all-seven:
-    needs: [protocol]
+    needs: [scope, protocol]
     if: >-
-      ${{ always() && contains(github.event.pull_request.body, '<!-- representative-d7: verify -->') }}
+      ${{ needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical' && always() && contains(github.event.pull_request.body, '<!-- representative-d7: verify -->') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 1
     steps:
@@ -69,8 +84,8 @@ jobs:
         run: test "$RESULT" = success
 
   minimal:
-    needs: [all-seven]
-    if: ${{ needs.all-seven.result == 'success' }}
+    needs: [scope, all-seven]
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical' && needs.all-seven.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     outputs:
@@ -103,8 +118,8 @@ jobs:
         run: python3 -B scripts/observability-fullstack/representative_ci.py minimal-gate
 
   d7:
-    needs: [all-seven, minimal]
-    if: ${{ !cancelled() && needs.all-seven.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha }}
+    needs: [scope, all-seven, minimal]
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical' && !cancelled() && needs.all-seven.result == 'success' && needs.minimal.result == 'success' && needs.minimal.outputs.sha == github.sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
