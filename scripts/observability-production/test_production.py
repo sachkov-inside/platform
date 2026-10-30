@@ -45,6 +45,8 @@ class Preparation(unittest.TestCase):
             self.assertFalse(list(output.glob('umami*')))
             stack = json.loads((output / 'compose.json').read_text())
             self.assertEqual(set(stack['services']), set(production.SERVICES))
+            self.assertEqual((stack['services']['alloy']['mem_limit'],stack['services']['alloy']['cpus']),('512m',.5))
+            self.assertEqual((stack['services']['host-agent']['mem_limit'],stack['services']['host-agent']['cpus']),('512m',.25))
             self.assertEqual(len(json.loads((output / 'auth.json').read_text())['users']), 2)
             view = json.loads((output / 'owner-overview/dashboard.json').read_text())
             self.assertNotIn('Umami', json.dumps(view))

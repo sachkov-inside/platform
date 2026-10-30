@@ -147,6 +147,8 @@ class TechnicalScope(unittest.TestCase):
             output,pins=self.prepare_inputs(Path(directory).resolve())
             plan=json.loads((output/'compose.json').read_text())
             self.assertEqual(set(plan['services']),set(fullstack.services('technical')))
+            self.assertEqual((plan['services']['alloy']['mem_limit'],plan['services']['alloy']['cpus']),('512m',.5))
+            self.assertEqual((plan['services']['host-agent']['mem_limit'],plan['services']['host-agent']['cpus']),('512m',.25))
             self.assertEqual(set(plan['volumes']),set(storage.VOLUMES))
             self.assertIn('mcp',plan['services']);self.assertIn('host-agent',plan['services'])
             self.assertFalse(list((output/'monitoring').glob('umami*')))

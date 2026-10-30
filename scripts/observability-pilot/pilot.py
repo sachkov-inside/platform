@@ -56,7 +56,7 @@ def compose_plan(source, output, images, *, credential_owner):
     """Only loopback fixture ingress, query ingress and human Grafana are published."""
     services = {}
     budgets = {"metrics": (768, .4), "logs": (768, .4), "traces": (768, .4),
-               "alloy": (512, .25), "vmauth": (128, .1), "gateway": (128, .1), "grafana": (512, .25), "horizon": (128, .1)}
+               "alloy": (512, .5), "vmauth": (128, .1), "gateway": (128, .1), "grafana": (512, .25), "horizon": (128, .1)}
     for name in SERVICES:
         memory, cpus = budgets[name]
         services[name] = {"image": images["metrics"] if name == "horizon" else images[name], "mem_limit": f"{memory}m", "cpus": cpus,

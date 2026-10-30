@@ -308,8 +308,19 @@ def worker(output):
             diagnostic.start('ownership')
             targets = source_status_scenario.OwnedTargets(output, compose, plan, pilot.command)
             pilot.verify_trace_store_logging(output, compose)
-            if pilot.command(['docker', 'inspect', '--format', '{{.HostConfig.LogConfig.Type}}', targets.targets['alloy']['id']]).strip() != 'none':
-                raise RuntimeError('SDK storage collector logging unproved')
+            collector_raw = pilot.command(['docker', 'inspect', '--format',
+                '{"logging":{{json .HostConfig.LogConfig.Type}},"nano_cpus":{{json .HostConfig.NanoCpus}}}',
+                targets.targets['alloy']['id']])
+            if len(collector_raw.encode('utf-8')) > 256:
+                raise RuntimeError('SDK storage collector configuration unproved')
+            collector_configuration = oracle.decode(collector_raw)
+            expected_nano_cpus = round(plan['services']['alloy']['cpus'] * 1_000_000_000)
+            if (type(collector_configuration) is not dict or set(collector_configuration) != {'logging', 'nano_cpus'}
+                    or collector_configuration['logging'] != 'none'
+                    or type(collector_configuration['nano_cpus']) is not int
+                    or collector_configuration['nano_cpus'] != expected_nano_cpus):
+                raise RuntimeError('SDK storage collector configuration unproved')
+            result['collector_nano_cpus'] = collector_configuration['nano_cpus']
             readiness_start = time.monotonic()
             pilot.await_otlp_ready(output=output)
             readiness_end = time.monotonic()

@@ -244,6 +244,10 @@ class PilotPreparationTest(unittest.TestCase):
     def test_prepared_stack_keeps_storage_ports_private_and_drops_host_capabilities(self):
         plan = pilot.compose_plan(Path("/source"), Path("/owned-run"),
                                   {name: "pinned" for name in pilot.SERVICES}, credential_owner=(1001, 1002))
+        self.assertEqual({name: (service['mem_limit'], service['cpus']) for name, service in plan['services'].items()}, {
+            'metrics': ('768m', .4), 'logs': ('768m', .4), 'traces': ('768m', .4),
+            'alloy': ('512m', .5), 'vmauth': ('128m', .1), 'gateway': ('128m', .1),
+            'grafana': ('512m', .25), 'horizon': ('128m', .1)})
         for name in ("metrics", "logs", "traces", "vmauth"):
             self.assertNotIn("ports", plan["services"][name])
         self.assertEqual(plan["services"]["gateway"]["ports"], ["127.0.0.1:18427:8080"])

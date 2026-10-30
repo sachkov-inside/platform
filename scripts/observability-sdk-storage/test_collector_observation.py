@@ -246,6 +246,23 @@ class RefusalMatrix(unittest.TestCase):
 
 class IntegrationBoundary(unittest.TestCase):
     def test_worker_adapts_real_normalized_owned_target_before_producer(self):
+        raw='{"logging":"none","nano_cpus":500000000}'
+        for wire in (raw,raw.ljust(256)):
+            with self.subTest(bytes=len(wire)):self.worker_configuration(wire)
+
+    def test_worker_refuses_unproved_collector_quota_before_producer(self):
+        valid={'logging':'none','nano_cpus':500000000}
+        invalid=[json.dumps({**valid,'nano_cpus':value}) for value in
+                 (True,False,None,0,-1,250000000,500000001,500000000.0,'500000000',[],{},2**63)]
+        invalid.extend(json.dumps(value) for value in ({'logging':'none'}, {'nano_cpus':500000000},
+            {**valid,'logging':'json-file'}, {**valid,'private':'private-sentinel'}, None, [], True))
+        invalid.extend(('{"logging":"none","nano_cpus":500000000,"nano_cpus":250000000}',
+                        '{"logging":"none","nano_cpus":NaN}', '{"logging":"none","nano_cpus":Infinity}',
+                        '{"logging":"none","nano_cpus":1e999}', '{', json.dumps(valid).ljust(257)))
+        for case,raw in enumerate(invalid):
+            with self.subTest(case=case):self.worker_configuration(raw,refused=True)
+
+    def worker_configuration(self, collector_wire, *, refused=False):
         from contextlib import ExitStack, nullcontext
         import os
         from pathlib import Path
@@ -268,8 +285,8 @@ class IntegrationBoundary(unittest.TestCase):
             (output/'compose.json').write_text(json.dumps(plan))
             compose=['docker','compose','-p',project,'-f',str(output/'compose.json')]
             ids={role:f'{index+1:064x}' for index,role in enumerate(scenario.CORE_ROLES)}
-            inspected=[]
-            def command(argv,**_):
+            inspected=[];collector_reads=[]
+            def command(argv,**options):
                 if argv in (compose+['config','--quiet'],compose+['up','-d']):return ''
                 for role,cid in ids.items():
                     if argv==compose+['ps','-q',role]:return cid
@@ -283,7 +300,11 @@ class IntegrationBoundary(unittest.TestCase):
                             'service':role,'config_files':compose[5],'mounts':mounts,
                             'networks':{project+'_'+name:{'NetworkID':('b' if name=='pilot' else 'c')*64}
                                 for name in plan['services'][role]['networks']}})
-                if argv==['docker','inspect','--format','{{.HostConfig.LogConfig.Type}}',ids['alloy']]:return 'none'
+                if argv[:3]==['docker','inspect','--format'] and argv[-1]==ids['alloy']:
+                    self.assertEqual(options,{})
+                    self.assertEqual(argv[3],'{"logging":{{json .HostConfig.LogConfig.Type}},"nano_cpus":{{json .HostConfig.NanoCpus}}}')
+                    collector_reads.append(True)
+                    return collector_wire
                 if (argv[:3]==['docker','inspect','--format'] and argv[-1]==ids['traces']
                         and argv[3].startswith('{{if and (eq (index .Config.Labels ')):return 'owned|none'
                 self.fail('unexpected external command: '+repr(argv))
@@ -306,9 +327,18 @@ class IntegrationBoundary(unittest.TestCase):
                 patches.enter_context(patch.object(sdk_storage.ci,'read_command',side_effect=read_source))
                 constructor=patches.enter_context(patch.object(observation,'OwnedCollector',wraps=observation.OwnedCollector))
                 producer=patches.enter_context(patch.object(sdk_storage,'producer_observation',side_effect=stopped))
-                with self.assertRaises(RuntimeError) as caught:sdk_storage.worker(output)
-            self.assertIs(caught.exception,stopped)
+                with self.assertRaises((RuntimeError,ValueError)) as caught:sdk_storage.worker(output)
+            self.assertEqual(collector_reads,[True])
             self.assertEqual(inspected,list(scenario.CORE_ROLES))
+            report=json.loads((output/'sdk-storage.json').read_text())
+            if refused:
+                self.assertIsNot(caught.exception,stopped)
+                constructor.assert_not_called();producer.assert_not_called()
+                self.assertEqual(report['stage'],'ownership')
+                self.assertNotIn('collector_nano_cpus',report)
+                self.assertNotIn('private-sentinel',json.dumps(report))
+                return
+            self.assertIs(caught.exception,stopped)
             constructor.assert_called_once()
             self.assertEqual(constructor.call_args.args,(output,))
             self.assertEqual(constructor.call_args.kwargs['target'],{
@@ -317,7 +347,8 @@ class IntegrationBoundary(unittest.TestCase):
             self.assertEqual(constructor.call_args.kwargs['source'],source)
             self.assertIsInstance(producer.call_args.kwargs['collector'],observation.OwnedCollector)
             self.assertEqual(json.loads((output/'trace-store-logging.json').read_text())['outcome'],'passed')
-            self.assertEqual(json.loads((output/'sdk-storage.json').read_text())['stage'],'producer')
+            self.assertEqual(report['stage'],'producer')
+            self.assertEqual(report['collector_nano_cpus'],500000000)
 
     def inactive_import_probe(self, mode):
         """Exercise actual dynamic imports in an isolated process, before native launch."""
