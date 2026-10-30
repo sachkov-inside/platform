@@ -5,6 +5,9 @@ import {
   courseStepProgress,
   type CourseReadingStep,
 } from "@/features/library-discovery";
+import { internalRoute } from "@/shared/routing/internal-route";
+
+const href = internalRoute("/materials/lesson");
 
 const material = (
   materialId: string,
@@ -12,7 +15,7 @@ const material = (
 ): CourseReadingStep => ({
   id: `material:${materialId}`,
   title: materialId,
-  href: "/materials/x",
+  href,
   kind: "material",
   availability: "available",
   materialId,
@@ -21,7 +24,7 @@ const material = (
 const task = (code: string, taskSubmitted: boolean): CourseReadingStep => ({
   id: `task:${code}`,
   title: code,
-  href: "/materials/x",
+  href,
   kind: "task",
   availability: "available",
   taskSubmitted,
