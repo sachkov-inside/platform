@@ -323,6 +323,53 @@ function body(lesson, entitled) {
   };
   const written =
     lesson.productMemberships[0]?.product.id === modesProductId ? [step] : [];
+  // Текст урока ссылается на другие шаги программы, справочный документ курса и свой раздел.
+  /** @type {import("@inside/material-blocks").RenderedBlock[]} */
+  const crossLinks =
+    lesson.slug === "reference-lesson-5"
+      ? [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                text: "Сразу к уроку 7",
+                marks: [
+                  {
+                    kind: "link",
+                    href: "/materials/reference-lesson-7#раздел-урока",
+                  },
+                ],
+              },
+              { kind: "text", text: " и ", marks: [] },
+              {
+                kind: "text",
+                text: "проект из текста",
+                marks: [{ kind: "link", href: "/materials/aie-project" }],
+              },
+              { kind: "text", text: ", ", marks: [] },
+              {
+                kind: "text",
+                text: "момент урока 6",
+                marks: [
+                  { kind: "link", href: "/materials/reference-lesson-6#t=90" },
+                ],
+              },
+              { kind: "text", text: ", ", marks: [] },
+              {
+                kind: "text",
+                text: "раздел этого урока",
+                marks: [
+                  {
+                    kind: "link",
+                    href: "/materials/reference-lesson-5#раздел-урока",
+                  },
+                ],
+              },
+            ],
+          },
+        ]
+      : [];
   return {
     schemaVersion: 1,
     blocks: [
@@ -332,6 +379,7 @@ function body(lesson, entitled) {
         content: [{ kind: "text", marks: [], text: "Раздел урока" }],
       },
       ...written,
+      ...crossLinks,
       ...paragraphs,
     ],
   };
@@ -360,6 +408,22 @@ function anchorBody(source, chromeCollision = false) {
     ),
   ];
   const target = source ? "/materials/navigation-anchor-target" : "";
+  // После раздела, чтобы не сдвигать старые якоря по номеру блока: ссылка главы видео.
+  /** @type {import("@inside/material-blocks").RenderedBlock[]} */
+  const videoMoments = source
+    ? []
+    : [
+        {
+          kind: "paragraph",
+          content: [
+            {
+              kind: "text",
+              text: "Момент видео",
+              marks: [{ kind: "link", href: "#t=90" }],
+            },
+          ],
+        },
+      ];
   return {
     schemaVersion: 1,
     blocks: [
@@ -389,6 +453,7 @@ function anchorBody(source, chromeCollision = false) {
         ],
       },
       ...(source ? [] : destination),
+      ...videoMoments,
     ],
   };
 }

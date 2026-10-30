@@ -5,12 +5,14 @@ import { materialSourceAnchors } from "@/entities/material";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import {
   CourseTaskSubmissionStatuses,
+  programmeStepLink,
   withDeferredTaskStatuses,
 } from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { proseLinkClassName } from "@/shared/ui/prose-link";
 import {
   anchoredMaterialHref,
+  ownSectionHref,
   parseReaderCourseAnchor,
   parseReaderPlacementId,
   type ReaderCourseAnchor,
@@ -457,6 +459,14 @@ async function ResolvedMaterialReader({
           renderLink={(href, label) => {
             const reference = readInlineArtifactReference(href);
             if (reference === undefined) {
+              // Раздел этого же материала остаётся переходом внутри страницы.
+              const section = ownSectionHref(href, result.material.slug);
+              if (section !== undefined)
+                return (
+                  <a className={proseLinkClassName} href={section}>
+                    {label}
+                  </a>
+                );
               const programme = productContext?.programme;
               if (programme == null) return undefined;
               const current = programme.current;
@@ -464,12 +474,15 @@ async function ResolvedMaterialReader({
                 programme.currentPosition === 0
                   ? undefined
                   : parseReaderCourseAnchor(current.id);
-              const target = anchoredMaterialHref(
-                href,
-                programme.href,
-                contextAnchor,
-                true,
-              );
+              // Ссылка урока на шаг программы открывает этот шаг; дополнительный материал
+              // сохраняет исходный шаг и для своих ссылок.
+              const step =
+                productContext?.supplementary === true
+                  ? undefined
+                  : programmeStepLink(programme, href);
+              const target =
+                step?.href ??
+                anchoredMaterialHref(href, programme.href, contextAnchor, true);
               return target === undefined ? undefined : (
                 <IntentPrefetchLink
                   className={proseLinkClassName}

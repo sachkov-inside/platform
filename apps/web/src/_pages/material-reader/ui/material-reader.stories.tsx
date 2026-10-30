@@ -1961,7 +1961,7 @@ function fail(message: string): never {
 
 /**
  * Бесплатный урок курса для вошедшего, которому курс не открыт (#1647): после текста урока, перед
- * навигацией шагов, призыв к покупке. Следующий шаг закрыт, поэтому призыв называет его закрытым,
+ * действиями в конце урока, призыв к покупке. Следующий шаг закрыт, поэтому призыв называет его закрытым,
  * а кнопка ведёт сразу на оплату курса.
  */
 export const FreeLessonPurchase: Story = {
@@ -2104,9 +2104,15 @@ export const SupplementaryMaterial: Story = {
         '[data-course-step="material:aie-product-brief"]',
       ),
     ).toBeNull();
+    // Конец материала возвращает к программе одной кнопкой панели действий, без повтора ниже.
     await expect(
-      canvas.getByRole("link", { name: "К программе" }),
+      within(
+        canvas.getByRole("navigation", { name: "Действия в конце материала" }),
+      ).getByRole("link", { name: "Назад" }),
     ).toHaveAttribute("href", supplementaryReturn.href);
+    await expect(
+      canvas.queryByRole("link", { name: "К программе" }),
+    ).toBeNull();
   },
 };
 export const SupplementaryMaterialDirect: Story = {
@@ -2249,8 +2255,11 @@ export const SupplementaryFromTask: Story = {
       canvas.queryByRole("navigation", { name: "Шаги курса" }),
     ).toBeNull();
     await expect(
-      canvas.getByRole("link", { name: /Вернуться к заданию:/u }),
-    ).toBeVisible();
+      canvas.getAllByRole("link", { name: "К заданию" }),
+    ).toHaveLength(2);
+    await expect(
+      canvas.queryByRole("link", { name: /Вернуться к заданию:/u }),
+    ).toBeNull();
     const rail = canvas.getByLabelText("Текущая глава");
     if (rail.getClientRects().length > 0) {
       await expect(rail).not.toHaveTextContent("Открытый материал");
@@ -2345,15 +2354,16 @@ export const ProjectReferenceFromLesson: Story = {
       "data-course-step",
       "material:course-intro",
     );
-    await expect(canvas.getAllByRole("link", { name: "К уроку" })).toHaveLength(
-      2,
-    );
+    const returns = canvas.getAllByRole("link", { name: "К уроку" });
+    await expect(returns).toHaveLength(2);
+    for (const link of returns)
+      await expect(link).toHaveAttribute(
+        "href",
+        "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fat%3Dcourse-intro",
+      );
     await expect(
-      canvas.getByRole("link", { name: /Вернуться к уроку:/u }),
-    ).toHaveAttribute(
-      "href",
-      "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fat%3Dcourse-intro",
-    );
+      canvas.queryByRole("link", { name: /Вернуться к уроку:/u }),
+    ).toBeNull();
   },
 };
 export const ProjectReferenceFromLessonMobile: Story = {
