@@ -357,22 +357,18 @@ export async function verify({
         !comment["body"].includes(marker)
       )
         continue;
-      if (
-        !["OWNER", "MEMBER", "COLLABORATOR"].includes(
-          stringField(comment, "author_association"),
-        )
-      )
-        continue;
       const publisher = stringField(object(comment["user"]), "login");
       const permission = object(
         await api(`collaborators/${encodeURIComponent(publisher)}/permission`),
       );
-      requireValue(
-        ["admin", "maintain", "write"].includes(
+      // Association labels hide private organization membership from the CI token.
+      // Current repository authority decides eligibility before parsing untrusted markers.
+      if (
+        !["admin", "maintain", "write"].includes(
           stringField(permission, "permission"),
-        ),
-        "Receipt publisher lacks current write permission",
-      );
+        )
+      )
+        continue;
       requireValue(
         comment["body"].startsWith(`${marker}\n`),
         "Malformed review receipt marker",

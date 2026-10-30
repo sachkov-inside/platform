@@ -113,6 +113,7 @@ async function fixture(t) {
     "pulls/42": pr,
     "issues/42/comments?per_page=100&page=1": comments,
     "collaborators/publisher/permission": { permission: "write" },
+    "collaborators/outsider/permission": { permission: "read" },
     [`commits/${head}/pulls?per_page=100&page=1`]: [
       { number: 42, state: "open" },
     ],
@@ -207,6 +208,22 @@ test("CLI verifies authenticated external receipts against real PR and synthetic
     assert.ok(report.sources[0]);
     assert.equal(report.sources[0].headSha, f.head);
     assert.equal(report.sources[0].commentId, 123);
+  }
+});
+
+test("CLI accepts current writers independently of public membership labels", async (t) => {
+  const f = await fixture(t);
+  for (const [association, permission] of [
+    ["CONTRIBUTOR", "write"],
+    ["NONE", "maintain"],
+    ["MEMBER", "admin"],
+  ]) {
+    f.comment.author_association = association;
+    f.routes["collaborators/publisher/permission"] = { permission };
+    for (const eventName of ["pull_request", "merge_group"]) {
+      const result = await f.check({ eventName });
+      assert.equal(result.status, 0, result.stderr);
+    }
   }
 });
 
@@ -313,16 +330,38 @@ test("CLI accepts complete dispositions and retained historical receipts", async
   assert.equal((await f.check()).status, 0);
 });
 
-test("outsiders cannot forge a receipt or deny service by posting malformed review markers", async (t) => {
+test("readers cannot forge receipts or deny service regardless of association labels", async (t) => {
   const f = await fixture(t);
-  f.comments.push({
-    ...f.comment,
-    author_association: "NONE",
-    user: { login: "outsider" },
-    body: "<!-- platform-review-evidence:v1 -->\n{",
-  });
+  for (const association of ["NONE", "CONTRIBUTOR", "MEMBER", "COLLABORATOR"]) {
+    for (const permission of ["read", "triage"]) {
+      f.routes["collaborators/outsider/permission"] = { permission };
+      for (const body of [
+        f.comment.body,
+        "<!-- platform-review-evidence:v1 -->\n{",
+      ]) {
+        f.routes["issues/42/comments?per_page=100&page=1"] = [
+          f.comment,
+          {
+            ...f.comment,
+            id: 124,
+            author_association: association,
+            user: { login: "outsider" },
+            body,
+          },
+        ];
+        const result = await f.check();
+        assert.equal(result.status, 0, result.stderr);
+      }
+    }
+  }
+});
+
+test("permission lookup failures reject a receipt even when membership looks authorized", async (t) => {
+  const f = await fixture(t);
+  delete f.routes["collaborators/publisher/permission"];
   const result = await f.check();
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /GitHub read failed/u);
 });
 
 test("CLI rejects API failures, revoked publishers, unrelated sources and modified synthetic trees", async (t) => {
