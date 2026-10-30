@@ -375,6 +375,60 @@ it.each(["focus", "pageshow", "online", "visibilitychange"])(
   },
 );
 
+it.each([-60, 60])(
+  "completes a valid sign-in when the device clock is offset by %i minutes",
+  async (offsetMinutes) => {
+    const page = await browser.newPage();
+    try {
+      const serverNow = Date.parse("2026-10-30T09:00:00Z");
+      await page.clock.install({
+        time: new Date(serverNow + offsetMinutes * 60_000),
+      });
+      await open(page, "unavailable");
+      state = {
+        status: "pending",
+        deepLink: botLink,
+        expiresAt: new Date(serverNow + 300_000).toISOString(),
+        expiresInMilliseconds: 300_000,
+      };
+      await poll(page);
+      await expect
+        .poll(() => page.getByRole("status").textContent())
+        .toBe("Подтвердите вход в Telegram.");
+      state = {
+        ...state,
+        status: "approved",
+        callback: `${origin}/callback?fixture=clock-offset`,
+      };
+      await poll(page);
+      await page.waitForURL(`${origin}/callback?fixture=clock-offset`);
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+it("keeps waiting when the device wall clock jumps forward", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.clock.install({ time: new Date("2026-10-30T09:00:00Z") });
+    await open(page, "unavailable");
+    state = { status: "pending", deepLink: botLink };
+    await page.clock.setSystemTime(new Date("2026-10-30T10:00:00Z"));
+    await poll(page);
+    await expect
+      .poll(() => page.getByRole("status").textContent())
+      .toBe("Подтвердите вход в Telegram.");
+    state = { status: "expired" };
+    await poll(page);
+    await expect
+      .poll(() => page.getByRole("status").textContent())
+      .toBe("Время подтверждения истекло. Войдите заново.");
+  } finally {
+    await page.close();
+  }
+});
+
 it("expires locally while the provider remains unavailable", async () => {
   const page = await browser.newPage();
   try {
@@ -385,12 +439,35 @@ it("expires locally while the provider remains unavailable", async () => {
     // Page loading must not spend the fixture's short expiration window.
     await page.clock.pauseAt(waitingAt);
     await open(page, "pending");
-    const expiresAt = new Date(waitingAt.getTime() + 2000).toISOString();
-    state = { status: "unavailable", expiresAt };
+    const expiresInMilliseconds = 1000;
+    const expiresAt = new Date(
+      waitingAt.getTime() + clockStepMs + expiresInMilliseconds,
+    ).toISOString();
+    state = { status: "unavailable", expiresAt, expiresInMilliseconds };
     await poll(page);
     await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
     offline = true;
     await page.clock.runFor(clockStepMs);
+    await page
+      .getByRole("status")
+      .filter({ hasText: "Время подтверждения истекло" })
+      .waitFor();
+    const stoppedAt = requests;
+    await page.clock.runFor(severalPollsMs);
+    expect(requests).toBe(stoppedAt);
+  } finally {
+    await page.close();
+  }
+});
+
+it("bounds an unavailable connection even when the device clock moves backward", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.clock.install({ time: new Date("2026-10-30T09:00:00Z") });
+    await open(page, "unavailable");
+    await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
+    await page.clock.setSystemTime(new Date("2026-10-30T08:00:00Z"));
+    await page.clock.runFor(5 * 60 * 1000 + clockStepMs);
     await page
       .getByRole("status")
       .filter({ hasText: "Время подтверждения истекло" })
