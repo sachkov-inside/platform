@@ -11,6 +11,8 @@ import subprocess
 import sys
 import pilot
 import core_timing
+import source_status
+import source_status_query
 import orbstack
 
 from pilot import CONFIG, ROOT, check_disk, cleanup_project, write_json
@@ -27,18 +29,53 @@ PILOT_ARTIFACTS = (
 METADATA_ARTIFACTS = ("source.json", "admission.json")
 
 
+def _fresh_rejection_source(metadata):
+    # Re-read the current immutable execution and every admitted byte. No reduced
+    # diagnostic input list can accidentally authorize a stale runtime helper.
+    with source_status_query._owned_directory(metadata) as (directory, _):
+        value = source_status_query._anchored_json(directory, 'source.json', PUBLIC_ARTIFACT_MAX_BYTES)
+    if (type(value) is not dict or type(value.get('inputs')) is not dict
+            or value.get('scope') != core_timing.METADATA_SCOPE
+            or not core_timing.source_ok(value.get('checkout_sha'))
+            or not core_timing.source_ok(value.get('checkout_tree'))
+            or value.get('provider_execution_sha') != value['checkout_sha']):
+        raise ValueError('closed rejection source contract')
+    expected = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+                for path in _admission_inputs()}
+    if (value['inputs'] != expected
+            or read_command(['git', '-C', str(ROOT), 'rev-parse', 'HEAD']) != value['checkout_sha']
+            or read_command(['git', '-C', str(ROOT), 'rev-parse', 'HEAD^{tree}']) != value['checkout_tree']
+            or read_command(['git', '-C', str(ROOT), 'status', '--porcelain', '--untracked-files=no', '--', *expected])):
+        raise ValueError('closed rejection source contract')
+    return value['checkout_sha']
+
+
 def collect(output, metadata, destination, *, artifacts=None):
     """Copy only regular bounded JSON evidence, never a private report directory."""
+    if artifacts is not None and any(type(name) is not str or Path(name).name != name for name in artifacts):
+        raise ValueError('artifact selection requires basenames')
+    rejection = None
+    diagnostic = output / source_status.REJECTION_NAME
+    if (artifacts is None or source_status.REJECTION_NAME in artifacts) and (diagnostic.exists() or diagnostic.is_symlink()):
+        try:
+            output_identity = source_status_query._directory_identity(output.stat(follow_symlinks=False))
+            source = _fresh_rejection_source(metadata)
+            rejection = source_status_query._read_rejection(output, source, output_identity)
+        except OSError:
+            raise ValueError('closed rejection file contract') from None
     timing=None
     if artifacts is None:
         if output.is_symlink() or metadata.is_symlink():raise ValueError('unsafe core timing source')
         timing_source=core_timing.source_from_metadata(metadata/'source.json')
         timing=core_timing.read(output/core_timing.NAME,timing_source)
     destination.mkdir(mode=0o700, parents=True, exist_ok=False)
+    destination_identity = source_status_query._directory_identity(destination.stat(follow_symlinks=False))
     for source_root, names in ((metadata, METADATA_ARTIFACTS), (output, PILOT_ARTIFACTS if artifacts is None else artifacts)):
         if source_root.is_symlink():
             raise ValueError("artifact source directory cannot be a symlink")
         for name in names:
+            if name == source_status.REJECTION_NAME:
+                continue  # This basename never reaches generic raw copying, including explicit selection.
             source = source_root / name
             if not source.exists():
                 continue
@@ -55,6 +92,22 @@ def collect(output, metadata, destination, *, artifacts=None):
             (destination / name).write_text(content)
 
     if timing is not None:core_timing.write(destination/core_timing.NAME,timing,timing_source)
+    if rejection is not None:
+        raw = (json.dumps(rejection, sort_keys=True, separators=(',', ':'), allow_nan=False) + '\n').encode()
+        if len(raw) > source_status.REJECTION_MAX_BYTES:
+            raise ValueError('closed rejection size contract')
+        with source_status_query._owned_directory(destination, destination_identity) as (directory, _):
+            descriptor = os.open(source_status.REJECTION_NAME,
+                                 os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                                 0o600, dir_fd=directory)
+            with os.fdopen(descriptor, 'wb') as stream:
+                stream.write(raw)
+                stream.flush()
+                info = os.fstat(stream.fileno())
+                linked = os.stat(source_status.REJECTION_NAME, dir_fd=directory, follow_symlinks=False)
+                if (source_status_query._file_identity(info) != source_status_query._file_identity(linked)
+                        or info.st_nlink != 1):
+                    raise ValueError('closed rejection publication contract')
 
 
 def recover(output, *, project_prefix="inside-observability-pilot-", services=None):
@@ -105,6 +158,15 @@ def read_command(args):
                           timeout=CI_COMMAND_TIMEOUT_SECONDS).stdout.strip()
 
 
+def _admission_inputs():
+    inputs = (CONFIG / "inputs.lock.json", CONFIG / "config.alloy", CONFIG / "privacy-policy.json", CONFIG / "Caddyfile",
+              CONFIG / "vmauth.routes.json", CONFIG / 'probe.lock.json', CONFIG / "owner-overview.json", Path(__file__),
+              Path(__file__).with_name("core_timing.py"), Path(__file__).with_name("source_status.py"), Path(__file__).with_name("source_status_query.py"), Path(__file__).with_name("source_status_scenario.py"), Path(__file__).with_name("pilot.py"), Path(__file__).with_name("owner_overview.py"), Path(__file__).with_name("native_cpu.py"), Path(__file__).with_name("privacy_config.py"), Path(__file__).with_name("collector_privacy.py"), Path(__file__).with_name("link_privacy.py"), Path(__file__).with_name("notification_privacy.py"), Path(__file__).with_name("dependency_privacy.py"), Path(__file__).with_name("email_privacy.py"), Path(__file__).with_name("telegram_http_storage.py"), Path(__file__).with_name("telegram_runtime_privacy.py"), Path(__file__).with_name("telegram_runtime_oracle.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
+              ROOT / ".github/workflows/observability-pilot.yml", ROOT / "apps/backend/openapi/platform-api.json")
+    return (*inputs, *sorted((ROOT / 'infra/observability/horizon').glob('*')),
+            Path(__file__).with_name('horizon_build.py'), ROOT / 'scripts/heavy-check/bounded.py')
+
+
 def admission(metadata, *, inputs=None, scope=None):
     metadata.mkdir(mode=0o700, parents=True, exist_ok=False)
     sha = read_command(["git", "-C", str(ROOT), "rev-parse", "HEAD"])
@@ -112,11 +174,8 @@ def admission(metadata, *, inputs=None, scope=None):
         raise ValueError("hosted proof requires clean committed source")
     if sha != os.environ.get("GITHUB_SHA"):
         raise ValueError("checkout SHA does not match provider execution SHA")
-    inputs = inputs or (CONFIG / "inputs.lock.json", CONFIG / "config.alloy", CONFIG / "privacy-policy.json", CONFIG / "Caddyfile",
-              CONFIG / "vmauth.routes.json", CONFIG / 'probe.lock.json', CONFIG / "owner-overview.json", Path(__file__),
-              Path(__file__).with_name("core_timing.py"), Path(__file__).with_name("source_status.py"), Path(__file__).with_name("source_status_query.py"), Path(__file__).with_name("source_status_scenario.py"), Path(__file__).with_name("pilot.py"), Path(__file__).with_name("owner_overview.py"), Path(__file__).with_name("native_cpu.py"), Path(__file__).with_name("privacy_config.py"), Path(__file__).with_name("collector_privacy.py"), Path(__file__).with_name("link_privacy.py"), Path(__file__).with_name("notification_privacy.py"), Path(__file__).with_name("dependency_privacy.py"), Path(__file__).with_name("email_privacy.py"), Path(__file__).with_name("telegram_http_storage.py"), Path(__file__).with_name("telegram_runtime_privacy.py"), Path(__file__).with_name("telegram_runtime_oracle.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
-              ROOT / ".github/workflows/observability-pilot.yml", ROOT / "apps/backend/openapi/platform-api.json")
-    inputs = (*inputs, *sorted((ROOT / 'infra/observability/horizon').glob('*')),
+    inputs = _admission_inputs() if not inputs else (*inputs,
+              *sorted((ROOT / 'infra/observability/horizon').glob('*')),
               Path(__file__).with_name('horizon_build.py'), ROOT / 'scripts/heavy-check/bounded.py')
     write_json(metadata / "source.json", {
         "checkout_sha": sha,

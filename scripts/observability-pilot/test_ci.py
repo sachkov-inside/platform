@@ -1,6 +1,8 @@
 """Local file boundary contracts for hosted evidence; no Docker or live providers."""
 
 import copy
+import hashlib
+import stat
 import json
 from pathlib import Path
 import tempfile
@@ -289,6 +291,177 @@ class HostedEvidenceTest(unittest.TestCase):
                 except ProcessLookupError:
                     pass
                 leader.wait(timeout=FIXTURE_LEADER_EXIT_BUDGET_SECONDS)
+
+
+class RejectionCollectionTests(unittest.TestCase):
+    def test_explicit_selection_never_copies_unvalidated_rejection_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            output, metadata, public = root / 'private', root / 'metadata', root / 'public'
+            output.mkdir(mode=0o700)
+            metadata.mkdir(mode=0o700)
+            (output / 'source-status-rejection.json').write_text('{"private":"private-sentinel"}')
+            (output / 'source-status-rejection.json').chmod(0o600)
+            with self.assertRaises(ValueError):
+                ci.collect(output, metadata, public, artifacts=('source-status-rejection.json',))
+            self.assertFalse((public / 'source-status-rejection.json').exists())
+
+
+class FiniteRejectionCollectionTests(unittest.TestCase):
+    def fixture(self, root):
+        output, metadata = root / 'private', root / 'metadata'
+        output.mkdir(mode=0o700); metadata.mkdir(mode=0o700)
+        source = {'checkout_sha': 'a' * 40, 'checkout_tree': 'b' * 40,
+                  'provider_execution_sha': 'a' * 40, 'scope': ci.core_timing.METADATA_SCOPE,
+                  'inputs': {str(path.relative_to(ci.ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+                             for path in ci._admission_inputs()}}
+        (metadata / 'source.json').write_text(json.dumps(source))
+        (output / 'evidence.json').write_text(json.dumps({'source': 'a' * 40,
+            'scope': 'synthetic OTLP core compatibility smoke only'}))
+        detail = {'context': 'current', 'slot': 'values', 'code': 'decode',
+                  'values_bytes': 16, 'timestamps_bytes': 16, 'rows': None, 'difference': None}
+        value = ci.source_status.rejection(detail, 'a' * 40)
+        path = output / ci.source_status.REJECTION_NAME
+        path.write_text(json.dumps(value, indent=2)); path.chmod(0o600)
+        return output, metadata, source, value
+
+    @staticmethod
+    def command(args):
+        if args[-1] == 'HEAD': return 'a' * 40
+        if args[-1] == 'HEAD^{tree}': return 'b' * 40
+        if 'status' in args: return ''
+        raise AssertionError('unexpected external command')
+
+    def test_only_strict_projection_is_collected_for_default_and_explicit_selection(self):
+        for selection in (None, (ci.source_status.REJECTION_NAME,)):
+            with self.subTest(selection=selection), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve()
+                output, metadata, _, value = self.fixture(root)
+                original = (output / ci.source_status.REJECTION_NAME).read_bytes()
+                (output / 'source-freshness.json').write_text('{"state":"failed"}')
+                with patch.object(ci, 'read_command', side_effect=self.command) as commands:
+                    ci.collect(output, metadata, root / 'public', artifacts=selection)
+                path = root / 'public' / ci.source_status.REJECTION_NAME
+                self.assertEqual(json.loads(path.read_bytes()), value)
+                self.assertNotEqual(path.read_bytes(), original)
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+                self.assertLessEqual(path.stat().st_size, 4096)
+                self.assertEqual(commands.call_count, 3)
+                if selection is None:
+                    self.assertEqual((root / 'public' / 'source-freshness.json').read_text(), '{"state":"failed"}')
+
+    def test_every_changed_runtime_byte_and_map_membership_are_freshly_bound(self):
+        for name in ('ci.py', 'source_status.py', 'source_status_query.py'):
+            for change in ('bytes', 'omission', 'runtime_bytes'):
+                with self.subTest(name=name, change=change), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory).resolve(); output, metadata, source, _ = self.fixture(root)
+                    relative = 'scripts/observability-pilot/' + name
+                    if change == 'bytes': source['inputs'][relative] = '0' * 64
+                    elif change == 'omission': del source['inputs'][relative]
+                    (metadata / 'source.json').write_text(json.dumps(source))
+                    original_read = Path.read_bytes
+                    def read_bytes(path):
+                        if change == 'runtime_bytes' and path == ci.ROOT / relative:
+                            return b'changed executed runtime bytes'
+                        return original_read(path)
+                    with patch.object(Path, 'read_bytes', read_bytes), \
+                         patch.object(ci, 'read_command', side_effect=self.command), self.assertRaises(ValueError):
+                        ci.collect(output, metadata, root / 'public')
+                    self.assertFalse((root / 'public' / ci.source_status.REJECTION_NAME).exists())
+
+    def test_stale_sha_tree_dirty_source_and_private_source_replacement_refuse(self):
+        for change in ('sha', 'tree', 'dirty', 'evidence', 'diagnostic', 'directory'):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve(); output, metadata, _, value = self.fixture(root)
+                if change == 'evidence':
+                    (output / 'evidence.json').write_text(json.dumps({'source': 'c' * 40,
+                        'scope': 'synthetic OTLP core compatibility smoke only'}))
+                if change == 'diagnostic':
+                    (output / ci.source_status.REJECTION_NAME).write_text(json.dumps({**value, 'source': 'c' * 40}))
+                replaced = []
+                def command(args):
+                    if change == 'directory' and not replaced:
+                        replaced.append(True); output.rename(root / 'original'); output.mkdir(mode=0o700)
+                        for path in (root / 'original').iterdir():
+                            copied = output / path.name; copied.write_bytes(path.read_bytes()); copied.chmod(0o600)
+                    if change == 'sha' and args[-1] == 'HEAD': return 'c' * 40
+                    if change == 'tree' and args[-1] == 'HEAD^{tree}': return 'c' * 40
+                    if change == 'dirty' and 'status' in args: return ' M source_status.py'
+                    return self.command(args)
+                with patch.object(ci, 'read_command', side_effect=command), self.assertRaises(ValueError):
+                    ci.collect(output, metadata, root / 'public')
+                self.assertFalse((root / 'public' / ci.source_status.REJECTION_NAME).exists())
+
+    def test_private_file_and_closed_schema_attacks_are_refused_before_publication(self):
+        for attack in ('extra', 'sentinel', 'bool', 'oversize', 'mode', 'symlink', 'hardlink', 'fifo', 'duplicate'):
+            with self.subTest(attack=attack), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve(); output, metadata, _, value = self.fixture(root)
+                path = output / ci.source_status.REJECTION_NAME
+                if attack in ('symlink', 'hardlink', 'fifo'):
+                    path.rename(output / 'target')
+                    if attack == 'symlink': path.symlink_to(output / 'target')
+                    elif attack == 'hardlink': os.link(output / 'target', path)
+                    else: os.mkfifo(path, 0o600)
+                elif attack == 'mode': path.chmod(0o644)
+                elif attack == 'oversize': path.write_text(' ' * 4097)
+                elif attack == 'extra': path.write_text(json.dumps({**value, 'private': 'private-sentinel'}))
+                elif attack == 'sentinel': path.write_text(json.dumps({**value, 'code': 'decode private-sentinel'}))
+                elif attack == 'bool': path.write_text(json.dumps({**value, 'counts': {**value['counts'], 'rows': True}}))
+                else: path.write_text(json.dumps(value).replace('"schema": 1', '"schema": 1,"schema":1'))
+                with patch.object(ci, 'read_command', side_effect=self.command), self.assertRaises(ValueError):
+                    ci.collect(output, metadata, root / 'public', artifacts=(ci.source_status.REJECTION_NAME,))
+                self.assertFalse((root / 'public' / ci.source_status.REJECTION_NAME).exists())
+
+    def test_exact_file_cap_is_reconstructed_and_foreign_owner_or_read_race_is_refused(self):
+        for attack in ('exact_cap', 'uid', 'file_race', 'directory_mode', 'metadata_link'):
+            with self.subTest(attack=attack), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve(); output, metadata, _, value = self.fixture(root)
+                path = output / ci.source_status.REJECTION_NAME
+                if attack == 'exact_cap':
+                    raw = path.read_bytes(); path.write_bytes(raw + b' ' * (4096 - len(raw)))
+                if attack == 'directory_mode': output.chmod(0o755)
+                if attack == 'metadata_link':
+                    (metadata / 'source.json').rename(metadata / 'target')
+                    (metadata / 'source.json').symlink_to(metadata / 'target')
+                inode = path.stat().st_ino
+                native_stat = os.fstat
+                reads = []
+                def fstat(descriptor):
+                    info = native_stat(descriptor)
+                    if info.st_ino == inode:
+                        if attack == 'uid':
+                            fields = list(info); fields[4] = os.getuid() + 1
+                            return os.stat_result(fields)
+                        if attack == 'file_race' and not reads:
+                            reads.append(True)
+                            path.rename(output / 'moved')
+                            path.write_text(json.dumps(value)); path.chmod(0o600)
+                    return info
+                with patch('os.fstat', side_effect=fstat), patch.object(ci, 'read_command', side_effect=self.command):
+                    if attack == 'exact_cap':
+                        ci.collect(output, metadata, root / 'public')
+                        result = root / 'public' / ci.source_status.REJECTION_NAME
+                        self.assertEqual(json.loads(result.read_bytes()), value)
+                        self.assertLess(result.stat().st_size, 4096)
+                    else:
+                        with self.assertRaises(ValueError):
+                            ci.collect(output, metadata, root / 'public')
+                        self.assertFalse((root / 'public' / ci.source_status.REJECTION_NAME).exists())
+
+    def test_basename_aliases_never_reach_generic_copy(self):
+        for name in ('./source-status-rejection.json', '../private/source-status-rejection.json'):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve(); output, metadata, _, _ = self.fixture(root)
+                with self.assertRaises(ValueError):
+                    ci.collect(output, metadata, root / 'public', artifacts=(name,))
+                self.assertFalse((root / 'public').exists())
+
+    def test_absent_diagnostic_stays_absent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve(); output, metadata, _, _ = self.fixture(root)
+            (output / ci.source_status.REJECTION_NAME).unlink()
+            ci.collect(output, metadata, root / 'public')
+            self.assertFalse((root / 'public' / ci.source_status.REJECTION_NAME).exists())
 
 
 if __name__ == "__main__":

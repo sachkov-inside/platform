@@ -615,5 +615,167 @@ class QueryTests(unittest.TestCase):
                                   'Bearer rotated-token', 'Bearer rotated-token'])
 
 
+class PrivateRejectionTests(unittest.TestCase):
+    def test_private_first_refusal_is_source_bound_and_does_not_change_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory).resolve()
+            (output / 'auth.json').write_text('{"users":[{"bearer_token":"private-token"}]}')
+            (output / 'auth.json').chmod(0o600)
+            (output / 'evidence.json').write_text(json.dumps({'source': 'a' * 40,
+                'scope': 'synthetic OTLP core compatibility smoke only'}))
+            def reply(handler):
+                body = b'private-sentinel'
+                handler.send_response(200)
+                handler.send_header('Content-Length', str(len(body)))
+                handler.end_headers()
+                handler.wfile.write(body)
+            with server(reply) as port:
+                report = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
+            self.assertEqual(report['query']['state'], 'malformed')
+            path = output / 'source-status-rejection.json'
+            detail = json.loads(path.read_text())
+            self.assertEqual(detail['source'], 'a' * 40)
+            self.assertEqual(detail['code'], 'decode')
+            self.assertEqual(detail['slot'], 'values')
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            self.assertNotIn('private-sentinel', path.read_text())
+
+
+class RejectionSafetyTests(unittest.TestCase):
+    def setup_output(self, output):
+        (output / 'auth.json').write_text('{"users":[{"bearer_token":"private-token"}]}')
+        (output / 'auth.json').chmod(0o600)
+        (output / 'evidence.json').write_text(json.dumps({'source': 'a' * 40,
+            'scope': 'synthetic OTLP core compatibility smoke only'}))
+
+    @staticmethod
+    def reply(handler):
+        body = b'private-sentinel'
+        handler.send_response(200)
+        handler.send_header('Content-Length', str(len(body)))
+        handler.end_headers()
+        handler.wfile.write(body)
+
+    def test_public_query_and_private_reader_have_identical_original_report_bytes(self):
+        requests = []
+        def reply(handler):
+            requests.append(handler.path)
+            self.reply(handler)
+        with tempfile.TemporaryDirectory() as directory, server(reply) as port:
+            output = Path(directory).resolve(); self.setup_output(output)
+            with patch('time.monotonic', return_value=0):
+                bare = source_status_query.query('private-token', port=port, wall_clock=lambda: 100)
+                private = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
+            self.assertEqual(json.dumps(private, sort_keys=True), json.dumps(bare, sort_keys=True))
+            self.assertEqual(private['query'], {'state': 'malformed', 'reason': 'invalid_response',
+                                              'duration_seconds': 0})
+            self.assertEqual(len(requests), 4)
+            first = (output / 'source-status-rejection.json').read_bytes()
+            with server(lambda handler: self.reply(handler)) as port:
+                source_status_query.read_report(output, port=port, wall_clock=lambda: 101)
+            self.assertEqual((output / 'source-status-rejection.json').read_bytes(), first)
+            self.assertFalse((output / '.source-status-rejection.new').exists())
+
+    def test_diagnostic_exception_or_interruption_cannot_replace_malformed(self):
+        class Poison(BaseException):
+            def __str__(self):
+                raise AssertionError('private exception formatted')
+        for error in (OSError('private-sentinel'), KeyboardInterrupt(), Poison()):
+            with self.subTest(kind=type(error).__name__), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory).resolve(); self.setup_output(output)
+                with server(self.reply) as port, \
+                     patch.object(source_status_query, '_publish_rejection', side_effect=error):
+                    report = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
+                self.assertEqual(report['query']['state'], 'malformed')
+                self.assertEqual(report['query']['reason'], 'invalid_response')
+                self.assertNotIn('private-sentinel', json.dumps(report))
+
+    def test_source_or_directory_replacement_during_http_refuses_diagnostic_only(self):
+        for change in ('source', 'directory'):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve()
+                output = root / 'private'; output.mkdir(mode=0o700); self.setup_output(output)
+                calls = []
+                def reply(handler):
+                    calls.append(True)
+                    if len(calls) == 1:
+                        if change == 'directory':
+                            output.rename(root / 'original')
+                            output.mkdir(mode=0o700); self.setup_output(output)
+                        else:
+                            (output / 'evidence.json').write_text(json.dumps({'source': 'b' * 40,
+                                'scope': 'synthetic OTLP core compatibility smoke only'}))
+                    self.reply(handler)
+                with server(reply) as port:
+                    report = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
+                self.assertEqual(len(calls), 2)
+                self.assertEqual(report['query']['state'], 'malformed')
+                self.assertFalse((output / 'source-status-rejection.json').exists())
+                self.assertFalse((root / 'original' / 'source-status-rejection.json').exists())
+
+    def test_directory_replacement_after_credentials_keeps_original_anchor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            output = root / 'private'; output.mkdir(mode=0o700); self.setup_output(output)
+            native_reader = source_status_query._read_private_credentials
+            def replace_after_read(path):
+                result = native_reader(path)
+                output.rename(root / 'original'); output.mkdir(mode=0o700); self.setup_output(output)
+                return result
+            with server(self.reply) as port, \
+                 patch.object(source_status_query, '_read_private_credentials', side_effect=replace_after_read):
+                report = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
+            self.assertEqual(report['query']['state'], 'malformed')
+            self.assertFalse((output / 'source-status-rejection.json').exists())
+            self.assertFalse((root / 'original' / 'source-status-rejection.json').exists())
+
+    def test_private_existing_file_modes_links_fifo_and_size_are_never_overwritten(self):
+        for kind in ('mode', 'symlink', 'hardlink', 'fifo', 'oversize', 'sentinel', 'stale'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory).resolve(); self.setup_output(output)
+                path = output / 'source-status-rejection.json'
+                if kind == 'fifo':
+                    os.mkfifo(path, 0o600)
+                elif kind in ('symlink', 'hardlink'):
+                    target = output / 'foreign'; target.write_text('private-sentinel'); target.chmod(0o600)
+                    if kind == 'symlink': path.symlink_to(target)
+                    else: os.link(target, path)
+                else:
+                    if kind == 'stale':
+                        detail = {'context': 'current', 'slot': 'values', 'code': 'decode',
+                                  **dict.fromkeys(source_status_query.status.REJECTION_COUNTS)}
+                        content = json.dumps(source_status_query.status.rejection(detail, 'b' * 40))
+                    else:
+                        content = ' ' * 4097 if kind == 'oversize' else 'private-sentinel'
+                    path.write_text(content); path.chmod(0o644 if kind == 'mode' else 0o600)
+                before = path.lstat()
+                with server(self.reply) as port:
+                    report = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
+                self.assertEqual(report['query']['state'], 'malformed')
+                self.assertEqual((path.lstat().st_ino, path.lstat().st_mode), (before.st_ino, before.st_mode))
+                self.assertFalse((output / '.source-status-rejection.new').exists())
+
+    def test_temporary_name_collision_and_inode_replacement_refuse_without_leaking(self):
+        for kind in ('collision', 'replacement'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory).resolve(); self.setup_output(output)
+                temporary = output / '.source-status-rejection.new'
+                if kind == 'collision':
+                    temporary.write_text('private-sentinel')
+                native_link = os.link
+                def replace_before_link(src, dst, **kwargs):
+                    temporary.unlink()
+                    temporary.write_text('private-sentinel')
+                    temporary.chmod(0o600)
+                    return native_link(src, dst, **kwargs)
+                with server(self.reply) as port, contextlib.ExitStack() as stack:
+                    if kind == 'replacement':
+                        stack.enter_context(patch('os.link', side_effect=replace_before_link))
+                    report = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
+                self.assertEqual(report['query']['state'], 'malformed')
+                self.assertFalse((output / 'source-status-rejection.json').exists())
+                self.assertEqual(temporary.read_text(), 'private-sentinel')
+
+
 if __name__ == '__main__':
     unittest.main()

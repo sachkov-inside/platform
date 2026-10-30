@@ -21,8 +21,17 @@ class InvalidResponse(ValueError):
     """No untrusted diagnostic content escapes this boundary."""
 
 
-def _reject(*_):
-    raise InvalidResponse()
+class _Rejection(InvalidResponse):
+    def __init__(self, code):
+        super().__init__()
+        self.code = code
+        self.slot = 'internal'
+        self.rows = None
+        self.difference = None
+
+
+def _reject(code='internal_shape', *_):
+    raise _Rejection(code)
 
 
 def _object(pairs):
@@ -40,7 +49,7 @@ def decode_json(raw):
         _reject()
     try:
         result = json.loads(raw.decode('utf-8'), object_pairs_hook=_object,
-                            parse_constant=_reject, parse_float=Decimal)
+                            parse_constant=lambda *_: _reject(), parse_float=Decimal)
         def bounded(value, depth=0):
             if depth > 16:
                 _reject()
@@ -66,19 +75,19 @@ def _clock(value):
     if (type(value) not in (int, float, Decimal)
             or (isinstance(value, Decimal) and not value.is_finite())
             or not 0 <= value <= MAX_SAFE_NUMBER or not math.isfinite(value)):
-        _reject()
+        _reject('clock')
     return float(value)
 
 
 def _numeric(value):
     if not isinstance(value, str) or not value or len(value) > 32:
-        _reject()
+        _reject('sample')
     try:
         number = Decimal(value)
     except InvalidOperation:
-        _reject()
+        _reject('sample')
     if not number.is_finite() or not 0 <= number <= MAX_SAFE_NUMBER:
-        _reject()
+        _reject('sample')
     return number
 
 
@@ -104,33 +113,33 @@ def _metric_kind(metric):
     dimensions = {key: value for key, value in metric.items() if key not in ('__name__', 'job', 'instance')}
     if name == 'up':
         if dimensions:
-            _reject()
+            _reject('metric_identity')
         return 'up'
     if metric['job'] == SOURCES['trace_store']:
         if name not in TRACE_COUNTERS or dimensions not in TRACE_COUNTERS[name]:
-            _reject()
+            _reject('metric_identity')
         return 'counter'
     base = name.removesuffix('_total')
     if name not in COLLECTOR_GAUGES and base not in COLLECTOR_COUNTERS:
-        _reject()
+        _reject('metric_identity')
     allowed = {'receiver': RECEIVERS, 'exporter': EXPORTERS, 'data_type': {'', 'traces', 'metrics', 'logs'}}
     if any(key not in allowed or value not in allowed[key] for key, value in dimensions.items()):
-        _reject()
+        _reject('metric_identity')
     return 'gauge' if name in COLLECTOR_GAUGES else 'counter'
 
 
 def _identity(metric, timestamp):
     if not isinstance(metric, dict) or any(not isinstance(value, str) for value in metric.values()):
-        _reject()
+        _reject('metric_identity')
     metric = metric.copy()
     if timestamp:
         name = metric.pop('source_metric', None)
         if not isinstance(name, str) or metric.pop('__name__', name) != name:
-            _reject()
+            _reject('metric_identity')
         metric['__name__'] = name
     if (not {'__name__', 'job', 'instance'}.issubset(metric)
             or metric['job'] not in SOURCES.values() or metric['instance'] != 'pilot'):
-        _reject()
+        _reject('metric_identity')
     _metric_kind(metric)
     return tuple(sorted(metric.items()))
 
@@ -144,43 +153,51 @@ def _native_query_stats(stats):
             or int(stats['seriesFetched']) > MAX_QUERY_STATS_INTEGER
             or type(stats['executionTimeMsec']) is not int
             or not 0 <= stats['executionTimeMsec'] <= MAX_QUERY_EXECUTION_MILLISECONDS):
-        _reject()
+        _reject('native_stats')
 
 
 def _vector(raw, evaluated_at, timestamp=False):
-    body = decode_json(raw)
+    try:
+        body = decode_json(raw)
+    except InvalidResponse:
+        _reject('decode')
     if (not isinstance(body, dict) or set(body) not in ({'status', 'data'}, {'status', 'data', 'stats'})
             or body['status'] != 'success'
             or not isinstance(body['data'], dict) or set(body['data']) != {'resultType', 'result'}
             or body['data']['resultType'] != 'vector' or not isinstance(body['data']['result'], list)):
-        _reject()
-    if 'stats' in body:
-        _native_query_stats(body['stats'])
-    result = {}
-    aliases = set()
-    for row in body['data']['result']:
-        if not isinstance(row, dict) or set(row) != {'metric', 'value'}:
-            _reject()
-        key = _identity(row['metric'], timestamp)
-        point = row['value']
-        if (not isinstance(point, list) or len(point) != 2 or _clock(point[0]) != evaluated_at
-                or key in result):
-            _reject()
-        value = _numeric(point[1])
-        if timestamp and value > evaluated_at:
-            _reject()
-        kind = _metric_kind(dict(key))
-        if not timestamp and ((kind == 'up' and value not in (0, 1))
-                              or (kind == 'counter' and value != value.to_integral_value())):
-            _reject()
-        alias = tuple((label, item.removesuffix('_total') if label == '__name__' else item)
-                      for label, item in key)
-        if alias in aliases:
-            _reject()
-        aliases.add(alias)
-        result[key] = (float(value) if timestamp or kind == 'gauge' else int(value))
-    return result
+        _reject('envelope')
+    try:
+        if 'stats' in body:
+            _native_query_stats(body['stats'])
+        result = {}
+        aliases = set()
+        for row in body['data']['result']:
+            if not isinstance(row, dict) or set(row) != {'metric', 'value'}:
+                _reject('sample')
+            key = _identity(row['metric'], timestamp)
+            point = row['value']
+            if not isinstance(point, list) or len(point) != 2 or _clock(point[0]) != evaluated_at:
+                _reject('sample')
+            if key in result:
+                _reject('duplicate_identity')
+            value = _numeric(point[1])
+            if timestamp and value > evaluated_at:
+                _reject('sample')
+            kind = _metric_kind(dict(key))
+            if not timestamp and ((kind == 'up' and value not in (0, 1))
+                                  or (kind == 'counter' and value != value.to_integral_value())):
+                _reject('sample')
+            alias = tuple((label, item.removesuffix('_total') if label == '__name__' else item)
+                          for label, item in key)
+            if alias in aliases:
+                _reject('duplicate_alias')
+            aliases.add(alias)
+            result[key] = (float(value) if timestamp or kind == 'gauge' else int(value))
+        return result
 
+    except _Rejection as error:
+        error.rows = len(body['data']['result'])
+        raise
 
 def malformed():
     return _failure('malformed', 'invalid_response')
@@ -201,11 +218,23 @@ def _failure(state, reason):
 def _acquisition(values, timestamps, evaluated_at, completed_at):
     evaluated_at, completed_at = _clock(evaluated_at), _clock(completed_at)
     if completed_at < evaluated_at:
-        _reject()
-    rows = _vector(values, evaluated_at)
-    stamps = _vector(timestamps, evaluated_at, True)
+        _reject('clock')
+    try:
+        rows = _vector(values, evaluated_at)
+    except _Rejection as error:
+        error.slot = 'values'
+        raise
+    try:
+        stamps = _vector(timestamps, evaluated_at, True)
+    except _Rejection as error:
+        error.slot = 'timestamps'
+        raise
     if rows.keys() != stamps.keys():
-        _reject()
+        error = _Rejection('vector_identity_mismatch')
+        error.slot = 'pair'
+        difference = len(rows.keys() ^ stamps.keys())
+        error.difference = difference if difference <= MAX_ROWS else None
+        raise error
     return rows, stamps
 
 
@@ -228,7 +257,7 @@ def _comparison(key, value, stamp, previous_rows, previous_stamps):
             'incomplete': incomplete}
 
 
-def evaluate(values, timestamps, *, evaluated_at, completed_at, previous=None, completion_clock=None):
+def _evaluate(values, timestamps, *, evaluated_at, completed_at, previous=None, completion_clock=None):
     """Interpret matching acquisitions. Prior data cannot make current health fresh.
 
     previous, when supplied, is one acquisition with these same four arguments.
@@ -237,23 +266,32 @@ def evaluate(values, timestamps, *, evaluated_at, completed_at, previous=None, c
     the final clock is read only after bounded decode/validation. Without it, this
     remains a pure fixed-time interpretation. No query evaluation time changes.
     """
+    context, slot = 'current', 'pair'
+    diagnostic_values, diagnostic_timestamps = values, timestamps
     try:
         rows, stamps = _acquisition(values, timestamps, evaluated_at, completed_at)
         previous_rows, previous_stamps = {}, {}
         if previous is not None:
+            context = 'previous'
+            diagnostic_values = previous.get('values') if type(previous) is dict else None
+            diagnostic_timestamps = previous.get('timestamps') if type(previous) is dict else None
             if (not isinstance(previous, dict)
                     or set(previous) != {'values', 'timestamps', 'evaluated_at', 'completed_at'}
                     or _clock(previous['completed_at']) > evaluated_at):
                 _reject()
             previous_rows, previous_stamps = _acquisition(**previous)
+        context = 'current'
+        diagnostic_values, diagnostic_timestamps = values, timestamps
         for identity in rows.keys() & previous_rows.keys():
             if stamps[identity] == previous_stamps[identity] and rows[identity] != previous_rows[identity]:
                 _reject()
+        slot = 'completion'
         if completion_clock is not None:
             initial_completion = _clock(completed_at)
             completed_at = _clock(completion_clock())
             if completed_at < initial_completion:
-                _reject()
+                _reject('clock')
+        slot = 'internal'
         sources = {}
         for source, job in SOURCES.items():
             key = tuple(sorted({'__name__': 'up', 'job': job, 'instance': 'pilot'}.items()))
@@ -287,8 +325,72 @@ def evaluate(values, timestamps, *, evaluated_at, completed_at, previous=None, c
         result = {'version': 1, 'query': {'state': 'observed', 'evaluated_at': evaluated_at,
                                          'completed_at': completed_at},
                   'sources': sources, 'not_covered': NOT_COVERED.copy()}
+        slot = 'output'
         if len(json.dumps(result).encode()) > MAX_OUTPUT_BYTES:
-            _reject()
-        return result
-    except (InvalidResponse, TypeError, KeyError):
-        return malformed()
+            _reject('output_cap')
+        return result, None
+    except (InvalidResponse, TypeError, KeyError) as error:
+        detail = {'context': context, 'slot': slot, 'code': 'internal_shape',
+                  'values_bytes': len(diagnostic_values) if type(diagnostic_values) is bytes and len(diagnostic_values) <= MAX_BODY_BYTES else None,
+                  'timestamps_bytes': len(diagnostic_timestamps) if type(diagnostic_timestamps) is bytes and len(diagnostic_timestamps) <= MAX_BODY_BYTES else None,
+                  'rows': None, 'difference': None}
+        if type(error) is _Rejection:
+            detail.update(code=error.code, rows=error.rows, difference=error.difference)
+            if error.slot != 'internal':
+                detail['slot'] = error.slot
+        return malformed(), detail
+
+
+def evaluate(values, timestamps, *, evaluated_at, completed_at, previous=None, completion_clock=None):
+    """Interpret matching acquisitions without exposing private rejection diagnostics."""
+    return _evaluate(values, timestamps, evaluated_at=evaluated_at, completed_at=completed_at,
+                     previous=previous, completion_clock=completion_clock)[0]
+
+
+REJECTION_NAME = 'source-status-rejection.json'
+REJECTION_MAX_BYTES = 4096
+REJECTION_CODES = frozenset(('decode', 'envelope', 'native_stats', 'metric_identity', 'sample',
+    'duplicate_identity', 'duplicate_alias', 'vector_identity_mismatch', 'clock', 'output_cap', 'internal_shape'))
+REJECTION_SLOTS = frozenset(('values', 'timestamps', 'pair', 'completion', 'output', 'internal'))
+REJECTION_COUNTS = {'values_bytes': MAX_BODY_BYTES, 'timestamps_bytes': MAX_BODY_BYTES,
+                    'rows': MAX_ROWS, 'difference': MAX_ROWS}
+
+
+def rejection(detail, source):
+    """Construct only fixed fields. Never inspect an unknown object or exception."""
+    if type(detail) is not dict or set(detail) != {'context', 'slot', 'code', *REJECTION_COUNTS}:
+        raise ValueError()
+    value = {'schema': 1, 'source': source, 'availability': 'available',
+             'context': detail['context'], 'slot': detail['slot'], 'code': detail['code'],
+             'counts': {key: detail[key] for key in REJECTION_COUNTS}}
+    return validate_rejection(value, source)
+
+
+def validate_rejection(value, source):
+    if (type(source) is not str or re.fullmatch(r'[a-f0-9]{40}', source) is None
+            or type(value) is not dict
+            or set(value) != {'schema', 'source', 'availability', 'context', 'slot', 'code', 'counts'}
+            or type(value['schema']) is not int or value['schema'] != 1
+            or type(value['source']) is not str or value['source'] != source
+            or type(value['availability']) is not str or value['availability'] != 'available'
+            or type(value['context']) is not str or value['context'] not in ('current', 'previous')
+            or type(value['slot']) is not str or value['slot'] not in REJECTION_SLOTS
+            or type(value['code']) is not str or value['code'] not in REJECTION_CODES
+            or type(value['counts']) is not dict or set(value['counts']) != set(REJECTION_COUNTS)):
+        raise ValueError()
+    code, slot = value['code'], value['slot']
+    if ((code in {'decode', 'envelope', 'native_stats', 'metric_identity', 'sample',
+                 'duplicate_identity', 'duplicate_alias'} and slot not in {'values', 'timestamps'})
+            or code == 'vector_identity_mismatch' and slot != 'pair'
+            or code == 'output_cap' and slot != 'output'
+            or code == 'clock' and slot not in {'values', 'timestamps', 'pair', 'completion'}):
+        raise ValueError()
+    counts = value['counts']
+    for key, limit in REJECTION_COUNTS.items():
+        count = counts[key]
+        if count is not None and (type(count) is not int or not 0 <= count <= limit):
+            raise ValueError()
+    # Reconstruct, rather than returning a caller-owned object or extra content.
+    return {'schema': 1, 'source': source, 'availability': 'available',
+            'context': value['context'], 'slot': slot, 'code': code,
+            'counts': {key: counts[key] for key in REJECTION_COUNTS}}
