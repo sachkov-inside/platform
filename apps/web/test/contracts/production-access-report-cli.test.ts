@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import type { SpawnOptions } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
@@ -38,6 +38,41 @@ const schema = z.object({
   ),
 });
 
+/** All real commands share the existing tree supervisor, failure budget and cleanup. */
+async function runCommand(
+  command: string,
+  args: readonly string[],
+  options: SpawnOptions,
+) {
+  const child = spawnOwned(command, args, options);
+  onTestFinished(() => stopOwned(child));
+  const closed = new Promise<void>((resolve) => {
+    child.once("close", () => {
+      resolve();
+    });
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout?.on("data", (chunk: Buffer) => {
+    stdout += chunk.toString();
+  });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
+  // deterministic-test-allow duration-wait: Failure budget stops a stuck supervised command tree; command exit observes completion.
+  const deadline = setTimeout(() => {
+    void stopOwned(child, 0);
+  }, 20_000);
+  try {
+    const status = await commandExit(child);
+    await closed;
+    return { status, stdout, stderr };
+  } finally {
+    clearTimeout(deadline);
+    await stopOwned(child);
+  }
+}
+
 it.each([
   ["valid", "green", "valid", "root"],
   ["valid", "green", "valid", "web"],
@@ -56,8 +91,13 @@ it.each([
     const directory = mkdtempSync(join(tmpdir(), "inside-pass-cli-"));
     try {
       if (workingDirectory === "other-repo") {
-        execFileSync("git", ["init", "--quiet", directory]);
-        execFileSync(
+        const initialized = await runCommand(
+          "git",
+          ["init", "--quiet", directory],
+          { cwd: root },
+        );
+        expect(initialized.status, initialized.stderr).toBe(0);
+        const committed = await runCommand(
           "git",
           [
             "-c",
@@ -79,6 +119,7 @@ it.each([
             },
           },
         );
+        expect(committed.status, committed.stderr).toBe(0);
       }
       if (scenario !== "no-observations")
         mkdirSync(join(directory, "observations"));
@@ -90,7 +131,7 @@ it.each([
             observed: "allowed",
           }),
         );
-      const child = spawnOwned(
+      const { status, stderr } = await runCommand(
         process.execPath,
         [
           join(root, "apps/backend/node_modules/tsx/dist/cli.mjs"),
@@ -113,24 +154,6 @@ it.each([
           },
         },
       );
-      onTestFinished(() => stopOwned(child));
-      // The existing supervisor owns the complete tsx tree; exit follows its cleanup.
-      let stderr = "";
-      child.stdout?.resume();
-      child.stderr?.on("data", (chunk: Buffer) => {
-        stderr += chunk.toString();
-      });
-      // deterministic-test-allow duration-wait: Failure budget stops a stuck supervised CLI tree; command exit observes completion.
-      const deadline = setTimeout(() => {
-        void stopOwned(child, 0);
-      }, 20_000);
-      let status: number | null;
-      try {
-        status = await commandExit(child);
-      } finally {
-        clearTimeout(deadline);
-        await stopOwned(child);
-      }
       const descendant = z.coerce
         .number()
         .int()
@@ -142,12 +165,13 @@ it.each([
         JSON.parse(readFileSync(join(directory, "report.json"), "utf8")),
       );
       expect(report.verdict).toBe(verdict);
-      const checkout = execFileSync(
+      const checkout = await runCommand(
         "git",
         ["show", "--format=%H", "--no-patch", "HEAD"],
-        { cwd: root, encoding: "utf8" },
-      ).trim();
-      expect(report.sourceSha).toBe(checkout);
+        { cwd: root },
+      );
+      expect(checkout.status, checkout.stderr).toBe(0);
+      expect(report.sourceSha).toBe(checkout.stdout.trim());
       expect(report.sourceSha).not.toBe(report.deployedSha);
       expect(report.workflowSha).not.toBe(report.sourceSha);
       expect(report.counts).toEqual(
