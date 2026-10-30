@@ -247,9 +247,12 @@ describe("production access pass verdict", () => {
   it.each([
     ["missing source", { sourceSha: null }],
     ["malformed source", { sourceSha: "main" }],
+    ["uppercase source SHA", { sourceSha: "A".repeat(40) }],
     ["missing time", { evaluatedAt: "" }],
     ["malformed deployed SHA", { deployedSha: "main" }],
+    ["uppercase deployed SHA", { deployedSha: "B".repeat(40) }],
     ["malformed workflow SHA", { workflowSha: "main" }],
+    ["uppercase workflow SHA", { workflowSha: "C".repeat(40) }],
     ["duplicate cells", { cells: [readsProductA, readsProductA] }],
     [
       "duplicate observations",

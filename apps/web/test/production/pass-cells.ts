@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const shaSchema = z.hash("sha1").lowercase();
+
 /**
  * Клетки production-прохода и итог job (#905, #906). Логика чистая: она не ходит в сеть, поэтому её
  * доказывает module-тест `test/module/production-access-pass.test.ts`.
@@ -253,13 +255,16 @@ export function evaluatePass(input: {
   if (input.cells.length === 0) errors.push("empty configured scope");
   if (known.size !== input.cells.length)
     errors.push("duplicate configured cells");
-  if (sourceSha === null || !/^[a-f0-9]{40}$/u.test(sourceSha))
+  if (!shaSchema.safeParse(sourceSha).success)
     errors.push("missing or invalid source SHA");
-  if (workflowSha !== null && !/^[a-f0-9]{40}$/u.test(workflowSha))
+  if (workflowSha !== null && !shaSchema.safeParse(workflowSha).success)
     errors.push("invalid workflow SHA");
   if (!z.iso.datetime().safeParse(evaluatedAt).success)
     errors.push("missing or invalid evaluation time");
-  if (input.deployedSha !== null && !/^[a-f0-9]{40}$/u.test(input.deployedSha))
+  if (
+    input.deployedSha !== null &&
+    !shaSchema.safeParse(input.deployedSha).success
+  )
     errors.push("invalid deployed SHA");
   const observationIds = input.observations.map(({ cellId }) => cellId);
   if (new Set(observationIds).size !== observationIds.length)
