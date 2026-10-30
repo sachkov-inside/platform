@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   chmodSync,
   copyFileSync,
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -12,6 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { runReviewProcess } from "./review-evidence.test-support.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 
 test("isolated cache preparation admits only pinned broker/edge images and preserves failures (process adapter)", async () => {
@@ -25,7 +27,21 @@ test("isolated cache preparation admits only pinned broker/edge images and prese
       new URL("./production-cache-smoke-ci.sh", import.meta.url),
       join(scripts, "production-cache-smoke-ci.sh"),
     );
+    for (const name of [
+      "production-cache-diagnostics.mjs",
+      "owned-process.mjs",
+      "owned-process.py",
+      "diagnostic-command.mjs",
+    ]) {
+      copyFileSync(new URL(`./${name}`, import.meta.url), join(scripts, name));
+    }
+    for (const name of ["heavy-check", "owned-process"]) {
+      cpSync(new URL(`./${name}`, import.meta.url), join(scripts, name), {
+        recursive: true,
+      });
+    }
     writeFileSync(join(bin, "git"), "#!/bin/sh\nprintf '%040d\\n' 1\n");
+    // deterministic-test-allow duration-wait: fake healthy cleanup exceeds the observation budget; process exit owns success, without an elapsed-time assertion.
     writeFileSync(
       join(bin, "docker"),
       `#!/bin/bash
@@ -41,7 +57,8 @@ case "$1 $2" in
   'pull '*)
     if [[ "$SCENARIO" == deadline || "$SCENARIO" == interrupt ]]; then exec "$NODE_BINARY" "$HANG_SCRIPT"; fi
     exit "$PULL_STATUS" ;;
-  'build '*) ;;
+  'build '*)
+    if [[ "$SCENARIO" == build-eof ]]; then echo 'rpc EOF' >&2; exit 47; fi ;;
   'image inspect')
     case "$3" in
       *-backend:v1) digit=1 ;;
@@ -51,7 +68,10 @@ case "$1 $2" in
       *) exit 55 ;;
     esac
     printf 'sha256:%064d\\n' "$digit" ;;
-  'image rm') ;;
+  'image rm')
+    # Intentional adapter latency proves healthy cleanup may exceed observation deadlines.
+    if [[ "$SCENARIO" == slow-cleanup ]]; then exec "$NODE_BINARY" -e 'setTimeout(() => {}, 2000)'; fi
+    if [[ "$SCENARIO" == build-eof || "$SCENARIO" == cleanup-failure ]]; then echo 'Authorization: Bearer CANARY_cleanup_secret' >&2; exit 59; fi ;;
   *) exit 56 ;;
 esac
 `,
@@ -82,6 +102,10 @@ exit "$RUNTIME_STATUS"
       ),
       join(scripts, "fixtures", "production-runtime", "compose.smoke.yaml"),
     );
+    for (const name of ["sudo", "systemctl", "free", "df", "cat"]) {
+      writeFileSync(join(bin, name), "#!/bin/sh\necho safe-diagnostic\n");
+      chmodSync(join(bin, name), 0o755);
+    }
     chmodSync(join(bin, "docker"), 0o755);
     chmodSync(join(bin, "git"), 0o755);
     const broker = `registry.test/rabbitmq@sha256:${"a".repeat(64)}`;
@@ -101,9 +125,12 @@ exit "$RUNTIME_STATUS"
     );
     for (const scenario of [
       "success",
+      "slow-cleanup",
+      "cleanup-failure",
       "missing",
       "unpinned",
       "pull-failure",
+      "build-eof",
       "runtime-failure",
       "deadline",
       "interrupt",
@@ -206,7 +233,11 @@ exit "$RUNTIME_STATUS"
                 ? 29
                 : scenario === "runtime-failure"
                   ? 31
-                  : 0,
+                  : scenario === "build-eof"
+                    ? 47
+                    : scenario === "cleanup-failure"
+                      ? 1
+                      : 0,
             output,
           );
       } finally {
@@ -217,6 +248,48 @@ exit "$RUNTIME_STATUS"
           () => process.kill(descendantPid, 0),
           { code: "ESRCH" },
           "supervisor must reap the real descendant before fixture cleanup",
+        );
+      }
+      if (scenario === "build-eof" || scenario === "cleanup-failure") {
+        const artifact = readFileSync(
+          join(
+            root,
+            "ci-artifacts/compose-production-cache/preparation-after.json",
+          ),
+          "utf8",
+        );
+        assert.match(
+          artifact,
+          scenario === "build-eof" ? /"status": 47/u : /"status": 0/u,
+        );
+        assert.match(
+          readFileSync(
+            join(
+              root,
+              "ci-artifacts/compose-production-cache/preparation-before.json",
+            ),
+            "utf8",
+          ),
+          /"phase": "preparation"/u,
+        );
+        assert.match(
+          artifact,
+          scenario === "build-eof" ? /build-backend-v1/u : /runtime/u,
+        );
+        assert.match(artifact, /"status": 59/u);
+        assert.doesNotMatch(artifact, /CANARY_cleanup_secret/u);
+      }
+      if (scenario === "slow-cleanup") {
+        const artifact = readFileSync(
+          join(
+            root,
+            "ci-artifacts/compose-production-cache/preparation-after.json",
+          ),
+          "utf8",
+        );
+        assert.match(
+          artifact,
+          /"cleanup": \{\s+"status": 0,\s+"timedOut": false/u,
         );
       }
       const commands = readFileSync(calls, "utf8").trim().split("\n");
@@ -231,11 +304,22 @@ exit "$RUNTIME_STATUS"
       );
       assert.equal(
         commands.includes("admitted-runtime"),
-        ["success", "runtime-failure"].includes(scenario),
+        [
+          "success",
+          "runtime-failure",
+          "cleanup-failure",
+          "slow-cleanup",
+        ].includes(scenario),
       );
       assert.equal(
         commands.some((line) => line.startsWith("build ")),
-        ["success", "runtime-failure"].includes(scenario),
+        [
+          "success",
+          "runtime-failure",
+          "cleanup-failure",
+          "build-eof",
+          "slow-cleanup",
+        ].includes(scenario),
       );
       if (scenario !== "deadline" && scenario !== "interrupt")
         assert.ok(
@@ -245,5 +329,74 @@ exit "$RUNTIME_STATUS"
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("preparation captures redact secrets, record failures and reap timed-out commands (process adapter)", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "cache-diagnostic-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const bin = join(root, "bin");
+  mkdirSync(bin);
+  const pidFile = join(root, "pid");
+  const hang = join(root, "hang.mjs");
+  writeFileSync(
+    hang,
+    `import {writeFileSync} from 'node:fs'; writeFileSync(process.env.PID_FILE, String(process.pid)); process.on('SIGTERM',()=>{}); setInterval(()=>{},1000);`,
+  );
+  for (const name of ["docker", "sudo", "systemctl", "free", "df", "cat"]) {
+    const file = join(bin, name);
+    writeFileSync(
+      file,
+      `#!/bin/sh
+if [ "$SCENARIO" = timeout ] && [ "$1" = version ]; then exec "$NODE_BINARY" "$HANG_SCRIPT"; fi
+printf '%s\\n' 'safe daemon restart marker' 'https://user:CANARY_urlpass@host/path?key=CANARY_query' 'token=CANARY_token' 'Authorization: Bearer CANARY_auth' '${["ghp", "CANARYgithubtoken12345678901234567890"].join("_")}' 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjYW5hcnkifQ.signature' 'EYJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjYW5hcnkifQ.signature'
+if [ "$1" = image ]; then exit 0; fi
+exit 7
+`,
+    );
+    chmodSync(file, 0o755);
+  }
+  for (const scenario of ["capture-failure", "timeout"]) {
+    const artifact = join(root, scenario);
+    const result = await runReviewProcess(
+      process.execPath,
+      [
+        new URL("./production-cache-diagnostics.mjs", import.meta.url).pathname,
+        "after",
+        artifact,
+        "inside-platform-production-smoke-cache-ci-1",
+        "1".repeat(40),
+        "build-backend-v1",
+        "47",
+      ],
+      {
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env["PATH"]}`,
+          SCENARIO: scenario,
+          NODE_BINARY: process.execPath,
+          HANG_SCRIPT: hang,
+          PID_FILE: pidFile,
+          GITHUB_RUN_ID: "123",
+          GITHUB_RUN_ATTEMPT: "1",
+        },
+        timeoutMilliseconds: 15000,
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const saved = readFileSync(
+      join(artifact, "preparation-after.json"),
+      "utf8",
+    );
+    assert.match(saved, /safe daemon restart marker/u);
+    assert.match(saved, /"status": 47/u);
+    assert.match(saved, /"status": 7/u);
+    assert.match(saved, /"run": "123"/u);
+    assert.doesNotMatch(saved, /CANARY_|eyJhbG|https:\/\//iu);
+    if (scenario === "timeout") {
+      assert.match(saved, /"timedOut": true/u);
+      const pid = Number(readFileSync(pidFile, "utf8"));
+      assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+    }
   }
 });
