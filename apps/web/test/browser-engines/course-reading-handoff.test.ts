@@ -160,3 +160,30 @@ for (const width of [390, 820])
       await browser.close();
     }
   }, 30_000);
+
+test("desktop preserves an early scroll back to the top instead of revealing the current step again", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 1440, height: 1024 },
+    });
+    await page.goto(
+      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme&last=1`,
+    );
+    const scroll = page.locator("[data-course-rail-scroll]");
+    await expect
+      .poll(() => scroll.evaluate((node) => node.scrollTop))
+      .toBeGreaterThan(0);
+    await scroll.evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await scroll.focus();
+    await expect(page.locator("[data-course-reading-host]")).toHaveCount(0);
+    await page.locator("#release").dispatchEvent("click");
+    await expect(page.locator("[data-course-reading-host]")).toBeVisible();
+    await expect(scroll).toBeFocused();
+    expect(await scroll.evaluate((node) => node.scrollTop)).toBe(0);
+  } finally {
+    await browser.close();
+  }
+}, 30_000);

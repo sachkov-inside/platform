@@ -1,6 +1,5 @@
 import { use, useSyncExternalStore } from "react";
 
-let held = true;
 let release: () => void;
 const ready = new Promise<void>((resolve) => {
   release = resolve;
@@ -18,10 +17,9 @@ export function usePathname() {
   );
 }
 export function useSearchParams() {
-  if (held) use(ready);
+  use(ready);
   return new URLSearchParams(window.location.search);
 }
 export function releaseLocation() {
-  held = false;
   release();
 }

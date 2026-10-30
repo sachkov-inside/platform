@@ -21,7 +21,9 @@ const steps = Array.from({ length: 30 }, (_, i) => ({
 }));
 const context = {
   ...courseGuide,
-  current: steps[0] ?? courseGuide.current,
+  current:
+    steps[new URLSearchParams(window.location.search).has("last") ? 29 : 0] ??
+    courseGuide.current,
   currentChapterId: "first",
   chapters: [
     { id: "first", name: "First chapter", ordinal: 1, steps, references },

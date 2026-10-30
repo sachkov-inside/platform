@@ -112,7 +112,11 @@ export function captureCourseReadingHandoff(
           ? pathTo(root, document.activeElement)
           : null,
       scroll: [root, ...root.querySelectorAll("*")]
-        .filter((node) => node.scrollTop !== 0 || node.scrollLeft !== 0)
+        .filter(
+          (node) =>
+            node.scrollHeight > node.clientHeight ||
+            node.scrollWidth > node.clientWidth,
+        )
         .map((node) => ({
           path: pathTo(root, node),
           top: node.scrollTop,
