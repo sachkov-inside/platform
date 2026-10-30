@@ -81,6 +81,145 @@ test("same-page links, repeated clicks and legacy fragments keep working", async
   await expectHeadingInView(page);
 });
 
+/** Distinct scroll positions the shell passes through after the next same-page link click. */
+async function recordScroll(page: Page) {
+  await page.evaluate(() => {
+    const positions: number[] = [];
+    Reflect.set(window, "__scrollPositions", positions);
+    document.addEventListener(
+      "scroll",
+      () => {
+        const content = document.querySelector<HTMLElement>(
+          "[data-application-content]",
+        );
+        positions.push(Math.max(window.scrollY, content?.scrollTop ?? 0));
+      },
+      true,
+    );
+  });
+  return () =>
+    page.evaluate(() => {
+      const positions: unknown = Reflect.get(window, "__scrollPositions");
+      return Array.isArray(positions) ? new Set(positions).size : 0;
+    });
+}
+
+test("a same-page link scrolls to its section smoothly", async ({ page }) => {
+  await page.goto(target);
+  await expect(
+    page.getByRole("heading", { name: "Целевой материал", exact: true }),
+  ).toBeVisible();
+  const positions = await recordScroll(page);
+  await page
+    .getByRole("link", { name: "grill-with-docs", exact: true })
+    .click();
+  await expectHeadingInView(page);
+  // An instant jump lands in one step; an animation passes through intermediate positions.
+  expect(await positions()).toBeGreaterThan(2);
+  // The same link again emits no hashchange, yet still animates from the top.
+  await page.evaluate(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+    document
+      .querySelector("[data-application-content]")
+      ?.scrollTo({ top: 0, behavior: "instant" });
+  });
+  await expect(
+    page.getByRole("heading", { name: "Целевой материал", exact: true }),
+  ).toBeInViewport();
+  const repeated = await recordScroll(page);
+  await page
+    .getByRole("link", { name: "grill-with-docs", exact: true })
+    .click();
+  await expectHeadingInView(page);
+  expect(await repeated()).toBeGreaterThan(2);
+});
+
+test("reduced motion keeps the same-page jump instant", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(target);
+  await expect(
+    page.getByRole("heading", { name: "Целевой материал", exact: true }),
+  ).toBeVisible();
+  const positions = await recordScroll(page);
+  await page
+    .getByRole("link", { name: "grill-with-docs", exact: true })
+    .click();
+  await expectHeadingInView(page);
+  expect(await positions()).toBeLessThanOrEqual(1);
+});
+
+/** The shell position, whichever root scrolls at this width. */
+function shellPosition(page: Page) {
+  return page.evaluate(() =>
+    Math.max(
+      window.scrollY,
+      document.querySelector<HTMLElement>("[data-application-content]")
+        ?.scrollTop ?? 0,
+    ),
+  );
+}
+
+test("a video moment fragment keeps the reader's place", async ({ page }) => {
+  await page.goto(`${target}#${anchor}`);
+  await expectHeadingInView(page);
+  const before = await shellPosition(page);
+  expect(before).toBeGreaterThan(0);
+  // Video chapters link to `#t=<seconds>`: the player seeks, the page stays where it is.
+  await page
+    .getByRole("link", { name: "Момент видео", exact: true })
+    .evaluate((link) => {
+      link.scrollIntoView({ block: "nearest", behavior: "instant" });
+    });
+  const linked = await shellPosition(page);
+  await page.getByRole("link", { name: "Момент видео", exact: true }).click();
+  await expect(page).toHaveURL(/#t=90$/u);
+  await page.evaluate(() => {
+    window.location.hash = "t=120";
+  });
+  await expect(page).toHaveURL(/#t=120$/u);
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+  expect(await shellPosition(page)).toBe(linked);
+});
+
+test("a video moment on another page opens that page from the start", async ({
+  page,
+}) => {
+  const programme = "/products/reference-course/programme";
+  await page.goto(
+    `/materials/reference-lesson-5?from=${encodeURIComponent(programme)}`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Урок 5", exact: true }),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>(
+      "[data-application-content]",
+    );
+    if (root !== null && root.scrollHeight > root.clientHeight)
+      root.scrollTop = 600;
+    else window.scrollTo(0, 600);
+  });
+  await expect.poll(() => shellPosition(page)).toBeGreaterThan(0);
+  // A client transition from a scrolled lesson; clicking without scrolling keeps that position.
+  await page
+    .locator("[data-reader-body]")
+    .filter({ visible: true })
+    .getByRole("link", { name: "момент урока 6", exact: true })
+    .evaluate((link) => {
+      if (link instanceof HTMLElement) link.click();
+    });
+  await expect(
+    page.getByRole("heading", { name: "Урок 6", exact: true }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/#t=90$/u);
+  await expect.poll(() => shellPosition(page)).toBe(0);
+});
+
 test("a repeated fragment selects the visible body instead of a retained hidden page", async ({
   page,
 }) => {

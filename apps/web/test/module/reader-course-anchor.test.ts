@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   anchoredMaterialHref,
+  ownSectionHref,
   parseReaderCourseAnchor,
 } from "@/shared/routing/reader-course-anchor";
 import { resolveProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
@@ -140,5 +141,19 @@ describe("placement identity validation", () => {
         "material:lesson:95000000-0000-4000-0000-000000000001",
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("links to the open Material's own sections", () => {
+  it("stay inside the page and leave other addresses alone", () => {
+    expect(ownSectionHref("/materials/lesson#практика", "lesson")).toBe(
+      "#практика",
+    );
+    expect(ownSectionHref("/materials/lesson?view=full#a", "lesson")).toBe(
+      "#a",
+    );
+    expect(ownSectionHref("/materials/lesson", "lesson")).toBe(undefined);
+    expect(ownSectionHref("/materials/other#a", "lesson")).toBe(undefined);
+    expect(ownSectionHref("#a", "lesson")).toBe(undefined);
   });
 });
