@@ -236,19 +236,50 @@ export async function verify({
   requireValue(token, "Missing read-only GitHub token");
   /** @param {string} path @returns {Promise<unknown>} */
   async function api(path) {
-    const response = await request(
-      `https://api.github.com/repos/${repository}/${path}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-        signal: AbortSignal.timeout(30_000),
-      },
-    );
-    requireValue(response.ok, `GitHub read failed (${response.status})`);
+    const response = await read(path);
+    requireRead(response);
     return /** @type {unknown} */ (await response.json());
+  }
+  /** @param {Response} response @param {boolean} [absentAllowed] */
+  function requireRead(response, absentAllowed = false) {
+    requireValue(
+      response.ok || (absentAllowed && response.status === 404),
+      `GitHub read failed (${response.status})`,
+    );
+  }
+  /** @param {string} path */
+  function read(path) {
+    return request(`https://api.github.com/repos/${repository}/${path}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(30_000),
+    });
+  }
+  /** @type {Map<string, boolean>} */
+  const publishing = new Map();
+  /**
+   * The read-only Actions token sees hidden organization membership as CONTRIBUTOR, so
+   * `author_association` cannot select publishers. Current repository permission decides; an
+   * unknown or deleted account answers 404 and publishes nothing.
+   * @param {string} login
+   */
+  async function canPublish(login) {
+    const known = publishing.get(login);
+    if (known !== undefined) return known;
+    const response = await read(
+      `collaborators/${encodeURIComponent(login)}/permission`,
+    );
+    requireRead(response, true);
+    const permitted =
+      response.ok &&
+      ["admin", "maintain", "write"].includes(
+        stringField(object(await response.json()), "permission"),
+      );
+    publishing.set(login, permitted);
+    return permitted;
   }
   /** @param {string} path */
   async function pages(path) {
@@ -539,22 +570,11 @@ export async function verify({
         !comment["body"].includes(marker)
       )
         continue;
-      if (
-        !["OWNER", "MEMBER", "COLLABORATOR"].includes(
-          stringField(comment, "author_association"),
-        )
-      )
-        continue;
-      const publisher = stringField(object(comment["user"]), "login");
-      const permission = object(
-        await api(`collaborators/${encodeURIComponent(publisher)}/permission`),
-      );
-      requireValue(
-        ["admin", "maintain", "write"].includes(
-          stringField(permission, "permission"),
-        ),
-        "Receipt publisher lacks current write permission",
-      );
+      // A comment without an account publishes nothing.
+      if (!isObject(comment["user"])) continue;
+      const publisher = stringField(comment["user"], "login");
+      // Outsiders and revoked publishers can neither supply nor block a receipt.
+      if (!(await canPublish(publisher))) continue;
       requireValue(
         comment["body"].startsWith(`${marker}\n`),
         "Malformed review receipt marker",

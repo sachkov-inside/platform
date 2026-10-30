@@ -313,9 +313,11 @@ export const PendingVideo: Story = {
     for (const mark of marks) await expect(mark).toBeDisabled();
     const top = canvas.getByRole("navigation", { name: "Действия материала" });
     await expect(top).toBeVisible();
+    // Готовый урок курса заканчивается одной панелью действий, поэтому скелет не рисует шагов под
+    // текстом.
     await expect(
-      canvas.getByRole("navigation", { name: "Шаги курса" }),
-    ).toBeVisible();
+      canvas.queryByRole("navigation", { name: "Шаги курса" }),
+    ).toBeNull();
     await expect(
       canvas.queryByRole("navigation", { name: "Действия в конце материала" }),
     ).toBeNull();
@@ -323,7 +325,6 @@ export const PendingVideo: Story = {
   },
 };
 export const LockedVideo: Story = {
-  ...PendingVideo,
   render: () => (
     <MaterialReaderAccess
       invitation={null}
@@ -332,4 +333,20 @@ export const LockedVideo: Story = {
       productContext={productContext}
     />
   ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const marks = canvas.getAllByRole("button", { name: "Просмотрено" });
+    await expect(marks).toHaveLength(1);
+    for (const mark of marks) await expect(mark).toBeDisabled();
+    const top = canvas.getByRole("navigation", { name: "Действия материала" });
+    await expect(top).toBeVisible();
+    // У закрытого урока панели действий в конце нет, поэтому шаги курса стоят под текстом.
+    await expect(
+      canvas.getByRole("navigation", { name: "Шаги курса" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("navigation", { name: "Действия в конце материала" }),
+    ).toBeNull();
+    await expect(canvas.queryByRole("button", { name: "Изучено" })).toBeNull();
+  },
 };

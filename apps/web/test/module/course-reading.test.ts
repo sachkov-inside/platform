@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   courseReadingContext,
   isProgrammeStepOpenedForReference,
+  programmeStepLink,
 } from "@/features/library-discovery";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
@@ -485,4 +486,103 @@ it("keeps repeated Material positions distinct with a single shared Material ide
   expect(
     context?.chapters[0]?.steps.filter((step) => step.id === "task:a"),
   ).toHaveLength(1);
+});
+
+describe("body links to programme steps", () => {
+  const context = courseReadingContext({
+    product: {
+      ...product,
+      items: [
+        ...product.items,
+        { materialId: "project", slug: "aie-project", title: "Проект" },
+      ],
+    },
+    current: { kind: "material", slug: "first" },
+    returnTarget: parseMaterialReaderReturnTarget(
+      "/products/course/programme?at=first",
+    ),
+  });
+  if (context === null) throw new Error("Missing course context");
+
+  it("opens another programme lesson as its step and keeps the authored section", () => {
+    const link = programmeStepLink(context, "/materials/second#практика");
+    expect(link?.step.id).toBe("material:second");
+    expect(link?.href).toBe(
+      "/materials/second?from=%2Fproducts%2Fcourse%2Fprogramme%3Fat%3Dfirst#практика",
+    );
+    expect(programmeStepLink(context, "/materials/second")?.href).toBe(
+      "/materials/second?from=%2Fproducts%2Fcourse%2Fprogramme%3Fat%3Dfirst",
+    );
+  });
+
+  it("opens a repeated Material at its placement in the reader's chapter", () => {
+    const repeated = courseReadingContext({
+      product: {
+        ...product,
+        programmePlacements: [
+          {
+            id: "p1",
+            materialId: "second-id",
+            chapterId: "one",
+            stepGroup: null,
+          },
+          {
+            id: "p2",
+            materialId: "first-id",
+            chapterId: "two",
+            stepGroup: null,
+          },
+          {
+            id: "p3",
+            materialId: "second-id",
+            chapterId: "two",
+            stepGroup: null,
+          },
+        ],
+      },
+      current: { kind: "material", slug: "first" },
+    });
+    if (repeated === null) throw new Error("Missing course context");
+    expect(repeated.currentChapterId).toBe("two:1");
+    expect(programmeStepLink(repeated, "/materials/second")?.step.id).toBe(
+      "material:second:p3",
+    );
+  });
+
+  it("keeps the reader's own placement of a Material repeated in one chapter", () => {
+    const repeated = courseReadingContext({
+      product: {
+        ...product,
+        programmePlacements: [
+          {
+            id: "a1",
+            materialId: "first-id",
+            chapterId: "one",
+            stepGroup: null,
+          },
+          {
+            id: "a2",
+            materialId: "first-id",
+            chapterId: "one",
+            stepGroup: null,
+          },
+        ],
+      },
+      current: { kind: "material", slug: "first", placementId: "a2" },
+    });
+    if (repeated === null) throw new Error("Missing course context");
+    expect(programmeStepLink(repeated, "/materials/first")?.step.id).toBe(
+      "material:first:a2",
+    );
+  });
+
+  it("leaves references, outside Materials and other addresses to the reference view", () => {
+    for (const href of [
+      "/materials/aie-project",
+      "/materials/elsewhere",
+      "https://example.com/materials/second",
+      "#практика",
+    ])
+      expect(programmeStepLink(context, href)).toBe(undefined);
+  });
 });

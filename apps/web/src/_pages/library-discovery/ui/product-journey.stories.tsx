@@ -279,6 +279,28 @@ export const Guest: Story = {
     ).toBeVisible();
   },
 };
+/**
+ * Тому, кому курс открыт покупкой или тарифом, бесплатный урок ничем не отличается от остальных:
+ * слова «Бесплатно» в строках нет, иначе оно читается как намёк, что остальное ещё закрыто.
+ */
+export const HolderSeesNoFreeMark: Story = {
+  args: { productOpen: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(24);
+    await expect(canvas.queryByText("Бесплатно")).toBeNull();
+    await expect(
+      canvas.getByRole("img", { name: "Материал 1, изучен" }),
+    ).toBeVisible();
+    // Без слова длительности по-прежнему стоят одной колонкой.
+    await expect(
+      rightEdges(canvasElement.querySelectorAll("[data-product-duration]"))
+        .size,
+    ).toBe(1);
+  },
+};
 /** Правые края элементов, округлённые до пикселя: совпадающие края дают один элемент множества. */
 function rightEdges(elements: Iterable<Element>): ReadonlySet<number> {
   return new Set(

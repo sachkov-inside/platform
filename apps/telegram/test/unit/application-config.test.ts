@@ -16,6 +16,28 @@ const validEnvironment = {
 };
 
 describe("application configuration", () => {
+  it("keeps ordinary broadcasts disabled by default and accepts only an explicit boolean", () => {
+    expect(loadApplicationConfig(validEnvironment).broadcastsEnabled).toBe(
+      false,
+    );
+    for (const [value, enabled] of [
+      ["false", false],
+      ["true", true],
+    ] as const) {
+      const config = loadApplicationConfig({
+        ...validEnvironment,
+        TELEGRAM_BROADCASTS_ENABLED: value,
+      });
+      expect(config.broadcastsEnabled).toBe(enabled);
+      expect(config.marketingEnabled).toBe(false);
+    }
+    expect(() =>
+      loadApplicationConfig({
+        ...validEnvironment,
+        TELEGRAM_BROADCASTS_ENABLED: "yes",
+      }),
+    ).toThrow("TELEGRAM_BROADCASTS_ENABLED");
+  });
   it("rejects attempts to enable retired membership evidence and entitlement bridge delivery", () => {
     for (const key of [
       "TELEGRAM_MEMBERSHIP_MODE",

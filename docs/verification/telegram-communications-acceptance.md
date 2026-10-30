@@ -86,9 +86,12 @@ retrying. Do not replace rollback with a draft save, which would lose its histor
 
 Before rollback deployment, retain both application's previous image/config revisions and all database
 history. Deploying an older binary is not permission to rewind migrations or delete delivery rows.
-Set `TELEGRAM_MARKETING_ENABLED=false` to prevent new marketing claims; leave service auth/link delivery
-configured. In-flight requests must settle and unknown results still need explicit resolution. Confirm
-zero new marketing attempts and functioning service responses before declaring the disable complete.
+Set both `TELEGRAM_MARKETING_ENABLED=false` and `TELEGRAM_BROADCASTS_ENABLED=false`, then restart the
+application to prevent new automatic-marketing and ordinary-broadcast claims. Waitlist and material
+announcements keep their independent controls; leave service auth/link delivery configured. In-flight
+requests must settle and unknown results still need explicit resolution. Confirm zero new ordinary
+broadcast or automatic-marketing attempts and functioning service responses before declaring the
+disable complete.
 
 ## Credentialed proof and launch prerequisites
 

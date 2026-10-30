@@ -46,10 +46,15 @@ export interface MaterialCardProps {
   readonly readingStatus?: React.ReactElement;
   readonly showAccessDetails?: boolean;
   /**
-   * Доступность читателя ещё уточняется: строка программы нарисована из общих данных, а замок или
-   * отметка чтения встанут на своё место, когда придёт личная часть (ADR 0027).
+   * Доступность читателя ещё уточняется: строка программы нарисована из общих данных, а замок,
+   * слово «Бесплатно» или отметка чтения встанут на своё место, когда придёт личная часть (ADR 0027).
    */
   readonly accessPending?: boolean;
+  /**
+   * Продукт открыт читателю покупкой или тарифом: в строке программы бесплатный урок не отличается
+   * от остальных и слова «Бесплатно» не несёт.
+   */
+  readonly productOpen?: boolean;
   readonly variant: "feed" | "row" | "product" | "library";
 }
 
@@ -69,6 +74,7 @@ export function MaterialCard({
   ),
   showAccessDetails = false,
   accessPending = false,
+  productOpen = false,
   variant,
 }: MaterialCardProps) {
   const Heading = headingLevel;
@@ -86,6 +92,7 @@ export function MaterialCard({
         material={material}
         readerHref={readerHref}
         ordinal={productOrdinal}
+        productOpen={productOpen}
         readingStatus={readingStatus}
       />
     );
@@ -411,11 +418,12 @@ function MaterialRow({
  * `ProductContinuationProvider`.
  */
 function ProductMaterialRow({
-  accessPending,
+  accessPending: pending,
   headingLevel: Heading,
   material,
   readerHref,
   ordinal,
+  productOpen,
   readingStatus,
 }: {
   readonly accessPending: boolean;
@@ -423,6 +431,7 @@ function ProductMaterialRow({
   readonly material: MaterialPreview;
   readonly readerHref: Route;
   readonly ordinal: number | undefined;
+  readonly productOpen: boolean;
   readonly readingStatus: React.ReactNode;
 }) {
   // Значок воспроизведения обещает видео, поэтому длительность берётся только у основного видео.
@@ -430,8 +439,6 @@ function ProductMaterialRow({
     material.primaryVideoDurationSeconds === undefined
       ? undefined
       : formatDuration(material.primaryVideoDurationSeconds);
-  // Бесплатный урок открыт каждому, поэтому уточнять у него нечего.
-  const pending = accessPending && material.access !== "free";
   // Бесплатный урок, который откроется после входа (#1825), отмечен словом, а не замком.
   const locked =
     !pending &&
@@ -450,7 +457,9 @@ function ProductMaterialRow({
           29.10.2026). В столбце доступа одна отметка: замок у закрытого урока, слово «Бесплатно»
           акцентным цветом у бесплатного, отметка «изучен» у пройденного, и она занимает место
           слова. В списке уроков с бесплатным уроком столбец у всех строк шириной со слово, поэтому
-          слова, замки и длительности стоят колонками; без бесплатных он шириной со значок. */}
+          слова, замки и длительности стоят колонками; без бесплатных он шириной со значок. Тому, кому
+          продукт открыт, слово не показывается (решение владельца 30.10.2026 о купивших курс), а
+          ширина столбца остаётся прежней, чтобы личная часть не сдвигала строки. */}
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
@@ -510,7 +519,7 @@ function ProductMaterialRow({
               </>
             ) : (
               <>
-                {material.access === "free" ? (
+                {material.access === "free" && !productOpen ? (
                   <span
                     className="whitespace-nowrap font-medium text-action"
                     data-product-free
