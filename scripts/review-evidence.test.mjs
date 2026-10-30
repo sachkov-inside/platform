@@ -1084,7 +1084,10 @@ test("an authenticated squash queue entry requires its source and an identical t
   f.routes["graphql:"] = queuePage([queueEntry(42, f.base, altered, f.head)]);
   const rejected = await f.check({ eventName: "merge_group" });
   assert.equal(rejected.status, 1);
-  assert.match(rejected.stderr, /Unreviewed candidate commit/u);
+  assert.match(
+    rejected.stderr,
+    /Missing or ambiguous authenticated squash source/u,
+  );
 });
 
 test("a squash queue group verifies every entry and its own receipt", async (t) => {
