@@ -65,7 +65,7 @@ def worker_deadline(scope='full'):
     profile(scope)
     if scope=='technical':
         if sys.platform!='linux':raise ValueError('fullstack_linux_required')
-        return 900
+        return stage_timing.SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS
     return pilot.PILOT_DEADLINE_SECONDS
 
 
@@ -96,7 +96,7 @@ def prepared_scope(output, *, expected=None, source=None):
         binding=value.get('scope_binding')
         keys={'scope','source','nonce','output_sha256','profile','services','databases'}
         if (type(binding) is not dict or set(binding) not in (keys,keys|{'worker_deadline_seconds'})
-                or 'worker_deadline_seconds' in binding and (type(binding['worker_deadline_seconds']) is not int or binding['worker_deadline_seconds']!=900)
+                or 'worker_deadline_seconds' in binding and (type(binding['worker_deadline_seconds']) is not int or binding['worker_deadline_seconds']!=stage_timing.SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS)
                 or binding['scope']!=scope or binding['source']!=value.get('source')
                 or not stage_timing.source_ok(binding['source'])
                 or type(binding['nonce']) is not str or re.fullmatch('[0-9a-f]{64}',binding['nonce']) is None
@@ -232,7 +232,7 @@ def inputs(output, images, *, core=None, scope='full'):
     if scope=='technical':
         prepared.update({'scope':scope,'scope_binding':{'scope':scope,'source':source,'nonce':os.urandom(32).hex(),
             'output_sha256':stage_timing.output_binding(output),'profile':settings['name'],
-            'services':list(services(scope)),'databases':['inside','logto','inside_telegram'],'worker_deadline_seconds':900}})
+            'services':list(services(scope)),'databases':['inside','logto','inside_telegram'],'worker_deadline_seconds':stage_timing.SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS}})
     pilot.write_json(output/'fullstack-source.json',prepared)
     prepared_scope(output,expected=scope,source=source)
     # Compiler output can reside on another filesystem than Docker's storage.

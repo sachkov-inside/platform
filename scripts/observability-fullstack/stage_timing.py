@@ -13,6 +13,7 @@ NAME='fullstack-timing.json'
 CONTACTS_NAME='fullstack-contacts-timing.json'
 
 MAX_MS=600_000
+SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS=900
 MAX_ROWS=384
 MAX_BYTES=131_072
 MAX_WRITES=2*MAX_ROWS+2
@@ -74,15 +75,15 @@ def source(output):
 
 def validate(value,source,output,*,scope_binding=None):
     extended=scope_binding is not None
-    maximum=900_000 if extended else MAX_MS
+    maximum=SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS*1000 if extended else MAX_MS
     if extended and (type(scope_binding) is not dict or scope_binding.get('scope')!='technical'
             or scope_binding.get('source')!=source or scope_binding.get('output_sha256')!=output_binding(output)
             or scope_binding.get('profile')!='platform-technical-v1'
-            or type(scope_binding.get('worker_deadline_seconds')) is not int or scope_binding['worker_deadline_seconds']!=900):refuse()
+            or type(scope_binding.get('worker_deadline_seconds')) is not int or scope_binding['worker_deadline_seconds']!=SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS):refuse()
     keys={'schema','source','output_sha256','state','reason','elapsed_ms','saturated','active','stages'}
     if (type(value) is not dict or set(value)!=(keys|{'worker_deadline_seconds','scope_binding'} if extended else keys)
             or type(value['schema']) is not int or value['schema']!=(2 if extended else 1)
-            or extended and (type(value['worker_deadline_seconds']) is not int or value['worker_deadline_seconds']!=900
+            or extended and (type(value['worker_deadline_seconds']) is not int or value['worker_deadline_seconds']!=SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS
                 or type(value['scope_binding']) is not dict or type(value['scope_binding'].get('worker_deadline_seconds')) is not int
                 or value['scope_binding']!=scope_binding)
             or not source_ok(source) or value['source']!=source or value['output_sha256']!=output_binding(output)
@@ -161,11 +162,11 @@ class Timing:
     def __init__(self,output,source,*,clock=time.monotonic,name=NAME,scope_binding=None):
         if scope_binding is not None and name!=NAME:refuse()
         self.output=Path(output);self.source=source;self.clock=clock;self.name=filename(name)
-        self.scope_binding=scope_binding;self.maximum=MAX_MS if scope_binding is None else 900_000
+        self.scope_binding=scope_binding;self.maximum=MAX_MS if scope_binding is None else SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS*1000
         self.origin=None;self.last=None;self.raw=0;self.writes=0;self.finished=False
         self.value={'schema':1,'source':source,'output_sha256':output_binding(output),'state':'running','reason':'none',
                     'elapsed_ms':0,'saturated':False,'active':None,'stages':[]}
-        if scope_binding is not None:self.value.update(schema=2,worker_deadline_seconds=900,scope_binding=scope_binding)
+        if scope_binding is not None:self.value.update(schema=2,worker_deadline_seconds=SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS,scope_binding=scope_binding)
         if not source_ok(source):self._refuse('binding_refused')
         else:self._sample();self._persist()
 

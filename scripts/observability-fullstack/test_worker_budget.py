@@ -73,7 +73,8 @@ sys.exit(7 if mode=='failure' else 0)
         with tempfile.TemporaryDirectory() as directory:
             output,pins=test_technical_scope.TechnicalScope().prepare_inputs(Path(directory).resolve())
             prepared=json.loads((output/'fullstack-source.json').read_text())
-            for key,bad in (('worker_deadline_seconds',600),('worker_deadline_seconds',True),('worker_deadline_seconds',901),
+            for key,bad in (('worker_deadline_seconds',600),('worker_deadline_seconds',601),('worker_deadline_seconds',899),
+                    ('worker_deadline_seconds',True),('worker_deadline_seconds',901),
                     ('scope','full'),('source','b'*40),('output_sha256','0'*64),('profile','platform-representative-v1')):
                 changed=copy.deepcopy(prepared);changed['scope_binding'][key]=bad
                 (output/'fullstack-source.json').write_text(json.dumps(changed))
@@ -98,6 +99,9 @@ sys.exit(7 if mode=='failure' else 0)
         with tempfile.TemporaryDirectory() as directory:
             output,pins=test_technical_scope.TechnicalScope().prepare_inputs(Path(directory).resolve())
             binding=json.loads((output/'fullstack-source.json').read_text())['scope_binding']
+            self.assertEqual(stage_timing.SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS,900)
+            with patch.object(fullstack.sys,'platform','linux'):
+                self.assertEqual(fullstack.worker_deadline('technical'),binding['worker_deadline_seconds'])
             self.assertEqual(binding['worker_deadline_seconds'],900)
             options=fullstack.timing_options(output,pins['source'])
             for seconds in (601,899,901):
@@ -110,6 +114,10 @@ sys.exit(7 if mode=='failure' else 0)
                 self.assertEqual(value['scope_binding'],binding)
                 self.assertEqual((value['elapsed_ms'],value['saturated']),(min(seconds*1000,900000),seconds>900))
                 self.assertEqual(value['stages'][0]['duration_ms'],min(seconds*1000,900000))
+                for bad_deadline in (601,899,901):
+                    changed=copy.deepcopy(value);changed['worker_deadline_seconds']=bad_deadline
+                    with self.subTest(seconds=seconds,bad_deadline=bad_deadline),self.assertRaises(ValueError):
+                        stage_timing.validate(changed,SOURCE,output,**options)
                 with self.assertRaises(ValueError):stage_timing.read(output,SOURCE)
             # Historical technical input and timing retain their original format.
             prepared=json.loads((output/'fullstack-source.json').read_text())
