@@ -19,6 +19,49 @@ const text = {
   buttons: [],
 };
 describe("shared communications contract", () => {
+  it("accepts a native photo caption with a quote, link and custom emoji without losing formatting", () => {
+    const caption =
+      "Ранний набор\nКурс развивается с потоком.\n👾 Бесплатные уроки";
+    const entities = [
+      { type: "bold", offset: 0, length: "Ранний набор".length },
+      {
+        type: "blockquote",
+        offset: caption.indexOf("Курс"),
+        length: "Курс развивается с потоком.".length,
+      },
+      {
+        type: "custom_emoji",
+        offset: caption.indexOf("👾"),
+        length: "👾".length,
+        custom_emoji_id: "5432109876543210987",
+      },
+      {
+        type: "text_link",
+        offset: caption.indexOf("Бесплатные"),
+        length: "Бесплатные уроки".length,
+        url: "https://inside.example/products/ai-engineering/programme",
+      },
+    ];
+    const intake = required(
+      translateTemplateIntake("inside", "1", {
+        message: {
+          from: { id: 42, is_bot: false },
+          chat: { id: 42, type: "private" },
+          photo: [{ file_id: "synthetic_photo" }],
+          caption,
+          caption_entities: entities,
+        },
+      }),
+    );
+    expect(() => validateContent(intake.content)).not.toThrow();
+    expect(intake.content).toEqual({
+      type: "photo",
+      fileId: "synthetic_photo",
+      text: caption,
+      entities,
+      buttons: [],
+    });
+  });
   for (const fixture of fixtures)
     it(fixture.name, () => {
       const validate = contractValidator(fixture.definition);
