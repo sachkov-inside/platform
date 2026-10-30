@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId } from "react";
 import { ChevronDown, FileText } from "lucide-react";
 import type { Route } from "next";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -9,15 +9,18 @@ import {
   type ReaderCourseAnchor,
 } from "@/shared/routing/reader-course-anchor";
 import type { CourseReferenceMaterial } from "../model/course-reading";
+import { useCourseReferenceExpansion } from "./course-reading-handoff.client";
 import styles from "./course-reading.module.css";
 
 /** Reference documents remain outside chapter step navigation. */
 export function CourseReferenceNavigation({
   references,
+  stateKey,
   activeReferenceId,
   courseHref,
   anchor,
 }: {
+  readonly stateKey?: string | undefined;
   readonly references: readonly CourseReferenceMaterial[];
   readonly activeReferenceId?: string | undefined;
   readonly courseHref: Route;
@@ -27,6 +30,7 @@ export function CourseReferenceNavigation({
   return (
     <ReferenceList
       key={JSON.stringify(references.map((reference) => reference.id))}
+      stateKey={stateKey}
       references={references}
       activeReferenceId={activeReferenceId}
       courseHref={courseHref}
@@ -37,11 +41,14 @@ export function CourseReferenceNavigation({
 
 function ReferenceList({
   references,
+  stateKey,
   activeReferenceId,
   courseHref,
   anchor,
 }: Parameters<typeof CourseReferenceNavigation>[0]) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useCourseReferenceExpansion(
+    `references:${stateKey ?? "standalone"}:${JSON.stringify(references.map((item) => item.id))}`,
+  );
   const listId = useId();
   const visibleReferences = expanded ? references : references.slice(0, 3);
   return (

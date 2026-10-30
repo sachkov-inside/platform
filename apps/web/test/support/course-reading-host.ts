@@ -1,8 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 
 /**
- * After hydration the persistent host takes over the course rail and programme dialog and mounts
- * them anew (#1804, #1824): a control read or opened before that handoff belongs to the replaced copy.
+ * Wait for the persistent course frame when a test needs to exercise route-to-route ownership.
+ * Early user interactions are covered separately by the gated host handoff browser regression (#1824).
  */
 export async function expectCourseReadingHost(page: Page) {
   await expect(page.locator("[data-course-reading-host]")).toBeVisible();
