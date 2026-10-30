@@ -270,6 +270,8 @@ export async function verify({
     return {
       number: numberField(pr, "number"),
       state: stringField(pr, "state"),
+      merged: pr["merged"] === true,
+      mergeCommitSha: pr["merge_commit_sha"],
       body: pr["body"] === null ? "" : stringField(pr, "body", true),
       base: {
         sha: stringField(base, "sha"),
@@ -297,6 +299,27 @@ export async function verify({
   );
   /** @type {Map<number, Awaited<ReturnType<typeof readPr>>>} */
   const prs = new Map();
+  /** @type {Map<string, Set<number>>} */
+  const associations = new Map();
+  const candidateCommits = git("rev-list", "--parents", `${base}..${candidate}`)
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line.split(" "));
+  /** @param {string[]} transition @param {string} head */
+  function exactSquash(transition, head) {
+    const [commit, parent, ...extra] = transition;
+    if (!commit || !parent || extra.length || ancestor(commit, head))
+      return false;
+    try {
+      const tree = git("rev-parse", `${commit}^{tree}`);
+      return (
+        tree !== git("rev-parse", `${parent}^{tree}`) &&
+        git("merge-tree", "--write-tree", parent, head) === tree
+      );
+    } catch {
+      return false;
+    }
+  }
   if (eventName === "pull_request") {
     requireValue(
       Number.isSafeInteger(numberField(eventObject, "number")),
@@ -308,37 +331,74 @@ export async function verify({
     );
   } else {
     requireValue(eventGroup["head_sha"] === candidate, "Queue source mismatch");
-    // Query every source commit and every page. Matching a comment on an unrelated
-    // PR is insufficient: its current head must cover this candidate's ancestry.
-    const commits = git("rev-list", "--no-merges", `${base}..${candidate}`)
-      .split("\n")
-      .filter(Boolean);
-    requireValue(commits.length > 0, "Empty merge queue");
-    for (const commit of commits) {
+    // Associations authenticate the concrete queue commit, never a branch name
+    // or a tree alone. A squash source need not be in the candidate ancestry.
+    requireValue(candidateCommits.length > 0, "Empty merge queue");
+    for (const transition of candidateCommits) {
+      const commit = transition[0];
+      requireValue(commit, "Missing candidate commit");
+      if (transition.length !== 2) continue;
+      /** @type {Set<number>} */
+      const associatedNumbers = new Set();
+      associations.set(commit, associatedNumbers);
       for (const rawAssociated of await pages(`commits/${commit}/pulls`)) {
         const associated = object(rawAssociated);
+        if (!["open", "closed"].includes(String(associated["state"]))) continue;
+        const number = numberField(associated, "number");
+        associatedNumbers.add(number);
+        if (prs.has(number)) continue;
+        const pr = await readPr(number);
+        requireValue(pr.number === number, "PR association identity mismatch");
+        let introduced = false;
         if (
-          associated["state"] !== "open" ||
-          prs.has(numberField(associated, "number"))
+          pr.state === "closed" &&
+          pr.merged &&
+          pr.mergeCommitSha === commit
+        ) {
+          const mainRef = object(await api("git/ref/heads/main"));
+          const mainObject = object(mainRef["object"]);
+          requireValue(
+            mainRef["ref"] === "refs/heads/main" &&
+              mainObject["type"] === "commit",
+            "Invalid authoritative main ref",
+          );
+          const main = stringField(mainObject, "sha");
+          requireValue(
+            sha.test(main) && ancestor(base, main),
+            "Unrelated authoritative main",
+          );
+          introduced = ancestor(commit, main);
+        }
+        if (
+          sha.test(pr.head.sha) &&
+          ((pr.state === "open" && ancestor(pr.head.sha, candidate)) ||
+            ((pr.state === "open" || introduced) &&
+              exactSquash(transition, pr.head.sha)))
         )
-          continue;
-        const pr = await readPr(numberField(associated, "number"));
-        if (sha.test(pr["head"]?.sha) && ancestor(pr["head"].sha, candidate))
-          prs.set(pr["number"], pr);
+          prs.set(number, pr);
       }
     }
   }
   requireValue(prs.size > 0, "No current PR covers candidate");
+  requireValue(
+    [...prs.values()].some((pr) => pr.state === "open"),
+    "No open reviewed queue source",
+  );
   const sources = [];
   for (const [number, pr] of prs) {
     requireValue(
       pr["number"] === number &&
-        pr["state"] === "open" &&
+        (pr.state === "open" ||
+          (eventName === "merge_group" &&
+            pr.state === "closed" &&
+            pr.merged)) &&
         pr["base"]?.repo.full_name === repository &&
         pr["base"].ref === "main" &&
-        pr["base"].sha === base &&
+        sha.test(pr.base.sha) &&
+        (ancestor(base, pr.base.sha) ||
+          (pr.merged && ancestor(pr.base.sha, base))) &&
         sha.test(pr["head"]?.sha) &&
-        ancestor(pr["head"].sha, candidate),
+        (eventName === "merge_group" || ancestor(pr["head"].sha, candidate)),
       "Stale, unrelated or incomplete PR source",
     );
     if (eventName === "pull_request")
@@ -428,14 +488,36 @@ export async function verify({
       ...current,
     });
   }
-  // The queue/PR checkout is usually synthetic. Only deterministic, conflict-free
-  // merges of reviewed sources may add commits outside the reviewed PR histories.
-  for (const line of git("rev-list", "--parents", `${base}..${candidate}`)
-    .split("\n")
-    .filter(Boolean)) {
-    const [commit, ...parents] = line.split(" ");
+  // Every commit outside reviewed histories needs an exact transition proof.
+  // Two-parent test merges retain their Git proof; one-parent queue squashes
+  // additionally need an authenticated PR association for that very commit.
+  const squashedSources = new Set();
+  for (const transition of candidateCommits) {
+    const [commit, ...parents] = transition;
     requireValue(commit, "Missing commit");
     if (sources.some((source) => ancestor(commit, source.headSha))) continue;
+    if (parents.length === 1 && eventName === "merge_group") {
+      const matches = sources.filter((source) => {
+        const pr = prs.get(source.pullRequest);
+        return (
+          associations.get(commit)?.has(source.pullRequest) &&
+          pr &&
+          (pr.state === "open" || pr.mergeCommitSha === commit) &&
+          exactSquash(transition, source.headSha)
+        );
+      });
+      requireValue(
+        matches.length === 1,
+        "Missing or ambiguous authenticated squash source",
+      );
+      const source = matches[0];
+      requireValue(
+        source && !squashedSources.has(source.pullRequest),
+        "Repeated squash source",
+      );
+      squashedSources.add(source.pullRequest);
+      continue;
+    }
     requireValue(parents.length === 2, "Unreviewed candidate commit");
     const [first, second] = parents;
     requireValue(first && second, "Missing synthetic parents");
@@ -450,11 +532,12 @@ export async function verify({
   // required checks/queue still bind the run to its immutable candidate SHA.
   for (const source of sources) {
     const fresh = await readPr(source.pullRequest);
+    const original = prs.get(source.pullRequest);
     requireValue(
-      fresh.state === "open" &&
+      original &&
+        JSON.stringify(fresh) === JSON.stringify(original) &&
         fresh.head.sha === source.headSha &&
-        fresh.base["sha"] === base &&
-        fresh.body?.includes(source.task),
+        fresh.body.includes(source.task),
       "PR changed during verification",
     );
     requireValue(

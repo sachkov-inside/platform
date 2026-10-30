@@ -99,12 +99,23 @@ merge main. An unrelated target advance preserves review when head and compariso
 unchanged. Task title/body edits invalidate review independently of code. There is no discretionary
 applicability override.
 
-For synthetic PR/queue checkouts, all pages of commit-to-PR associations and comments are read. Every
-source must be a current main-target PR in this repository with its own valid receipt. Every commit
-outside the trusted target must belong to a reviewed PR history or be an exact deterministic,
-conflict-free two-parent merge of reviewed inputs. `git merge-tree` must reproduce its tree. Unknown
-commits, altered merge resolutions, unsupported topology, missing history and API failures fail
-closed. Multi-PR queue groups need evidence for every source.
+For synthetic PR/queue checkouts, all pages of non-merge candidate commit-to-PR associations and
+comments are read. Every source targets `main` in this repository and has its own valid receipt.
+Every commit outside the event's trusted target belongs to a reviewed PR history, is an exact
+deterministic conflict-free two-parent merge, or is a supported one-parent queue squash.
+`git merge-tree` must reproduce each synthetic transition's exact tree from its parent and reviewed
+source head. Squash source heads may live on independent branches outside the candidate ancestry.
+A squash additionally requires GitHub's authenticated association between that exact candidate
+commit and its PR; matching a tree or a branch name alone is insufficient. A source cannot authorize
+repeated squash transitions, and ambiguous source matches fail closed.
+
+A preceding squash source may already be closed only when GitHub reports it merged with that exact
+`merge_commit_sha` and the transition is in authenticated `refs/heads/main` history extending the
+event base. Its receipt remains required. At least one current open source is required for a queue
+run. Current PR base snapshots may advance on main without changing the reviewed comparison
+merge-base; an event starting after a merged prefix verifies only the remaining sources. Unknown
+commits, altered merge resolutions, conflicting inputs, unsupported topology, missing Git objects
+and API failures fail closed. Multi-PR groups need evidence for every source outside the event base.
 
 The verifier rechecks current PR freshness before returning. API reads form a time-of-check snapshot,
 not an atomic GitHub transaction. Required immutable-head CI and merge queue remain necessary.

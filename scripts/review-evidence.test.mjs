@@ -210,6 +210,308 @@ test("CLI verifies authenticated external receipts against real PR and synthetic
   }
 });
 
+/** @param {import("node:test").TestContext} t */
+async function squashFixture(t) {
+  const f = await fixture(t);
+  await f.git("checkout", "-b", "squash-queue", f.base);
+  await f.git("merge", "--squash", "feature");
+  await f.git("commit", "-m", "queue squash");
+  const candidate = await f.git("rev-parse", "HEAD");
+  f.setCandidate(candidate);
+  f.routes[`commits/${candidate}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  return { ...f, candidate };
+}
+
+test("CLI verifies a provider-associated squash whose reviewed head is not a candidate ancestor", async (t) => {
+  const f = await squashFixture(t);
+  const candidate = f.candidate;
+  assert.notEqual(candidate, f.head);
+  assert.equal(await f.git("merge-base", candidate, f.head), f.base);
+  assert.equal(
+    (await f.git("rev-list", "--parents", "-n", "1", candidate)).split(" ")
+      .length,
+    2,
+  );
+  const result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    z
+      .object({ sources: z.array(z.object({ headSha: z.string() })) })
+      .parse(JSON.parse(result.stdout)).sources[0]?.headSha,
+    f.head,
+  );
+});
+
+test("CLI rejects squash tree matches without exact authenticated provenance", async (t) => {
+  const f = await squashFixture(t);
+  const path = `commits/${f.candidate}/pulls?per_page=100&page=1`;
+  for (const responseRoutes of [
+    { ...f.routes, [path]: [] },
+    {
+      ...f.routes,
+      [path]: [{ number: 43, state: "open" }],
+      "pulls/43": { ...f.pr, number: 43, head: { sha: f.base } },
+    },
+    { ...f.routes, "pulls/42": { ...f.pr, number: 43 } },
+    {
+      ...f.routes,
+      "pulls/42": { ...f.pr, base: { ...f.pr.base, ref: "other" } },
+    },
+    {
+      ...f.routes,
+      "pulls/42": {
+        ...f.pr,
+        state: "closed",
+        merged: false,
+        merge_commit_sha: f.candidate,
+      },
+    },
+    {
+      ...f.routes,
+      "pulls/42": {
+        ...f.pr,
+        state: "closed",
+        merged: true,
+        merge_commit_sha: f.candidate,
+      },
+      "git/ref/heads/main": {
+        ref: "refs/heads/main",
+        object: { type: "commit", sha: f.base },
+      },
+    },
+  ])
+    assert.equal(
+      (await f.check({ eventName: "merge_group", responseRoutes })).status,
+      1,
+    );
+  writeFileSync(resolve(f.cwd, "unreviewed"), "unknown transition");
+  await f.git("add", "unreviewed");
+  await f.git("commit", "-m", "unknown after squash");
+  const unknown = await f.git("rev-parse", "HEAD");
+  f.setCandidate(unknown);
+  f.routes[`commits/${unknown}/pulls?per_page=100&page=1`] = [];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+});
+
+test("CLI rejects ambiguous squash associations and source reuse", async (t) => {
+  const f = await squashFixture(t);
+  const duplicateReceipt = { ...f.body, pullRequest: 43 };
+  const duplicate = {
+    ...f.comment,
+    id: 124,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(duplicateReceipt)}`,
+  };
+  f.routes["pulls/43"] = { ...f.pr, number: 43 };
+  f.routes["issues/43/comments?per_page=100&page=1"] = [duplicate];
+  f.routes["issues/comments/124"] = duplicate;
+  f.routes[`commits/${f.candidate}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+    { number: 43, state: "open" },
+  ];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+  // An extra no-op commit with the same tree is not another authorized squash.
+  const tree = await f.git("rev-parse", `${f.candidate}^{tree}`);
+  const duplicateCommit = await f.git(
+    "commit-tree",
+    tree,
+    "-p",
+    f.candidate,
+    "-m",
+    "repeat source",
+  );
+  await f.git("checkout", "--detach", duplicateCommit);
+  f.setCandidate(duplicateCommit);
+  f.routes[`commits/${duplicateCommit}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  f.routes[`commits/${f.candidate}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+});
+
+test("CLI rejects forged squash trees, conflicting sources and unsupported parent topology", async (t) => {
+  const f = await squashFixture(t);
+  writeFileSync(resolve(f.cwd, "feature"), "forged resolution");
+  await f.git("add", "feature");
+  await f.git("commit", "--amend", "--no-edit");
+  const forged = await f.git("rev-parse", "HEAD");
+  f.setCandidate(forged);
+  f.routes[`commits/${forged}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+  // The target independently adds the same path. A hand-resolved queue tree
+  // must not turn a merge-tree conflict into an accepted reviewed transition.
+  await f.git("checkout", "-b", "conflicting-main", f.base);
+  writeFileSync(resolve(f.cwd, "feature"), "conflicting target");
+  await f.git("add", "feature");
+  await f.git("commit", "-m", "conflicting target");
+  const target = await f.git("rev-parse", "HEAD");
+  const tree = await f.git("rev-parse", `${f.candidate}^{tree}`);
+  const conflict = await f.git(
+    "commit-tree",
+    tree,
+    "-p",
+    target,
+    "-m",
+    "hand resolved squash",
+  );
+  await f.git("checkout", "--detach", conflict);
+  f.setCandidate(conflict);
+  f.setTargetBase(target);
+  f.routes[`commits/${conflict}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+  const octopus = await f.git(
+    "commit-tree",
+    tree,
+    "-p",
+    f.base,
+    "-p",
+    f.head,
+    "-p",
+    forged,
+    "-m",
+    "unsupported octopus",
+  );
+  await f.git("checkout", "--detach", octopus);
+  f.setCandidate(octopus);
+  f.setTargetBase(f.base);
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+});
+
+/** @param {Awaited<ReturnType<typeof squashFixture>>} f */
+async function addSecondSquash(f) {
+  await f.git("checkout", "-b", "independent-second", f.base);
+  writeFileSync(resolve(f.cwd, "second"), "second reviewed source");
+  await f.git("add", "second");
+  await f.git("commit", "-m", "independent second source");
+  const second = await f.git("rev-parse", "HEAD");
+  await f.git("checkout", "squash-queue");
+  await f.git("merge", "--squash", second);
+  await f.git("commit", "-m", "second queue squash");
+  const candidate = await f.git("rev-parse", "HEAD");
+  f.setCandidate(candidate);
+  const secondReceipt = { ...f.body, pullRequest: 43, headSha: second };
+  const secondPr = { ...f.pr, number: 43, head: { sha: second } };
+  f.routes["pulls/43"] = secondPr;
+  f.routes[`commits/${candidate}/pulls?per_page=100&page=1`] = [
+    { number: 43, state: "open" },
+  ];
+  const comment = {
+    ...f.comment,
+    id: 124,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(secondReceipt)}`,
+  };
+  f.routes["issues/43/comments?per_page=100&page=1"] = [comment];
+  f.routes["issues/comments/124"] = comment;
+  return { secondPr, candidate };
+}
+
+test("CLI accounts for independent squash sources and a merged prefix while main advances", async (t) => {
+  const f = await squashFixture(t);
+  const { secondPr, candidate } = await addSecondSquash(f);
+  let result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    z.object({ sources: z.array(z.unknown()) }).parse(JSON.parse(result.stdout))
+      .sources.length,
+    2,
+  );
+  assert.equal(
+    (
+      await f.check({
+        eventName: "merge_group",
+        responseRoutes: {
+          ...f.routes,
+          "issues/43/comments?per_page=100&page=1": [],
+        },
+      })
+    ).status,
+    1,
+  );
+  // Native queues can retain a preceding PR after it has merged, with the next
+  // PR now targeting that newer authoritative main snapshot.
+  f.routes["pulls/42"] = {
+    ...f.pr,
+    state: "closed",
+    merged: true,
+    merge_commit_sha: f.candidate,
+  };
+  f.routes["git/ref/heads/main"] = {
+    ref: "refs/heads/main",
+    object: { type: "commit", sha: f.candidate },
+  };
+  secondPr.base = { ...secondPr.base, sha: f.candidate };
+  result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  // A later event can start at the merged prefix. Only the independent open
+  // source then lies outside the trusted event base.
+  f.setTargetBase(f.candidate);
+  result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    z.object({ sources: z.array(z.unknown()) }).parse(JSON.parse(result.stdout))
+      .sources.length,
+    1,
+  );
+  f.setTargetBase(f.base);
+  // Provider association plus merged status is insufficient without main membership.
+  f.routes["git/ref/heads/main"] = {
+    ref: "refs/heads/main",
+    object: { type: "commit", sha: f.base },
+  };
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+  f.routes["git/ref/heads/main"] = {
+    ref: "refs/heads/main",
+    object: { type: "commit", sha: f.candidate },
+  };
+  f.routes["pulls/43"] = {
+    ...secondPr,
+    state: "closed",
+    merged: true,
+    merge_commit_sha: candidate,
+  };
+  f.routes["git/ref/heads/main"] = {
+    ref: "refs/heads/main",
+    object: { type: "commit", sha: candidate },
+  };
+  assert.equal(
+    (await f.check({ eventName: "merge_group" })).status,
+    1,
+    "a current queue still needs an open source",
+  );
+});
+
+test("squash verification invalidates stale PR, task and comment snapshots", async (t) => {
+  const f = await squashFixture(t);
+  for (const [path, changed] of [
+    ["pulls/42", { ...f.pr, head: { sha: f.base } }],
+    ["pulls/42", { ...f.pr, body: `${f.pr.body} changed scope` }],
+    ["issues/1856", { ...task, title: "changed scope" }],
+    ["issues/comments/123", { ...f.comment, body: "changed review" }],
+  ]) {
+    const original = f.routes[String(path)];
+    const value =
+      path === "issues/comments/123"
+        ? changed
+        : { $responses: [original, changed] };
+    assert.equal(
+      (
+        await f.check({
+          eventName: "merge_group",
+          responseRoutes: { ...f.routes, [String(path)]: value },
+        })
+      ).status,
+      1,
+    );
+  }
+});
+
 test("CLI rejects missing, stale, duplicate, incomplete and blocking review evidence", async (t) => {
   const f = await fixture(t);
   const commentsPath = "issues/42/comments?per_page=100&page=1";
@@ -364,7 +666,7 @@ test("CLI paginates comment and queue associations instead of trusting the first
   f.routes["issues/42/comments?per_page=100&page=2"] = secondPage;
   f.routes[`commits/${f.head}/pulls?per_page=100&page=1`] = Array.from(
     { length: 100 },
-    () => ({ state: "closed" }),
+    () => ({ number: 42, state: "open" }),
   );
   f.routes[`commits/${f.head}/pulls?per_page=100&page=2`] = [
     { number: 42, state: "open" },
