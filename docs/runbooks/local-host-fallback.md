@@ -176,6 +176,19 @@ token has already run out; `scripts/full-stack-identity.test.mjs` covers the gra
 starting the stack. Whether the whole suite is free of expiry-driven failures is a property of a
 full `pnpm smoke:fullstack` run, not of these checks.
 
+The session probe preserves transport failure as failure and reports a safe request/body phase and
+network category without forwarding Playwright's credential-bearing error/call log. HTTP errors,
+invalid JSON, invalid state, guest and unavailable responses remain separate outcomes.
+`apps/web/test/contracts/full-stack-session.test.ts` exercises the helper through a real Playwright
+HTTP context and owned loopback server, including a truncated response with an authenticated prefix.
+Playwright buffers the response during `get`, so a truncated body can fail in the request phase.
+The launcher emits `fullstack-first-failure` at the first failed test reporter event, with retained
+API/MCP/Web output and launcher PID/exit/signal status. It freezes that snapshot before subsequent
+suite output can evict the original context. Output is redacted before retention and streaming;
+credential headers and exported fixture secrets are removed. Oversized diagnostic lines are omitted.
+This snapshot observes launchers and their output; it does not prove the health of every descendant.
+The historical socket abort in #1783 remains unexplained; no retries or extra waits mask it.
+
 The full-stack launcher also establishes separate active-member, non-member, expired-member and stale-member
 Accounts. Confirmed loss of Membership resolves as `expired`; a formerly valid observation accepted
 through the normal facet with a historical fixture clock resolves as `stale` at the real clock. The media convergence scenarios exercise one

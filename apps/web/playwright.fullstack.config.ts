@@ -11,7 +11,11 @@ export default defineConfig({
   forbidOnly: true,
   // CI already binds evidence to its source SHA; avoid Playwright fetching a missing PR base.
   captureGitInfo: { diff: false },
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [
+    ["./test/support/full-stack-failure-reporter.mjs"],
+    ["list"],
+    ["html", { open: "never" }],
+  ],
   timeout: 60_000,
   workers: 1,
   use: {
