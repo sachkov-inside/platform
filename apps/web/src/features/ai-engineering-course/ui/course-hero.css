@@ -119,9 +119,17 @@
   position: relative;
   min-width: 0;
 }
-/* Действие на нижнем крае анимации выступает на половину высоты: место под ним есть заранее. */
+/* Нижняя строка действия остаётся внутри блока и резервируется до загрузки личной части. */
 .aie-hero-film[data-film-action] {
-  margin-bottom: 1.25rem;
+  padding-bottom: 3.25rem;
+  border-radius: 1.25rem;
+  background: var(--primary);
+  box-shadow: var(--elevation-cover);
+}
+.aie-hero-film[data-film-action] .aie-film {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+  box-shadow: none;
 }
 
 @media (max-width: 47.999rem) {
