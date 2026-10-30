@@ -47,6 +47,14 @@ export function materialLinkSlug(href: string): string | undefined {
   return /^\/materials\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:[?#]|$)/u.exec(href)?.[1];
 }
 
+/** A link to a section of the open Material stays inside the page, whatever its course context. */
+export function ownSectionHref(href: string, slug: string): string | undefined {
+  const fragment = href.indexOf("#");
+  return fragment >= 0 && materialLinkSlug(href) === slug
+    ? href.slice(fragment)
+    : undefined;
+}
+
 /** Only local Material links inherit course context; authored fragments remain intact. */
 export function anchoredMaterialHref(
   href: string,

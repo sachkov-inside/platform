@@ -148,31 +148,56 @@ test("reduced motion keeps the same-page jump instant", async ({ page }) => {
   expect(await positions()).toBeLessThanOrEqual(1);
 });
 
+/** The shell position, whichever root scrolls at this width. */
+function shellPosition(page: Page) {
+  return page.evaluate(() =>
+    Math.max(
+      window.scrollY,
+      document.querySelector<HTMLElement>("[data-application-content]")
+        ?.scrollTop ?? 0,
+    ),
+  );
+}
+
 test("a video moment fragment keeps the reader's place", async ({ page }) => {
   await page.goto(`${target}#${anchor}`);
   await expectHeadingInView(page);
-  const position = () =>
-    page.evaluate(() =>
-      Math.max(
-        window.scrollY,
-        document.querySelector<HTMLElement>("[data-application-content]")
-          ?.scrollTop ?? 0,
-      ),
-    );
-  const before = await position();
+  const before = await shellPosition(page);
   expect(before).toBeGreaterThan(0);
   // Video chapters link to `#t=<seconds>`: the player seeks, the page stays where it is.
-  await page.evaluate(() => {
-    window.location.hash = "t=90";
-  });
+  await page
+    .getByRole("link", { name: "Момент видео", exact: true })
+    .evaluate((link) => {
+      link.scrollIntoView({ block: "nearest", behavior: "instant" });
+    });
+  const linked = await shellPosition(page);
+  await page.getByRole("link", { name: "Момент видео", exact: true }).click();
   await expect(page).toHaveURL(/#t=90$/u);
+  await page.evaluate(() => {
+    window.location.hash = "t=120";
+  });
+  await expect(page).toHaveURL(/#t=120$/u);
   await page.evaluate(
     () =>
       new Promise((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(resolve)),
       ),
   );
-  expect(await position()).toBe(before);
+  expect(await shellPosition(page)).toBe(linked);
+});
+
+test("a video moment on another page opens that page from the start", async ({
+  page,
+}) => {
+  await page.goto(`${target}#${anchor}`);
+  await expectHeadingInView(page);
+  await page
+    .getByRole("link", { name: "момент на другой странице", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Ссылки на раздел", exact: true }),
+  ).toBeInViewport();
+  await expect.poll(() => shellPosition(page)).toBe(0);
 });
 
 test("a repeated fragment selects the visible body instead of a retained hidden page", async ({

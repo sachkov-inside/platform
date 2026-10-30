@@ -549,6 +549,33 @@ describe("body links to programme steps", () => {
     );
   });
 
+  it("keeps the reader's own placement of a Material repeated in one chapter", () => {
+    const repeated = courseReadingContext({
+      product: {
+        ...product,
+        programmePlacements: [
+          {
+            id: "a1",
+            materialId: "first-id",
+            chapterId: "one",
+            stepGroup: null,
+          },
+          {
+            id: "a2",
+            materialId: "first-id",
+            chapterId: "one",
+            stepGroup: null,
+          },
+        ],
+      },
+      current: { kind: "material", slug: "first", placementId: "a2" },
+    });
+    if (repeated === null) throw new Error("Missing course context");
+    expect(programmeStepLink(repeated, "/materials/first")?.step.id).toBe(
+      "material:first:a2",
+    );
+  });
+
   it("leaves references, outside Materials and other addresses to the reference view", () => {
     for (const href of [
       "/materials/aie-project",

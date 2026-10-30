@@ -325,7 +325,8 @@ function isMaterialStep(step: CourseReadingStep, slug: string): boolean {
 
 /**
  * A body link to a lesson of this programme opens that lesson as its step, so the chapter steps
- * follow the reader. A repeated Material opens its placement in the reader's chapter. The authored
+ * follow the reader. A repeated Material opens the reader's own placement, else its placement in the
+ * reader's chapter. The authored
  * section is kept verbatim. Other links are not programme steps.
  */
 export function programmeStepLink(
@@ -340,6 +341,7 @@ export function programmeStepLink(
       .map((step) => ({ chapterId: chapter.id, step })),
   );
   const step = (
+    placements.find((entry) => entry.step.id === context.current.id) ??
     placements.find((entry) => entry.chapterId === context.currentChapterId) ??
     placements[0]
   )?.step;

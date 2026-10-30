@@ -23,7 +23,8 @@ export function BodyFragmentNavigation() {
         root.style.removeProperty("scroll-behavior");
       smoothRoots = [];
     };
-    const navigate = () => {
+    /** `samePage`: the hash changed on this page; otherwise the page has just opened. */
+    const navigate = (samePage: boolean) => {
       const behavior = smooth ? "smooth" : "instant";
       releaseSmooth();
       if (body.getClientRects().length === 0) return;
@@ -34,9 +35,9 @@ export function BodyFragmentNavigation() {
       } catch {
         id = window.location.hash.slice(1);
       }
-      // A media fragment such as a video chapter's `#t=90` addresses the player, not a section;
-      // treating it as a missing section would throw the reader back to the top.
-      if (id.includes("=")) return;
+      // On this page a media fragment such as a video chapter's `#t=90` addresses the player, not a
+      // section; treating it as a missing section would throw the reader back to the top.
+      if (samePage && id.includes("=")) return;
       const target =
         Array.from(body.querySelectorAll<HTMLElement>("[id]")).find(
           (element) => element.id === id,
@@ -107,17 +108,20 @@ export function BodyFragmentNavigation() {
       if (frame !== undefined) cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         frame = undefined;
-        navigate();
+        navigate(true);
       });
     };
-    navigate();
+    const followHash = () => {
+      navigate(true);
+    };
+    navigate(false);
     body.addEventListener("click", followFragment);
-    window.addEventListener("hashchange", navigate);
+    window.addEventListener("hashchange", followHash);
     return () => {
       releaseSmooth();
       if (frame !== undefined) cancelAnimationFrame(frame);
       body.removeEventListener("click", followFragment);
-      window.removeEventListener("hashchange", navigate);
+      window.removeEventListener("hashchange", followHash);
     };
   }, []);
   return <span hidden ref={marker} />;

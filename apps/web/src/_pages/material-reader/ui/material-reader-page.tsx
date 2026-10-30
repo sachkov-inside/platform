@@ -12,6 +12,7 @@ import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { proseLinkClassName } from "@/shared/ui/prose-link";
 import {
   anchoredMaterialHref,
+  ownSectionHref,
   parseReaderCourseAnchor,
   parseReaderPlacementId,
   type ReaderCourseAnchor,
@@ -458,6 +459,14 @@ async function ResolvedMaterialReader({
           renderLink={(href, label) => {
             const reference = readInlineArtifactReference(href);
             if (reference === undefined) {
+              // Раздел этого же материала остаётся переходом внутри страницы.
+              const section = ownSectionHref(href, result.material.slug);
+              if (section !== undefined)
+                return (
+                  <a className={proseLinkClassName} href={section}>
+                    {label}
+                  </a>
+                );
               const programme = productContext?.programme;
               if (programme == null) return undefined;
               const current = programme.current;
@@ -471,14 +480,6 @@ async function ResolvedMaterialReader({
                 productContext?.supplementary === true
                   ? undefined
                   : programmeStepLink(programme, href);
-              const fragment = href.indexOf("#");
-              // Раздел этого же урока остаётся переходом внутри страницы.
-              if (step?.step.id === current.id && fragment >= 0)
-                return (
-                  <a className={proseLinkClassName} href={href.slice(fragment)}>
-                    {label}
-                  </a>
-                );
               const target =
                 step?.href ??
                 anchoredMaterialHref(href, programme.href, contextAnchor, true);
