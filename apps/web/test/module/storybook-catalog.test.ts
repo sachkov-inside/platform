@@ -18,13 +18,13 @@ function files(directory: string): string[] {
 it("accounts for every App Router page, including redirects and retired addresses", () => {
   const routes = files(`${web}app`)
     .filter((path) => path.endsWith("/page.tsx"))
-    .map(
-      (path) =>
-        path
-          .slice(`${web}app`.length)
-          .replace(/\/\([^/]+\)/gu, "")
-          .replace(/\/page\.tsx$/u, "") || "/",
-    )
+    .map((path) => {
+      const route = path
+        .slice(`${web}app`.length)
+        .replace(/\/\([^/]+\)/gu, "")
+        .replace(/\/page\.tsx$/u, "");
+      return route.length === 0 ? "/" : route;
+    })
     .sort();
   expect(catalog.routes.map((entry) => entry.route).sort()).toEqual(routes);
   for (const entry of catalog.routes) {
@@ -99,7 +99,9 @@ it("keeps page stories tied to routes or an explicit system state", () => {
     ...catalog.systemStories,
   ]);
   const actual = storyFiles
-    .filter((path) => metadataOf(path).get("title")?.startsWith("Pages/"))
+    .filter(
+      (path) => metadataOf(path).get("title")?.startsWith("Pages/") === true,
+    )
     .map((path) => path.slice(`${web}src/`.length));
   expect([...mapped].sort()).toEqual(actual.sort());
 });
