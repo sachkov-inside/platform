@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -13,8 +15,9 @@ import {
   type PassObservation,
   type PassProblem,
   type PassReport,
+  type PassCell,
 } from "./pass-cells";
-import { passCells } from "./pass-config";
+import { passCells, deferralFacts } from "./pass-config";
 import { redactPassText } from "./pass-redaction";
 
 /** Каталог отчёта прохода; job загружает его в artifact. */
@@ -168,10 +171,39 @@ export function readDeployedSha(): string | null {
     .parse(value);
 }
 
+/** The checkout commit identifies the runner code; GITHUB_SHA identifies its workflow context. */
+export function readSourceSha(): string | null {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: fileURLToPath(new URL("../../../../", import.meta.url)),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
 /** Global teardown: собирает отчёт и роняет прогон, если итог красный. */
 export default function writePassReport(): void {
-  const report: PassReport = evaluatePass({
+  // deterministic-test-allow wall-clock: Records the actual production evaluation instant; contract tests inject their evaluation time.
+  generatePassReport({
     cells: passCells,
+    deferralFacts,
+    evaluatedAt: new Date().toISOString(),
+  });
+}
+
+/** Report boundary shared by the production teardown and fixture-controlled CLI contracts. */
+export function generatePassReport(definition: {
+  readonly cells: readonly PassCell[];
+  readonly deferralFacts: Readonly<Record<string, boolean>>;
+  readonly evaluatedAt: string;
+}): void {
+  const report: PassReport = evaluatePass({
+    ...definition,
+    sourceSha: readSourceSha(),
+    workflowSha: process.env["GITHUB_SHA"] ?? null,
     observations: readDirectory(observationsDirectory, (text) =>
       observationSchema.parse(JSON.parse(text)),
     ),
