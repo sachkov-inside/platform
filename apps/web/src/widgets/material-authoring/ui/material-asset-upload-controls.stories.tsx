@@ -48,7 +48,7 @@ const meta = {
   component: MaterialAssetUploadQueue,
   parameters: { layout: "padded" },
   id: "функции-редактор-загрузка-файлов",
-  title: "Components/Authoring/Asset upload",
+  title: "Components/Админка/Редактор/Asset upload",
 } satisfies Meta<typeof MaterialAssetUploadQueue>;
 
 export default meta;

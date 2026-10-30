@@ -20,7 +20,8 @@ const meta = {
     title: "Разбор проверки skill contract",
     videoId: "03000000-0000-4000-8000-000000000001",
   },
-  title: "Components/Material video/Player",
+  id: "components-material-video-player",
+  title: "Components/Material/Video player",
 } satisfies Meta<typeof MaterialVideoPlayerView>;
 
 export default meta;

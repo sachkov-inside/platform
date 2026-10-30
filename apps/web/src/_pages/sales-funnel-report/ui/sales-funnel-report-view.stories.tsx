@@ -111,7 +111,8 @@ const period = {
 
 const meta = {
   ...environment,
-  title: "Pages/Authoring/Sales funnel report",
+  id: "pages-authoring-sales-funnel-report",
+  title: "Pages/Authoring/Sales/Funnel report",
   component: SalesFunnelReportView,
   args: { view: presentSalesFunnelReport(report, period) },
   parameters: {

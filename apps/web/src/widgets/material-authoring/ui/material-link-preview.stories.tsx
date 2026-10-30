@@ -6,7 +6,7 @@ import { MaterialLinkPreview } from "./material-link-preview.client";
 
 const meta = {
   id: "функции-редактор-предпросмотр-ссылки",
-  title: "Components/Authoring/Link preview",
+  title: "Components/Админка/Редактор/Link preview",
   component: MaterialLinkPreview,
   args: {
     cover: null,
