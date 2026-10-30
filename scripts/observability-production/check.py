@@ -31,7 +31,7 @@ def collect(output, metadata, public, *, scope='full'):
     production.validate_scope(scope)
     source_path = metadata / 'source.json'
     if source_path.exists():
-        source = json.loads(source_path.read_text())
+        source = production.read_scope_metadata(source_path)
         if production.validate_scope(source.get('production_scope', 'full')) != scope:
             raise ValueError('production_scope_mismatch')
     if (output / 'inputs.json').exists():
@@ -39,7 +39,7 @@ def collect(output, metadata, public, *, scope='full'):
     for name in ('evidence.json', 'production-proof.json', 'production-validation.json', 'production-measurements.json'):
         path = output / name
         if path.exists():
-            report = json.loads(path.read_text())
+            report = production.read_scope_metadata(path)
             # The supervisor can fail before the worker starts. Its exact prepared
             # description still binds that failure; never hide it as missing evidence.
             inherited = scope if name == 'evidence.json' and report.get('scope') in tuple(

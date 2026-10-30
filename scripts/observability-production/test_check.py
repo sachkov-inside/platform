@@ -1,10 +1,14 @@
 """The HTTP observation must prove the expected value in its captured response."""
 import json
 import io
+import os
 from contextlib import redirect_stdout
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import check
 import production
@@ -18,8 +22,22 @@ class QueryReadiness(unittest.TestCase):
                                        ('1716', marker, 'full'), (True, marker, 'full'),
                                        (1716, None, 'full')):
             with self.subTest(number=number, body=body):
-                self.assertEqual(production.select_ci_scope({'number': number, 'pull_request': {'body': body}}), expected)
-        self.assertEqual(production.select_ci_scope({}), 'full')
+                self.assertEqual(production.select_ci_scope({'number': number, 'pull_request': {'number': number, 'body': body}}), expected)
+        with self.subTest(top_level_number='absent'):
+            self.assertEqual(production.select_ci_scope({'pull_request': {'number': 1716, 'body': marker}}), 'technical')
+        for event in ({}, {'number': 1716},
+                      {'number': 1716, 'pull_request': {'body': marker}},
+                      {'number': 1716, 'pull_request': {'number': 9999, 'body': marker}},
+                      {'number': 9999, 'pull_request': {'number': 1716, 'body': marker}},
+                      {'number': True, 'pull_request': {'number': 1716, 'body': marker}},
+                      {'number': '1716', 'pull_request': {'number': 1716, 'body': marker}},
+                      {'number': None, 'pull_request': {'number': 1716, 'body': marker}},
+                      {'pull_request': {'number': True, 'body': marker}},
+                      {'pull_request': {'number': '1716', 'body': marker}},
+                      {'pull_request': {'number': None, 'body': marker}},
+                      {'pull_request': []}, None, []):
+            with self.subTest(event=event):
+                self.assertEqual(production.select_ci_scope(event), 'full')
 
     def test_collection_refuses_relabelled_preparation_and_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -38,6 +56,90 @@ class QueryReadiness(unittest.TestCase):
             check.collect(output, metadata, public, scope='technical')
             self.assertEqual(json.loads((public / 'source.json').read_text())['production_scope'], 'technical')
             self.assertNotIn('reader.key', {path.name for path in public.iterdir()})
+
+    def test_scope_prevalidation_rejects_unsafe_json_before_collection(self):
+        targets = ('source.json', 'inputs.json', 'owner-overview/dashboard.json', 'evidence.json',
+                   'production-proof.json', 'production-validation.json', 'production-measurements.json')
+        for target in targets:
+            for kind in ('fifo', 'oversized', 'symlink', 'directory', 'nonobject'):
+                with self.subTest(target=target, kind=kind), tempfile.TemporaryDirectory() as directory:
+                    base = Path(directory).resolve()
+                    output, metadata, public = base / 'technical', base / 'metadata', base / 'public'
+                    check.prepare(output, scope='technical')
+                    metadata.mkdir()
+                    (metadata / 'source.json').write_text(json.dumps({'production_scope': 'technical'}))
+                    path = (metadata if target == 'source.json' else output) / target
+                    content = path.read_text() if path.exists() else json.dumps({'production_scope': 'technical'})
+                    path.unlink(missing_ok=True)
+                    if kind == 'fifo':
+                        os.mkfifo(path)
+                    elif kind == 'oversized':
+                        path.write_text(content + ' ' * (1024 * 1024 + 1))
+                    elif kind == 'symlink':
+                        real = base / 'private-target.json'
+                        real.write_text(content)
+                        path.symlink_to(real)
+                    elif kind == 'directory':
+                        path.mkdir()
+                    else:
+                        path.write_text('[]')
+                    # A child bounds FIFO regressions and subprocess.run kills and waits
+                    # on timeout, so the test cannot strand a blocked reader.
+                    command = ('import sys; from pathlib import Path; import check; '
+                               'check.collect(*(Path(p) for p in sys.argv[1:]), scope="technical")')
+                    try:
+                        result = subprocess.run([sys.executable, '-B', '-c', command,
+                            str(output), str(metadata), str(public)], cwd=production.HERE,
+                            capture_output=True, text=True, timeout=2)
+                    except subprocess.TimeoutExpired:
+                        self.fail('scope metadata reader blocked on ' + target)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('scope_metadata_object_required' if kind == 'nonobject'
+                                  else 'unsafe_scope_metadata', result.stderr)
+                    self.assertFalse(public.exists())
+
+    def test_scope_metadata_closes_descriptors_and_never_reads_oversized_files(self):
+        for kind in ('valid', 'oversized', 'fifo'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+                base = Path(directory).resolve()
+                output, metadata, public = base / 'technical', base / 'metadata', base / 'public'
+                check.prepare(output, scope='technical')
+                metadata.mkdir()
+                (metadata / 'source.json').write_text(json.dumps({'production_scope': 'technical'}))
+                path = output / 'evidence.json'
+                content = json.dumps({'production_scope': 'technical'})
+                if kind == 'fifo':
+                    os.mkfifo(path)
+                else:
+                    # Exactly 1 MiB remains allowed; a larger file must not be read.
+                    path.write_text(content + ' ' * (1024 * 1024 - len(content) + (kind == 'oversized')))
+                opened, retained = [], []
+                original_open = os.open
+
+                def observe_open(*args, **kwargs):
+                    descriptor = original_open(*args, **kwargs)
+                    opened.append(descriptor)
+                    if args[0] == 'evidence.json':
+                        retained.append(os.dup(descriptor))
+                    return descriptor
+
+                try:
+                    with mock.patch.object(os, 'open', side_effect=observe_open):
+                        if kind == 'valid':
+                            check.collect(output, metadata, public, scope='technical')
+                        else:
+                            with self.assertRaisesRegex(ValueError, 'unsafe_scope_metadata'):
+                                check.collect(output, metadata, public, scope='technical')
+                    self.assertEqual(len(retained), 1)
+                    for descriptor in opened:
+                        with self.assertRaises(OSError):
+                            os.fstat(descriptor)
+                    if kind != 'fifo':
+                        self.assertEqual(os.lseek(retained[0], 0, os.SEEK_CUR),
+                                         1024 * 1024 if kind == 'valid' else 0)
+                finally:
+                    for descriptor in retained:
+                        os.close(descriptor)
 
     def test_prepared_scope_is_explicit_source_bound_and_refuses_mismatch(self):
         with tempfile.TemporaryDirectory() as directory:

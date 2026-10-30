@@ -15,9 +15,10 @@ class Preparation(unittest.TestCase):
     def test_scope_selector_cli_uses_event_file_and_ignores_requested_override(self):
         with tempfile.TemporaryDirectory() as directory:
             event = Path(directory) / 'event.json'
-            for number, expected in ((1716, 'technical'), (1717, 'full')):
+            for number, nested_number, expected in ((1716, 1716, 'technical'), (1717, 1717, 'full'),
+                                                    (1716, 9999, 'full')):
                 event.write_text(json.dumps({'number': number, 'pull_request': {
-                    'body': '<!-- observability-scope: technical -->'}}))
+                    'number': nested_number, 'body': '<!-- observability-scope: technical -->'}}))
                 result = subprocess.run([sys.executable, '-B', str(production.HERE / 'production.py'),
                     'select-scope', '--scope', 'technical'],
                     env={**os.environ, 'GITHUB_EVENT_PATH': str(event)},

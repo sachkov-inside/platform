@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import secrets
 import shutil
+import stat
 import sys
 
 HERE = Path(__file__).resolve().parent
@@ -23,14 +24,19 @@ BACKENDS = ('api', 'mcp', 'material-assets-worker', 'profile-avatars-worker',
 APPLICATIONS = (*BACKENDS, 'web', 'rabbitmq')
 SERVICES = (*pilot.SERVICES, 'host-agent')
 SCOPES = ('full', 'technical')
+SCOPE_METADATA_MAX_BYTES = 1024 * 1024
 
 
 def select_ci_scope(event):
     """The existing task alone can defer analytics; every other event stays full."""
-    if type(event) is not dict or type(event.get('number')) is not int or event['number'] != 1716:
+    if type(event) is not dict:
         return 'full'
     request = event.get('pull_request')
-    body = request.get('body') if type(request) is dict else None
+    if type(request) is not dict or type(request.get('number')) is not int or request['number'] != 1716:
+        return 'full'
+    if 'number' in event and (type(event['number']) is not int or event['number'] != request['number']):
+        return 'full'
+    body = request.get('body')
     return 'technical' if type(body) is str and '<!-- observability-scope: technical -->' in body else 'full'
 
 
@@ -40,9 +46,33 @@ def validate_scope(scope):
     return scope
 
 
+def read_scope_metadata(path):
+    """Scope checks must retain the collector's regular, no-symlink, 1 MiB boundary."""
+    try:
+        parent = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            descriptor = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                                 dir_fd=parent)
+        finally:
+            os.close(parent)
+        with os.fdopen(descriptor, 'rb') as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size > SCOPE_METADATA_MAX_BYTES:
+                raise ValueError('unsafe_scope_metadata')
+            raw = stream.read(SCOPE_METADATA_MAX_BYTES + 1)
+            if len(raw) > SCOPE_METADATA_MAX_BYTES:
+                raise ValueError('unsafe_scope_metadata')
+    except OSError:
+        raise ValueError('unsafe_scope_metadata') from None
+    record = json.loads(raw)
+    if type(record) is not dict:
+        raise ValueError('scope_metadata_object_required')
+    return record
+
+
 def prepared_scope(output, *, scope=None):
     """Workers inherit the prepared scope, never the supervisor CLI's default."""
-    record = json.loads((output / 'inputs.json').read_text())
+    record = read_scope_metadata(output / 'inputs.json')
     selected = validate_scope(record.get('scope', 'full'))
     if scope is not None and validate_scope(scope) != selected:
         raise ValueError('production_scope_mismatch')
@@ -51,7 +81,7 @@ def prepared_scope(output, *, scope=None):
         raise ValueError('production_scope_source_changed')
     analytics_files = {'umami.compose.json', 'umami.env', 'umami.database.password', 'umami.reader.key'}
     actual = {path.name for path in output.glob('umami*')}
-    view = json.loads((output / 'owner-overview/dashboard.json').read_text())
+    view = read_scope_metadata(output / 'owner-overview/dashboard.json')
     invitation = next((panel for panel in view['panels'] if panel['id'] == 201), None)
     expected = next(panel for panel in dashboard(scope=selected)['dashboard']['panels'] if panel['id'] == 201)
     if (actual != (analytics_files if selected == 'full' else set()) or invitation != expected):
