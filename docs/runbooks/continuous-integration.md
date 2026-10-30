@@ -156,7 +156,25 @@ resolution disabled, validates and pulls only its digest-pinned broker and edge 
 from the checked-out Source. It then runs the unchanged runtime assertions with
 `PRODUCTION_SMOKE_CACHE_ONLY=1`. After admission the pinned broker and edge must already be present. Separate Actions log groups measure
 preparation and runtime; after admission the smoke uses `--no-build` and `--pull never`. The script
-removes its own tags and override and preserves the primary failure if cleanup also fails.
+attempts to remove its own tags and override. Diagnostic failures preserve the smoke result. Cleanup failures preserve an existing failure and
+turn an otherwise successful smoke into failure. Snapshots record the original smoke status
+separately from cleanup status. Neither diagnostics nor cleanup authorize a retry.
+
+Before image preparation, the cache script initializes its artifact directory and captures bounded
+host diagnostics. `preparation-before.json` and `preparation-after.json` record run, attempt, Source,
+phase and original exit status. The fixed command list captures Docker/buildx versions, selected
+Docker server properties, service PID/restart state, memory/cgroup/disk/inode facts, Docker/containerd
+journals and kernel OOM messages. Journal reads use noninteractive `sudo -n`, ten-minute windows
+and at most 200 entries. Each observation command has a 1.5-second budget, supervised process-tree cleanup and
+65,536 retained output characters. Capture status, timeout and truncation remain explicit.
+Owned-tag cleanup uses a separate 30-second budget because healthy image removal can exceed the
+observation budget. Cleanup retains the same supervised process-tree cleanup and failure handling.
+Cleanup stderr joins the after snapshot. The existing failure artifact uploader also covers preparation.
+
+The collector reads no environment dumps, process arguments, container/image inspection or auth files.
+It redacts lines containing URLs, credential keys or recognized token forms before persistence and
+masks long token-like values. This conservative filter can remove useful journal lines. Captures do
+not establish a provider failure or change mandatory checks; unavailable journals leave the cause unknown.
 
 The backend image compiles from a release-independent source stage. Development identity and
 production identity belong to separate descendant stages. Changing release/source identity therefore

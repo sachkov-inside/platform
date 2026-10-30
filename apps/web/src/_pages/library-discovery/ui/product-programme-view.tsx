@@ -54,6 +54,7 @@ export function ProductProgrammeView({
   preorder = null,
   productOffer = null,
   pending: accessPending = false,
+  productOpen = false,
   subscriptionOffered = false,
   onboarding,
 }: {
@@ -67,6 +68,12 @@ export function ProductProgrammeView({
    * настоящие, а замки, счётчик открытого, приглашение к оплате и прогресс уточняются на месте.
    */
   readonly pending?: boolean;
+  /**
+   * Продукт открыт читателю покупкой или тарифом: бесплатные уроки не отмечены словом «Бесплатно»,
+   * иначе оно читается как намёк, что остальное ещё закрыто. Владелец решил так для купивших курс
+   * (30.10.2026); тариф с продуктом открывает курс так же, поэтому правило общее.
+   */
+  readonly productOpen?: boolean;
   readonly subscriptionOffered?: boolean;
   readonly onboarding?: ProductOnboardingPanel;
 }) {
@@ -178,6 +185,7 @@ export function ProductProgrammeView({
         accessPending={accessPending}
         {...(artifacts === undefined ? {} : { artifacts })}
         currentHref={currentHref}
+        productOpen={productOpen}
         result={{ ...result, discoveryKind: "product" }}
       />
     </div>

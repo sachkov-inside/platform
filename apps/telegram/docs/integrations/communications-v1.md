@@ -104,8 +104,9 @@ purchase target cancels it.
 
 This one-time, explicitly launched audience uses the existing transport slots and delivery ledger
 with `TELEGRAM_DELIVERY_MODE=live` even when `TELEGRAM_MARKETING_ENABLED=false`. The disabled
-marketing flag still excludes ordinary broadcasts, intro, sequence steps and marketing replies from
-this worker's claims and scheduled launches. No setting, sequence participation or explicit stop
+marketing flag still excludes intro, sequence steps and marketing replies from this worker's
+claims. Ordinary broadcasts remain excluded unless `TELEGRAM_BROADCASTS_ENABLED=true` independently
+allows their claims and scheduled launches. No setting, sequence participation or explicit stop
 preference is changed. Current stop, contact unavailability and Telegram 403 retain existing
 suppression behavior. Unknown attempts remain unknown across restarts and do not retry automatically;
 only the existing explicit operator resolution can accept duplicate risk.
@@ -152,6 +153,12 @@ author copy are seeded by migrations. The current owner direction is one common 
 owner-authored content; multiple sequences exist only in synthetic tests for the runtime contract.
 
 `TELEGRAM_MARKETING_ENABLED=false` is independent of service delivery and is the default.
+`TELEGRAM_BROADCASTS_ENABLED=false` is a separate default: setting it to `true` permits only ordinary
+broadcast dispatch, including explicitly launched schedules, without enabling automatic entry,
+intro, fallback or sequence steps. It needs no intro or published default sequence. Saved drafts
+still require the authorized `broadcasts.launch` operation; audience snapshots, stop/resume,
+contactability, service priority, transport slots and delivery recovery keep their existing rules.
+Marketing enabled continues to permit ordinary broadcasts regardless of this separate flag.
 When marketing is enabled, worker startup requires an intro and an available published
 default sequence. Marketing dispatch additionally uses `TELEGRAM_DELIVERY_MODE=live`; its production
 transport is otherwise disabled. The release gate is still separate, until

@@ -61,6 +61,28 @@ test("publisher renders a review receipt without committing evidence into the re
   );
 });
 
+/** @param {number} number @param {string} base @param {string} candidate @param {string} source */
+function queueEntry(number, base, candidate, source) {
+  return {
+    id: `MQE_${number}`,
+    baseCommit: { oid: base },
+    headCommit: { oid: candidate },
+    pullRequest: { number, headRefOid: source, state: "OPEN" },
+  };
+}
+/** @param {unknown[]} nodes @param {boolean} [hasNextPage] @param {string | null} [endCursor] */
+function queuePage(nodes, hasNextPage = false, endCursor = null) {
+  return {
+    data: {
+      repository: {
+        mergeQueue: {
+          entries: { nodes, pageInfo: { hasNextPage, endCursor } },
+        },
+      },
+    },
+  };
+}
+
 /** @param {import("node:test").TestContext} t */
 async function fixture(t) {
   const cwd = mkdtempSync(resolve(tmpdir(), "review-evidence-"));
@@ -106,8 +128,11 @@ async function fixture(t) {
     body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(body)}`,
   };
   const comments = [comment];
+  /** @type {unknown[]} */
+  const queueNodes = [];
   /** @type {Record<string, unknown>} */
   const routes = {
+    "graphql:": queuePage(queueNodes),
     "issues/1856": task,
     "issues/comments/123": comment,
     "pulls/42": pr,
@@ -140,8 +165,15 @@ async function fixture(t) {
       preload,
       `const routes = ${JSON.stringify(responseRoutes)};
       globalThis.fetch = async (url, options) => {
-        if (options.method || !url.startsWith('https://api.github.com/repos/sachkov-inside/platform/')) throw new Error('Unexpected API call');
-        const path = url.split('/platform/')[1];
+        let path;
+        if (url === 'https://api.github.com/graphql') {
+          const body = JSON.parse(options.body);
+          if (options.method !== 'POST' || !body.query.startsWith('query ReviewQueue(') || body.query.includes('mutation') || body.variables.owner !== 'sachkov-inside' || body.variables.name !== 'platform') throw new Error('Unexpected GraphQL operation');
+          path = 'graphql:' + (body.variables.after ?? '');
+        } else {
+          if (options.method || !url.startsWith('https://api.github.com/repos/sachkov-inside/platform/')) throw new Error('Unexpected API call');
+          path = url.split('/platform/')[1];
+        }
         const route = routes[path];
         const value = route?.$responses ? (route.$responses.length > 1 ? route.$responses.shift() : route.$responses[0]) : route;
         if (value?.$status) return { ok: false, status: value.$status, json: async () => ({}) };
@@ -175,6 +207,7 @@ async function fixture(t) {
     comment,
     routes,
     comments,
+    queueNodes,
     check,
     /** @param {string} value */
     setCandidate(value) {
@@ -208,6 +241,540 @@ test("CLI verifies authenticated external receipts against real PR and synthetic
     assert.ok(report.sources[0]);
     assert.equal(report.sources[0].headSha, f.head);
     assert.equal(report.sources[0].commentId, 123);
+  }
+});
+
+/** @param {import("node:test").TestContext} t */
+async function squashFixture(t) {
+  const f = await fixture(t);
+  await f.git("checkout", "-b", "squash-queue", f.base);
+  await f.git("merge", "--squash", "feature");
+  await f.git("commit", "-m", "queue squash");
+  const candidate = await f.git("rev-parse", "HEAD");
+  f.setCandidate(candidate);
+  f.routes[`commits/${candidate}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  f.routes["graphql:"] = queuePage([queueEntry(42, f.base, candidate, f.head)]);
+  return { ...f, candidate };
+}
+
+test("CLI verifies a queue-bound squash whose reviewed head is not a candidate ancestor", async (t) => {
+  const f = await squashFixture(t);
+  const candidate = f.candidate;
+  assert.notEqual(candidate, f.head);
+  assert.equal(await f.git("merge-base", candidate, f.head), f.base);
+  assert.equal(
+    (await f.git("rev-list", "--parents", "-n", "1", candidate)).split(" ")
+      .length,
+    2,
+  );
+  const result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    z
+      .object({ sources: z.array(z.object({ headSha: z.string() })) })
+      .parse(JSON.parse(result.stdout)).sources[0]?.headSha,
+    f.head,
+  );
+});
+
+test("SEC-1856-1 rejects a stale receipt after current main enters the source history", async (t) => {
+  const f = await fixture(t);
+  await f.git("checkout", "feature");
+  const prefix = f.head;
+  writeFileSync(resolve(f.cwd, "after-prefix"), "reviewed after prefix");
+  await f.git("add", "after-prefix");
+  await f.git("commit", "-m", "source after prefix");
+  const head = await f.git("rev-parse", "HEAD");
+  f.pr.head.sha = head;
+  f.pr.base.sha = prefix;
+  f.body.headSha = head;
+  f.publish();
+  await f.git("checkout", "-b", "queue-after-prefix", prefix);
+  await f.git("merge", "--squash", "feature");
+  await f.git("commit", "-m", "queue after current main prefix");
+  const candidate = await f.git("rev-parse", "HEAD");
+  f.setCandidate(candidate);
+  f.routes[`commits/${candidate}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  f.routes["graphql:"] = queuePage([queueEntry(42, prefix, candidate, head)]);
+  const stale = await f.check({ eventName: "merge_group" });
+  assert.equal(
+    stale.status,
+    1,
+    "receipt B/H must not cover current comparison X/H",
+  );
+  assert.match(stale.stderr, /Missing or duplicate current review receipt/u);
+  f.body.baseSha = prefix;
+  f.publish();
+  const current = await f.check({ eventName: "merge_group" });
+  assert.equal(current.status, 0, current.stderr);
+});
+
+test("open squash verification requires current provider queue metadata", async (t) => {
+  const f = await squashFixture(t);
+  for (const responseRoutes of [
+    { ...f.routes, "graphql:": queuePage([]) },
+    {
+      ...f.routes,
+      "graphql:": queuePage([queueEntry(42, f.base, f.head, f.head)]),
+    },
+    {
+      ...f.routes,
+      "graphql:": queuePage([queueEntry(42, f.base, f.candidate, f.base)]),
+    },
+    {
+      ...f.routes,
+      "graphql:": { $responses: [f.routes["graphql:"], queuePage([])] },
+    },
+    {
+      ...f.routes,
+      "graphql:": {
+        $responses: [
+          f.routes["graphql:"],
+          queuePage([queueEntry(42, f.base, f.head, f.head)]),
+        ],
+      },
+    },
+    {
+      ...f.routes,
+      "graphql:": { data: null, errors: [{ message: "query failed" }] },
+    },
+  ])
+    assert.equal(
+      (await f.check({ eventName: "merge_group", responseRoutes })).status,
+      1,
+    );
+  // A native generated squash has no proven premerge REST association. Queue
+  // headCommit -> PR metadata supplies that binding directly.
+  const noRest = await f.check({
+    eventName: "merge_group",
+    responseRoutes: {
+      ...f.routes,
+      [`commits/${f.candidate}/pulls?per_page=100&page=1`]: [],
+    },
+  });
+  assert.equal(noRest.status, 0, noRest.stderr);
+});
+
+test("queue metadata reads every page and rejects incomplete or changed entries", async (t) => {
+  const f = await squashFixture(t);
+  const entry = queueEntry(42, f.base, f.candidate, f.head);
+  const pending = Array.from({ length: 100 }, (_, index) => ({
+    ...queueEntry(1000 + index, f.base, f.base, f.base),
+    baseCommit: null,
+    headCommit: null,
+  }));
+  const responseRoutes = {
+    ...f.routes,
+    "graphql:": queuePage(pending, true, "next-page"),
+    "graphql:next-page": queuePage([entry]),
+  };
+  const complete = await f.check({ eventName: "merge_group", responseRoutes });
+  assert.equal(complete.status, 0, complete.stderr);
+  for (const routes of [
+    { ...responseRoutes, "graphql:next-page": undefined },
+    {
+      ...responseRoutes,
+      "graphql:next-page": queuePage([], true, "next-page"),
+    },
+    { ...f.routes, "graphql:": { data: { repository: { mergeQueue: null } } } },
+    { ...f.routes, "graphql:": queuePage([entry, entry]) },
+    {
+      ...f.routes,
+      "graphql:": queuePage([{ ...entry, headCommit: { oid: "not-a-sha" } }]),
+    },
+    {
+      ...f.routes,
+      "graphql:": queuePage([
+        { ...entry, pullRequest: { ...entry.pullRequest, state: "CLOSED" } },
+      ]),
+    },
+    {
+      ...f.routes,
+      "graphql:": {
+        $responses: [
+          queuePage([entry]),
+          queuePage([{ ...entry, id: "replacement-entry" }]),
+        ],
+      },
+    },
+    {
+      ...f.routes,
+      "graphql:": {
+        $responses: [
+          queuePage([entry]),
+          queuePage([{ ...entry, baseCommit: { oid: f.head } }]),
+        ],
+      },
+    },
+  ])
+    assert.equal(
+      (await f.check({ eventName: "merge_group", responseRoutes: routes }))
+        .status,
+      1,
+    );
+});
+
+test("CLI rejects squash tree matches without exact authenticated provenance", async (t) => {
+  const f = await squashFixture(t);
+  const path = `commits/${f.candidate}/pulls?per_page=100&page=1`;
+  for (const responseRoutes of [
+    { ...f.routes, "graphql:": queuePage([]) },
+    {
+      ...f.routes,
+      [path]: [],
+      "graphql:": queuePage([queueEntry(43, f.base, f.candidate, f.base)]),
+      "pulls/43": { ...f.pr, number: 43, head: { sha: f.base } },
+    },
+    { ...f.routes, "pulls/42": { ...f.pr, number: 43 } },
+    {
+      ...f.routes,
+      "pulls/42": { ...f.pr, base: { ...f.pr.base, ref: "other" } },
+    },
+    {
+      ...f.routes,
+      "pulls/42": {
+        ...f.pr,
+        state: "closed",
+        merged: false,
+        merge_commit_sha: f.candidate,
+      },
+    },
+    {
+      ...f.routes,
+      "pulls/42": {
+        ...f.pr,
+        state: "closed",
+        merged: true,
+        merge_commit_sha: f.candidate,
+      },
+      "git/ref/heads/main": {
+        ref: "refs/heads/main",
+        object: { type: "commit", sha: f.base },
+      },
+    },
+  ])
+    assert.equal(
+      (await f.check({ eventName: "merge_group", responseRoutes })).status,
+      1,
+    );
+  writeFileSync(resolve(f.cwd, "unreviewed"), "unknown transition");
+  await f.git("add", "unreviewed");
+  await f.git("commit", "-m", "unknown after squash");
+  const unknown = await f.git("rev-parse", "HEAD");
+  f.setCandidate(unknown);
+  f.routes["graphql:"] = queuePage([queueEntry(42, f.base, unknown, f.head)]);
+  f.routes[`commits/${unknown}/pulls?per_page=100&page=1`] = [];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+});
+
+test("CLI rejects ambiguous squash associations and source reuse", async (t) => {
+  const f = await squashFixture(t);
+  const duplicateReceipt = { ...f.body, pullRequest: 43 };
+  const duplicate = {
+    ...f.comment,
+    id: 124,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(duplicateReceipt)}`,
+  };
+  f.routes["pulls/43"] = { ...f.pr, number: 43 };
+  f.routes["issues/43/comments?per_page=100&page=1"] = [duplicate];
+  f.routes["issues/comments/124"] = duplicate;
+  f.routes[`commits/${f.candidate}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+    { number: 43, state: "open" },
+  ];
+  f.routes["graphql:"] = queuePage([
+    queueEntry(42, f.base, f.candidate, f.head),
+    queueEntry(43, f.base, f.candidate, f.head),
+  ]);
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+  // An extra no-op commit with the same tree is not another authorized squash.
+  const tree = await f.git("rev-parse", `${f.candidate}^{tree}`);
+  const duplicateCommit = await f.git(
+    "commit-tree",
+    tree,
+    "-p",
+    f.candidate,
+    "-m",
+    "repeat source",
+  );
+  await f.git("checkout", "--detach", duplicateCommit);
+  f.setCandidate(duplicateCommit);
+  f.routes["graphql:"] = queuePage([
+    queueEntry(42, f.candidate, duplicateCommit, f.head),
+  ]);
+  f.routes[`commits/${duplicateCommit}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  f.routes[`commits/${f.candidate}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+});
+
+test("CLI rejects forged squash trees, conflicting sources and unsupported parent topology", async (t) => {
+  const f = await squashFixture(t);
+  writeFileSync(resolve(f.cwd, "feature"), "forged resolution");
+  await f.git("add", "feature");
+  await f.git("commit", "--amend", "--no-edit");
+  const forged = await f.git("rev-parse", "HEAD");
+  f.setCandidate(forged);
+  f.routes["graphql:"] = queuePage([queueEntry(42, f.base, forged, f.head)]);
+  f.routes[`commits/${forged}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+  // The target independently adds the same path. A hand-resolved queue tree
+  // must not turn a merge-tree conflict into an accepted reviewed transition.
+  await f.git("checkout", "-b", "conflicting-main", f.base);
+  writeFileSync(resolve(f.cwd, "feature"), "conflicting target");
+  await f.git("add", "feature");
+  await f.git("commit", "-m", "conflicting target");
+  const target = await f.git("rev-parse", "HEAD");
+  const tree = await f.git("rev-parse", `${f.candidate}^{tree}`);
+  const conflict = await f.git(
+    "commit-tree",
+    tree,
+    "-p",
+    target,
+    "-m",
+    "hand resolved squash",
+  );
+  await f.git("checkout", "--detach", conflict);
+  f.setCandidate(conflict);
+  f.setTargetBase(target);
+  f.routes["graphql:"] = queuePage([queueEntry(42, target, conflict, f.head)]);
+  f.routes[`commits/${conflict}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "open" },
+  ];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+  const octopus = await f.git(
+    "commit-tree",
+    tree,
+    "-p",
+    f.base,
+    "-p",
+    f.head,
+    "-p",
+    forged,
+    "-m",
+    "unsupported octopus",
+  );
+  await f.git("checkout", "--detach", octopus);
+  f.setCandidate(octopus);
+  f.setTargetBase(f.base);
+  f.routes["graphql:"] = queuePage([queueEntry(42, f.base, octopus, f.head)]);
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+});
+
+/** @param {Awaited<ReturnType<typeof squashFixture>>} f */
+async function addSecondSquash(f) {
+  await f.git("checkout", "-b", "independent-second", f.base);
+  writeFileSync(resolve(f.cwd, "second"), "second reviewed source");
+  await f.git("add", "second");
+  await f.git("commit", "-m", "independent second source");
+  const second = await f.git("rev-parse", "HEAD");
+  await f.git("checkout", "squash-queue");
+  await f.git("merge", "--squash", second);
+  await f.git("commit", "-m", "second queue squash");
+  const candidate = await f.git("rev-parse", "HEAD");
+  f.setCandidate(candidate);
+  const secondReceipt = { ...f.body, pullRequest: 43, headSha: second };
+  const secondPr = { ...f.pr, number: 43, head: { sha: second } };
+  f.routes["pulls/43"] = secondPr;
+  f.routes[`commits/${candidate}/pulls?per_page=100&page=1`] = [
+    { number: 43, state: "open" },
+  ];
+  const comment = {
+    ...f.comment,
+    id: 124,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(secondReceipt)}`,
+  };
+  f.routes["issues/43/comments?per_page=100&page=1"] = [comment];
+  f.routes["issues/comments/124"] = comment;
+  f.routes["graphql:"] = queuePage([
+    queueEntry(42, f.base, f.candidate, f.head),
+    queueEntry(43, f.candidate, candidate, second),
+  ]);
+  return { secondPr, candidate };
+}
+
+test("CLI accounts for independent squash sources and a merged prefix while main advances", async (t) => {
+  const f = await squashFixture(t);
+  const { secondPr, candidate } = await addSecondSquash(f);
+  let result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    z.object({ sources: z.array(z.unknown()) }).parse(JSON.parse(result.stdout))
+      .sources.length,
+    2,
+  );
+  assert.equal(
+    (
+      await f.check({
+        eventName: "merge_group",
+        responseRoutes: {
+          ...f.routes,
+          "issues/43/comments?per_page=100&page=1": [],
+        },
+      })
+    ).status,
+    1,
+  );
+  // Native queues can retain a preceding PR after it has merged, with the next
+  // PR now targeting that newer authoritative main snapshot.
+  f.routes["pulls/42"] = {
+    ...f.pr,
+    state: "closed",
+    merged: true,
+    merge_commit_sha: f.candidate,
+  };
+  f.routes["git/ref/heads/main"] = {
+    ref: "refs/heads/main",
+    object: { type: "commit", sha: f.candidate },
+  };
+  secondPr.base = { ...secondPr.base, sha: f.candidate };
+  f.routes["graphql:"] = queuePage([
+    queueEntry(43, f.candidate, candidate, secondPr.head.sha),
+  ]);
+  result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  // A later event can start at the merged prefix. Only the independent open
+  // source then lies outside the trusted event base.
+  f.setTargetBase(f.candidate);
+  result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    z.object({ sources: z.array(z.unknown()) }).parse(JSON.parse(result.stdout))
+      .sources.length,
+    1,
+  );
+  f.setTargetBase(f.base);
+  // Provider association plus merged status is insufficient without main membership.
+  f.routes["git/ref/heads/main"] = {
+    ref: "refs/heads/main",
+    object: { type: "commit", sha: f.base },
+  };
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+  f.routes["git/ref/heads/main"] = {
+    ref: "refs/heads/main",
+    object: { type: "commit", sha: f.candidate },
+  };
+  f.routes["pulls/43"] = {
+    ...secondPr,
+    state: "closed",
+    merged: true,
+    merge_commit_sha: candidate,
+  };
+  f.routes["git/ref/heads/main"] = {
+    ref: "refs/heads/main",
+    object: { type: "commit", sha: candidate },
+  };
+  assert.equal(
+    (await f.check({ eventName: "merge_group" })).status,
+    1,
+    "a current queue still needs an open source",
+  );
+});
+
+test("closed prefix retains its authenticated historical PR base when event base is older", async (t) => {
+  const initial = await fixture(t);
+  const historicalBase = initial.head;
+  await initial.git("checkout", "feature");
+  writeFileSync(resolve(initial.cwd, "historical-source"), "reviewed from X");
+  await initial.git("add", "historical-source");
+  await initial.git("commit", "-m", "historical head H");
+  const historicalHead = await initial.git("rev-parse", "HEAD");
+  initial.pr.base.sha = historicalBase;
+  initial.pr.head.sha = historicalHead;
+  initial.body.baseSha = historicalBase;
+  initial.body.headSha = historicalHead;
+  initial.publish();
+  await initial.git("checkout", "-b", "squash-queue", historicalBase);
+  await initial.git("merge", "--squash", "feature");
+  await initial.git("commit", "-m", "already merged historical prefix");
+  const prefix = await initial.git("rev-parse", "HEAD");
+  const f = { ...initial, candidate: prefix };
+  const { secondPr, candidate } = await addSecondSquash(f);
+  const closed = {
+    ...f.pr,
+    state: "closed",
+    merged: true,
+    merge_commit_sha: prefix,
+  };
+  f.routes["pulls/42"] = closed;
+  f.routes[`commits/${prefix}/pulls?per_page=100&page=1`] = [
+    { number: 42, state: "closed" },
+  ];
+  f.routes[`commits/${historicalBase}/pulls?per_page=100&page=1`] = [];
+  f.routes["git/ref/heads/main"] = {
+    ref: "refs/heads/main",
+    object: { type: "commit", sha: prefix },
+  };
+  secondPr.base = { ...secondPr.base, sha: prefix };
+  const secondComment = {
+    ...f.comment,
+    id: 124,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify({ ...f.body, pullRequest: 43, baseSha: f.base, headSha: secondPr.head.sha })}`,
+  };
+  f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
+  f.routes["issues/comments/124"] = secondComment;
+  f.routes["graphql:"] = queuePage([
+    queueEntry(43, prefix, candidate, secondPr.head.sha),
+  ]);
+  const valid = await f.check({ eventName: "merge_group" });
+  assert.equal(valid.status, 0, valid.stderr);
+  // The event's older B is not the authenticated historical comparison X.
+  f.body.baseSha = f.base;
+  f.publish();
+  const stale = await f.check({ eventName: "merge_group" });
+  assert.equal(stale.status, 1);
+  assert.match(stale.stderr, /Missing or duplicate current review receipt/u);
+  f.body.baseSha = historicalBase;
+  f.publish();
+  for (const responseRoutes of [
+    { ...f.routes, "pulls/42": { ...closed, merged: false } },
+    { ...f.routes, "pulls/42": { ...closed, merge_commit_sha: candidate } },
+    {
+      ...f.routes,
+      "git/ref/heads/main": {
+        ref: "refs/heads/main",
+        object: { type: "commit", sha: historicalBase },
+      },
+    },
+    { ...f.routes, [`commits/${prefix}/pulls?per_page=100&page=1`]: [] },
+  ])
+    assert.equal(
+      (await f.check({ eventName: "merge_group", responseRoutes })).status,
+      1,
+    );
+});
+
+test("squash verification invalidates stale PR, task and comment snapshots", async (t) => {
+  const f = await squashFixture(t);
+  for (const [path, changed] of [
+    ["pulls/42", { ...f.pr, head: { sha: f.base } }],
+    ["pulls/42", { ...f.pr, body: `${f.pr.body} changed scope` }],
+    ["issues/1856", { ...task, title: "changed scope" }],
+    ["issues/comments/123", { ...f.comment, body: "changed review" }],
+  ]) {
+    const original = f.routes[String(path)];
+    const value =
+      path === "issues/comments/123"
+        ? changed
+        : { $responses: [original, changed] };
+    assert.equal(
+      (
+        await f.check({
+          eventName: "merge_group",
+          responseRoutes: { ...f.routes, [String(path)]: value },
+        })
+      ).status,
+      1,
+    );
   }
 });
 
@@ -429,7 +996,7 @@ test("CLI paginates comment and queue associations instead of trusting the first
   f.routes["issues/42/comments?per_page=100&page=2"] = secondPage;
   f.routes[`commits/${f.head}/pulls?per_page=100&page=1`] = Array.from(
     { length: 100 },
-    () => ({ state: "closed" }),
+    () => ({ number: 42, state: "open" }),
   );
   f.routes[`commits/${f.head}/pulls?per_page=100&page=2`] = [
     { number: 42, state: "open" },
@@ -467,10 +1034,14 @@ test("CLI verifies every reviewed source in a multi-PR queue", async (t) => {
 
 /** @param {Awaited<ReturnType<typeof fixture>>} f @param {string} source @param {number} number */
 async function squash(f, source, number) {
+  const parent = await f.git("rev-parse", "HEAD");
+  const sourceHead = await f.git("rev-parse", source);
   await f.git("merge", "--squash", source);
   await f.git("commit", "-m", `reviewed source (#${String(number)})`);
   const commit = await f.git("rev-parse", "HEAD");
-  // GitHub does not associate a squash queue commit with its pull request.
+  f.queueNodes.push(queueEntry(number, parent, commit, sourceHead));
+  f.routes["graphql:"] = queuePage(f.queueNodes);
+  // REST need not associate an open squash; authenticated queue metadata binds it.
   f.routes[`commits/${commit}/pulls?per_page=100&page=1`] = [];
   return commit;
 }
@@ -491,7 +1062,7 @@ function addSecondSource(f, head) {
   return secondComment;
 }
 
-test("a squash merge queue entry is verified by its PR number and an identical tree", async (t) => {
+test("an authenticated squash queue entry requires its source and an identical tree", async (t) => {
   const f = await fixture(t);
   await f.git("checkout", "main");
   await f.git("reset", "--hard", f.base);
@@ -510,9 +1081,13 @@ test("a squash merge queue entry is verified by its PR number and an identical t
   const altered = await f.git("rev-parse", "HEAD");
   f.routes[`commits/${altered}/pulls?per_page=100&page=1`] = [];
   f.setCandidate(altered);
+  f.routes["graphql:"] = queuePage([queueEntry(42, f.base, altered, f.head)]);
   const rejected = await f.check({ eventName: "merge_group" });
   assert.equal(rejected.status, 1);
-  assert.match(rejected.stderr, /No current PR covers candidate/u);
+  assert.match(
+    rejected.stderr,
+    /Missing or ambiguous authenticated squash source/u,
+  );
 });
 
 test("a squash queue group verifies every entry and its own receipt", async (t) => {
@@ -542,7 +1117,7 @@ test("a squash queue group verifies every entry and its own receipt", async (t) 
   assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
 });
 
-test("a squash subject naming an issue, a closed PR or an absent head never counts", async (t) => {
+test("an authenticated squash source that is missing, closed or mismatched never counts", async (t) => {
   const f = await fixture(t);
   await f.git("checkout", "main");
   await f.git("reset", "--hard", f.base);
@@ -553,13 +1128,13 @@ test("a squash subject naming an issue, a closed PR or an absent head never coun
     responseRoutes: { ...f.routes, "pulls/42": undefined },
   });
   assert.equal(issue.status, 1);
-  assert.match(issue.stderr, /No current PR covers candidate/u);
+  assert.match(issue.stderr, /GitHub read failed \(404\)/u);
   const closed = await f.check({
     eventName: "merge_group",
     responseRoutes: { ...f.routes, "pulls/42": { ...f.pr, state: "closed" } },
   });
   assert.equal(closed.status, 1);
-  assert.match(closed.stderr, /No current PR covers candidate/u);
+  assert.match(closed.stderr, /Queue PR changed or mismatched/u);
   const absent = await f.check({
     eventName: "merge_group",
     responseRoutes: {
@@ -568,7 +1143,7 @@ test("a squash subject naming an issue, a closed PR or an absent head never coun
     },
   });
   assert.equal(absent.status, 1);
-  assert.match(absent.stderr, /Reviewed PR head is missing/u);
+  assert.match(absent.stderr, /Queue PR changed or mismatched/u);
 });
 
 test("unrelated main advance retains exact comparison inputs but changed merge-base/head invalidates review", async (t) => {

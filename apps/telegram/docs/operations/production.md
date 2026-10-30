@@ -92,7 +92,7 @@ Git; зашифруйте файлы для host и отдельного recover
 | Сообщество: дата старта в приветствии | `PLATFORM_PRODUCT_SALES_STATES_URL`, `PLATFORM_PRODUCT_SALES_PRODUCT_ID` ([приветствие](../integrations/community-entitlements-v1.md)) | `https://<platform>/billing/product-sales-states`; UUID продукта курса в каталоге Platform. Без обеих — приветствие без даты | — (публичное чтение без секрета) |
 | Подтверждённая активация курса | `TELEGRAM_ACTIVATION_ENABLED`, `PLATFORM_ACTIVATION_URL`, `PLATFORM_ACTIVATION_SECRET`, `PLATFORM_ACCOUNT_URL`, `TELEGRAM_ACTIVATION_SOURCES` | `https://<platform>/integrations/telegram/v1/course-activation`; Account URL; реестр групп курса ([подтверждение статуса](course-activation.md#подтверждение-статуса-прежних-участников)) | `TELEGRAM_ACTIVATION_INGRESS_SECRET` |
 | Уведомления | `TELEGRAM_NOTIFICATIONS_ENABLED`, `NOTIFICATION_AMQP_URL`, `NOTIFICATION_AUTHORIZE_URL`, `NOTIFICATION_AUTHORIZE_SECRET`, `NOTIFICATION_QUARANTINE_KEY`, `NOTIFICATION_PREFETCH`, `NOTIFICATION_BATCH_SIZE` | AMQPS principal Telegram; `https://<platform>/internal/notifications/dispatch/authorize`; ключ 64 hex | `NOTIFICATIONS_TELEGRAM_SECRET`; principal и vhost из topology Platform |
-| Авторское меню, последовательности, рассылки | `PLATFORM_AUTHOR_AUTHORIZATION_URL`, `PLATFORM_AUTHOR_AUTHORIZATION_SECRET`, `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL`, `TELEGRAM_MARKETING_ENABLED` | `https://<platform>/integrations/telegram/v2/communications/authorize` и `/validate-content`; `false` | `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` |
+| Авторское меню, последовательности, рассылки | `PLATFORM_AUTHOR_AUTHORIZATION_URL`, `PLATFORM_AUTHOR_AUTHORIZATION_SECRET`, `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL`, `TELEGRAM_BROADCASTS_ENABLED`, `TELEGRAM_MARKETING_ENABLED` | `https://<platform>/integrations/telegram/v2/communications/authorize` и `/validate-content`; `false` | `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` |
 | Воронка продаж | `PLATFORM_SALES_FUNNEL_DELIVERY_MODE`, `PLATFORM_SALES_FUNNEL_EVENTS_URL`, `PLATFORM_SALES_FUNNEL_EVENTS_SECRET`, `TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS` ([события](../integrations/sales-funnel-events-v1.md)) | `live`, `https://<platform>/integrations/telegram/v1/sales-funnel/events`, `30` | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` |
 | Переходы по ссылкам | `PLATFORM_TRACKING_REDIRECT_URL`, `PLATFORM_TRACKING_TARGET_PREFIXES` | `PLATFORM_TRACKING_REDIRECT_URL=https://<platform>/communications/visit`; `["https://<platform>/materials/","https://<platform>/products/","https://<platform>/series/","https://<platform>/guides/"]` | `TELEGRAM_TRACKING_ORIGIN=https://<platform>` |
 
@@ -185,8 +185,20 @@ sign-in subjects или связи. Уже открытые запросы ок�
 
 ### Последовательности и рассылки
 
-`TELEGRAM_MARKETING_ENABLED=true` включает последовательности, marketing entry и доставку рассылок. Это
-отдельное решение владельца в [Workspace #184](https://github.com/sachkov-inside/workspace/issues/184).
+`TELEGRAM_BROADCASTS_ENABLED=true` разрешает доставку обычных рассылок, которые автор явно запустил
+сразу или по расписанию. При `TELEGRAM_MARKETING_ENABLED=false` вступление, общий вводный блок и
+шаги последовательностей не отправляются, опубликованная последовательность и вводный блок для
+старта приложения не нужны. Оба флага по умолчанию `false`; для внешней доставки дополнительно
+нужен `TELEGRAM_DELIVERY_MODE=live`.
+
+`TELEGRAM_MARKETING_ENABLED=true` по-прежнему включает последовательности, marketing entry и
+обычные рассылки независимо от второго флага. Это отдельное решение владельца в
+[Workspace #184](https://github.com/sachkov-inside/workspace/issues/184).
+Перед включением любого режима проверьте все рассылки в состояниях `scheduled`, `running`, `paused`
+и незавершённые доставки, включая отложенные, `in_flight` и `unknown`. Существующая очередь может
+продолжить отправку после включения. Черновики сами не запускаются. Не очищайте и не отменяйте
+обнаруженную очередь без решения владельца. Отключение соответствующих флагов и перезапуск
+останавливают новые попытки, но уже начатый внешний запрос отозвать нельзя.
 Сервисные уведомления о разовых покупках и материалах от marketing не зависят.
 
 Политика рассылок курса ([Workspace #238](https://github.com/sachkov-inside/workspace/issues/238)):
