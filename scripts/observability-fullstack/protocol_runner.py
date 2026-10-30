@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 
-GROUPS = ('1', '2', '3', '4', '5')
+GROUPS = ('1', '2', '3', '4', '5', '6', '7')
 LATE_CASE = 'test_trace_sanitizer.Sanitizer.test_late_parser_owner_loss_reaps_every_born_identity_before_original_deadline'
 START = Path(__file__).resolve().parent
 
@@ -59,8 +59,10 @@ def partition(suite, errors=()):
     identifiers = sorted(inventory)
     regular = [identifier for identifier in identifiers if identifier != LATE_CASE]
     # Keep all twelve physical late-owner scenarios together under their own
-    # unchanged deadline. Every other discovered case joins the four strides.
-    groups = tuple(tuple(inventory[identifier] for identifier in regular[index::4]) for index in range(4)) + ((inventory[LATE_CASE],),)
+    # unchanged deadline at group 5. Every other discovered case joins the six
+    # regular strides at groups 1/2/3/4/6/7, including future discovered cases.
+    strides = tuple(tuple(inventory[identifier] for identifier in regular[index::6]) for index in range(6))
+    groups = strides[:4] + ((inventory[LATE_CASE],),) + strides[4:]
     if not all(groups):
         raise ValueError('Every protocol group must be nonempty')
     grouped_ids = [case.id() for group in groups for case in group]
@@ -83,7 +85,7 @@ def run_group(groups, group, stream=None):
 def main(argv=None):
     arguments = sys.argv[1:] if argv is None else argv
     if len(arguments) != 2 or arguments[0] != '--group' or arguments[1] not in GROUPS:
-        raise ValueError('Required syntax: --group {1,2,3,4,5}')
+        raise ValueError('Required syntax: --group {1,2,3,4,5,6,7}')
     return run_group(discover(), arguments[1])
 
 

@@ -1,6 +1,8 @@
 """Behavioral contracts for the bounded pilot source-status read model."""
 import json
 import unittest
+from itertools import product
+from unittest.mock import patch
 
 import source_status
 
@@ -281,6 +283,129 @@ class SourceStatusTests(unittest.TestCase):
         result = source_status.evaluate(envelope(rows), envelope(times(rows)), evaluated_at=100,
                                         completed_at=101, previous=prior)
         self.assertEqual(result['sources']['collector']['state'], 'malformed')
+
+
+class RejectionDiagnosticTests(unittest.TestCase):
+    def test_decode_rejection_is_closed_and_public_report_is_unchanged(self):
+        report, detail = source_status._evaluate(b'private-sentinel', envelope([]),
+                                                 evaluated_at=100, completed_at=100)
+        self.assertEqual(report, source_status.malformed())
+        self.assertEqual(detail['code'], 'decode')
+        self.assertEqual(detail['slot'], 'values')
+        self.assertNotIn('private-sentinel', json.dumps(detail))
+        self.assertEqual(source_status.evaluate(b'private-sentinel', envelope([]),
+                         evaluated_at=100, completed_at=100), report)
+
+
+class FiniteRejectionContractTests(unittest.TestCase):
+    def evaluate(self, values, timestamps, **kwargs):
+        report, detail = source_status._evaluate(values, timestamps,
+            evaluated_at=100, completed_at=100, **kwargs)
+        self.assertEqual(report, source_status.malformed())
+        projection = source_status.rejection(detail, 'a' * 40)
+        self.assertLessEqual(len(json.dumps(projection).encode()), 4096)
+        self.assertNotIn('private-sentinel', json.dumps(projection))
+        return detail
+
+    def test_each_parser_branch_has_its_fixed_code_and_vector_slot(self):
+        good = [row()]
+        sample = row(); sample['value'] = []
+        poison = row(); poison['metric']['private'] = 'private-sentinel'
+        aliases = [row('otelcol_receiver_accepted_spans'), row('otelcol_receiver_accepted_spans_total')]
+        cases = [('decode', b'private-sentinel'), ('envelope', b'{}'),
+                 ('native_stats', native_envelope(good, {'private': 'private-sentinel'})),
+                 ('metric_identity', envelope([poison])), ('sample', envelope([sample])),
+                 ('duplicate_identity', envelope(good * 2)), ('duplicate_alias', envelope(aliases))]
+        for code, raw in cases:
+            with self.subTest(code=code):
+                detail = self.evaluate(raw, envelope(times(good)))
+                self.assertEqual((detail['code'], detail['slot']), (code, 'values'))
+        for code, raw in [('decode', b'private-sentinel'), ('envelope', b'{}'),
+                          ('native_stats', native_envelope(times(good), {})),
+                          ('duplicate_identity', envelope(times(good * 2)))]:
+            with self.subTest(code=code, slot='timestamps'):
+                detail = self.evaluate(envelope(good), raw)
+                self.assertEqual((detail['code'], detail['slot']), (code, 'timestamps'))
+        detail = self.evaluate(envelope(good), envelope(times([row(job='platform-trace-store')])))
+        self.assertEqual((detail['code'], detail['slot'], detail['difference']),
+                         ('vector_identity_mismatch', 'pair', 2))
+
+    def test_current_and_previous_context_and_first_rejection_are_preserved(self):
+        good = envelope([row()]); stamps = envelope(times([row()]))
+        prior = {'values': b'private-sentinel', 'timestamps': b'{}',
+                 'evaluated_at': 100, 'completed_at': 100}
+        detail = self.evaluate(good, stamps, previous=prior)
+        self.assertEqual((detail['context'], detail['slot'], detail['code']),
+                         ('previous', 'values', 'decode'))
+        detail = self.evaluate(b'{}', b'private-sentinel', previous=prior)
+        self.assertEqual((detail['context'], detail['slot'], detail['code']),
+                         ('current', 'values', 'envelope'))
+
+    def test_clock_completion_internal_and_actual_output_cap_slots(self):
+        good = envelope([row()]); stamps = envelope(times([row()]))
+        report, detail = source_status._evaluate(good, stamps, evaluated_at=100, completed_at=99)
+        self.assertEqual(report, source_status.malformed())
+        self.assertEqual((detail['code'], detail['slot']), ('clock', 'pair'))
+        detail = self.evaluate(good, stamps, completion_clock=lambda: 99)
+        self.assertEqual((detail['code'], detail['slot']), ('clock', 'completion'))
+        class Poison(TypeError):
+            def __str__(self):
+                raise AssertionError('exception text accessed')
+            def __getattribute__(self, name):
+                if name not in ('__class__', '__traceback__'):
+                    raise AssertionError('exception getter accessed')
+                return super().__getattribute__(name)
+        with patch.object(source_status, '_comparison', side_effect=Poison('private-sentinel')):
+            detail = self.evaluate(good, stamps)
+        self.assertEqual((detail['code'], detail['slot']), ('internal_shape', 'internal'))
+        rows = [row(name, receiver=receiver, exporter=exporter, data_type=data_type)
+                for name, receiver, exporter, data_type in product(
+                    sorted(source_status.COLLECTOR_COUNTERS), sorted(source_status.RECEIVERS),
+                    sorted(source_status.EXPORTERS), ('', 'traces', 'metrics', 'logs'))][:600]
+        detail = self.evaluate(envelope(rows), envelope(times(rows)))
+        self.assertEqual((detail['code'], detail['slot']), ('output_cap', 'output'))
+
+    def test_real_body_and_row_limits_keep_unknown_counts_null(self):
+        empty = envelope([])
+        # Whitespace is valid JSON: the exact body cap remains admitted.
+        at_limit = empty + b' ' * (1048576 - len(empty))
+        report, detail = source_status._evaluate(at_limit, empty, evaluated_at=100, completed_at=100)
+        self.assertEqual(report['query']['state'], 'observed')
+        self.assertIsNone(detail)
+        detail = self.evaluate(at_limit + b' ', empty)
+        self.assertEqual(detail['code'], 'decode')
+        self.assertIsNone(detail['values_bytes'])
+        for count in (1000, 1001):
+            detail = self.evaluate(envelope([row()] * count), empty)
+            self.assertEqual(detail['code'], 'duplicate_identity' if count == 1000 else 'decode')
+            self.assertEqual(detail['rows'], 1000 if count == 1000 else None)
+
+    def test_projection_rejects_extras_unknowns_bools_and_getters(self):
+        detail = self.evaluate(b'{}', envelope([]))
+        good = source_status.rejection(detail, 'a' * 40)
+        bad = [{**good, 'private': 'private-sentinel'}, {**good, 'schema': True},
+               {**good, 'source': 'b' * 40}, {**good, 'context': 'private-sentinel'},
+               {**good, 'code': 'private-sentinel decode'}, {**good, 'slot': 'private-sentinel'},
+               {**good, 'availability': 'unknown'}]
+        for name, limit in source_status.REJECTION_COUNTS.items():
+            for count in (True, -1, limit + 1, 'private-sentinel', 0.0):
+                bad.append({**good, 'counts': {**good['counts'], name: count}})
+            for count in (None, 0, limit):
+                candidate = {**good, 'counts': {**good['counts'], name: count}}
+                self.assertEqual(source_status.validate_rejection(candidate, 'a' * 40), candidate)
+        class Getter(dict):
+            def __getitem__(self, key):
+                raise AssertionError('untrusted getter called')
+        bad.extend([Getter(good), {**good, 'counts': Getter(good['counts'])}])
+        for index, candidate in enumerate(bad):
+            with self.subTest(case=index):
+                with self.assertRaises(ValueError):
+                    source_status.validate_rejection(candidate, 'a' * 40)
+        self.assertEqual(json.dumps(source_status.malformed(), sort_keys=True, separators=(',', ':')),
+            '{"not_covered":["host","containers","rabbitmq","logto","caddy","backups"],'
+            '"query":{"reason":"invalid_response","state":"malformed"},'
+            '"sources":{"collector":{"sample_age_seconds":null,"state":"malformed"},'
+            '"trace_store":{"sample_age_seconds":null,"state":"malformed"}},"version":1}')
 
 
 if __name__ == '__main__':

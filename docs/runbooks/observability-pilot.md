@@ -2369,10 +2369,12 @@ The opt-in uses `source_runner.py` with the same original synchronous `spawnSync
 combined or per-pipe capture allowance, process owner, signal handling, rescue or process-tree
 cleanup guarantee is introduced.
 
-Normal unittest discovery owns 277 methods, including all original274, the two native host
-failure witness additions and the exact shared native-writer batch contract. The original order, warnings, result and exit
-semantics remain. The progress owner validates the entire fixed inventory before running the original
-suite. Fixed start/completed lines share captured stderr with normal unittest output. `completed`
+Normal unittest discovery owns 307 methods, including all original274, the prior ten archive/native
+additions and exactly23 rejection-diagnostic/admission additions. The original order, warnings, result
+and exit semantics remain. The progress owner validates all307 fixed IDs and actual test-object
+identities before running any part of the original suite. The checked-in inventory file alone has
+a 64 KiB byte ceiling, with at most512 IDs of at most192 ASCII characters each, sorted and unique.
+Fixed start/completed lines share captured stderr with normal unittest output. `completed`
 means the original `stopTest` callback was reached; it does not establish success. Marker write
 `OSError` can lose optional metadata. An active original exception and its built-in traceback
 remain primary; an otherwise unhandled interrupt or exit is not swallowed.
@@ -2386,7 +2388,7 @@ cannot turn a failed native outcome into a pass, while missing markers do not re
 native outcome. Raw captured unittest text is not the opt-in Linux assertion message.
 
 Three separate synthetic Python protocol controls live outside `test_*.py`; they do not add or
-replace any of the 277 discovered methods. Synthetic dispatch/parity checks do not establish an
+replace any of the 307 discovered methods. Synthetic dispatch/parity checks do not establish an
 actual admitted Linux run or explain an earlier source timeout. Their separate assertion can
 identify a failed protocol method and the fixed category `failure` or `error` from one optional
 failure-only footer. An already failed third method may also identify one fixed parity field: `exit`,

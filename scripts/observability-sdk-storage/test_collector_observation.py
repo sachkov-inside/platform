@@ -245,6 +245,80 @@ class RefusalMatrix(unittest.TestCase):
 
 
 class IntegrationBoundary(unittest.TestCase):
+    def test_worker_adapts_real_normalized_owned_target_before_producer(self):
+        from contextlib import ExitStack, nullcontext
+        import os
+        from pathlib import Path
+        import tempfile
+        from unittest.mock import patch
+        import sdk_storage
+        pilot=sdk_storage.pilot
+        scenario=sdk_storage.source_status_scenario
+        project='inside-observability-pilot-012345abcdef';source='a'*40
+        admitted={'endpoint':'unix:///owned.sock','daemon_id':'fixture','storage':'/owned'}
+        stopped=RuntimeError('producer boundary reached')
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory).resolve();output.chmod(0o700)
+            auth=output/'auth.json';auth.write_text(json.dumps({'users':[{'bearer_token':'fixture'}]}));auth.chmod(0o600)
+            owner={'supervisor_pid':os.getppid(),'project':project}
+            (output/'owner.json').write_text(json.dumps(owner))
+            auth_owner=auth.stat()
+            images=json.loads((pilot.CONFIG/'inputs.lock.json').read_text())['images']
+            plan=pilot.compose_plan(pilot.CONFIG,output,images,credential_owner=(auth_owner.st_uid,auth_owner.st_gid))
+            (output/'compose.json').write_text(json.dumps(plan))
+            compose=['docker','compose','-p',project,'-f',str(output/'compose.json')]
+            ids={role:f'{index+1:064x}' for index,role in enumerate(scenario.CORE_ROLES)}
+            inspected=[]
+            def command(argv,**_):
+                if argv in (compose+['config','--quiet'],compose+['up','-d']):return ''
+                for role,cid in ids.items():
+                    if argv==compose+['ps','-q',role]:return cid
+                    if argv==['docker','inspect','--format',scenario.INSPECT,cid]:
+                        inspected.append(role);mounts=[]
+                        for value in plan['services'][role].get('volumes',[]):
+                            origin,destination,*options=value.split(':');volume=origin in plan['volumes']
+                            mounts.append({'Type':'volume' if volume else 'bind','Name':project+'_'+origin if volume else '',
+                                'Source':'/data' if volume else origin,'Destination':destination,'RW':'ro' not in options})
+                        return json.dumps({'id':cid,'image':plan['services'][role]['image'],'project':project,
+                            'service':role,'config_files':compose[5],'mounts':mounts,
+                            'networks':{project+'_'+name:{'NetworkID':('b' if name=='pilot' else 'c')*64}
+                                for name in plan['services'][role]['networks']}})
+                if argv==['docker','inspect','--format','{{.HostConfig.LogConfig.Type}}',ids['alloy']]:return 'none'
+                if (argv[:3]==['docker','inspect','--format'] and argv[-1]==ids['traces']
+                        and argv[3].startswith('{{if and (eq (index .Config.Labels ')):return 'owned|none'
+                self.fail('unexpected external command: '+repr(argv))
+            # The real registry validates all eight roles and returns only normalized fields.
+            normalized=scenario.OwnedTargets(output,compose,plan,command).targets['alloy']
+            self.assertEqual(set(normalized),{'id','image','mounts','networks'})
+            self.assertEqual(inspected,list(scenario.CORE_ROLES));inspected.clear()
+            def read_source(argv):
+                self.assertEqual(argv,['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
+                return source
+            # Acquisition touches native resources; ownership, logging and readiness stay real.
+            with ExitStack() as patches:
+                for name,value in (('worker_storage_guard',lambda *a,**k:nullcontext()),
+                                   ('install_horizon',lambda *a:None),('install_plugin',lambda *a:None),
+                                   ('assert_docker_identity',lambda **k:None),('command',command),
+                                   ('request',lambda *a,**k:(200,''))):
+                    patches.enter_context(patch.object(pilot,name,value))
+                patches.enter_context(patch.object(pilot,'FROZEN_DOCKER_ENDPOINT',admitted['endpoint']))
+                patches.enter_context(patch.object(pilot,'FROZEN_DOCKER_IDENTITY',admitted))
+                patches.enter_context(patch.object(sdk_storage.ci,'read_command',side_effect=read_source))
+                constructor=patches.enter_context(patch.object(observation,'OwnedCollector',wraps=observation.OwnedCollector))
+                producer=patches.enter_context(patch.object(sdk_storage,'producer_observation',side_effect=stopped))
+                with self.assertRaises(RuntimeError) as caught:sdk_storage.worker(output)
+            self.assertIs(caught.exception,stopped)
+            self.assertEqual(inspected,list(scenario.CORE_ROLES))
+            constructor.assert_called_once()
+            self.assertEqual(constructor.call_args.args,(output,))
+            self.assertEqual(constructor.call_args.kwargs['target'],{
+                'id':ids['alloy'],'image':images['alloy'],'project':project,'service':'alloy'})
+            self.assertIs(constructor.call_args.kwargs['admitted'],admitted)
+            self.assertEqual(constructor.call_args.kwargs['source'],source)
+            self.assertIsInstance(producer.call_args.kwargs['collector'],observation.OwnedCollector)
+            self.assertEqual(json.loads((output/'trace-store-logging.json').read_text())['outcome'],'passed')
+            self.assertEqual(json.loads((output/'sdk-storage.json').read_text())['stage'],'producer')
+
     def inactive_import_probe(self, mode):
         """Exercise actual dynamic imports in an isolated process, before native launch."""
         from pathlib import Path

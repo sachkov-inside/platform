@@ -464,3 +464,83 @@ preflight. Короткое или неполное окно означает `n
 обязательна. Все признаки functional/resource/capacity/production acceptance ложны.
 Локальный Darwin/arm64 отклоняется прежней native-проверкой; реальный парный опыт
 выполняется только на проверенном Linux amd64 после ревью исходников.
+
+## Частная проверка representative D7
+
+[Отдельный workflow](../../.github/workflows/observability-representative-d7.yml) подготовлен
+для проверки исходников PR с marker `<!-- representative-d7: verify -->`. Добавление
+marker и выполнение native-проверки требуют действующего разрешения на этот этап.
+Подготовка кода, source-model тесты и успешный HTTP-запрос не означают native PASS.
+Прежний отказ функциональной проверки, включая negative traces при HTTP 200, остаётся
+отказом до нового успешного запуска на актуальных исходниках.
+
+Допуск выполняется последовательно на одном `github.sha`. Сначала каждый из семи
+обязательных protocol groups должен полностью обнаружить и выполнить свои случаи без
+пропусков. Полный исходный late-owner случай остаётся в group 5, остальные случаи
+поровну распределяются по groups 1, 2, 3, 4, 6, 7. Прежний предел каждой группы
+120 секунд сохраняется. Затем отдельный hosted Linux X64 runner выполняет прежний минимальный
+`signoz-native-mcp512-4480m-under8g-v1`. Частный gate проверяет настоящий outcome,
+нулевой worker exit, все functional facts, здоровье исходных одиннадцати ролей и точную
+очистку одиннадцати контейнеров, семи volumes и одной сети. D7 зависит от успешного
+aggregate и минимального native job с совпадающим SHA. Отсутствие, отмена, пропуск,
+устаревший результат или ошибка любой предпосылки закрывают доступ к D7.
+
+[Частный bridge](../../scripts/observability-fullstack/representative_ci.py) принимает
+только фиксированные действия и использует фиксированные дочерние пути `RUNNER_TEMP`.
+Публичного переключателя SigNoz в full-stack CLI нет. Checkout привязан к `github.sha`,
+credentials не сохраняются. Требуются настоящий GitHub-hosted Linux amd64, чистые
+committed исходники, Node `v26.10.0` и `pnpm@11.27.1`. Source admission и runtime admission
+хешируют новый workflow, bridge, тесты и исходный setup action. Полный частный
+admission ограничен 1 MiB, прежний предел 64 KiB не вмещал текущую карту исходников.
+Один общий предел действует до записи/запуска и во всех трёх private readers. Все
+публичные пределы остаются прежними. Изменившиеся исходники
+или compiled production modules отклоняются.
+
+`setup-platform` по умолчанию сохраняет прежнюю установку и peer check. Только частный
+D7 задаёт `install: "false"` и пустой список browsers. Перед setup измеряются native filesystems; до и после каждой команды сохраняются
+конечные числовые checkpoints. Bridge синхронно выполняет исходные frozen install с пределом 4 минуты и TERM/10s cleanup, `pnpm peers check`,
+`pnpm build:packages` и `pnpm --filter @inside/backend build`. Обе сборки делят прежнее
+окно 6 минут. Установка и сборки находятся внутри исходных 4 GiB guards для различных
+файловых систем checkout, домашнего каталога и временной подготовки. До подготовки
+образов обязателен успешный source-bound результат этой стадии.
+
+После установки требуется новое disk admission. Пять исходных application builds и
+семнадцать preloads, исходные десять и семь proof-verified SigNoz amd64 references,
+используют один прежний image-preparation guard 16 GiB и прежнего владельца images.
+Приготовление canonical fixture, Horizon, private SigNoz files и проверенного histogram
+не заменяется старыми данными. Named consumer и `stage.in_use()` удерживаются до
+результата lifecycle. Исходные runtime guards 4 GiB охватывают каждую различную native
+файловую систему Docker storage, checkout и prepared directory. Числовые наблюдения
+показывают baseline, безопасные и stopping samples либо неизвестность.
+
+Bridge вызывает исходный coordinator ровно один раз. Сохраняются 38 ролей, 11 volumes,
+10 networks, один worker с пределом 600 секунд, исходный cleanup tail до deadline+90
+и read scope 10 секунд. Metadata-only `volume-reader` принимает только два полных
+каталога mounts: прежние восемь или одиннадцать candidate volumes. Смешанный или
+неполный каталог и symlink вместо mount directory отклоняются. Прежний публичный
+observer продолжает принимать только исходные восемь volumes.
+
+Always-recovery проверяет исходные source/admission, project, nonce, birth worker,
+registry и первоначальный deadline. Повторного coordinator, нового окна 90 секунд,
+повторного приобретения ресурсов или очистки другого владельца нет. До регистрации
+coordinator разрешено только доказанное освобождение preparation. Неизвестная или
+просроченная очистка удерживает images и завершает проверку отказом. SIGTERM/SIGINT
+входят в тот же путь остановки; первая причина ошибки сохраняется при вторичных
+ошибках диагностики и очистки.
+
+Публикуются только `d7-source.json`, `d7-preparation.json`, `d7-outcome.json`,
+`d7-functional.json`, `d7-cleanup.json`, `d7-sdk-phase.json`. Каждый файл ограничен
+64 KiB, весь каталог 384 KiB. Полная карта source hashes остаётся частной, наружу
+передаётся её canonical JSON SHA256. Поля выбираются конечными схемами: числа,
+логические значения, фиксированные состояния, hashes и имена admitted roles.
+SDK phase использует исходный `emitter_phase.load_for_collection`. Symlink, hardlink,
+подмена, лишний файл, неправильная схема, источник или размер закрывают collection.
+Raw SQL/OTLP, query bodies, trace/root IDs, keys, environment, module paths, daemon
+metadata, argv, admission, registry и private directory не загружаются.
+
+`privacy` остаётся `unknown`; `full_workload`, `capacity_acceptance` и
+`production_acceptance` остаются `false`. Отказ по диску, сроку, памяти или CPU является
+результатом ограниченного опыта. Он не разрешает расширять budgets, deadlines, runner,
+число ролей или удалять обязательные проверки. Native filesystem counters не доказывают
+ёмкость VM или физического сервера. Подготовленный workflow сам по себе не является
+разрешением на native D7, приёмкой Task 5 или публикацией production.

@@ -22,6 +22,7 @@ def late_case(method=lambda self: None, base=unittest.TestCase):
 
 class ProtocolRunner(unittest.TestCase):
     def test_nested_shuffled_cases_have_exact_deterministic_disjoint_coverage(self):
+        self.assertEqual(protocol_runner.GROUPS, ('1', '2', '3', '4', '5', '6', '7'))
         regular = cases()
         late = late_case()
         original = [*regular, late]
@@ -31,17 +32,19 @@ class ProtocolRunner(unittest.TestCase):
         ])
         groups = protocol_runner.partition(suite)
         self.assertEqual([[case._testMethodName for case in group] for group in groups], [
-            ['test_00', 'test_04', 'test_08'], ['test_01', 'test_05'],
-            ['test_02', 'test_06'], ['test_03', 'test_07'], [LATE_METHOD],
+            ['test_00', 'test_06'], ['test_01', 'test_07'],
+            ['test_02', 'test_08'], ['test_03'], [LATE_METHOD],
+            ['test_04'], ['test_05'],
         ])
         self.assertEqual({id(case) for group in groups for case in group}, {id(case) for case in original})
         self.assertEqual(sum(map(len, groups)), len(original))
         self.assertEqual(groups, protocol_runner.partition(unittest.TestSuite(original)))
 
     def test_empty_structural_suites_do_not_remove_leaves_but_empty_inventory_is_refused(self):
-        original = [*cases(4), late_case()]
-        self.assertEqual(protocol_runner.partition(unittest.TestSuite([unittest.TestSuite(), unittest.TestSuite(original)])), tuple((case,) for case in original))
-        for count in range(4):
+        original = [*cases(6), late_case()]
+        ordered = [*original[:4], original[-1], *original[4:6]]
+        self.assertEqual(protocol_runner.partition(unittest.TestSuite([unittest.TestSuite(), unittest.TestSuite(original)])), tuple((case,) for case in ordered))
+        for count in range(6):
             with self.subTest(count=count), self.assertRaises(ValueError):
                 protocol_runner.partition(unittest.TestSuite([*cases(count), late_case()]))
 
@@ -50,26 +53,26 @@ class ProtocolRunner(unittest.TestCase):
         from pathlib import Path
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)
-            (path / 'test_future_protocol.py').write_text('import unittest\nclass Future(unittest.TestCase):\n' + ''.join(f'    def test_{index}(self): pass\n' for index in range(5)))
+            (path / 'test_future_protocol.py').write_text('import unittest\nclass Future(unittest.TestCase):\n' + ''.join(f'    def test_{index}(self): pass\n' for index in range(7)))
             loader = unittest.TestLoader()
             suite = loader.discover(str(path), pattern='test_*.py')
             suite.addTest(late_case())
             groups = protocol_runner.partition(suite, loader.errors)
-            self.assertEqual(sorted(case.id() for group in groups for case in group), [f'test_future_protocol.Future.test_{index}' for index in range(5)] + [late_case().id()])
-            self.assertEqual(tuple(map(len, groups)), (2, 1, 1, 1, 1))
+            self.assertEqual(sorted(case.id() for group in groups for case in group), [f'test_future_protocol.Future.test_{index}' for index in range(7)] + [late_case().id()])
+            self.assertEqual(tuple(map(len, groups)), (2, 1, 1, 1, 1, 1, 1))
             self.assertEqual(groups[4][0].id(), late_case().id())
 
     def test_foreign_alias_duplicate_spoofed_missing_and_unbound_cases_are_refused(self):
-        valid = [*cases(4), late_case()]
-        invalid = [unittest.TestSuite(cases(4))]
+        valid = [*cases(6), late_case()]
+        invalid = [unittest.TestSuite(cases(6))]
         wrong = type("Wrong", (unittest.TestCase,), {"__module__": __name__, LATE_METHOD: lambda self: None})(LATE_METHOD)
-        invalid.append(unittest.TestSuite([*cases(4), wrong]))
+        invalid.append(unittest.TestSuite([*cases(6), wrong]))
         invalid.append(unittest.TestSuite([*valid, late_case()]))
         foreign = unittest.TestSuite(valid); foreign._tests.append(object()); invalid.append(foreign)
         invalid.append(unittest.TestSuite([*valid, valid[0]]))
         invalid.append(unittest.TestSuite([*valid, type(valid[0])('test_00')]))
         for key, value in [('id', lambda self: 'forged.Case.test_00'), ('id', lambda self: None), ('id', None), ('_testMethodName', None), ('_testMethodName', 'runTest'), ('test_00', lambda: None)]:
-            changed = [*cases(4), late_case()]
+            changed = [*cases(6), late_case()]
             setattr(changed[0], key, value.__get__(changed[0], type(changed[0])) if key == 'id' and callable(value) else value)
             invalid.append(unittest.TestSuite(changed))
         spoof_type = type('Spoof', (type(valid[0]),), {'__module__': __name__, 'id': lambda self: unittest.TestCase.id(self)})
@@ -90,7 +93,7 @@ class ProtocolRunner(unittest.TestCase):
         import tempfile
         from pathlib import Path
         with self.assertRaises(ValueError):
-            protocol_runner.partition(unittest.TestSuite(cases(4)), ['loader error'])
+            protocol_runner.partition(unittest.TestSuite(cases(6)), ['loader error'])
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / 'test_broken_protocol.py').write_text('raise RuntimeError("synthetic import error")\n')
             loader = unittest.TestLoader()
@@ -98,11 +101,15 @@ class ProtocolRunner(unittest.TestCase):
             self.assertTrue(loader.errors)
             with self.assertRaises(ValueError): protocol_runner.partition(suite, loader.errors)
             with self.assertRaises(ValueError): protocol_runner.partition(suite)
+            from unittest.mock import patch
+            for group in protocol_runner.GROUPS:
+                with self.subTest(group=group), patch.object(protocol_runner, 'START', Path(directory)), patch.object(protocol_runner, 'run_group', side_effect=AssertionError('must refuse import failure before execution')):
+                    with self.assertRaises(ValueError): protocol_runner.main(['--group', group])
 
     def test_cli_refuses_missing_unknown_duplicate_and_lookalike_options_before_discovery(self):
         from unittest.mock import patch
         invalid = [[], ['--group'], ['--other', '1'], ['--gro', '1'], ['--group=1'], ['--group', '1', '--group', '2'], ['--group', '1', '--exclude', 'test_x']]
-        invalid += [['--group', value] for value in ('0', '6', '-1', '+1', ' 1', '1 ', '1.0', 'True', '01', '')]
+        invalid += [['--group', value] for value in ('0', '8', '-1', '+1', ' 1', '1 ', '1.0', 'True', '01', '')]
         with patch.object(protocol_runner, 'discover', side_effect=AssertionError('must refuse before discovery')):
             for arguments in invalid:
                 with self.subTest(arguments=arguments), self.assertRaises(ValueError): protocol_runner.main(arguments)
@@ -118,7 +125,7 @@ class ProtocolRunner(unittest.TestCase):
                     if outcome == 'error': raise RuntimeError('synthetic error')
                     if outcome == 'timeout': raise TimeoutError('synthetic timeout')
                     if outcome == 'skip': self.skipTest('existing skip')
-                fixture = type('Fixture', (unittest.TestCase,), {'__module__': __name__, 'setUpClass': classmethod(lambda cls: events.append('class setup')), 'tearDownClass': classmethod(lambda cls: events.append('class teardown')), 'setUp': lambda self: events.append('setup'), 'tearDown': lambda self: events.append('teardown'), **{f'test_{i}': method for i in range(4)}})
+                fixture = type('Fixture', (unittest.TestCase,), {'__module__': __name__, 'setUpClass': classmethod(lambda cls: events.append('class setup')), 'tearDownClass': classmethod(lambda cls: events.append('class teardown')), 'setUp': lambda self: events.append('setup'), 'tearDown': lambda self: events.append('teardown'), **{f'test_{i}': method for i in range(6)}})
                 suite = unittest.defaultTestLoader.loadTestsFromTestCase(fixture)
                 suite.addTest(late_case(method, fixture))
                 groups = protocol_runner.partition(suite)
@@ -129,14 +136,14 @@ class ProtocolRunner(unittest.TestCase):
     def test_existing_skip_decorator_stays_a_skip_and_cli_failure_exits_nonzero(self):
         import subprocess
         from pathlib import Path
-        fixture = type('Skipped', (unittest.TestCase,), {'__module__': __name__, **{f'test_{index}': unittest.skip('existing decorator')(lambda self: self.fail('must stay skipped')) for index in range(4)}})
+        fixture = type('Skipped', (unittest.TestCase,), {'__module__': __name__, **{f'test_{index}': unittest.skip('existing decorator')(lambda self: self.fail('must stay skipped')) for index in range(6)}})
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(fixture)
         suite.addTest(late_case(unittest.skip('existing decorator')(lambda self: self.fail('must stay skipped'))))
         groups = protocol_runner.partition(suite)
         stream = io.StringIO()
         self.assertEqual(protocol_runner.run_group(groups, '1', stream), 0)
         self.assertIn('skipped=1', stream.getvalue())
-        refused = subprocess.run([__import__('sys').executable, '-B', str(Path(protocol_runner.__file__)), '--group', '6'], capture_output=True, text=True, timeout=2)
+        refused = subprocess.run([__import__('sys').executable, '-B', str(Path(protocol_runner.__file__)), '--group', '8'], capture_output=True, text=True, timeout=2)
         self.assertEqual(refused.returncode, 1)
         self.assertIn('Protocol refused', refused.stderr)
         for error in ('self.fail("failure")', 'raise RuntimeError("error")'):
@@ -146,7 +153,8 @@ class ProtocolRunner(unittest.TestCase):
             self.assertIn('FAILED', failed.stderr)
 
 
-# Exact inverse fixtures, never imported by production execution.
+# Historical five-group inverse fixtures, never candidate rebaselines or
+# imported by production execution. Reverse seven to five before using them.
 PROTOCOL_JOBS = """
   fullstack-protocol-shard:
     name: Whole-stack protocol group ${{ matrix.group }}
@@ -211,6 +219,8 @@ class WorkflowInverse(unittest.TestCase):
         import hashlib
         from pathlib import Path
         workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/observability-resource.yml').read_text()
+        previous = inverse_seven_group_workflow(workflow)
+        self.assertEqual(hashlib.sha256(previous.encode()).hexdigest(), '7767181134ae0e3f62c6853c9f0d8b730431992f2762c3f8eb91655e44b1e21d')
         restored = inverse_protocol_workflow(workflow)
         self.assertEqual(hashlib.sha256(restored.split('\n  stability:\n')[0].rstrip().encode()).hexdigest(), '1473ec8f69a7102099a27fe95fdae45ab4b0997c3b5ce708f7f9eef7e224faff')
         self.assertEqual(hashlib.sha256(restored.split('\n  cpu-control:\n')[0].encode()).hexdigest(), 'ca4ec8506cb187f7256421d910011d016d089bbe407f228c6ab8d436d26187d7')
@@ -232,8 +242,16 @@ class WorkflowInverse(unittest.TestCase):
             ('actions/checkout@3d3c42', 'actions/checkout@000000'),
             ('persist-credentials: false', 'persist-credentials: true'),
             ('      - name: Bind complete source and existing disk admission', '      - name: Moved admission anchor'),
-            ('group: [1, 2, 3, 4, 5]', 'group: [1, 2, 3, 4]'),
-            ('group: [1, 2, 3, 4, 5]', 'group: [1, 2, 3]'),
+            ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4]'),
+            ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3]'),
+            ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5]'),
+            ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5, 7]'),
+            ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5, 6]'),
+            ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5, 6, 6]'),
+            ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5, 6, 8]'),
+            ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5, 6, 7]\n        exclude: [{group: 6}]'),
+            ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5, 6, 7]\n        exclude: [{group: 7}]'),
+            ('Require all seven provider results to succeed', 'Require some provider results to succeed'),
         ]
         for before, after in mutations:
             self.assertIn(before, workflow)
@@ -241,10 +259,27 @@ class WorkflowInverse(unittest.TestCase):
                 inverse_protocol_workflow(workflow.replace(before, after, 1))
 
 
+def inverse_seven_group_workflow(source):
+    """Reverse only this allowance; recover the entire Root 4c9715e workflow."""
+    import hashlib
+    for current, previous in [
+        ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5]'),
+        ('Require all seven provider results to succeed', 'Require all five provider results to succeed'),
+    ]:
+        if source.count(current) != 1:
+            raise ValueError('Missing or changed seven-group scheduling delta')
+        source = source.replace(current, previous, 1)
+    # Whole pre-candidate workflow bytes, including every original native body.
+    if hashlib.sha256(source.encode()).hexdigest() != '7767181134ae0e3f62c6853c9f0d8b730431992f2762c3f8eb91655e44b1e21d':
+        raise ValueError('Unrelated seven-group workflow mutation')
+    return source
+
+
 def inverse_protocol_workflow(source):
     """Test-only exact inverse; refuse every other byte of workflow drift."""
     import hashlib
     import re
+    source = inverse_seven_group_workflow(source)
     if source.count(PROTOCOL_JOBS) != 1 or not source.endswith(PROTOCOL_JOBS):
         raise ValueError('Missing or changed protocol predecessor jobs')
     original = source[:-len(PROTOCOL_JOBS)]

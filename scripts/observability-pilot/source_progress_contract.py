@@ -1,4 +1,4 @@
-"""Three synthetic passive-progress controls, outside the 284-method source discovery."""
+"""Three synthetic passive-progress controls, outside the 307-method source discovery."""
 import ast
 import io
 import json
@@ -31,15 +31,15 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
         result=subprocess.run([sys.executable,'-c',identity,str(root.resolve()),
             str(root.resolve().parent/'observability-caddy-storage')],capture_output=True,timeout=5)
         self.assertEqual(result.returncode,0,'closed Core/Caddy module identity refused')
-        self.assertEqual(result.stdout,b'[87, 284]\n')
+        self.assertEqual(result.stdout,b'[87, 307]\n')
         for path in sorted(root.glob('test_*.py')):
             for cls in ast.parse(path.read_text()).body:
                 if isinstance(cls,ast.ClassDef):
                     expected.extend(path.stem+'.'+cls.name+'.'+method.name for method in cls.body
                         if isinstance(method,ast.FunctionDef) and method.name.startswith('test_'))
-        self.assertEqual(len(expected),284)
+        self.assertEqual(len(expected),307)
         self.assertEqual(tuple(sorted(expected)),owner.SOURCE_IDS)
-        # Exactly ten named additions retain all274 frozen baseline methods.
+        # The prior ten and exactly23 named additions retain all274 frozen baseline methods.
         import hashlib
         added=(
             'test_archive_download.ArchiveDownload.test_actual_stdlib_child_preserves_exact_parent_size_digest_and_finite_transport_failure',
@@ -51,20 +51,66 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
             'test_archive_download.ArchiveDownload.test_timeout_still_waits_after_actual_kill_raises_secondary_error',
             'test_pilot.PilotPreparationTest.test_cleanup_captures_native_host_failure_before_down_without_reading_logs',
             'test_pilot.PilotPreparationTest.test_native_host_failure_witness_uses_actual_exit_and_refuses_foreign_owner',
-            'test_privacy.CollectorPrivacyContract.test_shared_native_writer_keeps_one_second_batch_without_other_queue_overrides')
+            'test_privacy.CollectorPrivacyContract.test_shared_native_writer_keeps_one_second_batch_without_other_queue_overrides',
+            'test_ci.FiniteRejectionCollectionTests.test_absent_diagnostic_stays_absent',
+            'test_ci.FiniteRejectionCollectionTests.test_basename_aliases_never_reach_generic_copy',
+            'test_ci.FiniteRejectionCollectionTests.test_every_changed_runtime_byte_and_map_membership_are_freshly_bound',
+            'test_ci.FiniteRejectionCollectionTests.test_exact_file_cap_is_reconstructed_and_foreign_owner_or_read_race_is_refused',
+            'test_ci.FiniteRejectionCollectionTests.test_only_strict_projection_is_collected_for_default_and_explicit_selection',
+            'test_ci.FiniteRejectionCollectionTests.test_private_file_and_closed_schema_attacks_are_refused_before_publication',
+            'test_ci.FiniteRejectionCollectionTests.test_stale_sha_tree_dirty_source_and_private_source_replacement_refuse',
+            'test_ci.QueryHelperAdmissionTests.test_actual_collect_validates_before_execution_and_never_reopens_or_reuses_query_code',
+            'test_ci.QueryHelperAdmissionTests.test_actual_protected_worker_refuses_mac_before_loading_changed_query_helper',
+            'test_ci.RejectionCollectionTests.test_explicit_selection_never_copies_unvalidated_rejection_content',
+            'test_source_status.FiniteRejectionContractTests.test_clock_completion_internal_and_actual_output_cap_slots',
+            'test_source_status.FiniteRejectionContractTests.test_current_and_previous_context_and_first_rejection_are_preserved',
+            'test_source_status.FiniteRejectionContractTests.test_each_parser_branch_has_its_fixed_code_and_vector_slot',
+            'test_source_status.FiniteRejectionContractTests.test_projection_rejects_extras_unknowns_bools_and_getters',
+            'test_source_status.FiniteRejectionContractTests.test_real_body_and_row_limits_keep_unknown_counts_null',
+            'test_source_status.RejectionDiagnosticTests.test_decode_rejection_is_closed_and_public_report_is_unchanged',
+            'test_source_status_query.PrivateRejectionTests.test_private_first_refusal_is_source_bound_and_does_not_change_report',
+            'test_source_status_query.RejectionSafetyTests.test_diagnostic_exception_or_interruption_cannot_replace_malformed',
+            'test_source_status_query.RejectionSafetyTests.test_directory_replacement_after_credentials_keeps_original_anchor',
+            'test_source_status_query.RejectionSafetyTests.test_private_existing_file_modes_links_fifo_and_size_are_never_overwritten',
+            'test_source_status_query.RejectionSafetyTests.test_public_query_and_private_reader_have_identical_original_report_bytes',
+            'test_source_status_query.RejectionSafetyTests.test_source_or_directory_replacement_during_http_refuses_diagnostic_only',
+            'test_source_status_query.RejectionSafetyTests.test_temporary_name_collision_and_inode_replacement_refuse_without_leaking')
         self.assertTrue(all(identifier in owner.SOURCE_IDS for identifier in added))
         baseline=[identifier for identifier in owner.SOURCE_IDS if identifier not in added]
         self.assertEqual(len(baseline),274)
         self.assertEqual(hashlib.sha256(json.dumps(baseline,separators=(',',':')).encode()).hexdigest(),
             'e0fac579823df0df2d5658f678db37241c367c0dcdfe7f840262a903d2512051')
-        self.assertEqual(len(json.dumps(list(owner.SOURCE_IDS),separators=(',',':')).encode()),31875)
-        self.assertLessEqual((root/'source-tests.json').stat().st_size,32768)
+        self.assertEqual(len(json.dumps(list(owner.SOURCE_IDS),separators=(',',':')).encode()),34448)
+        self.assertGreater((root/'source-tests.json').stat().st_size,32768)
+        self.assertLessEqual((root/'source-tests.json').stat().st_size,65536)
+        # Exercise the real bounded reader, including the exact byte boundary.
+        raw=json.dumps(list(owner.SOURCE_IDS),separators=(',',':')).encode()
+        with patch.object(Path,'open',return_value=io.BytesIO(raw+b' '*(65536-len(raw)))):
+            self.assertEqual(owner._inventory(),owner.SOURCE_IDS)
+        for invalid in (raw+b' '*(65537-len(raw)),b'NaN',b'[',b'[]',
+                json.dumps(['test_fixed.Fixed.test_only']*513).encode(),
+                json.dumps(list(reversed(owner.SOURCE_IDS))).encode(),
+                json.dumps([owner.SOURCE_IDS[0]]*307).encode(),
+                json.dumps(['test_fixed.Fixed.test_'+('x'*192)]).encode(),
+                json.dumps(['test_fixed.Fixed.test_é']).encode()):
+            with patch.object(Path,'open',return_value=io.BytesIO(invalid)):
+                with self.assertRaisesRegex(ValueError,'^closed Core source inventory refused$'):
+                    owner._inventory()
         self.assertEqual(len([node for node in ast.parse(Path(__file__).read_text()).body
             if isinstance(node,ast.ClassDef) for method in node.body
             if isinstance(method,ast.FunctionDef) and method.name.startswith('test_')]),3)
         suite=unittest.TestLoader().discover(str(root),pattern='test_*.py')
         mapping=owner.verify_inventory(suite)
-        self.assertEqual(len(mapping),284)
+        self.assertEqual(len(mapping),307)
+        cases=[entry[0] for entry in mapping.values()]
+        for case,identifier in mapping.values():
+            self.assertEqual(unittest.TestCase.id(case),identifier)
+        class Spoof:
+            def id(self):return owner.SOURCE_IDS[0]
+            def __call__(self,*args):raise AssertionError('spoof executed')
+        for invalid in (cases[:-1],list(reversed(cases)),[cases[0]]+cases, [Spoof()]+cases[1:]):
+            with self.assertRaisesRegex(ValueError,'^closed Core source inventory refused$'):
+                owner.verify_inventory(unittest.TestSuite(invalid))
         with self.assertRaisesRegex(ValueError,'^closed Core source inventory refused$'):
             owner.verify_inventory(unittest.TestSuite())
 
@@ -123,7 +169,7 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
                         self.assertIs(BaseException.__traceback__.__get__(primary),before)
         writer.fault=None
 
-        # Project actual stdlib result records without executing any of the 284 discovered fixture bodies.
+        # Project actual stdlib result records without executing any of the 307 discovered fixture bodies.
         cases=[CoreSourceProgress(method) for method in PROTOCOL_METHODS]
         observed=unittest.TextTestResult(io.StringIO(),True,1)
         for case in cases:observed.startTest(case);observed.stopTest(case)

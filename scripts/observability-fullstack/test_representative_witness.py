@@ -377,3 +377,83 @@ signal.pause()
                     if pid is not None:
                         try:os.kill(pid,signal.SIGKILL)
                         except ProcessLookupError:pass
+
+
+class PrivateAdmissionSize(unittest.TestCase):
+    """Actual current full hash closure, SOURCE-MODEL only, never hosted/native evidence."""
+    def admission(self):
+        runtime=witness._native_runtime()
+        paths=(*runtime.source_binding.inputs(),runtime.ROOT/'.github/workflows/observability-signoz.yml')
+        hashes={str(path.relative_to(runtime.ROOT)):runtime.lifecycle.digest(path) for path in paths}
+        runtime_source={'schema':2,'profile_id':'signoz-native-mcp512-4480m-under8g-v1','commit':'a'*40,'tree':'b'*40,
+            'repository':'sachkov-inside/platform','execution_sha':'a'*40,'pr_head':'c'*40,'pr_base':'d'*40,
+            'run_id':'12345678901','run_attempt':'1','inputs':hashes,
+            'scope':'native Linux amd64 SigNoz functional witness only; full workload/capacity/production unproved'}
+        images={'schema':3,'source':'a'*40,'owner':'inside-platform-production-smoke-cache-12345678901-1-full',
+            **dict.fromkeys(('backend','foundation','web','telegram','logto'),'sha256:'+'e'*64)}
+        bindings={'source':{key:runtime_source[key] for key in ('commit','tree')},
+            'project':'inside-observability-representative-'+'f'*12,'nonce':'1'*32,'uid':os.getuid(),'gid':os.getgid()}
+        return {'schema':1,'source':runtime_source,'bindings':bindings,'images':images,'deadline_mono_ns':int((time.monotonic()+600)*10**9)}
+
+    def test_actual_full_closure_exceeds_old_cap_and_worker_and_cause_read_the_same_complete_map(self):
+        import io
+        from types import SimpleNamespace
+        admission=self.admission();raw=witness.scopes._encoded(admission)
+        self.assertGreater(len(raw),65536);self.assertLess(len(raw),1048576)
+        self.assertIn('.github/workflows/observability-signoz.yml',admission['source']['inputs'])
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();root.chmod(0o700)
+            identity=witness.scopes._write(root/'representative-trial.json',raw)
+            record={'pid':os.getpid(),'group':os.getpid(),'start_ticks':'123'}
+            witness.scopes._write(root/'worker.json',witness.scopes._encoded(record))
+            with self.assertRaises(ValueError):witness.scopes._read(root/'representative-trial.json',private=True,maximum=65536)
+            class StopBeforeAcquisition(Exception):pass
+            def verify(source,profile):
+                self.assertEqual(source,admission['source']);raise StopBeforeAcquisition()
+            runtime=SimpleNamespace(require_native_host=lambda:None,process_start=lambda _: '123',verify_source=verify,
+                lifecycle=SimpleNamespace(MCP512_PROFILE='signoz-native-mcp512-4480m-under8g-v1',first_raw_command=lambda _:None))
+            with patch.object(witness,'_native_runtime',return_value=runtime),patch.object(witness.os,'getpgrp',return_value=os.getpid()),patch.object(witness.sys,'stdin',SimpleNamespace(buffer=io.BytesIO(b'1'))):
+                with self.assertRaises(StopBeforeAcquisition):witness._worker(root)
+            witness._record_failure(root,raw,record,'corpus',ValueError('private sentinel'),runtime)
+            self.assertEqual(witness._worker_cause(root,raw,identity,record,runtime)['availability'],'available')
+            changed=bytearray(raw);changed[-2]=32 if changed[-2]!=32 else 9
+            (root/'representative-trial.json').write_bytes(changed)
+            self.assertEqual(witness._worker_cause(root,raw,identity,record,runtime),{'availability':'unavailable'})
+
+    def test_shared_private_limit_accepts_boundary_but_refuses_over_limit_before_publication_and_spawn(self):
+        from types import SimpleNamespace
+        limit=1048576
+        runtime=SimpleNamespace(require_native_host=lambda:None,source=lambda _: {'commit':'a'*40,'tree':'b'*40},
+            lifecycle=SimpleNamespace(MCP512_PROFILE='fixed'))
+        for size in (limit,limit+1):
+            with self.subTest(size=size),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve()
+                with patch.object(witness,'_native_runtime',return_value=runtime),patch.object(witness.owners,'_canonical'), \
+                        patch.object(witness.scopes,'_encoded',return_value=b'x'*size), \
+                        patch.object(witness.scopes,'_write',side_effect=RuntimeError('publication seam')) as publication, \
+                        patch.object(witness.subprocess,'Popen') as spawn:
+                    with self.assertRaises((ValueError,RuntimeError)):
+                        witness.coordinate(root,{'source':{'commit':'a'*40,'tree':'b'*40}},{})
+                    self.assertEqual(publication.call_count,int(size==limit));spawn.assert_not_called()
+
+    def test_bootstrap_reads_complete_private_source_then_preserves_foreign_module_refusal(self):
+        import hashlib
+        from types import SimpleNamespace
+        admission=self.admission()
+        def git(argv,**kwargs):
+            if argv==['git','rev-parse','HEAD']:return SimpleNamespace(stdout=b'a'*40+b'\n')
+            if argv==['git','rev-parse','HEAD^{tree}']:return SimpleNamespace(stdout=b'b'*40+b'\n')
+            self.assertEqual(argv[:4],['git','ls-tree','-z','HEAD'])
+            rows=[]
+            for name in argv[5:]:
+                raw=(witness.ROOT/name).read_bytes();blob=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+                rows.append(b'100644 blob '+blob.encode()+b'\t'+name.encode()+b'\0')
+            return SimpleNamespace(stdout=b''.join(rows))
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();root.chmod(0o700)
+            witness.scopes._write(root/'representative-trial.json',witness.scopes._encoded(admission))
+            previous=list(sys.meta_path)
+            try:
+                with patch.object(witness.subprocess,'run',side_effect=git),patch.dict(sys.modules,{'fullstack':SimpleNamespace(__file__='/foreign/module.py')}):
+                    with self.assertRaisesRegex(ValueError,'representative_controller_import'):witness._controller_modules(root)
+            finally:sys.meta_path[:]=previous
