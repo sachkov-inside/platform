@@ -517,21 +517,40 @@ class DeadlineAwareRecovery(unittest.TestCase):
 
     def test_expired_identify_uses_actual_raw_only_with_remaining_original_tail(self):
         import threading
-        import shutil
+        import sys
         life=fullstack.core_layout.signoz_lifecycle()
         with tempfile.TemporaryDirectory() as directory:
             output,native,owner,layout=self.prepare(Path(directory).resolve());owner.create()
             original_deadline=native.deadline
             # SOURCE-MODEL adapter at the native identify boundary. The unchanged
-            # Engine.raw executes only an owned benign true child, never Docker.
-            native.run=output;native.invocation=Path(shutil.which('true')).absolute()
+            # Engine.raw executes only an owned benign child, never Docker. The
+            # private FIFO keeps it alive until its physical group is recorded;
+            # the child's five-second bound also applies if registration fails.
+            barrier=Path(directory)/'registered.fifo';os.mkfifo(barrier,0o600)
+            release=os.open(barrier,os.O_RDWR|os.O_NONBLOCK);self.addCleanup(os.close,release)
+            native.run=output;native.invocation=Path(directory)/'registered-child'
+            native.invocation.write_text('#!'+sys.executable+'\n'
+                'import os, select, sys\n'
+                'descriptor=os.open('+repr(str(barrier))+',os.O_RDONLY|os.O_NONBLOCK)\n'
+                'ready=select.select([descriptor],[],[],5)[0]\n'
+                'sys.exit(0 if ready and os.read(descriptor,1)==b"1" else 1)\n')
+            native.invocation.chmod(0o700)
             native.cli=native.invocation.resolve(strict=True);info=native.invocation.lstat()
             native.invocation_identity=(info.st_dev,info.st_ino,info.st_mode,str(native.cli))
-            children=[]
+            children=[];test=self
+            def reap(process):
+                if process.poll() is None:process.kill()
+                process.wait(timeout=1)
+                for stream in (process.stdout,process.stderr):stream.close()
             class RegisteredChildren(set):
                 def add(self,process):
+                    # raw's own finally starts after registration. Own cleanup
+                    # first so a failed registration cannot leave this child.
+                    test.addCleanup(reap,process)
+                    test.assertIsNone(process.poll())
                     children.append({'pid':process.pid,'group':os.getpgid(process.pid),'reaped_exit':None})
                     super().add(process)
+                    test.assertEqual(os.write(release,b'1'),1)
                 def discard(self,process):
                     next(row for row in children if row['pid']==process.pid)['reaped_exit']=process.returncode
                     super().discard(process)
