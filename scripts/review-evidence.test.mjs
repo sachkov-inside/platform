@@ -315,12 +315,32 @@ test("CLI accepts complete dispositions and retained historical receipts", async
 
 test("outsiders cannot forge a receipt or deny service by posting malformed review markers", async (t) => {
   const f = await fixture(t);
-  f.comments.push({
-    ...f.comment,
-    author_association: "NONE",
-    user: { login: "outsider" },
-    body: "<!-- platform-review-evidence:v1 -->\n{",
-  });
+  f.comments.push(
+    {
+      ...f.comment,
+      id: 124,
+      author_association: "NONE",
+      user: { login: "outsider" },
+      body: "<!-- platform-review-evidence:v1 -->\n{",
+    },
+    // A deleted or unknown account answers 404 instead of a permission.
+    {
+      ...f.comment,
+      id: 125,
+      author_association: "NONE",
+      user: { login: "ghost" },
+      body: "<!-- platform-review-evidence:v1 -->\n{",
+    },
+  );
+  f.routes["collaborators/outsider/permission"] = { permission: "none" };
+  const result = await f.check();
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("a write publisher counts whatever association the read-only token sees", async (t) => {
+  const f = await fixture(t);
+  // An organisation member with hidden membership reads as CONTRIBUTOR to the Actions token.
+  f.comment.author_association = "CONTRIBUTOR";
   const result = await f.check();
   assert.equal(result.status, 0, result.stderr);
 });
