@@ -61,6 +61,14 @@ def services(scope='full'):
     return tuple(name for name in SERVICES if scope=='full' or name not in ('umami','umami-ingest','umami-query'))
 
 
+def worker_deadline(scope='full'):
+    profile(scope)
+    if scope=='technical':
+        if sys.platform!='linux':raise ValueError('fullstack_linux_required')
+        return 900
+    return pilot.PILOT_DEADLINE_SECONDS
+
+
 def prepared_scope(output, *, expected=None, source=None):
     path=output/'fullstack-source.json'
     if not path.exists() and not path.is_symlink():
@@ -86,7 +94,9 @@ def prepared_scope(output, *, expected=None, source=None):
     if scope=='full' and ('scope_binding' in value or value.get('profile',{}).get('name')=='platform-technical-v1' or value.get('images',{}).get('scope')=='technical'):raise ValueError('fullstack_scope_binding')
     if scope=='technical':
         binding=value.get('scope_binding')
-        if (type(binding) is not dict or set(binding)!={'scope','source','nonce','output_sha256','profile','services','databases'}
+        keys={'scope','source','nonce','output_sha256','profile','services','databases'}
+        if (type(binding) is not dict or set(binding) not in (keys,keys|{'worker_deadline_seconds'})
+                or 'worker_deadline_seconds' in binding and (type(binding['worker_deadline_seconds']) is not int or binding['worker_deadline_seconds']!=900)
                 or binding['scope']!=scope or binding['source']!=value.get('source')
                 or not stage_timing.source_ok(binding['source'])
                 or type(binding['nonce']) is not str or re.fullmatch('[0-9a-f]{64}',binding['nonce']) is None
@@ -101,6 +111,14 @@ def prepared_scope(output, *, expected=None, source=None):
         if mounted!=settings or any((output/'monitoring').glob('umami*')):raise ValueError('fullstack_scope_inputs')
         production.prepared_scope(output/'monitoring',scope=scope)
     return scope
+
+
+def timing_options(output,source):
+    scope=prepared_scope(output,source=source)
+    if scope=='technical':
+        binding=stage_timing.read_json(output/'fullstack-source.json',1_048_576)['scope_binding']
+        if 'worker_deadline_seconds' in binding:return {'scope_binding':binding}
+    return {}
 
 
 def invoke(compose,args,**options):return resource_runtime.invoke(compose,args,**options)
@@ -214,7 +232,7 @@ def inputs(output, images, *, core=None, scope='full'):
     if scope=='technical':
         prepared.update({'scope':scope,'scope_binding':{'scope':scope,'source':source,'nonce':os.urandom(32).hex(),
             'output_sha256':stage_timing.output_binding(output),'profile':settings['name'],
-            'services':list(services(scope)),'databases':['inside','logto','inside_telegram']}})
+            'services':list(services(scope)),'databases':['inside','logto','inside_telegram'],'worker_deadline_seconds':900}})
     pilot.write_json(output/'fullstack-source.json',prepared)
     prepared_scope(output,expected=scope,source=source)
     # Compiler output can reside on another filesystem than Docker's storage.
@@ -745,7 +763,8 @@ def worker(output,*,cpu=False):
         report.update({'scope':scope,'scope_binding':stage_timing.read_json(output/'fullstack-source.json',1_048_576)['scope_binding'],
             'full_spec_acceptance':'deferred'})
     pilot.write_json(output/'fullstack-proof.json',report)
-    timing=stage_timing.Timing(output,stage_timing.source(output))
+    timing_source=stage_timing.source(output)
+    timing=stage_timing.Timing(output,timing_source,**timing_options(output,timing_source))
     call=partial(stage_timing.call,timing)
     try:
         with pilot.worker_storage_guard(owner,compose,output):
@@ -960,9 +979,10 @@ def collect(output, metadata, destination, *, scope='full'):
             if proof.get('measured_linux_acceptance',{}).get('state')=='passed':technical_closure(proof)
     refusal=startup_refusal.read(output,source['checkout_sha'],BACKENDS)
     timings={}
+    clock_options=timing_options(output,source['checkout_sha'])
     for name in (stage_timing.NAME,stage_timing.CONTACTS_NAME):
         path=output/name
-        if path.exists() or path.is_symlink():timings[name]=stage_timing.read(output,source['checkout_sha'],name=name)
+        if path.exists() or path.is_symlink():timings[name]=stage_timing.read(output,source['checkout_sha'],name=name,**(clock_options if name==stage_timing.NAME else {}))
     settings=profile(scope)
     definitions=settings['phases'];canonical_modes=settings['pairs'][0]
     # Filenames follow execution order; client phases retain canonical OFF/ON order.
@@ -983,7 +1003,7 @@ def collect(output, metadata, destination, *, scope='full'):
             if load.get('completed') is True and leaf['state']=='captured':raise ValueError('closed_slot_refusal')
             if 'health_probe_timing' in row:health_timing.validate(row['health_probe_timing'],source['checkout_sha'],output,ordinal)
     resource_runtime.ci.collect(output,metadata,destination,artifacts=tuple(name for name in ARTIFACTS if name not in (stage_timing.NAME,stage_timing.CONTACTS_NAME)))
-    for name,value in timings.items():stage_timing.write(destination,value,source['checkout_sha'],binding_output=output,name=name)
+    for name,value in timings.items():stage_timing.write(destination,value,source['checkout_sha'],binding_output=output,name=name,**(clock_options if name==stage_timing.NAME else {}))
     if evidence is not None:pilot.write_json(destination/preparation_evidence.NAME,evidence)
     if refusal is not None:startup_refusal.write(destination,refusal,source['checkout_sha'],BACKENDS)
 
@@ -1082,12 +1102,13 @@ def main():
             stage.release(str(args.output.resolve()),cleanup_ok=result.get('down')=='passed' and result.get('residue')=='passed')
             return result
     if args.images is None:parser.error('--images required')
+    deadline=worker_deadline(args.scope)
     stage=preparation.recover_stage(args.images)
     with stage.in_use():
         stage.require_consumer(str(args.output.resolve()))
         pilot.run(args.output,prepare_inputs=lambda output:stability_inputs(output,args.images,protocol) if args.action=='diagnostic-run' else inputs(output,args.images,scope='technical') if args.scope=='technical' else inputs(output,args.images),worker_script=Path(__file__).resolve(),
             ports=(18427,13000,14318,1514,13301),services=services(args.scope),project_prefix=PREFIX,
-            scope=('diagnostic_only; not capacity acceptance' if args.action=='diagnostic-run' else 'technical-only platform-technical-v1 whole-process Linux resource corpus; full-spec acceptance deferred' if args.scope=='technical' else 'representative whole-process Linux resource corpus; production rollout evidence incomplete'),missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
+            scope=('diagnostic_only; not capacity acceptance' if args.action=='diagnostic-run' else 'technical-only platform-technical-v1 whole-process Linux resource corpus; full-spec acceptance deferred' if args.scope=='technical' else 'representative whole-process Linux resource corpus; production rollout evidence incomplete'),missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds(),worker_deadline_seconds=deadline)
 
 
 if __name__=='__main__':

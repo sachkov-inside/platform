@@ -72,15 +72,25 @@ def source(output):
     except (OSError,ValueError,AttributeError):return None
 
 
-def validate(value,source,output):
-    if (type(value) is not dict or set(value)!={'schema','source','output_sha256','state','reason',
-            'elapsed_ms','saturated','active','stages'} or type(value['schema']) is not int or value['schema']!=1
+def validate(value,source,output,*,scope_binding=None):
+    extended=scope_binding is not None
+    maximum=900_000 if extended else MAX_MS
+    if extended and (type(scope_binding) is not dict or scope_binding.get('scope')!='technical'
+            or scope_binding.get('source')!=source or scope_binding.get('output_sha256')!=output_binding(output)
+            or scope_binding.get('profile')!='platform-technical-v1'
+            or type(scope_binding.get('worker_deadline_seconds')) is not int or scope_binding['worker_deadline_seconds']!=900):refuse()
+    keys={'schema','source','output_sha256','state','reason','elapsed_ms','saturated','active','stages'}
+    if (type(value) is not dict or set(value)!=(keys|{'worker_deadline_seconds','scope_binding'} if extended else keys)
+            or type(value['schema']) is not int or value['schema']!=(2 if extended else 1)
+            or extended and (type(value['worker_deadline_seconds']) is not int or value['worker_deadline_seconds']!=900
+                or type(value['scope_binding']) is not dict or type(value['scope_binding'].get('worker_deadline_seconds')) is not int
+                or value['scope_binding']!=scope_binding)
             or not source_ok(source) or value['source']!=source or value['output_sha256']!=output_binding(output)
             or type(value['state']) is not str or value['state'] not in (*STATES,'refused')
             or type(value['reason']) is not str
             or (value['reason'] not in REFUSALS if value['state']=='refused' else value['reason']!=STATES[value['state']])
-            or type(value['elapsed_ms']) is not int or not 0<=value['elapsed_ms']<=MAX_MS
-            or type(value['saturated']) is not bool or value['saturated'] and value['elapsed_ms']!=MAX_MS
+            or type(value['elapsed_ms']) is not int or not 0<=value['elapsed_ms']<=maximum
+            or type(value['saturated']) is not bool or value['saturated'] and value['elapsed_ms']!=maximum
             or type(value['stages']) is not list or len(value['stages'])>MAX_ROWS):refuse()
     previous=0
     for index,row in enumerate(value['stages']):
@@ -93,7 +103,7 @@ def validate(value,source,output):
             if index!=len(value['stages'])-1 or row['end_ms'] is not None or row['duration_ms'] is not None:refuse()
         else:
             if (type(row['end_ms']) is not int or not row['start_ms']<=row['end_ms']<=value['elapsed_ms']
-                    or type(row['duration_ms']) is not int or not 0<=row['duration_ms']<=MAX_MS
+                    or type(row['duration_ms']) is not int or not 0<=row['duration_ms']<=maximum
                     or not value['saturated'] and row['end_ms']-row['start_ms']!=row['duration_ms']):refuse()
             previous=row['end_ms']
             if row['outcome']!='completed' and index!=len(value['stages'])-1:refuse()
@@ -124,12 +134,14 @@ def validate_file(value,name):
     return value
 
 
-def read(output,source,*,binding_output=None,name=NAME):
-    return validate_file(validate(read_json(Path(output)/filename(name),MAX_BYTES),source,output if binding_output is None else binding_output),name)
+def read(output,source,*,binding_output=None,name=NAME,scope_binding=None):
+    if scope_binding is not None and name!=NAME:refuse()
+    return validate_file(validate(read_json(Path(output)/filename(name),MAX_BYTES),source,output if binding_output is None else binding_output,scope_binding=scope_binding),name)
 
 
-def write(output,value,source,*,binding_output=None,name=NAME):
-    raw=(json.dumps(validate_file(validate(value,source,output if binding_output is None else binding_output),name),sort_keys=True,separators=(',',':'),allow_nan=False)+'\n').encode()
+def write(output,value,source,*,binding_output=None,name=NAME,scope_binding=None):
+    if scope_binding is not None and name!=NAME:refuse()
+    raw=(json.dumps(validate_file(validate(value,source,output if binding_output is None else binding_output,scope_binding=scope_binding),name),sort_keys=True,separators=(',',':'),allow_nan=False)+'\n').encode()
     path=Path(output)/filename(name);temporary=path.with_name('.'+path.stem+'.new')
     if len(raw)>MAX_BYTES or path.is_symlink() or path.exists() and not path.is_file():refuse()
     descriptor=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
@@ -146,11 +158,14 @@ def write(output,value,source,*,binding_output=None,name=NAME):
 
 
 class Timing:
-    def __init__(self,output,source,*,clock=time.monotonic,name=NAME):
+    def __init__(self,output,source,*,clock=time.monotonic,name=NAME,scope_binding=None):
+        if scope_binding is not None and name!=NAME:refuse()
         self.output=Path(output);self.source=source;self.clock=clock;self.name=filename(name)
+        self.scope_binding=scope_binding;self.maximum=MAX_MS if scope_binding is None else 900_000
         self.origin=None;self.last=None;self.raw=0;self.writes=0;self.finished=False
         self.value={'schema':1,'source':source,'output_sha256':output_binding(output),'state':'running','reason':'none',
                     'elapsed_ms':0,'saturated':False,'active':None,'stages':[]}
+        if scope_binding is not None:self.value.update(schema=2,worker_deadline_seconds=900,scope_binding=scope_binding)
         if not source_ok(source):self._refuse('binding_refused')
         else:self._sample();self._persist()
 
@@ -164,7 +179,7 @@ class Timing:
                     or self.last is not None and now<self.last):refuse()
             if self.origin is None:self.origin=now
             self.raw=math.floor((now-self.origin)*1000);self.last=now
-            self.value.update(elapsed_ms=min(MAX_MS,self.raw),saturated=self.raw>MAX_MS)
+            self.value.update(elapsed_ms=min(self.maximum,self.raw),saturated=self.raw>self.maximum)
             return True
         except BaseException as error:
             if primary is None and not isinstance(error,Exception):raise
@@ -176,7 +191,7 @@ class Timing:
         try:
             self.writes+=1
             if self.writes>MAX_WRITES:refuse()
-            write(self.output,self.value,self.source,**({} if self.name==NAME else {'name':self.name}))
+            write(self.output,self.value,self.source,**({} if self.name==NAME else {'name':self.name}),**({} if self.scope_binding is None else {'scope_binding':self.scope_binding}))
         except BaseException as error:
             if primary is None and not isinstance(error,Exception):raise
             self._refuse('write_refused')
@@ -189,7 +204,7 @@ class Timing:
                 self._refuse('contract_refused')
             elif self._sample():
                 start=self.raw
-                self.value['stages'].append({'stage':name,'group':group,'phase':phase,'start_ms':min(start,MAX_MS),
+                self.value['stages'].append({'stage':name,'group':group,'phase':phase,'start_ms':min(start,self.maximum),
                     'end_ms':None,'duration_ms':None,'outcome':'running'})
                 self.value['active']=len(self.value['stages'])-1;entered=True
             self._persist()
@@ -203,7 +218,7 @@ class Timing:
 
     def _close(self,start,outcome):
         if self.value['state']!='refused' and self._sample():
-            self.value['stages'][-1].update(end_ms=min(self.raw,MAX_MS),duration_ms=min(self.raw-start,MAX_MS),outcome=outcome)
+            self.value['stages'][-1].update(end_ms=min(self.raw,self.maximum),duration_ms=min(self.raw-start,self.maximum),outcome=outcome)
             if outcome=='completed':self.value['active']=None
             else:self.value.update(state=outcome,reason='cancelled' if outcome=='interrupted' else 'work_failed')
         self._persist()

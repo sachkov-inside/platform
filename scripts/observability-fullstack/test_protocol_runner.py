@@ -236,6 +236,8 @@ class WorkflowInverse(unittest.TestCase):
             ('needs: fullstack-protocol', 'needs: [fullstack-protocol, foreign]'),
             ('needs: fullstack-protocol', 'needs: fullstack-protocol\n    needs: fullstack-protocol'),
             ('timeout-minutes: 60', 'timeout-minutes: 61'),
+            ("scope == 'technical' && 30 || 12", "scope == 'technical' && 17 || 12"),
+            ("scope == 'technical' && 30 || 12", "scope == 'technical' && 30 || 30"),
             ('fullstack.py cpu-control-run', 'fullstack.py cpu-control-collect'),
             ('fullstack.py diagnostic-run', 'fullstack.py diagnostic-collect'),
             ('<!-- monitoring-stability: run -->', '<!-- monitoring-stability: other -->'),
@@ -264,6 +266,14 @@ class WorkflowInverse(unittest.TestCase):
 
 def inverse_technical_scope(source):
     """Undo only the assigned closed scope addition, retaining all prior goldens."""
+    current="""      - name: Measure paired full-process corpus through scope-bound supervisor
+        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}
+"""
+    previous="""      - name: Measure paired full-process corpus through unchanged 600-second supervisor
+        timeout-minutes: 12
+"""
+    if source.count(current)!=1:raise ValueError('Missing or changed technical worker step budget')
+    source=source.replace(current,previous,1)
     step='''      - name: Select exact assigned technical profile, otherwise full
         id: scope
         timeout-minutes: 1
