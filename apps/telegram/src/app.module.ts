@@ -1,3 +1,16 @@
+import {
+  NATIVE_MESSAGE_ARCHIVE,
+  DisabledNativeMessageArchive,
+} from "./modules/communications/native-message-archive.js";
+import { GrammyNativeMessageArchive } from "./adapters/telegram/grammy-native-message-archive.adapter.js";
+import { NativeMessages } from "./modules/communications/native-messages.js";
+import { NativeCommunicationTransport } from "./modules/communications/native-communication-transport.js";
+import {
+  NATIVE_MESSAGE_COPY,
+  DisabledNativeMessageCopy,
+  type NativeMessageCopy,
+} from "./modules/communications/native-message-copy.js";
+import { GrammyNativeMessageCopy } from "./adapters/telegram/grammy-native-message-copy.adapter.js";
 import { GrammyMembershipAdapter } from "./adapters/telegram/grammy-membership.adapter.js";
 import { DisabledTelegramMembership } from "./modules/membership-evidence/telegram-membership.js";
 import { MaterialAnnouncements } from "./modules/communications/material-announcements.js";
@@ -385,15 +398,39 @@ export class AppModule {
         AuthorDelivery,
         {
           provide: AUTHOR_TRANSPORT,
-          useFactory: () =>
+          inject: [NativeMessages, NATIVE_MESSAGE_COPY],
+          useFactory: (native: NativeMessages, copy: NativeMessageCopy) =>
             config.deliveryMode === "live" && hasText(config.botToken)
-              ? new GrammyCommunicationsAdapter(
-                  new Api(config.botToken, { timeoutSeconds: 10 }),
+              ? new NativeCommunicationTransport(
+                  new GrammyCommunicationsAdapter(
+                    new Api(config.botToken, { timeoutSeconds: 10 }),
+                  ),
+                  native,
+                  copy,
                 )
               : new DisabledCommunicationTransport(),
         },
         CommunicationTracking,
         Communications,
+        NativeMessages,
+        {
+          provide: NATIVE_MESSAGE_ARCHIVE,
+          useFactory: () =>
+            config.deliveryMode === "live" && hasText(config.botToken)
+              ? new GrammyNativeMessageArchive(
+                  new Api(config.botToken, { timeoutSeconds: 10 }),
+                )
+              : new DisabledNativeMessageArchive(),
+        },
+        {
+          provide: NATIVE_MESSAGE_COPY,
+          useFactory: () =>
+            config.deliveryMode === "live" && hasText(config.botToken)
+              ? new GrammyNativeMessageCopy(
+                  new Api(config.botToken, { timeoutSeconds: 10 }),
+                )
+              : new DisabledNativeMessageCopy(),
+        },
         CommunicationSequences,
         MarketingEntry,
         SequenceScheduler,
@@ -422,10 +459,15 @@ export class AppModule {
         },
         {
           provide: COMMUNICATION_TRANSPORT,
-          useFactory: () =>
+          inject: [NativeMessages, NATIVE_MESSAGE_COPY],
+          useFactory: (native: NativeMessages, copy: NativeMessageCopy) =>
             config.deliveryMode === "live" && hasText(config.botToken)
-              ? new GrammyCommunicationsAdapter(
-                  new Api(config.botToken, { timeoutSeconds: 10 }),
+              ? new NativeCommunicationTransport(
+                  new GrammyCommunicationsAdapter(
+                    new Api(config.botToken, { timeoutSeconds: 10 }),
+                  ),
+                  native,
+                  copy,
                 )
               : new DisabledCommunicationTransport(),
         },

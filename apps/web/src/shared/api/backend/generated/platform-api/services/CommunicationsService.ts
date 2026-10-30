@@ -28,7 +28,7 @@ export class CommunicationsService {
       operation: 'templates.save';
       operationId: string;
       payload: {
-        content: ({
+        content: (({
           buttons: Array<{
             row?: number;
             text: string;
@@ -153,6 +153,29 @@ export class CommunicationsService {
           fileId: string;
           text: string;
           type: 'document';
+        }) | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<({
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
+          nativeCount: number;
+          nativeLinks: Array<string>;
+          nativeRef: string;
+          text: string;
+          type: 'native';
         });
         templateId: string;
       };
@@ -180,7 +203,7 @@ export class CommunicationsService {
       payload: {
         entryResponse: {
           parts: Array<{
-            content: ({
+            content: (({
               buttons: Array<{
                 row?: number;
                 text: string;
@@ -305,6 +328,29 @@ export class CommunicationsService {
               fileId: string;
               text: string;
               type: 'document';
+            }) | {
+              buttons: Array<{
+                row?: number;
+                text: string;
+                url: string;
+              }>;
+              entities: Array<({
+                language?: string;
+                length: number;
+                offset: number;
+                type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+                url?: string;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
+              nativeCount: number;
+              nativeLinks: Array<string>;
+              nativeRef: string;
+              text: string;
+              type: 'native';
             });
             partId: string;
           }>;
@@ -322,7 +368,7 @@ export class CommunicationsService {
           delayAnchor?: 'entry';
           delaySeconds: number;
           parts: Array<{
-            content: ({
+            content: (({
               buttons: Array<{
                 row?: number;
                 text: string;
@@ -447,6 +493,29 @@ export class CommunicationsService {
               fileId: string;
               text: string;
               type: 'document';
+            }) | {
+              buttons: Array<{
+                row?: number;
+                text: string;
+                url: string;
+              }>;
+              entities: Array<({
+                language?: string;
+                length: number;
+                offset: number;
+                type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+                url?: string;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
+              nativeCount: number;
+              nativeLinks: Array<string>;
+              nativeRef: string;
+              text: string;
+              type: 'native';
             });
             partId: string;
           }>;
@@ -512,7 +581,7 @@ export class CommunicationsService {
         });
         broadcastId: string;
         parts: Array<{
-          content: ({
+          content: (({
             buttons: Array<{
               row?: number;
               text: string;
@@ -637,6 +706,29 @@ export class CommunicationsService {
             fileId: string;
             text: string;
             type: 'document';
+          }) | {
+            buttons: Array<{
+              row?: number;
+              text: string;
+              url: string;
+            }>;
+            entities: Array<({
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
+            nativeCount: number;
+            nativeLinks: Array<string>;
+            nativeRef: string;
+            text: string;
+            type: 'native';
           });
           partId: string;
           sendAfterSeconds?: number;
@@ -703,7 +795,7 @@ export class CommunicationsService {
       payload: {
         introId: string;
         parts: Array<{
-          content: ({
+          content: (({
             buttons: Array<{
               row?: number;
               text: string;
@@ -828,6 +920,29 @@ export class CommunicationsService {
             fileId: string;
             text: string;
             type: 'document';
+          }) | {
+            buttons: Array<{
+              row?: number;
+              text: string;
+              url: string;
+            }>;
+            entities: Array<({
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
+            nativeCount: number;
+            nativeLinks: Array<string>;
+            nativeRef: string;
+            text: string;
+            type: 'native';
           });
           partId: string;
         }>;
@@ -905,7 +1020,7 @@ export class CommunicationsService {
       status: 'ok';
       template: {
         botIdentity: string;
-        content: ({
+        content: (({
           buttons: Array<{
             row?: number;
             text: string;
@@ -1030,6 +1145,29 @@ export class CommunicationsService {
           fileId: string;
           text: string;
           type: 'document';
+        }) | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<({
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
+          nativeCount: number;
+          nativeLinks: Array<string>;
+          nativeRef: string;
+          text: string;
+          type: 'native';
         });
         revision: number;
         templateId: string;
@@ -1039,7 +1177,7 @@ export class CommunicationsService {
       sequence: {
         entryResponse: {
           parts: Array<{
-            content: ({
+            content: (({
               buttons: Array<{
                 row?: number;
                 text: string;
@@ -1164,6 +1302,29 @@ export class CommunicationsService {
               fileId: string;
               text: string;
               type: 'document';
+            }) | {
+              buttons: Array<{
+                row?: number;
+                text: string;
+                url: string;
+              }>;
+              entities: Array<({
+                language?: string;
+                length: number;
+                offset: number;
+                type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+                url?: string;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
+              nativeCount: number;
+              nativeLinks: Array<string>;
+              nativeRef: string;
+              text: string;
+              type: 'native';
             });
             partId: string;
           }>;
@@ -1184,7 +1345,7 @@ export class CommunicationsService {
           delayAnchor?: 'entry';
           delaySeconds: number;
           parts: Array<{
-            content: ({
+            content: (({
               buttons: Array<{
                 row?: number;
                 text: string;
@@ -1309,6 +1470,29 @@ export class CommunicationsService {
               fileId: string;
               text: string;
               type: 'document';
+            }) | {
+              buttons: Array<{
+                row?: number;
+                text: string;
+                url: string;
+              }>;
+              entities: Array<({
+                language?: string;
+                length: number;
+                offset: number;
+                type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+                url?: string;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
+              nativeCount: number;
+              nativeLinks: Array<string>;
+              nativeRef: string;
+              text: string;
+              type: 'native';
             });
             partId: string;
           }>;
@@ -1322,7 +1506,7 @@ export class CommunicationsService {
       sequences: Array<{
         entryResponse: {
           parts: Array<{
-            content: ({
+            content: (({
               buttons: Array<{
                 row?: number;
                 text: string;
@@ -1447,6 +1631,29 @@ export class CommunicationsService {
               fileId: string;
               text: string;
               type: 'document';
+            }) | {
+              buttons: Array<{
+                row?: number;
+                text: string;
+                url: string;
+              }>;
+              entities: Array<({
+                language?: string;
+                length: number;
+                offset: number;
+                type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+                url?: string;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
+              nativeCount: number;
+              nativeLinks: Array<string>;
+              nativeRef: string;
+              text: string;
+              type: 'native';
             });
             partId: string;
           }>;
@@ -1467,7 +1674,7 @@ export class CommunicationsService {
           delayAnchor?: 'entry';
           delaySeconds: number;
           parts: Array<{
-            content: ({
+            content: (({
               buttons: Array<{
                 row?: number;
                 text: string;
@@ -1592,6 +1799,29 @@ export class CommunicationsService {
               fileId: string;
               text: string;
               type: 'document';
+            }) | {
+              buttons: Array<{
+                row?: number;
+                text: string;
+                url: string;
+              }>;
+              entities: Array<({
+                language?: string;
+                length: number;
+                offset: number;
+                type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+                url?: string;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
+              nativeCount: number;
+              nativeLinks: Array<string>;
+              nativeRef: string;
+              text: string;
+              type: 'native';
             });
             partId: string;
           }>;
@@ -1633,7 +1863,7 @@ export class CommunicationsService {
         audienceSnapshotId: (string | string | null);
         broadcastId: string;
         parts: Array<{
-          content: ({
+          content: (({
             buttons: Array<{
               row?: number;
               text: string;
@@ -1758,6 +1988,29 @@ export class CommunicationsService {
             fileId: string;
             text: string;
             type: 'document';
+          }) | {
+            buttons: Array<{
+              row?: number;
+              text: string;
+              url: string;
+            }>;
+            entities: Array<({
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
+            nativeCount: number;
+            nativeLinks: Array<string>;
+            nativeRef: string;
+            text: string;
+            type: 'native';
           });
           partId: string;
           sendAfterSeconds?: number;
@@ -1848,7 +2101,7 @@ export class CommunicationsService {
       intro: {
         introId: string;
         parts: Array<{
-          content: ({
+          content: (({
             buttons: Array<{
               row?: number;
               text: string;
@@ -1973,6 +2226,29 @@ export class CommunicationsService {
             fileId: string;
             text: string;
             type: 'document';
+          }) | {
+            buttons: Array<{
+              row?: number;
+              text: string;
+              url: string;
+            }>;
+            entities: Array<({
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
+            nativeCount: number;
+            nativeLinks: Array<string>;
+            nativeRef: string;
+            text: string;
+            type: 'native';
           });
           partId: string;
         }>;
@@ -2003,7 +2279,7 @@ export class CommunicationsService {
         revision: number;
         sequenceId: (string | string | null);
         snapshot: Array<{
-          content: ({
+          content: (({
             buttons: Array<{
               row?: number;
               text: string;
@@ -2128,6 +2404,29 @@ export class CommunicationsService {
             fileId: string;
             text: string;
             type: 'document';
+          }) | {
+            buttons: Array<{
+              row?: number;
+              text: string;
+              url: string;
+            }>;
+            entities: Array<({
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
+            nativeCount: number;
+            nativeLinks: Array<string>;
+            nativeRef: string;
+            text: string;
+            type: 'native';
           });
           partId: string;
           sendAfterSeconds?: number;
@@ -2150,7 +2449,7 @@ export class CommunicationsService {
         audienceSnapshotId: (string | string | null);
         broadcastId: string;
         parts: Array<{
-          content: ({
+          content: (({
             buttons: Array<{
               row?: number;
               text: string;
@@ -2275,6 +2574,29 @@ export class CommunicationsService {
             fileId: string;
             text: string;
             type: 'document';
+          }) | {
+            buttons: Array<{
+              row?: number;
+              text: string;
+              url: string;
+            }>;
+            entities: Array<({
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
+            nativeCount: number;
+            nativeLinks: Array<string>;
+            nativeRef: string;
+            text: string;
+            type: 'native';
           });
           partId: string;
           sendAfterSeconds?: number;
@@ -2309,7 +2631,7 @@ export class CommunicationsService {
       status: 'ok';
       templates: Array<{
         botIdentity: string;
-        content: ({
+        content: (({
           buttons: Array<{
             row?: number;
             text: string;
@@ -2434,6 +2756,29 @@ export class CommunicationsService {
           fileId: string;
           text: string;
           type: 'document';
+        }) | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<({
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
+          nativeCount: number;
+          nativeLinks: Array<string>;
+          nativeRef: string;
+          text: string;
+          type: 'native';
         });
         revision: number;
         templateId: string;
@@ -2499,7 +2844,7 @@ export class CommunicationsService {
       status: 'ok';
       template: {
         botIdentity: string;
-        content: ({
+        content: (({
           buttons: Array<{
             row?: number;
             text: string;
@@ -2624,6 +2969,29 @@ export class CommunicationsService {
           fileId: string;
           text: string;
           type: 'document';
+        }) | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<({
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
+          nativeCount: number;
+          nativeLinks: Array<string>;
+          nativeRef: string;
+          text: string;
+          type: 'native';
         });
         revision: number;
         templateId: string;
@@ -2633,7 +3001,7 @@ export class CommunicationsService {
       sequence: {
         entryResponse: {
           parts: Array<{
-            content: ({
+            content: (({
               buttons: Array<{
                 row?: number;
                 text: string;
@@ -2758,6 +3126,29 @@ export class CommunicationsService {
               fileId: string;
               text: string;
               type: 'document';
+            }) | {
+              buttons: Array<{
+                row?: number;
+                text: string;
+                url: string;
+              }>;
+              entities: Array<({
+                language?: string;
+                length: number;
+                offset: number;
+                type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+                url?: string;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
+              nativeCount: number;
+              nativeLinks: Array<string>;
+              nativeRef: string;
+              text: string;
+              type: 'native';
             });
             partId: string;
           }>;
@@ -2778,7 +3169,7 @@ export class CommunicationsService {
           delayAnchor?: 'entry';
           delaySeconds: number;
           parts: Array<{
-            content: ({
+            content: (({
               buttons: Array<{
                 row?: number;
                 text: string;
@@ -2903,6 +3294,29 @@ export class CommunicationsService {
               fileId: string;
               text: string;
               type: 'document';
+            }) | {
+              buttons: Array<{
+                row?: number;
+                text: string;
+                url: string;
+              }>;
+              entities: Array<({
+                language?: string;
+                length: number;
+                offset: number;
+                type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+                url?: string;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
+              nativeCount: number;
+              nativeLinks: Array<string>;
+              nativeRef: string;
+              text: string;
+              type: 'native';
             });
             partId: string;
           }>;
@@ -2916,7 +3330,7 @@ export class CommunicationsService {
       sequences: Array<{
         entryResponse: {
           parts: Array<{
-            content: ({
+            content: (({
               buttons: Array<{
                 row?: number;
                 text: string;
@@ -3041,6 +3455,29 @@ export class CommunicationsService {
               fileId: string;
               text: string;
               type: 'document';
+            }) | {
+              buttons: Array<{
+                row?: number;
+                text: string;
+                url: string;
+              }>;
+              entities: Array<({
+                language?: string;
+                length: number;
+                offset: number;
+                type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+                url?: string;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
+              nativeCount: number;
+              nativeLinks: Array<string>;
+              nativeRef: string;
+              text: string;
+              type: 'native';
             });
             partId: string;
           }>;
@@ -3061,7 +3498,7 @@ export class CommunicationsService {
           delayAnchor?: 'entry';
           delaySeconds: number;
           parts: Array<{
-            content: ({
+            content: (({
               buttons: Array<{
                 row?: number;
                 text: string;
@@ -3186,6 +3623,29 @@ export class CommunicationsService {
               fileId: string;
               text: string;
               type: 'document';
+            }) | {
+              buttons: Array<{
+                row?: number;
+                text: string;
+                url: string;
+              }>;
+              entities: Array<({
+                language?: string;
+                length: number;
+                offset: number;
+                type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+                url?: string;
+              } | {
+                custom_emoji_id: string;
+                length: number;
+                offset: number;
+                type: 'custom_emoji';
+              })>;
+              nativeCount: number;
+              nativeLinks: Array<string>;
+              nativeRef: string;
+              text: string;
+              type: 'native';
             });
             partId: string;
           }>;
@@ -3227,7 +3687,7 @@ export class CommunicationsService {
         audienceSnapshotId: (string | string | null);
         broadcastId: string;
         parts: Array<{
-          content: ({
+          content: (({
             buttons: Array<{
               row?: number;
               text: string;
@@ -3352,6 +3812,29 @@ export class CommunicationsService {
             fileId: string;
             text: string;
             type: 'document';
+          }) | {
+            buttons: Array<{
+              row?: number;
+              text: string;
+              url: string;
+            }>;
+            entities: Array<({
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
+            nativeCount: number;
+            nativeLinks: Array<string>;
+            nativeRef: string;
+            text: string;
+            type: 'native';
           });
           partId: string;
           sendAfterSeconds?: number;
@@ -3442,7 +3925,7 @@ export class CommunicationsService {
       intro: {
         introId: string;
         parts: Array<{
-          content: ({
+          content: (({
             buttons: Array<{
               row?: number;
               text: string;
@@ -3567,6 +4050,29 @@ export class CommunicationsService {
             fileId: string;
             text: string;
             type: 'document';
+          }) | {
+            buttons: Array<{
+              row?: number;
+              text: string;
+              url: string;
+            }>;
+            entities: Array<({
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
+            nativeCount: number;
+            nativeLinks: Array<string>;
+            nativeRef: string;
+            text: string;
+            type: 'native';
           });
           partId: string;
         }>;
@@ -3597,7 +4103,7 @@ export class CommunicationsService {
         revision: number;
         sequenceId: (string | string | null);
         snapshot: Array<{
-          content: ({
+          content: (({
             buttons: Array<{
               row?: number;
               text: string;
@@ -3722,6 +4228,29 @@ export class CommunicationsService {
             fileId: string;
             text: string;
             type: 'document';
+          }) | {
+            buttons: Array<{
+              row?: number;
+              text: string;
+              url: string;
+            }>;
+            entities: Array<({
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
+            nativeCount: number;
+            nativeLinks: Array<string>;
+            nativeRef: string;
+            text: string;
+            type: 'native';
           });
           partId: string;
           sendAfterSeconds?: number;
@@ -3744,7 +4273,7 @@ export class CommunicationsService {
         audienceSnapshotId: (string | string | null);
         broadcastId: string;
         parts: Array<{
-          content: ({
+          content: (({
             buttons: Array<{
               row?: number;
               text: string;
@@ -3869,6 +4398,29 @@ export class CommunicationsService {
             fileId: string;
             text: string;
             type: 'document';
+          }) | {
+            buttons: Array<{
+              row?: number;
+              text: string;
+              url: string;
+            }>;
+            entities: Array<({
+              language?: string;
+              length: number;
+              offset: number;
+              type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+              url?: string;
+            } | {
+              custom_emoji_id: string;
+              length: number;
+              offset: number;
+              type: 'custom_emoji';
+            })>;
+            nativeCount: number;
+            nativeLinks: Array<string>;
+            nativeRef: string;
+            text: string;
+            type: 'native';
           });
           partId: string;
           sendAfterSeconds?: number;
@@ -3903,7 +4455,7 @@ export class CommunicationsService {
       status: 'ok';
       templates: Array<{
         botIdentity: string;
-        content: ({
+        content: (({
           buttons: Array<{
             row?: number;
             text: string;
@@ -4028,6 +4580,29 @@ export class CommunicationsService {
           fileId: string;
           text: string;
           type: 'document';
+        }) | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<({
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
+          nativeCount: number;
+          nativeLinks: Array<string>;
+          nativeRef: string;
+          text: string;
+          type: 'native';
         });
         revision: number;
         templateId: string;
@@ -4143,7 +4718,7 @@ export class CommunicationsService {
     requestBody: {
       contractVersion: 'inside-communications-v2';
       parts: Array<{
-        content: ({
+        content: (({
           buttons: Array<{
             row?: number;
             text: string;
@@ -4268,6 +4843,29 @@ export class CommunicationsService {
           fileId: string;
           text: string;
           type: 'document';
+        }) | {
+          buttons: Array<{
+            row?: number;
+            text: string;
+            url: string;
+          }>;
+          entities: Array<({
+            language?: string;
+            length: number;
+            offset: number;
+            type: 'mention' | 'hashtag' | 'cashtag' | 'bot_command' | 'url' | 'email' | 'phone_number' | 'bold' | 'italic' | 'underline' | 'strikethrough' | 'spoiler' | 'code' | 'pre' | 'text_link' | 'blockquote' | 'expandable_blockquote';
+            url?: string;
+          } | {
+            custom_emoji_id: string;
+            length: number;
+            offset: number;
+            type: 'custom_emoji';
+          })>;
+          nativeCount: number;
+          nativeLinks: Array<string>;
+          nativeRef: string;
+          text: string;
+          type: 'native';
         });
         partId: string;
       }>;

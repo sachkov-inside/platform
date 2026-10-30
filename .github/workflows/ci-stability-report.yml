@@ -1,0 +1,40 @@
+name: CI stability history
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: platform-ci-stability-history
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: Read bounded CI history
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Check out report collector
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Platform
+        uses: ./.github/actions/setup-platform
+      - name: Collect seven days of CI observations without mutations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HISTORY_REPOSITORY: ${{ github.repository }}
+        run: node scripts/ci-stability-report.mjs "$HISTORY_REPOSITORY" ci-artifacts/ci-history
+      - name: Upload bounded report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-history-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-artifacts/ci-history
+          if-no-files-found: error
+          retention-days: 7

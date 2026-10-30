@@ -34,7 +34,8 @@ import {
   schedulerLock,
 } from "./communication-state.js";
 import { isDeepStrictEqual } from "node:util";
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
+import { NativeMessages } from "./native-messages.js";
 import type { Transaction } from "kysely";
 import {
   DATABASE,
@@ -107,6 +108,9 @@ export class CommunicationSequences {
     private readonly contentValidation: AuthorContentValidation,
     @Inject(WAITLIST_AUTHORIZATION)
     private readonly waitlist: WaitlistAuthorization = new DisabledWaitlistAuthorization(),
+    @Optional()
+    @Inject(NativeMessages)
+    private readonly native?: NativeMessages,
   ) {}
   async execute(
     request: CommunicationsRequest,
@@ -124,6 +128,20 @@ export class CommunicationSequences {
         permission === "denied" ? "forbidden" : "authorization_unavailable",
       );
     const work = async (tx: Transaction<DatabaseSchema>) => {
+      const contents = [
+        ...(request.payload.content ? [request.payload.content] : []),
+        ...(request.payload.parts ?? []).map((part) => part.content),
+        ...(request.payload.entryResponse?.parts ?? []).map(
+          (part) => part.content,
+        ),
+        ...(request.payload.steps ?? []).flatMap((step) =>
+          step.parts.map((part) => part.content),
+        ),
+      ];
+      if (contents.some((content) => content.type === "native")) {
+        if (!this.native) throw new CommunicationsError("unsupported_content");
+        await this.native.assertOwned(tx, actor, contents);
+      }
       await communicationLock(
         tx,
         `communications-operation:${this.config.botIdentity}:${request.operationId}`,

@@ -29,7 +29,8 @@ export const buttonSchema = z.strictObject({
   "row": z.number().int().min(0).max(19).optional(),
 });
 
-export const contentSchema = z.union([z.strictObject({
+export const contentSchema = z.union([
+z.union([z.strictObject({
   "type": z.literal("text"),
   "text": z.string().min(1).max(4096),
   "entities": z.array(entitySchema).min(0).max(100),
@@ -69,7 +70,17 @@ z.strictObject({
   "entities": z.array(entitySchema).min(0).max(100),
   "buttons": z.array(buttonSchema).min(0).max(20),
   "fileId": z.string().regex(new RegExp("^[A-Za-z0-9_-]{1,1024}$")),
-})]);
+})]),
+z.strictObject({
+  "type": z.literal("native"),
+  "text": z.string().max(4096),
+  "entities": z.array(entitySchema).max(0),
+  "buttons": z.array(buttonSchema).min(0).max(20),
+  "nativeRef": idSchema,
+  "nativeCount": z.number().int().min(1).max(10),
+  "nativeLinks": z.array(z.url().max(2048).regex(new RegExp("^https://"))).max(1000),
+})
+]);
 
 export const partSchema = z.strictObject({
   "partId": z.guid(),

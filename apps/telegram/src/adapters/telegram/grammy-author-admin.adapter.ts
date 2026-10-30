@@ -1,6 +1,7 @@
 import { isTruthy } from "../../shared/truthiness.js";
 import type { AuthorInput } from "../../modules/communications/author-input.js";
 import { snapshot } from "./grammy-template-intake.adapter.js";
+import { nativeMessageSource } from "../../modules/communications/native-message-source.js";
 
 export function translateAuthorInput(
   botIdentity: string,
@@ -36,6 +37,14 @@ export function translateAuthorInput(
       return;
     pressed = { callbackData: data, callbackQueryId: id };
   }
+  const source =
+    !callback &&
+    !(
+      typeof message["text"] === "string" &&
+      message["text"].trim().startsWith("/")
+    )
+      ? nativeMessageSource(message)
+      : undefined;
   return {
     botIdentity,
     updateId,
@@ -46,6 +55,7 @@ export function translateAuthorInput(
         ? message["text"].trim()
         : "",
     content: callback ? null : snapshot(message),
+    ...(source !== undefined ? { nativeSource: source } : {}),
     ...pressed,
   };
 }

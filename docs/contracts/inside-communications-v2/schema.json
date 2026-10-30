@@ -132,103 +132,164 @@
       ]
     },
     "content": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "type": {
-          "enum": [
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "enum": [
+                "text",
+                "photo",
+                "video",
+                "video_note",
+                "voice",
+                "document"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "entities": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/entity"
+              },
+              "minItems": 0,
+              "maxItems": 100
+            },
+            "buttons": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/button"
+              },
+              "minItems": 0,
+              "maxItems": 20
+            },
+            "fileId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,1024}$"
+            }
+          },
+          "required": [
+            "type",
             "text",
-            "photo",
-            "video",
-            "video_note",
-            "voice",
-            "document"
+            "entities",
+            "buttons"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "text"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "text": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "fileId": false
+                }
+              },
+              "else": {
+                "required": [
+                  "fileId"
+                ],
+                "properties": {
+                  "text": {
+                    "maxLength": 1024,
+                    "type": "string"
+                  },
+                  "fileId": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "type": {
+                    "const": "video_note"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "text": {
+                    "maxLength": 0,
+                    "type": "string"
+                  },
+                  "entities": {
+                    "maxItems": 0,
+                    "type": "array"
+                  }
+                }
+              }
+            }
           ]
         },
-        "text": {
-          "type": "string",
-          "maxLength": 4096
-        },
-        "entities": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/entity"
-          },
-          "minItems": 0,
-          "maxItems": 100
-        },
-        "buttons": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/button"
-          },
-          "minItems": 0,
-          "maxItems": 20
-        },
-        "fileId": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9_-]{1,1024}$"
-        }
-      },
-      "required": [
-        "type",
-        "text",
-        "entities",
-        "buttons"
-      ],
-      "allOf": [
         {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "text"
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "enum": [
+                "native"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "entities": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/entity"
+              },
+              "maxItems": 0
+            },
+            "buttons": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/button"
+              },
+              "minItems": 0,
+              "maxItems": 20
+            },
+            "nativeRef": {
+              "$ref": "#/definitions/id"
+            },
+            "nativeCount": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "nativeLinks": {
+              "type": "array",
+              "maxItems": 1000,
+              "items": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 2048,
+                "pattern": "^https://"
               }
             }
           },
-          "then": {
-            "properties": {
-              "text": {
-                "minLength": 1,
-                "type": "string"
-              },
-              "fileId": false
-            }
-          },
-          "else": {
-            "required": [
-              "fileId"
-            ],
-            "properties": {
-              "text": {
-                "maxLength": 1024,
-                "type": "string"
-              },
-              "fileId": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "type": {
-                "const": "video_note"
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "text": {
-                "maxLength": 0,
-                "type": "string"
-              },
-              "entities": {
-                "maxItems": 0,
-                "type": "array"
-              }
-            }
-          }
+          "required": [
+            "type",
+            "text",
+            "entities",
+            "buttons",
+            "nativeRef",
+            "nativeCount",
+            "nativeLinks"
+          ]
         }
       ]
     },
