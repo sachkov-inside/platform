@@ -762,19 +762,42 @@ class RejectionSafetyTests(unittest.TestCase):
                 temporary = output / '.source-status-rejection.new'
                 if kind == 'collision':
                     temporary.write_text('private-sentinel')
+                native_open = os.open
                 native_link = os.link
+                descriptors = []
+                linked_descriptors = []
+                def acquired(path, *args, **kwargs):
+                    descriptor = native_open(path, *args, **kwargs)
+                    if path == temporary.name:
+                        descriptors.append(descriptor)
+                    return descriptor
                 def replace_before_link(src, dst, **kwargs):
+                    try:
+                        linked_descriptors.append(os.fstat(descriptors[0]))
+                    except OSError:
+                        linked_descriptors.append(None)
                     temporary.unlink()
                     temporary.write_text('private-sentinel')
                     temporary.chmod(0o600)
                     return native_link(src, dst, **kwargs)
                 with server(self.reply) as port, contextlib.ExitStack() as stack:
                     if kind == 'replacement':
+                        stack.enter_context(patch('os.open', side_effect=acquired))
                         stack.enter_context(patch('os.link', side_effect=replace_before_link))
                     report = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
                 self.assertEqual(report['query']['state'], 'malformed')
                 self.assertFalse((output / 'source-status-rejection.json').exists())
                 self.assertEqual(temporary.read_text(), 'private-sentinel')
+                if kind == 'replacement':
+                    self.assertEqual(len(descriptors), 1)
+                    self.assertEqual(len(linked_descriptors), 1)
+                    self.assertIsNotNone(linked_descriptors[0])
+                    replacement = temporary.stat()
+                    original = linked_descriptors[0]
+                    self.assertNotEqual((original.st_dev, original.st_ino),
+                                        (replacement.st_dev, replacement.st_ino))
+                    with self.assertRaises(OSError):
+                        os.fstat(descriptors[0])
 
 
 if __name__ == '__main__':
