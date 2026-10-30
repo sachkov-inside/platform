@@ -4,7 +4,8 @@ import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { CatalogBackLink } from "./catalog-back-link";
 
 const meta = {
-  title: "Components/Catalog back link",
+  id: "components-catalog-back-link",
+  title: "Components/Navigation/Catalog back link",
   component: CatalogBackLink,
   args: { href: "/", label: "Главная" },
   tags: ["autodocs"],

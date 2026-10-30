@@ -103,7 +103,8 @@ const environment = authoringPageEnvironment(
 );
 const meta = {
   ...environment,
-  title: "Components/Material video/Polling",
+  id: "components-material-video-polling",
+  title: "Patterns/Authoring/Video processing",
   component: MaterialVideoAuthoring,
   beforeEach: () => {
     environment.beforeEach();

@@ -15,7 +15,8 @@ const meta = {
   },
   component: ContentCoverEditor,
   parameters: { layout: "padded" },
-  title: "Components/Content Cover editor",
+  id: "components-content-cover-editor",
+  title: "Components/Админка/Редактор/Content cover",
 } satisfies Meta<typeof ContentCoverEditor>;
 
 export default meta;

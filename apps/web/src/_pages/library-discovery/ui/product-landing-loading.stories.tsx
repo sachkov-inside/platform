@@ -87,7 +87,8 @@ const environment = publicPageEnvironment("/products/ai-engineering");
 const meta = {
   ...environment,
   component: ProductLandingView,
-  title: "Pages/Product/Product loading",
+  id: "pages-product-product-loading",
+  title: "Pages/Product/Landing/Loading",
   parameters: {
     ...environment.parameters,
     docs: {

@@ -92,7 +92,8 @@ function entryState(entry: CommunityEntry, paid = true) {
 }
 const meta = {
   ...environment,
-  title: "Pages/Product/Onboarding",
+  id: "pages-product-onboarding",
+  title: "Pages/Product/Programme/Onboarding",
   component: Programme,
   beforeEach: entryState({ kind: "link_telegram" }),
   tags: ["autodocs"],

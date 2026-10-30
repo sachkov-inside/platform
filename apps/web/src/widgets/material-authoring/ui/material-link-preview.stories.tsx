@@ -5,7 +5,8 @@ import { expect, fn, spyOn, userEvent, within } from "storybook/test";
 import { MaterialLinkPreview } from "./material-link-preview.client";
 
 const meta = {
-  title: "Функции/Редактор/Предпросмотр ссылки",
+  id: "функции-редактор-предпросмотр-ссылки",
+  title: "Components/Админка/Редактор/Link preview",
   component: MaterialLinkPreview,
   args: {
     cover: null,

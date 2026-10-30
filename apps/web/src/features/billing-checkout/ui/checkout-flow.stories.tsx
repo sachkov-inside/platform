@@ -35,7 +35,8 @@ const editionReplaced = fetchBeforeRender((input) => {
 
 const meta = {
   ...environment,
-  title: "Pages/Product/Payment/Flow",
+  id: "pages-product-payment-flow",
+  title: "Patterns/Billing/Checkout flow",
   component: CheckoutFlow,
   args: {
     snapshot: productOnlyOffer,

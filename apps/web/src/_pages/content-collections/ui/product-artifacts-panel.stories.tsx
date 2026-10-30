@@ -113,7 +113,8 @@ const meta = {
     ),
     ...environment.decorators,
   ],
-  title: "Features/Product/Product artifacts",
+  id: "features-product-product-artifacts",
+  title: "Patterns/Authoring/Product artifacts",
 } satisfies Meta<typeof ProductArtifactsPanel>;
 
 export default meta;
