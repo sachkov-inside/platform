@@ -11,8 +11,9 @@ GitHub authenticates the publishing account. The verifier reads current PRs, iss
 comments and the publisher's current repository permission. A publisher needs `write`, `maintain`
 or `admin` permission. The current repository-permission endpoint is authoritative;
 `author_association` is informational and can hide private organization membership from CI.
-Markers from accounts without write permission are ignored before parsing. Permission API failures
-fail closed. One authorized account may publish reports from separate native workers operating
+Markers from accounts without write permission are ignored before parsing. Permission reads are
+reused per publisher within one verification snapshot, including refusals. Initial permission API
+failures fail closed. One authorized account may publish reports from separate native workers operating
 under the same owner.
 
 Native worker IDs, transcript references, completeness and finding dispositions are accountable

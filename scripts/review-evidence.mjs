@@ -330,6 +330,8 @@ export async function verify({
   }
   requireValue(prs.size > 0, "No current PR covers candidate");
   const sources = [];
+  /** @type {Map<string, boolean>} */
+  const publisherPermissions = new Map();
   for (const [number, pr] of prs) {
     requireValue(
       pr["number"] === number &&
@@ -358,17 +360,21 @@ export async function verify({
       )
         continue;
       const publisher = stringField(object(comment["user"]), "login");
-      const permission = object(
-        await api(`collaborators/${encodeURIComponent(publisher)}/permission`),
-      );
-      // Association labels hide private organization membership from the CI token.
-      // Current repository authority decides eligibility before parsing untrusted markers.
-      if (
-        !["admin", "maintain", "write"].includes(
+      let allowed = publisherPermissions.get(publisher);
+      if (allowed === undefined) {
+        const permission = object(
+          await api(
+            `collaborators/${encodeURIComponent(publisher)}/permission`,
+          ),
+        );
+        // Association labels hide private organization membership from the CI token.
+        // Repeated markers share this invocation's permission snapshot, including refusals.
+        allowed = ["admin", "maintain", "write"].includes(
           stringField(permission, "permission"),
-        )
-      )
-        continue;
+        );
+        publisherPermissions.set(publisher, allowed);
+      }
+      if (!allowed) continue;
       requireValue(
         comment["body"].startsWith(`${marker}\n`),
         "Malformed review receipt marker",

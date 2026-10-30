@@ -356,6 +356,33 @@ test("readers cannot forge receipts or deny service regardless of association la
   }
 });
 
+test("repeated markers share one current permission read per publisher", async (t) => {
+  const f = await fixture(t);
+  const historical = { ...f.body, headSha: "a".repeat(40) };
+  for (let id = 124; id < 144; id++) {
+    f.comments.push({
+      ...f.comment,
+      id,
+      body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(historical)}`,
+    });
+    f.comments.push({
+      ...f.comment,
+      id: id + 100,
+      user: { login: "outsider" },
+      author_association: "NONE",
+      body: "<!-- platform-review-evidence:v1 -->\n{",
+    });
+  }
+  f.routes["collaborators/publisher/permission"] = {
+    $responses: [{ permission: "write" }, null],
+  };
+  f.routes["collaborators/outsider/permission"] = {
+    $responses: [{ permission: "read" }, null],
+  };
+  const result = await f.check();
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test("permission lookup failures reject a receipt even when membership looks authorized", async (t) => {
   const f = await fixture(t);
   delete f.routes["collaborators/publisher/permission"];
