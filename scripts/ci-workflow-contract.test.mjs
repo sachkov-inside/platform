@@ -44,6 +44,24 @@ const signozWorkflow = readFileSync(
 );
 
 /** @param {string} source */
+function assertNodeCacheSegmentTimeout(source) {
+  const nodeStep =
+    source.match(
+      /^ {4}- name: Install Node\.js\n([\s\S]*?)(?=\n {4}- name:|(?![\s\S]))/mu,
+    )?.[1] ?? "";
+  assert.match(nodeStep, /^ {6}uses: actions\/setup-node@/mu);
+  assert.match(
+    nodeStep,
+    /^ {6}env:\n {8}SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"$/mu,
+  );
+  assert.equal(
+    [...source.matchAll(/SEGMENT_DOWNLOAD_TIMEOUT_MINS/gu)].length,
+    1,
+    "only setup-node may override the cache segment timeout",
+  );
+}
+
+/** @param {string} source */
 function assertResourceHostNode(source) {
   const reference = signozWorkflow.match(
     /uses: (actions\/setup-node@[^\n]+)/u,
@@ -924,6 +942,33 @@ describe("application CI workflow contract", () => {
       /bash scripts\/install-playwright-ci\.sh \$BROWSERS$/mu,
     );
     assert.doesNotMatch(workflow, /pnpm install/u);
+  });
+
+  it("bounds pnpm store cache segments only in the existing setup-node step", () => {
+    assertNodeCacheSegmentTimeout(setupAction);
+  });
+
+  it("rejects missing, widened, moved and duplicated cache segment overrides", () => {
+    const env = '      env:\n        SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"\n';
+    for (const candidate of [
+      setupAction.replace(env, ""),
+      setupAction.replace(env, env.replace('"2"', '"10"')),
+      setupAction.replace(env, env.replace("env:", "with:")),
+      'env:\n  SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"\n' +
+        setupAction.replace(env, ""),
+      setupAction
+        .replace(env, "")
+        .replace(
+          "    - name: Cache pnpm metadata and verification\n",
+          "    - name: Cache pnpm metadata and verification\n" + env,
+        ),
+      setupAction.replace(
+        "    - name: Restore Playwright browser engines\n",
+        "    - name: Restore Playwright browser engines\n" + env,
+      ),
+    ]) {
+      assert.throws(() => assertNodeCacheSegmentTimeout(candidate));
+    }
   });
 
   it("bounds dependency installation and reuses pnpm's policy-aware cache (#1763)", () => {

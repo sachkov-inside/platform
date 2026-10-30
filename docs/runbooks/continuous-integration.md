@@ -107,11 +107,21 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 
 `.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact
-Playwright version. `setup-node` caches the pnpm package store. A separate exact-key cache retains
+Playwright version. `setup-node` caches the pnpm package store. Only its `Install Node.js` step
+sets `SEGMENT_DOWNLOAD_TIMEOUT_MINS=2`: the pinned cache library aborts a stalled 128 MiB segment
+after two minutes and treats that timeout as a cache miss, allowing normal frozen installation
+and security checks to proceed. The default ten-minute segment limit could consume the entire
+ten-minute Security job before installation starts. This is a per-segment limit, not a deadline
+for the whole archive or a guarantee that setup and checks finish within the job budget; the
+underlying cause of the observed stalled transfer remains unknown.
+
+A separate exact-key cache retains
 pnpm's registry metadata and policy-bound lockfile verification records; pnpm itself checks whether
 a cached verdict still matches the lockfile and active policies. Its key binds the lockfile,
 workspace policy, root manifest (including pnpm version), npm configuration, Node pin and setup
-action. Dependency installation runs under GNU `timeout` with a four-minute deadline and ten-second
+action. Changing this action naturally changes that metadata key and can produce a cold cache;
+the key definition and cache trust remain unchanged. Dependency installation runs under GNU
+`timeout` with a four-minute deadline and ten-second
 forced-shutdown grace: pnpm's request timeout bounds
 inactivity and cannot stop a response that keeps trickling bytes (#1763). A deadline failure fails
 the job; it neither skips dependency policies nor starts tests with a partial installation.

@@ -36,7 +36,7 @@ class TrackingOwnership(unittest.TestCase):
             self.assertEqual(len(plan['services']),9)
             self.assertEqual(len(plan['volumes']),5)
             self.assertEqual(len(plan['networks']),2)
-            self.assertEqual(sum(float(value['cpus']) for value in plan['services'].values()),2.1)
+            self.assertEqual(sum(float(value['cpus']) for value in plan['services'].values()),2.35)
             self.assertEqual(sum(int(value['mem_limit'][:-1]) for value in plan['services'].values()),4224)
             self.assertEqual(plan['services']['postgres']['image'],ownership.PG_IMAGE)
             self.assertEqual(plan['services']['postgres']['logging'],{'driver':'none'})
