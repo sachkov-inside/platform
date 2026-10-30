@@ -147,6 +147,7 @@ function PersonalPart({
     >
       <ProductProgrammeView
         productOffer={productOnlyOffer}
+        productOpen
         result={memberResult}
       />
     </ProductLearningProvider>
@@ -242,7 +243,7 @@ function loadsInPlace(
       });
       await expect(
         canvasElement.querySelectorAll("[data-product-access-pending]").length,
-      ).toBe(materials.length - 2);
+      ).toBe(materials.length);
       const sharedPart = measure(canvasElement);
 
       sequence.deliverPersonalPart();
