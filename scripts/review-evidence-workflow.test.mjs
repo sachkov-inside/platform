@@ -72,7 +72,7 @@ test("authoritative PR and queue bases alone select the immutable squash migrati
       assert.equal(
         readFileSync(output, "utf8"),
         valid
-          ? `source_sha=${base === migrationBase ? migrationSource : base}\n`
+          ? `source_sha=${base === migrationBase ? migrationSource : base}\nmigration=${base === migrationBase}\n`
           : "",
       );
     }
@@ -92,6 +92,118 @@ test("authoritative PR and queue bases alone select the immutable squash migrati
     },
   );
   assert.equal(unsupported.status, 1);
+});
+
+test("migration queue probe verifies job-token capability without changing review status", async (t) => {
+  const cwd = mkdtempSync(resolve(tmpdir(), "review-queue-probe-"));
+  t.after(() => rmSync(cwd, { recursive: true, force: true }));
+  const preload = resolve(cwd, "fetch-double.mjs");
+  writeFileSync(
+    preload,
+    `
+    import assert from "node:assert/strict";
+    const timeout = AbortSignal.timeout;
+    AbortSignal.timeout = (milliseconds) => {
+      assert.equal(milliseconds, 10000);
+      return timeout(milliseconds);
+    };
+    globalThis.fetch = async (url, options) => {
+      assert.equal(url, "https://api.github.com/graphql");
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers.Authorization, "Bearer fixture-readonly-token");
+      assert.ok(options.signal instanceof AbortSignal);
+      const request = JSON.parse(options.body);
+      assert.deepEqual(request.variables, { owner: "inside", name: "platform" });
+      assert.equal(request.query, 'query ReviewQueueCapability($owner:String!,$name:String!) { repository(owner:$owner,name:$name) { mergeQueue(branch:"main") { entries(first:1) { nodes { headCommit { oid } pullRequest { number headRefOid } } } } } }');
+      const scenario = process.env["PROBE_SCENARIO"];
+      if (scenario === "network") throw new Error("SECRET_PROVIDER_TOKEN_DETAIL");
+      if (scenario === "timeout") throw new DOMException("SECRET_PROVIDER_TOKEN_DETAIL", "TimeoutError");
+      if (scenario === "permission") return new Response("SECRET_PROVIDER_TOKEN_DETAIL", { status: 403 });
+      if (scenario === "provider") return new Response("SECRET_PROVIDER_TOKEN_DETAIL", { status: 503 });
+      if (scenario === "bad-json") return new Response("SECRET_PROVIDER_TOKEN_DETAIL");
+      let nodes = [];
+      if (scenario === "populated" || scenario === "pending") nodes = [{ headCommit: scenario === "pending" ? null : { oid: "a".repeat(40) }, pullRequest: { number: 12, headRefOid: "b".repeat(40) } }];
+      if (scenario === "bad-head") nodes = [{ headCommit: { oid: "main" }, pullRequest: { number: 12, headRefOid: "b".repeat(40) } }];
+      if (scenario === "bad-pr") nodes = [{ headCommit: null, pullRequest: { number: 0, headRefOid: "main" } }];
+      let body = { data: { repository: { mergeQueue: { entries: { nodes } } } } };
+      if (scenario === "graphql") body.errors = [{ message: "SECRET_PROVIDER_TOKEN_DETAIL" }];
+      if (scenario === "null-queue") body.data.repository.mergeQueue = null;
+      if (scenario === "partial") delete body.data.repository.mergeQueue.entries;
+      if (scenario === "nonarray") body.data.repository.mergeQueue.entries.nodes = {};
+      if (scenario === "too-many") body.data.repository.mergeQueue.entries.nodes = [{}, {}];
+      return Response.json(body, { status: scenario === "unexpected-status" ? 201 : 200 });
+    };
+  `,
+  );
+  const output = resolve(cwd, "output");
+  const summary = resolve(cwd, "summary");
+  for (const scenario of [
+    "empty",
+    "populated",
+    "pending",
+    "permission",
+    "unexpected-status",
+    "provider",
+    "network",
+    "timeout",
+    "bad-json",
+    "graphql",
+    "null-queue",
+    "partial",
+    "nonarray",
+    "too-many",
+    "bad-head",
+    "bad-pr",
+    "missing-token",
+  ]) {
+    writeFileSync(output, "");
+    writeFileSync(summary, "");
+    const result = await runReviewProcess(
+      "bash",
+      ["-euc", command("Verify migration queue read capability")],
+      {
+        cwd,
+        env: {
+          ...process.env,
+          NODE_OPTIONS: `--import=${preload}`,
+          GH_TOKEN:
+            scenario === "missing-token" ? "" : "fixture-readonly-token",
+          GITHUB_REPOSITORY: "inside/platform",
+          GITHUB_OUTPUT: output,
+          GITHUB_STEP_SUMMARY: summary,
+          PROBE_SCENARIO: scenario,
+        },
+      },
+    );
+    const valid = ["empty", "populated", "pending"].includes(scenario);
+    assert.equal(result.status, valid ? 0 : 1, `${scenario}: ${result.stderr}`);
+    assert.doesNotMatch(
+      result.stdout + result.stderr,
+      /SECRET_PROVIDER_TOKEN_DETAIL|fixture-readonly-token|status=/u,
+    );
+    assert.equal(readFileSync(output, "utf8"), "");
+    assert.equal(readFileSync(summary, "utf8"), "");
+    if (valid) assert.match(result.stdout, /queue read capability verified/u);
+  }
+  const step =
+    review
+      .split("      - name: Verify migration queue read capability\n")[1]
+      ?.split(/\n {6}- name:/u)[0] ?? "";
+  assert.match(
+    step,
+    /if: \$\{\{ inputs.source_sha == '' && steps.review-source.outputs.migration == 'true' \}\}/u,
+  );
+  assert.match(step, /GH_TOKEN: \$\{\{ github.token \}\}/u);
+  assert.ok(
+    review.indexOf("Install trusted verifier runtime") <
+      review.indexOf("Verify migration queue read capability"),
+  );
+  assert.ok(
+    review.indexOf("Verify migration queue read capability") <
+      review.indexOf(
+        "Verify current GitHub reviews under trusted target rules",
+      ),
+  );
 });
 
 test("migration checkout requires exact source and verifier digest before execution", async (t) => {

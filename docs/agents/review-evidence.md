@@ -173,6 +173,14 @@ The read-only verifier still performs full receipt, source, tree and provider ve
 returns its real result; candidate dependencies and scripts remain unexecuted in this job.
 Release `workflow_call` applicability remains `release-not-applicable`, with these checkouts skipped.
 
+After pinned Node setup, only that old-baseline migration also probes queue GraphQL read capability
+with the actual job's read-only token. Its constant query reads at most one queue entry's head and
+PR identity, validates HTTP/GraphQL response structure, and bounds the request by an abort timeout.
+Permission, provider or malformed responses fail the job without logging raw responses or tokens.
+An empty queue is valid capability evidence. This probe establishes access/schema for that job;
+it does not prove a positive live queue integration or replace A's complete verification. It writes
+no review status. Later ordinary bases and release calls skip this migration-only probe.
+
 Every other valid event base automatically uses that exact ordinary trusted target. Once main
 advances beyond the old baseline, the transition is inactive without changing flags, labels, inputs
 or branch rules. The historical condition may remain for reproducibility; its removal is an
