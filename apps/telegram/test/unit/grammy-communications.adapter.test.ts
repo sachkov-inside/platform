@@ -10,6 +10,44 @@ import {
 import { relativeDue } from "../../src/modules/communications/sequence-scheduler.js";
 import { required } from "../support/required.js";
 describe("communication transport", () => {
+  it.each(["text", "photo"] as const)(
+    "preserves custom emoji identifiers in outgoing %s entities",
+    async (type) => {
+      const send = vi.fn(() => Promise.resolve({ message_id: 123 }));
+      const adapter = new GrammyCommunicationsAdapter(
+        telegram({ sendMessage: send, sendPhoto: send }),
+      );
+      const entities = [
+        {
+          type: "custom_emoji",
+          offset: 0,
+          length: 2,
+          custom_emoji_id: "5432109876543210987",
+        },
+      ];
+      const content: TemplateContent = {
+        type,
+        text: "👾 Курс",
+        entities,
+        buttons: [],
+        ...(type === "photo" ? { fileId: "synthetic_photo" } : {}),
+      };
+      expect(await adapter.send({ chatId: "42", content })).toEqual({
+        kind: "delivered",
+        providerMessageId: "123",
+      });
+      expect(send).toHaveBeenCalledWith(
+        "42",
+        type === "photo" ? "synthetic_photo" : content.text,
+        {
+          ...(type === "photo"
+            ? { caption: content.text, caption_entities: entities }
+            : { entities }),
+          reply_markup: { inline_keyboard: [] },
+        },
+      );
+    },
+  );
   it("requests the canonical material card as large media above its announcement", async () => {
     const send = vi.fn(() => Promise.resolve({ message_id: 123 }));
     const adapter = new GrammyCommunicationsAdapter(

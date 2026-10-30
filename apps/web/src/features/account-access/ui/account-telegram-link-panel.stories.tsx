@@ -17,7 +17,8 @@ const environment = publicPageEnvironment("/account", {
 });
 
 const meta = {
-  title: "Patterns/Account access/Telegram notice",
+  id: "patterns-account-access-telegram-notice",
+  title: "Patterns/Account/Telegram notice",
   render: () => <></>,
   parameters: {
     docs: {

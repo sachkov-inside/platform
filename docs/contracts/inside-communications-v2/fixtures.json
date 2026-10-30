@@ -152,7 +152,9 @@
       "operationId": "11111111-1111-4111-8111-111111111111",
       "actor": {
         "accountRef": "synthetic-author",
-        "permissions": ["communications:manage"]
+        "permissions": [
+          "communications:manage"
+        ]
       },
       "expectedRevision": 0,
       "payload": {
@@ -2077,5 +2079,82 @@
         "receiptOperationId": "33333333-3333-4333-8333-333333333333"
       }
     }
+  },
+  {
+    "name": "custom emoji entity",
+    "definition": "entity",
+    "value": {
+      "type": "custom_emoji",
+      "offset": 0,
+      "length": 2,
+      "custom_emoji_id": "5432109876543210987"
+    },
+    "valid": true
+  },
+  {
+    "name": "custom emoji without id",
+    "definition": "entity",
+    "value": {
+      "type": "custom_emoji",
+      "offset": 0,
+      "length": 2
+    },
+    "valid": false
+  },
+  {
+    "name": "custom emoji with empty id",
+    "definition": "entity",
+    "value": {
+      "type": "custom_emoji",
+      "offset": 0,
+      "length": 2,
+      "custom_emoji_id": ""
+    },
+    "valid": false
+  },
+  {
+    "name": "custom emoji id on bold entity",
+    "definition": "entity",
+    "value": {
+      "type": "bold",
+      "offset": 0,
+      "length": 2,
+      "custom_emoji_id": "5432109876543210987"
+    },
+    "valid": false
+  },
+  {
+    "name": "custom emoji with unrelated url",
+    "definition": "entity",
+    "value": {
+      "type": "custom_emoji",
+      "offset": 0,
+      "length": 2,
+      "custom_emoji_id": "5432109876543210987",
+      "url": "https://inside.example"
+    },
+    "valid": false
+  },
+  {
+    "name": "custom emoji with invalid id",
+    "definition": "entity",
+    "value": {
+      "type": "custom_emoji",
+      "offset": 0,
+      "length": 2,
+      "custom_emoji_id": "not-an-emoji-id"
+    },
+    "valid": false
+  },
+  {
+    "name": "custom emoji with excessive id length",
+    "definition": "entity",
+    "value": {
+      "type": "custom_emoji",
+      "offset": 0,
+      "length": 2,
+      "custom_emoji_id": "111111111111111111111"
+    },
+    "valid": false
   }
 ]

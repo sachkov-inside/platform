@@ -213,7 +213,8 @@ const meta = {
       },
     },
   },
-  title: "Patterns/Каркас админки",
+  id: "patterns-каркас-админки",
+  title: "Patterns/Authoring/Shell",
 } satisfies Meta<typeof AuthoringMaterialsView>;
 
 export default meta;

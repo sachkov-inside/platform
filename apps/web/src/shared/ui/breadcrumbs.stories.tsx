@@ -10,7 +10,8 @@ import { Breadcrumbs } from "./breadcrumbs";
 
 const meta = {
   ...publicPageEnvironment("/materials/brief"),
-  title: "Shared/Breadcrumbs",
+  id: "shared-breadcrumbs",
+  title: "Components/Navigation/Breadcrumbs",
   component: Breadcrumbs,
   args: {
     items: [

@@ -1,0 +1,25 @@
+diff --git a/dist/chunks/startVitestModuleRunner.DB-7oCpn.js b/dist/chunks/startVitestModuleRunner.DB-7oCpn.js
+index 51603dba544cbff7ae2e0ecf28b1efa0776e6f43..e3bc58e270f35184cc2e200804c9f6af9bc1ac21 100644
+--- a/dist/chunks/startVitestModuleRunner.DB-7oCpn.js
++++ b/dist/chunks/startVitestModuleRunner.DB-7oCpn.js
+@@ -2,7 +2,7 @@ import fs from 'node:fs';
+ import { splitFileAndPostfix as splitFileAndPostfix$1, isBareImport } from '@vitest/utils/helpers';
+ import { i as isBuiltin, a as isBrowserExternal, t as toBuiltin } from './modules.BJuCwlRJ.js';
+ import { E as EnvironmentTeardownError, a as getSafeWorkerState } from './utils.BX5Fg8C4.js';
+-import { pathToFileURL } from 'node:url';
++import { fileURLToPath, pathToFileURL } from 'node:url';
+ import { normalize, join } from 'pathe';
+ import { distDir } from '../path.js';
+ import { VitestModuleEvaluator, unwrapId } from '../module-evaluator.js';
+@@ -412,7 +412,10 @@ If you need to partially mock a module, you can use "importOriginal" helper insi
+ 		});
+ 	}
+ 	async mockedRequest(url, evaluatedNode, callstack) {
+-		const mock = this.getDependencyMock(evaluatedNode.id);
++		// Vite strips file:// without decoding the external module id. Preserve literal percent signs.
++		const externalize = evaluatedNode.meta && "externalize" in evaluatedNode.meta ? evaluatedNode.meta.externalize : undefined;
++		const id = externalize?.startsWith("file://") ? normalizeModuleId(fileURLToPath(externalize)) : evaluatedNode.id;
++		const mock = this.getDependencyMock(id);
+ 		if (!mock) return;
+ 		return this.requestWithMockedModule(url, evaluatedNode, callstack, mock);
+ 	}

@@ -4,7 +4,8 @@ import { expect, fn, spyOn, userEvent, within } from "storybook/test";
 import { MaterialShareButton } from "./material-share-button.client";
 
 const meta = {
-  title: "Components/Material Sharing",
+  id: "components-material-sharing",
+  title: "Components/Material/Sharing",
   component: MaterialShareButton,
   args: { slug: "first-material", title: "Первый материал" },
   parameters: { layout: "padded" },

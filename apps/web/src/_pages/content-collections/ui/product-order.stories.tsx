@@ -107,7 +107,8 @@ const meta = {
     },
   },
   component: ProductOrderManager,
-  title: "Pages/Authoring/Состав продукта",
+  id: "pages-authoring-состав-продукта",
+  title: "Patterns/Authoring/Product programme tab",
 } satisfies Meta<typeof ProductOrderManager>;
 
 export default meta;

@@ -75,7 +75,8 @@ const environment = accountSectionEnvironment("/account", {
 });
 const meta = {
   component: AccountAccessPage,
-  title: "Pages/Account/Live cabinet",
+  id: "pages-account-live-cabinet",
+  title: "Pages/Account/Cabinet",
   args: { policies: [] },
   decorators: [
     (Story) => (

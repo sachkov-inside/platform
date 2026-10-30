@@ -14,7 +14,8 @@ const environment = publicPageEnvironment(
 const meta = {
   ...environment,
   component: InlineArtifactDownload,
-  title: "Features/Inline Artifact Download",
+  id: "features-inline-artifact-download",
+  title: "Components/Material/Artifact download",
   decorators: [
     (Story) => (
       <div className="mx-auto max-w-[43rem] p-6">

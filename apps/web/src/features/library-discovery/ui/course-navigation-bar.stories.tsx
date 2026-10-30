@@ -9,7 +9,8 @@ import {
 
 const meta = {
   ...publicPageEnvironment("/products/ai-engineering"),
-  title: "Features/Library/Course Navigation",
+  id: "features-library-course-navigation",
+  title: "Components/Product/Course navigation",
   component: CourseNavigationBar,
   globals: { viewport: { value: "mobile390", isRotated: false } },
   args: {

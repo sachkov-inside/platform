@@ -4,7 +4,8 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import { BookmarkAction } from "./bookmark-action.client";
 
 const meta = {
-  title: "Features/Bookmarks",
+  id: "features-bookmarks",
+  title: "Components/Bookmarks/Action",
   component: BookmarkAction,
   args: { onToggle: fn(), view: { kind: "ready", bookmarked: false } },
   parameters: {

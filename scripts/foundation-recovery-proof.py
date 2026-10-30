@@ -2,6 +2,7 @@
 """Ordinary synthetic recovery proof on an empty GitHub-hosted Docker runner."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import pathlib
@@ -15,6 +16,10 @@ import time
 import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+_process_spec = importlib.util.spec_from_file_location(
+    "foundation_processes", ROOT / "scripts/heavy-check/processes.py")
+_processes = importlib.util.module_from_spec(_process_spec)
+_process_spec.loader.exec_module(_processes)
 DATA = "/var/lib/postgresql/18/docker"
 DATABASES = ("inside", "logto")
 LABEL = "inside.foundation-proof"
@@ -24,25 +29,32 @@ def terminate(_signum, _frame):
     raise KeyboardInterrupt
 
 
+def signal_process_group(group, signum):
+    try:
+        os.killpg(group, signum)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        # Darwin retains zombie-only groups and reports EPERM. Native exit
+        # events must prove every member exited; real access denial still fails.
+        if platform.system() != "Darwin" or not _processes.darwin_group_exited(group):
+            raise
+        return False
+    return True
+
+
 def stop_process_group(group, leader=None):
     """Bounded shutdown of the exact process group owned by this invocation."""
-    try:
-        os.killpg(group, signal.SIGTERM)
-    except ProcessLookupError:
+    if not signal_process_group(group, signal.SIGTERM):
         return
     deadline = time.monotonic() + 2
     while time.monotonic() < deadline:
         if leader is not None:
             leader.poll()  # Reap our direct child before testing group disappearance.
-        try:
-            os.killpg(group, 0)
-        except ProcessLookupError:
+        if not signal_process_group(group, 0):
             return
         time.sleep(0.02)
-    try:
-        os.killpg(group, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
+    signal_process_group(group, signal.SIGKILL)
 
 
 def invoke(arguments, *, text=None, timeout=120, check=True, binary=False):

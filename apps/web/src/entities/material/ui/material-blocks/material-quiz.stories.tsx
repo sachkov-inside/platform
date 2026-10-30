@@ -20,7 +20,8 @@ const labels = [
   "Учитывать расходы на модели",
 ];
 const meta = {
-  title: "Entities/Material Quiz",
+  id: "entities-material-quiz",
+  title: "Components/Material/Quiz",
   component: MultipleQuiz,
   args: {
     selectionMode: "multiple",

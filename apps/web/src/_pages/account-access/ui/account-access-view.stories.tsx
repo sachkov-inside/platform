@@ -71,7 +71,8 @@ const meta = {
       },
     },
   },
-  title: "Pages/Account/Cabinet",
+  id: "pages-account-cabinet",
+  title: "Patterns/Account/Cabinet states",
 } satisfies Meta<typeof AccountAccessView>;
 
 export default meta;

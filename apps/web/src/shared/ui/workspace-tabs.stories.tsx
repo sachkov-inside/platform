@@ -4,7 +4,8 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import { WorkspaceTabs } from "./workspace-tabs.client";
 
 const meta = {
-  title: "Shared/Workspace tasks",
+  id: "shared-workspace-tasks",
+  title: "Components/Navigation/Workspace tabs",
   component: WorkspaceTabs,
   args: {
     label: "Задачи редактора",

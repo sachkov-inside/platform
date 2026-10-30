@@ -70,7 +70,8 @@ const meta = {
     ),
   ],
   component: ProductTaskView,
-  title: "Pages/Product Task",
+  id: "pages-product-task",
+  title: "Pages/Product/Task",
   parameters: {
     ...environment.parameters,
     docs: {
