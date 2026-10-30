@@ -39,26 +39,33 @@ jobs:
           persist-credentials: false
       - name: Verify preparation contracts
         run: bash scripts/heavy-check.sh python3 -B -m unittest discover -s scripts/observability-production -p 'test_*.py'
+      - name: Select bounded monitoring scope
+        id: scope
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
       - name: Bind source and disk admission
         run: >-
           python3 scripts/observability-production/check.py admission
+          --scope "${{ steps.scope.outputs.scope }}"
           --output "$RUNNER_TEMP/production-monitoring-private"
           --metadata "$RUNNER_TEMP/production-monitoring-metadata"
       - name: Run actual generated topology through existing supervisor
         timeout-minutes: 20
         run: >-
           bash scripts/heavy-check.sh python3 scripts/observability-production/measure.py run --host-metrics
+          --scope "${{ steps.scope.outputs.scope }}"
           --output "$RUNNER_TEMP/production-monitoring-private"
       - name: Recover only the registered project
         if: ${{ always() }}
         timeout-minutes: 5
         run: >-
           python3 scripts/observability-production/check.py recover
+          --scope "${{ steps.scope.outputs.scope || 'full' }}"
           --output "$RUNNER_TEMP/production-monitoring-private"
       - name: Collect explicit public evidence
         if: ${{ always() }}
         run: >-
           python3 scripts/observability-production/check.py collect
+          --scope "${{ steps.scope.outputs.scope || 'full' }}"
           --output "$RUNNER_TEMP/production-monitoring-private"
           --metadata "$RUNNER_TEMP/production-monitoring-metadata"
           --public "$RUNNER_TEMP/production-monitoring-public"

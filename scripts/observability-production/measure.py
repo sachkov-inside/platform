@@ -225,15 +225,15 @@ def phase(definition, *, repetition, states, project, token, profile):
         'volumes_used_bytes': volumes, 'errors': failures}
 
 
-def prepare(output, *, host_metrics):
-    check.prepare(output)
+def prepare(output, *, host_metrics, scope='full'):
+    check.prepare(output, scope=scope)
     plan = json.loads((output / 'compose.json').read_text())
     plan['services']['alloy']['ports'].append('127.0.0.1:14318:4318')
     if host_metrics:
         # Explicit fixture opt-in persists through supervisor cleanup/recovery commands.
         plan['services']['host-agent'].pop('profiles', None)
     pilot.write_json(output / 'compose.json', plan)
-    pilot.write_json(output / 'measurement-mode.json', {'host_metrics': host_metrics})
+    pilot.write_json(output / 'measurement-mode.json', {'host_metrics': host_metrics, 'production_scope': scope})
 
 
 def diagnose_host_startup(compose, project):
@@ -271,17 +271,21 @@ def diagnose_host_startup(compose, project):
     return result
 
 
-def worker(output):
+def worker(output, *, scope=None):
+    selected = production.prepared_scope(output, scope=scope)
+    mode = json.loads((output / 'measurement-mode.json').read_text())
+    if production.validate_scope(mode.get('production_scope', 'full')) != selected:
+        raise ValueError('production_scope_mismatch')
     if sys.platform != 'linux':
         raise ValueError('measurement_requires_owned_linux_runner')
-    check.worker(output)
+    check.worker(output, scope=selected)
     owner = json.loads((output / 'owner.json').read_text())
     compose = ['docker', 'compose', '-p', owner['project'], '-f', str(output / 'compose.json')]
-    host_metrics = json.loads((output / 'measurement-mode.json').read_text())['host_metrics']
+    host_metrics = mode['host_metrics']
     services = (*CORE, 'host-agent') if host_metrics else CORE
     profile = json.loads((production.CONFIG / 'workload.json').read_text())
     token = json.loads((output / 'auth.json').read_text())['users'][0]['bearer_token']
-    report = {'schema': 1, 'scope': 'isolated synthetic production technical topology only',
+    report = {'schema': 1, 'scope': 'isolated synthetic production technical topology only', 'production_scope': selected,
         'acceptance': 'pending', 'host_metrics': 'enabled: privileged owned Linux runner' if host_metrics else 'disabled',
         'profile': profile, 'phases': [], 'missing': profile['missing'], 'state': 'running'}
     host_startup_pending = host_metrics
@@ -334,14 +338,16 @@ def main():
     parser.add_argument('action', choices=('run', 'worker'))
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--host-metrics', action='store_true')
+    parser.add_argument('--scope', choices=production.SCOPES)
     args = parser.parse_args()
     if args.action == 'worker':
-        worker(args.output)
+        worker(args.output, scope=args.scope)
     else:
         if sys.platform != 'linux': parser.error('use an isolated Linux runner, not Mac/production')
-        pilot.run(args.output, prepare_inputs=lambda output: prepare(output, host_metrics=args.host_metrics),
+        selected = args.scope or 'full'
+        pilot.run(args.output, prepare_inputs=lambda output: prepare(output, host_metrics=args.host_metrics, scope=selected),
             worker_script=Path(__file__).resolve(), ports=(18427, 1514, 14318, 13000), project_prefix=check.PREFIX,
-            services=production.SERVICES, scope='two repeated synthetic technical production topology measurements',
+            services=production.SERVICES, scope=check.MEASUREMENT_SCOPE + '; production_scope=' + selected,
             missing=['shared PG18 and Umami', 'real application HTTP baseline', 'Timeweb reserve', 'seven days'])
 
 
