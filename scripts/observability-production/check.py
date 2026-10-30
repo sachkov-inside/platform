@@ -18,16 +18,43 @@ pilot = production.pilot
 sys.path.insert(0, str(production.HERE.parent / 'observability-pilot'))
 import ci
 SCOPE = 'Production generated config, read-key revocation and syslog sanitizer on synthetic owned storage; not Linux host/physical disk or capacity acceptance'
+VALIDATION_SCOPE = 'Stateless no-network Alloy parser validation only'
+MEASUREMENT_SCOPE = 'two repeated synthetic technical production topology measurements'
 PREFIX = 'inside-observability-production-check-'
 ARTIFACTS = ('production-proof.json', 'production-validation.json', 'production-measurements.json',
              'evidence.json', 'cleanup.json', 'worker-outcome.json', 'monitor-failure.json',
              'readiness.json', 'container-states.json')
 
 
-def prepare(output):
+def collect(output, metadata, public, *, scope='full'):
+    """Never publish a full artifact as technical evidence, or the reverse."""
+    production.validate_scope(scope)
+    source_path = metadata / 'source.json'
+    if source_path.exists():
+        source = json.loads(source_path.read_text())
+        if production.validate_scope(source.get('production_scope', 'full')) != scope:
+            raise ValueError('production_scope_mismatch')
+    if (output / 'inputs.json').exists():
+        production.prepared_scope(output, scope=scope)
+    for name in ('evidence.json', 'production-proof.json', 'production-validation.json', 'production-measurements.json'):
+        path = output / name
+        if path.exists():
+            report = json.loads(path.read_text())
+            # The supervisor can fail before the worker starts. Its exact prepared
+            # description still binds that failure; never hide it as missing evidence.
+            inherited = scope if name == 'evidence.json' and report.get('scope') in tuple(
+                description + '; production_scope=' + scope
+                for description in (SCOPE, VALIDATION_SCOPE, MEASUREMENT_SCOPE)) else 'full'
+            if production.validate_scope(report.get('production_scope', inherited)) != scope:
+                raise ValueError('production_scope_mismatch')
+    ci.collect(output, metadata, public, artifacts=ARTIFACTS)
+    feedback(public)
+
+
+def prepare(output, *, scope='full'):
     project = 'inside-observability-check-' + secrets.token_hex(6)
     data = output.parent / (project + '-data')
-    production.prepare(output, data=data, project=project)
+    production.prepare(output, data=data, project=project, scope=scope)
     # Synthetic storage has the supervisor's existing lifecycle. It does not exercise real bind disks.
     plan = json.loads((output / 'compose.json').read_text())
     plan['volumes'] = {name: {} for name in ('metrics', 'logs', 'traces', 'grafana')}
@@ -46,9 +73,9 @@ def prepare(output):
     pilot.write_json(output / 'compose.json', plan)
 
 
-def prepare_validation(output):
+def prepare_validation(output, *, scope='full'):
     """Stateless, no-network parser checks. No application, store, host mounts or VM probe starts."""
-    prepare(output)
+    prepare(output, scope=scope)
     plan = json.loads((output / 'compose.json').read_text())
     plan = {'services': {'alloy': {'image': plan['services']['alloy']['image'],
         'user': f'{os.getuid()}:{os.getgid()}', 'network_mode': 'none', 'read_only': True,
@@ -102,10 +129,14 @@ def syslog(message, *, service='platform-api'):
         connection.sendall(wire)
 
 
-def worker(output):
+def worker(output, *, scope=None):
+    selected = production.prepared_scope(output, scope=scope)
     owner = json.loads((output / 'owner.json').read_text())
     if owner['supervisor_pid'] != os.getppid():
         raise ValueError('external_supervisor_required')
+    evidence = json.loads((output / 'evidence.json').read_text())
+    evidence['production_scope'] = selected
+    pilot.write_json(output / 'evidence.json', evidence)
     compose = ['docker', 'compose', '-p', owner['project'], '-f', str(output / 'compose.json')]
     if (output / 'validation-only.json').exists():
         if json.loads((output / 'validation-only.json').read_text()) != {'validation_only': True}:
@@ -114,7 +145,7 @@ def worker(output):
         # Runtime ingestion always takes the stronger VM storage guard below.
         for config in ('collector', 'host'):
             pilot.command(compose + ['run', '--rm', '--no-deps', 'alloy', 'validate', '/config/' + config + '.alloy'])
-        pilot.write_json(output / 'production-validation.json', {'schema': 1, 'alloy_parser': 'passed',
+        pilot.write_json(output / 'production-validation.json', {'schema': 1, 'production_scope': selected, 'alloy_parser': 'passed',
                          'runtime': 'not_executed', 'host_metrics': 'not_executed'})
         return
     token = (output / 'reader.key').read_text().strip()
@@ -178,13 +209,14 @@ def worker(output):
         pilot.await_fact(lambda: read_ready(grafana_token), query_one,
                          output=output, probe='grafana_reader_after_revocation')
         denied(read_ready(token))
-        pilot.write_json(output / 'production-proof.json', {'schema': 1, 'config': 'passed',
+        pilot.write_json(output / 'production-proof.json', {'schema': 1, 'production_scope': selected, 'config': 'passed',
             'read_only_negatives': 'passed', 'reader_revocation': 'passed', 'anonymous_grafana': 'denied',
             'stdout_sentinel': 'absent', 'structured_correlation': 'retained',
             'finite_failure_causes':'constraint/timeout/connection retained; unregistered cause redacted',
             'missing': ['real Docker syslog driver wire', 'Linux host/container exporter execution',
                         'physical disk isolation', 'full process/capacity corpus', 'production and seven days']})
         evidence = json.loads((output / 'evidence.json').read_text())
+        evidence['production_scope'] = selected
         evidence['status'] = 'synthetic production config/auth/stdout vertical passed'
         pilot.write_json(output / 'evidence.json', evidence)
 
@@ -276,7 +308,9 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--metadata', type=Path)
     parser.add_argument('--public', type=Path)
+    parser.add_argument('--scope', choices=production.SCOPES)
     args = parser.parse_args()
+    selected = args.scope or 'full'
     if args.action == 'admission':
         if args.metadata is None: parser.error('--metadata required')
         names = ci.read_command(['git', '-C', str(production.ROOT), 'ls-files']).splitlines()
@@ -284,22 +318,26 @@ def main():
             'scripts/observability-production', 'infra/observability/production/', 'infra/observability/pilot/',
             'scripts/observability-pilot/', 'scripts/observability-umami/', 'scripts/heavy-check/'))
             or name in ('.github/workflows/observability-production.yml', 'scripts/heavy-check.sh'))
-        sys.exit(ci.admission(args.metadata, inputs=inputs, scope=SCOPE))
+        status = ci.admission(args.metadata, inputs=inputs, scope=SCOPE)
+        source = json.loads((args.metadata / 'source.json').read_text())
+        source['production_scope'] = selected
+        pilot.write_json(args.metadata / 'source.json', source)
+        sys.exit(status)
     elif args.action == 'recover':
         print(json.dumps(ci.recover(args.output, project_prefix=PREFIX, services=production.SERVICES)))
     elif args.action == 'collect':
         if args.metadata is None or args.public is None: parser.error('--metadata and --public required')
-        ci.collect(args.output, args.metadata, args.public, artifacts=ARTIFACTS)
-        feedback(args.public)
+        collect(args.output, args.metadata, args.public, scope=selected)
     elif args.action == 'worker':
-        worker(args.output)
+        worker(args.output, scope=args.scope)
     else:
         validation = args.action == 'validate'
-        pilot.run(args.output, prepare_inputs=prepare_validation if validation else prepare,
+        preparation = prepare_validation if validation else prepare
+        pilot.run(args.output, prepare_inputs=lambda output: preparation(output, scope=selected),
             worker_script=Path(__file__).resolve(), ports=() if validation else (18427, 1514, 13000),
             project_prefix=PREFIX,
             services=('alloy',) if validation else production.SERVICES,
-            scope='Stateless no-network Alloy parser validation only' if validation else SCOPE,
+            scope=(VALIDATION_SCOPE if validation else SCOPE) + '; production_scope=' + selected,
             missing=['production rollout', 'Linux host metrics', 'full resource acceptance', 'seven days'])
 
 

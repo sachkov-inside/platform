@@ -22,6 +22,41 @@ BACKENDS = ('api', 'mcp', 'material-assets-worker', 'profile-avatars-worker',
             'video-deletions-worker', 'billing-worker', 'notifications-worker')
 APPLICATIONS = (*BACKENDS, 'web', 'rabbitmq')
 SERVICES = (*pilot.SERVICES, 'host-agent')
+SCOPES = ('full', 'technical')
+
+
+def select_ci_scope(event):
+    """The existing task alone can defer analytics; every other event stays full."""
+    if type(event) is not dict or type(event.get('number')) is not int or event['number'] != 1716:
+        return 'full'
+    request = event.get('pull_request')
+    body = request.get('body') if type(request) is dict else None
+    return 'technical' if type(body) is str and '<!-- observability-scope: technical -->' in body else 'full'
+
+
+def validate_scope(scope):
+    if type(scope) is not str or scope not in SCOPES:
+        raise ValueError('production_scope_required_full_or_technical')
+    return scope
+
+
+def prepared_scope(output, *, scope=None):
+    """Workers inherit the prepared scope, never the supervisor CLI's default."""
+    record = json.loads((output / 'inputs.json').read_text())
+    selected = validate_scope(record.get('scope', 'full'))
+    if scope is not None and validate_scope(scope) != selected:
+        raise ValueError('production_scope_mismatch')
+    source = str(Path(__file__).relative_to(ROOT))
+    if record.get('inputs', {}).get(source) != hashlib.sha256(Path(__file__).read_bytes()).hexdigest():
+        raise ValueError('production_scope_source_changed')
+    analytics_files = {'umami.compose.json', 'umami.env', 'umami.database.password', 'umami.reader.key'}
+    actual = {path.name for path in output.glob('umami*')}
+    view = json.loads((output / 'owner-overview/dashboard.json').read_text())
+    invitation = next((panel for panel in view['panels'] if panel['id'] == 201), None)
+    expected = next(panel for panel in dashboard(scope=selected)['dashboard']['panels'] if panel['id'] == 201)
+    if (actual != (analytics_files if selected == 'full' else set()) or invitation != expected):
+        raise ValueError('production_scope_artifacts_mismatch')
+    return selected
 
 
 def write(path, value, *, private=False):
@@ -98,7 +133,8 @@ def compose(output, data, project):
     return stack
 
 
-def dashboard():
+def dashboard(*, scope='full'):
+    validate_scope(scope)
     result = owner_overview.dashboard()
     overview = json.loads((CONFIG / 'overview.json').read_text())
     result['dashboard']['title'] = 'Platform production overview'
@@ -126,14 +162,19 @@ def dashboard():
         'targets': [{'refId': 'A', 'expr': ' or '.join(rows), 'instant': True, 'range': False, 'format': 'table'}],
         'fieldConfig': {'defaults': {'noValue': 'UNKNOWN', 'mappings': [{'type': 'value', 'options': {
             '-1': {'text': 'UNKNOWN / stale'}, '0': {'text': 'DOWN / read failed'}, '1': {'text': 'Observed / up'}}}]}, 'overrides': []}})
-    result['dashboard']['panels'].append({'id': 201, 'type': 'text', 'title': 'Bounded owner investigations and analytics',
-        'gridPos': {'x': 0, 'y': end_y + 12, 'w': 24, 'h': 5}, 'options': {'mode': 'markdown', 'content':
+    investigations = (
         '[Payment/access and sales-funnel owner reports](https://github.com/sachkov-inside/platform/blob/main/docs/runbooks/production-diagnostics.md): '
         'use existing Platform MCP platform:admin session, last24h UTC, limit20, follow nextCursor. Counts describe the bounded returned cohort/page; '
-        'do not sum pagination or infer effective access from paid grant. Private examples stay out of dashboard. '
-        '[Native Umami read-only analytics](https://github.com/sachkov-inside/platform/blob/main/docs/runbooks/observability-umami-pilot.md): '
-        'separate read key and fixed window; missing/disabled analytics is UNKNOWN, not zero. '
-        '[Investigation and trace links](https://github.com/sachkov-inside/platform/blob/main/docs/runbooks/observability-investigation.md).'}})
+        'do not sum pagination or infer effective access from paid grant. Private examples stay out of dashboard. ')
+    if scope == 'full':
+        investigations += (
+            '[Native Umami read-only analytics](https://github.com/sachkov-inside/platform/blob/main/docs/runbooks/observability-umami-pilot.md): '
+            'separate read key and fixed window; missing/disabled analytics is UNKNOWN, not zero. '
+            '[Investigation and trace links](https://github.com/sachkov-inside/platform/blob/main/docs/runbooks/observability-investigation.md).')
+    result['dashboard']['panels'].append({'id': 201, 'type': 'text',
+        'title': 'Bounded owner investigations and analytics' if scope == 'full' else 'Bounded owner investigations',
+        'gridPos': {'x': 0, 'y': end_y + 12, 'w': 24, 'h': 5},
+        'options': {'mode': 'markdown', 'content': investigations}})
     return result
 
 
@@ -172,7 +213,8 @@ def analytics(output, *, network):
     write(output / 'umami.compose.json', plan)
 
 
-def prepare(output, *, data, project='inside-observability-production'):
+def prepare(output, *, data, project='inside-observability-production', scope='full'):
+    validate_scope(scope)
     if (not output.is_absolute() or not data.is_absolute() or output.exists() or output.is_symlink()
             or re.fullmatch(r'inside-observability-[a-z0-9-]{1,48}', project) is None
             or output == data or output in data.parents or data in output.parents):
@@ -199,7 +241,8 @@ def prepare(output, *, data, project='inside-observability-production'):
     write(output / 'telegram.compose.json', telegram)
     write(output / 'database.compose.json', overlay(('postgres', 'pgbackrest'), network=network))
     write(output / 'logto.compose.json', overlay(('logto', 'logto-migrations'), network=network))
-    analytics(output, network=network)
+    if scope == 'full':
+        analytics(output, network=network)
     sources = [
         {'name': 'Platform metrics', 'uid': 'pilot-metrics', 'type': 'prometheus', 'url': 'http://gateway:8080/metrics'},
         {'name': 'Platform logs', 'uid': 'pilot-logs', 'type': 'victoriametrics-logs-datasource', 'url': 'http://gateway:8080/logs'},
@@ -208,7 +251,7 @@ def prepare(output, *, data, project='inside-observability-production'):
         source.update({'access': 'proxy', 'editable': False, 'jsonData': {'httpHeaderName1': 'Authorization'},
                        'secureJsonData': {'httpHeaderValue1': 'Bearer ' + grafana_token}})
     write(output / 'datasources.json', {'apiVersion': 1, 'datasources': sources}, private=True)
-    view = dashboard()
+    view = dashboard(scope=scope)
     write(output / 'dashboard-provider.json', view['provider'])
     (output / 'owner-overview').mkdir()
     write(output / 'owner-overview/dashboard.json', view['dashboard'])
@@ -218,13 +261,14 @@ def prepare(output, *, data, project='inside-observability-production'):
     inputs = [*CONFIG.glob('*'), pilot.CONFIG / 'inputs.lock.json', pilot.CONFIG / 'vmauth.routes.json',
               pilot.CONFIG / 'privacy-policy.json', Path(__file__), *pilot.ROOT.joinpath('infra/observability/horizon').glob('*'),
               pilot.ROOT / 'scripts/observability-pilot/horizon_build.py', pilot.ROOT / 'scripts/heavy-check/bounded.py']
-    write(output / 'inputs.json', {'schema': 1, 'project': project, 'data': str(data),
+    write(output / 'inputs.json', {'schema': 1, 'project': project, 'data': str(data), 'scope': scope,
         'inputs': {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(inputs) if path.is_file()},
         'activation': 'disabled until explicit SDK opt-in and production authorization'})
 
 
-def preflight(output, *, application_data):
+def preflight(output, *, application_data, scope=None):
     """Validate disk separation on the real Linux host. Does not provision or resize disks."""
+    prepared_scope(output, scope=scope)
     record = json.loads((output / 'inputs.json').read_text())
     data = Path(record['data'])
     if (sys.platform != 'linux' or not data.is_mount() or data.stat().st_dev == application_data.stat().st_dev):
@@ -246,19 +290,25 @@ def preflight(output, *, application_data):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('prepare', 'preflight', 'install-plugin'))
-    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('action', choices=('prepare', 'preflight', 'install-plugin', 'select-scope'))
+    parser.add_argument('--output', type=Path)
     parser.add_argument('--data', type=Path)
     parser.add_argument('--application-data', type=Path)
     parser.add_argument('--project', default='inside-observability-production')
+    parser.add_argument('--scope', choices=SCOPES)
     args = parser.parse_args()
+    if args.action == 'select-scope':
+        print('scope=' + select_ci_scope(json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())))
+        return
+    if args.output is None: parser.error('--output required')
     if args.action == 'prepare':
         if args.data is None: parser.error('--data required')
-        prepare(args.output, data=args.data, project=args.project)
+        prepare(args.output, data=args.data, project=args.project, scope=args.scope or 'full')
     elif args.action == 'preflight':
         if args.application_data is None: parser.error('--application-data required')
-        print(json.dumps(preflight(args.output, application_data=args.application_data)))
+        print(json.dumps(preflight(args.output, application_data=args.application_data, scope=args.scope)))
     else:
+        prepared_scope(args.output, scope=args.scope)
         pilot.install_horizon(args.output)
         pilot.install_plugin(args.output)
 

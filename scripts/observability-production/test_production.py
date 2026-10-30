@@ -1,6 +1,9 @@
 """Preparation boundary: private files, explicit opt-in and separated trust networks."""
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -9,6 +12,47 @@ import check
 
 
 class Preparation(unittest.TestCase):
+    def test_scope_selector_cli_uses_event_file_and_ignores_requested_override(self):
+        with tempfile.TemporaryDirectory() as directory:
+            event = Path(directory) / 'event.json'
+            for number, expected in ((1716, 'technical'), (1717, 'full')):
+                event.write_text(json.dumps({'number': number, 'pull_request': {
+                    'body': '<!-- observability-scope: technical -->'}}))
+                result = subprocess.run([sys.executable, '-B', str(production.HERE / 'production.py'),
+                    'select-scope', '--scope', 'technical'],
+                    env={**os.environ, 'GITHUB_EVENT_PATH': str(event)},
+                    capture_output=True, text=True, check=True, timeout=5)
+                self.assertEqual(result.stdout, 'scope=' + expected + '\n')
+
+    def test_full_is_the_legacy_default_and_invalid_scopes_never_create_output(self):
+        self.assertEqual(production.dashboard(), production.dashboard(scope='full'))
+        for scope in (True, False, None, '', 'unknown', '../technical', Path('technical')):
+            with self.subTest(scope=scope), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory).resolve() / 'invalid'
+                with self.assertRaises(ValueError):
+                    production.prepare(output, data=Path(directory).resolve() / 'data', scope=scope)
+                self.assertFalse(output.exists())
+                with self.assertRaises(ValueError):
+                    production.dashboard(scope=scope)
+
+    def test_technical_preparation_excludes_deferred_files_and_keeps_secure_core(self):
+        with tempfile.TemporaryDirectory() as parent:
+            base = Path(parent).resolve()
+            output = base / 'technical'
+            production.prepare(output, data=base / 'data', scope='technical')
+            self.assertEqual(json.loads((output / 'inputs.json').read_text())['scope'], 'technical')
+            self.assertFalse(list(output.glob('umami*')))
+            stack = json.loads((output / 'compose.json').read_text())
+            self.assertEqual(set(stack['services']), set(production.SERVICES))
+            self.assertEqual(len(json.loads((output / 'auth.json').read_text())['users']), 2)
+            view = json.loads((output / 'owner-overview/dashboard.json').read_text())
+            self.assertNotIn('Umami', json.dumps(view))
+            self.assertNotIn('observability-investigation.md', json.dumps(view))
+            self.assertIn('production-diagnostics.md', json.dumps(view))
+            self.assertIn('vector(-1)', json.dumps(view))
+            with self.assertRaisesRegex(ValueError, 'scope_mismatch'):
+                production.preflight(output, application_data=base, scope='full')
+
     def test_prepares_disabled_application_overlays_and_private_read_keys(self):
         with tempfile.TemporaryDirectory() as parent:
             output = Path(parent).resolve() / 'configuration'
@@ -87,6 +131,7 @@ class Preparation(unittest.TestCase):
             base = Path(parent).resolve()
             output = base / 'configuration'
             production.prepare(output, data=base / 'data')
+            self.assertEqual(json.loads((output / 'inputs.json').read_text())['scope'], 'full')
             analytics = json.loads((output / 'umami.compose.json').read_text())
             self.assertEqual(analytics['services']['umami']['profiles'], ['analytics'])
             self.assertNotIn('ports', analytics['services']['umami'])

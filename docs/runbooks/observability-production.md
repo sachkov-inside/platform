@@ -6,6 +6,21 @@
 разные Compose projects. Применение требует отдельно разрешённого rollout по
 [release runbook](release.md). Локальный [пилот](observability-pilot.md) сохраняет собственный цикл.
 
+Текущий согласованный объём #1566: метрики служб и хоста, очищенные журналы, связанные трассировки
+и Grafana на существующем стеке VictoriaMetrics/VictoriaLogs/VictoriaTraces + Alloy. Для него
+выбирать `--scope technical`: подготовка не создаёт `umami*`, а обзор не предлагает аналитику
+или новый доступ агентов к monitoring MCP. Обычный защищённый query-доступ и отдельный читатель
+Grafana сохраняются. Существующий Platform MCP и его диагностика также сохраняются.
+
+Закрытый выбор `full|technical` записывается в `inputs.json`. Неизвестное значение получает отказ.
+Без флага действует прежний `full`, включая подготовленные, но выключенные файлы аналитики.
+Разделы ниже об Umami и подключении новых monitoring MCP относятся только к отложенному `full`;
+они не входят в техническое включение. Его результаты не означают приёмку полного прежнего объёма.
+Production workflow выбирает `technical` только для PR #1716 с точным маркером
+`<!-- observability-scope: technical -->` в body, включая регистр. Все остальные PR сохраняют `full`.
+Worker наследует подготовленный режим; сбор отчётов проверяет его совпадение с metadata и
+результатами. Прежние отчёты полного режима нельзя переименовать в технические.
+
 ## Границы и размещение
 
 VictoriaMetrics хранит метрики 90 суток, VictoriaLogs и VictoriaTraces хранят журналы и traces
@@ -34,7 +49,7 @@ OTLP и stdout Alloy конфигурации генерируются одно�
 
 Query gateway ограничивает HTTP methods/body; vmauth проверяет отдельные отозвные reader keys
 и [закрытые маршруты чтения](../../infra/observability/pilot/vmauth.routes.json), включая read POST.
-Ingest/delete/admin не разрешены. Ключ Grafana отличается от ключа агента. Anonymous Grafana и
+Ingest/delete/admin не разрешены. Ключ Grafana отличается от обычного reader key. Anonymous Grafana и
 signup выключены. Loopback сам по себе не защищает от root/пользователей сервера с Docker access.
 VictoriaMetrics запускается с `-search.latencyOffset=1ms`: instant-query по умолчанию
 оценивается у текущего времени, с настроенным сдвигом 1 мс.
@@ -71,7 +86,8 @@ Jaeger list/dependencies ограничиваются окном 14 дней д�
 Основание: [vmauth query args](https://docs.victoriametrics.com/vmauth/#query-args-handling),
 [VictoriaLogs extra filters](https://docs.victoriametrics.com/victorialogs/querying/#extra-filters),
 закреплённые `logsql.parseExtraFilters` и `logstorage.ParseFilter` в VictoriaLogs v1.53.0.
-Доступ агента из другой среды дают только к query port, не ко всем портам или Docker socket.
+При отдельно разрешённом подключении новых агентов доступ дают только к query port,
+не ко всем портам или Docker socket. Техническое включение такой доступ не создаёт.
 
 ## Подготовка
 
@@ -80,6 +96,7 @@ Jaeger list/dependencies ограничиваются окном 14 дней д�
 
 ```bash
 python3 scripts/observability-production/production.py prepare \
+  --scope technical \
   --output /srv/inside/observability/releases/COMMIT \
   --data /srv/inside/observability-data
 python3 scripts/observability-production/production.py install-plugin \
@@ -115,13 +132,22 @@ Logs/traces имеют аварийный порог 8 GiB каждый; хра�
 менее 1 GiB. Порог partition retention может быть превышен свежими partitions, поэтому физическое
 разделение дисков обязательно. Сокращение истории считается отказом приёмки. Настройки memory/CPU
 в Compose ограничивают процессы; оценка требуемого тарифа производится по полному resource corpus,
-Umami и PostgreSQL добавляются к техническому контуру. Общий потолок не доказывает наличие запаса.
+В прежнем полном режиме Umami и PostgreSQL добавляются к техническому контуру.
+Технический режим не запускает Umami. Общий потолок не доказывает наличие запаса.
 
 ## Разрешённое включение и выключение
 
 Эти команды являются рецептом будущего rollout. Сейчас они на production не выполнялись.
 Перед любым repository Compose command проверить `docker compose ps` и соблюдать
 [владение стендом](local-stand.md). Действующий singleton не принадлежит этому контуру.
+
+Для технического выпуска использовать только принятый immutable commit и `--scope technical`:
+подготовить новый private release directory, установить закреплённые assets и выполнить preflight
+по командам выше. До применения нужны успешные технические проверки ресурсов, auth/privacy,
+источников и cleanup. Не создавать Umami database/role, не включать analytics Compose profile,
+browser analytics switches, её maintenance timer или новую редакцию cookies. Не устанавливать
+новые monitoring-agent клиенты, ключи или tunnels. Действующие query identities обновления
+сохранять через существующий механизм секретов.
 
 ```bash
 docker compose -f /srv/inside/observability/releases/COMMIT/compose.json config --quiet
@@ -135,7 +161,13 @@ docker compose -f /srv/inside/observability/releases/COMMIT/compose.json up -d
 project name, env files, networks, volumes и runtime images сохраняются. Нельзя запускать overlay
 самостоятельно как новое приложение. SDK остаётся OFF до явного `INSIDE_OTEL_ENABLED=true` в
 окружении вызова Compose. Изменение logging driver требует пересоздания затронутых контейнеров;
-время недоступности приложения объявляется до отдельно разрешённого rollout.
+время недоступности приложения объявляется до отдельно разрешённого rollout. До приложения
+подготовить dedicated PostgreSQL/Caddy sources по разделу ниже, включить только их sources timer,
+проверить Watchdog cache и отдельно запустить `host-metrics`. После добавления overlays проверить
+реальные метрики, очищенные stdout, связи traces/logs, свежесть источников, отказ записи и отзыв
+reader key при продолжающемся чтении Grafana. Пустые данные остаются UNKNOWN. Ресурсные пороги
+сохраняются: p95 ≤5%, дополнительный host CPU ≤0.1, query ≤10 s, lag ≤60 s, запас RAM/диска ≥25%.
+Физический хост, история и семь суток production-наблюдений требуют отдельной проверки.
 
 Stdout использует Docker TCP syslog, `mode=non-blocking`, memory buffer 1 MiB и
 `cache-disabled=true`. Последнее выключает raw dual-logging cache Docker. Alloy принимает RFC5424,
@@ -147,6 +179,8 @@ Stdout использует Docker TCP syslog, `mode=non-blocking`, memory buffe
 
 Порядок отключения: сначала выставить `INSIDE_OTEL_ENABLED=false` и пересоздать приложение
 с исходным logging driver, затем остановить monitoring project командой `down` без `--volumes`.
+Перед остановкой host-agent остановить и выключить `inside-monitoring-sources.timer`, затем
+использовать `docker compose -f RELEASE/compose.json --profile host-metrics down`, как ниже.
 Нельзя сначала остановить syslog receiver и оставить logging driver приложения направленным в него:
 уже работающий процесс продолжит работу с возможной потерей журналов, а новый container start
 может не подключиться к syslog. Отключение monitoring не удаляет доменные данные и сохранённые bind data.
@@ -178,9 +212,9 @@ restart между scrape. Отсутствующие counters/series показ
 
 ## Ключи, обновление и откат
 
-Для отзыва agent key удалить соответствующего пользователя из private `auth.json` и перезапустить
+Для отзыва reader key удалить соответствующего пользователя из private `auth.json` и перезапустить
 только vmauth. Проверить, что старый ключ получает отказ, а Grafana продолжает читать своим ключом.
-Native MCP подключаются по [существующему runbook](observability-pilot.md), меняется только
+В отложенном полном режиме Native MCP подключаются по [существующему runbook](observability-pilot.md), меняется только
 instance entrypoint на защищённый query tunnel и отдельный reader key. Не предоставлять write
 endpoint или admin credentials как обход недоступности.
 
@@ -195,7 +229,7 @@ endpoint или admin credentials как обход недоступности.
 
 ## Отдельная аналитика
 
-Подготовка также создаёт `umami.compose.json`, private `umami.env` и
+Только подготовка с `--scope full` (прежнее значение по умолчанию) создаёт `umami.compose.json`, private `umami.env` и
 `umami.database.password`. Это отдельный project с профилем `analytics`; основной technical
 Compose file не запускает Umami. Сначала настроить выделенные database/role в существующем
 PostgreSQL через `scripts/observability-umami/setup_database.py`, используя
@@ -226,6 +260,7 @@ package-lock использует `UMAMI_URL=http://127.0.0.1:13301` через 
 ```bash
 bash scripts/heavy-check.sh node --test scripts/observability-production.test.mjs
 bash scripts/heavy-check.sh python3 scripts/observability-production/check.py run \
+  --scope technical \
   --output /absolute/task-owned/fresh-private-directory
 ```
 
@@ -242,6 +277,7 @@ idle/steady/spike по [фиксированному профилю](../../infra
 
 ```bash
 bash scripts/heavy-check.sh python3 scripts/observability-production/measure.py run \
+  --scope technical \
   --host-metrics --output /absolute/task-owned/fresh-private-directory
 ```
 
@@ -269,7 +305,7 @@ Timeweb этим документом не объявляются выполне
 
 Один `Platform production overview` содержит HTTP before/after для API, Platform MCP и
 Telegram, ресурсы, queue samples, closed cached business conditions и переходы к ограниченным
-отчётам Platform MCP/Umami. Общий HTTP quality mask не показывает скорость/доли при недостатке
+отчётам Platform MCP. В полном режиме добавлен переход к Umami. Общий HTTP quality mask не показывает скорость/доли при недостатке
 samples, reset, сбое collection или неразличимых SHA. Это оценка сохранённых наблюдений, не
 доказательство причинности или полноты всех запросов.
 
@@ -310,7 +346,7 @@ last backup result остаётся UNKNOWN. Telegram counter decrease имее�
 Факты оплаты, paid grounds, effective access и sales funnel остаются у узких владельцев модулей.
 Переход в [существующий Platform MCP](production-diagnostics.md) использует прежний
 `platform:admin`, ограниченное окно, limit и continuation. Нельзя помещать приватные примеры
-в Grafana metrics или суммировать returned-page/cohort counts. Переход к
+в Grafana metrics или суммировать returned-page/cohort counts. Только в полном режиме переход к
 [Umami native read-only](observability-umami-pilot.md) требует отдельного read key и ограниченного
 окна. Выключенная аналитика не означает нулевую активность. Tracker не включается этим обзором.
 
@@ -379,8 +415,9 @@ MCP или principal агента. Сам действующий Caddy admin о�
 Caddy global block, проверяет `caddy adapt`/`caddy validate` текущего config и выполняет штатный
 reload. При выключенных metrics или неизвестной adaptation источник UNKNOWN/unavailable.
 
-До rollout подготовить immutable source checkout принятого COMMIT. Сначала выполнить optional
-Umami database setup, если он входит в этот rollout, затем dedicated source reader bootstrap:
+До rollout подготовить immutable source checkout принятого COMMIT. В техническом режиме
+выполнить только dedicated source reader bootstrap. В отложенном полном режиме сначала выполнить
+optional Umami database setup, если он входит в этот rollout, затем source reader bootstrap:
 Umami setup сохраняет права существующих ролей при отзыве PUBLIC CONNECT, поэтому обратный порядок
 может расширить direct CONNECT reader и будет честно отклонён guard. Bootstrap не включён в timer:
 

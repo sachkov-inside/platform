@@ -7,9 +7,75 @@ import tempfile
 import unittest
 
 import check
+import production
 
 
 class QueryReadiness(unittest.TestCase):
+    def test_only_assigned_pull_request_and_exact_marker_select_technical_ci(self):
+        marker = '<!-- observability-scope: technical -->'
+        for number, body, expected in ((1716, marker, 'technical'), (1717, marker, 'full'),
+                                       (1716, marker.upper(), 'full'), (1716, '', 'full'),
+                                       ('1716', marker, 'full'), (True, marker, 'full'),
+                                       (1716, None, 'full')):
+            with self.subTest(number=number, body=body):
+                self.assertEqual(production.select_ci_scope({'number': number, 'pull_request': {'body': body}}), expected)
+        self.assertEqual(production.select_ci_scope({}), 'full')
+
+    def test_collection_refuses_relabelled_preparation_and_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory).resolve()
+            output, metadata, public = base / 'technical', base / 'metadata', base / 'public'
+            check.prepare(output, scope='technical')
+            metadata.mkdir()
+            (metadata / 'source.json').write_text(json.dumps({'production_scope': 'technical'}))
+            (output / 'evidence.json').write_text(json.dumps({'production_scope': 'full'}))
+            with self.assertRaisesRegex(ValueError, 'scope_mismatch'):
+                check.collect(output, metadata, public, scope='technical')
+            self.assertFalse(public.exists())
+            (output / 'evidence.json').write_text(json.dumps({'production_scope': 'technical'}))
+            with self.assertRaisesRegex(ValueError, 'scope_mismatch'):
+                check.collect(output, metadata, public, scope='full')
+            check.collect(output, metadata, public, scope='technical')
+            self.assertEqual(json.loads((public / 'source.json').read_text())['production_scope'], 'technical')
+            self.assertNotIn('reader.key', {path.name for path in public.iterdir()})
+
+    def test_prepared_scope_is_explicit_source_bound_and_refuses_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory).resolve() / 'technical'
+            check.prepare(output, scope='technical')
+            self.assertEqual(production.prepared_scope(output), 'technical')
+            self.assertEqual(production.prepared_scope(output, scope='technical'), 'technical')
+            with self.assertRaisesRegex(ValueError, 'scope_mismatch'):
+                production.prepared_scope(output, scope='full')
+            record = json.loads((output / 'inputs.json').read_text())
+            record['inputs']['scripts/observability-production/production.py'] = '0' * 64
+            (output / 'inputs.json').write_text(json.dumps(record))
+            with self.assertRaisesRegex(ValueError, 'source_changed'):
+                production.prepared_scope(output)
+
+    def test_collection_preserves_early_supervisor_failure_with_bound_scope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory).resolve()
+            output, metadata, public = base / 'technical', base / 'metadata', base / 'public'
+            check.prepare(output, scope='technical')
+            metadata.mkdir()
+            (metadata / 'source.json').write_text(json.dumps({'production_scope': 'technical'}))
+            (output / 'evidence.json').write_text(json.dumps({'status': 'failed',
+                'scope': 'two repeated synthetic technical production topology measurements; production_scope=technical'}))
+            check.collect(output, metadata, public, scope='technical')
+            self.assertEqual(json.loads((public / 'evidence.json').read_text())['status'], 'failed')
+
+    def test_prepared_scope_cannot_relabel_generated_analytics_or_technical_dashboard(self):
+        for scope in ('full', 'technical'):
+            with self.subTest(scope=scope), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory).resolve() / 'configuration'
+                check.prepare(output, scope=scope)
+                record = json.loads((output / 'inputs.json').read_text())
+                record['scope'] = 'technical' if scope == 'full' else 'full'
+                (output / 'inputs.json').write_text(json.dumps(record))
+                with self.assertRaisesRegex(ValueError, 'scope_artifacts_mismatch'):
+                    production.prepared_scope(output)
+
     def test_requires_successful_expected_query_body_in_the_same_capture(self):
         scalar = {'status': 'success', 'data': {'resultType': 'scalar', 'result': [1_000, '1']}}
         vector = {'status': 'success', 'data': {'resultType': 'vector', 'result': [{'metric': {}, 'value': [1_000, '1']}]}}
