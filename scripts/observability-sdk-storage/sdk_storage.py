@@ -322,7 +322,8 @@ def worker(output):
             import collector_observation
             collector = collector_observation.OwnedCollector(output,source=release,
                 admitted=pilot.FROZEN_DOCKER_IDENTITY,
-                target={key:targets.targets['alloy'][key] for key in ('id','image','project','service')},
+                target={'id':targets.targets['alloy']['id'],'image':targets.targets['alloy']['image'],
+                        'project':targets.project,'service':'alloy'},
                 readiness_times=(readiness_start,readiness_end))
             result['stage'] = 'producer'
             observed = producer_observation(output, environment={**os.environ, 'SDK_STORAGE_RELEASE': release}, diagnostic=diagnostic, phase_source=release, collector=collector)
