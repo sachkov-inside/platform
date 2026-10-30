@@ -474,6 +474,77 @@ test("CLI verifies every reviewed source in a multi-PR queue", async (t) => {
   assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
 });
 
+/** @param {Awaited<ReturnType<typeof fixture>>} f @param {string} source @param {number} number */
+async function squash(f, source, number) {
+  await f.git("merge", "--squash", source);
+  await f.git("commit", "-m", `reviewed source (#${String(number)})`);
+  const commit = await f.git("rev-parse", "HEAD");
+  // GitHub does not associate a squash queue commit with its pull request.
+  f.routes[`commits/${commit}/pulls?per_page=100&page=1`] = [];
+  return commit;
+}
+
+test("a squash merge queue entry is verified by its PR number and an identical tree", async (t) => {
+  const f = await fixture(t);
+  await f.git("checkout", "main");
+  await f.git("reset", "--hard", f.base);
+  f.setCandidate(await squash(f, "feature", 42));
+  const result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    z.object({ sources: z.array(z.unknown()) }).parse(JSON.parse(result.stdout))
+      .sources.length,
+    1,
+  );
+  // A tree that differs from the reviewed head is not that PR's squash.
+  writeFileSync(resolve(f.cwd, "unreviewed"), "unreviewed");
+  await f.git("add", "unreviewed");
+  await f.git("commit", "--amend", "-m", "reviewed source (#42)");
+  const altered = await f.git("rev-parse", "HEAD");
+  f.routes[`commits/${altered}/pulls?per_page=100&page=1`] = [];
+  f.setCandidate(altered);
+  const rejected = await f.check({ eventName: "merge_group" });
+  assert.equal(rejected.status, 1);
+  assert.match(rejected.stderr, /No current PR covers candidate/u);
+});
+
+test("a squash queue group verifies every entry and its own receipt", async (t) => {
+  const f = await fixture(t);
+  await f.git("checkout", "-b", "second", f.base);
+  writeFileSync(resolve(f.cwd, "second"), "second reviewed source");
+  await f.git("add", "second");
+  await f.git("commit", "-m", "second source");
+  const second = await f.git("rev-parse", "HEAD");
+  await f.git("checkout", "main");
+  await f.git("reset", "--hard", f.base);
+  await squash(f, "feature", 42);
+  f.setCandidate(await squash(f, "second", 43));
+  const secondReceipt = structuredClone(f.body);
+  secondReceipt.pullRequest = 43;
+  secondReceipt.headSha = second;
+  f.routes["pulls/43"] = { ...f.pr, number: 43, head: { sha: second } };
+  const secondComment = {
+    ...f.comment,
+    id: 124,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(secondReceipt)}`,
+  };
+  f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
+  f.routes["issues/comments/124"] = secondComment;
+  const result = await f.check({ eventName: "merge_group" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    z.object({ sources: z.array(z.unknown()) }).parse(JSON.parse(result.stdout))
+      .sources.length,
+    2,
+  );
+  f.routes["issues/43/comments?per_page=100&page=1"] = [];
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+  // The subject only names a candidate: another PR's head does not match this tree.
+  f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
+  f.routes["pulls/43"] = { ...f.pr, number: 43, head: { sha: f.head } };
+  assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+});
+
 test("unrelated main advance retains exact comparison inputs but changed merge-base/head invalidates review", async (t) => {
   const f = await fixture(t);
   await f.git("checkout", "-b", "advanced-main", f.base);

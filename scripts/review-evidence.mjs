@@ -201,6 +201,27 @@ function git(...args) {
     maxBuffer: 16 * 1024 * 1024,
   }).trim();
 }
+/**
+ * True when `commit` has one parent and its tree is the conflict-free merge of `head` into that
+ * parent, which is how a squash merge queue builds an entry.
+ * @param {string} commit @param {string} head
+ */
+function squashOf(commit, head) {
+  if (!sha.test(head)) return false;
+  const parents = git("rev-list", "--parents", "-n", "1", commit).split(" ");
+  if (parents.length !== 2 || parents[1] === undefined) return false;
+  requireValue(
+    git("cat-file", "-t", head) === "commit",
+    "Reviewed PR head is missing from the candidate checkout",
+  );
+  let merged;
+  try {
+    merged = git("merge-tree", "--write-tree", parents[1], head);
+  } catch {
+    return false;
+  }
+  return sha.test(merged) && merged === git("rev-parse", `${commit}^{tree}`);
+}
 /** @param {string} base @param {string} head */
 function ancestor(base, head) {
   try {
@@ -328,6 +349,9 @@ export async function verify({
   );
   /** @type {Map<number, Awaited<ReturnType<typeof readPr>>>} */
   const prs = new Map();
+  /** Squash queue commits proven equal to a reviewed PR head applied to their parent. */
+  /** @type {Map<string, number>} */
+  const squashes = new Map();
   if (eventName === "pull_request") {
     requireValue(
       Number.isSafeInteger(numberField(eventObject, "number")),
@@ -357,6 +381,17 @@ export async function verify({
         if (sha.test(pr["head"]?.sha) && ancestor(pr["head"].sha, candidate))
           prs.set(pr["number"], pr);
       }
+      // A squash queue commit is new and GitHub associates no PR with it. Its subject only
+      // names a candidate PR; the identical tree proves the commit is that reviewed head.
+      const named = /\(#(\d+)\)$/u.exec(
+        git("log", "-1", "--format=%s", commit),
+      );
+      if (named?.[1] === undefined) continue;
+      const pr = await readPr(Number(named[1]));
+      if (pr.state === "open" && squashOf(commit, pr.head.sha)) {
+        prs.set(pr.number, pr);
+        squashes.set(commit, pr.number);
+      }
     }
   }
   requireValue(prs.size > 0, "No current PR covers candidate");
@@ -369,7 +404,8 @@ export async function verify({
         pr["base"].ref === "main" &&
         pr["base"].sha === base &&
         sha.test(pr["head"]?.sha) &&
-        ancestor(pr["head"].sha, candidate),
+        (ancestor(pr["head"].sha, candidate) ||
+          [...squashes.values()].includes(number)),
       "Stale, unrelated or incomplete PR source",
     );
     if (eventName === "pull_request")
@@ -456,6 +492,8 @@ export async function verify({
     const [commit, ...parents] = line.split(" ");
     requireValue(commit, "Missing commit");
     if (sources.some((source) => ancestor(commit, source.headSha))) continue;
+    const squashed = squashes.get(commit);
+    if (sources.some((source) => source.pullRequest === squashed)) continue;
     requireValue(parents.length === 2, "Unreviewed candidate commit");
     const [first, second] = parents;
     requireValue(first && second, "Missing synthetic parents");
