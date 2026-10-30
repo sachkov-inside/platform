@@ -118,17 +118,17 @@ async function report(responses, args = []) {
     const gh = resolve(root, "gh");
     writeFileSync(
       gh,
-      `#!/usr/bin/env node\nconst fs=require('node:fs');const p=process.argv.at(-1);fs.appendFileSync(process.env.STABILITY_CALLS,p+'\\n');if(process.argv.slice(2,5).join(' ')!=='api --method GET')process.exit(2);const data=JSON.parse(fs.readFileSync(process.env.STABILITY_FIXTURE,'utf8'));if(!(p in data)){console.error('missing fixture '+p);process.exit(1)}const v=data[p];process.stdout.write(v==='__OVERSIZED_LOG__'?'private failure payload '+ 'x'.repeat(1048576+65536):typeof v==='string'?v:JSON.stringify(v));`,
+      `#!/usr/bin/env node\nconst fs=require('node:fs');const p=process.argv.at(-1);fs.appendFileSync(process.env.STABILITY_CALLS,p+'\\n');if(process.argv.slice(2,5).join(' ')!=='api --method GET')process.exit(2);const data=JSON.parse(fs.readFileSync(process.env.STABILITY_FIXTURE,'utf8'));if(!(p in data)){console.error('missing fixture '+p);process.exit(1)}const v=data[p];const allow=process.argv.includes('--allow-escape-sequences');if(allow&&!p.endsWith('/logs'))process.exit(3);if(typeof v==='string'&&v.includes('\\x1b')&&!allow){console.error('the response contains terminal escape sequences; pass --allow-escape-sequences to output it anyway');process.exit(1)}process.stdout.write(v==='__OVERSIZED_LOG__'?'private failure payload '+ 'x'.repeat(1048576+65536):typeof v==='string'?v:JSON.stringify(v));`,
     );
     chmodSync(gh, 0o755);
     const result = await collect(root, args);
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout, "");
     assert.equal(result.stderr, "");
+    const history = readFileSync(resolve(root, "report/history.json"), "utf8");
     return {
-      ...outputSchema.parse(
-        JSON.parse(readFileSync(resolve(root, "report/history.json"), "utf8")),
-      ),
+      ...outputSchema.parse(JSON.parse(history)),
+      history,
       summary: readFileSync(resolve(root, "report/summary.md"), "utf8"),
       apiReads: readFileSync(resolve(root, "calls.txt"), "utf8")
         .trim()
@@ -192,6 +192,44 @@ test("CLI groups a real test signature across PRs and retains first failure and 
   );
   assert.equal(result.jobs[0].durationSeconds, 60);
   assert.doesNotMatch(JSON.stringify(result), /sensitive payload|flaky/u);
+});
+
+test("CLI reads ANSI failure logs through gh and groups sanitized signatures across PRs", async () => {
+  const log =
+    "\u001b[31m FAIL \u001b[0m apps/web/test/access.test.ts > access > denies expired session\nAssertionError: private transport payload";
+  const result = await report({
+    [runsPath]: { total_count: 2, workflow_runs: [run(1, 11), run(2, 22)] },
+    [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
+      total_count: 1,
+      jobs: [job(101, "failure")],
+    },
+    [`${prefix}/runs/2/attempts/1/jobs?per_page=100&page=1`]: {
+      total_count: 1,
+      jobs: [job(201, "failure")],
+    },
+    [`${prefix}/jobs/101/logs`]: log,
+    [`${prefix}/jobs/201/logs`]: log,
+  });
+  assert.deepEqual(
+    result.jobs.map((row) => row.classification),
+    ["test-failure-unclassified", "test-failure-unclassified"],
+  );
+  assert.equal(result.coverage.complete, true);
+  assert.equal(result.causes.length, 1);
+  assert.ok(result.causes[0]);
+  assert.deepEqual(result.causes[0].pullRequests, [11, 22]);
+  assert.equal(result.causes[0].priority, "diagnose-recurring");
+  assert.equal(result.causes[0].test.name, "access > denies expired session");
+  assert.equal(result.coverage.logBytes, 2 * Buffer.byteLength(log));
+  assert.equal(
+    result.coverage.logBudgetBytesCharged,
+    2 * Buffer.byteLength(log),
+  );
+  assert.doesNotMatch(
+    result.history + result.summary,
+    /private transport payload|\\u001b/u,
+  );
+  assert.ok(!result.summary.includes("\u001b"));
 });
 
 test("distinct file/project identities survive and arbitrary failure text stays unknown", async () => {

@@ -150,12 +150,23 @@ async function main() {
     if (log) logBudgetBytesCharged += reservation;
     requests++;
     try {
-      const output = execFileSync("gh", ["api", "--method", "GET", path], {
-        encoding: "utf8",
-        timeout: Math.min(15000, Math.max(1, deadline - Date.now())),
-        maxBuffer: log ? reservation : 4194304,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+      // gh rejects ANSI by default. Permit it only in buffered logs; observations strips it.
+      const output = execFileSync(
+        "gh",
+        [
+          "api",
+          "--method",
+          "GET",
+          ...(log ? ["--allow-escape-sequences"] : []),
+          path,
+        ],
+        {
+          encoding: "utf8",
+          timeout: Math.min(15000, Math.max(1, deadline - Date.now())),
+          maxBuffer: log ? reservation : 4194304,
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
       if (log) {
         const captured = Buffer.byteLength(output);
         logBytes += captured;
