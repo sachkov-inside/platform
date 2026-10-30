@@ -11,13 +11,15 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="mx-auto max-w-[60rem] px-4 sm:px-8">
-        <Story />
+      <div className="mx-auto w-full max-w-[60rem] px-4 sm:px-8">
+        <div className="mx-auto w-full max-w-[46rem] bg-card px-10 sm:px-12">
+          <Story />
+        </div>
       </div>
     ),
   ],
   parameters: {
-    layout: "padded",
+    layout: "fullscreen",
     docs: {
       description: {
         component:
