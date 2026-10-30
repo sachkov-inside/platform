@@ -217,6 +217,10 @@ test("accepted Reader actions fit desktop, tablet and phone with the same naviga
     await expect(
       page.getByRole("heading", { name: "Урок 5", exact: true }),
     ).toBeVisible();
+    // The end of the lesson keeps one step navigation: the bottom action panel.
+    await expect(
+      page.getByRole("navigation", { name: "Шаги курса", exact: true }),
+    ).toHaveCount(0);
     for (const [position, name] of [
       ["top", "Действия материала"],
       ["bottom", "Действия в конце материала"],

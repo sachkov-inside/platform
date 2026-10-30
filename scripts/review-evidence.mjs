@@ -201,6 +201,28 @@ function git(...args) {
     maxBuffer: 16 * 1024 * 1024,
   }).trim();
 }
+/**
+ * True when `commit` has one parent and its tree is the conflict-free merge of `head` into that
+ * parent, which is how a squash merge queue builds an entry.
+ * @param {string} commit @param {string} head
+ */
+function squashOf(commit, head) {
+  if (!sha.test(head)) return false;
+  const parents = git("rev-list", "--parents", "-n", "1", commit).split(" ");
+  if (parents.length !== 2 || parents[1] === undefined) return false;
+  try {
+    git("cat-file", "-e", `${head}^{commit}`);
+  } catch {
+    throw new Error("Reviewed PR head is missing from the candidate checkout");
+  }
+  let merged;
+  try {
+    merged = git("merge-tree", "--write-tree", parents[1], head);
+  } catch {
+    return false;
+  }
+  return sha.test(merged) && merged === git("rev-parse", `${commit}^{tree}`);
+}
 /** @param {string} base @param {string} head */
 function ancestor(base, head) {
   try {
@@ -236,19 +258,50 @@ export async function verify({
   requireValue(token, "Missing read-only GitHub token");
   /** @param {string} path @returns {Promise<unknown>} */
   async function api(path) {
-    const response = await request(
-      `https://api.github.com/repos/${repository}/${path}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-        signal: AbortSignal.timeout(30_000),
-      },
-    );
-    requireValue(response.ok, `GitHub read failed (${response.status})`);
+    const response = await read(path);
+    requireRead(response);
     return /** @type {unknown} */ (await response.json());
+  }
+  /** @param {Response} response @param {boolean} [absentAllowed] */
+  function requireRead(response, absentAllowed = false) {
+    requireValue(
+      response.ok || (absentAllowed && response.status === 404),
+      `GitHub read failed (${response.status})`,
+    );
+  }
+  /** @param {string} path */
+  function read(path) {
+    return request(`https://api.github.com/repos/${repository}/${path}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(30_000),
+    });
+  }
+  /** @type {Map<string, boolean>} */
+  const publishing = new Map();
+  /**
+   * The read-only Actions token sees hidden organization membership as CONTRIBUTOR, so
+   * `author_association` cannot select publishers. Current repository permission decides; an
+   * unknown or deleted account answers 404 and publishes nothing.
+   * @param {string} login
+   */
+  async function canPublish(login) {
+    const known = publishing.get(login);
+    if (known !== undefined) return known;
+    const response = await read(
+      `collaborators/${encodeURIComponent(login)}/permission`,
+    );
+    requireRead(response, true);
+    const permitted =
+      response.ok &&
+      ["admin", "maintain", "write"].includes(
+        stringField(object(await response.json()), "permission"),
+      );
+    publishing.set(login, permitted);
+    return permitted;
   }
   /** @param {string} path */
   async function pages(path) {
@@ -264,7 +317,19 @@ export async function verify({
   }
   /** @param {number} number */
   async function readPr(number) {
-    const pr = object(await api(`pulls/${number}`));
+    return pullRequest(await api(`pulls/${number}`));
+  }
+  /** A number that names no pull request, such as an issue, yields nothing. @param {number} number */
+  async function readPrIfPresent(number) {
+    const response = await read(`pulls/${number}`);
+    requireRead(response, true);
+    return response.ok
+      ? pullRequest(/** @type {unknown} */ (await response.json()))
+      : undefined;
+  }
+  /** @param {unknown} value */
+  function pullRequest(value) {
+    const pr = object(value);
     const base = object(pr["base"]);
     const repo = object(base["repo"]);
     return {
@@ -297,6 +362,13 @@ export async function verify({
   );
   /** @type {Map<number, Awaited<ReturnType<typeof readPr>>>} */
   const prs = new Map();
+  /**
+   * Squash queue commits proven equal to a reviewed PR head applied to their parent.
+   * @type {Map<string, number>}
+   */
+  const squashes = new Map();
+  /** @type {Set<number>} */
+  const squashedPrs = new Set();
   if (eventName === "pull_request") {
     requireValue(
       Number.isSafeInteger(numberField(eventObject, "number")),
@@ -315,16 +387,28 @@ export async function verify({
       .filter(Boolean);
     requireValue(commits.length > 0, "Empty merge queue");
     for (const commit of commits) {
+      let associated = false;
       for (const rawAssociated of await pages(`commits/${commit}/pulls`)) {
-        const associated = object(rawAssociated);
-        if (
-          associated["state"] !== "open" ||
-          prs.has(numberField(associated, "number"))
-        )
-          continue;
-        const pr = await readPr(numberField(associated, "number"));
+        const association = object(rawAssociated);
+        if (association["state"] !== "open") continue;
+        associated = true;
+        if (prs.has(numberField(association, "number"))) continue;
+        const pr = await readPr(numberField(association, "number"));
         if (sha.test(pr["head"]?.sha) && ancestor(pr["head"].sha, candidate))
           prs.set(pr["number"], pr);
+      }
+      if (associated) continue;
+      // GitHub associates no PR with a squash queue commit. Its subject only names a candidate;
+      // the commit counts when its tree equals that PR's reviewed head applied to its parent.
+      const named = /\(#(\d+)\)$/u.exec(
+        git("log", "-1", "--format=%s", commit),
+      );
+      if (named?.[1] === undefined) continue;
+      const pr = await readPrIfPresent(Number(named[1]));
+      if (pr?.["state"] === "open" && squashOf(commit, pr["head"].sha)) {
+        prs.set(pr["number"], pr);
+        squashes.set(commit, pr["number"]);
+        squashedPrs.add(pr["number"]);
       }
     }
   }
@@ -338,7 +422,7 @@ export async function verify({
         pr["base"].ref === "main" &&
         pr["base"].sha === base &&
         sha.test(pr["head"]?.sha) &&
-        ancestor(pr["head"].sha, candidate),
+        (ancestor(pr["head"].sha, candidate) || squashedPrs.has(number)),
       "Stale, unrelated or incomplete PR source",
     );
     if (eventName === "pull_request")
@@ -357,22 +441,11 @@ export async function verify({
         !comment["body"].includes(marker)
       )
         continue;
-      if (
-        !["OWNER", "MEMBER", "COLLABORATOR"].includes(
-          stringField(comment, "author_association"),
-        )
-      )
-        continue;
-      const publisher = stringField(object(comment["user"]), "login");
-      const permission = object(
-        await api(`collaborators/${encodeURIComponent(publisher)}/permission`),
-      );
-      requireValue(
-        ["admin", "maintain", "write"].includes(
-          stringField(permission, "permission"),
-        ),
-        "Receipt publisher lacks current write permission",
-      );
+      // A comment without an account publishes nothing.
+      if (!isObject(comment["user"])) continue;
+      const publisher = stringField(comment["user"], "login");
+      // Outsiders and revoked publishers can neither supply nor block a receipt.
+      if (!(await canPublish(publisher))) continue;
       requireValue(
         comment["body"].startsWith(`${marker}\n`),
         "Malformed review receipt marker",
@@ -436,6 +509,8 @@ export async function verify({
     const [commit, ...parents] = line.split(" ");
     requireValue(commit, "Missing commit");
     if (sources.some((source) => ancestor(commit, source.headSha))) continue;
+    const squashed = squashes.get(commit);
+    if (sources.some((source) => source.pullRequest === squashed)) continue;
     requireValue(parents.length === 2, "Unreviewed candidate commit");
     const [first, second] = parents;
     requireValue(first && second, "Missing synthetic parents");

@@ -42,6 +42,19 @@ export function readerCourseAnchorValue(anchor: ReaderCourseAnchor): string {
     : `material:${anchor.slug}${anchor.placementId === undefined ? "" : `:${anchor.placementId}`}`;
 }
 
+/** The slug of a local Material link; other addresses are not Material links. */
+export function materialLinkSlug(href: string): string | undefined {
+  return /^\/materials\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:[?#]|$)/u.exec(href)?.[1];
+}
+
+/** A link to a section of the open Material stays inside the page, whatever its course context. */
+export function ownSectionHref(href: string, slug: string): string | undefined {
+  const fragment = href.indexOf("#");
+  return fragment >= 0 && materialLinkSlug(href) === slug
+    ? href.slice(fragment)
+    : undefined;
+}
+
 /** Only local Material links inherit course context; authored fragments remain intact. */
 export function anchoredMaterialHref(
   href: string,
@@ -49,8 +62,7 @@ export function anchoredMaterialHref(
   anchor?: ReaderCourseAnchor,
   referenceView = false,
 ): Route | undefined {
-  if (!/^\/materials\/[a-z0-9]+(?:-[a-z0-9]+)*(?:[?#]|$)/u.test(href))
-    return undefined;
+  if (materialLinkSlug(href) === undefined) return undefined;
   const url = new URL(href, "https://inside.local");
   url.searchParams.set("from", courseHref);
   if (referenceView) url.searchParams.set("view", "reference");
