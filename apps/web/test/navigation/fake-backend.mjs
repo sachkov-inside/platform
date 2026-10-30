@@ -400,6 +400,34 @@ function anchorBody(source, chromeCollision = false) {
     ),
   ];
   const target = source ? "/materials/navigation-anchor-target" : "";
+  // После раздела, чтобы не сдвигать старые якоря по номеру блока: глава видео на этой странице и
+  // момент видео на другой.
+  /** @type {import("@inside/material-blocks").RenderedBlock[]} */
+  const videoMoments = source
+    ? []
+    : [
+        {
+          kind: "paragraph",
+          content: [
+            {
+              kind: "text",
+              text: "Момент видео",
+              marks: [{ kind: "link", href: "#t=90" }],
+            },
+            { kind: "text", text: " и ", marks: [] },
+            {
+              kind: "text",
+              text: "момент на другой странице",
+              marks: [
+                {
+                  kind: "link",
+                  href: "/materials/navigation-anchor-source#t=90",
+                },
+              ],
+            },
+          ],
+        },
+      ];
   return {
     schemaVersion: 1,
     blocks: [
@@ -429,33 +457,7 @@ function anchorBody(source, chromeCollision = false) {
         ],
       },
       ...(source ? [] : destination),
-      // После раздела, чтобы не сдвигать старые якоря по номеру блока: глава видео на этой
-      // странице и момент видео на другой.
-      ...(source
-        ? []
-        : [
-            {
-              kind: "paragraph",
-              content: [
-                {
-                  kind: "text",
-                  text: "Момент видео",
-                  marks: [{ kind: "link", href: "#t=90" }],
-                },
-                { kind: "text", text: " и ", marks: [] },
-                {
-                  kind: "text",
-                  text: "момент на другой странице",
-                  marks: [
-                    {
-                      kind: "link",
-                      href: "/materials/navigation-anchor-source#t=90",
-                    },
-                  ],
-                },
-              ],
-            },
-          ]),
+      ...videoMoments,
     ],
   };
 }
