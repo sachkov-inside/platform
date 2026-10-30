@@ -136,6 +136,10 @@ function resourceJobs(source) {
   return new Map(matches.map(([, name = "", body = ""]) => [name, body]));
 }
 
+const resourceDiskStep = `      - name: Prepare preinstalled hosted Android SDK disk
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+`;
 const resourceScopeStep = `      - name: Select exact assigned technical profile, otherwise full
         id: scope
         timeout-minutes: 1
@@ -152,8 +156,8 @@ function assertResourceProtocol(source) {
   assertResourceHostNode(source);
   const digest = (/** @type {string} */ text) =>
     createHash("sha256").update(text.trimEnd()).digest("hex");
-  // Immutable pre-partition native bodies. Reverse only the assigned scheduling
-  // edits; these fingerprints retain every original command, budget and opt-in.
+  // Immutable pre-partition native bodies. Reverse only approved preparation
+  // and scheduling edits; retain every original command, budget and opt-in.
   const nativeHashes = {
     resource:
       "aadf92ad3fced36f2a41b9f2b958a494b86b98b8c80000997ebc5c4ec21b9740",
@@ -172,6 +176,16 @@ function assertResourceProtocol(source) {
     assert.ok(body.startsWith("    needs: fullstack-protocol\n"));
     assert.equal([...body.matchAll(/^ {4}needs:/gmu)].length, 1);
     let original = body.replace("    needs: fullstack-protocol\n", "");
+    if (name === "resource" || name === "fullstack") {
+      const admission =
+        name === "resource"
+          ? "      - name: Bind complete source and measure disk admission\n"
+          : "      - name: Bind complete source and existing disk admission\n";
+      assert.equal(original.split(resourceDiskStep).length, 2);
+      assert.equal(original.split(resourceDiskStep + admission).length, 2);
+      // Reverse only this fixed preparation step, retaining independent admission.
+      original = original.replace(resourceDiskStep, "");
+    }
     if (name === "fullstack") {
       // Reverse only the approved technical step name and conditional budget.
       // The legacy full profile and every other native budget stay fingerprinted.
@@ -1536,6 +1550,66 @@ function assertFocusedSupersets(scripts) {
 
 it("requires complete fixed protocol coverage before all native Resource jobs", () => {
   assertResourceProtocol(resourceWorkflow);
+});
+
+it("rejects hosted disk preparation bypasses in both Resource measurement jobs", () => {
+  assertResourceProtocol(resourceWorkflow);
+  for (const name of ["resource", "fullstack"]) {
+    const body = resourceJobs(resourceWorkflow).get(name);
+    assert.ok(body);
+    assert.ok(body.includes(resourceDiskStep));
+    const withoutStep = body.replace(resourceDiskStep, "");
+    const build = "      - name: Build ";
+    const mutations = [
+      withoutStep,
+      body.replace(resourceDiskStep, resourceDiskStep + resourceDiskStep),
+      withoutStep.replace("    steps:\n", "    steps:\n" + resourceDiskStep),
+      withoutStep.replace(build, resourceDiskStep + build),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace("timeout-minutes: 3", "timeout-minutes: 4"),
+      ),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace("hosted_disk.py", "hosted_disk.py --force"),
+      ),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace(
+          "        run:",
+          "        if: ${{ false }}\n        run:",
+        ),
+      ),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace(
+          "        run:",
+          "        continue-on-error: true\n        run:",
+        ),
+      ),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace(
+          "        run:",
+          "        env:\n          RUNNER_ENVIRONMENT: github-hosted\n        run:",
+        ),
+      ),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace(
+          "        run:",
+          "        shell: bash\n        run:",
+        ),
+      ),
+    ];
+    for (const broken of mutations) {
+      assert.notEqual(broken, body);
+      assert.throws(
+        () => assertResourceProtocol(resourceWorkflow.replace(body, broken)),
+        name,
+      );
+    }
+  }
 });
 
 it("rejects missing coverage, graph bypasses, source drift and native policy changes", () => {

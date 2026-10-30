@@ -66,6 +66,9 @@ jobs:
       - name: Verify hosted trust contracts without Docker acquisition
         timeout-minutes: 1
         run: bash scripts/heavy-check.sh python3 -m unittest discover -s scripts/observability-resource -p 'test_*.py'
+      - name: Prepare preinstalled hosted Android SDK disk
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
       - name: Bind complete source and measure disk admission
         timeout-minutes: 1
         run: |
@@ -138,6 +141,9 @@ jobs:
         id: scope
         timeout-minutes: 1
         run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+      - name: Prepare preinstalled hosted Android SDK disk
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
       - name: Bind complete source and existing disk admission
         timeout-minutes: 1
         run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-metadata"

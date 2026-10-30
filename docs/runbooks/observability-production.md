@@ -315,6 +315,10 @@ Python ждёт 135 s, затем максимум 5 s; при прерыван�
 При ошибке скрипта workflow пропускает admission/runtime; прежние recovery и curated collection сохраняются.
 Локальный компьютер, self-hosted runner и shared stand не входят в этот рецепт.
 
+В `observability-resource.yml` задания `resource` и `fullstack` используют тот же фиксированный шаг подготовки с пределом три минуты.
+Шаг предшествует прежнему admission, который заново измеряет свободное место и требует 16 GiB.
+Подготовка не гарантирует достаточную ёмкость; остальные задания Resource CI сохраняют прежний порядок.
+
 Обзор Grafana подготовлен в `owner-overview/dashboard.json`: сравнение HTTP API/MCP,
 host/container metrics, queue/dependency/export symptoms. Его production data и визуальная приёмка
 проверяются отдельно. NoData не заменяется нулём. Семь суток production-наблюдений и измерения

@@ -212,9 +212,40 @@ NATIVE_BODY_HASHES = {'resource': '3ba2360947b9cfe2690359f906a13b66619fe300367a6
  'fullstack': '2579604dd24ba79cc3fdab101924402e6afef87d41b6a7964bf667b4ab9232c0',
  'stability': 'cc113b07ac72ae0b7142fac6e6fbd5e50d556882a90829a2f4e40a20851f6e61',
  'cpu-control': '11a5412b627fc07213d658360a142e71dd5b928f7664373231b0a1e17a530f6f'}
+HOSTED_DISK_STEP = '''      - name: Prepare preinstalled hosted Android SDK disk
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+'''
 
 
 class WorkflowInverse(unittest.TestCase):
+    def test_hosted_disk_preparation_bypasses_are_refused_in_both_measurement_jobs(self):
+        import re
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/observability-resource.yml').read_text()
+        inverse_protocol_workflow(workflow)
+        jobs = dict(re.findall(r'^  ([a-z][a-z0-9-]*):\n(.*?)(?=^  [a-z][a-z0-9-]*:\n|\Z)', workflow, re.M | re.S))
+        for name in ('resource', 'fullstack'):
+            body = jobs[name]
+            self.assertEqual(body.count(HOSTED_DISK_STEP), 1)
+            without_step = body.replace(HOSTED_DISK_STEP, '', 1)
+            mutations = [
+                without_step,
+                body.replace(HOSTED_DISK_STEP, HOSTED_DISK_STEP * 2, 1),
+                without_step.replace('    steps:\n', '    steps:\n' + HOSTED_DISK_STEP, 1),
+                without_step.replace('      - name: Build ', HOSTED_DISK_STEP + '      - name: Build ', 1),
+                body.replace(HOSTED_DISK_STEP, HOSTED_DISK_STEP.replace('timeout-minutes: 3', 'timeout-minutes: 4'), 1),
+                body.replace(HOSTED_DISK_STEP, HOSTED_DISK_STEP.replace('hosted_disk.py', 'hosted_disk.py --force'), 1),
+                body.replace(HOSTED_DISK_STEP, HOSTED_DISK_STEP.replace('        run:', '        if: ${{ false }}\n        run:'), 1),
+                body.replace(HOSTED_DISK_STEP, HOSTED_DISK_STEP.replace('        run:', '        continue-on-error: true\n        run:'), 1),
+                body.replace(HOSTED_DISK_STEP, HOSTED_DISK_STEP.replace('        run:', '        env:\n          RUNNER_ENVIRONMENT: github-hosted\n        run:'), 1),
+                body.replace(HOSTED_DISK_STEP, HOSTED_DISK_STEP.replace('        run:', '        shell: bash\n        run:'), 1),
+            ]
+            for index, broken in enumerate(mutations):
+                self.assertNotEqual(broken, body)
+                with self.subTest(job=name, mutation=index), self.assertRaises(ValueError):
+                    inverse_protocol_workflow(workflow.replace(body, broken, 1))
+
     def test_only_exact_scheduling_delta_restores_original_native_prefix_goldens(self):
         import hashlib
         from pathlib import Path
@@ -286,10 +317,31 @@ def inverse_technical_scope(source):
     return source.replace(step,'',1).replace(prefix,'fullstack').replace(argument,'')
 
 
+def inverse_hosted_disk_preparation(source):
+    """Remove exactly the approved preparation step immediately before admission."""
+    import re
+    pieces = re.split(r'(?m)^  ([a-z][a-z0-9-]*):\n', source.split('jobs:\n', 1)[1])
+    found = []
+    for index in range(1, len(pieces), 2):
+        name, body = pieces[index:index + 2]
+        if name not in ('resource', 'fullstack'):
+            continue
+        admission = ('      - name: Bind complete source and measure disk admission\n' if name == 'resource'
+                     else '      - name: Bind complete source and existing disk admission\n')
+        if body.count(HOSTED_DISK_STEP) != 1 or body.count(HOSTED_DISK_STEP + admission) != 1:
+            raise ValueError('Missing, repeated, changed or moved hosted disk preparation')
+        found.append(name)
+        pieces[index + 1] = body.replace(HOSTED_DISK_STEP, '', 1)
+    if found != ['resource', 'fullstack']:
+        raise ValueError('Missing or duplicate hosted disk preparation jobs')
+    return source.split('jobs:\n', 1)[0] + 'jobs:\n' + pieces[0] + ''.join(
+        f'  {pieces[index]}:\n{pieces[index + 1]}' for index in range(1, len(pieces), 2))
+
+
 def inverse_seven_group_workflow(source):
     """Reverse only this allowance; recover the entire Root 4c9715e workflow."""
     import hashlib
-    source=inverse_technical_scope(source)
+    source=inverse_technical_scope(inverse_hosted_disk_preparation(source))
     for current, previous in [
         ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5]'),
         ('Require all seven provider results to succeed', 'Require all five provider results to succeed'),
