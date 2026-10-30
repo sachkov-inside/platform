@@ -104,7 +104,11 @@ function show(t: Turn, native = false) {
         { kind: "compose:accept" },
       ],
       ["Посмотреть сообщение", { kind: "compose:preview" }],
-      ["Добавить кнопку", { kind: "compose:button" }],
+      ...(s.content.type === "native" && (s.content.nativeCount ?? 0) > 1
+        ? []
+        : ([
+            ["Добавить кнопку", { kind: "compose:button" }],
+          ] satisfies AuthorButton[])),
       ...s.content.buttons.map((b, i): AuthorButton => [
         `Убрать кнопку: ${b.text}`,
         { kind: "compose:remove-button", value: String(i) },

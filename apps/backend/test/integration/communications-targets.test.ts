@@ -73,6 +73,34 @@ describe("communications promised public targets against Materials PostgreSQL", 
         { url, targetId: null, reason: "not_found" },
       ]);
     }
+    expect(
+      await validateTargets(
+        [
+          {
+            partId: randomUUID(),
+            content: {
+              type: "native",
+              text: "Summary without the copied URLs",
+              entities: [],
+              buttons: [],
+              nativeRef: randomUUID(),
+              nativeCount: 2,
+              nativeLinks: [
+                "https://inside.example/products/missing-native-product",
+              ],
+            },
+          },
+        ],
+        "https://inside.example",
+        targets,
+      ),
+    ).toEqual([
+      {
+        url: "https://inside.example/products/missing-native-product",
+        targetId: null,
+        reason: "not_found",
+      },
+    ]);
     await database.prisma.product.update({
       where: { id: productId },
       data: { archivedAt: new Date("2026-01-01T00:00:00Z") },

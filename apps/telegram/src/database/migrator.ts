@@ -1,3 +1,4 @@
+import { nativeMessageCopiesMigration } from "./migrations/039-native-message-copies.js";
 import { platformLinkProfilesMigration } from "./migrations/038-platform-link-profiles.js";
 import { canonicalCommunicationSequencesMigration } from "./migrations/037-canonical-communication-sequences.js";
 import { materialAnnouncementsMigration } from "./migrations/036-material-announcements.js";
@@ -48,6 +49,7 @@ import { communicationsTemplatesMigration } from "./migrations/010-communication
 import { authorAdminMigration } from "./migrations/014-author-admin.js";
 
 const migrations = {
+  "039-native-message-copies": nativeMessageCopiesMigration,
   "038-platform-link-profiles": platformLinkProfilesMigration,
   "037-canonical-communication-sequences":
     canonicalCommunicationSequencesMigration,

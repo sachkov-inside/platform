@@ -660,7 +660,10 @@ function showPost(t: Turn) {
     [
       ["Образец себе", { kind: "sample" }],
       ["Заменить сообщение", { kind: "replace" }],
-      ["Добавить кнопку", { kind: "button" }],
+      ...(template.content.type === "native" &&
+      (template.content.nativeCount ?? 0) > 1
+        ? []
+        : ([["Добавить кнопку", { kind: "button" }]] satisfies AuthorButton[])),
       ["Создать рассылку", { kind: "create-broadcast" }],
       // Removing a button is rarer than the actions above, so a long menu pages it away.
       ...template.content.buttons.map((b, i): AuthorButton => [

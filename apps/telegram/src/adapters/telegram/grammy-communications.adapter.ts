@@ -50,6 +50,8 @@ export class GrammyCommunicationsAdapter implements CommunicationTransport {
     try {
       let sent: { message_id: number };
       switch (c.type) {
+        case "native":
+          return { kind: "api_rejected", providerErrorCode: 400 };
         case "text":
           if (
             isTruthy(message.authorMenu) &&

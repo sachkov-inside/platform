@@ -12,6 +12,8 @@ export async function validateTargets(
   const origin = new URL(publicOrigin).origin;
   const urls = new Set<string>();
   for (const part of parts) {
+    if (part.content.type === "native")
+      for (const url of part.content.nativeLinks) urls.add(url);
     // Telegram also detects plain-text links without explicit entities.
     for (const match of part.content.text.matchAll(/https?:\/\/[^\s<>"']+/gu))
       urls.add(match[0].replace(/[),.!?;:]+$/u, ""));
