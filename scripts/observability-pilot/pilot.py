@@ -1389,7 +1389,8 @@ def worker_storage_guard(owner, compose, output):
 
 
 def run(output, *, prepare_inputs=None, worker_script=None, ports=(18427, 14318, 13000),
-        project_prefix='inside-observability-pilot-', services=None, scope=None, missing=None, worker_pass_fds=()):
+        project_prefix='inside-observability-pilot-', services=None, scope=None, missing=None, worker_pass_fds=(),
+        worker_deadline_seconds=PILOT_DEADLINE_SECONDS):
     if command(["git", "-C", str(ROOT), "status", "--porcelain"]).strip():
         raise RuntimeError("commit pilot inputs before running; evidence must identify immutable source")
     context = command(["docker", "context", "show"]).strip()
@@ -1437,6 +1438,8 @@ def run(output, *, prepare_inputs=None, worker_script=None, ports=(18427, 14318,
                             "PII/sentinel", "retention/cleanup/restore", "Umami", "production and seven days"]}
     if mac:
         evidence['missing'].append('Mac native MCP CPU measurement')
+    if worker_deadline_seconds != PILOT_DEADLINE_SECONDS:
+        evidence['worker_deadline_seconds'] = worker_deadline_seconds
     write_json(output / "owner.json", {"project": project, "cwd": str(ROOT), "supervisor_pid": os.getpid(),
                                     "docker_storage": str(storage), "orbstack": mac, "daemon": linux,
                                     "cleanup": compose + ["down", "--volumes", "--remove-orphans"]})
@@ -1445,7 +1448,7 @@ def run(output, *, prepare_inputs=None, worker_script=None, ports=(18427, 14318,
         guard = orbstack.host_budget(mac, output, command) if mac else nullcontext()
         with guard:
             status = supervise_worker([sys.executable, str(worker_script or Path(__file__).resolve()), "worker", "--output", str(output)],
-                                      compose, output, project, pass_fds=worker_pass_fds,
+                                      compose, output, project, pass_fds=worker_pass_fds, deadline_seconds=worker_deadline_seconds,
                                       **({'cleanup_services':services} if services is not None else {}))
         evidence = json.loads((output / "evidence.json").read_text())
         evidence["worker_exit_code"] = status

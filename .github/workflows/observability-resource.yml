@@ -148,8 +148,8 @@ jobs:
           --scope "${{ steps.scope.outputs.scope }}"
           --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-metadata" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-images.json"
           --consumer "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-private"
-      - name: Measure paired full-process corpus through unchanged 600-second supervisor
-        timeout-minutes: 12
+      - name: Measure paired full-process corpus through scope-bound supervisor
+        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}
         run: >-
           bash scripts/heavy-check.sh python3 scripts/observability-fullstack/fullstack.py run
           --scope "${{ steps.scope.outputs.scope }}"
