@@ -212,6 +212,15 @@ jobs:
         if: ${{ matrix.part == 'contracts' }}
         run: pnpm check:contracts
 
+      - name: Upload Telegram gateway failure diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: telegram-gateway-unit-${{ matrix.part }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-artifacts/telegram-deploy-gateway
+          if-no-files-found: ignore
+          retention-days: 7
+
   unit:
     name: Unit tests
     needs: [plan, unit-checks]
@@ -567,6 +576,15 @@ jobs:
             test -f dist/main.js
             node --input-type=module -e "await import(\"./dist/app.module.js\")"
           '
+
+      - name: Upload Telegram gateway failure diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: telegram-gateway-telegram-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-artifacts/telegram-deploy-gateway
+          if-no-files-found: ignore
+          retention-days: 7
 
   fullstack-browser:
     name: Full-stack browser (${{ matrix.project }}, ${{ matrix.shard }})

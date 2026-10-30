@@ -88,6 +88,10 @@ PR bodies use the owner's language, include unchecked limits, and use these sect
 Record the base before changes. Commit, then run [code-review](.agents/skills/code-review/SKILL.md) on the immutable task commit.
 Standards receives the standards that `AGENTS.md` names; Spec receives the assignment and acceptance criteria.
 Keep reports separate. Reviewers inspect the diff through native read-only subagents; they do not delegate further reviews.
+Before main-target integration, record and verify the immutable Standards/Spec receipt under
+[review evidence](docs/agents/review-evidence.md). The trusted target owns applicability and
+bootstrap; native reports remain semantic review evidence. This check adds no owner approval to
+ordinary tasks and does not replace classification or existing owner gates.
 When native review is unavailable, keep it pending. The shared skill owns evidence, behavioral coverage, specialist triggers and convergence.
 Record finding outcomes and review affected findings after fixes. Implementation loads a standard only for a concrete question.
 
@@ -111,8 +115,16 @@ Product delivery requires successful final-head coverage under the
 For an integration PR:
 
 1. Mark acceptance criteria and check required CI on the current head.
-2. Diagnose and fix failures. Re-run a confirmed provider failure. An unaffected test/job failure gets
-   one re-run with an open tracking issue; diagnose any repeated failure.
+2. Diagnose and fix failures. Provider-only recovery needs confirmed provider evidence and remains
+   separate from a real test retry. An unaffected test/job failure permits one recorded re-run with
+   an open tracking issue identifying the test or cause, first failed run/attempt/source and recheck
+   outcome. Track that cause across PRs: recurrence raises diagnosis priority and does not grant a
+   fresh mechanical retry allowance on every PR. A successful recheck leaves the cause open until
+   diagnosed. Actual regressions, setup/provider failures, cancellations and unknown failures retain
+   their classification; failed-then-passed alone does not establish a flaky test. Completing evidence
+   verification after a new review receipt is evidence completion, not a flaky-test retry.
+   Use the bounded [CI history report](docs/runbooks/continuous-integration.md#ci-history-report)
+   as investigation evidence; required current-head and merge-queue CI still apply.
 3. Compare `closingIssuesReferences` with the linked task before merge.
 4. Use existing standing or task-specific merge authorization and the
    [merge queue](docs/runbooks/continuous-integration.md#merge-queue).
