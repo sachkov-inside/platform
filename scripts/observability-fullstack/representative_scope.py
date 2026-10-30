@@ -1,8 +1,8 @@
 """Private one-read scope integrity under a trusted controller dispatch channel.
 
 SHA256 is not a signature or independent CID/telemetry attestation. Only the
-controller attests CID ownership. Native authority and transport stay unavailable.
-The helper imports only stdlib until ALL five mirrored files have been checked.
+controller attests CID ownership. Separate private transports require this scope.
+The helper imports only stdlib until the exact mirrored closure has been checked.
 """
 import hashlib
 import json
@@ -17,7 +17,10 @@ import time
 
 _MIRROR=('scripts/observability-fullstack/representative_scope.py',
     'scripts/observability-fullstack/signoz_queries.py','scripts/observability-fullstack/core_layout.py',
-    'scripts/observability-signoz/metric_recipe.py','infra/observability/fullstack/profile.json')
+    'scripts/observability-signoz/metric_recipe.py','infra/observability/fullstack/profile.json',
+    'scripts/observability-fullstack/representative_reader.py','scripts/observability-fullstack/representative_agent.py',
+    'scripts/observability-fullstack/representative_stored.py','scripts/observability-pilot/collector_privacy.py',
+    'scripts/observability-sdk-storage/sdk_semantics.py','control.py')
 _PRIVATE=Path('/private/representative-scope')
 _DRIVER=Path(__file__).resolve().parents[2]
 _NAME='current.json'
@@ -115,13 +118,14 @@ def _mirror(driver):
 
 
 def _install_mirror(driver):
-    # Only these five source-fixed files under the EXISTING /driver bind.
+    # Only the source-fixed closure under the EXISTING /driver bind.
     root=Path(__file__).resolve().parents[2]
     for name in _MIRROR:
         path=driver/name
         path.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
         need(path.parent==path.parent.resolve(),'representative_mirror_parent')
-        raw,_=_read(root/name,maximum=1048576)
+        source=root/('scripts/observability-signoz/control.py' if name=='control.py' else name)
+        raw,_=_read(source,maximum=1048576)
         if path.exists() or path.is_symlink():need(_read(path,maximum=1048576)[0]==raw,'representative_mirror_changed')
         else:_write(path,raw)
     return _mirror(driver)
@@ -193,18 +197,28 @@ class Dispatch:
         need(native|_process_receipt(native['init_pid'])==self.__document['native'],'representative_dispatch_native_changed')
         _validate(self.__document)
     def execute(self):
-        """Prepared finite helper verification only. No query transport/keys exist here."""
-        with self.__lock:return self.__execute()
-    def __execute(self):
+        """Preserved verify-only endpoint. The generation can be used only once."""
+        with self.__lock:return self.__execute(False)
+    def read(self):
+        """One fixed native corpus, driven by fresh agent requests, never a replay."""
+        with self.__lock:return self.__execute(True)
+    def __execute(self,read):
         try:
             self._check()
-            raw=self.__owner._scope_exec(self.__generation,self.__digest)
+            raw=(self.__owner._scope_read(self.__generation,self.__digest) if read
+                 else self.__owner._scope_exec(self.__generation,self.__digest))
             self._check(executing=True)
-            need(type(raw) is str and len(raw)<=1024)
+            need(type(raw) is str and len(raw)<=(8192 if read else 1024))
             value=json.loads(raw,object_pairs_hook=_unique,parse_constant=lambda _:need(False))
-            need(type(value) is dict and set(value)=={'scope_verified','generation','digest'}
-                 and value['scope_verified'] is True and type(value['generation']) is int and type(value['digest']) is str)
-            need(value=={'scope_verified':True,'generation':self.__generation,'digest':self.__digest},'representative_dispatch_response')
+            if read:
+                need(type(value) is dict and set(value)=={'read_verified','generation','digest','reads'}
+                    and value['read_verified'] is True and type(value['generation']) is int
+                    and type(value['digest']) is str and type(value['reads']) is int and value['reads']==10)
+                need(value['generation']==self.__generation and value['digest']==self.__digest,'representative_dispatch_response')
+            else:
+                need(type(value) is dict and set(value)=={'scope_verified','generation','digest'}
+                     and value['scope_verified'] is True and type(value['generation']) is int and type(value['digest']) is str)
+                need(value=={'scope_verified':True,'generation':self.__generation,'digest':self.__digest},'representative_dispatch_response')
         except BaseException:
             try:self.close()
             except BaseException:pass
