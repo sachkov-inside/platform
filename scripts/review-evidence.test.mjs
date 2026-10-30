@@ -444,25 +444,16 @@ test("CLI verifies every reviewed source in a multi-PR queue", async (t) => {
   await f.git("checkout", "-b", "second", f.base);
   writeFileSync(resolve(f.cwd, "second"), "second reviewed source");
   await f.git("add", "second");
-  await f.git("commit", "-m", "second source");
+  // An associated commit whose subject ends in an issue number is not read as a squash entry.
+  await f.git("commit", "-m", "second source (#1872)");
   const second = await f.git("rev-parse", "HEAD");
   await f.git("checkout", "main");
   await f.git("merge", "--no-ff", "second", "-m", "second synthetic");
   f.setCandidate(await f.git("rev-parse", "HEAD"));
-  const secondReceipt = structuredClone(f.body);
-  secondReceipt.pullRequest = 43;
-  secondReceipt.headSha = second;
-  f.routes["pulls/43"] = { ...f.pr, number: 43, head: { sha: second } };
+  addSecondSource(f, second);
   f.routes[`commits/${second}/pulls?per_page=100&page=1`] = [
     { number: 43, state: "open" },
   ];
-  const secondComment = {
-    ...f.comment,
-    id: 124,
-    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(secondReceipt)}`,
-  };
-  f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
-  f.routes["issues/comments/124"] = secondComment;
   const result = await f.check({ eventName: "merge_group" });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
@@ -482,6 +473,22 @@ async function squash(f, source, number) {
   // GitHub does not associate a squash queue commit with its pull request.
   f.routes[`commits/${commit}/pulls?per_page=100&page=1`] = [];
   return commit;
+}
+
+/** Registers PR 43 with its own receipt for `head`. @param {Awaited<ReturnType<typeof fixture>>} f @param {string} head */
+function addSecondSource(f, head) {
+  const secondReceipt = structuredClone(f.body);
+  secondReceipt.pullRequest = 43;
+  secondReceipt.headSha = head;
+  f.routes["pulls/43"] = { ...f.pr, number: 43, head: { sha: head } };
+  const secondComment = {
+    ...f.comment,
+    id: 124,
+    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(secondReceipt)}`,
+  };
+  f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
+  f.routes["issues/comments/124"] = secondComment;
+  return secondComment;
 }
 
 test("a squash merge queue entry is verified by its PR number and an identical tree", async (t) => {
@@ -519,17 +526,7 @@ test("a squash queue group verifies every entry and its own receipt", async (t) 
   await f.git("reset", "--hard", f.base);
   await squash(f, "feature", 42);
   f.setCandidate(await squash(f, "second", 43));
-  const secondReceipt = structuredClone(f.body);
-  secondReceipt.pullRequest = 43;
-  secondReceipt.headSha = second;
-  f.routes["pulls/43"] = { ...f.pr, number: 43, head: { sha: second } };
-  const secondComment = {
-    ...f.comment,
-    id: 124,
-    body: `<!-- platform-review-evidence:v1 -->\n${JSON.stringify(secondReceipt)}`,
-  };
-  f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
-  f.routes["issues/comments/124"] = secondComment;
+  const secondComment = addSecondSource(f, second);
   const result = await f.check({ eventName: "merge_group" });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(
@@ -543,6 +540,35 @@ test("a squash queue group verifies every entry and its own receipt", async (t) 
   f.routes["issues/43/comments?per_page=100&page=1"] = [secondComment];
   f.routes["pulls/43"] = { ...f.pr, number: 43, head: { sha: f.head } };
   assert.equal((await f.check({ eventName: "merge_group" })).status, 1);
+});
+
+test("a squash subject naming an issue, a closed PR or an absent head never counts", async (t) => {
+  const f = await fixture(t);
+  await f.git("checkout", "main");
+  await f.git("reset", "--hard", f.base);
+  f.setCandidate(await squash(f, "feature", 42));
+  // The number names an issue: pulls/42 answers 404.
+  const issue = await f.check({
+    eventName: "merge_group",
+    responseRoutes: { ...f.routes, "pulls/42": undefined },
+  });
+  assert.equal(issue.status, 1);
+  assert.match(issue.stderr, /No current PR covers candidate/u);
+  const closed = await f.check({
+    eventName: "merge_group",
+    responseRoutes: { ...f.routes, "pulls/42": { ...f.pr, state: "closed" } },
+  });
+  assert.equal(closed.status, 1);
+  assert.match(closed.stderr, /No current PR covers candidate/u);
+  const absent = await f.check({
+    eventName: "merge_group",
+    responseRoutes: {
+      ...f.routes,
+      "pulls/42": { ...f.pr, head: { sha: "e".repeat(40) } },
+    },
+  });
+  assert.equal(absent.status, 1);
+  assert.match(absent.stderr, /Reviewed PR head is missing/u);
 });
 
 test("unrelated main advance retains exact comparison inputs but changed merge-base/head invalidates review", async (t) => {

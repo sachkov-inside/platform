@@ -210,10 +210,11 @@ function squashOf(commit, head) {
   if (!sha.test(head)) return false;
   const parents = git("rev-list", "--parents", "-n", "1", commit).split(" ");
   if (parents.length !== 2 || parents[1] === undefined) return false;
-  requireValue(
-    git("cat-file", "-t", head) === "commit",
-    "Reviewed PR head is missing from the candidate checkout",
-  );
+  try {
+    git("cat-file", "-e", `${head}^{commit}`);
+  } catch {
+    throw new Error("Reviewed PR head is missing from the candidate checkout");
+  }
   let merged;
   try {
     merged = git("merge-tree", "--write-tree", parents[1], head);
@@ -316,7 +317,19 @@ export async function verify({
   }
   /** @param {number} number */
   async function readPr(number) {
-    const pr = object(await api(`pulls/${number}`));
+    return pullRequest(await api(`pulls/${number}`));
+  }
+  /** A number that names no pull request, such as an issue, yields nothing. @param {number} number */
+  async function readPrIfPresent(number) {
+    const response = await read(`pulls/${number}`);
+    requireRead(response, true);
+    return response.ok
+      ? pullRequest(/** @type {unknown} */ (await response.json()))
+      : undefined;
+  }
+  /** @param {unknown} value */
+  function pullRequest(value) {
+    const pr = object(value);
     const base = object(pr["base"]);
     const repo = object(base["repo"]);
     return {
@@ -349,9 +362,13 @@ export async function verify({
   );
   /** @type {Map<number, Awaited<ReturnType<typeof readPr>>>} */
   const prs = new Map();
-  /** Squash queue commits proven equal to a reviewed PR head applied to their parent. */
-  /** @type {Map<string, number>} */
+  /**
+   * Squash queue commits proven equal to a reviewed PR head applied to their parent.
+   * @type {Map<string, number>}
+   */
   const squashes = new Map();
+  /** @type {Set<number>} */
+  const squashedPrs = new Set();
   if (eventName === "pull_request") {
     requireValue(
       Number.isSafeInteger(numberField(eventObject, "number")),
@@ -370,27 +387,28 @@ export async function verify({
       .filter(Boolean);
     requireValue(commits.length > 0, "Empty merge queue");
     for (const commit of commits) {
+      let associated = false;
       for (const rawAssociated of await pages(`commits/${commit}/pulls`)) {
-        const associated = object(rawAssociated);
-        if (
-          associated["state"] !== "open" ||
-          prs.has(numberField(associated, "number"))
-        )
-          continue;
-        const pr = await readPr(numberField(associated, "number"));
+        const association = object(rawAssociated);
+        if (association["state"] !== "open") continue;
+        associated = true;
+        if (prs.has(numberField(association, "number"))) continue;
+        const pr = await readPr(numberField(association, "number"));
         if (sha.test(pr["head"]?.sha) && ancestor(pr["head"].sha, candidate))
           prs.set(pr["number"], pr);
       }
-      // A squash queue commit is new and GitHub associates no PR with it. Its subject only
-      // names a candidate PR; the identical tree proves the commit is that reviewed head.
+      if (associated) continue;
+      // GitHub associates no PR with a squash queue commit. Its subject only names a candidate;
+      // the commit counts when its tree equals that PR's reviewed head applied to its parent.
       const named = /\(#(\d+)\)$/u.exec(
         git("log", "-1", "--format=%s", commit),
       );
       if (named?.[1] === undefined) continue;
-      const pr = await readPr(Number(named[1]));
-      if (pr.state === "open" && squashOf(commit, pr.head.sha)) {
-        prs.set(pr.number, pr);
-        squashes.set(commit, pr.number);
+      const pr = await readPrIfPresent(Number(named[1]));
+      if (pr?.["state"] === "open" && squashOf(commit, pr["head"].sha)) {
+        prs.set(pr["number"], pr);
+        squashes.set(commit, pr["number"]);
+        squashedPrs.add(pr["number"]);
       }
     }
   }
@@ -404,8 +422,7 @@ export async function verify({
         pr["base"].ref === "main" &&
         pr["base"].sha === base &&
         sha.test(pr["head"]?.sha) &&
-        (ancestor(pr["head"].sha, candidate) ||
-          [...squashes.values()].includes(number)),
+        (ancestor(pr["head"].sha, candidate) || squashedPrs.has(number)),
       "Stale, unrelated or incomplete PR source",
     );
     if (eventName === "pull_request")
