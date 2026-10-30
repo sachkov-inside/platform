@@ -50,7 +50,8 @@ const body: RenderedBlock[] = readerBlocksSchema
   .flatMap(renderFixture);
 const meta = {
   ...publicPageEnvironment("/materials/quiz-proof"),
-  title: "Pages/Material Reader Quiz",
+  id: "pages-material-reader-quiz",
+  title: "Pages/Material Reader/Quiz",
   component: MaterialReaderView,
   args: {
     body,

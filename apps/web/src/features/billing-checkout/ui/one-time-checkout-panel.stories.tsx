@@ -18,7 +18,8 @@ const environment = publicPageEnvironment("/products/platform-inside/buy");
 
 const meta = {
   ...environment,
-  title: "Pages/Product/Payment",
+  id: "pages-product-payment",
+  title: "Patterns/Billing/Checkout panel",
   component: OneTimeCheckoutPanel,
   args: {
     snapshot: productWithSupportOffer,

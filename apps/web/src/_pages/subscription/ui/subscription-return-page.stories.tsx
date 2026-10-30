@@ -34,7 +34,8 @@ const environment = publicPageEnvironment("/payment/return", {
 });
 const meta = {
   ...environment,
-  title: "Pages/Subscription/Return",
+  id: "pages-subscription-return",
+  title: "Pages/Payment/Return",
   component: SubscriptionReturnPage,
   tags: ["autodocs"],
 } satisfies Meta<typeof SubscriptionReturnPage>;

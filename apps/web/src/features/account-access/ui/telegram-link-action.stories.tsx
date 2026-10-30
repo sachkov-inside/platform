@@ -12,7 +12,8 @@ const deepLink = "https://t.me/inside_test_bot?start=opaque";
 
 const meta = {
   ...environment,
-  title: "Features/Account access/Telegram link action",
+  id: "features-account-access-telegram-link-action",
+  title: "Components/Account/Telegram link action",
   component: TelegramLinkAction,
   args: { onRefresh: () => Promise.resolve() },
   parameters: {

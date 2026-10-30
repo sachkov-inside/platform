@@ -62,7 +62,8 @@ function BookmarkScope({
 }
 
 const meta = {
-  title: "Features/Bookmarks adapter",
+  id: "features-bookmarks-adapter",
+  title: "Patterns/Bookmarks/Saved action",
   component: SavedBookmarkAction,
   args: { materialId },
   parameters: {

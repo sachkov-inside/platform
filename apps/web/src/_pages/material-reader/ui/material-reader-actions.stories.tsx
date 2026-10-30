@@ -62,7 +62,8 @@ const bookmarkState = () => ({
 
 const meta = {
   ...environment,
-  title: "Pages/Material Reader actions",
+  id: "pages-material-reader-actions",
+  title: "Pages/Material Reader/Actions",
   component: MaterialReaderView,
   beforeEach: ({ parameters }) => {
     holdReadingSave = parameters["holdReadingSave"] !== false;
