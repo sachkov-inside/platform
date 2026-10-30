@@ -355,11 +355,13 @@ describe("application CI workflow contract", () => {
       ?.replace(/^ {10}/gmu, "");
     assert.ok(command);
     const fixture = mkdtempSync(resolve(tmpdir(), "inside-recovery-paths-"));
+    /** @type {Array<[string, string]>} */
+    const cases = [
+      ["scripts/heavy-check/processes.py", "required=true\n"],
+      ["apps/web/src/unrelated.ts", "required=false\n"],
+    ];
     try {
-      for (const [changedPath, expected] of [
-        ["scripts/heavy-check/processes.py", "required=true\n"],
-        ["apps/web/src/unrelated.ts", "required=false\n"],
-      ]) {
+      for (const [changedPath, expected] of cases) {
         const output = resolve(fixture, "output");
         rmSync(output, { force: true });
         /** @type {import("node:child_process").SpawnSyncReturns<string>} */
