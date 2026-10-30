@@ -443,9 +443,28 @@ class DiscoveryReceiptRecovery(unittest.TestCase):
                     target=next(key for key,value in native.objects.items() if
                         ('Config' in value if kind=='containers' else 'Mountpoint' in value if kind=='volumes' else 'IPAM' in value)
                         and key not in {spec['image'] for spec in layout.plan['services'].values()})
+                    # The source model acquired one independent safe container,
+                    # its real dependencies and the unsafe target. Other producer
+                    # objects exist in the plan but were never acquired.
+                    container_ids={role:next(key for key,value in native.objects.items() if
+                        value.get('Name')=='/'+layout.plan['name']+'-'+role+'-1') for role in layout.plan['services']}
+                    safe=next(role for role,spec in layout.plan['services'].items() if container_ids[role]!=target
+                        and any(m['type']=='volume' for m in owners._mounts(spec)) and spec.get('networks')
+                        and not any(m['type']=='volume' and layout.plan['volumes'][m['source']]['name']==target
+                            for m in owners._mounts(spec))
+                        and not any(layout.plan['networks'][name]['name']==native.objects[target].get('Name')
+                            for name in spec.get('networks',[])))
+                    safe_id=container_ids[safe]
+                    acquired={target,safe_id}
+                    for identity in tuple(acquired):
+                        value=native.objects[identity]
+                        if 'Config' in value:
+                            acquired.update(m['Name'] for m in value['Mounts'] if m['Type']=='volume')
+                            acquired.update(n['NetworkID'] for n in value['NetworkSettings']['Networks'].values())
                     original=native.call
                     def call(args,timeout=10):
                         result=original(args,timeout)
+                        if args[0]=='compose':native.acquired.intersection_update(acquired)
                         # Model an interrupted acquisition with one object not yet
                         # visible. Every observed receipt is real producer state.
                         if args[0]=='ps' or len(args)>1 and args[1]=='ls':
@@ -453,7 +472,11 @@ class DiscoveryReceiptRecovery(unittest.TestCase):
                         return result
                     native.call=call
                     with self.assertRaisesRegex(ValueError,'acquisition_incomplete'):owner.create()
+                    self.assertEqual(native.acquired,acquired)
                     path=output/'representative-owner/resources.json';prefix=path.read_bytes();record=json.loads(prefix)
+                    prefix_ids={value['Name'] if resource=='volumes' else value['Id'] for resource in ('containers','volumes','networks') for value in record[resource].values()}
+                    self.assertEqual(prefix_ids,acquired-{target})
+                    self.assertEqual(set(record['containers']),{safe})
                     self.assertTrue(record['containers'] and record['volumes'] and record['networks'])
                     if recovery:owner=owners.CompositeOwner.recover(native,output,BINDINGS,pins())
                     native.call=original;native.objects[target][field]=bad
@@ -481,6 +504,7 @@ class DiscoveryReceiptRecovery(unittest.TestCase):
                     while tb is not None:frames.append(tb.tb_frame.f_code.co_name);tb=tb.tb_next
                     self.assertIn('discover',frames);self.assertIn('_registry',frames)
                     self.assertIn(target,native.acquired);self.assertNotIn(safe_id,native.acquired)
+                    self.assertEqual(native.acquired,{target})
                     self.assertFalse(any(args[-1]==target and (args[0]=='rm' or len(args)>1 and args[1]=='rm') for args in native.calls))
                     final=json.loads(path.read_text());self.assertEqual(final['status'],'cleanup_failed')
                     receipt=json.loads((path.parent/'cleanup.json').read_text())

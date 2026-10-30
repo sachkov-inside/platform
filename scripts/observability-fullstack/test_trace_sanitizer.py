@@ -1,5 +1,6 @@
 """Private trace edge contracts; owned wire doubles are not native Alloy/Sig proof."""
 import copy
+import ctypes
 from contextlib import contextmanager,ExitStack
 import socket
 import time
@@ -14,9 +15,12 @@ import tempfile
 from pathlib import Path
 import threading
 from http.server import BaseHTTPRequestHandler,HTTPServer
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import unittest
 import trace_sanitizer as sanitizer
+
+with patch.object(sys,'path',[str(Path(__file__).resolve().parents[1]/'heavy-check'),*sys.path]):
+    from processes import adopt_orphans, process_row
 
 
 def payload(count=1,links=1):
@@ -97,7 +101,188 @@ def wire_edge(body=b'{}',status=200,headers=None,pause=None):
         collector.shutdown();collector.server_close();thread.join(5);assert not thread.is_alive()
 
 
+@contextmanager
+def fixture_adoption():
+    """Keep this fixture, rather than an outer command owner, as Linux wait owner."""
+    if sys.platform != 'linux':
+        yield
+        return
+    library = ctypes.CDLL(None, use_errno=True)
+    library.prctl.argtypes = [ctypes.c_int, *([ctypes.c_ulong] * 4)]
+    library.prctl.restype = ctypes.c_int
+    previous = ctypes.c_int()
+    # PR_GET_CHILD_SUBREAPER / PR_SET_CHILD_SUBREAPER from linux/prctl.h.
+    if library.prctl(37, ctypes.addressof(previous), 0, 0, 0) != 0:
+        raise OSError(ctypes.get_errno(), 'PR_GET_CHILD_SUBREAPER')
+    try:
+        adopt_orphans()
+        yield
+    finally:
+        failure = sys.exc_info()[1]
+        try:
+            if library.prctl(36, previous.value, 0, 0, 0) != 0:
+                raise OSError(ctypes.get_errno(), 'restore PR_SET_CHILD_SUBREAPER')
+        except BaseException as error:
+            if failure is None:
+                raise
+            failure.add_note(f'fixture adoption restoration failed: {error!r}')
+
+
+def reap_fixture_zombies(identities):
+    """Wait only for observed births now adopted as this fixture's zombie children."""
+    if sys.platform == 'linux':
+        for pid, birth in identities.items():
+            row = process_row(pid)
+            if row is not None and row[3] == birth and row[0] == os.getpid() and row[2] == 'Z':
+                os.waitpid(pid, os.WNOHANG)
+
+
+def finish_fixture(identities, *operations):
+    """Attempt every fallback cleanup without replacing an in-flight test failure."""
+    failure = sys.exc_info()[1]
+    errors = []
+    deadline = time.monotonic() + 5
+    for pid, birth in identities.items():
+        try:
+            row = process_row(pid)
+            if row is not None and row[3] == birth and row[2] != 'Z':
+                os.kill(pid, signal.SIGKILL)
+        except BaseException as error:
+            errors.append(error)
+    for operation in operations:
+        try:
+            operation()
+        except BaseException as error:
+            errors.append(error)
+    try:
+        while True:
+            reap_fixture_zombies(identities)
+            remaining = {pid: row for pid, birth in identities.items()
+                         if (row := process_row(pid)) is not None and row[3] == birth}
+            if not remaining:
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f'fixture cleanup retained observed births: {remaining}')
+            time.sleep(.01)
+    except BaseException as error:
+        errors.append(error)
+    if errors:
+        if failure is None:
+            for error in errors[1:]:
+                errors[0].add_note(f'additional fixture cleanup failure: {error!r}')
+            raise errors[0]
+        for error in errors:
+            failure.add_note(f'fixture cleanup failed: {error!r}')
+
+
 class Sanitizer(unittest.TestCase):
+    def test_fixture_adoption_reaps_only_registered_child_births_and_restores_state(self):
+        # The kernel boundary is modeled on macOS; this is not Linux physical proof.
+        for previous in (0, 1):
+            with self.subTest(previous=previous):
+                enabled = previous
+                parent = os.getpid()
+                rows = {101: (999, 101, 'Z', 501), 102: (999, 102, 'Z', 502),
+                        103: (parent, 103, 'Z', 999), 104: (parent, 104, 'S', 504),
+                        106: (parent, 106, 'Z', 506)}
+                identities = {101: 501, 102: 502, 103: 503, 104: 504, 105: 505}
+                def prctl(option, value, *_):
+                    nonlocal enabled
+                    if option == 37:
+                        ctypes.c_int.from_address(value).value = enabled
+                    elif option == 36:
+                        enabled = value
+                    else:
+                        raise AssertionError(option)
+                    return 0
+                def adopt():
+                    nonlocal enabled
+                    enabled = 1
+                def wait(pid, options):
+                    self.assertEqual((pid, options), (101, os.WNOHANG))
+                    self.assertEqual(rows[pid], (parent, 101, 'Z', 501))
+                    del rows[pid]
+                    return pid, 0
+                library = Mock(); library.prctl.side_effect = prctl
+                with patch.object(sys, 'platform', 'linux'), patch.object(ctypes, 'CDLL', return_value=library), \
+                        patch(__name__ + '.adopt_orphans', side_effect=adopt), \
+                        patch(__name__ + '.process_row', side_effect=rows.get), patch.object(os, 'waitpid', side_effect=wait) as waited:
+                    with fixture_adoption():
+                        # Node owner exits; the nearest enabled subreaper gets this child.
+                        rows[101] = (parent if enabled else 999, 101, 'Z', 501)
+                        reap_fixture_zombies(identities)
+                        self.assertNotIn(101, rows, 'registered orphan zombie needs its fixture to wait')
+                        self.assertEqual(set(rows), {102, 103, 104, 106})
+                        self.assertEqual(waited.call_count, 1)
+                    self.assertEqual(enabled, previous)
+
+
+    def test_fixture_adoption_keeps_kernel_failures_visible_and_preserves_first_error(self):
+        parent = os.getpid()
+        for error in (ChildProcessError('not our child'), PermissionError('wait denied')):
+            with self.subTest(error=type(error).__name__), patch.object(sys, 'platform', 'linux'), \
+                    patch(__name__ + '.process_row', return_value=(parent, 101, 'Z', 501)), \
+                    patch.object(os, 'waitpid', side_effect=error):
+                with self.assertRaises(type(error)) as caught:
+                    reap_fixture_zombies({101: 501})
+                self.assertIs(caught.exception, error)
+        for initial_failure in (False, True):
+            with self.subTest(initial_failure=initial_failure):
+                enabled = 0
+                def prctl(option, value, *_):
+                    nonlocal enabled
+                    if option == 37:
+                        ctypes.c_int.from_address(value).value = enabled
+                    elif value == 0:
+                        raise PermissionError('restore denied')
+                    return 0
+                def adopt():
+                    nonlocal enabled
+                    enabled = 1
+                library = Mock(); library.prctl.side_effect = prctl
+                marker = RuntimeError('fixture first failure')
+                traceback = None
+                with patch.object(sys, 'platform', 'linux'), patch.object(ctypes, 'CDLL', return_value=library), \
+                        patch(__name__ + '.adopt_orphans', side_effect=adopt):
+                    try:
+                        with fixture_adoption():
+                            if initial_failure:
+                                try:
+                                    raise marker
+                                finally:
+                                    traceback = sys.exc_info()[2]
+                    except BaseException as error:
+                        if initial_failure:
+                            self.assertIs(error, marker)
+                            self.assertIs(error.__traceback__, traceback)
+                            self.assertIn('restore denied', error.__notes__[0])
+                        else:
+                            self.assertIsInstance(error, PermissionError)
+                    else:
+                        self.fail('restoration failure must remain visible')
+        marker = RuntimeError('original fixture interruption')
+        cleanup_marker = PermissionError('cleanup denied')
+        attempted = []
+        def broken_cleanup():
+            attempted.append('broken')
+            raise cleanup_marker
+        with patch.object(sys, 'platform', 'darwin'), \
+                patch(__name__ + '.process_row', side_effect=[(parent, 101, 'S', 501), None]), \
+                patch.object(os, 'kill', side_effect=PermissionError('signal denied')):
+            try:
+                try:
+                    raise marker
+                finally:
+                    traceback = sys.exc_info()[2]
+                    finish_fixture({101: 501}, broken_cleanup, lambda: attempted.append('last'))
+            except RuntimeError as error:
+                self.assertIs(error, marker)
+                self.assertIs(error.__traceback__, traceback)
+                self.assertEqual(attempted, ['broken', 'last'])
+                self.assertEqual(len(error.__notes__), 2)
+            else:
+                self.fail('cleanup replaced the original failure')
+
     def test_real_payload_removes_only_link_metadata_preserving_all_identity_flags_and_structure(self):
         original=payload(2,3);expected=copy.deepcopy(original)
         for span in expected['resourceSpans'][0]['scopeSpans'][0]['spans']:
@@ -368,7 +553,7 @@ signal.pause()
 """
         for at_seconds in (4.9,5.1,6,7.8):
             for outcome in ('interruption','launcher-kill','launcher-term'):
-                with self.subTest(at_seconds=at_seconds,outcome=outcome),ExitStack() as cleanup:
+                with self.subTest(at_seconds=at_seconds,outcome=outcome),ExitStack() as cleanup,fixture_adoption():
                     unrelated=subprocess.Popen([sys.executable,'-c','import signal;signal.pause()'],start_new_session=True)
                     cleanup.callback(reap_process,unrelated)
                     identities={};marker=RuntimeError('controlled_late_parser_interruption')
@@ -399,6 +584,7 @@ signal.pause()
                         self.assertTrue(child.stdout.closed);self.assertTrue(child.stderr.closed)
                         # Pipe EOF alone is not a supervisor-exit receipt. Observe every birth.
                         while True:
+                            reap_fixture_zombies(identities)
                             live={pid:current for pid,birth in identities.items()
                                 if (current:=process_row(pid)) is not None and current[3]==birth}
                             if not live:break
@@ -406,10 +592,7 @@ signal.pause()
                             time.sleep(.01)
                         self.assertIsNone(unrelated.poll())
                     finally:
-                        for pid,birth in identities.items():
-                            current=process_row(pid)
-                            if current is not None and current[2]!='Z' and current[3]==birth:
-                                os.kill(pid,signal.SIGKILL)
+                        finish_fixture(identities)
 
     def test_no_read_admin_arbitrary_path_or_cli_destination_can_reach_collector(self):
         with wire_edge() as (server,receipt,requests):

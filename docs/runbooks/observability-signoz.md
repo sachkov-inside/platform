@@ -282,6 +282,17 @@ OCI metadata, конфигурацию и хеши первичных исход
 [SigNoz v0.146.0](https://github.com/SigNoz/signoz/tree/da556abac1fd41590811b8e0dcbcbdea242dd285),
 native transport на [SigNoz MCP v0.15.0](https://github.com/SigNoz/signoz-mcp-server/tree/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d).
 
+Фиксированные чтения traces используют `span.trace_id` для обоих известных trace ID.
+В закреплённом исходнике [нормализация поля](https://github.com/SigNoz/signoz/blob/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/types/telemetrytypes/field.go#L149)
+и [разрешение span-поля](https://github.com/SigNoz/signoz/blob/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/telemetryschema/tracestelemetryschema/storage.go#L206)
+ведут к прежней физической колонке `trace_id` типа `FixedString(32)`.
+Отдельный [поиск в сводной таблице](https://github.com/SigNoz/signoz/blob/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/telemetryschema/tracestelemetryschema/trace_id_extractor.go#L105)
+распознаёт только ключи `trace_id`/`traceid` и для отсутствующего trace может вернуть пустой scalar
+до выполнения `count()`. Чтения logs сохраняют прежний `trace_id`. Окно 60 секунд, `count()`,
+положительный результат 1 и отрицательный 0 сохраняются. Пустой или некорректный scalar
+остаётся отказом. Проверка тела запроса подтверждает локальный контракт. Настоящие числовые
+0 и 1, MCP, права, отзыв ключа и очистка требуют отдельного native-прогона на том же исходнике.
+
 Готовность native MCP проверяется через `/readyz`, который ждёт готовности индекса
 документации. В закреплённой версии этот endpoint возвращает обычный текст: HTTP 503
 означает, что индекс ещё не готов, HTTP 200 означает готовность. Только этот вызов

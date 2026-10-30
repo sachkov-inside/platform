@@ -13,9 +13,18 @@ def cases(count=9):
     return [case_type(f'test_{index:02}') for index in range(count)]
 
 
+LATE_METHOD = 'test_late_parser_owner_loss_reaps_every_born_identity_before_original_deadline'
+
+
+def late_case(method=lambda self: None, base=unittest.TestCase):
+    return type('Sanitizer', (base,), {'__module__': 'test_trace_sanitizer', LATE_METHOD: method})(LATE_METHOD)
+
+
 class ProtocolRunner(unittest.TestCase):
     def test_nested_shuffled_cases_have_exact_deterministic_disjoint_coverage(self):
-        original = cases()
+        regular = cases()
+        late = late_case()
+        original = [*regular, late]
         suite = unittest.TestSuite([
             unittest.TestSuite(original[5:][::-1]),
             unittest.TestSuite(original[:5][::-1]),
@@ -23,18 +32,18 @@ class ProtocolRunner(unittest.TestCase):
         groups = protocol_runner.partition(suite)
         self.assertEqual([[case._testMethodName for case in group] for group in groups], [
             ['test_00', 'test_04', 'test_08'], ['test_01', 'test_05'],
-            ['test_02', 'test_06'], ['test_03', 'test_07'],
+            ['test_02', 'test_06'], ['test_03', 'test_07'], [LATE_METHOD],
         ])
         self.assertEqual({id(case) for group in groups for case in group}, {id(case) for case in original})
         self.assertEqual(sum(map(len, groups)), len(original))
         self.assertEqual(groups, protocol_runner.partition(unittest.TestSuite(original)))
 
     def test_empty_structural_suites_do_not_remove_leaves_but_empty_inventory_is_refused(self):
-        original = cases(4)
+        original = [*cases(4), late_case()]
         self.assertEqual(protocol_runner.partition(unittest.TestSuite([unittest.TestSuite(), unittest.TestSuite(original)])), tuple((case,) for case in original))
         for count in range(4):
             with self.subTest(count=count), self.assertRaises(ValueError):
-                protocol_runner.partition(unittest.TestSuite(cases(count)))
+                protocol_runner.partition(unittest.TestSuite([*cases(count), late_case()]))
 
     def test_future_discovered_module_joins_complete_inventory(self):
         import tempfile
@@ -43,27 +52,39 @@ class ProtocolRunner(unittest.TestCase):
             path = Path(directory)
             (path / 'test_future_protocol.py').write_text('import unittest\nclass Future(unittest.TestCase):\n' + ''.join(f'    def test_{index}(self): pass\n' for index in range(5)))
             loader = unittest.TestLoader()
-            groups = protocol_runner.partition(loader.discover(str(path), pattern='test_*.py'), loader.errors)
-            self.assertEqual(sorted(case.id() for group in groups for case in group), [f'test_future_protocol.Future.test_{index}' for index in range(5)])
-            self.assertEqual(tuple(map(len, groups)), (2, 1, 1, 1))
+            suite = loader.discover(str(path), pattern='test_*.py')
+            suite.addTest(late_case())
+            groups = protocol_runner.partition(suite, loader.errors)
+            self.assertEqual(sorted(case.id() for group in groups for case in group), [f'test_future_protocol.Future.test_{index}' for index in range(5)] + [late_case().id()])
+            self.assertEqual(tuple(map(len, groups)), (2, 1, 1, 1, 1))
+            self.assertEqual(groups[4][0].id(), late_case().id())
 
     def test_foreign_alias_duplicate_spoofed_missing_and_unbound_cases_are_refused(self):
-        valid = cases(4)
-        invalid = []
+        valid = [*cases(4), late_case()]
+        invalid = [unittest.TestSuite(cases(4))]
+        wrong = type("Wrong", (unittest.TestCase,), {"__module__": __name__, LATE_METHOD: lambda self: None})(LATE_METHOD)
+        invalid.append(unittest.TestSuite([*cases(4), wrong]))
+        invalid.append(unittest.TestSuite([*valid, late_case()]))
         foreign = unittest.TestSuite(valid); foreign._tests.append(object()); invalid.append(foreign)
         invalid.append(unittest.TestSuite([*valid, valid[0]]))
         invalid.append(unittest.TestSuite([*valid, type(valid[0])('test_00')]))
         for key, value in [('id', lambda self: 'forged.Case.test_00'), ('id', lambda self: None), ('id', None), ('_testMethodName', None), ('_testMethodName', 'runTest'), ('test_00', lambda: None)]:
-            changed = cases(4)
+            changed = [*cases(4), late_case()]
             setattr(changed[0], key, value.__get__(changed[0], type(changed[0])) if key == 'id' and callable(value) else value)
             invalid.append(unittest.TestSuite(changed))
         spoof_type = type('Spoof', (type(valid[0]),), {'__module__': __name__, 'id': lambda self: unittest.TestCase.id(self)})
         invalid.append(unittest.TestSuite([spoof_type('test_00'), *valid[1:]]))
         nested = unittest.TestSuite(); nested.addTest(nested); invalid.append(nested)
         consumed = unittest.TestSuite(); consumed._tests.append(None); invalid.append(consumed)
+        from unittest.mock import patch
         for suite in invalid:
             with self.subTest(suite_type=type(suite).__name__), self.assertRaises(ValueError):
                 protocol_runner.partition(suite)
+            # A valid protected case never licenses selecting before validating
+            # foreign or malformed leaves elsewhere in the complete discovery.
+            for group in protocol_runner.GROUPS:
+                with self.subTest(group=group), patch.object(unittest.TestLoader, 'discover', return_value=suite), patch.object(protocol_runner, 'run_group', side_effect=AssertionError('must validate before execution')):
+                    with self.assertRaises(ValueError):protocol_runner.main(['--group',group])
 
     def test_loader_errors_and_real_import_failure_are_refused(self):
         import tempfile
@@ -81,23 +102,26 @@ class ProtocolRunner(unittest.TestCase):
     def test_cli_refuses_missing_unknown_duplicate_and_lookalike_options_before_discovery(self):
         from unittest.mock import patch
         invalid = [[], ['--group'], ['--other', '1'], ['--gro', '1'], ['--group=1'], ['--group', '1', '--group', '2'], ['--group', '1', '--exclude', 'test_x']]
-        invalid += [['--group', value] for value in ('0', '5', '-1', '+1', ' 1', '1 ', '1.0', 'True', '01', '')]
+        invalid += [['--group', value] for value in ('0', '6', '-1', '+1', ' 1', '1 ', '1.0', 'True', '01', '')]
         with patch.object(protocol_runner, 'discover', side_effect=AssertionError('must refuse before discovery')):
             for arguments in invalid:
                 with self.subTest(arguments=arguments), self.assertRaises(ValueError): protocol_runner.main(arguments)
 
     def test_all_groups_execute_real_cases_and_preserve_failure_error_skip_and_fixtures(self):
         from unittest.mock import patch
-        for outcome, expected in [('pass', 0), ('fail', 1), ('error', 1), ('skip', 0)]:
+        for outcome, expected in [('pass', 0), ('fail', 1), ('error', 1), ('timeout', 1), ('skip', 0)]:
             for group in protocol_runner.GROUPS:
                 events = []
                 def method(self):
                     events.append('method')
                     if outcome == 'fail': self.fail('synthetic failure')
                     if outcome == 'error': raise RuntimeError('synthetic error')
+                    if outcome == 'timeout': raise TimeoutError('synthetic timeout')
                     if outcome == 'skip': self.skipTest('existing skip')
                 fixture = type('Fixture', (unittest.TestCase,), {'__module__': __name__, 'setUpClass': classmethod(lambda cls: events.append('class setup')), 'tearDownClass': classmethod(lambda cls: events.append('class teardown')), 'setUp': lambda self: events.append('setup'), 'tearDown': lambda self: events.append('teardown'), **{f'test_{i}': method for i in range(4)}})
-                groups = protocol_runner.partition(unittest.defaultTestLoader.loadTestsFromTestCase(fixture))
+                suite = unittest.defaultTestLoader.loadTestsFromTestCase(fixture)
+                suite.addTest(late_case(method, fixture))
+                groups = protocol_runner.partition(suite)
                 with self.subTest(outcome=outcome, group=group), patch.object(protocol_runner, 'discover', return_value=groups), patch('sys.stderr', new=io.StringIO()):
                     self.assertEqual(protocol_runner.main(['--group', group]), expected)
                 self.assertEqual(events, ['class setup', 'setup', 'method', 'teardown', 'class teardown'])
@@ -106,11 +130,13 @@ class ProtocolRunner(unittest.TestCase):
         import subprocess
         from pathlib import Path
         fixture = type('Skipped', (unittest.TestCase,), {'__module__': __name__, **{f'test_{index}': unittest.skip('existing decorator')(lambda self: self.fail('must stay skipped')) for index in range(4)}})
-        groups = protocol_runner.partition(unittest.defaultTestLoader.loadTestsFromTestCase(fixture))
+        suite = unittest.defaultTestLoader.loadTestsFromTestCase(fixture)
+        suite.addTest(late_case(unittest.skip('existing decorator')(lambda self: self.fail('must stay skipped'))))
+        groups = protocol_runner.partition(suite)
         stream = io.StringIO()
         self.assertEqual(protocol_runner.run_group(groups, '1', stream), 0)
         self.assertIn('skipped=1', stream.getvalue())
-        refused = subprocess.run([__import__('sys').executable, '-B', str(Path(protocol_runner.__file__)), '--group', '5'], capture_output=True, text=True, timeout=2)
+        refused = subprocess.run([__import__('sys').executable, '-B', str(Path(protocol_runner.__file__)), '--group', '6'], capture_output=True, text=True, timeout=2)
         self.assertEqual(refused.returncode, 1)
         self.assertIn('Protocol refused', refused.stderr)
         for error in ('self.fail("failure")', 'raise RuntimeError("error")'):
@@ -129,7 +155,7 @@ PROTOCOL_JOBS = """
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4]
+        group: [1, 2, 3, 4, 5]
     steps:
       - name: Check out exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -167,7 +193,7 @@ PROTOCOL_JOBS = """
     env:
       RESULT: ${{ needs.fullstack-protocol-shard.result }}
     steps:
-      - name: Require all four provider results to succeed
+      - name: Require all five provider results to succeed
         run: test "$RESULT" = success
 """
 ORIGINAL_PROTOCOL_STEP = """      - name: Verify whole-stack admission, ownership and acceptance contracts
@@ -206,7 +232,8 @@ class WorkflowInverse(unittest.TestCase):
             ('actions/checkout@3d3c42', 'actions/checkout@000000'),
             ('persist-credentials: false', 'persist-credentials: true'),
             ('      - name: Bind complete source and existing disk admission', '      - name: Moved admission anchor'),
-            ('group: [1, 2, 3, 4]', 'group: [1, 2, 3]'),
+            ('group: [1, 2, 3, 4, 5]', 'group: [1, 2, 3, 4]'),
+            ('group: [1, 2, 3, 4, 5]', 'group: [1, 2, 3]'),
         ]
         for before, after in mutations:
             self.assertIn(before, workflow)

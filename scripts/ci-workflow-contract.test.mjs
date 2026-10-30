@@ -160,7 +160,7 @@ function assertResourceProtocol(source) {
   assert.match(shard, /timeout-minutes: 5\n/u);
   assert.match(
     shard,
-    /fail-fast: false\n {6}matrix:\n {8}group: \[1, 2, 3, 4\]/u,
+    /fail-fast: false\n {6}matrix:\n {8}group: \[1, 2, 3, 4, 5\]/u,
   );
   assert.match(
     shard,
@@ -191,11 +191,37 @@ function assertResourceProtocol(source) {
   assert.match(aggregate, /run: test "\$RESULT" = success\n/u);
   // Exact new blocks reject duplicate/shadowing fields, conditional cells and
   // hidden alternatives as well as the explicit graph checks above.
+  // The only new workflow delta is the fifth mandatory cell and its factual
+  // aggregate label. Its exact inverse must still match both four-cell goldens.
+  const previousProtocol = [
+    [
+      "fullstack-protocol-shard",
+      "group: [1, 2, 3, 4, 5]",
+      "group: [1, 2, 3, 4]",
+      "648489f2d16e5fee834d4dda302ac948f81f6a616db671329ad2fb001f642638",
+    ],
+    [
+      "fullstack-protocol",
+      "Require all five provider results to succeed",
+      "Require all four provider results to succeed",
+      "f9522fb2702e8101d67017af3f071e78904a4e3ab24ad28512a914305bd72254",
+    ],
+  ];
+  for (const [
+    name = "",
+    current = "",
+    previous = "",
+    expected = "",
+  ] of previousProtocol) {
+    const body = jobs.get(name) ?? "";
+    assert.equal(body.split(current).length, 2);
+    assert.equal(digest(body.replace(current, previous)), expected);
+  }
   const protocolHashes = {
     "fullstack-protocol-shard":
-      "648489f2d16e5fee834d4dda302ac948f81f6a616db671329ad2fb001f642638",
+      "ea6f6ac5dadb089fccb7c576be57437e4fdb7544fc89360c6625a8945a22b2be",
     "fullstack-protocol":
-      "f9522fb2702e8101d67017af3f071e78904a4e3ab24ad28512a914305bd72254",
+      "dea48cd68ba50b3ca180e09f6b6792d858344a1bef168700c88d10684eb2ecd0",
   };
   for (const [name, expected] of Object.entries(protocolHashes)) {
     assert.equal(
@@ -1377,11 +1403,13 @@ it("requires complete fixed protocol coverage before all native Resource jobs", 
 
 it("rejects missing coverage, graph bypasses, source drift and native policy changes", () => {
   const mutations = [
-    ["group: [1, 2, 3, 4]", "group: [1, 2, 3]"],
-    ["group: [1, 2, 3, 4]", "group: [1, 2, 3, 3]"],
+    ["group: [1, 2, 3, 4, 5]", "group: [1, 2, 3, 4]"],
+    ["group: [1, 2, 3, 4, 5]", "group: [1, 2, 3, 4, 5, 5]"],
+    ["group: [1, 2, 3, 4, 5]", "group: [1, 2, 3]"],
+    ["group: [1, 2, 3, 4, 5]", "group: [1, 2, 3, 3]"],
     [
-      "group: [1, 2, 3, 4]",
-      "group: [1, 2, 3, 4]\n        exclude: [{group: 4}]",
+      "group: [1, 2, 3, 4, 5]",
+      "group: [1, 2, 3, 4, 5]\n        exclude: [{group: 5}]",
     ],
     ["    needs: fullstack-protocol\n", ""],
     [
@@ -1465,6 +1493,7 @@ it("accepts only the provider aggregate's exact success value", () => {
     "success",
     "failure",
     "cancelled",
+    "timed_out",
     "skipped",
     "",
     "missing",
@@ -1499,7 +1528,11 @@ it("keeps fixed stdlib discovery and binds every tracked protocol source", () =>
     /loader\.discover\(str\(START\), pattern='test_\*\.py'\)/u,
   );
   assert.match(runner, /partition\(suite, loader\.errors\)/u);
-  assert.match(runner, /GROUPS = \('1', '2', '3', '4'\)/u);
+  assert.match(runner, /GROUPS = \('1', '2', '3', '4', '5'\)/u);
+  assert.match(
+    runner,
+    /LATE_CASE = 'test_trace_sanitizer\.Sanitizer\.test_late_parser_owner_loss_reaps_every_born_identity_before_original_deadline'/u,
+  );
   assert.doesNotMatch(
     runner,
     /os\.environ|argparse|loadTestsFromNames|\.skipTest\(|\.skip\(/u,
