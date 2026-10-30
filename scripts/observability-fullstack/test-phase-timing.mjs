@@ -21,6 +21,7 @@ function gcEntry(
   };
 }
 function gcBoundary() {
+  let lists = 0;
   /** @type {string[]} */ const calls = [];
   /** @type {import('node:perf_hooks').PerformanceEntry[]} */ const pending =
     [];
@@ -33,7 +34,10 @@ function gcBoundary() {
       deliver = (entries) =>
         callback(
           {
-            getEntries: () => entries,
+            getEntries: () => {
+              lists++;
+              return entries;
+            },
             getEntriesByName: () => [],
             getEntriesByType: () => [],
           },
@@ -55,6 +59,9 @@ function gcBoundary() {
     Observer,
     calls,
     pending,
+    get lists() {
+      return lists;
+    },
     deliver: (
       /** @type {import('node:perf_hooks').PerformanceEntry[]} */ entries,
     ) => deliver(entries),
@@ -337,6 +344,146 @@ test("diagnostic caps retain first rows and saturation stays explicitly unknown"
   boundary.deliver([gcEntry(1001, 1)]);
   timing.stopClient();
   assert.equal(JSON.stringify(timing.result), snapshot);
+});
+
+test("GC inspection cap includes excluded entries before registration", (t) => {
+  t.mock.method(performance, "now", () => 1001);
+  const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000),
+    boundary = gcBoundary();
+  timing.startGc(boundary.Observer);
+  let inspected = 0;
+  const entry = gcEntry(1000, 0);
+  Object.defineProperty(entry, "startTime", {
+    get() {
+      inspected++;
+      return 1000;
+    },
+  });
+  boundary.deliver(Array.from({ length: 513 }, () => entry));
+  assert.equal(inspected, 512);
+  assert.equal(timing.result.client_gc?.excluded, 512);
+  assert.equal(timing.result.client_gc?.rows.length, 0);
+  assert.equal(timing.result.client_gc?.state, "overflow");
+  assert.equal(timing.result.client_gc?.overflow, 1);
+  assert.deepEqual(boundary.calls, ["observe", "disconnect"]);
+});
+
+test("GC inspection cap counts valid, excluded, invalid and mixed entries across callbacks", (t) => {
+  t.mock.method(performance, "now", () => 1001);
+  for (const scenario of [
+    "valid",
+    "pre_registration",
+    "post_phase_cut",
+    "invalid_kind",
+    "invalid_entry",
+    "mixed",
+  ]) {
+    const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000),
+      boundary = gcBoundary();
+    timing.startGc(boundary.Observer);
+    if (scenario === "post_phase_cut") timing.finish(1002, 1800000000002, 1002);
+    let inspected = 0;
+    const entries = Array.from({ length: 513 }, (_, index) => {
+      const variant = scenario === "mixed" ? index % 4 : -1;
+      return gcEntry(
+        scenario === "pre_registration" || variant === 1
+          ? 1000
+          : scenario === "post_phase_cut"
+            ? 1003
+            : 1001,
+        0,
+        scenario === "invalid_kind" || variant === 2
+          ? -999
+          : constants.NODE_PERFORMANCE_GC_MINOR,
+      );
+    });
+    for (let index = 0; index < entries.length; index++) {
+      const entry = entries[index];
+      Object.defineProperty(entries, index, {
+        get() {
+          inspected++;
+          return scenario === "invalid_entry" ? null : entry;
+        },
+      });
+    }
+    boundary.deliver(entries.slice(0, 200));
+    assert.equal(inspected, 200, scenario);
+    assert.equal(boundary.calls.includes("disconnect"), false, scenario);
+    boundary.deliver(entries.slice(200, 511));
+    assert.equal(inspected, 511, scenario);
+    assert.equal(boundary.calls.includes("disconnect"), false, scenario);
+    inspected = 0;
+    boundary.deliver(entries);
+    assert.equal(inspected, 1, scenario);
+    const leaf = timing.result.client_gc;
+    assert.ok(leaf);
+    assert.equal(leaf.state, "overflow", scenario);
+    assert.equal(leaf.overflow, 1, scenario);
+    assert.equal(leaf.tail_complete, false, scenario);
+    assert.equal(
+      leaf.rows.length,
+      scenario === "valid" ? 1536 : scenario === "mixed" ? 768 : 0,
+      scenario,
+    );
+    assert.equal(
+      leaf.excluded,
+      ["pre_registration", "post_phase_cut"].includes(scenario)
+        ? 512
+        : scenario === "mixed"
+          ? 128
+          : 0,
+      scenario,
+    );
+    assert.equal(
+      leaf.invalid,
+      ["invalid_kind", "invalid_entry"].includes(scenario)
+        ? 512
+        : scenario === "mixed"
+          ? 128
+          : 0,
+      scenario,
+    );
+    assert.deepEqual(boundary.calls, ["observe", "disconnect"], scenario);
+    const snapshot = JSON.stringify(timing.result);
+    boundary.deliver(entries);
+    timing.stopClient();
+    timing.stopClient();
+    assert.equal(inspected, 1, scenario);
+    assert.equal(boundary.lists, 3, scenario);
+    assert.equal(JSON.stringify(timing.result), snapshot, scenario);
+    assert.deepEqual(boundary.calls, ["observe", "disconnect"], scenario);
+    assert.equal(snapshot.includes("private"), false, scenario);
+  }
+});
+
+test("GC drain shares the inspection cap and disconnect faults preserve overflow", (t) => {
+  t.mock.method(performance, "now", () => 1001);
+  for (const disconnectFault of [false, true]) {
+    const timing = phaseTiming(2, 0, 1000, 1800000000000, 1000),
+      boundary = gcBoundary();
+    if (disconnectFault)
+      t.mock.method(boundary.Observer.prototype, "disconnect", () => {
+        boundary.calls.push("disconnect");
+        throw new Error("private-token-url-account-sentinel");
+      });
+    timing.startGc(boundary.Observer);
+    boundary.deliver(Array.from({ length: 511 }, () => gcEntry(1000, 0)));
+    boundary.pending.push(gcEntry(1001, 0), gcEntry(1001, 0));
+    timing.stopClient();
+    assert.equal(timing.result.client_gc?.state, "overflow");
+    assert.equal(timing.result.client_gc?.overflow, 1);
+    assert.equal(timing.result.client_gc?.excluded, 511);
+    assert.equal(timing.result.client_gc?.invalid, disconnectFault ? 1 : 0);
+    assert.deepEqual(timing.result.client_gc?.rows, [1, 1000, 1000]);
+    assert.equal(timing.result.client_gc?.tail_complete, false);
+    assert.deepEqual(boundary.calls, ["observe", "drain", "disconnect"]);
+    const snapshot = JSON.stringify(timing.result);
+    boundary.deliver([gcEntry(1001, 0)]);
+    timing.stopClient();
+    assert.equal(JSON.stringify(timing.result), snapshot);
+    assert.deepEqual(boundary.calls, ["observe", "drain", "disconnect"]);
+    assert.equal(snapshot.includes("private"), false);
+  }
 });
 
 test("GC faults, unsupported observation and late delivery never imply zero GC", (t) => {

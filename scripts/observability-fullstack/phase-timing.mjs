@@ -82,7 +82,8 @@ export function phaseTiming(phase, pair, before, epoch, after) {
     requestPending = 0,
     workSealed = false;
   /** @type {PerformanceObserver | undefined} */ let gcObserver;
-  let gcSealed = false;
+  let gcSealed = false,
+    gcInspected = 0;
   /** @type {number | undefined} */ let gcStart;
   /** @type {number | undefined} */ let gcEnd;
   /** Retained only until settlement; validate the original clock before quantization. @type {number[]} */ const gcRawEnds =
@@ -107,8 +108,9 @@ export function phaseTiming(phase, pair, before, epoch, after) {
   function gcEntries(entries) {
     const leaf = result.client_gc;
     if (gcSealed || !leaf) return;
-    for (const raw of entries) {
-      if (gcSealed) break;
+    for (let index = 0; index < entries.length && !gcSealed; index++) {
+      const raw = entries[index];
+      gcInspected++;
       try {
         if (raw === null || typeof raw !== "object") throw new Error("entry");
         /** @type {unknown} */ const type = Reflect.get(raw, "entryType");
@@ -147,13 +149,14 @@ export function phaseTiming(phase, pair, before, epoch, after) {
           Math.floor((end - before) * 1000),
         );
         gcRawEnds.push(end);
-        if (leaf.rows.length >= 512 * 3) {
+      } catch {
+        gcFault(leaf);
+      } finally {
+        if (gcInspected === 512) {
           leaf.state = "overflow";
           leaf.overflow++;
           disconnectGc();
         }
-      } catch {
-        gcFault(leaf);
       }
     }
   }
@@ -446,6 +449,7 @@ export function phaseTiming(phase, pair, before, epoch, after) {
           throw new Error("gc");
         leaf.capture_start_us = Math.floor((gcStart - before) * 1000);
         gcObserver = new Observer((list) => {
+          if (gcSealed) return;
           try {
             gcEntries(list.getEntries());
           } catch {
