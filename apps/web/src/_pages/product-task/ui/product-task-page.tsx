@@ -4,7 +4,10 @@ import {
   publicPageUrl,
   readPublicSiteOrigin,
 } from "@/shared/link-preview/index.server";
-import { courseReadingContext } from "@/features/library-discovery";
+import {
+  courseReadingContext,
+  withDeferredTaskStatuses,
+} from "@/features/library-discovery";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import {
   loadPublishedProduct,
@@ -55,7 +58,7 @@ export async function ProductTaskPage({
         programme === null ? (
           <ProductTaskLoading />
         ) : (
-          <ProductTaskPending programme={programme} />
+          <ProductTaskPending programme={withDeferredTaskStatuses(programme)} />
         )
       }
     >

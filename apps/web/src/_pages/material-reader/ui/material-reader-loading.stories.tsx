@@ -32,7 +32,7 @@ import { SavedReadingAction } from "@/features/reading-progress";
 import { MaterialReaderView } from "./material-reader-view";
 
 const material = {
-  materialId: "course-intro-id",
+  materialId: "00000000-0000-4000-8000-0000000000a3",
   contentVersion: 1,
   access: "closed",
   cover: null,

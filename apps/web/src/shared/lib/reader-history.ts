@@ -14,7 +14,6 @@ const viewSchema = z.object({
   contentY: z.number(),
   railY: z.number(),
   chapter: z.string().optional(),
-  expanded: z.array(z.string()),
 });
 type Origin = z.infer<typeof originSchema>;
 export const readerHistoryEntryEvent = "inside-reader-history-entry";
@@ -102,12 +101,6 @@ export function saveReaderHistoryView(root: ParentNode = document) {
     chapter: root.querySelector<HTMLElement>("[data-course-chapter]")?.dataset[
       "courseChapter"
     ],
-    expanded: Array.from(
-      root.querySelectorAll<HTMLDetailsElement>(
-        "details[data-course-chapter-id][open]",
-      ),
-      (item) => item.dataset["courseChapterId"] ?? "",
-    ),
   };
   try {
     sessionStorage.setItem(key(current.id), JSON.stringify(view));
@@ -164,13 +157,6 @@ export function enterReaderHistory(
       window.dispatchEvent(
         new CustomEvent(readerHistoryRestoreEvent, { detail: view.chapter }),
       );
-      root
-        .querySelectorAll<HTMLDetailsElement>("details[data-course-chapter-id]")
-        .forEach((item) => {
-          item.open = view.expanded.includes(
-            item.dataset["courseChapterId"] ?? "",
-          );
-        });
       requestAnimationFrame(() => {
         if (entry()?.id !== current.id || window.location.href !== current.href)
           return;

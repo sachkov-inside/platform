@@ -463,11 +463,21 @@ An `anchor=material:<slug>` or `anchor=task:<code>` query accompanies the existi
 The server validates the displayed Material's Product membership and the anchor's primary membership and availability.
 A valid anchor supplies the sidebar and mobile programme, without adding the supplementary document to chapters,
 counts, progress or previous/next. The sidebar selects the originating step; breadcrumbs name the open document.
-A thin dashed orange sidebar line connects chapter markers to the current anchor and stops there.
+Sidebar step markers show the reader's saved progress, not position (#1854, owner 2026-10-30): a check
+marks a Material marked as studied or a submitted Task, an empty ring an unpassed step, and a neutral line
+joins the markers. Studied titles are muted. Only the current step uses the accent: an accent dot and a
+tinted row. A signed-in chapter header shows a thin bar and «N из M» over its rows. Guests and
+unloaded or failed marks show neutral dots and no counts; a saved submission still shows its check.
+The chapter switch titles its list «Выберите главу» with chapter and course counts; each row shows its
+number and «N/M», a complete chapter adds a check and the reading chapter is tinted. Browsing another
+chapter shows «Вы читаете главу N» with «К текущему шагу».
 Rail text uses 16 px. Prose uses 16 px below 80rem and 18 px above, with 15 px phone prose.
-Below 48rem, the floating lesson dock opens the bottom programme sheet.
+The programme sheet repeats the desktop rail content and chapter switch.
+Below 64rem, the floating lesson dock opens the bottom programme sheet (#1854, owner 2026-10-30):
+previous and next sit on light round buttons, and the dark centre names «Программа» with a list icon,
+an upward chevron and either «Пройдено N из M» or the chapter and step position.
 Mobile bottom navigation, including programme bars and sticky programme links, uses no backdrop blur.
-From 48rem to below 64rem, a top button opens a left overlay drawer; the bottom dock is absent.
+From 48rem to below 64rem, tablets use the same dock and sheet; there is no top programme button.
 At 64rem and above, the chapter rail stays visible. Tablet and desktop retain the named previous/next footer.
 The supplementary footer returns to the originating lesson or Task; it does not offer primary-step arrows.
 Nested supplementary links retain the anchor. Selecting a primary step ends supplementary browsing.
@@ -483,8 +493,8 @@ not to breadcrumbs.
 Breadcrumbs use a named navigation landmark and identify the current page. They wrap on narrow screens.
 Profile, checkout, authoring and Home do not gain breadcrumbs through this change.
 
-Course and anchor survive reload in the URL. Scroll positions, selected sidebar chapter and expanded mobile
-chapters belong to a browser history entry, stored per tab under that entry's opaque identity.
+Course and anchor survive reload in the URL. Scroll positions and the selected sidebar chapter belong to a
+browser history entry, stored per tab under that entry's opaque identity.
 Back traverses document history. Explicit return opens the originating entry's exact URL and restores its view
 when available. Reload preserves the course anchor; absent history, blocked storage or a new tab use a safe
 route fallback. No global last-course preference or cross-tab navigation state is used.
