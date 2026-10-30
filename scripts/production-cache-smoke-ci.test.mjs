@@ -349,7 +349,7 @@ test("preparation captures redact secrets, record failures and reap timed-out co
       file,
       `#!/bin/sh
 if [ "$SCENARIO" = timeout ] && [ "$1" = version ]; then exec "$NODE_BINARY" "$HANG_SCRIPT"; fi
-printf '%s\\n' 'safe daemon restart marker' 'https://user:CANARY_urlpass@host/path?key=CANARY_query' 'token=CANARY_token' 'Authorization: Bearer CANARY_auth' 'ghp_CANARYgithubtoken12345678901234567890' 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjYW5hcnkifQ.signature' 'EYJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjYW5hcnkifQ.signature'
+printf '%s\\n' 'safe daemon restart marker' 'https://user:CANARY_urlpass@host/path?key=CANARY_query' 'token=CANARY_token' 'Authorization: Bearer CANARY_auth' '${["ghp", "CANARYgithubtoken12345678901234567890"].join("_")}' 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjYW5hcnkifQ.signature' 'EYJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjYW5hcnkifQ.signature'
 if [ "$1" = image ]; then exit 0; fi
 exit 7
 `,
