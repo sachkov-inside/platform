@@ -3,7 +3,10 @@ import type { BillingPayments } from "../../facets/billing-payments/billing-paym
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import { unsettledRefundStates } from "../../shared/refund-amounts.js";
 
-/** Сверка исторических незавершённых возвратов. Никогда не вызывает Cancel. */
+/**
+ * Сверка исторических незавершённых возвратов. Возврат она Cancel не запускает. Сверка покупки
+ * внутри неё может отменить только неоплаченную форму снятой попытки (#1923).
+ */
 export async function reconcileRefunds(
   dependencies: {
     readonly prisma: BillingPrismaClient;

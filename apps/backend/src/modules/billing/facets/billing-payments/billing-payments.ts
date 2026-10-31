@@ -59,6 +59,7 @@ import {
 } from "../../features/reserve-purchase/reserve-purchase.js";
 import {
   bankTimeoutMs,
+  refundTerminalStatuses,
   unpaidFormStatuses,
   validatedPaymentUrl,
   type BankPayment,
@@ -464,7 +465,7 @@ export class BillingPayments {
     await this.awaitBankAnswer(purchaseRef);
     if (dispatched === "skipped") {
       // Запрос покупателя не ждёт Cancel снятой попытки: форму в банке закрывает фоновая сверка.
-      const reconciled = await this.reconcileAttempt(purchaseRef, false);
+      const reconciled = await this.reconcileAttempt(purchaseRef, "never");
       if (!reconciled.ok) return reconciled;
     }
     const result = await this.status(accountId, purchaseRef);
@@ -756,12 +757,12 @@ export class BillingPayments {
 
   /** Сверка одной покупки с банком; снятая попытка с неоплаченной формой получает Cancel. */
   async reconcile(purchaseRef: string): Promise<PaymentResult<true>> {
-    return this.reconcileAttempt(purchaseRef, true);
+    return this.reconcileAttempt(purchaseRef, "retired_form");
   }
 
   private async reconcileAttempt(
     purchaseRef: string,
-    cancelRetiredForm: boolean,
+    sendCancel: "retired_form" | "never",
   ): Promise<PaymentResult<true>> {
     const { prisma, bank } = this.dependencies;
     try {
@@ -840,7 +841,7 @@ export class BillingPayments {
       if (payment.OrderId !== row.id || payment.PaymentId !== paymentId)
         return paymentFailure("invalid_notification");
       const accepted = await this.accept(payment);
-      if (!accepted.ok || !cancelRetiredForm) return accepted;
+      if (!accepted.ok || sendCancel === "never") return accepted;
       return await this.cancelRetiredForm(bank, row.id, payment);
     } catch (error) {
       return dependencyFailure(
@@ -1077,7 +1078,12 @@ export class BillingPayments {
     });
     if (!cancelled.sent) return await this.accept(cancelled.payment);
     const { result } = cancelled;
-    if (!result.Success || result.ErrorCode !== "0")
+    if (
+      !result.Success ||
+      result.ErrorCode !== "0" ||
+      (result.Status !== "CANCELED" &&
+        !(refundTerminalStatuses as readonly string[]).includes(result.Status))
+    )
       return dependencyFailure(
         { module: "billing", operation: "reconcile" },
         new Error(
@@ -1098,23 +1104,13 @@ export class BillingPayments {
         );
         return;
       }
-      const known = await tx.billingPaymentEvent.findUnique({
-        where: {
-          purchaseRef_kind: { purchaseRef, kind: bankCancelReturnedPayment },
-        },
-        select: { id: true },
-      });
-      if (known === null)
-        await tx.billingPaymentEvent.create({
-          data: {
-            id: randomUUID(),
-            purchaseRef,
-            kind: bankCancelReturnedPayment,
-            payload: { paymentId: result.PaymentId, status: result.Status },
-            occurredAt: now,
-            recordedAt: now,
-          },
-        });
+      await recordEventOnce(
+        tx,
+        purchaseRef,
+        bankCancelReturnedPayment,
+        { paymentId: result.PaymentId, status: result.Status },
+        now,
+      );
     });
     return { ok: true, value: true };
   }
@@ -1512,7 +1508,19 @@ export class BillingPayments {
               where: { purchaseRef: row.id },
               data: { state: "confirmed" },
             });
-          if (kind === "one_time")
+          // Деньги, которые уже вернул опоздавший Cancel, не ждут решения владельца о возврате.
+          const returnedByCancel =
+            refunded &&
+            (await tx.billingPaymentEvent.findUnique({
+              where: {
+                purchaseRef_kind: {
+                  purchaseRef: row.id,
+                  kind: bankCancelReturnedPayment,
+                },
+              },
+              select: { id: true },
+            })) !== null;
+          if (kind === "one_time" && !returnedByCancel)
             await recordDuplicatePayment(
               tx,
               row,
@@ -1839,26 +1847,13 @@ async function retireAttempt(
     where: { purchaseRef: attemptRef },
     data: { state: "failed" },
   });
-  const known = await tx.billingPaymentEvent.findUnique({
-    where: {
-      purchaseRef_kind: {
-        purchaseRef: attemptRef,
-        kind: "superseded_by_confirmed_payment",
-      },
-    },
-    select: { id: true },
-  });
-  if (known !== null) return;
-  await tx.billingPaymentEvent.create({
-    data: {
-      id: randomUUID(),
-      purchaseRef: attemptRef,
-      kind: "superseded_by_confirmed_payment",
-      payload: { confirmedPurchaseRef },
-      occurredAt: now,
-      recordedAt: now,
-    },
-  });
+  await recordEventOnce(
+    tx,
+    attemptRef,
+    "superseded_by_confirmed_payment",
+    { confirmedPurchaseRef },
+    now,
+  );
 }
 
 /**
@@ -1904,22 +1899,37 @@ async function requireBankCancel(
   confirmedPurchaseRef: string,
   now: Date,
 ): Promise<void> {
-  const existing = await tx.billingPaymentEvent.findUnique({
-    where: {
-      purchaseRef_kind: { purchaseRef: attemptRef, kind: bankCancelRequested },
-    },
+  await recordEventOnce(
+    tx,
+    attemptRef,
+    bankCancelRequested,
+    bankCancelRequestedSchema.parse({
+      reason: "superseded_by_confirmed_payment",
+      confirmedPurchaseRef,
+    }),
+    now,
+  );
+}
+
+/** Событие покупки этого вида пишется один раз. Вызывающий держит замок покупки. */
+async function recordEventOnce(
+  tx: BillingPrisma,
+  purchaseRef: string,
+  kind: string,
+  payload: Prisma.InputJsonObject,
+  now: Date,
+): Promise<void> {
+  const known = await tx.billingPaymentEvent.findUnique({
+    where: { purchaseRef_kind: { purchaseRef, kind } },
     select: { id: true },
   });
-  if (existing !== null) return;
+  if (known !== null) return;
   await tx.billingPaymentEvent.create({
     data: {
       id: randomUUID(),
-      purchaseRef: attemptRef,
-      kind: bankCancelRequested,
-      payload: bankCancelRequestedSchema.parse({
-        reason: "superseded_by_confirmed_payment",
-        confirmedPurchaseRef,
-      }),
+      purchaseRef,
+      kind,
+      payload,
       occurredAt: now,
       recordedAt: now,
     },

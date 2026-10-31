@@ -230,6 +230,10 @@ test("a buyer who pays between the cancel check and the Cancel gets the money ba
   value(await s.payments.reconcile(repeat.purchaseRef));
   expect(s.cancelRequests()).toHaveLength(1);
   expect((await purchaseState(repeat.purchaseRef)).state).toBe("confirmed");
+  // Деньги уже вернул Cancel: решения о возврате владелец не ждёт.
+  expect(
+    await eventPayload(repeat.purchaseRef, "duplicate_payment_review"),
+  ).toBeNull();
   expect(
     await eventPayload(repeat.purchaseRef, "bank_cancel_confirmed"),
   ).toEqual({ paymentId: repeatPaymentId, status: "REFUNDED" });
