@@ -10,7 +10,8 @@ import {
 /**
  * Задание сверки (#1929): выдача доступа идёт до запросов к банку, проход останавливается по
  * бюджету и продолжает с первой непроверенной строки, а форму после отказа сверка спрашивает всё
- * реже. Тесты одного файла делят базу и часы, поэтому каждый смотрит только на свои платежи.
+ * реже. Тесты одного файла делят базу и часы, поэтому порядок запросов к банку каждый читает
+ * только по своим платежам.
  */
 let world: Awaited<ReturnType<typeof createProductCommerceWorld>>;
 beforeAll(async () => {
@@ -78,19 +79,17 @@ test("a recovery pass takes no new row after its budget ends, and the next pass 
   });
   const stopped = value(await first.s.payments.recover(50, budget.signal));
   expect(requested.filter((id) => ours.has(id))).toEqual([first.paymentId]);
-  expect(stopped.deferred).toBe(2);
+  // Две строки этого теста ждут; строки других тестов могут ждать вместе с ними.
+  expect(stopped.deferred).toBeGreaterThanOrEqual(2);
 
   requested.length = 0;
   later(minute);
-  const next = value(
-    await first.s.payments.recover(50, new AbortController().signal),
-  );
+  value(await first.s.payments.recover(50, new AbortController().signal));
   expect(requested.filter((id) => ours.has(id))).toEqual([
     second.paymentId,
     third.paymentId,
     first.paymentId,
   ]);
-  expect(next.deferred).toBe(0);
 });
 
 test("a declined payment form is asked about at 1, 5, 15 and 60 minute steps, not on every pass", async () => {
@@ -127,29 +126,22 @@ test("a declined payment form is asked about at 1, 5, 15 and 60 minute steps, no
   expect(await askedAt(24 * 60 * minute + minute)).toBe(0);
 });
 
-test("an unconfirmed purchase under partial refund review stops holding the Product and is listed for the owner", async () => {
-  const s = await world.scenario();
-  const held = value(await s.payments.purchase(s.buyer, s.command));
-  expect(await s.notify("PARTIAL_REFUNDED", { Amount: 1000 })).toMatchObject({
-    ok: true,
-  });
-  expect(value(await s.payments.status(s.buyer, held.purchaseRef)).state).toBe(
-    "unknown",
-  );
-  value(await s.payments.recover());
-
+/** Новая покупка того же продукта создаётся рядом с покупкой на проверке, а не продолжает её. */
+async function expectNewPurchaseBeside(
+  s: Awaited<ReturnType<typeof world.scenario>>,
+  heldRef: string,
+) {
   expect(
     await world.db.prisma.billingPurchase.findUniqueOrThrow({
-      where: { id: held.purchaseRef },
+      where: { id: heldRef },
       select: { state: true, refundReviewRequired: true },
     }),
   ).toEqual({ state: "failed", refundReviewRequired: true });
   const repeat = value(
     await s.payments.purchase(s.buyer, await s.repeatCommand()),
   );
-  expect(repeat.purchaseRef).not.toBe(held.purchaseRef);
+  expect(repeat.purchaseRef).not.toBe(heldRef);
   expect(repeat.state).toBe("pending");
-
   const review = await listPayments(world.db.prisma, {
     operation: "payments.list",
     operationId: randomUUID(),
@@ -159,6 +151,28 @@ test("an unconfirmed purchase under partial refund review stops holding the Prod
   });
   expect(review).toMatchObject({
     ok: true,
-    result: { items: [{ purchaseRef: held.purchaseRef }] },
+    result: { items: [{ purchaseRef: heldRef }] },
   });
+}
+
+test("an unconfirmed purchase with a partial refund stops holding the Product at once and is listed for the owner", async () => {
+  const s = await world.scenario();
+  const held = value(await s.payments.purchase(s.buyer, s.command));
+  expect(await s.notify("PARTIAL_REFUNDED", { Amount: 1000 })).toMatchObject({
+    ok: true,
+  });
+  // Сверка ещё не шла: уведомление само снимает покупку с ожидания.
+  await expectNewPurchaseBeside(s, held.purchaseRef);
+});
+
+test("recovery releases an unknown purchase under partial refund review left before #1929", async () => {
+  const s = await world.scenario();
+  const held = value(await s.payments.purchase(s.buyer, s.command));
+  // Так частичный возврат оставлял покупку до #1929: unknown с открытым резервом.
+  await world.db.prisma.billingPurchase.update({
+    where: { id: held.purchaseRef },
+    data: { state: "unknown", refundReviewRequired: true, paymentUrl: null },
+  });
+  value(await s.payments.recover());
+  await expectNewPurchaseBeside(s, held.purchaseRef);
 });

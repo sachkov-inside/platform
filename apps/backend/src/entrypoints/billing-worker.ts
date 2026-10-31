@@ -18,6 +18,7 @@ import {
   BillingOperations,
   BillingPayments,
   BillingPricing,
+  recoveryBudgetMilliseconds,
 } from "../modules/billing/index.js";
 import {
   COMMUNITY_RECONCILIATION_INTERVAL_MS,
@@ -26,10 +27,7 @@ import {
 import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
-import {
-  recoveryBudgetMilliseconds,
-  runRecoveryJob,
-} from "./billing-worker/jobs.js";
+import { runRecoveryJob } from "./billing-worker/jobs.js";
 
 const telemetryCleanupQueue = "web-telemetry.retention";
 // The watchdog reads completion over 26 hours; keep receipts across two daily runs.
@@ -118,9 +116,7 @@ async function bootstrap(): Promise<void> {
           return runRecoveryJob(
             payments,
             operations,
-            AbortSignal.timeout(
-              recoveryBudgetMilliseconds(jobTimeoutSeconds * 1_000),
-            ),
+            AbortSignal.timeout(recoveryBudgetMilliseconds(jobTimeoutSeconds)),
           );
         }),
       );

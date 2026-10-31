@@ -10,7 +10,7 @@ export { BillingNotices } from "./facets/billing-notices/billing-notices.js";
 export { BillingOperations } from "./facets/billing-operations/billing-operations.js";
 export {
   BillingPayments,
-  recoveryItemMilliseconds,
+  recoveryBudgetMilliseconds,
 } from "./facets/billing-payments/billing-payments.js";
 export {
   BillingPaymentSearch,

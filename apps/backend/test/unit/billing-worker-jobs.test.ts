@@ -1,9 +1,7 @@
 import { expect, test } from "vitest";
-import {
-  recoveryBudgetMilliseconds,
-  runRecoveryJob,
-} from "../../src/entrypoints/billing-worker/jobs.js";
-import { recoveryItemMilliseconds } from "../../src/modules/billing/index.js";
+import { runRecoveryJob } from "../../src/entrypoints/billing-worker/jobs.js";
+import { bankTimeoutMs } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
+import { recoveryBudgetMilliseconds } from "../../src/modules/billing/index.js";
 import { paymentFailure } from "../../src/modules/billing/features/purchase-product/purchase-product.contract.js";
 
 const passed = {
@@ -75,9 +73,10 @@ test("recovery job hands one budget to the payment and refund passes", async () 
   expect(received).toEqual([budget, budget]);
 });
 
-test("the recovery budget leaves the job deadline room for a row started at its last moment", () => {
-  const deadline = 300_000;
-  const budget = recoveryBudgetMilliseconds(deadline);
+test("the recovery budget leaves the job deadline room for a row of four bank requests started at its last moment", () => {
+  // Срок задания billing.payment-recovery в billing-worker.ts.
+  const deadlineSeconds = 300;
+  const budget = recoveryBudgetMilliseconds(deadlineSeconds);
   expect(budget).toBeGreaterThan(0);
-  expect(budget + recoveryItemMilliseconds).toBeLessThan(deadline);
+  expect(budget + 4 * bankTimeoutMs).toBeLessThan(deadlineSeconds * 1_000);
 });

@@ -89,16 +89,23 @@ const bankRecheckSteps = [
   { ageBelowMilliseconds: 60 * 60_000, everyMilliseconds: 5 * 60_000 },
   { ageBelowMilliseconds: 4 * 60 * 60_000, everyMilliseconds: 15 * 60_000 },
 ] as const;
-const lastBankRecheckMilliseconds = 60 * 60_000;
+const finalBankRecheckEveryMilliseconds = 60 * 60_000;
 /**
- * Самая долгая строка сверки: CheckOrder или GetState, затем GetState и Cancel отмены формы
- * (#1923), каждый до `bankTimeoutMs`. Задание сверки берёт новую строку, только пока его бюджет
- * не кончился, и оставляет начатой строке это время до своего срока.
+ * Самая долгая строка сверки: до четырёх запросов к банку по `bankTimeoutMs`. Это CheckOrder,
+ * если PaymentId ещё нет, GetState сверки, затем GetState и Cancel отмены формы (#1923).
  */
-export const recoveryItemMilliseconds = 4 * bankTimeoutMs;
+const recoveryItemMilliseconds = 4 * bankTimeoutMs;
+
+/**
+ * Бюджет прохода сверки меньше срока задания на две самые долгие строки: одну, начатую в последний
+ * миг бюджета, и одну в запас на работу с базой после запросов к банку (#1929).
+ */
+export function recoveryBudgetMilliseconds(jobDeadlineSeconds: number): number {
+  return jobDeadlineSeconds * 1_000 - 2 * recoveryItemMilliseconds;
+}
 /**
  * Частичный возврат по неподтверждённой покупке: сумма не доказана, и покупку проверяет владелец.
- * Сверка снимает такую покупку с ожидания, чтобы она не держала продукт (#1929).
+ * Покупка снимается с ожидания, чтобы не держать продукт (#1929).
  */
 const partialRefundReleased = "partial_refund_released";
 /**
@@ -876,8 +883,8 @@ export class BillingPayments {
   }
 
   /**
-   * Проход сверки. Выдача по подтверждённым оплатам и снятие покупок с частичным возвратом идут
-   * до первого запроса к банку и не ждут его. Строки для банка идут от давно не проверенных;
+   * Проход сверки. Выдача по подтверждённым оплатам и снятие прежних покупок с частичным
+   * возвратом идут до первого запроса к банку и не ждут его. Строки для банка идут от давно не проверенных;
    * новая строка начинается, только пока `budget` не прерван. Непроверенные строки сохраняют
    * своё место и открывают следующий проход. Форму после отказа или снятия сверка спрашивает
    * по убывающему расписанию `bankRecheckSteps`.
@@ -899,7 +906,7 @@ export class BillingPayments {
     try {
       const { prisma, bank } = this.dependencies;
       let { applied, failed } = await this.fulfillConfirmedPayments(limit);
-      await releaseRefundReviewPurchases(prisma, this.clock, limit);
+      await releaseLegacyRefundReviewPurchases(prisma, this.clock, limit);
       let idle = bank === undefined;
       const now = this.clock();
       const windowStart = new Date(
@@ -1479,16 +1486,14 @@ export class BillingPayments {
                 },
               },
             });
-            if (fullRefundKnown === null)
+            if (fullRefundKnown === null) {
               await tx.billingPurchase.update({
                 where: { id: row.id },
-                data: {
-                  refundReviewRequired: true,
-                  ...(row.state === "confirmed"
-                    ? {}
-                    : { state: "unknown", paymentUrl: null }),
-                },
+                data: { refundReviewRequired: true },
               });
+              if (row.state !== "confirmed")
+                await releaseForRefundReview(tx, row.id, row.state, now);
+            }
           }
           return { ok: true, value: true };
         }
@@ -1557,7 +1562,8 @@ export class BillingPayments {
                 select: { state: true, paymentLinkId: true },
               })
             : null;
-          // Отказ мог остаться и только в резерве: failed → PARTIAL_REFUNDED → unknown.
+          // Отказ мог остаться и только в резерве: до #1929 частичный возврат переводил отказанную
+          // покупку в unknown, а резерв оставался failed.
           const reservationConfirmed =
             row.state === "failed" || reservation?.state === "failed"
               ? await settleConfirmationAfterFailure(
@@ -1964,18 +1970,48 @@ function nextBankRecheck(since: Date, now: Date): Date {
     (candidate) => age < candidate.ageBelowMilliseconds,
   );
   return new Date(
-    now.getTime() + (step?.everyMilliseconds ?? lastBankRecheckMilliseconds),
+    now.getTime() +
+      (step?.everyMilliseconds ?? finalBankRecheckEveryMilliseconds),
   );
 }
 
 /**
- * Неподтверждённая покупка с частичным возвратом (`refundReviewRequired`) остаётся `unknown`:
- * сумма возврата не доказана, а сверка её не опрашивает. Такая покупка держала бы продукт и
- * ссылку на оплату. Сверка закрывает её вместе с резервом и пишет `partial_refund_released`:
- * покупатель может купить снова, а владелец видит покупку в фильтре проверки и в стороже.
- * Признак `refundReviewRequired` остаётся до решения владельца.
+ * Частичный возврат по неподтверждённой покупке (#1929). Сумма возврата не доказана, и сверка такую
+ * покупку не опрашивает. Чтобы она не держала продукт и ссылку на оплату, покупка закрывается
+ * вместе с резервом. Событие `partial_refund_released` ведёт владельца к решению о деньгах: оно
+ * попадает в фильтр проверки и в сторож. Признак `refundReviewRequired` остаётся до этого решения.
+ * Вызывающий держит замки цен и покупки.
  */
-async function releaseRefundReviewPurchases(
+async function releaseForRefundReview(
+  tx: BillingPrisma,
+  purchaseRef: string,
+  previousState: string,
+  now: Date,
+): Promise<void> {
+  if (previousState !== "failed") {
+    await tx.billingPurchase.update({
+      where: { id: purchaseRef },
+      data: { state: "failed", paymentUrl: null, updatedAt: now },
+    });
+    await tx.billingPromoReservation.updateMany({
+      where: { purchaseRef },
+      data: { state: "failed" },
+    });
+  }
+  await recordEventOnce(
+    tx,
+    purchaseRef,
+    partialRefundReleased,
+    { previousState },
+    now,
+  );
+}
+
+/**
+ * До #1929 частичный возврат оставлял неподтверждённую покупку в `unknown`, и она держала продукт
+ * навсегда. Сверка снимает такие покупки так же, как теперь это делает приём уведомления.
+ */
+async function releaseLegacyRefundReviewPurchases(
   prisma: BillingPrismaClient,
   clock: () => Date,
   limit: number,
@@ -1999,27 +2035,11 @@ async function releaseRefundReviewPurchases(
         select: { state: true, kind: true, refundReviewRequired: true },
       });
       if (
-        current.kind !== "one_time" ||
-        !current.refundReviewRequired ||
-        !inFlightStates.includes(current.state)
+        current.kind === "one_time" &&
+        current.refundReviewRequired &&
+        inFlightStates.includes(current.state)
       )
-        return;
-      const now = clock();
-      await tx.billingPurchase.update({
-        where: { id },
-        data: { state: "failed", paymentUrl: null, updatedAt: now },
-      });
-      await tx.billingPromoReservation.updateMany({
-        where: { purchaseRef: id },
-        data: { state: "failed" },
-      });
-      await recordEventOnce(
-        tx,
-        id,
-        partialRefundReleased,
-        { previousState: current.state },
-        now,
-      );
+        await releaseForRefundReview(tx, id, current.state, clock());
     });
   }
 }

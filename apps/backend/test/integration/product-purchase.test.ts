@@ -458,12 +458,12 @@ test("a confirmation after a decline and a partial refund observation still reti
   const repeat = value(
     await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s, link.id)),
   );
-  // Давнее правило: наблюдение частичного возврата переводит отказанную покупку в unknown.
+  // С #1929 частичный возврат оставляет отказанную покупку закрытой, а не переводит в unknown.
   expect(
     await s.notify("PARTIAL_REFUNDED", { ...firstPayment, Amount: 1000 }),
   ).toMatchObject({ ok: true });
   expect(value(await s.payments.status(s.buyer, first.purchaseRef)).state).toBe(
-    "unknown",
+    "failed",
   );
   expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
     ok: true,
@@ -1156,28 +1156,22 @@ test.each(["confirmed_first", "partial_first"] as const)(
       ok: true,
       value: {
         refundedKopecks: null,
+        // Неподтверждённая покупка снимается с ожидания и не держит продукт (#1929).
         ...(order === "partial_first"
-          ? { state: "unknown", access: "awaiting_payment" }
+          ? { state: "failed", access: "awaiting_payment" }
           : { access: "ready" }),
       },
     });
     const observed = await db.prisma.billingPurchase.findUniqueOrThrow({
       where: { id: purchase.purchaseRef },
     });
-    const releasedAt = new Date("2030-02-01T10:00:00Z");
-    fixture.setTime(releasedAt);
+    fixture.setTime(new Date("2030-02-01T10:00:00Z"));
     await s.payments.recover();
-    // Сверка банк не спрашивает. Неподтверждённую покупку она снимает с ожидания (#1929): иначе
-    // покупка держала бы продукт, а сумма возврата всё равно ждёт владельца.
     expect(
       await db.prisma.billingPurchase.findUniqueOrThrow({
         where: { id: purchase.purchaseRef },
       }),
-    ).toEqual(
-      order === "partial_first"
-        ? { ...observed, state: "failed", updatedAt: releasedAt }
-        : observed,
-    );
+    ).toEqual(observed);
     expect(
       await db.prisma.billingPaymentEvent.count({
         where: {

@@ -180,12 +180,8 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       timeout = false,
       stateCalls = 0,
       cancelFailures = 0,
-      initGate:
-        | { readonly arrived: () => void; readonly released: Promise<void> }
-        | undefined,
-      stateGate:
-        | { readonly arrived: () => void; readonly released: Promise<void> }
-        | undefined,
+      initGate: BankGate | undefined,
+      stateGate: BankGate | undefined,
       afterState: ((paymentId: string) => void) | undefined;
     // Каждый Init получает свой PaymentId, как в банке: повторная покупка не делит платёж с прежней.
     const nextPaymentId = () => String(Math.floor(Math.random() * 1000000000));
@@ -425,7 +421,18 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
 }
 
 /** Запрос к двойнику банка ждёт `release`; `arrived` сообщает, что запрос уже дошёл. */
-function bankGate(clear: () => void) {
+interface BankGate {
+  readonly arrived: () => void;
+  readonly released: Promise<void>;
+}
+
+function bankGate(clear: () => void): {
+  readonly gate: BankGate;
+  readonly control: {
+    readonly arrived: Promise<void>;
+    readonly release: () => void;
+  };
+} {
   const signals: { arrived?: () => void; release?: () => void } = {};
   const arrived = new Promise<void>((resolve) => {
     signals.arrived = resolve;
