@@ -290,11 +290,11 @@ continuation для того же `purchaseRef` и становится `null` �
   повторов; вместе с `state` не принимается), `kind` и периоду создания `[from, to)`.
   `events: "review"` ([#1928](https://github.com/sachkov-inside/platform/issues/1928)) оставляет
   покупки с событием для проверки владельцем: `duplicate_payment_review`,
-  `payment_confirmed_after_failure`, `superseded_by_confirmed_payment` или
-  `partial_refund_released` ([#1929](https://github.com/sachkov-inside/platform/issues/1929)). С выпуском
-  [#1922](https://github.com/sachkov-inside/platform/issues/1922) к ним добавится
-  `bank_payment_absent`, а с выпуском [#1923](https://github.com/sachkov-inside/platform/issues/1923)
-  неподтверждённая покупка с `bank_cancel_requested` без `bank_cancel_confirmed`;
+  `payment_confirmed_after_failure`, `superseded_by_confirmed_payment`,
+  `partial_refund_released` ([#1929](https://github.com/sachkov-inside/platform/issues/1929)) или
+  `bank_payment_absent` ([#1922](https://github.com/sachkov-inside/platform/issues/1922)). Туда же
+  попадает неподтверждённая покупка с `bank_cancel_requested` без `bank_cancel_confirmed`
+  ([#1923](https://github.com/sachkov-inside/platform/issues/1923));
 - `paymentLinks.list` отдаёт ссылки на оплату от новых к старым с фильтрами `productId` и видимого
   состояния `state`; курсор действует только в своём фильтре;
 - `promotions.list` отдаёт скидки владельца от поздних к ранним по началу с фильтрами `archived`,
@@ -1187,7 +1187,9 @@ Order не равен попытке списания, Payment не равен p
 |---|---|
 | Checkout after valid email/consent/classification | Persist order/attempt/snapshot/reservations → Init; browser supplies email but never amount, terminal or Account identity |
 | Init result received | Проверенные bank host/HTTPS PaymentURL и PaymentId сохранены; выдаётся redirect |
-| Init timeout/crash | `unknown`; CheckOrder ищет точное совпадение; 0/multiple остаются unknown, без второго Init |
+| Сбой до отправки Init | `failed` с событием `bank_payment_absent`, `reason: init_not_sent`; покупатель может начать новую покупку |
+| Init: `Success:false` с кодом ошибки и без PaymentId | `failed` с событием `bank_payment_absent`, `reason: init_declined`, кодом и текстом отказа банка |
+| Init: сеть, таймаут, HTTP-ошибка, ответ не по схеме, crash | `unknown` (после аварии процесса `sent`); CheckOrder ищет точное совпадение, несколько платежей оставляют `unknown`. Первый пустой ответ CheckOrder пишет `bank_order_empty`. Пустой ответ через 30 минут после него и после создания покупки закрывает её: `failed` и `bank_payment_absent`, `reason: check_order_empty` (#1922). Второго Init нет |
 | AUTHORIZED | Привязка сохраняется после проверки; paid period ещё не создан |
 | CONFIRMED | Единственный paid transition + period/event/outbox; webhook и reconciliation вызывают один use case |
 | Однозначный decline | Definitive failure, без automatic retry/grace; уже оплаченный срок не сокращается |

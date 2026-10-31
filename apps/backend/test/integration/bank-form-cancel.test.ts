@@ -351,6 +351,78 @@ test("an attempt retired while its Init was in flight keeps the late PaymentId a
   });
 });
 
+/**
+ * Повторную попытку снимает подтверждение первой, пока её Init в пути. Затем ответ Init
+ * теряется: `lost` оставляет платёж в банке, `unreachable` теряет и сам запрос.
+ */
+async function retiredWithLostInit(answer: "lost" | "unreachable") {
+  const s = await world.scenario();
+  const first = value(await s.payments.purchase(s.buyer, s.command));
+  const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
+  await s.notify("REJECTED");
+  const init = s.holdInit();
+  const repeatStarted = s.payments.purchase(s.buyer, await s.repeatCommand());
+  await init.arrived;
+  const repeatPaymentId = s.paymentId();
+  const { id: repeatRef } =
+    await world.db.prisma.billingPurchase.findFirstOrThrow({
+      where: { accountId: s.buyer, state: "sent" },
+      select: { id: true },
+    });
+  expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
+    ok: true,
+  });
+  init.release(answer);
+  await repeatStarted;
+  expect(await purchaseState(repeatRef)).toEqual({
+    state: "failed",
+    paymentId: null,
+    paymentUrl: null,
+  });
+  return { s, repeatRef, repeatPaymentId };
+}
+
+test("an attempt retired while its Init was in flight and whose answer was lost is found by CheckOrder and cancelled", async () => {
+  const { s, repeatRef, repeatPaymentId } = await retiredWithLostInit("lost");
+  value(await s.payments.recover());
+  expect(await purchaseState(repeatRef)).toEqual({
+    state: "failed",
+    paymentId: repeatPaymentId,
+    paymentUrl: null,
+  });
+  expect(s.cancelRequests()).toMatchObject([{ PaymentId: repeatPaymentId }]);
+  expect(await eventPayload(repeatRef, "bank_cancel_confirmed")).toEqual({
+    paymentId: repeatPaymentId,
+    status: "CANCELED",
+  });
+});
+
+test("an attempt retired while its Init never reached the bank closes its cancel mark as absent after 30 minutes", async () => {
+  const start = world.time();
+  try {
+    const { s, repeatRef } = await retiredWithLostInit("unreachable");
+    const firstEmptyAt = new Date(start.getTime() + 60_000);
+    world.setTime(firstEmptyAt);
+    value(await s.payments.recover());
+    expect(await eventKinds(repeatRef)).toContain("bank_order_empty");
+    expect(await eventKinds(repeatRef)).not.toContain("bank_payment_absent");
+    world.setTime(new Date(firstEmptyAt.getTime() + 30 * 60_000));
+    value(await s.payments.recover());
+    expect(await eventPayload(repeatRef, "bank_payment_absent")).toEqual({
+      reason: "check_order_empty",
+      firstEmptyAt: firstEmptyAt.toISOString(),
+    });
+    expect(s.cancelRequests()).toEqual([]);
+    // Закрытая отметка больше не держит попытку на сверке.
+    const kinds = await eventKinds(repeatRef);
+    value(await s.payments.reconcile(repeatRef));
+    expect(await eventKinds(repeatRef)).toEqual(kinds);
+    expect((await purchaseState(repeatRef)).state).toBe("failed");
+  } finally {
+    world.setTime(start);
+  }
+});
+
 /** Повторная попытка зависла без ответа на Init, затем банк подтвердил первую. */
 async function unknownRepeat() {
   const s = await world.scenario();

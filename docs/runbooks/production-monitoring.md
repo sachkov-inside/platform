@@ -53,7 +53,7 @@
 | Письма | `notifications.email_effects` в `accepted`, `retrying` или `unknown` дольше 10 минут | 1 |
 | Фоновая работа | у `billing.payment-recovery` нет `completed` за 5 минут | 2 |
 | События оплаты | в `billing.payment_events` за сутки есть `duplicate_payment_review`, `payment_confirmed_after_failure`, `superseded_by_confirmed_payment`, `bank_payment_absent` или `partial_refund_released`; у каждого вида свой сигнал | 1 |
-| События оплаты | `bank_cancel_requested` старше 30 минут и моложе 48 часов без `bank_cancel_confirmed` той же покупки, покупка не `confirmed` | 1 |
+| События оплаты | `bank_cancel_requested` старше 30 минут и моложе 48 часов без `bank_cancel_confirmed` и `bank_payment_absent` той же покупки, покупка не `confirmed` | 1 |
 | Оплата | у Account больше 3 неуспешных разовых покупок без PaymentId за час; сигнал считает аккаунты | 1 |
 | Бот | Telegram `/ready` не отвечает 200 | 2 |
 | Бот | `getWebhookInfo` сообщает ошибку доставки за 10 минут | 1 |
@@ -104,9 +104,12 @@ Caddy удаляет маркер у соединений вне `127.0.0.1` и 
 
 Сторож ищет `bank_payment_absent` ([#1922](https://github.com/sachkov-inside/platform/issues/1922)),
 `bank_cancel_requested` и `bank_cancel_confirmed` ([#1923](https://github.com/sachkov-inside/platform/issues/1923))
-по имени. Пока billing не пишет событие этого вида, его сигнал молчит. До #1922 сбой Init без
-PaymentId оставляет покупку в `unknown`, а не в `failed`. Такую покупку ловит сигнал «покупка в
-`unknown` дольше 15 минут», а сигнал всплеска её не считает.
+по имени. `bank_payment_absent` пишется, когда в банке нет платежа покупки: Init не ушёл, банк
+отказал без PaymentId или CheckOrder не находит платежей через 30 минут после первого пустого
+ответа. Причина лежит в `payload.reason`. Покупка без ответа на Init сначала остаётся в `unknown`,
+и её ловит сигнал «покупка в `unknown` дольше 15 минут». После `bank_payment_absent` она в `failed`,
+и сигнал всплеска считает её, если покупка создана в последний час. У снятой попытки это событие
+закрывает и отметку отмены: отменять в банке нечего.
 
 Подписанный статус банка не из [справочника T-Bank](https://developer.tbank.ru/eacq/intro/developer/operation-statuses)
 получает ответ `OK` и переводит открытую покупку в `unknown` (#1930). Её ловит тот же сигнал «покупка

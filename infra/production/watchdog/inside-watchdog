@@ -266,11 +266,12 @@ SQL
 
 # События оплаты, которые ждут решения владельца (#1928). Вторая оплата, подтверждение после отказа,
 # снятие попытки подтверждённой оплатой, покупка без платежа в банке и снятая с ожидания покупка с
-# частичным возвратом (#1929) считаются за сутки: каждое новое событие поднимает число и даёт строку «Хуже». Отмена в банке не закрыта, если за 30 минут после
-# bank_cancel_requested нет bank_cancel_confirmed и покупка не подтверждена. Форма банка живёт 24
-# часа, поэтому запрос старше 48 часов уже не держит деньги покупателя. Всплеск: больше 3 неуспешных
-# разовых покупок без PaymentId у одного Account за час; строка считает аккаунты. bank_payment_absent
-# пишет #1922, события отмены пишет #1923; пока billing не пишет событие этого вида, строка равна нулю.
+# частичным возвратом (#1929) считаются за сутки: каждое новое событие поднимает число и даёт строку
+# «Хуже». Отмена в банке не закрыта, если за 30 минут после bank_cancel_requested нет ни
+# bank_cancel_confirmed, ни bank_payment_absent (платежа в банке нет, отменять нечего) и покупка не
+# подтверждена. Форма банка живёт 24 часа, поэтому запрос старше 48 часов уже не держит деньги
+# покупателя. Всплеск: больше 3 неуспешных разовых покупок без PaymentId у одного Account за час;
+# строка считает аккаунты. bank_payment_absent пишет #1922, события отмены пишет #1923.
 read -r -d '' payment_query <<'SQL' || true
 select 'payment_duplicate', count(*) from billing.payment_events
  where kind = 'duplicate_payment_review' and recorded_at > now() - interval '24 hours'
@@ -295,7 +296,8 @@ select 'payment_cancel_open', count(*) from billing.payment_events requested
    and requested.recorded_at > now() - interval '48 hours'
    and not exists (
      select 1 from billing.payment_events closed
-      where closed.purchase_ref = requested.purchase_ref and closed.kind = 'bank_cancel_confirmed')
+      where closed.purchase_ref = requested.purchase_ref
+        and closed.kind in ('bank_cancel_confirmed', 'bank_payment_absent'))
 union all
 select 'payment_failed_burst', count(*) from (
   select account_id from billing.purchases

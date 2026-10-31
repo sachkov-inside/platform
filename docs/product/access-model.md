@@ -734,7 +734,10 @@ in the bank's dashboard (#1420). Recovery asks the bank about such an attempt fo
 A failed Cancel is sent again within that window. `bank_cancel_confirmed` records the bank status
 that closed the form: `CANCELED` after Cancel, or `DEADLINE_EXPIRED`, `REVERSED`, `CONFIRMED` or
 `REFUNDED` without it. A buyer can still pay between that GetState and Cancel; the bank then
-returns the money, and `bank_cancel_returned_payment` records it. A repeat attempt with an unknown
+returns the money, and `bank_cancel_returned_payment` records it. When the retired attempt's Init
+answer was lost, reconciliation finds its PaymentId with CheckOrder. If CheckOrder finds no payment
+for 30 minutes, `bank_payment_absent` closes the mark instead, because there is no form to cancel
+(#1922). A repeat attempt with an unknown
 outcome is first checked with the bank. An unpaid form retires and is cancelled; a paid one is
 confirmed as a second payment. Held funds stay in reconciliation. A Payment
 Link is transferable, so another Account's attempt is never retired. While any of these attempts

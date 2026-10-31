@@ -350,6 +350,12 @@ describe("payment presentation", () => {
     expect(paymentEventLabel("bank_status_unrecognized")).toBe(
       "Банк прислал статус не из справочника, покупку проверит сверка",
     );
+    expect(paymentEventLabel("bank_order_empty")).toBe(
+      "Банк не нашёл платёж по заказу, сверка проверит снова",
+    );
+    expect(paymentEventLabel("bank_payment_absent")).toBe(
+      "Платежа в банке нет, покупка закрыта, деньги не списаны",
+    );
     expect(paymentEventLabel("new_bank_event")).toBe("Событие new_bank_event");
   });
 

@@ -111,6 +111,47 @@ const bankCancelSchema = z
     Success: Success === true || Success === "true",
   }));
 export type BankCancel = z.infer<typeof bankCancelSchema>;
+/** Отказ банка на Init: `Success:false`, ненулевой код ошибки и нет PaymentId. */
+const bankInitDeclinedSchema = z
+  .object({
+    TerminalKey: z.string(),
+    OrderId: z.string().optional(),
+    Success: success
+      .transform((value) => value === true || value === "true")
+      .pipe(z.literal(false)),
+    ErrorCode: z
+      .union([z.string().min(1), z.int()])
+      .pipe(
+        z.coerce.number<string | number>().int().positive().max(999_999_999),
+      )
+      .transform(String),
+    Message: z
+      .string()
+      .transform((value) => value.slice(0, 255))
+      .optional(),
+    PaymentId: z.never().optional(),
+  })
+  .loose();
+/**
+ * Init определённо не создал платёж в банке. `request_invalid`: запрос не собран и не ушёл.
+ * `declined`: банк ответил `Success:false` с кодом ошибки и без PaymentId. Любой другой сбой
+ * Init, в том числе сеть, таймаут, HTTP-ошибка и ответ не по схеме, оставляет исход неизвестным.
+ */
+export class BankInitRefused extends Error {
+  constructor(
+    readonly refusal:
+      | { readonly reason: "request_invalid" }
+      | {
+          readonly reason: "declined";
+          readonly errorCode: string;
+          readonly message: string | null;
+        },
+    message: string,
+  ) {
+    super(message);
+    this.name = "BankInitRefused";
+  }
+}
 /**
  * `OperationInitiatorType` банка: `0` — разовая оплата покупателем без сохранения карты,
  * `1` — оплата покупателем с сохранением привязки, `2` — оплата сохранённой картой по его
@@ -210,7 +251,10 @@ export class Tbank {
       returnUrl.password !== "" ||
       returnUrl.hash !== ""
     )
-      throw new Error("Invalid purchase return path");
+      throw new BankInitRefused(
+        { reason: "request_invalid" },
+        "Invalid purchase return path",
+      );
     returnUrl.searchParams.set("purchaseRef", input.orderId);
     const result = await this.call("Init", {
       Amount: input.amount,
@@ -238,6 +282,20 @@ export class Tbank {
         ],
       },
     });
+    const declined = bankInitDeclinedSchema.safeParse(result);
+    if (
+      declined.success &&
+      declined.data.TerminalKey === this.config.terminalKey &&
+      (declined.data.OrderId ?? input.orderId) === input.orderId
+    )
+      throw new BankInitRefused(
+        {
+          reason: "declined",
+          errorCode: declined.data.ErrorCode,
+          message: declined.data.Message ?? null,
+        },
+        `Bank declined Init with error ${declined.data.ErrorCode}`,
+      );
     const payment = bankPaymentSchema.parse(result);
     return {
       ...payment,
