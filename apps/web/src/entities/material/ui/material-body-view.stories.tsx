@@ -1,6 +1,6 @@
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import { MaterialBodyView } from "./material-body-view";
 
@@ -208,4 +208,126 @@ export const ProseLinksDark: Story = {
       </div>
     ),
   ],
+};
+
+const instructionExample = [
+  "## Writing to the owner",
+  "",
+  "Apply these rules to explanations, reports, and questions. Project style governs content such as lessons, scripts, and posts.",
+].join("\n");
+
+export const CodeBlockCopy: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "callout",
+        tone: "tip",
+        title: "Мой пример глобальной инструкции",
+        collapse: "collapsed",
+        content: [{ kind: "code_block", text: instructionExample }],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const summary = canvas
+      .getByText("Мой пример глобальной инструкции")
+      .closest("summary");
+    if (summary === null)
+      throw new Error("A collapsible callout needs a summary");
+    await userEvent.click(summary);
+    const button = canvas.getByRole("button", { name: "Скопировать код" });
+    await expect(button).toBeVisible();
+    const code = canvasElement.querySelector("pre");
+    if (code === null) throw new Error("A code block needs a pre element");
+    const buttonBox = button.getBoundingClientRect();
+    const codeBox = code.getBoundingClientRect();
+    await expect(buttonBox.left).toBeGreaterThanOrEqual(codeBox.right);
+    await expect(buttonBox.height).toBeGreaterThanOrEqual(36);
+    // The visible control may be compact; its touch area stays at least 44 px.
+    const touchArea = getComputedStyle(button, "::after");
+    await expect(touchArea.position).toBe("absolute");
+    await expect(parseFloat(touchArea.width)).toBeGreaterThanOrEqual(44);
+    await expect(parseFloat(touchArea.height)).toBeGreaterThanOrEqual(44);
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
+    const copy = spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+    try {
+      await userEvent.click(button);
+      await expect(copy).toHaveBeenCalledWith(instructionExample);
+      await waitFor(() =>
+        expect(canvas.getByRole("status")).toHaveTextContent("Код скопирован"),
+      );
+      await expect(button).toHaveAccessibleName("Скопировать код");
+    } finally {
+      copy.mockRestore();
+    }
+  },
+};
+
+export const CodeBlockCopyMobile: Story = {
+  ...CodeBlockCopy,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const CodeBlockCopyDesktop: Story = {
+  ...CodeBlockCopy,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+};
+
+export const CodeBlockCopyFailure: Story = {
+  args: { blocks: [{ kind: "code_block", text: "const result = 1;" }] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const copy = spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+      new Error("denied"),
+    );
+    try {
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скопировать код" }),
+      );
+      await waitFor(() =>
+        expect(canvas.getByRole("status")).toHaveTextContent(
+          "Не удалось скопировать. Код выделен, скопируйте его вручную",
+        ),
+      );
+      await waitFor(() =>
+        expect(window.getSelection()?.toString()).toBe("const result = 1;"),
+      );
+    } finally {
+      copy.mockRestore();
+      window.getSelection()?.removeAllRanges();
+    }
+  },
+};
+
+export const CodeBlockCopyUnavailable: Story = {
+  args: { blocks: [{ kind: "code_block", text: "const result = 1;" }] },
+  beforeEach: () => {
+    const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: undefined,
+    });
+    return () => {
+      if (previous === undefined)
+        Reflect.deleteProperty(navigator, "clipboard");
+      else Object.defineProperty(navigator, "clipboard", previous);
+      window.getSelection()?.removeAllRanges();
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Скопировать код" }),
+    );
+    await waitFor(() =>
+      expect(canvas.getByRole("status")).toHaveTextContent(
+        "Не удалось скопировать. Код выделен, скопируйте его вручную",
+      ),
+    );
+    await waitFor(() =>
+      expect(window.getSelection()?.toString()).toBe("const result = 1;"),
+    );
+  },
 };
