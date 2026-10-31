@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Capture only State, not Config.Env, before the caller removes its Compose project.
+# Capture infrastructure observations before the caller removes its Compose project.
 set -euo pipefail
 
 artifact_dir="${1:?artifact directory is required}"
@@ -7,7 +7,14 @@ shift
 mkdir -p "$artifact_dir"
 container_ids="$("$@" ps --all --quiet)" || exit 1
 for container_id in $container_ids; do
-  lifecycle="$(docker inspect --format '{{.State.Status}}:{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id")" || continue
+  lifecycle="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}:{{.State.Status}}:{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id")" || continue
+  case "$lifecycle" in
+    object-storage:*)
+      node "$(dirname "$0")/minio-failure-diagnostics.mjs" "$container_id" "$artifact_dir/$container_id-minio.json" || true
+      continue
+      ;;
+  esac
+  lifecycle="${lifecycle#*:}"
   case "$lifecycle" in
     exited:*|dead:*|*:unhealthy)
       state_file="$artifact_dir/$container_id-state.json"
