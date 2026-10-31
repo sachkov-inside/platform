@@ -47,7 +47,8 @@ specification runs `implement-spec`. [PIPELINE.md](.agents/skills/PIPELINE.md) r
 
 Releases, deployments, publishing, paid actions, credentials, external messages and merges need the
 owner's permission. Standing or task-specific permission covers its stated scope until withdrawn;
-follow it without asking again. Waiting for an answer is never consent.
+follow it without asking again. A resumed session keeps the existing permission for its assigned work.
+Waiting for an answer is never consent.
 
 ## Human-facing text
 

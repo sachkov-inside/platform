@@ -24,7 +24,8 @@ code, configs or scripts already show.
 | MCP tool set | The registering module and the generated `apps/backend/mcp/tool-surface.json`; `pnpm mcp:check` owns drift detection |
 | Development, test, run, configuration, or deployment procedure | The owning README or runbook; keep exact executable commands in package/config files |
 | Agent trigger, routing, delivery, verification, or completion rule | The nearest `AGENTS.md` or `docs/agents/` contract; do not copy product/domain explanations into agent files |
-| Sensitive zones, their checks, merge permission or owner acceptance | [Ship](ship.md); update affected paths in the implementation PR |
+| Sensitive zones, their checks or advance acceptance | [Ship](ship.md); update affected paths in the implementation PR |
+| Owner gates, including merge permission | Root `AGENTS.md`, section `Owner gates` |
 | Pipeline skill | The workspace pipeline through `sync-pipeline`; `.agents/skills/PIPELINE.md` records the source |
 
 Code, schemas, generated contracts, and tests may be the complete authority for a local

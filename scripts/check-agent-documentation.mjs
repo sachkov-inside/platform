@@ -114,7 +114,7 @@ export function checkHarnessConfiguration(
       "AGENTS.md: require exactly one Session mode: main or worktree",
     );
   }
-  // Decision 199 retired WORKFLOW.md; the root AGENTS.md and docs/agents/ replace it.
+  // Workspace decision 199 (#1915) retired WORKFLOW.md; the root AGENTS.md and docs/agents/ replace it.
   if (existsSync(resolve(repositoryRoot, "WORKFLOW.md"))) {
     failures.push(
       "WORKFLOW.md: retired; move its rules to AGENTS.md or docs/agents/",
