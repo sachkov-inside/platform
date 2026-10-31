@@ -1,6 +1,7 @@
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { checkPermissionsMany } from "../../features/check-permission/check-permissions-many.js";
 import { checkPermission } from "../../features/check-permission/check-permission.js";
+import { listPermissions } from "../../features/list-permissions/list-permissions.js";
 import { establishAccount } from "../../features/establish-account/establish-account.js";
 import { resolveAccount } from "../../features/resolve-account/resolve-account.js";
 import { accountId as checkedAccountId } from "../../domain/account-identifiers.js";
@@ -78,6 +79,7 @@ export function assembleAccounts({
         handle === undefined ? prisma : accountsTransaction(handle),
         query,
       ),
+    listPermissions: (query) => listPermissions(prisma, query),
   };
   return Object.freeze(accounts);
 }

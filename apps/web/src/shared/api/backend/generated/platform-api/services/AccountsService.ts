@@ -300,6 +300,19 @@ export class AccountsService {
     });
   }
   /**
+   * List the effective permissions of the current Account; platform:admin lists every permission
+   * @returns any
+   * @throws ApiError
+   */
+  public listCurrentAccountPermissions(): CancelablePromise<{
+    permissions: Array<'materials:manage' | 'communications:manage' | 'billing:manage' | 'platform:admin'>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/permissions',
+    });
+  }
+  /**
    * Finalize an already verified Telegram sign-in receipt after terms acceptance
    * @returns any
    * @throws ApiError
