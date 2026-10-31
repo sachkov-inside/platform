@@ -1,7 +1,7 @@
 # Issue #1909: AI Engineering landing, production visual evidence
 
 Storybook story `Pages/Product/Landing/AI Engineering`, production module
-`ai-engineering-course-view.tsx` at commit `3220cfd98`. Captured on 2026-10-31 with
+`ai-engineering-course-view.tsx` with the advanced topic names and the stronger FAQ answer from this commit. Captured on 2026-10-31 with
 `screenshotWholePage`, reduced motion, no horizontal overflow at any width.
 
 | File | Story | Width |

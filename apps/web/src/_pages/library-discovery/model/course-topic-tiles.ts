@@ -45,15 +45,15 @@ const tile = (
 const tiles: Readonly<Record<string, CourseTopicTile>> = {
   // Темы лендинга с 31.10.2026: инженерные и AI-темы чередуются, ряды по четыре колонки.
   "Инженерная работа": tile("engineering", "wide", "ink"),
-  Harness: tile("harness", "narrow", "example"),
+  "Harness для команды": tile("harness", "narrow", "example"),
   "Продукт и требования": tile("story", "narrow", "sand"),
   "Spec-Driven Development": tile("sdd", "wide", "blue"),
   "Домен и бизнес-логика": tile("domain", "narrow", "lavender"),
   "Human in the loop": tile("human", "narrow", "sand"),
   Модульность: tile("modules", "narrow", "good"),
   "Контекст и память": tile("memory", "wide", "coral"),
-  "Тесты и проверки": tile("checks", "narrow", "blue"),
-  "Несколько агентов": tile("team", "wide", "lavender"),
+  "Автоматические проверки": tile("checks", "narrow", "blue"),
+  "Параллельные и облачные агенты": tile("team", "wide", "lavender"),
   "Существующий проект": tile("legacy", "narrow", "sand"),
   "Безопасность агентов": tile("security", "narrow", "good"),
   "Релизы и эксплуатация": tile("release", "narrow", "example"),
@@ -62,6 +62,7 @@ const tiles: Readonly<Record<string, CourseTopicTile>> = {
   // Темы описания, опубликованного до нового лендинга: страница не теряет картинки, пока текст
   // в Inside Content не обновлён.
   "AI-first разработка": tile("engineering", "wide", "ink"),
+  Harness: tile("harness", "narrow", "example"),
   "Работа с контекстом": tile("context", "narrow", "blue"),
   "Пайплайны разработки": tile("pipeline", "narrow", "good"),
   "Собственные агенты": tile("agent", "wide", "coral"),
