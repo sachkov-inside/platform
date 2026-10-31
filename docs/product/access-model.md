@@ -750,9 +750,10 @@ owner's review list and the watchdog. When that event is recorded first, a later
 `REFUNDED` of that attempt grants no access and retires none of the buyer's current attempts, and
 the attempt stays failed. The bank can also notify `CONFIRMED` before it processes the Cancel; the
 attempt is then already confirmed with access, and the refund reaches the owner only through the
-event and its watchdog signal, so access stays the owner's decision. The bank's `REFUNDED` closes the mark with `bank_cancel_confirmed`, which keeps
-the PaymentId and status. When the retired attempt's Init
-answer was lost, reconciliation finds its PaymentId with CheckOrder. For an order without payments
+event and its watchdog signal, so access stays the owner's decision. In that order the confirmation
+itself closes the mark with `bank_cancel_confirmed` (status `CONFIRMED`). In the first order the
+bank's `REFUNDED` closes the mark with `bank_cancel_confirmed`, which keeps the PaymentId and status.
+When the retired attempt's Init answer was lost, reconciliation finds its PaymentId with CheckOrder. For an order without payments
 the provider answers `Success:false` with `ErrorCode` `335` (order not found, observed on the live
 terminal on 2026-10-31); Inside reads it as an empty payment list. If CheckOrder finds no payment
 for 30 minutes, `bank_payment_absent` closes the mark instead, because there is no form to cancel
