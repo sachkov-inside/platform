@@ -283,6 +283,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     setTime: (time: Date) => {
       now = time;
     },
+    time: () => now,
   };
 }
 

@@ -20,6 +20,7 @@ const owner = randomUUID();
 let db: TestDatabase;
 let scenario: ReturnType<typeof createProductCommerceFixture>["scenario"];
 let setTime: ReturnType<typeof createProductCommerceFixture>["setTime"];
+let time: ReturnType<typeof createProductCommerceFixture>["time"];
 beforeAll(async () => {
   db = await createMigratedTestDatabase();
   await db.prisma.account.create({
@@ -32,7 +33,7 @@ beforeAll(async () => {
   await db.prisma.accountPermission.create({
     data: { accountId: owner, permission: "platform:admin" },
   });
-  ({ scenario, setTime } = createProductCommerceFixture(db, owner));
+  ({ scenario, setTime, time } = createProductCommerceFixture(db, owner));
 });
 afterAll(async () => db.dispose());
 test("concurrent Product purchase, verified confirmation, replay and fulfillment yield one lifetime right and immutable Order Email", async () => {
@@ -284,7 +285,7 @@ async function repeatPurchaseCommand(
   };
 }
 
-/** Покупатель по личной ссылке на оплату: ссылка однократна, пока её держит неотказанный резерв. */
+/** Покупатель по ссылке на оплату: ссылка однократна, пока её держит неотказанный резерв. */
 async function paymentLinkScenario() {
   const base = await scenario();
   const link = value(
@@ -478,7 +479,8 @@ test("payment recovery stops asking the bank about a declined payment after the 
   const s = await scenario();
   const purchase = value(await s.payments.purchase(s.buyer, s.command));
   await s.notify("REJECTED");
-  setTime(new Date("2030-02-01T10:00:01Z"));
+  const start = time();
+  setTime(new Date(start.getTime() + 24 * 60 * 60 * 1000 + 1000));
   try {
     // Банк уже отвечает CONFIRMED: опрос этой покупки подтвердил бы её.
     s.setStatus("CONFIRMED");
@@ -487,8 +489,67 @@ test("payment recovery stops asking the bank about a declined payment after the 
       value(await s.payments.status(s.buyer, purchase.purchaseRef)).state,
     ).toBe("failed");
   } finally {
-    setTime(new Date("2030-01-31T10:00:00Z"));
+    setTime(start);
   }
+});
+
+/** Первая попытка отказана, повторная по той же ссылке зависла без ответа на Init. */
+async function declinedThenUnansweredRepeat() {
+  const { s, link } = await paymentLinkScenario();
+  const first = value(await s.payments.purchase(s.buyer, s.command));
+  const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
+  await s.notify("REJECTED");
+  s.loseInit();
+  await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s, link.id));
+  const repeat = await db.prisma.billingPurchase.findFirstOrThrow({
+    where: { accountId: s.buyer, id: { not: first.purchaseRef } },
+  });
+  expect(repeat.state).toBe("unknown");
+  expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
+    ok: true,
+  });
+  expect(
+    await db.prisma.billingPaymentEvent.findUniqueOrThrow({
+      where: {
+        purchaseRef_kind: {
+          purchaseRef: first.purchaseRef,
+          kind: "payment_confirmed_after_failure",
+        },
+      },
+      select: { payload: true },
+    }),
+  ).toEqual({
+    payload: { supersededPurchaseRefs: [], reservation: "payment_link_in_use" },
+  });
+  return { s, first, repeat };
+}
+
+test("a paid Payment Link reservation is confirmed once the unresolved repeat attempt releases the link", async () => {
+  const { s, first } = await declinedThenUnansweredRepeat();
+  expect(await s.notify("REJECTED")).toMatchObject({ ok: true });
+  value(await s.payments.recover());
+  expect(
+    await db.prisma.billingPromoReservation.findUniqueOrThrow({
+      where: { purchaseRef: first.purchaseRef },
+      select: { state: true },
+    }),
+  ).toEqual({ state: "confirmed" });
+});
+
+test("a later confirmation of the unresolved repeat attempt is marked as a second payment for the owner", async () => {
+  const { s, first, repeat } = await declinedThenUnansweredRepeat();
+  expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
+  expect(
+    await db.prisma.billingPaymentEvent.findUniqueOrThrow({
+      where: {
+        purchaseRef_kind: {
+          purchaseRef: repeat.id,
+          kind: "duplicate_payment_review",
+        },
+      },
+      select: { payload: true },
+    }),
+  ).toEqual({ payload: { paidPurchaseRefs: [first.purchaseRef] } });
 });
 
 test("an archived Product blocks a new accepted quote while preserving existing holders", async () => {

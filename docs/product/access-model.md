@@ -716,10 +716,12 @@ creation: Init sends no `RedirectDueDate`, so the form keeps the
 [provider's default lifetime](https://developer.tbank.ru/eacq/api/init). The confirmation retires
 the same Account's unpaid repeat attempts for the same Product or the same Payment Link, so the
 buyer cannot pay twice through the newer form in Inside; the retired bank form stays payable until
-it expires. An attempt with an unknown outcome or held funds stays in reconciliation. If such an
-attempt or another paid one still holds the Payment Link, the confirmed attempt keeps its
-reservation failed. A second paid purchase of the same Product or Payment Link records
-`duplicate_payment_review` for the owner's refund decision.
+it expires. An attempt with an unknown outcome or held funds stays in reconciliation. A Payment
+Link is transferable, so another Account's attempt is never retired. While any of these attempts
+holds the link, the confirmed attempt keeps its reservation failed; recovery confirms that
+reservation once no other attempt holds the link. Every one-time confirmation checks for a second
+payment: an earlier paid purchase of the same Product by the same Account, or of the same Payment
+Link. Such a confirmation records `duplicate_payment_review` for the owner's refund decision.
 
 Fresh purchase admission and dispatch read Product acquisition state through Account Rights on the
 same transaction handle under the Account entitlement lock. Both active and owner-revoked lifetime

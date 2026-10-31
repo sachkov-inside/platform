@@ -859,6 +859,8 @@ export class BillingPayments {
           data: { updatedAt: this.clock() },
         });
       }
+      if (this.dependencies.bank !== undefined)
+        await confirmReleasedLinkReservations(this.dependencies.prisma);
       const pending =
         await this.dependencies.prisma.billingFulfillment.findMany({
           where: {
@@ -1361,6 +1363,14 @@ export class BillingPayments {
               where: { purchaseRef: row.id },
               data: { state: "confirmed" },
             });
+          if (kind === "one_time")
+            await recordDuplicatePayment(
+              tx,
+              row,
+              snapshot,
+              reservation?.paymentLinkId ?? null,
+              now,
+            );
           await tx.billingPaymentEvent.create({
             data: {
               id: eventRef,
@@ -1624,18 +1634,14 @@ async function settleConfirmationAfterFailure(
   const remainingHolders = linkHolders.filter(
     (ref) => !superseded.includes(ref),
   );
-  const paidTwice = related
-    .filter(
-      (attempt) =>
-        attempt.state === "confirmed" &&
-        (attempt.accountId === row.accountId ||
-          remainingHolders.includes(attempt.id)),
-    )
-    .map((attempt) => attempt.id);
   const reservation =
     remainingHolders.length === 0
       ? "confirmed"
-      : remainingHolders.some((ref) => paidTwice.includes(ref))
+      : related.some(
+            (attempt) =>
+              attempt.state === "confirmed" &&
+              remainingHolders.includes(attempt.id),
+          )
         ? "payment_link_paid"
         : "payment_link_in_use";
   await tx.billingPaymentEvent.create({
@@ -1648,16 +1654,115 @@ async function settleConfirmationAfterFailure(
       recordedAt: now,
     },
   });
-  if (paidTwice.length > 0)
-    await tx.billingPaymentEvent.create({
-      data: {
-        id: randomUUID(),
-        purchaseRef: row.id,
-        kind: "duplicate_payment_review",
-        payload: { paidPurchaseRefs: paidTwice },
-        occurredAt: now,
-        recordedAt: now,
-      },
-    });
   return remainingHolders.length === 0;
+}
+
+/**
+ * Любое подтверждение разовой покупки проверяет вторую оплату: тот же Account уже оплатил этот
+ * продукт или по той же ссылке уже есть оплаченная покупка. Деньги остаются подтверждёнными,
+ * событие ведёт владельца к решению о возврате.
+ */
+async function recordDuplicatePayment(
+  tx: BillingPrisma,
+  row: PurchaseRow,
+  snapshot: PriceSnapshot,
+  paymentLinkId: string | null,
+  now: Date,
+): Promise<void> {
+  const linkPurchases =
+    paymentLinkId === null
+      ? []
+      : (
+          await tx.billingPromoReservation.findMany({
+            where: { paymentLinkId, purchaseRef: { not: row.id } },
+            select: { purchaseRef: true },
+          })
+        ).map((reservation) => reservation.purchaseRef);
+  const productScope = savedContentProductIds(snapshot).map(
+    savedContentProductWhere,
+  );
+  const scope: Prisma.BillingPurchaseWhereInput[] = [
+    ...(productScope.length === 0
+      ? []
+      : [{ accountId: row.accountId, OR: productScope }]),
+    ...(linkPurchases.length === 0 ? [] : [{ id: { in: linkPurchases } }]),
+  ];
+  if (scope.length === 0) return;
+  const paid = await tx.billingPurchase.findMany({
+    where: {
+      id: { not: row.id },
+      kind: "one_time",
+      state: "confirmed",
+      OR: scope,
+    },
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  if (paid.length === 0) return;
+  await tx.billingPaymentEvent.create({
+    data: {
+      id: randomUUID(),
+      purchaseRef: row.id,
+      kind: "duplicate_payment_review",
+      payload: { paidPurchaseRefs: paid.map((purchase) => purchase.id) },
+      occurredAt: now,
+      recordedAt: now,
+    },
+  });
+}
+
+/**
+ * Подтверждённая после отказа покупка оставила резерв неуспешным, пока ссылку держала другая
+ * попытка. Когда держатель отпал, резерв подтверждается: иначе оплаченная ссылка выглядит
+ * свободной и её можно оплатить ещё раз.
+ */
+async function confirmReleasedLinkReservations(
+  prisma: BillingPrismaClient,
+): Promise<void> {
+  const revived = await prisma.billingPaymentEvent.findMany({
+    where: { kind: "payment_confirmed_after_failure" },
+    select: { purchaseRef: true },
+  });
+  if (revived.length === 0) return;
+  const waiting = await prisma.billingPromoReservation.findMany({
+    where: {
+      purchaseRef: { in: revived.map((event) => event.purchaseRef) },
+      state: "failed",
+      paymentLinkId: { not: null },
+    },
+    select: { purchaseRef: true },
+  });
+  for (const { purchaseRef } of waiting) {
+    await prisma.$transaction(async (tx) => {
+      await lockBillingPricing(tx);
+      await lockBillingPurchase(tx, purchaseRef);
+      const purchase = await tx.billingPurchase.findUnique({
+        where: { id: purchaseRef },
+        select: { state: true },
+      });
+      const reservation = await tx.billingPromoReservation.findUnique({
+        where: { purchaseRef },
+        select: { state: true, paymentLinkId: true },
+      });
+      if (
+        purchase?.state !== "confirmed" ||
+        reservation?.state !== "failed" ||
+        reservation.paymentLinkId === null
+      )
+        return;
+      const holder = await tx.billingPromoReservation.findFirst({
+        where: {
+          paymentLinkId: reservation.paymentLinkId,
+          purchaseRef: { not: purchaseRef },
+          state: { not: "failed" },
+        },
+        select: { purchaseRef: true },
+      });
+      if (holder !== null) return;
+      await tx.billingPromoReservation.update({
+        where: { purchaseRef },
+        data: { state: "confirmed" },
+      });
+    });
+  }
 }
