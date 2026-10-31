@@ -7,7 +7,7 @@ declare global {
     readerTitleObservations: { title: string; head: boolean }[];
   }
 }
-import { expectDocumentTitle } from "../support/document-title";
+import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
 
 const title = "Первый бесплатный урок · Sachkov Dev";
 
@@ -28,7 +28,7 @@ for (const state of ["wrong-title", "missing-title", "pending-open"] as const) {
     let audited = false;
     await expect(
       (async () => {
-        await expectDocumentTitle(page, title);
+        await expectReaderReadyForAudit(page, title);
         audited = true;
         await new AxeBuilder({ page }).withRules(["document-title"]).analyze();
       })(),
@@ -38,7 +38,7 @@ for (const state of ["wrong-title", "missing-title", "pending-open"] as const) {
 }
 test("settled Reader accepts a valid streamed BODY title", async ({ page }) => {
   await page.setContent(settledDocument("", `<title>${title}</title>`));
-  await expectDocumentTitle(page, title);
+  await expectReaderReadyForAudit(page, title);
   const accessibility = await new AxeBuilder({ page })
     .withRules(["document-title"])
     .analyze();
@@ -160,7 +160,7 @@ test("Reader open refresh settles cold metadata and preserves an existing HEAD t
       });
       let audited = false;
       const audit = (async () => {
-        await expectDocumentTitle(page, expected);
+        await expectReaderReadyForAudit(page, expected);
         audited = true;
         const committedBody = await page
           .locator('[data-material-reader-state="available"]:visible')

@@ -15,7 +15,7 @@ import {
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
-import { expectDocumentTitle } from "../support/document-title";
+import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
 
 const readerStartupScriptCpuBudgetMs = 200;
 
@@ -468,7 +468,10 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   ).toBeVisible();
   await framesPresented(page);
 
-  await expectDocumentTitle(page, "Как устроен Inside Platform · Sachkov Dev");
+  await expectReaderReadyForAudit(
+    page,
+    "Как устроен Inside Platform · Sachkov Dev",
+  );
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
@@ -1063,7 +1066,7 @@ async function expectNoSeriousAccessibilityFindings(
 ) {
   // After a client navigation Next.js streams the new <title> separately; scan the settled document.
   if (readerTitle === undefined) await expect(page).toHaveTitle(/\S/u);
-  else await expectDocumentTitle(page, readerTitle);
+  else await expectReaderReadyForAudit(page, readerTitle);
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
