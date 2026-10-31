@@ -86,6 +86,54 @@ async function loopback(t, handler) {
   assert.ok(address && typeof address !== "string");
   return { server, close, url: `http://127.0.0.1:${address.port}` };
 }
+for (const scenario of ["css", "html", "http-error"]) {
+  test(`development Compose Swagger static CSS proof: ${scenario}`, async (t) => {
+    /** @type {string[]} */
+    const requests = [];
+    const endpoint = await loopback(t, (request, response) => {
+      requests.push(request.url ?? "");
+      if (request.url === "/openapi") {
+        response.setHeader("content-type", "text/html");
+        response.end("<html>Swagger UI</html>");
+      } else if (request.url === "/openapi/swagger-ui.css") {
+        response.statusCode = scenario === "http-error" ? 404 : 200;
+        response.setHeader(
+          "content-type",
+          scenario === "html" ? "text/html" : "text/css",
+        );
+        response.end(
+          scenario === "html"
+            ? '<html><link rel="stylesheet" href="swagger-ui.css"></html>'
+            : ".swagger-ui{color:#3b4151}",
+        );
+      } else {
+        response.statusCode = 404;
+        response.end();
+      }
+    });
+    try {
+      const source = readFileSync("scripts/compose-stack-smoke.sh", "utf8");
+      const section = source.slice(
+        source.indexOf(
+          'curl --fail --silent --show-error --output /dev/null "$api_base_url/openapi"',
+        ),
+        source.indexOf('catalog_response="$('),
+      );
+      assert.ok(section.length > 0);
+      const result = await execute(t, section, {
+        env: { ...process.env, api_base_url: endpoint.url },
+      });
+      assert.equal(result.stoppedBy, "");
+      assert.equal(
+        result.status,
+        scenario === "css" ? 0 : scenario === "html" ? 1 : 22,
+      );
+      assert.deepEqual(requests, ["/openapi", "/openapi/swagger-ui.css"]);
+    } finally {
+      await endpoint.close();
+    }
+  });
+}
 const productId = "72000000-0000-4000-8000-000000000007";
 const price = {
   product: { id: productId, name: "Руководство «Создание Platform Inside»" },
