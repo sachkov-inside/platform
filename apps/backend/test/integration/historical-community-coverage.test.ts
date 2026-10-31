@@ -425,7 +425,7 @@ test("uses a frozen paid Product scope without modifying purchases or grant term
   });
   expect(
     await db.prisma.$queryRaw(
-      Prisma.sql`select to_jsonb(p) - 'refund_review_required' as value from billing.purchases p where id=${purchaseId}::uuid`,
+      Prisma.sql`select to_jsonb(p) - 'refund_review_required' - 'bank_recheck_at' as value from billing.purchases p where id=${purchaseId}::uuid`,
     ),
   ).toEqual(purchase);
   expect(

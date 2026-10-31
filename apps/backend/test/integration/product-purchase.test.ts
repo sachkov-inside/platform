@@ -344,12 +344,19 @@ test("payment recovery asks the bank again about a recently declined payment and
     value(await s.payments.status(s.buyer, purchase.purchaseRef)).state,
   ).toBe("failed");
   // Уведомление CONFIRMED не дошло, но банк отвечает о том же платеже уже подтверждением.
+  // Форму после отказа сверка спрашивает по расписанию (#1929): первый шаг через минуту.
   s.setStatus("CONFIRMED");
-  value(await s.payments.recover());
-  value(await s.payments.recover());
-  expect(
-    value(await s.payments.status(s.buyer, purchase.purchaseRef)),
-  ).toMatchObject({ state: "confirmed", access: "ready" });
+  const start = time();
+  setTime(new Date(start.getTime() + 60_000));
+  try {
+    value(await s.payments.recover());
+    value(await s.payments.recover());
+    expect(
+      value(await s.payments.status(s.buyer, purchase.purchaseRef)),
+    ).toMatchObject({ state: "confirmed", access: "ready" });
+  } finally {
+    setTime(start);
+  }
 });
 
 test("a confirmed payment after a decline retires the unpaid repeat attempt that holds the same Payment Link", async () => {

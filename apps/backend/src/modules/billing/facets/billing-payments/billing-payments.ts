@@ -1114,13 +1114,19 @@ export class BillingPayments {
           else failed += 1;
         } else if (reconciled.value === "deferred") waiting += 1;
         // Проверенная строка уходит в конец очереди; форма после отказа ждёт свой шаг расписания.
+        // Шаг считается по состоянию после проверки: попытка, снятая в этом же проходе, сразу
+        // получает срок, и повторный проход в тот же момент её не трогает.
         const checkedAt = this.clock();
         const markedAt = retiredForms.get(row.id);
+        const checked = await prisma.billingPurchase.findUnique({
+          where: { id: row.id },
+          select: { state: true },
+        });
         await prisma.billingPurchase.update({
           where: { id: row.id },
           data: {
             updatedAt: checkedAt,
-            ...(row.state === "failed"
+            ...(checked?.state === "failed"
               ? {
                   bankRecheckAt: nextBankRecheck(
                     markedAt !== undefined && markedAt > row.createdAt

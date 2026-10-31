@@ -258,6 +258,7 @@ test("retains a pre-upgrade paid receipt and malformed legacy fulfillment passiv
       value: {
         status: "configuration_idle",
         inspected: 0,
+        deferred: 0,
         applied: 0,
         failed: 0,
       },
@@ -267,6 +268,7 @@ test("retains a pre-upgrade paid receipt and malformed legacy fulfillment passiv
       value: {
         status: "configuration_idle",
         inspected: 0,
+        deferred: 0,
         applied: 0,
         failed: 0,
       },
