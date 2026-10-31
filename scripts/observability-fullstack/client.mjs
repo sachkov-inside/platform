@@ -1181,12 +1181,23 @@ if (action === "source-warmup") {
   );
   const positive = await call("site.resource.test", 443, "/_health/live");
   const error = await call("site.resource.test", 443, "/_source_probe/error");
+  let pagesReady = true;
+  if (technicalScope) {
+    const [home, material] = await Promise.all([
+      call("site.resource.test", 443, "/"),
+      call("site.resource.test", 443, "/materials/resource-material-2"),
+    ]);
+    pagesReady =
+      operationOk(home, "web_home", "") &&
+      operationOk(material, "web_material", "Synthetic 2");
+  }
   console.log(
     JSON.stringify({
       ok:
         absent.status === 404 &&
         positive.status === 200 &&
-        error.status === 503,
+        error.status === 503 &&
+        pagesReady,
     }),
   );
 } else if (action === "cache-ready") {

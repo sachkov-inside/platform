@@ -1016,3 +1016,89 @@ test("passive Web timing preserves real TLS response, failures and request owner
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+// deterministic-test-allow unit-io: root owner bounds the actual readiness CLI and loopback worker, including failure, timeout and SIGKILL; caller removes all test-only preload files after group closure.
+test("technical source warmup waits for both real Web bodies and keeps bounded ownership", async () => {
+  const worker = fileURLToPath(
+    new URL(
+      "./observability-fullstack/source-warmup-contract.mjs",
+      import.meta.url,
+    ),
+  );
+  for (const scenario of ["complete", "failure", "timeout", "sigkill"]) {
+    const directory = await mkdtemp(join(tmpdir(), "inside-source-warmup-"));
+    try {
+      const args = [worker, directory];
+      if (scenario !== "complete") {
+        const receipt = join(directory, "owner-receipt.json");
+        const preload = join(directory, "owner-receipt.mjs");
+        await writeFile(
+          preload,
+          `import cp from 'node:child_process';import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
+const spawn=cp.spawn;cp.spawn=(...args)=>{const child=spawn(...args);fs.writeFileSync(${JSON.stringify(receipt)},JSON.stringify([process.pid,child.pid]));${scenario === "failure" ? "process.exit(7);" : scenario === "sigkill" ? "process.kill(process.pid,'SIGKILL');" : ""}return child;};syncBuiltinESMExports();`,
+        );
+        args.unshift("--import", preload);
+        args.push("hold");
+      }
+      const result = await runOwnedProcess(process.execPath, args, {
+        timeoutMs: scenario === "timeout" ? 1000 : 15000,
+      });
+      assert.ok(result.pid !== undefined);
+      assert.equal(processGroupExists(result.pid), false);
+      if (scenario === "complete") {
+        assert.equal(result.reason, "exit", result.stderr);
+        assert.equal(result.code, 0, result.stdout + result.stderr);
+        assert.deepEqual(JSON.parse(result.stdout), { ok: true, cases: 14 });
+      } else {
+        /** @type {unknown} */ const pids = JSON.parse(
+          await readFile(join(directory, "owner-receipt.json"), "utf8"),
+        );
+        assert.ok(
+          Array.isArray(pids) &&
+            pids.length === 2 &&
+            pids.every((value) => Number.isSafeInteger(value) && value > 0),
+        );
+        /** @type {unknown} */ const workerPid = pids[0];
+        /** @type {unknown} */ const clientPid = pids[1];
+        assert.ok(
+          typeof workerPid === "number" &&
+            typeof clientPid === "number" &&
+            Number.isSafeInteger(clientPid) &&
+            clientPid > 0,
+        );
+        assert.equal(result.pid, workerPid);
+        assert.throws(() => process.kill(clientPid, 0), { code: "ESRCH" });
+        if (scenario === "timeout") assert.equal(result.reason, "timeout");
+        if (scenario === "failure") assert.equal(result.code, 7);
+        if (scenario === "sigkill") assert.equal(result.signal, "SIGKILL");
+      }
+      /** @type {unknown} */ const listener = JSON.parse(
+        await readFile(join(directory, "listener.json"), "utf8"),
+      );
+      assert.ok(listener !== null && typeof listener === "object");
+      /** @type {unknown} */ const port = Reflect.get(listener, "port");
+      assert.ok(
+        typeof port === "number" &&
+          Number.isSafeInteger(port) &&
+          port > 0 &&
+          port <= 65535,
+      );
+      const released = createServer();
+      try {
+        await new Promise((resolve, reject) => {
+          released.once("error", reject);
+          released.listen(port, "127.0.0.1", () => resolve(undefined));
+        });
+      } finally {
+        if (released.listening)
+          await new Promise((resolve, reject) =>
+            released.close((error) =>
+              error ? reject(error) : resolve(undefined),
+            ),
+          );
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+});
