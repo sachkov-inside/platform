@@ -153,9 +153,9 @@ separately from cleanup status. Neither diagnostics nor cleanup authorize a retr
 Before image preparation, the cache script initializes its artifact directory and captures bounded
 host diagnostics. `preparation-before.json` and `preparation-after.json` record run, attempt, Source,
 phase and original exit status. The fixed command list captures Docker/buildx versions, selected
-Docker server properties, service PID/restart state, memory/cgroup/disk/inode facts, Docker/containerd
-journals and kernel OOM messages. Journal reads use noninteractive `sudo -n`, ten-minute windows
-and at most 200 entries. Each observation command has a 1.5-second budget, supervised process-tree cleanup and
+Docker server properties, service names/PID/restart state, memory/cgroup/disk/inode facts, Docker/containerd
+journals and kernel OOM messages. Kernel journal reads use the supported `journalctl -k` option.
+Journal reads use noninteractive `sudo -n`, ten-minute windows and at most 200 entries. Each observation command has a 1.5-second budget, supervised process-tree cleanup and
 65,536 retained output characters. Capture status, timeout and truncation remain explicit.
 Owned-tag cleanup uses a separate 30-second budget because healthy image removal can exceed the
 observation budget. Cleanup retains the same supervised process-tree cleanup and failure handling.
@@ -164,6 +164,17 @@ Cleanup stderr joins the after snapshot. Every cache job attempts to upload only
 Inspect this artifact to verify which observations the real runner permits; a successful build alone
 does not verify capture availability. Interrupted jobs can leave partial snapshots or no artifact.
 The existing failure artifact uploader also covers preparation.
+
+The cgroup subprocess reads `/proc/self/cgroup` to select the collector's current process group,
+not Docker's daemon group. It reports the version, selected group, cgroup type and controllers.
+A v1 memory-controller membership takes precedence on a hybrid host. The reader uses only the
+standard `/sys/fs/cgroup` v2 mount or `/sys/fs/cgroup/memory` v1 mount; other layouts remain
+unavailable. Group paths cannot traverse outside the mount or follow a symlink to another location.
+The fixed allowlist reads v2 `memory.max`, `memory.current`, `memory.events`, or v1
+`memory.limit_in_bytes`, `memory.usage_in_bytes`, `memory.failcnt`, `memory.oom_control`.
+Each file retains at most 4,096 bytes and reports availability and truncation. Missing files and read
+errors remain explicit. V2 root memory controls are `not-applicable-root`, because those interfaces
+exist only in non-root groups. These observations do not establish Docker's memory limit or an OOM.
 
 The collector reads no environment dumps, process arguments, container/image inspection or auth files.
 It redacts lines containing URLs, credential keys or recognized token forms before persistence and

@@ -1,6 +1,7 @@
 // @ts-check
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { stripVTControlCharacters } from "node:util";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
@@ -130,18 +131,18 @@ async function main() {
         "show",
         "docker.service",
         "containerd.service",
-        "--property=MainPID,NRestarts,ActiveState,SubState,ExecMainStatus",
+        "--property=Id,MainPID,NRestarts,ActiveState,SubState,ExecMainStatus",
       ],
     ],
     ["free", ["-b"]],
     ["df", ["-Pk", "."]],
     ["df", ["-Pi", "."]],
     [
-      "cat",
+      process.execPath,
       [
-        "/sys/fs/cgroup/memory.max",
-        "/sys/fs/cgroup/memory.current",
-        "/sys/fs/cgroup/memory.events",
+        fileURLToPath(
+          new URL("./cgroup-memory-diagnostics.mjs", import.meta.url),
+        ),
       ],
     ],
     [
@@ -162,7 +163,7 @@ async function main() {
       [
         "-n",
         "journalctl",
-        "--kernel",
+        "-k",
         "--no-pager",
         "--since=-10 minutes",
         "--lines=200",
