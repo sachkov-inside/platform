@@ -82,3 +82,8 @@ Owner feedback: walls of text, sections overloaded, hero lead longer than two or
 The owner kept the original hero lead («AI не заменит инженера, который умеет с ним работать…»),
 so hero variants A, B and C are removed and the story is one page. The first «было → стало» row
 reads «Запутанная кодовая база» in place of «Код где придётся».
+
+## Revision 4 (2026-10-31): no before/after rows
+
+The owner removed the «было → стало» rows. «Моя позиция» now shows the thesis on the left and the
+agent and you role diagram on the right.

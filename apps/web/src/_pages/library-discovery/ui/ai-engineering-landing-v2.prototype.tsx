@@ -972,47 +972,33 @@ function Status({
 
 /* ---------- PROTOTYPE: новые разделы ---------- */
 
-/**
- * Моя позиция: короткий тезис, схема «агент и ты» и строки «было → стало». Роль или строку
- * выбирает `detailLabel` пункта, а не его порядок.
- */
+/** Моя позиция: короткий тезис слева, схема «агент и ты» справа. */
 function Position({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
-  const roles = block.items.filter((item) => item.detailLabel === "Роль");
-  const shifts = block.items.filter((item) => item.detailLabel === "Было");
   return (
     <section className="aie2-position">
       <div className="aie2-position-copy">
         <h2>{block.title}</h2>
         {block.lead === "" ? null : <p>{block.lead}</p>}
-        <dl className="aie2-roles">
-          {roles.map((role, index) => (
-            <div data-role={index === 0 ? "agent" : "you"} key={role.title}>
-              <dt>
-                {index === 0 ? (
-                  <Bot aria-hidden="true" />
-                ) : (
-                  <UserRound aria-hidden="true" />
-                )}
-                {role.title}
-              </dt>
-              <dd>
-                {role.text.split(", ").map((topic) => (
-                  <span key={topic}>{topic}</span>
-                ))}
-              </dd>
-            </div>
-          ))}
-        </dl>
       </div>
-      <ul aria-label="Было и стало" className="aie2-shift">
-        {shifts.map((shift) => (
-          <li key={shift.title}>
-            <s>{shift.title}</s>
-            <ArrowRight aria-hidden="true" />
-            <b>{shift.text}</b>
-          </li>
+      <dl className="aie2-roles">
+        {block.items.map((role, index) => (
+          <div data-role={index === 0 ? "agent" : "you"} key={role.title}>
+            <dt>
+              {index === 0 ? (
+                <Bot aria-hidden="true" />
+              ) : (
+                <UserRound aria-hidden="true" />
+              )}
+              {role.title}
+            </dt>
+            <dd>
+              {role.text.split(", ").map((topic) => (
+                <span key={topic}>{topic}</span>
+              ))}
+            </dd>
+          </div>
         ))}
-      </ul>
+      </dl>
     </section>
   );
 }
