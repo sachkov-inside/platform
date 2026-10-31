@@ -47,14 +47,6 @@ export function landingPage(): ProductPage {
         note: "",
       },
       {
-        id: "artifacts",
-        kind: "text",
-        title: "Как это выглядит внутри",
-        paragraphs: [
-          "Метод живёт в файлах репозитория. Агент читает их перед работой.",
-        ],
-      },
-      {
         id: "skills",
         kind: "cards",
         eyebrow: "",
@@ -152,6 +144,14 @@ export function landingPage(): ProductPage {
           },
         ],
         link: "Открыть программу",
+      },
+      {
+        id: "artifacts",
+        kind: "text",
+        title: "Как устроен проект с агентами",
+        paragraphs: [
+          "Агент работает по файлам в репозитории: инструкциям, словарю домена, решениям, спецификациям и проверкам. На курсе ты учишься их писать.",
+        ],
       },
       {
         id: "agents",
