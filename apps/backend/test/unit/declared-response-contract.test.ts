@@ -202,6 +202,7 @@ describe("declared response contract", () => {
       fiscalization: "pending",
       confirmedAt: null,
       periodEndsAt: null,
+      retirementReason: null,
     };
     const read = (body: unknown) => ({
       method: "GET",

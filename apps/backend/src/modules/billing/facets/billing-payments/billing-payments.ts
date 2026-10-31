@@ -13,6 +13,7 @@ import { hasText } from "../../../../infrastructure/contracts/text.js";
 import {
   dependencyFailure,
   reportDependencyFailure,
+  writeLog,
 } from "../../../../infrastructure/observability/index.js";
 import {
   lockAccountEntitlementChanges,
@@ -31,6 +32,8 @@ import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import {
   attemptKindSchema,
   isQuotedPurchase,
+  retirementReasonSchema,
+  type RetirementReason,
 } from "../../domain/payment-attempt.js";
 import {
   paymentMode,
@@ -84,6 +87,11 @@ export const declinedPaymentRecheckMilliseconds = 24 * 60 * 60 * 1000;
  * исходом сверка сначала сверяет с банком и снимает, только если форма не оплачена.
  */
 const supersedableStates = ["prepared", "sent", "pending"];
+/** Покупка снята до Init; причина в `payload.reason`, статус покупки отдаёт её покупателю. */
+const dispatchRetiredEvent = "dispatch_retired";
+const dispatchRetiredPayloadSchema = z.object({
+  reason: retirementReasonSchema,
+});
 /**
  * Отметка снятой попытки: её форму в банке нужно отменить (#1923). Отметку закрывает событие
  * `bank_cancel_confirmed` со статусом банка: `CANCELED` после Cancel или статус, который закрыл
@@ -599,11 +607,24 @@ export class BillingPayments {
         where: { purchaseRef, state: "confirmed" },
         _sum: { amountKopecks: true },
       });
+      const retirement =
+        row.state === "failed"
+          ? await this.dependencies.prisma.billingPaymentEvent.findUnique({
+              where: {
+                purchaseRef_kind: { purchaseRef, kind: dispatchRetiredEvent },
+              },
+              select: { payload: true },
+            })
+          : null;
       return {
         ok: true,
         value: purchaseStatusSchema.parse({
           purchaseRef,
           state: row.state,
+          retirementReason:
+            retirement === null
+              ? null
+              : dispatchRetiredPayloadSchema.parse(retirement.payload).reason,
           refundedKopecks: row.refundReviewRequired
             ? null
             : Number(refunds._sum.amountKopecks ?? 0),
@@ -1198,23 +1219,18 @@ export class BillingPayments {
       )
         return undefined;
       const kind = attemptKindSchema.parse(row.kind);
-      if (
-        !z
-          .object({ commercialModel: z.literal("product-lifetime-v1") })
-          .safeParse(row.acceptance).success ||
-        !isQuotedPurchase(kind) ||
-        paymentMode(priceSnapshotSchema.parse(row.snapshot).paymentOption) !==
-          "one_time"
-      ) {
-        // Prepared proves Init has not been sent. Release this reservation so an obsolete
-        // subscription cannot block a later one-time Product purchase for the Account.
+      // Prepared proves Init has not been sent: retirement releases the reservation and takes no
+      // money. The event marks the retirement in the owner's payment card; its reason reaches
+      // the buyer through the purchase status and the owner through the log line.
+      const retire = async (reason: RetirementReason) => {
+        const now = this.clock();
         await tx.billingPurchase.update({
           where: { id: attemptRef },
           data: {
             state: "failed",
             lifecycleActive: false,
             paymentUrl: null,
-            updatedAt: this.clock(),
+            updatedAt: now,
           },
         });
         if (isQuotedPurchase(kind))
@@ -1222,8 +1238,28 @@ export class BillingPayments {
             where: { purchaseRef: attemptRef },
             data: { state: "failed" },
           });
-        return { status: "retired" } as const;
-      }
+        await tx.billingPaymentEvent.create({
+          data: {
+            id: randomUUID(),
+            purchaseRef: attemptRef,
+            kind: dispatchRetiredEvent,
+            payload: { reason },
+            occurredAt: now,
+            recordedAt: now,
+          },
+        });
+        return { status: "retired", reason } as const;
+      };
+      if (
+        !z
+          .object({ commercialModel: z.literal("product-lifetime-v1") })
+          .safeParse(row.acceptance).success ||
+        !isQuotedPurchase(kind) ||
+        paymentMode(priceSnapshotSchema.parse(row.snapshot).paymentOption) !==
+          "one_time"
+      )
+        // An obsolete subscription attempt cannot block a later one-time Product purchase.
+        return await retire("unsupported_attempt");
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const productId =
         snapshot.product?.id ??
@@ -1237,30 +1273,19 @@ export class BillingPayments {
       // Покупка по ссылке на оплату не зависит от публикации цены: снятие с публикации убирает
       // цену только с витрины. Архив цены и продукта закрывает продажу на всех путях.
       if (
-        current === null ||
-        current.archived ||
-        (!current.published && snapshot.individualPayment === undefined) ||
+        current?.archived === true ||
         !(await productSaleAvailable(
           this.dependencies.contentCatalog,
           snapshot,
           transactionHandle(tx),
         ))
-      ) {
-        await tx.billingPurchase.update({
-          where: { id: attemptRef },
-          data: {
-            state: "failed",
-            lifecycleActive: false,
-            paymentUrl: null,
-            updatedAt: this.clock(),
-          },
-        });
-        await tx.billingPromoReservation.updateMany({
-          where: { purchaseRef: attemptRef },
-          data: { state: "failed" },
-        });
-        return { status: "retired" } as const;
-      }
+      )
+        return await retire("sale_closed");
+      if (
+        current === null ||
+        (!current.published && snapshot.individualPayment === undefined)
+      )
+        return await retire("price_unavailable");
       await lockAccountEntitlementChanges(tx, row.accountId);
       const acquired = await this.dependencies.grants.hasProductAcquisition(
         row.accountId,
@@ -1269,22 +1294,7 @@ export class BillingPayments {
       );
       if (!acquired.ok)
         throw new Error("Current Product acquisition is unavailable");
-      if (acquired.acquired) {
-        await tx.billingPurchase.update({
-          where: { id: attemptRef },
-          data: {
-            state: "failed",
-            lifecycleActive: false,
-            paymentUrl: null,
-            updatedAt: this.clock(),
-          },
-        });
-        await tx.billingPromoReservation.updateMany({
-          where: { purchaseRef: attemptRef },
-          data: { state: "failed" },
-        });
-        return { status: "already_owned" } as const;
-      }
+      if (acquired.acquired) return await retire("already_owned");
       const now = this.clock();
       await tx.billingPurchase.update({
         where: { id: attemptRef },
@@ -1297,9 +1307,17 @@ export class BillingPayments {
         });
       return { status: "prepared", row, kind } as const;
     });
-    if (prepared?.status === "retired") return "skipped";
-    if (prepared?.status === "already_owned") return "already_owned";
     if (!prepared) return "skipped";
+    if (prepared.status === "retired") {
+      // Written after commit: a rolled-back retirement never reaches the log.
+      writeLog("warn", "billing_dispatch_retired", {
+        module: "billing",
+        operation: "dispatch",
+        purchaseRef: attemptRef,
+        reason: prepared.reason,
+      });
+      return prepared.reason === "already_owned" ? "already_owned" : "skipped";
+    }
     const { row, kind } = prepared;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
