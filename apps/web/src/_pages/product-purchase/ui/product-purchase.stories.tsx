@@ -462,22 +462,32 @@ export const IndividualGuest: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Покупка по ссылке" }),
+      canvas.getByRole("heading", { level: 1, name: "AI Engineering" }),
+    ).toBeVisible();
+    // Цену показывает один блок: карточка входа.
+    await expect(canvas.getAllByText(/26\s?100\s?₽/u)).toHaveLength(1);
+    await expect(
+      canvas.getByRole("button", { name: "Войти и оплатить" }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: "Войти для покупки" }),
-    ).toBeVisible();
+      canvas.getByRole("link", { name: "Условия покупки в оферте" }),
+    ).toHaveAttribute("href", "/legal/purchase");
+    await expect(
+      canvas.queryByText(/можно совершить одну покупку/u),
+    ).not.toBeInTheDocument();
   },
 };
 export const IndividualMember: Story = {
   ...purchaseRoute("member", null, false, undefined, true),
   args: { ...IndividualGuest.args, signedIn: true },
   play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
     await expect(
-      await within(canvasElement).findByRole("button", {
-        name: /Оплатить/,
-      }),
+      await canvas.findByRole("button", { name: /Оплатить/ }),
     ).toBeVisible();
+    // Одна цена в оплате и полная цена рядом, как велит оферта.
+    await expect(canvas.getAllByText(/^26\s?100\s?₽$/u)).toHaveLength(1);
+    await expect(canvas.getByText(/^29\s?000\s?₽$/u)).toBeVisible();
   },
 };
 export const IndividualUnknown: Story = {

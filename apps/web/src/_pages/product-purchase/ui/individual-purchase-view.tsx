@@ -1,14 +1,21 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
-import { Button } from "@/shared/ui/button";
+import { legalDocumentPath } from "@/shared/routing/public-page-path";
 import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 import {
-  PaymentLinkSummary,
   paymentLinkHref,
+  paymentLinkRegularPrice,
   paymentLinkStateLabels,
   type PaymentLinkDetail,
 } from "@/entities/subscription";
+import { GuestPurchase } from "./guest-purchase";
 import type { ProductPurchaseViewer } from "./product-purchase-view";
 
+/**
+ * Покупка по личной ссылке: одна колонка, как у обычной покупки. Цену показывает один блок:
+ * гостю карточка входа, участнику оформление оплаты. Срок ссылки оферта велит показать до
+ * оплаты, поэтому он стоит под названием, только когда задан.
+ */
 export function IndividualPurchaseView({
   link,
   viewer,
@@ -30,78 +37,68 @@ export function IndividualPurchaseView({
     link.product.slug !== null;
   const active = link.state === "active" && usable;
   return (
-    <section className="mx-auto w-full min-w-0 max-w-[1080px] py-8 pb-20">
+    <div className="mx-auto w-full min-w-0 max-w-[38rem] py-8 pb-20">
       <HideMobileNavigation />
-      <header className="mb-9">
-        <h1 className="mb-3 text-[2rem] font-semibold leading-tight tracking-[-0.02em]">
-          Покупка по ссылке
-        </h1>
-        <p className="max-w-prose text-sm leading-6">
-          Доступ получит аккаунт, с которого вы оплатите покупку.
+      <div>{progress}</div>
+      <h1 className="mt-6 break-words text-2xl font-bold leading-[1.15] tracking-[-0.03em] md:text-3xl">
+        {link.product?.title ?? link.snapshot.offer.name}
+      </h1>
+      {active && !hasPurchase && link.expiresAt !== null ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          {`Ссылка действует до ${new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" }).format(new Date(link.expiresAt))} (Москва).`}
         </p>
-      </header>
-      <div className="grid min-w-0 gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] md:gap-14">
-        <PaymentLinkSummary
-          headingLevel={2}
-          snapshot={link.snapshot}
-          title={link.product?.title ?? link.snapshot.offer.name}
-        />
-        <div className="min-w-0">
-          <div className="mb-6">{progress}</div>
-          {hasPurchase ? (
-            children
-          ) : !active ? (
-            <section role="status" className="space-y-4 text-sm leading-6">
-              <h2 className="text-xl font-semibold">
-                {usable
-                  ? paymentLinkStateLabels[link.state]
-                  : "Продукт сейчас недоступен"}
-              </h2>
-              <p>
-                {link.state === "pending" || link.state === "unknown"
-                  ? "Банк ещё не подтвердил оплату. Дождитесь результата: ссылка занята этой покупкой."
-                  : link.state === "paid"
-                    ? "По этой ссылке уже совершена покупка. Повторная покупка недоступна."
-                    : "Оплатить по этой ссылке нельзя. Запросите у владельца новую ссылку."}
-              </p>
-            </section>
-          ) : (
-            <>
-              <h2 className="mb-4 text-xl font-semibold">Оформление покупки</h2>
-              <p className="mb-4 text-sm leading-6">
-                По ссылке можно совершить одну покупку. Её можно передать
-                другому человеку.
-              </p>
-              <p className="mb-6 text-sm text-muted-foreground">
-                {link.expiresAt === null
-                  ? "Ссылка действует без ограничения срока."
-                  : `Действует до ${new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", dateStyle: "short", timeStyle: "short" }).format(new Date(link.expiresAt))} (Москва).`}
-              </p>
-              {viewer === "guest" ? (
-                <form action="/auth/sign-in" method="post">
-                  <input
-                    type="hidden"
-                    name="returnTo"
-                    value={paymentLinkHref(link.id)}
-                  />
-                  <Button type="submit" className="min-h-11">
-                    Войти для покупки
-                  </Button>
-                </form>
-              ) : viewer === "loading" ? (
-                <p role="status">Проверяем ваши покупки…</p>
-              ) : (
-                children
-              )}
-            </>
-          )}
-          {notice !== undefined && (
-            <p role="status" className="mt-4 text-sm">
-              {notice}
+      ) : null}
+
+      <div className="mt-6">
+        {hasPurchase ? (
+          children
+        ) : !active ? (
+          <section
+            role="status"
+            className="rounded-2xl border border-border bg-card p-6 text-sm leading-6 shadow-card"
+          >
+            <h2 className="text-xl font-semibold">
+              {usable
+                ? paymentLinkStateLabels[link.state]
+                : "Продукт сейчас недоступен"}
+            </h2>
+            <p className="mt-2">
+              {link.state === "pending" || link.state === "unknown"
+                ? "Банк ещё не подтвердил оплату. Дождитесь результата: ссылка занята этой покупкой."
+                : link.state === "paid"
+                  ? "По этой ссылке уже совершена покупка. Повторная покупка недоступна."
+                  : "Оплатить по этой ссылке нельзя. Запросите у владельца новую ссылку."}
             </p>
-          )}
-        </div>
+          </section>
+        ) : viewer === "guest" ? (
+          <>
+            <GuestPurchase
+              offer={link.snapshot}
+              preorder={null}
+              promoCode={undefined}
+              regularPriceKopecks={paymentLinkRegularPrice(link.snapshot)}
+              returnTo={paymentLinkHref(link.id)}
+            />
+            <Link
+              className="mt-4 inline-flex min-h-11 items-center text-sm text-action underline underline-offset-4"
+              href={legalDocumentPath("purchase")}
+            >
+              Условия покупки в оферте
+            </Link>
+          </>
+        ) : viewer === "loading" ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            Проверяем ваши покупки…
+          </p>
+        ) : (
+          children
+        )}
       </div>
-    </section>
+      {notice !== undefined && (
+        <p role="status" className="mt-5 text-sm text-muted-foreground">
+          {notice}
+        </p>
+      )}
+    </div>
   );
 }

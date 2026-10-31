@@ -65,6 +65,7 @@ export {
   noticeLabel,
   offerCompositionLabel,
   paymentSubjectLabel,
+  paymentLinkRegularPrice,
   promotionLabel,
   type BenefitLine,
   type BenefitTerm,
@@ -144,7 +145,6 @@ export {
   type PaymentLinkDetail,
 } from "./model/payment-link";
 
-export { PaymentLinkSummary } from "./ui/payment-link-summary";
 export {
   issueProductAccessOperation,
   restoreProductAccessOperation,
