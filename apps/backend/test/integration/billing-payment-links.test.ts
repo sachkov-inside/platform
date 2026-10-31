@@ -398,6 +398,11 @@ test("a Payment Link of an archived Product reads, lists and filters as changed,
   try {
     const s = await world.scenario();
     const link = await createLink(s, "2030-02-01T10:00:00Z");
+    // Расчёт сделан до архива: оплата по нему проверяет продукт заново.
+    const quoted = await world.scenario({
+      productId: s.productId,
+      paymentLinkId: link.id,
+    });
     await world.db.prisma.product.update({
       where: { id: s.productId },
       data: { archivedAt: new Date("2030-02-01T11:00:00Z") },
@@ -425,6 +430,10 @@ test("a Payment Link of an archived Product reads, lists and filters as changed,
         paymentLinkId: link.id,
       }),
     ).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(
+      await quoted.payments.purchase(quoted.buyer, quoted.command),
+    ).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(quoted.initCalls()).toBe(0);
   } finally {
     world.setTime(defaultNow);
   }

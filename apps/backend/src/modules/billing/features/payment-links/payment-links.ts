@@ -404,9 +404,10 @@ export async function listPaymentLinks(
       });
       const page = rows.slice(0, limit);
       const last = page.at(-1);
-      const snapshots = new Map(
-        page.map((row) => [row.id, priceSnapshotSchema.parse(row.snapshot)]),
-      );
+      const links = page.map((row) => ({
+        row,
+        snapshot: priceSnapshotSchema.parse(row.snapshot),
+      }));
       const reservations = await tx.billingPromoReservation.findMany({
         where: {
           paymentLinkId: { in: page.map((row) => row.id) },
@@ -418,9 +419,7 @@ export async function listPaymentLinks(
         reservations.map((row) => [row.paymentLinkId, row.state]),
       );
       const optionIds = [
-        ...new Set(
-          [...snapshots.values()].map((snapshot) => snapshot.paymentOption.id),
-        ),
+        ...new Set(links.map(({ snapshot }) => snapshot.paymentOption.id)),
       ];
       const options = await tx.billingProductPrice.findMany({
         where: { productId: { in: optionIds } },
@@ -429,16 +428,12 @@ export async function listPaymentLinks(
         allowUnpublished: true,
         withoutPromotions: true,
       });
-      // `snapshots` хранит строки страницы в её порядке: индекс строки совпадает с индексом ответа.
       const available = await productsSaleAvailable(
         dependencies.contentCatalog,
-        [...snapshots.values()],
+        links.map(({ snapshot }) => snapshot),
         transactionHandle(tx),
       );
-      const items = page.map((row, index) => {
-        const snapshot = snapshots.get(row.id);
-        if (snapshot === undefined)
-          throw new Error("Payment link snapshot missing");
+      const items = links.map(({ row, snapshot }, index) => {
         const current = prices.get(snapshot.paymentOption.id);
         return projectPaymentLink(
           row,
