@@ -52,13 +52,20 @@ async function openReader(
   await expect(action).toHaveAttribute("data-reading-action-state", "ready");
   return action.getByRole("button", { name: label, exact: true });
 }
+/** Лента показывает только материалы вне курсов (ADR 0043): прогресс на Главной проверяется на них. */
+const feedNote = {
+  slug: "granitsy-khoroshego-modulya",
+  label: "Прочитано",
+  title: "Границы хорошего модуля",
+};
+
 test("reading progress persists for a free non-member, reconciles lost responses and isolates Accounts", async ({
   page,
   context,
   browser,
 }, testInfo) => {
   await signInFullStack(context);
-  const button = await openReader(page);
+  const button = await openReader(page, feedNote.slug, feedNote.label);
   if ((await button.getAttribute("aria-pressed")) === "true") {
     await button.click();
     await expect(button).toHaveAttribute("aria-pressed", "false");
@@ -108,7 +115,7 @@ test("reading progress persists for a free non-member, reconciles lost responses
     .analyze();
   expect(accessibility.violations).toEqual([]);
   await page.goto("/");
-  const card = await homeFeedCard(page, "Как устроен Inside Platform");
+  const card = await homeFeedCard(page, feedNote.title);
   await expect(card.locator("[data-material-reading-status]")).toHaveText(
     "Изучено",
   );
@@ -119,14 +126,18 @@ test("reading progress persists for a free non-member, reconciles lost responses
   try {
     await signInFullStack(other);
     const second = await other.newPage();
-    const secondButton = await openReader(second);
+    const secondButton = await openReader(
+      second,
+      feedNote.slug,
+      feedNote.label,
+    );
     await expect(secondButton).toHaveAttribute("aria-pressed", "true");
     await secondButton.click();
     await expect(secondButton).toHaveAttribute("aria-pressed", "false");
     await page.reload();
     // После перезагрузки лента снова первая страница: карточку находим заново.
     await expect(
-      (await homeFeedCard(page, "Как устроен Inside Platform")).locator(
+      (await homeFeedCard(page, feedNote.title)).locator(
         "[data-material-reading-status]",
       ),
     ).toHaveCount(0);
@@ -260,14 +271,14 @@ test("reading progress appears on Home and the topic filter for video and other 
   await signInFullStack(context, "MEMBER");
   for (const material of [
     {
-      slug: "video-pro-developer-pipeline",
+      slug: "glubokie-moduli-na-praktike",
       label: "Просмотрено",
-      title: "Видео про Developer Pipeline",
+      title: "Глубокие модули на практике",
     },
     {
-      slug: "demo-chto-proverit-pered-peredachey-sekretov",
+      slug: "proveryaemaya-postavka",
       label: "Прочитано",
-      title: "Demo · Что проверить перед передачей секретов",
+      title: "Проверяемая поставка",
     },
   ]) {
     const button = await openReader(page, material.slug, material.label);
