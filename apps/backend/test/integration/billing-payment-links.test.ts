@@ -47,7 +47,7 @@ test("Payment Link retains saved kopeck price across current catalogue edits and
   expect(quote.snapshot.firstPriceKopecks).toBe(123456);
   expect(quote.snapshot.individualPayment?.linkId).toBe(link.id);
 });
-test("Payment Link issued for an unpublished price is quoted and paid: a private sale needs no public price", async () => {
+test("Payment Link issued for an unpublished price is quoted at its saved price: a private sale needs no public price", async () => {
   const s = await world.scenario();
   value(
     await s.pricing.manage(world.owner, {
