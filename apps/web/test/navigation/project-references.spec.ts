@@ -169,7 +169,7 @@ test("a programme lesson opened from the catalogue keeps its chapter without ste
   await expect(page.getByText("Дополнительный материал")).toHaveCount(0);
 });
 
-test("programme references keep course navigation without adding a numbered step; standalone links remain standalone", async ({
+test("programme references and direct links of a sole-course material keep course navigation without adding a numbered step", async ({
   page,
 }) => {
   await page.goto(
@@ -199,11 +199,15 @@ test("programme references keep course navigation without adding a numbered step
   await expect(
     page.getByRole("link", { name: "К программе", exact: true }),
   ).toHaveCount(0);
+  // Материал единственного курса и по прямой ссылке открывается в этом курсе (решение владельца 31.10.2026).
   await page.goto("/materials/aie-project");
   await expect(
     page.getByRole("heading", { name: "Описание проекта", exact: true }),
   ).toBeVisible();
-  await expect(page.locator("[data-course-reading]")).toHaveCount(0);
+  await expect(page.locator("[data-course-reading]")).toHaveCount(1);
+  await expect(
+    page.locator('[data-course-reading] [aria-current="step"]'),
+  ).toHaveCount(0);
 });
 
 test("supplementary navigation expands with keyboard and preserves the course anchor", async ({

@@ -119,7 +119,8 @@ for (const size of [1, 10, 100]) {
       expect(
         reads.filter(({ path }) => path.startsWith("/billing/")),
       ).toHaveLength(0);
-      expect(programme).toHaveLength(scenario === "explicit" ? 1 : 0);
+      // Единственный курс материала читается и без явного источника: Reader строит по нему навигацию.
+      expect(programme).toHaveLength(knownCourse ? 1 : 0);
       expect(reads.every(({ authorized }) => !authorized)).toBe(true);
     });
   }
