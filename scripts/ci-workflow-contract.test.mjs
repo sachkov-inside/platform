@@ -301,6 +301,35 @@ describe("application CI workflow contract", () => {
       /run: bash scripts\/heavy-check.sh bash scripts\/production-cache-smoke-ci.sh/u,
     );
   });
+  it("publishes only bounded preparation snapshots after healthy or failed cache proofs", () => {
+    const production = jobBlock("compose-production-checks");
+    const upload = production.match(
+      / {6}- name: Upload cache preparation observations\n(?<step>[\s\S]*?)(?= {6}- name:|$)/u,
+    )?.groups?.["step"];
+    assert.ok(
+      upload,
+      "Preparation observations must be accessible on healthy CI runs",
+    );
+    assert.match(
+      upload,
+      /if: \$\{\{ always\(\) && matrix.part == 'cache' \}\}/u,
+    );
+    assert.match(
+      upload,
+      /uses: actions\/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9/u,
+    );
+    assert.match(
+      upload,
+      /name: cache-preparation-observations-\$\{\{ github.run_attempt \}\}/u,
+    );
+    assert.match(upload, /retention-days: 7/u);
+    const paths = upload.match(/path: \|\n(?<paths>(?: {12}[^\n]+\n)+)/u)
+      ?.groups?.["paths"];
+    assert.deepEqual(paths?.trim().split(/\n\s*/u), [
+      "ci-artifacts/compose-production-cache/preparation-before.json",
+      "ci-artifacts/compose-production-cache/preparation-after.json",
+    ]);
+  });
   it("requires the path-selected native recovery proof before production coverage succeeds", () => {
     const recovery = jobBlock("foundation-recovery");
     assert.match(
@@ -809,9 +838,9 @@ describe("application CI workflow contract", () => {
   it("retains bounded failure diagnostics and source evidence for seven days", () => {
     assert.equal(
       workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
-      9,
+      10,
     );
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 9);
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 10);
     assert.equal(
       workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
       10,

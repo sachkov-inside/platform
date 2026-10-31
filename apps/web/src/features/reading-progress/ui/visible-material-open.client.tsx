@@ -30,7 +30,7 @@ export function VisibleMaterialOpen({
   } | null>(null);
   const reading = useMaterialReading();
   const queryClient = useQueryClient();
-  const { mutate } = useMutation({
+  const { mutate, data, status, variables } = useMutation({
     mutationKey: ["reading-progress", reading.accountId, "open", materialId],
     mutationFn: async (input: {
       accountId: string;
@@ -49,6 +49,7 @@ export function VisibleMaterialOpen({
         const id = readingProgressChanges(input.accountId).announce();
         await refreshReadingProgress(queryClient, input.accountId, id);
       }
+      return result;
     },
     retry: 2,
     retryDelay: OPEN_RETRY_DELAY_MS,
@@ -90,5 +91,23 @@ export function VisibleMaterialOpen({
       document.removeEventListener("visibilitychange", send);
     };
   }, [reading.accountId, reading.resolved, materialId, contentVersion, mutate]);
-  return <div ref={reader}>{children}</div>;
+  const savedCurrentOpen =
+    status === "success" &&
+    reading.resolved &&
+    data?.kind === "saved" &&
+    variables.accountId === reading.accountId &&
+    variables.value.materialId === materialId &&
+    variables.value.contentVersion === contentVersion;
+  const openState = savedCurrentOpen
+    ? "saved"
+    : status === "pending"
+      ? "pending"
+      : status === "error" || status === "success"
+        ? "unavailable"
+        : "idle";
+  return (
+    <div ref={reader} data-material-open-state={openState}>
+      {children}
+    </div>
+  );
 }

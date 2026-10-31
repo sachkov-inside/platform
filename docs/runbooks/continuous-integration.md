@@ -153,13 +153,28 @@ separately from cleanup status. Neither diagnostics nor cleanup authorize a retr
 Before image preparation, the cache script initializes its artifact directory and captures bounded
 host diagnostics. `preparation-before.json` and `preparation-after.json` record run, attempt, Source,
 phase and original exit status. The fixed command list captures Docker/buildx versions, selected
-Docker server properties, service PID/restart state, memory/cgroup/disk/inode facts, Docker/containerd
-journals and kernel OOM messages. Journal reads use noninteractive `sudo -n`, ten-minute windows
-and at most 200 entries. Each observation command has a 1.5-second budget, supervised process-tree cleanup and
+Docker server properties, service names/PID/restart state, memory/cgroup/disk/inode facts, Docker/containerd
+journals and kernel OOM messages. Kernel journal reads use the supported `journalctl -k` option.
+Journal reads use noninteractive `sudo -n`, ten-minute windows and at most 200 entries. Each observation command has a 1.5-second budget, supervised process-tree cleanup and
 65,536 retained output characters. Capture status, timeout and truncation remain explicit.
 Owned-tag cleanup uses a separate 30-second budget because healthy image removal can exceed the
 observation budget. Cleanup retains the same supervised process-tree cleanup and failure handling.
-Cleanup stderr joins the after snapshot. The existing failure artifact uploader also covers preparation.
+Cleanup stderr joins the after snapshot. Every cache job attempts to upload only these two snapshots as
+`cache-preparation-observations-<attempt>`, with seven-day retention, even when the proof succeeds.
+Inspect this artifact to verify which observations the real runner permits; a successful build alone
+does not verify capture availability. Interrupted jobs can leave partial snapshots or no artifact.
+The existing failure artifact uploader also covers preparation.
+
+The cgroup subprocess reads `/proc/self/cgroup` to select the collector's current process group,
+not Docker's daemon group. It reports the version, selected group, cgroup type and controllers.
+A v1 memory-controller membership takes precedence on a hybrid host. The reader uses only the
+standard `/sys/fs/cgroup` v2 mount or `/sys/fs/cgroup/memory` v1 mount; other layouts remain
+unavailable. Group paths cannot traverse outside the mount or follow a symlink to another location.
+The fixed allowlist reads v2 `memory.max`, `memory.current`, `memory.events`, or v1
+`memory.limit_in_bytes`, `memory.usage_in_bytes`, `memory.failcnt`, `memory.oom_control`.
+Each file retains at most 4,096 bytes and reports availability and truncation. Missing files and read
+errors remain explicit. V2 root memory controls are `not-applicable-root`, because those interfaces
+exist only in non-root groups. These observations do not establish Docker's memory limit or an OOM.
 
 The collector reads no environment dumps, process arguments, container/image inspection or auth files.
 It redacts lines containing URLs, credential keys or recognized token forms before persistence and
@@ -695,6 +710,16 @@ only after a failure. The flake hunt retains every sample as described above. Co
 capture service state and at most the latest 500 log lines before cleanup. Diagnostic artifacts are
 retained for seven days; successful PR CI and full-stack smoke runs store none of them.
 
+The full-stack smoke writes one `fullstack-first-failure` JSON record to the CI log when
+its Playwright reporter signals the first test failure, before cleanup. `capturedAt` records
+that signal's UTC observation time. `sourceSha`, `runId` and `runAttempt` accept only validated
+`GITHUB_SHA`, `GITHUB_RUN_ID` and `GITHUB_RUN_ATTEMPT` values; missing or invalid values become
+`null`. Process entries retain redacted output, status, `spawnedAt` and `exitedAt`.
+These timestamps observe the owned supervisor, whose exit follows command-tree cleanup;
+they do not establish application readiness or the exact worker exit time. An exit not yet
+observed at capture stays `null`. Match the record with the request trace and Web/API output;
+temporal proximity alone does not prove the cause of a transport failure.
+
 The Telegram reminder test in `apps/web/test/e2e/account-cabinet.spec.ts` (#999) and
 `unlinked Account sees centered onboarding once per authenticated session` in
 `apps/web/test/e2e/routes.spec.ts` (#1080) also retain a video on failure. Web E2E uploads
@@ -743,6 +768,26 @@ restart and readiness logs; that original run also recorded a generated Prisma c
 process restart. This timing does not establish the cause of the unavailable terms response.
 Attach the run URL, attempt, head SHA and artifacts to #1136; keep it open until a captured failure
 establishes the cause.
+
+The image-variants full-stack test attaches `image-first-failure` JSON before browser teardown
+when its first attempt fails. It retains up to 64 image requests with local request IDs, redirect
+links, response/failure state and Playwright timings, plus up to 32 image elements with
+`currentSrc`, `complete` and `naturalWidth`. URLs omit credentials, query and fragment; non-HTTP
+sources and browser error text are omitted. Each URL is limited to 512 characters. Browser
+state collection has a one-second diagnostic budget and cannot change the original test result.
+This evidence distinguishes a pending redirected request from a failed response; it does not
+establish the historical transport cause in #1865. The existing assertions, timeouts and retries
+remain the authority for success.
+
+Before Compose cleanup, `compose-failure-diagnostics.sh` captures MinIO (`object-storage`)
+even when healthy. Its JSON contains only running/health/restart state and CPU, memory,
+network, block-I/O and process counts. Each Docker observation has a two-second and 4-KiB
+output budget; unavailable observations become `null`. The collector runs directly from a fresh
+checkout before dependency installation. If the collector cannot run, the shell retains only
+allowlisted lifecycle status and health, with `collector: "unavailable"` and null resources.
+MinIO environment, health command output
+and raw server logs are never retained by this capture. Other failed containers keep the existing
+diagnostic path. Capture and cleanup do not authorize a retry.
 
 Every Compose job owns an isolated project on its runner and removes containers, networks and
 volumes even after a failed command. The production smoke additionally removes locally built

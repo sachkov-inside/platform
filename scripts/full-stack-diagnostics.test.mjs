@@ -6,6 +6,7 @@ import {
   createDiagnosticStream,
   firstFailureMarker,
   firstFailureSnapshot,
+  trackDiagnosticProcess,
 } from "./full-stack-diagnostics.mjs";
 
 test("stream redacts split credential headers and fixture secrets before retaining or publishing", () => {
@@ -30,6 +31,8 @@ test("first failure freezes process status and output before later suite output 
     name: "Web",
     child: { pid: 123, exitCode: null, signalCode: null },
     output: ["original failure context\n"],
+    spawnedAt: "2026-10-28T14:56:00.000Z",
+    exitedAt: null,
   };
   /** @type {string[]} */
   const output = [];
@@ -62,7 +65,7 @@ test("first failure freezes process status and output before later suite output 
   assert.equal(snapshot.processes[0]?.output, "original failure context\n");
 });
 
-test("an owned Playwright run emits the failure marker and preserves a failed exit", async () => {
+test("an owned Playwright failure binds one snapshot to its CI source and failed exit", async () => {
   const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { resolve } = await import("node:path");
@@ -102,11 +105,28 @@ test("an owned Playwright run emits the failure marker and preserves a failed ex
     );
     /** @type {string[]} */
     const output = [];
+    /** @type {string[]} */
+    const snapshots = [];
+    const entry = trackDiagnosticProcess("Playwright", child, output);
+    const observe = firstFailureSnapshot(
+      () => [entry],
+      (line) => snapshots.push(line),
+      {
+        GITHUB_SHA: "252342d99b8e4916b2455a34cfd35f87314de877",
+        GITHUB_RUN_ID: "40708346051",
+        GITHUB_RUN_ATTEMPT: "1",
+        UNRELATED_SECRET: "private-metadata",
+      },
+    );
+    const stream = createDiagnosticStream((line) => {
+      output.push(line);
+      observe(line);
+    });
     child.stdout?.on("data", (/** @type {Buffer} */ chunk) =>
-      output.push(chunk.toString()),
+      stream.write(chunk),
     );
     child.stderr?.on("data", (/** @type {Buffer} */ chunk) =>
-      output.push(chunk.toString()),
+      stream.write(chunk),
     );
     // deterministic-test-allow duration-wait: bounds the owned Playwright CLI; command exit is the completion barrier.
     const deadline = globalThis.setTimeout(() => {
@@ -114,10 +134,33 @@ test("an owned Playwright run emits the failure marker and preserves a failed ex
     }, 30_000);
     try {
       assert.equal(await commandExit(child), 1);
-      assert.ok(
-        output.join("").includes(firstFailureMarker),
-        "real reporter emitted a safe failure signal",
-      );
+      stream.end();
+      assert.ok(output.join("").includes(firstFailureMarker));
+      assert.equal(snapshots.length, 1);
+      const snapshot = z
+        .object({
+          capturedAt: z.iso.datetime(),
+          sourceSha: z.literal("252342d99b8e4916b2455a34cfd35f87314de877"),
+          runId: z.literal("40708346051"),
+          runAttempt: z.literal("1"),
+          processes: z.array(
+            z.object({
+              exitCode: z.null(),
+              spawnedAt: z.iso.datetime(),
+              exitedAt: z.null(),
+            }),
+          ),
+        })
+        .parse(JSON.parse(snapshots[0] ?? "{}"));
+      assert.equal(snapshot.processes.length, 1);
+      const processSnapshot = snapshot.processes[0];
+      assert.ok(processSnapshot);
+      assert.ok(processSnapshot.spawnedAt <= snapshot.capturedAt);
+      assert.ok(entry.exitedAt !== null);
+      assert.ok(snapshot.capturedAt <= entry.exitedAt);
+      observe(firstFailureMarker);
+      assert.equal(snapshots.length, 1);
+      assert.ok(!snapshots.join("").includes("private-metadata"));
     } finally {
       globalThis.clearTimeout(deadline);
       await stopOwned(child);
@@ -142,4 +185,89 @@ test("stream retains UTF-8 across chunks and omits oversized lines without leaki
     output.join(""),
     "Привет\n<oversized diagnostic line omitted>\nlast line",
   );
+});
+
+test("snapshot omits unknown metadata and replaces missing or invalid CI values with null", () => {
+  for (const environment of [
+    {},
+    {
+      GITHUB_SHA: "private-source-hint",
+      GITHUB_RUN_ID: "40708346051\nprivate-run-hint",
+      GITHUB_RUN_ATTEMPT: "0",
+      SOURCE_HINT: "private-source-hint",
+    },
+    {
+      GITHUB_SHA: 123,
+      GITHUB_RUN_ID: "1".repeat(21),
+      GITHUB_RUN_ATTEMPT: "private-attempt-hint",
+    },
+  ]) {
+    /** @type {string[]} */
+    const output = [];
+    const observe = firstFailureSnapshot(
+      () => [],
+      (line) => output.push(line),
+      environment,
+    );
+    observe(firstFailureMarker);
+    const snapshot = z
+      .object({
+        sourceSha: z.null(),
+        runId: z.null(),
+        runAttempt: z.null(),
+      })
+      .parse(JSON.parse(output[0] ?? "{}"));
+    assert.deepEqual(snapshot, {
+      sourceSha: null,
+      runId: null,
+      runAttempt: null,
+    });
+    assert.ok(!output.join("").includes("private-"));
+  }
+});
+
+test("snapshot binds a real exited supervisor to its observed timestamp and command status", async () => {
+  const { spawnOwned, stopOwned } = await import("./owned-process.mjs");
+  const { commandExit } = await import("./diagnostic-command.mjs");
+  const child = spawnOwned(process.execPath, ["-e", "process.exit(7)"], {
+    stdio: "ignore",
+  });
+  // deterministic-test-allow duration-wait: bounds the real owned subprocess; command exit is the completion barrier.
+  const deadline = globalThis.setTimeout(() => {
+    void stopOwned(child);
+  }, 10_000);
+  try {
+    const entry = trackDiagnosticProcess("exited fixture", child, []);
+    assert.equal(await commandExit(child), 7);
+    /** @type {string[]} */
+    const output = [];
+    const observe = firstFailureSnapshot(
+      () => [entry],
+      (line) => output.push(line),
+      {},
+    );
+    observe(firstFailureMarker);
+    const snapshot = z
+      .object({
+        capturedAt: z.iso.datetime(),
+        processes: z.array(
+          z.object({
+            pid: z.number().int().positive(),
+            exitCode: z.literal(7),
+            signalCode: z.null(),
+            spawnedAt: z.iso.datetime(),
+            exitedAt: z.iso.datetime(),
+          }),
+        ),
+      })
+      .parse(JSON.parse(output[0] ?? "{}"));
+    const observed = snapshot.processes[0];
+    assert.ok(observed);
+    assert.equal(observed.pid, child.pid);
+    assert.ok(observed.spawnedAt <= observed.exitedAt);
+    assert.ok(observed.exitedAt <= snapshot.capturedAt);
+  } finally {
+    globalThis.clearTimeout(deadline);
+    await stopOwned(child);
+  }
 });
