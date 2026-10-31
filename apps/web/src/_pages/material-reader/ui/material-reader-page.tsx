@@ -60,6 +60,7 @@ import {
 import { loadMaterialReader } from "../api/load-material-reader";
 import { readPublicMaterial } from "../api/public-material.public-cache.server";
 import type {
+  MaterialReaderMetadata,
   MaterialReaderResult,
   PublicMaterialResult,
 } from "../model/material-reader-view";
@@ -109,19 +110,19 @@ export async function MaterialReaderPage({
   }>;
 }) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
-  const returnTarget = parseMaterialReaderReturnTarget(query.from);
+  const requestedReturnTarget = parseMaterialReaderReturnTarget(query.from);
   const anchor = parseReaderCourseAnchor(query.anchor);
   const inferCourseReturn = query.from === undefined;
   // Состав нужен только внутри руководства, поэтому вне его за ним никто не ходит.
-  const productSlug = productSlugOf(returnTarget);
-  const [material, product] = await Promise.all([
+  const requestedProductSlug = productSlugOf(requestedReturnTarget);
+  const [material, requestedProduct] = await Promise.all([
     readPublicMaterial(slug),
-    productSlug === undefined
+    requestedProductSlug === undefined
       ? Promise.resolve(null)
-      : readPublicProduct(productSlug),
+      : readPublicProduct(requestedProductSlug),
   ]);
   if (material.kind === "unavailable") {
-    return <ReaderUnavailable returnTarget={returnTarget} />;
+    return <ReaderUnavailable returnTarget={requestedReturnTarget} />;
   }
   if (material.kind === "not-found") {
     // Гостю материала нет, но вошедшему он может быть открыт: это знает только личное чтение.
@@ -130,13 +131,24 @@ export async function MaterialReaderPage({
         <PersonalMaterialReader
           workspaceQuery={query}
           anchor={anchor}
-          returnTarget={returnTarget}
+          returnTarget={requestedReturnTarget}
           inferCourseReturn={inferCourseReturn}
           slug={slug}
         />
       </Suspense>
     );
   }
+  // Прямой адрес урока единственного курса открывает его в этом курсе; состав читается после урока.
+  const returnTarget = courseReturnTargetOf(
+    requestedReturnTarget,
+    material.material,
+    inferCourseReturn,
+  );
+  const productSlug = productSlugOf(returnTarget);
+  const product =
+    productSlug === undefined || productSlug === requestedProductSlug
+      ? requestedProduct
+      : await readPublicProduct(productSlug);
   const productContext = productContextOf(
     material.material.slug,
     returnTarget,
@@ -305,10 +317,25 @@ async function PersonalMaterialReader({
   if (result.kind === "unavailable") {
     return <ReaderUnavailable returnTarget={returnTarget} />;
   }
+  // Урок, которого нет в гостевом кеше, узнаёт свой курс только здесь.
+  const courseReturnTarget = courseReturnTargetOf(
+    returnTarget,
+    result.material,
+    inferCourseReturn,
+  );
+  const courseSlug = productSlugOf(courseReturnTarget);
+  const [courseProduct, courseMode, courseHintSeen] =
+    courseSlug === undefined || courseSlug === productSlug
+      ? [productResult, productMode, hintSeen]
+      : await Promise.all([
+          readReaderProduct(courseSlug, accessToken),
+          loadReaderProductMode(accessToken),
+          readerHasSeenProductModeHint(),
+        ]);
   const productContext = productContextOf(
     result.material.slug,
-    returnTarget,
-    productResult,
+    courseReturnTarget,
+    courseProduct,
     anchor,
     workspaceQuery,
   );
@@ -319,11 +346,11 @@ async function PersonalMaterialReader({
       {...(guestPurchaseProduct === undefined
         ? {}
         : { purchaseProduct: guestPurchaseProduct })}
-      productMode={productMode}
-      hintSeen={hintSeen}
+      productMode={courseMode}
+      hintSeen={courseHintSeen}
       result={result}
       returnTarget={resolveReaderReturnTarget({
-        returnTarget,
+        returnTarget: courseReturnTarget,
         material: result.material,
         hasProductContext: productContext !== null,
         inferCourseReturn,
@@ -580,6 +607,20 @@ function productSlugOf(
   returnTarget: MaterialReaderReturnTarget,
 ): string | undefined {
   return returnTarget.kind === "product" ? returnTarget.productSlug : undefined;
+}
+
+/**
+ * Курс урока без явного источника. Явный источник проверяется уже по составу продукта, поэтому
+ * его членство здесь не сверяется.
+ */
+function courseReturnTargetOf(
+  returnTarget: MaterialReaderReturnTarget,
+  material: MaterialReaderMetadata,
+  inferCourseReturn: boolean,
+): MaterialReaderReturnTarget {
+  return inferCourseReturn
+    ? resolveReaderReturnTarget({ returnTarget, material, inferCourseReturn })
+    : returnTarget;
 }
 
 /** Без урока нет и его места в продукте, поэтому возврат в продукт заменяется возвратом на Главную. */
