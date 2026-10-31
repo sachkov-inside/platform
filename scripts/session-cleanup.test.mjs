@@ -717,7 +717,7 @@ test(
     );
     assert.match(
       context.output,
-      /This worktree: uncommitted or untracked changes\./u,
+      /This worktree: uncommitted or untracked changes; HEAD is not on any remote branch\./u,
     );
     assert.match(
       context.output,

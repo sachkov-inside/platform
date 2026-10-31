@@ -105,8 +105,8 @@ const shellExecutables = new Set([
   "ksh",
   "tcsh",
 ]);
-const dockerUnknown = "Docker unavailable; Compose use is unknown";
-const unpublished = "HEAD is not on any remote branch";
+/** Longest command line that is masked and printed. */
+const redactedArgumentLimit = 4096;
 /** Ignored files that hold local work or configuration rather than build output. */
 const ignoredLocalWork = /(?:^|\/)\.env[^/]*$|^\.reports(?:\/|$)/u;
 
@@ -267,32 +267,32 @@ async function planCleanup(options) {
   const worktrees = [];
   /** @type {Map<string, WorktreePlan>} */
   const pending = new Map();
-  for (const entry of registered.slice(1)) {
-    if (entry.bare) continue;
-    const plan = {
-      path: entry.path,
-      branch: entry.branch,
-      head: entry.head,
-      orca: orcaPaths?.has(entry.path) ?? false,
-      ...(await planWorktree(entry, context)),
-    };
-    worktrees.push(plan);
-    if (plan.action === "keep" && !plan.reason && entry.branch)
-      pending.set(entry.branch, plan);
-  }
-  if (worktrees.some((w) => w.reason === dockerUnknown))
-    warnings.push(
-      `Docker unavailable; Compose use is unknown, so candidate worktrees are kept: ${dockerError}`,
-    );
+  // Worktrees are independent, so their git checks run concurrently to fit the hook's timeout.
+  const plans = await Promise.all(
+    registered
+      .slice(1)
+      .filter((entry) => !entry.bare)
+      .map(async (entry) => ({
+        path: entry.path,
+        branch: entry.branch,
+        head: entry.head,
+        orca: orcaPaths?.has(entry.path) ?? false,
+        ...(await planWorktree(entry, context)),
+      })),
+  );
+  worktrees.push(...plans);
+  for (const plan of plans)
+    if (plan.action === "keep" && !plan.reason && plan.branch)
+      pending.set(plan.branch, plan);
   const currentEntry = registered.find((entry) => entry.path === current);
+  const reportCurrent = Boolean(currentEntry && current !== primary);
   const currentState =
-    current && current !== primary
-      ? await worktreeState(current, { requirePublished: true })
-      : [];
-  // A squash-merged branch is preserved by its PR even after its remote branch is deleted.
-  const currentBranch = currentState.includes(unpublished)
-    ? currentEntry?.branch
-    : undefined;
+    reportCurrent && current ? await worktreeState(current) : [];
+  const currentPublished =
+    !reportCurrent || !current || (await headPublished(current));
+  // A squash-merged branch is preserved by its PR even after its remote branch is deleted, so
+  // the current branch joins the run's single PR request.
+  const currentBranch = currentPublished ? undefined : currentEntry?.branch;
   const requested = new Set(pending.keys());
   if (currentBranch) requested.add(currentBranch);
   /** @type {Map<string, PullRequest[]> | undefined} */
@@ -306,23 +306,31 @@ async function planCleanup(options) {
       });
   if (pending.size)
     await decideByPullRequests(repository, pending, pulls, warnings);
-  const currentMerge =
-    currentBranch &&
-    pulls
-      ?.get(currentBranch)
-      ?.find(
-        (pull) =>
-          pull.state === "MERGED" &&
-          pull.commits.includes(currentEntry?.head ?? ""),
-      );
-  if (currentMerge)
-    currentState.splice(
-      currentState.indexOf(unpublished),
-      1,
-      `merged PR #${currentMerge.number} contains HEAD; a later cleanup run removes this worktree`,
+  if (!currentPublished) {
+    const merged =
+      currentBranch &&
+      pulls
+        ?.get(currentBranch)
+        ?.find(
+          (pull) =>
+            pull.state === "MERGED" &&
+            pull.commits.includes(currentEntry?.head ?? ""),
+        );
+    currentState.push(
+      merged
+        ? `merged PR #${merged.number} contains HEAD; a later cleanup run removes this worktree`
+        : "HEAD is not on any remote branch",
     );
+  }
+  let keptForDocker = false;
   for (const plan of pending.values()) {
     if (plan.action !== "remove") continue;
+    if (composeDirectories === null) {
+      plan.action = "keep";
+      plan.reason = "Docker unavailable; Compose use is unknown";
+      keptForDocker = true;
+      continue;
+    }
     const tracked = await options.tracker
       .trackedProcesses(plan.path)
       .catch((/** @type {unknown} */ error) => {
@@ -335,6 +343,10 @@ async function planCleanup(options) {
       plan.reason = `agent-worktree tracks ${tracked} process(es); run pnpm worktree:cleanup in it`;
     }
   }
+  if (keptForDocker)
+    warnings.push(
+      `Docker unavailable; Compose use is unknown, so removable worktrees are kept: ${dockerError}`,
+    );
   const keptPrunable = registered.some(
     (entry) =>
       entry.prunable &&
@@ -459,7 +471,6 @@ async function planWorktree(entry, context) {
       ? decide("keep", "Orca worktree directory is missing; remove it in Orca")
       : decide("prune", "directory is missing; prune its registration");
   if (!entry.branch) return decide("keep", "detached HEAD has no PR");
-  if (context.composeDirectories === null) return decide("keep", dockerUnknown);
   const local = await worktreeState(entry.path);
   if (local.length) return decide("keep", local.join("; "));
   return decide("keep", "");
@@ -474,6 +485,7 @@ async function planWorktree(entry, context) {
 function planProcess(process, worktree, context) {
   const agent = isAgent(process);
   const session = agent || isShell(process);
+  // planWorktree already keeps a worktree with an agent; this guard holds if the two ever drift.
   if (worktree && context.removed.has(worktree))
     return agent
       ? { scope: "removed", action: "keep", reason: "agent session" }
@@ -612,14 +624,11 @@ async function remoteBranchContaining(repository, head, remoteHeads) {
 }
 
 /**
- * Reasons why removing the worktree could lose local work; empty when it holds none. A merged
- * squash PR preserves HEAD even after its remote branch is deleted, so only the current worktree's
- * report asks whether HEAD is on a remote branch.
+ * Reasons why removing the worktree could lose local work; empty when it holds none.
  * @param {string} path
- * @param {{ requirePublished?: boolean }} [options]
  * @returns {Promise<string[]>}
  */
-async function worktreeState(path, { requirePublished = false } = {}) {
+async function worktreeState(path) {
   try {
     if (await gitText(path, ["status", "--porcelain", "--untracked-files=all"]))
       return ["uncommitted or untracked changes"];
@@ -648,6 +657,7 @@ async function worktreeState(path, { requirePublished = false } = {}) {
       "--",
       ":(glob)**/.env*",
       ":(glob).reports/**",
+      ":(exclude,glob)**/node_modules/**",
     ]);
     const local = ignored
       .split("\n")
@@ -657,19 +667,22 @@ async function worktreeState(path, { requirePublished = false } = {}) {
       return [
         `ignored local files: ${[...new Set(local.map((line) => line.replace(/^(\.reports)\/.*$/u, "$1")))].slice(0, 3).join(", ")}`,
       ];
-    if (!requirePublished) return [];
-    const published = await gitText(path, [
-      "for-each-ref",
-      "--contains",
-      "HEAD",
-      "--count=1",
-      "--format=%(refname)",
-      "refs/remotes",
-    ]);
-    return published ? [] : [unpublished];
+    return [];
   } catch (error) {
     return [`git state unreadable: ${message(error)}`];
   }
+}
+
+/** True when a remote-tracking branch contains HEAD. @param {string} path */
+async function headPublished(path) {
+  return gitText(path, [
+    "for-each-ref",
+    "--contains",
+    "HEAD",
+    "--count=1",
+    "--format=%(refname)",
+    "refs/remotes",
+  ]).then(Boolean, () => false);
 }
 
 /** @param {string} temporaryDirectory @param {Date} now @param {ProcessInfo[]} processes @returns {TemporaryPlan[]} */
@@ -888,7 +901,9 @@ function redactArguments(key, value) {
 
 /** Masks argument values that look like credentials before a command line is printed. @param {string} args */
 export function redact(args) {
+  // A bounded input keeps the patterns below linear for a pathological argument.
   return args
+    .slice(0, redactedArgumentLimit)
     .replace(/(\bBearer\s+)\S+/giu, "$1***")
     .replace(
       /(\b[\w.-]*(?:token|secret|password|passwd|key|auth|credential)[\w.-]*(?:=|:|\s+))(?!\*\*\*)\S+/giu,
