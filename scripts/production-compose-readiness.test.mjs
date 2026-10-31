@@ -69,6 +69,8 @@ case "$*" in
     if [[ "$*" == *"json .State"* ]]; then
       echo inspect-state >>"$READINESS_FIXTURE/events"
       echo '{"Status":"exited","ExitCode":23,"Health":{"Status":"unhealthy","Log":[{"ExitCode":1,"Output":"startup probe failed"}]}}'
+    elif [[ "$*" == *"com.docker.compose.service"* ]]; then
+      echo notifications-worker:exited:unhealthy
     else
       echo exited:unhealthy
     fi
