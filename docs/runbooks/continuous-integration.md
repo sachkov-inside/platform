@@ -695,6 +695,16 @@ only after a failure. The flake hunt retains every sample as described above. Co
 capture service state and at most the latest 500 log lines before cleanup. Diagnostic artifacts are
 retained for seven days; successful PR CI and full-stack smoke runs store none of them.
 
+The full-stack smoke writes one `fullstack-first-failure` JSON record to the CI log when
+its Playwright reporter signals the first test failure, before cleanup. `capturedAt` records
+that signal's UTC observation time. `sourceSha`, `runId` and `runAttempt` accept only validated
+`GITHUB_SHA`, `GITHUB_RUN_ID` and `GITHUB_RUN_ATTEMPT` values; missing or invalid values become
+`null`. Process entries retain redacted output, status, `spawnedAt` and `exitedAt`.
+These timestamps observe the owned supervisor, whose exit follows command-tree cleanup;
+they do not establish application readiness or the exact worker exit time. An exit not yet
+observed at capture stays `null`. Match the record with the request trace and Web/API output;
+temporal proximity alone does not prove the cause of a transport failure.
+
 The Telegram reminder test in `apps/web/test/e2e/account-cabinet.spec.ts` (#999) and
 `unlinked Account sees centered onboarding once per authenticated session` in
 `apps/web/test/e2e/routes.spec.ts` (#1080) also retain a video on failure. Web E2E uploads
