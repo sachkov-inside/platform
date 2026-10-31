@@ -159,7 +159,11 @@ and at most 200 entries. Each observation command has a 1.5-second budget, super
 65,536 retained output characters. Capture status, timeout and truncation remain explicit.
 Owned-tag cleanup uses a separate 30-second budget because healthy image removal can exceed the
 observation budget. Cleanup retains the same supervised process-tree cleanup and failure handling.
-Cleanup stderr joins the after snapshot. The existing failure artifact uploader also covers preparation.
+Cleanup stderr joins the after snapshot. Every cache job attempts to upload only these two snapshots as
+`cache-preparation-observations-<attempt>`, with seven-day retention, even when the proof succeeds.
+Inspect this artifact to verify which observations the real runner permits; a successful build alone
+does not verify capture availability. Interrupted jobs can leave partial snapshots or no artifact.
+The existing failure artifact uploader also covers preparation.
 
 The collector reads no environment dumps, process arguments, container/image inspection or auth files.
 It redacts lines containing URLs, credential keys or recognized token forms before persistence and
