@@ -757,6 +757,8 @@ def worker(output,*,cpu=False):
     if (output/stability.MARKER).exists() or (output/stability.MARKER).is_symlink():
         return stability_worker(output,owner,compose)
     scope=prepared_scope(output,source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
+    if stability.diagnostic_evidence(sys.modules[__name__],output):
+        raise ValueError('diagnostic_plan_binding')
     settings=profile(scope)
     report={'schema':1,'state':'running','profile':settings,'phases':[],'acceptance':{'state':'incomplete'},'measured_linux_acceptance':{'state':'incomplete'},'missing':['PG/Caddy source-cache sampler workload','physical Timeweb host verification','seven days'],'source_cache_workload':False,'controlled_outage':None}
     if scope=='technical':
@@ -946,7 +948,7 @@ def evaluate(report):
 def collect(output, metadata, destination, *, scope='full'):
     profile(scope)
     cpu_control.reject(output)
-    if any((output/name).exists() or (output/name).is_symlink() for name in (stability.MARKER,stability.NAME)):raise ValueError('diagnostic_is_not_acceptance')
+    if any((output/name).exists() or (output/name).is_symlink() for name in (stability.MARKER,stability.NAME,stability.OWNER)):raise ValueError('diagnostic_is_not_acceptance')
     import preparation_evidence
     if output.is_symlink() or metadata.is_symlink():raise ValueError('unsafe fullstack timing source')
     source,_=hosted.metadata_source(metadata)
@@ -965,6 +967,7 @@ def collect(output, metadata, destination, *, scope='full'):
     prepared_scope(output,expected=scope,source=source['checkout_sha'])
     if scope=='technical':
         prepared=stage_timing.read_json(output/'fullstack-source.json',1_048_576)
+        if 'stability' in prepared:raise ValueError('diagnostic_is_not_acceptance')
         proof_path=output/'fullstack-proof.json'
         if proof_path.exists() or proof_path.is_symlink():
             proof=stage_timing.read_json(proof_path,4_194_304)
@@ -1009,48 +1012,86 @@ def collect(output, metadata, destination, *, scope='full'):
 
 
 
-def stability_inputs(output,images,protocol=stability.COLD_PROTOCOL):
-    inputs(output,images)
-    pilot.write_json(output/stability.MARKER,stability.plan(pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip(),protocol))
+def stability_inputs(output,images,protocol=stability.COLD_PROTOCOL,*,scope='full'):
+    if scope=='full':inputs(output,images)
+    else:inputs(output,images,scope=scope)
+    source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
+    if scope=='technical':
+        mode(output,False)
+        prepared=cpu_control.read(output/'fullstack-source.json',private=False)
+        prepared['stability']={'protocol':stability.require_protocol(protocol),'plan_sha256':cpu_control.digest(cpu_control.read(output/'compose.json')),
+                               'images_sha256':cpu_control.digest(prepared['images'])}
+        pilot.write_json(output/'fullstack-source.json',prepared)
+        cpu_control.write(output/stability.MARKER,stability.technical_plan(sys.modules[__name__],output,source,protocol),once=True)
+    else:pilot.write_json(output/stability.MARKER,stability.plan(source,protocol))
 
 
 def stability_worker(output,owner,compose):
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
+    scope=prepared_scope(output,source=source)
     marker=stability.read_json(output/stability.MARKER)
-    protocol=stability.plan_protocol(marker,source)
+    if scope=='technical':
+        marker=stability.technical_request(sys.modules[__name__],output,source)
+        stability.technical_owner(sys.modules[__name__],output,source,owner,bind=True)
+        protocol=marker['protocol']
+    else:protocol=stability.plan_protocol(marker,source)
     prepared=stability.read_json(output/'fullstack-source.json')
     if prepared.get('source')!=source:raise ValueError('diagnostic_image_source')
     images={key:prepared['images'][key] for key in ('backend','foundation','web','telegram','logto')}
+    roles=services(scope)
     def persist(value):
-        stability.validate(value,source,SERVICES,protocol=protocol);pilot.write_json(output/stability.NAME,value)
+        stability.validate(value,source,roles,protocol=protocol);pilot.write_json(output/stability.NAME,value)
     active=None
     def configure(enabled):
         nonlocal active
         active=configure_mode(compose,output,enabled)
     def measure(row):
         measured=phase(compose,owner['project'],row['definition'],active,row['enabled'],row['ordinal']//6,output,diagnostic_ordinal=row['ordinal'],diagnostic_protocol=protocol)
-        return stability.project(measured,row['ordinal'],SERVICES,protocol=protocol)
+        return stability.project(measured,row['ordinal'],roles,protocol=protocol)
     # Persist before setup, so deadline/seed failures still have non-acceptance evidence.
-    persist(stability.record(source,SERVICES,images,protocol=protocol))
+    persist(stability.record(source,roles,images,protocol=protocol))
     with pilot.worker_storage_guard(owner,compose,output):
         mode(output,False);invoke(compose,['up','-d','postgres','provider','loadgen'],timeout=30)
         invoke(compose,['exec','-T','loadgen','node','--test','/resource/test-responses.mjs'],timeout=10)
         seed(compose,output)
-        stability.experiment(source,configure,measure,persist,SERVICES,images,protocol=protocol)
+        stability.experiment(source,configure,measure,persist,roles,images,protocol=protocol)
 
 
-def stability_collect(output,metadata,destination,*,protocol=stability.COLD_PROTOCOL):
+def stability_collect(output,metadata,destination,*,protocol=stability.COLD_PROTOCOL,scope='full'):
     cpu_control.reject(output)
     stability.require_protocol(protocol)
     source,_=hosted.metadata_source(metadata)
+    roles=services(scope)
+    prepared=(output/'fullstack-source.json').exists() or (output/'fullstack-source.json').is_symlink()
+    runtime=stability.runtime_evidence(sys.modules[__name__],output)
+    images={}
+    if scope=='technical':
+        cpu_control.need(output.absolute()==output.resolve() and destination.absolute()==destination.resolve() and not cpu_control.present(destination))
+        if prepared:
+            stability.technical_request(sys.modules[__name__],output,source['checkout_sha'],protocol=protocol)
+            images={key:cpu_control.read(output/'fullstack-source.json',private=False)['images'][key] for key in cpu_control.IMAGES}
+            if runtime:
+                good=stability.technical_settlement(sys.modules[__name__],output,source['checkout_sha'])
+            else:
+                good=False
+        else:
+            prepared_scope(output,expected=None,source=source['checkout_sha'])
+            cpu_control.need(not runtime and not cpu_control.present(output/stability.MARKER));good=False
+    else:prepared_scope(output,expected='full',source=source['checkout_sha'] if prepared else None)
     marker=output/stability.MARKER
-    if marker.exists() or marker.is_symlink():
+    if scope=='full' and (marker.exists() or marker.is_symlink()):
         stability.plan_protocol(stability.read_json(marker),source['checkout_sha'],expected=protocol)
     refusal=startup_refusal.read(output,source['checkout_sha'],BACKENDS)
     if (output/stability.NAME).exists() or (output/stability.NAME).is_symlink():
-        stability.validate(stability.read_json(output/stability.NAME),source['checkout_sha'],SERVICES,protocol=protocol)
+        value=stability.validate(stability.read_json(output/stability.NAME),source['checkout_sha'],roles,protocol=protocol)
+        if scope=='technical':cpu_control.need(value['images']==images)
+        if scope=='technical' and value['state']=='complete':
+            outcome=cpu_control.read(output/'worker-outcome.json',private=False)
+            if not good or outcome['exit_code']!=0 or outcome['monitor_failed'] or not cpu_control.present(output/stability.OWNER):
+                value['state']='incomplete';pilot.write_json(output/stability.NAME,value)
     else:
-        pilot.write_json(output/stability.NAME,stability.record(source['checkout_sha'],SERVICES,protocol=protocol))
+        output.mkdir(mode=0o700,parents=True,exist_ok=True)
+        pilot.write_json(output/stability.NAME,stability.record(source['checkout_sha'],roles,images,protocol=protocol))
     resource_runtime.ci.collect(output,metadata,destination,artifacts=(stability.NAME,'cleanup.json','worker-outcome.json','monitor-failure.json'))
     if refusal is not None:startup_refusal.write(destination,refusal,source['checkout_sha'],BACKENDS)
 
@@ -1062,7 +1103,7 @@ def main():
     parser.add_argument('--core',choices=core_layout.CORES)
     parser.add_argument('--scope',choices=('full','technical'),default='full')
     parser.add_argument('--contacts-token');parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
-    if args.scope=='technical' and args.action not in ('run','recover','collect','cpu-control-admission','cpu-control-run','cpu-control-recover','cpu-control-collect'):parser.error('--scope technical requires a scope-bound run, recover, collect or CPU admission')
+    if args.scope=='technical' and args.action not in ('run','recover','collect','diagnostic-admission','diagnostic-run','diagnostic-collect','cpu-control-admission','cpu-control-run','cpu-control-recover','cpu-control-collect'):parser.error('--scope technical requires a scope-bound action')
     if args.scope=='technical' and args.core is not None:parser.error('technical scope uses primary core')
     if args.core is not None:
         if args.action!='run':parser.error('--core requires run action')
@@ -1072,8 +1113,7 @@ def main():
     cpu_options={'scope':args.scope} if args.scope=='technical' else {}
     if args.action=='cpu-control-admission':return cpu_control.admission(sys.modules[__name__],**cpu_options)
     if args.action=='diagnostic-admission':
-        hosted.context();stability.require_marker(stability.read_json(Path(os.environ['GITHUB_EVENT_PATH'])))
-        return
+        return stability.admission(sys.modules[__name__],args.scope)
     if args.output is None:parser.error('--output required')
     if args.action.startswith('cpu-control-'):
         if args.action=='cpu-control-run':
@@ -1084,7 +1124,7 @@ def main():
     if args.action in ('run','diagnostic-run'):cpu_control.reject(args.output)
     if args.action=='contacts':return contacts_worker(args.output,args.contacts_token)
     if args.action=='worker':return worker(args.output)
-    if args.action=='diagnostic-collect':return stability_collect(args.output,args.metadata,args.public,protocol=protocol)
+    if args.action=='diagnostic-collect':return stability_collect(args.output,args.metadata,args.public,protocol=protocol,**cpu_options)
     if args.action=='collect':
         return collect(args.output,args.metadata,args.public,scope=args.scope)
     if args.action=='recover':
@@ -1094,12 +1134,26 @@ def main():
         # project recovery or image retirement. No acquired project remains safe.
         prepared_scope(args.output,expected=args.scope if bound or registered else None,
             **({'source':pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()} if args.scope=='technical' and bound else {}))
-        if args.images is None or not preparation.directory(args.images).exists():return resource_runtime.ci.recover(args.output,project_prefix=PREFIX,services=services(args.scope))
+        marked=cpu_control.present(args.output/stability.MARKER) or cpu_control.present(args.output/stability.OWNER)
+        if marked and args.scope=='full' and stability.read_json(args.output/stability.MARKER).get('scope')=='technical':
+            raise ValueError('diagnostic_plan_binding')
+        diagnostic=args.scope=='technical' and stability.diagnostic_evidence(sys.modules[__name__],args.output)
+        diagnostic_cleanup=None
+        if diagnostic:
+            stability.technical_request(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
+            if stability.runtime_evidence(sys.modules[__name__],args.output):
+                good=stability.technical_settlement(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
+                if not good:raise ValueError('diagnostic_cleanup_incomplete')
+                diagnostic_cleanup=cpu_control.read(args.output/'cleanup.json',private=False)
+        def recover_project():
+            if diagnostic_cleanup is not None:return diagnostic_cleanup
+            return resource_runtime.ci.recover(args.output,project_prefix=PREFIX,services=services(args.scope))
+        if args.images is None or not preparation.directory(args.images).exists():return recover_project()
         stage=preparation.recover_stage(args.images)
         with stage.in_use():
             if not (args.output/'owner.json').exists() and not (args.output/'owner.json').is_symlink():
                 return stage.release(str(args.output.resolve()),cleanup_ok=True)
-            result=resource_runtime.ci.recover(args.output,project_prefix=PREFIX,services=services(args.scope))
+            result=recover_project()
             stage.release(str(args.output.resolve()),cleanup_ok=result.get('down')=='passed' and result.get('residue')=='passed')
             return result
     if args.images is None:parser.error('--images required')
@@ -1107,9 +1161,24 @@ def main():
     stage=preparation.recover_stage(args.images)
     with stage.in_use():
         stage.require_consumer(str(args.output.resolve()))
-        pilot.run(args.output,prepare_inputs=lambda output:stability_inputs(output,args.images,protocol) if args.action=='diagnostic-run' else inputs(output,args.images,scope='technical') if args.scope=='technical' else inputs(output,args.images),worker_script=Path(__file__).resolve(),
-            ports=(18427,13000,14318,1514,13301),services=services(args.scope),project_prefix=PREFIX,
-            scope=('diagnostic_only; not capacity acceptance' if args.action=='diagnostic-run' else 'technical-only platform-technical-v1 whole-process Linux resource corpus; full-spec acceptance deferred' if args.scope=='technical' else 'representative whole-process Linux resource corpus; production rollout evidence incomplete'),missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds(),worker_deadline_seconds=deadline)
+        primary_failed=False
+        try:
+            pilot.run(args.output,prepare_inputs=lambda output:stability_inputs(output,args.images,protocol,**cpu_options) if args.action=='diagnostic-run' else inputs(output,args.images,scope='technical') if args.scope=='technical' else inputs(output,args.images),worker_script=Path(__file__).resolve(),
+                ports=(18427,13000,14318,1514,13301),services=services(args.scope),project_prefix=PREFIX,
+                scope=('diagnostic_only; not capacity acceptance' if args.action=='diagnostic-run' else 'technical-only platform-technical-v1 whole-process Linux resource corpus; full-spec acceptance deferred' if args.scope=='technical' else 'representative whole-process Linux resource corpus; production rollout evidence incomplete'),missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds(),worker_deadline_seconds=deadline)
+        except BaseException:
+            primary_failed=True
+            raise
+        finally:
+            if args.action=='diagnostic-run' and args.scope=='technical' and (not primary_failed or cpu_control.present(args.output/'owner.json')):
+                try:
+                    good=stability.technical_settlement(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip(),
+                        exit_code=None if primary_failed else 0)
+                    if not primary_failed:cpu_control.need(good)
+                except Exception:
+                    # Observer failures cannot replace an existing primary run failure.
+                    # Successful runs still require strict settlement; collect validates both paths.
+                    if not primary_failed:raise
 
 
 if __name__=='__main__':

@@ -172,6 +172,30 @@ it("refuses CPU technical scope, disk and budget bypasses while retaining full d
   }
 });
 
+it("binds existing stability technical scope, private paths and original containment before image preparation", () => {
+  const body = resourceJobs(resourceWorkflow).get("stability");
+  assert.ok(body);
+  assertResourceProtocol(resourceWorkflow);
+  for (const [before = "", after = ""] of [
+    ["&& 30 || 12", "&& 31 || 12"],
+    ["&& 30 || 12", "&& 30 || 13"],
+    ["hosted_disk.py", "hosted_disk.py --force"],
+    ["if: ${{ steps.scope.outputs.scope == 'technical' }}", "if: ${{ true }}"],
+    ["diagnostic-admission --scope", "diagnostic-admission --unknown-scope"],
+    ['--scope "${{ steps.scope.outputs.scope }}"', "--scope full"],
+    ["select-scope >>", "select-other >>"],
+    ["'stability-technical'", "'stability'"],
+    ["fixed-actor-primed400-v1", "fixed-actor-cold400-v1"],
+  ]) {
+    assert.ok(body.includes(before));
+    assert.throws(() =>
+      assertResourceProtocol(
+        resourceWorkflow.replace(body, body.replace(before, after)),
+      ),
+    );
+  }
+});
+
 /** @param {string} source */
 function assertResourceProtocol(source) {
   const jobs = resourceJobs(source);
@@ -198,6 +222,53 @@ function assertResourceProtocol(source) {
     assert.ok(body.startsWith("    needs: fullstack-protocol\n"));
     assert.equal([...body.matchAll(/^ {4}needs:/gmu)].length, 1);
     let original = body.replace("    needs: fullstack-protocol\n", "");
+    if (name === "stability") {
+      const disk = resourceDiskStep.replace(
+        "        timeout-minutes: 3",
+        "        if: ${{ steps.scope.outputs.scope == 'technical' }}\n        timeout-minutes: 3",
+      );
+      const prefix =
+        "${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}";
+      const measure =
+        "      - name: Measure diagnostic control through scope-bound supervisor\n        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}\n";
+      const admission =
+        '        run: python3 scripts/observability-fullstack/fullstack.py diagnostic-admission --scope "${{ steps.scope.outputs.scope }}"\n';
+      for (const [delta, count] of /** @type {[string, number][]} */ ([
+        [resourceScopeStep, 1],
+        [disk, 1],
+        [prefix, 13],
+        [measure, 1],
+        [admission, 1],
+        [resourceScopeArgument, 4],
+      ]))
+        assert.equal(original.split(delta).length, count + 1);
+      assert.ok(
+        original.includes(
+          resourceScopeStep +
+            "      - name: Require exact diagnostic marker in the strict PR context\n",
+        ),
+      );
+      assert.ok(
+        original.includes(
+          admission +
+            disk +
+            "      - name: Bind complete source and existing disk admission\n",
+        ),
+      );
+      original = original
+        .replace(resourceScopeStep, "")
+        .replace(disk, "")
+        .replace(
+          measure,
+          "      - name: Measure diagnostic control through unchanged 600-second supervisor\n        timeout-minutes: 12\n",
+        )
+        .replace(
+          admission,
+          "        run: python3 scripts/observability-fullstack/fullstack.py diagnostic-admission\n",
+        )
+        .replaceAll(resourceScopeArgument, "")
+        .replaceAll(prefix, "stability");
+    }
     if (name === "cpu-control") {
       const disk = `      - name: Prepare preinstalled hosted Android SDK disk
         if: \${{ steps.scope.outputs.scope == 'technical' }}
@@ -1776,14 +1847,14 @@ it("rejects missing coverage, graph bypasses, source drift and native policy cha
       "Representative whole-process monitoring OFF/ON resource proof\n    runs-on: ubuntu-24.04\n    timeout-minutes: 61",
     ],
     [
-      "Measure diagnostic control through unchanged 600-second supervisor\n        timeout-minutes: 12",
-      "Measure diagnostic control through unchanged 600-second supervisor\n        timeout-minutes: 13",
+      "Measure diagnostic control through scope-bound supervisor\n        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}",
+      "Measure diagnostic control through scope-bound supervisor\n        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 13 }}",
     ],
     [
       "    timeout-minutes: 1\n    env:\n      RESULT:",
       "    timeout-minutes: 2\n    env:\n      RESULT:",
     ],
-    ["unchanged 600-second supervisor", "unlimited supervisor"],
+    ["scope-bound supervisor", "unlimited supervisor"],
     ["fullstack.py run\n", "fullstack.py run --p95 1.10\n"],
     ["fullstack.py cpu-control-recover", "fullstack.py cpu-control-collect"],
     ["contents: read", "contents: write"],

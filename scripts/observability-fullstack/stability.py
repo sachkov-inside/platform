@@ -337,3 +337,120 @@ def read(output,source,roles=()):return validate(read_json(Path(output)/NAME),so
 def require_marker(event):
     if type(event) is not dict or type(event.get('pull_request')) is not dict or type(event['pull_request'].get('body')) is not str or '<!-- monitoring-stability: run -->' not in event['pull_request']['body']:
         raise ValueError('explicit_stability_marker_required')
+
+
+OWNER='fullstack-stability-owner.json'
+DIAGNOSTIC_FILES=(MARKER,OWNER,NAME)
+RUNTIME_FILES=('owner.json','worker.json','worker-outcome.json','cleanup.json',OWNER,NAME,'evidence.json','monitor-failure.json')
+
+
+def diagnostic_evidence(full,output):
+    """Suspicion selects validation/refusal, never primary or cleanup authority."""
+    if any(full.cpu_control.present(output/name) for name in DIAGNOSTIC_FILES):return True
+    path=output/'fullstack-source.json'
+    if not full.cpu_control.present(path):return False
+    prepared=full.stage_timing.read_json(path,MAX_BYTES)
+    if type(prepared) is not dict:raise ValueError('diagnostic_plan_binding')
+    return 'stability' in prepared
+
+
+def runtime_evidence(full,output):
+    """Absence of one receipt cannot erase another durable runtime witness."""
+    return any(full.cpu_control.present(output/name) for name in RUNTIME_FILES)
+
+
+def admission(full,scope):
+    full.profile(scope);full.hosted.context()
+    event=read_json(Path(os.environ['GITHUB_EVENT_PATH']))
+    if scope=='full':return require_marker(event)
+    need=full.cpu_control.need
+    need(type(event) is dict and event.get('action') in ('opened','reopened','synchronize'))
+    pr=event.get('pull_request');need(type(pr) is dict)
+    need(type(event.get('number')) is int and 0<event['number']<=2**31-1
+         and type(pr.get('number')) is int and pr['number']==event['number'] and pr.get('state')=='open'
+         and type(event.get('repository')) is dict and event['repository'].get('full_name')=='sachkov-inside/platform')
+    for name,key in (('head','PILOT_PR_HEAD_SHA'),('base','PILOT_PR_BASE_SHA')):
+        row=pr.get(name);need(type(row) is dict and type(row.get('sha')) is str
+                            and re.fullmatch('[a-f0-9]{40}',row['sha']) and row['sha']==os.environ.get(key))
+    need(pr['base'].get('ref')=='main' and type(pr['base'].get('repo')) is dict
+         and pr['base']['repo'].get('full_name')=='sachkov-inside/platform')
+    body=pr.get('body');need(type(body) is str and len(body.encode())<=65536)
+    need(body.count('<!-- monitoring-stability: run -->')==1
+         and body.lower().count('<!-- monitoring-stability:')==1
+         and '<!-- monitoring-cpu-control:' not in body.lower()
+         and body.count('<!-- observability-scope: technical -->')==1
+         and body.lower().count('<!-- observability-scope:')==1)
+    need(full.production.select_ci_scope(event)==scope)
+
+
+def technical_plan(full,output,source,protocol):
+    """Private request. The public schema remains the existing diagnostic schema4."""
+    full.cpu_control.directory(output)
+    full.prepared_scope(output,expected='technical',source=source)
+    prepared=full.cpu_control.read(output/'fullstack-source.json',private=False)
+    binding=prepared['scope_binding'];details=prepared.get('stability')
+    full.cpu_control.need(type(binding.get('worker_deadline_seconds')) is int and binding['worker_deadline_seconds']==full.stage_timing.SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS
+        and type(details) is dict and set(details)=={'protocol','plan_sha256','images_sha256'}
+        and details['protocol']==require_protocol(protocol) and type(details['plan_sha256']) is str
+        and re.fullmatch('[a-f0-9]{64}',details['plan_sha256']))
+    full.cpu_control.image_set({key:prepared['images'][key] for key in full.cpu_control.IMAGES})
+    full.cpu_control.need(details['images_sha256']==full.cpu_control.digest(prepared['images']))
+    current=full.cpu_control.read(output/'compose.json')
+    full.cpu_control.need(full.cpu_control.digest(full.cpu_control.mode_plan(full,current,False))==details['plan_sha256'])
+    # Mixed OFF/ON switches are not one of the two declared modes.
+    full.cpu_control.need(current in (full.cpu_control.mode_plan(full,current,False),full.cpu_control.mode_plan(full,current,True)))
+    return {'schema':3,'scope':'technical','source':source,'protocol':protocol,
+            'scope_binding':binding,'output_sha256':full.stage_timing.output_binding(output),
+            'plan_sha256':details['plan_sha256'],'images_sha256':details['images_sha256']}
+
+
+def technical_request(full,output,source,*,protocol=None):
+    prepared=full.cpu_control.read(output/'fullstack-source.json',private=False)
+    full.cpu_control.need(type(prepared) is dict and type(prepared.get('stability')) is dict)
+    selected=prepared['stability'].get('protocol')
+    require_protocol(selected)
+    full.cpu_control.need(protocol is None or protocol==selected)
+    expected=technical_plan(full,output,source,selected)
+    actual=full.cpu_control.read(output/MARKER)
+    full.cpu_control.need(type(actual) is dict and type(actual.get('schema')) is int and actual==expected
+        and type(actual['scope_binding'].get('worker_deadline_seconds')) is int)
+    return expected
+
+
+def technical_owner(full,output,source,owner,*,bind=False):
+    marker=technical_request(full,output,source)
+    full.cpu_control.need(type(owner) is dict and set(owner)=={'project','cwd','supervisor_pid','docker_storage','orbstack','daemon','cleanup'}
+        and owner['cwd']==str(full.ROOT) and type(owner['supervisor_pid']) is int and owner['supervisor_pid']>0
+        and type(owner['project']) is str and re.fullmatch(re.escape(full.PREFIX)+'[a-f0-9]{12}',owner['project']))
+    expected={'schema':1,'source':source,'request':full.cpu_control.digest(marker),'owner':full.cpu_control.digest(owner)}
+    if bind:
+        full.cpu_control.need(owner['supervisor_pid']==os.getppid()
+             and full.cpu_control.read(output/'owner.json',private=False)==owner)
+        full.cpu_control.write(output/OWNER,expected,once=True)
+    elif full.cpu_control.present(output/OWNER):
+        actual=full.cpu_control.read(output/OWNER)
+        full.cpu_control.need(type(actual) is dict and type(actual.get('schema')) is int and actual==expected)
+    return owner
+
+
+def technical_registration(full,output,source):
+    """Read the parent's post-Popen receipt only after the worker has settled."""
+    owner=technical_owner(full,output,source,full.cpu_control.read(output/'owner.json',private=False))
+    worker=full.cpu_control.read(output/'worker.json',private=False)
+    full.cpu_control.need(type(worker) is dict and set(worker)=={'pid','group','supervisor_pid','deadline_seconds'}
+        and type(worker['pid']) is int and worker['pid']>0 and type(worker['group']) is int and worker['group']==worker['pid']
+        and type(worker['supervisor_pid']) is int and worker['supervisor_pid']==owner['supervisor_pid']
+        and type(worker['deadline_seconds']) is int and worker['deadline_seconds']==full.stage_timing.SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS)
+
+
+def technical_settlement(full,output,source,*,exit_code=None):
+    technical_registration(full,output,source)
+    outcome=full.cpu_control.read(output/'worker-outcome.json',private=False)
+    cleanup=full.cpu_control.read(output/'cleanup.json',private=False)
+    full.cpu_control.need(type(outcome) is dict and set(outcome)=={'exit_code','duration_seconds','monitor_failed','cleanup'}
+        and type(outcome['exit_code']) is int and 0<=outcome['exit_code']<=255
+        and (exit_code is None or outcome['exit_code']==exit_code)
+        and type(outcome['duration_seconds']) in (int,float) and math.isfinite(outcome['duration_seconds'])
+        and 0<=outcome['duration_seconds']<=3600 and type(outcome['monitor_failed']) is bool
+        and (exit_code!=0 or outcome['monitor_failed'] is False) and outcome['cleanup']==cleanup)
+    return full.cpu_control.cleanup_passed(cleanup)

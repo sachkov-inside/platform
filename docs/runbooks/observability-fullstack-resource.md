@@ -431,6 +431,15 @@ PR admission и права `contents: read`, без `workflow_dispatch`. Усл�
 `contains` не различает регистр; перед подготовкой образов отдельная проверка требует
 точный комментарий с указанным регистром. Пустое описание не включает job.
 
+Существующий selector выбирает technical scope только для назначенного PR #1716 с `<!-- observability-scope: technical -->`.
+Technical admission проверяет repository, открытый PR, номера, head/base SHA из текущего event и окружения, base `main` и action.
+Admission разрешает только `opened`, `reopened` и `synchronize`.
+Admission требует по одному точному комментарию stability и technical scope.
+Admission отвергает CPU marker, дубликаты и смешанный регистр до подготовки образов.
+Technical job освобождает hosted Android SDK disk в прежнем окне 3 минуты перед свежим admission 16 GiB.
+Metadata, images, private/public paths и artifact используют отдельный префикс `stability-technical`.
+Prepare, run, recover и collect получают одинаковый `--scope technical`; состав technical исключает Umami.
+
 Диагностика собирает пять образов один раз и использует один seed из 256 Accounts,
 512 Materials и прежние квоты. Шесть блоков идут в порядке OFF, OFF, OFF, ON, ON, OFF.
 Workflow явно выбирает `fixed-actor-primed400-v1`: в каждом блоке сначала выполняются
@@ -452,11 +461,25 @@ python3 scripts/observability-fullstack/fullstack.py diagnostic-run \
   --protocol fixed-actor-primed400-v1
 ```
 
-Прежний supervisor ограничивает worker 600 секундами, cleanup 90 секундами.
+Для full scope прежний supervisor ограничивает worker 600 секундами, cleanup 90 секундами.
+Technical scope использует существующий предел worker 900 секунд и единственный cleanup 90 секунд.
+Private request связывает protocol, source, output, подготовленный состав, Compose plan и предел 900 секунд.
+Worker проверяет request и owner перед запуском процессов.
+Родитель записывает `worker.json` после `Popen`, поэтому worker не требует этот файл при старте.
+После завершения collector и recovery проверяют identity worker, supervisor, фактический предел, outcome и cleanup.
+Recovery не повторяет уже выполненный cleanup, включая неудачный cleanup.
+Если сохранилось любое durable runtime evidence diagnostic worker, recovery требует полное подтверждение settlement независимо от наличия `owner.json`.
+Если cleanup receipt отсутствует или некорректен, recovery отказывает без новой попытки cleanup и без освобождения образов.
+Такой случай требует уничтожить одноразовый runner; неизвестный partial cleanup не подтверждает отсутствие ресурсов.
+Приватные binding, nonce, owner и Compose plan не входят в публичный артефакт.
+Этот контроль не добавляет primary Timing schema2 и не обещает независимый replay приватных входов.
 Окна нового контроля занимают 180 секунд, прежнего холодного контроля, 120 секунд.
 Подготовка, readiness, source barriers и ожидание обработки добавляются к ним внутри
-предела 600 секунд. Текущие неудачные префиксы не измеряют весь план, а время setup
-и flush для него не установлено. Завершение в пределах 600 секунд не гарантируется.
+выбранного предела worker. Nominal 180 секунд не определяют полное время запуска.
+Текущие неудачные префиксы не измеряют весь план, а время setup и flush для него не установлено.
+Завершение в пределах 900 секунд для technical или 600 секунд для full не доказано.
+Technical measurement step сохраняет внешнее окно 30 минут, full step сохраняет 12 минут.
+Job сохраняет 60 минут, build 30 минут, recovery 5 минут; внешний job может прервать оставшиеся steps.
 Превышение срока оставляет incomplete.
 Диагностический native-вызов каждой фазы сохраняет предел 75 секунд, в том числе
 для более длинного прогрева; формула `seconds+65` исходных primary-фаз не меняется. Существующая
@@ -468,6 +491,9 @@ python3 scripts/observability-fullstack/fullstack.py diagnostic-run \
 Каждый измеренный блок содержит 50 наблюдений на HTTP label. Это не исходные
 объединённые 100 наблюдений. Исходные 12 фаз, профиль, положительные запросы,
 критерий p95 5% и сохранённые результаты FAILED не заменяются этим артефактом.
+Диагностический corpus содержит 4800 slots; исходный primary corpus сохраняет 3200 slots.
+Исторические неполные OFF/ON prefixes не становятся завершённым technical measurement после изменения source.
+OFF repetitions показывают variation, но не разрешают waiver 5% и не доказывают provider cause.
 Обычный acceptance collector отвергает диагностические файлы; отдельный collector
 проверяет закрытую схему и исходный source SHA до публикации чисел.
 
