@@ -59,6 +59,7 @@ import {
 } from "../../features/reserve-purchase/reserve-purchase.js";
 import {
   bankTimeoutMs,
+  isRecognizedBankStatus,
   refundTerminalStatuses,
   unpaidFormStatuses,
   validatedPaymentUrl,
@@ -98,10 +99,31 @@ const bankCancelReturnedPayment = "bank_cancel_returned_payment";
 /** После этих статусов форма уже не принимает оплату, и Cancel ей не нужен. */
 const closedFormStatuses: readonly BankPayment["Status"][] = [
   "CANCELED",
+  "ATTEMPTS_EXPIRED",
   "DEADLINE_EXPIRED",
   "REVERSED",
   "CONFIRMED",
   "REFUNDED",
+];
+/**
+ * Частичный возврат подтверждённого (`PARTIAL_REFUNDED`) или авторизованного (`PARTIAL_REVERSED`)
+ * платежа. Его Amount не равен сумме покупки и не доказывает сумму возврата.
+ */
+const partialReturnStatuses: readonly BankPayment["Status"][] = [
+  "PARTIAL_REFUNDED",
+  "PARTIAL_REVERSED",
+];
+/**
+ * Банк ещё не решил исход операции: деньги могли уже двигаться, поэтому покупка ждёт сверки.
+ * `PAY_CHECKING` и `CONFIRM_CHECKING` банк ставит, когда сам не знает исход авторизации:
+ * https://developer.tbank.ru/eacq/intro/developer/operation-statuses
+ */
+const undecidedStatuses: readonly BankPayment["Status"][] = [
+  "PAY_CHECKING",
+  "CONFIRM_CHECKING",
+  "REVERSING",
+  "REFUNDING",
+  "ASYNC_REFUNDING",
 ];
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Кабинет показывает обозримую историю; полный журнал платежей остаётся владельческой операцией.
@@ -957,48 +979,17 @@ export class BillingPayments {
             productIds.length === 0
               ? "historical_scope_unresolved"
               : "capture_time_unresolved";
-          await this.dependencies.prisma.$transaction(async (tx) => {
-            await lockBillingPurchase(tx, purchase.id);
-            const current = await tx.billingFulfillment.findUniqueOrThrow({
-              where: { eventRef: row.eventRef },
-            });
-            if (current.appliedAt !== null || current.reviewRequiredAt !== null)
-              return;
-            const now = this.clock();
-            await tx.billingFulfillment.update({
-              where: { eventRef: row.eventRef },
-              data: { reviewRequiredAt: now, reviewReason: reason },
-            });
-            const reviewEvent = await tx.billingPaymentEvent.findUnique({
-              where: {
-                purchaseRef_kind: {
-                  purchaseRef: purchase.id,
-                  kind: "fulfillment_review_required",
-                },
-              },
-            });
-            // Old purchases may have one outbox row per benefit. The purchase event is immutable;
-            // each row still needs its own terminal review marker, including later-arriving rows.
-            if (reviewEvent === null) {
-              await tx.billingPaymentEvent.create({
-                data: {
-                  id: randomUUID(),
-                  purchaseRef: purchase.id,
-                  kind: "fulfillment_review_required",
-                  payload: {
-                    reason,
-                    savedBenefits: snapshot.offer.benefits,
-                    savedCoverage: snapshot.offer.coverage ?? null,
-                  },
-                  occurredAt: now,
-                  recordedAt: now,
-                },
-              });
-            }
-          });
+          await requireFulfillmentReview(
+            this.dependencies.prisma,
+            purchase.id,
+            row.eventRef,
+            reason,
+            snapshot,
+            this.clock,
+          );
           continue;
         }
-        let completed = true;
+        let outcome: "applied" | "failed" | "account_deleted" = "applied";
         for (const productId of productIds) {
           const result = await this.dependencies.grants.issueProductAccess(
             { source: "purchase" },
@@ -1014,17 +1005,29 @@ export class BillingPayments {
             },
           );
           if (!result.ok) {
-            completed = false;
+            // Выдаче по покупке Account Rights отвечает `not_found`, только если аккаунта нет.
+            outcome =
+              result.error.code === "not_found" ? "account_deleted" : "failed";
             break;
           }
         }
-        if (completed) {
+        if (outcome === "applied") {
           await this.dependencies.prisma.billingFulfillment.update({
             where: { eventRef: row.eventRef },
             data: { appliedAt: this.clock() },
           });
           applied += 1;
-        } else failed += 1;
+        } else if (outcome === "account_deleted")
+          // Повтор выдачи удалённому аккаунту не поможет: решение о деньгах принимает владелец.
+          await requireFulfillmentReview(
+            this.dependencies.prisma,
+            purchase.id,
+            row.eventRef,
+            outcome,
+            snapshot,
+            this.clock,
+          );
+        else failed += 1;
       }
       return {
         ok: true,
@@ -1334,7 +1337,7 @@ export class BillingPayments {
           row.environment !== bank.config.environment ||
           row.terminalRef !== payment.TerminalKey ||
           row.terminalRef !== bank.config.terminalKey ||
-          (payment.Status !== "PARTIAL_REFUNDED" &&
+          (!partialReturnStatuses.includes(payment.Status) &&
             Number(row.amountKopecks) !== payment.Amount) ||
           (row.paymentId !== null && row.paymentId !== payment.PaymentId) ||
           row.state === "prepared"
@@ -1342,6 +1345,15 @@ export class BillingPayments {
           return paymentFailure("invalid_notification");
         const now = this.clock();
         const kind = attemptKindSchema.parse(row.kind);
+        // Подписанный статус вне справочника банка виден владельцу; покупку ниже решает сверка.
+        if (!isRecognizedBankStatus(payment.Status))
+          await recordEventOnce(
+            tx,
+            row.id,
+            "bank_status_unrecognized",
+            { paymentId: payment.PaymentId, status: payment.Status },
+            now,
+          );
 
         if (payment.Status === "RECEIPT") {
           const fiscalization =
@@ -1378,7 +1390,7 @@ export class BillingPayments {
           }
           return { ok: true, value: true };
         }
-        if (payment.Status === "PARTIAL_REFUNDED") {
+        if (partialReturnStatuses.includes(payment.Status)) {
           if (!payment.Success || payment.ErrorCode !== "0")
             return paymentFailure("invalid_notification");
           // The authenticated status is known. Its Amount is NOT an authoritative refunded sum.
@@ -1523,6 +1535,7 @@ export class BillingPayments {
           if (kind === "one_time" && !returnedByCancel)
             await recordDuplicatePayment(
               tx,
+              this.dependencies.grants,
               row,
               snapshot,
               reservation?.paymentLinkId ?? null,
@@ -1585,6 +1598,7 @@ export class BillingPayments {
             "REJECTED",
             "AUTH_FAIL",
             "CANCELED",
+            "ATTEMPTS_EXPIRED",
             "DEADLINE_EXPIRED",
             "REVERSED",
           ].includes(payment.Status)
@@ -1615,13 +1629,13 @@ export class BillingPayments {
             now,
           );
         } else if (
-          ["REVERSING", "REFUNDING", "PARTIAL_REFUNDED"].includes(
-            payment.Status,
-          ) ||
+          undecidedStatuses.includes(payment.Status) ||
+          !isRecognizedBankStatus(payment.Status) ||
           !payment.Success ||
           payment.ErrorCode !== "0"
         ) {
-          // An unsupported or contradictory bank state requires reconciliation, never a new charge.
+          // An undecided, unrecognized or contradictory bank state requires reconciliation,
+          // never a new charge.
           await tx.billingPurchase.update({
             where: { id: row.id },
             data: { ...common, state: "unknown", paymentUrl: null },
@@ -1737,6 +1751,50 @@ function savedContentProductWhere(
       },
     ],
   };
+}
+
+/**
+ * Выдача доступа не может завершиться без владельца: историческую покупку не удаётся сопоставить
+ * с продуктом или аккаунт покупателя удалён. Строка выдачи получает отметку проверки и больше не
+ * повторяется, а покупка один раз получает событие `fulfillment_review_required`. Строка без
+ * `applied_at` остаётся сигналом сторожа «Выдача доступа».
+ */
+async function requireFulfillmentReview(
+  prisma: BillingPrismaClient,
+  purchaseRef: string,
+  eventRef: string,
+  reason:
+    | "historical_scope_unresolved"
+    | "capture_time_unresolved"
+    | "account_deleted",
+  snapshot: PriceSnapshot,
+  clock: () => Date,
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await lockBillingPurchase(tx, purchaseRef);
+    const current = await tx.billingFulfillment.findUniqueOrThrow({
+      where: { eventRef },
+    });
+    if (current.appliedAt !== null || current.reviewRequiredAt !== null) return;
+    const now = clock();
+    await tx.billingFulfillment.update({
+      where: { eventRef },
+      data: { reviewRequiredAt: now, reviewReason: reason },
+    });
+    // Old purchases may have one outbox row per benefit. The purchase event is immutable;
+    // each row still needs its own terminal review marker, including later-arriving rows.
+    await recordEventOnce(
+      tx,
+      purchaseRef,
+      "fulfillment_review_required",
+      {
+        reason,
+        savedBenefits: snapshot.offer.benefits,
+        savedCoverage: snapshot.offer.coverage ?? null,
+      },
+      now,
+    );
+  });
 }
 
 type PurchaseRow = Awaited<
@@ -1985,11 +2043,14 @@ async function closeBankCancel(
 
 /**
  * Любое подтверждение разовой покупки проверяет вторую оплату: тот же Account уже оплатил этот
- * продукт или по той же ссылке уже есть оплаченная покупка. Деньги остаются подтверждёнными,
- * событие ведёт владельца к решению о возврате.
+ * продукт, по той же ссылке уже есть оплаченная покупка или Account уже получил доступ к продукту
+ * из любого источника (вручную, активацией Course, прежней покупкой), в том числе отозванный.
+ * Деньги остаются подтверждёнными, событие ведёт владельца к решению о возврате. Доступ читается
+ * через Account Rights в той же транзакции под замком изменений прав Account, как при продаже.
  */
 async function recordDuplicatePayment(
   tx: BillingPrisma,
+  grants: Pick<AccessGrants, "hasProductAcquisition">,
   row: PurchaseRow,
   snapshot: PriceSnapshot,
   paymentLinkId: string | null,
@@ -2005,24 +2066,42 @@ async function recordDuplicatePayment(
           })
         ).map((reservation) => reservation.purchaseRef);
   const scope = relatedPurchaseScope(row, snapshot, linkPurchases);
-  if (scope.length === 0) return;
-  const paid = await tx.billingPurchase.findMany({
-    where: {
-      id: { not: row.id },
-      kind: "one_time",
-      state: "confirmed",
-      OR: scope,
-    },
-    select: { id: true },
-    orderBy: { id: "asc" },
-  });
-  if (paid.length === 0) return;
+  const paid =
+    scope.length === 0
+      ? []
+      : await tx.billingPurchase.findMany({
+          where: {
+            id: { not: row.id },
+            kind: "one_time",
+            state: "confirmed",
+            OR: scope,
+          },
+          select: { id: true },
+          orderBy: { id: "asc" },
+        });
+  const productIds = savedContentProductIds(snapshot);
+  if (productIds.length > 0)
+    await lockAccountEntitlementChanges(tx, row.accountId);
+  const heldProductIds: string[] = [];
+  for (const productId of productIds) {
+    const acquisition = await grants.hasProductAcquisition(
+      row.accountId,
+      productId,
+      transactionHandle(tx),
+    );
+    if (!acquisition.ok) throw new Error("Product acquisition is unavailable");
+    if (acquisition.acquired) heldProductIds.push(productId);
+  }
+  if (paid.length === 0 && heldProductIds.length === 0) return;
   await tx.billingPaymentEvent.create({
     data: {
       id: randomUUID(),
       purchaseRef: row.id,
       kind: "duplicate_payment_review",
-      payload: { paidPurchaseRefs: paid.map((purchase) => purchase.id) },
+      payload: {
+        paidPurchaseRefs: paid.map((purchase) => purchase.id),
+        heldProductIds,
+      },
       occurredAt: now,
       recordedAt: now,
     },

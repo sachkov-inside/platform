@@ -180,7 +180,7 @@ test("a retired attempt that the bank confirmed before the cancel is confirmed a
   expect((await purchaseState(repeat.purchaseRef)).state).toBe("confirmed");
   expect(
     await eventPayload(repeat.purchaseRef, "duplicate_payment_review"),
-  ).toEqual({ paidPurchaseRefs: [first.purchaseRef] });
+  ).toEqual({ paidPurchaseRefs: [first.purchaseRef], heldProductIds: [] });
 });
 
 test("a buyer who pays between the reconciliation read and the cancel is confirmed, and no Cancel is sent", async () => {
@@ -202,7 +202,7 @@ test("a buyer who pays between the reconciliation read and the cancel is confirm
   expect((await purchaseState(repeat.purchaseRef)).state).toBe("confirmed");
   expect(
     await eventPayload(repeat.purchaseRef, "duplicate_payment_review"),
-  ).toEqual({ paidPurchaseRefs: [first.purchaseRef] });
+  ).toEqual({ paidPurchaseRefs: [first.purchaseRef], heldProductIds: [] });
 });
 
 test("a buyer who pays between the cancel check and the Cancel gets the money back, and the owner sees it", async () => {
@@ -411,6 +411,7 @@ test("an unknown repeat attempt that the bank reports paid is confirmed as a sec
   expect((await purchaseState(repeat.id)).state).toBe("confirmed");
   expect(await eventPayload(repeat.id, "duplicate_payment_review")).toEqual({
     paidPurchaseRefs: [first.purchaseRef],
+    heldProductIds: [],
   });
   expect(await eventPayload(repeat.id, "bank_cancel_confirmed")).toEqual({
     paymentId: repeatPaymentId,

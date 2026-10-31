@@ -695,10 +695,14 @@ provide content authority for an already sent one-time payment. Support or commu
 whole-platform coverage and Material membership never create new lifetime Product rights.
 Unmappable confirmed purchases retain their immutable financial facts and enter a durable
 `review_required` fulfillment disposition. Recovery does not repeatedly retry that disposition.
+A confirmed payment whose Account no longer exists enters the same disposition with reason
+`account_deleted` (#1930): Account Rights cannot issue to a missing Account, so a retry cannot help.
+The purchase records `fulfillment_review_required` once, and the unapplied outbox row keeps the
+watchdog's fulfillment signal raised until the owner resolves it.
 Per-Product payment source identities preserve owner withdrawal across a partially completed replay.
 
-An authenticated `PARTIAL_REFUNDED` observation records the exact observed provider fields without
-interpreting `Amount` as a refunded amount. Refund totals remain unknown (`null`) and automatic
+An authenticated `PARTIAL_REFUNDED` or `PARTIAL_REVERSED` observation records the exact observed
+provider fields without interpreting `Amount` as a refunded amount. Refund totals remain unknown (`null`) and automatic
 payment reconciliation pauses for review. The observation never binds an unknown PaymentId,
 proves capture, issues rights or revokes access. An independently verified exact `CONFIRMED`
 can finish saved fulfillment; an exact full `REFUNDED` can resolve the financial amount.
@@ -734,7 +738,21 @@ holds the link, the confirmed attempt keeps its reservation failed. A bank decli
 holder confirms that reservation in the same transaction; recovery confirms it when the link was
 released another way. Every one-time confirmation checks for a second
 payment: an earlier paid purchase of the same Product by the same Account, or of the same Payment
-Link. Such a confirmation records `duplicate_payment_review` for the owner's refund decision.
+Link. It also checks Product acquisition through Account Rights on the same transaction handle under
+the Account entitlement lock: access the Account already holds from any source (manual issuance,
+Course activation, an earlier purchase), active or owner-revoked, also makes the payment a second
+one (#1930). Such a confirmation records `duplicate_payment_review` with `paidPurchaseRefs` and
+`heldProductIds` for the owner's refund decision.
+
+The provider's [status reference](https://developer.tbank.ru/eacq/intro/developer/operation-statuses)
+lists 23 payment statuses; notifications and GetState accept all of them (#1930). `3DS_CHECKING` and
+`3DS_CHECKED` keep the attempt `pending`. `ATTEMPTS_EXPIRED` is a decline like `DEADLINE_EXPIRED`.
+`PAY_CHECKING`, `CONFIRM_CHECKING`, `REVERSING`, `REFUNDING` and `ASYNC_REFUNDING` mean the bank has
+not decided, so the attempt becomes `unknown` for reconciliation. A signed status outside the
+reference, made of `A-Z`, `0-9` and `_` and at most 64 characters, is acknowledged with `OK`. It moves
+an open attempt to `unknown` and records `bank_status_unrecognized` once. A confirmed or failed
+purchase keeps its state. Signature and terminal checks apply to every status; the amount must
+match the purchase for every status except the two partial returns.
 
 Fresh purchase admission and dispatch read Product acquisition state through Account Rights on the
 same transaction handle under the Account entitlement lock. Both active and owner-revoked lifetime

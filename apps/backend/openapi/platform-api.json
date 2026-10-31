@@ -83485,26 +83485,41 @@
                     ]
                   },
                   "Status": {
-                    "enum": [
-                      "RECEIPT",
-                      "NEW",
-                      "FORM_SHOWED",
-                      "DEADLINE_EXPIRED",
-                      "CANCELED",
-                      "PREAUTHORIZING",
-                      "AUTHORIZING",
-                      "AUTHORIZED",
-                      "AUTH_FAIL",
-                      "REJECTED",
-                      "CONFIRMING",
-                      "CONFIRMED",
-                      "REVERSING",
-                      "REVERSED",
-                      "REFUNDING",
-                      "PARTIAL_REFUNDED",
-                      "REFUNDED"
-                    ],
-                    "type": "string"
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "RECEIPT",
+                          "NEW",
+                          "FORM_SHOWED",
+                          "ATTEMPTS_EXPIRED",
+                          "DEADLINE_EXPIRED",
+                          "CANCELED",
+                          "PREAUTHORIZING",
+                          "3DS_CHECKING",
+                          "3DS_CHECKED",
+                          "AUTHORIZING",
+                          "PAY_CHECKING",
+                          "AUTHORIZED",
+                          "AUTH_FAIL",
+                          "REJECTED",
+                          "CONFIRMING",
+                          "CONFIRM_CHECKING",
+                          "CONFIRMED",
+                          "REVERSING",
+                          "PARTIAL_REVERSED",
+                          "REVERSED",
+                          "REFUNDING",
+                          "ASYNC_REFUNDING",
+                          "PARTIAL_REFUNDED",
+                          "REFUNDED"
+                        ],
+                        "type": "string"
+                      },
+                      {
+                        "pattern": "^[A-Z0-9_]{1,64}$",
+                        "type": "string"
+                      }
+                    ]
                   },
                   "Success": {
                     "anyOf": [

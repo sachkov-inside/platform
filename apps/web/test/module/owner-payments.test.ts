@@ -344,6 +344,9 @@ describe("payment presentation", () => {
     expect(paymentEventLabel("bank_cancel_returned_payment")).toBe(
       "Покупатель успел оплатить снятую попытку, отмена вернула деньги",
     );
+    expect(paymentEventLabel("bank_status_unrecognized")).toBe(
+      "Банк прислал статус не из справочника, покупку проверит сверка",
+    );
     expect(paymentEventLabel("new_bank_event")).toBe("Событие new_bank_event");
   });
 
