@@ -122,3 +122,19 @@ The owner preferred the original illustrated «Что изучим» grid over t
 «Научись выстраивать работу с агентом» puts the heading on the left and the description on the
 right, aligned to the heading baseline, so the top right is no longer empty. Below 64rem the
 description returns under the heading.
+
+## Revision 9 (2026-10-31): commercial examples, mobile window, owner acceptance
+
+- Examples use a commercial AI product (a customer-support service with an AI agent) in place of
+  the education platform: glossary (Обращение, Черновик, Эскалация), modules (support, knowledge,
+  billing), user story for a support operator, answer-draft specification and escalation scenario.
+- Mobile project window: file tabs wrap into rows and code wraps by words; no scrollbars.
+- FAQ: «Чем курс отличается от бесплатных курсов про агентов?» removed.
+- Owner accepted the rest of the landing as of this revision.
+
+## Open before production
+
+- Replace illustrative file fragments with real ones from the course project, or confirm the
+  support-service examples as illustrative.
+- Programme renames (decision 10) in Inside Content.
+- Production fixes found here: topic art bound by title, «Что даёт курс» two columns on tablets.

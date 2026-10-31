@@ -294,16 +294,16 @@ const topicTiles: Readonly<
         </span>
         <dl>
           <div>
-            <dt>Курс</dt>
-            <dd>набор глав</dd>
+            <dt>Обращение</dt>
+            <dd>вопрос клиента</dd>
           </div>
           <div>
-            <dt>Урок</dt>
-            <dd>часть главы</dd>
+            <dt>Черновик</dt>
+            <dd>ответ агента</dd>
           </div>
           <div>
-            <dt>Доступ</dt>
-            <dd>право открыть урок</dd>
+            <dt>Эскалация</dt>
+            <dd>к оператору</dd>
           </div>
         </dl>
       </div>
@@ -316,9 +316,9 @@ const topicTiles: Readonly<
       <div className="aie2-art-modules">
         {(
           [
-            ["billing", "оплата"],
-            ["identity", "вход и права"],
-            ["courses", "уроки и доступ"],
+            ["support", "обращения"],
+            ["knowledge", "база знаний"],
+            ["billing", "тарифы и оплата"],
           ] as const
         ).map(([name, role]) => (
           <div key={name}>
@@ -337,9 +337,9 @@ const topicTiles: Readonly<
     art: (
       <div className="aie2-art-story">
         <span>
-          <UserRound /> Ученик хочет
+          <UserRound /> Оператор хочет
         </span>
-        <p>продолжить урок с места, где остановился</p>
+        <p>получать черновик ответа со ссылками на базу знаний</p>
         <span>
           <Check /> 3 критерия готовности
         </span>

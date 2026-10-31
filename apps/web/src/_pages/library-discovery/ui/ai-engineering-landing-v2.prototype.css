@@ -213,6 +213,8 @@
   line-height: 1.75;
   white-space: pre;
   color: color-mix(in srgb, var(--aie2-ink-text) 88%, var(--aie2-ink));
+  scrollbar-color: color-mix(in srgb, var(--aie2-ink-text) 25%, var(--aie2-ink))
+    transparent;
 }
 
 /* ---------- Что изучим: новые иллюстрации плиток ---------- */
@@ -398,7 +400,7 @@
     min-height: 0;
   }
   .aie2-window-group {
-    flex-direction: row;
+    display: contents;
   }
   .aie2-window-group-name {
     display: none;
@@ -407,9 +409,12 @@
   .aie2-window-code {
     padding-inline: 1.1rem;
   }
+  /* На телефоне вкладки переносятся строками, а код по словам: без полос прокрутки. */
   .aie2-window-tree {
     flex-direction: row;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.75rem;
   }
   .aie2-window-repo {
     display: none;
@@ -424,8 +429,17 @@
   .aie2-window-tree button b {
     font-size: 0.85rem;
   }
+  .aie2-window-tree button {
+    padding: 0.35rem 0.6rem;
+  }
+  .aie2-window-tree button svg {
+    display: none;
+  }
   .aie2-window-code {
+    overflow-x: visible;
     font-size: 0.74rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 }
 
