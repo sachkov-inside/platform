@@ -102,3 +102,17 @@ through «Как это выглядит внутри» and the FAQ question abo
   architecture test). Each file shows one line about its purpose.
 - «Что даёт курс» used one column between 48rem and 64rem and left the right half empty. The
   prototype uses two columns there. Production `ai-engineering-course-view.css` has the same gap.
+
+## Revision 7 (2026-10-31): «Что изучим» bento returns
+
+The owner preferred the original illustrated «Что изучим» grid over the topic clouds.
+
+- 15 illustrated tiles. Art is keyed by topic title, so reordering topics no longer moves art
+  to the wrong tile (decision 1).
+- Engineering and AI topics alternate: Инженерная работа, Harness, Продукт и требования,
+  Spec-Driven Development, Домен и бизнес-логика, Human in the loop, Модульность, Контекст и
+  память, Тесты и проверки, Несколько агентов, Существующий проект, Безопасность агентов,
+  Релизы и эксплуатация, Собственные агенты и MCP, Evals и стоимость.
+- No layer labels on tiles. «Модульность» replaces a monolith-specific tile.
+- New art: domain glossary, modules, user story, legacy steps, checks, specification chain,
+  sandbox permissions.

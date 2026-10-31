@@ -1,13 +1,11 @@
 /* PROTOTYPE, prototype/ai-engineering-landing-v2: новые разделы лендинга курса. */
 
 .aie2-position,
-.aie2-artifacts,
-.aie2-skills {
+.aie2-artifacts {
   margin-top: 6rem;
 }
 .ai-product-page .aie2-position-copy > p,
-.ai-product-page .aie2-artifacts p,
-.ai-product-page .aie2-skills > p {
+.ai-product-page .aie2-artifacts > div > p {
   max-width: 34rem;
   color: var(--muted-foreground);
 }
@@ -209,61 +207,145 @@
   color: color-mix(in srgb, var(--aie2-ink-text) 88%, var(--aie2-ink));
 }
 
-/* ---------- Что изучим: два облака тем ---------- */
-.aie2-skills-layers {
+/* ---------- Что изучим: новые иллюстрации плиток ---------- */
+.aie2-art-domain {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-top: 2rem;
+  gap: 0.5rem;
+  width: min(100%, 13rem);
 }
-.aie2-skills-layers > section {
-  padding: 1.75rem;
-  border-radius: 1.25rem;
-}
-.aie2-skills-layers > section[data-tone="base"] {
-  background: var(--cover-sand);
-}
-.aie2-skills-layers > section[data-tone="ai"] {
-  background: var(--cover-blue);
-}
-.aie2-skills-layers header {
+.aie2-art-domain dl {
   display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 0.85rem;
-  align-items: center;
-  margin-bottom: 1.25rem;
-}
-.aie2-skills-layers header > svg {
-  grid-row: span 2;
-  width: 2.5rem;
-  height: 2.5rem;
-  padding: 0.6rem;
-  border-radius: 0.75rem;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.6rem;
   background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
 }
-.aie2-skills-layers h3 {
-  font-size: 1.15rem;
+.aie2-art-domain dl > div {
+  display: flex;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
 }
-.ai-product-page .aie2-skills-layers header p {
-  font-size: 0.88rem;
-  line-height: 1.4;
+.aie2-art-domain dt {
+  font-weight: 700;
+}
+.aie2-art-domain dd {
+  margin: 0;
   color: var(--muted-foreground);
 }
-.aie2-skills-layers ul {
+
+.aie2-art-modules {
+  display: grid;
+  gap: 0.4rem;
+  width: min(100%, 12rem);
+}
+.aie2-art-modules > div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.6rem;
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+}
+.aie2-art-modules b,
+.aie2-art-modules i {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-utility);
+  font-size: 0.76rem;
+  font-style: normal;
+  line-height: 1.3;
+}
+.aie2-art-modules i {
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+}
+.aie2-art-story {
+  display: grid;
+  gap: 0.45rem;
+  width: min(100%, 13rem);
+}
+.ai-product-page .aie2-art-story p {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.6rem;
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+  font-size: 0.8rem;
+  font-weight: 550;
+  line-height: 1.4;
+}
+.aie2-art-story > span:last-child svg {
+  color: var(--callout-good);
+}
+
+.aie2-art-checks {
+  display: grid;
+  gap: 0.4rem;
+}
+.aie2-art-checks svg {
+  color: var(--callout-good);
+}
+
+.aie2-art-sdd {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
 }
-.aie2-skills-layers li {
-  padding: 0.45rem 0.75rem;
-  border-radius: 0.55rem;
+.aie-bento-art .aie2-art-sdd > span {
+  gap: 0.4rem;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.aie2-art-sdd b {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.6rem;
   background: var(--background);
-  font-size: 0.88rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
   font-weight: 600;
-  line-height: 1.3;
+}
+.aie2-art-sdd > span:first-child b {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.aie-bento-art .aie2-art-sdd-arrow {
+  color: var(--muted-foreground);
+}
+
+.aie2-art-security {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+}
+.aie-bento-art .aie2-art-security-agent {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.aie2-art-security > div {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  border: 1.5px dashed color-mix(in srgb, var(--foreground) 25%, transparent);
+  border-radius: 0.85rem;
+}
+.aie2-art-security svg {
+  color: var(--callout-good);
+}
+.aie-bento-art .aie2-art-security [data-denied="true"] {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.aie2-art-security [data-denied="true"] svg {
+  color: var(--callout-bad);
 }
 
 /* ---------- Планшет и телефон ---------- */
@@ -285,12 +367,10 @@
 }
 @media (max-width: 47.999rem) {
   .aie2-position,
-  .aie2-artifacts,
-  .aie2-skills {
+  .aie2-artifacts {
     margin-top: 4rem;
   }
-  .aie2-position,
-  .aie2-skills-layers {
+  .aie2-position {
     grid-template-columns: 1fr;
   }
   .aie2-position {
@@ -333,7 +413,12 @@
   .aie2-window-code {
     font-size: 0.74rem;
   }
-  .aie2-skills-layers > section {
-    padding: 1.25rem;
-  }
+}
+
+/* Подпись графика Evals стоит над столбиками, а не поверх самого высокого. */
+.aie-bento .aie-art-evals {
+  margin-top: 2.25rem;
+}
+.aie-bento .aie-art-evals span {
+  top: -2.4rem;
 }

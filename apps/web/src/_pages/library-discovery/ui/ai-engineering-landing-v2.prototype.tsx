@@ -1,12 +1,15 @@
 import {
+  Activity,
   ArrowRight,
-  Server,
-  Workflow,
+  Ban,
+  BookOpen,
+  Boxes,
+  Database,
+  Lock,
   Bot,
   Check,
   ChevronDown,
   Code2,
-  Coins,
   FileCode2,
   FileText,
   FolderGit2,
@@ -159,8 +162,6 @@ function CourseBlock({
       if (block.id === "faq") return <Faq block={block} />;
       if (block.id === "mentoring") return <Mentoring block={block} />;
       if (block.id === "position") return <Position block={block} />;
-      if (block.id === "skills")
-        return <Skills block={block} programme={programme} />;
       return <ChecklistCards block={block} />;
     case "text":
       if (block.id === "practice") return <Practice block={block} />;
@@ -248,15 +249,20 @@ function Mentoring({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
 }
 
 /**
- * Мини-иллюстрации тем по порядку пунктов блока `topics`. Это знаки темы, а не данные: подписи
- * внутри короткие и повторяют смысл плитки. Размер плитки задаёт ритм bento-сетки.
+ * Иллюстрации тем `topics` по названию темы, а не по порядку: автор может переставить темы, и
+ * картинка не уедет к чужой плитке. Это знаки темы, а не данные. Размер плитки задаёт ритм сетки.
  */
-const topicTiles: readonly {
-  readonly size: "wide" | "narrow";
-  readonly tone: string;
-  readonly art: ReactNode;
-}[] = [
-  {
+const topicTiles: Readonly<
+  Record<
+    string,
+    {
+      readonly size: "wide" | "narrow";
+      readonly tone: string;
+      readonly art: ReactNode;
+    }
+  >
+> = {
+  "Инженерная работа": {
     size: "wide",
     tone: "ink",
     art: (
@@ -278,7 +284,142 @@ const topicTiles: readonly {
       </div>
     ),
   },
-  {
+  "Домен и бизнес-логика": {
+    size: "narrow",
+    tone: "lavender",
+    art: (
+      <div className="aie2-art-domain">
+        <span>
+          <BookOpen /> Словарь домена
+        </span>
+        <dl>
+          <div>
+            <dt>Курс</dt>
+            <dd>набор глав</dd>
+          </div>
+          <div>
+            <dt>Урок</dt>
+            <dd>часть главы</dd>
+          </div>
+          <div>
+            <dt>Доступ</dt>
+            <dd>право открыть урок</dd>
+          </div>
+        </dl>
+      </div>
+    ),
+  },
+  Модульность: {
+    size: "narrow",
+    tone: "good",
+    art: (
+      <div className="aie2-art-modules">
+        {(
+          [
+            ["billing", "оплата"],
+            ["identity", "вход и права"],
+            ["courses", "уроки и доступ"],
+          ] as const
+        ).map(([name, role]) => (
+          <div key={name}>
+            <b>
+              <Boxes /> {name}
+            </b>
+            <i>{role}</i>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  "Продукт и требования": {
+    size: "narrow",
+    tone: "sand",
+    art: (
+      <div className="aie2-art-story">
+        <span>
+          <UserRound /> Ученик хочет
+        </span>
+        <p>продолжить урок с места, где остановился</p>
+        <span>
+          <Check /> 3 критерия готовности
+        </span>
+      </div>
+    ),
+  },
+  "Существующий проект": {
+    size: "narrow",
+    tone: "sand",
+    art: (
+      <div className="aie-art-pipeline">
+        <span>
+          <Search />
+          Разобраться в коде
+        </span>
+        <span>
+          <ShieldCheck />
+          Покрыть тестами
+        </span>
+        <span>
+          <Boxes />
+          Улучшить по частям
+        </span>
+      </div>
+    ),
+  },
+  "Тесты и проверки": {
+    size: "narrow",
+    tone: "blue",
+    art: (
+      <div className="aie2-art-checks">
+        {["Тесты поведения", "Границы модулей", "Типы и линтер", "CI"].map(
+          (label) => (
+            <span key={label}>
+              <Check /> {label}
+            </span>
+          ),
+        )}
+      </div>
+    ),
+  },
+  "Релизы и эксплуатация": {
+    size: "narrow",
+    tone: "example",
+    art: (
+      <div className="aie-art-tree">
+        <span>
+          <GitPullRequest /> pull request
+        </span>
+        <span>
+          <Rocket /> релиз
+        </span>
+        <span>
+          <Database /> миграции
+        </span>
+        <span>
+          <Activity /> наблюдаемость
+        </span>
+      </div>
+    ),
+  },
+  "Spec-Driven Development": {
+    size: "wide",
+    tone: "blue",
+    art: (
+      <div className="aie2-art-sdd">
+        {["Спецификация", "Реализация", "Проверки", "Релиз"].map(
+          (label, index) => (
+            <span key={label}>
+              {index === 0 ? null : (
+                <ArrowRight className="aie2-art-sdd-arrow" />
+              )}
+              <b>{label}</b>
+            </span>
+          ),
+        )}
+      </div>
+    ),
+  },
+  Harness: {
     size: "narrow",
     tone: "example",
     art: (
@@ -297,92 +438,12 @@ const topicTiles: readonly {
         </span>
         <span>
           <FileCode2 />
-          checks/
+          hooks/
         </span>
       </div>
     ),
   },
-  {
-    size: "narrow",
-    tone: "blue",
-    art: (
-      <div className="aie-art-budget">
-        <span>
-          <Bot /> Агент под задачу
-        </span>
-        <span>
-          <Gauge /> Уровень мышления
-        </span>
-        <div className="aie-art-budget-steps">
-          <i />
-          <i />
-          <i />
-          <i />
-        </div>
-        <span>
-          <Coins /> Расход под контролем
-        </span>
-      </div>
-    ),
-  },
-  {
-    size: "narrow",
-    tone: "good",
-    art: (
-      <div className="aie-art-pipeline">
-        {(
-          [
-            [FileText, "Спецификация"],
-            [Code2, "Реализация"],
-            [ShieldCheck, "Проверки"],
-            [Rocket, "Релиз"],
-          ] as const
-        ).map(([StepIcon, label]) => (
-          <span key={label}>
-            <StepIcon />
-            {label}
-          </span>
-        ))}
-      </div>
-    ),
-  },
-  {
-    size: "wide",
-    tone: "coral",
-    art: (
-      <div className="aie-art-agent">
-        <span className="aie-art-agent-end">
-          <FileText />
-          Задача
-        </span>
-        <ArrowRight className="aie-art-agent-arrow" />
-        <span className="aie-art-agent-core">
-          <Bot />
-          Агент
-        </span>
-        <ArrowRight className="aie-art-agent-arrow" />
-        <span className="aie-art-agent-end">
-          <Check />
-          Результат
-        </span>
-        <div className="aie-art-agent-tools">
-          <span>
-            <Sparkles />
-            Модель
-          </span>
-          <span>
-            <Wrench />
-            Инструменты
-          </span>
-          <span>
-            <Plug />
-            MCP
-          </span>
-        </div>
-      </div>
-    ),
-  },
-  {
+  "Human in the loop": {
     size: "narrow",
     tone: "sand",
     art: (
@@ -397,42 +458,17 @@ const topicTiles: readonly {
         </span>
         <span className="aie-art-guard-buttons">
           <b>
-            <GitPullRequest />
-            Ревью
+            <UserRound />
+            Решаешь ты
           </b>
           <b>Принято</b>
         </span>
       </div>
     ),
   },
-  {
+  "Несколько агентов": {
     size: "wide",
-    tone: "blue",
-    art: (
-      <div className="aie-art-memory">
-        <div className="aie-art-memory-sources">
-          <span>
-            <MessagesSquare /> Сессия
-          </span>
-          <span>
-            <FileText /> Знания
-          </span>
-          <span>
-            <Search /> RAG
-          </span>
-        </div>
-        <div className="aie-art-memory-context">
-          <Layers /> Нужный контекст
-        </div>
-        <span className="aie-art-memory-agent">
-          <Bot /> Агент помнит важное
-        </span>
-      </div>
-    ),
-  },
-  {
-    size: "wide",
-    tone: "sand",
+    tone: "lavender",
     art: (
       <div className="aie-art-team">
         <span>
@@ -455,36 +491,97 @@ const topicTiles: readonly {
       </div>
     ),
   },
-  {
+  "Контекст и память": {
     size: "wide",
-    tone: "good",
+    tone: "coral",
     art: (
-      <div className="aie-art-toolkit">
-        <span className="aie-art-toolkit-agent">
-          <Bot /> Агент
+      <div className="aie-art-memory">
+        <div className="aie-art-memory-sources">
+          <span>
+            <MessagesSquare /> Сессия
+          </span>
+          <span>
+            <FileText /> Знания
+          </span>
+          <span>
+            <Search /> Поиск
+          </span>
+        </div>
+        <div className="aie-art-memory-context">
+          <Layers /> Нужный контекст
+        </div>
+        <span className="aie-art-memory-agent">
+          <Bot /> Агент помнит важное
         </span>
-        <div>
+      </div>
+    ),
+  },
+  "Собственные агенты и MCP": {
+    size: "wide",
+    tone: "ink",
+    art: (
+      <div className="aie-art-agent">
+        <span className="aie-art-agent-end">
+          <FileText />
+          Задача
+        </span>
+        <ArrowRight className="aie-art-agent-arrow" />
+        <span className="aie-art-agent-core">
+          <Bot />
+          Агент
+        </span>
+        <ArrowRight className="aie-art-agent-arrow" />
+        <span className="aie-art-agent-end">
+          <Check />
+          Результат
+        </span>
+        <div className="aie-art-agent-tools">
           <span>
-            <Plug /> MCP
+            <Plug />
+            MCP
           </span>
           <span>
-            <Code2 /> CLI / API
+            <Search />
+            RAG
           </span>
           <span>
-            <FolderGit2 /> Репозиторий
-          </span>
-          <span>
-            <Wrench /> Хуки и скиллы
+            <Wrench />
+            Инструменты
           </span>
         </div>
       </div>
     ),
   },
-  {
-    size: "wide",
+  "Безопасность агентов": {
+    size: "narrow",
+    tone: "good",
+    art: (
+      <div className="aie2-art-security">
+        <span className="aie2-art-security-agent">
+          <Bot /> Агент в песочнице
+        </span>
+        <div>
+          <span>
+            <Check /> Читать репозиторий
+          </span>
+          <span>
+            <Check /> Запускать тесты
+          </span>
+          <span data-denied="true">
+            <Lock /> Секреты и продакшн
+          </span>
+          <span data-denied="true">
+            <Ban /> Prompt injection
+          </span>
+        </div>
+      </div>
+    ),
+  },
+  "Evals и стоимость": {
+    size: "narrow",
     tone: "lavender",
     art: (
-      <div className="aie-art-evals" aria-label="">
+      <div className="aie-art-evals">
         {[42, 58, 51, 74, 69, 86].map((value, index) => (
           <i
             data-after={index >= 3}
@@ -494,12 +591,12 @@ const topicTiles: readonly {
         ))}
         <span>
           <Gauge />
-          было → стало
+          качество по версиям
         </span>
       </div>
     ),
   },
-];
+};
 /** Темы курса и под ними кнопка в программу: там главы и уроки по этим темам. */
 function TopicGrid({
   block,
@@ -510,7 +607,6 @@ function TopicGrid({
 }) {
   return (
     <section className="ai-product-outcomes aie-topics">
-      <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
         <p className="ai-product-section-intro ai-product-promise">
@@ -518,13 +614,13 @@ function TopicGrid({
         </p>
       )}
       <ul className="aie-bento">
-        {block.items.map((item, index) => {
-          const tile = topicTiles[index];
+        {block.items.map((item) => {
+          const tile = topicTiles[item.title];
           return (
             <li
               data-size={tile?.size ?? "narrow"}
               data-tone={tile?.tone ?? "sand"}
-              key={`${String(index)}-${item.title}`}
+              key={item.title}
             >
               {tile === undefined ? null : (
                 <div aria-hidden="true" className="aie-bento-art">
@@ -534,13 +630,11 @@ function TopicGrid({
               <div className="aie-bento-copy">
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>
-                <ItemDetail item={item} />
               </div>
             </li>
           );
         })}
       </ul>
-      <Note text={block.note} />
       <IntentPrefetchLink className="aie-topics-programme" href={programme}>
         Открыть программу
         <ArrowRight aria-hidden="true" />
@@ -1012,61 +1106,6 @@ function Artifacts({ block }: { readonly block: ProductPageBlockOf<"text"> }) {
         ))}
       </div>
       <ArtifactWindow />
-    </section>
-  );
-}
-
-const skillLayers = [
-  {
-    name: "Инженерная база",
-    text: "Как устроена система",
-    icon: Server,
-    tone: "base",
-  },
-  {
-    name: "AI-инжиниринг",
-    text: "Как работать с агентами и строить их",
-    icon: Workflow,
-    tone: "ai",
-  },
-] as const;
-/** Что изучим: два облака тем по слою, который автор пишет в `detail` каждой темы. */
-function Skills({
-  block,
-  programme,
-}: {
-  readonly block: ProductPageBlockOf<"cards">;
-  readonly programme: Route;
-}) {
-  return (
-    <section className="aie2-skills">
-      <h2>{block.title}</h2>
-      {block.lead === "" ? null : <p>{block.lead}</p>}
-      <div className="aie2-skills-layers">
-        {skillLayers.map((layer) => {
-          const LayerIcon = layer.icon;
-          return (
-            <section data-tone={layer.tone} key={layer.name}>
-              <header>
-                <LayerIcon aria-hidden="true" />
-                <h3>{layer.name}</h3>
-                <p>{layer.text}</p>
-              </header>
-              <ul>
-                {block.items
-                  .filter((item) => item.detail === layer.name)
-                  .map((item) => (
-                    <li key={item.title}>{item.title}</li>
-                  ))}
-              </ul>
-            </section>
-          );
-        })}
-      </div>
-      <IntentPrefetchLink className="aie-topics-programme" href={programme}>
-        Открыть программу
-        <ArrowRight aria-hidden="true" />
-      </IntentPrefetchLink>
     </section>
   );
 }
