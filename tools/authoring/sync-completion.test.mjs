@@ -164,6 +164,7 @@ async function fixture(t) {
  * @property {string} publicationState
  * @property {unknown} [videoChapters]
  * @property {string[]} [productIds]
+ * @property {boolean} [inFeed]
  * @typedef {{
  *   videoId: string;
  *   materialId: string;
@@ -352,6 +353,7 @@ function applicationApi() {
             metadata: { slug: itemAt(source.id.split(":"), 1) },
             source,
             publicationState: "draft",
+            inFeed: false,
           });
         return structuredClone(materials.get(source.id));
       }
@@ -396,6 +398,9 @@ function applicationApi() {
           publicationState: command.publicationState,
           productIds: command.metadata.productIds,
           metadata: { ...current.metadata, access: command.metadata.access },
+          ...(typeof command["inFeed"] === "boolean"
+            ? { inFeed: command["inFeed"] }
+            : {}),
         });
         return {
           materialId: current.materialId,
@@ -1251,6 +1256,47 @@ test("release preview reports an access change of a lesson with a Video like any
   assert.ok(replaced);
   assert.equal(replaced.conflictReason, undefined);
   assert.deepEqual(replaced.accessChange, { from: "closed", to: "free" });
+});
+
+test("release preview reports the feed choice and the sync applies it once (#1885)", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  const lesson = itemAt(setup.manifest.materials, 0);
+  lesson.access = "free";
+  await setup.write();
+  await run(setup, api);
+  const origin = "http://127.0.0.1:4396";
+  // Только выбор ленты меняет строку: он входит в ревизию материала.
+  lesson.inFeed = true;
+  await setup.write();
+  const preview = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const row = preview.preview.materials.find(
+    (item) => item.sourceId === lesson.sourceId,
+  );
+  assert.ok(row);
+  assert.equal(row.change, "changed");
+  assert.equal(row.inFeed, true);
+  assert.deepEqual(row.feedChange, { from: false, to: true });
+
+  await run(setup, api);
+  const applied = api.calls.findLast(
+    (call) => call.path === "/authoring/import/materials/apply",
+  );
+  assert.equal(materialApplyRequest(applied ?? {})?.body["inFeed"], true);
+  const settled = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const after = settled.preview.materials.find(
+    (item) => item.sourceId === lesson.sourceId,
+  );
+  assert.equal(after?.change, "unchanged");
+  assert.equal(after?.feedChange, undefined);
 });
 
 test("release preview refuses to close a public recording and any access change on an older target", async (t) => {

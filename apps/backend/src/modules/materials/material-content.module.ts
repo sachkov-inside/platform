@@ -1,4 +1,8 @@
-import { ProductDiscovery, ProductsModule } from "../products/index.js";
+import {
+  ProductCatalogue,
+  ProductDiscovery,
+  ProductsModule,
+} from "../products/index.js";
 import { PublicMaterialAnnouncements } from "./facets/public-material-announcements/public-material-announcements.js";
 import { CoverageCatalog } from "./facets/coverage-catalog/coverage-catalog.js";
 import { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
@@ -21,9 +25,9 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
   providers: [
     {
       provide: PublicMaterialAnnouncements,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        new PublicMaterialAnnouncements(prisma),
+      inject: [PrismaClientProvider, ProductCatalogue],
+      useFactory: (prisma: PrismaClientProvider, products: ProductCatalogue) =>
+        new PublicMaterialAnnouncements(prisma, products),
     },
     {
       provide: CoverageCatalog,

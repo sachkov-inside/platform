@@ -71,6 +71,8 @@ export const saveMaterialInputSchema = z.object({
   materialId: z.uuid(),
   /** The author's Telegram choice; the editor always sends it, other callers may omit it. */
   notifyTelegram: z.boolean().optional(),
+  /** Выложить материал в ленту; без поля выбор автора не меняется. */
+  inFeed: z.boolean().optional(),
   outcomes: z
     .array(z.string().trim().max(MATERIAL_OUTCOMES.maxLength))
     .max(MATERIAL_OUTCOMES.maxCount)

@@ -215,14 +215,19 @@ describe("published Material HTTP contract", () => {
       "demo-progress-product",
     );
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
-    expect(home.videos.map(({ slug }) => slug)).toContain(
+    // Урок демонстрационного курса в ленту не попадает (ADR 0043), видео вне курса попадает.
+    expect(home.videos.map(({ slug }) => slug)).not.toContain(
       "video-pro-developer-pipeline",
     );
     expect(
-      home.videos.find(({ slug }) => slug === "video-pro-developer-pipeline"),
-    ).toMatchObject({ primaryVideoDurationSeconds: 628 });
-    expect(home.guides.map(({ slug }) => slug)).toContain(
+      home.videos.find(({ slug }) => slug === "glubokie-moduli-na-praktike"),
+    ).toMatchObject({ primaryVideoDurationSeconds: 481 });
+    // Гайд демонстрационного курса тоже остаётся вне ленты, а гайды вне курса в ней есть.
+    expect(home.guides.map(({ slug }) => slug)).not.toContain(
       "kak-ustroen-inside-platform",
+    );
+    expect(home.guides.map(({ slug }) => slug)).toContain(
+      "arkhitekturnaya-zametka-11",
     );
     expect(home.notes.map(({ slug }) => slug)).toContain(
       "granitsy-khoroshego-modulya",

@@ -120,7 +120,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Material state",
       description:
-        "Set notifyTelegram before first publication to announce an open feed Material to activated bot contacts (default off); later saves and republication never create another broadcast. Pass primaryVideoId from material_load to preserve the video, or explicitly null to detach without deleting its source. Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history. Removing a published Material from a Product whose buyers hold access fails with product_removal_confirmation_required until the same save lists those products in confirmedProductRemovals after the owner confirms; the removal is journaled.",
+        "Set inFeed to place a free Material outside Products in the public feed (default off; omitted keeps the current choice). The feed never shows Product lessons, so inFeed true on a closed Material or a Product lesson fails with feed_requires_public_material. Set notifyTelegram before first publication to announce a feed Material to activated bot contacts (default off; it requires inFeed); later saves and republication never create another broadcast. Pass primaryVideoId from material_load to preserve the video, or explicitly null to detach without deleting its source. Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history. Removing a published Material from a Product whose buyers hold access fails with product_removal_confirmation_required until the same save lists those products in confirmedProductRemovals after the owner confirms; the removal is journaled.",
       inputSchema: z
         .object({
           idempotencyKey: idempotencyKeyWireSchema,
@@ -129,6 +129,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           primaryVideoId: z.uuid().nullable(),
           publicationState: publicationStateWireSchema,
           notifyTelegram: z.boolean().optional(),
+          inFeed: z.boolean().optional(),
           metadata: materialMetadataSelectionWireSchema,
           body: materialBodySnapshotWireSchema,
           confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
@@ -147,6 +148,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       primaryVideoId,
       publicationState: targetState,
       notifyTelegram,
+      inFeed,
       metadata,
       body,
       confirmedProductRemovals,
@@ -160,6 +162,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           primaryVideoId,
           publicationState: targetState,
           notifyTelegram,
+          inFeed,
           metadata,
           body,
           confirmedProductRemovals: confirmedProductRemovals ?? [],

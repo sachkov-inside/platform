@@ -215,21 +215,11 @@ test("an actually migrated published Practice remains an embedded Task for its a
   await database.prisma
     .$executeRaw(Prisma.sql`insert into materials.materials(id,title,summary,slug,access,publication_state,content_version,source_id,source_revision,source_path,schema_version,body,created_by,topic_id,format_id,first_published_at,published_at,published_by)
     values (${materialId}::uuid,'Original lesson','','archived-lesson','free','published',7,'archive:lesson',${"a".repeat(64)},'lesson.md',1,${JSON.stringify(body)}::jsonb,${actor}::uuid,${topicId}::uuid,'note','2026-10-01','2026-10-01',${actor}::uuid)`);
-  await database.prisma.publishedMaterial.create({
-    data: {
-      materialId,
-      contentVersion: 7n,
-      slug: "archived-lesson",
-      title: "Original lesson",
-      summary: "",
-      access: "free",
-      topicId,
-      formatId: "note",
-      publicSearchText: "Original lesson",
-      publishedBy: actor,
-      publishedAt: new Date("2026-10-01T00:00:00Z"),
-    },
-  });
+  // The historical schema predates later columns, so rows are written in its own SQL shape.
+  await database.prisma.$executeRaw(
+    Prisma.sql`insert into materials.published_materials(material_id,content_version,slug,title,summary,access,topic_id,format_id,public_search_text,published_by,published_at)
+    values (${materialId}::uuid,7,'archived-lesson','Original lesson','','free',${topicId}::uuid,'note','Original lesson',${actor}::uuid,'2026-10-01T00:00:00Z')`,
+  );
   await historicalMembership(database, { data: { productId, materialId } });
   await database.prisma.$executeRaw(
     Prisma.sql`insert into products.published_material_series_memberships(series_id,material_id) values (${productId}::uuid,${materialId}::uuid)`,
@@ -394,20 +384,10 @@ test("unowned, ambiguous and conflicting requirements remain passive with their 
         index === 4 ? "fixture:source-collision" : `fixture:lesson-${label}`,
       materialSourceRevision: "a".repeat(64),
     };
-    await database.prisma.material.create({
-      data: {
-        id: materialId,
-        schemaVersion: 1,
-        body: { blocks: [] },
-        createdBy: randomUUID(),
-        access: "free",
-        publicationState: "draft",
-        contentVersion: 3n,
-        sourceId: sourceReference.materialSourceId,
-        sourceRevision: sourceReference.materialSourceRevision,
-        sourcePath: "lesson.md",
-      },
-    });
+    await database.prisma.$executeRaw(
+      Prisma.sql`insert into materials.materials(id,schema_version,body,created_by,access,publication_state,content_version,source_id,source_revision,source_path)
+      values (${materialId}::uuid,1,${JSON.stringify({ blocks: [] })}::jsonb,${randomUUID()}::uuid,'free','draft',3,${sourceReference.materialSourceId},${sourceReference.materialSourceRevision},'lesson.md')`,
+    );
     await historicalPractice(database, {
       data: {
         practiceId: `fixture:${label}`,

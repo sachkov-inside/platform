@@ -86,10 +86,9 @@ have any number of Tags, including none.
 _Avoid_: Free-form keyword, hashtag
 
 **Public Feed**:
-The stream of free published Materials that every visitor, signed in or not, can read. Closed
-Materials are not in it; their locked cards appear in a Product's programme, search and Topic
-pages. A free programme Material appears both in the Public Feed and in that programme. In Russian
-product language: «лента».
+The stream of free published Materials that the author placed there and that every visitor,
+signed in or not, can read. Closed Materials and Product programme Materials are not in it; they
+appear in a Product's programme, search and Topic pages. In Russian product language: «лента».
 _Avoid_: Library subscription, Product, closed Material
 
 **Access Class**:

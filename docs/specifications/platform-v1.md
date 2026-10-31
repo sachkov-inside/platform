@@ -512,8 +512,14 @@ add mandatory steps. Existing reading-state records remain intact.
 Authoring composition accepts optional programmePlacements and chapter supplementaryMaterialIds. Omitted
 attachment fields preserve links; an empty list clears them. Platform's chapter attachment operation updates
 only attachment links, including for source-owned Products. Source originals and programme remain source-owned.
-Published free Materials always appear in the public feed. Current Sourcev2 has no `showInFeed` field. Original Sourcev1 values survive only in historical
-records and exact receipt decoding; they cannot hide Materials or block Product catalogue removal.
+The public feed shows a published Material only when the author set `inFeed`, its access is `free` and no
+Product holds it ([ADR 0043](../adr/0043-feed-holds-explicitly-placed-materials.md)). `inFeed` defaults to
+`false`; Save, source import and package v3 accept it, and an omitted value keeps the current choice. Save
+rejects `inFeed: true` on a closed Material or a Product lesson with `feed_requires_public_material` and
+clears the choice when the same Save adds the Material to a Product. The feed query checks all three
+conditions itself. Search and the catalogue ignore the choice. Current Sourcev2 has no `showInFeed` field.
+Original Sourcev1 values survive only in historical records and exact receipt decoding; they cannot place
+Materials in the feed or block Product catalogue removal.
 An anchored reference keeps the originating chapter and step, highlights the active document separately,
 and restores the originating lesson through its return links. A programme entry without an origin
 retains the course frame without claiming a curricular position. A standalone Material URL without

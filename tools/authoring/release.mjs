@@ -71,6 +71,7 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {string} title
  * @property {string} access
  * @property {boolean} [notifyTelegram]
+ * @property {boolean} [inFeed]
  * @property {string | null} video
  * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
  * @property {boolean} [coverChange]
@@ -82,6 +83,7 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {{ current: string | null; desired: string | null }} [sourceCommit] Content commits of the target row and the package
  * @property {string} [conflictReason]
  * @property {{ from: string; to: string }} [accessChange]
+ * @property {{ from: boolean; to: boolean }} [feedChange] The feed choice the apply changes (#1885)
  * @typedef {{ state: "pending" | "ready"; sha256: string }} VideoUpload
  * @typedef {object} ProductChange
  * @property {string} sourceId
@@ -312,6 +314,7 @@ export async function previewRelease(
       ...(row.notifyTelegram === undefined
         ? {}
         : { notifyTelegram: row.notifyTelegram }),
+      ...(row.inFeed === undefined ? {} : { inFeed: row.inFeed }),
       video: row.video?.kinescopeId ?? null,
       publication: publicationOfKey(key),
     };
@@ -432,6 +435,11 @@ export async function previewRelease(
         : {}),
       ...(currentAccess !== undefined && currentAccess !== item.access
         ? { accessChange: { from: currentAccess, to: item.access } }
+        : {}),
+      ...(row.inFeed !== undefined &&
+      typeof current["inFeed"] === "boolean" &&
+      current["inFeed"] !== row.inFeed
+        ? { feedChange: { from: current["inFeed"], to: row.inFeed } }
         : {}),
     });
   }
