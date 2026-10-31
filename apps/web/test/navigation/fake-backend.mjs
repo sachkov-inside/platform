@@ -198,9 +198,11 @@ const lessons = [
   title,
   topic,
 }));
-const performanceTemplate = lessons[0];
-if (performanceTemplate === undefined)
-  throw new Error("Missing lesson template");
+const performanceTemplate = (() => {
+  const template = lessons[0];
+  if (template === undefined) throw new Error("Missing lesson template");
+  return template;
+})();
 /** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string> }} ReaderTitleFixture */
 /** @type {Map<string, ReaderTitleFixture>} */
 const readerTitleFixtures = new Map();
