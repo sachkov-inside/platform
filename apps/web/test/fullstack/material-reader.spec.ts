@@ -1005,8 +1005,12 @@ test("uses the selected Product order for a shared Material and leaves standalon
   await expect(
     page.getByRole("main").getByRole("link", { name: "Главная" }),
   ).toHaveCount(0);
+});
 
-  // Прямой адрес урока единственного курса открывает его в этом курсе; при двух курсах выбора нет.
+test("opens a direct link to a sole-course Material inside that course and leaves a shared Material standalone", async ({
+  page,
+}) => {
+  // При двух курсах Reader курс не выбирает.
   await page.goto("/materials/demo-295-finalnyy-gayd");
   const directPrevious = page.locator(
     '[data-product-reader-bar] a[aria-label="Предыдущий урок"]',

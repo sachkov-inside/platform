@@ -481,7 +481,8 @@ From 48rem to below 64rem, tablets use the same dock and sheet; there is no top 
 At 64rem and above, the chapter rail stays visible. Tablet and desktop retain the named previous/next footer.
 The supplementary footer returns to the originating lesson or Task; it does not offer primary-step arrows.
 Nested supplementary links retain the anchor. Selecting a primary step ends supplementary browsing.
-Direct links without a valid anchor use standalone Reader and retain the confirmed course breadcrumb and return.
+A direct link without a valid anchor shows the course navigation without a step number when the material has one course.
+For a material of several courses, the direct link uses standalone Reader and retains a confirmed course breadcrumb and return.
 Chapter selection lists actual chapters only, without a synthetic Materials chapter.
 
 Teaching pages use visible hierarchical breadcrumbs: catalogue, Product, programme, Materials and Tasks.
