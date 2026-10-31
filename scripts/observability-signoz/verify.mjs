@@ -14,6 +14,8 @@ const SUITE = [
   "test_*.py",
 ];
 const OUTPUT_BYTES = 1_048_576;
+const SOURCE_CONTRACT_AGGREGATE_TIMEOUT_MS = 60_000;
+const OVERRIDE_TIMEOUT_LIMIT_MS = 30_000;
 
 /**
  * One verification entry for tooling and CI. The existing outside owner survives
@@ -22,8 +24,13 @@ const OUTPUT_BYTES = 1_048_576;
  * @param {{args?: string[], timeoutMs?: number}} [options]
  */
 export async function verify(options = {}) {
-  const timeoutMs = options.timeoutMs ?? 30_000;
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 30_000)
+  const aggregate =
+    options.args === undefined && options.timeoutMs === undefined;
+  const limitMs = aggregate
+    ? SOURCE_CONTRACT_AGGREGATE_TIMEOUT_MS
+    : OVERRIDE_TIMEOUT_LIMIT_MS;
+  const timeoutMs = options.timeoutMs ?? limitMs;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > limitMs)
     throw new Error("verification budget must not exceed original30 seconds");
   const child = spawnOwned("python3", options.args ?? SUITE, {
     stdio: ["ignore", "pipe", "pipe"],

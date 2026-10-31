@@ -9,6 +9,55 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runOwnedProcess } from "./observability-umami/process-owner.mjs";
 import * as contracts from "./observability-caddy-storage/contract-runner.mjs";
 
+test("Caddy dispatch reserves 30 seconds only for the 72-source aggregate", async () => {
+  const { runInNewContext } = await import("node:vm");
+  const source = await readFile(
+    "scripts/observability-caddy-storage/contract-runner.mjs",
+    "utf8",
+  );
+  const body = source
+    .slice(0, source.indexOf("\nif (process.argv"))
+    .replace(/^export \{[\s\S]*?\} from "[^"\n]+";\n/mu, "")
+    .replace(/^import [^\n]+;\n/gmu, "")
+    .replace("export async function", "async function");
+  /** @type {unknown[][]} */
+  const calls = [];
+  for (const [args, timeoutMs] of /** @type {[string[], number][]} */ ([
+    [["--source-group", "contracts"], 30000],
+    [["--source-group", "transport"], 15000],
+    [["--source-group", "process-owner"], 15000],
+    [[], 15000],
+    [["--fixture", "success", "report"], 15000],
+    [["--fixture", "failure", "report"], 15000],
+    [["--fixture", "timeout", "report"], 700],
+    [["--held-fixture", "success", "report"], 15000],
+    [["--held-fixture", "failure", "report"], 15000],
+    [["--held-fixture", "timeout", "report"], 700],
+    [["--held-fixture", "interruption", "report"], 15000],
+    [["--held-fixture", "early_exit", "report"], 15000],
+    [["--fixture", "interruption", "report"], 15000],
+    [["--fixture", "early_exit", "report"], 15000],
+    [["--fixture", "contracts", "report"], 15000],
+  ])) {
+    /** @type {unknown} */
+    const result = await runInNewContext(body + "\nrunCaddyContracts(input);", {
+      input: args,
+      /** @param {unknown[]} values */
+      runOwnedProcess: (...values) => {
+        calls.push(values);
+        return Promise.resolve("owned-result");
+      },
+    });
+    assert.equal(result, "owned-result");
+    assert.deepEqual(JSON.parse(JSON.stringify(calls.at(-1))), [
+      "python3",
+      ["-B", "scripts/observability-caddy-storage/contract_runner.py", ...args],
+      { timeoutMs, terminateGraceMs: 2500, cleanupBudgetMs: 5000 },
+    ]);
+  }
+  assert.equal(calls.length, 15);
+});
+
 test("Caddy source groups partition all original methods once and keep independent ordered progress", () => {
   const groups = contracts.sourceGroups;
   assert.deepEqual(Object.keys(groups), [
