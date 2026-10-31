@@ -66,7 +66,12 @@ function clientWork(kind, action) {
 const privateTokens = () => {
   const text = clientWork(0, () => readFileSync("/private/token.json", "utf8"));
   return clientWork(1, () => {
-    const raw = parse(text);
+    /** @type {unknown} */ let raw;
+    try {
+      raw = parse(text);
+    } catch {
+      throw new Error("256 private tokens required");
+    }
     if (
       !record(raw) ||
       !Array.isArray(raw["tokens"]) ||

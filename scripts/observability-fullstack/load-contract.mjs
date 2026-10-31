@@ -841,8 +841,9 @@ const request=http.request;http.request=https.request=(options,callback)=>{if(![
     const valid = JSON.stringify({
       tokens: Array(256).fill("synthetic-current"),
     });
+    const malformedTokenCanary = "SYNTHETIC_TOKEN_CANARY";
     /** @type {(string | undefined)[]} */ const invalid = [
-      "{",
+      malformedTokenCanary,
       JSON.stringify({ tokens: Array(255).fill("synthetic-current") }),
       JSON.stringify({
         tokens: Array.from({ length: 256 }, (_, index) =>
@@ -895,6 +896,15 @@ const request=http.request;http.request=https.request=(options,callback)=>{if(![
           "malformed/missing private tokens must fail the actual CLI",
         );
         assert.equal(stdout, "");
+        for (const fragment of [
+          malformedTokenCanary,
+          "SYNTHETIC_",
+          "TOKEN_CANARY",
+        ])
+          assert.ok(
+            !(stdout + stderr).includes(fragment),
+            "no malformed-token canary or excerpt in CLI output",
+          );
         assert.ok(
           !stderr.includes("synthetic-current"),
           "no bearer bytes in failure output",
