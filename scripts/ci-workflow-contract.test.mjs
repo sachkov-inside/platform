@@ -304,7 +304,7 @@ describe("application CI workflow contract", () => {
   it("publishes only bounded preparation snapshots after healthy or failed cache proofs", () => {
     const production = jobBlock("compose-production-checks");
     const upload = production.match(
-      /      - name: Upload cache preparation observations\n(?<step>[\s\S]*?)(?=      - name:|$)/u,
+      / {6}- name: Upload cache preparation observations\n(?<step>[\s\S]*?)(?= {6}- name:|$)/u,
     )?.groups?.["step"];
     assert.ok(
       upload,
