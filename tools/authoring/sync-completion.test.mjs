@@ -164,6 +164,7 @@ async function fixture(t) {
  * @property {string} publicationState
  * @property {unknown} [videoChapters]
  * @property {string[]} [productIds]
+ * @property {boolean} [inFeed]
  * @typedef {{
  *   videoId: string;
  *   materialId: string;

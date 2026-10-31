@@ -437,9 +437,9 @@ export async function previewRelease(
         ? { accessChange: { from: currentAccess, to: item.access } }
         : {}),
       ...(row.inFeed !== undefined &&
-      typeof current.inFeed === "boolean" &&
-      current.inFeed !== row.inFeed
-        ? { feedChange: { from: current.inFeed, to: row.inFeed } }
+      typeof current["inFeed"] === "boolean" &&
+      current["inFeed"] !== row.inFeed
+        ? { feedChange: { from: current["inFeed"], to: row.inFeed } }
         : {}),
     });
   }
