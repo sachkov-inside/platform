@@ -1005,6 +1005,30 @@ test("uses the selected Product order for a shared Material and leaves standalon
   await expect(
     page.getByRole("main").getByRole("link", { name: "Главная" }),
   ).toHaveCount(0);
+
+  // Прямой адрес урока единственного курса открывает его в этом курсе; при двух курсах выбора нет.
+  await page.goto("/materials/demo-295-finalnyy-gayd");
+  const directPrevious = page.locator(
+    '[data-product-reader-bar] a[aria-label="Предыдущий урок"]',
+  );
+  await expect(directPrevious).toHaveAttribute(
+    "href",
+    /^\/materials\/demo-295-obshchiy-gayd\?/u,
+  );
+  expect(
+    new URL(
+      new URL(
+        (await directPrevious.getAttribute("href")) ?? "",
+        page.url(),
+      ).searchParams.get("from") ?? "",
+      page.url(),
+    ).pathname,
+  ).toBe("/products/demo-product-harness/programme");
+  await page.goto("/materials/demo-295-obshchiy-gayd");
+  await expect(
+    page.getByRole("heading", { name: "Demo #295 · Общий гайд" }),
+  ).toBeVisible();
+  await expect(page.locator("[data-product-reader-bar]")).toHaveCount(0);
 });
 
 function readerNextLink(page: Page) {
