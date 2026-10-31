@@ -7,14 +7,10 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
 import { AiEngineeringLandingV2Prototype } from "./ai-engineering-landing-v2.prototype";
-import {
-  type HeroVariant,
-  landingPage,
-} from "./ai-engineering-landing-v2.prototype-content";
+import { landingPage } from "./ai-engineering-landing-v2.prototype-content";
 
 /**
- * PROTOTYPE, prototype/ai-engineering-landing-v2. Лендинг курса с новыми разделами и тремя
- * вариантами первого экрана. План и решения: docs/evidence/ai-engineering-landing-v2/README.md.
+ * PROTOTYPE, prototype/ai-engineering-landing-v2. Лендинг курса с новыми разделами. План и решения: docs/evidence/ai-engineering-landing-v2/README.md.
  */
 const environment = publicPageEnvironment("/products/ai-engineering");
 
@@ -35,7 +31,7 @@ const meta = {
         })}
       />
     ),
-    page: landingPage("A"),
+    page: landingPage(),
     returnTarget: homeMaterialReaderReturnTarget,
     result: {
       kind: "empty",
@@ -55,22 +51,4 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const variant = (key: HeroVariant): Story => ({
-  args: { page: landingPage(key) },
-});
-
-/** A. Инженер, а не кодер: ценность смещается от кода к пониманию продукта. */
-export const HeroA: Story = {
-  ...variant("A"),
-  name: "Заголовок A. Инженер, а не кодер",
-};
-/** B. AI Software Engineer: продукт, домен и инженерная база вместо ручного кода. */
-export const HeroB: Story = {
-  ...variant("B"),
-  name: "Заголовок B. AI Software Engineer",
-};
-/** C. Процесс вокруг агента: агент проектирует, ты ставишь задачу и проверяешь. */
-export const HeroC: Story = {
-  ...variant("C"),
-  name: "Заголовок C. Процесс вокруг агента",
-};
+export const Landing: Story = { name: "Лендинг" };

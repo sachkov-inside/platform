@@ -76,3 +76,9 @@ Owner feedback: walls of text, sections overloaded, hero lead longer than two or
 - FAQ: merged with the owner's frequent questions (no IT experience, already using agents, tasks
   do not block lessons, own project, what is ready, updates, paying for AI tools). The question
   about hours per week is merged into «Есть ли сроки или дедлайны?».
+
+## Revision 3 (2026-10-31): original hero
+
+The owner kept the original hero lead («AI не заменит инженера, который умеет с ним работать…»),
+so hero variants A, B and C are removed and the story is one page. The first «было → стало» row
+reads «Запутанная кодовая база» in place of «Код где придётся».

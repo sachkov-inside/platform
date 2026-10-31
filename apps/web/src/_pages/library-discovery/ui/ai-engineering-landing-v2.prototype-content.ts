@@ -13,24 +13,7 @@ const card = (title: string, text: string, detailLabel = "", detail = "") => ({
   detail,
 });
 
-/** Варианты первого экрана: меняется только вводная фраза. */
-export const heroVariants = {
-  A: {
-    label: "A. Инженер, а не кодер",
-    lead: "Код пишет агент. Ты понимаешь продукт, проектируешь систему и ведёшь разработку.",
-  },
-  B: {
-    label: "B. AI Software Engineer",
-    lead: "Стань AI Software Engineer: продукт, домен и инженерная база вместо ручного кода.",
-  },
-  C: {
-    label: "C. Процесс вокруг агента",
-    lead: "Агент пишет код, а ты ставишь задачи, направляешь его и проверяешь результат.",
-  },
-} as const;
-export type HeroVariant = keyof typeof heroVariants;
-
-export function landingPage(variant: HeroVariant): ProductPage {
+export function landingPage(): ProductPage {
   return {
     card: null,
     blocks: [
@@ -38,7 +21,8 @@ export function landingPage(variant: HeroVariant): ProductPage {
         id: "hero",
         kind: "hero",
         badge: "+ менторинг",
-        lead: heroVariants[variant].lead,
+        // Исходная фраза первого экрана: владелец оставил её (31.10.2026).
+        lead: "AI не заменит инженера, который умеет с ним работать. Освой AI-инжиниринг на практике и стань таким инженером.",
         highlights: [
           "Гайды, видео и задания",
           "Мой менторинг",
@@ -60,7 +44,7 @@ export function landingPage(variant: HeroVariant): ProductPage {
             "Бизнес-логика, Домен, Инфраструктура, Ограничения, Развитие продукта",
             "Роль",
           ),
-          card("Код где придётся", "Модули с границами", "Было"),
+          card("Запутанная кодовая база", "Модули с границами", "Было"),
           card("Проверка глазами", "Тесты и ревью", "Было"),
           card("Каждая сессия с нуля", "Инструкции и ADR", "Было"),
           card("Задача разваливается", "Спецификация и план", "Было"),
