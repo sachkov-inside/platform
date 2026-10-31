@@ -83,6 +83,45 @@ test("Payment Link issued for an unpublished price is quoted at its saved price:
   );
   expect(quote.snapshot.firstPriceKopecks).toBe(180000);
 });
+test("closing a sale also closes a Payment Link issued before the sale opened", async () => {
+  const s = await world.scenario();
+  const save = async (expectedRevision: number, published: boolean) =>
+    value(
+      await s.pricing.manage(world.owner, {
+        operation: "productPrices.save",
+        operationId: randomUUID(),
+        expectedRevision,
+        value: {
+          productId: s.productId,
+          name: "Курс",
+          priceKopecks: 200000,
+          published,
+        },
+      }),
+    );
+  await save(1, false);
+  const link = value(
+    await s.pricing.managePaymentLink(world.owner, {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 2,
+      price: { kind: "discount", percent: 10 },
+      expiresAt: null,
+    }),
+  );
+  await save(2, true);
+  await save(3, false);
+  const other = await world.scenario();
+  expect(
+    await s.pricing.quote(other.buyer, {
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 2,
+      paymentLinkId: link.id,
+    }),
+  ).toMatchObject({ ok: false, error: { code: "not_found" } });
+});
 test("link creation is owner-authorized and exact replay is stable", async () => {
   const s = await world.scenario();
   const command = {
