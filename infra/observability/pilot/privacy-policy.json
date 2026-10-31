@@ -47,6 +47,7 @@
     "/accounts/current/legal-acceptances/terms",
     "/accounts/current/notifications/deliveries",
     "/accounts/current/notifications/preferences",
+    "/accounts/current/permissions",
     "/accounts/current/product-tasks/:code/submissions",
     "/accounts/current/product-tasks/{code}/submissions",
     "/accounts/current/products/:productId/access",

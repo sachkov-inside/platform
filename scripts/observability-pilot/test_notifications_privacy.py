@@ -57,7 +57,7 @@ class NotificationCatalog(unittest.TestCase):
         self.assertEqual(policy['queues'], ['material-assets.cleanup','profile-avatars.cleanup',
             'videos.deletions','web-telemetry.retention','membership-activity.retention','billing.payment-recovery',
             'community.entitlement-delivery','_OTHER'])
-        self.assertEqual(len(policy['routes']),262)
+        self.assertEqual(len(policy['routes']),263)
         for route in ('/authoring/import/materials/publication', '/authoring/import/materials/state', '/authoring/import/tasks/state'):
             self.assertEqual(policy['routes'].count(route),1)
         owner = (pilot.ROOT/'apps/backend/src/infrastructure/observability/technical-telemetry.ts').read_text()

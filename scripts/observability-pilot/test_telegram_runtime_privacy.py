@@ -116,6 +116,8 @@ class TelegramRuntimePrivacyContract(unittest.TestCase):
                          '/billing/admin/payments/{purchaseRef}/order-email'):
             self.assertEqual(projected_policy['routes'].count(addition), 1)
             projected_policy['routes'].remove(addition)
+        self.assertEqual(projected_policy['routes'].count('/accounts/current/permissions'), 1)
+        projected_policy['routes'].remove('/accounts/current/permissions')
         retired = ['billing.subscription-renewal', 'billing.subscription-notices', 'tribute.source-reconciliation']
         for name in retired:
             self.assertNotIn(name, projected_policy['queues'])
