@@ -121,8 +121,41 @@ test("price edits and publication changes leave a Payment Link payable at its sa
     await buyer.payments.purchase(buyer.buyer, buyer.command),
   );
   expect(purchase.snapshot.firstPriceKopecks).toBe(150000);
+  // Цена снята с публикации, но оплата по ссылке уходит в банк.
+  expect(buyer.initCalls()).toBe(1);
+  expect(purchase.paymentUrl).not.toBeNull();
 });
-test("archiving the price closes the sale for its Payment Links", async () => {
+test("a full automatic promotion on the current price leaves a Payment Link active", async () => {
+  const s = await world.scenario();
+  const link = value(
+    await s.pricing.managePaymentLink(world.owner, {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+      price: { kind: "amount", amountKopecks: 150000 },
+      expiresAt: null,
+    }),
+  );
+  value(
+    await s.pricing.manage(world.owner, {
+      operation: "promotions.save",
+      operationId: randomUUID(),
+      value: {
+        id: randomUUID(),
+        name: "Всё бесплатно",
+        percent: 100,
+        code: null,
+        startsAt: "2020-01-01T00:00:00.000Z",
+        endsAt: "2040-01-01T00:00:00.000Z",
+        productIds: [s.productId],
+        usageLimit: null,
+      },
+    }),
+  );
+  expect(value(await s.pricing.paymentLink(link.id)).state).toBe("active");
+});
+test("archiving the Product closes the sale for its Payment Links", async () => {
   const s = await world.scenario();
   const link = value(
     await s.pricing.managePaymentLink(world.owner, {
@@ -134,14 +167,10 @@ test("archiving the price closes the sale for its Payment Links", async () => {
       expiresAt: null,
     }),
   );
-  value(
-    await s.pricing.manage(world.owner, {
-      operation: "productPrices.archive",
-      operationId: randomUUID(),
-      expectedRevision: 1,
-      id: s.productId,
-    }),
-  );
+  await world.db.prisma.product.update({
+    where: { id: s.productId },
+    data: { archivedAt: new Date("2030-01-01T00:00:00Z") },
+  });
   const other = await world.scenario();
   expect(
     await s.pricing.quote(other.buyer, {
@@ -150,8 +179,7 @@ test("archiving the price closes the sale for its Payment Links", async () => {
       priceRevision: 1,
       paymentLinkId: link.id,
     }),
-  ).toMatchObject({ ok: false });
-  expect(value(await s.pricing.paymentLink(link.id)).state).toBe("changed");
+  ).toMatchObject({ ok: false, error: { code: "not_found" } });
 });
 test("link creation is owner-authorized and exact replay is stable", async () => {
   const s = await world.scenario();

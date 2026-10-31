@@ -63,7 +63,7 @@ export const adminStates = {
   "paymentLink.paid": { label: "Оплачена", tone: "positive" },
   "paymentLink.revoked": { label: "Отозвана", tone: "muted" },
   "paymentLink.expired": { label: "Срок истёк", tone: "muted" },
-  "paymentLink.changed": { label: "Цена изменилась", tone: "muted" },
+  "paymentLink.changed": { label: "Продажа закрыта", tone: "muted" },
   "promotion.active": { label: "Действует", tone: "positive" },
   "promotion.scheduled": { label: "Запланирована", tone: "neutral" },
   "promotion.ended": { label: "Завершилась", tone: "muted" },

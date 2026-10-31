@@ -1032,10 +1032,12 @@ export class BillingPayments {
         typeof productId === "string"
           ? await tx.billingProductPrice.findUnique({ where: { productId } })
           : null;
+      // Покупка по ссылке на оплату не зависит от публикации цены: снятие с публикации убирает
+      // цену только с витрины. Архив цены и продукта закрывает продажу на всех путях.
       if (
         current === null ||
         current.archived ||
-        !current.published ||
+        (!current.published && snapshot.individualPayment === undefined) ||
         !(await productSaleAvailable(
           this.dependencies.contentCatalog,
           snapshot,

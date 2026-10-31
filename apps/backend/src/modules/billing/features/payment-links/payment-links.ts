@@ -227,7 +227,7 @@ export async function readPaymentLinkInTransaction(
     snapshot.paymentOption.id,
     now,
     undefined,
-    { allowUnpublished: true },
+    { allowUnpublished: true, withoutPromotions: true },
   );
   return {
     ok: true,
@@ -306,9 +306,9 @@ export async function selectPaymentLinkPrice(
     return failure("not_found");
   switch (result.value.state) {
     case "active":
-      // Ссылка продаёт по сохранённой цене независимо от правок и публикации текущей цены: снятие
-      // с публикации только убирает цену с витрины. Архив цены уже дал состояние `changed`, архив
-      // продукта отсекает проверка продажи при расчёте и оплате.
+      // Ссылка продаёт по сохранённой цене независимо от правок, публикации и акций текущей цены:
+      // снятие с публикации только убирает цену с витрины. Архив цены или смена состава уже дали
+      // состояние `changed`, архив продукта отсекает проверка продажи при расчёте и оплате.
       return { ok: true, value: result.value.snapshot };
     case "pending":
     case "unknown":
@@ -402,6 +402,7 @@ export async function listPaymentLinks(
       });
       const prices = await selectPricesForOptions(tx, options, now, undefined, {
         allowUnpublished: true,
+        withoutPromotions: true,
       });
       const items = page.map((row) => {
         const snapshot = snapshots.get(row.id);
