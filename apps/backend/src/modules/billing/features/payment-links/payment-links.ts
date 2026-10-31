@@ -11,6 +11,7 @@ import {
   type Prisma,
 } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
+import type { CoverageCatalog } from "../../../account-rights/index.js";
 import {
   discountedPrice,
   failure,
@@ -22,6 +23,10 @@ import {
 } from "../../domain/pricing.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
+import {
+  productSaleAvailable,
+  productsSaleAvailable,
+} from "../../shared/product-sale-available.js";
 import {
   decodeListCursor,
   encodeListCursor,
@@ -60,6 +65,7 @@ type Dependencies = {
   readonly prisma: BillingPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission">;
   readonly sale: SaleCapability;
+  readonly contentCatalog?: Pick<CoverageCatalog, "resolve">;
 };
 
 /** Owner commands and purchase reservation share the pricing lock. Link id is a random UUID bearer capability. */
@@ -168,7 +174,12 @@ export async function managePaymentLink(
               data: { revokedAt: now, revision: { increment: 1 } },
             });
         }
-        const view = await readPaymentLinkInTransaction(tx, id, now);
+        const view = await readPaymentLinkInTransaction(
+          tx,
+          id,
+          now,
+          dependencies.contentCatalog,
+        );
         if (!view.ok) return view;
         await tx.billingPricingCommand.create({
           data: {
@@ -191,6 +202,7 @@ export async function managePaymentLink(
 
 export async function readPaymentLink(
   prisma: BillingPrismaClient,
+  catalog: Pick<CoverageCatalog, "resolve"> | undefined,
   id: string,
   now: Date,
 ): Promise<
@@ -200,7 +212,7 @@ export async function readPaymentLink(
   try {
     return await prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
-      return readPaymentLinkInTransaction(tx, id, now);
+      return readPaymentLinkInTransaction(tx, id, now, catalog);
     });
   } catch (error) {
     return dependencyFailure(
@@ -211,10 +223,11 @@ export async function readPaymentLink(
   }
 }
 
-export async function readPaymentLinkInTransaction(
+async function readPaymentLinkInTransaction(
   tx: BillingPrisma,
   id: string,
   now: Date,
+  catalog: Pick<CoverageCatalog, "resolve"> | undefined,
 ): Promise<PricingResult<PaymentLinkView, "not_found">> {
   const row = await tx.billingPaymentLink.findUnique({ where: { id } });
   if (row === null) return failure("not_found");
@@ -236,6 +249,7 @@ export async function readPaymentLinkInTransaction(
       snapshot,
       reserved?.state ?? null,
       current.ok ? current.value : null,
+      await productSaleAvailable(catalog, snapshot, transactionHandle(tx)),
       now,
     ),
   };
@@ -249,6 +263,7 @@ function projectPaymentLink(
   snapshot: PriceSnapshot,
   reservationState: string | null,
   current: PriceSnapshot | null,
+  productAvailable: boolean,
   now: Date,
 ): PaymentLinkView {
   let state: PaymentLinkView["state"] =
@@ -263,9 +278,11 @@ function projectPaymentLink(
             : row.expiresAt !== null && row.expiresAt <= now
               ? "expired"
               : "active";
+  // Продажу по ссылке закрывает архив продукта, архив цены или смена её состава.
   if (
     state === "active" &&
-    (current === null ||
+    (!productAvailable ||
+      current === null ||
       canonicalJson({
         benefits: current.offer.benefits,
         benefitPeriods: current.offer.benefitPeriods,
@@ -294,28 +311,36 @@ export async function selectPaymentLinkPrice(
   id: string,
   optionId: string,
   now: Date,
+  catalog: Pick<CoverageCatalog, "resolve"> | undefined,
 ): Promise<
   PricingResult<
     PriceSnapshot,
     "not_found" | "quote_changed" | "reservation_conflict"
   >
 > {
-  const result = await readPaymentLinkInTransaction(tx, id, now);
+  const result = await readPaymentLinkInTransaction(tx, id, now, catalog);
   if (!result.ok) return result;
   if (result.value.snapshot.paymentOption.id !== optionId)
     return failure("not_found");
   switch (result.value.state) {
     case "active":
       // Ссылка продаёт по сохранённой цене независимо от правок, публикации и акций текущей цены:
-      // снятие с публикации только убирает цену с витрины. Архив цены или смена состава уже дали
-      // состояние `changed`, архив продукта отсекает проверка продажи при расчёте и оплате.
+      // снятие с публикации только убирает цену с витрины. Архив цены или продукта и смена
+      // состава уже дали состояние `changed`.
       return { ok: true, value: result.value.snapshot };
     case "pending":
     case "unknown":
     case "paid":
       return failure("reservation_conflict");
     case "changed":
-      return failure("quote_changed");
+      // Архивный продукт отвечает not_found, как покупка без ссылки.
+      return (await productSaleAvailable(
+        catalog,
+        result.value.snapshot,
+        transactionHandle(tx),
+      ))
+        ? failure("quote_changed")
+        : failure("not_found");
     case "revoked":
     case "expired":
       return failure("not_found");
@@ -379,9 +404,10 @@ export async function listPaymentLinks(
       });
       const page = rows.slice(0, limit);
       const last = page.at(-1);
-      const snapshots = new Map(
-        page.map((row) => [row.id, priceSnapshotSchema.parse(row.snapshot)]),
-      );
+      const links = page.map((row) => ({
+        row,
+        snapshot: priceSnapshotSchema.parse(row.snapshot),
+      }));
       const reservations = await tx.billingPromoReservation.findMany({
         where: {
           paymentLinkId: { in: page.map((row) => row.id) },
@@ -393,9 +419,7 @@ export async function listPaymentLinks(
         reservations.map((row) => [row.paymentLinkId, row.state]),
       );
       const optionIds = [
-        ...new Set(
-          [...snapshots.values()].map((snapshot) => snapshot.paymentOption.id),
-        ),
+        ...new Set(links.map(({ snapshot }) => snapshot.paymentOption.id)),
       ];
       const options = await tx.billingProductPrice.findMany({
         where: { productId: { in: optionIds } },
@@ -404,20 +428,23 @@ export async function listPaymentLinks(
         allowUnpublished: true,
         withoutPromotions: true,
       });
-      const items = page.map((row) => {
-        const snapshot = snapshots.get(row.id);
-        if (snapshot === undefined)
-          throw new Error("Payment link snapshot missing");
+      const available = await productsSaleAvailable(
+        dependencies.contentCatalog,
+        links.map(({ snapshot }) => snapshot),
+        transactionHandle(tx),
+      );
+      const items = links.map(({ row, snapshot }, index) => {
         const current = prices.get(snapshot.paymentOption.id);
         return projectPaymentLink(
           row,
           snapshot,
           reservationStates.get(row.id) ?? null,
           current?.ok === true ? current.value : null,
+          available[index] === true,
           now,
         );
       });
-      // «active» и «changed» различает только сравнение с текущей ценой: страница кандидатов
+      // «active» и «changed» различают текущие цена и продукт: страница кандидатов
       // может стать короче, а продолжение идёт по последней прочитанной строке.
       return {
         ok: true as const,
