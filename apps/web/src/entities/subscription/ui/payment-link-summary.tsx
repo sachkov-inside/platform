@@ -1,7 +1,5 @@
-import {
-  oneTimePriceShares,
-  oneTimePurchaseTerms,
-} from "@inside/legal/purchase-terms";
+import Link from "next/link";
+import { legalDocumentPath } from "@/shared/routing/public-page-path";
 import type { PriceSnapshot } from "../model/billing-contract";
 import { oneTimeOfferTerms } from "../model/offer-terms";
 import { formatKopecks, formatTermMonths } from "../model/presentation";
@@ -19,7 +17,6 @@ export function PaymentLinkSummary({
   const terms = oneTimeOfferTerms(snapshot);
   const term = (months: number | null) =>
     months === null ? "без ограничения срока" : formatTermMonths(months);
-  const shares = oneTimePriceShares(snapshot.firstPriceKopecks);
   const base =
     snapshot.individualPayment?.basePriceKopecks ??
     snapshot.paymentOption.priceKopecks;
@@ -45,32 +42,12 @@ export function PaymentLinkSummary({
           <li>Чат продукта {term(terms.chatMonths)}</li>
         )}
       </ul>
-      <details className="text-sm leading-6">
-        <summary className="min-h-11 cursor-pointer py-3 font-semibold">
-          Все условия покупки
-        </summary>
-        <div className="space-y-3 py-3">
-          <p>
-            {terms.supportMonths === undefined
-              ? "Сопровождение не входит."
-              : "Сопровождение автора по условиям оферты."}{" "}
-            {terms.chatMonths === undefined
-              ? "Чат продукта не входит."
-              : "Окончание сопровождения не сокращает срок материалов и чата."}
-          </p>
-          <p>
-            {terms.supportMonths === undefined
-              ? `Вся цена ${formatKopecks(snapshot.firstPriceKopecks)} относится к материалам${terms.chatMonths === undefined ? "" : " и чату"}.`
-              : `Материалы${terms.chatMonths === undefined ? "" : " и чат"} — ${formatKopecks(shares.materialsAndChatKopecks)}. Сопровождение — ${formatKopecks(shares.supportKopecks)}.`}
-          </p>
-          <p>
-            Сроки начинаются после подтверждения оплаты. Расчётный срок для
-            возврата за бессрочный доступ —{" "}
-            {oneTimePurchaseTerms.unlimitedPartRefundMonths} месяцев. Он не
-            ограничивает срок доступа.
-          </p>
-        </div>
-      </details>
+      <Link
+        className="inline-flex min-h-11 items-center text-sm text-action underline underline-offset-4"
+        href={legalDocumentPath("purchase")}
+      >
+        Все условия покупки в оферте
+      </Link>
     </section>
   );
 }

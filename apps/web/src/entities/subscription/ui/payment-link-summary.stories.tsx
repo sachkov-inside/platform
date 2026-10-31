@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 import { individualSnapshot } from "@/storybook/payment-links.fixtures";
 import { PaymentLinkSummary } from "./payment-link-summary";
 const meta = {
@@ -15,12 +15,9 @@ export const PriceAndTerms: Story = {
       within(canvasElement).getByText(/26\s?100\s?₽/u),
     ).toBeVisible();
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByText("Все условия покупки"));
     await expect(
-      canvas.getByText(/Сопровождение автора по условиям оферты/u),
-    ).toBeVisible();
-    await expect(
-      canvas.queryByText(/Сопровождение автора[^.]*3 месяца/u),
-    ).not.toBeInTheDocument();
+      canvas.getByRole("link", { name: "Все условия покупки в оферте" }),
+    ).toHaveAttribute("href", "/legal/purchase");
+    await expect(canvas.queryByText(/Сопровождение/u)).not.toBeInTheDocument();
   },
 };

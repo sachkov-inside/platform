@@ -108,13 +108,10 @@ test("individual payment link shows its fixed price and terms, revokes across op
     await expect(
       buyer.getByRole("button", { name: "Войти для покупки" }),
     ).toBeVisible();
-    await buyer.getByText("Все условия покупки", { exact: true }).click();
     await expect(
-      buyer.getByText(/Сопровождение автора по условиям оферты/),
-    ).toBeVisible();
-    await expect(
-      buyer.getByText(/Сопровождение автора[^.]*3 месяца/),
-    ).toHaveCount(0);
+      buyer.getByRole("link", { name: "Все условия покупки в оферте" }),
+    ).toHaveAttribute("href", "/legal/purchase");
+    await expect(buyer.getByText(/Сопровождение автора/)).toHaveCount(0);
     expect(
       (
         await new AxeBuilder({ page: buyer })
