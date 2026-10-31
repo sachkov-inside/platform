@@ -287,7 +287,13 @@ continuation для того же `purchaseRef` и становится `null` �
 
 - `payments.list` отбирает платежи по `accountId`, `productId` (продукт из оплаченного снимка;
   историческая покупка без продукта в снимке не выбирается), `state` или `states` (до семи без
-  повторов; вместе с `state` не принимается), `kind` и периоду создания `[from, to)`;
+  повторов; вместе с `state` не принимается), `kind` и периоду создания `[from, to)`.
+  `events: "review"` ([#1928](https://github.com/sachkov-inside/platform/issues/1928)) оставляет
+  покупки с событием для проверки владельцем: `duplicate_payment_review`,
+  `payment_confirmed_after_failure` или `superseded_by_confirmed_payment`. С выпуском
+  [#1922](https://github.com/sachkov-inside/platform/issues/1922) к ним добавится
+  `bank_payment_absent`, а с выпуском [#1923](https://github.com/sachkov-inside/platform/issues/1923)
+  неподтверждённая покупка с `bank_cancel_requested` без `bank_cancel_confirmed`;
 - `paymentLinks.list` отдаёт ссылки на оплату от новых к старым с фильтрами `productId` и видимого
   состояния `state`; курсор действует только в своём фильтре;
 - `promotions.list` отдаёт скидки владельца от поздних к ранним по началу с фильтрами `archived`,
@@ -656,8 +662,12 @@ Web читает поток одного Product через `GET billing/cohorts
 Раздел кабинета «Покупки» принадлежит [#494](https://github.com/sachkov-inside/platform/issues/494).
 До него разовая покупка и её чек видны в разделе «История → Платежи» вместе с остальными платежами.
 
-Одна открытая попытка оплаты на Account сохраняется: разовая покупка и покупка подписки делят тот
-же резерв цены, поэтому вторая одновременная попытка получает `payment_in_progress`.
+С 31.10.2026 (#1924, решение владельца в #1921) у Account одна открытая попытка оплаты на каждый
+продукт, а не одна на все продукты. Ключом резерва цены служит продукт из сохранённого снимка
+расчёта. Открытая покупка продукта A не мешает оплатить продукт B. Повторная покупка того же
+продукта продолжает открытую попытку. Если продолжить её нельзя, покупка получает
+`payment_in_progress`. Исторический резерв без продукта в снимке (предложения и подписки до 0108)
+ничего не ограничивает.
 
 ## Текущая поставка #507
 
@@ -1038,7 +1048,7 @@ Workshop отменён [ADR 0033](https://github.com/sachkov-inside/platform/bl
 |---|---|
 | Offer/вариант | Стабильный ID и revision; архивирование сохраняет старые snapshots |
 | Subscription | Не более одного незавершённого/действующего subscription lifecycle на Account для текущего предложения Inside; lifetime — независимый grant |
-| Purchase command | Account + operationId; та же нагрузка повторяется, другая конфликтует; одна открытая попытка покупки даже при другом ID из второй вкладки |
+| Purchase command | Account + operationId; та же нагрузка повторяется, другая конфликтует; одна открытая попытка покупки продукта даже при другом ID из второй вкладки (#1924) |
 | Period/attempt | Subscription + logical period; только одна potentially sent attempt на период; новая попытка после unknown не создаётся |
 | Provider reference | Environment + provider + terminalRef + PaymentId; чужой terminal/Account/order не сопоставляется |
 | Webhook/event receipt | Stable event/application key и fingerprint; подпись проверяется до dedupe acceptance |
@@ -1114,7 +1124,8 @@ Reserve требует подтверждённые min/max суммы от term
 Успешный reserve фиксирует условия даже при последующей архивации/редактировании каталога.
 Повтор purchaseRef с той же парой Account/quoteRef возвращает исходный снимок; другая пара
 конфликтует. Один quote не резервируется для двух покупок. Одна открытая pricing reservation
-на Account ограничивает две вкладки, но не заменяет constraint действующей подписки в #407.
+на Account и продукт ограничивает две вкладки (#1924), но не заменяет constraint действующей
+подписки в #407.
 
 Перед отправкой #407 сохраняет свой durable attempt и переводит reservation `reserved → sent`;
 этот переход или его replay **не является самостоятельным разрешением повторить provider I/O**.

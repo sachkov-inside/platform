@@ -3,6 +3,7 @@ import { transactionHandle } from "../../../../infrastructure/prisma/transaction
 import { productSaleAvailable } from "../../shared/product-sale-available.js";
 import { z } from "zod";
 import { canonicalJson } from "../../../../infrastructure/contracts/canonical-digest.js";
+import { isPostgresUniqueViolation } from "../../../../infrastructure/content-authoring/postgres-error-mapping.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
@@ -67,12 +68,25 @@ export async function reservePurchase(
       },
     );
   } catch (error) {
+    if (isOpenProductReservationConflict(error))
+      return failure("reservation_conflict");
     return dependencyFailure(
       { module: "billing", operation: "reservePurchase" },
       error,
       failure("dependency_unavailable"),
     );
   }
+}
+
+/**
+ * The reservation insert met another open reservation of the same Account and Product (#1924).
+ * PostgreSQL has aborted the transaction by then, so only its caller can answer, after rollback.
+ */
+export function isOpenProductReservationConflict(error: unknown): boolean {
+  return isPostgresUniqueViolation(
+    error,
+    "billing_one_open_product_reservation",
+  );
 }
 
 // Same billing-owned transaction as the durable purchase; never nests a transaction.

@@ -53,7 +53,10 @@ import {
   type PaymentResult,
   type PurchaseStatus,
 } from "../../features/purchase-product/purchase-product.contract.js";
-import { reservePurchaseInTransaction } from "../../features/reserve-purchase/reserve-purchase.js";
+import {
+  isOpenProductReservationConflict,
+  reservePurchaseInTransaction,
+} from "../../features/reserve-purchase/reserve-purchase.js";
 import {
   bankTimeoutMs,
   unpaidFormStatuses,
@@ -406,6 +409,9 @@ export class BillingPayments {
       }
       return prepared;
     } catch (error) {
+      // Another open purchase of this Product holds the reservation: an answer, not a failure.
+      if (isOpenProductReservationConflict(error))
+        return paymentFailure("payment_in_progress");
       return dependencyFailure(
         { module: "billing", operation: "purchase" },
         error,

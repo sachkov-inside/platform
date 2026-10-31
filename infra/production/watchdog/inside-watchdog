@@ -264,6 +264,45 @@ select 'web_telemetry_retention', case when exists (
 ) then 0 else 1 end;
 SQL
 
+# События оплаты, которые ждут решения владельца (#1928). Вторая оплата, подтверждение после отказа,
+# снятие попытки подтверждённой оплатой и покупка без платежа в банке считаются за сутки: каждое новое
+# событие поднимает число и даёт строку «Хуже». Отмена в банке не закрыта, если за 30 минут после
+# bank_cancel_requested нет bank_cancel_confirmed и покупка не подтверждена. Форма банка живёт 24
+# часа, поэтому запрос старше 48 часов уже не держит деньги покупателя. Всплеск: больше 3 неуспешных
+# разовых покупок без PaymentId у одного Account за час; строка считает аккаунты. bank_payment_absent
+# пишет #1922, события отмены пишет #1923; пока billing не пишет событие этого вида, строка равна нулю.
+read -r -d '' payment_query <<'SQL' || true
+select 'payment_duplicate', count(*) from billing.payment_events
+ where kind = 'duplicate_payment_review' and recorded_at > now() - interval '24 hours'
+union all
+select 'payment_after_failure', count(*) from billing.payment_events
+ where kind = 'payment_confirmed_after_failure' and recorded_at > now() - interval '24 hours'
+union all
+select 'payment_superseded', count(*) from billing.payment_events
+ where kind = 'superseded_by_confirmed_payment' and recorded_at > now() - interval '24 hours'
+union all
+select 'payment_bank_absent', count(*) from billing.payment_events
+ where kind = 'bank_payment_absent' and recorded_at > now() - interval '24 hours'
+union all
+select 'payment_cancel_open', count(*) from billing.payment_events requested
+  join billing.purchases purchase on purchase.id = requested.purchase_ref
+ where requested.kind = 'bank_cancel_requested'
+   and purchase.state <> 'confirmed'
+   and requested.recorded_at < now() - interval '30 minutes'
+   and requested.recorded_at > now() - interval '48 hours'
+   and not exists (
+     select 1 from billing.payment_events closed
+      where closed.purchase_ref = requested.purchase_ref and closed.kind = 'bank_cancel_confirmed')
+union all
+select 'payment_failed_burst', count(*) from (
+  select account_id from billing.purchases
+   where kind = 'one_time' and state = 'failed' and payment_id is null
+     and created_at > now() - interval '1 hour'
+   group by account_id
+  having count(*) > 3
+) burst;
+SQL
+
 # Вступление в группу в базе Telegram: операция сообщества завершилась failed или unknown за 10 минут.
 read -r -d '' telegram_query <<'SQL' || true
 select 'community_operations', count(*) from community_operations
@@ -285,7 +324,7 @@ read_only_query() {
 
 check_database() {
   local rows name value
-  if ! rows="$(read_only_query inside "$platform_query")"; then
+  if ! rows="$(read_only_query inside "$platform_query"$'\n'"$payment_query")"; then
     hold db.
     observe watchdog.database 2 "Сторож не может прочитать базу Platform"
     return
@@ -304,6 +343,12 @@ check_database() {
       web_telemetry_dropped) observe db.web_telemetry_dropped 1 "Отброшено метрик и ошибок web за сутки: $value" "$value" ;;
       web_telemetry_retention) observe db.web_telemetry_retention 1 "Очистка telemetry не завершалась за 26 часов" ;;
       billing_queue_idle) observe db.billing_queue 2 "Очередь billing.payment-recovery не завершала задачи 5 минут" ;;
+      payment_duplicate) observe db.payment_duplicate 1 "Вторая оплата (duplicate_payment_review) за сутки: $value" "$value" ;;
+      payment_after_failure) observe db.payment_after_failure 1 "Подтверждение банка после отказа (payment_confirmed_after_failure) за сутки: $value" "$value" ;;
+      payment_superseded) observe db.payment_superseded 1 "Попытки сняты подтверждённой оплатой (superseded_by_confirmed_payment) за сутки: $value" "$value" ;;
+      payment_bank_absent) observe db.payment_bank_absent 1 "Покупки без платежа в банке (bank_payment_absent) за сутки: $value" "$value" ;;
+      payment_cancel_open) observe db.payment_cancel_open 1 "Отмена в банке не подтверждена дольше 30 минут: $value" "$value" ;;
+      payment_failed_burst) observe db.payment_failed_burst 1 "Аккаунтов с более чем 3 неуспешными покупками без PaymentId за час: $value" "$value" ;;
     esac
   done <<<"$rows"
   if ! rows="$(read_only_query inside_telegram "$telegram_query")"; then
@@ -414,16 +459,22 @@ check_logs() {
     fi
     case "$service" in
       api)
+        # Банк ждёт ответ 200 с «OK»; любой другой ответ за час значит отклонённое уведомление (#1928).
+        # Окно в час держит сигнал, пока владелец разбирается; новый отказ поднимает число.
         # Caddy removes the probe header from non-loopback peers. Only its expected 400 is exempt.
-        count="$(jq --raw-input --slurp '[split("\n")[] | fromjson? |
+        if ! logs="$(docker logs --since 1h "$name" 2>&1)"; then
+          hold log.bank_webhook
+          continue
+        fi
+        count="$({ grep -F '/billing/tbank/notification' <<<"$logs" || true; } | jq --raw-input --slurp '[split("\n")[] | fromjson? |
           select(type == "object") |
           select(.event == "request_completed" and .route == "/billing/tbank/notification") |
           select((.statusCode | type) == "number") |
-          select(.statusCode >= 400 and .statusCode < 600) |
+          select(.statusCode != 200) |
           select((.method == "POST" and .probe == "production_verify" and .statusCode == 400) | not)
-          ] | length' <<<"$logs")"
+          ] | length')"
         if (( count > 0 )); then
-          observe log.bank_webhook 1 "Webhook банка отклонён: $count за 5 минут"
+          observe log.bank_webhook 1 "Уведомлений банка с ответом не 200: $count за час" "$count"
         fi
         ;;
       web)

@@ -58,7 +58,106 @@ describe("production watchdog", () => {
           "",
         ].join("\n"),
       );
-      assert.match(assertRun(fixture), /Webhook банка отклонён: 3 за 5 минут/u);
+      assert.match(
+        assertRun(fixture),
+        /Уведомлений банка с ответом не 200: 3 за час/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("signals bank notifications without 200 for an hour and reports new ones", () => {
+    const fixture = createFixture();
+    const rejected =
+      '{"event":"request_completed","method":"POST","route":"/billing/tbank/notification","statusCode":302}\n';
+    try {
+      fixture.fake("logs-inside-platform-production-api-1", "");
+      fixture.fake("logs-inside-platform-production-api-1-1h", rejected);
+      assert.match(
+        assertRun(fixture),
+        /Отказ: Уведомлений банка с ответом не 200: 1 за час/u,
+      );
+      fixture.fake(
+        "logs-inside-platform-production-api-1-1h",
+        rejected.repeat(2),
+      );
+      assert.match(
+        assertRun(fixture, now + 60),
+        /Хуже: Уведомлений банка с ответом не 200: 2 за час/u,
+      );
+      fixture.fake("logs-fail-inside-platform-production-api-1-1h", "");
+      assert.equal(assertRun(fixture, now + 90), "");
+      rmSync(
+        resolve(
+          fixture.root,
+          "fake/logs-fail-inside-platform-production-api-1-1h",
+        ),
+      );
+      fixture.fake("logs-inside-platform-production-api-1-1h", "");
+      assert.match(
+        assertRun(fixture, now + 120),
+        /Восстановлено: Уведомлений банка с ответом не 200/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("signals payment events and failed purchase bursts within one run", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "sql",
+        healthySql +
+          [
+            "payment_duplicate|1",
+            "payment_after_failure|1",
+            "payment_superseded|2",
+            "payment_bank_absent|3",
+            "payment_cancel_open|1",
+            "payment_failed_burst|1",
+            "",
+          ].join("\n"),
+      );
+      const failure = assertRun(fixture);
+      for (const expected of [
+        /Отказ: Вторая оплата \(duplicate_payment_review\) за сутки: 1/u,
+        /Отказ: Подтверждение банка после отказа \(payment_confirmed_after_failure\) за сутки: 1/u,
+        /Отказ: Попытки сняты подтверждённой оплатой \(superseded_by_confirmed_payment\) за сутки: 2/u,
+        /Отказ: Покупки без платежа в банке \(bank_payment_absent\) за сутки: 3/u,
+        /Отказ: Отмена в банке не подтверждена дольше 30 минут: 1/u,
+        /Отказ: Аккаунтов с более чем 3 неуспешными покупками без PaymentId за час: 1/u,
+      ]) {
+        assert.match(failure, expected);
+      }
+      fixture.fake(
+        "sql",
+        healthySql + "payment_duplicate|2\npayment_after_failure|1\n",
+      );
+      const next = assertRun(fixture, now + 60);
+      assert.match(
+        next,
+        /Хуже: Вторая оплата \(duplicate_payment_review\) за сутки: 2/u,
+      );
+      assert.match(next, /Восстановлено: Отмена в банке не подтверждена/u);
+      assert.match(next, /Восстановлено: Аккаунтов с более чем 3/u);
+      assert.doesNotMatch(next, /Подтверждение банка после отказа/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("stays silent when billing reports no payment events", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "sql",
+        healthySql +
+          "payment_duplicate|0\npayment_after_failure|0\npayment_superseded|0\n" +
+          "payment_bank_absent|0\npayment_cancel_open|0\npayment_failed_burst|0\n",
+      );
+      assert.equal(assertRun(fixture), "");
     } finally {
       fixture.cleanup();
     }
@@ -207,7 +306,7 @@ describe("production watchdog", () => {
         /Уведомлений в outbox дольше 10 минут: 3/u,
         /Бэкап incr завершился с результатом exit-code/u,
         /Диск занят на 90%/u,
-        /Webhook банка отклонён: 1 за 5 минут/u,
+        /Уведомлений банка с ответом не 200: 1 за час/u,
         /api: operator_attention в журнале, 1 за 5 минут/u,
       ]) {
         assert.match(messages, expected);
@@ -595,7 +694,12 @@ case "$1" in
     ;;
   logs)
     name="\${*: -1}"
-    [[ -f "$fakes/logs-$name" ]] && cat "$fakes/logs-$name"
+    [[ -f "$fakes/logs-fail-$name-$3" ]] && exit 1
+    if [[ -f "$fakes/logs-$name-$3" ]]; then
+      cat "$fakes/logs-$name-$3"
+    elif [[ -f "$fakes/logs-$name" ]]; then
+      cat "$fakes/logs-$name"
+    fi
     ;;
 esac
 exit 0

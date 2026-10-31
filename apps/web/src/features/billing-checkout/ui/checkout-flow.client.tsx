@@ -89,6 +89,13 @@ function newSelection(key: string): CheckoutSelection {
   };
 }
 
+/**
+ * Сервер отвечает на покупку `payment_in_progress`, когда незавершённую покупку этого продукта
+ * нельзя продолжить. Покупки других продуктов она не держит (#1924), поэтому текст называет продукт.
+ */
+const productPurchaseInProgress =
+  "Покупка этого продукта уже начата и ещё не завершена. Проверьте раздел «Покупки» в кабинете. Новая покупка не создаётся.";
+
 /** Расчёт принадлежит выбранным условиям; команда оплаты переживает смену выбора. */
 export function CheckoutFlow({
   snapshot,
@@ -216,7 +223,11 @@ export function CheckoutFlow({
           setAttempt(null);
           completeOperation("purchase");
         }
-        setPaymentError(billingErrorMessage(result.code));
+        setPaymentError(
+          result.code === "payment_in_progress"
+            ? productPurchaseInProgress
+            : billingErrorMessage(result.code),
+        );
         if (result.code === "existing_access")
           updateSelection(identity, { existingAccess: true });
         if (result.code === "legacy_review_required")

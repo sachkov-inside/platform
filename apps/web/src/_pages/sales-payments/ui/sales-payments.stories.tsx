@@ -240,6 +240,7 @@ const filteredQuery: PaymentsQuery = {
   productId: paymentProducts[1]?.id ?? "",
   from: "2026-10-01",
   to: "2026-10-20",
+  events: "review",
 };
 
 export const FilteredNoResults: Story = {
@@ -263,10 +264,14 @@ export const FilteredNoResults: Story = {
       "Не прошёл",
       "Разработка с агентами",
       "С 1 окт. 2026 по 20 окт. 2026",
+      "Есть события для проверки",
     ]);
     await expect(page.getByRole("combobox", { name: "Продукт" })).toHaveValue(
       "Разработка с агентами",
     );
+    await expect(
+      page.getByRole("combobox", { name: "События оплаты" }),
+    ).toHaveTextContent("Есть события для проверки");
     await userEvent.click(
       page.getByRole("button", { name: "Сбросить фильтры" }),
     );

@@ -168,6 +168,54 @@ describe("payments of one person (#1717)", () => {
   });
 });
 
+describe("payments with events for the owner's review (#1928)", () => {
+  it("keeps events=review in the address and sends it to payments.list", () => {
+    const chosen: PaymentsQuery = { states: ["failed"], events: "review" };
+    expect(serializePaymentsQuery(chosen)).toBe("state=failed&events=review");
+    expect(query("state=failed&events=review")).toEqual(chosen);
+    expect(query("events=all")).toEqual(emptyPaymentsQuery);
+    expect(hasPaymentsFilters({ states: [], events: "review" })).toBe(true);
+    expect(paymentsListRequest(chosen)).toEqual({
+      limit: 50,
+      states: ["failed"],
+      events: "review",
+    });
+    const request = paymentsListRequest(chosen);
+    expect(
+      parsePaymentsListRequest(
+        new URLSearchParams(serializePaymentsListRequest(request)),
+      ),
+    ).toEqual(request);
+    expect(
+      parsePaymentsListRequest(new URLSearchParams("events=all")),
+    ).toBeNull();
+  });
+
+  it("names the filter in a chip whose removal keeps the other filters", () => {
+    const chosen: PaymentsQuery = {
+      states: [],
+      productId,
+      events: "review",
+      cursor,
+    };
+    expect(
+      paymentsFilterChips(chosen, { kind: "pending" }).find(
+        (chip) => chip.id === "events",
+      ),
+    ).toEqual({
+      id: "events",
+      label: "Есть события для проверки",
+      next: { states: [], productId },
+    });
+    expect(
+      withPaymentsFilter(
+        { states: [], cursor },
+        { key: "events", value: "review" },
+      ),
+    ).toEqual({ states: [], events: "review" });
+  });
+});
+
 describe("authoring addresses encode their identifiers (#1717)", () => {
   it("encodes the account and the purchase reference as one path segment", () => {
     expect(authoringPersonHref("a/b?c")).toBe("/authoring/people/a%2Fb%3Fc");
