@@ -1010,7 +1010,7 @@ test("uses the selected Product order for a shared Material and leaves standalon
 test("opens a direct link to a sole-course Material inside that course and leaves a shared Material standalone", async ({
   page,
 }) => {
-  // При двух курсах Reader курс не выбирает.
+  // Урок одного курса открывается в этом курсе: панель урока ведёт к предыдущему шагу программы.
   await page.goto("/materials/demo-295-finalnyy-gayd");
   const directPrevious = page.locator(
     '[data-product-reader-bar] a[aria-label="Предыдущий урок"]',
@@ -1028,6 +1028,7 @@ test("opens a direct link to a sole-course Material inside that course and leave
       page.url(),
     ).pathname,
   ).toBe("/products/demo-product-harness/programme");
+  // При двух курсах Reader курс не выбирает.
   await page.goto("/materials/demo-295-obshchiy-gayd");
   await expect(
     page.getByRole("heading", { name: "Demo #295 · Общий гайд" }),
