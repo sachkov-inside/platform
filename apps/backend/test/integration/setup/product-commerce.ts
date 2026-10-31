@@ -178,6 +178,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       status = "NEW",
       initCalls = 0,
       timeout = false,
+      formAddress = "https://securepay.tinkoff.ru/test",
       stateCalls = 0,
       cancelFailures = 0,
       initGate: BankGate | undefined,
@@ -240,7 +241,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
             OrderId: created.orderId,
             PaymentId: created.paymentId,
           }),
-          PaymentURL: "https://securepay.tinkoff.ru/test",
+          PaymentURL: formAddress,
         });
       }
       if (url.endsWith("/CheckOrder"))
@@ -341,6 +342,14 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       paymentId: () => paymentId,
       loseInit: () => {
         timeout = true;
+      },
+      /** Следующие Init снова доходят до Inside с ответом банка. */
+      answerInit: () => {
+        timeout = false;
+      },
+      /** Адрес формы оплаты в ответе Init: например, адрес вне `formOrigins` терминала. */
+      setFormAddress: (address: string) => {
+        formAddress = address;
       },
       bank,
       event,

@@ -46,3 +46,14 @@ export const retirementReasonSchema = z.enum([
   "unsupported_attempt",
 ]);
 export type RetirementReason = z.infer<typeof retirementReasonSchema>;
+
+/**
+ * Почему Inside сняла покупку до оплаты, как её видит покупатель: одна из причин снятия до
+ * отправки в банк или `form_address_lost`. Во втором случае Init ушёл, но адреса формы оплаты у
+ * Inside нет: ответ Init потерян или адрес не прошёл проверку `formOrigins` (#1926). Сверка
+ * отменила форму в банке, деньги не списаны.
+ */
+export const purchaseRetirementReasonSchema = z.enum([
+  ...retirementReasonSchema.options,
+  "form_address_lost",
+]);

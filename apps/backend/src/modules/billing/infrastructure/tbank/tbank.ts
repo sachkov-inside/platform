@@ -7,6 +7,7 @@ import {
 } from "node:crypto";
 import { z } from "zod";
 import type { TbankConfig } from "../../../../config/tbank-config.js";
+import { writeLog } from "../../../../infrastructure/observability/index.js";
 
 export const bankTimeoutMs = 10_000;
 const reference = z.union([z.string().min(1).max(64), z.int().nonnegative()]);
@@ -140,18 +141,33 @@ export function tbankToken(
     .digest("hex");
 }
 /** Форма оплаты открывается в браузере, поэтому её origin сверяется с контуром терминала. */
+/**
+ * Отклонённый адрес значит, что покупатель не откроет форму, а `formOrigins` расходится с
+ * банком. Строка журнала зовёт оператора (#1926). Она называет только origin: в пути и
+ * параметрах адреса может быть ключ формы.
+ */
 export function validatedPaymentUrl(
   value: unknown,
   origins: readonly string[],
+  purchaseRef?: string,
 ): string {
-  const url = new URL(z.url().parse(value));
+  const parsed = z.url().safeParse(value);
+  const url = parsed.success ? new URL(parsed.data) : null;
   if (
+    url === null ||
     !origins.includes(url.origin) ||
     url.username !== "" ||
     url.password !== "" ||
     url.hash !== ""
-  )
+  ) {
+    writeLog("warn", "bank_payment_url_rejected", {
+      module: "billing",
+      status: "operator_attention",
+      ...(purchaseRef === undefined ? {} : { purchaseRef }),
+      origin: url?.origin ?? null,
+    });
     throw new Error("Invalid bank payment URL");
+  }
   return url.toString();
 }
 
@@ -228,6 +244,7 @@ export class Tbank {
       PaymentURL: validatedPaymentUrl(
         notificationSchema.parse(result)["PaymentURL"],
         this.config.endpoints.formOrigins,
+        input.orderId,
       ),
     };
   }

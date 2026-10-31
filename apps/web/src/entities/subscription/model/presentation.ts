@@ -324,6 +324,8 @@ export function purchaseRetirementMessage(reason: RetirementReason): string {
       return "Этот продукт у вас уже открыт. Покупка остановлена до оплаты, деньги не списаны.";
     case "unsupported_attempt":
       return "Покупка была начата на прежних условиях. Она остановлена до оплаты, деньги не списаны.";
+    case "form_address_lost":
+      return "Страница оплаты не открылась, поэтому мы отменили попытку в банке. Деньги не списаны, можно купить снова.";
   }
 }
 

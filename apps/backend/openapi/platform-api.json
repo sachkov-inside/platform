@@ -11164,7 +11164,8 @@
                         "sale_closed",
                         "price_unavailable",
                         "already_owned",
-                        "unsupported_attempt"
+                        "unsupported_attempt",
+                        "form_address_lost"
                       ],
                       "nullable": true,
                       "type": "string"
@@ -12147,7 +12148,8 @@
                         "sale_closed",
                         "price_unavailable",
                         "already_owned",
-                        "unsupported_attempt"
+                        "unsupported_attempt",
+                        "form_address_lost"
                       ],
                       "nullable": true,
                       "type": "string"
@@ -13087,7 +13089,8 @@
                         "sale_closed",
                         "price_unavailable",
                         "already_owned",
-                        "unsupported_attempt"
+                        "unsupported_attempt",
+                        "form_address_lost"
                       ],
                       "nullable": true,
                       "type": "string"

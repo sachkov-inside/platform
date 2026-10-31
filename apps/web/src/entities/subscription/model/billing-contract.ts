@@ -143,12 +143,16 @@ export const attemptStateSchema = z.enum([
   "confirmed",
   "failed",
 ]);
-/** Почему сервер снял покупку до отправки в банк; Init не уходил, деньги не списаны. */
+/**
+ * Почему сервер снял покупку до оплаты; деньги не списаны. Первые четыре причины: Init не уходил.
+ * `form_address_lost`: Init ушёл, но адреса формы оплаты нет, и сервер отменил форму в банке (#1926).
+ */
 export const retirementReasonSchema = z.enum([
   "sale_closed",
   "price_unavailable",
   "already_owned",
   "unsupported_attempt",
+  "form_address_lost",
 ]);
 export const noticeKindSchema = z.enum([
   "renewal_reminder",

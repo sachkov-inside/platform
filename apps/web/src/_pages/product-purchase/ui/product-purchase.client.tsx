@@ -103,10 +103,14 @@ export function ProductPurchase({
     (individualLink === undefined
       ? promoCode !== undefined
       : purchase.snapshot.individualPayment?.linkId !== individualLink.id);
+  // Попытку без адреса формы сервер отменил (#1926): страница объясняет это и ждёт «Купить снова».
+  const cancelledWithoutForm =
+    purchase?.state === "failed" &&
+    purchase.retirementReason === "form_address_lost";
   const openPurchase =
     buyAgain ||
     purchase === null ||
-    purchase.state === "failed" ||
+    (purchase.state === "failed" && !cancelledWithoutForm) ||
     (atOtherPrice && replaceableStates.includes(purchase.state))
       ? null
       : purchase;

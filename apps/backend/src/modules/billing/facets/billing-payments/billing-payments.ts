@@ -96,6 +96,16 @@ const bankRecheckSteps = [
 ] as const;
 const finalBankRecheckEveryMilliseconds = 60 * 60_000;
 /**
+ * Срок, после которого попытка без адреса формы оплаты снимается (#1926). Адрес приходит только
+ * в ответе Init, а GetState его не возвращает: если ответ потерян или адрес не прошёл проверку
+ * `formOrigins`, покупатель не может открыть форму. Срок задан в #1926 и много больше ожидания
+ * ответа Init (`bankTimeoutMs`): снятие не обгоняет ответ, который ещё в пути. Затем сверка
+ * снимает попытку, чья форма в банке ещё не оплачена, и отменяет форму.
+ */
+export const lostFormAddressMilliseconds = 2 * 60_000;
+/** Попытки, у которых может не оказаться адреса формы: Init ушёл, а оплата ещё не началась. */
+const formAddressAwaitedStates = ["sent", "unknown", "pending"];
+/**
  * Самая долгая строка сверки: до четырёх запросов к банку по `bankTimeoutMs`. Это CheckOrder,
  * если PaymentId ещё нет, GetState сверки, затем GetState и Cancel отмены формы (#1923).
  */
@@ -120,6 +130,8 @@ const partialRefundReleased = "partial_refund_released";
 const supersedableStates = ["prepared", "sent", "pending"];
 /** Покупка снята до Init; причина в `payload.reason`, статус покупки отдаёт её покупателю. */
 const dispatchRetiredEvent = "dispatch_retired";
+/** Попытка снята без адреса формы оплаты (#1926); статус покупки называет эту причину. */
+const formAddressLostEvent = "form_address_lost";
 const dispatchRetiredPayloadSchema = z.object({
   reason: retirementReasonSchema,
 });
@@ -629,6 +641,7 @@ export class BillingPayments {
         paymentUrl: validatedPaymentUrl(
           result.value.paymentUrl,
           bank.config.endpoints.formOrigins,
+          purchaseRef,
         ),
       }),
     };
@@ -720,24 +733,31 @@ export class BillingPayments {
         where: { purchaseRef, state: "confirmed" },
         _sum: { amountKopecks: true },
       });
-      const retirement =
+      const retirements =
         row.state === "failed"
-          ? await this.dependencies.prisma.billingPaymentEvent.findUnique({
+          ? await this.dependencies.prisma.billingPaymentEvent.findMany({
               where: {
-                purchaseRef_kind: { purchaseRef, kind: dispatchRetiredEvent },
+                purchaseRef,
+                kind: { in: [dispatchRetiredEvent, formAddressLostEvent] },
               },
-              select: { payload: true },
+              select: { kind: true, payload: true },
             })
-          : null;
+          : [];
+      const dispatchRetirement = retirements.find(
+        (event) => event.kind === dispatchRetiredEvent,
+      );
       return {
         ok: true,
         value: purchaseStatusSchema.parse({
           purchaseRef,
           state: row.state,
           retirementReason:
-            retirement === null
-              ? null
-              : dispatchRetiredPayloadSchema.parse(retirement.payload).reason,
+            dispatchRetirement !== undefined
+              ? dispatchRetiredPayloadSchema.parse(dispatchRetirement.payload)
+                  .reason
+              : retirements.length > 0
+                ? formAddressLostEvent
+                : null,
           refundedKopecks: row.refundReviewRequired
             ? null
             : Number(refunds._sum.amountKopecks ?? 0),
@@ -1692,6 +1712,15 @@ export class BillingPayments {
           paymentId: payment.PaymentId,
           updatedAt: now,
         };
+        // Адреса формы у Inside нет, и GetState его не вернёт: неоплаченная форма снимается (#1926).
+        const formAddressLost =
+          kind === "one_time" &&
+          formAddressAwaitedStates.includes(row.state) &&
+          row.paymentUrl === null &&
+          !hasText(paymentUrl) &&
+          unpaidFormStatuses.includes(payment.Status) &&
+          now.getTime() - row.createdAt.getTime() >=
+            lostFormAddressMilliseconds;
         // Отметку без снятия получает только попытка с неизвестным исходом.
         const cancelMark =
           row.state === "unknown" &&
@@ -1855,6 +1884,12 @@ export class BillingPayments {
           // Попытку с неизвестным исходом снимает только ответ банка о неоплаченной форме.
           await retireAttempt(tx, row.id, cancelMark, now, payment.PaymentId);
           await releaseRetiredLink(tx, row.id);
+        } else if (formAddressLost) {
+          // Форму закрывает Cancel сверки, как у любой снятой попытки (#1923).
+          const retirement = { reason: formAddressLostEvent } as const;
+          await requireBankCancel(tx, row.id, retirement, now);
+          await retireAttempt(tx, row.id, retirement, now, payment.PaymentId);
+          await releaseRetiredLink(tx, row.id);
         } else {
           const authorized =
             row.state === "authorized" || payment.Status === "AUTHORIZED";
@@ -1870,6 +1905,7 @@ export class BillingPayments {
                     paymentUrl: validatedPaymentUrl(
                       paymentUrl,
                       bank.config.endpoints.formOrigins,
+                      row.id,
                     ),
                   }
                 : {}),
@@ -2137,7 +2173,8 @@ async function settleConfirmationAfterFailure(
 
 /**
  * Inside снимает неоплаченную попытку: она закрывается вместе с резервом и получает событие с
- * именем причины, `superseded_by_confirmed_payment` или `replaced_by_new_price`. Вызывающий
+ * именем причины, `superseded_by_confirmed_payment`, `replaced_by_new_price` или
+ * `form_address_lost`. Вызывающий
  * держит замок покупки.
  */
 async function retireAttempt(
@@ -2284,8 +2321,9 @@ async function releaseLegacyRefundReviewPurchases(
 }
 
 /**
- * Причина снятия попытки: оплачена другая попытка того же продукта или ссылки, или покупатель
- * начал покупку по другой цене (#1925). Отметка отмены хранит ту же причину.
+ * Причина снятия попытки: оплачена другая попытка того же продукта или ссылки, покупатель
+ * начал покупку по другой цене (#1925) или у неоплаченной формы нет адреса (#1926). Отметка
+ * отмены хранит ту же причину.
  */
 const retirementSchema = z.discriminatedUnion("reason", [
   z.object({
@@ -2296,6 +2334,7 @@ const retirementSchema = z.discriminatedUnion("reason", [
     reason: z.literal("replaced_by_new_price"),
     replacementPurchaseRef: z.uuid(),
   }),
+  z.object({ reason: z.literal(formAddressLostEvent) }),
 ]);
 type Retirement = z.infer<typeof retirementSchema>;
 

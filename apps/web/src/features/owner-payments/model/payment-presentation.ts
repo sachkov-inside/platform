@@ -90,6 +90,8 @@ export function paymentEventLabel(kind: string): string {
     duplicate_payment_review:
       "Продукт оплачен второй раз, нужно решение о возврате",
     replaced_by_new_price: "Попытка заменена покупкой по другой цене",
+    form_address_lost:
+      "Адреса формы оплаты нет: попытка снята, покупатель может купить снова",
     bank_cancel_requested:
       "Попытка снята, сверка закроет её форму оплаты в банке",
     bank_cancel_confirmed: "Банк закрыл форму оплаты снятой попытки",

@@ -149,7 +149,7 @@ export class BillingService {
     periodEndsAt: string | null;
     purchaseRef: string;
     refundedKopecks?: number | null;
-    retirementReason: 'sale_closed' | 'price_unavailable' | 'already_owned' | 'unsupported_attempt' | null;
+    retirementReason: 'sale_closed' | 'price_unavailable' | 'already_owned' | 'unsupported_attempt' | 'form_address_lost' | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
@@ -242,7 +242,7 @@ export class BillingService {
     periodEndsAt: string | null;
     purchaseRef: string;
     refundedKopecks?: number | null;
-    retirementReason: 'sale_closed' | 'price_unavailable' | 'already_owned' | 'unsupported_attempt' | null;
+    retirementReason: 'sale_closed' | 'price_unavailable' | 'already_owned' | 'unsupported_attempt' | 'form_address_lost' | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
@@ -324,7 +324,7 @@ export class BillingService {
     periodEndsAt: string | null;
     purchaseRef: string;
     refundedKopecks?: number | null;
-    retirementReason: 'sale_closed' | 'price_unavailable' | 'already_owned' | 'unsupported_attempt' | null;
+    retirementReason: 'sale_closed' | 'price_unavailable' | 'already_owned' | 'unsupported_attempt' | 'form_address_lost' | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
