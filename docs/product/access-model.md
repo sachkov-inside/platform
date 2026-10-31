@@ -746,8 +746,8 @@ one (#1930). Such a confirmation records `duplicate_payment_review` with `paidPu
 
 The provider's [status reference](https://developer.tbank.ru/eacq/intro/developer/operation-statuses)
 lists 23 payment statuses; notifications and GetState accept all of them (#1930). `3DS_CHECKING` and
-`3DS_CHECKED` keep the attempt `pending`. `ATTEMPTS_EXPIRED` is a decline like `DEADLINE_EXPIRED`.
-`PAY_CHECKING`, `CONFIRM_CHECKING`, `REVERSING`, `REFUNDING` and `ASYNC_REFUNDING` mean the bank has
+`3DS_CHECKED` keep an open attempt waiting: `pending`, or `authorized` once the hold is known.
+`ATTEMPTS_EXPIRED` is a decline like `DEADLINE_EXPIRED`. `PAY_CHECKING`, `CONFIRM_CHECKING`, `REVERSING`, `REFUNDING` and `ASYNC_REFUNDING` mean the bank has
 not decided, so the attempt becomes `unknown` for reconciliation. A signed status outside the
 reference, made of `A-Z`, `0-9` and `_` and at most 64 characters, is acknowledged with `OK`. It moves
 an open attempt to `unknown` and records `bank_status_unrecognized` once. A confirmed or failed

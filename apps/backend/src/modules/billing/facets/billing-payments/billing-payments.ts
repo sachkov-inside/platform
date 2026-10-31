@@ -105,6 +105,15 @@ const closedFormStatuses: readonly BankPayment["Status"][] = [
   "CONFIRMED",
   "REFUNDED",
 ];
+/** Отказ банка по попытке. Тот же PaymentId ещё может прийти подтверждённым. */
+const declinedStatuses: readonly BankPayment["Status"][] = [
+  "REJECTED",
+  "AUTH_FAIL",
+  "CANCELED",
+  "ATTEMPTS_EXPIRED",
+  "DEADLINE_EXPIRED",
+  "REVERSED",
+];
 /**
  * Частичный возврат подтверждённого (`PARTIAL_REFUNDED`) или авторизованного (`PARTIAL_REVERSED`)
  * платежа. Его Amount не равен сумме покупки и не доказывает сумму возврата.
@@ -979,13 +988,11 @@ export class BillingPayments {
             productIds.length === 0
               ? "historical_scope_unresolved"
               : "capture_time_unresolved";
-          await requireFulfillmentReview(
-            this.dependencies.prisma,
+          await this.requireFulfillmentReview(
             purchase.id,
             row.eventRef,
             reason,
             snapshot,
-            this.clock,
           );
           continue;
         }
@@ -1017,17 +1024,15 @@ export class BillingPayments {
             data: { appliedAt: this.clock() },
           });
           applied += 1;
-        } else if (outcome === "account_deleted")
-          // Повтор выдачи удалённому аккаунту не поможет: решение о деньгах принимает владелец.
-          await requireFulfillmentReview(
-            this.dependencies.prisma,
+        } else if (outcome === "failed") failed += 1;
+        // Повтор выдачи удалённому аккаунту не поможет: решение о деньгах принимает владелец.
+        else
+          await this.requireFulfillmentReview(
             purchase.id,
             row.eventRef,
             outcome,
             snapshot,
-            this.clock,
           );
-        else failed += 1;
       }
       return {
         ok: true,
@@ -1045,6 +1050,49 @@ export class BillingPayments {
         paymentFailure("dependency_unavailable"),
       );
     }
+  }
+
+  /**
+   * Выдача доступа не может завершиться без владельца: историческую покупку не удаётся сопоставить
+   * с продуктом или аккаунт покупателя удалён. Строка выдачи получает отметку проверки и больше
+   * не повторяется, а покупка один раз получает событие `fulfillment_review_required`. Строка без
+   * `applied_at` держит сигнал сторожа «Выдача доступа».
+   */
+  private async requireFulfillmentReview(
+    purchaseRef: string,
+    eventRef: string,
+    reason:
+      | "historical_scope_unresolved"
+      | "capture_time_unresolved"
+      | "account_deleted",
+    snapshot: PriceSnapshot,
+  ): Promise<void> {
+    await this.dependencies.prisma.$transaction(async (tx) => {
+      await lockBillingPurchase(tx, purchaseRef);
+      const current = await tx.billingFulfillment.findUniqueOrThrow({
+        where: { eventRef },
+      });
+      if (current.appliedAt !== null || current.reviewRequiredAt !== null)
+        return;
+      const now = this.clock();
+      await tx.billingFulfillment.update({
+        where: { eventRef },
+        data: { reviewRequiredAt: now, reviewReason: reason },
+      });
+      // Old purchases may have one outbox row per benefit. The purchase event is immutable;
+      // each row still needs its own terminal review marker, including later-arriving rows.
+      await recordEventOnce(
+        tx,
+        purchaseRef,
+        "fulfillment_review_required",
+        {
+          reason,
+          savedBenefits: snapshot.offer.benefits,
+          savedCoverage: snapshot.offer.coverage ?? null,
+        },
+        now,
+      );
+    });
   }
 
   /**
@@ -1593,16 +1641,7 @@ export class BillingPayments {
             });
           }
           if (refunded) await acceptBankRefund(tx, confirmedPurchase, now);
-        } else if (
-          [
-            "REJECTED",
-            "AUTH_FAIL",
-            "CANCELED",
-            "ATTEMPTS_EXPIRED",
-            "DEADLINE_EXPIRED",
-            "REVERSED",
-          ].includes(payment.Status)
-        ) {
+        } else if (declinedStatuses.includes(payment.Status)) {
           await tx.billingPurchase.update({
             where: { id: row.id },
             data: {
@@ -1751,50 +1790,6 @@ function savedContentProductWhere(
       },
     ],
   };
-}
-
-/**
- * Выдача доступа не может завершиться без владельца: историческую покупку не удаётся сопоставить
- * с продуктом или аккаунт покупателя удалён. Строка выдачи получает отметку проверки и больше не
- * повторяется, а покупка один раз получает событие `fulfillment_review_required`. Строка без
- * `applied_at` остаётся сигналом сторожа «Выдача доступа».
- */
-async function requireFulfillmentReview(
-  prisma: BillingPrismaClient,
-  purchaseRef: string,
-  eventRef: string,
-  reason:
-    | "historical_scope_unresolved"
-    | "capture_time_unresolved"
-    | "account_deleted",
-  snapshot: PriceSnapshot,
-  clock: () => Date,
-): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    await lockBillingPurchase(tx, purchaseRef);
-    const current = await tx.billingFulfillment.findUniqueOrThrow({
-      where: { eventRef },
-    });
-    if (current.appliedAt !== null || current.reviewRequiredAt !== null) return;
-    const now = clock();
-    await tx.billingFulfillment.update({
-      where: { eventRef },
-      data: { reviewRequiredAt: now, reviewReason: reason },
-    });
-    // Old purchases may have one outbox row per benefit. The purchase event is immutable;
-    // each row still needs its own terminal review marker, including later-arriving rows.
-    await recordEventOnce(
-      tx,
-      purchaseRef,
-      "fulfillment_review_required",
-      {
-        reason,
-        savedBenefits: snapshot.offer.benefits,
-        savedCoverage: snapshot.offer.coverage ?? null,
-      },
-      now,
-    );
-  });
 }
 
 type PurchaseRow = Awaited<
@@ -2046,7 +2041,8 @@ async function closeBankCancel(
  * продукт, по той же ссылке уже есть оплаченная покупка или Account уже получил доступ к продукту
  * из любого источника (вручную, активацией Course, прежней покупкой), в том числе отозванный.
  * Деньги остаются подтверждёнными, событие ведёт владельца к решению о возврате. Доступ читается
- * через Account Rights в той же транзакции под замком изменений прав Account, как при продаже.
+ * через Account Rights в той же транзакции под замком изменений прав Account: выдача, начатая
+ * параллельно, либо уже видна, либо ждёт подтверждения.
  */
 async function recordDuplicatePayment(
   tx: BillingPrisma,
@@ -2089,7 +2085,11 @@ async function recordDuplicatePayment(
       productId,
       transactionHandle(tx),
     );
-    if (!acquisition.ok) throw new Error("Product acquisition is unavailable");
+    // Без ответа Account Rights вторую оплату не проверить: откат вернёт банку отказ, и он повторит.
+    if (!acquisition.ok)
+      throw new Error(
+        `Product acquisition is unavailable: ${acquisition.error.code}`,
+      );
     if (acquisition.acquired) heldProductIds.push(productId);
   }
   if (paid.length === 0 && heldProductIds.length === 0) return;

@@ -12,9 +12,9 @@ export const bankTimeoutMs = 10_000;
 const reference = z.union([z.string().min(1).max(64), z.int().nonnegative()]);
 const success = z.union([z.boolean(), z.enum(["true", "false"])]);
 /**
- * Статусы платежа T-Bank по справочнику банка (23 статуса на 31.10.2026):
+ * Все 23 статуса платежа из справочника T-Bank на 31.10.2026 и `RECEIPT`:
  * https://developer.tbank.ru/eacq/intro/developer/operation-statuses
- * `RECEIPT` приходит не о платеже, а о чеке: уведомление о фискализации.
+ * `RECEIPT` не входит в справочник: это уведомление о чеке, а не о платеже.
  */
 export const bankPaymentStatuses = [
   "RECEIPT",
