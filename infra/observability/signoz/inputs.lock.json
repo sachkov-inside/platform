@@ -1,0 +1,518 @@
+{
+  "images": [
+    {
+      "reference": "signoz/signoz:v0.146.0",
+      "index_digest": "sha256:cd3ca6950df3b3681b4629c1b2cea4d3bcd5fece57445a3ec2a1a20466ab14ca",
+      "linux_amd64_manifest": "sha256:27cec42dfd398c7afdade4897dd89a489ed3da2441ac1624c369359611da7746",
+      "repository": "docker.io/signoz/signoz",
+      "pinned": "docker.io/signoz/signoz@sha256:cd3ca6950df3b3681b4629c1b2cea4d3bcd5fece57445a3ec2a1a20466ab14ca"
+    },
+    {
+      "reference": "signoz/signoz-otel-collector:v0.144.14",
+      "index_digest": "sha256:b08671f56f3164c7781a740cc2af12c0739435faf49cd2ddc8a50d7238b81170",
+      "linux_amd64_manifest": "sha256:f0ef977b6c82cc0efc8193703b90477da578d68ce7cf040d70acf3e9f572c325",
+      "repository": "docker.io/signoz/signoz-otel-collector",
+      "pinned": "docker.io/signoz/signoz-otel-collector@sha256:b08671f56f3164c7781a740cc2af12c0739435faf49cd2ddc8a50d7238b81170"
+    },
+    {
+      "reference": "clickhouse/clickhouse-server:25.12.5",
+      "index_digest": "sha256:cacf32d6884291dc2ff5e0156a97f46fc53ff7c929a7906d114e268a929dfd3a",
+      "linux_amd64_manifest": "sha256:10f54f04de6c61b756c4eaf9f1d17464a4ac3e1f94b5b410e0dec92a24dbeda8",
+      "repository": "docker.io/clickhouse/clickhouse-server",
+      "pinned": "docker.io/clickhouse/clickhouse-server@sha256:cacf32d6884291dc2ff5e0156a97f46fc53ff7c929a7906d114e268a929dfd3a"
+    },
+    {
+      "reference": "clickhouse/clickhouse-keeper:25.12.5",
+      "index_digest": "sha256:525b8b0f93ccb371131c46f22a066ea43d33d74aba314203e8044609945d8524",
+      "linux_amd64_manifest": "sha256:5493b0fba2fdfc3bf51115db4fb378fac8b0a953c116db442fd4297a8f49a9d7",
+      "repository": "docker.io/clickhouse/clickhouse-keeper",
+      "pinned": "docker.io/clickhouse/clickhouse-keeper@sha256:525b8b0f93ccb371131c46f22a066ea43d33d74aba314203e8044609945d8524"
+    },
+    {
+      "reference": "postgres:16",
+      "index_digest": "sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97",
+      "linux_amd64_manifest": "sha256:f9d1e581cde3e4c8bc696b07e6f7b7aea1d41014b33a52b27990762daae61beb",
+      "repository": "docker.io/library/postgres",
+      "pinned": "docker.io/library/postgres@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97"
+    },
+    {
+      "reference": "signoz/signoz-mcp-server:v0.15.0",
+      "index_digest": "sha256:db46f765fae35db3709eadb47b5e9ab5fa48fbbefa35582851a305c6a7bc6c7d",
+      "linux_amd64_manifest": "sha256:ca0efe765aedaf6a16ec0fc8aee808aa99027c0a5c0743ea1f6928e5025b5284",
+      "repository": "docker.io/signoz/signoz-mcp-server",
+      "pinned": "docker.io/signoz/signoz-mcp-server@sha256:db46f765fae35db3709eadb47b5e9ab5fa48fbbefa35582851a305c6a7bc6c7d"
+    },
+    {
+      "reference": "docker.io/library/python",
+      "index_digest": "sha256:12316debbfb86890f6b2d825820612741ba527ad5a44e3902759141d572bfe8f",
+      "role": "prospective trusted control only, already pinned by separate Caddy proof; no image acquisition in this task",
+      "linux_amd64_manifest": "sha256:6d2b0577e6d1632f077331de8e4780535f54839d163ded7abb4b7dd37b5d37ac",
+      "repository": "docker.io/library/python",
+      "pinned": "docker.io/library/python@sha256:12316debbfb86890f6b2d825820612741ba527ad5a44e3902759141d572bfe8f",
+      "linux_arm64_manifest": "sha256:0ced713d9b8336172d981d8f25f2422b6782bdad019fda4cb653c6ee187430de"
+    }
+  ],
+  "official_source_sha256": {
+    "https://raw.githubusercontent.com/SigNoz/foundry/v0.3.0/docs/examples/docker/compose-mcp/casting.yaml.lock": "7408055587b505680efa22cf9c8e7107e4503597ec51322c993ba4e19cb9c1ac",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/query-service/app/http_handler.go": "09b1b498273f0e5e7a70e028d5ae35595c1eb6edf42117f7c605ceaeebead784",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/types/user.go": "a7ee1bcf6f2ef23a40ed1783ce56d54f8d3ce6e3f7e3e9be8adfafba0e41a255",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/modules/user/impluser/setter.go": "e635f2a638f056789a1ac8d193fb33bf3b2bfb3904efcb46f59b2e303bb41cb4",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/apiserver/signozapiserver/session.go": "ca68425c591e86e78b4a155d665477a28d4b032d565f5c6b14cb961c543d9432",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/types/authtypes/email_password.go": "1af85cf397c1107e960f9b698dc754a2420c875143e8aba0bdce628cb55933ed",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/types/authtypes/token.go": "dd0c471098ed741c5694cb7e3a80add6496a9a98424aa7948c5cb922b02c9d3f",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/apiserver/signozapiserver/role.go": "814ef7d30464babd23b77701de316a9797b55be7e126a71412e36e52a32fbb6d",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/types/authtypes/role.go": "f6f34ad18ce44a0245099b735cb1ba716b6c9ca7331c2d69b03fb8271c51dbc1",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/apiserver/signozapiserver/serviceaccount.go": "4a91604f8dc47d3c04dc3b1cc36a2b4b6c8f614b9585b3c2469023e9ae0db681",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/modules/serviceaccount/implserviceaccount/handler.go": "0af17acc91b6725ecbf9532e7d920b18f27c53dcf9f5535077d00d2218fbcc37",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/types/serviceaccounttypes/factor_api_key.go": "39cfb8ae2bfacf5207f4c6927cdbf3dd8edd8dc965f64ac56f5ac92c0aa5cdc1",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/apiserver/signozapiserver/querier.go": "c654f03d4a262383775a99727c51c2f22a440af4466bcd61c3fc7d9dc819601b",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/types/querybuildertypes/querybuildertypesv5/resp.go": "bf443425928644c0fa53c07815bf357b46352ebb4000301b2296d074aae7b218",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/identn/config.go": "389f56b67835cd88f4b32ff36204fd1ac60ee6d1ca8a1462290d319f7798c5aa",
+    "https://raw.githubusercontent.com/SigNoz/charts/signoz-0.146.0/charts/signoz/values.yaml": "ec3063b7a0f37e2210181fbc4e60a201f2494c9c6102e72b8d8a8f23a470945a",
+    "https://raw.githubusercontent.com/SigNoz/foundry/v0.3.0/docs/examples/docker/compose-mcp/pours/deployment/compose.yaml": "0a71ca052e337d15cbe93d794a0a64201aff2930ccc72ee3be2704a4b4844321",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/analytics/config.go": "282257e58def40e52ab3ba319fa9d8e518f1bb695c0dcc1c96b3f4c263ce7a1b",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/statsreporter/config.go": "29ecedb01ac1f81c233b183c0061e10f1132224c876327fb4ac5bfa9675ef131",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/cmd/config.go": "305d90038c7ac9554a0c9c2efaccf7f068a27cdb0499f68d3aaa5e15b3631e37",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/cmd/community/server.go": "28d3617e48b8027e0b851347aa4c18713bce8cabeed3891d0d3509f323b45bb0",
+    "https://raw.githubusercontent.com/SigNoz/signoz/v0.146.0/pkg/config/envprovider/provider.go": "142f8acffffb92dd8ae516f748e87b5dce97ccc7311e5b5930c0aebba0cf78b6"
+  },
+  "histogram": {
+    "url": "https://github.com/SigNoz/signoz/releases/download/histogram-quantile/v0.0.1/histogram-quantile_linux_amd64.tar.gz",
+    "archive_sha256": "33997073eb6d82b7be4f27f9fc8ec9e28a395e0f20674d5d54bb2fa28a75488d",
+    "acquired": false
+  },
+  "image_config_metadata": {
+    "docker.io/signoz/signoz": {
+      "amd64": {
+        "config_digest": "sha256:2629a8f5f6ee684e8d805d9f7b2a06a7dee0905d9c9c5fc1fb8545b666e506a5",
+        "entrypoint": ["./signoz", "server"],
+        "cmd": null,
+        "working_dir": "/root",
+        "user": null
+      }
+    },
+    "docker.io/signoz/signoz-otel-collector": {
+      "amd64": {
+        "config_digest": "sha256:fe0ed9b7b3a60199cda22b2af2fc9dcb7188547eabb40388c2f0ffab9055d992",
+        "entrypoint": ["/signoz-otel-collector"],
+        "cmd": ["--config", "/etc/otel/config.yaml"],
+        "working_dir": null,
+        "user": "10001"
+      }
+    },
+    "docker.io/clickhouse/clickhouse-server": {
+      "amd64": {
+        "config_digest": "sha256:998567e9b894dce3ae1c74157bc6c107ef602cae9b863e4d7bf4d7f336ec3431",
+        "entrypoint": ["/entrypoint.sh"],
+        "cmd": null,
+        "working_dir": null,
+        "user": null
+      }
+    },
+    "docker.io/clickhouse/clickhouse-keeper": {
+      "amd64": {
+        "config_digest": "sha256:5ca7bcf3e85a63feab6176fe2a32576f2e070f0866aca466e599f8cc6f78c745",
+        "entrypoint": ["/entrypoint.sh"],
+        "cmd": null,
+        "working_dir": "/",
+        "user": null
+      }
+    },
+    "docker.io/library/postgres": {
+      "amd64": {
+        "config_digest": "sha256:066167ff39c2a612402ce99b734ea1cff92a9d1f2ac52f697a5f0384f0d88d6b",
+        "entrypoint": ["docker-entrypoint.sh"],
+        "cmd": ["postgres"],
+        "working_dir": null,
+        "user": null
+      }
+    },
+    "docker.io/signoz/signoz-mcp-server": {
+      "amd64": {
+        "config_digest": "sha256:dbdc42856c0d86523139ec229061d7856ec33e6ed209ed7925b1275e5c1fa28c",
+        "entrypoint": ["/usr/local/bin/signoz-mcp-server"],
+        "cmd": null,
+        "working_dir": "/usr/local/signoz-mcp-server",
+        "user": "0"
+      }
+    },
+    "docker.io/library/python": {
+      "amd64": {
+        "config_digest": "sha256:3a1b98be05abc7ac60c8712a943688620a602c3e0e6bfbc567afbeabe2085b28",
+        "entrypoint": null,
+        "cmd": ["python3"],
+        "working_dir": null,
+        "user": null
+      },
+      "arm64": {
+        "config_digest": "sha256:7d0134fc196a9daa289acd038dd1c95b6873cacfaa4d6ea97c51501e0af515a3",
+        "entrypoint": null,
+        "cmd": ["python3"],
+        "working_dir": null,
+        "user": null
+      }
+    }
+  },
+  "declared_volume_contracts": {
+    "docker.io/signoz/signoz": [],
+    "docker.io/signoz/signoz-otel-collector": [],
+    "docker.io/clickhouse/clickhouse-server": ["/var/lib/clickhouse"],
+    "docker.io/clickhouse/clickhouse-keeper": [
+      "/var/lib/clickhouse",
+      "/var/lib/clickhouse-keeper"
+    ],
+    "docker.io/library/postgres": ["/var/lib/postgresql/data"],
+    "docker.io/signoz/signoz-mcp-server": [],
+    "docker.io/library/python": []
+  },
+  "schema": 1,
+  "scope": "native Linux amd64 isolated functional witness only; full workload/capacity/production unproved",
+  "config_sha256": {
+    "opamp.yaml": "6cb3d11dd20e36195e7d0cafd9cad23fc89ce525cdebedf7db612297e078d39f",
+    "config-0-0.yaml": "a834b9a63b39a6cf39b1c3522331afff97463fc30284c3d5e1571a4972fbc627",
+    "ingester.yaml": "b391a1566bd1b3fdff1a00dcd4694d6a1a1923eb360fd04a19166c31c0d987cf",
+    "keeper-0.yaml": "70be8fd31af9cfe0a5da14c225af69806ad1f46308fe388548d732ca4beea81a",
+    "functions.yaml": "549da7959a74dc8602daaf9fc98e40525b375c8071e88a1f690dbbcf6b50e8aa"
+  },
+  "api_sources": {
+    "signoz": {
+      "commit": "da556abac1fd41590811b8e0dcbcbdea242dd285",
+      "tag": "v0.146.0",
+      "files": {
+        "LICENSE": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/LICENSE",
+          "sha256": "449417bc4e96c1787726c58de4b846b2d5146076e4a0a82a2093452ec0882abf",
+          "bytes": 1589
+        },
+        "cmd/authz.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/cmd/authz.go",
+          "sha256": "a2e8f963c3c4762907e550fdb0a0964e7f1e7c40b95a6baa6d813b0628d2b316",
+          "bytes": 5063
+        },
+        "cmd/community/server.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/cmd/community/server.go",
+          "sha256": "28d3617e48b8027e0b851347aa4c18713bce8cabeed3891d0d3509f323b45bb0",
+          "bytes": 7642
+        },
+        "cmd/enterprise/server.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/cmd/enterprise/server.go",
+          "sha256": "c3ec1e199708e9a09f36bbdb7cfacbcc567422e331843b7e60aca2b79e9d4816",
+          "bytes": 11202
+        },
+        "ee/LICENSE": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/ee/LICENSE",
+          "sha256": "f98f80465c276372ac635721e2971a83eb9f433cf87499bb8e4c0bab5a964a11",
+          "bytes": 2167
+        },
+        "ee/authz/openfgaauthz/provider.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/ee/authz/openfgaauthz/provider.go",
+          "sha256": "25b7cc599977aebcc4f66d540f8c8c4c2494ef3208ac760e54429c88dd726cf6",
+          "bytes": 13079
+        },
+        "pkg/apiserver/signozapiserver/role.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/apiserver/signozapiserver/role.go",
+          "sha256": "814ef7d30464babd23b77701de316a9797b55be7e126a71412e36e52a32fbb6d",
+          "bytes": 5903
+        },
+        "pkg/apiserver/signozapiserver/serviceaccount.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/apiserver/signozapiserver/serviceaccount.go",
+          "sha256": "4a91604f8dc47d3c04dc3b1cc36a2b4b6c8f614b9585b3c2469023e9ae0db681",
+          "bytes": 21399
+        },
+        "pkg/apiserver/signozapiserver/session.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/apiserver/signozapiserver/session.go",
+          "sha256": "ca68425c591e86e78b4a155d665477a28d4b032d565f5c6b14cb961c543d9432",
+          "bytes": 6226
+        },
+        "pkg/authz/openfgaauthz/provider.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/authz/openfgaauthz/provider.go",
+          "sha256": "69af9a94b2bf13de56465d5edcd870c20b50f030ff69e87654ebe48e305dcce9",
+          "bytes": 8374
+        },
+        "pkg/authz/openfgaschema/base.fga": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/authz/openfgaschema/base.fga",
+          "sha256": "88a890f6432f5204531bdd5c7cd0e80f32a698bda1f6ec288effae2461abe899",
+          "bytes": 282
+        },
+        "pkg/authz/openfgaschema/schema.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/authz/openfgaschema/schema.go",
+          "sha256": "df8550423dbac278a57283c046564b21f2bdfa9eabffbd68b9393d4c4b163459",
+          "bytes": 478
+        },
+        "pkg/http/middleware/authz.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/http/middleware/authz.go",
+          "sha256": "c9bedc152b38198d8d4662b1cb9630ef49e69d50ec3949367fb32c01b88a5f08",
+          "bytes": 8104
+        },
+        "pkg/http/middleware/identn.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/http/middleware/identn.go",
+          "sha256": "4ea1f963d87c2ab2115ce6ab84e8fe0adb670b26393bf57b5c0a26b213e233c4",
+          "bytes": 2013
+        },
+        "pkg/identn/apikeyidentn/provider.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/identn/apikeyidentn/provider.go",
+          "sha256": "dfafb286d5b39d02e36d647ba6c1a503f82a10ff84f6dd4cc3f4d08ef81ca0c0",
+          "bytes": 2821
+        },
+        "pkg/identn/config.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/identn/config.go",
+          "sha256": "389f56b67835cd88f4b32ff36204fd1ac60ee6d1ca8a1462290d319f7798c5aa",
+          "bytes": 1789
+        },
+        "pkg/identn/identn.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/identn/identn.go",
+          "sha256": "e9c4c28f38e05548f1e80e48a6600d98f442e0f396d0bc6d650a18b2ea76f2d0",
+          "bytes": 1210
+        },
+        "pkg/identn/impersonationidentn/provider.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/identn/impersonationidentn/provider.go",
+          "sha256": "10160ecdc17761ffecce913f575d4027a7f7d614a34e82dfeaf69c08d0b0ddcc",
+          "bytes": 2927
+        },
+        "pkg/identn/resolver.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/identn/resolver.go",
+          "sha256": "d955ba89649aefe07423e5e9e2b12cec5b89e73ba5b930cb323c0ad1a744fd2d",
+          "bytes": 1977
+        },
+        "pkg/identn/tokenizeridentn/provider.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/identn/tokenizeridentn/provider.go",
+          "sha256": "ba6779e9f14690cbb6b60459f4537b84b91cb84f5540570c231402f674cde525",
+          "bytes": 3141
+        },
+        "pkg/licensing/nooplicensing/provider.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/licensing/nooplicensing/provider.go",
+          "sha256": "e4868233119557c47c113eaef0dd14d6f2d450178cedcf2ab3f7477490f4afdf",
+          "bytes": 2928
+        },
+        "pkg/modules/serviceaccount/config.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/modules/serviceaccount/config.go",
+          "sha256": "8925ffa2a42490a35f8d21592cd38428c1a2e78fe79dd1caff6b09925bc72f50",
+          "bytes": 1049
+        },
+        "pkg/modules/serviceaccount/implserviceaccount/getter.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/modules/serviceaccount/implserviceaccount/getter.go",
+          "sha256": "4f6404b8614a278d136da72f3a98315f17bbc51bfaca58289b4418b812034e2d",
+          "bytes": 1141
+        },
+        "pkg/modules/serviceaccount/implserviceaccount/handler.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/modules/serviceaccount/implserviceaccount/handler.go",
+          "sha256": "0af17acc91b6725ecbf9532e7d920b18f27c53dcf9f5535077d00d2218fbcc37",
+          "bytes": 11132
+        },
+        "pkg/modules/serviceaccount/implserviceaccount/module.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/modules/serviceaccount/implserviceaccount/module.go",
+          "sha256": "d22081f0a93f1cd7078febf271b88b084b82ebadf79a7ec40d09f6d752fabf2a",
+          "bytes": 13376
+        },
+        "pkg/modules/serviceaccount/implserviceaccount/store.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/modules/serviceaccount/implserviceaccount/store.go",
+          "sha256": "acfb9af5dc85b1dd00fdc8cfe9cbee7b2436fd5faef22b2166020084fa602c49",
+          "bytes": 11857
+        },
+        "pkg/modules/serviceaccount/serviceaccount.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/modules/serviceaccount/serviceaccount.go",
+          "sha256": "afe952ead2b1fb112af45fd3f948e7298aa62eff0e79ef913212581826996786",
+          "bytes": 4177
+        },
+        "pkg/modules/session/implsession/handler.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/modules/session/implsession/handler.go",
+          "sha256": "04b5bdda3ae74de37be276dfce579bc2d2c9661c05424038d1c50ebc3838c884",
+          "bytes": 4855
+        },
+        "pkg/modules/session/implsession/module.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/modules/session/implsession/module.go",
+          "sha256": "a5c9b77bf95030b92898936fb1cc27e85c33180fb4f209ff3a227442729db712",
+          "bytes": 8602
+        },
+        "pkg/modules/session/session.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/modules/session/session.go",
+          "sha256": "7a3f92fc887ba4416be03389fa97eb8fb271641d6076e1472e7c36dd8e366583",
+          "bytes": 1923
+        },
+        "pkg/modules/user/impluser/setter.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/modules/user/impluser/setter.go",
+          "sha256": "e635f2a638f056789a1ac8d193fb33bf3b2bfb3904efcb46f59b2e303bb41cb4",
+          "bytes": 25418
+        },
+        "pkg/query-service/app/http_handler.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/query-service/app/http_handler.go",
+          "sha256": "09b1b498273f0e5e7a70e028d5ae35595c1eb6edf42117f7c605ceaeebead784",
+          "bytes": 143822
+        },
+        "pkg/types/authtypes/email_password.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/types/authtypes/email_password.go",
+          "sha256": "1af85cf397c1107e960f9b698dc754a2420c875143e8aba0bdce628cb55933ed",
+          "bytes": 917
+        },
+        "pkg/types/authtypes/role.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/types/authtypes/role.go",
+          "sha256": "f6f34ad18ce44a0245099b735cb1ba716b6c9ca7331c2d69b03fb8271c51dbc1",
+          "bytes": 9460
+        },
+        "pkg/types/authtypes/token.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/types/authtypes/token.go",
+          "sha256": "dd0c471098ed741c5694cb7e3a80add6496a9a98424aa7948c5cb922b02c9d3f",
+          "bytes": 8744
+        },
+        "pkg/types/coretypes/registry_managed_role.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/types/coretypes/registry_managed_role.go",
+          "sha256": "08f6892bcb7d5e08eaa7ac25986045f8bce11586c22cc006a0d42abac23d7b1e",
+          "bytes": 38916
+        },
+        "pkg/types/serviceaccounttypes/factor_api_key.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/types/serviceaccounttypes/factor_api_key.go",
+          "sha256": "39cfb8ae2bfacf5207f4c6927cdbf3dd8edd8dc965f64ac56f5ac92c0aa5cdc1",
+          "bytes": 4466
+        },
+        "pkg/types/serviceaccounttypes/service_acccount.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/types/serviceaccounttypes/service_acccount.go",
+          "sha256": "7dfbe97b7d1b3003ce063a0bf734535f8431b9f5d9fb9214eba2ac9fc3d84c48",
+          "bytes": 9657
+        },
+        "pkg/types/user.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/types/user.go",
+          "sha256": "a7ee1bcf6f2ef23a40ed1783ce56d54f8d3ce6e3f7e3e9be8adfafba0e41a255",
+          "bytes": 9668
+        },
+        "tests/fixtures/serviceaccount.py": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/tests/fixtures/serviceaccount.py",
+          "sha256": "b7b00be2672de47379f8ca500140c5b51898805c59c6cf011fdbeb5211030e5c",
+          "bytes": 4193
+        },
+        "tests/integration/tests/serviceaccount/01_crud.py": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/tests/integration/tests/serviceaccount/01_crud.py",
+          "sha256": "02b2966c98c3f53f39ae7e22fbf21c3156dbd2e74394bc535bbac1289d69a6ab",
+          "bytes": 7842
+        },
+        "tests/integration/tests/serviceaccount/02_keys.py": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/tests/integration/tests/serviceaccount/02_keys.py",
+          "sha256": "3098d50b472dad6d232b3f2de1501d5988c1433560db3f32dea4e68b3bdcc79c",
+          "bytes": 10056
+        },
+        "tests/integration/tests/serviceaccount/03_auth.py": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/tests/integration/tests/serviceaccount/03_auth.py",
+          "sha256": "032d55d30de85fc1160fc2b68e5271be823a32a0b0e10cc954c0fa6ac804db64",
+          "bytes": 11835
+        },
+        "tests/integration/tests/serviceaccount/04_roles.py": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/tests/integration/tests/serviceaccount/04_roles.py",
+          "sha256": "0f9e415028954c9cd26f84b8cd2b18d33ff2e150e12ff201df0ca44d8d1caa7d",
+          "bytes": 11097
+        },
+        "tests/integration/tests/serviceaccount/05_me.py": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/tests/integration/tests/serviceaccount/05_me.py",
+          "sha256": "d6c5e69296f7c0f7637be40345b4ae966308fb810bf1d4cc3ab68fe0027becd3",
+          "bytes": 3619
+        },
+        "tests/integration/tests/serviceaccount/06_fga.py": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/tests/integration/tests/serviceaccount/06_fga.py",
+          "sha256": "3fcc21278c037b8806675a70efd57cbeb86704aa70b0eff9a3e7baee2b4f32f6",
+          "bytes": 14278
+        },
+        "tests/integration/tests/serviceaccount/__init__.py": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/tests/integration/tests/serviceaccount/__init__.py",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        "ee/authz/openfgaserver/server.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/ee/authz/openfgaserver/server.go",
+          "sha256": "6a7918226b626b79259f4cbe9526b9add9bf7ec6b79c9dea59a89688c43fc5b3",
+          "bytes": 3502
+        },
+        "pkg/authz/openfgaserver/server.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/authz/openfgaserver/server.go",
+          "sha256": "324d64dc227aa08961afa0fd89a15abc67ad2b1547c4adb479820a24004c115d",
+          "bytes": 13719
+        },
+        "pkg/types/authtypes/claims.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/types/authtypes/claims.go",
+          "sha256": "ead0f1835577f7d2ce6b4fb0194ffd52d8a107275ad6b64369f5ef74053653fe",
+          "bytes": 2063
+        },
+        "pkg/http/render/render.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/http/render/render.go",
+          "sha256": "f0ecf9b6b11437095e58ff7526f763d6f30a5ea826052cd50821877b4161bf47",
+          "bytes": 4254
+        },
+        "pkg/apiserver/signozapiserver/provider.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/apiserver/signozapiserver/provider.go",
+          "sha256": "a6ec4de264411f393ee6a88bcc5e597e7433cf665f61af38af79a173b7aab885",
+          "bytes": 17122
+        },
+        "pkg/signoz/signoz.go": {
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz/da556abac1fd41590811b8e0dcbcbdea242dd285/pkg/signoz/signoz.go",
+          "sha256": "461d3055394dc263b5e2386fcd3204471a566e7567a14ea5f3e14a3df72ba8d1",
+          "bytes": 27037
+        }
+      }
+    },
+    "native_mcp": {
+      "repository": "SigNoz/signoz-mcp-server",
+      "tag": "v0.15.0",
+      "commit": "d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d",
+      "tree": "af02fcadb4427535936fcbdb4b3368f20525c99b",
+      "files": {
+        "mcp_README.md": {
+          "repository_path": "README.md",
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz-mcp-server/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/README.md",
+          "sha256": "066ea47145ea1c6c006a681d4557e4704c4fd89a9a7988b4c6a97d54eaac6428",
+          "bytes": 80001
+        },
+        "mcp_go.mod": {
+          "repository_path": "go.mod",
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz-mcp-server/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/go.mod",
+          "sha256": "aac41121514baaacd22a8e8ed6ec2e10c93120ab32d1a460f47fbe9244cc250b",
+          "bytes": 4355
+        },
+        "mcp_cmd_server_main.go": {
+          "repository_path": "cmd/server/main.go",
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz-mcp-server/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/cmd/server/main.go",
+          "sha256": "2ae7eac0eba49573148adf4a1705a0cfb9731ea7d24bdba0aa781edaf6b0227b",
+          "bytes": 7390
+        },
+        "mcp_internal_config_config.go": {
+          "repository_path": "internal/config/config.go",
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz-mcp-server/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/internal/config/config.go",
+          "sha256": "7a004910a8f29c60ee3000336a48bedc91ec1b94b78b868770b7625113ced592",
+          "bytes": 8571
+        },
+        "mcp_internal_mcp-server_server.go": {
+          "repository_path": "internal/mcp-server/server.go",
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz-mcp-server/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/internal/mcp-server/server.go",
+          "sha256": "a1fcd4f82fc35680c81ad7b66ee48476731dca80e3e7e2701b9db7b7b92ca7de",
+          "bytes": 48165
+        },
+        "mcp_internal_client_client.go": {
+          "repository_path": "internal/client/client.go",
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz-mcp-server/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/internal/client/client.go",
+          "sha256": "c36c026ad09e2090ab683ff980357845f797c4079afcf86279d5f54d998cc445",
+          "bytes": 34872
+        },
+        "mcp_internal_handler_tools_register.go": {
+          "repository_path": "internal/handler/tools/register.go",
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz-mcp-server/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/internal/handler/tools/register.go",
+          "sha256": "6d85a958b06d980ff746c210095d4074cafcaeeb13dbab83948d96de08562a80",
+          "bytes": 964
+        },
+        "mcp_internal_handler_tools_query_builder.go": {
+          "repository_path": "internal/handler/tools/query_builder.go",
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz-mcp-server/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/internal/handler/tools/query_builder.go",
+          "sha256": "c1ea8b9bbced8fb60bae00cc227691efffd8e0214b92a24b4e3727a767ae9a57",
+          "bytes": 8233
+        },
+        "mcp_internal_handler_tools_registration.go": {
+          "repository_path": "internal/handler/tools/registration.go",
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz-mcp-server/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/internal/handler/tools/registration.go",
+          "sha256": "231c085c21456b0ed50850d4375f1cb4d5b0ca9d8cf98161dec309a2ed4ce320",
+          "bytes": 2721
+        },
+        "mcp_internal_handler_tools_handler.go": {
+          "repository_path": "internal/handler/tools/handler.go",
+          "url": "https://raw.githubusercontent.com/SigNoz/signoz-mcp-server/d6a95cbb043ca7e0039cc4cbdfe9c68e5b988e9d/internal/handler/tools/handler.go",
+          "sha256": "83f626dc8496877020a3754514045d9b31430d322d5fc31463845ce467a446b5",
+          "bytes": 3614
+        }
+      }
+    }
+  }
+}

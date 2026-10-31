@@ -69,6 +69,22 @@ test("owner edits one Product price and reloads the actual catalogue without tar
     }),
   });
   const catalogue = schema.parse(await initial.json()).value.items;
+  const fixtures = z
+    .record(
+      z.string(),
+      z.object({ productId: z.uuid(), adminProductId: z.uuid() }),
+    )
+    .parse(
+      JSON.parse(process.env["FULLSTACK_PAYMENT_LINKS_FIXTURE"] ?? "null"),
+    );
+  const savedProducts = new Set(
+    Object.values(fixtures).map((fixture) => fixture.productId),
+  );
+  expect(savedProducts.has(ownedProduct.id)).toBe(false);
+  const savedPrices = catalogue.filter((item) =>
+    savedProducts.has(item.product?.id ?? ""),
+  );
+  expect(savedPrices).toHaveLength(2);
   const snapshot = catalogue.find(
     (item) => item.product?.id === ownedProduct.id,
   );
@@ -113,6 +129,10 @@ test("owner edits one Product price and reloads the actual catalogue without tar
     product: { id: product.id, priceRevision: product.priceRevision + 1 },
     paymentOption: { priceKopecks: input.value.priceKopecks },
   });
+  expect(
+    afterCatalogue.filter((item) => savedProducts.has(item.product?.id ?? "")),
+    "editing an admin Product must preserve the saved payment-link Products",
+  ).toEqual(savedPrices);
   for (const name of ["Тарифы", "Приглашения", "Перенос Tribute"])
     await expect(page.getByRole("tab", { name, exact: true })).toHaveCount(0);
   const scan = await new AxeBuilder({ page }).include("main").analyze();

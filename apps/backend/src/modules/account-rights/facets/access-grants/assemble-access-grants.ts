@@ -1,3 +1,4 @@
+import { readPaidGrantDiagnostics } from "../../features/read-paid-grant-diagnostics/read-paid-grant-diagnostics.js";
 import { issueManualProductAccessSchema } from "../../domain/product-access.js";
 import { z } from "zod";
 import {
@@ -138,6 +139,13 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     }
   }
   return Object.freeze({
+    readPaidGrantDiagnostics: (
+      keys: readonly {
+        readonly accountId: string;
+        readonly productId: string;
+        readonly sourceRef: string;
+      }[],
+    ) => readPaidGrantDiagnostics(prisma, keys),
     /** Acquisition and withdrawal are lifetime state; an inactive capability is not a new buyer. */
     async hasProductAcquisition(
       targetAccountId: string,

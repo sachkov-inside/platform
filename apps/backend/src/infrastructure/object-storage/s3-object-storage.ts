@@ -6,6 +6,8 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { observeS3Operation } from "../observability/technical-telemetry.js";
+import { observeS3RequestHandler } from "./s3-request-observation.js";
 
 import {
   assertPresignedGetTtl,
@@ -50,6 +52,7 @@ export function createS3ObjectStorage(
     forcePathStyle: config.forcePathStyle,
     region: config.region,
   });
+  observeS3RequestHandler(client.config.requestHandler);
   const signingClient =
     config.signedGetEndpoint === undefined
       ? client
@@ -92,30 +95,31 @@ export function createS3ObjectStorage(
 
     async read(namespace, key) {
       assertObjectKey(key);
-      const load = async (): Promise<StoredObject | null> => {
-        try {
-          const response = await send(
-            new GetObjectCommand({
-              Bucket: config.buckets[namespace],
-              Key: key,
-            }),
-          );
-          if (!isStoredObjectResponse(response)) {
-            throw new TypeError("Stored object metadata is incomplete");
+      const load = (): Promise<StoredObject | null> =>
+        observeS3Operation("getObject.read", async () => {
+          try {
+            const response = await send(
+              new GetObjectCommand({
+                Bucket: config.buckets[namespace],
+                Key: key,
+              }),
+            );
+            if (!isStoredObjectResponse(response)) {
+              throw new TypeError("Stored object metadata is incomplete");
+            }
+            return {
+              body: await response.Body.transformToByteArray(),
+              checksumSha256: response.Metadata.sha256,
+              contentLength: response.ContentLength,
+              contentType: response.ContentType,
+            };
+          } catch (error) {
+            if (isMissingObject(error)) {
+              return null;
+            }
+            throw error;
           }
-          return {
-            body: await response.Body.transformToByteArray(),
-            checksumSha256: response.Metadata.sha256,
-            contentLength: response.ContentLength,
-            contentType: response.ContentType,
-          };
-        } catch (error) {
-          if (isMissingObject(error)) {
-            return null;
-          }
-          throw error;
-        }
-      };
+        });
       return namespace === "public" ? publicImages.read(key, load) : load();
     },
 
@@ -167,6 +171,7 @@ export async function ensureS3Buckets(
     forcePathStyle: config.forcePathStyle,
     region: config.region,
   });
+  observeS3RequestHandler(client.config.requestHandler);
   try {
     for (const Bucket of Object.values(config.buckets)) {
       try {

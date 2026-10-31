@@ -1,3 +1,4 @@
+import type { ConfirmedTelegramActionKind } from "../modules/update-inbox/telegram-user-activity.js";
 import type { NativeMessageSource } from "../modules/communications/native-message-source.js";
 import type { MaterialAnnouncement } from "@inside/contracts/material-announcements";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
@@ -295,6 +296,11 @@ export interface SignInRequestsTable {
   expires_at: Timestamp;
   approved_at: Timestamp | null;
   consumed_at: Timestamp | null;
+  decision_update_id: ColumnType<
+    string | null,
+    string | null | undefined,
+    string | null
+  >;
 }
 
 export interface SignInSubjectsTable {
@@ -362,6 +368,7 @@ export interface DatabaseSchema
     update_id: BigIntColumn;
   };
   waitlist_confirmations: {
+    receipt_traceparent: Generated<string | null>;
     bot_identity: string;
     event_id: string;
     command: JsonColumn<WaitlistConfirmation>;
@@ -601,6 +608,17 @@ export interface DatabaseSchema
   membership_reconciliations: MembershipReconciliationsTable;
   platform_links: PlatformLinksTable;
   telegram_updates: TelegramUpdatesTable;
+  telegram_user_activity: {
+    bot_identity: string;
+    update_id: BigIntColumn;
+    telegram_user_id: BigIntColumn;
+    kind: ConfirmedTelegramActionKind;
+    occurred_at: Timestamp;
+  };
+  telegram_activity_collection: {
+    singleton: boolean;
+    started_at: ColumnType<Date, Date | string | undefined, Date | string>;
+  };
   start_response_deliveries: StartResponseDeliveriesTable;
   start_response_delivery_attempts: StartResponseDeliveryAttemptsTable;
 }

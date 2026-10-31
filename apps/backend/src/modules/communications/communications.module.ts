@@ -1,3 +1,4 @@
+import type { TechnicalTelemetry } from "../../infrastructure/observability/technical-telemetry.js";
 import { ProductReadingModule } from "../products/index.js";
 import { ReadMaterialAnnouncementsController } from "./features/read-material-announcements/read-material-announcements.controller.js";
 import { ReadWaitlistAudienceController } from "./features/read-waitlist-audience/read-waitlist-audience.controller.js";
@@ -48,6 +49,14 @@ export class TrackingHitPump
   private timer: ReturnType<typeof setTimeout> | undefined;
   private active: Promise<void> | undefined;
   private stopped = false;
+  private telemetry:
+    Pick<TechnicalTelemetry, "runTrackingDelivery"> | undefined;
+  /** The API registers its existing SDK before application bootstrap. */
+  observeDeliveries(
+    telemetry: Pick<TechnicalTelemetry, "runTrackingDelivery">,
+  ): void {
+    this.telemetry = telemetry;
+  }
   constructor(
     @Inject(TrackingVisits) private readonly visits: TrackingVisits,
     @Inject(PLATFORM_CONFIG) private readonly config: PlatformConfig,
@@ -62,7 +71,7 @@ export class TrackingHitPump
   private schedule() {
     this.timer = setTimeout(() => {
       this.active = this.visits
-        .deliverPending()
+        .deliverPending(this.telemetry)
         // The persisted backlog is retained and delivered on the next tick.
         .catch((error: unknown) => {
           reportDependencyFailure(
@@ -79,7 +88,11 @@ export class TrackingHitPump
   async onApplicationShutdown() {
     this.stopped = true;
     clearTimeout(this.timer);
-    await this.active;
+    try {
+      await this.active;
+    } finally {
+      await this.visits.drainDeliveries();
+    }
   }
 }
 

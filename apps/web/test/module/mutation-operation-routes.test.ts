@@ -26,6 +26,7 @@ import { routeBrowserMutations } from "../support/mutation-operation-route";
 const guestOperations = new Set([
   "createMaterialVideoPlaybackSessionOperation",
   "beginWaitlistIntentOperation",
+  "captureAnalyticsOperation",
 ]);
 
 type AnyOperation = MutationOperation<z.ZodType, z.ZodType>;

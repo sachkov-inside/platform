@@ -1,4 +1,20 @@
 import {
+  registerActivityRetentionDiagnosticsTool,
+  type ActivityRetentionDiagnostics,
+} from "./activity-retention-diagnostics.js";
+import {
+  registerParticipantDiagnosticsTool,
+  type ParticipantDiagnostics,
+} from "./participant-diagnostics.js";
+import {
+  registerQueueDiagnosticsTool,
+  type QueueDiagnostics,
+} from "./queue-diagnostics.js";
+import {
+  registerFunnelDiagnosticsTool,
+  type SalesFunnel,
+} from "../../modules/sales-funnel/index.js";
+import {
   registerWebTelemetryTool,
   type WebTelemetry,
 } from "../../modules/web-telemetry/index.js";
@@ -6,6 +22,8 @@ import type { McpServer } from "@modelcontextprotocol/server";
 
 import {
   registerBillingTools,
+  registerPaymentDiagnosticsTool,
+  type PaymentDiagnostics,
   type BillingOwnerTools,
 } from "../../modules/billing/index.js";
 import {
@@ -23,11 +41,16 @@ import {
 
 export interface InsideMcpToolDependencies {
   readonly accountId: string;
+  readonly retention: Pick<ActivityRetentionDiagnostics, "read">;
+  readonly participants: Pick<ParticipantDiagnostics, "read">;
+  readonly queues: Pick<QueueDiagnostics, "read">;
+  readonly funnel: Pick<SalesFunnel, "readDiagnostics">;
   readonly authoring: MaterialAuthoring;
   readonly videos: VideoAuthoringTools;
   readonly communications: Pick<Communications, "execute">;
   readonly telemetry: Pick<WebTelemetry, "summary">;
   readonly billing: BillingOwnerTools;
+  readonly diagnostics: Pick<PaymentDiagnostics, "read">;
 }
 
 /**
@@ -46,6 +69,26 @@ export function assembleInsideMcpServer(
   registerCommunicationsTools(server, {
     accountId,
     communications: dependencies.communications,
+  });
+  registerActivityRetentionDiagnosticsTool(server, {
+    accountId,
+    retention: dependencies.retention,
+  });
+  registerParticipantDiagnosticsTool(server, {
+    accountId,
+    participants: dependencies.participants,
+  });
+  registerQueueDiagnosticsTool(server, {
+    accountId,
+    queues: dependencies.queues,
+  });
+  registerFunnelDiagnosticsTool(server, {
+    accountId,
+    funnel: dependencies.funnel,
+  });
+  registerPaymentDiagnosticsTool(server, {
+    accountId,
+    diagnostics: dependencies.diagnostics,
   });
   registerBillingTools(server, { accountId, billing: dependencies.billing });
   registerWebTelemetryTool(server, {

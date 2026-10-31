@@ -130,3 +130,21 @@ export function requestPublicSiteIndex(query: {
     {},
   );
 }
+
+/** One fresh owner-validated business identity; never accepts a URL or exposes content. */
+export function requestReaderReference(
+  kind: "product" | "material",
+  id: string,
+  accessToken?: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      kind === "product"
+        ? new ContentLibraryService(request).readReaderProductReference({ id })
+        : new ContentLibraryService(request).readReaderMaterialReference({
+            id,
+          }),
+    200,
+    accessToken === undefined ? {} : { accessToken },
+  );
+}

@@ -1,3 +1,9 @@
+import { spawnSync } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
@@ -27,6 +33,123 @@ describe("production runtime readiness", () => {
     await Promise.all(
       databases.splice(0).map((database) => database.dispose()),
     );
+  });
+
+  test("compiled worker probe preserves marker, release and live PostgreSQL authority", async () => {
+    const database = await createTestDatabase();
+    databases.push(database);
+    await migrateRuntimeDatabase(database.url);
+    const directory = await mkdtemp(join(tmpdir(), "inside-worker-probe-"));
+    const markerPath = join(directory, "ready.json");
+    const release = { release: "v7", sourceSha: "7".repeat(40) };
+    const marker = {
+      database: "reachable",
+      process: "notifications-worker",
+      release,
+      schema: {
+        identity: runtimeDatabaseSchemaIdentity(
+          platformMigrations,
+          expectedPgBossSchemaVersion,
+        ),
+        migrationCount: platformMigrations.length,
+      },
+      status: "ready",
+    };
+    const run = (databaseUrl = database.url) => {
+      const child = spawnSync(
+        process.execPath,
+        [
+          "--import",
+          fileURLToPath(
+            new URL("./fixtures/worker-readiness-marker.mjs", import.meta.url),
+          ),
+          fileURLToPath(
+            new URL(
+              "../../dist/infrastructure/worker-healthcheck.js",
+              import.meta.url,
+            ),
+          ),
+        ],
+        {
+          cwd: directory,
+          encoding: "utf8",
+          env: {
+            PATH: process.env["PATH"],
+            NODE_ENV: "production",
+            INSIDE_OTEL_ENABLED: "false",
+            DATABASE_URL: databaseUrl,
+            PLATFORM_RELEASE_VERSION: release.release,
+            PLATFORM_SOURCE_SHA: release.sourceSha,
+            INSIDE_TEST_WORKER_READINESS_PATH: markerPath,
+          },
+          // The production migration connection owns a 5 s deadline; stop a stuck child after it.
+          timeout: 10_000,
+          maxBuffer: 1024 * 1024,
+        },
+      );
+      expect(child.error).toBeUndefined();
+      expect(child.signal).toBeNull();
+      return child;
+    };
+    const rejects = (message: string, databaseUrl?: string) => {
+      const child = run(databaseUrl);
+      expect(child.status).toBe(1);
+      expect(child.stderr).toContain('"event":"healthcheck_failed"');
+      expect(child.stderr).toContain(message);
+      expect(child.stderr).not.toContain("db-secret");
+    };
+
+    try {
+      await writeFile(
+        join(directory, "release-identity.json"),
+        JSON.stringify(release),
+      );
+      await writeFile(markerPath, JSON.stringify(marker));
+      const ready = run();
+      expect(ready.status, ready.stderr).toBe(0);
+      for (const wrongRelease of [
+        { ...release, release: "v6" },
+        { ...release, sourceSha: "6".repeat(40) },
+      ]) {
+        await writeFile(
+          markerPath,
+          JSON.stringify({ ...marker, release: wrongRelease }),
+        );
+        rejects("Worker readiness marker does not match this process release");
+      }
+      for (const staleSchema of [
+        { ...marker.schema, identity: `sha256:${"0".repeat(64)}` },
+        { ...marker.schema, migrationCount: platformMigrations.length - 1 },
+      ]) {
+        await writeFile(
+          markerPath,
+          JSON.stringify({ ...marker, schema: staleSchema }),
+        );
+        rejects("Worker readiness marker has a stale schema identity");
+      }
+      await writeFile(markerPath, JSON.stringify(marker));
+      await database.prisma.$executeRaw(
+        Prisma.sql`update pgboss.version set version = ${expectedPgBossSchemaVersion - 1}`,
+      );
+      rejects("Expected PgBoss schema");
+      await database.prisma.$executeRaw(
+        Prisma.sql`update pgboss.version set version = ${expectedPgBossSchemaVersion}`,
+      );
+      await database.prisma.$executeRaw(
+        Prisma.sql`update public.platform_migrations set checksum = repeat('0', 64) where position = 1`,
+      );
+      rejects("Migration checksum mismatch");
+      rejects(
+        "ECONNREFUSED",
+        "postgresql://inside:db-secret@127.0.0.1:1/inside",
+      );
+      await rm(markerPath);
+      rejects("ENOENT");
+      await writeFile(markerPath, "{");
+      rejects("SyntaxError");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   test("binds readiness to the exact release and complete schema", async () => {
@@ -209,18 +332,31 @@ describe("production runtime readiness", () => {
     // Воркер держит обработчик своего отказа сразу, как `assembleNotificationWorker`.
     void failure.catch(() => undefined);
     let drained = false;
+    const cleanup: string[] = [];
 
     // Остановка после отказа — следствие, а не причина: её собственный срок не должен заменить
     // собой то, из-за чего воркер остановился.
     await expect(
       runWorker({
-        application: { close: () => Promise.resolve() },
+        application: {
+          close: () => {
+            cleanup.push("application");
+            return Promise.resolve();
+          },
+        },
+        workObservations: {
+          close: () => {
+            cleanup.push("observations");
+            return Promise.resolve();
+          },
+        },
         databaseUrl: database.url,
         failed: failure,
         jobs: {
           start: () => Promise.resolve(),
           stop() {
             drained = true;
+            cleanup.push("jobs");
             return Promise.reject(new Error("notification_drain_timeout"));
           },
         },
@@ -233,6 +369,7 @@ describe("production runtime readiness", () => {
       }),
     ).rejects.toThrow("notification_broker_disconnected");
     expect(drained).toBe(true);
+    expect(cleanup).toEqual(["jobs", "observations", "application"]);
   });
 
   test("reports the failure that stopped a worker even when its cleanup fails", async () => {

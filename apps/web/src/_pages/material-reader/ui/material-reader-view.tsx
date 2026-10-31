@@ -1,3 +1,4 @@
+import { AnalyticsObservation } from "@/features/storage-notice";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { type ReactNode } from "react";
 
@@ -138,6 +139,10 @@ export function MaterialReaderView({
       data-material-id={material.materialId}
       data-material-reader-state="available"
     >
+      <AnalyticsObservation
+        event="material_view"
+        entityId={material.materialId}
+      />
       <ReaderHistoryTracker
         path={materialPath(material.slug)}
         originHref={

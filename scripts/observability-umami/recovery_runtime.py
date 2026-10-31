@@ -1,0 +1,799 @@
+"""Supervised synthetic PG18/pgBackRest recovery, never a production backup command."""
+from contextlib import contextmanager
+import hashlib
+import json
+import os
+import re
+from pathlib import Path
+import subprocess
+
+import recovery
+import runtime
+
+pilot = runtime.pilot
+ROOT = recovery.ROOT
+SCRIPTS = recovery.SCRIPTS
+BINDING_INPUTS = (*recovery.FOUNDATION_INPUTS,
+    'infra/observability/umami/recovery-cache.lock.json', 'infra/observability/umami/inputs.lock.json',
+    'infra/observability/umami/schema-fixture.sql',
+    'scripts/observability-umami/recovery.py', 'scripts/observability-umami/recovery_runtime.py',
+    'scripts/observability-umami/foundation.py', 'infra/production/database/libpq-version.c',
+    'scripts/observability-umami/prepare.py', 'scripts/observability-umami/runtime.py',
+    'scripts/observability-umami/retention.py', 'scripts/observability-umami/retention.sql',
+    'scripts/observability-umami/retention-corpus.sql', 'scripts/observability-umami/retention-proof.sql',
+    'scripts/observability-umami/retention_fixture.py',
+    'scripts/observability-umami/native_maintenance.py', 'scripts/observability-umami/maintenance.py',
+    'scripts/observability-umami/setup_database.py',
+    'scripts/observability-pilot/pilot.py', 'scripts/observability-pilot/orbstack.py',
+    'scripts/observability-pilot/daemon.py', 'scripts/observability-pilot/storage_policy.py',
+    'infra/observability/pilot/probe.lock.json')
+IMAGE_INSPECT = '{"id":{{json .Id}},"architecture":{{json .Architecture}},"os":{{json .Os}}}'
+
+
+def _cache(output):
+    local=output/'foundation-cache.json'
+    return recovery.validate_cache(json.loads((local if local.exists() else recovery.CACHE_LOCK).read_text()))
+
+
+def prepare_bound_inputs(output, *, cache_path=None):
+    cache = recovery.validate_cache(json.loads((cache_path or recovery.CACHE_LOCK).read_text()))
+    recovery.prepare_inputs(output, foundation_image=cache['image'])
+    if cache_path is not None:pilot.write_json(output/'foundation-cache.json',cache)
+    pilot.write_json(output / 'recovery-inputs.json', {
+        'schema': 1, 'foundation_source': cache['source'], 'foundation_image': cache['image'],
+        'inputs': {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in BINDING_INPUTS},
+        'private_compose_sha256': _expected_supervised_compose_hash(output),
+        'configuration_sha256': hashlib.sha256((output / 'pgbackrest.conf').read_bytes()).hexdigest(),
+        'initial_roles_sha256': hashlib.sha256((output / 'init.sql').read_bytes()).hexdigest()})
+
+
+def _expected_supervised_compose_hash(output):
+    """Predict only the public supervisor's exact Mac addition; never normalize worker input."""
+    identity = pilot.FROZEN_DOCKER_IDENTITY
+    if identity is None or identity.get('platform') == 'linux':
+        return hashlib.sha256((output / 'compose.json').read_bytes()).hexdigest()
+    pilot.validate_recorded_daemon_identity(identity, linux=False)
+    plan = json.loads((output / 'compose.json').read_text())
+    if 'storage-probe' in plan['services']:
+        raise ValueError('unexpected_prepared_storage_probe')
+    lock = json.loads((pilot.CONFIG / 'probe.lock.json').read_text())
+    plan['services']['storage-probe'] = pilot.orbstack.probe_service(lock, identity['storage'])
+    # Use the SAME owning serializer as pilot.run. The private expected copy is
+    # removed before preparation returns; only its digest survives.
+    expected = output / 'expected-compose.private.json'
+    expected.touch(mode=0o600, exist_ok=False)
+    try:
+        pilot.write_json(expected, plan)
+        return hashlib.sha256(expected.read_bytes()).hexdigest()
+    finally:
+        expected.unlink()
+
+
+_BACKUP_FAILURE_AUTHORITY = object()
+_BACKUP_OPERATIONS = frozenset(('stanza_create', 'check', 'full_backup', 'info', 'selected_info', 'selection'))
+_BACKUP_CATEGORIES = frozenset(('command_failed', 'timeout', 'invalid_json', 'proof_mismatch', 'io_failure', 'runtime_failure'))
+_EXCEPTION_FIELDS = BaseException.__dict__['__dict__']
+
+
+@contextmanager
+def _encrypted_backup_operation(operation):
+    """Annotate the attempted logical step, never native execution or mutable progress."""
+    try:
+        yield
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        try:
+            fields = _EXCEPTION_FIELDS.__get__(error)
+            category = ('timeout' if isinstance(error, (subprocess.TimeoutExpired, TimeoutError)) else
+                'command_failed' if isinstance(error, (runtime.FixtureCommandFailed, subprocess.CalledProcessError)) else
+                'invalid_json' if isinstance(error, json.JSONDecodeError) else
+                'proof_mismatch' if isinstance(error, ValueError) else
+                'io_failure' if isinstance(error, OSError) else 'runtime_failure')
+            code = fields.get('returncode')
+            fields['_umami_backup_failure'] = (_BACKUP_FAILURE_AUTHORITY, id(error), operation, category,
+                code if type(code) is int and -128 <= code <= 255 else None)
+        except Exception:
+            # Diagnostic failure cannot replace the original error or its traceback.
+            pass
+        raise
+
+
+def _current_backup_failure(error):
+    unavailable = {'available': False, 'operation': None, 'category': None, 'returncode': None}
+    try:
+        tagged = _EXCEPTION_FIELDS.__get__(error).get('_umami_backup_failure')
+        if (type(tagged) is not tuple or len(tagged) != 5 or tagged[0] is not _BACKUP_FAILURE_AUTHORITY
+                or type(tagged[1]) is not int or tagged[1] != id(error)
+                or type(tagged[2]) is not str or tagged[2] not in _BACKUP_OPERATIONS
+                or type(tagged[3]) is not str or tagged[3] not in _BACKUP_CATEGORIES
+                or not (tagged[4] is None or type(tagged[4]) is int and -128 <= tagged[4] <= 255)):
+            return unavailable
+        return {'available': True, 'operation': tagged[2], 'category': tagged[3], 'returncode': tagged[4]}
+    except Exception:
+        return unavailable
+
+
+def exercise(output, compose, project, *, execute=runtime.invoke):
+    """One owned corpus. All Docker I/O crosses the existing identity/deadline adapter."""
+    report = {'schema': 1, 'scope': 'owned_synthetic_sql_pg18_recovery_only', 'state': 'running',
+              'stage': 'cache_admission', 'reader_gate': 'closed', 'production_deletion_authority': 'unknown'}
+    def record():
+        pilot.write_json(output / 'recovery-proof.json', report)
+    def record_operation(value):
+        report['operation'] = value
+        record()
+    record()
+    try:
+        cache = _cache(output)
+        binding = json.loads((output / 'recovery-inputs.json').read_text())
+        if (not isinstance(binding, dict) or binding.get('schema') != 1
+                or binding.get('foundation_source') != cache['source'] or binding.get('foundation_image') != cache['image']
+                or binding.get('inputs') != {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in BINDING_INPUTS}
+                or binding.get('private_compose_sha256') != hashlib.sha256((output / 'compose.json').read_bytes()).hexdigest()
+                or binding.get('configuration_sha256') != hashlib.sha256((output / 'pgbackrest.conf').read_bytes()).hexdigest()
+                or binding.get('initial_roles_sha256') != hashlib.sha256((output / 'init.sql').read_bytes()).hexdigest()):
+            raise ValueError('recovery_prepared_inputs_changed')
+        for reference in (cache['image'], cache['cache_owner']):
+            actual = json.loads(execute(['docker'], ['image', 'inspect', reference, '--format', IMAGE_INSPECT]))
+            if actual != {'id': cache['image'], 'architecture': cache['architecture'], 'os': 'linux'}:
+                raise RuntimeError('recovery_cache_unavailable_or_changed')
+        if cache['schema']==2:
+            import foundation
+            identity=json.loads(execute(['docker'],['image','inspect',cache['image'],'--format',foundation.INSPECT]))
+            if identity!={'id':cache['image'],'architecture':cache['architecture'],'os':'linux','source':cache['source']}:
+                raise ValueError('recovery_foundation_source_identity')
+        report['stage'] = 'fresh_destination'
+        record()
+        plan = json.loads((output / 'compose.json').read_text())
+        name = plan['volumes']['recovery']['name']
+        if not isinstance(name, str) or not re.fullmatch(re.escape(recovery.RECOVERY_PREFIX) + r'[a-f0-9]{32}', name):
+            raise ValueError('invalid_recovery_volume_name')
+        if execute(['docker'], ['volume', 'ls', '--filter', 'name=' + name, '--format', '{{.Name}}']).strip():
+            raise RuntimeError('recovery_destination_already_exists')
+        report['stage'] = 'repository_initialize'
+        record()
+        _one_shot(compose, project, 'repo-init', execute, record=record_operation)
+        report['repo_init_wait_comparison'] = report['operation']['compatibility']
+        record()
+        report['stage'] = 'source_database'
+        record()
+        execute(compose, ['up', '-d', '--no-deps', 'db'])
+        _await_sql(compose, 'db', execute=execute, tcp=True)
+        cluster = _cluster(_sql(compose, 'db', CLUSTER_SQL, execute=execute, role='pilot_bootstrap', database='postgres'))
+        report['postgres_version_num'] = cluster['version_num']
+        record()
+        if cluster['version_num'] != 180004 or cluster['archive_mode'] != 'on':
+            raise RuntimeError('unexpected_source_database_version_or_archiving')
+        report['stage'] = 'native_maintenance'
+        record()
+        import native_maintenance
+        def maintenance_progress(value):
+            report['native_maintenance_operation']=value
+            record()
+        report['native_maintenance'] = native_maintenance.exercise(
+            lambda payload, **options: _sql(compose, 'db', payload, execute=execute, **options),
+            lambda:_maintenance_snapshot(compose,execute=execute),output/'maintenance-private',
+            restore=lambda:_maintenance_restore(compose,execute=execute),progress=maintenance_progress)
+        record()
+        return _database_corpus(output, compose, project, plan, cluster, report, record, execute, record_operation)
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        report['current_failure'] = _current_backup_failure(error)
+        report['state'] = 'failed'
+        record()
+        raise RuntimeError('owned_recovery_failed; inspect curated recovery-proof.json') from None
+
+
+def _maintenance_snapshot(compose, *, execute):
+    # Snapshot never leaves the already supervised owned container. Keep the shared
+    # 65KiB response cap; a file-size resource limit and a 1MiB admission bound the
+    # private SQL dump instead. Noclobber refuses a pre-existing path or symlink.
+    return execute(compose,['exec','-T','db','sh','-ec',
+        'umask 077; ulimit -f 2048; set -C; : > /tmp/inside-1566-native-snapshot.sql; '
+        'pg_dump -U umami -d umami --data-only --no-owner --no-privileges --file=/tmp/inside-1566-native-snapshot.sql; '
+        'test "$(stat -c %s /tmp/inside-1566-native-snapshot.sql)" -le 1048576'],timeout=30)
+
+
+def _maintenance_restore(compose, *, execute):
+    return execute(compose,['exec','-T','db','psql','-X','-qAt','-U','umami','-d','umami',
+        '-v','ON_ERROR_STOP=1','--file=/tmp/inside-1566-native-snapshot.sql'],timeout=30)
+
+
+CONTAINER_INSPECT = ('{"id":{{json .Id}},"image":{{json .Image}},"labels":{{json .Config.Labels}},"mounts":{{json .Mounts}},'
+    '"network":{{json .HostConfig.NetworkMode}},"ports":{{json .HostConfig.PortBindings}},'
+    '"state":{"status":{{json .State.Status}},"running":{{json .State.Running}},"pid":{{json .State.Pid}},"exit_code":{{json .State.ExitCode}}}}')
+OPERATION_SECONDS = 90
+STOP_SECONDS = 10
+SQL_READY_SECONDS = 60
+SQL_POLL_SECONDS = .25
+
+
+def _inspect_service(compose, project, service, execute, *, progress=None, expected_identity=None):
+    if progress is not None:
+        progress('identity')
+    identity = execute(compose, ['ps', '--all', '-q', service]).strip()
+    if progress is not None:
+        lines = identity.splitlines()
+        progress('identity', {'count': 'none' if not lines else 'one' if len(lines) == 1 else 'multiple',
+            'single_width': len(identity) if len(lines) == 1 and len(identity) <= runtime.FIXTURE_BYTES else None,
+            'single_hex': bool(re.fullmatch(r'[a-f0-9]+', identity)) if len(lines) == 1 else None})
+    if not re.fullmatch(r'[a-f0-9]{64}', identity) or expected_identity is not None and identity != expected_identity:
+        raise ValueError('owned_service_identity')
+    if progress is not None:
+        progress('inspect')
+    actual = json.loads(execute(['docker'], ['inspect', identity, '--format', CONTAINER_INSPECT]))
+    if (not isinstance(actual, dict) or actual.get('id') != identity or not isinstance(actual.get('labels'), dict)
+            or actual['labels'].get('com.docker.compose.project') != project
+            or actual['labels'].get('com.docker.compose.service') != service
+            or not isinstance(actual.get('state'), dict)):
+        raise ValueError('owned_service_inspection')
+    return actual
+
+
+def _require_stopped(actual):
+    state = actual['state']
+    if (state.get('status') not in ('exited', 'created') or state.get('running') is not False
+            or type(state.get('pid')) is not int or state['pid'] != 0):
+        raise RuntimeError('postmaster_not_confirmed_stopped')
+
+
+def _one_shot(compose, project, service, execute, *, already_created=False, record=None):
+    diagnostic = {'schema': 1, 'service': service if service in recovery.SERVICES else 'unknown',
+        'step': 'start' if already_created else 'up', 'outcome': 'running', 'error': None,
+        'returncode': None, 'identity': None, 'container_exit_code': None}
+    def publish():
+        if record is not None:
+            record(dict(diagnostic))
+    def progress(step, shape=None):
+        diagnostic['step'] = step
+        diagnostic['returncode'] = 0 if shape is not None else None
+        if shape is not None:
+            diagnostic['identity'] = shape
+        publish()
+    publish()
+    try:
+        execute(compose, ['start', service] if already_created else ['up', '-d', '--no-deps', service])
+        actual = _inspect_service(compose, project, service, execute, progress=progress)
+        identity = actual['id']
+        progress('state')
+        _require_waitable(actual)
+        progress('wait')
+        waited_code = _wait_exit_code(execute(['docker'], ['wait', identity], timeout=OPERATION_SECONDS))
+        actual = _inspect_service(compose, project, service, execute, progress=progress, expected_identity=identity)
+        diagnostic['returncode'] = 0
+        progress('state')
+        _require_stopped(actual)
+        progress('exit')
+        code = actual['state'].get('exit_code')
+        diagnostic['container_exit_code'] = code if type(code) is int and 0 <= code <= 255 else None
+        if actual['state'].get('status') != 'exited' or type(code) is not int or code != waited_code or code != 0:
+            raise RuntimeError('owned_operation_failed')
+        if service == 'repo-init':
+            progress('comparison')
+            diagnostic['compatibility'] = _compare_completed_waits(compose, project, service, identity, execute)
+        diagnostic.update(step='exit', outcome='passed', returncode=0)
+        publish()
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        code = getattr(error, 'returncode', None)
+        diagnostic['returncode'] = code if type(code) is int and -128 <= code <= 255 else None
+        if isinstance(error, (subprocess.TimeoutExpired, TimeoutError)):
+            category = 'timeout'
+        elif isinstance(error, (runtime.FixtureCommandFailed, subprocess.CalledProcessError)):
+            category = 'command_failed'
+        elif isinstance(error, json.JSONDecodeError):
+            category = 'invalid_inspect_json'
+        elif isinstance(error, ValueError):
+            category = ('invalid_identity' if diagnostic['step'] == 'identity' else
+                        'invalid_wait_output' if diagnostic['step'] == 'wait' else 'inspection_mismatch')
+        elif diagnostic['step'] == 'state':
+            category = 'invalid_state'
+        elif diagnostic['step'] == 'exit':
+            category = 'invalid_exit_code'
+        else:
+            category = 'io_failure' if isinstance(error, OSError) else 'runtime_failure'
+        diagnostic.update(outcome='failed', error=category)
+        publish()
+        raise
+
+
+def _require_waitable(actual):
+    state = actual['state']
+    if state.get('status') == 'running':
+        if state.get('running') is True and type(state.get('pid')) is int and state['pid'] > 0:
+            return
+    elif state.get('status') == 'exited':
+        _require_stopped(actual)
+        if type(state.get('exit_code')) is int and 0 <= state['exit_code'] <= 255:
+            return
+    raise RuntimeError('owned_operation_not_waitable')
+
+
+def _wait_exit_code(encoded):
+    if not isinstance(encoded, str) or len(encoded) > 4 or not re.fullmatch(r'(0|[1-9][0-9]{0,2})\n?', encoded):
+        raise ValueError('invalid_engine_wait_output')
+    value = int(encoded)
+    if value > 255:
+        raise ValueError('invalid_engine_wait_output')
+    return value
+
+
+WAIT_COMPARISON_SECONDS = 10
+
+
+def _compare_completed_waits(compose, project, service, identity, execute):
+    """Read-only diagnostic after the real gate; never converts unknown failures to success."""
+    import time
+    deadline = time.monotonic() + WAIT_COMPARISON_SECONDS
+    def bounded(base, args, **kwargs):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('wait_comparison_deadline')
+        kwargs['timeout'] = min(kwargs.get('timeout', WAIT_COMPARISON_SECONDS), remaining)
+        return execute(base, args, **kwargs)
+    def confirmed():
+        actual = _inspect_service(compose, project, service, bounded, expected_identity=identity)
+        _require_stopped(actual)
+        if actual['state'].get('status') != 'exited' or type(actual['state'].get('exit_code')) is not int or actual['state']['exit_code'] != 0:
+            raise RuntimeError('wait_comparison_state_changed')
+    confirmed()
+    try:
+        bounded(compose, ['wait', service], fixture_phase='compose_wait_probe')
+        compose_result = {'outcome': 'passed', 'returncode': 0}
+    except runtime.FixtureCommandFailed as error:
+        if (error.returncode != 1 or error.diagnostic != {'phase': 'compose_wait_probe', 'error': 'no_running_containers'}):
+            raise
+        compose_result = {'outcome': 'no_running_containers', 'returncode': 1}
+    confirmed()
+    code = _wait_exit_code(bounded(['docker'], ['wait', identity]))
+    if code != 0:
+        raise RuntimeError('wait_comparison_nonzero_exit')
+    confirmed()
+    return {'compose': compose_result, 'engine': {'outcome': 'passed', 'returncode': 0, 'container_exit_code': 0},
+            'same_owned_id_exited_zero': True}
+
+
+def _sql(compose, service, payload, *, execute, role='umami', database='umami', timeout=12, fixture_phase=None):
+    args = ['exec', '-T', service, 'psql', '-X', '-qAt', '-U', role, '-d', database, '-v', 'ON_ERROR_STOP=1']
+    options = {}
+    if fixture_phase is not None:
+        if fixture_phase != 'membership_guard': raise ValueError('unknown_sql_fixture_phase')
+        args += ['-v', 'VERBOSITY=sqlstate']
+        options['fixture_phase'] = fixture_phase
+    return execute(compose, args, payload=payload, timeout=timeout, **options)
+
+
+def _await_sql(compose, service, *, execute, tcp=False, progress=None):
+    import time
+    deadline = time.monotonic() + SQL_READY_SECONDS
+    diagnostic = {'schema': 1, 'condition': 'pending', 'pg_isready_returncode': None,
+                  'recovery_ended': None, 'error': None}
+    def publish(condition=None, error=None):
+        if condition is not None:
+            diagnostic['condition'] = condition
+        diagnostic['error'] = error
+        if progress is not None:
+            progress(dict(diagnostic))
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            publish(error='deadline_exceeded')
+            raise RuntimeError('recovered_database_readiness_deadline')
+        args = ['exec', '-T', service, 'pg_isready', '-t', '1', '-U', 'pilot_bootstrap', '-d', 'postgres']
+        if tcp:
+            args += ['-h', '127.0.0.1']
+        phase = 'pg_isready'
+        try:
+            publish('probing')
+            execute(compose, args, timeout=min(12, remaining))
+            diagnostic['pg_isready_returncode'] = 0
+            if not tcp:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    publish(error='deadline_exceeded')
+                    raise RuntimeError('recovered_database_readiness_deadline')
+                phase = 'recovery_query'
+                publish('checking_recovery')
+                recovery_state = json.loads(_sql(compose, service,
+                    "SELECT json_build_object('recovery_ended',NOT pg_is_in_recovery());",
+                    execute=execute, role='pilot_bootstrap', database='postgres', timeout=min(12, remaining)))
+                if (not isinstance(recovery_state, dict) or set(recovery_state) != {'recovery_ended'}
+                        or type(recovery_state['recovery_ended']) is not bool):
+                    publish('invalid_response', 'invalid_result')
+                    raise ValueError('recovery_readiness_shape')
+                diagnostic['recovery_ended'] = recovery_state['recovery_ended']
+                if not recovery_state['recovery_ended']:
+                    publish('recovering')
+                    time.sleep(min(SQL_POLL_SECONDS, max(0, deadline - time.monotonic())))
+                    continue
+            publish('ready')
+            return
+        except runtime.FixtureCommandFailed as error:
+            if phase == 'pg_isready':
+                code = error.returncode
+                diagnostic['pg_isready_returncode'] = code if type(code) is int and -128 <= code <= 255 else None
+            publish('not_accepting' if phase == 'pg_isready' else 'query_failed', 'command_failed')
+            time.sleep(min(SQL_POLL_SECONDS, max(0, deadline - time.monotonic())))
+        except json.JSONDecodeError:
+            publish('invalid_response', 'invalid_json')
+            raise
+        except (subprocess.TimeoutExpired, TimeoutError):
+            publish('timeout', 'timeout')
+            raise
+
+
+def _expect(encoded, expected):
+    if not isinstance(encoded, str) or len(encoded.encode()) > runtime.FIXTURE_BYTES:
+        raise ValueError('recovery_proof_size')
+    actual = json.loads(encoded)
+    if (not isinstance(actual, dict) or set(actual) != set(expected)
+            or any(type(actual[key]) is not type(value) or actual[key] != value for key, value in expected.items())):
+        raise ValueError('recovery_proof_mismatch')
+    return expected
+
+
+def _data_mount(actual, name):
+    mounts = actual.get('mounts')
+    if not isinstance(mounts, list):
+        raise ValueError('recovery_database_mount')
+    data = [mount for mount in mounts if isinstance(mount, dict) and mount.get('Destination') == '/var/lib/postgresql']
+    if len(data) != 1 or data[0].get('Name') != name or data[0].get('Type') != 'volume' or data[0].get('RW') is not True:
+        raise ValueError('recovery_database_mount')
+
+
+def open_sql_actors(compose, project, name, *, execute=runtime.invoke, record=None):
+    """Stop and observe the offline postmaster before starting its private successor."""
+    execute(compose, ['stop', '--timeout', str(STOP_SECONDS), 'recovered'])
+    _require_stopped(_inspect_service(compose, project, 'recovered', execute))
+    execute(compose, ['create', 'read-db'])
+    actual = _inspect_service(compose, project, 'read-db', execute)
+    _require_stopped(actual)
+    _data_mount(actual, name)
+    if actual.get('ports') not in (None, {}) or actual.get('network') != project + '_private':
+        raise ValueError('reader_database_not_private')
+    execute(compose, ['start', 'read-db'])
+    _await_sql(compose, 'read-db', execute=execute, tcp=True)
+    _one_shot(compose, project, 'reader', execute, record=record)
+    reader = execute(compose, ['logs', '--no-log-prefix', 'reader'])
+    _expect(reader, {'reader_rows': 2, 'blocked_rows': 0})
+    _one_shot(compose, project, 'ingest', execute, record=record)
+    ingest = execute(compose, ['logs', '--no-log-prefix', 'ingest'])
+    _expect(ingest, {'ingest_rows': 1})
+
+
+CLUSTER_SQL = """SELECT json_build_object('version_num',current_setting('server_version_num')::int,
+'system_identifier',(SELECT system_identifier::text FROM pg_control_system()),
+'archive_mode',current_setting('archive_mode'),'archive_command',current_setting('archive_command'));"""
+
+
+def _cluster(encoded, *, offline=False, invalid=None):
+    raw = json.loads(encoded)
+    field = None
+    if not isinstance(raw, dict) or set(raw) != {'version_num', 'system_identifier', 'archive_mode', 'archive_command'}:
+        field = 'shape'
+    elif type(raw['version_num']) is not int or not 100000 <= raw['version_num'] < 1000000:
+        field = 'version_num'
+    elif not isinstance(raw['system_identifier'], str) or not re.fullmatch(r'[1-9][0-9]{0,19}', raw['system_identifier']):
+        field = 'system_identifier'
+    elif raw['archive_mode'] != ('off' if offline else 'on'):
+        field = 'archive_mode'
+    # PG18 current_setting uses show_archive_command, not the raw configured value.
+    elif raw['archive_command'] != ('(disabled)' if offline else 'pgbackrest --stanza=production archive-push %p'):
+        field = 'archive_command'
+    if field is not None:
+        if invalid is not None:
+            invalid({'schema': 1, 'invalid_field': field})
+        raise ValueError('unexpected_cluster_metadata')
+    return raw
+
+
+ROLE_SQL = """SELECT json_build_object(
+'bounded_role', NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls AND rolcanlogin,
+'connection_limit',rolconnlimit,'statement_timeout',current_setting('statement_timeout'),
+'idle_timeout',current_setting('idle_in_transaction_session_timeout'),
+'platform_connect_denied',NOT has_database_privilege(current_user,'inside','CONNECT'),
+'logto_connect_denied',NOT has_database_privilege(current_user,'logto','CONNECT'),
+'no_role_membership',NOT EXISTS(SELECT 1 FROM pg_auth_members WHERE member=pg_roles.oid),
+'own_database',current_database()='umami' AND current_user='umami' AND
+ (SELECT datdba=pg_roles.oid FROM pg_database WHERE datname=current_database()))
+FROM pg_roles WHERE rolname=current_user;"""
+ROLE_EXPECTED = {'bounded_role': True, 'connection_limit': 8, 'statement_timeout': '5s', 'idle_timeout': '10s',
+                 'platform_connect_denied': True, 'logto_connect_denied': True, 'no_role_membership': True, 'own_database': True}
+PLATFORM_SQL = "SELECT json_build_object('platform_rows',count(*),'platform_untouched',bool_and(value='synthetic-1566-preserved')) FROM public.recovery_probe;"
+PLATFORM_EXPECTED = {'platform_rows': 1, 'platform_untouched': True}
+RESTORED_EVENT_SQL = f"""SELECT json_build_object('deleted_event_reappeared',
+ (SELECT count(*) FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_id='{recovery.DELETE_EVENT}'),
+ 'expired_events_reappeared',(SELECT count(*) FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name IN ('ttl_expired','ttl_null')));"""
+
+
+def _no_readers(compose, execute):
+    if execute(compose, ['ps', '--all', '-q', 'read-db', 'reader', 'ingest']).strip():
+        raise RuntimeError('readers_or_ingestion_exist_before_gate')
+
+
+def _confirm_restore_destination(compose, project, plan, name, execute, report, record):
+    """Keep the last closed pre-restore boundary without retaining external metadata."""
+    diagnostic = {'schema': 1, 'step': 'create', 'outcome': 'running', 'error': None, 'returncode': None}
+    def progress(step, _shape=None):
+        diagnostic['step'] = {'identity': 'container_identity', 'inspect': 'container_inspect'}.get(step, step)
+        report['destination_operation'] = dict(diagnostic)
+        record()
+    progress('create')
+    try:
+        execute(compose, ['create', 'restore'])
+        progress('volume_inspect')
+        volume = json.loads(execute(['docker'], ['volume', 'inspect', name, '--format', '{{json .}}']))
+        restore = _inspect_service(compose, project, 'restore', execute, progress=progress)
+        progress('offline')
+        if restore.get('network') != 'none' or restore.get('ports') not in (None, {}):
+            raise ValueError('restore_not_offline')
+        progress('ownership_mounts')
+        destination = recovery.confirm_destination(project, name, plan['services']['db']['image'], volume, restore,
+                                                   absent_before_acquisition=True)
+        diagnostic.update(outcome='passed', returncode=0)
+        report['destination_operation'] = dict(diagnostic)
+        record()
+        return destination
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        code = getattr(error, 'returncode', None)
+        if isinstance(error, (subprocess.TimeoutExpired, TimeoutError)):
+            category = 'timeout'
+        elif isinstance(error, (runtime.FixtureCommandFailed, subprocess.CalledProcessError)):
+            category = 'command_failed'
+        elif isinstance(error, json.JSONDecodeError):
+            category = 'invalid_json'
+        elif isinstance(error, ValueError):
+            category = {'container_identity': 'invalid_identity', 'container_inspect': 'inspection_mismatch',
+                        'offline': 'offline_mismatch', 'ownership_mounts': 'ownership_mounts_mismatch'}.get(
+                            diagnostic['step'], 'invalid_value')
+        else:
+            category = 'io_failure' if isinstance(error, OSError) else 'runtime_failure'
+        diagnostic.update(outcome='failed', error=category,
+                          returncode=code if type(code) is int and -128 <= code <= 255 else None)
+        report['destination_operation'] = dict(diagnostic)
+        record()
+        raise
+
+
+def _confirm_recovered_postmaster(compose, project, name, source, sql, execute, report, record):
+    """Closed progress through offline postmaster checks, never raw SQL or inspect evidence."""
+    diagnostic = {'schema': 1, 'step': 'create', 'outcome': 'running', 'error': None, 'returncode': None}
+    def progress(step, _shape=None):
+        diagnostic['step'] = {'identity': 'container_identity', 'inspect': 'container_inspect'}.get(step, step)
+        report['recovered_postmaster'] = dict(diagnostic)
+        record()
+    progress('create')
+    try:
+        execute(compose, ['create', 'recovered'])
+        offline = _inspect_service(compose, project, 'recovered', execute, progress=progress)
+        progress('stopped')
+        _require_stopped(offline)
+        progress('mount')
+        _data_mount(offline, name)
+        progress('offline')
+        if offline.get('network') != 'none' or offline.get('ports') not in (None, {}):
+            raise ValueError('recovered_postmaster_not_offline')
+        progress('start')
+        execute(compose, ['start', 'recovered'])
+        progress('sql_ready')
+        def readiness(value):
+            diagnostic['readiness'] = value
+            report['recovered_postmaster'] = dict(diagnostic)
+            record()
+        _await_sql(compose, 'recovered', execute=execute, progress=readiness)
+        progress('recovery_ended')
+        _expect(sql('recovered', "SELECT json_build_object('recovery_ended',NOT pg_is_in_recovery());",
+                    role='pilot_bootstrap', database='postgres'), {'recovery_ended': True})
+        progress('cluster')
+        def invalid_cluster(value):
+            diagnostic['cluster_validation'] = value
+            report['recovered_postmaster'] = dict(diagnostic)
+            record()
+        restored = _cluster(sql('recovered', CLUSTER_SQL, role='pilot_bootstrap', database='postgres'),
+                            offline=True, invalid=invalid_cluster)
+        progress('lineage')
+        if (restored['system_identifier'] != source['system_identifier'] or restored['version_num'] != 180004
+                or restored['archive_mode'] != 'off'):
+            raise ValueError('restored_lineage_or_archive_mode')
+        progress('platform')
+        report['restored_platform'] = _expect(sql('recovered', PLATFORM_SQL, role='platform', database='inside'), PLATFORM_EXPECTED)
+        progress('role')
+        _expect(sql('recovered', ROLE_SQL), ROLE_EXPECTED)
+        progress('events')
+        report['backup_data_reappeared'] = _expect(sql('recovered', RESTORED_EVENT_SQL),
+            {'deleted_event_reappeared': 1, 'expired_events_reappeared': 502})
+        progress('readers_absent')
+        _no_readers(compose, execute)
+        diagnostic.update(outcome='passed', returncode=0)
+        report['recovered_postmaster'] = dict(diagnostic)
+        record()
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        code = getattr(error, 'returncode', None)
+        if isinstance(error, (subprocess.TimeoutExpired, TimeoutError)):
+            category = 'timeout'
+        elif isinstance(error, (runtime.FixtureCommandFailed, subprocess.CalledProcessError)):
+            category = 'command_failed'
+        elif isinstance(error, json.JSONDecodeError):
+            category = 'invalid_json'
+        elif isinstance(error, ValueError):
+            category = {'container_identity': 'invalid_identity', 'container_inspect': 'inspection_mismatch',
+                        'mount': 'mount_mismatch', 'offline': 'offline_mismatch',
+                        'lineage': 'lineage_mismatch'}.get(diagnostic['step'], 'proof_mismatch')
+        elif isinstance(error, OSError):
+            category = 'io_failure'
+        else:
+            category = {'stopped': 'stopped_mismatch', 'sql_ready': 'readiness_failed',
+                        'readers_absent': 'readers_present'}.get(diagnostic['step'], 'runtime_failure')
+        diagnostic.update(outcome='failed', error=category,
+                          returncode=code if type(code) is int and -128 <= code <= 255 else None)
+        report['recovered_postmaster'] = dict(diagnostic)
+        record()
+        raise
+
+
+def _database_corpus(output, compose, project, plan, source, report, record, execute, record_operation):
+    import retention_fixture
+    def stage(value):
+        report['stage'] = value
+        record()
+    def sql(service, payload, *, role='umami', database='umami', timeout=12):
+        return _sql(compose, service, payload, execute=execute, role=role, database=database, timeout=timeout)
+    stage('source_setup')
+    version = execute(compose, ['exec', '-T', 'db', 'pgbackrest', 'version']).strip()
+    expected=_cache(output).get('pgbackrest_version','2.57.0')
+    if version != 'pgBackRest '+expected:
+        raise ValueError('unexpected_pgbackrest_version')
+    sql('db', (output / 'init.sql').read_text() + """
+REVOKE CONNECT ON DATABASE inside FROM PUBLIC;
+GRANT CONNECT ON DATABASE inside TO platform;
+REVOKE CONNECT ON DATABASE logto FROM PUBLIC;
+GRANT CONNECT ON DATABASE logto TO logto_owner;
+REVOKE CONNECT ON DATABASE umami FROM PUBLIC;
+GRANT CONNECT ON DATABASE umami TO umami;
+""", role='pilot_bootstrap', database='postgres')
+    sql('db', """CREATE TABLE public.recovery_probe(value text NOT NULL);
+ALTER TABLE public.recovery_probe OWNER TO platform;
+INSERT INTO public.recovery_probe VALUES('synthetic-1566-preserved');""", role='pilot_bootstrap', database='inside')
+    _expect(sql('db', PLATFORM_SQL, role='platform', database='inside'), PLATFORM_EXPECTED)
+    report['role_isolation'] = _expect(sql('db', ROLE_SQL), ROLE_EXPECTED)
+    sql('db', (ROOT / 'infra/observability/umami/schema-fixture.sql').read_text(), timeout=OPERATION_SECONDS)
+    sql('db', f"INSERT INTO public.website(website_id,name,domain) VALUES('{recovery.SITE}','synthetic','fixture.invalid');")
+    source_cutoff = retention_fixture.seed_result(sql('db', retention_fixture.seed_sql(recovery.SITE)))
+    sql('db', f"""INSERT INTO public.website_event(event_id,website_id,session_id,visit_id,url_path,event_type,event_name)
+SELECT '{recovery.DELETE_EVENT}',website_id,session_id,visit_id,'/synthetic/delete',2,'recovery_delete_probe'
+FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl_recent';""")
+    report.update(pgbackrest_version=expected, source_fixture_cutoff=source_cutoff,
+                  source_system_identifier_sha256=hashlib.sha256(source['system_identifier'].encode()).hexdigest())
+    stage('encrypted_backup')
+    for backup_command in ('stanza-create', 'check'):
+        with _encrypted_backup_operation('stanza_create' if backup_command == 'stanza-create' else 'check'):
+            execute(compose, ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', backup_command], timeout=OPERATION_SECONDS)
+    with _encrypted_backup_operation('full_backup'):
+        _one_shot(compose, project, 'backup', execute, record=record_operation)
+    info_args = ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', '--output=json']
+    with _encrypted_backup_operation('info'):
+        label = recovery.backup_label(execute(compose, [*info_args, 'info']))
+    with _encrypted_backup_operation('selected_info'):
+        backup = recovery.backup_proof(execute(compose, [*info_args, '--set=' + label, 'info']))
+    with _encrypted_backup_operation('selection'):
+        if backup['label'] != label:
+            raise ValueError('backup_selection_changed')
+    report['backup'] = backup
+    # This input is outside the database backup and intentionally created AFTER it.
+    manifest = {'schema': 1, 'scope': 'synthetic_only', 'event_ids': [recovery.DELETE_EVENT]}
+    pilot.write_json(output / 'current-deletions.json', manifest)
+    stage('source_stop')
+    execute(compose, ['stop', '--timeout', str(STOP_SECONDS), 'db'])
+    _require_stopped(_inspect_service(compose, project, 'db', execute))
+    _no_readers(compose, execute)
+    stage('restore_destination')
+    # Freeze the selected full label into private Compose input before container creation.
+    plan['services']['restore']['command'].insert(0, '--set=' + label)
+    pilot.write_json(output / 'compose.json', plan)
+    report['selected_compose_sha256'] = hashlib.sha256((output / 'compose.json').read_bytes()).hexdigest()
+    name = plan['volumes']['recovery']['name']
+    report['destination'] = _confirm_restore_destination(compose, project, plan, name, execute, report, record)
+    stage('offline_restore')
+    _one_shot(compose, project, 'restore', execute, already_created=True, record=record_operation)
+    _confirm_recovered_postmaster(compose, project, name, source, sql, execute, report, record)
+    stage('maintenance_failure_gate')
+    # Real SQL failure must not create/start either external SQL actor.
+    def fail_sql(_payload, *, timeout):
+        return sql('recovered', "BEGIN; SET LOCAL statement_timeout='1s'; SELECT 1/0; COMMIT;", timeout=timeout)
+    def forbidden_transition():
+        raise RuntimeError('negative_gate_opened')
+    failed_gate = []
+    try:
+        recovery.restore_gate(fail_sql, manifest, forbidden_transition, failed_gate.append)
+    except RuntimeError:
+        if not failed_gate or failed_gate[-1]['state'] != 'failed' or failed_gate[-1]['reader_gate'] != 'closed':
+            raise RuntimeError('negative_gate_not_closed') from None
+    else:
+        raise RuntimeError('negative_gate_did_not_fail')
+    _no_readers(compose, execute)
+    report['maintenance_failure_kept_actors_absent'] = True
+    stage('current_replay_and_ttl')
+    def maintenance(payload, *, timeout):
+        return sql('recovered', payload, timeout=timeout)
+    def open_readers():
+        # Existing retention proof, with the former boundary now expired at CURRENT cutoff.
+        expected = {**retention_fixture.EXPECTED, 'boundary_event_rows': 0}
+        _expect(maintenance(retention_fixture.proof_sql(), timeout=12), expected)
+        _no_readers(compose, execute)
+        report['reader_gate'] = 'transitioning_after_replay_and_current_ttl'
+        record()
+        open_sql_actors(compose, project, name, execute=execute, record=record_operation)
+    def record_gate(value):
+        report['maintenance'] = value
+        report['reader_gate'] = value['reader_gate']
+        record()
+    current = json.loads((output / 'current-deletions.json').read_text())
+    if current != manifest:
+        raise ValueError('synthetic_deletion_input_changed')
+    recovery.restore_gate(maintenance, current, open_readers, record_gate)
+    report.update(state='passed', stage='completed', both_databases_restored=True,
+                  sql_reader_and_ingest='passed_after_gate', original_source_volume_used_for_restore=False)
+    record()
+    return report
+
+
+def run_worker(output):
+    owner = json.loads((output / 'owner.json').read_text())
+    if (not isinstance(owner, dict) or owner.get('supervisor_pid') != os.getppid()
+            or owner.get('cwd') != str(ROOT) or not isinstance(owner.get('project'), str)
+            or not re.fullmatch(re.escape(recovery.PROJECT_PREFIX) + r'[a-f0-9]{12}', owner['project'])):
+        raise RuntimeError('recovery_worker_requires_registered_supervisor')
+    compose = ['docker', 'compose', '-p', owner['project'], '-f', str(output / 'compose.json')]
+    with pilot.worker_storage_guard(owner, compose, output):
+        proof = exercise(output, compose, owner['project'])
+        evidence = json.loads((output / 'evidence.json').read_text())
+        evidence.update({'recovery': proof, 'status': 'synthetic SQL PG18 recovery passed; full acceptance pending'})
+        pilot.write_json(output / 'evidence.json', evidence)
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=('run', 'worker', 'recover'))
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--foundation-cache',type=Path)
+    args = parser.parse_args()
+    output = args.output.resolve()
+    # Explicit service targets still control acquisition. Enrol all profiles for
+    # supervisor cleanup/recovery, including a failure midway through maintenance.
+    previous = os.environ.get('COMPOSE_PROFILES')
+    os.environ['COMPOSE_PROFILES'] = 'maintenance-only,readers-after-replay'
+    prepared_here = False
+    def prepare_owned(path):
+        nonlocal prepared_here
+        prepare_bound_inputs(path,cache_path=args.foundation_cache)
+        prepared_here = True
+    try:
+        if args.action == 'worker':
+            run_worker(output)
+        elif args.action == 'recover':
+            runtime.core_ci.recover(output, project_prefix=recovery.PROJECT_PREFIX, services=recovery.SERVICES)
+        else:
+            pilot.run(output, prepare_inputs=prepare_owned, worker_script=Path(__file__).resolve(), ports=(),
+                project_prefix=recovery.PROJECT_PREFIX, services=recovery.SERVICES,
+                scope='owned synthetic PG18/pgBackRest POSIX backup and SQL recovery gate only',
+                missing=['production deletion authority', 'scheduled next-day retention', 'Umami application/native MCP restore',
+                         'production pgBackRest upgrade #1579', 'production S3 recovery', 'resource acceptance and seven days'])
+    finally:
+        if prepared_here:
+            (output / 'init.sql').unlink(missing_ok=True)
+        if previous is None:
+            os.environ.pop('COMPOSE_PROFILES', None)
+        else:
+            os.environ['COMPOSE_PROFILES'] = previous
+
+
+if __name__ == '__main__':
+    import signal
+    import sys
+    def interrupt(_signum, _frame):
+        raise KeyboardInterrupt('owned recovery interrupted')
+    signal.signal(signal.SIGTERM, interrupt)
+    try:
+        main()
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        # Commands, SQL, environment and pgBackRest stderr may contain private input.
+        print('observability-umami-recovery: ' + type(error).__name__, file=sys.stderr)
+        sys.exit(1)

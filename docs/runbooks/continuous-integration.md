@@ -101,17 +101,27 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 | `web-e2e` | Two isolated `web-e2e-browser` profiles run `pnpm check:web-e2e --project=<profile>`. Each builds once, checks prerendered/standalone output, then runs its complete e2e and navigation profile on that build. Local execution without arguments retains both profiles |
 | `telegram` | `pnpm --filter @inside/telegram check:full` с изолированными PostgreSQL 18.4 и RabbitMQ, synthetic non-guest user |
 | `integration` | Three isolated `integration-checks` parts: production SQL and restore cleanup contracts plus `pnpm test:integration:parallel`; `pnpm smoke:enrollments`; `pnpm smoke:buyer-journey`. Each owns its data and processes. Failed parts upload their own browser results and `next dev` log |
-| `integration-serial` | `pnpm test:integration:serial`: RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
+| `integration-serial` | `pnpm test:integration:serial`: builds the backend, then runs RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
 | `compose-production` | Requires both isolated cold/cache runtime proofs and the reusable native foundation recovery workflow. Recovery runs for foundation/toolchain changes; release calls without a path comparison run the complete proof |
 
 `.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact
-Playwright version. `setup-node` caches the pnpm package store. A separate exact-key cache retains
+Playwright version. `setup-node` caches the pnpm package store. Only its `Install Node.js` step
+sets `SEGMENT_DOWNLOAD_TIMEOUT_MINS=2`: the pinned cache library aborts a stalled 128 MiB segment
+after two minutes and treats that timeout as a cache miss, allowing normal frozen installation
+and security checks to proceed. The default ten-minute segment limit could consume the entire
+ten-minute Security job before installation starts. This is a per-segment limit, not a deadline
+for the whole archive or a guarantee that setup and checks finish within the job budget; the
+underlying cause of the observed stalled transfer remains unknown.
+
+A separate exact-key cache retains
 pnpm's registry metadata and policy-bound lockfile verification records; pnpm itself checks whether
 a cached verdict still matches the lockfile and active policies. Its key binds the lockfile,
 workspace policy, root manifest (including pnpm version), npm configuration, Node pin and setup
-action. Dependency installation runs under GNU `timeout` with a four-minute deadline and ten-second
+action. Changing this action naturally changes that metadata key and can produce a cold cache;
+the key definition and cache trust remain unchanged. Dependency installation runs under GNU
+`timeout` with a four-minute deadline and ten-second
 forced-shutdown grace: pnpm's request timeout bounds
 inactivity and cannot stop a response that keeps trickling bytes (#1763). A deadline failure fails
 the job; it neither skips dependency policies nor starts tests with a partial installation.
@@ -487,6 +497,10 @@ copies a template migrated once per run, while migration tests start from an emp
 worker processes or write the machine-wide worker readiness file; they run one at a time, so they
 measure behaviour rather than runner load. `scripts/integration-serial-files.test.mjs` fails when a
 file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
+The backend `test:integration` and `test:integration:serial` commands build the backend before
+Vitest in the same heavy-check slot with incremental compilation disabled, so compiled process
+probes use the selected source even when `dist` was removed but the compiler cache remains.
+`test:integration:parallel` excludes those process files and does not need this build.
 The pinned Testcontainers 12.2.0 patch (#1315) rejects Docker pull-stream `error`/`errorDetail`
 messages and transport errors, closes a failed pull stream, and inspects the requested image before
 acquisition returns. A completed stream alone does not prove local image availability. The contract
@@ -593,7 +607,15 @@ for a particular device. It measures the `ScriptDuration` counter up to the seco
 including any recorded script work between readiness and that snapshot.
 `ScriptDuration` excludes nested layout and style recalculation; it can include compilation nested
 in script execution. Separate compilation, layout and paint budgets are outside this check.
-The existing representative-Material test still checks INP after readiness (#933). The startup
+The existing representative-Material test still checks INP after readiness (#933). This
+representative test retains the maximum duration of every observed Event Timing entry, including
+entries delivered after axe, and still enforces 200 ms after the accessibility scan. Its separate
+`reader-event-timing` JSON attachment contains at most 32 rows, a separately retained maximum,
+before/after-axe checkpoints, finite event/target categories and clamped numeric timing fields.
+The count is capped at 4096; `saturated` marks any row/count overflow or numeric clamping.
+`deliveredPhase` describes observer delivery, not necessarily when the input began; compare the
+numeric entry start and checkpoint times when diagnosing delayed delivery. No DOM text, IDs,
+selectors or URLs enter this diagnostic. The startup
 budget runs with the full-stack smoke, queue, release gaps and locally; it runs in required CI when the selected plan includes `fullstack`.
 
 `.github/workflows/nightly-fullstack.yml` runs `pnpm smoke:fullstack` only on demand through `workflow_dispatch`; #1430 removed its schedule. It is not a required check and never blocks a
@@ -660,6 +682,13 @@ When parameterized cases have identical full names, the report keeps the full na
 case index within that file/name group. Vitest JSON retains declaration order; Node observations
 are sorted by testId. Unrelated tests do not affect this index. Reordering identically named cases
 or removing duplicate names can change their identity; give cases distinct names to avoid that limit.
+The nightly planner recognizes the exact guarded `test:tooling` backend-build wrapper and runs its
+native Node test command after the unit job's mandatory backend build. That build runs once before
+the five samples, and its failure prevents sampling. The separate full build remains exclusive to
+Web E2E. The planner preserves file globs,
+concurrency and reporters. Other shell wrappers remain errors. Ordinary `test:tooling` still builds
+the backend first and stops before serializers when that prerequisite fails.
+
 The unit-job inventory comes from the workspace package manifests, root Node test scripts and
 the `check:contracts` aggregate,
 the same sources `check:unit` uses; unsupported new command syntax fails visibly.

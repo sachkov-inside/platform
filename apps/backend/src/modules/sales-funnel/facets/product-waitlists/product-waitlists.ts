@@ -1,3 +1,7 @@
+import {
+  captureNotificationTraceparent,
+  type TechnicalTelemetry,
+} from "../../../../infrastructure/observability/technical-telemetry.js";
 import { countWaitlistJoins } from "../../features/count-waitlist-joins/count-waitlist-joins.js";
 import type { DailyWindow } from "../../../../infrastructure/contracts/daily-window.js";
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
@@ -448,6 +452,7 @@ export class ProductWaitlists {
             telegramIdentityRef: binding.binding.telegramIdentityRef,
             linkRevision: binding.binding.linkRevision,
             createdAt: now,
+            traceparent: captureNotificationTraceparent() ?? null,
           },
         });
         return {
@@ -469,6 +474,7 @@ export class ProductWaitlists {
       command: WaitlistConfirmation,
     ) => Promise<"accepted" | "suppressed" | "unavailable">,
     limit = 20,
+    telemetry?: Pick<TechnicalTelemetry, "runWaitlistDelivery">,
   ): Promise<number> {
     const rows =
       await this.dependencies.prisma.productWaitlistConfirmation.findMany({
@@ -488,8 +494,17 @@ export class ProductWaitlists {
       };
       const current = await this.confirmationCurrent(command);
       if (current === "unavailable") continue;
+      const send = async (observation?: { fail(): void }) => {
+        const result = await deliver(command);
+        if (result === "unavailable") observation?.fail();
+        return result;
+      };
       const result =
-        current === "suppressed" ? "suppressed" : await deliver(command);
+        current === "suppressed"
+          ? "suppressed"
+          : telemetry === undefined
+            ? await send()
+            : await telemetry.runWaitlistDelivery(row.traceparent, send);
       if (result === "unavailable") continue;
       await this.dependencies.prisma.productWaitlistConfirmation.updateMany({
         where: { eventId: row.eventId, completedAt: null },

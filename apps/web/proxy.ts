@@ -50,6 +50,7 @@ export const config = {
     "/api/account/billing/contact/confirm",
     "/api/web-vitals",
     "/api/render-errors",
+    "/api/analytics",
     "/legal/:path+",
   ],
 };

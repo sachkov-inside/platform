@@ -10,6 +10,7 @@ import { guardTransactionConnections } from "./transaction-guard.js";
 export function createQueryRowClient(
   connectionString: string,
   captureEligibilityPlan = false,
+  captureReadContaining?: string,
 ) {
   const statements: string[] = [];
   const rows: { statement: string; count: number; serializedBytes: number }[] =
@@ -34,9 +35,11 @@ export function createQueryRowClient(
               ? input.text
               : "";
         if (
-          captureEligibilityPlan &&
           eligibility === undefined &&
-          statement.includes("SELECT DISTINCT account_id FROM effective") &&
+          ((captureEligibilityPlan &&
+            statement.includes("SELECT DISTINCT account_id FROM effective")) ||
+            (captureReadContaining !== undefined &&
+              statement.includes(captureReadContaining))) &&
           typeof input === "object" &&
           input !== null &&
           "values" in input &&
@@ -104,6 +107,15 @@ export function createQueryRowClient(
   const guarded = guardTransactionConnections(prisma);
   return {
     prisma: guarded.prisma,
+    async explainCapturedRead() {
+      if (eligibility === undefined)
+        throw new Error("Missing captured owning read");
+      const result = await pool.query({
+        text: `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${eligibility.text}`,
+        values: [...eligibility.values],
+      });
+      return result.rows as unknown;
+    },
     async explainEligibility() {
       if (eligibility === undefined)
         throw new Error("Missing measured eligibility statement");

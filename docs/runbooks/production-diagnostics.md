@@ -1,0 +1,386 @@
+# Диагностика Platform для агента
+
+Статус на 19.10.2026: подготовлен код узких отчётов оплаты, выдачи прав и воронки для
+[#1566](https://github.com/sachkov-inside/platform/issues/1566) /
+[#1565](https://github.com/sachkov-inside/platform/issues/1565). Эта инструкция описывает
+подготовленный интерфейс, а не подтверждённый rollout в production. Полный контур наблюдаемости,
+Victoria MCP и Umami ещё не подтверждены этой поставкой.
+[Технический пилот](observability-pilot.md) имеет отдельные ограничения и проверки;
+[журналы backend](backend-logs.md) сохраняют существующий интерфейс.
+
+## Подключение и доступ
+
+Используйте существующий Platform MCP по Streamable HTTP. Настройка endpoint,
+protected-resource metadata и делегированного bearer token описана в
+[процедуре MCP](local-host-fallback.md#mcp-authoring). Секреты в эту инструкцию не записываются.
+Клиент вызывает `tools/list` и проверяет наличие `payment_access_diagnostics` и
+`sales_funnel_diagnostics`.
+Отсутствие инструмента означает, что доступный сервер не предоставляет подготовленный интерфейс;
+оно не доказывает отсутствие оплат или проблем.
+
+Оба диагностических отчёта проверяют текущее право `platform:admin` делегированного Account
+внутри своего модуля.
+Одного `billing:manage` или `materials:manage` недостаточно. Нового права нет;
+существующие владельческие команды Billing сохраняют `billing:manage`.
+Отчёт не вызывает платёжного провайдера и не меняет платежи, права или очередь.
+Сам endpoint `/mcp` содержит и другие инструменты, включая изменяющие состояние;
+данная инструкция не делает весь Platform MCP доступом только для чтения.
+
+Ответ отчёта оплат содержит закрытые сведения: `accountId`, `purchaseRef`, время подтверждения оплаты,
+сумму подтверждённых возвратов в копейках, состав и сроки оплаченных прав.
+Это диагностика администратора, а не публичная аналитика. Не публикуйте ответ в открытых
+журналах или панелях. Контакты покупателя, платёжные URL, provider payload и credentials
+этот инструмент в ответ не включает.
+
+## Запрос оплаты и выдачи прав
+
+Пример аргументов `tools/call` для календарного дня 19 октября в Москве:
+
+```json
+{
+  "name": "payment_access_diagnostics",
+  "arguments": {
+    "from": "2026-10-18T21:00:00Z",
+    "to": "2026-10-19T21:00:00Z",
+    "limit": 20
+  }
+}
+```
+
+Время хранится и возвращается в UTC. Окно `[from,to)` включает начало и исключает конец;
+московский календарный день начинается в 21:00 UTC предыдущего дня. Положительное окно
+ограничено 31 сутками, страница ограничена 1–50 оплатами, по умолчанию 20.
+Отчёт выбирает подтверждённые оплаты по `confirmedAt`; открытие страницы, checkout и HTTP 200
+подтверждением оплаты не являются. Поле `counts.scope=returned_page` означает счётчики
+только возвращённой страницы. Это не итог за весь период и не distinct число покупателей.
+
+При непустом `nextCursor` повторите запрос с теми же `from` и `to`, добавив `cursor`
+ровно из ответа. Cursor нельзя собирать или изменять вручную. Порядок определяется уникальным
+`purchaseRef` по возрастанию; одинаковое время оплаты порядок не нарушает.
+`nextCursor=null` означает конец текущего обхода источника. Обход живой (`live_source`):
+оплаты и права могут изменяться между страницами. Billing и AccountRights читаются независимо,
+без общей атомарной исторической копии. `observedAt` обозначает время начала чтения отчёта,
+а не доказательство свежести всей системы. Не представляйте сумму страниц как согласованный
+снимок всех бизнес-состояний.
+
+## Как читать результат
+
+Для каждого Product из неизменяемого снимка разовой покупки Billing ищет точное основание
+`purchase` через владельца AccountRights и его текущий `ProductAccess`. Используется тот же
+sourceRef, что и при выдаче после оплаты: `payment:<purchaseRef>`, а для исторической покупки
+нескольких Product добавляется `:product:<productId>`. Account и Product проверяются одной парой.
+Пассивная история legacy grants не подтверждает текущую выдачу. `granted` означает наличие
+основания этой покупки и неотозванного ProductAccess; `revoked` показывает текущий отзыв.
+`startsAt` относится к основанию покупки, `validUntil=null` отражает пожизненный доступ к Product.
+Исторические recurring покупки и снимки без определённого Product дают `facts=unknown`.
+`refundedKopecks` показывает подтверждённые возвраты отдельно и не подменяет состояние права.
+
+`missing` означает отсутствие точного оплаченного основания. Нулевые подтверждённые возвраты
+вместе с подтверждённой оплатой и `missing` дают проверяемый пример для расследования выдачи.
+Это не доказательство отсутствия любого доступа: ручное основание или другая покупка независимы.
+Возврат и отзыв сами по себе не объявляются неисправностью. Отчёт не чинит
+выдачу и не определяет отставание очереди; эти факты требуют отдельной диагностики владельца.
+
+`coverage=paginated` требует продолжения. `coverage=partial`, `facts=unknown` или grant
+`unknown` означают неполное знание. При неизвестных строках `missingPaidGrant=null`, а не 0;
+поле `unknown` считает такие оплаты на странице. Ошибка AccountRights показана как
+`sources.accountRights=unavailable`; `not_queried` означает, что ключей для чтения прав не было.
+Ошибка чтения Billing возвращает `dependency_unavailable`, отказ в праве возвращает `forbidden`.
+Ни один из этих исходов не означает «проблем нет». Пустая успешно прочитанная страница без
+продолжения означает отсутствие подходящих подтверждённых оплат в данном текущем обходе окна.
+
+Форма запроса и результата принадлежит
+[Billing PaymentDiagnostics](../../apps/backend/src/modules/billing/features/read-payment-diagnostics/payment-diagnostics.ts),
+регистрация инструмента находится в [MCP adapter](../../apps/backend/src/modules/billing/features/read-payment-diagnostics/register-payment-diagnostics-tool.ts).
+Проверки настоящего PostgreSQL и полного процесса остаются обязательными до принятия поставки.
+
+
+## Воронка продаж
+
+Подготовленный `sales_funnel_diagnostics` использует то же определение когорты, что и
+владельческий отчёт SalesFunnel (#816/#818). Контакт входит по первому входу в бота в
+`[from,to)`. Account без известного входа в бота входит по первому шагу выбранного Product;
+последующие достигнутые шаги этой когорты учитываются к моменту чтения. Повторные входы не
+создают вторую когорту, подтверждённая оплата не выводится из checkout или просмотра.
+Респонденты анкеты считаются отдельно по личным ссылкам, без связи username с Account.
+
+Требуется `platform:admin`; существующий REST-отчёт сохраняет `billing:manage`.
+Клиент не передаёт actor или permission. Инструмент не пишет события, не управляет оплатами
+или ссылками и не вызывает Telegram/банк.
+
+```json
+{
+  "name": "sales_funnel_diagnostics",
+  "arguments": {
+    "from": "2026-10-18T21:00:00Z",
+    "to": "2026-10-19T21:00:00Z",
+    "productId": "10000000-0000-4000-8000-000000000001",
+    "limit": 20
+  }
+}
+```
+
+Замените пример `productId` настоящим Product; без него Platform-шаги и покупки респондентов
+не измеряются и остаются `null`. `chapterId` необязателен; по умолчанию выбирается первая глава.
+Время указано в UTC, календарный пояс Europe/Moscow, окно ограничено 31 сутками.
+Запрашиваемый `limit` составляет 1–50 строк источников, по умолчанию 20. Фактически страница содержит
+от 0 до `limit` строк. В отличие от отчёта оплат,
+`totalScope=bounded_cohort`: `total` относится ко всей вычисленной когорте, а не странице.
+Не складывайте повторяющийся `total` разных страниц. При продолжении передавайте неизменённый
+`nextCursor` и те же границы, Product и главу; `nextCursor=null` завершает текущий обход.
+
+Чтения ограничены релевантными кандидатами, а не размером целой исторической таблицы.
+SalesFunnel выбирает контакты с **первым** входом в окне. Для Product владельцы ReadingActivity
+и Billing сначала возвращают Accounts с первым соответствующим шагом в окне. Их объединение
+с Accounts bot-когорты ограничено 2000 уникальными Accounts. Затем владельцы возвращают полные
+первые даты и достигнутые шаги этих кандидатов за всю историю; текущий Telegram owner выдаёт
+необходимые текущие identities. SalesFunnel дочитывает полные первые входы, первое согласие и
+последнюю сообщённую связь только релевантных контактов. Запомненный Account связи сохраняет приоритет;
+связь без Account разрешается по текущему verified owner, неоднозначность не превращается в связь.
+Более ранний вход другого контакта того же Account исключает его из текущей bot-когорты.
+Первый Product-шаг до окна также исключает Account без bot-входа из `outside_bot`.
+Более поздние шаги вошедшей когорты считаются достигнутыми, даже если лежат после конца окна.
+
+Каждая карта первых фактов и полная выборка релевантных контактов ограничены 2000 результатами:
+SQL возвращает максимум 2001, переполнение даёт `source_budget_exceeded` с `coverage=unknown`,
+без усечённых или нулевых итогов. Независимые источники не читают чужие схемы. Каталог по-прежнему
+содержит все current Products (существующий предел 200), а его composition prerequisites
+ограничены 2000 строками каждого вида **для этих Products**; архив и посторонние Materials
+не заполняют этот бюджет. Сохраняется контракт ReadingActivity: не более 1000 Material IDs.
+Фильтры Product/material/account/identity и последние receipts поддержаны индексами владельцев.
+Это ограничение результата и времени вычисления, не утверждение «прочитано максимум 2000
+физических строк PostgreSQL»: aggregate может обработать больше строк через отфильтрованный индекс.
+
+`surveyRespondents` имеет собственную семантику #818 и не является bot-когортой:
+`uploaded`/`issued` обозначают полные глобальные scalar counts владельца основания, `paid` обозначает distinct
+респонденты с подтверждённой оплатой выбранного Product по личной ссылке в окне платежа.
+Исторические основания/оплаты не отсекаются row cap; нельзя складывать эти числа с bot sources
+или трактовать их как список связанных Accounts. Значение `null` сохраняет отсутствие основания
+или неизмеряемую покупку без выбранного Product. Source rows и `total` относятся ко всей
+вычисленной entry cohort, не только видимой странице; source counts не включают исторические
+контакты, дочитанные лишь для исключения/атрибуции Account.
+
+Каждое bounded owner-чтение использует RepeatableRead; statement ограничен 2 секундами,
+транзакция ограничена 5 секундами, ожидание соединения ограничено 1 секундой. Candidate discovery и последующее
+чтение полных фактов используют отдельные owner snapshots. Ошибка/таймаут возвращает
+`dependency_unavailable` и неизвестное покрытие. Большая релевантная cohort или медленный aggregate
+по-прежнему могут дать отказ; полезность всех production workloads не предполагается по
+одному успешному fixture.
+
+Canonical `main` `346c8f2f` сохраняет все 114 registry entries, включая
+`0113_historical_authoring_contract`, без изменения SQL/checksum/позиции. Четырнадцать
+неопубликованных monitoring migrations добавлены после этого prefix, под номерами 0114–0127.
+Исторические frozen registries и их SQL/digests остаются исходными, со старыми номерами.
+Отдельный снимок `main114` закрепляет текущий main commit; итоговая registry содержит 128 entries.
+[observability-main-upgrade.test.ts](../../apps/backend/test/integration/observability-main-upgrade.test.ts)
+проверяет исторические точные prefixes, отказы несовместимых ledgers и старых writers.
+[migrations.test.ts](../../apps/backend/test/integration/migrations.test.ts) отдельно проверяет
+переход current main через 0113 к 0127, неизменный prefix, повторный запуск и отказ короткой registry.
+
+Product checkout/paid в диагностике учитывает сохранённый `product:<id>` benefit либо
+`materials` вместе с сохранённым `coverage.productIds`. Coverage, относящийся только к
+community/support, не считается покупкой контента. Подтверждённая покупка остаётся фактом оплаты,
+а текущая выдача или отзыв ProductAccess проверяются отдельным отчётом платёжной диагностики.
+
+Индексы поставляются append-only migrations 0114–0118: journal account/identity/receipt,
+платёжные кандидаты, первые чтения, verified Telegram identity и текущий Products catalog.
+Production здесь не меняется. Обычный `CREATE INDEX` может блокировать записи на время построения;
+стоимость, запас места и допустимое окно требуют отдельной проверки при порученном deployment.
+Fixture с тысячами строк не измеряет этот production lock.
+
+После применения 0114–0118 прежний application image запускать нельзя: его короткая migration
+registry отвергает новый ledger как не являющийся exact prefix, поэтому readiness/worker startup
+не пройдут. Нужен отдельный **rollback build** от принятого нового source: откатить диагностическую
+реализацию вместе с соответствующим public tool description, сохранив полную новую registry,
+все ранее зарегистрированные migration files и их байтовые checksums.
+
+Для отката именно candidate implementation commit `bcb6a0723` на отдельной ветке шаблон такой
+(значения в угловых скобках заменяются проверенными SHA принятой поставки):
+
+```bash
+git switch -c rollback/funnel-diagnostics <accepted-release-sha>
+git revert --no-commit bcb6a0723
+git restore --source bcb6a0723^ -- \
+  apps/backend/src/modules/sales-funnel/features/read-funnel-diagnostics/register-funnel-diagnostics-tool.ts
+git restore --source <accepted-release-sha> -- \
+  apps/backend/src/migrations/index.ts \
+  apps/backend/src/modules/sales-funnel/infrastructure/postgres/migrations/0114-funnel-diagnostic-candidates.ts \
+  apps/backend/src/modules/billing/infrastructure/postgres/migrations/0115-billing-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/reading-activity/infrastructure/postgres/migrations/0116-reading-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/telegram-membership/infrastructure/postgres/migrations/0117-telegram-funnel-diagnostic-identities.ts \
+  apps/backend/src/modules/products/infrastructure/postgres/migrations/0118-funnel-diagnostic-current-products.ts \
+  apps/backend/test/integration/migrations.test.ts
+```
+
+При конфликтах требуется review собранного результата; более поздние изменения других features
+этот шаблон не разрешает удалять. Public description должен соответствовать возвращённой реализации,
+а не оставаться описанием новых scoped candidates. Сохранение migration tests предотвращает возврат
+старого ожидаемого ledger. Проверка
+[funnel-diagnostics-rollback.test.ts](../../apps/backend/test/unit/funnel-diagnostics-rollback.test.ts)
+исполняет настоящий `assertAppliedMigrations`: ledger с буквальными checksums текущих пяти индексов, отвергается прежней registry,
+принимается полностью сохранённой новой и снова отвергается при изменении SQL/checksum.
+
+Это проверка совместимости registry, не испытание production rollback. До публикации rollback build
+нужны обычные build/checks/review и exact-source CI; migration verification/readiness должны видеть
+ту же полную registry принятой БД. Развёртывание поручается отдельно. Ledger, доменные данные и
+добавочные индексы сохраняются; автоматическое удаление ledger rows или `DROP INDEX` не является
+частью отката. Уже зарегистрированные файлы и checksums не переписываются.
+
+Между владельцами нет общей атомарной копии: `independent_owner_snapshots`, обход живой.
+Каждый запрос продолжения заново читает ограниченные источники и не удерживает транзакцию
+между запросами. Входящие события и текущие связи могут изменить когорту и итоги между страницами.
+`coverage=complete` означает полноту вычисления по прочитанным ограниченным источникам,
+а не исправность или свежесть доставки событий. `freshness.status=not_proven` сохраняется
+и после успешного чтения; последний receipt не доказывает отсутствие отставших событий.
+Без receipt bot-шаги остаются `null` и покрытие частичное. Не трактуйте старый receipt,
+неизвестное покрытие или отказ источника как «событий/ошибок нет».
+
+Ответ включает агрегаты по ограниченным кодам источников, названия Product/глав и время
+последнего receipt; он предназначен администратору. Сырые контакты бота, Telegram identity,
+Account ID и username респондентов в этот отчёт не входят.
+Регистрация и форма результата принадлежат
+[SalesFunnel diagnostics](../../apps/backend/src/modules/sales-funnel/features/read-funnel-diagnostics/read-funnel-diagnostics.ts);
+определения когорты остаются в
+[общем отчёте](../../apps/backend/src/modules/sales-funnel/features/read-funnel-report/read-funnel-report.ts).
+
+### Операционные очереди pg-boss
+
+`operational_queue_diagnostics` в Platform MCP требует актуального `platform:admin` делегированного
+Account. Вход принимает строго `{}`: нельзя передать другой Account, имя очереди, SQL, payload или увеличить
+бюджеты. Проверка права выполняется перед чтением очередей, в том числе после отзыва права.
+Отчёт читает native metadata `pgboss.version`, `pgboss.queue`, `pgboss.job` и собственные
+факты `queue_observation.last_successful_handler` через
+[owner interface](../../apps/backend/src/infrastructure/pg-boss-queue-diagnostics.ts).
+Семь известных имён имеют один
+[contract с workers](../../apps/backend/src/infrastructure/job-queues.ts); новые очереди автоматически
+не добавляются. Query-путь не вызывает `PgBoss.start`, не создаёт schema/queue/jobs, не выполняет
+retry/cancel/purge, не читает `data`, `output` или provider payload и не возвращает сырые job ID.
+
+Один `RepeatableRead READ ONLY`-снимок имеет UTC `asOf`, проверяет точную schema version установленного
+pg-boss и агрегирует сохранённые задания. Бюджеты: statement 2 s, transaction 5 s, ожидание соединения
+1 s. Объём ответа ограничен семью очередями и шестью известными states; история не обрезается до
+произвольного числа jobs. Агрегация может сканировать всю сохранённую историю выбранных очередей;
+при превышении бюджета или недоступности источника ответ содержит `coverage: unknown` и
+`source_unavailable`, при несовместимой версии содержит `schema_mismatch`. Это не нулевые счётчики.
+Отсутствующая очередь имеет `status: unknown / queue_not_registered`, существующая пустая имеет нули и
+`oldestBacklogAgeSeconds: null`.
+
+`states` считает сохранённые `created`, `retry`, `active`, `completed`, `cancelled`, `failed`.
+`backlog` равен `created + retry`, включая отложенные и blocked задания; `ready` означает не blocked с
+`start_after <= asOf`, `scheduled` означает не blocked с будущим `start_after`, `blocked` означает ожидающие
+зависимости jobs этих двух states. Возраст старейшего backlog считается от `created_on`, включая
+scheduled/blocked. `retrying` означает незавершённые `created/retry/active` с `retry_count > 0`;
+`retainedRetryAttempts` суммирует `retry_count` всех сохранённых states. После удаления истории эти
+значения не являются пожизненными totals. Повторная попытка задания не равна повторному внешнему
+платежу. `failed` не доказывает денежную ошибку, а `completed` не доказывает успешный внешний эффект.
+
+`workerFreshness: per_queue` показывает отдельный `lastSuccessfulWork` для каждой фиксированной
+очереди. После успешного возврата обработчика worker синхронно принимает только ограниченные
+`id/retryCount` для отдельного owned writer, без ожидания диагностического I/O в native callback.
+В `queue_observation.last_successful_handler` остаются worker, release/source identity, время возврата
+`at` (`clock: process_wall_clock`) и более позднее время наблюдения `observedAt` по PostgreSQL.
+Одна SQL statement snapshot проверяет имя очереди, worker и исходные `id/retryCount` попытки в native
+state `active` либо `completed`. Нативные строки не блокируются и не изменяются; `failed`/`retry`,
+другая попытка и уже удалённая история не дают нового факта. Payload, output, job ID и attempt key
+в отчёт не попадают. Повтор той же последней попытки не обновляет время. Остаётся не более одной
+записи на очередь, семь записей всего; следующая работа заменяет её. История native jobs и
+перезапуск worker не удаляют этот факт. Миграция не создаёт прошлых фактов.
+
+`meaning: handler_result_committed` означает возврат обработчика после его собственных ожидаемых
+операций и успешный commit записи наблюдения. Запись может произойти после native ACK, однако
+`nativeAck: not_proven` и `externalEffect: not_proven` остаются всегда. Потеря ACK или восстановление
+задания может вызвать retry, а идемпотентность платежей и доставки остаётся обязанностью их владельцев.
+Ошибочное задание, healthcheck и polling не записывают успех. Writer имеет один запрос в работе и не
+более одного ожидающего результата на фиксированную очередь (не более семи). Он ждёт соединение
+не более 1 s, statement не более 1 s, lock не более 250 ms, transaction не более 2 s. Эти ожидания
+вынесены за native callback и не расширяют deadline задания. При shutdown после остановки jobs
+закрывается приём, отбрасывается незаписанное ожидание и завершается только текущий ограниченный
+запрос, до закрытия Prisma и освобождения generation lease. Незавершённое наблюдение при crash,
+полный buffer или отказ записи сохраняют предыдущий факт либо `unknown / no_history`, а не создают
+новый успех и не вызывают business retry. Native settlement, concurrency и retry policy не меняются.
+
+`lastSuccessfulWorkAt` содержит самое позднее подтверждённое время среди очередей или `null`, если
+истории нет. В каждой очереди `ageSeconds` считается от process-clock `at` до UTC `asOf` того же read-only snapshot;
+`freshness: recent` означает возраст до 300 s включительно, затем `stale`. Этот порог описывает возраст
+факта, а задержка записи `observedAt` не омолаживает работу. Он не является обещанием частоты выполнения: hourly/daily job может быть штатно stale.
+Отсутствие истории остаётся UNKNOWN, не нулём. Неполный, будущий, переполненный или повреждённый
+источник делает весь query `source_unavailable`, без частичного PASS. Отчёт не заменяет worker liveness,
+readiness или source freshness. RabbitMQ, доменные outbox и email delivery в этом bounded этапе ещё
+не покрыты; их отсутствие в отчёте не означает отсутствие backlog или ошибок. Настройки сбора,
+entitlement/business semantics и production-конфигурация этим инструментом не меняются.
+
+### Подтверждённая активность Membership и distinct отчёт
+
+Owner-интерфейсы `ReadingActivityFacts.read`, `BookmarkActivityFacts.read` и
+`TaskSubmissionFacts.read` используются в Platform MCP `active_participant_diagnostics`.
+Инструмент проверяет актуальное `platform:admin` до вызова owners, принимает явное окно
+`{from,to}` и возвращает aggregate distinct Accounts без идентификаторов или исходных событий.
+Внутренние trusted интерфейсы возвращают Account ID только авторизованному составителю отчёта;
+их результат не является публичной аналитикой. Новое permission не вводится.
+
+Источники фактов:
+
+- `reading_activity.events`: существующие реальные ручные `material_marked_read` и
+  `material_marked_unread`; исходные event ID, command ID и state version сохраняются.
+  No-op, stale/conflicting command и повтор receipt не добавляют переход.
+- `reading_activity.learning_started_events`: только фактическое первое создание Account/Product
+  `product_learning_started` новой версией writer, в той же транзакции с исходным command ID.
+  Конкурентные открытия разных Materials одного Product не создают второй start. Существующая
+  таблица `product_learning_started` содержит backfill из first-open в migration 0093; она не
+  реконструируется как журнал. Повторное открытие после старого backfilled start не новый start.
+- `bookmarks.activity_events`: фактические add/remove под общим owner pair lock, атомарно с
+  изменением bookmark. No-op и параллельные одинаковые add/remove не создают события. Existing
+  bookmarks не backfill. Bookmark contract не имеет command ID: старый add, пришедший после
+  remove, по текущему contract снова меняет состояние. Journal отражает этот реальный переход;
+  причинную дедупликацию переставленных команд без ключа он не обещает.
+- `product_tasks.submissions`: существующий подтверждённый receipt пользовательской сдачи form/MCP
+  с исходными submission ID/key и submitted time. Retry возвращает receipt, не новую сдачу;
+  фоновые review/progress/reconciliation не входят. Payload, note и review text не читаются.
+
+Каждый owner читает только свою schema в отдельном `RepeatableRead READ ONLY`-снимке, с бюджетами
+statement 2 s / transaction 5 s / ожидание соединения 1 s. UTC `[from,to)` имеет длину до 31 дня.
+Фильтр времени применяется к настоящему event/submission time до агрегации. Ответ содержит окно,
+UTC `asOf`, Account/kind, точное число сохранённых фактов и first/last event time этого окна.
+Эти first/last являются границами прочитанных реальных событий, не восстановлением активности
+из mutable visit/state. До 2000 релевантных Account/kind групп возвращаются целиком;
+2001-я означает `source_budget_exceeded / unknown`, без выдачи усечённых distinct totals.
+Потребитель может сузить окно. Cursor и стабильное продолжение между снимками не реализованы;
+distinct Accounts одного окна объединяются через Set по Account ID, а не сложением чисел
+owners. Неуспешный либо переполненный источник делает соответствующий итог `unknown`,
+не нулём. Реальные ручные unread/removal являются подтверждёнными действиями участника.
+Checkout и технические события источниками этих интерфейсов не являются.
+
+`coverage.status=partial`, `collectionStartedAt=null`, `continuity=not_proven` сохраняются и при
+нулевых результатах: migration timestamp и первый полученный event не доказывают дату начала или
+непрерывность rollout. После rollback на старый writer возможен gap сбора; compatible rollback build
+должен сохранить полную применённую registry, включая 0119–0121 и неизменные checksums. Старый image
+с короткой registry не является допустимым rollback. Предыдущая история и пропуски не объявляются
+нулевой активностью. Удаление/недоступность источника и превышение бюджета возвращают unknown.
+
+Read horizon охватывает последние 365 дней относительно DB snapshot clock; более раннее начало запроса
+получает `outside_retention / unknown`. Исходные учебные receipts/manual journals и Product state
+не удаляются ради аналитики. `ReadingActivityRetention` и `BookmarkActivityRetention` физически
+удаляют только новые аналитические копии `learning_started_events` и `bookmarks.activity_events`
+раньше DB cutoff. Один проход владельца удаляет до 1000 строк по индексированному устойчивому
+ключу. Повторный проход безопасен; незавершённая очистка возвращает `hasMore` и фактический
+старейший просроченный event. Исходные manual journals, task receipts и Product state сохраняются.
+
+Billing worker запускает `membership-activity.retention` каждую минуту и при старте через
+`runActivityRetentionJob`. Оба владельца возвращают отдельный результат; отказ одного не скрывает
+результат другого. В очереди сохраняется ограниченный aggregate отчёт последнего завершённого
+прохода, включая частичный отказ. Это не доказательство непрерывной работы worker или физического
+возврата дискового места.
+
+Platform MCP `activity_retention_diagnostics` принимает строго `{}` и проверяет актуальное
+`platform:admin`. Два независимых owner snapshots показывают UTC `asOf`/`cutoff`,
+`oldestExpiredAt`, `lagSeconds` и `hasMore`, без полного подсчёта backlog и идентификаторов.
+Третий ограниченный запрос читает проверенный aggregate последнего прохода. После проверки
+права независимые чтения выполняются параллельно. Statement имеет бюджет 2 s, transaction 5 s,
+ожидание соединения 1 s; фактическая полная HTTP/MCP latency проверяется отдельно. Потерянный,
+некорректный или недоступный источник остаётся `unknown`, без отката к более старому успешному
+отчёту. Возраст receipt больше 600 секунд означает stale. Требование очистки в следующих
+сутках проверяется по измеренному lag, а не только по наличию job или его state.
+
+Production migration/rollout требует отдельного допуска. Новые period indexes существующих
+journals могут блокировать запись при обычном `CREATE INDEX`. Compatible rollback сохраняет
+полную применённую registry и её checksums; короткая registry старого image не подходит.

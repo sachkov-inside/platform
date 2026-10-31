@@ -1,3 +1,4 @@
+import { AnalyticsObservation } from "@/features/storage-notice";
 import { ArrowRight, Check, FileDown, Play, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
 import type { ReactNode } from "react";
@@ -124,22 +125,32 @@ export function ProductLandingView({
   const View = productViews[productPage?.presentation ?? "default"];
   const page = productPage?.page ?? null;
   return (
-    <View
-      artifacts={artifacts}
-      freeEntryHref={freeEntryHref}
-      heroCall={heroCall}
-      statusCall={statusCall}
-      heroBadge={heroBadge}
-      // Сроки предложения подставляются один раз, до выбора оформления: каждое оформление получает
-      // готовый текст и не пропускает ни одного поля (ADR 0026).
-      page={
-        page === null
-          ? null
-          : fillProductPage(page, (text) => fillOneTimeTerms(text, offerTerms))
-      }
-      result={result}
-      returnTarget={returnTarget}
-    />
+    <>
+      {result.reference.id === undefined ? null : (
+        <AnalyticsObservation
+          event="product_view"
+          entityId={result.reference.id}
+        />
+      )}
+      <View
+        artifacts={artifacts}
+        freeEntryHref={freeEntryHref}
+        heroCall={heroCall}
+        statusCall={statusCall}
+        heroBadge={heroBadge}
+        // Сроки предложения подставляются один раз, до выбора оформления: каждое оформление получает
+        // готовый текст и не пропускает ни одного поля (ADR 0026).
+        page={
+          page === null
+            ? null
+            : fillProductPage(page, (text) =>
+                fillOneTimeTerms(text, offerTerms),
+              )
+        }
+        result={result}
+        returnTarget={returnTarget}
+      />
+    </>
   );
 }
 

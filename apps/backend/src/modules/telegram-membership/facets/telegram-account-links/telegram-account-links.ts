@@ -1,6 +1,13 @@
 import { telegramTransaction } from "../../infrastructure/transaction.js";
 import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
+  DIAGNOSTIC_SOURCE_ROW_LIMIT,
+  diagnosticSnapshotOptions,
+  diagnosticSourceBudgetFailure,
+  setDiagnosticStatementBudget,
+  type DiagnosticSourceBudgetFailure,
+} from "../../../../infrastructure/diagnostic-read-budget.js";
+import {
   telegramContactsResponseSchema,
   type TelegramContactQuery,
 } from "@inside/contracts/telegram-contact";
@@ -17,7 +24,10 @@ import {
   dependencyFailure,
   writeLog,
 } from "../../../../infrastructure/observability/index.js";
-import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type {
+  TelegramMembershipPrisma,
+  TelegramMembershipPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../../accounts/index.js";
 import { z } from "zod";
 
@@ -27,6 +37,7 @@ export type ConfirmedTelegramAccountLink = Readonly<{
   telegramIdentityRef: string;
 }>;
 const IDENTITY_CHUNK = 5_000;
+const identityRefsSchema = z.array(z.string().trim().min(1).max(256));
 const LINKED_ACCOUNTS_CHUNK = 5_000;
 /** Largest linked set handed to another owner in one composition; the measured bound of #1721. */
 const LINKED_ACCOUNTS_BOUND = 50_000;
@@ -389,12 +400,115 @@ export class TelegramAccountLinks {
    * Current Account of each verified identity, by the same rule as `findCurrentByIdentity`:
    * an identity linked to several Accounts is ambiguous and resolves to none.
    */
-  async findCurrentAccounts(
+  findCurrentAccounts(
     identityRefs: readonly string[],
   ): Promise<CurrentAccountsResult> {
-    const parsed = z
-      .array(z.string().trim().min(1).max(256))
-      .safeParse(identityRefs);
+    return this.readCurrentAccounts(this.prisma, identityRefs);
+  }
+
+  async findCurrentAccountsForDiagnostics(
+    identityRefs: readonly string[],
+  ): Promise<CurrentAccountsResult | DiagnosticSourceBudgetFailure> {
+    const parsed = identityRefsSchema.safeParse(identityRefs);
+    if (!parsed.success)
+      return { ok: false, error: { code: "invalid_request" } };
+    const identities = [...new Set(parsed.data)];
+    if (identities.length === 0) return { ok: true, accounts: new Map() };
+    if (identities.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+      return diagnosticSourceBudgetFailure;
+    try {
+      return await this.prisma.$transaction(async (transaction) => {
+        await setDiagnosticStatementBudget(transaction);
+        const rows = await transaction.telegramAccountLinkState.findMany({
+          where: {
+            identityRef: { in: identities },
+            principalRef: { not: null },
+          },
+          take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+          select: { accountId: true },
+        });
+        if (rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+          return diagnosticSourceBudgetFailure;
+        return this.readCurrentAccounts(
+          transaction,
+          identities,
+          "findCurrentAccountsForDiagnostics",
+        );
+      }, diagnosticSnapshotOptions);
+    } catch (error) {
+      return dependencyFailure(
+        {
+          module: "telegram-membership",
+          operation: "findCurrentAccountsForDiagnostics",
+        },
+        error,
+        {
+          ok: false as const,
+          error: { code: "dependency_unavailable" as const },
+        },
+      );
+    }
+  }
+
+  /** Current verified identities needed only to find historical bot contacts of bounded Accounts. */
+  async findCurrentIdentitiesForDiagnostics(accountIds: readonly string[]) {
+    const parsed = z.array(z.uuid().toLowerCase()).safeParse(accountIds);
+    if (!parsed.success)
+      return {
+        ok: false as const,
+        error: { code: "invalid_request" as const },
+      };
+    const unique = [...new Set(parsed.data)];
+    if (unique.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+      return diagnosticSourceBudgetFailure;
+    if (unique.length === 0)
+      return { ok: true as const, identityRefs: [] as readonly string[] };
+    try {
+      return await this.prisma.$transaction(async (transaction) => {
+        await setDiagnosticStatementBudget(transaction);
+        const rows = await transaction.telegramAccountLinkState.findMany({
+          where: {
+            accountId: { in: unique },
+            principalRef: { not: null },
+            identityRef: { not: null },
+          },
+          select: { identityRef: true },
+          take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+        });
+        if (rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+          return diagnosticSourceBudgetFailure;
+        return {
+          ok: true as const,
+          identityRefs: [
+            ...new Set(
+              rows.flatMap((row) =>
+                row.identityRef === null ? [] : [row.identityRef],
+              ),
+            ),
+          ],
+        };
+      }, diagnosticSnapshotOptions);
+    } catch (error) {
+      return dependencyFailure(
+        {
+          module: "telegram-membership",
+          operation: "findCurrentIdentitiesForDiagnostics",
+        },
+        error,
+        {
+          ok: false as const,
+          error: { code: "dependency_unavailable" as const },
+        },
+      );
+    }
+  }
+
+  private async readCurrentAccounts(
+    prisma: TelegramMembershipPrisma,
+    identityRefs: readonly string[],
+    operation = "findCurrentAccounts",
+  ): Promise<CurrentAccountsResult> {
+    const parsed = identityRefsSchema.safeParse(identityRefs);
     if (!parsed.success)
       return { ok: false, error: { code: "invalid_request" } };
     const accounts = new Map<string, string>();
@@ -405,7 +519,7 @@ export class TelegramAccountLinks {
       // One bounded query per chunk keeps each parameter list small however large the set grows.
       for (let start = 0; start < unique.length; start += IDENTITY_CHUNK)
         rows.push(
-          ...(await this.prisma.telegramAccountLinkState.findMany({
+          ...(await prisma.telegramAccountLinkState.findMany({
             where: {
               identityRef: { in: unique.slice(start, start + IDENTITY_CHUNK) },
               principalRef: { not: null },
@@ -423,7 +537,7 @@ export class TelegramAccountLinks {
       return { ok: true, accounts };
     } catch (error) {
       return dependencyFailure(
-        { module: "telegram-membership", operation: "findCurrentAccounts" },
+        { module: "telegram-membership", operation },
         error,
         { ok: false, error: { code: "dependency_unavailable" } } as const,
       );

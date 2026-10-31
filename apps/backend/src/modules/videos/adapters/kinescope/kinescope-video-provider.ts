@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { observeKinescopeOperation } from "../../../../infrastructure/observability/technical-telemetry.js";
+
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   ProviderUploadAuthorizationError,
@@ -37,125 +39,138 @@ export function createKinescopeVideoProvider(config: {
   const request = config.fetch ?? globalThis.fetch;
   const provider: VideoProvider = {
     async delete(input) {
-      let response: Response;
-      try {
-        response = await request(
+      return observeKinescopeOperation("delete", async (observation) => {
+        let response: Response;
+        try {
+          response = await request(
+            new URL(
+              `/v1/videos/${encodeURIComponent(input.id)}`,
+              config.apiBaseUrl,
+            ),
+            {
+              headers: { authorization: `Bearer ${config.apiToken}` },
+              method: "DELETE",
+              signal: AbortSignal.timeout(
+                KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS,
+              ),
+            },
+          );
+        } catch (error) {
+          observation.fail();
+          return dependencyFailure(
+            { module: "videos", operation: "delete" },
+            error,
+            {
+              category: isTimeout(error) ? "timeout" : "network",
+              kind: "retryable_failure",
+            },
+          );
+        }
+        observation.response(response.status);
+        const providerRequestId = readProviderRequestId(response);
+        if (response.status === 404) {
+          return { kind: "not_found", ...providerRequestId };
+        }
+        if (response.status === 429) {
+          return {
+            category: "rate_limited",
+            kind: "retryable_failure",
+            ...providerRequestId,
+          };
+        }
+        if (response.status >= 500) {
+          return {
+            category: "provider_unavailable",
+            kind: "retryable_failure",
+            ...providerRequestId,
+          };
+        }
+        const terminalCategory =
+          response.status === 400
+            ? "invalid_request"
+            : response.status === 401
+              ? "authentication"
+              : response.status === 403
+                ? "permission"
+                : null;
+        if (terminalCategory !== null) {
+          return {
+            category: terminalCategory,
+            kind: "terminal_failure",
+            ...providerRequestId,
+          };
+        }
+        if (!response.ok) {
+          return {
+            category: "invalid_response",
+            kind: "terminal_failure",
+            ...providerRequestId,
+          };
+        }
+        try {
+          deleteResponseSchema.parse(await response.json());
+          return { kind: "deleted", ...providerRequestId };
+        } catch (error) {
+          observation.fail();
+          return dependencyFailure(
+            { module: "videos", operation: "delete" },
+            error,
+            {
+              category: "invalid_response",
+              kind: "terminal_failure",
+              ...providerRequestId,
+            },
+          );
+        }
+      });
+    },
+    async initUpload(input) {
+      return observeKinescopeOperation("initUpload", async (observation) => {
+        const response = await request(
+          new URL("/v2/init", config.uploaderBaseUrl),
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${config.apiToken}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              parent_id: input.projectId,
+              type: "video",
+              filename: input.filename,
+              title: input.title,
+              filesize: input.byteSize,
+            }),
+            signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
+          },
+        );
+        observation.response(response.status);
+        if (response.status === 401 || response.status === 403)
+          throw new ProviderUploadAuthorizationError();
+        if (!response.ok) throw new Error("Kinescope upload init failed");
+        const parsed = initResponseSchema.parse(await response.json());
+        assertKinescopeUrl(parsed.data.endpoint, "upload endpoint");
+        return { id: parsed.data.id, uploadEndpoint: parsed.data.endpoint };
+      });
+    },
+    async find(input) {
+      return observeKinescopeOperation("find", async (observation) => {
+        const response = await request(
           new URL(
             `/v1/videos/${encodeURIComponent(input.id)}`,
             config.apiBaseUrl,
           ),
           {
             headers: { authorization: `Bearer ${config.apiToken}` },
-            method: "DELETE",
             signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
           },
         );
-      } catch (error) {
-        return dependencyFailure(
-          { module: "videos", operation: "delete" },
-          error,
-          {
-            category: isTimeout(error) ? "timeout" : "network",
-            kind: "retryable_failure",
-          },
-        );
-      }
-      const providerRequestId = readProviderRequestId(response);
-      if (response.status === 404) {
-        return { kind: "not_found", ...providerRequestId };
-      }
-      if (response.status === 429) {
-        return {
-          category: "rate_limited",
-          kind: "retryable_failure",
-          ...providerRequestId,
-        };
-      }
-      if (response.status >= 500) {
-        return {
-          category: "provider_unavailable",
-          kind: "retryable_failure",
-          ...providerRequestId,
-        };
-      }
-      const terminalCategory =
-        response.status === 400
-          ? "invalid_request"
-          : response.status === 401
-            ? "authentication"
-            : response.status === 403
-              ? "permission"
-              : null;
-      if (terminalCategory !== null) {
-        return {
-          category: terminalCategory,
-          kind: "terminal_failure",
-          ...providerRequestId,
-        };
-      }
-      if (!response.ok) {
-        return {
-          category: "invalid_response",
-          kind: "terminal_failure",
-          ...providerRequestId,
-        };
-      }
-      try {
-        deleteResponseSchema.parse(await response.json());
-        return { kind: "deleted", ...providerRequestId };
-      } catch (error) {
-        return dependencyFailure(
-          { module: "videos", operation: "delete" },
-          error,
-          {
-            category: "invalid_response",
-            kind: "terminal_failure",
-            ...providerRequestId,
-          },
-        );
-      }
-    },
-    async initUpload(input) {
-      const response = await request(
-        new URL("/v2/init", config.uploaderBaseUrl),
-        {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${config.apiToken}`,
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({
-            parent_id: input.projectId,
-            type: "video",
-            filename: input.filename,
-            title: input.title,
-            filesize: input.byteSize,
-          }),
-          signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
-        },
-      );
-      if (response.status === 401 || response.status === 403)
-        throw new ProviderUploadAuthorizationError();
-      if (!response.ok) throw new Error("Kinescope upload init failed");
-      const parsed = initResponseSchema.parse(await response.json());
-      assertKinescopeUrl(parsed.data.endpoint, "upload endpoint");
-      return { id: parsed.data.id, uploadEndpoint: parsed.data.endpoint };
-    },
-    async find(input) {
-      const response = await request(
-        new URL(
-          `/v1/videos/${encodeURIComponent(input.id)}`,
-          config.apiBaseUrl,
-        ),
-        {
-          headers: { authorization: `Bearer ${config.apiToken}` },
-          signal: AbortSignal.timeout(KINESCOPE_REQUEST_TIMEOUT_MILLISECONDS),
-        },
-      );
-      if (response.status === 404) return null;
-      if (!response.ok) throw new Error("Kinescope video lookup failed");
-      const parsed = providerResponseSchema.parse(await response.json());
-      return parseProviderVideo(parsed.data);
+        observation.response(response.status);
+        if (response.status === 404) return null;
+        if (!response.ok) throw new Error("Kinescope video lookup failed");
+        const parsed = providerResponseSchema.parse(await response.json());
+        return parseProviderVideo(parsed.data);
+      });
     },
   };
   return Object.freeze(provider);

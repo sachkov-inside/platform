@@ -39,6 +39,10 @@ export async function purgeExpiredRecords(
   const checks = daysBefore(now, periods.membershipCheckDays);
   const funnelEvents = daysBefore(now, periods.salesFunnelEventDays);
   const batches: RawBuilder<unknown>[] = [
+    sql`delete from telegram_user_activity where (bot_identity, update_id) in (
+      select bot_identity, update_id from telegram_user_activity
+      where occurred_at < clock_timestamp() - interval '365 days'
+      order by occurred_at limit ${BATCH})`,
     // Settled updates keep only their deduplication key and redacted failure code.
     sql`delete from telegram_updates where (bot_identity, update_id) in (
       select bot_identity, update_id from telegram_updates

@@ -1,0 +1,393 @@
+name: Observability short resource proof
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/observability-resource.yml
+      - .github/workflows/ci.yml
+      - .github/actions/setup-platform/**
+      - apps/backend/**
+      - apps/web/**
+      - apps/telegram/**
+      - packages/**
+      - docs/contracts/**
+      - docs/runbooks/observability-pilot.md
+      - scripts/**
+      - infra/**
+      - patches/**
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+      - .node-version
+      - .npmrc
+      - .dockerignore
+
+permissions:
+  contents: read
+
+concurrency:
+  group: observability-resource-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+env:
+  CI: "true"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PILOT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  resource:
+    needs: fullstack-protocol
+    name: Isolated short synthetic SDK resource comparison
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use repository-pinned Node without application dependencies
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          architecture: x64
+      - name: Verify pinned host Node facts
+        timeout-minutes: 1
+        run: >-
+          node --input-type=module -e '
+          import { readFileSync } from "node:fs";
+          const expected = "v" + readFileSync(".node-version", "utf8").trim();
+          if (process.version !== expected || process.arch !== "x64" || process.platform !== "linux")
+          throw new Error("Resource host Node contract refused");
+          console.log(JSON.stringify({ node: process.version, architecture: process.arch, platform: process.platform }));
+          '
+      - name: Verify hosted trust contracts without Docker acquisition
+        timeout-minutes: 1
+        run: bash scripts/heavy-check.sh python3 -m unittest discover -s scripts/observability-resource -p 'test_*.py'
+      - name: Prepare preinstalled hosted Android SDK disk
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+      - name: Bind complete source and measure disk admission
+        timeout-minutes: 1
+        run: |
+          python3 scripts/observability-resource/hosted.py admission \
+            --metadata "$RUNNER_TEMP/inside-resource-metadata"
+      - name: Build two exact-source images and preload seven pinned services
+        timeout-minutes: 25
+        run: |
+          bash scripts/heavy-check.sh python3 scripts/observability-resource/hosted.py prepare \
+            --metadata "$RUNNER_TEMP/inside-resource-metadata" \
+            --images "$RUNNER_TEMP/inside-resource-images.json" \
+            --consumer "$RUNNER_TEMP/inside-resource-private"
+      - name: Run short profile through unchanged 600-second supervisor
+        timeout-minutes: 22
+        run: |
+          bash scripts/heavy-check.sh python3 scripts/observability-resource/runtime.py run \
+            --output "$RUNNER_TEMP/inside-resource-private" \
+            --images "$RUNNER_TEMP/inside-resource-images.json"
+      - name: Recover only the registered disposable project
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: |
+          python3 scripts/observability-resource/runtime.py recover \
+            --output "$RUNNER_TEMP/inside-resource-private" \
+            --images "$RUNNER_TEMP/inside-resource-images.json"
+      - name: Collect only closed evidence and actual admission metadata
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: |
+          python3 scripts/observability-resource/hosted.py collect \
+            --output "$RUNNER_TEMP/inside-resource-private" \
+            --metadata "$RUNNER_TEMP/inside-resource-metadata" \
+            --public "$RUNNER_TEMP/inside-resource-public"
+      - name: Upload curated evidence, never the private directory
+        if: ${{ always() }}
+        timeout-minutes: 2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: observability-resource-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/inside-resource-public
+          if-no-files-found: warn
+          retention-days: 7
+
+  fullstack:
+    needs: fullstack-protocol
+    name: Representative whole-process monitoring OFF/ON resource proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use repository-pinned Node without application dependencies
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          architecture: x64
+      - name: Verify pinned host Node facts
+        timeout-minutes: 1
+        run: >-
+          node --input-type=module -e '
+          import { readFileSync } from "node:fs";
+          const expected = "v" + readFileSync(".node-version", "utf8").trim();
+          if (process.version !== expected || process.arch !== "x64" || process.platform !== "linux")
+          throw new Error("Resource host Node contract refused");
+          console.log(JSON.stringify({ node: process.version, architecture: process.arch, platform: process.platform }));
+          '
+      - name: Select exact assigned technical profile, otherwise full
+        id: scope
+        timeout-minutes: 1
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+      - name: Prepare preinstalled hosted Android SDK disk
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+      - name: Bind complete source and existing disk admission
+        timeout-minutes: 1
+        run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-metadata"
+      - name: Build five source-bound process images under existing storage guard
+        timeout-minutes: 30
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-fullstack/prepare.py
+          --scope "${{ steps.scope.outputs.scope }}"
+          --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-metadata" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-images.json"
+          --consumer "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-private"
+      - name: Measure paired full-process corpus through scope-bound supervisor
+        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-fullstack/fullstack.py run
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-private" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-images.json"
+      - name: Recover only the registered project and preparation images
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: >-
+          python3 scripts/observability-fullstack/fullstack.py recover
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-private" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-images.json"
+      - name: Collect bounded numerical evidence only
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: >-
+          python3 scripts/observability-fullstack/fullstack.py collect
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-private" --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-metadata"
+          --public "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-public"
+      - name: Upload curated resource results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: observability-${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}-public
+          if-no-files-found: warn
+          retention-days: 7
+
+  stability:
+    needs: fullstack-protocol
+    if: >-
+      ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.body || '', '<!-- monitoring-stability: run -->') }}
+    name: Diagnostic monitoring stability (never capacity acceptance)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use repository-pinned Node without application dependencies
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          architecture: x64
+      - name: Verify pinned host Node facts
+        timeout-minutes: 1
+        run: >-
+          node --input-type=module -e '
+          import { readFileSync } from "node:fs";
+          const expected = "v" + readFileSync(".node-version", "utf8").trim();
+          if (process.version !== expected || process.arch !== "x64" || process.platform !== "linux")
+          throw new Error("Resource host Node contract refused");
+          console.log(JSON.stringify({ node: process.version, architecture: process.arch, platform: process.platform }));
+          '
+      - name: Select exact assigned technical profile, otherwise full
+        id: scope
+        timeout-minutes: 1
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+      - name: Require exact diagnostic marker in the strict PR context
+        timeout-minutes: 1
+        run: python3 scripts/observability-fullstack/fullstack.py diagnostic-admission --scope "${{ steps.scope.outputs.scope }}"
+      - name: Prepare preinstalled hosted Android SDK disk
+        if: ${{ steps.scope.outputs.scope == 'technical' }}
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+      - name: Bind complete source and existing disk admission
+        timeout-minutes: 1
+        run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-metadata"
+      - name: Build five source-bound process images under existing storage guard
+        timeout-minutes: 30
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-fullstack/prepare.py
+          --scope "${{ steps.scope.outputs.scope }}"
+          --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-metadata" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-images.json"
+          --consumer "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-private"
+      - name: Measure diagnostic control through scope-bound supervisor
+        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-fullstack/fullstack.py diagnostic-run
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-private" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-images.json"
+          --protocol fixed-actor-primed400-v1
+      - name: Recover only the registered project and preparation images
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: >-
+          python3 scripts/observability-fullstack/fullstack.py recover
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-private" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-images.json"
+      - name: Collect diagnostic numerical evidence without acceptance authority
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: >-
+          python3 scripts/observability-fullstack/fullstack.py diagnostic-collect
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-private" --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-metadata"
+          --public "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-public" --protocol fixed-actor-primed400-v1
+      - name: Upload curated resource results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: observability-${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-public
+          if-no-files-found: warn
+          retention-days: 7
+
+  cpu-control:
+    needs: fullstack-protocol
+    if: >-
+      ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.body || '', '<!-- monitoring-cpu-control: app-unlimited-v1 -->') }}
+    name: Matched CPU-policy diagnostic (never capacity acceptance)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Record the original job clock without extending its bound
+        run: echo "CPU_CONTROL_JOB_STARTED=$(python3 -c 'import time; print(time.monotonic())')" >> "$GITHUB_ENV"
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use repository-pinned Node without application dependencies
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          architecture: x64
+      - name: Verify pinned host Node facts
+        timeout-minutes: 1
+        run: >-
+          node --input-type=module -e '
+          import { readFileSync } from "node:fs";
+          const expected = "v" + readFileSync(".node-version", "utf8").trim();
+          if (process.version !== expected || process.arch !== "x64" || process.platform !== "linux")
+          throw new Error("Resource host Node contract refused");
+          console.log(JSON.stringify({ node: process.version, architecture: process.arch, platform: process.platform }));
+          '
+      - name: Select exact assigned technical profile, otherwise full
+        id: scope
+        timeout-minutes: 1
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+      - name: Require exact CPU marker in the strict PR context
+        timeout-minutes: 1
+        run: python3 scripts/observability-fullstack/fullstack.py cpu-control-admission --scope "${{ steps.scope.outputs.scope }}"
+      - name: Prepare preinstalled hosted Android SDK disk
+        if: ${{ steps.scope.outputs.scope == 'technical' }}
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+      - name: Bind complete source and existing disk admission
+        timeout-minutes: 1
+        run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-metadata"
+      - name: Build five source-bound process images under existing storage guard
+        timeout-minutes: 30
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-fullstack/prepare.py
+          --scope "${{ steps.scope.outputs.scope }}"
+          --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-metadata" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-images.json"
+          --consumer "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-private/fixture-capped-v1"
+      - name: Run capped then uncapped through scope-bound supervisors
+        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 40 || 24 }}
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-fullstack/fullstack.py cpu-control-run
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-private" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-images.json"
+          --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-metadata"
+      - name: Recover only the registered project and preparation images
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: >-
+          python3 scripts/observability-fullstack/fullstack.py cpu-control-recover
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-private" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-images.json"
+      - name: Collect diagnostic numerical evidence without acceptance authority
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: >-
+          python3 scripts/observability-fullstack/fullstack.py cpu-control-collect
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-private" --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-metadata"
+          --public "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-public"
+      - name: Upload curated resource results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: observability-${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}-public
+          if-no-files-found: warn
+          retention-days: 7
+
+  fullstack-protocol-shard:
+    name: Whole-stack protocol group ${{ matrix.group }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Use repository-pinned Node without application dependencies
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          architecture: x64
+      - name: Verify pinned host Node facts
+        timeout-minutes: 1
+        run: >-
+          node --input-type=module -e '
+          import { readFileSync } from "node:fs";
+          const expected = "v" + readFileSync(".node-version", "utf8").trim();
+          if (process.version !== expected || process.arch !== "x64" || process.platform !== "linux")
+          throw new Error("Resource host Node contract refused");
+          console.log(JSON.stringify({ node: process.version, architecture: process.arch, platform: process.platform }));
+          '
+      - name: Verify exact workflow checkout identity
+        timeout-minutes: 1
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Verify complete whole-stack protocol group
+        timeout-minutes: 2
+        run: bash scripts/heavy-check.sh python3 -B scripts/observability-fullstack/protocol_runner.py --group "${{ matrix.group }}"
+
+  fullstack-protocol:
+    name: Whole-stack protocol complete
+    needs: [fullstack-protocol-shard]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    env:
+      RESULT: ${{ needs.fullstack-protocol-shard.result }}
+    steps:
+      - name: Require all seven provider results to succeed
+        run: test "$RESULT" = success

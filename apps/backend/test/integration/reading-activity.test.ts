@@ -1,3 +1,5 @@
+import { ReadingActivityRetention } from "../../src/modules/reading-activity/index.js";
+import { activityTestClock } from "./setup/activity-test-clock.js";
 import { everyAccountLinked } from "../support/telegram-links.js";
 import {
   grantProductFixture,
@@ -12,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
+  Prisma,
   createPrismaClient,
   lockReadingPair,
   type PlatformPrisma,
@@ -29,6 +32,7 @@ import { assembleContentAccess } from "../../src/modules/content-access/index.js
 
 import {
   PersonalHome,
+  ReadingActivityFacts,
   ReadingActivity,
 } from "../../src/modules/reading-activity/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -1138,5 +1142,241 @@ describe("ReadingActivity on PostgreSQL", () => {
       ok: true,
       value: { changed: true, state: { isRead: true } },
     });
+  });
+  test("reads genuine learning-start and manual transition events without reconstructing legacy opens", async () => {
+    const clock = await activityTestClock(database.prisma);
+    vi.setSystemTime(clock.at);
+    const productId = await product();
+    const id = await material([productId]);
+    const account = randomUUID();
+    const contentAccess = assembleContentAccess({
+      telegramLinks: everyAccountLinked,
+      materialResourceFacts: assembleMaterialResourceFacts(
+        materials.materialContent,
+      ),
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      accountRights: membership,
+    });
+    const home = new PersonalHome({
+      prisma: database.prisma,
+      contentAccess,
+      materialContent: materials.materialContent,
+      composition,
+      reader: materials.publishedMaterialReader,
+      selection: new PublishedMaterialSelection({
+        prisma: database.prisma,
+        products: new ProductDiscovery(database.prisma),
+      }),
+      videos: {
+        loadProgressMany: () => Promise.reject(new Error("not used")),
+        loadReadyDurations: () => Promise.reject(new Error("not used")),
+      },
+    });
+    const facts = await materials.materialContent.findAccessFacts(
+      materialId(id),
+    );
+    if (!facts.ok || facts.value === null)
+      throw new Error("Expected published Material");
+    const open = {
+      accountId: account,
+      materialId: id,
+      commandId: randomUUID(),
+      contentVersion: facts.value.contentVersion,
+    };
+    const opened = await Promise.all([
+      home.recordOpen(open),
+      home.recordOpen(open),
+    ]);
+    for (const result of opened) {
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("Expected successful Material open");
+      expect(Object.keys(result).sort()).toEqual(["ok", "value"]);
+      expect(Object.keys(result.value).sort()).toEqual([
+        "openedAt",
+        "replayed",
+      ]);
+      expect(typeof result.value.openedAt).toBe("string");
+      expect(typeof result.value.replayed).toBe("boolean");
+    }
+    expect(
+      opened.filter((result) => result.ok && !result.value.replayed),
+    ).toHaveLength(1);
+    const other = await material([productId]);
+    const otherFacts = await materials.materialContent.findAccessFacts(
+      materialId(other),
+    );
+    if (!otherFacts.ok || otherFacts.value === null)
+      throw new Error("Expected second Material");
+    await Promise.all([
+      home.recordOpen({ ...open, commandId: randomUUID() }),
+      home.recordOpen({
+        ...open,
+        materialId: other,
+        contentVersion: otherFacts.value.contentVersion,
+        commandId: randomUUID(),
+      }),
+    ]);
+    const mark = {
+      accountId: account,
+      materialId: id,
+      commandId: randomUUID(),
+      isRead: true,
+      expectedVersion: 0,
+    };
+    await Promise.all([
+      reading.setReadingState(mark),
+      reading.setReadingState(mark),
+    ]);
+    await reading.setReadingState({
+      ...mark,
+      commandId: randomUUID(),
+      expectedVersion: 1,
+    });
+    await reading.setReadingState({
+      ...mark,
+      commandId: randomUUID(),
+      expectedVersion: 1,
+      isRead: false,
+    });
+    const report = await new ReadingActivityFacts(database.prisma).read(
+      clock.window,
+    );
+    if (!report.ok) throw new Error(report.error.code);
+    expect(
+      report.value.rows
+        .filter((row) => row.accountId === account)
+        .map(({ kind, eventCount }) => ({ kind, eventCount })),
+    ).toEqual([
+      { kind: "learning_started", eventCount: 1 },
+      { kind: "material_marked_read", eventCount: 1 },
+      { kind: "material_marked_unread", eventCount: 1 },
+    ]);
+    const legacy = randomUUID();
+    await database.prisma.productLearningStarted.create({
+      data: {
+        accountId: legacy,
+        productId: productId,
+        startedAt: clock.at,
+      },
+    });
+    await home.recordOpen({
+      ...open,
+      accountId: legacy,
+      commandId: randomUUID(),
+    });
+    const failedAccount = randomUUID();
+    await database.prisma.$executeRaw(
+      Prisma.sql`alter table reading_activity.learning_started_events add constraint fail_fixture check (account_id is null) not valid`,
+    );
+    try {
+      expect(
+        await home.recordOpen({
+          ...open,
+          accountId: failedAccount,
+          commandId: randomUUID(),
+        }),
+      ).toMatchObject({ ok: false });
+      expect(
+        await database.prisma.productLearningStarted.findUnique({
+          where: {
+            accountId_productId: {
+              accountId: failedAccount,
+              productId: productId,
+            },
+          },
+        }),
+      ).toBeNull();
+      expect(
+        await database.prisma.readingMaterialVisit.findUnique({
+          where: {
+            accountId_materialId: { accountId: failedAccount, materialId: id },
+          },
+        }),
+      ).toBeNull();
+    } finally {
+      await database.prisma.$executeRaw(
+        Prisma.sql`alter table reading_activity.learning_started_events drop constraint fail_fixture`,
+      );
+    }
+    const after = await new ReadingActivityFacts(database.prisma).read(
+      clock.window,
+    );
+    if (!after.ok) throw new Error(after.error.code);
+    expect(after.value.rows.some((row) => row.accountId === legacy)).toBe(
+      false,
+    );
+
+    const originalReceipt = await home.recordOpen(open);
+    const primaryStart =
+      await database.prisma.productLearningStarted.findUniqueOrThrow({
+        where: {
+          accountId_productId: { accountId: account, productId: productId },
+        },
+      });
+    await database.prisma.$executeRaw(
+      Prisma.sql`update reading_activity.events set occurred_at=transaction_timestamp()-interval '366 days' where account_id=${account}::uuid`,
+    );
+    const originalStates = await database.prisma.readingMaterialState.findMany({
+      where: { accountId: account },
+      orderBy: { materialId: "asc" },
+    });
+    const originalCommands = await database.prisma.readingCommand.findMany({
+      where: { accountId: account },
+      orderBy: { commandId: "asc" },
+    });
+    const originalVisits = await database.prisma.readingMaterialVisit.findMany({
+      where: { accountId: account },
+      orderBy: { materialId: "asc" },
+    });
+    const originalEvents = await database.prisma.readingEvent.findMany({
+      where: { accountId: account },
+      orderBy: { eventId: "asc" },
+    });
+    await database.prisma.$executeRaw(
+      Prisma.sql`update reading_activity.learning_started_events set occurred_at=transaction_timestamp()-interval '366 days' where account_id=${account}::uuid`,
+    );
+    expect(
+      await new ReadingActivityRetention(database.prisma).clean(),
+    ).toMatchObject({ ok: true, value: { removed: 1 } });
+    expect(
+      await database.prisma.readingMaterialState.findMany({
+        where: { accountId: account },
+        orderBy: { materialId: "asc" },
+      }),
+    ).toEqual(originalStates);
+    expect(
+      await database.prisma.readingCommand.findMany({
+        where: { accountId: account },
+        orderBy: { commandId: "asc" },
+      }),
+    ).toEqual(originalCommands);
+    expect(
+      await database.prisma.readingMaterialVisit.findMany({
+        where: { accountId: account },
+        orderBy: { materialId: "asc" },
+      }),
+    ).toEqual(originalVisits);
+    expect(await home.recordOpen(open)).toEqual(originalReceipt);
+    expect(
+      await home.recordOpen({ ...open, commandId: randomUUID() }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await database.prisma.productLearningStarted.findUniqueOrThrow({
+        where: {
+          accountId_productId: { accountId: account, productId: productId },
+        },
+      }),
+    ).toEqual(primaryStart);
+    expect(
+      await database.prisma.readingEvent.findMany({
+        where: { accountId: account },
+        orderBy: { eventId: "asc" },
+      }),
+    ).toEqual(originalEvents);
+    expect(
+      await database.prisma.$queryRaw(
+        Prisma.sql`select event_id from reading_activity.learning_started_events where account_id=${account}::uuid`,
+      ),
+    ).toEqual([]);
   });
 });

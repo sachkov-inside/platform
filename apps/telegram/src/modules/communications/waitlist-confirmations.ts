@@ -1,3 +1,8 @@
+import { admitInternalWaitlistParent } from "@inside/contracts/internal-waitlist-parent";
+import {
+  disabledTelegramObservability,
+  type TelegramObservability,
+} from "../../observability/telegram-observability.js";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import { sql } from "kysely";
 import type { ApplicationConfig } from "../../config/application-config.js";
@@ -38,6 +43,7 @@ export const WAITLIST_CONFIRMATION_AUTHORIZATION = Symbol(
 export interface WaitlistConfirmationAuthorization {
   current(
     command: WaitlistConfirmation,
+    parent?: string | null,
   ): Promise<"accepted" | "suppressed" | "unavailable">;
 }
 const CONFIRMATION_LEASE_MS = 60_000;
@@ -68,48 +74,53 @@ export class WaitlistConfirmations {
     private readonly authorization: WaitlistConfirmationAuthorization,
     private readonly transport: CommunicationTransport,
     private readonly monotonic: MonotonicClock = systemMonotonicClock,
+    private readonly telemetry: TelegramObservability = disabledTelegramObservability,
   ) {}
   async receive(
     command: WaitlistConfirmation,
+    parent?: string,
   ): Promise<{ eventId: string; status: "accepted" }> {
-    await this.database.transaction().execute(async (tx) => {
-      await sql`select pg_advisory_xact_lock(hashtextextended(${`waitlist-confirmation:${this.config.botIdentity}:${command.eventId}`},0))`.execute(
-        tx,
-      );
-      const previous = await tx
-        .selectFrom("waitlist_confirmations")
-        .select("command")
-        .where("bot_identity", "=", this.config.botIdentity)
-        .where("event_id", "=", command.eventId)
-        .executeTakeFirst();
-      if (previous) {
-        const old = previous.command;
-        if (
-          old.intakeId !== command.intakeId ||
-          old.accountRef !== command.accountRef ||
-          old.telegramIdentityRef !== command.telegramIdentityRef ||
-          old.linkRevision !== command.linkRevision
-        )
-          throw new WaitlistConfirmationConflict();
-        return;
-      }
-      const now = this.clock.now();
-      await tx
-        .insertInto("waitlist_confirmations")
-        .values({
-          bot_identity: this.config.botIdentity,
-          event_id: command.eventId,
-          command: JSON.stringify(command),
-          created_at: now,
-          available_at: now,
-          state: "pending",
-          attempted_at: null,
-          provider_message_id: null,
-          diagnostic_code: null,
-        })
-        .execute();
+    return this.telemetry.runReceipt(parent, async (firstCarrier) => {
+      await this.database.transaction().execute(async (tx) => {
+        await sql`select pg_advisory_xact_lock(hashtextextended(${`waitlist-confirmation:${this.config.botIdentity}:${command.eventId}`},0))`.execute(
+          tx,
+        );
+        const previous = await tx
+          .selectFrom("waitlist_confirmations")
+          .select("command")
+          .where("bot_identity", "=", this.config.botIdentity)
+          .where("event_id", "=", command.eventId)
+          .executeTakeFirst();
+        if (previous) {
+          const old = previous.command;
+          if (
+            old.intakeId !== command.intakeId ||
+            old.accountRef !== command.accountRef ||
+            old.telegramIdentityRef !== command.telegramIdentityRef ||
+            old.linkRevision !== command.linkRevision
+          )
+            throw new WaitlistConfirmationConflict();
+          return;
+        }
+        const now = this.clock.now();
+        await tx
+          .insertInto("waitlist_confirmations")
+          .values({
+            bot_identity: this.config.botIdentity,
+            event_id: command.eventId,
+            command: JSON.stringify(command),
+            receipt_traceparent: firstCarrier,
+            created_at: now,
+            available_at: now,
+            state: "pending",
+            attempted_at: null,
+            provider_message_id: null,
+            diagnostic_code: null,
+          })
+          .execute();
+      });
+      return { eventId: command.eventId, status: "accepted" };
     });
-    return { eventId: command.eventId, status: "accepted" };
   }
   /** Redacted state inventory for readiness evidence. Never returns recipient or message content. */
   async snapshot(): Promise<Record<string, number>> {
@@ -205,10 +216,23 @@ export class WaitlistConfirmations {
         let chatId: string | undefined;
         let suppressed = false;
         const item = await claim(tx, queue, now, {
-          select: ["bot_identity", "event_id", "command"],
+          select: [
+            "bot_identity",
+            "event_id",
+            "command",
+            "receipt_traceparent",
+          ],
           where: (eb) => eb("bot_identity", "=", this.config.botIdentity),
           prepare: async (tx, row) => {
             const command = row.command;
+            // Captured by the actual deferred loader. It runs after rollback, outside transaction ALS.
+            const rowParent =
+              row.receipt_traceparent === null
+                ? null
+                : (admitInternalWaitlistParent([
+                    "traceparent",
+                    row.receipt_traceparent,
+                  ]) ?? null);
             const link = await findPlatformLink(
               tx,
               {
@@ -221,7 +245,7 @@ export class WaitlistConfirmations {
             const status = link
               ? await externalRead(
                   `waitlist-confirmation:${JSON.stringify(command)}`,
-                  () => this.authorization.current(command),
+                  () => this.authorization.current(command, rowParent),
                 )
               : "suppressed";
             if (status === "unavailable") return undefined;
@@ -258,11 +282,18 @@ export class WaitlistConfirmations {
       },
     );
     if (!item || chatId === undefined) return suppressed ? 1 : 0;
+    const rowParent =
+      item.row.receipt_traceparent === null
+        ? null
+        : (admitInternalWaitlistParent([
+            "traceparent",
+            item.row.receipt_traceparent,
+          ]) ?? null);
     // Re-read after the claim commits: an earlier join generation must not authorize a
     // send after local lock/pool waits. No connection is held during the Platform request.
     let current: "accepted" | "suppressed" | "unavailable";
     try {
-      current = await this.authorization.current(item.row.command);
+      current = await this.authorization.current(item.row.command, rowParent);
     } catch (error) {
       reportFailure(
         "communications.waitlist-confirmation-authorization",
@@ -313,52 +344,56 @@ export class WaitlistConfirmations {
       });
       return 0;
     }
-    let result;
-    try {
-      result = await this.transport.send({
-        chatId,
-        content: {
-          type: "text",
-          text: "Вы находитесь в списке ожидания.",
-          entities: [],
-          buttons: [],
-        },
+    return this.telemetry.runAttempt(rowParent, async () => {
+      let result;
+      try {
+        result = await this.telemetry.runBotApi(() =>
+          this.transport.send({
+            chatId,
+            content: {
+              type: "text",
+              text: "Вы находитесь в списке ожидания.",
+              entities: [],
+              buttons: [],
+            },
+          }),
+        );
+      } catch (error) {
+        reportFailure("communications.waitlist-confirmation", error);
+        result = { kind: "transport_unknown" as const };
+      }
+      const retry =
+        result.kind === "api_retryable" &&
+        item.attempt < MAX_CONFIRMATION_ATTEMPTS;
+      const availableAt = new Date(
+        this.clock.now().getTime() +
+          (result.kind === "api_retryable"
+            ? Math.max(
+                retryDelay(queue, item.attempt),
+                (result.retryAfterSeconds ?? 0) * 1000,
+              )
+            : 0),
+      );
+      await this.database.transaction().execute(async (tx) => {
+        if (result.kind === "api_retryable" && result.providerErrorCode === 429)
+          await deferTelegramSlot(tx, item.row.bot_identity, availableAt);
+        await settle(tx, queue, item, {
+          state:
+            result.kind === "delivered"
+              ? "delivered"
+              : result.kind === "transport_unknown"
+                ? "unknown"
+                : retry
+                  ? "pending"
+                  : "rejected",
+          available_at: availableAt,
+          provider_message_id:
+            result.kind === "delivered" ? result.providerMessageId : null,
+          diagnostic_code: result.kind,
+        });
       });
-    } catch (error) {
-      reportFailure("communications.waitlist-confirmation", error);
-      result = { kind: "transport_unknown" as const };
-    }
-    const retry =
-      result.kind === "api_retryable" &&
-      item.attempt < MAX_CONFIRMATION_ATTEMPTS;
-    const availableAt = new Date(
-      this.clock.now().getTime() +
-        (result.kind === "api_retryable"
-          ? Math.max(
-              retryDelay(queue, item.attempt),
-              (result.retryAfterSeconds ?? 0) * 1000,
-            )
-          : 0),
-    );
-    await this.database.transaction().execute(async (tx) => {
-      if (result.kind === "api_retryable" && result.providerErrorCode === 429)
-        await deferTelegramSlot(tx, item.row.bot_identity, availableAt);
-      await settle(tx, queue, item, {
-        state:
-          result.kind === "delivered"
-            ? "delivered"
-            : result.kind === "transport_unknown"
-              ? "unknown"
-              : retry
-                ? "pending"
-                : "rejected",
-        available_at: availableAt,
-        provider_message_id:
-          result.kind === "delivered" ? result.providerMessageId : null,
-        diagnostic_code: result.kind,
-      });
+      return 1;
     });
-    return 1;
   }
 }
 export class WaitlistConfirmationConflict extends Error {}

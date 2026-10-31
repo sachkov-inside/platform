@@ -1,0 +1,456 @@
+"""Closed numerical stability control. Completion never grants capacity acceptance."""
+import json
+import math
+import os
+from pathlib import Path
+import re
+import resource
+import stat
+import sys
+import time
+import slot_refusal
+
+NAME='fullstack-stability.json'
+MARKER='fullstack-stability-plan.json'
+MAX_BYTES=1_048_576
+MODES=(False,False,False,True,True,False)
+ACCEPTANCE={'state':'not_applicable','capacity':False,'minimum_candidate_gib':None}
+LABELS=('web_home','web_material','api_catalog','api_account','telegram_webhook','logto_discovery')
+DELTA_CONTEXT=('logical_cpus','cpu_total_ticks','steal_ticks','context_switches','cpu_some_total_us','process_cpu_seconds')
+CONTEXT=('logical_cpus','cpu_total_ticks','clock_ticks_per_second','steal_ticks','runqueue','blocked','context_switches','cpu_some_total_us','process_cpu_seconds','process_max_rss_bytes','capture_elapsed_ms')
+COUNTERS=('cpu_total_ns','cpu_periods','cpu_throttled_periods','cpu_throttled_ns','memory_charged_bytes','memory_working_set_bytes','io_read_operations','io_write_operations')
+PHASE_ERRORS=('fixture_loadgen_cpu_throttled','fixture_loadgen_cpu_unavailable','process_replaced_or_oom','sampler_failed')
+COUNTER_ERRORS=('engine_read_failed','required_counter_unavailable')
+
+
+COLD_PROTOCOL='fixed-actor-cold400-v1'
+PRIMED_PROTOCOL='fixed-actor-primed400-v1'
+
+
+def require_protocol(value):
+    if type(value) is not str or value not in (COLD_PROTOCOL,PRIMED_PROTOCOL):
+        raise ValueError('closed_stability_protocol')
+    return value
+
+
+def definitions(protocol=COLD_PROTOCOL):
+    primed=require_protocol(protocol)==PRIMED_PROTOCOL
+    return {'warmup':{'name':'spike','seconds':20 if primed else 10,'requests_per_second':20 if primed else 40},
+            'measurement':{'name':'spike','seconds':10,'requests_per_second':40}}
+
+
+def invoke_client(compose,invoke,definition,enabled,ordinal,protocol=COLD_PROTOCOL):
+    plan=schedule(protocol)
+    if (type(ordinal) is not int or not 0<=ordinal<12 or type(enabled) is not bool
+            or enabled!=plan[ordinal]['enabled'] or definition!=plan[ordinal]['definition']
+            or any(type(definition.get(k)) is not int for k in ('seconds','requests_per_second'))):
+        raise ValueError('closed_stability_phase')
+    result=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','stability-load',
+        'on' if enabled else 'off',str(ordinal),protocol],timeout=75))
+    return client_result(result,ordinal,protocol)
+
+
+def client_result(result,ordinal,protocol):
+    definition=schedule(protocol)[ordinal]['definition']
+    if (type(result) is not dict or result.get('diagnostic_only') is not True or result.get('actor_cohort')!=0
+            or type(result.get('actor_cohort')) is not int or type(result.get('maximum_inflight')) is not int
+            or not 1<=result['maximum_inflight']<=8 or result.get('diagnostic_protocol')!=protocol
+            or result.get('diagnostic_definition')!=definition
+            or type(result.get('diagnostic_definition')) is not dict
+            or any(type(result['diagnostic_definition'].get(k)) is not int for k in ('seconds','requests_per_second'))
+            or type(result.get('timing_diagnostics')) is not dict
+            or type(result['timing_diagnostics'].get('phase')) is not int or result['timing_diagnostics']['phase']!=ordinal
+            or type(result['timing_diagnostics'].get('pair')) is not int or result['timing_diagnostics']['pair']!=ordinal//6):
+        raise ValueError('diagnostic_client_protocol_required')
+    return result
+
+
+
+def plan(source,protocol=COLD_PROTOCOL):
+    if type(source) is not str or re.fullmatch('[a-f0-9]{40}',source) is None:raise ValueError('diagnostic_plan_binding')
+    return {'schema':2,'source':source,'scope':'diagnostic_only','protocol':require_protocol(protocol)}
+
+
+def plan_protocol(value,source,*,expected=None):
+    if (type(value) is not dict or set(value)!={'schema','source','scope','protocol'}
+            or type(value['schema']) is not int or value!=plan(source,value['protocol'])
+            or expected is not None and value['protocol']!=require_protocol(expected)):
+        raise ValueError('diagnostic_plan_binding')
+    return value['protocol']
+
+
+def number(value):return type(value) in (int,float) and math.isfinite(value) and 0<=value<=2**53-1
+
+def counter_delta(before,after):return after-before if number(before) and number(after) and after>=before else None
+
+def schedule(protocol=COLD_PROTOCOL):
+    plan=definitions(protocol)
+    return [{'ordinal':i,'enabled':MODES[i//2],'measured':bool(i%2),
+        'definition':dict(plan['measurement' if i%2 else 'warmup'])} for i in range(12)]
+
+
+def context(proc=Path('/proc')):
+    """No PID scan/text: only aggregate kernel numbers and this observer's rusage."""
+    start=time.monotonic();result=dict.fromkeys(CONTEXT);result['logical_cpus']=os.cpu_count()
+    try:
+        rows={parts[0]:parts[1:] for line in (proc/'stat').read_text().splitlines() if (parts:=line.split())}
+        result.update(cpu_total_ticks=sum(map(int,rows['cpu'][:8])),clock_ticks_per_second=os.sysconf('SC_CLK_TCK'),steal_ticks=int(rows['cpu'][7]),runqueue=int(rows['procs_running'][0]),
+            blocked=int(rows['procs_blocked'][0]),context_switches=int(rows['ctxt'][0]))
+    except (OSError,ValueError,KeyError,IndexError):pass
+    try:
+        some=next(line for line in (proc/'pressure/cpu').read_text().splitlines() if line.startswith('some '))
+        result['cpu_some_total_us']=int(next(token.split('=',1)[1] for token in some.split() if token.startswith('total=')))
+    except (OSError,ValueError,StopIteration):pass
+    usage=resource.getrusage(resource.RUSAGE_SELF)
+    result.update(process_cpu_seconds=usage.ru_utime+usage.ru_stime,process_max_rss_bytes=usage.ru_maxrss*(1024 if sys.platform=='linux' else 1),
+        capture_elapsed_ms=(time.monotonic()-start)*1000)
+    return {key:value if number(value) else None for key,value in result.items()}
+
+
+PRIMARY_CONTEXT_MAX_BYTES=2048
+PRIMARY_CONTEXT_INTEGERS=tuple(key for key in CONTEXT if key not in ('process_cpu_seconds','capture_elapsed_ms'))
+
+
+def primary_number(value):
+    return type(value) in (int,float) and 0<=value<=2**53-1 and math.isfinite(value)
+
+
+def validate_primary_context(value,boundary):
+    def need(ok):
+        if not ok:raise ValueError('closed_primary_host_context')
+    need(type(value) is dict and set(value)=={'schema','boundary','anchor','values','children_cpu_seconds'})
+    need(type(value['schema']) is int and value['schema']==1 and type(value['boundary']) is str
+         and value['boundary']==boundary and boundary in ('baseline','final'))
+    values=value['values']
+    need(type(values) is dict and set(values)==set(CONTEXT))
+    for key,item in values.items():
+        need(item is None or primary_number(item) and (key not in PRIMARY_CONTEXT_INTEGERS or type(item) is int))
+    children=value['children_cpu_seconds']
+    need(children is None or primary_number(children))
+    anchor=value['anchor']
+    need(anchor is None or type(anchor) is list and len(anchor)==3
+         and all(primary_number(item) for item in anchor) and anchor[0]<=anchor[2])
+    need(len(json.dumps(value).encode('utf-8'))<=PRIMARY_CONTEXT_MAX_BYTES)
+    return value
+
+
+def primary_endpoints(samples):
+    """Entirely absent legacy context is UNKNOWN; partial or misplaced context is malformed."""
+    if type(samples) is not list or any(type(sample) is not dict for sample in samples):raise ValueError('closed_primary_host_context')
+    positions=[index for index,sample in enumerate(samples) if 'primary_host_context' in sample]
+    if not positions:return None
+    if len(samples)<2 or positions!=[0,len(samples)-1]:raise ValueError('closed_primary_host_context')
+    endpoints=tuple(validate_primary_context(samples[index]['primary_host_context'],boundary)
+                    for index,boundary in ((0,'baseline'),(len(samples)-1,'final')))
+    if sum(len(json.dumps({'primary_host_context':leaf},indent=2).encode('utf-8')) for leaf in endpoints)>4096:
+        raise ValueError('closed_primary_host_context')
+    return endpoints
+
+
+def primary_context(boundary):
+    """Two primary endpoints only; the bracket follows the original counter bracket."""
+    if type(boundary) is not str or boundary not in ('baseline','final'):raise ValueError('closed_primary_host_context')
+    def clock(read):
+        try:
+            value=read()
+            return value*1000 if primary_number(value) and primary_number(value*1000) else None
+        except (OSError,ValueError,TypeError,OverflowError):return None
+    before=clock(time.monotonic);epoch=clock(time.time)
+    try:values=context()
+    except (OSError,ValueError,TypeError,AttributeError,OverflowError):values={}
+    values={key:item if primary_number(item) and (key not in PRIMARY_CONTEXT_INTEGERS or type(item) is int) else None
+            for key in CONTEXT for item in (values.get(key),)}
+    children=None
+    try:
+        usage=resource.getrusage(resource.RUSAGE_CHILDREN);item=usage.ru_utime+usage.ru_stime
+        if primary_number(item):children=item
+    except (OSError,ValueError,TypeError,AttributeError,OverflowError):pass
+    after=clock(time.monotonic)
+    anchor=[before,epoch,after] if all(item is not None for item in (before,epoch,after)) and before<=after else None
+    return validate_primary_context({'schema':1,'boundary':boundary,'anchor':anchor,'values':values,'children_cpu_seconds':children},boundary)
+
+
+def record(source,roles=(),images=None,*,protocol=COLD_PROTOCOL):
+    return {'schema':4,'protocol':require_protocol(protocol),'definitions':definitions(protocol),'source':source,'scope':'diagnostic_only','state':'incomplete','acceptance':dict(ACCEPTANCE),
+        'service_roles':list(roles),'images':images or {},'warmup':[],'measurements':[]}
+
+
+def checked_quality(value,roles):
+    """One closed warmup summary. Unknown facts never become zero-valued facts."""
+    def need(ok):
+        if not ok:raise ValueError('closed_stability_quality')
+    need(type(value) is dict and type(value.get('available')) is bool)
+    if not value['available']:
+        need(set(value)=={'available'});return value
+    need(set(value)=={'available','client_completed','scheduled','missed','success','unexpected_failures',
+                     'phase_errors','counter_samples','counter_errors','loadgen_cpu_pressure'})
+    need(type(value['client_completed']) is bool)
+    need(all(type(value[k]) is int and 0<=value[k]<=400 for k in ('scheduled','missed','success','unexpected_failures')))
+    # Success and missed consume distinct scheduled slots; probe failures do not.
+    need(value['success']+value['missed']<=value['scheduled'])
+    need(not value['client_completed'] or value['scheduled']==value['success']==400 and value['missed']==value['unexpected_failures']==0)
+    errors=value['phase_errors']
+    need(type(errors) is list and len(errors)<=len(PHASE_ERRORS) and all(type(v) is str and v in PHASE_ERRORS for v in errors))
+    need(errors==sorted(set(errors)))
+    need(type(value['counter_samples']) is int and 2<=value['counter_samples']<=64)
+    counters=value['counter_errors']
+    need(type(counters) is dict and set(counters)==set(COUNTER_ERRORS)
+        and all(type(v) is int and 0<=v<=value['counter_samples']*len(roles) for v in counters.values())
+        and sum(counters.values())<=value['counter_samples']*len(roles))
+    pressure=value['loadgen_cpu_pressure']
+    need(type(pressure) is str and pressure in ('unthrottled','throttled','unavailable'))
+    need(all(('fixture_loadgen_cpu_'+state in errors)==(pressure==state) for state in ('throttled','unavailable')))
+    return value
+
+
+def quality(value,roles):
+    # These are existing returned observations, not new probes or outcome predicates.
+    try:
+        load=value['load'];samples=value['samples'];counts=dict.fromkeys(COUNTER_ERRORS,0)
+        if type(samples) is not list or not 2<=len(samples)<=64 or type(value['errors']) is not list:raise ValueError()
+        for sample in samples:
+            errors=sample['counters']['errors']
+            if type(errors) is not dict or not set(errors)<=set(roles):raise ValueError()
+            for error in errors.values():
+                if type(error) is not str or error not in counts:raise ValueError()
+                counts[error]+=1
+        return checked_quality({'available':True,'client_completed':load['completed'],
+            **{k:load[k] for k in ('scheduled','missed','success','unexpected_failures')},
+            'phase_errors':sorted(value['errors']),'counter_samples':len(samples),'counter_errors':counts,
+            'loadgen_cpu_pressure':value['loadgen_cpu_pressure']['state']},roles)
+    except (KeyError,ValueError,TypeError,AttributeError):return {'available':False}
+
+
+def project(value,ordinal,roles,*,protocol=None):
+    """Discard private/native errors. Fixed roles become numeric indices in raw frames."""
+    load=value['load']
+    if protocol is not None:client_result(load,ordinal,protocol)
+    timing=load['timing_diagnostics']
+    def numeric(value):return value if number(value) else None
+    frames=[];previous=None
+    for sample in value['samples']:
+        raw=sample['counters']
+        current=sample['diagnostic_context']
+        delta={key:counter_delta(previous.get(key) if previous else None,current[key]) for key in DELTA_CONTEXT}
+        resets=sum(number(previous.get(key)) and number(current[key]) and current[key]<previous[key] for key in DELTA_CONTEXT) if previous else 0
+        frames.append({'anchor':sample['counter_clock_anchor'],'context':current,'context_delta':delta,'context_resets':resets,
+            'at_seconds':numeric(raw.get('at_seconds')),'counter_errors':len(raw['errors']),
+            'services':[[index,*[numeric(raw['services'][role].get(key)) for key in COUNTERS]]
+                for index,role in enumerate(roles) if role in raw['services']]})
+        previous=current
+    result={'ordinal':ordinal,'completed':load['completed'] and not value['errors'] and not any(sample['counters']['errors'] for sample in value['samples']),'scheduled':load['scheduled'],
+        'missed':load['missed'],'success':load['success'],'unexpected_failures':load['unexpected_failures'],
+        'latency':load['latency'],'requests':timing['requests'],'phase_start':timing['phase_start'],'phase_end':timing['phase_end'],
+        'host':frames,'slot_refusal':slot_refusal.project(load,ordinal,MODES[ordinal//2])}
+    if ordinal%2==0:result['quality']=quality(value,roles)
+    return result
+
+
+def experiment(source,configure,measure,persist,roles=(),images=None,*,protocol=COLD_PROTOCOL):
+    result=record(source,roles,images,protocol=protocol);persist(result)
+    for row in schedule(protocol):
+        if not row['measured']:configure(row['enabled'])
+        value=measure(row)
+        if row['measured']:result['measurements'].append(value)
+        else:result['warmup'].append({'ordinal':row['ordinal'],'completed':value['completed'],
+                                    'quality':value.get('quality',{'available':False}),
+                                    'slot_refusal':value['slot_refusal']})
+        persist(result)
+        if not value['completed']:raise ValueError('stability_load_incomplete')
+    result['state']='complete';validate(result,source,roles);persist(result);return result
+
+
+def validate(value,source,roles=(),*,protocol=None):
+    def need(ok):
+        if not ok:raise ValueError('closed_stability_diagnostic')
+    need(type(value) is dict and set(value)=={'schema','protocol','definitions','source','scope','state','acceptance','service_roles','images','warmup','measurements'})
+    selected=require_protocol(value['protocol'])
+    need(protocol is None or selected==require_protocol(protocol))
+    need(value['definitions']==definitions(selected) and type(value['definitions']) is dict)
+    need(all(type(row) is dict and all(type(row.get(k)) is int for k in ('seconds','requests_per_second')) for row in value['definitions'].values()))
+    need(type(value['schema']) is int and value['schema']==4 and re.fullmatch('[a-f0-9]{40}',source) is not None and value['source']==source)
+    need(value['scope']=='diagnostic_only' and value['state'] in ('incomplete','complete') and value['acceptance']==ACCEPTANCE
+        and type(value['acceptance']['capacity']) is bool and value['service_roles']==list(roles))
+    images=value['images'];need(type(images) is dict and (not images or set(images)=={'backend','foundation','web','telegram','logto'}))
+    need(all(type(v) is str and re.fullmatch('sha256:[a-f0-9]{64}',v) is not None for v in images.values()))
+    warm=value['warmup'];rows=value['measurements']
+    need(type(warm) is list and type(rows) is list and len(warm)<=6 and len(rows)<=len(warm) and len(warm)-len(rows)<=1)
+    for index,row in enumerate(warm):
+        need(type(row) is dict and set(row)=={'ordinal','completed','quality','slot_refusal'} and type(row['ordinal']) is int and row['ordinal']==index*2 and type(row['completed']) is bool)
+        summary=checked_quality(row['quality'],roles)
+        leaf=row['slot_refusal']
+        need(not row['completed'] or type(leaf) is dict and leaf.get('state')!='captured')
+        # Unknown quality supplies no count; the leaf still requires its complete closed facts.
+        slot_refusal.validate(leaf,index*2,MODES[index],summary['missed'] if summary['available'] else None,count_unknown=not summary['available'])
+        if summary['available']:
+            need(row['completed']==(summary['client_completed'] and not summary['phase_errors'] and not any(summary['counter_errors'].values())))
+    def anchor(value):return value is None or type(value) is list and len(value)==3 and all(number(v) for v in value) and value[0]<=value[2]
+    for index,row in enumerate(rows):
+        need(type(row) is dict and set(row)=={'ordinal','completed','scheduled','missed','success','unexpected_failures','latency','requests','phase_start','phase_end','host','slot_refusal'})
+        need(type(row['ordinal']) is int and row['ordinal']==index*2+1 and type(row['completed']) is bool)
+        need(all(type(row[k]) is int and 0<=row[k]<=400 for k in ('scheduled','missed','success','unexpected_failures')))
+        need(not row['completed'] or (row['scheduled']==row['success']==400 and row['missed']==row['unexpected_failures']==0))
+        slot_refusal.validate(row['slot_refusal'],row['ordinal'],MODES[row['ordinal']//2],row['missed'])
+        need(type(row['latency']) is list and len(row['latency'])<=300 and type(row['requests']) is list and len(row['requests'])<=300)
+        for r in row['latency']:need(type(r) is dict and set(r)=={'label','elapsed_ms'} and r['label'] in LABELS and number(r['elapsed_ms']))
+        seen=set()
+        for r in row['requests']:
+            need(type(r) is list and len(r)==4 and all(number(n) for n in r) and type(r[0]) is int and 0<=r[0]<400 and type(r[1]) is int and r[1] in (0,1,2,3,6,7) and r[1]==r[0]%8 and r[0] not in seen and r[2]<=r[3]);seen.add(r[0])
+        need(anchor(row['phase_start']) and anchor(row['phase_end']) and type(row['host']) is list and len(row['host'])<=64)
+        for frame in row['host']:
+            need(type(frame) is dict and set(frame)=={'anchor','context','context_delta','context_resets','at_seconds','counter_errors','services'} and anchor(frame['anchor']))
+            need(frame['at_seconds'] is None or number(frame['at_seconds']))
+            need(type(frame['counter_errors']) is int and 0<=frame['counter_errors']<=len(roles))
+            need(type(frame['context']) is dict and set(frame['context'])==set(CONTEXT) and all(v is None or number(v) for v in frame['context'].values()))
+            need(type(frame['context_delta']) is dict and set(frame['context_delta'])==set(DELTA_CONTEXT) and all(v is None or number(v) for v in frame['context_delta'].values()))
+            need(type(frame['context_resets']) is int and 0<=frame['context_resets']<=len(DELTA_CONTEXT))
+            need(type(frame['services']) is list and len(frame['services'])<=len(roles));services=set()
+            for service in frame['services']:
+                need(type(service) is list and len(service)==len(COUNTERS)+1 and type(service[0]) is int and 0<=service[0]<len(roles) and service[0] not in services and all(v is None or number(v) for v in service[1:]));services.add(service[0])
+        need(all(r['label']==dict(zip((0,1,2,3,6,7),LABELS))[request[1]] for r,request in zip(row['latency'],row['requests'])))
+        if row['completed']:need(len(row['latency'])==len(row['requests'])==300 and len(row['host'])>=2 and row['phase_start'] is not None and row['phase_end'] is not None and row['phase_end'][0]-row['phase_start'][0]>=10000)
+    if len(json.dumps(value,allow_nan=False).encode())>MAX_BYTES:raise ValueError('stability_artifact_budget')
+    if value['state']=='complete':need(len(rows)==len(warm)==6 and all(r['completed'] for r in [*rows,*warm]) and bool(images))
+    return value
+
+
+def read_json(path):
+    path=Path(path)
+    try:
+        descriptor=os.open(path,os.O_RDONLY|os.O_NONBLOCK|os.O_NOFOLLOW)
+        with os.fdopen(descriptor) as stream:
+            info=os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size>MAX_BYTES:raise ValueError('stability_artifact_file')
+            def unique(pairs):
+                value={}
+                for key,item in pairs:
+                    if key in value:raise ValueError('stability_duplicate_key')
+                    value[key]=item
+                return value
+            return json.load(stream,object_pairs_hook=unique,parse_constant=lambda _:(_ for _ in ()).throw(ValueError('stability_numeric')))
+    except (OSError,RecursionError) as error:raise ValueError('stability_artifact_file') from error
+
+
+def read(output,source,roles=()):return validate(read_json(Path(output)/NAME),source,roles)
+
+
+def require_marker(event):
+    if type(event) is not dict or type(event.get('pull_request')) is not dict or type(event['pull_request'].get('body')) is not str or '<!-- monitoring-stability: run -->' not in event['pull_request']['body']:
+        raise ValueError('explicit_stability_marker_required')
+
+
+OWNER='fullstack-stability-owner.json'
+DIAGNOSTIC_FILES=(MARKER,OWNER,NAME)
+RUNTIME_FILES=('owner.json','worker.json','worker-outcome.json','cleanup.json',OWNER,NAME,'evidence.json','monitor-failure.json')
+
+
+def diagnostic_evidence(full,output):
+    """Suspicion selects validation/refusal, never primary or cleanup authority."""
+    if any(full.cpu_control.present(output/name) for name in DIAGNOSTIC_FILES):return True
+    path=output/'fullstack-source.json'
+    if not full.cpu_control.present(path):return False
+    prepared=full.stage_timing.read_json(path,MAX_BYTES)
+    if type(prepared) is not dict:raise ValueError('diagnostic_plan_binding')
+    return 'stability' in prepared
+
+
+def runtime_evidence(full,output):
+    """Absence of one receipt cannot erase another durable runtime witness."""
+    return any(full.cpu_control.present(output/name) for name in RUNTIME_FILES)
+
+
+def admission(full,scope):
+    full.profile(scope);full.hosted.context()
+    event=read_json(Path(os.environ['GITHUB_EVENT_PATH']))
+    if scope=='full':return require_marker(event)
+    need=full.cpu_control.need
+    need(type(event) is dict and event.get('action') in ('opened','reopened','synchronize'))
+    pr=event.get('pull_request');need(type(pr) is dict)
+    need(type(event.get('number')) is int and 0<event['number']<=2**31-1
+         and type(pr.get('number')) is int and pr['number']==event['number'] and pr.get('state')=='open'
+         and type(event.get('repository')) is dict and event['repository'].get('full_name')=='sachkov-inside/platform')
+    for name,key in (('head','PILOT_PR_HEAD_SHA'),('base','PILOT_PR_BASE_SHA')):
+        row=pr.get(name);need(type(row) is dict and type(row.get('sha')) is str
+                            and re.fullmatch('[a-f0-9]{40}',row['sha']) and row['sha']==os.environ.get(key))
+    need(pr['base'].get('ref')=='main' and type(pr['base'].get('repo')) is dict
+         and pr['base']['repo'].get('full_name')=='sachkov-inside/platform')
+    body=pr.get('body');need(type(body) is str and len(body.encode())<=65536)
+    need(body.count('<!-- monitoring-stability: run -->')==1
+         and body.lower().count('<!-- monitoring-stability:')==1
+         and '<!-- monitoring-cpu-control:' not in body.lower()
+         and body.count('<!-- observability-scope: technical -->')==1
+         and body.lower().count('<!-- observability-scope:')==1)
+    need(full.production.select_ci_scope(event)==scope)
+
+
+def technical_plan(full,output,source,protocol):
+    """Private request. The public schema remains the existing diagnostic schema4."""
+    full.cpu_control.directory(output)
+    full.prepared_scope(output,expected='technical',source=source)
+    prepared=full.cpu_control.read(output/'fullstack-source.json',private=False)
+    binding=prepared['scope_binding'];details=prepared.get('stability')
+    full.cpu_control.need(type(binding.get('worker_deadline_seconds')) is int and binding['worker_deadline_seconds']==full.stage_timing.SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS
+        and type(details) is dict and set(details)=={'protocol','plan_sha256','images_sha256'}
+        and details['protocol']==require_protocol(protocol) and type(details['plan_sha256']) is str
+        and re.fullmatch('[a-f0-9]{64}',details['plan_sha256']))
+    full.cpu_control.image_set({key:prepared['images'][key] for key in full.cpu_control.IMAGES})
+    full.cpu_control.need(details['images_sha256']==full.cpu_control.digest(prepared['images']))
+    current=full.cpu_control.read(output/'compose.json')
+    full.cpu_control.need(full.cpu_control.digest(full.cpu_control.mode_plan(full,current,False))==details['plan_sha256'])
+    # Mixed OFF/ON switches are not one of the two declared modes.
+    full.cpu_control.need(current in (full.cpu_control.mode_plan(full,current,False),full.cpu_control.mode_plan(full,current,True)))
+    return {'schema':3,'scope':'technical','source':source,'protocol':protocol,
+            'scope_binding':binding,'output_sha256':full.stage_timing.output_binding(output),
+            'plan_sha256':details['plan_sha256'],'images_sha256':details['images_sha256']}
+
+
+def technical_request(full,output,source,*,protocol=None):
+    prepared=full.cpu_control.read(output/'fullstack-source.json',private=False)
+    full.cpu_control.need(type(prepared) is dict and type(prepared.get('stability')) is dict)
+    selected=prepared['stability'].get('protocol')
+    require_protocol(selected)
+    full.cpu_control.need(protocol is None or protocol==selected)
+    expected=technical_plan(full,output,source,selected)
+    actual=full.cpu_control.read(output/MARKER)
+    full.cpu_control.need(type(actual) is dict and type(actual.get('schema')) is int and actual==expected
+        and type(actual['scope_binding'].get('worker_deadline_seconds')) is int)
+    return expected
+
+
+def technical_owner(full,output,source,owner,*,bind=False):
+    marker=technical_request(full,output,source)
+    full.cpu_control.need(type(owner) is dict and set(owner)=={'project','cwd','supervisor_pid','docker_storage','orbstack','daemon','cleanup'}
+        and owner['cwd']==str(full.ROOT) and type(owner['supervisor_pid']) is int and owner['supervisor_pid']>0
+        and type(owner['project']) is str and re.fullmatch(re.escape(full.PREFIX)+'[a-f0-9]{12}',owner['project']))
+    expected={'schema':1,'source':source,'request':full.cpu_control.digest(marker),'owner':full.cpu_control.digest(owner)}
+    if bind:
+        full.cpu_control.need(owner['supervisor_pid']==os.getppid()
+             and full.cpu_control.read(output/'owner.json',private=False)==owner)
+        full.cpu_control.write(output/OWNER,expected,once=True)
+    elif full.cpu_control.present(output/OWNER):
+        actual=full.cpu_control.read(output/OWNER)
+        full.cpu_control.need(type(actual) is dict and type(actual.get('schema')) is int and actual==expected)
+    return owner
+
+
+def technical_registration(full,output,source):
+    """Read the parent's post-Popen receipt only after the worker has settled."""
+    owner=technical_owner(full,output,source,full.cpu_control.read(output/'owner.json',private=False))
+    worker=full.cpu_control.read(output/'worker.json',private=False)
+    full.cpu_control.need(type(worker) is dict and set(worker)=={'pid','group','supervisor_pid','deadline_seconds'}
+        and type(worker['pid']) is int and worker['pid']>0 and type(worker['group']) is int and worker['group']==worker['pid']
+        and type(worker['supervisor_pid']) is int and worker['supervisor_pid']==owner['supervisor_pid']
+        and type(worker['deadline_seconds']) is int and worker['deadline_seconds']==full.stage_timing.SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS)
+
+
+def technical_settlement(full,output,source,*,exit_code=None):
+    technical_registration(full,output,source)
+    outcome=full.cpu_control.read(output/'worker-outcome.json',private=False)
+    cleanup=full.cpu_control.read(output/'cleanup.json',private=False)
+    full.cpu_control.need(type(outcome) is dict and set(outcome)=={'exit_code','duration_seconds','monitor_failed','cleanup'}
+        and type(outcome['exit_code']) is int and 0<=outcome['exit_code']<=255
+        and (exit_code is None or outcome['exit_code']==exit_code)
+        and type(outcome['duration_seconds']) in (int,float) and math.isfinite(outcome['duration_seconds'])
+        and 0<=outcome['duration_seconds']<=3600 and type(outcome['monitor_failed']) is bool
+        and (exit_code!=0 or outcome['monitor_failed'] is False) and outcome['cleanup']==cleanup)
+    return full.cpu_control.cleanup_passed(cleanup)

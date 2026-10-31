@@ -1,6 +1,12 @@
+import { PgBossWorkObservation } from "../infrastructure/pg-boss-work-observation.js";
+import { PrismaClientProvider } from "../infrastructure/prisma/index.js";
+import { ReadingActivityRetention } from "../modules/reading-activity/index.js";
+import { BookmarkActivityRetention } from "../modules/bookmarks/index.js";
+import { jobQueues } from "../infrastructure/job-queues.js";
+import { WebTelemetry } from "../modules/web-telemetry/index.js";
+import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { PgBoss } from "pg-boss";
-import "reflect-metadata";
 import {
   PLATFORM_CONFIG,
   type PlatformConfig,
@@ -12,6 +18,11 @@ import {
   reportQueueFailure,
   writeLog,
 } from "../infrastructure/observability/index.js";
+import { technicalTelemetryFromEnvironment } from "../infrastructure/observability/technical-telemetry-runtime.js";
+import {
+  RUNTIME_IDENTITY,
+  type RuntimeIdentity,
+} from "../infrastructure/runtime-identity.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
@@ -23,16 +34,19 @@ import {
   COMMUNITY_RECONCILIATION_INTERVAL_MS,
   CommunityEntitlements,
 } from "../modules/telegram-membership/index.js";
-import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
-import { runRecoveryJob } from "./billing-worker/jobs.js";
+import {
+  runActivityRetentionJob,
+  runRecoveryJob,
+} from "./billing-worker/jobs.js";
 
-const telemetryCleanupQueue = "web-telemetry.retention";
+const activityRetentionQueue = jobQueues.activityRetention;
+const telemetryCleanupQueue = jobQueues.telemetryRetention;
 // The watchdog reads completion over 26 hours; keep receipts across two daily runs.
 const telemetryReceiptRetentionSeconds = 172_800;
-const recoveryQueue = "billing.payment-recovery";
-const communityQueue = "community.entitlement-delivery";
+const recoveryQueue = jobQueues.paymentRecovery;
+const communityQueue = jobQueues.communityDelivery;
 const communityBatchSize = 50;
 const communityIntervalSeconds = COMMUNITY_RECONCILIATION_INTERVAL_MS / 1_000;
 const jobTimeoutSeconds = 300;
@@ -58,93 +72,171 @@ async function bootstrap(): Promise<void> {
   const payments = application.get(BillingPayments);
   const operations = application.get(BillingOperations);
   const community = application.get(CommunityEntitlements);
-  const jobs = new PgBoss({
-    connectionString: config.database.url,
-    createSchema: false,
-    migrate: false,
-    schema: "pgboss",
+  const technicalTelemetry = technicalTelemetryFromEnvironment({
+    environment: process.env,
+    service: "platform-billing-worker",
+    mode: config.mode,
+    identity: application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
   });
-  jobs.on("error", (error: unknown) =>
-    reportQueueFailure("billing-worker", error),
-  );
-  await runWorker({
-    application,
-    databaseUrl: config.database.url,
-    jobs,
-    process: "billing-worker",
-    readiness: application.get(OperationalReadiness),
-    async registerJobs() {
-      await jobs.createQueue(telemetryCleanupQueue, {
-        deleteAfterSeconds: telemetryReceiptRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(
+  try {
+    const work = new PgBossWorkObservation(
+      application.get(PrismaClientProvider),
+      application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
+      "billing-worker",
+    );
+    const jobs = new PgBoss({
+      openTelemetry: technicalTelemetry.pgBoss([
+        activityRetentionQueue,
         telemetryCleanupQueue,
-        "0 3 * * *",
-        {},
-        { tz: "Etc/UTC" },
-      );
-      await jobs.send(
-        telemetryCleanupQueue,
-        {},
-        { singletonSeconds: jobRetentionSeconds },
-      );
-      await jobs.work(
-        telemetryCleanupQueue,
-        observeJob("billing-worker", telemetryCleanupQueue, async () => {
-          const result = await telemetry.clean();
-          if (!result.ok) throw new Error(result.error.code);
-          return result;
-        }),
-      );
-      await jobs.createQueue(recoveryQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(recoveryQueue, "* * * * *", {});
-      await jobs.send(
         recoveryQueue,
-        {},
-        { singletonSeconds: jobIntervalSeconds },
-      );
-      await jobs.work(
-        recoveryQueue,
-        observeJob("billing-worker", recoveryQueue, async () => {
-          return runRecoveryJob(payments, operations);
-        }),
-      );
-      if (!config.communityEntitlements) return;
-      await jobs.createQueue(communityQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(communityQueue, "* * * * *", {});
-      await jobs.send(
         communityQueue,
-        {},
-        { singletonSeconds: communityIntervalSeconds },
-      );
-      await jobs.work(
-        communityQueue,
-        observeJob("billing-worker", communityQueue, async () => {
-          const report = await community.sweep(communityBatchSize);
-          if (
-            report.backlog.overdue > 0 ||
-            report.backlog.rejected > 0 ||
-            report.failed > 0
-          ) {
-            // Overdue or refused community work is operator attention, not a silent retry.
-            writeLog("warn", "queue_attention", {
-              status: "operator_attention",
-              ...report,
-            });
-          }
-          return report;
-        }),
-      );
-    },
-  });
+      ]),
+      connectionString: config.database.url,
+      createSchema: false,
+      migrate: false,
+      schema: "pgboss",
+    });
+    jobs.on("error", (error: unknown) =>
+      reportQueueFailure("billing-worker", error),
+    );
+    await runWorker({
+      application,
+      workObservations: work,
+      databaseUrl: config.database.url,
+      jobs,
+      process: "billing-worker",
+      readiness: application.get(OperationalReadiness),
+      async registerJobs() {
+        try {
+          await jobs.createQueue(activityRetentionQueue, {
+            deleteAfterSeconds: jobRetentionSeconds,
+            expireInSeconds: jobTimeoutSeconds,
+            retryLimit: 0,
+          });
+          await jobs.schedule(
+            activityRetentionQueue,
+            "* * * * *",
+            {},
+            { tz: "Etc/UTC" },
+          );
+          await jobs.send(
+            activityRetentionQueue,
+            {},
+            { singletonSeconds: jobIntervalSeconds },
+          );
+          await jobs.work(
+            activityRetentionQueue,
+            observeJob(
+              "billing-worker",
+              activityRetentionQueue,
+              async () => {
+                const result = await runActivityRetentionJob(
+                  application.get(ReadingActivityRetention),
+                  application.get(BookmarkActivityRetention),
+                );
+                writeLog("info", "activity_retention_completed", result);
+                return result;
+              },
+              technicalTelemetry,
+              work,
+            ),
+          );
+        } catch (error) {
+          reportQueueFailure("billing-worker", error);
+        }
+        await jobs.createQueue(telemetryCleanupQueue, {
+          deleteAfterSeconds: telemetryReceiptRetentionSeconds,
+          expireInSeconds: jobTimeoutSeconds,
+          retryLimit: 0,
+        });
+        await jobs.schedule(
+          telemetryCleanupQueue,
+          "0 3 * * *",
+          {},
+          { tz: "Etc/UTC" },
+        );
+        await jobs.send(
+          telemetryCleanupQueue,
+          {},
+          { singletonSeconds: jobRetentionSeconds },
+        );
+        await jobs.work(
+          telemetryCleanupQueue,
+          observeJob(
+            "billing-worker",
+            telemetryCleanupQueue,
+            async () => {
+              const result = await telemetry.clean();
+              if (!result.ok) throw new Error(result.error.code);
+              return result;
+            },
+            technicalTelemetry,
+            work,
+          ),
+        );
+        await jobs.createQueue(recoveryQueue, {
+          deleteAfterSeconds: jobRetentionSeconds,
+          expireInSeconds: jobTimeoutSeconds,
+          retryLimit: 0,
+        });
+        await jobs.schedule(recoveryQueue, "* * * * *", {});
+        await jobs.send(
+          recoveryQueue,
+          {},
+          { singletonSeconds: jobIntervalSeconds },
+        );
+        await jobs.work(
+          recoveryQueue,
+          observeJob(
+            "billing-worker",
+            recoveryQueue,
+            async () => {
+              return runRecoveryJob(payments, operations);
+            },
+            technicalTelemetry,
+            work,
+          ),
+        );
+        // Community delivery only runs where the provider direction is configured.
+        if (!config.communityEntitlements) return;
+        await jobs.createQueue(communityQueue, {
+          deleteAfterSeconds: jobRetentionSeconds,
+          expireInSeconds: jobTimeoutSeconds,
+          retryLimit: 0,
+        });
+        await jobs.schedule(communityQueue, "* * * * *", {});
+        await jobs.send(
+          communityQueue,
+          {},
+          { singletonSeconds: communityIntervalSeconds },
+        );
+        await jobs.work(
+          communityQueue,
+          observeJob(
+            "billing-worker",
+            communityQueue,
+            async () => {
+              const report = await community.sweep(communityBatchSize);
+              if (
+                report.backlog.overdue > 0 ||
+                report.backlog.rejected > 0 ||
+                report.failed > 0
+              ) {
+                // Overdue or refused community work is operator attention, not a silent retry.
+                writeLog("warn", "queue_attention", {
+                  status: "operator_attention",
+                  ...report,
+                });
+              }
+              return report;
+            },
+            technicalTelemetry,
+            work,
+          ),
+        );
+      },
+    });
+  } finally {
+    await technicalTelemetry.shutdown();
+  }
 }

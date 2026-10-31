@@ -1,3 +1,5 @@
+import { notificationTraceparent } from "../../../infrastructure/observability/notification-trace.js";
+import { captureNotificationTraceparent } from "../../../infrastructure/observability/technical-telemetry.js";
 import type { NotificationsPrisma } from "../../../infrastructure/prisma/index.js";
 import { stageNotification } from "../../../infrastructure/notification-transport/outbox.js";
 import {
@@ -22,13 +24,19 @@ export async function stageDeliveryCommand(
   transaction: NotificationsPrisma,
   command: DeliveryCommand,
   now: Date,
+  traceparent: string | null = captureNotificationTraceparent() ?? null,
 ) {
+  const parent =
+    command.binding.channel === "email"
+      ? (notificationTraceparent(traceparent) ?? null)
+      : null;
   const envelope = encodeNotification(
     commandLane(command.binding.channel, command.content.category),
     command,
   );
   await transaction.notificationCommand.create({
     data: {
+      traceparent: parent,
       operationId: command.operationId,
       deliveryId: command.deliveryRef,
       revision: command.commandRevision,
@@ -52,5 +60,6 @@ export async function stageDeliveryCommand(
     transaction.notificationOutbox,
     envelope.lane,
     command,
+    { traceparent: parent },
   );
 }

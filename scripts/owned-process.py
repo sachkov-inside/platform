@@ -1,8 +1,10 @@
 """Supervise one command tree while its Node owner holds control fd 3 open."""
 import json
+import math
 import os
 from pathlib import Path
 import signal
+import select
 import subprocess
 import sys
 import time
@@ -90,6 +92,12 @@ def stop_tree(process, tracked, groups, grace, ownership):
 
 
 def main():
+    # Validate the optional cross-language input before acquiring any command child.
+    owner_exit_grace = json.loads(sys.argv[3]) if len(sys.argv) > 3 else 5000
+    if (type(owner_exit_grace) not in (int, float) or
+            not math.isfinite(owner_exit_grace) or not 0 <= owner_exit_grace <= 5000):
+        raise ValueError('Owner exit grace must be finite and within 0..5000 ms')
+    owner_exit_grace /= 1000
     stopping = False
 
     def interrupt(_signum, _frame):
@@ -132,12 +140,15 @@ def main():
             # The timeout only lets Python observe its signal handler; ownership census
             # is driven by native fork/exit events, not by a process-table polling loop.
             if events.wait(SIGNAL_WAIT_SECONDS):
-                if events.dead & events.parents:
-                    return 143
+                # A buffered explicit stop wins even if parent death arrives in the
+                # same event batch. A dead ancestor need not close the owner's fd.
+                readable, _, _ = select.select([3], [], [], 0)
                 # EOF also detects normal exit and SIGKILL of the Node owner.
-                request = os.read(3, 4096)
+                request = os.read(3, 4096) if readable else b''
                 if request:
                     grace = max(0, float(request.decode().strip()) / 1000)
+                else:
+                    grace = owner_exit_grace
                 return 143
             if events.tree_changed:
                 events.tree_changed = False

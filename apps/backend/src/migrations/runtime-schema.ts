@@ -7,7 +7,10 @@ import { z } from "zod";
 import {
   migrationRegistryIdentity,
   type Migration,
+  type MigrationVerification,
 } from "../infrastructure/postgres/migrate-to-latest.js";
+
+import { platformMigrations } from "./index.js";
 
 const pgBossPackageSchema = z.object({
   pgboss: z.object({
@@ -36,4 +39,32 @@ export function runtimeDatabaseSchemaIdentity(
       )
       .digest("hex")}`,
   );
+}
+
+export interface RuntimeSchemaReadiness {
+  readonly identity: string;
+  readonly migrationCount: number;
+}
+
+export function runtimeSchemaReadiness(
+  migrationState: MigrationVerification,
+): RuntimeSchemaReadiness {
+  if (migrationState.appliedMigrations.length !== platformMigrations.length) {
+    throw new Error(
+      `Expected ${String(platformMigrations.length)} Platform migrations, received ${String(migrationState.appliedMigrations.length)}`,
+    );
+  }
+  const { jobSchemaVersion } = migrationState;
+  if (jobSchemaVersion !== expectedPgBossSchemaVersion) {
+    throw new Error(
+      `Expected PgBoss schema ${String(expectedPgBossSchemaVersion)}, received ${String(jobSchemaVersion)}`,
+    );
+  }
+  return {
+    identity: runtimeDatabaseSchemaIdentity(
+      platformMigrations,
+      jobSchemaVersion,
+    ),
+    migrationCount: platformMigrations.length,
+  };
 }

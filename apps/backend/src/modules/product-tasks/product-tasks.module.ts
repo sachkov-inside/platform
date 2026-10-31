@@ -1,3 +1,4 @@
+import { TaskSubmissionFacts } from "./features/read-confirmed-activity/read-confirmed-activity.js";
 import { ProductReadingModule } from "../products/index.js";
 import {
   AccountNames,
@@ -79,6 +80,12 @@ import {
     AccountProfilesModule,
   ],
   providers: [
+    {
+      provide: TaskSubmissionFacts,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new TaskSubmissionFacts(prisma),
+    },
     {
       provide: TASK_ASSET_DELIVERY,
       inject: [
@@ -195,6 +202,7 @@ import {
     },
   ],
   exports: [
+    TaskSubmissionFacts,
     TASK_ASSET_DELIVERY,
     LEARNING_TASKS,
     PRODUCT_TASK_IMPORT,

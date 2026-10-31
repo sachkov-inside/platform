@@ -892,6 +892,32 @@ export class ContentLibraryService {
     });
   }
   /**
+   * Read one published Material identity with current reader availability
+   * @returns any
+   * @throws ApiError
+   */
+  public readReaderMaterialReference({
+    id,
+  }: {
+    id: string,
+  }): CancelablePromise<{
+    availability: 'available' | 'locked';
+    id: string;
+    kind: 'product' | 'material';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/materials/by-id/{id}/reference',
+      path: {
+        'id': id,
+      },
+      errors: {
+        401: `Optional Account proof is invalid`,
+        500: `Account resolution failed`,
+      },
+    });
+  }
+  /**
    * Read a generated ordered Product view
    * @returns any Published Materials in author-defined Product order
    * @throws ApiError
@@ -1092,6 +1118,32 @@ export class ContentLibraryService {
         404: `Topic, Product or source Material is not published`,
         500: `Discovery or Account resolution failed internally`,
         503: `Discovery or Account dependency is unavailable`,
+      },
+    });
+  }
+  /**
+   * Read one reader-visible Product identity
+   * @returns any
+   * @throws ApiError
+   */
+  public readReaderProductReference({
+    id,
+  }: {
+    id: string,
+  }): CancelablePromise<{
+    availability: 'available' | 'locked';
+    id: string;
+    kind: 'product' | 'material';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/products/by-id/{id}/reference',
+      path: {
+        'id': id,
+      },
+      errors: {
+        401: `Optional Account proof is invalid`,
+        500: `Account resolution failed`,
       },
     });
   }

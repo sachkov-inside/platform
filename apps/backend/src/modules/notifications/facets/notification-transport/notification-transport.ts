@@ -21,8 +21,10 @@ export function assembleNotificationTransport(
       "emailMaterial",
       "emailResult",
     ]),
-    accept: (envelope: NotificationEnvelope) =>
-      acceptTransportMessage(prisma, envelope),
+    accept: (
+      envelope: NotificationEnvelope,
+      metadata?: { readonly traceparent?: unknown },
+    ) => acceptTransportMessage(prisma, envelope, metadata),
     quarantine: (lane: NotificationLane, bytes: Buffer, reason: string) =>
       quarantineTransportMessage(prisma, {
         lane,

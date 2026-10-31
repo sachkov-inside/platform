@@ -59,6 +59,7 @@ export {
   lockProfileAvatarOwner,
   lockReadingCommand,
   lockReadingPair,
+  lockBookmarkPair,
   lockTelegramAccountBinding,
   lockTelegramCommunityWork,
   lockTelegramMembershipLink,

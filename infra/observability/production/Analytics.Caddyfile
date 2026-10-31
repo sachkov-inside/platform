@@ -1,0 +1,24 @@
+{
+    admin off
+    auto_https off
+}
+
+:3000 {
+    @send {
+        method POST
+        path /api/send
+    }
+    handle @send {
+        request_body {
+            max_size 16KB
+        }
+        reverse_proxy umami:3000 {
+            transport http {
+                response_header_timeout 5s
+            }
+        }
+    }
+    handle {
+        respond 403
+    }
+}

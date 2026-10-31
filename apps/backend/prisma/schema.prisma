@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos", "queue_observation"]
 }
 
 model Account {
@@ -699,6 +699,7 @@ model CommunicationTrackingHit {
   @@index([deliveredAt, availableAt], map: "tracking_hit_pending_idx")
   @@map("tracking_hits")
   @@schema("communications")
+  traceparent String? @db.VarChar(55)
 }
 
 model ReadingMaterialState {
@@ -1199,6 +1200,7 @@ model MaterialAnnouncementRevision {
 }
 
 model MaterialNotificationOutbox {
+  traceparent String? @db.VarChar(55)
   scope String
   messageId String @map("message_id") @db.Uuid
   lane String
@@ -1216,6 +1218,7 @@ model MaterialNotificationOutbox {
 }
 
 model NotificationOutbox {
+  traceparent String? @db.VarChar(55)
   scope String
   messageId String @map("message_id") @db.Uuid
   lane String
@@ -1233,6 +1236,7 @@ model NotificationOutbox {
 }
 
 model NotificationInbox {
+  traceparent String? @db.VarChar(55)
   nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
   scope String
   messageId String @map("message_id") @db.Uuid
@@ -1319,6 +1323,7 @@ commands NotificationCommand[]
 }
 
 model NotificationCommand {
+  traceparent String? @db.VarChar(55)
 operationId String @id @map("operation_id") @db.Uuid
 deliveryId String @map("delivery_id") @db.Uuid
 delivery NotificationDelivery @relation(fields: [deliveryId], references: [id])
@@ -1377,6 +1382,7 @@ attempts NotificationEmailAttempt[]
 }
 
 model NotificationEmailAttempt {
+  traceparent String? @db.VarChar(55)
 id String @id @db.Uuid
 deliveryId String @map("delivery_id") @db.Uuid
 effect NotificationEmailEffect @relation(fields: [deliveryId], references: [deliveryId])
@@ -1402,6 +1408,7 @@ createdAt DateTime @map("created_at") @db.Timestamptz
 }
 
 model NotificationEmailInbox {
+  traceparent String? @db.VarChar(55)
  rejected Boolean @default(false)
  operationId String @id @map("operation_id") @db.Uuid
  deliveryId String @map("delivery_id") @db.Uuid
@@ -2040,6 +2047,7 @@ model ProductWaitlistOperation {
 }
 
 model ProductWaitlistConfirmation {
+ traceparent String? @db.VarChar(55)
  eventId String @id @map("event_id") @db.Uuid
  intakeId String @map("intake_id") @db.Uuid
  accountId String @map("account_id") @db.Uuid
@@ -2051,6 +2059,20 @@ model ProductWaitlistConfirmation {
  @@map("product_waitlist_confirmations")
  @@schema("sales_funnel")
 }
+
+model QueueWorkObservation {
+  queue      String   @id @map("queue_name")
+  worker     String   @map("worker_name")
+  recordedAt DateTime @map("recorded_at") @db.Timestamptz(6)
+  handlerReturnedAt DateTime @map("handler_returned_at") @db.Timestamptz(6)
+  release    String   @db.VarChar(18)
+  sourceSha  String   @map("source_sha") @db.VarChar(40)
+  attemptKey String   @map("attempt_key") @db.VarChar(64)
+
+  @@map("last_successful_handler")
+  @@schema("queue_observation")
+}
+
 
 // One durable lifetime decision per Account and Product. Legacy grants remain passive history.
 model ProductAccess {

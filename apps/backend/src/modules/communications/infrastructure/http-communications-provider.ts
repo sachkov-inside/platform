@@ -1,3 +1,4 @@
+import { observeCommunicationsRequest } from "../../../infrastructure/observability/technical-telemetry.js";
 import { dependencyFailure } from "../../../infrastructure/observability/index.js";
 import type { PlatformConfig } from "../../../config/platform-config.js";
 import { responseSchema } from "../communications-schema.generated.js";
@@ -32,20 +33,29 @@ export class HttpCommunicationsProvider {
   ) {}
 
   async execute(request: ProviderRequest): Promise<CommunicationsResult> {
-    if (this.config === undefined)
+    const config = this.config;
+    if (config === undefined)
       return communicationsFailure("provider_unavailable");
     try {
-      const response = await this.fetcher(this.config.endpoint, {
+      const endpoint = config.endpoint;
+      const init: RequestInit = {
         method: "POST",
         redirect: "error",
         signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MS),
         headers: {
-          authorization: `Bearer ${this.config.secret}`,
+          authorization: `Bearer ${config.secret}`,
           "content-type": "application/json",
         },
         body: JSON.stringify(request),
-      });
-      const body: unknown = await response.json();
+      };
+      const { response, body } = await observeCommunicationsRequest(
+        async (observedResponse) => {
+          const response = await this.fetcher(endpoint, init);
+          observedResponse(response.status);
+          const body: unknown = await response.json();
+          return { response, body };
+        },
+      );
       const parsed = responseSchema.safeParse(body);
       if (!parsed.success)
         return communicationsFailure("provider_invalid_response");
@@ -60,10 +70,10 @@ export class HttpCommunicationsProvider {
         response.status !== 200 ||
         !matchesOperation(request, value) ||
         ("template" in value &&
-          value.template.botIdentity !== this.config.botIdentity) ||
+          value.template.botIdentity !== config.botIdentity) ||
         ("templates" in value &&
           value.templates.some(
-            (template) => template.botIdentity !== this.config?.botIdentity,
+            (template) => template.botIdentity !== config.botIdentity,
           )) ||
         TELEGRAM_CREDENTIAL_URL.test(JSON.stringify(value))
       )

@@ -1,3 +1,6 @@
+import { ReadingActivityRetention } from "../../src/modules/reading-activity/index.js";
+import { BookmarkActivityRetention } from "../../src/modules/bookmarks/index.js";
+import { activityTestClock } from "./setup/activity-test-clock.js";
 import { everyAccountLinked } from "../support/telegram-links.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import {
@@ -39,6 +42,7 @@ import {
 import { SUBMISSIONS_PER_HOUR } from "../../src/modules/product-tasks/features/submit-task/submit-task.js";
 import {
   assembleLearningTasks,
+  TaskSubmissionFacts,
   type LearningTasks,
 } from "../../src/modules/product-tasks/index.js";
 import {
@@ -2465,5 +2469,101 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         }),
       ).toMatchObject({ ok: true });
     });
+  });
+  test("reads confirmed task receipts once despite concurrent replay, excluding background reviews", async () => {
+    const clock = await activityTestClock(db.prisma);
+    vi.setSystemTime(clock.at);
+    const task = await imported();
+    const subject = await learner();
+    const tasks = learning();
+    const command = {
+      subject,
+      source: "form" as const,
+      submission: {
+        code: task.code,
+        taskVersion: 1,
+        submissionKey: randomUUID(),
+        note: "Подтверждённая пользовательская сдача.",
+      },
+    };
+    expect(
+      await tasks.updateReview({
+        subject,
+        code: task.code,
+        taskVersion: 1,
+        runKey: randomUUID(),
+        expectedRevision: 0,
+        phase: "reviewing",
+        summary: "Фоновая проверка не сдача.",
+      }),
+    ).toMatchObject({ ok: true });
+    const before = await new TaskSubmissionFacts(db.prisma).read(clock.window);
+    if (!before.ok) throw new Error(before.error.code);
+    expect(
+      before.value.rows.some((row) => row.accountId === subject.accountId),
+    ).toBe(false);
+    const receipts = await Promise.all([
+      tasks.submit(command),
+      tasks.submit(command),
+    ]);
+    expect(receipts.every((receipt) => receipt.ok)).toBe(true);
+    const report = await new TaskSubmissionFacts(db.prisma).read(clock.window);
+    if (!report.ok) throw new Error(report.error.code);
+    expect(
+      report.value.rows
+        .filter((row) => row.accountId === subject.accountId)
+        .map(({ kind, eventCount }) => ({ kind, eventCount })),
+    ).toEqual([{ kind: "task_submitted", eventCount: 1 }]);
+
+    vi.setSystemTime(clock.at.getTime() - 366 * 86_400_000);
+    const historical = {
+      ...command,
+      submission: { ...command.submission, submissionKey: randomUUID() },
+    };
+    const original = await tasks.submit(historical);
+    expect(original).toMatchObject({ ok: true });
+    if (!original.ok) throw new Error(original.error.code);
+    await db.prisma.productTaskAuthorFeedback.create({
+      data: {
+        submissionId: original.value.submissionId,
+        comment: "Retained historical feedback",
+        reviewedAt: new Date(clock.at.getTime() - 366 * 86_400_000),
+        updatedBy: owner,
+        updatedAt: new Date(clock.at.getTime() - 366 * 86_400_000),
+      },
+    });
+    const originalFeedback =
+      await db.prisma.productTaskAuthorFeedback.findUniqueOrThrow({
+        where: { submissionId: original.value.submissionId },
+      });
+    const originalVersions = await db.prisma.productTaskVersion.findMany({
+      where: { taskId: task.taskId },
+      orderBy: { version: "asc" },
+    });
+    const originalRows = await db.prisma.productTaskSubmission.findMany({
+      where: { accountId: subject.accountId },
+      orderBy: { id: "asc" },
+    });
+    await new ReadingActivityRetention(db.prisma).clean();
+    await new BookmarkActivityRetention(db.prisma).clean();
+    vi.setSystemTime(clock.at);
+    expect(await tasks.submit(historical)).toEqual(original);
+    expect(
+      await db.prisma.productTaskAuthorFeedback.findUniqueOrThrow({
+        where: { submissionId: original.value.submissionId },
+      }),
+    ).toEqual(originalFeedback);
+    expect(
+      await db.prisma.productTaskVersion.findMany({
+        where: { taskId: task.taskId },
+        orderBy: { version: "asc" },
+      }),
+    ).toEqual(originalVersions);
+    expect(
+      await db.prisma.productTaskSubmission.findMany({
+        where: { accountId: subject.accountId },
+        orderBy: { id: "asc" },
+      }),
+    ).toEqual(originalRows);
   });
 });

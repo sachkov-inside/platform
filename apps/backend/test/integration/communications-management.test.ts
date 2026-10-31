@@ -1,3 +1,13 @@
+import { ActivityRetentionDiagnostics } from "../../src/entrypoints/mcp/activity-retention-diagnostics.js";
+import { ReadingActivityRetention } from "../../src/modules/reading-activity/index.js";
+import { BookmarkActivityRetention } from "../../src/modules/bookmarks/index.js";
+import { TaskSubmissionFacts } from "../../src/modules/product-tasks/index.js";
+import { BookmarkActivityFacts } from "../../src/modules/bookmarks/index.js";
+import { ReadingActivityFacts } from "../../src/modules/reading-activity/index.js";
+import { ParticipantDiagnostics } from "../../src/entrypoints/mcp/participant-diagnostics.js";
+import { PgBossQueueDiagnostics } from "../../src/infrastructure/pg-boss-queue-diagnostics.js";
+import { QueueDiagnostics } from "../../src/entrypoints/mcp/queue-diagnostics.js";
+import { SalesFunnel } from "../../src/modules/sales-funnel/index.js";
 import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -49,7 +59,10 @@ import {
   MATERIAL_AUTHORING,
   type MaterialAuthoring,
 } from "../../src/modules/materials/index.js";
-import { BillingOperations } from "../../src/modules/billing/index.js";
+import {
+  BillingOperations,
+  PaymentDiagnostics,
+} from "../../src/modules/billing/index.js";
 import { Communications } from "../../src/modules/communications/index.js";
 import {
   requestSchema,
@@ -252,6 +265,24 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
       videos: app.get<Videos>(VIDEOS),
       communications: app.get(Communications),
       billing: app.get(BillingOperations),
+      diagnostics: app.get(PaymentDiagnostics),
+      funnel: app.get(SalesFunnel),
+      queues: new QueueDiagnostics(
+        app.get<Accounts>(ACCOUNTS),
+        new PgBossQueueDiagnostics(database.prisma),
+      ),
+      participants: new ParticipantDiagnostics(
+        app.get<Accounts>(ACCOUNTS),
+        new ReadingActivityFacts(database.prisma),
+        new BookmarkActivityFacts(database.prisma),
+        new TaskSubmissionFacts(database.prisma),
+      ),
+      retention: new ActivityRetentionDiagnostics(
+        app.get<Accounts>(ACCOUNTS),
+        new ReadingActivityRetention(database.prisma),
+        new BookmarkActivityRetention(database.prisma),
+        new PgBossQueueDiagnostics(database.prisma),
+      ),
       telemetry: app.get(WebTelemetry),
       tokenVerifier: app.get<LogtoAccessTokenVerifier>(
         LOGTO_ACCESS_TOKEN_VERIFIER,

@@ -1,3 +1,10 @@
+import { TelegramUserActivity } from "./modules/update-inbox/telegram-user-activity.js";
+import { TelegramUserActivityController } from "./modules/update-inbox/telegram-user-activity.controller.js";
+import {
+  TELEGRAM_OBSERVABILITY,
+  disabledTelegramObservability,
+  type TelegramObservability,
+} from "./observability/telegram-observability.js";
 import {
   NATIVE_MESSAGE_ARCHIVE,
   DisabledNativeMessageArchive,
@@ -122,6 +129,7 @@ import {
 import { createDatabase } from "./database/create-database.js";
 import { DATABASE, type Database } from "./database/database.js";
 import { DatabaseLifecycle } from "./database/database-lifecycle.js";
+import { DatabaseInitialization } from "./database/database-initialization.js";
 import { BotContacts } from "./modules/bot-contacts/bot-contacts.js";
 import { SignInAccountLink } from "./modules/bot-sign-in/sign-in-account-link.js";
 import { BotSignIn } from "./modules/bot-sign-in/bot-sign-in.js";
@@ -157,10 +165,29 @@ import { RUNTIME_COUNTERS } from "./shared/runtime-counters.js";
 
 @Module({})
 export class AppModule {
+  /** Legacy raw Nest fixtures retain their own isolated database cleanup. */
   static register(config: ApplicationConfig): DynamicModule {
+    return this.compose(config);
+  }
+
+  /** Production always supplies its one lifetime-owned database. */
+  static registerManaged(
+    config: ApplicationConfig,
+    database: Database,
+    telemetry: TelegramObservability,
+  ): DynamicModule {
+    return this.compose(config, database, telemetry);
+  }
+
+  private static compose(
+    config: ApplicationConfig,
+    database?: Database,
+    telemetry: TelegramObservability = disabledTelegramObservability,
+  ): DynamicModule {
     return {
       module: AppModule,
       controllers: [
+        TelegramUserActivityController,
         TelegramContactsController,
         TelegramContactsV2Controller,
         BotSignInController,
@@ -171,12 +198,17 @@ export class AppModule {
         TelegramWebhookController,
       ],
       providers: [
+        { provide: TELEGRAM_OBSERVABILITY, useValue: telemetry },
         {
           provide: WAITLIST_CONFIRMATION_AUTHORIZATION,
-          useValue: new HttpWaitlistConfirmationAdapter(
-            config.platformAuthorAuthorizationUrl,
-            config.platformAuthorAuthorizationSecret,
-          ),
+          inject: [TELEGRAM_OBSERVABILITY],
+          useFactory: (telemetry: TelegramObservability) =>
+            new HttpWaitlistConfirmationAdapter(
+              config.platformAuthorAuthorizationUrl,
+              config.platformAuthorAuthorizationSecret,
+              fetch,
+              telemetry,
+            ),
         },
         {
           provide: WaitlistConfirmations,
@@ -187,6 +219,7 @@ export class AppModule {
             WAITLIST_CONFIRMATION_AUTHORIZATION,
             COMMUNICATION_TRANSPORT,
             MONOTONIC_CLOCK,
+            TELEGRAM_OBSERVABILITY,
           ],
           useFactory: (
             database: Database,
@@ -195,6 +228,7 @@ export class AppModule {
             authorization: WaitlistConfirmationAuthorization,
             transport: CommunicationTransport,
             monotonic: MonotonicClock,
+            telemetry: TelegramObservability,
           ) =>
             new WaitlistConfirmations(
               database,
@@ -203,6 +237,7 @@ export class AppModule {
               authorization,
               transport,
               monotonic,
+              telemetry,
             ),
         },
 
@@ -260,12 +295,16 @@ export class AppModule {
         { provide: APPLICATION_CONFIG, useValue: config },
         { provide: CLOCK, useValue: systemClock },
         { provide: MONOTONIC_CLOCK, useValue: systemMonotonicClock },
-        {
-          provide: DATABASE,
-          inject: [APPLICATION_CONFIG],
-          useFactory: (applicationConfig: ApplicationConfig) =>
-            createDatabase(applicationConfig.databaseUrl),
-        },
+        ...(database === undefined
+          ? [
+              {
+                provide: DATABASE,
+                inject: [APPLICATION_CONFIG],
+                useFactory: (applicationConfig: ApplicationConfig) =>
+                  createDatabase(applicationConfig.databaseUrl),
+              },
+            ]
+          : [{ provide: DATABASE, useValue: database }]),
         {
           provide: TELEGRAM_MESSAGES,
           inject: [APPLICATION_CONFIG],
@@ -498,13 +537,16 @@ export class AppModule {
         BotContacts,
         BotSignIn,
         SignInAccountLink,
-        DatabaseLifecycle,
+        ...(database === undefined
+          ? [DatabaseLifecycle]
+          : [DatabaseInitialization]),
         IdentityLinking,
         IdentityLinkRecovery,
         InMemoryIdentityLinkingAdapter,
         RuntimeMetrics,
         { provide: RUNTIME_COUNTERS, useExisting: RuntimeMetrics },
         TelegramUpdateInbox,
+        TelegramUserActivity,
         TelegramUpdateProcessor,
         {
           provide: TELEGRAM_UPDATE_TRANSLATOR,

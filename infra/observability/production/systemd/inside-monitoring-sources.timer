@@ -1,0 +1,12 @@
+[Unit]
+Description=Inside native monitoring source sampling every five seconds
+
+[Timer]
+OnBootSec=10s
+OnUnitActiveSec=5s
+AccuracySec=1s
+RandomizedDelaySec=0
+Unit=inside-monitoring-sources.service
+
+[Install]
+WantedBy=timers.target

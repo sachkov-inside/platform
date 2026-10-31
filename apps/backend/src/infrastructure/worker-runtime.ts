@@ -10,8 +10,9 @@ import type {
 } from "./operational-readiness.js";
 import { describeError, writeLog } from "./observability/index.js";
 import { listenForProcessShutdown } from "./process-shutdown.js";
+import { WORKER_READINESS_PATH } from "./worker-readiness-marker.js";
 
-export const WORKER_READINESS_PATH = "/tmp/inside-platform-worker-ready.json";
+export { WORKER_READINESS_PATH } from "./worker-readiness-marker.js";
 const WORKER_LEASE_CONNECTION_TIMEOUT_MILLISECONDS = 5_000;
 const WORKER_GRACEFUL_SHUTDOWN_TIMEOUT_MILLISECONDS = 10_000;
 
@@ -124,6 +125,7 @@ export async function runWorker(input: {
     }): Promise<unknown>;
   };
   readonly failed?: Promise<void>;
+  readonly workObservations?: { close(): Promise<void> };
   readonly process: WorkerProcess;
   readonly readiness: Pick<OperationalReadiness, "check">;
   readonly registerJobs: () => Promise<void>;
@@ -177,6 +179,9 @@ export async function runWorker(input: {
   } catch (error) {
     stopFailures.push({ reason: "worker_drain_failed", error });
   }
+  await attempt("worker_observation_close_failed", async () => {
+    await input.workObservations?.close();
+  });
   await attempt("worker_close_failed", () => input.application.close());
   await attempt("worker_lease_release_failed", async () => {
     await lease?.release();

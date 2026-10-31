@@ -1,3 +1,4 @@
+import { encodeNotification } from "../../../../infrastructure/notification-transport/wire.js";
 import { lockNotification } from "../../../../infrastructure/prisma/index.js";
 import { stageDeliveryCommand } from "../../infrastructure/stage-delivery-command.js";
 import { randomUUID } from "node:crypto";
@@ -130,7 +131,26 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
         ...(channel === "email" ? { subject: template.subject } : {}),
         ...deliveryWindow,
       };
-      await stageDeliveryCommand(transaction, command, deps.now());
+      // A changed source event cannot borrow the older command's causal origin.
+      // Its immutable, admitted inbox is the only local authority for a replacement carrier.
+      let traceparent = stored.traceparent;
+      if (channel === "email" && command.sourceEventId !== old.sourceEventId) {
+        const lane =
+          event.eventType === "material.published" ? "materials" : "billing";
+        const envelope = encodeNotification(lane, event);
+        const sourceInbox = await transaction.notificationInbox.findUnique({
+          where: {
+            scope_messageId: { scope: lane, messageId: event.messageId },
+          },
+        });
+        traceparent =
+          sourceInbox?.lane === lane &&
+          sourceInbox.payload === envelope.payload &&
+          sourceInbox.digest === envelope.digest
+            ? sourceInbox.traceparent
+            : null;
+      }
+      await stageDeliveryCommand(transaction, command, deps.now(), traceparent);
     });
   }
 }

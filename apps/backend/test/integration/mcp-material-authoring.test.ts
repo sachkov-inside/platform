@@ -1,3 +1,7 @@
+import { ActivityRetentionDiagnostics } from "../../src/entrypoints/mcp/activity-retention-diagnostics.js";
+import { ParticipantDiagnostics } from "../../src/entrypoints/mcp/participant-diagnostics.js";
+import { QueueDiagnostics } from "../../src/entrypoints/mcp/queue-diagnostics.js";
+import { SalesFunnel } from "../../src/modules/sales-funnel/index.js";
 import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -11,7 +15,10 @@ import {
   type ContentAccess,
 } from "../../src/modules/content-access/index.js";
 import { VIDEOS, type Videos } from "../../src/modules/videos/index.js";
-import { BillingOperations } from "../../src/modules/billing/index.js";
+import {
+  BillingOperations,
+  PaymentDiagnostics,
+} from "../../src/modules/billing/index.js";
 import { Communications } from "../../src/modules/communications/index.js";
 import { createServer, type Server } from "node:http";
 
@@ -137,6 +144,11 @@ describe("delegated Material authoring over MCP", () => {
       videos: application.get<Videos>(VIDEOS),
       communications: application.get(Communications),
       billing: application.get(BillingOperations),
+      diagnostics: application.get(PaymentDiagnostics),
+      funnel: application.get(SalesFunnel),
+      queues: application.get(QueueDiagnostics),
+      participants: application.get(ParticipantDiagnostics),
+      retention: application.get(ActivityRetentionDiagnostics),
       telemetry: application.get(WebTelemetry),
       config: {
         host: "127.0.0.1",

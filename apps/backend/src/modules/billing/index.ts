@@ -28,3 +28,6 @@ export {
   productSaleAvailabilityQuerySchema,
   productSaleAvailabilitySchema,
 } from "./features/read-product-sale-availability/read-product-sale-availability.js";
+
+export { PaymentDiagnostics } from "./features/read-payment-diagnostics/payment-diagnostics.js";
+export { registerPaymentDiagnosticsTool } from "./features/read-payment-diagnostics/register-payment-diagnostics-tool.js";

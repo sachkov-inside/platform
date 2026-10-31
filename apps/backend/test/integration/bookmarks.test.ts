@@ -1,3 +1,5 @@
+import { BookmarkActivityRetention } from "../../src/modules/bookmarks/index.js";
+import { activityTestClock } from "./setup/activity-test-clock.js";
 import {
   grantProductFixture,
   revokeProductFixture,
@@ -6,8 +8,9 @@ import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
+  Prisma,
   createPrismaClient,
   type PlatformPrisma,
 } from "../../src/infrastructure/prisma/index.js";
@@ -18,7 +21,10 @@ import {
   assembleMaterialResourceFacts,
   PublishedMaterialSelection,
 } from "../../src/modules/materials/index.js";
-import { Bookmarks } from "../../src/modules/bookmarks/index.js";
+import {
+  Bookmarks,
+  BookmarkActivityFacts,
+} from "../../src/modules/bookmarks/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
 import {
@@ -395,5 +401,124 @@ describe("Bookmarks on PostgreSQL", () => {
         after: "not-a-cursor",
       }),
     ).toEqual({ ok: false, error: { code: "invalid_request" } });
+  });
+  test("records only actual bookmark transitions under concurrent duplicate delivery", async () => {
+    const clock = await activityTestClock(database.prisma);
+    vi.setSystemTime(clock.at);
+    const materialId = await material();
+    const accountId = randomUUID();
+    const facts = new BookmarkActivityFacts(database.prisma);
+    const command = { accountId, materialId };
+    await Promise.all([
+      bookmarks.addBookmark(command),
+      bookmarks.addBookmark(command),
+    ]);
+    await Promise.all([
+      bookmarks.removeBookmark(command),
+      bookmarks.removeBookmark(command),
+    ]);
+    const report = await facts.read(clock.window);
+    if (!report.ok) throw new Error(report.error.code);
+    expect(
+      report.value.rows
+        .filter((row) => row.accountId === accountId)
+        .map(({ accountId, kind, eventCount }) => ({
+          accountId,
+          kind,
+          eventCount,
+        })),
+    ).toEqual([
+      { accountId, kind: "bookmark_added", eventCount: 1 },
+      { accountId, kind: "bookmark_removed", eventCount: 1 },
+    ]);
+    expect(report.value.coverage).toMatchObject({
+      status: "partial",
+      collectionStartedAt: null,
+      continuity: "not_proven",
+    });
+  });
+  test("journal failure rolls back bookmark state and legacy state is not backfilled as activity", async () => {
+    const clock = await activityTestClock(database.prisma);
+    vi.setSystemTime(clock.at);
+    const materialId = await material();
+    const accountId = randomUUID();
+    const command = { accountId, materialId };
+    await database.prisma.$executeRaw(
+      Prisma.sql`alter table bookmarks.activity_events add constraint fail_fixture check (event_type = 'never') not valid`,
+    );
+    try {
+      expect(await bookmarks.addBookmark(command)).toMatchObject({ ok: false });
+      expect(
+        await bookmarks.getBookmarkStates({
+          accountId,
+          materialIds: [materialId],
+        }),
+      ).toMatchObject({ ok: true, value: [{ materialId, bookmarked: false }] });
+    } finally {
+      await database.prisma.$executeRaw(
+        Prisma.sql`alter table bookmarks.activity_events drop constraint fail_fixture`,
+      );
+    }
+    await database.prisma.bookmarkedMaterial.create({
+      data: {
+        accountId,
+        materialId,
+        bookmarkedAt: clock.at,
+      },
+    });
+    await bookmarks.addBookmark(command);
+    const report = await new BookmarkActivityFacts(database.prisma).read(
+      clock.window,
+    );
+    if (!report.ok) throw new Error(report.error.code);
+    expect(report.value.rows.some((row) => row.accountId === accountId)).toBe(
+      false,
+    );
+  });
+
+  test("retaining analytics copies preserves current bookmark dedup and genuine later transitions", async () => {
+    const clock = await activityTestClock(database.prisma);
+    vi.setSystemTime(clock.at);
+    const id = await material();
+    const account = randomUUID();
+    const command = { accountId: account, materialId: id };
+    expect(await bookmarks.addBookmark(command)).toMatchObject({ ok: true });
+    const current = await database.prisma.bookmarkedMaterial.findMany({
+      where: { accountId: account },
+    });
+    await database.prisma.$executeRaw(
+      Prisma.sql`update bookmarks.activity_events set occurred_at=transaction_timestamp()-interval '366 days' where account_id=${account}::uuid`,
+    );
+    expect(
+      await new BookmarkActivityRetention(database.prisma).clean(),
+    ).toMatchObject({ ok: true, value: { removed: 1 } });
+    expect(await bookmarks.addBookmark(command)).toMatchObject({ ok: true });
+    expect(
+      await database.prisma.bookmarkedMaterial.findMany({
+        where: { accountId: account },
+      }),
+    ).toEqual(current);
+    const empty = await new BookmarkActivityFacts(database.prisma).read(
+      clock.window,
+    );
+    if (!empty.ok) throw new Error(empty.error.code);
+    expect(empty.value.rows.some((row) => row.accountId === account)).toBe(
+      false,
+    );
+    expect(await bookmarks.removeBookmark(command)).toMatchObject({ ok: true });
+    expect(await bookmarks.removeBookmark(command)).toMatchObject({ ok: true });
+    expect(await bookmarks.addBookmark(command)).toMatchObject({ ok: true });
+    const report = await new BookmarkActivityFacts(database.prisma).read(
+      clock.window,
+    );
+    if (!report.ok) throw new Error(report.error.code);
+    expect(
+      report.value.rows
+        .filter((row) => row.accountId === account)
+        .map(({ kind, eventCount }) => ({ kind, eventCount })),
+    ).toEqual([
+      { kind: "bookmark_added", eventCount: 1 },
+      { kind: "bookmark_removed", eventCount: 1 },
+    ]);
   });
 });

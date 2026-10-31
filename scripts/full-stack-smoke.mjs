@@ -397,6 +397,7 @@ try {
       z.enum(["desktop-chromium", "mobile-chromium"]),
       z.object({
         productId: z.uuid(),
+        adminProductId: z.uuid(),
         linkId: z.uuid(),
         revision: z.int().positive(),
       }),

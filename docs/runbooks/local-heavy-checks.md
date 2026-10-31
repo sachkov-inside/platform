@@ -12,6 +12,19 @@ The checked-in wrapper remains usable without the host CLI or a sibling checkout
 host queue with `agent-heavy --status --json` when it is installed. A third invocation prints
 `heavy-check: waiting for one of two local slots` and waits; admission needs no coordinator request.
 
+`pnpm test:tooling` first builds the backend under the same shared slot, then runs the bounded
+Node test suite. Both tracking and waitlist serializer contracts load the compiled production
+telemetry module and the pinned JSON/protobuf serializers. A failed backend build stops before
+any tooling tests run. Generated workspace packages and Prisma remain required setup inputs.
+
+Tracking source contracts run in two separately owned groups: 84 storage/protocol methods and
+five outer-owner lifecycle methods. Complete discovery must match the checked-in 89-method
+inventory before either selection; its original 88 methods retain a separately frozen digest.
+Each method runs exactly once across the ordered groups. A zero exit also requires the selected
+suite's exact completion marker. Failure messages expose only the fixed group and outcome.
+The original `15000ms` deadline, child timeouts, TERM grace and cleanup budgets are unchanged;
+partitioning prevents the required lifecycle waits from accumulating in the storage batch.
+
 The wrappers cover root `check`, `check:full`, `check:ui`, `check:web-e2e`, `test`, `test:tooling`,
 `test:integration` (including its parallel and serial commands), `test:e2e`, `test:navigation`,
 `test:storybook`, `evidence:web`, `build:storybook`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser, Playwright and Storybook build commands,

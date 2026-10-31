@@ -1,3 +1,4 @@
+import { readFunnelDiagnostics } from "../../features/read-funnel-diagnostics/read-funnel-diagnostics.js";
 import {
   readFunnelReport,
   type ReadFunnelReportDependencies,
@@ -10,6 +11,10 @@ export class SalesFunnel {
 
   recordBotEvents(input: unknown) {
     return recordBotEvents(this.dependencies, input);
+  }
+
+  readDiagnostics(actorId: string, input: unknown) {
+    return readFunnelDiagnostics(this.dependencies, actorId, input);
   }
 
   readReport(actorId: string, input: unknown) {

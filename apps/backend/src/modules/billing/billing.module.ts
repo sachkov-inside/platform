@@ -1,3 +1,4 @@
+import { PaymentDiagnostics } from "./features/read-payment-diagnostics/payment-diagnostics.js";
 import { ListProductSalesStatesController } from "./features/list-product-sales-states/list-product-sales-states.controller.js";
 import { ReadOwnBillingController } from "./features/read-own-billing/read-own-billing.controller.js";
 import { Module } from "@nestjs/common";
@@ -61,6 +62,15 @@ const BILLING_BANK = Symbol("BillingBank");
     ReadOwnerOrderEmailController,
   ],
   providers: [
+    {
+      provide: PaymentDiagnostics,
+      inject: [PrismaClientProvider, ACCOUNTS, ACCESS_GRANTS],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        accounts: Accounts,
+        grants: AccessGrants,
+      ) => new PaymentDiagnostics({ prisma, accounts, grants }),
+    },
     {
       provide: BillingSalesOverview,
       inject: [PrismaClientProvider],
@@ -185,6 +195,7 @@ const BILLING_BANK = Symbol("BillingBank");
     },
   ],
   exports: [
+    PaymentDiagnostics,
     BillingProductSales,
     BillingSalesOverview,
     BillingSurveyRespondentSales,

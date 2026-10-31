@@ -11,7 +11,7 @@ WORKDIR /workspace
 RUN chown node:node /workspace
 USER node
 
-FROM toolchain AS dependencies
+FROM toolchain AS dependency-inputs
 
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.node-lib.json ./
 COPY --chown=node:node patches ./patches
@@ -28,6 +28,9 @@ COPY --chown=node:node packages/legal ./packages/legal
 # Словарь прав доступа тоже компилируется на установке: оба приложения читают его вывод.
 COPY --chown=node:node packages/access-capabilities ./packages/access-capabilities
 COPY --chown=node:node docs/contracts ./docs/contracts
+
+FROM dependency-inputs AS dependencies
+
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
@@ -72,10 +75,14 @@ COPY --from=production-build --chown=node:node /workspace/apps/web/.next/standal
 COPY --from=production-build --chown=node:node /workspace/apps/web/.next/static ./apps/web/.next/static
 COPY --from=production-build --chown=node:node /workspace/apps/web/public ./apps/web/public
 COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./apps/web/release-identity.json
+COPY --chown=node:node apps/web/web-http-preload.mjs ./apps/web/
+COPY --chown=node:node apps/web/server ./apps/web/server
+# The Node preload runs outside Next's traced module graph, including when metrics are disabled.
+COPY --chown=node:node packages/runtime-identity/package.json packages/runtime-identity/index.mjs ./apps/web/node_modules/@inside/runtime-identity/
 
 COPY --chown=node:node packages/runtime-identity/index.mjs packages/runtime-identity/http-healthcheck.mjs ./apps/web/healthcheck/
-COPY --from=dependencies --chown=node:node /workspace/node_modules/zod ./apps/web/healthcheck/node_modules/zod
+COPY --from=dependencies --chown=node:node /workspace/node_modules/zod ./apps/web/node_modules/zod
 
 EXPOSE 3000
 USER node
-CMD ["node", "apps/web/server.js"]
+CMD ["node", "--import", "./apps/web/web-http-preload.mjs", "apps/web/server.js"]

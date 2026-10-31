@@ -1,0 +1,455 @@
+"""Preparation and bounded local process/loopback contracts; no Docker or live providers."""
+
+import unittest
+from pathlib import Path
+import sys
+import tempfile
+import threading
+import socket
+import io
+import hashlib
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from unittest.mock import patch
+import zipfile
+import json
+import urllib.error
+from contextlib import redirect_stdout
+import errno
+from types import SimpleNamespace
+
+from pilot import check_disk
+import pilot
+
+WORKER_FAILURE_BUDGET_SECONDS = 1
+SERVER_SHUTDOWN_BUDGET_SECONDS = 2
+DESCENDANT_PROBE_TIMEOUT_SECONDS = .1
+
+
+def completed_archive_process(payload):
+    # Parent validation seam; real stdlib child/TLS/deadline/cleanup live in test_archive_download.
+    process=SimpleNamespace(stdin=io.BytesIO(),stdout=io.BytesIO(),stderr=None,returncode=0,
+        communicate=lambda *_args,**_kwargs:(payload,None),poll=lambda:0,wait=lambda **_kwargs:0)
+    return patch('pilot.subprocess.Popen',return_value=process)
+
+
+class PilotPreparationTest(unittest.TestCase):
+    def test_startup_timeout_records_stage_status_without_response_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with patch("pilot.time.monotonic", side_effect=[0, 0, 2]), patch("pilot.time.sleep"):
+                with self.assertRaisesRegex(RuntimeError, "metrics_query"):
+                    pilot.await_fact(lambda: (503, "sentinel-secret-response"),
+                                     lambda response: response[0] == 200, budget=1,
+                                     probe="metrics_query", output=output)
+            diagnostic = (output / "readiness.json").read_text()
+            self.assertNotIn("sentinel-secret", diagnostic)
+            self.assertEqual(json.loads(diagnostic), [{
+                "probe": "metrics_query", "attempts": 1, "outcome": "timed_out",
+                "last_http_status": 503, "last_transport_error_type": None,
+            }])
+
+    def test_container_diagnostics_select_known_status_fields_without_raw_details(self):
+        raw = [{"Service": "metrics", "State": "exited", "Health": "", "ExitCode": 2,
+                "Command": "--key=sentinel-secret", "Status": "sentinel-secret-error"}]
+        self.assertEqual(pilot.container_states(json.dumps(raw)), [{
+            "service": "metrics", "state": "exited", "health": "", "exit_code": 2,
+        }])
+
+    def test_native_host_failure_witness_uses_actual_exit_and_refuses_foreign_owner(self):
+        identity = 'a' * 64
+        raw = {'id': identity, 'project': 'owned', 'service': 'host-agent',
+            'actual_exit_code': 137, 'oom_killed': True, 'restart_count': 4,
+            'runtime_error_present': False, 'has_process': False}
+        expected = {key: value for key, value in raw.items() if key not in ('id', 'project', 'service')}
+        self.assertEqual(pilot.native_host_state(json.dumps(raw), identity, 'owned'), expected)
+        for key, value in (('id', 'b'*64), ('project', 'foreign'), ('service', 'api'),
+                           ('actual_exit_code', True), ('oom_killed', 'private-sentinel')):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                pilot.native_host_state(json.dumps({**raw, key: value}), identity, 'owned')
+        with self.assertRaises(ValueError):
+            pilot.native_host_state(json.dumps({**raw, 'Error': 'private-sentinel'}), identity, 'owned')
+
+    def test_cleanup_captures_native_host_failure_before_down_without_reading_logs(self):
+        identity = 'a' * 64
+        observed = {'id': identity, 'project': 'owned', 'service': 'host-agent',
+            'actual_exit_code': 137, 'oom_killed': True, 'restart_count': 4,
+            'runtime_error_present': False, 'has_process': False}
+        calls = []
+        def command(args, **options):
+            calls.append(args)
+            if args[:2] == ['compose', 'ps']:
+                return json.dumps([{'Service':'host-agent','State':'restarting','ExitCode':0}])
+            if args[:2] == ['docker', 'inspect']:
+                self.assertNotIn('json .State.Error', args[-1])
+                return json.dumps(observed)
+            if '--no-trunc' in args: return identity + '\n'
+            return ''
+        with tempfile.TemporaryDirectory() as directory, patch.object(pilot,'command',side_effect=command), patch.object(pilot,'assert_docker_identity'):
+            output = Path(directory)
+            result = pilot.cleanup_project(['compose'],output,'owned',services=('host-agent',))
+            state = json.loads((output/'container-states.json').read_text())[0]
+            self.assertEqual(state['exit_code'], 0)
+            self.assertEqual(state['actual_exit_code'], 137)
+            self.assertTrue(state['oom_killed'])
+            self.assertEqual(state['native_failure_state'], 'observed')
+            self.assertEqual(result['down'], 'passed')
+            self.assertLess(next(i for i,args in enumerate(calls) if args[:2]==['docker','inspect']), next(i for i,args in enumerate(calls) if 'down' in args))
+            self.assertFalse(any('logs' in args for args in calls))
+
+    def test_transport_diagnostics_keep_only_error_type(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            def unavailable():
+                raise urllib.error.URLError("sentinel-secret-url")
+            with patch("pilot.time.monotonic", side_effect=[0, 0, 2]), patch("pilot.time.sleep"):
+                with self.assertRaises(RuntimeError):
+                    pilot.await_fact(unavailable, bool, budget=1, probe="alloy_otlp", output=output)
+            self.assertEqual(json.loads((output / "readiness.json").read_text())[0]["last_transport_error_type"], "URLError")
+            self.assertNotIn("sentinel-secret", (output / "readiness.json").read_text())
+
+    def test_first_container_snapshot_survives_recovery_after_shutdown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / "owned-resource").write_text("owned")
+            fixture = Path(__file__).parent / "fixtures/process.py"
+            compose = [sys.executable, str(fixture), "compose", directory, "normal"]
+            docker = [sys.executable, str(fixture), "docker", directory, "normal"]
+            pilot.cleanup_project(compose, output, "inside-observability-pilot-fixture", docker=docker)
+            first = (output / "container-states.json").read_text()
+            pilot.cleanup_project(compose, output, "inside-observability-pilot-fixture", docker=docker)
+            self.assertEqual((output / "container-states.json").read_text(), first)
+            self.assertEqual(json.loads(first)[0]["state"], "running")
+
+    def test_published_size_asset_above_64_mib_is_accepted_with_exact_size_and_digest(self):
+        # v0.33.1 ZIP published size; deterministic bytes replace the external provider.
+        payload = b"f" * 79_389_151
+        asset = {"url": "https://fixture.invalid/plugin.zip", "size_bytes": 79_389_151,
+                 "digest": "sha256:" + hashlib.sha256(payload).hexdigest()}
+        with completed_archive_process(payload):
+            result = pilot.downloaded_asset(asset)
+        self.assertEqual(len(result), 79_389_151)
+        self.assertEqual(result[-1:], b"f")
+
+    def test_pinned_download_rejects_truncation_extra_bytes_and_digest_mismatch(self):
+        payload = b"fixture"
+        digest = "sha256:" + hashlib.sha256(payload).hexdigest()
+        for label, delivered, expected_digest in (
+            ("truncated", payload[:-1], digest), ("oversized", payload + b"x", digest),
+            ("digest mismatch", payload, "sha256:" + "0" * 64),
+        ):
+            with self.subTest(label=label):
+                asset = {"url": "https://fixture.invalid/archive", "size_bytes": 7, "digest": expected_digest}
+                with completed_archive_process(delivered):
+                    with self.assertRaisesRegex(RuntimeError, "size/digest check"):
+                        pilot.downloaded_asset(asset)
+
+    def test_plugin_rejects_unpacked_size_different_from_the_pinned_total(self):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr(zipfile.ZipInfo("plugin/data.txt", (2026, 10, 19, 0, 0, 0)), b"data")
+        payload = buffer.getvalue()
+        asset = {"url": "https://fixture.invalid/plugin.zip", "size_bytes": len(payload),
+                 "digest": "sha256:" + hashlib.sha256(payload).hexdigest(), "unpacked_size_bytes": 5}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "output"
+            (output / "plugins").mkdir(parents=True)
+            (root / "inputs.lock.json").write_text(pilot.json.dumps({
+                "artifacts": {"victorialogs-datasource": {"assets": [asset]}},
+            }))
+            with patch("pilot.CONFIG", root), \
+                    completed_archive_process(payload):
+                with self.assertRaisesRegex(RuntimeError, "unpacked size"):
+                    pilot.install_plugin(output)
+            self.assertEqual(list((output / "plugins").iterdir()), [])
+
+    def test_full_disk_blocks_pilot_without_claiming_measured_capacity(self):
+        self.assertEqual(check_disk(total=1000, free=249), {
+            "ready": False, "free_bytes": 249, "total_bytes": 1000,
+            "reason": "pilot requires 16 GiB free: 10 GiB host floor, 4 GiB growth cap, 2 GiB cleanup headroom",
+        })
+
+        from storage_policy import assert_budget, StorageBudgetExceeded
+        gib = 1024**3
+        # Build layers and seven downloaded images have a separate bounded budget;
+        # running the monitoring workload keeps its original four-GiB ceiling.
+        assert_budget(32*gib, 27*gib, growth_bytes=8*gib)
+        with self.assertRaises(StorageBudgetExceeded):
+            assert_budget(32*gib, 27*gib)
+        with self.assertRaises(StorageBudgetExceeded):
+            assert_budget(32*gib, 24*gib, growth_bytes=8*gib)
+        with self.assertRaises(StorageBudgetExceeded):
+            assert_budget(20*gib, 10*gib, growth_bytes=8*gib)
+        for invalid in (True, 0, -1, 13*gib):
+            with self.subTest(growth_bytes=invalid), self.assertRaises(ValueError):
+                assert_budget(32*gib, 31*gib, growth_bytes=invalid)
+
+    def test_local_smoke_admission_does_not_require_25_percent_of_entire_mac_disk(self):
+        self.assertTrue(check_disk(total=460 * 1024**3, free=16 * 1024**3)["ready"])
+
+    def test_fixture_has_one_trace_with_distinct_retry_and_worker_attempts(self):
+        fixture = pilot.corpus(now_ns=1_790_000_000_000_000_000, sequence=7)
+        spans = fixture["traces"]["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        self.assertEqual([span["name"] for span in spans[:5]], [
+            "HTTP GET /pilot", "queue.publish", "worker.attempt", "worker.retry", "dependency.http",
+        ])
+        self.assertEqual(len({span["traceId"] for span in spans}), 1)
+        self.assertEqual(len({span["spanId"] for span in spans}), 6)
+        self.assertEqual(spans[-1]["parentSpanId"], spans[-2]["spanId"])
+
+    def test_only_loopback_published_services_join_the_owned_ingress_bridge(self):
+        plan = pilot.compose_plan(Path("/source"), Path("/owned-run"),
+                                  {name: "pinned" for name in pilot.SERVICES}, credential_owner=(1001, 1002))
+        self.assertIn("-search.latencyOffset=1ms", plan["services"]["metrics"]["command"])
+        ingress_services = {"gateway", "alloy", "grafana"}
+        self.assertTrue(plan["networks"]["pilot"]["internal"])
+        self.assertEqual(plan["networks"].get("ingress"), {"driver": "bridge", "internal": False})
+        for name, service in plan["services"].items():
+            if name in ingress_services:
+                self.assertEqual(service["networks"], ["pilot", "ingress"])
+                self.assertTrue(all(port.startswith("127.0.0.1:") for port in service["ports"]))
+            else:
+                self.assertEqual(service["networks"], ["pilot"])
+                self.assertNotIn("ports", service)
+
+    def test_prepared_credential_reader_matches_private_auth_file_owner_without_dac_capability(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "prepared"
+            pilot.prepare(output)
+            auth = (output / "auth.json").stat()
+            plan = json.loads((output / "compose.json").read_text())
+            reader = plan["services"]["vmauth"]
+            from urllib.parse import urlsplit,parse_qs
+            routes=json.loads((output/'auth.json').read_text())['users'][0]['url_map']
+            logs=next(route for route in routes if route['src_paths'][0].startswith('/logs/'))
+            self.assertEqual(parse_qs(urlsplit(logs['url_prefix']).query),{'extra_filters':['_time:14d']})
+            self.assertNotIn('merge_query_args',logs)
+            self.assertEqual(auth.st_mode & 0o777, 0o600)
+            self.assertEqual(reader.get("user"), f"{auth.st_uid}:{auth.st_gid}")
+            self.assertEqual(reader["cap_drop"], ["ALL"])
+            self.assertNotIn("cap_add", reader)
+            grafana = plan["services"]["grafana"]
+            self.assertIn(f"{output / 'dashboard-provider.json'}:/etc/grafana/provisioning/dashboards/owner.yaml:ro", grafana["volumes"])
+            self.assertIn(f"{output / 'owner-overview'}:/etc/grafana/owner-overview:ro", grafana["volumes"])
+            view = json.loads((output / "owner-overview/dashboard.json").read_text())
+            self.assertEqual(view["uid"], "platform-owner-overview")
+            self.assertFalse(view["editable"])
+            targets = [target for panel in view["panels"] for target in panel.get("targets", [])]
+            self.assertEqual(len(targets), 10)
+            self.assertNotIn(json.loads((output / "auth.json").read_text())["users"][0]["bearer_token"], json.dumps(view))
+            provider = json.loads((output / "dashboard-provider.json").read_text())
+            self.assertNotIn(json.loads((output / "auth.json").read_text())["users"][0]["bearer_token"], json.dumps(provider))
+            self.assertEqual(provider["providers"][0]["options"]["path"], "/etc/grafana/owner-overview")
+
+    def test_prepared_stack_keeps_storage_ports_private_and_drops_host_capabilities(self):
+        plan = pilot.compose_plan(Path("/source"), Path("/owned-run"),
+                                  {name: "pinned" for name in pilot.SERVICES}, credential_owner=(1001, 1002))
+        self.assertEqual({name: (service['mem_limit'], service['cpus']) for name, service in plan['services'].items()}, {
+            'metrics': ('768m', .4), 'logs': ('768m', .4), 'traces': ('768m', .4),
+            'alloy': ('512m', .5), 'vmauth': ('128m', .1), 'gateway': ('128m', .1),
+            'grafana': ('512m', .25), 'horizon': ('128m', .1)})
+        for name in ("metrics", "logs", "traces", "vmauth"):
+            self.assertNotIn("ports", plan["services"][name])
+        self.assertEqual(plan["services"]["gateway"]["ports"], ["127.0.0.1:18427:8080"])
+        self.assertTrue(all(service["cap_drop"] == ["ALL"] for service in plan["services"].values()))
+        self.assertEqual(plan["services"]["gateway"].get("cap_add"), ["NET_BIND_SERVICE"])
+        self.assertTrue(all("cap_add" not in service for name, service in plan["services"].items()
+                            if name != "gateway"))
+        self.assertTrue(all(service["security_opt"] == ["no-new-privileges:true"]
+                            for service in plan["services"].values()))
+        self.assertEqual(plan["services"]["vmauth"]["user"], "1001:1002")
+        self.assert_run_port_admission()
+
+    def assert_run_port_admission(self):
+        class Prepared(Exception):pass
+        native_socket=socket.socket
+        def admit(root,port,*,fault=None):
+            probes=[];operations=[];entered=[];reached=Prepared();caught=None
+            primary=OSError(errno.EACCES,'private-port-sentinel')
+            class Probe(native_socket):
+                def setsockopt(self,*args):
+                    operations.append(('setsockopt',args))
+                    if fault=='setsockopt':raise primary
+                    return super().setsockopt(*args)
+                def bind(self,address):
+                    operations.append(('bind',address))
+                    if fault=='bind':raise primary
+                    return super().bind(address)
+                def listen(self,*_args):raise AssertionError('admission probe must never listen')
+            def factory(*args,**kwargs):
+                value=Probe(*args,**kwargs);probes.append(value);return value
+            def command(args,**_kwargs):
+                if args==['git','-C',str(pilot.ROOT),'status','--porcelain']:return ''
+                if args==['docker','context','show']:return 'controlled-owned-fixture'
+                if args==['docker','compose','ls','--format','json']:return '[]'
+                raise AssertionError('unexpected command before preparation')
+            output=root/'not-created'
+            def prepare(path):
+                self.assertEqual(path,output);self.assertFalse(path.exists());entered.append(path);raise reached
+            with patch.object(pilot,'command',side_effect=command),\
+                 patch.object(pilot.daemon,'identify',return_value={'endpoint':'fixture','storage':str(root)}),\
+                 patch.object(pilot.orbstack,'identify',return_value={'endpoint':'fixture','backing':{'path':str(root)}}),\
+                 patch.object(pilot.shutil,'disk_usage',return_value=SimpleNamespace(total=128*1024**3,free=64*1024**3)),\
+                 patch.object(pilot,'FROZEN_DOCKER_ENDPOINT'),patch.object(pilot,'FROZEN_DOCKER_IDENTITY'),\
+                 patch.object(pilot,'socket',SimpleNamespace(socket=factory,SOL_SOCKET=socket.SOL_SOCKET,SO_REUSEADDR=socket.SO_REUSEADDR)),\
+                 redirect_stdout(io.StringIO()):
+                try:pilot.run(output,ports=(port,),prepare_inputs=prepare)
+                except BaseException as error:caught=error
+            self.assertFalse(output.exists());self.assertEqual(len(probes),1)
+            self.assertTrue(all(value.fileno()==-1 for value in probes))
+            return caught,reached,primary,entered,operations,Probe
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            # Active server close, observed client EOF, then close every descriptor.
+            # This is a reusable-address model, not a claim about native CI TIME_WAIT.
+            with native_socket() as listener:
+                listener.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+                listener.bind(('127.0.0.1',0));listener.listen(1);port=listener.getsockname()[1]
+                with socket.create_connection(('127.0.0.1',port),timeout=1) as client:
+                    accepted,_=listener.accept()
+                    with accepted:accepted.shutdown(socket.SHUT_WR)
+                    self.assertEqual(client.recv(1),b'')
+            self.assertTrue(all(value.fileno()==-1 for value in (listener,client,accepted)))
+            caught,reached,_,entered,operations,_=admit(root,port)
+            def expected_operations(port):
+                return ([('setsockopt',(socket.SOL_SOCKET,socket.SO_REUSEADDR,1))] if sys.platform=='linux' else [])+[('bind',('127.0.0.1',port))]
+            if sys.platform=='darwin':
+                self.assertIsInstance(caught,OSError);self.assertEqual(caught.errno,errno.EADDRINUSE)
+                self.assertEqual(entered,[]);self.assertEqual(operations,expected_operations(port))
+            with self.subTest(actual_native_linux='closed reusable address reaches preparation'):
+                if sys.platform!='linux':self.skipTest('closed-address reuse requires actual native Linux; not emulated')
+                self.assertIs(caught,reached);self.assertEqual(len(entered),1)
+                self.assertEqual(operations,expected_operations(port))
+            def snapshot(value):
+                try:accepting=value.getsockopt(socket.SOL_SOCKET,socket.SO_ACCEPTCONN)
+                except OSError as error:
+                    if error.errno!=errno.ENOPROTOOPT:raise
+                    accepting=None  # Darwin may expose the constant without this getsockopt.
+                return (value.fileno(),value.getsockname(),value.getsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR),
+                    accepting,
+                    value.getsockopt(socket.SOL_SOCKET,socket.SO_REUSEPORT) if hasattr(socket,'SO_REUSEPORT') else None)
+            variants=[(False,False),(True,False)]+([(True,True)] if hasattr(socket,'SO_REUSEPORT') else [])
+            for host in ('127.0.0.1','0.0.0.0'):
+                for reuse,reuseport in variants:
+                    with self.subTest(host=host,reuseaddr=reuse,reuseport=reuseport),native_socket() as foreign:
+                        if reuse:foreign.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+                        if reuseport:foreign.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEPORT,1)
+                        foreign.bind((host,0));foreign.listen(1);before=snapshot(foreign);port=foreign.getsockname()[1]
+                        caught,_,_,entered,operations,_=admit(root,port)
+                        self.assertEqual(snapshot(foreign),before);self.assertEqual(operations,expected_operations(port))
+                        self.assertIsInstance(caught,OSError);self.assertEqual(caught.errno,errno.EADDRINUSE)
+                        self.assertEqual(entered,[])
+            with native_socket() as foreign:
+                foreign.bind(('127.0.0.1',0));before=snapshot(foreign)
+                caught,_,_,entered,_,_=admit(root,foreign.getsockname()[1])
+                self.assertIsInstance(caught,OSError);self.assertEqual(caught.errno,errno.EADDRINUSE)
+                self.assertEqual(entered,[]);self.assertEqual(snapshot(foreign),before)
+            with native_socket() as unused:
+                unused.bind(('127.0.0.1',0));port=unused.getsockname()[1]
+            caught,reached,_,entered,operations,_=admit(root,port)
+            self.assertIs(caught,reached);self.assertEqual(len(entered),1)
+            self.assertEqual(operations,expected_operations(port))
+            for fault in ('setsockopt','bind'):
+                with self.subTest(fault=fault):
+                    if fault=='setsockopt' and sys.platform!='linux':
+                        self.skipTest('Darwin must not call setsockopt; original bind error tested below')
+                    caught,_,primary,entered,operations,probe=admit(root,0,fault=fault)
+                    self.assertIs(caught,primary);self.assertEqual(entered,[])
+                    frames=[];frame=caught.__traceback__
+                    while frame is not None:frames.append(frame.tb_frame.f_code);frame=frame.tb_next
+                    self.assertIn(getattr(probe,fault).__code__,frames)
+                    self.assertEqual(len(operations),1 if fault=='setsockopt' else 2 if sys.platform=='linux' else 1)
+            with self.subTest(actual_native_linux='inactive SO_REUSEADDR binder can coexist'):
+                if sys.platform!='linux':self.skipTest('inactive reuse-bound semantics require actual native Linux; not emulated')
+                with native_socket() as foreign:
+                    foreign.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+                    foreign.bind(('127.0.0.1',0));before=snapshot(foreign)
+                    caught,reached,_,entered,_,_=admit(root,foreign.getsockname()[1])
+                    self.assertIs(caught,reached);self.assertEqual(len(entered),1)
+                    self.assertEqual(snapshot(foreign),before)
+
+    def test_diagnostics_failure_cannot_skip_owned_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / "owned-resource").write_text("owned")
+            (output / "foreign-resource").write_text("foreign")
+            fixture = Path(__file__).parent / "fixtures/process.py"
+            compose = [sys.executable, str(fixture), "compose", directory, "diagnostics-failure"]
+            docker = [sys.executable, str(fixture), "docker", directory, "normal"]
+            result = pilot.cleanup_project(compose, output, "inside-observability-pilot-fixture", docker=docker)
+            self.assertEqual(result["down"], "passed")
+            self.assertEqual(result["residue"], "passed")
+            self.assertIn("failed", result["diagnostics"])
+            self.assertFalse((output / "owned-resource").exists())
+            self.assertTrue((output / "foreign-resource").exists())
+
+    def test_supervisor_cleans_only_owned_resources_after_each_worker_outcome(self):
+        fixture = Path(__file__).parent / "fixtures/process.py"
+        for mode, expected_status in [("success", 0), ("failure", 7), ("timeout", 124),
+                                      ("sigterm", 143), ("sigkill", 137), ("descendant", 0)]:
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory)
+                (output / "foreign-resource").write_text("foreign")
+                compose = [sys.executable, str(fixture), "compose", directory, "normal"]
+                docker = [sys.executable, str(fixture), "docker", directory, "normal"]
+                execute = [sys.executable, str(fixture), "worker", directory, mode]
+                status = pilot.supervise_worker(execute, compose, output,
+                    "inside-observability-pilot-fixture", docker=docker,
+                    deadline_seconds=WORKER_FAILURE_BUDGET_SECONDS)
+                self.assertEqual(status, expected_status)
+                outcome = json.loads((output / 'worker-outcome.json').read_text())
+                self.assertGreaterEqual(outcome['duration_seconds'], 0)
+                self.assertFalse((output / "owned-resource").exists())
+                self.assertTrue((output / "foreign-resource").exists())
+                self.assertIn("down --volumes --remove-orphans", (output / "commands").read_text())
+                if mode == "descendant":
+                    def descendant_socket_closed():
+                        with socket.socket(socket.AF_UNIX) as probe:
+                            probe.settimeout(DESCENDANT_PROBE_TIMEOUT_SECONDS)
+                            try:
+                                probe.connect(str(output / "child.sock"))
+                            except (ConnectionRefusedError, FileNotFoundError):
+                                return True
+                            except socket.timeout:
+                                return False
+                            return False
+                    pilot.await_fact(descendant_socket_closed, bool,
+                                     budget=WORKER_FAILURE_BUDGET_SECONDS)
+
+    def test_otlp_readiness_waits_for_acceptance_and_restart_waits_for_stored_trace(self):
+        class Receiver(BaseHTTPRequestHandler):
+            posts = 0
+            queries = 0
+
+            def do_POST(self):
+                self.rfile.read(int(self.headers["Content-Length"]))
+                Receiver.posts += 1
+                self.send_response(503 if Receiver.posts == 1 else 200)
+                self.end_headers()
+
+            def do_GET(self):
+                Receiver.queries += 1
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{}' if Receiver.queries == 1 else b'{"span":"worker.retry"}')
+
+            def log_message(self, *_args):
+                pass
+
+        with HTTPServer(("127.0.0.1", 0), Receiver) as server:
+            thread = threading.Thread(target=server.serve_forever)
+            thread.start()
+            try:
+                port = server.server_port
+                pilot.await_otlp_ready(port=port)
+                pilot.await_stored_trace("fixture-key", "0" * 31 + "1", port=port)
+                self.assertEqual(Receiver.posts, 2)
+                self.assertEqual(Receiver.queries, 2)
+            finally:
+                server.shutdown()
+                thread.join(timeout=SERVER_SHUTDOWN_BUDGET_SECONDS)
+                self.assertFalse(thread.is_alive())
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,3 +1,5 @@
+import { savedContentProductIds } from "../../domain/saved-content-product-ids.js";
+import { paidGrantSourceRef } from "../../domain/paid-grant-source-ref.js";
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { productSaleAvailable } from "../../shared/product-sale-available.js";
 import {
@@ -31,11 +33,7 @@ import {
   attemptKindSchema,
   isQuotedPurchase,
 } from "../../domain/payment-attempt.js";
-import {
-  paymentMode,
-  priceSnapshotSchema,
-  type PriceSnapshot,
-} from "../../domain/pricing.js";
+import { paymentMode, priceSnapshotSchema } from "../../domain/pricing.js";
 import {
   saleCapability,
   type SaleCapability,
@@ -925,10 +923,11 @@ export class BillingPayments {
             {
               accountId: purchase.accountId,
               productId,
-              sourceRef:
-                productIds.length === 1
-                  ? `payment:${purchase.id}`
-                  : `payment:${purchase.id}:product:${productId}`,
+              sourceRef: paidGrantSourceRef(
+                purchase.id,
+                productId,
+                productIds.length,
+              ),
               issuedAt: purchase.confirmedAt.toISOString(),
               reason: "payment_confirmed",
             },
@@ -1443,23 +1442,6 @@ function purchaseAccess(
         : ready
           ? "ready"
           : "unavailable";
-}
-
-/** Only immutable content authority names Products. Support/community coverage does not. */
-function savedContentProductIds(snapshot: PriceSnapshot): string[] {
-  return [
-    ...new Set(
-      [
-        ...snapshot.offer.benefits
-          .filter(isProductCapability)
-          .map(productIdFromCapability)
-          .filter((id): id is string => id !== null),
-        ...(snapshot.offer.benefits.includes("materials")
-          ? (snapshot.offer.coverage?.productIds ?? [])
-          : []),
-      ].map((id) => id.toLowerCase()),
-    ),
-  ].sort();
 }
 
 function savedContentProductWhere(

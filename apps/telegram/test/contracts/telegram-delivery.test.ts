@@ -32,7 +32,7 @@ function plan(input: unknown) {
 }
 
 describe("Telegram delivery across the repository transition", () => {
-  it("records the current migration identity", () => {
+  it("records the ordered migration identity including the additive confirmed activity collector", () => {
     const result = runOwnedCommandSync(
       process.execPath,
       ["scripts/release-contract.mjs", "migrations-identity"],
@@ -41,9 +41,9 @@ describe("Telegram delivery across the repository transition", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({
       identity:
-        "sha256:54f51cea153bbc7e07d721787380a8548f1dae3753a22ae14993217197ec3d10",
-      count: 40,
-      latest: "039-native-message-copies.ts",
+        "sha256:113d5438423bb8d61090f9b2059ad84215d2bf153af73b9aeb6a537034a2706a",
+      count: 42,
+      latest: "041-confirmed-user-activity.ts",
     });
   });
 

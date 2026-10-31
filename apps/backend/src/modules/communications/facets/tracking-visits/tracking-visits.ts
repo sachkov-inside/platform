@@ -1,3 +1,7 @@
+import {
+  captureNotificationTraceparent,
+  type TechnicalTelemetry,
+} from "../../../../infrastructure/observability/technical-telemetry.js";
 import { PublicContentTargets } from "../../../materials/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -54,6 +58,13 @@ export function isSafeTrackingTarget(
 }
 
 export class TrackingVisits {
+  private readonly pendingDeliveries = new Set<Promise<void>>();
+
+  /** Stop the owning pump first, then await every row callback, including unclaimed siblings. */
+  async drainDeliveries(): Promise<void> {
+    while (this.pendingDeliveries.size > 0)
+      await Promise.allSettled([...this.pendingDeliveries]);
+  }
   constructor(
     private readonly prisma: CommunicationsPrisma,
     private readonly provider: HttpCommunicationsProvider,
@@ -104,6 +115,7 @@ export class TrackingVisits {
         this.prisma.communicationTrackingHit.create({
           data: {
             eventId: randomUUID(),
+            traceparent: captureNotificationTraceparent() ?? null,
             token: parsed.data.token,
             traffic: parsed.data.traffic,
             occurredAt: now,
@@ -158,51 +170,68 @@ export class TrackingVisits {
     }
   }
 
-  async deliverPending(): Promise<void> {
+  async deliverPending(
+    telemetry?: Pick<TechnicalTelemetry, "runTrackingDelivery">,
+  ): Promise<void> {
     const rows = await this.prisma.communicationTrackingHit.findMany({
       where: { deliveredAt: null, availableAt: { lte: this.now() } },
       orderBy: { occurredAt: "asc" },
       take: HIT_BATCH_SIZE,
     });
     await Promise.all(
-      rows.map(async (row) => {
-        const claimId = randomUUID();
-        const claim = await this.prisma.communicationTrackingHit.updateMany({
-          where: {
-            eventId: row.eventId,
-            deliveredAt: null,
-            availableAt: { lte: this.now() },
-          },
-          data: {
-            claimId,
-            availableAt: new Date(+this.now() + HIT_CLAIM_DURATION_MS),
-          },
-        });
-        if (claim.count === 0) return;
-        // Event and operation IDs survive retries, process restarts and ambiguous ACKs.
-        const result = await this.provider.execute({
-          ...envelope,
-          operation: "tracking.recordHit",
-          operationId: row.eventId,
-          payload: {
-            eventId: row.eventId,
-            token: row.token,
-            occurredAt: row.occurredAt.toISOString(),
-            traffic:
-              row.traffic === "known_automation"
-                ? "known_automation"
-                : "unknown",
-          },
-        });
-        await this.prisma.communicationTrackingHit.updateMany({
-          where: { eventId: row.eventId, claimId, deliveredAt: null },
-          data: result.ok
-            ? { deliveredAt: this.now(), claimId: null }
-            : {
-                availableAt: new Date(+this.now() + HIT_RETRY_DELAY_MS),
-                claimId: null,
+      rows.map((row) => {
+        // Register settlement before the callback starts its asynchronous claim. Promise.all
+        // still rejects immediately, but lifecycle draining must retain its pending siblings.
+        const delivery = Promise.resolve().then(async () => {
+          const claimId = randomUUID();
+          const claim = await this.prisma.communicationTrackingHit.updateMany({
+            where: {
+              eventId: row.eventId,
+              deliveredAt: null,
+              availableAt: { lte: this.now() },
+            },
+            data: {
+              claimId,
+              availableAt: new Date(+this.now() + HIT_CLAIM_DURATION_MS),
+            },
+          });
+          if (claim.count === 0) return;
+          const deliver = async (observation: { fail(): void }) => {
+            // Event and operation IDs survive retries, process restarts and ambiguous ACKs.
+            const result = await this.provider.execute({
+              ...envelope,
+              operation: "tracking.recordHit",
+              operationId: row.eventId,
+              payload: {
+                eventId: row.eventId,
+                token: row.token,
+                occurredAt: row.occurredAt.toISOString(),
+                traffic:
+                  row.traffic === "known_automation"
+                    ? "known_automation"
+                    : "unknown",
               },
+            });
+            await this.prisma.communicationTrackingHit.updateMany({
+              where: { eventId: row.eventId, claimId, deliveredAt: null },
+              data: result.ok
+                ? { deliveredAt: this.now(), claimId: null }
+                : {
+                    availableAt: new Date(+this.now() + HIT_RETRY_DELAY_MS),
+                    claimId: null,
+                  },
+            });
+            if (!result.ok) observation.fail();
+          };
+          if (telemetry === undefined) await deliver({ fail: () => undefined });
+          else await telemetry.runTrackingDelivery(row.traceparent, deliver);
         });
+        this.pendingDeliveries.add(delivery);
+        const settled = () => {
+          this.pendingDeliveries.delete(delivery);
+        };
+        void delivery.then(settled, settled);
+        return delivery;
       }),
     );
   }

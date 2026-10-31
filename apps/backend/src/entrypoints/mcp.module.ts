@@ -1,3 +1,22 @@
+import { HttpTelegramActivity } from "../modules/telegram-membership/index.js";
+import { PLATFORM_CONFIG } from "../config/platform-config.js";
+import { ActivityRetentionDiagnostics } from "./mcp/activity-retention-diagnostics.js";
+import { ReadingActivityRetention } from "../modules/reading-activity/index.js";
+import { BookmarkActivityRetention } from "../modules/bookmarks/index.js";
+import { ParticipantDiagnostics } from "./mcp/participant-diagnostics.js";
+import {
+  ReadingActivityFacts,
+  ReadingActivityModule,
+} from "../modules/reading-activity/index.js";
+import {
+  BookmarkActivityFacts,
+  BookmarksModule,
+} from "../modules/bookmarks/index.js";
+import { TaskSubmissionFacts } from "../modules/product-tasks/index.js";
+import { ACCOUNTS, type Accounts } from "../modules/accounts/index.js";
+import { PgBossQueueDiagnostics } from "../infrastructure/pg-boss-queue-diagnostics.js";
+import { QueueDiagnostics } from "./mcp/queue-diagnostics.js";
+import { SalesFunnelModule } from "../modules/sales-funnel/index.js";
 import { ProductAuthoringCompositionModule } from "./composition/product-authoring-composition.module.js";
 import { ContentAccessCompositionModule } from "./composition/content-access-composition.module.js";
 import { WebTelemetryModule } from "../modules/web-telemetry/index.js";
@@ -21,7 +40,61 @@ import {
   ProductTasksModule,
 } from "../modules/product-tasks/index.js";
 
-@Module({ providers: [OperationalReadiness] })
+@Module({
+  providers: [
+    {
+      provide: ActivityRetentionDiagnostics,
+      inject: [
+        ACCOUNTS,
+        ReadingActivityRetention,
+        BookmarkActivityRetention,
+        PgBossQueueDiagnostics,
+      ],
+      useFactory: (
+        accounts: Accounts,
+        reading: ReadingActivityRetention,
+        bookmarks: BookmarkActivityRetention,
+        receipts: PgBossQueueDiagnostics,
+      ) =>
+        new ActivityRetentionDiagnostics(
+          accounts,
+          reading,
+          bookmarks,
+          receipts,
+        ),
+    },
+    OperationalReadiness,
+    PgBossQueueDiagnostics,
+    QueueDiagnostics,
+    {
+      provide: ParticipantDiagnostics,
+      inject: [
+        ACCOUNTS,
+        ReadingActivityFacts,
+        BookmarkActivityFacts,
+        TaskSubmissionFacts,
+        PLATFORM_CONFIG,
+      ],
+      useFactory: (
+        accounts: Accounts,
+        reading: ReadingActivityFacts,
+        bookmarks: BookmarkActivityFacts,
+        submissions: TaskSubmissionFacts,
+        config: PlatformConfig,
+      ) =>
+        new ParticipantDiagnostics(
+          accounts,
+          reading,
+          bookmarks,
+          submissions,
+          new HttpTelegramActivity(
+            config.telegramMembership.linkingEndpoint,
+            config.telegramMembership.linkingSecret,
+          ),
+        ),
+    },
+  ],
+})
 export class McpModule {
   static forRoot(config?: PlatformConfig): DynamicModule {
     return {
@@ -37,7 +110,10 @@ export class McpModule {
         ContentAccessCompositionModule,
         ProductAuthoringCompositionModule,
         BillingModule,
+        SalesFunnelModule,
         ProductTasksModule,
+        ReadingActivityModule,
+        BookmarksModule,
         CoverageCatalogModule,
         RecipientLinksModule,
         ProductTaskResourceFactsModule,

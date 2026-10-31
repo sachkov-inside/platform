@@ -19,6 +19,7 @@ export interface TestIdentityIssuer {
 export async function startTestIdentityIssuer(input: {
   readonly issuer: string;
   readonly audience: string;
+  readonly onJwksRequest?: () => void;
 }): Promise<TestIdentityIssuer> {
   const pair = await generateKeyPair("ES384");
   const privateKey: CryptoKey = pair.privateKey;
@@ -30,6 +31,7 @@ export async function startTestIdentityIssuer(input: {
   };
   const server: Server = createServer((request, response) => {
     if (request.url !== "/jwks") return void response.writeHead(404).end();
+    input.onJwksRequest?.();
     response.setHeader("content-type", "application/json");
     response.end(JSON.stringify({ keys: [publicJwk] }));
   });

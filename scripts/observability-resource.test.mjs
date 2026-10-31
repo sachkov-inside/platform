@@ -1,0 +1,1104 @@
+// @ts-check
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import {
+  processGroupExists,
+  runOwnedProcess,
+} from "./observability-umami/process-owner.mjs";
+import { fileURLToPath } from "node:url";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createServer } from "node:net";
+import { setTimeout as delay } from "node:timers/promises";
+import {
+  sourceIds,
+  sourceProgress,
+  assertResourceContracts,
+  resourceTimingSummary,
+} from "./observability-resource/source-progress.mjs";
+import "./observability-fullstack/test-phase-timing.mjs";
+
+/** Synthetic source callbacks only; this fixture never runs the real item84 modes. */
+const originalTimingSource =
+  "test_process.Processes.test_resource_project_uses_external_supervisor_cleanup_for_every_worker_outcome";
+function timingWire(anchor = originalTimingSource) {
+  const lines = ["RESOURCE_TIMING_V1 begin runner 0\n"];
+  for (let index = 0; index < sourceIds.length; index += 1) {
+    const id = sourceIds[index];
+    lines.push(`RESOURCE_SOURCE_V1 start ${id}\n`);
+    if (id === anchor) {
+      lines.push("RESOURCE_TIMING_V1 begin item84 100\n");
+      for (const [modeIndex, mode] of [
+        "success",
+        "failure",
+        "timeout",
+        "sigterm",
+        "sigkill",
+        "descendant",
+      ].entries()) {
+        lines.push(
+          `RESOURCE_TIMING_V1 begin ${mode} ${110 + modeIndex * 20}\n`,
+        );
+        lines.push(`RESOURCE_TIMING_V1 end ${mode} ${120 + modeIndex * 20}\n`);
+      }
+    }
+    lines.push(`RESOURCE_SOURCE_V1 completed ${id}\n`);
+    if (id === anchor) lines.push("RESOURCE_TIMING_V1 end item84 230\n");
+  }
+  lines.push("RESOURCE_TIMING_V1 end runner 240\n");
+  return lines;
+}
+
+// deterministic-test-allow unit-io: external owner bounds the complete Node helper contract group, including failed startup and lingering socket/timer regressions.
+test("resource HTTP and identity contracts retain bounded process lifetime", async () => {
+  const result = await runOwnedProcess("/usr/bin/env", [
+    "-u",
+    "NODE_TEST_CONTEXT",
+    process.execPath,
+    "--test",
+    "--test-reporter=tap",
+    fileURLToPath(
+      new URL("./observability-resource/test-client.mjs", import.meta.url),
+    ),
+  ]);
+  assert.equal(result.reason, "exit", result.stderr);
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /# tests [1-9][0-9]*\b/u);
+});
+
+// deterministic-test-allow unit-io: external Node owner bounds the stdlib Python resource contracts and their owned process/Unix-socket fixtures.
+test("resource manifest, counters and lifecycle retain bounded ownership and UNKNOWN semantics", async () => {
+  const timed =
+    process.env["CI"] === "true" &&
+    process.env["GITHUB_EVENT_NAME"] === "pull_request";
+  const result = timed
+    ? await runOwnedProcess("/usr/bin/env", [
+        "RESOURCE_TEST_TIMING_V1=1",
+        "python3",
+        "-B",
+        "scripts/observability-resource/source_runner.py",
+      ])
+    : await runOwnedProcess("python3", [
+        "-B",
+        "scripts/observability-resource/source_runner.py",
+      ]);
+  if (timed) {
+    const summary = resourceTimingSummary(result);
+    assertResourceContracts(result, summary);
+  } else assertResourceContracts(result);
+});
+
+// deterministic-test-allow unit-io: the external owner bounds the actual backend config/JWT/schema contract and its private HTTPS/HTTP loopback fixtures.
+test("resource corpus meets the real API identity and account response contracts", async () => {
+  const result = await runOwnedProcess("/usr/bin/env", [
+    "-u",
+    "NODE_TEST_CONTEXT",
+    process.execPath,
+    "apps/backend/node_modules/tsx/dist/cli.mjs",
+    "--tsconfig",
+    "apps/backend/tsconfig.json",
+    "--test",
+    "--test-reporter=tap",
+    "apps/backend/scripts/resource-corpus-contract.test.mjs",
+  ]);
+  assert.equal(result.reason, "exit", result.stderr);
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /# tests [1-9][0-9]*\b/u);
+});
+
+// deterministic-test-allow unit-io: external owner bounds the real Web observer, HTTP listeners and inherited CLI descendants; worker failure, timeout and SIGKILL are checked at this routed boundary.
+test("resource Web HTTP witness retains fixed source and complete process ownership", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "inside-web-http-contract-"));
+  try {
+    const result = await runOwnedProcess(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL(
+            "./observability-fullstack/web-http-contract.mjs",
+            import.meta.url,
+          ),
+        ),
+        directory,
+      ],
+      { timeoutMs: 8000 },
+    );
+    assert.equal(result.reason, "exit", result.stderr);
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      cases: 41,
+      complete: true,
+      private: false,
+      missing: false,
+      unavailable: false,
+      forbidden: 4,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+// deterministic-test-allow unit-io: dependency-ready tooling validates the generated private Telegram env through its real parser; the same external owner directly owns each sequential Python and Node/tsx group, with a five-second parser deadline.
+test("resource Telegram corpus meets the real application configuration contract", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "inside-resource-telegram-"));
+  const loader = new URL(
+    "../apps/telegram/node_modules/tsx/dist/loader.mjs",
+    import.meta.url,
+  ).href;
+  const application = new URL(
+    "../apps/telegram/src/config/application-config.ts",
+    import.meta.url,
+  ).href;
+  const program = `import { readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
+try {
+  const { loadApplicationConfig } = await import(process.argv[2]);
+  const config = loadApplicationConfig(parseEnv(readFileSync(process.argv[1], "utf8")));
+  process.stdout.write(JSON.stringify({accepted:true,deliveryMode:config.deliveryMode,workersEnabled:config.workersEnabled}));
+} catch {
+  process.stdout.write(JSON.stringify({accepted:false}));
+  process.exitCode=1;
+}`;
+  const command = `import sys
+from pathlib import Path
+sys.path.insert(0,str(Path.cwd()/"scripts/observability-fullstack"))
+import telegram
+output=Path(sys.argv[1])
+telegram.configure(output,{'services':{'provider':{},'loadgen':{'volumes':[]}}},{'telegram':'owned-fixed-image'})
+`;
+  try {
+    const prepared = await runOwnedProcess("python3", [
+      "-B",
+      "-c",
+      command,
+      directory,
+    ]);
+    assert.equal(prepared.reason, "exit", "Telegram fixture owner completed");
+    assert.equal(prepared.code, 0, "private Telegram environment prepared");
+    const result = await runOwnedProcess(
+      process.execPath,
+      [
+        "--import",
+        loader,
+        "--input-type=module",
+        "-e",
+        program,
+        join(directory, "telegram/application.env"),
+        application,
+      ],
+      { timeoutMs: 5000 },
+    );
+    assert.equal(
+      result.reason,
+      "exit",
+      "Telegram configuration owner completed",
+    );
+    assert.equal(result.code, 0, "generated Telegram configuration accepted");
+    assert.deepEqual(JSON.parse(result.stdout), {
+      accepted: true,
+      deliveryMode: "live",
+      workersEnabled: true,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("resource source progress projects canonical complete and active ordered prefixes", () => {
+  const first = sourceIds[0],
+    second = sourceIds[1];
+  assert.ok(first !== undefined && second !== undefined);
+  const start = `RESOURCE_SOURCE_V1 start ${first}\n`;
+  const done = `RESOURCE_SOURCE_V1 completed ${first}\n`;
+  assert.deepEqual(sourceProgress(start), {
+    lastStarted: first,
+    lastCompleted: null,
+    completedCount: 0,
+  });
+  assert.deepEqual(sourceProgress(start + done), {
+    lastStarted: first,
+    lastCompleted: first,
+    completedCount: 1,
+  });
+  assert.deepEqual(
+    sourceProgress(start + done + `RESOURCE_SOURCE_V1 start ${second}\n`),
+    { lastStarted: second, lastCompleted: first, completedCount: 1 },
+  );
+  const complete = sourceIds
+    .map(
+      (id) =>
+        `RESOURCE_SOURCE_V1 start ${id}\nRESOURCE_SOURCE_V1 completed ${id}\n`,
+    )
+    .join("");
+  assert.equal(sourceIds.length, 117);
+  assert.equal(Buffer.byteLength(complete), 29254);
+  assert.equal(sourceProgress(complete)?.completedCount, 117);
+  assert.notEqual(sourceIds[83], originalTimingSource);
+  assert.equal(
+    resourceTimingSummary({
+      reason: "exit",
+      stderr: timingWire(sourceIds[83]).join(""),
+    }),
+    "Resource timing: unknown",
+  );
+  const raw = timingWire().join("");
+  assert.equal(
+    resourceTimingSummary({ reason: "exit", stderr: raw }),
+    "Resource timing: state=complete; before84_ns=100; success_ns=10; failure_ns=10; timeout_ns=10; sigterm_ns=10; sigkill_ns=10; descendant_ns=10; item84_ns=130; runner_ns=240",
+  );
+  assert.deepEqual(sourceProgress(raw), sourceProgress(complete));
+  const lines = timingWire();
+  for (const [index, line] of lines.entries()) {
+    if (!line.startsWith("RESOURCE_TIMING") || index === lines.length - 1)
+      continue;
+    assert.match(
+      resourceTimingSummary({
+        reason: "timeout",
+        stderr: lines.slice(0, index + 1).join(""),
+      }),
+      /^Resource timing: state=partial;/u,
+    );
+  }
+  const stop = lines.indexOf("RESOURCE_TIMING_V1 begin failure 130\n");
+  const completed84 = lines.indexOf(
+    `RESOURCE_SOURCE_V1 completed ${originalTimingSource}\n`,
+  );
+  const early = [...lines.slice(0, stop + 1), ...lines.slice(completed84)].join(
+    "",
+  );
+  const earlySummary = resourceTimingSummary({ reason: "exit", stderr: early });
+  assert.match(
+    earlySummary,
+    /state=partial; before84_ns=100; success_ns=10; failure_ns=unknown/u,
+  );
+  assert.match(earlySummary, /runner_ns=240$/u);
+  const stopped = lines
+    .filter((line) => !line.startsWith("RESOURCE_TIMING") || line === lines[0])
+    .join("");
+  assert.match(
+    resourceTimingSummary({ reason: "exit", stderr: stopped }),
+    /state=partial; before84_ns=unknown/u,
+  );
+});
+
+test("resource source progress refuses malformed private duplicate truncated and oversized metadata", () => {
+  const first = sourceIds[0],
+    second = sourceIds[1];
+  assert.ok(first !== undefined && second !== undefined);
+  const start = `RESOURCE_SOURCE_V1 start ${first}\n`,
+    done = `RESOURCE_SOURCE_V1 completed ${first}\n`;
+  const complete = sourceIds
+    .map(
+      (id) =>
+        `RESOURCE_SOURCE_V1 start ${id}\nRESOURCE_SOURCE_V1 completed ${id}\n`,
+    )
+    .join("");
+  const invalid = [
+    "",
+    "legacy private-canary\n",
+    start.slice(0, -1),
+    start + "RESOURCE_SOURCE_V1 compl",
+    done,
+    start + start,
+    start + done + done,
+    start + done + start,
+    `RESOURCE_SOURCE_V1 start ${second}\n`,
+    start + `RESOURCE_SOURCE_V1 completed ${second}\n`,
+    start.replace("V1", "V2"),
+    start.replace("start", "unknown"),
+    start.replace(first, "private-id"),
+    "private-prefix " + start,
+    start.replace("\n", "\r\n"),
+    start.replace("start ", "start  "),
+    start.replace("\n", " private-canary\n"),
+    start + "RESOURCE_SOURCE_bad-private\n",
+    complete + start,
+    start + "RESOURCE_SOURCE" + "x".repeat(32768) + "\n",
+    start + "x".repeat(1_048_576),
+    start + "é".repeat(524288),
+  ];
+  for (const raw of invalid) assert.equal(sourceProgress(raw), null);
+  const wire = timingWire().join("");
+  const unknown = "Resource timing: unknown";
+  const invalidTiming = [
+    "",
+    "private-noise",
+    wire + "RESOURCE_TIMING_V1 end runner 250\n",
+    wire.replace("begin runner 0", "begin runner 00"),
+    wire.replace("begin runner 0", "end runner 0"),
+    wire.replace("begin item84 100", "begin item84 -1"),
+    wire.replace("begin item84 100", "begin item84 true"),
+    wire.replace("begin item84 100", "begin item84 60000000001"),
+    wire.replace("begin item84 100", "begin item84 1e2"),
+    wire.replace("begin item84 100", "begin item84 100.0"),
+    wire.replace("begin item84 100", "begin item84 １００"),
+    wire.replace("end success 120", "end success 109"),
+    wire.replace("begin failure 130", "begin private-slot 130"),
+    wire.replace("begin failure 130", "unknown failure 130"),
+    wire.replace(
+      "RESOURCE_TIMING_V1 begin failure 130\n",
+      "RESOURCE_TIMING_V1 begin failure 130\r\n",
+    ),
+    wire.replace("RESOURCE_TIMING_V1 end success 120\n", ""),
+    wire.replace("RESOURCE_TIMING_V1 begin success 110\n", ""),
+    wire.replace(
+      "RESOURCE_TIMING_V1 begin runner 0\n",
+      "RESOURCE_TIMING_V2 begin runner 0\n",
+    ),
+    wire.slice(0, -1),
+    wire + "RESOURCE_TIMING" + "x".repeat(2048) + "\n",
+    wire + "x".repeat(1_048_576),
+    wire.replace("RESOURCE_SOURCE_V1 start", "RESOURCE_SOURCE_V2 start"),
+  ];
+  // Keep old source order valid while violating the timing/source cross-state.
+  for (const [marker, anchor] of [
+    [
+      "RESOURCE_TIMING_V1 begin runner 0\n",
+      `RESOURCE_SOURCE_V1 start ${sourceIds[0]}\n`,
+    ],
+    [
+      "RESOURCE_TIMING_V1 begin item84 100\n",
+      `RESOURCE_SOURCE_V1 start ${originalTimingSource}\n`,
+    ],
+    [
+      "RESOURCE_TIMING_V1 end item84 230\n",
+      `RESOURCE_SOURCE_V1 completed ${originalTimingSource}\n`,
+    ],
+    [
+      "RESOURCE_TIMING_V1 end runner 240\n",
+      `RESOURCE_SOURCE_V1 completed ${sourceIds[111]}\n`,
+    ],
+  ]) {
+    assert.ok(marker !== undefined && anchor !== undefined);
+    const removed = wire.replace(marker, "");
+    invalidTiming.push(
+      removed.replace(
+        anchor,
+        marker.startsWith("RESOURCE_TIMING_V1 begin runner")
+          ? anchor + marker
+          : marker + anchor,
+      ),
+    );
+  }
+  for (const stderr of invalidTiming)
+    assert.equal(resourceTimingSummary({ reason: "exit", stderr }), unknown);
+  let accesses = 0;
+  const privateGetter = {
+    reason: "exit",
+    get stderr() {
+      accesses += 1;
+      throw Error("private-stderr");
+    },
+  };
+  const privateReason = {
+    get reason() {
+      accesses += 1;
+      throw Error("private-reason");
+    },
+    stderr: wire,
+  };
+  const proxy = new Proxy(
+    {},
+    {
+      getOwnPropertyDescriptor() {
+        accesses += 1;
+        throw Error("private-proxy");
+      },
+    },
+  );
+  const revoked = Proxy.revocable({}, {});
+  revoked.revoke();
+  for (const input of [
+    null,
+    undefined,
+    1,
+    [],
+    new String(wire),
+    Object.create({ reason: "exit", stderr: wire }),
+    privateGetter,
+    privateReason,
+    proxy,
+    revoked.proxy,
+    { reason: "unknown", stderr: wire },
+  ])
+    assert.equal(resourceTimingSummary(input), unknown);
+  assert.equal(accesses, 0);
+  // Prove the output-limit branch returns before even inspecting a stderr descriptor.
+  const limited = { reason: "output_limit", stderr: wire };
+  const descriptor = Object.getOwnPropertyDescriptor;
+  let stderrDescriptors = 0;
+  try {
+    // deterministic-test-allow shared-mutation: synchronous descriptor sentinel is restored by finally before this pure callback returns.
+    Object.getOwnPropertyDescriptor = (value, key) => {
+      if (value === limited && key === "stderr") {
+        stderrDescriptors += 1;
+        throw Error("private-descriptor");
+      }
+      return descriptor(value, key);
+    };
+    assert.equal(resourceTimingSummary(limited), unknown);
+  } finally {
+    Object.getOwnPropertyDescriptor = descriptor;
+  }
+  assert.equal(stderrDescriptors, 0);
+  const hostile = {
+    get stderr() {
+      throw new Error("private-getter");
+    },
+    toString() {
+      throw new Error("private-coercion");
+    },
+  };
+  for (const raw of [undefined, null, hostile, 1, [], new String(start)])
+    assert.equal(sourceProgress(raw), null);
+  assert.deepEqual(
+    sourceProgress(start + "x".repeat(1_048_576 - Buffer.byteLength(start))),
+    { lastStarted: first, lastCompleted: null, completedCount: 0 },
+  );
+});
+
+test("resource source assertions preserve failures without publishing captured private output", () => {
+  const prefix = `RESOURCE_SOURCE_V1 start ${sourceIds[0]}\n`;
+  for (const summary of [
+    resourceTimingSummary({ reason: "exit", stderr: timingWire().join("") }),
+    "private-summary",
+    {
+      toString() {
+        throw Error("private-coercion");
+      },
+    },
+  ]) {
+    const result = {
+      code: 7,
+      signal: null,
+      pid: undefined,
+      reason: /** @type {const} */ ("exit"),
+      stdout: "private-stdout",
+      stderr: prefix,
+    };
+    assert.throws(
+      () => assertResourceContracts(result, summary),
+      (error) => {
+        assert.ok(error instanceof assert.AssertionError);
+        assert.equal(error.actual, 7);
+        assert.equal(error.expected, 0);
+        assert.doesNotMatch(error.message, /private-/u);
+        assert.match(
+          error.message,
+          /Resource timing: (state=complete|unknown)/u,
+        );
+        return true;
+      },
+    );
+  }
+  /** @type {("timeout" | "interrupted" | "output_limit" | "exit")[]} */
+  const reasons = ["timeout", "interrupted", "output_limit", "exit"];
+  for (const reason of reasons)
+    for (const stderr of [
+      "",
+      "private-auth-canary\n",
+      prefix,
+      prefix + "private-auth-canary\n",
+      prefix + "RESOURCE_SOURCE_bad-private\n",
+    ]) {
+      const result = {
+        code: reason === "exit" ? 3 : null,
+        signal: null,
+        pid: undefined,
+        reason,
+        stdout: "private-stdout-canary",
+        stderr,
+      };
+      assert.throws(
+        () => assertResourceContracts(result),
+        (error) => {
+          assert.ok(error instanceof assert.AssertionError);
+          assert.equal(error.actual, reason === "exit" ? 3 : reason);
+          assert.equal(error.expected, reason === "exit" ? 0 : "exit");
+          assert.doesNotMatch(error.message, /private-/u);
+          assert.doesNotMatch(error.stack ?? "", /private-/u);
+          assert.match(
+            error.message,
+            reason !== "output_limit" &&
+              (stderr === prefix || stderr === prefix + "private-auth-canary\n")
+              ? /lastStarted=/u
+              : /unknown/u,
+          );
+          return true;
+        },
+      );
+    }
+  assert.throws(
+    () =>
+      assertResourceContracts({
+        code: null,
+        signal: null,
+        pid: undefined,
+        reason: "output_limit",
+        stdout: "private-stdout",
+        /** @returns {string} */
+        get stderr() {
+          throw new Error("private-stderr-getter");
+        },
+      }),
+    (error) =>
+      error instanceof assert.AssertionError &&
+      error.actual === "output_limit" &&
+      /unknown/u.test(error.message) &&
+      !/private-/u.test(error.message),
+  );
+  for (const stderr of [
+    "",
+    "private-legacy",
+    prefix,
+    prefix + "RESOURCE_SOURCE_bad-private\n",
+  ])
+    assertResourceContracts({
+      code: 0,
+      signal: null,
+      pid: undefined,
+      reason: "exit",
+      stdout: "private-stdout",
+      stderr,
+    });
+});
+
+// deterministic-test-allow unit-io: one test-owned Python listener uses the unchanged external owner and fixed700ms timeout; readiness does not extend its process lifetime.
+test("resource acquired-listener timeout retains closed progress and reaps its owned group", async () => {
+  for (const emit of [true, false]) {
+    const directory = await mkdtemp(
+      join(tmpdir(), "inside-resource-progress-"),
+    );
+    const report = join(directory, "owner.json");
+    const script = `import json,os,socket,signal,sys,unittest
+from pathlib import Path
+sys.path.insert(0,str(Path.cwd()/"scripts/observability-resource"))
+import source_progress
+class Controlled(unittest.TestCase):
+    def id(self):return source_progress.SOURCE_IDS[0]
+    def runTest(self):
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1',0));listener.listen(1)
+            value={'pid':os.getpid(),'port':listener.getsockname()[1]}
+            temporary=sys.argv[1]+'.new'
+            with open(temporary,'x') as stream:json.dump(value,stream)
+            os.replace(temporary,sys.argv[1])
+            signal.pause()
+unittest.TextTestRunner(stream=sys.stderr,verbosity=0,resultclass=${emit ? "source_progress.ProgressResult" : "unittest.TextTestResult"}).run(unittest.TestSuite([Controlled()]))
+`;
+    const pending = runOwnedProcess("python3", ["-B", "-c", script, report], {
+      timeoutMs: 700,
+      terminateGraceMs: 250,
+      cleanupBudgetMs: 3000,
+    });
+    let settled = false,
+      failed = false;
+    void pending.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    try {
+      const deadline = performance.now() + 4000;
+      let raw;
+      while (raw === undefined) {
+        try {
+          raw = await readFile(report, "utf8");
+        } catch (error) {
+          if (
+            !(error instanceof Error) ||
+            !("code" in error) ||
+            error.code !== "ENOENT"
+          )
+            throw error;
+          assert.ok(
+            !settled && performance.now() < deadline,
+            "closed fixture acquisition deadline",
+          );
+          // deterministic-test-allow duration-wait: poll this fixture's atomic listener report; owner timeout remains700ms regardless of the four-second readiness bound.
+          await delay(10);
+        }
+      }
+      assert.ok(Buffer.byteLength(raw) <= 4096, "closed fixture report size");
+      assert.ok(
+        /^\{"pid": [1-9][0-9]{0,9}, "port": [1-9][0-9]{0,4}\}$/u.test(raw),
+        "closed fixture report grammar",
+      );
+      /** @type {unknown} */
+      const state = JSON.parse(raw);
+      assert.ok(typeof state === "object" && state !== null);
+      /** @param {"pid"|"port"} key */
+      const integer = (key) => {
+        /** @type {unknown} */
+        const value = Reflect.get(state, key);
+        assert.ok(
+          typeof value === "number" &&
+            Number.isSafeInteger(value) &&
+            value > 1 &&
+            value <= 2 ** 31 - 1,
+          "closed fixture field",
+        );
+        return value;
+      };
+      const pid = integer("pid"),
+        port = integer("port");
+      assert.ok(port <= 65535, "closed fixture port");
+      const result = await pending;
+      assert.equal(pid, result.pid, "closed fixture owned process identity");
+      assert.equal(result.reason, "timeout");
+      assert.deepEqual(
+        sourceProgress(result.stderr),
+        emit
+          ? {
+              lastStarted: sourceIds[0],
+              lastCompleted: null,
+              completedCount: 0,
+            }
+          : null,
+      );
+      assert.throws(
+        () => assertResourceContracts(result),
+        (error) =>
+          error instanceof assert.AssertionError &&
+          error.actual === "timeout" &&
+          !/private-/u.test(error.message),
+      );
+      assert.throws(
+        () => process.kill(pid, 0),
+        (error) =>
+          error instanceof Error && "code" in error && error.code === "ESRCH",
+      );
+      const listener = createServer();
+      try {
+        await new Promise((resolve, reject) => {
+          listener.once("error", reject);
+          listener.listen(port, "127.0.0.1", () => resolve(undefined));
+        });
+      } finally {
+        if (listener.listening)
+          await new Promise((resolve) =>
+            listener.close(() => resolve(undefined)),
+          );
+      }
+    } catch (error) {
+      failed = true;
+      throw error;
+    } finally {
+      await pending.catch(() => undefined);
+      await rm(directory, { recursive: true, force: true }).catch((error) => {
+        if (!failed) throw error;
+      });
+    }
+  }
+});
+
+// deterministic-test-allow unit-io: external owner closes the complete load worker/CLI group on failure, timeout and signals; caller owns temporary files.
+test("fullstack load keeps exactly 400 operations and validates native MCP SSE", async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "inside-fullstack-load-contract-"),
+  );
+  try {
+    const result = await runOwnedProcess(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL(
+            "./observability-fullstack/load-contract.mjs",
+            import.meta.url,
+          ),
+        ),
+        directory,
+      ],
+      { timeoutMs: 15000 },
+    );
+    assert.equal(result.reason, "exit", result.stderr);
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      ok: true,
+      scheduled: 400,
+      mcp_sse: 50,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+// deterministic-test-allow unit-io: external owner closes the complete load worker/CLI group on failure, timeout and signals; caller owns temporary files.
+test("fullstack ON load reads native stats and reconciles the admitted privacy cohort", async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "inside-fullstack-load-contract-"),
+  );
+  try {
+    for (const scenario of ["positive", "query-failures"]) {
+      const result = await runOwnedProcess(
+        process.execPath,
+        [
+          fileURLToPath(
+            new URL(
+              "./observability-fullstack/load-contract.mjs",
+              import.meta.url,
+            ),
+          ),
+          directory,
+          "on",
+          scenario,
+        ],
+        { timeoutMs: 15000 },
+      );
+      assert.equal(result.reason, "exit", result.stderr);
+      assert.equal(result.code, 0, result.stdout + result.stderr);
+      assert.deepEqual(
+        JSON.parse(result.stdout),
+        scenario === "positive"
+          ? {
+              ok: true,
+              scheduled: 400,
+              mcp_sse: 50,
+            }
+          : { ok: true, closed_query_failures: 17, scheduled: 0 },
+      );
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+// deterministic-test-allow unit-io: existing external owner bounds the actual technical HTTP helper/client group; all private files and sockets remain caller-owned.
+test("fullstack technical client keeps seven real HTTP lanes in OFF, ON and MCP failure", async () => {
+  for (const mode of ["off", "on", "on-failure"]) {
+    const directory = await mkdtemp(join(tmpdir(), "inside-technical-load-"));
+    try {
+      const result = await runOwnedProcess(
+        process.execPath,
+        [
+          fileURLToPath(
+            new URL(
+              "./observability-fullstack/load-contract.mjs",
+              import.meta.url,
+            ),
+          ),
+          directory,
+          mode === "off" ? "off" : "on",
+          mode === "on-failure" ? "technical-failure" : "technical",
+        ],
+        { timeoutMs: 15000 },
+      );
+      assert.equal(result.reason, "exit", result.stderr);
+      assert.equal(result.code, 0, result.stdout + result.stderr);
+      assert.ok(result.pid !== undefined);
+      assert.equal(processGroupExists(result.pid), false);
+      /** @type {unknown} */
+      const value = JSON.parse(
+        await readFile(join(directory, "technical-client-result.json"), "utf8"),
+      );
+      assert.ok(typeof value === "object" && value !== null);
+      assert.partialDeepStrictEqual(value, {
+        scope: "technical",
+        scheduled: 400,
+        disabled_operations: 50,
+        attempted_probe_points: mode === "off" ? 0 : 400,
+        completed: mode !== "on-failure",
+        unexpected_failures: mode === "on-failure" ? 1 : 0,
+      });
+      assert.deepEqual(
+        Reflect.get(value, "http_operations"),
+        Object.fromEntries(
+          [
+            "web_home",
+            "web_material",
+            "api_catalog",
+            "api_account",
+            "mcp_discovery",
+            "telegram_webhook",
+            "logto_discovery",
+          ].map((label) => [
+            label,
+            {
+              attempted: 50,
+              completed: 50,
+              successful:
+                mode === "on-failure" && label === "mcp_discovery" ? 49 : 50,
+            },
+          ]),
+        ),
+      );
+      /** @type {unknown} */
+      const monitoring = Reflect.get(value, "monitoring_http");
+      assert.ok(typeof monitoring === "object" && monitoring !== null);
+      /** @type {unknown} */
+      const attempted = Reflect.get(monitoring, "attempted");
+      assert.ok(typeof attempted === "number");
+      assert.equal(attempted > 0, mode !== "off");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+});
+
+// deterministic-test-allow unit-io: actual helper/client inherit the existing owner group; test-only spawn receipt proves the actual client is reaped even when the helper cannot execute finally.
+test("fullstack technical helper loss and timeout reap the actual client", async () => {
+  for (const scenario of ["failure", "timeout", "sigkill"]) {
+    const directory = await mkdtemp(join(tmpdir(), "inside-technical-owner-"));
+    try {
+      const preload = join(directory, "owner-receipt.mjs");
+      const receipt = join(directory, "owner-receipt.json");
+      await writeFile(
+        preload,
+        `import cp from 'node:child_process';import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
+const spawn=cp.spawn;cp.spawn=(...args)=>{const child=spawn(...args);fs.writeFileSync(${JSON.stringify(receipt)},JSON.stringify([process.pid,child.pid]));
+${scenario === "failure" ? "process.exit(7);" : scenario === "sigkill" ? "process.kill(process.pid,'SIGKILL');" : ""}return child;};syncBuiltinESMExports();`,
+      );
+      const result = await runOwnedProcess(
+        process.execPath,
+        [
+          "--import",
+          preload,
+          fileURLToPath(
+            new URL(
+              "./observability-fullstack/load-contract.mjs",
+              import.meta.url,
+            ),
+          ),
+          directory,
+          "on",
+          "technical",
+        ],
+        { timeoutMs: scenario === "timeout" ? 1000 : 15000 },
+      );
+      /** @type {unknown} */
+      const pids = JSON.parse(await readFile(receipt, "utf8"));
+      assert.ok(
+        Array.isArray(pids) &&
+          pids.length === 2 &&
+          typeof pids[0] === "number" &&
+          typeof pids[1] === "number",
+      );
+      assert.equal(result.pid, pids[0]);
+      assert.equal(processGroupExists(pids[0]), false);
+      /** @type {unknown} */
+      const clientPid = pids[1];
+      assert.ok(
+        typeof clientPid === "number" &&
+          Number.isSafeInteger(clientPid) &&
+          clientPid > 0,
+      );
+      assert.throws(() => process.kill(clientPid, 0), { code: "ESRCH" });
+      if (scenario === "timeout") assert.equal(result.reason, "timeout");
+      if (scenario === "failure") assert.equal(result.code, 7);
+      if (scenario === "sigkill") assert.equal(result.signal, "SIGKILL");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+});
+
+// deterministic-test-allow unit-io: the existing external process owner bounds each real diagnostic client and loopback fixture, and reaps all descendants on failure, timeout or interruption.
+for (const [mode, ordinal] of [
+  ["off", 1],
+  ["on", 7],
+]) {
+  // deterministic-test-allow unit-io: the existing external process owner bounds this real diagnostic client and loopback fixture, and reaps all descendants on failure, timeout or interruption.
+  test(`stability diagnostic ${String(mode).toUpperCase()} real client retains400operations8slots fixed cohort and unique transport identities`, async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "inside-stability-contract-"),
+    );
+    try {
+      const result = await runOwnedProcess(
+        process.execPath,
+        [
+          fileURLToPath(
+            new URL(
+              "./observability-fullstack/load-contract.mjs",
+              import.meta.url,
+            ),
+          ),
+          directory,
+          String(mode),
+          `stability-${ordinal}`,
+        ],
+        { timeoutMs: 15000 },
+      );
+      assert.equal(result.reason, "exit", result.stderr);
+      assert.equal(result.code, 0, result.stdout + result.stderr);
+      assert.deepEqual(JSON.parse(result.stdout), {
+        ok: true,
+        scheduled: 400,
+        mcp_sse: 50,
+        diagnosticOrdinal: ordinal,
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}
+
+// deterministic-test-allow unit-io: external owner bounds each real CLI/HTTP fixture and its inherited children; test owns all temporary files.
+for (const { name, mode, ordinal, control } of [
+  { name: "probe occupancy", mode: "on", ordinal: "normal", control: "probe" },
+  {
+    name: "warmup application occupancy",
+    mode: "off",
+    ordinal: "stability-0",
+    control: "application",
+  },
+]) {
+  test(`first refusal records ${name} through its real collector`, async () => {
+    const directory = await mkdtemp(join(tmpdir(), "inside-first-refusal-"));
+    try {
+      const result = await runOwnedProcess(
+        process.execPath,
+        [
+          fileURLToPath(
+            new URL(
+              "./observability-fullstack/load-contract.mjs",
+              import.meta.url,
+            ),
+          ),
+          directory,
+          mode,
+          ordinal,
+          control,
+        ],
+        { timeoutMs: 15000 },
+      );
+      assert.equal(result.reason, "exit", result.stderr);
+      // Exercise collection even when the new producer assertion is still RED.
+      const collected = await runOwnedProcess(
+        "python3",
+        [
+          "-B",
+          "-c",
+          "import sys;sys.path.insert(0,sys.argv[1]);from test_stability import verify_actual_client_refusal;verify_actual_client_refusal(sys.argv[2],sys.argv[3])",
+          fileURLToPath(new URL("./observability-fullstack", import.meta.url)),
+          join(directory, "slot-refusal-result.json"),
+          ordinal,
+        ],
+        { timeoutMs: 5000 },
+      );
+      assert.equal(collected.code, 0, collected.stderr);
+      assert.equal(result.code, 0, result.stderr);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}
+
+// deterministic-test-allow unit-io: existing process owner bounds real loopback TLS, original2s timeout and all fixture children/sockets; caller removes private synthetic certificates.
+test("passive Web timing preserves real TLS response, failures and request ownership", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "inside-web-transport-"));
+  try {
+    const result = await runOwnedProcess(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL(
+            "./observability-fullstack/load-contract.mjs",
+            import.meta.url,
+          ),
+        ),
+        directory,
+        "off",
+        "web-transport",
+      ],
+      { timeoutMs: 15000 },
+    );
+    assert.equal(result.reason, "exit", result.stderr);
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      ok: true,
+      web_transport: true,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+// deterministic-test-allow unit-io: root owner bounds the actual readiness CLI and loopback worker, including failure, timeout and SIGKILL; caller removes all test-only preload files after group closure.
+test("technical source warmup waits for both real Web bodies and keeps bounded ownership", async () => {
+  const worker = fileURLToPath(
+    new URL(
+      "./observability-fullstack/source-warmup-contract.mjs",
+      import.meta.url,
+    ),
+  );
+  for (const scenario of ["complete", "failure", "timeout", "sigkill"]) {
+    const directory = await mkdtemp(join(tmpdir(), "inside-source-warmup-"));
+    try {
+      const args = [worker, directory];
+      if (scenario !== "complete") {
+        const receipt = join(directory, "owner-receipt.json");
+        const preload = join(directory, "owner-receipt.mjs");
+        await writeFile(
+          preload,
+          `import cp from 'node:child_process';import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
+const spawn=cp.spawn;cp.spawn=(...args)=>{const child=spawn(...args);fs.writeFileSync(${JSON.stringify(receipt)},JSON.stringify([process.pid,child.pid]));${scenario === "failure" ? "process.exit(7);" : scenario === "sigkill" ? "process.kill(process.pid,'SIGKILL');" : ""}return child;};syncBuiltinESMExports();`,
+        );
+        args.unshift("--import", preload);
+        args.push("hold");
+      }
+      const result = await runOwnedProcess(process.execPath, args, {
+        timeoutMs: scenario === "timeout" ? 1000 : 15000,
+      });
+      assert.ok(result.pid !== undefined);
+      assert.equal(processGroupExists(result.pid), false);
+      if (scenario === "complete") {
+        assert.equal(result.reason, "exit", result.stderr);
+        assert.equal(result.code, 0, result.stdout + result.stderr);
+        assert.deepEqual(JSON.parse(result.stdout), { ok: true, cases: 14 });
+      } else {
+        /** @type {unknown} */ const pids = JSON.parse(
+          await readFile(join(directory, "owner-receipt.json"), "utf8"),
+        );
+        assert.ok(
+          Array.isArray(pids) &&
+            pids.length === 2 &&
+            pids.every((value) => Number.isSafeInteger(value) && value > 0),
+        );
+        /** @type {unknown} */ const workerPid = pids[0];
+        /** @type {unknown} */ const clientPid = pids[1];
+        assert.ok(
+          typeof workerPid === "number" &&
+            typeof clientPid === "number" &&
+            Number.isSafeInteger(clientPid) &&
+            clientPid > 0,
+        );
+        assert.equal(result.pid, workerPid);
+        assert.throws(() => process.kill(clientPid, 0), { code: "ESRCH" });
+        if (scenario === "timeout") assert.equal(result.reason, "timeout");
+        if (scenario === "failure") assert.equal(result.code, 7);
+        if (scenario === "sigkill") assert.equal(result.signal, "SIGKILL");
+      }
+      /** @type {unknown} */ const listener = JSON.parse(
+        await readFile(join(directory, "listener.json"), "utf8"),
+      );
+      assert.ok(listener !== null && typeof listener === "object");
+      /** @type {unknown} */ const port = Reflect.get(listener, "port");
+      assert.ok(
+        typeof port === "number" &&
+          Number.isSafeInteger(port) &&
+          port > 0 &&
+          port <= 65535,
+      );
+      const released = createServer();
+      try {
+        await new Promise((resolve, reject) => {
+          released.once("error", reject);
+          released.listen(port, "127.0.0.1", () => resolve(undefined));
+        });
+      } finally {
+        if (released.listening)
+          await new Promise((resolve, reject) =>
+            released.close((error) =>
+              error ? reject(error) : resolve(undefined),
+            ),
+          );
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+});

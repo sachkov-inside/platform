@@ -214,10 +214,22 @@ test("supplementary navigation expands with keyboard and preserves the course an
   const links = group.getByRole("link");
   await expect(links).toHaveCount(3);
   const toggle = group.getByRole("button", { name: "Показать ещё" });
-  const controlledId = await toggle.getAttribute("aria-controls");
-  if (controlledId === null || controlledId.length === 0)
-    throw new Error("Missing aria-controls");
-  await expect(group.locator("ul")).toHaveAttribute("id", controlledId);
+  // Hydration can replace the opaque React ID; read the current pair together.
+  await expect
+    .poll(() =>
+      group.locator("ul").evaluate((list) => {
+        const controlledId = list.id;
+        return (
+          list.isConnected &&
+          controlledId.length > 0 &&
+          list
+            .closest("nav")
+            ?.querySelector("button[aria-controls]")
+            ?.getAttribute("aria-controls") === controlledId
+        );
+      }),
+    )
+    .toBe(true);
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await toggle.focus();
   await page.keyboard.press("Enter");

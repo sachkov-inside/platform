@@ -3,6 +3,7 @@
   "files": [
     "src/entrypoints/api.ts",
     "src/entrypoints/mcp.ts",
+    "src/entrypoints/composition/assemble-materials.ts",
     "src/entrypoints/material-assets-worker.ts",
     "src/entrypoints/profile-avatars-worker.ts",
     "src/entrypoints/video-deletions-worker.ts",

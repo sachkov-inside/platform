@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "name": "platform-representative-v1",
+  "accounts": 256,
+  "materials": 512,
+  "pairs": [
+    ["off", "on"],
+    ["on", "off"]
+  ],
+  "phases": [
+    {
+      "name": "idle",
+      "seconds": 10,
+      "requests_per_second": 0
+    },
+    {
+      "name": "steady",
+      "seconds": 40,
+      "requests_per_second": 10
+    },
+    {
+      "name": "spike",
+      "seconds": 10,
+      "requests_per_second": 40
+    }
+  ],
+  "concurrency": 8,
+  "request_timeout_ms": 2000,
+  "sample_interval_seconds": 2,
+  "sample_ratio": 1,
+  "operations": [
+    "web_home",
+    "web_material",
+    "api_catalog",
+    "api_account",
+    "mcp_discovery",
+    "analytics_send",
+    "telegram_webhook",
+    "logto_discovery"
+  ],
+  "thresholds": {
+    "query_seconds": 10,
+    "ingestion_lag_seconds": 60,
+    "http_p95_overhead_percent": 5,
+    "additional_host_cpu_fraction": 0.1,
+    "application_reserve_fraction": 0.25
+  },
+  "candidate_memory_gib": [4, 8],
+  "provenance": "Synthetic active-actor envelope: 256 Accounts/256 BotContacts and 512 published Materials. Read-only production aggregates on 2026-10-27: 180 Accounts, 190 BotContacts, 82 Materials (55 published). This bounds current cardinality only; production traffic, history and database bytes are not reproduced."
+}

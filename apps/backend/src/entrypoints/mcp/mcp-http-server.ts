@@ -1,3 +1,8 @@
+import type { ActivityRetentionDiagnostics } from "./activity-retention-diagnostics.js";
+import type { ParticipantDiagnostics } from "./participant-diagnostics.js";
+import { type QueueDiagnostics } from "./queue-diagnostics.js";
+import type { SalesFunnel } from "../../modules/sales-funnel/index.js";
+import type { PaymentDiagnostics } from "../../modules/billing/index.js";
 import type { WebTelemetry } from "../../modules/web-telemetry/index.js";
 import type { BillingOwnerTools } from "../../modules/billing/index.js";
 import type { VideoAuthoringTools } from "../../modules/videos/index.js";
@@ -17,12 +22,15 @@ import {
   type OAuthProtectedResourceMetadata,
 } from "@modelcontextprotocol/server";
 
+import type { TechnicalTelemetry } from "../../infrastructure/observability/technical-telemetry.js";
+import { observeNodeHttpRequest } from "../../infrastructure/observability/node-http-telemetry.js";
 import type { McpConfig } from "../../config/mcp-config.js";
 import { PRIVATE_NO_STORE_HEADERS } from "../../infrastructure/http/http-cache-policy.js";
 import {
   generateRequestId,
   reportDependencyFailure,
   runWithLogContext,
+  type LogContext,
 } from "../../infrastructure/observability/index.js";
 import type { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import {
@@ -53,10 +61,16 @@ export function createMcpHttpServer(dependencies: {
   readonly communications: Pick<Communications, "execute">;
   readonly telemetry: Pick<WebTelemetry, "summary">;
   readonly billing: BillingOwnerTools;
+  readonly diagnostics: Pick<PaymentDiagnostics, "read">;
+  readonly retention: Pick<ActivityRetentionDiagnostics, "read">;
+  readonly participants: Pick<ParticipantDiagnostics, "read">;
+  readonly queues: Pick<QueueDiagnostics, "read">;
+  readonly funnel: Pick<SalesFunnel, "readDiagnostics">;
   readonly config: McpConfig;
   readonly identityIssuer: string;
   readonly readiness: Pick<OperationalReadiness, "check" | "live">;
   readonly tokenVerifier: LogtoAccessTokenVerifier;
+  readonly technicalTelemetry?: TechnicalTelemetry;
   readonly onError?: (error: Error) => void;
 }): McpHttpServer {
   const configuredUrl = new URL(dependencies.config.serverUrl);
@@ -72,6 +86,11 @@ export function createMcpHttpServer(dependencies: {
         accountId: authenticatedAccountId(authInfo?.extra),
         authoring: dependencies.authoring,
         billing: dependencies.billing,
+        diagnostics: dependencies.diagnostics,
+        funnel: dependencies.funnel,
+        queues: dependencies.queues,
+        participants: dependencies.participants,
+        retention: dependencies.retention,
         telemetry: dependencies.telemetry,
         communications: dependencies.communications,
         videos: dependencies.videos,
@@ -164,25 +183,47 @@ export function createMcpHttpServer(dependencies: {
   ];
   const validateHost = hostHeaderValidation(allowedHostnames);
   const validateOrigin = originValidation(allowedHostnames);
+  const knownPaths = new Set([
+    "/_health/live",
+    "/_health/ready",
+    new URL(metadataUrl).pathname,
+    new URL(learningMetadataUrl).pathname,
+    learningUrl.pathname,
+    configuredUrl.pathname,
+  ]);
   const server = createServer((request, response) => {
-    if (
-      !validateHost(request, response) ||
-      !validateOrigin(request, response)
-    ) {
-      return;
-    }
-    const completeRequest = Object.assign(request, {
+    const path = URL.parse(request.url ?? "/", configuredUrl)?.pathname;
+    const route = path !== undefined && knownPaths.has(path) ? path : undefined;
+    const scope: LogContext = {
+      process: "mcp",
+      requestId: generateRequestId(),
       method: request.method ?? "GET",
-      url: request.url ?? "/",
-    });
-    runWithLogContext(
-      {
-        process: "mcp",
-        requestId: generateRequestId(),
-        method: completeRequest.method,
-      },
-      () => void nodeHandler(completeRequest, response),
-    );
+      ...(route === undefined ? {} : { route }),
+    };
+    const observation =
+      dependencies.technicalTelemetry === undefined
+        ? undefined
+        : observeNodeHttpRequest(
+            request,
+            response,
+            dependencies.technicalTelemetry,
+            scope,
+          );
+    const handle = () => {
+      if (
+        !validateHost(request, response) ||
+        !validateOrigin(request, response)
+      ) {
+        return;
+      }
+      const completeRequest = Object.assign(request, {
+        method: request.method ?? "GET",
+        url: request.url ?? "/",
+      });
+      void nodeHandler(completeRequest, response);
+    };
+    if (observation === undefined) runWithLogContext(scope, handle);
+    else observation.run(handle);
   });
 
   return {

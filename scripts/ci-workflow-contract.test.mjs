@@ -1,6 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -33,6 +34,477 @@ const setupAction = readFileSync(
   resolve(repositoryRoot, ".github/actions/setup-platform/action.yml"),
   "utf8",
 );
+const resourceWorkflow = readFileSync(
+  resolve(repositoryRoot, ".github/workflows/observability-resource.yml"),
+  "utf8",
+);
+const signozWorkflow = readFileSync(
+  resolve(repositoryRoot, ".github/workflows/observability-signoz.yml"),
+  "utf8",
+);
+
+/** @param {string} source */
+function assertNodeCacheSegmentTimeout(source) {
+  const nodeStep =
+    source.match(
+      /^ {4}- name: Install Node\.js\n([\s\S]*?)(?=\n {4}- name:|(?![\s\S]))/mu,
+    )?.[1] ?? "";
+  assert.match(nodeStep, /^ {6}uses: actions\/setup-node@/mu);
+  assert.match(
+    nodeStep,
+    /^ {6}env:\n {8}SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"$/mu,
+  );
+  assert.equal(
+    [...source.matchAll(/SEGMENT_DOWNLOAD_TIMEOUT_MINS/gu)].length,
+    1,
+    "only setup-node may override the cache segment timeout",
+  );
+}
+
+/** @param {string} source */
+function assertResourceHostNode(source) {
+  const reference = signozWorkflow.match(
+    /uses: (actions\/setup-node@[^\n]+)/u,
+  )?.[1];
+  assert.ok(reference);
+  const jobs = [
+    ...source.matchAll(
+      /^ {2}(resource|fullstack|stability|cpu-control|fullstack-protocol-shard):\n([\s\S]*?)(?=^ {2}[a-z][a-z0-9-]*:\n|(?![\s\S]))/gmu,
+    ),
+  ];
+  assert.deepEqual(
+    jobs.map(([, name]) => name),
+    [
+      "resource",
+      "fullstack",
+      "stability",
+      "cpu-control",
+      "fullstack-protocol-shard",
+    ],
+  );
+  for (const [, name, body = ""] of jobs) {
+    const setup = body.indexOf(`uses: ${reference}`);
+    const facts = body.indexOf("- name: Verify pinned host Node facts");
+    const contracts = body.search(
+      /run: (?:bash scripts\/heavy-check\.sh )?python3/u,
+    );
+    assert.ok(
+      setup >= 0 && setup < facts && facts < contracts,
+      `${name}: pinned host Node must precede process contracts`,
+    );
+    assert.match(
+      body.slice(setup, facts),
+      /node-version-file: \.node-version\n\s+architecture: x64/u,
+    );
+    const verification = body.slice(facts, contracts);
+    assert.match(verification, /readFileSync\("\.node-version", "utf8"\)/u);
+    assert.match(verification, /process\.version !== expected/u);
+    assert.match(verification, /process\.arch !== "x64"/u);
+    assert.match(verification, /process\.platform !== "linux"/u);
+    assert.match(
+      verification,
+      /JSON\.stringify\(\{ node: process\.version, architecture: process\.arch, platform: process\.platform \}\)/u,
+    );
+  }
+  assert.doesNotMatch(
+    source,
+    /uses: \.\/\.github\/actions\/setup-platform|(?:pnpm|npm) install/u,
+  );
+}
+
+/** @param {string} source */
+function resourceJobs(source) {
+  assert.equal(source.split("jobs:\n").length, 2);
+  const body = source.split("jobs:\n")[1];
+  assert.ok(body);
+  const matches = [
+    ...body.matchAll(
+      /^ {2}([a-z][a-z0-9-]*):\n([\s\S]*?)(?=^ {2}[a-z][a-z0-9-]*:\n|(?![\s\S]))/gmu,
+    ),
+  ];
+  assert.deepEqual(
+    matches.map(([, name]) => name),
+    [
+      "resource",
+      "fullstack",
+      "stability",
+      "cpu-control",
+      "fullstack-protocol-shard",
+      "fullstack-protocol",
+    ],
+  );
+  return new Map(matches.map(([, name = "", body = ""]) => [name, body]));
+}
+
+const resourceDiskStep = `      - name: Prepare preinstalled hosted Android SDK disk
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+`;
+const resourceScopeStep = `      - name: Select exact assigned technical profile, otherwise full
+        id: scope
+        timeout-minutes: 1
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+`;
+const resourceScopePrefix =
+  "${{ steps.scope.outputs.scope == 'technical' && 'fullstack-technical' || 'fullstack' }}";
+const resourceScopeArgument =
+  '          --scope "${{ steps.scope.outputs.scope }}"\n';
+
+it("refuses CPU technical scope, disk and budget bypasses while retaining full defaults", () => {
+  const body = resourceJobs(resourceWorkflow).get("cpu-control");
+  assert.ok(body);
+  assertResourceProtocol(resourceWorkflow);
+  for (const [before = "", after = ""] of [
+    ["&& 40 || 24", "&& 41 || 24"],
+    ["&& 40 || 24", "&& 40 || 25"],
+    ["hosted_disk.py", "hosted_disk.py --force"],
+    ["if: ${{ steps.scope.outputs.scope == 'technical' }}", "if: ${{ true }}"],
+    ["cpu-control-admission --scope", "cpu-control-admission --unknown-scope"],
+    ['--scope "${{ steps.scope.outputs.scope }}"', "--scope full"],
+    ["select-scope >>", "select-other >>"],
+  ]) {
+    assert.ok(body.includes(before));
+    assert.throws(() =>
+      assertResourceProtocol(
+        resourceWorkflow.replace(body, body.replace(before, after)),
+      ),
+    );
+  }
+});
+
+it("binds existing stability technical scope, private paths and original containment before image preparation", () => {
+  const body = resourceJobs(resourceWorkflow).get("stability");
+  assert.ok(body);
+  assertResourceProtocol(resourceWorkflow);
+  for (const [before = "", after = ""] of [
+    ["&& 30 || 12", "&& 31 || 12"],
+    ["&& 30 || 12", "&& 30 || 13"],
+    ["hosted_disk.py", "hosted_disk.py --force"],
+    ["if: ${{ steps.scope.outputs.scope == 'technical' }}", "if: ${{ true }}"],
+    ["diagnostic-admission --scope", "diagnostic-admission --unknown-scope"],
+    ['--scope "${{ steps.scope.outputs.scope }}"', "--scope full"],
+    ["select-scope >>", "select-other >>"],
+    ["'stability-technical'", "'stability'"],
+    ["fixed-actor-primed400-v1", "fixed-actor-cold400-v1"],
+  ]) {
+    assert.ok(body.includes(before));
+    assert.throws(() =>
+      assertResourceProtocol(
+        resourceWorkflow.replace(body, body.replace(before, after)),
+      ),
+    );
+  }
+});
+
+/** @param {string} source */
+function assertResourceProtocol(source) {
+  const jobs = resourceJobs(source);
+  assertResourceHostNode(source);
+  const digest = (/** @type {string} */ text) =>
+    createHash("sha256").update(text.trimEnd()).digest("hex");
+  // Immutable pre-partition native bodies. Reverse only approved preparation
+  // and scheduling edits; retain every original command, budget and opt-in.
+  const nativeHashes = {
+    resource:
+      "aadf92ad3fced36f2a41b9f2b958a494b86b98b8c80000997ebc5c4ec21b9740",
+    fullstack:
+      "0031dc8fa00b5886e7539fed9647edd22cc46219290a270b4a50e42710b2593f",
+    stability:
+      "22c06bdaa977f62153d2c1298386b9d68987139e7e6df77dcc7de4cc75418a4f",
+    "cpu-control":
+      "05b46345052647862d979b2c52bf5cb2601c2a71a94a7cf86ba27295a6917f69",
+  };
+  const originalStep =
+    "      - name: Verify whole-stack admission, ownership and acceptance contracts\n        timeout-minutes: 2\n        run: bash scripts/heavy-check.sh python3 -B -m unittest discover -s scripts/observability-fullstack -p 'test_*.py'\n";
+  for (const [name, expected] of Object.entries(nativeHashes)) {
+    const body = jobs.get(name);
+    assert.ok(body);
+    assert.ok(body.startsWith("    needs: fullstack-protocol\n"));
+    assert.equal([...body.matchAll(/^ {4}needs:/gmu)].length, 1);
+    let original = body.replace("    needs: fullstack-protocol\n", "");
+    if (name === "stability") {
+      const disk = resourceDiskStep.replace(
+        "        timeout-minutes: 3",
+        "        if: ${{ steps.scope.outputs.scope == 'technical' }}\n        timeout-minutes: 3",
+      );
+      const prefix =
+        "${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}";
+      const measure =
+        "      - name: Measure diagnostic control through scope-bound supervisor\n        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}\n";
+      const admission =
+        '        run: python3 scripts/observability-fullstack/fullstack.py diagnostic-admission --scope "${{ steps.scope.outputs.scope }}"\n';
+      for (const [delta, count] of /** @type {[string, number][]} */ ([
+        [resourceScopeStep, 1],
+        [disk, 1],
+        [prefix, 13],
+        [measure, 1],
+        [admission, 1],
+        [resourceScopeArgument, 4],
+      ]))
+        assert.equal(original.split(delta).length, count + 1);
+      assert.ok(
+        original.includes(
+          resourceScopeStep +
+            "      - name: Require exact diagnostic marker in the strict PR context\n",
+        ),
+      );
+      assert.ok(
+        original.includes(
+          admission +
+            disk +
+            "      - name: Bind complete source and existing disk admission\n",
+        ),
+      );
+      original = original
+        .replace(resourceScopeStep, "")
+        .replace(disk, "")
+        .replace(
+          measure,
+          "      - name: Measure diagnostic control through unchanged 600-second supervisor\n        timeout-minutes: 12\n",
+        )
+        .replace(
+          admission,
+          "        run: python3 scripts/observability-fullstack/fullstack.py diagnostic-admission\n",
+        )
+        .replaceAll(resourceScopeArgument, "")
+        .replaceAll(prefix, "stability");
+    }
+    if (name === "cpu-control") {
+      const disk = `      - name: Prepare preinstalled hosted Android SDK disk
+        if: \${{ steps.scope.outputs.scope == 'technical' }}
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+`;
+      const strict =
+        '        run: python3 scripts/observability-fullstack/fullstack.py cpu-control-admission --scope "${{ steps.scope.outputs.scope }}"\n';
+      const current =
+        "      - name: Run capped then uncapped through scope-bound supervisors\n        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 40 || 24 }}\n";
+      const previous =
+        "      - name: Run capped then uncapped through separate unchanged 600-second supervisors\n        timeout-minutes: 24\n";
+      const prefix =
+        "${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}";
+      for (const [delta, count] of /** @type {[string, number][]} */ ([
+        [resourceScopeStep, 1],
+        [disk, 1],
+        [strict, 1],
+        [current, 1],
+        [prefix, 14],
+        [resourceScopeArgument, 4],
+      ]))
+        assert.equal(original.split(delta).length, count + 1);
+      assert.ok(
+        original.includes(
+          resourceScopeStep +
+            "      - name: Require exact CPU marker in the strict PR context\n",
+        ),
+      );
+      assert.ok(
+        original.includes(
+          strict +
+            disk +
+            "      - name: Bind complete source and existing disk admission\n",
+        ),
+      );
+      original = original
+        .replace(resourceScopeStep, "")
+        .replace(disk, "")
+        .replace(
+          strict,
+          "        run: python3 scripts/observability-fullstack/fullstack.py cpu-control-admission\n",
+        )
+        .replace(current, previous)
+        .replaceAll(resourceScopeArgument, "")
+        .replaceAll(prefix, "cpu-control");
+    }
+    if (name === "resource" || name === "fullstack") {
+      const admission =
+        name === "resource"
+          ? "      - name: Bind complete source and measure disk admission\n"
+          : "      - name: Bind complete source and existing disk admission\n";
+      assert.equal(original.split(resourceDiskStep).length, 2);
+      assert.equal(original.split(resourceDiskStep + admission).length, 2);
+      // Reverse only this fixed preparation step, retaining independent admission.
+      original = original.replace(resourceDiskStep, "");
+    }
+    if (name === "fullstack") {
+      // Reverse only the approved technical step name and conditional budget.
+      // The legacy full profile and every other native budget stay fingerprinted.
+      const scopedMeasureStep =
+        "      - name: Measure paired full-process corpus through scope-bound supervisor\n        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}\n";
+      const legacyMeasureStep =
+        "      - name: Measure paired full-process corpus through unchanged 600-second supervisor\n        timeout-minutes: 12\n";
+      assert.equal(original.split(scopedMeasureStep).length, 2);
+      assert.equal(original.split(resourceScopeStep).length, 2);
+      assert.equal(original.split(resourceScopeArgument).length, 5);
+      assert.equal(original.split(resourceScopePrefix).length, 14);
+      original = original
+        .replace(scopedMeasureStep, legacyMeasureStep)
+        .replace(resourceScopeStep, "")
+        .replaceAll(resourceScopeArgument, "")
+        .replaceAll(resourceScopePrefix, "fullstack");
+    }
+    if (name !== "resource") {
+      const anchor =
+        name === "stability"
+          ? "      - name: Require exact diagnostic marker in the strict PR context\n"
+          : "      - name: Bind complete source and existing disk admission\n";
+      assert.equal(original.split(anchor).length, 2);
+      original = original.replace(anchor, originalStep + anchor);
+    }
+    assert.equal(digest(original), expected, `${name}: native policy drift`);
+  }
+  const shard = jobs.get("fullstack-protocol-shard");
+  const aggregate = jobs.get("fullstack-protocol");
+  assert.ok(shard && aggregate);
+  assert.match(shard, /timeout-minutes: 5\n/u);
+  assert.match(
+    shard,
+    /fail-fast: false\n {6}matrix:\n {8}group: \[1, 2, 3, 4, 5, 6, 7\]/u,
+  );
+  assert.match(
+    shard,
+    /persist-credentials: false\n {10}ref: \$\{\{ github.sha \}\}/u,
+  );
+  const identity = shard.indexOf(
+    'run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"',
+  );
+  const protocol = shard.indexOf(
+    'run: bash scripts/heavy-check.sh python3 -B scripts/observability-fullstack/protocol_runner.py --group "${{ matrix.group }}"',
+  );
+  assert.ok(
+    identity > shard.indexOf("Verify pinned host Node facts") &&
+      protocol > identity,
+  );
+  assert.match(
+    shard.slice(shard.lastIndexOf("      - name:")),
+    /timeout-minutes: 2\n/u,
+  );
+  assert.match(
+    aggregate,
+    /needs: \[fullstack-protocol-shard\]\n {4}if: \$\{\{ always\(\) \}\}/u,
+  );
+  assert.match(
+    aggregate,
+    /RESULT: \$\{\{ needs.fullstack-protocol-shard.result \}\}/u,
+  );
+  assert.match(aggregate, /run: test "\$RESULT" = success\n/u);
+  // Exact new blocks reject duplicate/shadowing fields, conditional cells and
+  // hidden alternatives as well as the explicit graph checks above.
+  // Reverse exactly the two new mandatory cells and their factual label first.
+  // Keep the five-cell fingerprints and the earlier four-cell inverse below;
+  // these are cumulative scheduling inverses, never candidate rebaselines.
+  const previousJobs = new Map(jobs);
+  for (const [name = "", current = "", previous = ""] of [
+    [
+      "fullstack-protocol-shard",
+      "group: [1, 2, 3, 4, 5, 6, 7]",
+      "group: [1, 2, 3, 4, 5]",
+    ],
+    [
+      "fullstack-protocol",
+      "Require all seven provider results to succeed",
+      "Require all five provider results to succeed",
+    ],
+  ]) {
+    const body = jobs.get(name) ?? "";
+    assert.equal(body.split(current).length, 2);
+    previousJobs.set(name, body.replace(current, previous));
+  }
+  const previousProtocol = [
+    [
+      "fullstack-protocol-shard",
+      "group: [1, 2, 3, 4, 5]",
+      "group: [1, 2, 3, 4]",
+      "648489f2d16e5fee834d4dda302ac948f81f6a616db671329ad2fb001f642638",
+    ],
+    [
+      "fullstack-protocol",
+      "Require all five provider results to succeed",
+      "Require all four provider results to succeed",
+      "f9522fb2702e8101d67017af3f071e78904a4e3ab24ad28512a914305bd72254",
+    ],
+  ];
+  for (const [
+    name = "",
+    current = "",
+    previous = "",
+    expected = "",
+  ] of previousProtocol) {
+    const body = previousJobs.get(name) ?? "";
+    assert.equal(body.split(current).length, 2);
+    assert.equal(digest(body.replace(current, previous)), expected);
+  }
+  const protocolHashes = {
+    "fullstack-protocol-shard":
+      "ea6f6ac5dadb089fccb7c576be57437e4fdb7544fc89360c6625a8945a22b2be",
+    "fullstack-protocol":
+      "dea48cd68ba50b3ca180e09f6b6792d858344a1bef168700c88d10684eb2ecd0",
+  };
+  for (const [name, expected] of Object.entries(protocolHashes)) {
+    assert.equal(
+      digest(previousJobs.get(name) ?? ""),
+      expected,
+      `${name}: protocol policy drift`,
+    );
+  }
+  assert.equal(
+    digest(source.split("jobs:\n")[0] ?? ""),
+    "96bee60d3ec3f842c7ec2bcc83502e9fa82dfa5a5d987d6996a449b4b7178914",
+  );
+  assert.doesNotMatch(
+    source,
+    /workflow_dispatch:|secrets:|continue-on-error:|(?:pnpm|npm) install/u,
+  );
+  assert.equal(
+    [
+      ...source.matchAll(
+        /unittest discover -s scripts\/observability-fullstack/gmu,
+      ),
+    ].length,
+    0,
+  );
+  assert.equal(
+    [
+      ...source.matchAll(
+        /run: bash scripts\/heavy-check\.sh python3 -m unittest discover -s scripts\/observability-resource -p 'test_\*\.py'/gmu,
+      ),
+    ].length,
+    1,
+  );
+}
+
+it("pins host Node before every Resource job's process contracts without application installation", () => {
+  assertResourceHostNode(resourceWorkflow);
+});
+
+it("rejects Resource host Node pin drift and setup after process contracts", () => {
+  assertResourceHostNode(resourceWorkflow);
+  const nodeSteps = resourceWorkflow.match(
+    / {6}- name: Use repository-pinned Node without application dependencies\n[\s\S]*?(?= {6}- name: Verify hosted trust contracts)/u,
+  )?.[0];
+  assert.ok(nodeSteps);
+  const lateSetup = resourceWorkflow
+    .replace(nodeSteps, "")
+    .replace(
+      "      - name: Bind complete source and measure disk admission",
+      `${nodeSteps}      - name: Bind complete source and measure disk admission`,
+    );
+  for (const broken of [
+    resourceWorkflow.replace(
+      "node-version-file: .node-version",
+      "node-version: latest",
+    ),
+    resourceWorkflow.replace("architecture: x64", "architecture: arm64"),
+    resourceWorkflow.replace("actions/setup-node@", "actions/setup-platform@"),
+    resourceWorkflow.replace("process.version !== expected", "false"),
+    resourceWorkflow.replace(
+      "- name: Verify pinned host Node facts",
+      "- name: Late host Node facts",
+    ),
+    lateSetup,
+  ])
+    assert.throws(() => assertResourceHostNode(broken));
+});
 /**
  * Сторонний action закреплён коммитом: тег можно перезаписать, и чужой код выполнится с токеном
  * задачи. Комментарий хранит версию для человека и для Dependabot.
@@ -209,9 +681,13 @@ describe("application CI workflow contract", () => {
       ["modules", "check:unit:modules"],
       ["contracts", "check:contracts"],
     ]) {
+      const environment =
+        part === "tooling"
+          ? '        env:\n          INSIDE_CORE_SOURCE_PROGRESS: "1"\n'
+          : "";
       assert.ok(
         jobBlock("unit-checks").includes(
-          `if: \${{ matrix.part == '${part}' }}\n        run: pnpm ${command}`,
+          `if: \${{ matrix.part == '${part}' }}\n${environment}        run: pnpm ${command}`,
         ),
       );
     }
@@ -657,6 +1133,33 @@ describe("application CI workflow contract", () => {
       /bash scripts\/install-playwright-ci\.sh \$BROWSERS$/mu,
     );
     assert.doesNotMatch(workflow, /pnpm install/u);
+  });
+
+  it("bounds pnpm store cache segments only in the existing setup-node step", () => {
+    assertNodeCacheSegmentTimeout(setupAction);
+  });
+
+  it("rejects missing, widened, moved and duplicated cache segment overrides", () => {
+    const env = '      env:\n        SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"\n';
+    for (const candidate of [
+      setupAction.replace(env, ""),
+      setupAction.replace(env, env.replace('"2"', '"10"')),
+      setupAction.replace(env, env.replace("env:", "with:")),
+      'env:\n  SEGMENT_DOWNLOAD_TIMEOUT_MINS: "2"\n' +
+        setupAction.replace(env, ""),
+      setupAction
+        .replace(env, "")
+        .replace(
+          "    - name: Cache pnpm metadata and verification\n",
+          "    - name: Cache pnpm metadata and verification\n" + env,
+        ),
+      setupAction.replace(
+        "    - name: Restore Playwright browser engines\n",
+        "    - name: Restore Playwright browser engines\n" + env,
+      ),
+    ]) {
+      assert.throws(() => assertNodeCacheSegmentTimeout(candidate));
+    }
   });
 
   it("bounds dependency installation and reuses pnpm's policy-aware cache (#1763)", () => {
@@ -1213,6 +1716,337 @@ function assertFocusedSupersets(scripts) {
   invokes("check:unit", "check:contracts");
   invokes("check:contracts", "test:contracts");
 }
+
+it("requires complete fixed protocol coverage before all native Resource jobs", () => {
+  assertResourceProtocol(resourceWorkflow);
+});
+
+it("rejects hosted disk preparation bypasses in both Resource measurement jobs", () => {
+  assertResourceProtocol(resourceWorkflow);
+  for (const name of ["resource", "fullstack"]) {
+    const body = resourceJobs(resourceWorkflow).get(name);
+    assert.ok(body);
+    assert.ok(body.includes(resourceDiskStep));
+    const withoutStep = body.replace(resourceDiskStep, "");
+    const build = "      - name: Build ";
+    const mutations = [
+      withoutStep,
+      body.replace(resourceDiskStep, resourceDiskStep + resourceDiskStep),
+      withoutStep.replace("    steps:\n", "    steps:\n" + resourceDiskStep),
+      withoutStep.replace(build, resourceDiskStep + build),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace("timeout-minutes: 3", "timeout-minutes: 4"),
+      ),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace("hosted_disk.py", "hosted_disk.py --force"),
+      ),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace(
+          "        run:",
+          "        if: ${{ false }}\n        run:",
+        ),
+      ),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace(
+          "        run:",
+          "        continue-on-error: true\n        run:",
+        ),
+      ),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace(
+          "        run:",
+          "        env:\n          RUNNER_ENVIRONMENT: github-hosted\n        run:",
+        ),
+      ),
+      body.replace(
+        resourceDiskStep,
+        resourceDiskStep.replace(
+          "        run:",
+          "        shell: bash\n        run:",
+        ),
+      ),
+    ];
+    for (const broken of mutations) {
+      assert.notEqual(broken, body);
+      assert.throws(
+        () => assertResourceProtocol(resourceWorkflow.replace(body, broken)),
+        name,
+      );
+    }
+  }
+});
+
+it("rejects missing coverage, graph bypasses, source drift and native policy changes", () => {
+  const mutations = [
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5, 5]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 3]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5, 7]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5, 6]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5, 6, 6]"],
+    ["group: [1, 2, 3, 4, 5, 6, 7]", "group: [1, 2, 3, 4, 5, 6, 8]"],
+    [
+      "group: [1, 2, 3, 4, 5, 6, 7]",
+      "group: [1, 2, 3, 4, 5, 6, 7]\n        exclude: [{group: 5}]",
+    ],
+    [
+      "group: [1, 2, 3, 4, 5, 6, 7]",
+      "group: [1, 2, 3, 4, 5, 6, 7]\n        exclude: [{group: 6}]",
+    ],
+    [
+      "group: [1, 2, 3, 4, 5, 6, 7]",
+      "group: [1, 2, 3, 4, 5, 6, 7]\n        exclude: [{group: 7}]",
+    ],
+    ["    needs: fullstack-protocol\n", ""],
+    [
+      "    needs: fullstack-protocol\n",
+      "    needs: fullstack-protocol\n    if: ${{ always() }}\n",
+    ],
+    [
+      "    needs: fullstack-protocol\n",
+      "    needs: fullstack-protocol\n    if: ${{ false }}\n",
+    ],
+    [
+      "    needs: fullstack-protocol\n",
+      "    needs: fullstack-protocol\n    needs: []\n",
+    ],
+    [
+      "    needs: fullstack-protocol\n",
+      "    needs: [fullstack-protocol, foreign]\n",
+    ],
+    ["  resource:\n", "  resource:\n  resource:\n"],
+    ["jobs:\n", "jobs:\n  foreign:\n    runs-on: ubuntu-24.04\n"],
+    [
+      "  fullstack-protocol-shard:\n",
+      "  fullstack-protocol-shard:\n    if: ${{ false }}\n",
+    ],
+    [
+      "  fullstack-protocol-shard:\n",
+      "  fullstack-protocol-shard:\n    continue-on-error: true\n",
+    ],
+    [
+      "Verify complete whole-stack protocol group\n        timeout-minutes: 2",
+      "Verify complete whole-stack protocol group\n        timeout-minutes: 3",
+    ],
+    [
+      'protocol_runner.py --group "${{ matrix.group }}"',
+      'protocol_runner.py --group "1"',
+    ],
+    [
+      "ref: ${{ github.sha }}",
+      "ref: ${{ github.event.pull_request.head.sha }}",
+    ],
+    ['test "$(git rev-parse HEAD)" = "$GITHUB_SHA"', "true"],
+    [
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "actions/checkout@main",
+    ],
+    ["node-version-file: .node-version", "node-version: latest"],
+    ['process.platform !== "linux"', "false"],
+    ["RESULT: ${{ needs.fullstack-protocol-shard.result }}", "RESULT: success"],
+    ['test "$RESULT" = success', "true"],
+    ["    needs: [fullstack-protocol-shard]", "    needs: []"],
+    [
+      "    needs: [fullstack-protocol-shard]\n    if: ${{ always() }}",
+      "    needs: [fullstack-protocol-shard]",
+    ],
+    ["<!-- monitoring-stability: run -->", ""],
+    ["<!-- monitoring-cpu-control: app-unlimited-v1 -->", ""],
+    ["name: Matched CPU-policy diagnostic", "name: Capacity acceptance"],
+    ["timeout-minutes: 60", "timeout-minutes: 61"],
+    ["scope == 'technical' && 30 || 12", "scope == 'technical' && 17 || 12"],
+    ["scope == 'technical' && 30 || 12", "scope == 'technical' && 30 || 30"],
+    [
+      "timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}",
+      "timeout-minutes: 30",
+    ],
+    [
+      "Measure paired full-process corpus through scope-bound supervisor",
+      "Measure paired full-process corpus through unlimited supervisor",
+    ],
+    [
+      "Representative whole-process monitoring OFF/ON resource proof\n    runs-on: ubuntu-24.04\n    timeout-minutes: 60",
+      "Representative whole-process monitoring OFF/ON resource proof\n    runs-on: ubuntu-24.04\n    timeout-minutes: 61",
+    ],
+    [
+      "Measure diagnostic control through scope-bound supervisor\n        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}",
+      "Measure diagnostic control through scope-bound supervisor\n        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 13 }}",
+    ],
+    [
+      "    timeout-minutes: 1\n    env:\n      RESULT:",
+      "    timeout-minutes: 2\n    env:\n      RESULT:",
+    ],
+    ["scope-bound supervisor", "unlimited supervisor"],
+    ["fullstack.py run\n", "fullstack.py run --p95 1.10\n"],
+    ["fullstack.py cpu-control-recover", "fullstack.py cpu-control-collect"],
+    ["contents: read", "contents: write"],
+    ["persist-credentials: false", "persist-credentials: true"],
+  ];
+  for (const [before = "", after = ""] of mutations) {
+    assert.ok(resourceWorkflow.includes(before), `fixture anchor: ${before}`);
+    assert.throws(
+      () => assertResourceProtocol(resourceWorkflow.replace(before, after)),
+      before,
+    );
+  }
+});
+
+it("accepts only the provider aggregate's exact success value", () => {
+  const body = resourceJobs(resourceWorkflow).get("fullstack-protocol");
+  assert.ok(body);
+  const command = body.match(/^ {8}run: (.+)$/mu)?.[1];
+  assert.equal(command, 'test "$RESULT" = success');
+  assert.ok(command);
+  for (const result of [
+    "success",
+    "failure",
+    "cancelled",
+    "timed_out",
+    "skipped",
+    "",
+    "missing",
+    "SUCCESS",
+    "success ",
+  ]) {
+    /** @type {import("node:child_process").SpawnSyncReturns<string>} */
+    const execution = spawnSync("bash", ["-euc", command], {
+      cwd: repositoryRoot,
+      env: { ...process.env, RESULT: result },
+      encoding: "utf8",
+      timeout: 1_000,
+    });
+    assert.equal(execution.error, undefined);
+    assert.equal(execution.signal, null);
+    assert.equal(execution.status, result === "success" ? 0 : 1);
+  }
+});
+
+it("keeps fixed stdlib discovery and binds every tracked protocol source", () => {
+  const runner = readFileSync(
+    resolve(
+      repositoryRoot,
+      "scripts/observability-fullstack/protocol_runner.py",
+    ),
+    "utf8",
+  );
+  assert.match(runner, /START = Path\(__file__\)\.resolve\(\)\.parent/u);
+  assert.match(runner, /loader = unittest\.TestLoader\(\)/u);
+  assert.match(
+    runner,
+    /loader\.discover\(str\(START\), pattern='test_\*\.py'\)/u,
+  );
+  assert.match(runner, /partition\(suite, loader\.errors\)/u);
+  assert.match(runner, /GROUPS = \('1', '2', '3', '4', '5', '6', '7'\)/u);
+  assert.match(
+    runner,
+    /LATE_CASE = 'test_trace_sanitizer\.Sanitizer\.test_late_parser_owner_loss_reaps_every_born_identity_before_original_deadline'/u,
+  );
+  assert.doesNotMatch(
+    runner,
+    /os\.environ|argparse|loadTestsFromNames|\.skipTest\(|\.skip\(/u,
+  );
+  const binding = readFileSync(
+    resolve(repositoryRoot, "scripts/observability-resource/binding.py"),
+    "utf8",
+  );
+  assert.match(binding, /'ls-files', '-z', '--'/u);
+  assert.match(binding, /'docs\/contracts', 'scripts', 'infra'/u);
+  assert.match(binding, /'\.github\/workflows\/observability-resource\.yml'/u);
+});
+
+it("runs the cheap partition and inverse contracts inside required tooling within five seconds", () => {
+  const execution = spawnSync(
+    "python3",
+    [
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts/observability-fullstack",
+      "-p",
+      "test_protocol_runner.py",
+    ],
+    {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      timeout: 5_000,
+      maxBuffer: 1_048_576,
+    },
+  );
+  assert.equal(execution.error, undefined);
+  assert.equal(execution.signal, null);
+  assert.equal(execution.status, 0, execution.stderr);
+  const count = execution.stderr.match(/Ran (\d+) tests? in /u)?.[1];
+  assert.ok(count && Number(count) > 0, execution.stderr);
+});
+
+const deferredScopeJob =
+  '  scope:\n    name: Select assigned observability scope\n    runs-on: ubuntu-24.04\n    timeout-minutes: 1\n    outputs:\n      scope: ${{ steps.scope.outputs.scope }}\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n        with:\n          ref: ${{ github.sha }}\n          persist-credentials: false\n      - id: scope\n        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"\n\n';
+const deferredWorkflowHashes = {
+  signoz: "1efe0ae0ffaf0c1a687a5b9a6453bae514a922d74cf6e12af8fe22f0b2eecb35",
+  "signoz-import-control":
+    "15075f8ee4a80ac477d0fe350acc156d0c2d9bf39610bff6d11518a0288a84f6",
+  "representative-d7":
+    "e95699764ef66b30e6efe936a9b25dc2aea4cf4621d4b8b0c2e5bad6c137ca2d",
+  umami: "f3f320bac4e0bd2684599b6a8f8b074fb1e027a5ad1d0177bcd119e96ac6a48c",
+  "browser-analytics":
+    "92af13ecde77052e2b8686f19ae49ee981292c9b0a8882bb9b7c457f6bf792ff",
+};
+
+/** @param {string} source @param {string} expected */
+function assertDeferredScope(source, expected) {
+  assert.equal(source.split(deferredScopeJob).length, 2);
+  const gate =
+    "needs.scope.result == 'success' && needs.scope.outputs.scope != 'technical'";
+  let original = source.replace(deferredScopeJob, "");
+  const jobs = [
+    ...(original.split("jobs:\n")[1] ?? "").matchAll(
+      /^ {2}([a-z][a-z0-9_-]*):\n([\s\S]*?)(?=^ {2}[a-z][a-z0-9_-]*:\n|(?![\s\S]))/gmu,
+    ),
+  ];
+  assert.ok(jobs.length > 0);
+  for (const [, , body = ""] of jobs) {
+    assert.equal(body.split(gate).length, 2);
+    assert.match(body, /^ {4}needs: (scope|\[scope, [^\]]+\])$/mu);
+  }
+  original = original
+    .replaceAll(`    if: \${{ ${gate} }}\n`, "")
+    .replaceAll(`${gate} && `, "")
+    .replaceAll("    needs: scope\n", "")
+    .replaceAll("    needs: [scope, ", "    needs: [");
+  assert.equal(createHash("sha256").update(original).digest("hex"), expected);
+}
+
+it("defers only the five native analytics/comparison workflows through the exact PR selector", () => {
+  for (const [name, expected] of Object.entries(deferredWorkflowHashes)) {
+    const source = readFileSync(
+      resolve(repositoryRoot, `.github/workflows/observability-${name}.yml`),
+      "utf8",
+    );
+    assertDeferredScope(source, expected);
+    for (const [before = "", after = ""] of [
+      ["select-scope >>", "select-other >>"],
+      ["needs: scope\n", "needs: []\n"],
+      ["needs.scope.outputs.scope != 'technical'", "true"],
+      ["contents: read", "contents: write"],
+      ["persist-credentials: false", "persist-credentials: true"],
+      ["scope.outputs.scope", "scope.outputs.other"],
+    ]) {
+      assert.ok(source.includes(before));
+      assert.throws(() =>
+        assertDeferredScope(source.replace(before, after), expected),
+      );
+    }
+  }
+});
 
 /** @param {string} source */
 function requireGatewayDiagnostics(source) {

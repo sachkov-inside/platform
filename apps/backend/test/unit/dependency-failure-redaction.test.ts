@@ -96,6 +96,27 @@ describe("dependency failure redaction", () => {
     expect(postgres.line).not.toContain("member@example.com");
   });
 
+  it("retains only finite cause codes for one owned operation", () => {
+    for (const [code, category] of [
+      ["23505", "constraint"],
+      ["57014", "timeout"],
+      ["ECONNREFUSED", "connection"],
+    ]) {
+      expect(reported({ code, message: "private-value" }).record).toMatchObject(
+        {
+          module: "billing",
+          operation: "purchase",
+          failureCategory: category,
+          failureCode: code,
+        },
+      );
+    }
+    expect(reported({ code: "private-code" }).record).toMatchObject({
+      failureCategory: "unknown",
+      failureCode: "unknown",
+    });
+  });
+
   it("links the answer the caller got to the record", () => {
     const { record } = reported(new Error("socket closed"), {
       ok: false,

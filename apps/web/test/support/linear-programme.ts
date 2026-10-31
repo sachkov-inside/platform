@@ -56,7 +56,7 @@ export async function expectLinearProgrammeReturn(
     name: "Назад",
     exact: true,
   });
-  await action.scrollIntoViewIfNeeded();
+  await action.click({ trial: true });
   await expect(action).toBeVisible();
   return action;
 }

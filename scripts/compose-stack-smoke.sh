@@ -33,6 +33,11 @@ if [[ "$api_health" != *'"process":"api"'* || "$api_health" != *'"status":"ready
 fi
 
 curl --fail --silent --show-error --output /dev/null "$api_base_url/openapi"
+swagger_css="$(curl --fail --silent --show-error --connect-timeout 5 --max-time 15 "$api_base_url/openapi/swagger-ui.css")"
+if [[ "$swagger_css" != *'.swagger-ui{'* ]]; then
+  echo "Swagger static asset did not return its CSS body" >&2
+  exit 1
+fi
 
 catalog_response="$(curl --fail --silent --show-error "$api_base_url/library/materials")"
 if [[ "$catalog_response" != *'"slug":"developer-pipeline-bez-poteri-konteksta"'* || "$catalog_response" != *'"slug":"kak-ustroen-inside-platform"'* ]]; then

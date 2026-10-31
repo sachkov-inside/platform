@@ -1,3 +1,6 @@
+import { ProductTaskResourceFactsModule } from "../../modules/product-tasks/index.js";
+import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
+import { BookmarksModule } from "../../modules/bookmarks/index.js";
 import { ProductAuthoringCompositionModule } from "../composition/product-authoring-composition.module.js";
 import { ContentAccessCompositionModule } from "../composition/content-access-composition.module.js";
 import { WebTelemetryModule } from "../../modules/web-telemetry/index.js";
@@ -25,6 +28,9 @@ export class BillingWorkerModule {
         PrismaModule,
         BillingModule,
         WebTelemetryModule,
+        ReadingActivityModule,
+        BookmarksModule,
+        ProductTaskResourceFactsModule,
         CommunityEntitlementsModule,
         CoverageCatalogModule,
         ContentAccessCompositionModule,

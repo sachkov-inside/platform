@@ -40,6 +40,9 @@ jobs:
       - name: Build production applications once
         if: ${{ matrix.suite == 'web-e2e' }}
         run: pnpm build
+      - name: Build unit prerequisites once
+        if: ${{ matrix.suite == 'unit' }}
+        run: pnpm --filter @inside/backend build
       - name: Run five independent samples without retries
         env:
           FLAKE_SUITE: ${{ matrix.suite }}

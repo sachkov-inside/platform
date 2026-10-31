@@ -1,10 +1,22 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  rm,
+  lstat,
+  readdir,
+  readlink,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { z } from "zod";
+import { runOwnedProcess } from "./observability-umami/process-owner.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** @param {string} path */
@@ -321,3 +333,383 @@ function composeVariable(compose, pattern) {
   assert.ok(match, `Compose source must match ${pattern}`);
   return match[1];
 }
+
+/** @param {string} dockerfile */
+function foundationTemporaryRun(dockerfile) {
+  const add = dockerfile.indexOf("ADD --checksum=");
+  const start = dockerfile.indexOf("\nRUN ", add),
+    end = dockerfile.indexOf("\n\nFROM postgres-base\n", start);
+  assert.ok(
+    add >= 0 && start > add && end > start,
+    "unique foundation temporary RUN",
+  );
+  const body = dockerfile.slice(start + 5, end).replaceAll("\\\n", " ");
+  assert.ok(
+    !/^\s*(?:FROM|COPY|ADD|RUN) /mu.test(body),
+    "single logical foundation RUN",
+  );
+  assert.ok(
+    body.includes(
+      "meson install -C /build/output --no-rebuild --destdir /build/install",
+    ),
+  );
+  return body;
+}
+
+/** @param {string} value */
+function shellQuote(value) {
+  return "'" + value.replaceAll("'", "'\"'\"'") + "'";
+}
+
+// deterministic-test-allow unit-io: execute only the owned foundation RUN against private temporary paths and bounded command doubles; existing outside owner reaps every helper.
+/** @param {string} mode @param {string} [dockerfile] */
+async function exerciseFoundationTemporaryRun(
+  mode,
+  dockerfile = foundation.dockerfile,
+) {
+  const directory = await mkdtemp(
+    resolve(tmpdir(), "inside-foundation-cleanup-"),
+  );
+  const build = resolve(directory, "build"),
+    bin = resolve(directory, "bin"),
+    log = resolve(directory, "commands.jsonl"),
+    outside = resolve(directory, "foreign");
+  let failed = false;
+  try {
+    await mkdir(build);
+    await mkdir(bin);
+    await mkdir(outside);
+    await writeFile(log, "");
+    await writeFile(resolve(outside, "sentinel"), "foreign-sentinel");
+    for (const [name, value] of /** @type {const} */ ([
+      ["libpq-version", "fixed-helper"],
+      ["pgbackrest-build.json", "fixed-metadata"],
+      ["pgbackrest.tar.gz", "earlier-ADD-archive"],
+    ]))
+      await writeFile(resolve(build, name), value);
+    const pre = mode.match(/^pre-(source|output)-(dir|file|link|dangling)$/u);
+    if (pre) {
+      const path = resolve(build, pre[1] ?? "");
+      if (pre[2] === "dir") {
+        await mkdir(path);
+        await writeFile(resolve(path, "foreign-marker"), "foreign-directory");
+      } else if (pre[2] === "file") await writeFile(path, "foreign-file");
+      else {
+        const { symlink } = await import("node:fs/promises");
+        await symlink(
+          pre[2] === "link" ? outside : resolve(directory, "missing"),
+          path,
+        );
+      }
+    }
+    if (mode === "pre-parent-link") {
+      const { rename, symlink } = await import("node:fs/promises");
+      await rename(build, build + "-owned");
+      await symlink(outside, build);
+    }
+    const tool = `#!/usr/bin/env node
+const fs=require('node:fs'),cp=require('node:child_process');
+const build=${JSON.stringify(build)},log=${JSON.stringify(log)},outside=${JSON.stringify(outside)},mode=${JSON.stringify(mode)};
+const command=require('node:path').basename(process.argv[1]),args=process.argv.slice(2);
+fs.appendFileSync(log,JSON.stringify([command,...args])+'\\n');
+if(mode===command+'-failure'||mode===('meson-'+args[0]+'-failure'))process.exit(command==='rm'?73:37);
+if(command==='stat'){
+ if(args.length!==4||args[0]!=='-c'||args[1]!=='%d:%i'||args[2]!=='--'||!['source','output'].some(n=>args[3]===build+'/'+n))process.exit(91);
+ const count=fs.readFileSync(log,'utf8').trim().split('\\n').filter(line=>JSON.parse(line)[0]==='stat').length;
+ if(mode==='stat-unavailable')process.exit(127);
+ if(mode==='stat-final-failure'&&count===3||mode==='stat-final-output-failure'&&count===4)process.exit(53);
+ const malformed={'stat-malformed':'invalid','stat-empty':'','stat-no-colon':'12','stat-extra-colon':'1:2:3','stat-leading-colon':':2','stat-trailing-colon':'1:'};
+ const value=fs.lstatSync(args[3],{bigint:true});process.stdout.write(Object.hasOwn(malformed,mode)?malformed[mode]:mode==='stat-final-malformed'&&count===3?'invalid':value.dev+':'+value.ino);
+}else if(command==='tar'){
+ fs.writeFileSync(build+'/source/dist','fixed-dist');fs.symlinkSync(outside,build+'/source/foreign-link');
+}else if(command==='meson'){
+ if(args[0]==='setup'){fs.mkdirSync(build+'/output');fs.writeFileSync(build+'/output/object','temporary-object');}
+ else if(args[0]==='install'){
+ fs.mkdirSync(build+'/install/usr/bin',{recursive:true});fs.writeFileSync(build+'/install/usr/bin/pgbackrest','fixed-installed-binary');
+ const replace=mode.match(/^replace-(source|output)-(dir|link)$/);
+ if(replace){const target=build+'/'+replace[1];fs.renameSync(target,target+'-owned');if(replace[2]==='dir'){fs.mkdirSync(target);fs.writeFileSync(target+'/foreign-marker','foreign-directory');}else fs.symlinkSync(outside,target);}
+ }
+ else if(args[0]!=='compile')process.exit(91);
+}else if(command==='rm'){
+ if(JSON.stringify(args)!==JSON.stringify(['-rf','--',build+'/source',build+'/output']))process.exit(91);
+ process.exit(cp.spawnSync('/bin/rm',args,{stdio:'inherit'}).status??91);
+}else process.exit(91);
+`;
+    for (const name of ["tar", "meson", "stat", "rm"])
+      await writeFile(resolve(bin, name), tool, { mode: 0o700 });
+    const body = foundationTemporaryRun(dockerfile).replaceAll(
+      "/build",
+      shellQuote(build),
+    );
+    const result = await runOwnedProcess("/bin/sh", [
+      "-c",
+      `PATH=${shellQuote(bin + ":" + (process.env["PATH"] ?? "/usr/bin:/bin"))}; export PATH; ` +
+        body,
+    ]);
+    /** @param {string} name */
+    const exists = async (name) => {
+      try {
+        await lstat(resolve(build, name));
+        return true;
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "ENOENT"
+        )
+          return false;
+        throw error;
+      }
+    };
+    /** @type {Record<string,string>} */
+    const files = {};
+    for (const name of [
+      "libpq-version",
+      "pgbackrest-build.json",
+      "pgbackrest.tar.gz",
+      "install/usr/bin/pgbackrest",
+    ]) {
+      try {
+        Object.assign(files, {
+          [name]: await readFile(resolve(build, name), "utf8"),
+        });
+      } catch (error) {
+        if (
+          !(error instanceof Error) ||
+          !("code" in error) ||
+          error.code !== "ENOENT"
+        )
+          throw error;
+      }
+    }
+    /** @param {string} name */
+    const shape = async (name) => {
+      const path = resolve(build, name);
+      try {
+        const info = await lstat(path);
+        if (info.isSymbolicLink())
+          return { kind: "link", target: await readlink(path) };
+        if (info.isDirectory())
+          return { kind: "directory", names: (await readdir(path)).sort() };
+        return { kind: "file", value: await readFile(path, "utf8") };
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "ENOENT"
+        )
+          return null;
+        throw error;
+      }
+    };
+    const commandText = await readFile(log, "utf8");
+    const commands =
+      commandText.trim() === ""
+        ? []
+        : commandText
+            .trim()
+            .split("\n")
+            .map((line) => {
+              /** @type {unknown} */
+              const value = JSON.parse(line);
+              assert.ok(Array.isArray(value));
+              /** @type {string[]} */
+              const cells = [];
+              for (const cell of value) {
+                assert.equal(typeof cell, "string");
+                assert.ok(typeof cell === "string");
+                cells.push(cell);
+              }
+              return cells;
+            });
+    return {
+      result,
+      files,
+      source: await exists("source"),
+      output: await exists("output"),
+      sourceShape: await shape("source"),
+      outputShape: await shape("output"),
+      foreign: await readFile(resolve(outside, "sentinel"), "utf8"),
+      commands,
+    };
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    await rm(directory, { recursive: true, force: true }).catch((error) => {
+      if (!failed) throw error;
+    });
+  }
+}
+
+describe("foundation owned intermediate lifetime", () => {
+  it("drops constructed source and output after install while keeping the final COPY payload", async () => {
+    const value = await exerciseFoundationTemporaryRun("success");
+    assert.equal(value.result.reason, "exit");
+    assert.equal(value.result.code, 0);
+    assert.equal(value.source, false);
+    assert.equal(value.output, false);
+    assert.deepEqual(value.files, {
+      "libpq-version": "fixed-helper",
+      "pgbackrest-build.json": "fixed-metadata",
+      "pgbackrest.tar.gz": "earlier-ADD-archive",
+      "install/usr/bin/pgbackrest": "fixed-installed-binary",
+    });
+    assert.equal(value.foreign, "foreign-sentinel");
+  });
+});
+
+/** @param {string} dockerfile */
+function assertFoundationPayloadBoundary(dockerfile) {
+  const body = foundationTemporaryRun(dockerfile);
+  const cleanup = "rm -rf -- /build/source /build/output";
+  assert.equal(body.split("rm ").length, 2);
+  assert.ok(body.endsWith(cleanup));
+  assert.ok(
+    body.indexOf(cleanup) >
+      body.indexOf(
+        "meson install -C /build/output --no-rebuild --destdir /build/install",
+      ),
+  );
+  const finalStage = dockerfile.slice(
+    dockerfile.indexOf("\nFROM postgres-base\n"),
+  );
+  assert.deepEqual(
+    finalStage
+      .split("\n")
+      .filter((line) => line.startsWith("COPY --from=pgbackrest-build ")),
+    [
+      "COPY --from=pgbackrest-build /build/install/usr/bin/pgbackrest /usr/bin/pgbackrest",
+      "COPY --from=pgbackrest-build /build/libpq-version /usr/libexec/inside/libpq-version",
+      "COPY --from=pgbackrest-build /build/pgbackrest-build.json /usr/share/inside/pgbackrest-build.json",
+    ],
+  );
+}
+
+describe("foundation temporary ownership refusals", () => {
+  it("preserves preexisting roots and refuses a linked parent before any build command", async () => {
+    for (const root of ["source", "output"])
+      for (const kind of ["dir", "file", "link", "dangling"]) {
+        const value = await exerciseFoundationTemporaryRun(
+          `pre-${root}-${kind}`,
+        );
+        assert.notEqual(value.result.code, 0);
+        assert.deepEqual(value.commands, []);
+        const shape = root === "source" ? value.sourceShape : value.outputShape;
+        assert.equal(
+          shape?.kind,
+          kind === "dir" ? "directory" : kind === "file" ? "file" : "link",
+        );
+        if (kind === "dir") assert.deepEqual(shape?.names, ["foreign-marker"]);
+        if (kind === "file") assert.equal(shape?.value, "foreign-file");
+        assert.equal(value.foreign, "foreign-sentinel");
+      }
+    const linked = await exerciseFoundationTemporaryRun("pre-parent-link");
+    assert.notEqual(linked.result.code, 0);
+    assert.deepEqual(linked.commands, []);
+    assert.equal(linked.foreign, "foreign-sentinel");
+  });
+  it("refuses either replaced identity before deleting either root or following a link", async () => {
+    for (const root of ["source", "output"])
+      for (const kind of ["dir", "link"]) {
+        const value = await exerciseFoundationTemporaryRun(
+          `replace-${root}-${kind}`,
+        );
+        assert.notEqual(value.result.code, 0);
+        assert.ok(value.source && value.output);
+        assert.equal(
+          value.commands.some((command) => command[0] === "rm"),
+          false,
+        );
+        const shape = root === "source" ? value.sourceShape : value.outputShape;
+        assert.equal(shape?.kind, kind === "dir" ? "directory" : "link");
+        if (kind === "dir") assert.deepEqual(shape?.names, ["foreign-marker"]);
+        assert.equal(
+          value.files["install/usr/bin/pgbackrest"],
+          "fixed-installed-binary",
+        );
+        assert.equal(value.foreign, "foreign-sentinel");
+      }
+  });
+  it("retains original failures and refuses unavailable or malformed identity reads", async () => {
+    for (const mode of [
+      "tar-failure",
+      "meson-setup-failure",
+      "meson-compile-failure",
+      "meson-install-failure",
+    ]) {
+      const value = await exerciseFoundationTemporaryRun(mode);
+      assert.equal(value.result.code, 37, mode);
+      assert.equal(
+        value.commands.some((command) => command[0] === "rm"),
+        false,
+      );
+      const last = value.commands.at(-1);
+      assert.equal(last?.[0], mode.startsWith("meson") ? "meson" : "tar");
+      if (mode.startsWith("meson")) assert.equal(last?.[1], mode.split("-")[1]);
+    }
+    for (const [mode, code] of /** @type {const} */ ([
+      ["stat-unavailable", 127],
+      ["stat-final-failure", 53],
+      ["stat-final-output-failure", 53],
+      ["stat-malformed", 1],
+      ["stat-empty", 1],
+      ["stat-no-colon", 1],
+      ["stat-extra-colon", 1],
+      ["stat-leading-colon", 1],
+      ["stat-trailing-colon", 1],
+      ["stat-final-malformed", 1],
+    ])) {
+      const value = await exerciseFoundationTemporaryRun(mode);
+      assert.equal(value.result.code, code, mode);
+      assert.equal(
+        value.commands.some((command) => command[0] === "rm"),
+        false,
+      );
+      assert.equal(value.foreign, "foreign-sentinel");
+    }
+    const cleanup = await exerciseFoundationTemporaryRun("rm-failure");
+    assert.equal(cleanup.result.code, 73);
+    assert.ok(cleanup.source && cleanup.output);
+    assert.equal(cleanup.commands.at(-1)?.[0], "rm");
+    assert.equal(
+      cleanup.files["install/usr/bin/pgbackrest"],
+      "fixed-installed-binary",
+    );
+  });
+  it("rejects payload deletion, early cleanup and additional cleanup roots", () => {
+    assertFoundationPayloadBoundary(foundation.dockerfile);
+    const cleanup = "rm -rf -- /build/source /build/output";
+    for (const target of [
+      "install",
+      "libpq-version",
+      "pgbackrest-build.json",
+      "pgbackrest.tar.gz",
+      "libpq-version.c",
+    ]) {
+      assert.throws(() =>
+        assertFoundationPayloadBoundary(
+          foundation.dockerfile.replace(cleanup, cleanup + " /build/" + target),
+        ),
+      );
+    }
+    for (const input of [
+      "install/usr/bin/pgbackrest",
+      "libpq-version",
+      "pgbackrest-build.json",
+    ]) {
+      assert.throws(() =>
+        assertFoundationPayloadBoundary(
+          foundation.dockerfile.replace(
+            `COPY --from=pgbackrest-build /build/${input} `,
+            `COPY --from=pgbackrest-build /build/missing `,
+          ),
+        ),
+      );
+    }
+    const early = foundation.dockerfile
+      .replace("&& meson install", `&& ${cleanup} && meson install`)
+      .replace(`&& ${cleanup}\n`, "\n");
+    assert.throws(() => assertFoundationPayloadBoundary(early));
+  });
+});

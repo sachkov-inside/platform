@@ -1,3 +1,4 @@
+import { observeNotification } from "../../../../infrastructure/observability/technical-telemetry.js";
 import { stageDeliveryCommand } from "../../infrastructure/stage-delivery-command.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -123,32 +124,37 @@ async function expandAudienceOnce(
   const { prisma, now } = deps;
   const candidate = await nextRow(prisma, lane, now());
   if (!candidate) return { progressed: false };
-  const prepared = parseCheckpoint(candidate.checkpoint);
-  let facts: AudienceFacts;
-  try {
-    facts = await readAudienceFacts(deps, lane, candidate, prepared.after);
-  } catch (error) {
-    throw new UnprocessableRow(candidate, prepared, error);
-  }
-  return prisma.$transaction(async (transaction) => {
-    await lockNotification(transaction, `audience:${lane}`);
-    const row = await nextRow(transaction, lane, now());
-    if (!row) return { progressed: false };
-    const checkpoint = parseCheckpoint(row.checkpoint);
-    // Another expansion moved the lane after the facts were read: the next sweep reads them again.
-    if (
-      row.scope !== candidate.scope ||
-      row.messageId !== candidate.messageId ||
-      checkpoint.after !== facts.after
-    )
-      return { progressed: false };
+  const expand = async () => {
+    const prepared = parseCheckpoint(candidate.checkpoint);
+    let facts: AudienceFacts;
     try {
-      return await expandRow(transaction, deps, lane, row, checkpoint, facts);
+      facts = await readAudienceFacts(deps, lane, candidate, prepared.after);
     } catch (error) {
-      // Транзакция откатывается, поэтому судьбу строки записывает вызывающий отдельной записью.
-      throw new UnprocessableRow(row, checkpoint, error);
+      throw new UnprocessableRow(candidate, prepared, error);
     }
-  });
+    return prisma.$transaction(async (transaction) => {
+      await lockNotification(transaction, `audience:${lane}`);
+      const row = await nextRow(transaction, lane, now());
+      if (!row) return { progressed: false };
+      const checkpoint = parseCheckpoint(row.checkpoint);
+      // Another expansion moved the lane after the facts were read: the next sweep reads them again.
+      if (
+        row.scope !== candidate.scope ||
+        row.messageId !== candidate.messageId ||
+        checkpoint.after !== facts.after
+      )
+        return { progressed: false };
+      try {
+        return await expandRow(transaction, deps, lane, row, checkpoint, facts);
+      } catch (error) {
+        // Транзакция откатывается, поэтому судьбу строки записывает вызывающий отдельной записью.
+        throw new UnprocessableRow(row, checkpoint, error);
+      }
+    });
+  };
+  return lane === "materials"
+    ? observeNotification("audience", candidate.traceparent, expand)
+    : expand();
 }
 /** The lane's earliest due row: read once to prepare its facts, then again under the lane lock. */
 function nextRow(

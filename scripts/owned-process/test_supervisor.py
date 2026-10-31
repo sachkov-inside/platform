@@ -1,4 +1,6 @@
 """Behavioral ownership contracts use real launchers and signal-resistant load."""
+import ctypes
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -10,11 +12,11 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/heavy-check'))
-from processes import process_row, process_snapshot, LIBPROC
+from processes import adopt_orphans, process_row, process_snapshot, LIBPROC
 from lock import signal_groups
 sys.path.insert(0, str(ROOT / 'scripts/owned-process'))
 from ownership import ProcessOwnership
@@ -89,6 +91,80 @@ def stopped(pid, deadline=None):
         if time.monotonic() >= deadline:
             return False
         time.sleep(0.05)
+
+
+@contextmanager
+def fixture_adoption():
+    """Keep this fixture, rather than an outer command owner, as Linux wait owner."""
+    if sys.platform != 'linux':
+        yield
+        return
+    library = ctypes.CDLL(None, use_errno=True)
+    library.prctl.argtypes = [ctypes.c_int, *([ctypes.c_ulong] * 4)]
+    library.prctl.restype = ctypes.c_int
+    previous = ctypes.c_int()
+    # PR_GET_CHILD_SUBREAPER / PR_SET_CHILD_SUBREAPER from linux/prctl.h.
+    if library.prctl(37, ctypes.addressof(previous), 0, 0, 0) != 0:
+        raise OSError(ctypes.get_errno(), 'PR_GET_CHILD_SUBREAPER')
+    try:
+        adopt_orphans()
+        yield
+    finally:
+        failure = sys.exc_info()[1]
+        try:
+            if library.prctl(36, previous.value, 0, 0, 0) != 0:
+                raise OSError(ctypes.get_errno(), 'restore PR_SET_CHILD_SUBREAPER')
+        except BaseException as error:
+            if failure is None:
+                raise
+            failure.add_note(f'fixture adoption restoration failed: {error!r}')
+
+
+def reap_fixture_zombies(identities):
+    """Wait only for observed births now adopted as this fixture's zombie children."""
+    if sys.platform == 'linux':
+        for pid, birth in identities.items():
+            row = process_row(pid)
+            if row is not None and row[3] == birth and row[0] == os.getpid() and row[2] == 'Z':
+                os.waitpid(pid, os.WNOHANG)
+
+
+def finish_fixture(identities, *operations):
+    """Attempt every fallback cleanup without replacing an in-flight test failure."""
+    failure = sys.exc_info()[1]
+    errors = []
+    deadline = time.monotonic() + 5
+    for pid, birth in identities.items():
+        try:
+            row = process_row(pid)
+            if row is not None and row[3] == birth and row[2] != 'Z':
+                os.kill(pid, signal.SIGKILL)
+        except BaseException as error:
+            errors.append(error)
+    for operation in operations:
+        try:
+            operation()
+        except BaseException as error:
+            errors.append(error)
+    try:
+        while True:
+            reap_fixture_zombies(identities)
+            remaining = {pid: row for pid, birth in identities.items()
+                         if (row := process_row(pid)) is not None and row[3] == birth}
+            if not remaining:
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f'fixture cleanup retained observed births: {remaining}')
+            time.sleep(.01)
+    except BaseException as error:
+        errors.append(error)
+    if errors:
+        if failure is None:
+            for error in errors[1:]:
+                errors[0].add_note(f'additional fixture cleanup failure: {error!r}')
+            raise errors[0]
+        for error in errors:
+            failure.add_note(f'fixture cleanup failed: {error!r}')
 
 
 class LifecycleDiagnostics(unittest.TestCase):
@@ -179,6 +255,182 @@ class OwnershipCensus(unittest.TestCase):
 
 
 class Ownership(unittest.TestCase):
+    def test_fixture_adoption_reaps_only_registered_child_births_and_restores_state(self):
+        # The kernel boundary is modeled on macOS; this is not Linux physical proof.
+        for previous in (0, 1):
+            with self.subTest(previous=previous):
+                enabled = previous
+                parent = os.getpid()
+                rows = {101: (999, 101, 'Z', 501), 102: (999, 102, 'Z', 502),
+                        103: (parent, 103, 'Z', 999), 104: (parent, 104, 'S', 504),
+                        106: (parent, 106, 'Z', 506)}
+                identities = {101: 501, 102: 502, 103: 503, 104: 504, 105: 505}
+                def prctl(option, value, *_):
+                    nonlocal enabled
+                    if option == 37:
+                        ctypes.c_int.from_address(value).value = enabled
+                    elif option == 36:
+                        enabled = value
+                    else:
+                        raise AssertionError(option)
+                    return 0
+                def adopt():
+                    nonlocal enabled
+                    enabled = 1
+                def wait(pid, options):
+                    self.assertEqual((pid, options), (101, os.WNOHANG))
+                    self.assertEqual(rows[pid], (parent, 101, 'Z', 501))
+                    del rows[pid]
+                    return pid, 0
+                library = Mock(); library.prctl.side_effect = prctl
+                with patch.object(sys, 'platform', 'linux'), patch.object(ctypes, 'CDLL', return_value=library), \
+                        patch(__name__ + '.adopt_orphans', side_effect=adopt), \
+                        patch(__name__ + '.process_row', side_effect=rows.get), patch.object(os, 'waitpid', side_effect=wait) as waited:
+                    with fixture_adoption():
+                        # Node owner exits; the nearest enabled subreaper gets this child.
+                        rows[101] = (parent if enabled else 999, 101, 'Z', 501)
+                        reap_fixture_zombies(identities)
+                        self.assertNotIn(101, rows, 'registered orphan zombie needs its fixture to wait')
+                        self.assertEqual(set(rows), {102, 103, 104, 106})
+                        self.assertEqual(waited.call_count, 1)
+                    self.assertEqual(enabled, previous)
+
+
+    def test_fixture_adoption_keeps_kernel_failures_visible_and_preserves_first_error(self):
+        parent = os.getpid()
+        for error in (ChildProcessError('not our child'), PermissionError('wait denied')):
+            with self.subTest(error=type(error).__name__), patch.object(sys, 'platform', 'linux'), \
+                    patch(__name__ + '.process_row', return_value=(parent, 101, 'Z', 501)), \
+                    patch.object(os, 'waitpid', side_effect=error):
+                with self.assertRaises(type(error)) as caught:
+                    reap_fixture_zombies({101: 501})
+                self.assertIs(caught.exception, error)
+        for initial_failure in (False, True):
+            with self.subTest(initial_failure=initial_failure):
+                enabled = 0
+                def prctl(option, value, *_):
+                    nonlocal enabled
+                    if option == 37:
+                        ctypes.c_int.from_address(value).value = enabled
+                    elif value == 0:
+                        raise PermissionError('restore denied')
+                    return 0
+                def adopt():
+                    nonlocal enabled
+                    enabled = 1
+                library = Mock(); library.prctl.side_effect = prctl
+                marker = RuntimeError('fixture first failure')
+                traceback = None
+                with patch.object(sys, 'platform', 'linux'), patch.object(ctypes, 'CDLL', return_value=library), \
+                        patch(__name__ + '.adopt_orphans', side_effect=adopt):
+                    try:
+                        with fixture_adoption():
+                            if initial_failure:
+                                try:
+                                    raise marker
+                                finally:
+                                    traceback = sys.exc_info()[2]
+                    except BaseException as error:
+                        if initial_failure:
+                            self.assertIs(error, marker)
+                            self.assertIs(error.__traceback__, traceback)
+                            self.assertIn('restore denied', error.__notes__[0])
+                        else:
+                            self.assertIsInstance(error, PermissionError)
+                    else:
+                        self.fail('restoration failure must remain visible')
+        marker = RuntimeError('original fixture interruption')
+        cleanup_marker = PermissionError('cleanup denied')
+        attempted = []
+        def broken_cleanup():
+            attempted.append('broken')
+            raise cleanup_marker
+        with patch.object(sys, 'platform', 'darwin'), \
+                patch(__name__ + '.process_row', side_effect=[(parent, 101, 'S', 501), None]), \
+                patch.object(os, 'kill', side_effect=PermissionError('signal denied')):
+            try:
+                try:
+                    raise marker
+                finally:
+                    traceback = sys.exc_info()[2]
+                    finish_fixture({101: 501}, broken_cleanup, lambda: attempted.append('last'))
+            except RuntimeError as error:
+                self.assertIs(error, marker)
+                self.assertIs(error.__traceback__, traceback)
+                self.assertEqual(attempted, ['broken', 'last'])
+                self.assertEqual(len(error.__notes__), 2)
+            else:
+                self.fail('cleanup replaced the original failure')
+
+    def test_owner_exit_grace_python_rejects_invalid_input_before_command_acquisition(self):
+        with tempfile.TemporaryDirectory(prefix='owned-invalid-grace-') as directory:
+            acquired = Path(directory) / 'acquired'
+            command = [sys.executable, '-c', f'from pathlib import Path;Path({str(acquired)!r}).touch()']
+            for value in ('-1', '5001', 'NaN', 'Infinity', '-Infinity', '"0"', 'null', 'true', '{}', '[]'):
+                with self.subTest(value=value):
+                    result = subprocess.run([sys.executable, str(ROOT / 'scripts/owned-process.py'),
+                                             json.dumps(command), '1', value],
+                                            capture_output=True, timeout=3)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(b'Owner exit grace must be finite and within 0..5000 ms', result.stderr)
+                    self.assertFalse(acquired.exists())
+
+    def test_owner_exit_grace_selects_only_owner_loss_and_preserves_explicit_stop(self):
+        cases = (('owner-exit', None, 4.8), ('owner-exit', 0, 0),
+                 ('owner-exit', 123.5, .1), ('explicit-exit', 0, .2),
+                 ('explicit-stop', 5000, .2), ('command-exit', 0, 4.8),
+                 ('supervisor-signal', 0, 4.8))
+        for action, grace, minimum in cases:
+            with self.subTest(action=action, grace=grace), fixture_adoption():
+                option = '' if grace is None else f',ownerExitGraceMilliseconds:{grace}'
+                source = f"""
+                import {{spawnOwned,stopOwned}} from {json.dumps(API)};
+                const child=spawnOwned(process.execPath,['-e',{json.dumps(LOAD)}],
+                  {{stdio:['ignore','pipe','inherit']{option}}});
+                child.stdout.once('data',data=>console.log(data.toString().trim(),child.pid));
+                child.once('exit',code=>{{process.exitCode=code}});
+                process.stdin.once('data',async data=>{{
+                  const action={json.dumps(action)};
+                  if(action==='owner-exit') process.exit(0);
+                  if(action==='explicit-exit') {{void stopOwned(child,250);process.exit(0)}}
+                  if(action==='explicit-stop') {{await stopOwned(child,250);process.exit(0)}}
+                  if(action==='supervisor-signal') child.kill('SIGTERM');
+                  if(action==='command-exit') process.kill(Number(data.toString()),'SIGUSR1');
+                }});
+                """
+                process = subprocess.Popen(['node', '--input-type=module', '-e', source], cwd=ROOT,
+                                           stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                           stderr=subprocess.PIPE, start_new_session=True)
+                identities = {}
+                try:
+                    pids = [*read_ready(process), process.pid]
+                    for pid in pids:
+                        row = process_row(pid)
+                        self.assertIsNotNone(row)
+                        identities[pid] = row[3]
+                    started = time.monotonic()
+                    _stdout, stderr = process.communicate(str(pids[0]).encode(), timeout=9)
+                    elapsed = time.monotonic() - started
+                    expected = 19 if action == 'command-exit' else 143 if action == 'supervisor-signal' else 0
+                    self.assertEqual(process.returncode, expected, stderr.decode())
+                    self.assertGreaterEqual(elapsed, minimum)
+                    self.assertLess(elapsed, 7 if minimum else 2)
+                    deadline = started + (7 if minimum >= 4.8 else 2)
+                    while True:
+                        reap_fixture_zombies(identities)
+                        live = {pid: row for pid, birth in identities.items()
+                                if (row := process_row(pid)) is not None and row[3] == birth}
+                        if not live:
+                            break
+                        self.assertLess(time.monotonic(), deadline, f'owned births survived: {live}')
+                        time.sleep(.01)
+                finally:
+                    def close_owner():
+                        if process.poll() is None:
+                            process.kill()
+                        process.communicate(timeout=5)
+                    finish_fixture(identities, close_owner)
+
     def exercise(self, action, load=LOAD):
         command = ['node', '-e', load]
         if action == 'exec-exit':

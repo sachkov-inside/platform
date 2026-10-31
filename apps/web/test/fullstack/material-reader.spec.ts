@@ -17,6 +17,11 @@ import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs"
 import { z } from "zod";
 import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
 
+import {
+  installReaderEventTimingDiagnostic,
+  readerEventTimingSchema,
+} from "../support/reader-event-timing";
+
 const readerStartupScriptCpuBudgetMs = 200;
 
 test("keeps reader startup JavaScript within its CPU budget", async ({
@@ -309,7 +314,7 @@ test("Home ignores old search links and keeps its topic filter across reload, hi
 test("server-renders the representative PostgreSQL Material through Nest", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const browserErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") {
@@ -317,6 +322,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     }
   });
   page.on("pageerror", (error) => browserErrors.push(error.message));
+  await page.addInitScript(installReaderEventTimingDiagnostic);
   await page.addInitScript((takeRecordsEvent) => {
     const measurements = {
       cls: 0,
@@ -473,9 +479,15 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     page,
     "Как устроен Inside Platform · Sachkov Dev",
   );
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("inside:reader-event-timing-before-axe")),
+  );
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("inside:reader-event-timing-after-axe")),
+  );
   expect(
     accessibility.violations.filter(
       ({ impact }) => impact === "serious" || impact === "critical",
@@ -488,17 +500,28 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
-  const collected = await page.evaluate(() => {
+  const collected = await page.evaluate((takeRecordsEvent) => {
+    window.dispatchEvent(new Event(takeRecordsEvent));
     const navigation = window.performance.getEntriesByType("navigation")[0];
     const measured: unknown = Reflect.get(window, "__readerPerformance");
     return {
       measured,
+      eventTiming: Reflect.get(
+        window,
+        "__readerEventTimingDiagnostic",
+      ) as unknown,
       ttfb:
         navigation instanceof PerformanceNavigationTiming
           ? navigation.responseStart
           : Number.POSITIVE_INFINITY,
     };
+  }, takePerformanceRecords);
+  const eventTiming = readerEventTimingSchema.parse(collected.eventTiming);
+  await testInfo.attach("reader-event-timing", {
+    body: JSON.stringify(eventTiming),
+    contentType: "application/json",
   });
+  expect(eventTiming.supported).toBe(true);
   const metrics = {
     ...z
       .object({
@@ -514,7 +537,9 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   };
   expect(metrics.ttfb).toBeLessThanOrEqual(800);
   expect(metrics.lcp).toBeLessThanOrEqual(2_500);
-  expect(metrics.inp).toBeLessThanOrEqual(200);
+  if (!eventTiming.saturated)
+    expect(eventTiming.maximum?.duration ?? 0).toBe(metrics.inp);
+  expect(metrics.inp, JSON.stringify(eventTiming)).toBeLessThanOrEqual(200);
   expect(metrics.cls, JSON.stringify(metrics.shifts)).toBeLessThanOrEqual(0.1);
   expect(browserErrors).toEqual([]);
 });

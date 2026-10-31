@@ -1,0 +1,469 @@
+"""Callback continuity through the owning corpus; SQL/Docker are bounded external fakes."""
+import json
+from pathlib import Path
+import tempfile
+import subprocess
+import unittest
+
+import recovery
+import recovery_runtime as runner
+import retention_fixture
+from recovery_test_source import historical_foundation_source
+from test_retention import batch
+
+
+class CorpusCallbackContinuity(unittest.TestCase):
+    def run_corpus(self, failure=None, *, whole_controller=False, reject_create_service='all', recovered_cluster=None, source_cluster=None, observed=None, curate=False):
+        project = recovery.PROJECT_PREFIX + 'a' * 12
+        image = json.loads(recovery.CACHE_LOCK.read_text())['image']
+        with historical_foundation_source(), tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'owned'
+            runner.prepare_bound_inputs(output)
+            plan = json.loads((output / 'compose.json').read_text())
+            destination = plan['volumes']['recovery']['name']
+            states = {'db': 'running'}
+            identifiers = {name: format(index, '064x') for index, name in enumerate(recovery.SERVICES, 1)}
+            services = {identity: name for name, identity in identifiers.items()}
+            operations = []
+            backup_commands = []
+            calls = []
+            batches = iter([batch(1), batch(0)])
+            recovery_checks = 0
+            maintenance_active = False
+            maintenance_member = False
+            maintenance_restored = False
+            def execute(base, args, *, payload=None, timeout=60, fixture_phase=None):
+                nonlocal recovery_checks, maintenance_active, maintenance_member, maintenance_restored
+                calls.append(args)
+                if observed is not None:
+                    observed.append((list(base), list(args), {'payload': payload, 'timeout': timeout, 'fixture_phase': fixture_phase}))
+                self.assertLess(len(calls), 160, 'bounded fake command budget exhausted')
+                if args[0] == 'create' and (reject_create_service == 'all' or args[-1] == reject_create_service):
+                    if '--no-deps' in args:
+                        raise runner.runtime.FixtureCommandFailed(returncode=1)
+                if args[0] == 'create' and args[-1] == 'restore':
+                    if failure == 'create':
+                        raise subprocess.CalledProcessError(7, ['private-sentinel'], stderr='private-sentinel')
+                    if failure == 'timeout':
+                        raise subprocess.TimeoutExpired(['private-sentinel'], 90)
+                if args == ['create', 'recovered'] and failure == 'postmaster_create':
+                    raise subprocess.CalledProcessError(11, ['private-sentinel'], stderr='private-sentinel')
+                if args == ['start', 'recovered'] and failure == 'postmaster_start':
+                    raise runner.runtime.FixtureCommandFailed(returncode=17)
+                if 'pg_isready' in args and 'recovered' in args and failure == 'postmaster_ready_timeout':
+                    raise subprocess.TimeoutExpired(['private-sentinel'], timeout)
+                if args[:2] == ['image', 'inspect']:
+                    return json.dumps({'id': image, 'architecture': 'arm64', 'os': 'linux'})
+                if args[:2] == ['volume', 'ls']:
+                    return ''
+                if payload is not None and 'db' in args and source_cluster is not None and "'version_num'" in payload:
+                    return json.dumps(source_cluster)
+                if payload is not None and 'recovered' in args:
+                    if recovered_cluster is not None and "'version_num'" in payload:
+                        return json.dumps(recovered_cluster)
+                    if "'recovery_ended'" in payload:
+                        recovery_checks += 1
+                        if failure == 'postmaster_ready_json' and recovery_checks == 1:
+                            return 'private-sentinel'
+                        if failure == 'postmaster_recovery_ended' and recovery_checks == 2:
+                            return json.dumps({'recovery_ended': False})
+                    for key, condition in (('postmaster_cluster', "'version_num'"),
+                            ('postmaster_platform', "'platform_rows'"), ('postmaster_role', "'bounded_role'"),
+                            ('postmaster_events', "'deleted_event_reappeared'")):
+                        if failure == key and condition in payload:
+                            return 'private-sentinel'
+                    if failure == 'postmaster_lineage' and "'version_num'" in payload:
+                        return json.dumps({'version_num': 180004, 'system_identifier': '9999999999999999999',
+                            'archive_mode': 'off', 'archive_command': '(disabled)'})
+                    if failure == 'postmaster_later' and "'remaining'" in payload:
+                        return 'private-sentinel'
+                if payload is not None:
+                    if 'CREATE ROLE umami; CREATE ROLE some_other_app' in payload:
+                        if failure == 'maintenance_membership':
+                            raise runner.runtime.FixtureCommandFailed(returncode=1)
+                        if failure == 'maintenance_timeout':
+                            raise subprocess.TimeoutExpired(['private-sentinel'], timeout)
+                        maintenance_active = True
+                        maintenance_member = True
+                    if 'existing Umami role authority' in payload and maintenance_member:
+                        raise runner.runtime.FixtureCommandFailed({'phase': 'membership_guard', 'error': 'existing_role_authority'}, returncode=3)
+                    if 'REVOKE umami FROM some_other_app' in payload:
+                        maintenance_member = False
+                    if maintenance_active:
+                        if "'database_absent'" in payload:
+                            return json.dumps({'database_absent': True, 'foreign_membership_preserved': True})
+                        if "'identity',has_database_privilege" in payload:
+                            return json.dumps({'inside': False, 'logto': False, 'platform': True, 'identity': True})
+                        if 'cutoff_age_seconds' in payload:
+                            return batch(0)
+                        if "'remaining'" in payload:
+                            maintenance_restored = False
+                            return '{"remaining":false}'
+                        if payload == 'SELECT synthetic_restore_snapshot;':
+                            maintenance_restored = True
+                        if payload.startswith('SELECT count(*) FROM public.'):
+                            return '1' if "ttl_retained" in payload or ("event_name='ttl_recent'" in payload and maintenance_restored) else '0'
+                        if payload.startswith('DROP DATABASE umami;'):
+                            maintenance_active = False
+                    if failure == 'maintenance_membership' and 'CREATE ROLE umami; CREATE ROLE some_other_app' in payload:
+                        raise runner.runtime.FixtureCommandFailed(returncode=1)
+                    if 'SELECT 1/0' in payload:
+                        raise runner.runtime.FixtureCommandFailed(returncode=1)
+                    if "'platform_rows'" in payload:
+                        return json.dumps({'platform_rows': 1, 'platform_untouched': True})
+                    if "'bounded_role'" in payload:
+                        return json.dumps({'bounded_role': True, 'connection_limit': 8,
+                            'statement_timeout': '5s', 'idle_timeout': '10s', 'platform_connect_denied': True,
+                            'logto_connect_denied': True, 'no_role_membership': True, 'own_database': True})
+                    if "'version_num'" in payload:
+                        return json.dumps({'version_num': 180004, 'system_identifier': '1234567890123456789',
+                            'archive_mode': 'on' if 'recovered' not in states else 'off',
+                            'archive_command': 'pgbackrest --stanza=production archive-push %p' if 'recovered' not in states else '(disabled)'})
+                    if "'deleted_event_reappeared'" in payload:
+                        return json.dumps({'deleted_event_reappeared': 1, 'expired_events_reappeared': 502})
+                    if "'recovery_ended'" in payload:
+                        return json.dumps({'recovery_ended': True})
+                    if "'cutoff_age_seconds'" in payload:
+                        return next(batches)
+                    if "'remaining'" in payload:
+                        return json.dumps({'remaining': 0})
+                    if "'boundary_event_rows'" in payload:
+                        return json.dumps({**retention_fixture.EXPECTED, 'boundary_event_rows': 0})
+                    if "'expired_event_rows'" in payload:
+                        return json.dumps({'cutoff': '2025-10-19T12:00:00.000000Z', 'expired_event_rows': 502})
+                    return ''  # Preparation writes are not a persistence proof in this contract.
+                if '--file=/tmp/inside-1566-native-snapshot.sql' in args and 'psql' in args:
+                    maintenance_restored=True
+                    return ''
+                if args[:5]==['exec','-T','db','sh','-ec'] and 'pg_dump' in args[-1]:return ''
+                if 'pg_isready' in args:
+                    return ''
+                if 'pgbackrest' in args and args[-1] == 'version':
+                    return 'pgBackRest 2.57.0'
+                if (args[-1] == 'stanza-create' and failure == 'encrypted_stanza'
+                        or args[-1] == 'check' and failure == 'encrypted_check'
+                        or args == ['up', '-d', '--no-deps', 'backup'] and failure == 'encrypted_full_backup'):
+                    raise runner.runtime.FixtureCommandFailed(returncode=17)
+                if args[-1] in ('stanza-create', 'check'):
+                    backup_commands.append(args[-1])
+                    return ''
+                if args[-1] == 'info':
+                    selected = any(arg.startswith('--set=') for arg in args)
+                    if failure == ('encrypted_selected_info' if selected else 'encrypted_info'):
+                        return 'private-sentinel'
+                    return json.dumps([{'name': 'production', 'cipher': 'aes-256-cbc', 'status': {'code': 0},
+                        'backup': [{'label': '20261019-120001F' if selected and failure == 'encrypted_selection' else '20261019-120000F', 'type': 'full',
+                            'timestamp': {'start': 1792411200, 'stop': 1792411201},
+                            'database-ref': [{'name': 'inside', 'oid': 16384}, {'name': 'umami', 'oid': 16400}]}]}])
+                if args[0] in ('up', 'start', 'create', 'stop'):
+                    service = args[-1]
+                    states[service] = ('created' if args[0] == 'create' else 'exited' if args[0] == 'stop'
+                        or service in ('repo-init', 'backup', 'restore', 'reader', 'ingest') else 'running')
+                    return ''
+                if args[0] == 'wait':
+                    self.assertEqual(states[services[args[-1]] if base == ['docker'] else args[-1]], 'exited')
+                    return '0\n'
+                if args[:3] == ['ps', '--all', '-q']:
+                    if args == ['ps', '--all', '-q', 'recovered'] and failure == 'postmaster_identity':
+                        return 'private-sentinel'
+                    if failure == 'postmaster_readers' and 'recovered' in states and recovery_checks >= 2 and args[-3:] == ['read-db', 'reader', 'ingest']:
+                        return 'private-sentinel'
+                    if args[-1] == 'restore' and failure == 'identity':
+                        return 'private-sentinel'
+                    return '\n'.join(identifiers[name] for name in args[3:] if name in states)
+                if args[0] == 'inspect':
+                    service = services[args[1]]
+                    state = states[service]
+                    if service == 'recovered' and failure == 'postmaster_inspect':
+                        return 'private-sentinel'
+                    if service == 'recovered' and failure == 'postmaster_stopped':
+                        state = 'running'
+                    if service == 'restore' and failure == 'inspect_command':
+                        raise runner.runtime.FixtureCommandFailed(returncode=17)
+                    if service == 'restore' and failure == 'inspect':
+                        return 'private-sentinel'
+                    return json.dumps({'id': args[1], 'image': image, 'labels': {'com.docker.compose.project': 'foreign' if (service == 'restore' and failure == 'owner') or (service == 'recovered' and failure == 'postmaster_owner') else project,
+                        'com.docker.compose.service': service}, 'ports': None,
+                        'network': project + '_private' if service == 'read-db' or (service == 'restore' and failure == 'offline') or (service == 'recovered' and failure == 'postmaster_offline') else 'none',
+                        'mounts': [{'Type': 'volume', 'Name': project + '_database' if (service == 'restore' and failure == 'mounts') or (service == 'recovered' and failure == 'postmaster_mount') else destination, 'Destination': '/var/lib/postgresql', 'RW': True},
+                                   {'Type': 'volume', 'Name': project + '_repository', 'Destination': '/backup', 'RW': False}],
+                        'state': {'status': state, 'running': state == 'running',
+                            'pid': 42 if state == 'running' else 0, 'exit_code': 0}})
+                if args[:2] == ['volume', 'inspect']:
+                    if failure == 'volume_command':
+                        raise runner.runtime.FixtureCommandFailed(returncode=9)
+                    if failure == 'volume':
+                        return 'private-sentinel'
+                    return json.dumps({'Name': destination, 'Driver': 'local', 'Scope': 'local', 'Options': None,
+                        'Labels': {'com.docker.compose.project': project, 'com.docker.compose.volume': 'foreign' if failure == 'ownership' else 'recovery'}})
+                if args[0] == 'logs':
+                    return json.dumps({'reader_rows': 2, 'blocked_rows': 0} if args[-1] == 'reader' else {'ingest_rows': 1})
+                self.fail('unsupported external command in callback contract')
+            if whole_controller:
+                try:
+                    runner.exercise(output, ['docker', 'compose'], project, execute=execute)
+                except RuntimeError as error:
+                    if failure is None:
+                        raise
+                    self.assertEqual(str(error), 'owned_recovery_failed; inspect curated recovery-proof.json')
+                    self.assertTrue(error.__suppress_context__)
+                proof = json.loads((output / 'recovery-proof.json').read_text())
+                if curate:
+                    import hosted
+                    metadata = Path(directory) / 'metadata'
+                    metadata.mkdir()
+                    (metadata / 'source.json').write_text('{}')
+                    (metadata / 'admission.json').write_text('{}')
+                    (output / 'private-stderr.txt').write_text('private-sentinel')
+                    (output / 'owner.json').write_text('{"private-sentinel":"private-sentinel"}')
+                    public = Path(directory) / 'public'
+                    runner.runtime.core_ci.collect(output, metadata, public, artifacts=hosted.RECOVERY_ARTIFACTS)
+                    self.assertEqual(json.loads((public / 'recovery-proof.json').read_text()), proof)
+                    self.assertNotIn('private-stderr.txt', {path.name for path in public.iterdir()})
+                    self.assertNotIn('owner.json', {path.name for path in public.iterdir()})
+                    self.assertNotIn('private-sentinel', ''.join(path.read_text() for path in public.iterdir()))
+                return proof, calls
+            report = {'reader_gate': 'closed'}
+            result = runner._database_corpus(output, ['docker', 'compose'], project, plan,
+                {'system_identifier': '1234567890123456789'}, report, lambda: None, execute,
+                lambda value: operations.append(json.loads(json.dumps(value))))
+            self.assertEqual(backup_commands, ['stanza-create', 'check'])
+            self.assertEqual([value['service'] for value in operations if value['outcome'] == 'passed'],
+                             ['backup', 'restore', 'reader', 'ingest'])
+            self.assertEqual(result['state'], 'passed')
+            self.assertEqual(result['reader_gate'], 'opened_after_replay_and_current_ttl')
+
+    def test_current_encrypted_backup_failure_does_not_reuse_successful_repo_init(self):
+        report, calls = self.run_corpus('encrypted_stanza', whole_controller=True)
+        self.assertEqual(report['state'], 'failed')
+        self.assertEqual(report['stage'], 'encrypted_backup')
+        self.assertEqual(report['reader_gate'], 'closed')
+        self.assertEqual(report['operation']['service'], 'repo-init')
+        self.assertEqual(report['operation']['outcome'], 'passed')
+        self.assertEqual(report['operation']['returncode'], 0)
+        self.assertEqual(report['current_failure'], {'available': True,
+            'operation': 'stanza_create', 'category': 'command_failed', 'returncode': 17})
+        self.assertFalse(any(args[0] in ('up', 'start', 'create') and args[-1] in
+            ('backup', 'restore', 'recovered', 'read-db', 'reader', 'ingest') for args in calls))
+
+    def test_each_current_encrypted_backup_step_retains_its_own_failure_through_public_collection(self):
+        cases = [('stanza', 'stanza_create', 'command_failed', 17),
+            ('check', 'check', 'command_failed', 17),
+            ('full_backup', 'full_backup', 'command_failed', 17),
+            ('info', 'info', 'invalid_json', None),
+            ('selected_info', 'selected_info', 'invalid_json', None),
+            ('selection', 'selection', 'proof_mismatch', None)]
+        for failure, operation, category, code in cases:
+            with self.subTest(operation=operation):
+                observed = []
+                report, calls = self.run_corpus('encrypted_' + failure, whole_controller=True,
+                    observed=observed, curate=True)
+                self.assertEqual(report['current_failure'], {'available': True,
+                    'operation': operation, 'category': category, 'returncode': code})
+                self.assertEqual(report['stage'], 'encrypted_backup')
+                self.assertEqual(report['state'], 'failed')
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertTrue(report['repo_init_wait_comparison']['same_owned_id_exited_zero'])
+                self.assertFalse(any(args[0] in ('up', 'start', 'create') and args[-1] in
+                    ('restore', 'recovered', 'read-db', 'reader', 'ingest') for args in calls))
+                direct = [(args, options) for _, args, options in observed if args[-1] in ('stanza-create', 'check')]
+                self.assertEqual([args for args, _ in direct], [
+                    ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', command]
+                    for command in (['stanza-create'] if failure == 'stanza' else ['stanza-create', 'check'])])
+                self.assertTrue(all(options == {'payload': None, 'timeout': 90, 'fixture_phase': None}
+                    for _, options in direct))
+                reads = [(args, options) for _, args, options in observed if args[-1] == 'info']
+                self.assertEqual(len(reads), 0 if failure in ('stanza', 'check', 'full_backup') else
+                    1 if failure == 'info' else 2)
+                for args, options in reads:
+                    self.assertEqual(args[:8], ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest',
+                        '--stanza=production', '--output=json'])
+                    self.assertEqual(options, {'payload': None, 'timeout': 60, 'fixture_phase': None})
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                self.assertLess(len(json.dumps(report['current_failure']).encode()), 256)
+
+    def test_pg18_offline_archive_display_reaches_replay_before_opening_readers(self):
+        report, _calls = self.run_corpus(whole_controller=True)
+        self.assertEqual(report['state'], 'passed')
+        self.assertNotIn('current_failure', report)
+        self.assertEqual(report['native_maintenance'], {'foreign_membership_refused': True,
+            'role_isolation': True, 'journal_replayed_after_restore': True, 'multiple_child_batches': True})
+        self.assertEqual(report['recovered_postmaster']['outcome'], 'passed')
+        self.assertEqual(report['restored_platform'], {'platform_rows': 1, 'platform_untouched': True})
+        self.assertEqual(report['reader_gate'], 'opened_after_replay_and_current_ttl')
+
+    def test_source_and_offline_archive_views_reject_crossed_or_arbitrary_values(self):
+        metadata = {'version_num': 180004, 'system_identifier': '1234567890123456789'}
+        command = 'pgbackrest --stanza=production archive-push %p'
+        cases = [('source', 'on', '(disabled)'), ('source', 'off', '(disabled)'),
+            ('source', 'off', command), ('source', 'on', ''),
+            ('source', 'on', 'private-sentinel'), ('source', 'always', command),
+            ('recovered', 'off', command), ('recovered', 'on', '(disabled)'),
+            ('recovered', 'on', command), ('recovered', 'off', ''),
+            ('recovered', 'off', 'private-sentinel'), ('recovered', 'always', '(disabled)')]
+        for index, (actor, mode, displayed) in enumerate(cases):
+            with self.subTest(case=index, actor=actor):
+                values = {**metadata, 'archive_mode': mode, 'archive_command': displayed}
+                report, calls = self.run_corpus('archive_view', whole_controller=True,
+                    **{('source_cluster' if actor == 'source' else 'recovered_cluster'): values})
+                self.assertEqual(report['state'], 'failed')
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                forbidden = ('backup', 'restore', 'recovered', 'read-db', 'reader', 'ingest') if actor == 'source' else ('read-db', 'reader', 'ingest')
+                self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in forbidden for args in calls))
+                if actor == 'source':
+                    self.assertEqual(report['stage'], 'source_database')
+                else:
+                    self.assertEqual(report['recovered_postmaster']['step'], 'cluster')
+                    self.assertEqual(report['recovered_postmaster']['cluster_validation'],
+                        {'schema': 1, 'invalid_field': 'archive_mode' if mode != 'off' else 'archive_command'})
+
+    def test_pg_diag_01_diagnostic_callback_survives_stanza_check_backup_restore_and_sql_actors(self):
+        self.run_corpus()
+
+    def test_create_services_use_supported_cli_contract_without_dependencies(self):
+        with historical_foundation_source(), tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'owned'
+            runner.prepare_bound_inputs(output)
+            plan = json.loads((output / 'compose.json').read_text())
+            self.assertTrue(all('depends_on' not in service for service in plan['services'].values()))
+        for service in ('restore', 'recovered', 'read-db'):
+            with self.subTest(service=service):
+                report, calls = self.run_corpus(whole_controller=True, reject_create_service=service)
+                self.assertEqual(report['state'], 'passed')
+                self.assertEqual([args for args in calls if args[0] == 'create'],
+                    [['create', 'restore'], ['create', 'recovered'], ['create', 'read-db']])
+                created_reader = calls.index(['create', 'read-db'])
+                self.assertIn(['stop', '--timeout', str(runner.STOP_SECONDS), 'recovered'], calls[:created_reader])
+
+    def test_completed_controller_retains_repo_init_comparison_after_all_later_operations(self):
+        report, _ = self.run_corpus(whole_controller=True)
+        self.assertEqual(report['state'], 'passed')
+        self.assertEqual(report['operation']['service'], 'ingest')
+        self.assertEqual(report['repo_init_wait_comparison'], {
+            'compose': {'outcome': 'passed', 'returncode': 0},
+            'engine': {'outcome': 'passed', 'returncode': 0, 'container_exit_code': 0},
+            'same_owned_id_exited_zero': True})
+        self.assertEqual(report['destination_operation']['outcome'], 'passed')
+        self.assertEqual(report['recovered_postmaster']['outcome'], 'passed')
+        self.assertEqual(report['recovered_postmaster']['step'], 'readers_absent')
+
+    def test_each_destination_failure_is_closed_and_preserves_initial_comparison_before_restore(self):
+        cases = [('create', 'create', 'command_failed', 7), ('timeout', 'create', 'timeout', None),
+            ('volume', 'volume_inspect', 'invalid_json', None),
+            ('volume_command', 'volume_inspect', 'command_failed', 9),
+            ('identity', 'container_identity', 'invalid_identity', None),
+            ('inspect', 'container_inspect', 'invalid_json', None),
+            ('inspect_command', 'container_inspect', 'command_failed', 17),
+            ('owner', 'container_inspect', 'inspection_mismatch', None),
+            ('offline', 'offline', 'offline_mismatch', None),
+            ('ownership', 'ownership_mounts', 'ownership_mounts_mismatch', None),
+            ('mounts', 'ownership_mounts', 'ownership_mounts_mismatch', None)]
+        for failure, step, category, code in cases:
+            with self.subTest(failure=failure):
+                report, calls = self.run_corpus(failure, whole_controller=True)
+                self.assertEqual(report['stage'], 'restore_destination')
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertEqual(report['state'], 'failed')
+                self.assertEqual(report['destination_operation'], {'schema': 1, 'step': step,
+                    'outcome': 'failed', 'error': category, 'returncode': code})
+                self.assertTrue(report['repo_init_wait_comparison']['same_owned_id_exited_zero'])
+                self.assertEqual(report['operation']['service'], 'backup')
+                self.assertFalse(any(args[0] in ('up', 'start') and args[-1] in
+                    ('restore', 'recovered', 'read-db', 'reader', 'ingest') for args in calls))
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                self.assertLess(len(json.dumps(report['destination_operation']).encode()), 1024)
+
+    def test_each_recovered_postmaster_failure_keeps_reader_gate_closed_after_successful_restore(self):
+        cases = [('create', 'create', 'command_failed', 11),
+            ('identity', 'container_identity', 'invalid_identity', None),
+            ('inspect', 'container_inspect', 'invalid_json', None),
+            ('owner', 'container_inspect', 'inspection_mismatch', None),
+            ('stopped', 'stopped', 'stopped_mismatch', None),
+            ('mount', 'mount', 'mount_mismatch', None),
+            ('offline', 'offline', 'offline_mismatch', None),
+            ('start', 'start', 'command_failed', 17),
+            ('ready_timeout', 'sql_ready', 'timeout', None),
+            ('ready_json', 'sql_ready', 'invalid_json', None),
+            ('recovery_ended', 'recovery_ended', 'proof_mismatch', None),
+            ('cluster', 'cluster', 'invalid_json', None),
+            ('lineage', 'lineage', 'lineage_mismatch', None),
+            ('platform', 'platform', 'invalid_json', None),
+            ('role', 'role', 'invalid_json', None),
+            ('events', 'events', 'invalid_json', None),
+            ('readers', 'readers_absent', 'readers_present', None)]
+        for failure, step, category, code in cases:
+            with self.subTest(failure=failure):
+                report, calls = self.run_corpus('postmaster_' + failure, whole_controller=True)
+                self.assertEqual(report['state'], 'failed')
+                self.assertEqual(report['stage'], 'offline_restore')
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertEqual(report['operation']['service'], 'restore')
+                self.assertEqual(report['operation']['outcome'], 'passed')
+                self.assertTrue(report['repo_init_wait_comparison']['same_owned_id_exited_zero'])
+                expected = {'schema': 1, 'step': step, 'outcome': 'failed', 'error': category, 'returncode': code}
+                if step in ('sql_ready', 'recovery_ended', 'cluster', 'lineage', 'platform', 'role', 'events', 'readers_absent'):
+                    expected['readiness'] = {'schema': 1, 'condition': 'ready', 'pg_isready_returncode': 0,
+                        'recovery_ended': True, 'error': None}
+                    if failure == 'ready_timeout':
+                        expected['readiness'].update(condition='timeout', pg_isready_returncode=None,
+                            recovery_ended=None, error='timeout')
+                    if failure == 'ready_json':
+                        expected['readiness'].update(condition='invalid_response', recovery_ended=None, error='invalid_json')
+                self.assertEqual(report['recovered_postmaster'], expected)
+                self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in
+                    ('read-db', 'reader', 'ingest') for args in calls))
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                self.assertLess(len(json.dumps(report['recovered_postmaster']).encode()), 1024)
+
+    def test_recovered_metadata_rejection_identifies_only_the_invalid_field(self):
+        valid = {'version_num': 180004, 'system_identifier': '1234567890123456789',
+            'archive_mode': 'off', 'archive_command': '(disabled)'}
+        cases = [('shape', []), ('shape', {'private-sentinel': 'private-sentinel'}),
+            ('shape', {**valid, 'private-sentinel': 'private-sentinel'})]
+        for field, values in (
+                ('version_num', [True, 99999, 1000000, 'private-sentinel', []]),
+                ('system_identifier', [123, '0', '1' * 21, 'private-sentinel', {}]),
+                ('archive_mode', ['always', 'private-sentinel', False, []]),
+                ('archive_command', ['', 'private-sentinel', False, {}])):
+            cases.extend((field, {**valid, field: value}) for value in values)
+        for index, (field, metadata) in enumerate(cases):
+            with self.subTest(case=index, field=field):
+                report, calls = self.run_corpus('metadata', whole_controller=True, recovered_cluster=metadata)
+                self.assertEqual(report['recovered_postmaster']['cluster_validation'],
+                    {'schema': 1, 'invalid_field': field})
+                self.assertEqual(report['recovered_postmaster']['error'], 'proof_mismatch')
+                self.assertEqual(report['recovered_postmaster']['step'], 'cluster')
+                self.assertEqual(report['operation']['service'], 'restore')
+                self.assertEqual(report['operation']['outcome'], 'passed')
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                self.assertLess(len(json.dumps(report['recovered_postmaster']).encode()), 1024)
+                self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in
+                    ('read-db', 'reader', 'ingest') for args in calls))
+
+    def test_recovered_postmaster_proof_survives_later_maintenance_failure(self):
+        report, calls = self.run_corpus('postmaster_later', whole_controller=True)
+        self.assertEqual(report['state'], 'failed')
+        self.assertEqual(report['stage'], 'current_replay_and_ttl')
+        self.assertEqual(report['reader_gate'], 'closed')
+        self.assertEqual(report['recovered_postmaster'], {'schema': 1, 'step': 'readers_absent',
+            'outcome': 'passed', 'error': None, 'returncode': 0,
+            'readiness': {'schema': 1, 'condition': 'ready', 'pg_isready_returncode': 0,
+                'recovery_ended': True, 'error': None}})
+        self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in
+            ('read-db', 'reader', 'ingest') for args in calls))
+
+    def test_native_maintenance_failure_or_timeout_keeps_backup_and_reader_actors_absent(self):
+        for failure in ('maintenance_membership', 'maintenance_timeout'):
+            with self.subTest(failure=failure):
+                report, calls = self.run_corpus(failure, whole_controller=True)
+                self.assertEqual(report['state'], 'failed')
+                self.assertEqual(report['stage'], 'native_maintenance')
+                self.assertEqual(report['current_failure'], {'available': False, 'operation': None,
+                    'category': None, 'returncode': None})
+                self.assertEqual(report['native_maintenance_operation'], {'schema':1,'step':'foreign_membership_setup','outcome':'failed','error':'timeout' if failure=='maintenance_timeout' else 'command_failed','returncode':None if failure=='maintenance_timeout' else 1})
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                self.assertFalse(any(args[0] in ('up', 'start', 'create') and args[-1] in
+                    ('backup', 'restore', 'recovered', 'read-db', 'reader', 'ingest') for args in calls))
