@@ -4,6 +4,8 @@ import { z } from "zod";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { chromium } from "@playwright/test";
+import { spawnOwned, stopOwned } from "../../../../scripts/owned-process.mjs";
+import { commandExit } from "../../../../scripts/diagnostic-command.mjs";
 import { observeImageFailure } from "../support/image-failure-diagnostics";
 
 test("image snapshot keeps pending redirect timings and image state without signed queries", async (t) => {
@@ -93,12 +95,11 @@ test("image snapshot keeps pending redirect timings and image state without sign
   assert.equal((await observation.snapshot()).imageState, "unavailable");
 });
 
-test("owned failing Playwright test attaches image evidence and preserves failure exit", async () => {
+test("owned failing Playwright test attaches image evidence and preserves failure exit", async (t) => {
   const { mkdtempSync, writeFileSync, readFileSync, rmSync } =
     await import("node:fs");
   const { tmpdir } = await import("node:os");
   const { resolve } = await import("node:path");
-  const { spawnSync } = await import("node:child_process");
   const fixture = mkdtempSync(resolve(tmpdir(), "image-failure-run-"));
   try {
     const output = resolve(fixture, "report.json");
@@ -121,7 +122,7 @@ test("owned failing Playwright test attaches image evidence and preserves failur
         throw new Error('controlled image failure');
       });`,
     );
-    const result = spawnSync(
+    const child = spawnOwned(
       process.execPath,
       [
         resolve("node_modules/@playwright/test/cli.js"),
@@ -129,9 +130,23 @@ test("owned failing Playwright test attaches image evidence and preserves failur
         "--config",
         config,
       ],
-      { encoding: "utf8", timeout: 20000 },
+      { stdio: "ignore" },
     );
-    assert.equal(result.status, 1, result.stderr);
+    t.onTestFinished(() => stopOwned(child, 50));
+    const cancel = () => {
+      void stopOwned(child, 50);
+    };
+    t.signal.addEventListener("abort", cancel, { once: true });
+    if (t.signal.aborted) cancel();
+    // deterministic-test-allow duration-wait: launcher failure budget; supervisor exit proves process-tree cleanup before fixture deletion.
+    const deadline = setTimeout(cancel, 20000);
+    try {
+      assert.equal(await commandExit(child), 1);
+    } finally {
+      clearTimeout(deadline);
+      t.signal.removeEventListener("abort", cancel);
+      await stopOwned(child, 50);
+    }
     const report = z
       .object({
         suites: z.array(
