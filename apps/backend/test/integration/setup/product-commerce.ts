@@ -32,6 +32,14 @@ export function commerceValue<T>(
 }
 
 const value = commerceValue;
+
+/** Init, после которого в банке нет платежа: отказ с кодом ошибки, HTTP 503 или потерянный запрос. */
+export type InitFailure =
+  | { readonly errorCode: string; readonly message: string }
+  | "unavailable"
+  | "unreachable";
+type HeldInitAnswer = "answered" | "lost" | "unreachable";
+
 export function createProductCommerceFixture(db: TestDatabase, owner: string) {
   let now = new Date("2030-01-31T10:00:00Z");
   const config = syntheticTbankConfig({
@@ -181,8 +189,12 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       stateCalls = 0,
       cancelFailures = 0,
       initGate:
-        | { readonly arrived: () => void; readonly released: Promise<void> }
+        | {
+            readonly arrived: () => void;
+            readonly released: Promise<HeldInitAnswer>;
+          }
         | undefined,
+      initFailure: InitFailure | undefined,
       afterState: ((paymentId: string) => void) | undefined;
     // Каждый Init получает свой PaymentId, как в банке: повторная покупка не делит платёж с прежней.
     const nextPaymentId = () => String(Math.floor(Math.random() * 1000000000));
@@ -214,9 +226,24 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         .loose()
         .parse(JSON.parse(init.body));
       if (url.endsWith("/Init")) {
+        const failure = initFailure;
+        initFailure = undefined;
+        // Запрос не дошёл до банка: банк не видел заказ и не создал платёж.
+        if (failure === "unreachable") throw new TypeError("fetch failed");
         if (initCalls > 0) paymentId = nextPaymentId();
         initCalls++;
         orderId = z.string().parse(body.OrderId);
+        if (failure === "unavailable")
+          return new Response(null, { status: 503 });
+        if (failure !== undefined)
+          return Response.json({
+            TerminalKey: config.terminalKey,
+            OrderId: orderId,
+            Success: false,
+            ErrorCode: failure.errorCode,
+            Message: failure.message,
+            Details: "",
+          });
         const created = { orderId, paymentId };
         bankPayments.set(paymentId, { orderId });
         expect(body).toMatchObject({
@@ -226,7 +253,13 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         if (timeout) throw new Error("Synthetic lost Init answer");
         if (initGate !== undefined) {
           initGate.arrived();
-          await initGate.released;
+          const answer = await initGate.released;
+          if (answer === "lost") throw new Error("Synthetic lost Init answer");
+          // Банк потерял запрос: платежа по заказу нет, CheckOrder его не найдёт.
+          if (answer === "unreachable") {
+            bankPayments.delete(created.paymentId);
+            throw new TypeError("fetch failed");
+          }
         }
         return Response.json({
           ...event(paymentStatus(created.paymentId), {
@@ -236,20 +269,21 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
           PaymentURL: "https://securepay.tinkoff.ru/test",
         });
       }
+      // CheckOrder перечисляет платежи заказа, которые создал Init; без них список пуст.
       if (url.endsWith("/CheckOrder"))
         return Response.json({
           Success: true,
           ErrorCode: "0",
           TerminalKey: config.terminalKey,
           OrderId: body.OrderId,
-          Payments: [
-            {
-              PaymentId: paymentId,
-              Status: status,
+          Payments: [...bankPayments]
+            .filter(([, payment]) => payment.orderId === body.OrderId)
+            .map(([id]) => ({
+              PaymentId: id,
+              Status: paymentStatus(id),
               Success: true,
               ErrorCode: 0,
-            },
-          ],
+            })),
         });
       if (url.endsWith("/GetState")) {
         stateCalls++;
@@ -331,6 +365,13 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       loseInit: () => {
         timeout = true;
       },
+      /**
+       * Следующий Init не создаёт платёж: банк отказывает кодом ошибки без PaymentId, отвечает
+       * HTTP 503 или запрос до банка не доходит. Init после него снова создаёт платёж.
+       */
+      failNextInit: (failure: InitFailure) => {
+        initFailure = failure;
+      },
       bank,
       event,
       config,
@@ -354,14 +395,18 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       },
       /**
        * Ответ на следующий Init ждёт `release`: тем временем приложение может снять попытку.
-       * `arrived` завершается, когда Init дошёл до банка и платёж уже создан.
+       * `arrived` завершается, когда Init дошёл до банка и платёж уже создан. `release("lost")`
+       * теряет ответ, а платёж в банке остаётся; `release("unreachable")` теряет и сам платёж.
        */
       holdInit: () => {
-        const signals: { arrived?: () => void; release?: () => void } = {};
+        const signals: {
+          arrived?: () => void;
+          release?: (answer: HeldInitAnswer) => void;
+        } = {};
         const arrived = new Promise<void>((resolve) => {
           signals.arrived = resolve;
         });
-        const released = new Promise<void>((resolve) => {
+        const released = new Promise<HeldInitAnswer>((resolve) => {
           signals.release = resolve;
         });
         initGate = {
@@ -370,9 +415,9 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         };
         return {
           arrived,
-          release: () => {
+          release: (answer: HeldInitAnswer = "answered") => {
             initGate = undefined;
-            signals.release?.();
+            signals.release?.(answer);
           },
         };
       },

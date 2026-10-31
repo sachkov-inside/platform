@@ -61,6 +61,7 @@ import {
   reservePurchaseInTransaction,
 } from "../../features/reserve-purchase/reserve-purchase.js";
 import {
+  BankInitRefused,
   bankTimeoutMs,
   refundTerminalStatuses,
   unpaidFormStatuses,
@@ -103,6 +104,33 @@ const bankCancelConfirmed = "bank_cancel_confirmed";
  * снял холд. Событие показывает владельцу, что деньги вернул Cancel кода, а не кабинет банка.
  */
 const bankCancelReturnedPayment = "bank_cancel_returned_payment";
+/**
+ * В банке нет платежа попытки (#1922). Причина лежит в `payload.reason`: `init_not_sent`,
+ * `init_declined` с кодом и текстом отказа банка или `check_order_empty`. Событие закрывает и
+ * отметку отмены: отменять в банке нечего. Сторож (#1928) читает его по имени.
+ */
+const bankPaymentAbsent = "bank_payment_absent";
+type BankPaymentAbsence =
+  | { readonly reason: "init_not_sent" }
+  | {
+      readonly reason: "init_declined";
+      readonly errorCode: string;
+      readonly message: string | null;
+    }
+  | { readonly reason: "check_order_empty"; readonly firstEmptyAt: string };
+/** Первый ответ CheckOrder без платежей заказа: от него отсчитывается окно отсутствия платежа. */
+const bankOrderEmpty = "bank_order_empty";
+/**
+ * Сколько CheckOrder должен подряд не находить платежей заказа, чтобы попытка с неизвестным
+ * исходом закрылась. Ответ Init ждёт не дольше `bankTimeoutMs`, поэтому платёж, созданный
+ * потерянным Init, CheckOrder покажет задолго до конца окна.
+ */
+const bankPaymentAbsenceWindowMilliseconds = 30 * 60 * 1000;
+/** События, после которых отметке отмены нечего отменять: форма закрыта или платежа нет. */
+const bankCancelClosingEvents: readonly string[] = [
+  bankCancelConfirmed,
+  bankPaymentAbsent,
+];
 /** После этих статусов форма уже не принимает оплату, и Cancel ей не нужен. */
 const closedFormStatuses: readonly BankPayment["Status"][] = [
   "CANCELED",
@@ -845,15 +873,20 @@ export class BillingPayments {
         return { ok: true, value: true };
       }
       // Разовую покупку с PaymentId спрашиваем и после отказа: он мог смениться оплатой.
+      // Снятую попытку без PaymentId с открытой отметкой отмены ищем через CheckOrder: ответ
+      // её Init мог потеряться, а форма в банке осталась.
       if (
         row.state === "failed" &&
-        (row.kind !== "one_time" || !hasText(row.paymentId))
+        (row.kind !== "one_time" ||
+          (!hasText(row.paymentId) &&
+            (await findOpenBankCancel(prisma, row.id)) === null))
       )
         return { ok: true, value: true };
       let paymentId = row.paymentId;
       if (!hasText(paymentId)) {
         const candidates = await bank.order(row.id);
-        // Empty/multiple results are uncertainty, not permission to send another Init.
+        // An empty answer starts or closes the absence window; neither sends another Init.
+        if (candidates.length === 0) return await this.settleEmptyOrder(row.id);
         if (candidates.length !== 1 || !hasText(candidates[0]))
           return paymentFailure("provider_unavailable");
         paymentId = candidates[0];
@@ -871,6 +904,60 @@ export class BillingPayments {
         paymentFailure("provider_unavailable"),
       );
     }
+  }
+
+  /**
+   * CheckOrder не нашёл платежей заказа без PaymentId. Первый такой ответ пишет `bank_order_empty`.
+   * Попытку закрывает пустой ответ не раньше `bankPaymentAbsenceWindowMilliseconds` после него
+   * и после создания покупки. Найденный за это время платёж даёт PaymentId, и попытка уходит
+   * из этой ветки. Пока окно не прошло, исход остаётся неизвестным: `provider_unavailable`.
+   */
+  private async settleEmptyOrder(
+    purchaseRef: string,
+  ): Promise<PaymentResult<true>> {
+    const settled = await this.dependencies.prisma.$transaction(async (tx) => {
+      await lockBillingPricing(tx);
+      await lockBillingPurchase(tx, purchaseRef);
+      const row = await tx.billingPurchase.findUniqueOrThrow({
+        where: { id: purchaseRef },
+        select: { state: true, paymentId: true, createdAt: true },
+      });
+      // `sent` ждёт ответа Init, а у другого состояния уже есть свой исход.
+      if (
+        row.paymentId !== null ||
+        (row.state !== "unknown" && row.state !== "failed")
+      )
+        return "waiting";
+      const now = this.clock();
+      const first = await tx.billingPaymentEvent.findUnique({
+        where: { purchaseRef_kind: { purchaseRef, kind: bankOrderEmpty } },
+        select: { occurredAt: true },
+      });
+      if (first === null) {
+        await recordEventOnce(tx, purchaseRef, bankOrderEmpty, {}, now);
+        return "waiting";
+      }
+      if (
+        now.getTime() - first.occurredAt.getTime() <
+          bankPaymentAbsenceWindowMilliseconds ||
+        now.getTime() - row.createdAt.getTime() <
+          bankPaymentAbsenceWindowMilliseconds
+      )
+        return "waiting";
+      await recordBankPaymentAbsent(
+        tx,
+        purchaseRef,
+        {
+          reason: "check_order_empty",
+          firstEmptyAt: first.occurredAt.toISOString(),
+        },
+        now,
+      );
+      return "closed";
+    });
+    return settled === "closed"
+      ? { ok: true, value: true }
+      : paymentFailure("provider_unavailable");
   }
 
   async recover(limit = 50): Promise<
@@ -1268,6 +1355,8 @@ export class BillingPayments {
       return prepared.reason === "already_owned" ? "already_owned" : "skipped";
     }
     const { row, kind } = prepared;
+    // До вызова Init банк заказа не видел: сбой подготовки закрывает попытку без платежа.
+    let initRequested = false;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const email = openOrderEmail(bank, row.id, row.contact);
@@ -1289,6 +1378,7 @@ export class BillingPayments {
           : undefined;
       const product = products?.filter((entry) => entry.kind === "product");
       const returnSlug = product?.length === 1 ? product[0]?.slug : null;
+      initRequested = true;
       const payment = await bank.init({
         orderId: row.id,
         accountId: row.accountId,
@@ -1316,8 +1406,14 @@ export class BillingPayments {
         { module: "billing", operation: "dispatch" },
         error,
       );
+      const absence = initAbsence(error, initRequested);
       await prisma.$transaction(async (tx) => {
         await lockBillingPricing(tx);
+        if (absence !== null) {
+          await recordBankPaymentAbsent(tx, row.id, absence, this.clock());
+          return;
+        }
+        // Сеть, таймаут, HTTP-ошибка или ответ не по схеме: платёж мог появиться, исход решит сверка.
         const changed = await tx.billingPurchase.updateMany({
           where: { id: row.id, state: { in: ["sent", "pending"] } },
           data: { state: "unknown", updatedAt: this.clock() },
@@ -1876,7 +1972,8 @@ async function retireAttempt(
 
 /**
  * Снятые попытки с открытой отметкой отмены за последние сутки. Форма живёт сутки от Init, а
- * Init уходит до отметки, поэтому окно от отметки накрывает весь срок формы. Не больше `limit`.
+ * Init уходит до отметки, поэтому окно от отметки накрывает весь срок формы. Попытка без
+ * PaymentId тоже входит: ответ её Init мог потеряться, и платёж ищет CheckOrder. Не больше `limit`.
  */
 async function openRetiredForms(
   prisma: BillingPrismaClient,
@@ -1892,11 +1989,10 @@ async function openRetiredForms(
           AND required.occurred_at >= ${markedSince}
           AND purchase.state = 'failed'
           AND purchase.kind = 'one_time'
-          AND purchase.payment_id IS NOT NULL
           AND NOT EXISTS (
             SELECT 1 FROM billing.payment_events closed
             WHERE closed.purchase_ref = required.purchase_ref
-              AND closed.kind = ${bankCancelConfirmed}
+              AND closed.kind IN (${Prisma.join(bankCancelClosingEvents)})
           )
         ORDER BY purchase.updated_at, purchase.id
         LIMIT ${limit}
@@ -1954,6 +2050,70 @@ async function recordEventOnce(
   });
 }
 
+/**
+ * Сбой Init, после которого в банке точно нет платежа: Init не был вызван, адаптер не отправил
+ * запрос или банк отказал без PaymentId. Иначе `null`: исход неизвестен.
+ */
+function initAbsence(
+  error: unknown,
+  initRequested: boolean,
+): BankPaymentAbsence | null {
+  if (!initRequested) return { reason: "init_not_sent" };
+  if (!(error instanceof BankInitRefused)) return null;
+  const { refusal } = error;
+  return refusal.reason === "declined"
+    ? {
+        reason: "init_declined",
+        errorCode: refusal.errorCode,
+        message: refusal.message,
+      }
+    : { reason: "init_not_sent" };
+}
+
+/**
+ * В банке нет платежа попытки. Попытка в `sent` или `unknown` закрывается вместе с резервом, и
+ * покупатель может начать новую покупку. Снятая раньше попытка получает только событие: оно
+ * закрывает её отметку отмены. Попытка с PaymentId или в другом состоянии не меняется.
+ * Вызывающий держит замок цен.
+ */
+async function recordBankPaymentAbsent(
+  tx: BillingPrisma,
+  purchaseRef: string,
+  absence: BankPaymentAbsence,
+  now: Date,
+): Promise<void> {
+  await lockBillingPurchase(tx, purchaseRef);
+  const row = await tx.billingPurchase.findUniqueOrThrow({
+    where: { id: purchaseRef },
+    select: { state: true, paymentId: true },
+  });
+  if (row.paymentId !== null) return;
+  if (row.state === "sent" || row.state === "unknown") {
+    await tx.billingPurchase.update({
+      where: { id: purchaseRef },
+      data: {
+        state: "failed",
+        lifecycleActive: false,
+        paymentUrl: null,
+        updatedAt: now,
+      },
+    });
+    const released = await tx.billingPromoReservation.findUnique({
+      where: { purchaseRef },
+      select: { paymentLinkId: true },
+    });
+    if (released !== null) {
+      await tx.billingPromoReservation.update({
+        where: { purchaseRef },
+        data: { state: "failed" },
+      });
+      if (released.paymentLinkId !== null)
+        await confirmWaitingLinkReservation(tx, released.paymentLinkId);
+    }
+  } else if (row.state !== "failed") return;
+  await recordEventOnce(tx, purchaseRef, bankPaymentAbsent, absence, now);
+}
+
 /** Открытая отметка отмены этой попытки или `null`. Запись по ответу идёт под замком покупки. */
 async function findOpenBankCancel(
   tx: BillingPrisma,
@@ -1962,11 +2122,12 @@ async function findOpenBankCancel(
   const marks = await tx.billingPaymentEvent.findMany({
     where: {
       purchaseRef,
-      kind: { in: [bankCancelRequested, bankCancelConfirmed] },
+      kind: { in: [bankCancelRequested, ...bankCancelClosingEvents] },
     },
     select: { kind: true, payload: true },
   });
-  if (marks.some((mark) => mark.kind === bankCancelConfirmed)) return null;
+  if (marks.some((mark) => bankCancelClosingEvents.includes(mark.kind)))
+    return null;
   const required = marks.find((mark) => mark.kind === bankCancelRequested);
   return required === undefined
     ? null

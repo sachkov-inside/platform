@@ -151,13 +151,17 @@ it("counts recent payment events, open bank cancellations and failed bursts", as
   await event(recent, "bank_payment_absent", "1 minute");
   await event(recent, "payment_confirmed", "1 minute");
 
-  // Open: requested 40 minutes ago, never confirmed. Closed, too fresh, expired and paid do not count.
+  // Open: requested 40 minutes ago, never confirmed. Closed, absent at the bank, too fresh,
+  // expired and paid do not count.
   const open = await oneTimePurchase(randomUUID(), "2 hours", "CANCEL-OPEN");
   const closed = await oneTimePurchase(
     randomUUID(),
     "2 hours",
     "CANCEL-CLOSED",
   );
+  const absent = await oneTimePurchase(randomUUID(), "2 hours");
+  await event(absent, "bank_cancel_requested", "40 minutes");
+  await event(absent, "bank_payment_absent", "5 minutes");
   const fresh = await oneTimePurchase(randomUUID(), "2 hours", "CANCEL-FRESH");
   const expired = await oneTimePurchase(randomUUID(), "3 days", "CANCEL-OLD");
   const paid = await oneTimePurchase(
@@ -192,7 +196,7 @@ it("counts recent payment events, open bank cancellations and failed bursts", as
     payment_duplicate: 1,
     payment_after_failure: 1,
     payment_superseded: 2,
-    payment_bank_absent: 1,
+    payment_bank_absent: 2,
     payment_cancel_open: 1,
     payment_failed_burst: 1,
   });

@@ -94,6 +94,9 @@ export function paymentEventLabel(kind: string): string {
     bank_cancel_confirmed: "Банк закрыл форму оплаты снятой попытки",
     bank_cancel_returned_payment:
       "Покупатель успел оплатить снятую попытку, отмена вернула деньги",
+    bank_order_empty: "Банк не нашёл платёж по заказу, сверка проверит снова",
+    bank_payment_absent:
+      "Платежа в банке нет, покупка закрыта, деньги не списаны",
   };
   return labels[kind] ?? `Событие ${kind}`;
 }

@@ -344,6 +344,12 @@ describe("payment presentation", () => {
     expect(paymentEventLabel("bank_cancel_returned_payment")).toBe(
       "Покупатель успел оплатить снятую попытку, отмена вернула деньги",
     );
+    expect(paymentEventLabel("bank_order_empty")).toBe(
+      "Банк не нашёл платёж по заказу, сверка проверит снова",
+    );
+    expect(paymentEventLabel("bank_payment_absent")).toBe(
+      "Платежа в банке нет, покупка закрыта, деньги не списаны",
+    );
     expect(paymentEventLabel("new_bank_event")).toBe("Событие new_bank_event");
   });
 
