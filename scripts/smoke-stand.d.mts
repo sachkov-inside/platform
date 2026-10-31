@@ -16,6 +16,7 @@ export function startWithRoutes<Server>(options: {
   start: () => Server;
   stop: (server: Server) => Promise<void>;
   ready: (server: Server) => Promise<unknown>;
+  headers?: Readonly<Record<string, string>>;
   request?: (url: string) => Promise<{ status: number }>;
   log?: (message: string) => void;
 }): Promise<Server>;
