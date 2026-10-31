@@ -64,6 +64,35 @@ export function sourceProgress(stderr) {
     : { lastStarted, lastCompleted, completedCount };
 }
 
+/** Only one complete terminal marker may enrich an already failed native verdict.
+ * @param {unknown} stderr
+ */
+function firstFailure(stderr) {
+  if (typeof stderr !== "string" || Buffer.byteLength(stderr) > 1_048_576)
+    return null;
+  let found = null;
+  let offset = 0;
+  while (offset < stderr.length) {
+    const end = stderr.indexOf("\n", offset);
+    const line = stderr.slice(offset, end < 0 ? stderr.length : end);
+    offset = end < 0 ? stderr.length : end + 1;
+    if (!line.includes("CORE_FAILURE")) continue;
+    if (
+      found !== null ||
+      end !== stderr.length - 1 ||
+      Buffer.byteLength(line) > 48
+    )
+      return null;
+    const match =
+      /^CORE_FAILURE_V1 ordinal ([1-9][0-9]{0,2}) kind ([FEU])$/u.exec(line);
+    if (match === null) return null;
+    const ordinal = Number(match[1]);
+    if (ordinal > ids.length) return null;
+    found = { ordinal, kind: match[2] };
+  }
+  return found;
+}
+
 const UNKNOWN = "Core source progress: unknown";
 /** @param {unknown} value @param {string} key */
 function data(value, key) {
@@ -112,6 +141,7 @@ export function assertCoreContracts(result) {
   )
     assert.fail(UNKNOWN);
   const failedSpawn = error.value !== undefined;
+  if (status.value === 0 && signal.value === null && !failedSpawn) return;
   let mayReadProgress = !failedSpawn;
   if (failedSpawn) {
     const code = data(error.value, "code");
@@ -122,14 +152,24 @@ export function assertCoreContracts(result) {
       code.value === "ETIMEDOUT";
   }
   let progress = null;
+  let failure = null;
   if (mayReadProgress) {
     const stderr = data(result, "stderr");
-    if (stderr.valid && stderr.present) progress = sourceProgress(stderr.value);
+    if (stderr.valid && stderr.present) {
+      progress = sourceProgress(stderr.value);
+      if (!failedSpawn && signal.value === null && status.value !== 0)
+        failure = firstFailure(stderr.value);
+    }
   }
-  const message =
+  const progressMessage =
     progress === null
       ? UNKNOWN
       : `Core source progress: lastStarted=${progress.lastStarted}; lastCompleted=${progress.lastCompleted ?? "none"}; completedCount=${progress.completedCount}`;
+  const message =
+    progressMessage +
+    (failure === null
+      ? ""
+      : `; firstFailureOrdinal=${failure.ordinal}; firstFailureKind=${failure.kind}`);
   assert.equal(status.value, 0, message);
   assert.ok(signal.value === null, message);
   assert.ok(!failedSpawn, message);

@@ -126,6 +126,8 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
         self.assertIn('CORE_SOURCE_V1 start '+identifier+'\n',stream.getvalue())
         self.assertIn('CORE_SOURCE_V1 completed '+identifier+'\n',stream.getvalue())
 
+        self._assert_first_failure_projection()
+
         # Callbacks use stable objects, never a later overridden id/getter or private representation.
         mapping={id(case):(case,identifier)}
         class FixedResult(owner.PassiveResult):_source_objects=mapping
@@ -426,6 +428,7 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
                     output=stream.getvalue()
                     if not legacy:
                         output=re.sub(r'\nCORE_SOURCE_V1 (?:start|completed) [A-Za-z0-9_.]+\n','',output)
+                        output=re.sub(r'CORE_FAILURE_V1 (?:ordinal [1-9][0-9]{0,2} kind [FEU]|unknown)\n$','',output)
                     records.append((code,program.progName,program.warnings,result.testsRun,len(result.failures),
                                     len(result.errors),len(result.skipped),discovered,output))
                     self._parity_stage='import_list'
@@ -455,6 +458,122 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
             self._parity_stage='import_tail'
             self.assertEqual(imports,['sys'])
         self._parity_stage=None
+
+    def _assert_first_failure_projection(self):
+        import core_source_progress as owner
+        import subprocess
+        captures=[]
+        for ordinal,category in ((6,'F'),(43,'E'),(307,'U'),(7,'subF'),(9,'subE'),(8,'foreign')):
+            cases=[]
+            for index,identifier in enumerate(owner.SOURCE_IDS):
+                module,cls,method=identifier.split('.')
+                def body(case,index=index):
+                    if index==ordinal-1:
+                        if category=='U':return
+                        if category.startswith('sub'):
+                            with case.subTest(private='private-first-failure-canary'):
+                                if category=='subF':case.fail('private-first-failure-canary')
+                                raise RuntimeError('private-first-failure-canary')
+                            return
+                        if category=='foreign':
+                            try:raise AssertionError('private-first-failure-canary')
+                            except AssertionError:
+                                case._outcome.result.addFailure(unittest.FunctionTestCase(lambda:None),sys.exc_info())
+                        if category in ('F','foreign'):
+                            case.id=lambda:'private-forged-id-canary'
+                            case.fail('private-first-failure-canary')
+                        raise RuntimeError('private-first-failure-canary')
+                    if index==ordinal and category!='U':case.fail('private-later-failure-canary')
+                if category=='U' and index==ordinal-1:body=unittest.expectedFailure(body)
+                cases.append(type(cls,(unittest.TestCase,),{'__module__':module,method:body})(method))
+            stream=io.StringIO()
+            result=owner.PassiveRunner(stream=stream).run(unittest.TestSuite(cases))
+            self.assertEqual(result.testsRun,307)
+            self.assertFalse(result.wasSuccessful())
+            if category=='foreign':self.assertTrue(stream.getvalue().endswith('CORE_FAILURE_V1 unknown\n'))
+            else:self.assertTrue(stream.getvalue().endswith('CORE_FAILURE_V1 ordinal '+str(ordinal)+' kind '+category[-1]+'\n'))
+            captures.append({'ordinal':ordinal,'kind':category[-1],'unknown':category=='foreign','stderr':stream.getvalue()})
+        class FooterWriter(io.StringIO):
+            def write(self,value):
+                if 'CORE_FAILURE' in value:raise self.fault
+                return super().write(value)
+        identifier=owner.SOURCE_IDS[0];module,cls,method=identifier.split('.')
+        for fault in (OSError(),ValueError(),KeyboardInterrupt(),SystemExit()):
+            stream=FooterWriter();stream.fault=fault
+            case=type(cls,(unittest.TestCase,),{'__module__':module,method:lambda case:case.fail('private-canary')})(method)
+            with patch.object(owner,'SOURCE_IDS',(identifier,)):
+                result=owner.PassiveRunner(stream=stream).run(unittest.TestSuite([case]))
+            self.assertFalse(result.wasSuccessful());self.assertEqual(result.testsRun,1)
+            self.assertEqual(len(result.failures),1)
+            self.assertNotIn('CORE_FAILURE',stream.getvalue())
+        # Superclass callbacks retain exact primary identity and traceback.
+        mapping={id(case):(case,identifier)}
+        class FixedResult(owner.PassiveResult):
+            _source_objects=mapping
+            _source_ordinals={id(case):(case,1)}
+        for callback in ('addFailure','addError','addUnexpectedSuccess','addSubTest'):
+            observed=FixedResult(io.StringIO(),True,1)
+            original=KeyboardInterrupt('private-primary-canary');origin=[]
+            def primary(*args):
+                try:raise original
+                except BaseException:origin.append(sys.exc_info()[2]);raise
+            try:raise AssertionError('private-native-canary')
+            except AssertionError:err=sys.exc_info()
+            args=(case,) if callback=='addUnexpectedSuccess' else (case,None,err) if callback=='addSubTest' else (case,err)
+            with patch.object(unittest.TextTestResult,callback,side_effect=primary) as native:
+                try:getattr(observed,callback)(*args)
+                except BaseException as caught:
+                    self.assertIs(caught,original)
+                    trace=caught.__traceback__;chain=[]
+                    while trace:chain.append(trace);trace=trace.tb_next
+                    self.assertIn(origin[0],chain)
+                else:self.fail('native callback primary replaced')
+                native.assert_called_once_with(*args)
+        class Foreign:
+            def __getattribute__(self,name):raise AssertionError('private foreign getter')
+        observed=FixedResult(io.StringIO(),True,1);foreign=Foreign()
+        with patch.object(unittest.TextTestResult,'addSubTest') as native:
+            observed.addSubTest(foreign,None,err)
+            native.assert_called_once_with(foreign,None,err)
+        self.assertEqual(observed._first_failure,())
+        observed.addFailure(case,err)
+        self.assertEqual(observed._first_failure,())
+        # A runner exception is not converted into a result or swallowed by footer emission.
+        original=KeyboardInterrupt('private-runner-canary')
+        with patch.object(owner,'SOURCE_IDS',(identifier,)),patch.object(unittest.TextTestRunner,'run',side_effect=original):
+            try:owner.PassiveRunner(stream=io.StringIO()).run(unittest.TestSuite([case]))
+            except BaseException as caught:self.assertIs(caught,original)
+            else:self.fail('native runner primary replaced')
+        # Actual Python producer output crosses the public Node assertion seam unchanged.
+        program="""import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {assertCoreContracts} from './scripts/observability-pilot/source-progress.mjs';
+for(const capture of JSON.parse(readFileSync(0,'utf8'))){
+  let message='';try{assertCoreContracts({status:1,signal:null,error:undefined,stderr:capture.stderr});}
+  catch(error){message=error.message;}
+  if(capture.unknown)assert.ok(!message.includes('firstFailureOrdinal='),'first foreign failure replaced');
+  else assert.ok(message.includes('firstFailureOrdinal='+capture.ordinal+'; firstFailureKind='+capture.kind),'closed first failure missing');
+  assert.ok(!message.includes('private-first-failure-canary'),'private assertion leaked');
+  const prefix=capture.stderr.slice(0,capture.stderr.lastIndexOf('CORE_FAILURE_V1'));
+  const marker='CORE_FAILURE_V1 ordinal 6 kind F\\n';
+  const invalid=[marker.trimEnd(),marker+marker,marker+'tail',marker.replace('6','0'),
+    marker.replace('6','308'),marker.replace('6','06'),marker.replace('F\\n','X\\n'),
+    'private '+marker,'CORE_FAILURE_private-canary\\n', 'CORE_FAILURE_V1 '+'x'.repeat(131072)+'\\n'];
+  for(const footer of invalid){
+    assert.throws(()=>assertCoreContracts({status:1,signal:null,stderr:prefix+footer}),
+      error=>!error.message.includes('firstFailureOrdinal=')&&!error.message.includes('private-first-failure-canary'),'malformed first failure accepted');
+  }
+  assert.doesNotThrow(()=>assertCoreContracts({status:0,signal:null,get stderr(){throw Error('private-canary')}}));
+  for(const code of ['ENOBUFS','EIO'])assert.throws(()=>assertCoreContracts({status:null,signal:null,error:{code},get stderr(){throw Error('private-canary')}}),/Core source progress: unknown/);
+  assert.throws(()=>assertCoreContracts({status:null,signal:'SIGTERM',error:{code:'ETIMEDOUT'},stderr:capture.stderr}),error=>!error.message.includes('firstFailureOrdinal='));
+  assert.throws(()=>assertCoreContracts({status:1,signal:null,get stderr(){throw Error('private-canary')}}),/Core source progress: unknown/);
+  assert.throws(()=>assertCoreContracts(new Proxy({status:1,signal:null,stderr:capture.stderr},{get(){throw Error('private-canary')}})),/Core source progress: unknown/);
+}
+
+"""
+        checked=subprocess.run(['node','--input-type=module','-e',program],
+            input=json.dumps(captures).encode(),capture_output=True,timeout=5)
+        self.assertEqual(checked.returncode,0,'closed producer-to-consumer first-failure projection refused')
 
     def _assert_parity_records(self,left,right):
         self._parity_field=None

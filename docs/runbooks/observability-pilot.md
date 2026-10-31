@@ -2402,6 +2402,21 @@ Native exit status, spawn error and signal remain authoritative. Even a complete
 cannot turn a failed native outcome into a pass, while missing markers do not reject a successful
 native outcome. Raw captured unittest text is not the opt-in Linux assertion message.
 
+After the normal failed unittest summary, one optional terminal `CORE_FAILURE_V1` line records
+only the first verified test's ordinal (1 through307) and category `F` (assertion), `E` (error), or
+`U` (unexpected success). The ordinal comes from the verified object mapping, never a later test
+ID or error message. Failing subtests use their verified parent object. An earlier unbound failure
+freezes `unknown`; later canonical failures cannot replace it. Footer write failures preserve the
+native result. The footer contains no raw assertion, traceback or arbitrary test identifier.
+
+The Node assertion accepts only one complete terminal footer with a bounded canonical ordinal
+and fixed category. Missing, malformed, duplicate, oversized or nonterminal footers stay unknown.
+The footer enriches only an already failed native exit without a spawn error or signal. Successful
+native outcomes ignore it. Native spawn errors, `ENOBUFS`, getters and proxies retain their previous
+precedence and capture protections. This diagnostic cannot establish the cause of an earlier failure;
+a later passing run cannot establish flakiness. Synthetic producer-to-consumer checks preserve all
+three separate protocol methods and never execute the307 original source-test bodies.
+
 Three separate synthetic Python protocol controls live outside `test_*.py`; they do not add or
 replace any of the 307 discovered methods. Synthetic dispatch/parity checks do not establish an
 actual admitted Linux run or explain an earlier source timeout. Their separate assertion can

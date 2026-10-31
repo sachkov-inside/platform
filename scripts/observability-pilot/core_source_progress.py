@@ -40,6 +40,8 @@ def verify_inventory(suite):
 
 class PassiveResult(unittest.TextTestResult):
     _source_objects=None
+    _source_ordinals=None
+    _first_failure=None
 
     def _source_event(self,event,test):
         active=sys.exc_info()
@@ -55,6 +57,36 @@ class PassiveResult(unittest.TextTestResult):
         finally:
             if active[1] is not None:BaseException.__traceback__.__set__(active[1],active[2])
 
+    def _remember_failure(self,test,kind,err=None):
+        # Optional observation cannot replace an active native callback/exception.
+        if self._first_failure is not None:return
+        active=sys.exc_info()
+        try:
+            self._first_failure=()  # First unbound failure freezes unknown.
+            entry=self._source_ordinals.get(id(test))
+            if entry is not None and entry[0] is test:
+                if kind is None:kind='F' if issubclass(err[0],test.failureException) else 'E'
+                self._first_failure=(entry[1],kind)
+        except BaseException:pass
+        finally:
+            if active[1] is not None:BaseException.__traceback__.__set__(active[1],active[2])
+
+    def addFailure(self,test,err):
+        self._remember_failure(test,'F')
+        super().addFailure(test,err)
+
+    def addError(self,test,err):
+        self._remember_failure(test,'E')
+        super().addError(test,err)
+
+    def addUnexpectedSuccess(self,test):
+        self._remember_failure(test,'U')
+        super().addUnexpectedSuccess(test)
+
+    def addSubTest(self,test,subtest,err):
+        if err is not None:self._remember_failure(test,None,err)
+        super().addSubTest(test,subtest,err)
+
     def startTest(self,test):
         super().startTest(test)
         self._source_event('start',test)
@@ -67,6 +99,17 @@ class PassiveResult(unittest.TextTestResult):
 class PassiveRunner(unittest.TextTestRunner):
     def run(self,test):
         objects=verify_inventory(test)
-        class FixedResult(PassiveResult):_source_objects=objects
+        ordinals={key:(entry[0],index+1) for index,(key,entry) in enumerate(objects.items())}
+        class FixedResult(PassiveResult):
+            _source_objects=objects
+            _source_ordinals=ordinals
         self.resultclass=FixedResult
-        return super().run(test)
+        result=super().run(test)
+        if not result.wasSuccessful():
+            # Emit only after unittest's normal summary. Native verdict is already final.
+            try:
+                first=result._first_failure
+                marker=('ordinal '+str(first[0])+' kind '+first[1]) if first else 'unknown'
+                self.stream.write('CORE_FAILURE_V1 '+marker+'\n');self.stream.flush()
+            except BaseException:pass
+        return result
