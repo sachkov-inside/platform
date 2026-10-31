@@ -116,3 +116,9 @@ The owner preferred the original illustrated «Что изучим» grid over t
 - No layer labels on tiles. «Модульность» replaces a monolith-specific tile.
 - New art: domain glossary, modules, user story, legacy steps, checks, specification chain,
   sandbox permissions.
+
+## Revision 8 (2026-10-31): section header
+
+«Научись выстраивать работу с агентом» puts the heading on the left and the description on the
+right, aligned to the heading baseline, so the top right is no longer empty. Below 64rem the
+description returns under the heading.

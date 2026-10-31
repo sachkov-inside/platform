@@ -69,8 +69,16 @@
   color: var(--foreground);
 }
 /* ---------- Как устроен проект: тёмное окно репозитория ---------- */
+/* Заголовок слева, описание справа по нижней линии: верх раздела не пустеет справа. */
 .aie2-artifacts > div:first-child {
-  margin-bottom: 2rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem 3rem;
+  align-items: end;
+  margin-bottom: 2.25rem;
+}
+.ai-product-page.aie-course .aie2-artifacts > div:first-child > p {
+  margin-top: 0;
 }
 .aie2-window {
   --aie2-ink: var(--primary);
@@ -363,6 +371,12 @@
   }
   .ai-product-page .aie-value li:last-child {
     grid-column: 1 / -1;
+  }
+}
+@media (max-width: 63.999rem) {
+  .aie2-artifacts > div:first-child {
+    grid-template-columns: 1fr;
+    margin-bottom: 1.75rem;
   }
 }
 @media (max-width: 47.999rem) {
