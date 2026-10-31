@@ -20,7 +20,7 @@ afterAll(async () => world.dispose());
 
 type Scenario = Awaited<ReturnType<typeof world.scenario>>;
 
-async function purchaseRow(purchaseRef: string) {
+async function reviewState(purchaseRef: string) {
   return world.db.prisma.billingPurchase.findUniqueOrThrow({
     where: { id: purchaseRef },
     select: { state: true, paymentUrl: true, refundReviewRequired: true },
@@ -59,7 +59,7 @@ test.each(["3DS_CHECKING", "3DS_CHECKED"])(
   async (status) => {
     const { s, purchaseRef } = await openForm();
     expect(await s.notify(status)).toEqual({ ok: true, value: true });
-    expect(await purchaseRow(purchaseRef)).toEqual({
+    expect(await reviewState(purchaseRef)).toEqual({
       state: "pending",
       paymentUrl: null,
       refundReviewRequired: false,
@@ -72,7 +72,7 @@ test.each(["PAY_CHECKING", "CONFIRM_CHECKING", "ASYNC_REFUNDING"])(
   async (status) => {
     const { s, purchaseRef } = await openForm();
     expect(await s.notify(status)).toEqual({ ok: true, value: true });
-    expect(await purchaseRow(purchaseRef)).toMatchObject({
+    expect(await reviewState(purchaseRef)).toMatchObject({
       state: "unknown",
       paymentUrl: null,
     });
@@ -85,7 +85,7 @@ test.each(["PAY_CHECKING", "CONFIRM_CHECKING", "ASYNC_REFUNDING"])(
 test("a form closed after too many openings (ATTEMPTS_EXPIRED) fails the attempt", async () => {
   const { s, purchaseRef } = await openForm();
   expect(await s.notify("ATTEMPTS_EXPIRED")).toEqual({ ok: true, value: true });
-  expect(await purchaseRow(purchaseRef)).toEqual({
+  expect(await reviewState(purchaseRef)).toEqual({
     state: "failed",
     paymentUrl: null,
     refundReviewRequired: false,
@@ -100,7 +100,7 @@ test("a partial reversal of a hold is kept once for review without trusting its 
     value: true,
   });
   // Неподтверждённая покупка с частичным возвратом снимается с ожидания и ждёт владельца (#1929).
-  expect(await purchaseRow(purchaseRef)).toEqual({
+  expect(await reviewState(purchaseRef)).toEqual({
     state: "failed",
     paymentUrl: null,
     refundReviewRequired: true,
@@ -128,7 +128,7 @@ test("a partial reversal of a hold is kept once for review without trusting its 
 test("an authentic status missing from the documented list is acknowledged, sent to reconciliation and recorded for the owner", async () => {
   const { s, purchaseRef } = await openForm();
   expect(await s.notify("QR_SETTLING")).toEqual({ ok: true, value: true });
-  expect(await purchaseRow(purchaseRef)).toMatchObject({
+  expect(await reviewState(purchaseRef)).toMatchObject({
     state: "unknown",
     paymentUrl: null,
   });
@@ -144,18 +144,18 @@ test("an authentic status missing from the documented list is acknowledged, sent
     ok: true,
     value: true,
   });
-  expect((await purchaseRow(purchaseRef)).state).toBe("unknown");
+  expect((await reviewState(purchaseRef)).state).toBe("unknown");
   expect(s.initCalls()).toBe(1);
   // Банк определился: та же покупка подтверждается обычным путём.
   expect(await s.notify("CONFIRMED")).toEqual({ ok: true, value: true });
-  expect((await purchaseRow(purchaseRef)).state).toBe("confirmed");
+  expect((await reviewState(purchaseRef)).state).toBe("confirmed");
 });
 
 test("an unrecognized status never reopens a confirmed purchase", async () => {
   const { s, purchaseRef } = await openForm();
   expect(await s.notify("CONFIRMED")).toEqual({ ok: true, value: true });
   expect(await s.notify("QR_SETTLING")).toEqual({ ok: true, value: true });
-  expect((await purchaseRow(purchaseRef)).state).toBe("confirmed");
+  expect((await reviewState(purchaseRef)).state).toBe("confirmed");
 });
 
 test.each([
@@ -191,7 +191,7 @@ test.each([
       ok: false,
       error: { code: "invalid_notification" },
     });
-    expect((await purchaseRow(purchaseRef)).state).toBe("pending");
+    expect((await reviewState(purchaseRef)).state).toBe("pending");
     expect(
       await world.eventPayload(purchaseRef, "bank_status_unrecognized"),
     ).toBe(null);
@@ -214,7 +214,7 @@ test.each(["manual", "course_activation"] as const)(
     );
     expect(issued).toMatchObject({ ok: true, outcome: "issued" });
     expect(await s.notify("CONFIRMED")).toEqual({ ok: true, value: true });
-    expect((await purchaseRow(purchaseRef)).state).toBe("confirmed");
+    expect((await reviewState(purchaseRef)).state).toBe("confirmed");
     expect(
       await world.eventPayload(purchaseRef, "duplicate_payment_review"),
     ).toEqual({ paidPurchaseRefs: [], heldProductIds: [s.productId] });

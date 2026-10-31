@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
   type BillingPrisma,
@@ -130,16 +129,13 @@ export async function closeBankCancel(
     (await findOpenBankCancel(tx, purchaseRef)) === null
   )
     return;
-  await tx.billingPaymentEvent.create({
-    data: {
-      id: randomUUID(),
-      purchaseRef,
-      kind: paymentEventKind.bankCancelConfirmed,
-      payload: { paymentId, status },
-      occurredAt: now,
-      recordedAt: now,
-    },
-  });
+  await recordEventOnce(
+    tx,
+    purchaseRef,
+    paymentEventKind.bankCancelConfirmed,
+    { paymentId, status },
+    now,
+  );
 }
 
 /**

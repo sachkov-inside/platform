@@ -36,7 +36,7 @@ async function paymentLink(s: Scenario): Promise<string> {
   return link.id;
 }
 
-async function purchaseRow(purchaseRef: string) {
+async function attemptRow(purchaseRef: string) {
   return world.db.prisma.billingPurchase.findUniqueOrThrow({
     where: { id: purchaseRef },
     select: {
@@ -80,10 +80,10 @@ test("a Payment Link purchase replaces the open storefront attempt and cancels i
   });
   expect(replacement.paymentUrl).not.toBeNull();
   expect(s.initCalls()).toBe(2);
-  expect(await purchaseRow(replacement.purchaseRef)).toMatchObject({
+  expect(await attemptRow(replacement.purchaseRef)).toMatchObject({
     amountKopecks: BigInt(linkPriceKopecks),
   });
-  expect(await purchaseRow(storefront.purchaseRef)).toEqual({
+  expect(await attemptRow(storefront.purchaseRef)).toEqual({
     state: "failed",
     amountKopecks: BigInt(200000),
     paymentId: storefrontPaymentId,
@@ -110,70 +110,76 @@ test("a Payment Link purchase replaces the open storefront attempt and cancels i
       status: "CANCELED",
     },
   });
-  expect((await purchaseRow(replacement.purchaseRef)).state).toBe("pending");
+  expect((await attemptRow(replacement.purchaseRef)).state).toBe("pending");
 });
 
-test("money that a late Cancel returned grants no access and leaves the buyer's current attempt open", async () => {
-  const s = await world.scenario();
-  const storefront = value(await s.payments.purchase(s.buyer, s.command));
-  const storefrontPayment = {
-    OrderId: storefront.purchaseRef,
-    PaymentId: s.paymentId(),
-  };
-  const linkId = await paymentLink(s);
-  const replacement = value(
-    await s.payments.purchase(
-      s.buyer,
-      await s.commandFor({ paymentLinkId: linkId }),
-    ),
-  );
-  let reads = 0;
-  // The check before Cancel still sees NEW; Cancel reaches an already paid form.
-  s.afterState((paymentId) => {
-    if (paymentId !== storefrontPayment.PaymentId) return;
-    reads += 1;
-    if (reads === 2)
-      s.setPaymentStatus(storefrontPayment.PaymentId, "CONFIRMED");
-  });
-  try {
+test.each([
+  ["CONFIRMED", { Amount: 200000 }, "REFUNDED"],
+  ["PARTIAL_REFUNDED", { Amount: 1000 }, "PARTIAL_REFUNDED"],
+] as const)(
+  "money that a late Cancel returned grants no access on a later %s and leaves the buyer's current attempt open",
+  async (lateStatus, lateFields, closedStatus) => {
+    const s = await world.scenario();
+    const storefront = value(await s.payments.purchase(s.buyer, s.command));
+    const storefrontPayment = {
+      OrderId: storefront.purchaseRef,
+      PaymentId: s.paymentId(),
+    };
+    const linkId = await paymentLink(s);
+    const replacement = value(
+      await s.payments.purchase(
+        s.buyer,
+        await s.commandFor({ paymentLinkId: linkId }),
+      ),
+    );
+    let reads = 0;
+    // The check before Cancel still sees NEW; Cancel reaches an already paid form.
+    s.afterState((paymentId) => {
+      if (paymentId !== storefrontPayment.PaymentId) return;
+      reads += 1;
+      if (reads === 2)
+        s.setPaymentStatus(storefrontPayment.PaymentId, "CONFIRMED");
+    });
+    try {
+      value(await s.payments.reconcile(storefront.purchaseRef));
+    } finally {
+      s.afterState(undefined);
+    }
+    expect(
+      await world.eventPayload(
+        storefront.purchaseRef,
+        "bank_cancel_returned_payment",
+      ),
+    ).toEqual({ paymentId: storefrontPayment.PaymentId, status: "REFUNDED" });
+
+    // A delayed notification of the paid form arrives after the bank returned the money.
+    expect(
+      await s.notify(lateStatus, { ...storefrontPayment, ...lateFields }),
+    ).toMatchObject({ ok: true });
     value(await s.payments.reconcile(storefront.purchaseRef));
-  } finally {
-    s.afterState(undefined);
-  }
-  expect(
-    await world.eventPayload(
-      storefront.purchaseRef,
-      "bank_cancel_returned_payment",
-    ),
-  ).toEqual({ paymentId: storefrontPayment.PaymentId, status: "REFUNDED" });
 
-  // The delayed CONFIRMED of the paid form arrives after the bank returned the money.
-  expect(
-    await s.notify("CONFIRMED", { ...storefrontPayment, Amount: 200000 }),
-  ).toMatchObject({ ok: true });
-  value(await s.payments.reconcile(storefront.purchaseRef));
-
-  expect((await purchaseRow(storefront.purchaseRef)).state).toBe("failed");
-  expect(
-    await world.db.prisma.billingFulfillment.count({
-      where: { purchaseRef: storefront.purchaseRef },
-    }),
-  ).toBe(0);
-  expect(await eventPayloads(storefront.purchaseRef)).toMatchObject({
-    bank_cancel_confirmed: {
-      paymentId: storefrontPayment.PaymentId,
-      status: "REFUNDED",
-    },
-  });
-  expect(
-    await world.eventPayload(storefront.purchaseRef, "payment_confirmed"),
-  ).toBeNull();
-  expect(await purchaseRow(replacement.purchaseRef)).toMatchObject({
-    state: "pending",
-    paymentUrl: expect.any(String) as unknown,
-  });
-  expect(s.cancelRequests()).toHaveLength(1);
-});
+    expect((await attemptRow(storefront.purchaseRef)).state).toBe("failed");
+    expect(
+      await world.db.prisma.billingFulfillment.count({
+        where: { purchaseRef: storefront.purchaseRef },
+      }),
+    ).toBe(0);
+    expect(await eventPayloads(storefront.purchaseRef)).toMatchObject({
+      bank_cancel_confirmed: {
+        paymentId: storefrontPayment.PaymentId,
+        status: closedStatus,
+      },
+    });
+    expect(
+      await world.eventPayload(storefront.purchaseRef, "payment_confirmed"),
+    ).toBeNull();
+    expect(await attemptRow(replacement.purchaseRef)).toMatchObject({
+      state: "pending",
+      paymentUrl: expect.any(String) as unknown,
+    });
+    expect(s.cancelRequests()).toHaveLength(1);
+  },
+);
 
 test("a new storefront quote at the same price continues the open attempt without another Init", async () => {
   const s = await world.scenario();
@@ -220,7 +226,7 @@ test("a promo code price replaces the open storefront attempt at the full price"
   expect(promoted.purchaseRef).not.toBe(storefront.purchaseRef);
   expect(promoted.snapshot.firstPriceKopecks).toBe(180000);
   expect(s.initCalls()).toBe(2);
-  expect((await purchaseRow(storefront.purchaseRef)).state).toBe("failed");
+  expect((await attemptRow(storefront.purchaseRef)).state).toBe("failed");
   expect(await eventPayloads(storefront.purchaseRef)).toMatchObject({
     replaced_by_new_price: { replacementPurchaseRef: promoted.purchaseRef },
   });
@@ -292,7 +298,7 @@ test("a replacement whose new reservation fails leaves the open attempt untouche
 
   expect(answer).toMatchObject({ ok: false });
   expect(s.initCalls()).toBe(1);
-  expect(await purchaseRow(storefront.purchaseRef)).toMatchObject({
+  expect(await attemptRow(storefront.purchaseRef)).toMatchObject({
     state: "pending",
   });
   expect(await eventPayloads(storefront.purchaseRef)).toEqual({});
@@ -319,7 +325,7 @@ test("an open form the bank cannot check yet is neither replaced nor offered at 
     error: { code: "provider_unavailable" },
   });
   expect(s.initCalls()).toBe(1);
-  expect((await purchaseRow(storefront.purchaseRef)).state).toBe("pending");
+  expect((await attemptRow(storefront.purchaseRef)).state).toBe("pending");
   expect(await eventPayloads(storefront.purchaseRef)).toEqual({});
 
   // The same command succeeds once the bank answers again.
@@ -328,5 +334,5 @@ test("an open form the bank cannot check yet is neither replaced nor offered at 
 
   expect(replacement.purchaseRef).not.toBe(storefront.purchaseRef);
   expect(replacement.snapshot.firstPriceKopecks).toBe(linkPriceKopecks);
-  expect((await purchaseRow(storefront.purchaseRef)).state).toBe("failed");
+  expect((await attemptRow(storefront.purchaseRef)).state).toBe("failed");
 });

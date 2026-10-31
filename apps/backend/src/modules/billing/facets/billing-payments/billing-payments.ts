@@ -38,6 +38,7 @@ import {
 import {
   partialRefundObservedKindPrefix,
   paymentEventKind,
+  type PaymentEventKind,
 } from "../../domain/payment-events.js";
 import {
   paymentMode,
@@ -981,7 +982,7 @@ export class BillingPayments {
             return;
           await closeAttempt(tx, row.id, this.clock(), {
             event: {
-              kind: "legacy_dispatch_retired",
+              kind: paymentEventKind.legacyDispatchRetired,
               payload: {
                 kind: current.kind,
                 reason:
@@ -1708,7 +1709,7 @@ export class BillingPayments {
             observedAmountKopecks: payment.Amount,
             resolution: "amount_unresolved",
           };
-          const observationKind = `${partialRefundObservedKindPrefix}${createHash("sha256").update(JSON.stringify(observation)).digest("hex")}`;
+          const observationKind: PaymentEventKind = `${partialRefundObservedKindPrefix}${createHash("sha256").update(JSON.stringify(observation)).digest("hex")}`;
           const known = await hasEvent(tx, row.id, observationKind);
           if (!known) {
             await recordEventOnce(
@@ -1731,6 +1732,17 @@ export class BillingPayments {
               });
           }
           if (row.state === "confirmed") return { ok: true, value: true };
+          // Деньги снятой попытки вернул опоздавший Cancel: доступа нет, как и при REFUNDED ниже.
+          if (await returnedByLateCancel(tx, row)) {
+            await closeBankCancel(
+              tx,
+              row.id,
+              payment.PaymentId,
+              payment.Status,
+              now,
+            );
+            return { ok: true, value: true };
+          }
           // Вернуть часть можно только из списанных денег: `PARTIAL_REFUNDED` доказывает списание,
           // и покупка получает доступ (#1921, инвариант 1). Сумма возврата остаётся неизвестной.
           if (payment.Status === "PARTIAL_REFUNDED" && kind === "one_time")
@@ -1778,13 +1790,8 @@ export class BillingPayments {
           // Эти деньги уже вернул опоздавший Cancel: оплата не даёт доступа и не снимает текущую
           // попытку покупателя. Владелец видит `bank_cancel_returned_payment`; возврат банка
           // закрывает отметку отмены записью `bank_cancel_confirmed` с PaymentId и статусом.
-          if (
-            await hasEvent(
-              tx,
-              row.id,
-              paymentEventKind.bankCancelReturnedPayment,
-            )
-          ) {
+          // `CONFIRMED` отметку не закрывает: сверка дождётся возврата.
+          if (await returnedByLateCancel(tx, row)) {
             if (refunded)
               await closeBankCancel(
                 tx,
@@ -2177,6 +2184,20 @@ async function releaseForRefundReview(
     paymentEventKind.partialRefundReleased,
     { previousState },
     now,
+  );
+}
+
+/**
+ * Деньги этой снятой попытки уже вернул опоздавший Cancel (`bank_cancel_returned_payment`). Её
+ * поздняя оплата или возврат не подтверждают покупку и не снимают текущую попытку покупателя.
+ */
+async function returnedByLateCancel(
+  tx: BillingPrisma,
+  row: PurchaseRow,
+): Promise<boolean> {
+  return (
+    row.state === "failed" &&
+    (await hasEvent(tx, row.id, paymentEventKind.bankCancelReturnedPayment))
   );
 }
 

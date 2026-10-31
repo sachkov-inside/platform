@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import type { PaymentEventKind } from "../../domain/payment-events.js";
 import {
   lockBillingPricing,
   lockBillingPurchase,
@@ -12,7 +13,7 @@ import {
 export async function recordEventOnce(
   tx: BillingPrisma,
   purchaseRef: string,
-  kind: string,
+  kind: PaymentEventKind,
   payload: Prisma.InputJsonObject,
   now: Date,
 ): Promise<void> {
@@ -33,7 +34,7 @@ export async function recordEventOnce(
 export async function hasEvent(
   tx: BillingPrisma,
   purchaseRef: string,
-  kind: string,
+  kind: PaymentEventKind,
 ): Promise<boolean> {
   const known = await tx.billingPaymentEvent.findUnique({
     where: { purchaseRef_kind: { purchaseRef, kind } },
@@ -55,7 +56,7 @@ export async function closeAttempt(
   now: Date,
   options: {
     readonly event?: {
-      readonly kind: string;
+      readonly kind: PaymentEventKind;
       readonly payload: Prisma.InputJsonObject;
     };
     /** PaymentId из ответа банка, который закрыл попытку. */
