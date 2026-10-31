@@ -590,7 +590,7 @@ export const UnavailableBankKeepsOriginalCommand: Story = {
   },
 };
 
-/** Исход покупки; `retired` значит, что сервер снял покупку до банка по названной причине. */
+/** Исход покупки; `retired` значит, что сервер снял покупку до оплаты по названной причине. */
 type PurchaseOutcome =
   "pending" | "failed" | "confirmed" | { readonly retired: RetirementReason };
 
@@ -858,6 +858,30 @@ export const AlreadyOwnedRetirementExplainsWithoutNewQuote =
     "already_owned",
     "Этот продукт у вас уже открыт. Покупка остановлена до оплаты, деньги не списаны.",
   );
+
+/**
+ * Сервер снял попытку без адреса формы оплаты (#1926): форма называет причину и сразу берёт
+ * новый расчёт, потому что следующий Init откроет новую форму.
+ */
+export const LostFormAddressRetirementStartsNewQuote: Story = {
+  beforeEach: () => bankOutcomes([{ retired: "form_address_lost" }, "pending"]),
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Страница оплаты не открылась, поэтому мы остановили эту попытку. Деньги не списаны, можно купить снова.",
+    );
+    await waitFor(() => expect(quoteRequest).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await waitFor(() =>
+      expect(args.onNavigate).toHaveBeenCalledWith(pendingPurchase.paymentUrl),
+    );
+    await expect(purchaseRequest).toHaveBeenCalledTimes(2);
+  },
+};
 
 /** После второго отказа подряд новый расчёт начинается только по кнопке покупателя (#1927). */
 export const RepeatedFailureStartsNoSecondAutomaticQuote: Story = {

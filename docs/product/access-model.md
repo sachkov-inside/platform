@@ -726,7 +726,7 @@ reached the bank records `bank_cancel_requested`. A purchase at another price re
 mark for a replaced open attempt whose Init was sent (#1925, see the
 [billing specification](../specifications/subscription-billing-v1.md)). An attempt without a stored
 form address, whose unpaid form the bank still reports `NEW` or `FORM_SHOWED`, is retired with the
-same mark 2 minutes after creation (`form_address_lost`, #1926). Outside the transaction, the background
+same mark by the first bank answer at least 2 minutes after creation (`form_address_lost`, #1926). Outside the transaction, the background
 reconciliation and the owner's `payments.reconcile` close its bank form with the provider's
 [Cancel](https://developer.tbank.ru/eacq/api/cancel) for the full amount (#1923, owner decision of
 31.10.2026). Cancel is sent only when GetState, read immediately before it, reports `NEW` or

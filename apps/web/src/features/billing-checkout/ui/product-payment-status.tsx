@@ -3,6 +3,7 @@ import type { Route } from "next";
 import {
   attemptStateLabel,
   formatKopecks,
+  purchaseRetirementMessage,
   type PurchaseStatus,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
@@ -47,8 +48,7 @@ export function ProductPaymentStatus({
         {cancelledWithoutForm ? (
           <>
             <p className="mt-3 text-sm text-muted-foreground">
-              Страница оплаты не открылась, поэтому мы отменили попытку в банке.
-              Деньги не списаны.
+              {purchaseRetirementMessage("form_address_lost")}
             </p>
             <Button
               className="mt-5 min-h-12 w-full"
@@ -80,9 +80,9 @@ export function ProductPaymentStatus({
             {purchase.access === "awaiting_payment" &&
             (purchase.state === "pending" || purchase.state === "unknown") ? (
               <p className="mt-2 text-sm text-muted-foreground">
-                Если страница оплаты не открылась, подождите 2 минуты. Мы
-                отменим неоплаченную попытку в банке, и здесь появится кнопка
-                «Купить снова».
+                Если страница оплаты не открылась, подождите несколько минут. Мы
+                проверим попытку в банке и остановим её, если она не оплачена.
+                Тогда здесь можно будет купить снова.
               </p>
             ) : null}
           </>

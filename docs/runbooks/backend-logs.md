@@ -29,8 +29,9 @@
   `requestId`;
 - `video_deletion_failed` — удаление видео у провайдера не завершилось окончательно;
 - `stored_page_rejected` — сохранённое описание страницы руководства не прочиталось;
-- `bank_payment_url_rejected`: адрес формы оплаты от банка не прошёл проверку `formOrigins`.
-  Строка несёт `purchaseRef` и `origin` адреса, без пути и параметров (#1926);
+- `bank_payment_url_rejected`: адрес формы оплаты от банка отклонён. Его origin не входит в
+  `formOrigins`, в нём есть логин, пароль или фрагмент, или его нельзя разобрать. Строка несёт
+  `purchaseRef` и `origin` адреса (`null` для неразобранного), без пути и параметров (#1926);
 - `healthcheck_failed` — проверка готовности воркера в контейнере не прошла;
 - `worker_ready`, `worker_draining`, `worker_stopped`, `process_ready`, `mcp_listening` — жизненный
   цикл процесса;

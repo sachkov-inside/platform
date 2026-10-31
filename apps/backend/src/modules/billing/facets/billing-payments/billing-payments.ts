@@ -104,7 +104,10 @@ const finalBankRecheckEveryMilliseconds = 60 * 60_000;
  * снимает попытку, чья форма в банке ещё не оплачена, и отменяет форму.
  */
 export const lostFormAddressMilliseconds = 2 * 60_000;
-/** Попытки, у которых может не оказаться адреса формы: Init ушёл, а оплата ещё не началась. */
+/**
+ * Разовые попытки, у которых может не оказаться адреса формы: Init ушёл, а оплата ещё не
+ * началась. Снимает такую попытку первый ответ банка о платеже не раньше этого срока.
+ */
 const formAddressAwaitedStates = ["sent", "unknown", "pending"];
 /**
  * Самая долгая строка сверки: до четырёх запросов к банку по `bankTimeoutMs`. Это CheckOrder,
@@ -775,6 +778,9 @@ export class BillingPayments {
       const dispatchRetirement = retirements.find(
         (event) => event.kind === dispatchRetiredEvent,
       );
+      const formAddressRetirement = retirements.find(
+        (event) => event.kind === formAddressLostEvent,
+      );
       return {
         ok: true,
         value: purchaseStatusSchema.parse({
@@ -784,7 +790,7 @@ export class BillingPayments {
             dispatchRetirement !== undefined
               ? dispatchRetiredPayloadSchema.parse(dispatchRetirement.payload)
                   .reason
-              : retirements.length > 0
+              : formAddressRetirement !== undefined
                 ? formAddressLostEvent
                 : null,
           refundedKopecks: row.refundReviewRequired
@@ -2272,8 +2278,7 @@ async function settleConfirmationAfterFailure(
 /**
  * Inside снимает неоплаченную попытку: она закрывается вместе с резервом и получает событие с
  * именем причины, `superseded_by_confirmed_payment`, `replaced_by_new_price` или
- * `form_address_lost`. Вызывающий
- * держит замок покупки.
+ * `form_address_lost`. Вызывающий держит замок покупки.
  */
 async function retireAttempt(
   tx: BillingPrisma,

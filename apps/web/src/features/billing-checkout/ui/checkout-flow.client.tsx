@@ -339,12 +339,19 @@ export function CheckoutFlow({
   };
   /**
    * Покупка не прошла. Снятую до банка покупку объясняет причина, и новый расчёт сам не
-   * начинается: новая покупка по тем же условиям была бы снята так же. После отказа банка
-   * форма один раз сама запрашивает новый расчёт; повторный отказ ждёт кнопки покупателя.
+   * начинается: новая покупка по тем же условиям была бы снята так же. Попытку без адреса формы
+   * (#1926) причина тоже объясняет, но новый расчёт начинается сразу: следующий Init откроет
+   * новую форму. После отказа банка форма один раз сама запрашивает новый расчёт; повторный
+   * отказ ждёт кнопки покупателя.
    */
   const settleFailedPurchase = (failed: PurchaseStatus, identity: object) => {
     // Покупатель уже выбрал другие условия: этот исход к ним не относится.
     if (selection.identity !== identity) return;
+    if (failed.retirementReason === "form_address_lost") {
+      setPaymentError(purchaseRetirementMessage(failed.retirementReason));
+      requestQuote();
+      return;
+    }
     if (failed.retirementReason !== null) {
       setPaymentError(purchaseRetirementMessage(failed.retirementReason));
       updateSelection(

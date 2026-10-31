@@ -50,8 +50,8 @@ export type RetirementReason = z.infer<typeof retirementReasonSchema>;
 /**
  * Почему Inside сняла покупку до оплаты, как её видит покупатель: одна из причин снятия до
  * отправки в банк или `form_address_lost`. Во втором случае Init ушёл, но адреса формы оплаты у
- * Inside нет: ответ Init потерян или адрес не прошёл проверку `formOrigins` (#1926). Сверка
- * отменила форму в банке, деньги не списаны.
+ * Inside нет: ответ Init потерян или адрес не прошёл проверку `formOrigins` (#1926). Попытка
+ * снята, деньги не списаны, а неоплаченную форму в банке отменяет сверка.
  */
 export const purchaseRetirementReasonSchema = z.enum([
   ...retirementReasonSchema.options,
