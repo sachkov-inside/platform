@@ -13,6 +13,7 @@ import type {
   BillingPaymentOption,
   NoticeKind,
   PriceSnapshot,
+  RetirementReason,
 } from "./billing-contract";
 
 const moscow = "Europe/Moscow";
@@ -307,6 +308,23 @@ export function promotionLabel(snapshot: PriceSnapshot): string | undefined {
   return snapshot.promotion === null
     ? undefined
     : `${snapshot.promotion.name} · −${String(snapshot.promotion.percent)}%`;
+}
+
+/**
+ * Причина, по которой сервер снял покупку до банка. Init не уходил, поэтому текст говорит,
+ * что деньги не списаны.
+ */
+export function purchaseRetirementMessage(reason: RetirementReason): string {
+  switch (reason) {
+    case "sale_closed":
+      return "Продажа этого продукта закрыта. Покупка остановлена до оплаты, деньги не списаны.";
+    case "price_unavailable":
+      return "Цена этого продукта сейчас недоступна. Покупка остановлена до оплаты, деньги не списаны.";
+    case "already_owned":
+      return "Этот продукт у вас уже открыт. Покупка остановлена до оплаты, деньги не списаны.";
+    case "unsupported_attempt":
+      return "Покупка была начата на прежних условиях. Она остановлена до оплаты, деньги не списаны.";
+  }
 }
 
 /**

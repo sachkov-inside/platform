@@ -82,12 +82,14 @@ export function paymentEventLabel(kind: string): string {
     fiscalization_failed: "Чек не выдан",
     full_refund_confirmed: "Банк подтвердил полный возврат",
     legacy_dispatch_retired: "Прежняя попытка закрыта без отправки в банк",
+    dispatch_retired: "Покупка снята до отправки в банк, деньги не списаны",
     payment_confirmed_after_failure:
       "Банк подтвердил оплату после отказа по той же форме",
     superseded_by_confirmed_payment:
       "Попытка закрыта: оплачена прежняя попытка этой покупки",
     duplicate_payment_review:
       "Продукт оплачен второй раз, нужно решение о возврате",
+    replaced_by_new_price: "Попытка заменена покупкой по другой цене",
     bank_cancel_requested:
       "Попытка снята, сверка закроет её форму оплаты в банке",
     bank_cancel_confirmed: "Банк закрыл форму оплаты снятой попытки",
@@ -95,6 +97,8 @@ export function paymentEventLabel(kind: string): string {
       "Покупатель успел оплатить снятую попытку, отмена вернула деньги",
     partial_refund_released:
       "Частичный возврат без подтверждённой оплаты: покупка закрыта, нужно решение о деньгах",
+    bank_status_unrecognized:
+      "Банк прислал статус не из справочника, покупку проверит сверка",
   };
   return labels[kind] ?? `Событие ${kind}`;
 }

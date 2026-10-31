@@ -189,16 +189,24 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     /** Платежи, созданные Init: GetState и Cancel отвечают о запрошенном платеже, а не о последнем. */
     const bankPayments = new Map<
       string,
-      { orderId: string; status?: string }
+      { orderId: string; amount: number; status?: string }
     >();
+    /** Суммы, с которыми Init может прийти: цена расчёта сценария и цены, разрешённые тестом. */
+    const initAmounts = new Set([quote.snapshot.firstPriceKopecks]);
     const cancelRequests: Record<string, unknown>[] = [];
     const paymentStatus = (id: string) =>
       bankPayments.get(id)?.status ?? status;
-    const event = (nextStatus = status, extra = {}) => ({
+    // Сумма платежа та, с которой его создал Init; платёж вне банка несёт цену расчёта сценария.
+    const event = (
+      nextStatus = status,
+      extra: { PaymentId?: string } & Record<string, unknown> = {},
+    ) => ({
       TerminalKey: config.terminalKey,
       OrderId: orderId,
       PaymentId: paymentId,
-      Amount: quote.snapshot.firstPriceKopecks,
+      Amount:
+        bankPayments.get(extra.PaymentId ?? paymentId)?.amount ??
+        quote.snapshot.firstPriceKopecks,
       Status: nextStatus,
       Success: true,
       ErrorCode: "0",
@@ -209,6 +217,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         .object({
           OrderId: z.string().optional(),
           PaymentId: z.string().optional(),
+          Amount: z.number().optional(),
         })
         .loose()
         .parse(JSON.parse(init.body));
@@ -217,10 +226,9 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         initCalls++;
         orderId = z.string().parse(body.OrderId);
         const created = { orderId, paymentId };
-        bankPayments.set(paymentId, { orderId });
-        expect(body).toMatchObject({
-          Amount: quote.snapshot.firstPriceKopecks,
-        });
+        const amount = z.number().parse(body.Amount);
+        expect(initAmounts).toContain(amount);
+        bankPayments.set(paymentId, { orderId, amount });
         expect(body).not.toHaveProperty("Recurrent");
         if (timeout) throw new Error("Synthetic lost Init answer");
         if (initGate !== undefined) {
@@ -296,7 +304,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
           Status: after,
           Success: after !== before,
           ErrorCode: after !== before ? "0" : "4",
-          OriginalAmount: quote.snapshot.firstPriceKopecks,
+          OriginalAmount: known.amount,
           NewAmount: 0,
         });
       }
@@ -347,6 +355,10 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         known.status = next;
       },
       cancelRequests: () => [...cancelRequests],
+      /** Init может прийти и с этой суммой: например, с ценой ссылки на оплату. */
+      allowInitAmount: (amount: number) => {
+        initAmounts.add(amount);
+      },
       /** Следующие `count` запросов Cancel не доходят до банка. */
       failCancel: (count = 1) => {
         cancelFailures = count;

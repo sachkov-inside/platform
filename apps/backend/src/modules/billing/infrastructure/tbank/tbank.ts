@@ -11,30 +11,52 @@ import type { TbankConfig } from "../../../../config/tbank-config.js";
 export const bankTimeoutMs = 10_000;
 const reference = z.union([z.string().min(1).max(64), z.int().nonnegative()]);
 const success = z.union([z.boolean(), z.enum(["true", "false"])]);
+/**
+ * Все 23 статуса платежа из справочника T-Bank на 31.10.2026 и `RECEIPT`:
+ * https://developer.tbank.ru/eacq/intro/developer/operation-statuses
+ * `RECEIPT` не входит в справочник: это уведомление о чеке, а не о платеже.
+ */
+export const bankPaymentStatuses = [
+  "RECEIPT",
+  "NEW",
+  "FORM_SHOWED",
+  "ATTEMPTS_EXPIRED",
+  "DEADLINE_EXPIRED",
+  "CANCELED",
+  "PREAUTHORIZING",
+  "3DS_CHECKING",
+  "3DS_CHECKED",
+  "AUTHORIZING",
+  "PAY_CHECKING",
+  "AUTHORIZED",
+  "AUTH_FAIL",
+  "REJECTED",
+  "CONFIRMING",
+  "CONFIRM_CHECKING",
+  "CONFIRMED",
+  "REVERSING",
+  "PARTIAL_REVERSED",
+  "REVERSED",
+  "REFUNDING",
+  "ASYNC_REFUNDING",
+  "PARTIAL_REFUNDED",
+  "REFUNDED",
+] as const;
+/**
+ * Подписанный статус вне справочника: банк может добавить новый статус раньше, чем Inside. Такой
+ * статус принимается, а покупка уходит на сверку. Он состоит, как статусы справочника, из заглавных
+ * латинских букв, цифр и `_` и не длиннее 64 символов.
+ */
+const unrecognizedStatusSchema = z
+  .string()
+  .regex(/^[A-Z0-9_]{1,64}$/u)
+  .brand<"UnrecognizedBankStatus">();
 const bankPaymentInputSchema = z.object({
   TerminalKey: z.string().min(1).max(64),
   OrderId: z.string().min(1).max(50),
   PaymentId: reference,
   Amount: z.int().nonnegative(),
-  Status: z.enum([
-    "RECEIPT",
-    "NEW",
-    "FORM_SHOWED",
-    "DEADLINE_EXPIRED",
-    "CANCELED",
-    "PREAUTHORIZING",
-    "AUTHORIZING",
-    "AUTHORIZED",
-    "AUTH_FAIL",
-    "REJECTED",
-    "CONFIRMING",
-    "CONFIRMED",
-    "REVERSING",
-    "REVERSED",
-    "REFUNDING",
-    "PARTIAL_REFUNDED",
-    "REFUNDED",
-  ]),
+  Status: z.union([z.enum(bankPaymentStatuses), unrecognizedStatusSchema]),
   Success: success,
   ErrorCode: z.string(),
   RebillId: reference.optional(),
@@ -51,6 +73,12 @@ export const bankPaymentSchema = bankPaymentInputSchema.transform(
   }),
 );
 export type BankPayment = z.infer<typeof bankPaymentSchema>;
+export type BankPaymentStatus = (typeof bankPaymentStatuses)[number];
+export function isRecognizedBankStatus(
+  status: BankPayment["Status"],
+): status is BankPaymentStatus {
+  return (bankPaymentStatuses as readonly string[]).includes(status);
+}
 export const refundTerminalStatuses = [
   "REFUNDED",
   "PARTIAL_REFUNDED",

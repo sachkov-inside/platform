@@ -192,7 +192,9 @@ export function OneTimeCheckoutPanel({
           <p className="mt-3 text-sm text-muted-foreground" role="status">
             {pending
               ? "Загружаем условия покупки…"
-              : "Не удалось подготовить условия покупки."}
+              : purchase?.state === "failed"
+                ? "Чтобы начать новую покупку, обновите условия."
+                : "Не удалось подготовить условия покупки."}
           </p>
         ) : null}
       </div>
@@ -283,13 +285,19 @@ export function OneTimeCheckoutPanel({
 
       {purchase === null ? null : (
         <div className="mt-6 border-t border-border pt-5 text-sm leading-6">
-          <p className="font-semibold">{attemptStateLabel(purchase.state)}</p>
+          <p className="font-semibold">
+            {purchase.retirementReason === null
+              ? attemptStateLabel(purchase.state)
+              : "Покупка остановлена до оплаты"}
+          </p>
           <p className="mt-1 text-muted-foreground">
-            {purchase.access === "ready"
-              ? "Доступ открыт."
-              : purchase.access === "preparing"
-                ? "Оплата подтверждена, открываем доступ."
-                : "Доступ откроется после подтверждения оплаты."}
+            {purchase.retirementReason !== null
+              ? "Деньги не списаны."
+              : purchase.access === "ready"
+                ? "Доступ открыт."
+                : purchase.access === "preparing"
+                  ? "Оплата подтверждена, открываем доступ."
+                  : "Доступ откроется после подтверждения оплаты."}
           </p>
           <Button
             className={`mt-3 ${billingActionClass}`}

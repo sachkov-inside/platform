@@ -143,6 +143,13 @@ export const attemptStateSchema = z.enum([
   "confirmed",
   "failed",
 ]);
+/** Почему сервер снял покупку до отправки в банк; Init не уходил, деньги не списаны. */
+export const retirementReasonSchema = z.enum([
+  "sale_closed",
+  "price_unavailable",
+  "already_owned",
+  "unsupported_attempt",
+]);
 export const noticeKindSchema = z.enum([
   "renewal_reminder",
   "payment_succeeded",
@@ -253,6 +260,8 @@ export const purchaseStatusSchema = z.object({
   fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),
   confirmedAt: z.iso.datetime().nullable(),
   periodEndsAt: z.iso.datetime().nullable(),
+  // Ответ без поля читается как покупка, которую не снимали.
+  retirementReason: retirementReasonSchema.nullable().default(null),
 });
 export const quoteSchema = z.object({
   quoteRef: z.uuid(),
@@ -308,6 +317,7 @@ export type BillingPaymentOption = z.infer<typeof paymentOptionSchema>;
 export type PriceSnapshot = z.infer<typeof priceSnapshotSchema>;
 export type OffersPage = z.infer<typeof offersPageSchema>;
 export type AttemptState = z.infer<typeof attemptStateSchema>;
+export type RetirementReason = z.infer<typeof retirementReasonSchema>;
 export type NoticeView = z.infer<typeof noticeViewSchema>;
 export type NoticeKind = z.infer<typeof noticeKindSchema>;
 export type CurrentBilling = z.infer<typeof currentBillingSchema>;

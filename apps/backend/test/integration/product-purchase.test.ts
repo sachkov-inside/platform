@@ -447,7 +447,9 @@ test("when both attempts on one Payment Link are paid, the late confirmation is 
       },
       select: { payload: true },
     }),
-  ).toEqual({ payload: { paidPurchaseRefs: [repeat.purchaseRef] } });
+  ).toEqual({
+    payload: { paidPurchaseRefs: [repeat.purchaseRef], heldProductIds: [] },
+  });
 });
 
 test("a confirmation after a decline and a partial refund observation still retires the repeat attempt on the same Payment Link", async () => {
@@ -566,7 +568,9 @@ test("a later confirmation of the unresolved repeat attempt is marked as a secon
       },
       select: { payload: true },
     }),
-  ).toEqual({ payload: { paidPurchaseRefs: [first.purchaseRef] } });
+  ).toEqual({
+    payload: { paidPurchaseRefs: [first.purchaseRef], heldProductIds: [] },
+  });
 });
 
 test("an archived Product blocks a new accepted quote while preserving existing holders", async () => {
