@@ -20,6 +20,7 @@ import {
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 import { z } from "zod";
+import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
 
 declare global {
   interface Window {
@@ -1138,6 +1139,7 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   ).toBeVisible();
   const fileLink = page.getByRole("link", { name: /chooser.txt/u });
   await expect(fileLink).toBeVisible();
+  await expectReaderReadyForAudit(page, `${title} · Sachkov Dev`);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(
     page

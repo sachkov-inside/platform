@@ -1,5 +1,6 @@
 // @ts-check
 import { StringDecoder } from "node:string_decoder";
+import { z } from "zod";
 
 // A reporter emits this before list/html reporters format a failure. No test titles or errors
 // travel over this channel: they can contain response data or credential-bearing call logs.
@@ -56,10 +57,60 @@ export function createDiagnosticStream(write, secrets = []) {
 }
 
 /**
- * @param {() => { name: string; child: { pid?: number | undefined; exitCode: number | null; signalCode: string | null }; output: string[] }[]} entries
- * @param {(line: string) => void} write
+ * @typedef {{
+ *   name: string;
+ *   child: import("node:child_process").ChildProcess;
+ *   output: string[];
+ *   spawnedAt: string;
+ *   exitedAt: string | null;
+ * }} DiagnosticProcessEntry
  */
-export function firstFailureSnapshot(entries, write) {
+
+/**
+ * Observe the owned supervisor's lifetime, not application readiness or a worker's exit.
+ * @param {string} name
+ * @param {import("node:child_process").ChildProcess} child
+ * @param {string[]} output
+ * @returns {DiagnosticProcessEntry}
+ */
+export function trackDiagnosticProcess(name, child, output) {
+  /** @type {DiagnosticProcessEntry} */
+  const entry = {
+    name,
+    child,
+    output,
+    // deterministic-test-allow wall-clock: real supervisor spawn observation for request-trace correlation.
+    spawnedAt: new Date().toISOString(),
+    exitedAt: null,
+  };
+  child.once("exit", () => {
+    // deterministic-test-allow wall-clock: real supervisor exit observation for request-trace correlation.
+    entry.exitedAt = new Date().toISOString();
+  });
+  return entry;
+}
+
+const ciIdentifier = z
+  .string()
+  .max(20)
+  .regex(/^[1-9][0-9]*$/u);
+const correlationSchema = z.object({
+  GITHUB_SHA: z.hash("sha1").nullable().catch(null),
+  GITHUB_RUN_ID: ciIdentifier.nullable().catch(null),
+  GITHUB_RUN_ATTEMPT: ciIdentifier.nullable().catch(null),
+});
+
+/**
+ * @param {() => { name: string; child: { pid?: number | undefined; exitCode: number | null; signalCode: string | null }; output: string[]; spawnedAt: string; exitedAt: string | null }[]} entries
+ * @param {(line: string) => void} write
+ * @param {Record<string, unknown>} [environment]
+ */
+export function firstFailureSnapshot(
+  entries,
+  write,
+  environment = process.env,
+) {
+  const correlation = correlationSchema.parse(environment);
   let captured = false;
   /** @param {string} line */
   return (line) => {
@@ -68,13 +119,22 @@ export function firstFailureSnapshot(entries, write) {
     write(
       `${JSON.stringify({
         kind: "fullstack-first-failure",
-        processes: entries().map(({ name, child, output }) => ({
-          name,
-          pid: child.pid ?? null,
-          exitCode: child.exitCode,
-          signalCode: child.signalCode,
-          output: output.join(""),
-        })),
+        // deterministic-test-allow wall-clock: correlates the real reporter signal with CI request traces.
+        capturedAt: new Date().toISOString(),
+        sourceSha: correlation.GITHUB_SHA,
+        runId: correlation.GITHUB_RUN_ID,
+        runAttempt: correlation.GITHUB_RUN_ATTEMPT,
+        processes: entries().map(
+          ({ name, child, output, spawnedAt, exitedAt }) => ({
+            name,
+            pid: child.pid ?? null,
+            exitCode: child.exitCode,
+            signalCode: child.signalCode,
+            spawnedAt,
+            exitedAt,
+            output: output.join(""),
+          }),
+        ),
       })}\n`,
     );
   };

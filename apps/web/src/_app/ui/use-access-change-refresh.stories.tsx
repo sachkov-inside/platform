@@ -21,14 +21,16 @@ const environment = publicPageEnvironment("/materials/course-intro", {
 });
 let isRead = false;
 function ProgressRefreshSurface() {
-  useAccessChangeRefresh(accountId, true);
+  const pending = useAccessChangeRefresh(accountId, true);
   return (
-    <ReadingProgressProvider accountId={accountId} resolved>
-      <VisibleMaterialOpen materialId={materialId} contentVersion={1}>
-        <h1>Урок открыт</h1>
-        <SavedReadingAction materialId={materialId} format="guide" />
-      </VisibleMaterialOpen>
-    </ReadingProgressProvider>
+    <div data-route-refresh-pending={pending}>
+      <ReadingProgressProvider accountId={accountId} resolved>
+        <VisibleMaterialOpen materialId={materialId} contentVersion={1}>
+          <h1>Урок открыт</h1>
+          <SavedReadingAction materialId={materialId} format="guide" />
+        </VisibleMaterialOpen>
+      </ReadingProgressProvider>
+    </div>
   );
 }
 const meta = {
@@ -86,6 +88,11 @@ type Story = StoryObj<typeof meta>;
 export const OpenAndReadingWriteRefreshRoutes: Story = {
   play: async ({ canvasElement }) => {
     await waitFor(() => expect(refreshed).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelector("[data-material-open-state]"),
+      ).toHaveAttribute("data-material-open-state", "saved"),
+    );
     const read = within(canvasElement).getByRole("button", { name: "Изучено" });
     await waitFor(() => expect(read).toHaveAttribute("aria-disabled", "false"));
     await userEvent.click(read);

@@ -562,6 +562,16 @@ jobs:
         env:
           PRODUCTION_SMOKE_ARTIFACT_DIR: ci-artifacts/compose-production-cache
         run: bash scripts/heavy-check.sh bash scripts/production-cache-smoke-ci.sh
+      - name: Upload cache preparation observations
+        if: ${{ always() && matrix.part == 'cache' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cache-preparation-observations-${{ github.run_attempt }}
+          path: |
+            ci-artifacts/compose-production-cache/preparation-before.json
+            ci-artifacts/compose-production-cache/preparation-after.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload failure diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

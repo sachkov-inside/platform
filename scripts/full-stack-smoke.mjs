@@ -29,6 +29,7 @@ import { z } from "zod";
 import {
   createDiagnosticStream,
   firstFailureSnapshot,
+  trackDiagnosticProcess,
 } from "./full-stack-diagnostics.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -172,11 +173,7 @@ writeFileSync(
   { mode: 0o444 },
 );
 /**
- * @typedef {{
- *   name: string;
- *   child: import("node:child_process").ChildProcess;
- *   output: string[];
- * }} ProcessEntry
+ * @typedef {import("./full-stack-diagnostics.mjs").DiagnosticProcessEntry} ProcessEntry
  */
 const developmentHealthSchema = z
   .object({
@@ -522,7 +519,7 @@ function startPnpm(name, arguments_, environment) {
     env: environment,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  const entry = { name, child, output };
+  const entry = trackDiagnosticProcess(name, child, output);
   activeProcesses.add(entry);
   const secrets = Object.entries(environment)
     .filter(([key]) => /TOKEN|SECRET|SESSION|PASSWORD|KEY/u.test(key))

@@ -15,6 +15,7 @@ import {
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
+import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
 
 import {
   installReaderEventTimingDiagnostic,
@@ -474,6 +475,10 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   ).toBeVisible();
   await framesPresented(page);
 
+  await expectReaderReadyForAudit(
+    page,
+    "Как устроен Inside Platform · Sachkov Dev",
+  );
   await page.evaluate(() =>
     window.dispatchEvent(new Event("inside:reader-event-timing-before-axe")),
   );
@@ -908,7 +913,19 @@ test("navigates Library → Topic → ordered Product and exposes canonical Read
 
   // The free lesson opens to a reader signed in through Telegram (#1825); the guest sees a gate.
   await signInFullStack(page.context());
-  await representativeProductItem
+  // Cookie setup runs outside this page; replace its guest auth snapshot before client navigation.
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Аккаунт", exact: true }),
+  ).toBeVisible();
+  const authenticatedProgramme = page.locator(
+    '[data-product-programme="platform-inside"]:visible',
+  );
+  const authenticatedProductItem = authenticatedProgramme
+    .locator("[data-product-order] [data-product-ordinal]")
+    .filter({ hasText: "Как устроен Inside Platform" });
+  await expect(authenticatedProductItem).toHaveCount(1);
+  await authenticatedProductItem
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
     .click();
   await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
@@ -932,18 +949,21 @@ test("navigates Library → Topic → ordered Product and exposes canonical Read
 
   await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Dev");
   await expectLibraryNavigationActive(page, testInfo);
-  await expectNoSeriousAccessibilityFindings(page);
+  await expectNoSeriousAccessibilityFindings(
+    page,
+    "Как устроен Inside Platform · Sachkov Dev",
+  );
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");
   await programmeAction.click();
   await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
-  await expect(programme).toHaveCount(1);
-  await expect(representativeProductItem).toHaveCount(1);
-  await expect(representativeProductItem).toHaveAttribute(
+  await expect(authenticatedProgramme).toHaveCount(1);
+  await expect(authenticatedProductItem).toHaveCount(1);
+  await expect(authenticatedProductItem).toHaveAttribute(
     "data-product-ordinal",
     representativeOrdinal ?? "",
   );
-  await expect(representativeProductItem).toBeInViewport();
+  await expect(authenticatedProductItem).toBeInViewport();
 });
 
 test("uses the selected Product order for a shared Material and leaves standalone reading independent", async ({
@@ -1078,9 +1098,13 @@ async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
   await expect(home).toHaveAttribute("aria-current", "true");
 }
 
-async function expectNoSeriousAccessibilityFindings(page: Page) {
+async function expectNoSeriousAccessibilityFindings(
+  page: Page,
+  readerTitle?: string,
+) {
   // After a client navigation Next.js streams the new <title> separately; scan the settled document.
-  await expect(page).toHaveTitle(/\S/u);
+  if (readerTitle === undefined) await expect(page).toHaveTitle(/\S/u);
+  else await expectReaderReadyForAudit(page, readerTitle);
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
