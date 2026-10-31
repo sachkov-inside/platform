@@ -239,9 +239,18 @@ test("a lost Init answer whose payment the bank created is found by CheckOrder a
       new Date(createdAt.getTime() + 60 * minute),
     ),
   );
+  // Платёж найден, поэтому окно отсутствия не закрывает попытку. Адреса формы у Inside нет:
+  // через 2 минуты после создания сверка снимает её и отменяет форму в банке (#1926).
   expect(await purchaseRow(purchase.purchaseRef)).toMatchObject({
-    state: "pending",
+    state: "failed",
     paymentId: s.paymentId(),
   });
-  expect(await events(purchase.purchaseRef)).toEqual([]);
+  expect(await events(purchase.purchaseRef)).toEqual([
+    {
+      kind: "bank_cancel_confirmed",
+      payload: { paymentId: s.paymentId(), status: "CANCELED" },
+    },
+    { kind: "bank_cancel_requested", payload: { reason: "form_address_lost" } },
+    { kind: "form_address_lost", payload: {} },
+  ]);
 });
