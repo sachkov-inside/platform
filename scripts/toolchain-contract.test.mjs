@@ -755,6 +755,10 @@ describe("supported toolchain contract", () => {
       overrideNames(`${workspace}  left-pad: 1.3.0\n`),
       documentedSecurityOverrides,
     );
+    assert.notDeepEqual(
+      overrideNames(`${workspace}  "other-parent>glob": 14.0.3\n`),
+      documentedSecurityOverrides,
+    );
     assert.deepEqual(
       overrideNames(workspace.replace(/^overrides:[\s\S]*$/mu, "")),
       [],
@@ -1221,7 +1225,11 @@ write_runtime_configuration`,
   });
 });
 
-const documentedSecurityOverrides = ["mysql2", "deepmerge-ts"];
+const documentedSecurityOverrides = [
+  "mysql2",
+  "deepmerge-ts",
+  "@fastify/static>glob",
+];
 
 /**
  * Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск.
@@ -1282,8 +1290,8 @@ function overrideNames(workspace) {
     workspace.match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu) ?? [];
   return overrides === undefined
     ? []
-    : [...overrides.matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map(
-        ([, name = ""]) => name,
+    : [...overrides.matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map(([, name = ""]) =>
+        name.replace(/^("|')(.*)\1$/u, "$2"),
       );
 }
 

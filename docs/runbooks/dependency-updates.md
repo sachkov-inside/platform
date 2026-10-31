@@ -56,6 +56,16 @@ reviewed change of both. Current overrides (#688):
 |---|---|---|
 | `mysql2` | `prisma` 7.10.0 | a stable Prisma release pins mysql2 ≥ 3.23.1 |
 | `deepmerge-ts` | `@prisma/config` 7.10.0 | a stable Prisma release uses deepmerge-ts ≥ 8 |
+| `@fastify/static>glob` | `@fastify/static` 10.x (scoped range exception below) | a stable 10.x release accepts glob ≥ 14.0.3 |
+
+The scoped `@fastify/static>glob: 14.0.3` override is the only range-based exception.
+`@fastify/static` 10.1.5 and the latest 10.1.8 both require `glob ^13.0.0`; that line has no fixed release.
+GHSA-3g3m-2fjr-6pw4 requires glob ≥ 14.0.2, and GHSA-g3hv-75wg-m249 requires minimatch ≥ 11.0.1.
+Glob 14.0.3 selects minimatch ≥ 11.0.2 without changing other minimatch callers.
+This exception preserves the parent plugin, Node engine range, CommonJS entry point and awaited `glob` API.
+Remove it when a stable `@fastify/static` release on major 10 accepts glob ≥ 14.0.3.
+The parent uses a caret range, so the exact-pin rule above does not authorize this exception.
+Changing this exception requires review and owner approval under the trusted workflow policy.
 
 Overrides never force a peer range onto an incompatible tool; the TypeScript 7 rule below stands.
 
