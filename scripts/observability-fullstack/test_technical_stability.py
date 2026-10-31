@@ -86,6 +86,12 @@ class TechnicalStability(unittest.TestCase):
                 fullstack.stability_inputs(legacy,base/'images.json')
                 inputs.assert_called_once_with(legacy,base/'images.json')
             self.assertEqual(json.loads((legacy/stability.MARKER).read_text()),{'schema':2,'source':source,'scope':'diagnostic_only','protocol':'fixed-actor-cold400-v1'})
+            fullstack.pilot.write_json(legacy/'fullstack-source.json',{'source':'b'*40,'profile':fullstack.profile(),'images':{'scope':'full'}})
+            _owner(legacy)
+            with patch.object(fullstack.sys,'argv',['fullstack.py','recover','--output',str(legacy)]),patch.object(fullstack.pilot,'command') as command,patch.object(fullstack.resource_runtime.ci,'recover',return_value={'down':'passed','residue':'passed'}) as recover:
+                self.assertEqual(fullstack.main(),{'down':'passed','residue':'passed'})
+                recover.assert_called_once_with(legacy,project_prefix=fullstack.PREFIX,services=fullstack.services())
+                command.assert_not_called()
             with patch.dict(os.environ,{'GITHUB_EVENT_PATH':str(event_path),'PILOT_PR_HEAD_SHA':source,'PILOT_PR_BASE_SHA':'b'*40}),patch.object(fullstack.hosted,'context'),patch.object(fullstack.sys,'argv',['fullstack.py','diagnostic-admission','--scope','technical']):
                 fullstack.main()
                 bads=[]
@@ -137,6 +143,73 @@ class TechnicalStability(unittest.TestCase):
                 with self.assertRaises(ValueError):fullstack.stability_collect(output,metadata,base/'wrong-protocol',scope='technical')
                 # Each corruption must stop worker mutation, recovery and collection.
                 snapshots={name:(output/name).read_text() for name in ('fullstack-source.json','compose.json',stability.MARKER,stability.OWNER,'worker.json','owner.json',stability.NAME)}
+                # Presence is only a veto. Every surviving runtime witness needs settlement.
+                runtime_names=('owner.json','worker.json','worker-outcome.json','cleanup.json',stability.OWNER,stability.NAME,'evidence.json','monitor-failure.json')
+                runtime_bytes={name:(output/name).read_bytes() for name in runtime_names if (output/name).exists()}
+                runtime_bytes.update({'evidence.json':b'{"source":"'+source.encode()+b'"}',
+                    'monitor-failure.json':b'{"source":"host","exception_class":"RuntimeError","reason":"invalid_sample"}'})
+                prepared_bytes=(output/'fullstack-source.json').read_bytes();marker_bytes=(output/stability.MARKER).read_bytes()
+                settled_names=set(runtime_names[:6])
+                def restore_runtime(kept=settled_names,*,lost=False,dangling=None):
+                    for name in (*runtime_names,stability.MARKER,'fullstack-proof.json'):(output/name).unlink(missing_ok=True)
+                    (output/'fullstack-source.json').write_bytes(prepared_bytes)
+                    (output/stability.MARKER).write_bytes(marker_bytes);(output/stability.MARKER).chmod(0o600)
+                    for name in kept:
+                        (output/name).write_bytes(runtime_bytes[name]);(output/name).chmod(0o600)
+                    if lost:
+                        for name in (stability.MARKER,stability.OWNER):(output/name).unlink(missing_ok=True)
+                        prepared=json.loads(prepared_bytes);prepared.pop('stability')
+                        fullstack.pilot.write_json(output/'fullstack-source.json',prepared)
+                    if dangling is not None:
+                        (output/dangling).unlink(missing_ok=True);(output/dangling).symlink_to(base/'missing-runtime-target')
+                states=[('prepared_only',set(),False,None,False),('good_cleanup',settled_names,False,None,False),
+                    ('good_cleanup_without_OWNER',settled_names-{stability.OWNER},False,None,False),
+                    ('good_cleanup_without_NAME',settled_names-{stability.NAME},False,None,False),
+                    ('owner_deleted',settled_names-{'owner.json'},False,None,True)]
+                states += [('orphan_'+name,{name},False,None,True) for name in runtime_names]
+                states += [('dangling_'+name,set(),False,name,True) for name in runtime_names]
+                states += [('lost_NAME',settled_names,True,None,True),('lost_dangling_NAME',settled_names,True,stability.NAME,True)]
+                original_recover=fullstack.resource_runtime.ci.recover
+                try:
+                    for label,kept,lost,dangling,refuse in states:
+                        for images in (False,True):
+                            with self.subTest(runtime_state=label,images=images):
+                                restore_runtime(kept,lost=lost,dangling=dangling)
+                                stage=unittest.mock.Mock();stage.in_use.side_effect=lambda:nullcontext()
+                                stage.release.return_value={'state':'prepared fixture released'}
+                                argv=['fullstack.py','recover','--scope','technical','--output',str(output)]
+                                if images:argv+=['--images',str(base/'images.json')]
+                                def native(*args,**options):
+                                    if label=='prepared_only':return original_recover(*args,**options)
+                                    raise AssertionError('native_cleanup_forbidden_for_diagnostic_runtime')
+                                error=None;result=None
+                                with patch.object(fullstack.sys,'argv',argv),patch.object(fullstack.pilot,'command',return_value=source),patch.object(fullstack.preparation,'directory',return_value=base),patch.object(fullstack.preparation,'recover_stage',return_value=stage) as acquire,patch.object(fullstack.resource_runtime.ci,'recover',side_effect=native) as recover:
+                                    try:result=fullstack.main()
+                                    except Exception as caught:error=caught
+                                if refuse:
+                                    self.assertIsInstance(error,(OSError,ValueError))
+                                    acquire.assert_not_called();recover.assert_not_called();stage.release.assert_not_called()
+                                else:
+                                    self.assertIsNone(error)
+                                    if images:stage.release.assert_called_once_with(str(output),cleanup_ok=True)
+                                    elif label.startswith('good_cleanup'):self.assertEqual(result,{'down':'passed','residue':'passed'})
+                                    if label.startswith('good_cleanup'):recover.assert_not_called()
+                        if refuse:
+                            with self.subTest(runtime_collection=label):
+                                restore_runtime(kept,lost=lost,dangling=dangling)
+                                destination=base/('r3-public-'+label)
+                                with self.assertRaises((OSError,ValueError)):
+                                    fullstack.stability_collect(output,metadata,destination,scope='technical',protocol=protocol)
+                                self.assertFalse(destination.exists())
+                    for dangling in (None,stability.NAME,stability.OWNER):
+                        with self.subTest(worker_lost_discriminator=dangling):
+                            restore_runtime(settled_names,lost=True,dangling=dangling)
+                            if dangling==stability.OWNER:(output/stability.NAME).unlink()
+                            with patch.object(fullstack.sys,'platform','linux'),patch.object(fullstack.pilot,'command',return_value=source),patch.object(fullstack.pilot,'worker_storage_guard',return_value=nullcontext()),patch.object(fullstack,'invoke',side_effect=RuntimeError('native_primary_fallback_forbidden')) as invoke:
+                                with self.assertRaises((OSError,ValueError)):fullstack.worker(output)
+                                invoke.assert_not_called()
+                            self.assertFalse((output/'fullstack-proof.json').exists())
+                finally:restore_runtime()
                 variants=[]
                 for key,value in (('source','b'*40),('scope','full'),('protocol',stability.COLD_PROTOCOL),('schema',True),('raw','private-sentinel')):
                     bad=copy.deepcopy(marker);bad[key]=value;variants.append((stability.MARKER,bad))

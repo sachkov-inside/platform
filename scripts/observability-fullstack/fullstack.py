@@ -757,7 +757,7 @@ def worker(output,*,cpu=False):
     if (output/stability.MARKER).exists() or (output/stability.MARKER).is_symlink():
         return stability_worker(output,owner,compose)
     scope=prepared_scope(output,source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
-    if scope=='technical' and 'stability' in stage_timing.read_json(output/'fullstack-source.json',1_048_576):
+    if stability.diagnostic_evidence(sys.modules[__name__],output):
         raise ValueError('diagnostic_plan_binding')
     settings=profile(scope)
     report={'schema':1,'state':'running','profile':settings,'phases':[],'acceptance':{'state':'incomplete'},'measured_linux_acceptance':{'state':'incomplete'},'missing':['PG/Caddy source-cache sampler workload','physical Timeweb host verification','seven days'],'source_cache_workload':False,'controlled_outage':None}
@@ -1063,17 +1063,17 @@ def stability_collect(output,metadata,destination,*,protocol=stability.COLD_PROT
     source,_=hosted.metadata_source(metadata)
     roles=services(scope)
     prepared=(output/'fullstack-source.json').exists() or (output/'fullstack-source.json').is_symlink()
-    runtime=any(cpu_control.present(output/name) for name in ('owner.json','worker.json','worker-outcome.json','cleanup.json',stability.OWNER,stability.NAME))
+    runtime=stability.runtime_evidence(sys.modules[__name__],output)
     images={}
     if scope=='technical':
         cpu_control.need(output.absolute()==output.resolve() and destination.absolute()==destination.resolve() and not cpu_control.present(destination))
         if prepared:
             stability.technical_request(sys.modules[__name__],output,source['checkout_sha'],protocol=protocol)
             images={key:cpu_control.read(output/'fullstack-source.json',private=False)['images'][key] for key in cpu_control.IMAGES}
-            if cpu_control.present(output/'owner.json'):
+            if runtime:
                 good=stability.technical_settlement(sys.modules[__name__],output,source['checkout_sha'])
             else:
-                cpu_control.need(not runtime);good=False
+                good=False
         else:
             prepared_scope(output,expected=None,source=source['checkout_sha'])
             cpu_control.need(not runtime and not cpu_control.present(output/stability.MARKER));good=False
@@ -1137,11 +1137,11 @@ def main():
         marked=cpu_control.present(args.output/stability.MARKER) or cpu_control.present(args.output/stability.OWNER)
         if marked and args.scope=='full' and stability.read_json(args.output/stability.MARKER).get('scope')=='technical':
             raise ValueError('diagnostic_plan_binding')
-        diagnostic=args.scope=='technical' and (marked or bound and 'stability' in stage_timing.read_json(args.output/'fullstack-source.json',1_048_576))
+        diagnostic=args.scope=='technical' and stability.diagnostic_evidence(sys.modules[__name__],args.output)
         diagnostic_cleanup=None
         if diagnostic:
             stability.technical_request(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
-            if registered:
+            if stability.runtime_evidence(sys.modules[__name__],args.output):
                 good=stability.technical_settlement(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
                 if not good:raise ValueError('diagnostic_cleanup_incomplete')
                 diagnostic_cleanup=cpu_control.read(args.output/'cleanup.json',private=False)

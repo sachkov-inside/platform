@@ -340,6 +340,23 @@ def require_marker(event):
 
 
 OWNER='fullstack-stability-owner.json'
+DIAGNOSTIC_FILES=(MARKER,OWNER,NAME)
+RUNTIME_FILES=('owner.json','worker.json','worker-outcome.json','cleanup.json',OWNER,NAME,'evidence.json','monitor-failure.json')
+
+
+def diagnostic_evidence(full,output):
+    """Suspicion selects validation/refusal, never primary or cleanup authority."""
+    if any(full.cpu_control.present(output/name) for name in DIAGNOSTIC_FILES):return True
+    path=output/'fullstack-source.json'
+    if not full.cpu_control.present(path):return False
+    prepared=full.stage_timing.read_json(path,MAX_BYTES)
+    if type(prepared) is not dict:raise ValueError('diagnostic_plan_binding')
+    return 'stability' in prepared
+
+
+def runtime_evidence(full,output):
+    """Absence of one receipt cannot erase another durable runtime witness."""
+    return any(full.cpu_control.present(output/name) for name in RUNTIME_FILES)
 
 
 def admission(full,scope):
