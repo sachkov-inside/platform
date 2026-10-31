@@ -11,6 +11,7 @@ export type CourseTopicArt =
   | "domain"
   | "engineering"
   | "evals"
+  | "flow"
   | "guard"
   | "harness"
   | "human"
@@ -45,7 +46,7 @@ const tile = (
 const tiles: Readonly<Record<string, CourseTopicTile>> = {
   // Темы лендинга с 31.10.2026: инженерные и AI-темы чередуются, ряды по четыре колонки.
   "Инженерная работа": tile("engineering", "wide", "ink"),
-  "Harness для команды": tile("harness", "narrow", "example"),
+  "Harness и пайплайн разработки": tile("flow", "narrow", "example"),
   "Продукт и требования": tile("story", "narrow", "sand"),
   "Spec-Driven Development": tile("sdd", "wide", "blue"),
   "Домен и бизнес-логика": tile("domain", "narrow", "lavender"),

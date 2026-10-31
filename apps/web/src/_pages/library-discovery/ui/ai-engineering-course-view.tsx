@@ -385,6 +385,30 @@ const topicArt: Readonly<Record<CourseTopicArt, ReactNode>> = {
       </span>
     </div>
   ),
+  flow: (
+    <div className="aie-art-pipeline">
+      <span>
+        <FileText />
+        Задача
+      </span>
+      <span>
+        <Bot />
+        Агент пишет код
+      </span>
+      <span>
+        <Wrench />
+        Хук: линтер
+      </span>
+      <span>
+        <ShieldCheck />
+        Ревью агентом
+      </span>
+      <span>
+        <GitPullRequest />
+        Pull request
+      </span>
+    </div>
+  ),
   guard: (
     <div className="aie-art-guard">
       <span className="aie-art-guard-action">
