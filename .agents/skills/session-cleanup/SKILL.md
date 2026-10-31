@@ -4,9 +4,9 @@ description: "Clean up resources owned by the current task or session before han
 ---
 
 Cleanup is the writing agent's last step. `pnpm session:cleanup` decides ownership by rules, not by
-memory: its plan gives an action and a reason for every worktree, process and temporary entry.
-The rules live in the header of [the script](../../../scripts/session-cleanup.mjs); a resource they
-cannot prove disposable is kept and reported.
+memory: its plan gives an action and a reason for each worktree and for each process or temporary
+entry it acts on. The rules live in the header of [the script](../../../scripts/session-cleanup.mjs);
+a resource they cannot prove disposable is kept and reported.
 
 ## 1. Read the plan
 
@@ -27,7 +27,8 @@ changed. A non-zero exit lists the failures; record each one in the handoff.
 ## 4. Resolve what the rules keep
 
 - The current worktree stays: a later run removes it after its PR merges.
-- Unpublished commits and local changes stay; record the exact remaining action.
+- Unpublished commits, local changes and ignored local files (`.env*`, `.reports/`) stay; record
+  the exact remaining action.
 - Stashes stay. Inspect a safety stash this task created against the merged result before dropping it.
 - Containers and volumes follow [the local stand runbook](../../../docs/runbooks/local-stand.md#stop-and-keep-data);
   the script only reports them.

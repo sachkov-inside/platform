@@ -1,9 +1,13 @@
 // @ts-check
-// Session cleanup (#1903). Ownership comes from rules, not from a journal: a worktree is removable
-// when its PR is merged or closed, its state is clean and its HEAD is preserved by that merged PR or
-// by a current remote branch. A process belongs to the worktree that contains its cwd. Temporary
-// files match only the explicit rules below. Anything uncertain is kept and reported. The default
-// run only reports; `--apply` acts on the plan after rechecking each worktree.
+// Session cleanup (#1903). Ownership comes from rules, not from a journal. The rules are the
+// decisions in `planWorktree`, `planProcess` and `temporaryRules`:
+// - A worktree is removed when its PR is merged or closed, it has no changes or ignored local files
+//   (`.env*`, `.reports/`), and its HEAD is in the merged PR's commits or in a current remote branch.
+// - A process belongs to the deepest worktree that contains its cwd. It is stopped only when that
+//   worktree is removed, or when its cwd no longer exists under a worktree directory.
+// - Temporary entries match an explicit prefix and are older than the minimum age.
+// Anything uncertain is kept and reported. The default run only reports; `--apply` acts on the plan
+// after rechecking each worktree and each process.
 //
 // The SessionEnd hook runs this file before dependencies may be installed, so it imports only Node.
 import { execFile } from "node:child_process";
@@ -15,7 +19,7 @@ import {
   realpathSync,
   rmSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import {
   basename,
   dirname,
@@ -33,7 +37,7 @@ const execFileAsync = promisify(execFile);
 export const temporaryMinimumAgeHours = 24;
 const temporaryMinimumAgeMilliseconds =
   temporaryMinimumAgeHours * 60 * 60 * 1000;
-/** A stopped process gets this long to exit after SIGTERM before SIGKILL. */
+/** A stopped process gets this long to exit after SIGTERM, and again after SIGKILL. */
 const processStopGraceMilliseconds = 5000;
 const processPollMilliseconds = 100;
 /** The newest PR commits returned per PR; an older local HEAD needs remote-branch proof instead. */
@@ -76,7 +80,7 @@ export const temporaryRules = [
   { prefix: "session-cleanup-", source: "scripts/session-cleanup.test.mjs" },
 ];
 
-/** Executables of agent sessions; a worktree with one running is in use. */
+/** Executable names of agent sessions and of Orca's agent launcher. */
 const agentExecutables = new Set([
   "claude",
   "codex",
@@ -86,6 +90,9 @@ const agentExecutables = new Set([
   "aider",
   "Orca",
 ]);
+/** Agents started through an interpreter show up only in their arguments. */
+const agentArguments =
+  /(?:^|\/)(?:claude|codex|opencode|gemini|cursor-agent|aider)(?:\.[cm]?js)?(?:\s|$)|@anthropic-ai\/claude-code|@openai\/codex|@google\/gemini-cli/u;
 const shellExecutables = new Set([
   "zsh",
   "bash",
@@ -95,16 +102,19 @@ const shellExecutables = new Set([
   "ksh",
   "tcsh",
 ]);
+/** Ignored files that hold local work or configuration rather than build output. */
+const ignoredLocalWork = /(?:^|\/)\.env[^/]*$|^\.reports(?:\/|$)/u;
 
 /**
  * @typedef {"OPEN" | "CLOSED" | "MERGED"} PullRequestState
- * @typedef {{ number: number; state: PullRequestState; url: string; commits: string[]; complete: boolean }} PullRequest
- * @typedef {{ pid: number; ppid: number; args: string; cwd: string; ports: number[] }} ProcessInfo
+ * @typedef {{ number: number; state: PullRequestState; commits: string[]; complete: boolean }} PullRequest
+ * @typedef {{ pid: number; ppid: number; command: string; args: string; cwd: string; ports: number[] }} ProcessInfo
  * @typedef {{
  *   github: { pullRequests(branches: ReadonlySet<string>): Promise<Map<string, PullRequest[]>> };
- *   processes: { list(): Promise<ProcessInfo[]>; stop(pid: number): Promise<boolean> };
+ *   processes: { list(): Promise<ProcessInfo[]>; stop(process: ProcessInfo): Promise<boolean> };
  *   orca: { worktrees(): Promise<Set<string>>; remove(path: string): Promise<void> };
  *   docker: { composeDirectories(): Promise<{ project: string; directory: string }[]> };
+ *   tracker: { trackedProcesses(path: string): Promise<number> };
  * }} Adapters
  * @typedef {{
  *   path: string;
@@ -114,11 +124,13 @@ const shellExecutables = new Set([
  *   reason: string;
  *   orca: boolean;
  * }} WorktreePlan
- * @typedef {{ pid: number; args: string; cwd: string; ports: number[]; action: "stop" | "keep"; reason: string }} ProcessPlan
+ * @typedef {"removed" | "missing" | "current" | "kept"} ProcessScope
+ * @typedef {ProcessInfo & { worktree: string | undefined; scope: ProcessScope; action: "stop" | "keep"; reason: string }} ProcessPlan
  * @typedef {{ path: string; prefix: string; source: string }} TemporaryPlan
  * @typedef {{
  *   primary: string;
  *   current: string | undefined;
+ *   currentState: string[];
  *   worktrees: WorktreePlan[];
  *   processes: ProcessPlan[];
  *   temporary: TemporaryPlan[];
@@ -178,7 +190,8 @@ export async function runSessionCleanup(options) {
 
 const usage = `Usage: pnpm session:cleanup [--apply] [--json] [--session-end]
 
-Lists worktrees, processes and temporary files that sessions left behind, with a reason for each.
+Lists the worktrees, processes and temporary files that sessions leave behind, with a reason for
+each decision. The rules are documented at the top of scripts/session-cleanup.mjs.
 --apply        Remove the listed worktrees and temporary files and stop the listed processes.
 --json         Print the plan as JSON.
 --session-end  Print only what remains, for the Claude Code SessionEnd hook; never changes anything.
@@ -193,9 +206,9 @@ async function planCleanup(options) {
   const current = await gitText(options.cwd, [
     "rev-parse",
     "--show-toplevel",
-  ]).then(canonical, () => undefined);
+  ]).then(canonicalIfPresent, () => undefined);
   const repository = current ?? options.cwd;
-  const commonDirectory = canonical(
+  const commonDirectory = canonicalIfPresent(
     await gitText(repository, [
       "rev-parse",
       "--path-format=absolute",
@@ -205,16 +218,15 @@ async function planCleanup(options) {
   const registered = parseWorktreeList(
     await gitText(repository, ["worktree", "list", "--porcelain"]),
   );
-  const primaryEntry = registered[0];
-  if (!primaryEntry) throw new Error("git reported no worktrees");
-  const primary = primaryEntry.path;
+  const primary = registered[0]?.path;
+  if (!primary) throw new Error("git reported no worktrees");
 
   const [processList, orcaPaths, composeDirectories] = await Promise.all([
     options.processes.list().catch((/** @type {unknown} */ error) => {
       warnings.push(
-        `process list unavailable, no process is stopped: ${message(error)}`,
+        `process list unavailable; no process is stopped and every worktree is kept: ${message(error)}`,
       );
-      return /** @type {ProcessInfo[]} */ ([]);
+      return null;
     }),
     options.orca.worktrees().catch((/** @type {unknown} */ error) => {
       warnings.push(`Orca worktree list unavailable: ${message(error)}`);
@@ -224,15 +236,22 @@ async function planCleanup(options) {
       .composeDirectories()
       .catch((/** @type {unknown} */ error) => {
         warnings.push(
-          `Docker unavailable, Compose projects were not checked: ${message(error)}`,
+          `Docker unavailable; Compose use is unknown, so candidate worktrees are kept: ${message(error)}`,
         );
-        return /** @type {{ project: string; directory: string }[]} */ ([]);
+        return null;
       }),
   ]);
-  const standPaths = readStandPaths(commonDirectory, warnings);
-  const sessionTree = processTree(processList, options.selfPid);
-  const processes = processList.filter((p) => !sessionTree.has(p.pid));
-  const worktreePaths = registered.map((entry) => entry.path);
+  const sessionTree = processTree(processList ?? [], options.selfPid);
+  const processes = (processList ?? []).filter((p) => !sessionTree.has(p.pid));
+  const context = {
+    current,
+    worktreePaths: registered.map((entry) => entry.path),
+    processes,
+    orcaPaths,
+    composeDirectories,
+    standPaths: readStandPaths(commonDirectory, warnings),
+    processesKnown: processList !== null,
+  };
 
   /** @type {WorktreePlan[]} */
   const worktrees = [];
@@ -240,143 +259,77 @@ async function planCleanup(options) {
   const pending = new Map();
   for (const entry of registered.slice(1)) {
     if (entry.bare) continue;
-    const orca = orcaPaths?.has(entry.path) ?? false;
-    /** @param {WorktreePlan["action"]} action @param {string} reason */
-    const decide = (action, reason) =>
-      worktrees.push({
-        path: entry.path,
-        branch: entry.branch,
-        head: entry.head,
-        action,
-        reason,
-        orca,
-      });
-    const inside = processes.filter(
-      (p) => deepestContaining(worktreePaths, p.cwd) === entry.path,
-    );
-    const agent = inside.find((p) => agentExecutables.has(executable(p.args)));
-    const shell = inside.find((p) => isInteractiveShell(p.args));
-    const compose = composeDirectories.find((c) =>
-      isWithin(c.directory, entry.path),
-    );
-    if (entry.path === current)
-      decide(
-        "keep",
-        "current session's worktree; a later cleanup run removes it after its PR merges",
-      );
-    else if (entry.locked) decide("keep", "locked worktree");
-    else if (standPaths === undefined)
-      decide("keep", "local stand state is unreadable");
-    else if (standPaths.some((path) => isWithin(path, entry.path)))
-      decide("keep", "local stand state references it");
-    else if (compose)
-      decide(
-        "keep",
-        `Compose project ${compose.project} uses it; follow docs/runbooks/local-stand.md`,
-      );
-    else if (agent)
-      decide("keep", `agent session is running (PID ${agent.pid})`);
-    else if (entry.prunable)
-      decide("prune", "directory is missing; prune its registration");
-    else if (!entry.branch) decide("keep", "detached HEAD has no PR");
-    else if (orcaPaths === null) decide("keep", "Orca ownership is unknown");
-    else if (shell && !orca)
-      decide("keep", `terminal is open (PID ${shell.pid})`);
-    else {
-      const dirty = await worktreeChanges(entry.path);
-      if (dirty) decide("keep", dirty);
-      else {
-        const plan = {
-          path: entry.path,
-          branch: entry.branch,
-          head: entry.head,
-          action: /** @type {const} */ ("keep"),
-          reason: "",
-          orca,
-        };
-        worktrees.push(plan);
-        pending.set(entry.branch, plan);
-      }
-    }
+    const plan = {
+      path: entry.path,
+      branch: entry.branch,
+      head: entry.head,
+      orca: orcaPaths?.has(entry.path) ?? false,
+      ...(await planWorktree(entry, context)),
+    };
+    worktrees.push(plan);
+    if (plan.action === "keep" && !plan.reason && entry.branch)
+      pending.set(entry.branch, plan);
   }
   if (pending.size)
     await decideByPullRequests(repository, pending, options.github, warnings);
+  for (const plan of pending.values()) {
+    if (plan.action !== "remove") continue;
+    const tracked = await options.tracker
+      .trackedProcesses(plan.path)
+      .catch((/** @type {unknown} */ error) => {
+        plan.action = "keep";
+        plan.reason = `agent-worktree status failed: ${message(error)}`;
+        return 0;
+      });
+    if (tracked) {
+      plan.action = "keep";
+      plan.reason = `agent-worktree tracks ${tracked} process(es); run pnpm worktree:cleanup in it`;
+    }
+  }
+  const keptPrunable = registered.some(
+    (entry) =>
+      entry.prunable &&
+      worktrees.some((w) => w.path === entry.path && w.action === "keep"),
+  );
+  for (const plan of worktrees)
+    if (plan.action === "prune" && keptPrunable) {
+      plan.action = "keep";
+      plan.reason =
+        "directory is missing, but git worktree prune would also drop a kept registration";
+    }
 
-  const removed = worktrees
-    .filter((w) => w.action !== "keep")
-    .map((w) => w.path);
+  const removed = new Set(
+    worktrees.filter((w) => w.action !== "keep").map((w) => w.path),
+  );
   const kept = new Set(
     worktrees.filter((w) => w.action === "keep").map((w) => w.path),
   );
-  const roots = worktreeRoots(primary, worktreePaths);
+  const roots = worktreeRoots(primary, context.worktreePaths, orcaPaths);
   /** @type {ProcessPlan[]} */
-  const processPlans = [];
-  for (const process of processes) {
-    const owner = deepestContaining(worktreePaths, process.cwd);
-    const base = {
-      pid: process.pid,
-      args: process.args,
-      cwd: process.cwd,
-      ports: process.ports,
-    };
-    const agent = agentExecutables.has(executable(process.args));
-    if (owner && removed.includes(owner)) {
-      processPlans.push({
-        ...base,
-        action: "stop",
-        reason: "its worktree is removed",
-      });
-    } else if (
-      !existsSync(process.cwd) &&
-      roots.some((root) => isWithin(process.cwd, root))
-    ) {
-      processPlans.push(
-        agent
-          ? {
-              ...base,
-              action: "keep",
-              reason: "agent session in a missing directory",
-            }
-          : {
-              ...base,
-              action: "stop",
-              reason: "its working directory no longer exists",
-            },
-      );
-    } else if (owner && owner === current && !agent && !isShell(process.args)) {
-      processPlans.push({
-        ...base,
-        action: "keep",
-        reason: "runs in the current worktree",
-      });
-    } else if (
-      owner &&
-      kept.has(owner) &&
-      process.ports.length &&
-      !agent &&
-      !isShell(process.args)
-    ) {
-      processPlans.push({
-        ...base,
-        action: "keep",
-        reason: "its worktree is kept",
-      });
-    }
-  }
+  const processPlans = processes.flatMap((process) => {
+    const worktree = deepestContaining(context.worktreePaths, process.cwd);
+    const decision = planProcess(process, worktree, {
+      current,
+      removed,
+      kept,
+      roots,
+    });
+    return decision ? [{ ...process, worktree, ...decision }] : [];
+  });
 
   const temporary = planTemporary(
     options.temporaryDirectory,
     options.now,
     processes,
   );
+  const removedBranches = new Set(
+    worktrees.filter((w) => w.action === "remove").map((w) => w.branch),
+  );
   const stashes = await gitText(repository, [
     "stash",
     "list",
     "--format=%gd%x09%gs",
   ]).catch(() => "");
-  const removedBranches = new Set(
-    worktrees.filter((w) => w.action === "remove").map((w) => w.branch),
-  );
   for (const line of stashes.split("\n").filter(Boolean)) {
     const [reference, subject = ""] = line.split("\t");
     const branch = /^(?:WIP on|On) ([^:]+):/u.exec(subject)?.[1];
@@ -385,24 +338,131 @@ async function planCleanup(options) {
         `${reference} on ${branch} is kept; stashes are never dropped`,
       );
   }
-  for (const compose of composeDirectories) {
+  for (const compose of composeDirectories ?? [])
     if (
       !existsSync(compose.directory) &&
       roots.some((root) => isWithin(compose.directory, root))
     )
       notices.push(
-        `Compose project ${compose.project} refers to missing ${compose.directory}; containers and volumes follow docs/runbooks/local-stand.md`,
+        `Compose project ${compose.project} refers to missing ${compose.directory}; its containers and volumes follow docs/runbooks/local-stand.md`,
       );
-  }
+  const currentState =
+    current && current !== primary
+      ? await worktreeState(current, { requirePublished: true })
+      : [];
   return {
     primary,
     current,
+    currentState,
     worktrees,
     processes: processPlans,
     temporary,
     notices,
     warnings,
   };
+}
+
+/**
+ * Local rules for one worktree. An empty keep reason marks a candidate that PR data decides.
+ * @param {ReturnType<typeof parseWorktreeList>[number]} entry
+ * @param {{
+ *   current: string | undefined;
+ *   worktreePaths: string[];
+ *   processes: ProcessInfo[];
+ *   orcaPaths: Set<string> | null;
+ *   composeDirectories: { project: string; directory: string }[] | null;
+ *   standPaths: string[] | undefined;
+ *   processesKnown: boolean;
+ * }} context
+ * @returns {Promise<Pick<WorktreePlan, "action" | "reason">>}
+ */
+async function planWorktree(entry, context) {
+  /** @param {WorktreePlan["action"]} action @param {string} reason */
+  const decide = (action, reason) => ({ action, reason });
+  const inside = context.processes.filter(
+    (p) => deepestContaining(context.worktreePaths, p.cwd) === entry.path,
+  );
+  const agent = inside.find(isAgent);
+  const terminal = inside.find(isInteractiveShell);
+  const compose = context.composeDirectories?.find((c) =>
+    isWithin(c.directory, entry.path),
+  );
+  if (entry.path === context.current)
+    return decide(
+      "keep",
+      "current session's worktree; a later cleanup run removes it after its PR merges",
+    );
+  if (entry.locked) return decide("keep", "locked worktree");
+  if (context.standPaths === undefined)
+    return decide("keep", "local stand state is unreadable");
+  if (context.standPaths.some((path) => isWithin(path, entry.path)))
+    return decide("keep", "local stand state references it");
+  if (compose)
+    return decide(
+      "keep",
+      `Compose project ${compose.project} uses it; follow docs/runbooks/local-stand.md`,
+    );
+  if (agent)
+    return decide("keep", `agent session is running (PID ${agent.pid})`);
+  if (terminal) return decide("keep", `terminal is open (PID ${terminal.pid})`);
+  if (!context.processesKnown)
+    return decide("keep", "process list unavailable");
+  if (context.orcaPaths === null)
+    return decide("keep", "Orca ownership is unknown");
+  if (entry.prunable)
+    return context.orcaPaths.has(entry.path)
+      ? decide("keep", "Orca worktree directory is missing; remove it in Orca")
+      : decide("prune", "directory is missing; prune its registration");
+  if (!entry.branch) return decide("keep", "detached HEAD has no PR");
+  if (context.composeDirectories === null)
+    return decide("keep", "Docker unavailable; Compose use is unknown");
+  const local = await worktreeState(entry.path);
+  if (local.length) return decide("keep", local.join("; "));
+  return decide("keep", "");
+}
+
+/**
+ * @param {ProcessInfo} process
+ * @param {string | undefined} worktree
+ * @param {{ current: string | undefined; removed: Set<string>; kept: Set<string>; roots: string[] }} context
+ * @returns {Pick<ProcessPlan, "scope" | "action" | "reason"> | undefined} undefined when not reported
+ */
+function planProcess(process, worktree, context) {
+  const agent = isAgent(process);
+  const session = agent || isShell(process);
+  if (worktree && context.removed.has(worktree))
+    return agent
+      ? { scope: "removed", action: "keep", reason: "agent session" }
+      : { scope: "removed", action: "stop", reason: "its worktree is removed" };
+  if (
+    !existsSync(process.cwd) &&
+    context.roots.some((root) => isWithin(process.cwd, root))
+  )
+    return agent
+      ? {
+          scope: "missing",
+          action: "keep",
+          reason: "agent session in a missing directory",
+        }
+      : {
+          scope: "missing",
+          action: "stop",
+          reason: "its working directory no longer exists",
+        };
+  if (worktree && worktree === context.current && !session)
+    return {
+      scope: "current",
+      action: "keep",
+      reason: "runs in the current worktree",
+    };
+  if (
+    worktree &&
+    context.kept.has(worktree) &&
+    process.ports.length &&
+    !session
+  )
+    return { scope: "kept", action: "keep", reason: "its worktree is kept" };
+  return undefined;
 }
 
 /**
@@ -452,9 +512,10 @@ async function decideByPullRequests(repository, pending, github, warnings) {
     if (remote && pull) {
       plan.action = "remove";
       plan.reason = `${pull.state === "MERGED" ? "merged" : "closed"} PR #${pull.number}; remote branch ${remote} contains HEAD`;
-    } else {
-      plan.reason = `${finished.map((p) => `${p.state.toLowerCase()} PR #${p.number}`).join(", ")}; HEAD is not preserved in a merged PR or remote branch`;
+      continue;
     }
+    const truncated = finished.some((p) => p.state === "MERGED" && !p.complete);
+    plan.reason = `${finished.map((p) => `${p.state.toLowerCase()} PR #${p.number}`).join(", ")}; HEAD is not preserved in ${truncated ? `the newest ${pullRequestCommitWindow} PR commits` : "a merged PR"} or a remote branch`;
   }
 }
 
@@ -511,32 +572,60 @@ async function remoteBranchContaining(repository, head, remoteHeads) {
   return undefined;
 }
 
-/** @param {string} path @returns {Promise<string | undefined>} a reason when the worktree is not clean */
-async function worktreeChanges(path) {
-  const status = await gitText(path, [
-    "status",
-    "--porcelain",
-    "--untracked-files=all",
-  ]).catch((error) => `status failed: ${message(error)}`);
-  if (status.startsWith("status failed")) return status;
-  if (status) return "uncommitted or untracked changes";
-  for (const [marker, operation] of [
-    ["MERGE_HEAD", "merge"],
-    ["rebase-merge", "rebase"],
-    ["rebase-apply", "rebase"],
-    ["CHERRY_PICK_HEAD", "cherry-pick"],
-    ["REVERT_HEAD", "revert"],
-    ["BISECT_LOG", "bisect"],
-  ]) {
-    const markerPath = await gitText(path, [
-      "rev-parse",
-      "--path-format=absolute",
-      "--git-path",
-      marker ?? "",
+/**
+ * Reasons why removing the worktree could lose local work; empty when it holds none. A merged
+ * squash PR preserves HEAD even after its remote branch is deleted, so only the current worktree's
+ * report asks whether HEAD is on a remote branch.
+ * @param {string} path
+ * @param {{ requirePublished?: boolean }} [options]
+ * @returns {Promise<string[]>}
+ */
+async function worktreeState(path, { requirePublished = false } = {}) {
+  try {
+    if (await gitText(path, ["status", "--porcelain", "--untracked-files=all"]))
+      return ["uncommitted or untracked changes"];
+    for (const [marker, operation] of [
+      ["MERGE_HEAD", "merge"],
+      ["rebase-merge", "rebase"],
+      ["rebase-apply", "rebase"],
+      ["CHERRY_PICK_HEAD", "cherry-pick"],
+      ["REVERT_HEAD", "revert"],
+      ["BISECT_LOG", "bisect"],
+    ]) {
+      const markerPath = await gitText(path, [
+        "rev-parse",
+        "--path-format=absolute",
+        "--git-path",
+        marker ?? "",
+      ]);
+      if (existsSync(markerPath)) return [`${operation} in progress`];
+    }
+    const ignored = await gitText(path, [
+      "ls-files",
+      "--others",
+      "--ignored",
+      "--exclude-standard",
+      "--directory",
     ]);
-    if (existsSync(markerPath)) return `${operation} in progress`;
+    const local = ignored
+      .split("\n")
+      .map((line) => line.replace(/\/$/u, ""))
+      .filter((line) => ignoredLocalWork.test(line));
+    if (local.length)
+      return [`ignored local files: ${local.slice(0, 3).join(", ")}`];
+    if (!requirePublished) return [];
+    const published = await gitText(path, [
+      "for-each-ref",
+      "--contains",
+      "HEAD",
+      "--count=1",
+      "--format=%(refname)",
+      "refs/remotes",
+    ]);
+    return published ? [] : ["HEAD is not on any remote branch"];
+  } catch (error) {
+    return [`git state unreadable: ${message(error)}`];
   }
-  return undefined;
 }
 
 /** @param {string} temporaryDirectory @param {Date} now @param {ProcessInfo[]} processes @returns {TemporaryPlan[]} */
@@ -570,6 +659,8 @@ function planTemporary(temporaryDirectory, now, processes) {
 }
 
 /**
+ * Each worktree is rechecked before its processes stop, so a worktree that changed after planning
+ * keeps both. A process stops only while its command and cwd still match the plan.
  * @param {CleanupPlan} plan
  * @param {{ temporaryDirectory: string } & Adapters} options
  * @returns {Promise<string[]>} failures
@@ -577,33 +668,35 @@ function planTemporary(temporaryDirectory, now, processes) {
 async function applyPlan(plan, options) {
   /** @type {string[]} */
   const failures = [];
-  for (const process of plan.processes.filter((p) => p.action === "stop")) {
-    const stopped = await options.processes
-      .stop(process.pid)
-      .catch(() => false);
-    if (!stopped) failures.push(`process ${process.pid} did not stop`);
-  }
-  let pruned = false;
+  /** @param {ProcessPlan} process */
+  const stop = async (process) => {
+    const stopped = await options.processes.stop(process).catch(() => false);
+    if (!stopped)
+      failures.push(`process ${process.pid} did not stop or changed; kept`);
+    return stopped;
+  };
+  for (const process of plan.processes)
+    if (process.action === "stop" && process.scope === "missing")
+      await stop(process);
   for (const worktree of plan.worktrees) {
-    if (worktree.action === "prune") {
-      if (!pruned) {
-        await gitText(plan.primary, ["worktree", "prune"]).catch((error) =>
-          failures.push(`git worktree prune: ${message(error)}`),
-        );
-        pruned = true;
-      }
-      continue;
-    }
     if (worktree.action !== "remove" || !worktree.branch) continue;
-    // Recheck right before deletion: the plan may be stale after other sessions acted.
+    // Recheck right before acting: other sessions may have changed the worktree since planning.
     const head = await gitText(worktree.path, ["rev-parse", "HEAD"]).catch(
       () => "",
     );
-    const changes = await worktreeChanges(worktree.path);
-    if (head !== worktree.head || changes) {
+    const local = await worktreeState(worktree.path);
+    if (head !== worktree.head || local.length) {
       failures.push(
-        `${worktree.path}: changed since planning (${changes ?? "HEAD moved"}); kept`,
+        `${worktree.path}: changed since planning (${local.join("; ") || "HEAD moved"}); kept`,
       );
+      continue;
+    }
+    let stoppedAll = true;
+    for (const process of plan.processes)
+      if (process.action === "stop" && process.worktree === worktree.path)
+        stoppedAll = (await stop(process)) && stoppedAll;
+    if (!stoppedAll) {
+      failures.push(`${worktree.path}: a process is still running; kept`);
       continue;
     }
     try {
@@ -613,22 +706,36 @@ async function applyPlan(plan, options) {
       failures.push(`${worktree.path}: ${message(error)}`);
       continue;
     }
-    const branchHead = await gitText(plan.primary, [
-      "rev-parse",
-      "--verify",
-      "--quiet",
-      `refs/heads/${worktree.branch}`,
-    ]).catch(() => "");
-    if (branchHead === worktree.head)
-      await gitText(plan.primary, ["branch", "-D", worktree.branch]).catch(
-        (error) =>
-          failures.push(`branch ${worktree.branch}: ${message(error)}`),
-      );
-    else if (branchHead)
-      failures.push(
-        `branch ${worktree.branch} moved to ${branchHead.slice(0, 12)}; kept`,
-      );
+    // update-ref deletes the branch only while it still points at the proven HEAD.
+    const reference = `refs/heads/${worktree.branch}`;
+    if (
+      await gitSucceeds(plan.primary, [
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        reference,
+      ])
+    ) {
+      if (
+        await gitSucceeds(plan.primary, [
+          "update-ref",
+          "-d",
+          reference,
+          worktree.head,
+        ])
+      )
+        await gitSucceeds(plan.primary, [
+          "config",
+          "--remove-section",
+          `branch.${worktree.branch}`,
+        ]);
+      else failures.push(`branch ${worktree.branch} moved; kept`);
+    }
   }
+  if (plan.worktrees.some((w) => w.action === "prune"))
+    await gitText(plan.primary, ["worktree", "prune"]).catch((error) =>
+      failures.push(`git worktree prune: ${message(error)}`),
+    );
   for (const entry of plan.temporary) {
     if (dirname(entry.path) !== options.temporaryDirectory) continue;
     try {
@@ -664,6 +771,8 @@ function formatPlan(plan, applied) {
       `  ${verb(w.action).padEnd(7)} ${w.path}${w.branch ? ` [${w.branch}]` : ""}${w.orca ? " (Orca)" : ""}: ${w.reason}`,
     );
   if (!plan.worktrees.length) lines.push("  none besides the primary checkout");
+  if (plan.currentState.length)
+    lines.push("", `Current worktree: ${plan.currentState.join("; ")}`);
   lines.push("", "Processes");
   for (const p of plan.processes)
     lines.push(
@@ -671,12 +780,13 @@ function formatPlan(plan, applied) {
     );
   if (!plan.processes.length) lines.push("  none to report");
   lines.push("", "Temporary files");
-  const byRule = Map.groupBy(plan.temporary, (entry) => entry.prefix);
-  for (const [prefix, entries] of byRule) {
+  for (const [prefix, entries] of Map.groupBy(
+    plan.temporary,
+    (entry) => entry.prefix,
+  ))
     lines.push(
       `  ${verb("remove").padEnd(7)} ${entries.length} × ${prefix}* older than ${temporaryMinimumAgeHours} h (${entries[0]?.source})`,
     );
-  }
   if (!plan.temporary.length) lines.push("  none match the explicit rules");
   if (plan.notices.length)
     lines.push("", "Kept for the owner", ...plan.notices.map((n) => `  ${n}`));
@@ -685,14 +795,18 @@ function formatPlan(plan, applied) {
   return `${lines.join("\n")}\n`;
 }
 
-/** @param {CleanupPlan} plan @returns {string} empty when nothing remains for this session */
+/** @param {CleanupPlan} plan @returns {string} empty when nothing remains to report */
 function formatSessionEnd(plan) {
   const removable = plan.worktrees.filter((w) => w.action !== "keep");
   const stoppable = plan.processes.filter((p) => p.action === "stop");
-  const running = plan.processes.filter(
-    (p) => p.action === "keep" && p.reason === "runs in the current worktree",
-  );
+  const running = plan.processes.filter((p) => p.scope === "current");
   const lines = [];
+  if (plan.currentState.length)
+    lines.push(`This worktree: ${plan.currentState.join("; ")}.`);
+  if (running.length) {
+    lines.push(`${running.length} process(es) still run in this worktree:`);
+    for (const p of running) lines.push(`  ${describeProcess(p)}`);
+  }
   if (removable.length) {
     lines.push(`${removable.length} worktree(s) can be removed:`);
     for (const w of removable) lines.push(`  ${w.path}: ${w.reason}`);
@@ -702,28 +816,35 @@ function formatSessionEnd(plan) {
     for (const p of stoppable)
       lines.push(`  ${describeProcess(p)}: ${p.reason}`);
   }
-  if (running.length) {
-    lines.push(`${running.length} process(es) still run in this worktree:`);
-    for (const p of running) lines.push(`  ${describeProcess(p)}`);
-  }
   if (plan.temporary.length)
     lines.push(
       `${plan.temporary.length} temporary entr${plan.temporary.length === 1 ? "y" : "ies"} can be removed.`,
     );
+  lines.push(...plan.warnings.map((w) => `Warning: ${w}`));
   if (!lines.length) return "";
   return [
     "Session cleanup report (nothing was changed):",
     ...lines,
-    ...plan.warnings.map((w) => `warning: ${w}`),
-    "Review with `pnpm session:cleanup`; remove with `pnpm session:cleanup --apply`.",
+    "Review with `pnpm session:cleanup`; act on it with `pnpm session:cleanup --apply`.",
     "",
   ].join("\n");
 }
 
-/** @param {{ pid: number; args: string; cwd: string; ports: number[] }} p */
+/** @param {ProcessPlan} p */
 function describeProcess(p) {
-  const command = p.args.length > 80 ? `${p.args.slice(0, 77)}...` : p.args;
-  return `PID ${p.pid} ${command} (cwd ${p.cwd}${p.ports.length ? `, ports ${p.ports.join(", ")}` : ""})`;
+  const command = redact(p.args);
+  const shown = command.length > 80 ? `${command.slice(0, 77)}...` : command;
+  return `PID ${p.pid} ${shown} (cwd ${p.cwd}${p.ports.length ? `, ports ${p.ports.join(", ")}` : ""})`;
+}
+
+/** Masks argument values that look like credentials before a command line is printed. @param {string} args */
+export function redact(args) {
+  return args
+    .replace(
+      /(\b[\w.-]*(?:token|secret|password|passwd|apikey|api-key|api_key|auth|credential)[\w.-]*(?:=|:|\s+))\S+/giu,
+      "$1***",
+    )
+    .replace(/(\/\/[^/\s:@]+:)[^@\s]+@/gu, "$1***@");
 }
 
 /**
@@ -744,9 +865,8 @@ function parseWorktreeList(output) {
           space < 0 ? "" : line.slice(space + 1),
         );
       }
-      const path = fields.get("worktree") ?? "";
       return {
-        path: existsSync(path) ? canonical(path) : path,
+        path: canonicalIfPresent(fields.get("worktree") ?? ""),
         head: fields.get("HEAD") ?? "",
         branch: fields.get("branch")?.replace(/^refs\/heads\//u, ""),
         bare: fields.has("bare"),
@@ -758,6 +878,8 @@ function parseWorktreeList(output) {
 
 /**
  * Every string in the stand controller state that names a path keeps the worktree containing it.
+ * The controller (`scripts/stand-controller.mjs`) owns this file; it imports npm dependencies, so
+ * this dependency-free script reads the location itself.
  * @param {string} commonDirectory @param {string[]} warnings
  * @returns {string[] | undefined} undefined when existing state cannot be read
  */
@@ -772,7 +894,7 @@ function readStandPaths(commonDirectory, warnings) {
     /** @param {unknown} value */
     const walk = (value) => {
       if (typeof value === "string" && isAbsolute(value))
-        paths.push(existsSync(value) ? canonical(value) : value);
+        paths.push(canonicalIfPresent(value));
       else if (Array.isArray(value)) value.forEach(walk);
       else if (typeof value === "object" && value !== null)
         Object.values(value).forEach(walk);
@@ -788,16 +910,24 @@ function readStandPaths(commonDirectory, warnings) {
 }
 
 /**
- * Directories that hold worktrees: the primary checkout and the parent of every other worktree,
- * except the primary's own parent, which also holds unrelated projects.
- * @param {string} primary @param {string[]} worktreePaths
+ * Directories that hold this repository's worktrees: the primary checkout, every `*.worktrees`
+ * container and the parents of Orca worktrees. A broad directory such as home is never a root.
+ * @param {string} primary @param {string[]} worktreePaths @param {Set<string> | null} orcaPaths
  */
-function worktreeRoots(primary, worktreePaths) {
-  const shared = dirname(primary);
+function worktreeRoots(primary, worktreePaths, orcaPaths) {
   const roots = new Set([primary, `${primary}.worktrees`]);
   for (const path of worktreePaths.slice(1))
-    if (dirname(path) !== shared) roots.add(dirname(path));
-  return [...roots];
+    if (basename(dirname(path)).endsWith(".worktrees"))
+      roots.add(dirname(path));
+  for (const path of orcaPaths ?? [])
+    if (path !== primary) roots.add(dirname(path));
+  const broad = new Set([
+    "/",
+    canonicalIfPresent(homedir()),
+    canonicalIfPresent(tmpdir()),
+    dirname(primary),
+  ]);
+  return [...roots].filter((root) => !broad.has(root));
 }
 
 /**
@@ -845,31 +975,27 @@ export function isWithin(path, root) {
   return offset === "" || (!offset.startsWith("..") && !isAbsolute(offset));
 }
 
-/** @param {string} args */
-function executable(args) {
-  const first = args.trim().split(/\s+/u)[0] ?? "";
-  return basename(first.replace(/^-/u, ""));
-}
-
-/** @param {string} args */
-function isShell(args) {
-  return shellExecutables.has(executable(args));
-}
-
-/** A login or argument-less shell is an open terminal; `sh -c` runs a command. @param {string} args */
-function isInteractiveShell(args) {
-  if (!isShell(args)) return false;
-  const words = args.trim().split(/\s+/u);
+/** @param {ProcessInfo} process */
+function isAgent(process) {
   return (
-    words[0]?.startsWith("-") ||
-    words.length === 1 ||
-    words.slice(1).every((w) => /^-[il]+$/u.test(w))
+    agentExecutables.has(basename(process.command)) ||
+    agentArguments.test(process.args)
   );
 }
 
+/** @param {ProcessInfo} process */
+function isShell(process) {
+  return shellExecutables.has(basename(process.command).replace(/^-/u, ""));
+}
+
+/** A shell without `-c` is an open terminal; `sh -c` runs a command. @param {ProcessInfo} process */
+function isInteractiveShell(process) {
+  return isShell(process) && !/(?:^|\s)-[A-Za-z]*c(?:\s|$)/u.test(process.args);
+}
+
 /** @param {string} path */
-function canonical(path) {
-  return realpathSync(path);
+function canonicalIfPresent(path) {
+  return existsSync(path) ? realpathSync(path) : path;
 }
 
 /** @param {unknown} error */
@@ -906,30 +1032,44 @@ async function commandText(command, args, cwd) {
   return stdout;
 }
 
+/** @param {unknown} error */
+function missingCommand(error) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
+}
+
 /** @param {string} repository @returns {Adapters["github"]} */
 export function githubAdapter(repository) {
   return {
     async pullRequests(branches) {
       const url = await gitText(repository, ["remote", "get-url", "origin"]);
-      const match = /github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?$/u.exec(url);
+      const match =
+        /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([\w.-]+)\/([\w.-]+?)(?:\.git)?$/u.exec(
+          url,
+        );
       if (!match?.[1] || !match[2])
         throw new Error(`origin ${url} is not a GitHub repository`);
       const names = [...branches];
-      const fields = `nodes { number state url isCrossRepository commits(last: ${pullRequestCommitWindow}) { totalCount nodes { commit { oid } } } }`;
+      const fields = `nodes { number state isCrossRepository commits(last: ${pullRequestCommitWindow}) { totalCount nodes { commit { oid } } } }`;
       const query = `query($owner: String!, $name: String!${names.map((_, i) => `, $b${i}: String!`).join("")}) { repository(owner: $owner, name: $name) { ${names
         .map(
           (_, i) =>
             `b${i}: pullRequests(headRefName: $b${i}, first: 20, states: [OPEN, CLOSED, MERGED]) { ${fields} }`,
         )
         .join(" ")} } }`;
+      // -f passes raw strings: no type conversion and no @file reads.
       const args = [
         "api",
         "graphql",
         "-f",
         `query=${query}`,
-        "-F",
+        "-f",
         `owner=${match[1]}`,
-        "-F",
+        "-f",
         `name=${match[2]}`,
       ];
       names.forEach((name, i) => args.push("-f", `b${i}=${name}`));
@@ -961,12 +1101,10 @@ function parsePullRequests(nodes) {
   return nodes.flatMap((/** @type {unknown} */ node) => {
     const state = field(node, "state");
     const number = field(node, "number");
-    const url = field(node, "url");
     if (field(node, "isCrossRepository") === true) return [];
     if (
       (state !== "OPEN" && state !== "CLOSED" && state !== "MERGED") ||
-      typeof number !== "number" ||
-      typeof url !== "string"
+      typeof number !== "number"
     )
       throw new Error("GitHub returned an unexpected PR");
     const commits = field(node, "commits");
@@ -980,9 +1118,7 @@ function parsePullRequests(nodes) {
         throw new Error("GitHub returned an unexpected commit");
       return oid;
     });
-    return [
-      { number, state, url, commits: oids, complete: total <= oids.length },
-    ];
+    return [{ number, state, commits: oids, complete: total <= oids.length }];
   });
 }
 
@@ -990,10 +1126,51 @@ function parsePullRequests(nodes) {
 export function processAdapter({
   graceMilliseconds = processStopGraceMilliseconds,
 } = {}) {
+  const user = String(process.getuid?.() ?? "");
+  /** @param {string[]} pids */
+  const describe = async (pids) => {
+    const [commandOutput, argsOutput] = await Promise.all([
+      commandText("ps", ["-ww", "-o", "pid=,ppid=,comm=", ...pids]).catch(
+        psOutput,
+      ),
+      commandText("ps", ["-ww", "-o", "pid=,args=", ...pids]).catch(psOutput),
+    ]);
+    /** @type {Map<number, { ppid: number; command: string; args: string }>} */
+    const rows = new Map();
+    const argsByPid = new Map(
+      argsOutput.split("\n").flatMap((line) => {
+        const m = /^\s*(\d+)\s(.*)$/u.exec(line);
+        return m ? [[Number(m[1]), (m[2] ?? "").trim()]] : [];
+      }),
+    );
+    for (const line of commandOutput.split("\n")) {
+      const m = /^\s*(\d+)\s+(\d+)\s(.*)$/u.exec(line);
+      if (!m) continue;
+      const pid = Number(m[1]);
+      rows.set(pid, {
+        ppid: Number(m[2]),
+        command: (m[3] ?? "").trim(),
+        args: argsByPid.get(pid) ?? "",
+      });
+    }
+    return rows;
+  };
+  /** @param {number} pid */
+  const currentCwd = async (pid) =>
+    lsofRecords(
+      await commandText("lsof", [
+        "-w",
+        "-a",
+        "-d",
+        "cwd",
+        "-p",
+        String(pid),
+        "-Fpn",
+      ]).catch(lsofOutput),
+    ).get(pid);
   return {
     async list() {
-      const user = String(process.getuid?.() ?? "");
-      const [cwdOutput, psOutput, listenOutput] = await Promise.all([
+      const [cwdOutput, listenOutput] = await Promise.all([
         commandText("lsof", [
           "-w",
           "-a",
@@ -1003,7 +1180,6 @@ export function processAdapter({
           user,
           "-Fpn",
         ]).catch(lsofOutput),
-        commandText("ps", ["-axww", "-o", "pid=,ppid=,args="]),
         commandText("lsof", [
           "-w",
           "-nP",
@@ -1016,6 +1192,7 @@ export function processAdapter({
         ]).catch(lsofOutput),
       ]);
       const cwds = lsofRecords(cwdOutput);
+      const rows = await describe(["-ax"]);
       /** @type {Map<number, number[]>} */
       const ports = new Map();
       for (const [pid, names] of lsofMultiRecords(listenOutput))
@@ -1026,30 +1203,25 @@ export function processAdapter({
               .filter(Number.isInteger),
           ),
         ]);
-      return psOutput
-        .split("\n")
-        .map((line) => /^\s*(\d+)\s+(\d+)\s+(.*)$/u.exec(line))
-        .flatMap((m) => {
-          if (!m) return [];
-          const pid = Number(m[1]);
-          const cwd = cwds.get(pid);
-          return cwd
-            ? [
-                {
-                  pid,
-                  ppid: Number(m[2]),
-                  args: m[3] ?? "",
-                  cwd,
-                  ports: ports.get(pid) ?? [],
-                },
-              ]
-            : [];
-        });
+      return [...rows].flatMap(([pid, row]) => {
+        const cwd = cwds.get(pid);
+        return cwd ? [{ pid, ...row, cwd, ports: ports.get(pid) ?? [] }] : [];
+      });
     },
-    async stop(pid) {
+    async stop(planned) {
+      const same = async () => {
+        const row = (await describe(["-p", String(planned.pid)])).get(
+          planned.pid,
+        );
+        return (
+          row?.command === planned.command &&
+          row.args === planned.args &&
+          (await currentCwd(planned.pid)) === planned.cwd
+        );
+      };
       const alive = () => {
         try {
-          process.kill(pid, 0);
+          process.kill(planned.pid, 0);
           return true;
         } catch {
           return false;
@@ -1063,16 +1235,18 @@ export function processAdapter({
         return !alive();
       };
       if (!alive()) return true;
-      process.kill(pid, "SIGTERM");
+      if (!(await same())) return false;
+      process.kill(planned.pid, "SIGTERM");
       if (await waitForExit(graceMilliseconds)) return true;
-      process.kill(pid, "SIGKILL");
+      if (!(await same())) return false;
+      process.kill(planned.pid, "SIGKILL");
       return waitForExit(graceMilliseconds);
     },
   };
 }
 
-/** lsof exits 1 when some processes are unreadable but still prints the rest. @param {unknown} error */
-function lsofOutput(error) {
+/** ps exits 1 when a selected PID is gone. @param {unknown} error */
+function psOutput(error) {
   if (
     typeof error === "object" &&
     error !== null &&
@@ -1081,6 +1255,11 @@ function lsofOutput(error) {
   )
     return error.stdout;
   throw error;
+}
+
+/** lsof exits 1 when some processes are unreadable but still prints the rest. @param {unknown} error */
+function lsofOutput(error) {
+  return psOutput(error);
 }
 
 /** @param {string} output */
@@ -1112,13 +1291,7 @@ export function orcaAdapter(repository) {
         ["worktree", "list", "--json"],
         repository,
       ).catch((/** @type {unknown} */ error) => {
-        if (
-          typeof error === "object" &&
-          error !== null &&
-          "code" in error &&
-          error.code === "ENOENT"
-        )
-          return undefined;
+        if (missingCommand(error)) return undefined;
         throw error;
       });
       if (found === undefined) return new Set();
@@ -1131,9 +1304,7 @@ export function orcaAdapter(repository) {
       return new Set(
         rows.flatMap((/** @type {unknown} */ row) => {
           const path = field(row, "path");
-          return typeof path === "string" && existsSync(path)
-            ? [canonical(path)]
-            : [];
+          return typeof path === "string" ? [canonicalIfPresent(path)] : [];
         }),
       );
     },
@@ -1158,24 +1329,40 @@ export function dockerAdapter() {
         "label=com.docker.compose.project",
         "--format",
         '{{.Label "com.docker.compose.project"}}\t{{.Label "com.docker.compose.project.working_dir"}}',
-      ]);
-      const seen = new Set();
-      return output
-        .split("\n")
-        .filter(Boolean)
-        .flatMap((line) => {
+      ]).catch((/** @type {unknown} */ error) => {
+        if (missingCommand(error)) return undefined;
+        throw error;
+      });
+      if (output === undefined) return [];
+      return [...new Set(output.split("\n").filter(Boolean))].flatMap(
+        (line) => {
           const [project = "", directory = ""] = line.split("\t");
-          if (!directory || seen.has(line)) return [];
-          seen.add(line);
-          return [
-            {
-              project,
-              directory: existsSync(directory)
-                ? canonical(directory)
-                : directory,
-            },
-          ];
-        });
+          return directory
+            ? [{ project, directory: canonicalIfPresent(directory) }]
+            : [];
+        },
+      );
+    },
+  };
+}
+
+/** Processes the optional agent-worktree host CLI tracks for a worktree. @returns {Adapters["tracker"]} */
+export function trackerAdapter() {
+  return {
+    async trackedProcesses(path) {
+      const output = await commandText(
+        "agent-worktree",
+        ["status"],
+        path,
+      ).catch((/** @type {unknown} */ error) => {
+        if (missingCommand(error)) return undefined;
+        throw error;
+      });
+      if (output === undefined) return 0;
+      const processes = field(JSON.parse(output), "processes");
+      if (!Array.isArray(processes))
+        throw new Error("agent-worktree returned no process list");
+      return processes.length;
     },
   };
 }
@@ -1184,17 +1371,23 @@ if (
   process.argv[1] &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  const cwd = process.env["INIT_CWD"] ?? process.cwd();
+  // pnpm runs scripts from the package root and passes the caller's directory in INIT_CWD.
+  const cwd =
+    process.env["npm_lifecycle_event"] === "session:cleanup" &&
+    process.env["INIT_CWD"]
+      ? process.env["INIT_CWD"]
+      : process.cwd();
   runSessionCleanup({
     argv: process.argv.slice(2),
     cwd,
     now: new Date(),
-    temporaryDirectory: canonical(tmpdir()),
+    temporaryDirectory: canonicalIfPresent(tmpdir()),
     selfPid: process.pid,
     github: githubAdapter(cwd),
     processes: processAdapter(),
     orca: orcaAdapter(cwd),
     docker: dockerAdapter(),
+    tracker: trackerAdapter(),
     // Claude Code prints a SessionEnd hook's stderr; the regular plan goes to stdout.
     write: (text) =>
       (process.argv.includes("--session-end")

@@ -62,26 +62,19 @@ agent-worktree stop --name web-preview
 
 ## Finish the session
 
-Follow `session-cleanup`. Its `pnpm session:cleanup` lists every registered worktree, the processes it
-can stop or that still run in kept worktrees, and old temporary entries that match the script's
-explicit rules, each with an action and a reason. The default run changes nothing;
-`--apply` acts on the plan.
+Follow `session-cleanup`. Its `pnpm session:cleanup` prints a plan with a reason for each worktree
+decision, for each process it would stop or that still serves a kept worktree, and for each old
+temporary entry matching an explicit rule. The default run changes nothing; `--apply` acts on the
+plan. The rules, and the cases that keep a resource, are listed at the top of
+[the script](../../scripts/session-cleanup.mjs). Stashes, containers and volumes are never changed.
 
-- A worktree is removed when its PR is merged or closed, it is clean, and its HEAD is in the merged
-  PR's commits or in a current remote branch. Orca worktrees go through `orca worktree rm`; others
-  through `git worktree remove`. Its branch is deleted only while it still points at that HEAD.
-- The primary checkout, the current worktree, locked worktrees, and worktrees with an open PR,
-  changes, a running agent session, local stand state or a Compose project stay.
-- Stashes, containers and volumes are never changed; the plan names the ones tied to removed
-  worktrees or missing directories.
-- PR data comes from one GitHub GraphQL request per run. When GitHub, Orca or the stand state is
-  unavailable, the affected worktrees stay and the plan says why.
-
-The project `.claude/settings.json` runs `--session-end` when a Claude Code session exits. It prints
-only what remains and changes nothing. Claude Code shows SessionEnd output only for a non-zero
-status, so the report arrives as a "SessionEnd hook ... failed" message in the terminal.
+The project `.claude/settings.json` runs `--session-end` when a Claude Code session exits. It reports
+this worktree's unpublished work and running processes, what can be removed elsewhere, and any
+warning; it changes nothing. Claude Code shows SessionEnd output only for a non-zero status, so the
+report arrives as a "SessionEnd hook ... failed" message in the terminal.
 
 When a task used the host resource CLI, inspect `pnpm worktree:status`, then run
 `pnpm worktree:cleanup` for its disposable tracked resources. The command preserves previews started
 with `--keep`; record their continuing owner in the handoff. Without the CLI, status and cleanup
-report its absence and change no resources. A host resource cleanup is not Git worktree deletion.
+report its absence and change no resources. `pnpm session:cleanup` keeps a worktree while the CLI
+tracks a process in it.
