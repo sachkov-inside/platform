@@ -91,8 +91,6 @@ it("git/Actions adapter plans the complete rename set and records actual checkou
       };
     const gateEnv = {
       ...env,
-      REVIEW_RESULT: "success",
-      REVIEW_STATUS: "verified",
       SELECTED_PLAN_SHA256: digest,
       JOB_RESULTS: JSON.stringify(results),
     };
@@ -103,23 +101,6 @@ it("git/Actions adapter plans the complete rename set and records actual checkou
       timeout: 10_000,
     });
     assert.equal(gate.status, 0, gate.stderr);
-    for (const review of [
-      { REVIEW_RESULT: undefined },
-      { REVIEW_RESULT: "skipped" },
-      { REVIEW_RESULT: "failure" },
-      { REVIEW_RESULT: "cancelled" },
-      { REVIEW_STATUS: undefined },
-      { REVIEW_STATUS: "unknown" },
-      { REVIEW_STATUS: "release-not-applicable" },
-    ]) {
-      const rejected = spawnSync(process.execPath, [runner, "gate"], {
-        cwd,
-        env: { ...gateEnv, ...review },
-        encoding: "utf8",
-        timeout: 10_000,
-      });
-      assert.equal(rejected.status, 1);
-    }
     const evidence = z
       .object({
         sourceSha: z.string(),
@@ -252,8 +233,6 @@ it("release adapter validates immutable checkout and executes only allowlisted m
       cwd,
       env: {
         ...env,
-        REVIEW_RESULT: "success",
-        REVIEW_STATUS: "release-not-applicable",
         SELECTED_PLAN_SHA256: createHash("sha256")
           .update(serialized)
           .digest("hex"),

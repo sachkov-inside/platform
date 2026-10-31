@@ -1,7 +1,7 @@
 // @ts-check
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 
-const reviewContractBudgetMilliseconds = 10000;
+const processBudgetMilliseconds = 10000;
 const shutdownGraceMilliseconds = 100;
 
 /** Real Node/Git/Bash contract boundary. Completion includes supervised tree cleanup.
@@ -12,15 +12,15 @@ const shutdownGraceMilliseconds = 100;
  * @param {{cwd?: string, env?: NodeJS.ProcessEnv, input?: string,
  *   timeoutMilliseconds?: number, signal?: AbortSignal}} [options]
  */
-export async function runReviewProcess(command, args, options = {}) {
+export async function runProcess(command, args, options = {}) {
   const {
     input,
     signal,
-    timeoutMilliseconds = reviewContractBudgetMilliseconds,
+    timeoutMilliseconds = processBudgetMilliseconds,
     ...spawnOptions
   } = options;
   if (!Number.isFinite(timeoutMilliseconds) || timeoutMilliseconds <= 0)
-    throw new RangeError("Review contract budget must be finite and positive");
+    throw new RangeError("Process budget must be finite and positive");
   const child = spawnOwned(command, args, spawnOptions);
   let stdout = "";
   let stderr = "";
@@ -35,7 +35,7 @@ export async function runReviewProcess(command, args, options = {}) {
     interrupted = true;
     void stopOwned(child, shutdownGraceMilliseconds);
   };
-  // deterministic-test-allow duration-wait: failure budget for real review Node/Git/Bash commands; supervisor close follows complete tree cleanup.
+  // deterministic-test-allow duration-wait: failure budget for real Node/Git/Bash commands; supervisor close follows complete tree cleanup.
   const timeout = setTimeout(() => {
     timedOut = true;
     void stopOwned(child, shutdownGraceMilliseconds);

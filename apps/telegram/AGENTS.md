@@ -36,4 +36,4 @@ Use authenticated runtime interfaces and the repository-local corpora in
 [`@inside/contracts`](../../docs/contracts/README.md) across that boundary.
 Keep provider payloads, credentials and user data out of Git and redacted from evidence.
 BotFather writes, administrator changes, marketing enablement and external messages follow
-root `WORKFLOW.md` owner gates.
+root `AGENTS.md` owner gates.

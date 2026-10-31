@@ -45,7 +45,7 @@ jobs:
               { ...request, attempt_number: 1, per_page: 100 },
             );
             const requiredNames = [
-              'Secrets and production advisories', 'Independent review evidence',
+              'Secrets and production advisories',
               // This name marks the selected-plan and isolated-rerun contract.
               'Coverage plan (isolated reruns)', 'Documentation contracts', 'Tooling contracts',
               'Static checks (isolated reruns)', 'Unit tests', 'UI components', 'Web E2E',
@@ -75,7 +75,7 @@ jobs:
             if (!matricesComplete || prerequisites.length !== requiredNames.length ||
                 !requiredNames.every(name => prerequisites.filter(job =>
                   job.name === name && job.status === 'completed' &&
-                  (['Coverage plan (isolated reruns)', 'Secrets and production advisories', 'Independent review evidence'].includes(name) ?
+                  (['Coverage plan (isolated reruns)', 'Secrets and production advisories'].includes(name) ?
                     job.conclusion === 'success' :
                     ['success', 'skipped'].includes(job.conclusion))).length === 1)) {
               core.info('A gate exists, or the selected-plan prerequisites are incomplete or unsuccessful.');

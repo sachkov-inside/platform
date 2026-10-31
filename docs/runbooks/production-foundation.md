@@ -166,7 +166,7 @@ sudo /usr/bin/python3 -B /usr/local/libexec/inside/inside-image-cleanup.py
 ```
 
 Установщик не запускает очистку и не включает timer. После обязательных проверок и review
-изменения по `WORKFLOW.md` проверьте план, затем выполните первый запуск и включите timer:
+изменения по `ship` проверьте план, затем выполните первый запуск и включите timer:
 
 ```bash
 sudo systemctl start inside-image-cleanup.service

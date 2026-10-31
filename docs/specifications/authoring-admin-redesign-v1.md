@@ -332,7 +332,7 @@ Email (`Account.emailFingerprint`) и Billing Contact, без поиска по 
 6. Визуальные доказательства по [правилам снимков](../runbooks/local-verification.md#snapshots-as-issue-evidence)
    и разделу «Визуальная приёмка».
 
-Остальные проверки и review следуют [WORKFLOW](../../WORKFLOW.md); новые чтения персональных данных
+Остальные проверки и review следуют [AGENTS.md](../../AGENTS.md) и [ship](../agents/ship.md); новые чтения персональных данных
 требуют проверки безопасности. Документы обновляются по
 [контракту поддержки документации](../agents/documentation-maintenance.md): описание админки в
 [brief](../product/platform-mvp-brief.md) и упоминание каркаса #94 в

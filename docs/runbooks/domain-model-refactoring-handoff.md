@@ -3,6 +3,8 @@
 Use this handoff when the owner assigns implementation of
 [the complete specification](https://github.com/sachkov-inside/platform/issues/1693).
 It provides execution context; the owner's assignment and current WORKFLOW govern authority.
+Historical: #1693 is closed. #1915 replaced `WORKFLOW.md` and `classify-change` with `AGENTS.md`,
+`docs/agents/` and the `ship` skill.
 
 ## Assigned result
 

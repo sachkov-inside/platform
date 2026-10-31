@@ -47,7 +47,7 @@ without exceeding the runner's per-environment-string process limit.
 | Input category | Explicit paths | PR | Merge queue |
 |---|---|---|---|
 | Ordinary prose | Markdown under `docs/research`, `evidence`, `adr`, `runbooks`, `verification`, `specifications`; root `README.md` | `docs` | `docs` |
-| Instructions/tooling | root `AGENTS`, `WORKFLOW`, `CODING_STANDARDS`, `REPOSITORIES`, `GLOSSARY`; `docs/agents`, `.agents`, `.claude`, other `.github` paths; named `scripts/ci-coverage-*`, `ci-workflow-contract`, `ci-gate-recovery` modules/tests | `docs`, `contracts` | same |
+| Instructions/tooling | root `AGENTS`, `CODING_STANDARDS`, `REPOSITORIES`, `GLOSSARY`; `docs/agents`, `.agents`, `.claude`, other `.github` paths; named `scripts/ci-coverage-*`, `ci-workflow-contract`, `ci-gate-recovery` modules/tests | `docs`, `contracts` | same |
 | Web | everything under `apps/web`, including runtime Markdown | `static`, `unit`, `ui`, `web-e2e` | full Platform |
 | Backend | everything under `apps/backend`, including runtime Markdown | `static`, `unit`, `integration`, `integration-serial` | full Platform |
 | Telegram | everything under `apps/telegram`, including runtime Markdown | `static`, `unit`, `telegram` | same complete Telegram coverage |
@@ -418,7 +418,7 @@ runs this workflow for the `merge_group` event and merges only after that combin
 succeeds. Freshness is therefore proved once, by the queue, instead of by rebasing every open branch
 after each merge. Add a ready pull request with the queue button or the GraphQL mutation
 `enqueuePullRequest(input: {pullRequestId, expectedHeadOid})` through `gh api graphql`; merge
-approval under `Owner gates` in `WORKFLOW.md` is unchanged. `gh pr merge` does not work here: it
+approval under `Owner gates` in `AGENTS.md` is unchanged. `gh pr merge` does not work here: it
 queues a pull request only by enabling auto-merge, and auto-merge is off in this repository. Read
 `isInMergeQueue` through `gh api graphql`, because `gh pr view --json` has no such field, and read
 the outcome from `gh api repos/sachkov-inside/platform/pulls/<number> --jq '.merged, .merge_commit_sha'`.
@@ -852,8 +852,7 @@ signature identifies an observation, not a proven root cause or an automatic fla
 regression needs diagnosis even if another attempt passes. First failure and later job attempts
 from every run observing the signature remain visible, deduplicated by run/attempt/job. A recheck
 compares the same original job name within its run; the summary names its run, attempt and source; a successful job without matching per-test evidence is explicitly
-`job-success-test-unconfirmed`. New review evidence can complete verification without constituting
-a flaky-test retry. Cross-PR recurrence raises diagnosis priority under [WORKFLOW](../../WORKFLOW.md).
+`job-success-test-unconfirmed`. Cross-PR recurrence raises diagnosis priority under [ship](../agents/ship.md#ci-failures).
 
 Telegram gateway contracts write safe first-failure artifacts to
 `ci-artifacts/telegram-deploy-gateway`. Both Telegram full checks and the unit contract matrix

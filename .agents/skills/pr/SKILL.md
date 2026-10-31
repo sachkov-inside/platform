@@ -11,6 +11,8 @@ metadata:
 
 Use this template for writing the PR body:
 
+If `docs/agents/pr.md` exists, use its template and section notes instead of the ones below.
+
 ```markdown
 ## Summary
 

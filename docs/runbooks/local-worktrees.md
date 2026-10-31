@@ -1,7 +1,7 @@
 # Worktree preparation and resources
 
 Use this procedure to prepare an assigned writing worktree, run a task-owned preview, or finish its
-local resources. [WORKFLOW.md](../../WORKFLOW.md#branch-worktree-and-pull-request) owns branch and
+local resources. [Delivery](../agents/delivery.md#branches-and-worktrees) owns branch and
 worktree lifetime; the [stand controller](local-stand.md) owns the singleton application stand.
 
 ## Prepare without starting the stack

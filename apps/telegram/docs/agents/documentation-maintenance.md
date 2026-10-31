@@ -11,7 +11,7 @@ for shared product/legal facts, terminology and developer process.
 | Credentialed proof and bootstrap decisions | [Seed decisions](../decisions/seed-decisions.md) |
 | Application run or recovery | Matching runbook under [docs/operations](../operations/) |
 | Agent routing and verification | [Application AGENTS](../../AGENTS.md) |
-| Delivery, review and skills | [Root WORKFLOW](../../../../WORKFLOW.md) and root `.agents/skills` |
+| Delivery, review and skills | [Root AGENTS](../../../../AGENTS.md), root `docs/agents` and root `.agents/skills` |
 
 The [production runbook](../operations/production.md) owns the independent Telegram release,
 deployment, exact source families and rollback. Root workflows execute that contract.

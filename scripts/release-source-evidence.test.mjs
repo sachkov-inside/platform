@@ -24,15 +24,6 @@ function candidate() {
     },
     providerJobs: [
       {
-        id: 4,
-        run_id: 123,
-        run_attempt: 1,
-        head_sha: sha,
-        name: "Independent review evidence",
-        status: "completed",
-        conclusion: "success",
-      },
-      {
         id: 1,
         run_id: 123,
         run_attempt: 1,
@@ -64,7 +55,6 @@ function candidate() {
     providerTreeSha: tree,
     evidence: {
       schemaVersion: 1,
-      reviewStatus: "verified",
       repository: "sachkov-inside/platform",
       sourceSha: sha,
       treeSha: tree,
@@ -225,29 +215,53 @@ it("requires the complete covered and successfully executed release complement",
   );
 });
 
-it("rejects source reuse without a successful same-attempt review prerequisite", () => {
-  for (const change of [
-    "failure",
-    "skipped",
-    "cancelled",
-    "absent",
-    "attempt",
-    "duplicate",
-    "status",
-  ]) {
-    const value = candidate();
-    const review = value.providerJobs.find(
-      (job) => job.name === "Independent review evidence",
-    );
-    assert.ok(review);
-    if (["failure", "skipped", "cancelled"].includes(change))
-      review.conclusion = change;
-    if (change === "absent")
-      value.providerJobs = value.providerJobs.filter((job) => job !== review);
-    if (change === "attempt") review.run_attempt = 2;
-    if (change === "duplicate") value.providerJobs.push(review);
-    if (change === "status")
-      value.evidence.reviewStatus = "release-not-applicable";
-    assert.deepEqual(select([value]).coveredCoverage, []);
+it("rejects source reuse without a successful same-attempt gate and plan prerequisite", () => {
+  for (const name of ["CI Gate", "Coverage plan (isolated reruns)"]) {
+    for (const change of [
+      "failure",
+      "skipped",
+      "cancelled",
+      "absent",
+      "attempt",
+      "duplicate",
+    ]) {
+      const value = candidate();
+      const job = value.providerJobs.find((entry) => entry.name === name);
+      assert.ok(job);
+      if (["failure", "skipped", "cancelled"].includes(change))
+        job.conclusion = change;
+      if (change === "absent")
+        value.providerJobs = value.providerJobs.filter(
+          (entry) => entry !== job,
+        );
+      if (change === "attempt") job.run_attempt = 2;
+      if (change === "duplicate") value.providerJobs.push(job);
+      assert.deepEqual(
+        select([value]).coveredCoverage,
+        [],
+        `${name}: ${change}`,
+      );
+    }
   }
+});
+
+it("still reuses older runs that carry the retired review job and status", () => {
+  const value = candidate();
+  value.providerJobs.push({
+    id: 4,
+    run_id: 123,
+    run_attempt: 1,
+    head_sha: sha,
+    name: "Independent review evidence",
+    status: "completed",
+    conclusion: "success",
+  });
+  const result = select([
+    { ...value, evidence: { ...value.evidence, reviewStatus: "verified" } },
+  ]);
+  assert.deepEqual(result.coveredCoverage, ["unit"]);
+  assert.deepEqual(
+    result.evidenceRuns[0]?.providerJobs.map((job) => job.name),
+    ["Unit tests", "CI Gate"],
+  );
 });

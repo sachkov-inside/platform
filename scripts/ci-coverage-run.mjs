@@ -66,23 +66,8 @@ function main() {
   /** @type {unknown} */
   const results = JSON.parse(process.env["JOB_RESULTS"] ?? "null");
   validateGate(plan, results);
-  if (
-    process.env["REVIEW_RESULT"] !== "success" ||
-    !["verified", "bootstrap-prior-policy", "release-not-applicable"].includes(
-      process.env["REVIEW_STATUS"] ?? "",
-    )
-  )
-    throw new Error("Missing successful independent review verification");
-  if (
-    (plan.event === "release") !==
-    (process.env["REVIEW_STATUS"] === "release-not-applicable")
-  )
-    throw new Error(
-      "Review applicability does not match integration/release event",
-    );
   const evidence = {
     schemaVersion: 1,
-    reviewStatus: process.env["REVIEW_STATUS"],
     repository: process.env["GITHUB_REPOSITORY"],
     sourceSha: git(["rev-parse", "HEAD"]),
     treeSha: git(["rev-parse", "HEAD^{tree}"]),

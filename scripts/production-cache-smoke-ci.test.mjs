@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { z } from "zod";
-import { runReviewProcess } from "./review-evidence.test-support.mjs";
+import { runProcess } from "./process.test-support.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 
 test("isolated cache preparation admits only pinned broker/edge images and preserves failures (process adapter)", async () => {
@@ -366,7 +366,7 @@ exit 7
   }
   for (const scenario of ["capture-failure", "timeout"]) {
     const artifact = join(root, scenario);
-    const result = await runReviewProcess(
+    const result = await runProcess(
       process.execPath,
       [
         new URL("./production-cache-diagnostics.mjs", import.meta.url).pathname,

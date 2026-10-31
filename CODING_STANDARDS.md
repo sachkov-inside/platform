@@ -1,7 +1,7 @@
 # Coding standards
 
 Reviewers apply these shared judgement rules and the standards for each changed surface.
-Implementers consult a specific rule only when a concrete question needs it; `WORKFLOW.md` owns the review process.
+Implementers consult a specific rule only when a concrete question needs it; the `code-review` skill owns the review process.
 
 - Platform backend modules, Nest, Prisma, REST, migrations, and backend tests:
   [`apps/backend/CODING_STANDARDS.md`](apps/backend/CODING_STANDARDS.md);

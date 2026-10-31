@@ -10,9 +10,15 @@ Use the canonical roles from `mattpocock/skills` without renaming them.
 | `ready-for-human` | `ready-for-human` | Human implementation or judgment is required |
 | `wontfix` | `wontfix` | The work will not be actioned |
 
-For execution after triage, follow the [owner assignment rules](../../WORKFLOW.md#completion-requirements).
+A label is context, not an assignment; resolve owner decisions before `ready-for-agent`.
 
 Every triaged issue has exactly one role from this table; a specification or version has none once
-it has sub-issues, and `to-spec` publishes it without `ready-for-agent`. `ready-for-human` is only for work a human does. The
-`wayfinder` skill adds its own `wayfinder:*` labels. There are no category labels (`bug`,
-`enhancement`): `triage` sets only the role from this table.
+it has sub-issues. `ready-for-human` is only for work a human does. The `wayfinder` skill adds its
+own `wayfinder:*` labels. There are no category labels (`bug`, `enhancement`): `triage` sets only
+the role from this table.
+
+These rules replace parts of the pipeline skills:
+
+- `to-spec` publishes the specification without `ready-for-agent`.
+- `to-tickets` removes `ready-for-agent` from the parent after it publishes child tickets.
+- `triage` records a rejected request in its `wontfix` closing comment, not in `.out-of-scope/`.

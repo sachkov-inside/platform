@@ -15,16 +15,24 @@ history, not an alternative product model.
 ## Review surface
 
 Before frontend implementation or interactive UI review, use Storybook from the task's worktree.
-Reuse its owned preview when the source matches. Otherwise start `pnpm storybook` on an available
-local port; preserve another session's listener on `6006` or any other port.
+Reuse its owned preview when the source matches. Otherwise start `pnpm storybook` on a free local
+port; keep another session's listener on `6006` or any other port.
 
-Use the owned preview's `platform-storybook` MCP endpoint when the runtime can reach it.
-Inspect the catalog with `docs-list`, component documentation with `docs-show`, and
-`get-storybook-story-instructions` before editing stories. If the configured endpoint belongs to
-another worktree, inspect the local stories and catalog source and review the owned preview through
-browser tools. Report that fallback; a port conflict alone does not require a new agent session.
-Runtime MCP bindings live in `.mcp.json` or `.codex/config.toml`; change them only when the task needs
-a durable integration change. Follow [WORKFLOW.md](../../WORKFLOW.md#completion-requirements) for prototype completion.
+Use the owned preview's `platform-storybook` MCP endpoint when the runtime can reach it: read
+`get-storybook-story-instructions` before editing stories. If the endpoint belongs to another
+worktree, read the local stories and review the owned preview through browser tools; report that
+fallback.
+
+## Prototypes
+
+A prototype stays outside production imports and uses fixtures or in-memory state for mutations.
+UI variants use the existing Storybook foundation, in place of the `prototype` skill's `UI.md`
+sub-shapes A and B on application routes; logic prototypes follow the skill. Open the variants in a
+browser, check the relevant viewport sizes and the interaction that answers the design question, and
+share the URL with its limits as soon as it works. Full checks, finish review, an Issue, a PR and
+`ship` are not needed for the preview. Record the proof and the owner's decision on a `prototype/*`
+branch before promotion or a handoff to another session. A selected variant records a direction;
+implementation starts when the owner assigns it.
 
 ## Delivery contract
 
@@ -64,7 +72,7 @@ Choose the path from the catalog you inspected:
    keep that evidence in the production ticket or linked pull request, resolve every owner
    annotation, and record a new owner visual GO. The earlier proof acceptance is a prerequisite;
    it does not approve the promoted implementation. Production visual GO is not merge GO; the merge
-   follows `WORKFLOW.md`. When every accepted-proof condition passes, the one ticket closes the
+   follows `ship`. When every accepted-proof condition passes, the one ticket closes the
    functional path and visual integration without temporary UI, a temporary marker, or a second
    integration ticket.
 3. Otherwise, when a required UI module or state is missing, unaccepted, or still changing,
@@ -94,19 +102,14 @@ Choose the path from the catalog you inspected:
    only after every linked Storybook/integration ticket is closed and every temporary UI marker is
    removed.
 
-## Production foundation imports
+## Production foundation
 
-The accepted semantic color, typography, radius, elevation and motion tokens and Tailwind theme
-live in `apps/web/app/globals.css`. Production and Storybook both import that file; a feature
-stylesheet uses those tokens and keeps no copy of their values. The accepted responsive shell is
-exported by `@/widgets/application-shell`, while `@/_app` is the production adapter that supplies
-App Router path and account state. Public routes use that shell. Authoring routes use the
-dedicated authoring shell from `@/widgets/authoring-shell`. Its current variant follows owner
+Keep one token system and one navigation system. Production and Storybook import the same tokens
+from `apps/web/app/globals.css`; a feature stylesheet keeps no copy of their values. Public routes use
+`@/widgets/application-shell`; authoring routes use `@/widgets/authoring-shell`, which follows owner
 decisions 2, 8 and 13 of the [admin redesign specification](../specifications/authoring-admin-redesign-v1.md)
-(#1717), which replaced the #94 variant: it reuses the same tokens, replaces the public navigation
-instead of nesting beside it, and always exposes explicit routes back to the public Library and
-site. Keep one token system and one navigation system; another shell variant needs a new owner
-decision.
+(#1717): it replaces the public navigation and always links back to the public Library and site.
+Another shell variant needs a new owner decision.
 
 ## Catalog stays in sync
 
