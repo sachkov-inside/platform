@@ -1083,6 +1083,8 @@ model BillingPromoReservation {
   promotion BillingPromotion? @relation(fields: [promotionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   state String
   snapshot Json
+  // product_id is GENERATED ALWAYS from snapshot (migration 0116), so no write can set it.
+  // Only the open-reservation index reads it; no application code does, so it stays unmapped.
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   @@index([promotionId, state], map: "billing_promotion_usage")
   @@map("promo_reservations")
