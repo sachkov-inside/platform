@@ -146,6 +146,100 @@ test("a selected catalogue survives delivery of optional onboarding without repl
   }
 });
 
+test("a selected catalogue survives optional onboarding that arrives after a return from the Reader (#1883)", async ({
+  page,
+  context,
+  request,
+  baseURL,
+}, info) => {
+  if (baseURL === undefined) throw new Error("Web origin required");
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const slug = `reader-state-refresh${info.project.name === "mobile-chromium" ? "-mobile" : ""}`;
+  const { wrapSession } = await import("@logto/node");
+  await context.addCookies([
+    {
+      name: "logto_inside-web-navigation",
+      url: baseURL,
+      httpOnly: true,
+      sameSite: "Lax",
+      value: await wrapSession(
+        {
+          accessToken: JSON.stringify({
+            [`@${backend}`]: {
+              // deterministic-test-allow wall-clock: the production Web process validates this synthetic session with its live clock.
+              expiresAt: Math.floor(Date.now() / 1000) + 3600,
+              scope: "",
+              token: `reader-state:${slug}`,
+            },
+          }),
+          idToken: "navigation.id.token",
+          refreshToken: "navigation-refresh-token",
+        },
+        "inside-navigation-logto-cookie-secret-key",
+      ),
+    },
+  ]);
+  try {
+    const response = await page.goto(`/products/${slug}/programme`);
+    await response?.finished();
+    const surface = page.locator(`[data-product-programme="${slug}"]:visible`);
+    const materials = page
+      .getByRole("navigation", { name: "Разделы продукта" })
+      .getByRole("button", { name: /^Материалы/u });
+    await expect(materials).toBeEnabled();
+    const rows = page.locator("[data-product-ordinal]:visible");
+    await scrollProgrammeBoundaryIntoView(page, 12);
+    await expect(rows).toHaveCount(13);
+    await rows.nth(12).getByRole("heading").getByRole("link").click();
+    await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+    // The programme comes back by a client navigation while its optional onboarding is still held.
+    await request.post(
+      `${backend}/__reader-optional-hold?held=true&target=community-link`,
+    );
+    await page.goBack();
+    await expect(materials).toBeEnabled();
+    await expect(
+      page.locator("[data-product-access-pending]:visible"),
+    ).toHaveCount(0);
+    await materials.click();
+    await expect(materials).toHaveAttribute("aria-current", "true");
+    await surface.evaluate((node) => {
+      node.setAttribute("data-retained-programme", "true");
+    });
+    const gate = z
+      .object({ blocked: z.array(z.string()) })
+      .parse(
+        await (await request.get(`${backend}/__reader-optional-hold`)).json(),
+      );
+    expect(gate.blocked.some((path) => path.includes("community-entry"))).toBe(
+      true,
+    );
+    await request.post(`${backend}/__reader-optional-hold?held=false`);
+    await expect
+      .poll(
+        async () =>
+          z
+            .object({ blocked: z.array(z.string()) })
+            .parse(
+              await (
+                await request.get(`${backend}/__reader-optional-hold`)
+              ).json(),
+            ).blocked,
+      )
+      .toEqual([]);
+    // The onboarding facts merge into the programme in use instead of mounting a new one.
+    await expect(surface).toHaveAttribute("data-retained-programme", "true");
+    await expect(materials).toHaveAttribute("aria-current", "true");
+    await expect(
+      page
+        .getByRole("region", { name: "Материалы курса" })
+        .getByRole("listitem"),
+    ).toHaveCount(12);
+  } finally {
+    await request.post(`${backend}/__reader-optional-hold?held=false`);
+  }
+});
+
 test("programme tabs and composition survive an accepted background refresh after Reader return", async ({
   page,
   context,
@@ -204,8 +298,13 @@ test("programme tabs and composition survive an accepted background refresh afte
   await page.goBack();
   await expect(initialRows.nth(12)).toBeInViewport();
   // The refresh case starts from usable controls, rather than holding the RSC
-  // response needed to hydrate the history destination itself.
+  // response needed to hydrate the history destination itself. The shared composition is usable
+  // while the personal part loads after the return, and the personal programme replaces it
+  // (#1883), so the scenario starts once no row still waits for its access.
   await expect(materials).toBeEnabled();
+  await expect(
+    page.locator("[data-product-access-pending]:visible"),
+  ).toHaveCount(0);
   let release: (() => void) | undefined;
   const held = new Promise<void>((resolve) => {
     release = resolve;
