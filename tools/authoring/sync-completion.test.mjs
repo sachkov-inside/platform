@@ -1261,10 +1261,12 @@ test("release preview reports an access change of a lesson with a Video like any
 test("release preview reports the feed choice and the sync applies it once (#1885)", async (t) => {
   const setup = await fixture(t);
   const api = applicationApi();
-  await run(setup, api);
-  const origin = "http://127.0.0.1:4396";
   const lesson = itemAt(setup.manifest.materials, 0);
   lesson.access = "free";
+  await setup.write();
+  await run(setup, api);
+  const origin = "http://127.0.0.1:4396";
+  // Только выбор ленты меняет строку: он входит в ревизию материала.
   lesson.inFeed = true;
   await setup.write();
   const preview = await previewRelease(setup.packagePath, setup.state, {

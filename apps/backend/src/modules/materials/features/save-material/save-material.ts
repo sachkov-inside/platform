@@ -382,11 +382,7 @@ export function assembleSaveMaterial(
                 slug,
               );
             }
-            // Лента публичная: в неё попадает только то, что гость открывает без входа (#1885).
-            // Урок курса закрыт гостю до входа через Telegram (ADR 0042), поэтому в ленте его нет.
-            const feedEligible =
-              materializedMetadata.access === "free" &&
-              materializedMetadata.productMemberships.length === 0;
+            const feedEligible = materializedMetadata.canEnterFeed();
             if (command.inFeed === true && !feedEligible) {
               return rollback({
                 code: "invalid_content",

@@ -297,10 +297,12 @@ the [Series contract](../../docs/specifications/platform-v1.md#series-step-seque
 representative states in the production Library discovery stories. Earlier card experiments do
 not define a second layout or terminology.
 
-Feed cards on Home show a cover only when one is assigned. Without a cover, the title and public
-summary lead. The feed holds only Materials open to everyone
-([ADR 0043](../../docs/adr/0043-feed-holds-explicitly-placed-materials.md)), so a feed card has no
-blur, lock or access badge. Protected lesson bodies are never used as teasers.
+Feed cards on Home and in a Product’s Material catalog show a cover only when one is assigned.
+Without a cover, the title and public summary lead. For locked or unavailable Materials, the public
+summary is blurred beneath the access badge; protected lesson bodies are never used as teasers.
+Available Materials keep their summary readable. The Home feed itself holds only Materials open to
+everyone ([ADR 0043](../../docs/adr/0043-feed-holds-explicitly-placed-materials.md)), so its cards are
+never blurred; the locked state appears in Home search, which reads the full catalog.
 
 The full feed card opens the Material through its native title link. Explicit secondary links and
 reading controls keep their own targets and remain above the stretched link.

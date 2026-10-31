@@ -56,15 +56,24 @@ export const WithoutSharingMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
-/**
- * Бесплатный урок курса у гостя (#1825): закрыт до входа через Telegram, но помечен бесплатным.
- * В ленту урок курса не попадает (#1885), поэтому история показывает только строку каталога.
- */
+/** Бесплатный урок курса у гостя (#1825): закрыт до входа через Telegram, но помечен бесплатным. */
 export const FreeLessonForGuest: Story = {
-  args: {
-    variant: "row",
-    material: { ...meta.args.material, access: "free", availability: "locked" },
-  },
+  render: (args) => (
+    <div className="mx-auto grid w-full max-w-3xl gap-6 p-4">
+      {(["feed", "row"] as const).map((variant) => (
+        <MaterialCard
+          {...args}
+          key={variant}
+          material={{
+            ...args.material,
+            access: "free",
+            availability: "locked",
+          }}
+          variant={variant}
+        />
+      ))}
+    </div>
+  ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.queryByText("Для участников")).not.toBeInTheDocument();
@@ -73,7 +82,7 @@ export const FreeLessonForGuest: Story = {
   },
 };
 
-/** Лента показывает только открытые материалы (#1885): карточка без размытия и метки доступа. */
+/** Открытый материал ленты (#1885): карточка без размытия и метки доступа. */
 export const FeedCardIsOpen: Story = {
   args: {
     material: {

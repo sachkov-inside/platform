@@ -266,6 +266,14 @@ export class MaterialMetadata {
     };
   }
 
+  /**
+   * Лента публичная: в неё попадает только бесплатный материал вне Products (ADR 0043). Урок
+   * курса закрыт гостю до входа через Telegram (ADR 0042), поэтому в ленте его нет.
+   */
+  canEnterFeed(): boolean {
+    return this.access === "free" && this.productMemberships.length === 0;
+  }
+
   validateAuthoringCompleteness(): Result<
     undefined,
     Extract<

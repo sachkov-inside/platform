@@ -105,7 +105,8 @@ export async function loadCurrentMaterial(
     value: {
       videoChapters: videoChaptersSchema.parse(row.videoChapters),
       notifyTelegram: row.notifyTelegram,
-      inFeed: row.inFeed,
+      // Состав Product меняет и Products: урок курса показывает выключенный выбор, как его видит лента.
+      inFeed: row.inFeed && metadata.value.canEnterFeed(),
       source:
         row.sourceId === null
           ? null
