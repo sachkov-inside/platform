@@ -1144,6 +1144,12 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
       .getByRole("navigation", { name: "Действия материала", exact: true })
       .locator("[data-reading-action-state]:visible"),
   ).toHaveAttribute("data-reading-action-state", "ready");
+  // Wait for reader metadata before the document-wide accessibility scan.
+  await expect(page.locator("head > title")).toHaveJSProperty(
+    "textContent",
+    `${title} · Sachkov Dev`,
+  );
+  await expect(page).toHaveTitle(`${title} · Sachkov Dev`);
   const readerAccessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
