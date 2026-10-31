@@ -225,6 +225,15 @@ export function assembleSaveMaterial(
             if (locked === undefined) {
               return rollback({ code: "material_not_found" });
             }
+            // Без поля сохраняется выбор, который видит загрузка: у урока курса он выключен.
+            const currentMemberships = await dependencies.memberships.load(
+              command.materialId,
+              transactionHandle(transaction),
+            );
+            const currentInFeed =
+              locked.inFeed &&
+              locked.access === "free" &&
+              currentMemberships.length === 0;
             const sourceError = checkContentWrite(
               contentWriter(source?.id ?? null),
               [
@@ -391,7 +400,7 @@ export function assembleSaveMaterial(
                 ],
               });
             }
-            const inFeed = (command.inFeed ?? locked.inFeed) && feedEligible;
+            const inFeed = (command.inFeed ?? currentInFeed) && feedEligible;
             const requiresPublicationValidity =
               next.value.publicationState === "published";
             const publishable = materializedMetadata.validateForPublication();

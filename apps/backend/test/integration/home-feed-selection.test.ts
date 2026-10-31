@@ -217,6 +217,26 @@ describe("Home feed selection", () => {
         })
       ).ok,
     ).toBe(true);
+
+    // Сохранение без поля опирается на тот же выбор, что видит загрузка: уход из курса не
+    // возвращает урок в ленту сам.
+    const returning = await draft("Feed selection returning");
+    expect((await returning.save({ inFeed: true })).ok).toBe(true);
+    const returningSlug = await slugOf(returning.materialId);
+    await database.prisma.productMembership.create({
+      data: { productId, materialId: returning.materialId },
+    });
+    await database.prisma.productMembership.delete({
+      where: {
+        productId_materialId: { productId, materialId: returning.materialId },
+      },
+    });
+    expect(await feedSlugs()).toContain(returningSlug);
+    await database.prisma.productMembership.create({
+      data: { productId, materialId: returning.materialId },
+    });
+    expect((await returning.save({})).ok).toBe(true);
+    expect(await feedSlugs()).not.toContain(returningSlug);
   });
 
   test("a Telegram announcement goes out only for a feed Material", async () => {

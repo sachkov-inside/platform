@@ -1,6 +1,6 @@
 import { seedHistoricalFeedSource } from "./setup/historical-source.js";
 import { PublicMaterialAnnouncements } from "../../src/modules/materials/index.js";
-import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { ProductCatalogue } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -118,7 +118,7 @@ describe("анонс первой публикации материала", () =
   function publicAnnouncements() {
     const source = new PublicMaterialAnnouncements(
       database.prisma,
-      new ProductDiscovery(database.prisma),
+      new ProductCatalogue(database.prisma),
     );
     return {
       read: async (...args: Parameters<PublicMaterialAnnouncements["read"]>) =>
