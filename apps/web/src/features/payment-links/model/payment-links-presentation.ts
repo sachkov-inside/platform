@@ -32,7 +32,7 @@ export function paymentLinkTitle(link: PaymentLink): string {
   return link.snapshot.product?.name ?? link.snapshot.offer.name;
 }
 
-/** По ссылке уже нельзя оплатить: она оплачена, отозвана, её срок истёк или продажа закрыта (архив цены, смена состава). */
+/** По ссылке уже нельзя оплатить: она оплачена, отозвана, её срок истёк или продажа закрыта (архив цены или продукта, смена состава). */
 export function paymentLinkClosed(link: PaymentLink): boolean {
   return (
     link.state === "paid" ||

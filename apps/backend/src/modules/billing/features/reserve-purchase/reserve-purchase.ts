@@ -117,6 +117,7 @@ export async function reservePurchaseInTransaction(
           quote.paymentLinkId,
           snapshot.paymentOption.id,
           now,
+          contentCatalog,
         );
   // Выключенное из продажи или архивное предложение снимает заказ, а не только меняет условия.
   if (!current.ok) return current;

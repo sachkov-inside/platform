@@ -97,6 +97,7 @@ export class BillingPricing {
   async paymentLink(id: string) {
     const result = await readPaymentLink(
       this.dependencies.prisma,
+      this.dependencies.contentCatalog,
       id,
       this.clock(),
     );
