@@ -468,6 +468,8 @@ Worker проверяет request и owner перед запуском проц�
 Родитель записывает `worker.json` после `Popen`, поэтому worker не требует этот файл при старте.
 После завершения collector и recovery проверяют identity worker, supervisor, фактический предел, outcome и cleanup.
 Recovery не повторяет уже выполненный cleanup, включая неудачный cleanup.
+Если зарегистрированный diagnostic worker не оставил корректный cleanup receipt, recovery отказывает без новой попытки cleanup.
+Такой случай требует уничтожить одноразовый runner; неизвестный partial cleanup не подтверждает отсутствие ресурсов.
 Приватные binding, nonce, owner и Compose plan не входят в публичный артефакт.
 Этот контроль не добавляет primary Timing schema2 и не обещает независимый replay приватных входов.
 Окна нового контроля занимают 180 секунд, прежнего холодного контроля, 120 секунд.

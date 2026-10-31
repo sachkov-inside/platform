@@ -434,5 +434,6 @@ def technical_settlement(full,output,source,*,exit_code=None):
         and type(outcome['exit_code']) is int and 0<=outcome['exit_code']<=255
         and (exit_code is None or outcome['exit_code']==exit_code)
         and type(outcome['duration_seconds']) in (int,float) and math.isfinite(outcome['duration_seconds'])
-        and 0<=outcome['duration_seconds']<=3600 and type(outcome['monitor_failed']) is bool and outcome['cleanup']==cleanup)
+        and 0<=outcome['duration_seconds']<=3600 and type(outcome['monitor_failed']) is bool
+        and (exit_code!=0 or outcome['monitor_failed'] is False) and outcome['cleanup']==cleanup)
     return full.cpu_control.cleanup_passed(cleanup)

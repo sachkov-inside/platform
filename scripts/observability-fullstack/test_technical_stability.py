@@ -194,7 +194,12 @@ class TechnicalStability(unittest.TestCase):
                 (output/'cleanup.json').unlink();(output/'worker-outcome.json').unlink()
                 with self.assertRaises((ValueError,OSError)):fullstack.stability_collect(output,metadata,base/'partial-runtime',scope='technical',protocol=protocol)
                 with patch.object(fullstack.sys,'argv',['fullstack.py','recover','--scope','technical','--output',str(output)]),patch.object(fullstack.pilot,'command',return_value=source),patch.object(fullstack.resource_runtime.ci,'recover',return_value={'down':'passed','residue':'passed'}) as recover:
-                    fullstack.main();recover.assert_called_once_with(output,project_prefix=fullstack.PREFIX,services=fullstack.services('technical'))
+                    with self.assertRaises((OSError,ValueError)):fullstack.main()
+                    recover.assert_not_called()
+                partial_stage=unittest.mock.Mock();partial_stage.in_use.side_effect=lambda:nullcontext()
+                with patch.object(fullstack.sys,'argv',['fullstack.py','recover','--scope','technical','--output',str(output),'--images',str(base/'images.json')]),patch.object(fullstack.pilot,'command',return_value=source),patch.object(fullstack.preparation,'directory',return_value=base),patch.object(fullstack.preparation,'recover_stage',return_value=partial_stage),patch.object(fullstack.resource_runtime.ci,'recover') as recover:
+                    with self.assertRaises((OSError,ValueError)):fullstack.main()
+                    recover.assert_not_called();partial_stage.release.assert_not_called()
                 _settled(output,exit_code=1,cleanup=False)
                 fullstack.stability_collect(output,metadata,base/'failed',scope='technical',protocol=protocol)
                 self.assertEqual(json.loads((base/'failed'/stability.NAME).read_text())['state'],'incomplete')
@@ -223,6 +228,49 @@ class TechnicalStability(unittest.TestCase):
                     self.assertEqual(options['services'],fullstack.services(scope))
                     options['prepare_inputs'](output)
                     inputs.assert_called_once_with(output,base/'images.json',protocol,**({'scope':'technical'} if scope=='technical' else {}))
+            argv=['fullstack.py','diagnostic-run','--scope','technical','--output',str(output),'--images',str(base/'images.json'),'--protocol',protocol]
+            with patch.object(fullstack.sys,'platform','linux'),patch.object(fullstack.sys,'argv',argv),patch.object(fullstack.pilot,'command',return_value=source),patch.object(fullstack.preparation,'recover_stage',return_value=stage):
+                for mode in ('popen','before_supervise','malformed_settlement'):
+                    with self.subTest(primary_failure=mode):
+                        _settled(output,exit_code=1)
+                        primary=OSError('private-popen-sentinel') if mode=='popen' else RuntimeError('private-primary-sentinel')
+                        if mode=='popen':(output/'worker.json').unlink()
+                        if mode=='before_supervise':
+                            for name in ('worker.json','worker-outcome.json','cleanup.json',stability.OWNER):(output/name).unlink()
+                        if mode=='malformed_settlement':fullstack.pilot.write_json(output/'worker.json',{'deadline_seconds':600})
+                        origin=[]
+                        def fail(*args,**options):
+                            try:raise primary
+                            except BaseException as error:
+                                origin.append(error.__traceback__);raise
+                        caught=None;frames=[]
+                        with patch.object(fullstack.pilot,'run',side_effect=fail):
+                            try:fullstack.main()
+                            except BaseException as error:
+                                caught=error;frame=error.__traceback__
+                                while frame is not None:frames.append(frame);frame=frame.tb_next
+                        self.assertIs(caught,primary)
+                        self.assertIn(origin[0],frames,'settlement must retain the original failure traceback')
+                        if not (output/stability.OWNER).exists():
+                            (output/stability.OWNER).write_text(snapshots[stability.OWNER]);(output/stability.OWNER).chmod(0o600)
+                for name,value in (('worker.json',None),('worker.json',{'pid':True}),
+                        ('worker-outcome.json',None),('worker-outcome.json',{'exit_code':0}),
+                        ('cleanup.json',None),('cleanup.json',False)):
+                    with self.subTest(successful_run_bad_receipt=name,value=value):
+                        _settled(output)
+                        if value is None:(output/name).unlink()
+                        else:fullstack.pilot.write_json(output/name,value)
+                        with patch.object(fullstack.pilot,'run',return_value=None),self.assertRaises((OSError,ValueError)):
+                            fullstack.main()
+                for mode in ('failed_cleanup','malformed_cleanup','failed_outcome','monitor_failure'):
+                    with self.subTest(successful_run_contradiction=mode):
+                        _settled(output,exit_code=1 if mode=='failed_outcome' else 0,cleanup=mode!='failed_cleanup')
+                        outcome=json.loads((output/'worker-outcome.json').read_text())
+                        if mode=='malformed_cleanup':
+                            fullstack.pilot.write_json(output/'cleanup.json',False);outcome['cleanup']=False
+                        if mode=='monitor_failure':outcome['monitor_failed']=True
+                        fullstack.pilot.write_json(output/'worker-outcome.json',outcome)
+                        with patch.object(fullstack.pilot,'run',return_value=None),self.assertRaises(ValueError):fullstack.main()
 
 
 if __name__=='__main__':unittest.main()

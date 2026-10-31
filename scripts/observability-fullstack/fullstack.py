@@ -757,7 +757,7 @@ def worker(output,*,cpu=False):
     if (output/stability.MARKER).exists() or (output/stability.MARKER).is_symlink():
         return stability_worker(output,owner,compose)
     scope=prepared_scope(output,source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
-    if scope=='technical' and 'stability' in cpu_control.read(output/'fullstack-source.json',private=False):
+    if scope=='technical' and 'stability' in stage_timing.read_json(output/'fullstack-source.json',1_048_576):
         raise ValueError('diagnostic_plan_binding')
     settings=profile(scope)
     report={'schema':1,'state':'running','profile':settings,'phases':[],'acceptance':{'state':'incomplete'},'measured_linux_acceptance':{'state':'incomplete'},'missing':['PG/Caddy source-cache sampler workload','physical Timeweb host verification','seven days'],'source_cache_workload':False,'controlled_outage':None}
@@ -1138,14 +1138,15 @@ def main():
         if marked and args.scope=='full' and stability.read_json(args.output/stability.MARKER).get('scope')=='technical':
             raise ValueError('diagnostic_plan_binding')
         diagnostic=args.scope=='technical' and (marked or bound and 'stability' in cpu_control.read(args.output/'fullstack-source.json',private=False))
+        diagnostic_cleanup=None
         if diagnostic:
             stability.technical_request(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
-            if registered:stability.technical_registration(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
-        def recover_project():
-            if diagnostic and cpu_control.present(args.output/'cleanup.json'):
+            if registered:
                 good=stability.technical_settlement(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
                 if not good:raise ValueError('diagnostic_cleanup_incomplete')
-                return cpu_control.read(args.output/'cleanup.json',private=False)
+                diagnostic_cleanup=cpu_control.read(args.output/'cleanup.json',private=False)
+        def recover_project():
+            if diagnostic_cleanup is not None:return diagnostic_cleanup
             return resource_runtime.ci.recover(args.output,project_prefix=PREFIX,services=services(args.scope))
         if args.images is None or not preparation.directory(args.images).exists():return recover_project()
         stage=preparation.recover_stage(args.images)
@@ -1160,13 +1161,24 @@ def main():
     stage=preparation.recover_stage(args.images)
     with stage.in_use():
         stage.require_consumer(str(args.output.resolve()))
+        primary_failed=False
         try:
             pilot.run(args.output,prepare_inputs=lambda output:stability_inputs(output,args.images,protocol,**cpu_options) if args.action=='diagnostic-run' else inputs(output,args.images,scope='technical') if args.scope=='technical' else inputs(output,args.images),worker_script=Path(__file__).resolve(),
                 ports=(18427,13000,14318,1514,13301),services=services(args.scope),project_prefix=PREFIX,
                 scope=('diagnostic_only; not capacity acceptance' if args.action=='diagnostic-run' else 'technical-only platform-technical-v1 whole-process Linux resource corpus; full-spec acceptance deferred' if args.scope=='technical' else 'representative whole-process Linux resource corpus; production rollout evidence incomplete'),missing=['PG/Caddy source-cache sampler workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds(),worker_deadline_seconds=deadline)
+        except BaseException:
+            primary_failed=True
+            raise
         finally:
             if args.action=='diagnostic-run' and args.scope=='technical' and cpu_control.present(args.output/'owner.json'):
-                stability.technical_settlement(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
+                try:
+                    good=stability.technical_settlement(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip(),
+                        exit_code=None if primary_failed else 0)
+                    if not primary_failed:cpu_control.need(good)
+                except (OSError,ValueError,KeyError,TypeError):
+                    # Partial supervisor receipts cannot replace the primary run failure.
+                    # Successful runs still require strict settlement; collect validates both paths.
+                    if not primary_failed:raise
 
 
 if __name__=='__main__':
