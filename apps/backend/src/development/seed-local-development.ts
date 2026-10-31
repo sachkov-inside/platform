@@ -726,8 +726,11 @@ async function ensureSeededMaterial(
     ...currentMetadata,
     productIds: productMemberships.map(({ productId: value }) => value),
   };
+  // Демо повторяет прежнюю ленту: бесплатный материал вне курса выложен в неё (#1885).
+  const inFeed = metadata.access === "free" && metadata.productIds.length === 0;
   const matchesDefinition =
     (loaded.value.publicationState === "published" || keepHidden) &&
+    loaded.value.inFeed === inFeed &&
     loaded.value.primaryVideoId === primaryVideoId &&
     isDeepStrictEqual(
       comparableMetadata(current),
@@ -742,6 +745,7 @@ async function ensureSeededMaterial(
     body: definition.body,
     expectedContentVersion: loaded.value.contentVersion,
     idempotencyKey: `${definition.saveIdempotencyKeyPrefix}-${String(loaded.value.contentVersion)}`,
+    inFeed,
     materialId,
     metadata,
     primaryVideoId,

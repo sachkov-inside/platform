@@ -81,3 +81,27 @@ export const FreeLessonForGuest: Story = {
     await expect(canvas.getAllByText("Бесплатно").length).toBeGreaterThan(0);
   },
 };
+
+/** Открытый материал ленты (#1885): карточка без размытия и метки доступа. */
+export const FeedCardIsOpen: Story = {
+  args: {
+    material: {
+      ...meta.args.material,
+      cover: {
+        coverId: "94000000-0000-4000-8000-000000000061",
+        renditions: [{ width: 640, height: 360 }],
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Материал для самостоятельного чтения."),
+    ).toBeVisible();
+    await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector("[data-access-cover]"),
+    ).not.toBeInTheDocument();
+    await expect(canvasElement.querySelector(".blur-\\[4px\\]")).toBeNull();
+  },
+};

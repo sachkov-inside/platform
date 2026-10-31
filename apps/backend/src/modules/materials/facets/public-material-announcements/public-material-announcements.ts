@@ -1,10 +1,14 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAnnouncement } from "@inside/contracts/material-announcements";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type { ProductCatalogue } from "../../../products/index.js";
 
-/** Public feed announcements only. Cursor follows source rows, including rows filtered out later. */
+/** Public feed announcements only: the Material must still be in the feed (#1885). Cursor follows source rows, including rows filtered out later. */
 export class PublicMaterialAnnouncements {
-  constructor(private readonly prisma: MaterialsPrismaClient) {}
+  constructor(
+    private readonly prisma: MaterialsPrismaClient,
+    private readonly products: Pick<ProductCatalogue, "materialAccessFacts">,
+  ) {}
 
   async read(
     input: { after?: string | undefined; announcementRef?: string | undefined },
@@ -44,10 +48,22 @@ export class PublicMaterialAnnouncements {
           publicationState: "published",
           access: "free",
           notifyTelegram: true,
+          inFeed: true,
         },
         select: { id: true, title: true, summary: true, slug: true },
       });
-      const current = new Map(materials.map((row) => [row.id, row]));
+      // Урок курса не в ленте (ADR 0043), даже если состав Product изменился после выбора автора.
+      const productLessons: ReadonlyMap<string, unknown> =
+        materials.length === 0
+          ? new Map<string, unknown>()
+          : await this.products.materialAccessFacts(
+              materials.map((row) => row.id),
+            );
+      const current = new Map(
+        materials
+          .filter((row) => !productLessons.has(row.id))
+          .map((row) => [row.id, row]),
+      );
       const items: MaterialAnnouncement[] = page.flatMap((announcement) => {
         const material = current.get(announcement.materialId);
         if (

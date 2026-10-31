@@ -224,6 +224,7 @@ describe("Material Authoring action workflow", () => {
             topicId,
           },
           publicationState: "published",
+          inFeed: false,
           latestVideoDeletion: null,
           unselectedVideoUpload: {
             origin: "platform_upload",
@@ -252,6 +253,7 @@ describe("Material Authoring action workflow", () => {
         productIds: [productId],
         status: "published",
         title: "Saved Material",
+        inFeed: false,
         unselectedVideoUpload: {
           state: "processing",
           videoId: "70000000-0000-4000-8000-000000000001",

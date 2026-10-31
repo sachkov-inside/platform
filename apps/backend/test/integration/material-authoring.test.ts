@@ -73,6 +73,7 @@ describe("MaterialAuthoring", () => {
       ok: true,
       value: {
         notifyTelegram: false,
+        inFeed: false,
         materialId: created.value.materialId,
         contentVersion: 1,
         cover: null,

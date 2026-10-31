@@ -25,6 +25,7 @@ const lockedMaterialRowsSchema = z.array(
     content_version: z.coerce.number().int().positive(),
     first_published_at: z.coerce.date().nullable(),
     access: z.enum(["free", "closed"]),
+    in_feed: z.boolean(),
     primary_video_id: z.uuid().nullable(),
     cover_id: z.uuid().nullable(),
     published_at: z.coerce.date().nullable(),
@@ -35,6 +36,7 @@ const lockedMaterialRowsSchema = z.array(
 export interface LockedMaterial {
   readonly sourceId: string | null;
   readonly notifyTelegram: boolean | null;
+  readonly inFeed: boolean;
   readonly videoChapters: readonly VideoChapter[];
   readonly access: "free" | "closed";
   readonly lifecycle: Material;
@@ -53,6 +55,7 @@ export async function lockMaterialForLifecycleChange(
         id,
         source_id,
         notify_telegram,
+        in_feed,
         video_chapters,
         slug,
         publication_state,
@@ -74,6 +77,7 @@ export async function lockMaterialForLifecycleChange(
     : {
         sourceId: row.source_id,
         notifyTelegram: row.notify_telegram,
+        inFeed: row.in_feed,
         videoChapters: row.video_chapters,
         access: row.access,
         lifecycle: Material.restore({

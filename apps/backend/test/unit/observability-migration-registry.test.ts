@@ -15,7 +15,7 @@ const ledger = (rows: readonly Migration[]) =>
     position: index + 1,
   }));
 
-it("retains exact historical main prefixes and the independently frozen current-main 115-entry prefix", () => {
+it("retains exact historical main prefixes and the independently frozen current-main 116-entry prefix", () => {
   for (const label of [
     "main101",
     "main102",
@@ -23,6 +23,7 @@ it("retains exact historical main prefixes and the independently frozen current-
     "main104",
     "main114",
     "main115",
+    "main116",
   ] as const) {
     const main = frozenRegistry(label);
     expect(platformMigrations.slice(0, main.length)).toEqual(main);
@@ -30,9 +31,9 @@ it("retains exact historical main prefixes and the independently frozen current-
       assertAppliedMigrations(ledger(main), platformMigrations),
     ).not.toThrow();
   }
-  expect(platformMigrations).toHaveLength(129);
-  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(129);
-  expect(platformMigrations.slice(115).map(({ name }) => name)).toEqual([
+  expect(platformMigrations).toHaveLength(130);
+  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(130);
+  expect(platformMigrations.slice(116).map(({ name }) => name)).toEqual([
     "0114_funnel_diagnostic_candidates",
     "0115_billing_funnel_diagnostic_sources",
     "0116_reading_funnel_diagnostic_sources",

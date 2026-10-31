@@ -10,8 +10,10 @@ A list request contains `contractVersion: "inside.material-announcements.v1"` an
 The response contains up to 50 `items` and `nextCursor`. Follow continuation even after a filtered
 empty page. Exhaustion and unavailability are distinct; a failed request never advances the cursor.
 Only unexpired first-publication occurrences whose initial Telegram choice was enabled qualify.
-Materials rechecks the current publication, free access and author choice. The feed contains all
-published free Materials under ADR 0035; the legacy `showInFeed` value cannot suppress an announcement.
+Materials rechecks the current publication, free access, the author's Telegram choice and the feed
+choice `inFeed` ([ADR 0043](../../adr/0043-feed-holds-explicitly-placed-materials.md)). A Material
+outside the feed is never announced: the first publication enables Telegram only together with
+`inFeed`. The legacy `showInFeed` value has no effect.
 The response exposes public title, summary and canonical reader URL, never a material body.
 
 Telegram fixes a contact snapshot when it first accepts an occurrence. It includes reachable

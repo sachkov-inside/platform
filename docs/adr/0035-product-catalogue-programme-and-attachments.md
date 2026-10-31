@@ -29,7 +29,8 @@ retain source ownership guards. Imports omitting attachment metadata preserve ex
 
 Programme progress counts distinct programme Materials. Step navigation identifies repeated positions
 in its URL; references preserve the originating placement. Existing standalone Material URLs remain valid.
-All published free Materials appear in the feed; the legacy showInFeed value cannot exclude them.
+The feed rule of this decision is replaced by [ADR 0043](0043-feed-holds-explicitly-placed-materials.md):
+the feed holds only free Materials outside Products that the author placed there.
 
 ## Consequences
 

@@ -35,6 +35,7 @@ const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 export interface CurrentMaterial {
   readonly videoChapters: readonly VideoChapter[];
   readonly notifyTelegram: boolean | null;
+  readonly inFeed: boolean;
   readonly source: RecordedAuthoringSource | null;
   readonly lifecycle: Material;
   readonly metadata: MaterialMetadata;
@@ -104,6 +105,8 @@ export async function loadCurrentMaterial(
     value: {
       videoChapters: videoChaptersSchema.parse(row.videoChapters),
       notifyTelegram: row.notifyTelegram,
+      // Состав Product меняет и Products: урок курса показывает выключенный выбор, как его видит лента.
+      inFeed: row.inFeed && metadata.value.canEnterFeed(),
       source:
         row.sourceId === null
           ? null
@@ -164,6 +167,7 @@ export function toMaterialDto(
 ): MaterialDto {
   return {
     notifyTelegram: material.notifyTelegram,
+    inFeed: material.inFeed,
     ...(material.source === null
       ? {}
       : {

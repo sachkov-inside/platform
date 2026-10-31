@@ -1,4 +1,8 @@
 import {
+  name as explicitFeedName,
+  statement as explicitFeedStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0115-explicit-feed.js";
+import {
   name as queueWorkName,
   statement as queueWorkStatement,
 } from "../infrastructure/postgres/migrations/0127-queue-work-observation.js";
@@ -795,6 +799,7 @@ export const platformMigrations = [
     name: billingContactEmailFingerprintName,
     statement: billingContactEmailFingerprintStatement,
   },
+  { name: explicitFeedName, statement: explicitFeedStatement },
   { name: funnelDiagnostic0Name, statement: funnelDiagnostic0Statement },
   { name: funnelDiagnostic1Name, statement: funnelDiagnostic1Statement },
   { name: funnelDiagnostic2Name, statement: funnelDiagnostic2Statement },

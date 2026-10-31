@@ -266,6 +266,14 @@ export class MaterialMetadata {
     };
   }
 
+  /**
+   * Лента публичная: в неё попадает только бесплатный материал вне Products (ADR 0043). Урок
+   * курса закрыт гостю до входа через Telegram (ADR 0042), поэтому в ленте его нет.
+   */
+  canEnterFeed(): boolean {
+    return canEnterFeed(this.access, this.productMemberships);
+  }
+
   validateAuthoringCompleteness(): Result<
     undefined,
     Extract<
@@ -321,6 +329,14 @@ export class MaterialMetadata {
       productMemberships: this.productMemberships,
     };
   }
+}
+
+/** Правило ленты (ADR 0043) для значений, ещё не собранных в `MaterialMetadata`. */
+export function canEnterFeed(
+  access: MaterialAccess,
+  productMemberships: readonly unknown[],
+): boolean {
+  return access === "free" && productMemberships.length === 0;
 }
 
 function requiredPublicationIssues(

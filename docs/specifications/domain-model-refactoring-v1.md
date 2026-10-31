@@ -119,8 +119,8 @@ linking и действующее исполнение сообщества. С�
 порядка/главы из membership. Внутренние ограничения остаются у владельца Products, межсхемные
 joins и FK заменяются interfaces с общей транзакцией при необходимости атомарной проверки.
 
-У Material одно изменяемое тело и текущая body-free projection. Все опубликованные free входят
-в ленту, showInFeed выводится. Format guide остаётся форматом. Editorial pins, Topic, Video Chapter,
+У Material одно изменяемое тело и текущая body-free projection. showInFeed выводится; ленту
+теперь задаёт выбор автора `inFeed` ([ADR 0043](../adr/0043-feed-holds-explicitly-placed-materials.md)). Format guide остаётся форматом. Editorial pins, Topic, Video Chapter,
 выбор видео и медиаресурсы сохраняют самостоятельные значения. Анонс не дублируется при republication.
 
 Старый PracticeDefinition выводится после переноса оставшихся требований и consumers в Product Tasks.

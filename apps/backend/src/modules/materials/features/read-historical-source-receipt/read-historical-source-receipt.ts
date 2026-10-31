@@ -9,7 +9,9 @@ import { authorizeManager } from "../../ports/author-policy.js";
 import { fingerprintCommand } from "../../shared/canonical-command-fingerprint.js";
 
 /** Original v1 request bytes are interpreted only for a stored, actor-bound receipt lookup. */
+// v1 requests predate the feed choice (ADR 0043); accepting it here would match a receipt without it.
 export const historicalSourceMaterialRequestSchema = applySourceBodySchema
+  .omit({ inFeed: true })
   .extend({
     source: historicalAuthoringSourceV1Schema,
     metadata: materialMetadataSelectionWireSchema

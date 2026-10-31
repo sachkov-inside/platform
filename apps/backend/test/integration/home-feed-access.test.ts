@@ -1,3 +1,4 @@
+import { Pool } from "pg";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { accountId } from "../../src/modules/accounts/index.js";
@@ -9,6 +10,7 @@ import {
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
+import { statement as explicitFeedStatement } from "../../src/modules/materials/infrastructure/postgres/migrations/0115-explicit-feed.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
@@ -18,6 +20,26 @@ import {
 
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { migrateThrough, upgradeToLatest } from "./setup/historical-upgrade.js";
+
+// The frozen 0112 schema has every prior scalar field, but no 0115 inFeed column.
+const historicalPublicationProjection = {
+  materialId: true,
+  contentVersion: true,
+  slug: true,
+  title: true,
+  summary: true,
+  difficulty: true,
+  outcomes: true,
+  hasModeVariants: true,
+  access: true,
+  topicId: true,
+  formatId: true,
+  publicSearchText: true,
+  publishedBy: true,
+  publishedAt: true,
+  primaryVideoId: true,
+  coverId: true,
+} satisfies Prisma.PublishedMaterialSelect;
 
 let database: TestDatabase;
 beforeAll(async () => {
@@ -50,28 +72,24 @@ beforeAll(async () => {
         ${slug}, ${`${slug}.md`}, ${"a".repeat(64)}, ${showInFeed}
       )
     `);
-    await database.prisma.publishedMaterial.create({
-      data: {
-        materialId: id,
-        contentVersion: 1n,
-        slug,
-        title: slug,
-        summary: "",
-        access,
-        topicId,
-        formatId: "note",
-        publicSearchText: slug,
-        publishedBy: actor,
-        publishedAt,
-      },
-    });
+    await database.prisma.$executeRaw(Prisma.sql`
+      insert into materials.published_materials (
+        material_id, content_version, slug, title, summary, access, topic_id,
+        format_id, public_search_text, published_by, published_at
+      ) values (
+        ${id}::uuid, 1, ${slug}, ${slug}, '', ${access}, ${topicId}::uuid,
+        'note', ${slug}, ${actor}::uuid, ${publishedAt}
+      )
+    `);
   }
   const before = await database.prisma.publishedMaterial.findMany({
+    select: historicalPublicationProjection,
     orderBy: { materialId: "asc" },
   });
   await upgradeToLatest(database);
   expect(
     await database.prisma.publishedMaterial.findMany({
+      select: historicalPublicationProjection,
       orderBy: { materialId: "asc" },
     }),
   ).toEqual(before);
@@ -130,6 +148,24 @@ beforeAll(async () => {
   await seedLocalDevelopment(database.prisma, { demo: "published" });
   expect(
     await database.prisma.publishedMaterial.findMany({
+      select: historicalPublicationProjection,
+      where: { materialId: { in: before.map((row) => row.materialId) } },
+      orderBy: { materialId: "asc" },
+    }),
+  ).toEqual(before);
+  // Засев пишет текущей схемой, поэтому состояние до 0115 восстанавливается снятием столбцов.
+  const pool = new Pool({ connectionString: database.url, max: 1 });
+  try {
+    await pool.query(
+      "alter table materials.materials drop column in_feed; alter table materials.published_materials drop column in_feed",
+    );
+    await pool.query(explicitFeedStatement);
+  } finally {
+    await pool.end();
+  }
+  expect(
+    await database.prisma.publishedMaterial.findMany({
+      select: historicalPublicationProjection,
       where: { materialId: { in: before.map((row) => row.materialId) } },
       orderBy: { materialId: "asc" },
     }),
@@ -162,6 +198,34 @@ function contentDependencies() {
   return { materials, access };
 }
 
+test("migration keeps free Materials outside Products in the feed and leaves Product lessons out", async () => {
+  const lessons = await database.prisma.productMembership.findMany({
+    select: { materialId: true },
+  });
+  const lessonIds = lessons.map(({ materialId }) => materialId);
+  const freeLessons = await database.prisma.publishedMaterial.count({
+    where: { access: "free", materialId: { in: lessonIds } },
+  });
+  // Засев содержит бесплатные уроки курса: без них проверка ничего бы не доказала.
+  expect(freeLessons).toBeGreaterThan(0);
+  const outsideProducts = await database.prisma.publishedMaterial.count({
+    where: { access: "free", materialId: { notIn: lessonIds } },
+  });
+  expect(
+    await database.prisma.publishedMaterial.count({ where: { inFeed: true } }),
+  ).toBe(outsideProducts);
+  expect(
+    await database.prisma.material.count({
+      where: { inFeed: true, id: { in: lessonIds } },
+    }),
+  ).toBe(0);
+  expect(
+    await database.prisma.material.count({
+      where: { inFeed: true, publicationState: { not: "published" } },
+    }),
+  ).toBe(0);
+});
+
 for (const subject of [
   anonymousSubject,
   {
@@ -169,29 +233,29 @@ for (const subject of [
     accountId: accountId("74000000-0000-4000-8000-000000000001"),
   },
 ]) {
-  test(`home feed excludes paid materials for ${subject.kind} while discovery preserves them`, async () => {
+  test(`home feed excludes paid materials and Product lessons for ${subject.kind} while discovery preserves them`, async () => {
     const { materials, access } = contentDependencies();
-    const freeCount = await database.prisma.publishedMaterial.count({
-      where: { access: "free" },
+    const feedCount = await database.prisma.publishedMaterial.count({
+      where: { inFeed: true },
     });
     const feed = await listPublishedMaterials(
       materials.publishedMaterialReader,
       access,
       emptyCatalogVideos,
-      { subject, feedOnly: true, first: 1 },
+      { subject, feedOnly: true, first: 24 },
     );
-    expect(feed).toMatchObject({
-      ok: true,
-      value: {
-        items: [
-          expect.objectContaining({
-            slug: "kak-ustroen-inside-platform",
-            access: "free",
-          }),
-        ],
-        totalCount: freeCount,
-      },
-    });
+    if (!feed.ok) throw new Error(feed.error.code);
+    expect(feed.value.totalCount).toBe(feedCount);
+    expect(feed.value.items.length).toBeGreaterThan(0);
+    for (const item of feed.value.items) {
+      expect(item).toMatchObject({ access: "free", availability: "available" });
+    }
+    expect(feed.value.items).toContainEqual(
+      expect.objectContaining({
+        slug: "kak-ustroen-inside-platform",
+        access: "free",
+      }),
+    );
     for (const query of [
       {},
       { q: "Developer Pipeline" },

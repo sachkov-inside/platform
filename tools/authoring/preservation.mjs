@@ -420,12 +420,15 @@ export async function previewPreservation(
     );
   // The derived package carries the target's policy, so any policy change here is a defect.
   const policyChange = result.preview.materials.find(
-    (row) => "publicationChange" in row || "accessChange" in row,
+    (row) =>
+      "publicationChange" in row ||
+      "accessChange" in row ||
+      "feedChange" in row,
   );
   if (policyChange !== undefined)
     throw refusal(
       "preservation_policy_change",
-      `${String(policyChange["sourceId"])}: content-only delivery would change access or publication`,
+      `${String(policyChange["sourceId"])}: content-only delivery would change access, publication or the feed`,
     );
   const plan = {
     schemaVersion: 2,

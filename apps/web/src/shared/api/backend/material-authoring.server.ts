@@ -217,6 +217,7 @@ export function requestMaterialSave(
     readonly outcomes: readonly string[];
     readonly publicationState: "draft" | "published" | "unpublished";
     readonly notifyTelegram?: boolean;
+    readonly inFeed?: boolean;
     readonly primaryVideoId: string | null;
     readonly productIds: readonly string[];
     readonly summary: string | null;
@@ -251,6 +252,7 @@ export function requestMaterialSave(
           ...(input.notifyTelegram === undefined
             ? {}
             : { notifyTelegram: input.notifyTelegram }),
+          ...(input.inFeed === undefined ? {} : { inFeed: input.inFeed }),
           primaryVideoId: input.primaryVideoId,
           ...(input.confirmedProductRemovals === undefined
             ? {}

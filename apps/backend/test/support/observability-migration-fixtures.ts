@@ -16,7 +16,7 @@ const labels = [
   "legacy115",
   "legacy116",
 ] as const;
-export type FrozenRegistryName = (typeof labels)[number];
+export type FrozenRegistryName = (typeof labels)[number] | "main116";
 const fixture = z
   .strictObject({
     schema: z.literal(1),
@@ -45,10 +45,41 @@ const fixture = z
     ),
   );
 
+const trustedA6 = z
+  .strictObject({
+    schema: z.literal(1),
+    commit: z.literal("a6e5d4da197e5f1f365a16a6b30e2c55ba8599e4"),
+    digest: z.string().length(64),
+    entries: z.array(
+      z.strictObject({ name: z.string().min(1), statement: z.string() }),
+    ),
+  })
+  .parse(
+    JSON.parse(
+      readFileSync(
+        new URL(
+          "../fixtures/observability-migrations/main116-a6.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ),
+  );
+
 /** Historical SQL and order come from committed snapshots, never the candidate registry. */
 export function frozenRegistry(
   label: FrozenRegistryName,
 ): readonly Migration[] {
+  if (label === "main116") {
+    const rows = trustedA6.entries.map((entry) => ({ ...entry }));
+    if (
+      createHash("sha256").update(JSON.stringify(rows)).digest("hex") !==
+      trustedA6.digest
+    ) {
+      throw new Error("Frozen trusted-a6 migration fixture digest mismatch");
+    }
+    return rows;
+  }
   const registry = fixture.registries[label];
   const rows = registry.entries.map((id) => {
     const entry = fixture.entries[id];
