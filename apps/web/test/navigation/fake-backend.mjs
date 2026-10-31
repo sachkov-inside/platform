@@ -14,6 +14,7 @@ import {
  * зависимости, чтобы проверить повтор после восстановления.
  */
 import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { deflateSync } from "node:zlib";
 import { z } from "zod";
 
@@ -200,6 +201,61 @@ const lessons = [
 const performanceTemplate = lessons[0];
 if (performanceTemplate === undefined)
   throw new Error("Missing lesson template");
+/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string> }} ReaderTitleFixture */
+/** @type {Map<string, ReaderTitleFixture>} */
+const readerTitleFixtures = new Map();
+
+/** Every allocation owns its data and a fresh shared-cache namespace. */
+function createReaderTitleFixture() {
+  const scope = randomUUID();
+  const product = {
+    cover: null,
+    hasModeVariants: false,
+    id: scope,
+    name: "Курс заголовков",
+    slug: `reader-title-${scope}`,
+  };
+  const lessons = [1, 2].map((ordinal) => ({
+    ...performanceTemplate,
+    access: "closed",
+    productMemberships: [
+      {
+        ordinal,
+        product: { id: product.id, name: product.name, slug: product.slug },
+        stepGroup: null,
+      },
+    ],
+    materialId: randomUUID(),
+    slug: `${product.slug}-${String(ordinal)}`,
+    title:
+      ordinal === 1 ? "Первый заголовок читателя" : "Второй заголовок читателя",
+  }));
+  /** @type {ReaderTitleFixture} */
+  const fixture = {
+    scope,
+    product,
+    lessons,
+    opens: new Map(),
+    commands: new Set(),
+  };
+  readerTitleFixtures.set(scope, fixture);
+  return fixture;
+}
+const readerTitleProducts = () =>
+  [...readerTitleFixtures.values()].map(({ product }) => product);
+const readerTitleLessons = () =>
+  [...readerTitleFixtures.values()].flatMap(({ lessons }) => lessons);
+/** @param {string} key */
+function findReaderTitleLesson(key) {
+  for (const fixture of readerTitleFixtures.values()) {
+    const lesson = fixture.lessons.find(
+      ({ materialId, slug }) => materialId === key || slug === key,
+    );
+    if (lesson !== undefined) return { fixture, lesson };
+  }
+  return undefined;
+}
+
 const performanceLessons = Array.from({ length: 120 }, (_, index) => ({
   ...performanceTemplate,
   materialId: `33333333-3333-4333-8333-${String(index + 201).padStart(12, "0")}`,
@@ -260,7 +316,7 @@ const lessonsOf = (product) =>
     ? performanceLessons
     : product.slug === referenceProduct.slug
       ? referenceLessons
-      : lessons.filter(
+      : [...lessons, ...readerTitleLessons()].filter(
           (lesson) => lesson.productMemberships[0]?.product.id === product.id,
         );
 
@@ -663,7 +719,9 @@ function route(method, url, entitled) {
         ? performanceProduct
         : slug === referenceProduct.slug
           ? referenceProduct
-          : products.find((candidate) => candidate.slug === slug);
+          : [...products, ...readerTitleProducts()].find(
+              (candidate) => candidate.slug === slug,
+            );
     if (
       product === undefined ||
       (product.slug === archivedProductSlug && !entitled)
@@ -756,6 +814,57 @@ function route(method, url, entitled) {
       },
       relatedProduct: [],
       topics: [],
+    });
+  }
+  const titleRead = findReaderTitleLesson(
+    path.startsWith("/materials/") ? path.slice("/materials/".length) : "",
+  );
+  if (titleRead !== undefined) {
+    const { lesson: titleLesson, fixture } = titleRead;
+    if (!entitled)
+      return json({
+        kind: "teaser",
+        cacheScope: "private-no-store",
+        projection: readerProjection(titleLesson),
+        access: { availability: "locked", subscriptionOffered: false },
+      });
+    const document = body(titleLesson, true);
+    return json({
+      kind: "available",
+      cacheScope: "private-no-store",
+      primaryVideo: null,
+      projection: readerProjection(titleLesson),
+      body: {
+        ...document,
+        blocks: [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                marks: [],
+                text: `Открытий материала: ${String(fixture.opens.get(titleLesson.materialId) ?? 0)}`,
+              },
+            ],
+          },
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                text: "Следующий материал",
+                marks: [
+                  {
+                    kind: "link",
+                    href: `/materials/${titleLesson.slug.replace(/-1$/u, "-2")}`,
+                  },
+                ],
+              },
+            ],
+          },
+          ...document.blocks,
+        ],
+      },
     });
   }
   const material = /^\/materials\/([^/]+)$/u.exec(path);
@@ -1200,6 +1309,26 @@ const server = createServer(async (request, response) => {
     send(200, { delayMs: state.delayMs, unavailable: state.unavailable });
     return;
   }
+  if (
+    url.pathname === "/__reader-title-fixtures" &&
+    request.method === "POST"
+  ) {
+    const fixture = createReaderTitleFixture();
+    send(201, {
+      scope: fixture.scope,
+      productSlug: fixture.product.slug,
+      materialSlugs: fixture.lessons.map(({ slug }) => slug),
+    });
+    return;
+  }
+  const titleFixtureControl = /^\/__reader-title-fixtures\/([^/]+)$/u.exec(
+    url.pathname,
+  );
+  if (titleFixtureControl !== null && request.method === "DELETE") {
+    const scope = z.uuid().parse(titleFixtureControl[1]);
+    send(200, { deleted: readerTitleFixtures.delete(scope) });
+    return;
+  }
   const authorized = request.headers.authorization !== undefined;
   state.requests.push({
     authorized,
@@ -1307,6 +1436,52 @@ const server = createServer(async (request, response) => {
         : [],
     });
     return;
+  }
+  if (request.method === "POST" && url.pathname === "/reading-activity/opens") {
+    const input = z
+      .strictObject({
+        materialId: z.uuid(),
+        contentVersion: z.number().int().positive(),
+        commandId: z.uuid(),
+      })
+      .parse(JSON.parse(await readBody(request)));
+    const titleRead = findReaderTitleLesson(input.materialId);
+    if (authorized && titleRead !== undefined) {
+      const { fixture } = titleRead;
+      const replayed = fixture.commands.has(input.commandId);
+      if (!replayed)
+        fixture.opens.set(
+          input.materialId,
+          (fixture.opens.get(input.materialId) ?? 0) + 1,
+        );
+      fixture.commands.add(input.commandId);
+      send(200, { openedAt: "2026-10-10T08:00:00.000Z", replayed });
+      return;
+    }
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/reading-activity/materials/query"
+  ) {
+    const input = z
+      .strictObject({ materialIds: z.array(z.uuid()).min(1).max(100) })
+      .parse(JSON.parse(await readBody(request)));
+    if (
+      authorized &&
+      input.materialIds.every((id) => findReaderTitleLesson(id) !== undefined)
+    ) {
+      send(
+        200,
+        input.materialIds.map((materialId) => ({
+          materialId,
+          isRead: false,
+          readAt: null,
+          updatedAt: null,
+          version: 0,
+        })),
+      );
+      return;
+    }
   }
   const result = state.unavailable
     ? json(

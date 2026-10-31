@@ -15,6 +15,7 @@ import {
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
+import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
 
 const readerStartupScriptCpuBudgetMs = 200;
 
@@ -467,6 +468,10 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   ).toBeVisible();
   await framesPresented(page);
 
+  await expectReaderReadyForAudit(
+    page,
+    "Как устроен Inside Platform · Sachkov Dev",
+  );
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
@@ -906,7 +911,10 @@ test("navigates Library → Topic → ordered Product and exposes canonical Read
 
   await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Dev");
   await expectLibraryNavigationActive(page, testInfo);
-  await expectNoSeriousAccessibilityFindings(page);
+  await expectNoSeriousAccessibilityFindings(
+    page,
+    "Как устроен Inside Platform · Sachkov Dev",
+  );
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");
   await programmeAction.click();
@@ -1052,9 +1060,13 @@ async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
   await expect(home).toHaveAttribute("aria-current", "true");
 }
 
-async function expectNoSeriousAccessibilityFindings(page: Page) {
+async function expectNoSeriousAccessibilityFindings(
+  page: Page,
+  readerTitle?: string,
+) {
   // After a client navigation Next.js streams the new <title> separately; scan the settled document.
-  await expect(page).toHaveTitle(/\S/u);
+  if (readerTitle === undefined) await expect(page).toHaveTitle(/\S/u);
+  else await expectReaderReadyForAudit(page, readerTitle);
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
