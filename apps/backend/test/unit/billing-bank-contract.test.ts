@@ -120,6 +120,27 @@ describe("concrete bank boundary", () => {
       expect(requests).toBe(0);
     });
   });
+  test("CheckOrder for an order the bank never saw is an empty payment list; other refusals stay unknown", async () => {
+    const answering = (answer: unknown) =>
+      new Tbank(config, () =>
+        Promise.resolve({ ok: true, json: () => Promise.resolve(answer) }),
+      );
+    // Ответ боевого T-Bank 31.10.2026 на заказ, по которому Init не создал платежа.
+    await expect(
+      answering({
+        Success: false,
+        ErrorCode: "335",
+        Message: "OrderId synthetic-order не найден для TerminalKey SYNTHETIC",
+      }).order("synthetic-order"),
+    ).resolves.toEqual([]);
+    await expect(
+      answering({
+        Success: false,
+        ErrorCode: "9999",
+        Message: "Внутренняя ошибка",
+      }).order("synthetic-order"),
+    ).rejects.toThrow();
+  });
   test("bank returns identify the purchase without browser storage", async () => {
     const requests: Record<string, unknown>[] = [];
     const bank = new Tbank(config, (_url, request) => {
