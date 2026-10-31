@@ -743,3 +743,57 @@ export const MissingFormKeepsStateRetry: Story = {
     await expect(consentRequest).toHaveBeenCalledTimes(1);
   },
 };
+
+/** Незавершённая покупка этого продукта, которую сервер не может продолжить (#1924). */
+function productPurchaseInProgress() {
+  return fetchBeforeRender((input, init) => {
+    const path = new URL(
+      input instanceof Request ? input.url : String(input),
+      window.location.origin,
+    ).pathname;
+    const body = commandBody(init);
+    if (path === "/api/account/billing/quote") {
+      quoteRequest(body);
+      return Promise.resolve(Response.json({ ok: true, value: productQuote }));
+    }
+    if (path === "/api/account/billing/consents") {
+      consentRequest(body);
+      return Promise.resolve(
+        Response.json({
+          ok: true,
+          value: {
+            ok: true,
+            evidenceRefs: ["00000000-0000-4000-8000-000000000801"],
+          },
+        }),
+      );
+    }
+    if (path === "/api/account/billing/purchase") {
+      purchaseRequest(purchaseInputSchema.parse(body));
+      return Promise.resolve(
+        Response.json({ ok: false, code: "payment_in_progress" }),
+      );
+    }
+    return Promise.resolve(Response.json({ ok: false, code: "unavailable" }));
+  })();
+}
+
+/** Ответ `payment_in_progress` объясняет причину и не предлагает повтор той же команды. */
+export const ProductPurchaseInProgressExplainsWithoutRetry: Story = {
+  beforeEach: productPurchaseInProgress,
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Покупка этого продукта уже начата и ещё не завершена. Проверьте раздел «Покупки» в кабинете. Новая покупка не создаётся.",
+    );
+    await expect(
+      canvas.queryByRole("button", { name: "Продолжить оплату" }),
+    ).toBeNull();
+    await expect(purchaseRequest).toHaveBeenCalledTimes(1);
+    await expect(args.onPurchase).not.toHaveBeenCalled();
+    await expect(args.onNavigate).not.toHaveBeenCalled();
+  },
+};
