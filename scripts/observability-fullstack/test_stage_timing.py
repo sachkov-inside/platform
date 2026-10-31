@@ -212,7 +212,6 @@ except KeyboardInterrupt:sys.exit(42)
         # Pure orchestration unit. Docker, product, kernel and network are replaced;
         # this proves caller coverage, not a Linux run or resource acceptance.
         from contextlib import ExitStack,nullcontext
-        from types import SimpleNamespace
         import fullstack
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)
@@ -232,7 +231,7 @@ except KeyboardInterrupt:sys.exit(42)
                 if args[-1]=='recover-probe':return '{"post_restart_acknowledged":1,"post_restart_stored":1,"outage_stored":0}'
                 return ''
             with ExitStack() as patches:
-                patches.enter_context(patch.object(fullstack,'sys',SimpleNamespace(platform='linux')))
+                patches.enter_context(patch.object(fullstack.sys,'platform','linux'))
                 patches.enter_context(patch.object(fullstack.pilot,'worker_storage_guard',return_value=nullcontext()))
                 for target,name in ((fullstack.production.pilot,'install_horizon'),(fullstack.production.pilot,'install_plugin'),
                         (fullstack.resource_runtime,'wait_ready'),(fullstack.extra,'warmup'),(fullstack,'mode'),
@@ -277,7 +276,6 @@ except KeyboardInterrupt:sys.exit(42)
 
     def test_actual_worker_primary_failure_survives_terminal_diagnostic_write_failure(self):
         import fullstack
-        from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)
             (output/'owner.json').write_text(json.dumps({'supervisor_pid':os.getppid(),'project':'owned'}))
@@ -287,7 +285,7 @@ except KeyboardInterrupt:sys.exit(42)
             def fail_terminal(path,value,source,**options):
                 if value['state']=='failed':raise OSError('private terminal disk failure')
                 return original_write(path,value,source,**options)
-            with patch.object(fullstack,'sys',SimpleNamespace(platform='linux')), \
+            with patch.object(fullstack.sys,'platform','linux'), \
                     patch.object(fullstack.pilot,'worker_storage_guard',side_effect=primary), \
                     patch.object(stage_timing,'write',side_effect=fail_terminal):
                 with self.assertRaises(RuntimeError) as caught:fullstack.worker(output)

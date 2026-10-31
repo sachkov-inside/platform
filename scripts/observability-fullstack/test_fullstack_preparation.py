@@ -218,7 +218,6 @@ class Preparation(unittest.TestCase):
     def test_real_worker_writes_source_publications_only_to_raw_phase_before_summary(self):
         # Real worker serialization path, controlled external runtime boundaries.
         from contextlib import ExitStack,nullcontext
-        from types import SimpleNamespace
         stop=RuntimeError('stop_after_saved_phase')
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory).resolve()
@@ -234,7 +233,7 @@ class Preparation(unittest.TestCase):
                 'errors':[],'source_publication_timing':diagnostic}
             profile={'pairs':[['on']],'phases':[{'name':'idle','seconds':10,'requests_per_second':0}]}
             with ExitStack() as patches:
-                patches.enter_context(patch.object(fullstack,'sys',SimpleNamespace(platform='linux')))
+                patches.enter_context(patch.object(fullstack.sys,'platform','linux'))
                 patches.enter_context(patch.object(fullstack.acceptance,'validate_profile',return_value=profile))
                 patches.enter_context(patch.object(fullstack.pilot,'worker_storage_guard',return_value=nullcontext()))
                 patches.enter_context(patch.object(fullstack.production.pilot,'install_horizon'))
@@ -409,7 +408,6 @@ class Preparation(unittest.TestCase):
         # Pure worker unit: all Docker, native, storage and host effects are replaced.
         # This never executes a Linux command or claims a Linux host measurement.
         from contextlib import ExitStack, nullcontext
-        from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)
             (output/'owner.json').write_text(json.dumps({'supervisor_pid':os.getppid(),'project':'owned'}))
@@ -433,7 +431,7 @@ class Preparation(unittest.TestCase):
                 raise stop
             profile={'pairs':[['on']],'phases':[{'name':'idle','seconds':10,'requests_per_second':0}]}
             with ExitStack() as patches:
-                patches.enter_context(patch.object(fullstack,'sys',SimpleNamespace(platform='linux')))
+                patches.enter_context(patch.object(fullstack.sys,'platform','linux'))
                 patches.enter_context(patch.object(fullstack.acceptance,'validate_profile',return_value=profile))
                 patches.enter_context(patch.object(fullstack.pilot,'worker_storage_guard',return_value=nullcontext()))
                 patches.enter_context(patch.object(fullstack.pilot,'write_json'))
