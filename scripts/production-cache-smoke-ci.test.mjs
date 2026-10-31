@@ -13,6 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { z } from "zod";
 import { runReviewProcess } from "./review-evidence.test-support.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 
@@ -29,6 +30,7 @@ test("isolated cache preparation admits only pinned broker/edge images and prese
     );
     for (const name of [
       "production-cache-diagnostics.mjs",
+      "cgroup-memory-diagnostics.mjs",
       "owned-process.mjs",
       "owned-process.py",
       "diagnostic-command.mjs",
@@ -349,6 +351,12 @@ test("preparation captures redact secrets, record failures and reap timed-out co
       file,
       `#!/bin/sh
 if [ "$SCENARIO" = timeout ] && [ "$1" = version ]; then exec "$NODE_BINARY" "$HANG_SCRIPT"; fi
+if [ "$1" = -n ] && [ "$2" = journalctl ]; then
+  case "$*" in
+    *--kernel*) echo 'journalctl: unrecognized option'; exit 64 ;;
+    *' -k '*) echo 'No OOM entries'; exit 0 ;;
+  esac
+fi
 printf '%s\\n' 'safe daemon restart marker' 'https://user:CANARY_urlpass@host/path?key=CANARY_query' 'token=CANARY_token' 'Authorization: Bearer CANARY_auth' '${["ghp", "CANARYgithubtoken12345678901234567890"].join("_")}' 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjYW5hcnkifQ.signature' 'EYJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjYW5hcnkifQ.signature'
 if [ "$1" = image ]; then exit 0; fi
 exit 7
@@ -387,6 +395,16 @@ exit 7
     const saved = readFileSync(
       join(artifact, "preparation-after.json"),
       "utf8",
+    );
+    const snapshot = z
+      .object({
+        captures: z.object({ "kernel-oom": z.object({ status: z.number() }) }),
+      })
+      .parse(JSON.parse(saved));
+    assert.equal(
+      snapshot.captures["kernel-oom"].status,
+      0,
+      "Kernel journal probe must use supported -k option",
     );
     assert.match(saved, /safe daemon restart marker/u);
     assert.match(saved, /"status": 47/u);

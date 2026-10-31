@@ -1109,7 +1109,11 @@ describe("supported toolchain contract", () => {
   });
 });
 
-const documentedSecurityOverrides = ["mysql2", "deepmerge-ts"];
+const documentedSecurityOverrides = [
+  "mysql2",
+  "deepmerge-ts",
+  "@fastify/static>glob",
+];
 
 /**
  * Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск.
@@ -1170,8 +1174,8 @@ function overrideNames(workspace) {
     workspace.match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu) ?? [];
   return overrides === undefined
     ? []
-    : [...overrides.matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map(
-        ([, name = ""]) => name,
+    : [...overrides.matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map(([, name = ""]) =>
+        name.replace(/^"(.*)"$/u, "$1"),
       );
 }
 
