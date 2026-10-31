@@ -118,7 +118,8 @@
     "lint:cycles": "oxlint --import-plugin --deny import/no-cycle --deny-warnings apps/web/app apps/web/src",
     "worktree:prepare": "node scripts/owned-node.mjs scripts/worktree-resources.mjs prepare",
     "worktree:status": "node scripts/worktree-resources.mjs status",
-    "worktree:cleanup": "node scripts/worktree-resources.mjs cleanup"
+    "worktree:cleanup": "node scripts/worktree-resources.mjs cleanup",
+    "session:cleanup": "node scripts/session-cleanup.mjs"
   },
   "dependencies": {
     "zod": "4.6.7"
