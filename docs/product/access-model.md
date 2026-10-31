@@ -709,13 +709,17 @@ See the [provider refund scenario](https://developer.tbank.ru/eacq/scenarios/can
 A bank decline (`REJECTED`, `AUTH_FAIL`, `CANCELED`, `DEADLINE_EXPIRED` or `REVERSED`) marks the
 attempt failed in Inside, but the provider can still capture the same PaymentId: on the payment
 form the buyer can pick another method after a declined one, such as a card after installments.
-An exactly verified `CONFIRMED` or full `REFUNDED` of that PaymentId therefore confirms the failed
-attempt and issues its saved fulfillment. Recovery asks the bank about a failed one-time attempt
-with a known PaymentId for 24 hours after its creation, the default lifetime of the payment form.
-The confirmation retires unpaid repeat attempts of the same Account for the same Product or the
-same Payment Link, so the buyer cannot pay twice through the newer form in Inside. When another
-paid attempt already holds the Payment Link, both captures remain confirmed financial facts; the
-late one records `payment_link_held` for the owner's refund decision.
+An exactly verified `CONFIRMED` or full `REFUNDED` of that PaymentId therefore confirms a failed
+one-time attempt and issues its saved fulfillment. Recovery and the owner's reconciliation ask the
+bank about a failed one-time attempt with a known PaymentId. Recovery does so for 24 hours after
+creation: Init sends no `RedirectDueDate`, so the form keeps the
+[provider's default lifetime](https://developer.tbank.ru/eacq/api/init). The confirmation retires
+the same Account's unpaid repeat attempts for the same Product or the same Payment Link, so the
+buyer cannot pay twice through the newer form in Inside; the retired bank form stays payable until
+it expires. An attempt with an unknown outcome or held funds stays in reconciliation. If such an
+attempt or another paid one still holds the Payment Link, the confirmed attempt keeps its
+reservation failed. A second paid purchase of the same Product or Payment Link records
+`duplicate_payment_review` for the owner's refund decision.
 
 Fresh purchase admission and dispatch read Product acquisition state through Account Rights on the
 same transaction handle under the Account entitlement lock. Both active and owner-revoked lifetime

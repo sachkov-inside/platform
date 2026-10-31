@@ -82,6 +82,12 @@ export function paymentEventLabel(kind: string): string {
     fiscalization_failed: "Чек не выдан",
     full_refund_confirmed: "Банк подтвердил полный возврат",
     legacy_dispatch_retired: "Прежняя попытка закрыта без отправки в банк",
+    payment_confirmed_after_failure:
+      "Банк подтвердил оплату после отказа по той же форме",
+    superseded_by_confirmed_payment:
+      "Попытка закрыта: оплачена прежняя попытка этой покупки",
+    duplicate_payment_review:
+      "Продукт оплачен второй раз, нужно решение о возврате",
   };
   return labels[kind] ?? `Событие ${kind}`;
 }
