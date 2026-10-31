@@ -201,3 +201,23 @@ test("a form address outside formOrigins asks for operator attention and the pur
     expect(s.cancelRequests()).toMatchObject([{ PaymentId: s.paymentId() }]);
   });
 });
+
+test("a form retired by recovery late in the purchase's day whose Cancel fails is asked again on the first step after the retirement", async () => {
+  await fromStart(async (start) => {
+    const s = await world.scenario();
+    const { purchaseRef, paymentId } = await lostFormAddress(s);
+    s.setPaymentStatus(paymentId, "NEW");
+    value(await s.payments.recover());
+    // Покупка живёт пять часов, затем сверка снимает её, а Cancel не проходит.
+    const retiredAt = after(start, 5 * 60 * 60 * 1000);
+    world.setTime(retiredAt);
+    s.failCancel(1);
+    value(await s.payments.recover());
+    expect((await world.purchaseRow(purchaseRef)).state).toBe("failed");
+    expect(s.cancelRequests()).toHaveLength(1);
+    // Повтор отсчитывается от снятия, а не от создания покупки.
+    world.setTime(after(retiredAt, 60_000));
+    value(await s.payments.recover());
+    expect(s.cancelRequests()).toHaveLength(2);
+  });
+});

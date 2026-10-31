@@ -1128,10 +1128,13 @@ export class BillingPayments {
             updatedAt: checkedAt,
             ...(checked?.state === "failed"
               ? {
+                  // Попытка, снятая в этом проходе, считает шаги от снятия, а не от создания.
                   bankRecheckAt: nextBankRecheck(
-                    markedAt !== undefined && markedAt > row.createdAt
-                      ? markedAt
-                      : row.createdAt,
+                    row.state !== "failed"
+                      ? checkedAt
+                      : markedAt !== undefined && markedAt > row.createdAt
+                        ? markedAt
+                        : row.createdAt,
                     checkedAt,
                   ),
                 }
