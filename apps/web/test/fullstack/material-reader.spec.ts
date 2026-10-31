@@ -1010,6 +1010,8 @@ test("uses the selected Product order for a shared Material and leaves standalon
 test("opens a direct link to a sole-course Material inside that course and leaves a shared Material standalone", async ({
   page,
 }) => {
+  // Гостю бесплатный урок показывает приглашение войти без панели уроков; вход открывает урок целиком.
+  await signInFullStack(page.context());
   // Урок одного курса открывается в этом курсе: панель урока ведёт к предыдущему шагу программы.
   await page.goto("/materials/demo-295-finalnyy-gayd");
   const directPrevious = page.locator(
