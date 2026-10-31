@@ -245,6 +245,205 @@ test("a definitive failed purchase admits a new quote and a new attempt", async 
   expect(s.initCalls()).toBe(2);
 });
 
+/** Покупатель снова нажимает «Оплатить»: новый расчёт, новое согласие и новая команда покупки. */
+async function repeatPurchaseCommand(
+  s: Awaited<ReturnType<typeof scenario>>,
+  paymentLinkId?: string,
+) {
+  const quote = value(
+    await s.pricing.quote(s.buyer, {
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+      ...(paymentLinkId === undefined ? {} : { paymentLinkId }),
+    }),
+  );
+  const consent = await s.contact.acceptConsents(
+    s.buyer,
+    pressedPaymentButton({
+      operationId: randomUUID(),
+      contextRef: quote.quoteRef,
+      documents: [
+        {
+          kind: "terms",
+          documentId: s.document.documentId,
+          version: s.document.version,
+          digest: s.document.digest,
+          accepted: true,
+        },
+      ],
+    }),
+  );
+  if (!consent.ok) throw new Error(consent.error.code);
+  return {
+    ...s.command,
+    operationId: randomUUID(),
+    quoteRef: quote.quoteRef,
+    consentEvidenceRefs: consent.evidenceRefs,
+  };
+}
+
+test("a bank decline on the payment form does not lose a later confirmed payment of the same bank payment", async () => {
+  const s = await scenario();
+  const purchase = value(await s.payments.purchase(s.buyer, s.command));
+  // Покупатель выбрал оплату долями, получил отказ и на той же форме оплатил картой.
+  expect(await s.notify("REJECTED")).toMatchObject({ ok: true });
+  expect(
+    value(await s.payments.status(s.buyer, purchase.purchaseRef)).state,
+  ).toBe("failed");
+  expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
+  expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
+  expect(
+    value(await s.payments.status(s.buyer, purchase.purchaseRef)),
+  ).toMatchObject({ state: "confirmed", access: "preparing" });
+  value(await s.payments.recover());
+  expect(
+    value(await s.payments.status(s.buyer, purchase.purchaseRef)).access,
+  ).toBe("ready");
+  expect(
+    await db.prisma.billingPaymentEvent.findMany({
+      where: { purchaseRef: purchase.purchaseRef },
+      select: { kind: true },
+      orderBy: { kind: "asc" },
+    }),
+  ).toEqual([
+    { kind: "payment_confirmed" },
+    { kind: "payment_confirmed_after_failure" },
+  ]);
+});
+
+test("payment recovery asks the bank again about a recently declined payment and confirms it when the confirmation was lost", async () => {
+  const s = await scenario();
+  const purchase = value(await s.payments.purchase(s.buyer, s.command));
+  s.setStatus("REJECTED");
+  value(await s.payments.recover());
+  expect(
+    value(await s.payments.status(s.buyer, purchase.purchaseRef)).state,
+  ).toBe("failed");
+  // Уведомление CONFIRMED не дошло, но банк отвечает о том же платеже уже подтверждением.
+  s.setStatus("CONFIRMED");
+  value(await s.payments.recover());
+  value(await s.payments.recover());
+  expect(
+    value(await s.payments.status(s.buyer, purchase.purchaseRef)),
+  ).toMatchObject({ state: "confirmed", access: "ready" });
+});
+
+test("a confirmed payment after a decline retires the unpaid repeat attempt that holds the same Payment Link", async () => {
+  const base = await scenario();
+  const link = value(
+    await base.pricing.managePaymentLink(owner, {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      productId: base.productId,
+      priceRevision: 1,
+      price: { kind: "amount", amountKopecks: 100000 },
+      expiresAt: null,
+    }),
+  );
+  const s = await scenario({
+    productId: base.productId,
+    paymentLinkId: link.id,
+  });
+  const first = value(await s.payments.purchase(s.buyer, s.command));
+  const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
+  await s.notify("REJECTED");
+  const repeat = value(
+    await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s, link.id)),
+  );
+  expect(repeat.purchaseRef).not.toBe(first.purchaseRef);
+  expect(repeat.paymentUrl).not.toBeNull();
+  expect(s.initCalls()).toBe(2);
+
+  expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
+    ok: true,
+  });
+  expect(value(await s.payments.status(s.buyer, first.purchaseRef)).state).toBe(
+    "confirmed",
+  );
+  expect(
+    value(await s.payments.status(s.buyer, repeat.purchaseRef)),
+  ).toMatchObject({ state: "failed", paymentUrl: null });
+  expect(
+    await db.prisma.billingPromoReservation.findMany({
+      where: { purchaseRef: { in: [first.purchaseRef, repeat.purchaseRef] } },
+      select: { purchaseRef: true, state: true },
+    }),
+  ).toEqual(
+    expect.arrayContaining([
+      { purchaseRef: first.purchaseRef, state: "confirmed" },
+      { purchaseRef: repeat.purchaseRef, state: "failed" },
+    ]),
+  );
+  value(await s.payments.recover());
+  expect(
+    value(await s.payments.status(s.buyer, first.purchaseRef)).access,
+  ).toBe("ready");
+  // Повторное нажатие «Оплатить» ведёт к оплаченной покупке, а не к новому платежу.
+  expect(
+    await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s)),
+  ).toMatchObject({ ok: false, error: { code: "existing_access" } });
+  expect(s.initCalls()).toBe(2);
+});
+
+test("when both attempts on one Payment Link are paid, the late confirmation is kept as money received and marked for the owner", async () => {
+  const base = await scenario();
+  const link = value(
+    await base.pricing.managePaymentLink(owner, {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      productId: base.productId,
+      priceRevision: 1,
+      price: { kind: "amount", amountKopecks: 100000 },
+      expiresAt: null,
+    }),
+  );
+  const s = await scenario({
+    productId: base.productId,
+    paymentLinkId: link.id,
+  });
+  const first = value(await s.payments.purchase(s.buyer, s.command));
+  const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
+  await s.notify("REJECTED");
+  const repeat = value(
+    await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s, link.id)),
+  );
+  expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
+  expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
+    ok: true,
+  });
+  expect(
+    await db.prisma.billingPurchase.findMany({
+      where: { id: { in: [first.purchaseRef, repeat.purchaseRef] } },
+      select: { id: true, state: true },
+    }),
+  ).toEqual(
+    expect.arrayContaining([
+      { id: first.purchaseRef, state: "confirmed" },
+      { id: repeat.purchaseRef, state: "confirmed" },
+    ]),
+  );
+  expect(
+    await db.prisma.billingPromoReservation.findUniqueOrThrow({
+      where: { purchaseRef: first.purchaseRef },
+      select: { state: true },
+    }),
+  ).toEqual({ state: "failed" });
+  expect(
+    await db.prisma.billingPaymentEvent.findUniqueOrThrow({
+      where: {
+        purchaseRef_kind: {
+          purchaseRef: first.purchaseRef,
+          kind: "payment_confirmed_after_failure",
+        },
+      },
+      select: { payload: true },
+    }),
+  ).toEqual({
+    payload: { supersededPurchaseRefs: [], reservation: "payment_link_held" },
+  });
+});
+
 test("an archived Product blocks a new accepted quote while preserving existing holders", async () => {
   const s = await scenario();
   await db.prisma.product.update({

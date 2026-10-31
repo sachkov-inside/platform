@@ -18,6 +18,7 @@ import {
   lockAccountEntitlementChanges,
   lockBillingPricing,
   lockBillingPurchase,
+  type BillingPrisma,
   type BillingPrismaClient,
   type Prisma,
 } from "../../../../infrastructure/prisma/index.js";
@@ -65,6 +66,14 @@ import { paymentAdmission } from "../../shared/payment-admission.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 
 const inFlightStates = ["prepared", "sent", "unknown", "pending", "authorized"];
+/**
+ * Отказ банка по форме оплаты не окончателен: покупатель может выбрать на той же форме другой
+ * способ, и тот же PaymentId придёт подтверждённым. Сверка спрашивает банк о таком платеже ещё
+ * сутки после создания покупки, столько живёт ссылка на форму оплаты.
+ */
+const declinedPaymentRecheckMilliseconds = 24 * 60 * 60 * 1000;
+/** Неоплаченная повторная попытка. Неизвестный исход и удержанные деньги остаются на сверке. */
+const supersedableStates = ["prepared", "sent", "pending"];
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Кабинет показывает обозримую историю; полный журнал платежей остаётся владельческой операцией.
 const ownPaymentHistoryLimit = 50;
@@ -773,7 +782,9 @@ export class BillingPayments {
         if (outcome === "failed") return paymentFailure("provider_unavailable");
         return { ok: true, value: true };
       }
-      if (row.state === "failed") return { ok: true, value: true };
+      // Без PaymentId банк ничего не подтвердит; с ним спрашиваем: отказ мог смениться оплатой.
+      if (row.state === "failed" && !hasText(row.paymentId))
+        return { ok: true, value: true };
       let paymentId = row.paymentId;
       if (!hasText(paymentId)) {
         const candidates = await bank.order(row.id);
@@ -815,9 +826,20 @@ export class BillingPayments {
             ? { state: "prepared", kind: { not: "one_time" } }
             : {
                 refundReviewRequired: false,
-                state: {
-                  in: ["prepared", "sent", "unknown", "pending", "authorized"],
-                },
+                OR: [
+                  { state: { in: inFlightStates } },
+                  {
+                    state: "failed",
+                    kind: "one_time",
+                    paymentId: { not: null },
+                    createdAt: {
+                      gte: new Date(
+                        this.clock().getTime() -
+                          declinedPaymentRecheckMilliseconds,
+                      ),
+                    },
+                  },
+                ],
               },
         orderBy: { updatedAt: "asc" },
         take: limit,
@@ -1283,10 +1305,15 @@ export class BillingPayments {
           if (refunded) await acceptBankRefund(tx, row, now);
           return { ok: true, value: true };
         }
-        if (row.state === "failed")
-          return payment.Status === "CONFIRMED" || refunded
-            ? paymentFailure("invalid_notification")
-            : { ok: true, value: true };
+        // Подтверждение того же PaymentId сильнее прежнего отказа: деньги списаны, покупка оплачена.
+        // Исторические попытки подписки так не оживают: их механика снята с продажи.
+        const confirmedAfterFailure = row.state === "failed";
+        if (confirmedAfterFailure) {
+          const captured = payment.Status === "CONFIRMED" || refunded;
+          if (!captured) return { ok: true, value: true };
+          if (kind !== "one_time")
+            return paymentFailure("invalid_notification");
+        }
         const common = {
           paymentId: payment.PaymentId,
           updatedAt: now,
@@ -1309,7 +1336,10 @@ export class BillingPayments {
               paymentUrl: null,
             },
           });
-          if (isQuotedPurchase(kind))
+          const reservationConfirmed = confirmedAfterFailure
+            ? await settleConfirmationAfterFailure(tx, row, snapshot, now)
+            : true;
+          if (isQuotedPurchase(kind) && reservationConfirmed)
             await tx.billingPromoReservation.update({
               where: { purchaseRef: row.id },
               data: { state: "confirmed" },
@@ -1491,4 +1521,108 @@ function savedContentProductWhere(
       },
     ],
   };
+}
+
+type PurchaseRow = Awaited<
+  ReturnType<BillingPrisma["billingPurchase"]["findUniqueOrThrow"]>
+>;
+
+/**
+ * Банк подтвердил покупку, которую мы уже считали неуспешной. Пока она числилась неуспешной,
+ * покупатель мог начать новую попытку того же продукта или занять ту же ссылку на оплату.
+ * Неоплаченные такие попытки снимаются, чтобы покупатель не заплатил дважды. Ответ `false`
+ * значит, что ссылку держит другая оплаченная попытка: резерв этой покупки остаётся
+ * неуспешным, а двойная оплата ждёт решения владельца по событию покупки.
+ */
+async function settleConfirmationAfterFailure(
+  tx: BillingPrisma,
+  row: PurchaseRow,
+  snapshot: PriceSnapshot,
+  now: Date,
+): Promise<boolean> {
+  const reservation = await tx.billingPromoReservation.findUnique({
+    where: { purchaseRef: row.id },
+    select: { paymentLinkId: true },
+  });
+  const linkHolders =
+    reservation?.paymentLinkId == null
+      ? []
+      : await tx.billingPromoReservation.findMany({
+          where: {
+            paymentLinkId: reservation.paymentLinkId,
+            purchaseRef: { not: row.id },
+            state: { not: "failed" },
+          },
+          select: { purchaseRef: true },
+        });
+  const scope: Prisma.BillingPurchaseWhereInput[] = [
+    ...savedContentProductIds(snapshot).map(savedContentProductWhere),
+    ...(linkHolders.length === 0
+      ? []
+      : [{ id: { in: linkHolders.map((holder) => holder.purchaseRef) } }]),
+  ];
+  const superseded =
+    scope.length === 0
+      ? []
+      : await tx.billingPurchase.findMany({
+          where: {
+            id: { not: row.id },
+            accountId: row.accountId,
+            kind: "one_time",
+            state: { in: supersedableStates },
+            OR: scope,
+          },
+          select: { id: true },
+        });
+  for (const attempt of superseded) {
+    await lockBillingPurchase(tx, attempt.id);
+    const retired = await tx.billingPurchase.updateMany({
+      where: { id: attempt.id, state: { in: supersedableStates } },
+      data: {
+        state: "failed",
+        lifecycleActive: false,
+        paymentUrl: null,
+        updatedAt: now,
+      },
+    });
+    if (retired.count === 0) continue;
+    await tx.billingPromoReservation.updateMany({
+      where: { purchaseRef: attempt.id },
+      data: { state: "failed" },
+    });
+    await tx.billingPaymentEvent.create({
+      data: {
+        id: randomUUID(),
+        purchaseRef: attempt.id,
+        kind: "superseded_by_confirmed_payment",
+        payload: { confirmedPurchaseRef: row.id },
+        occurredAt: now,
+        recordedAt: now,
+      },
+    });
+  }
+  const linkHeld =
+    reservation?.paymentLinkId != null &&
+    (await tx.billingPromoReservation.findFirst({
+      where: {
+        paymentLinkId: reservation.paymentLinkId,
+        purchaseRef: { not: row.id },
+        state: { not: "failed" },
+      },
+      select: { purchaseRef: true },
+    })) !== null;
+  await tx.billingPaymentEvent.create({
+    data: {
+      id: randomUUID(),
+      purchaseRef: row.id,
+      kind: "payment_confirmed_after_failure",
+      payload: {
+        supersededPurchaseRefs: superseded.map((attempt) => attempt.id),
+        reservation: linkHeld ? "payment_link_held" : "confirmed",
+      },
+      occurredAt: now,
+      recordedAt: now,
+    },
+  });
+  return !linkHeld;
 }
