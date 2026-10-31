@@ -87,3 +87,8 @@ reads «Запутанная кодовая база» in place of «Код гд
 
 The owner removed the «было → стало» rows. «Моя позиция» now shows the thesis on the left and the
 agent and you role diagram on the right.
+
+## Revision 5 (2026-10-31): no method block
+
+The owner removed the «Метод курса: Spec-Driven Development» track. The method stays visible
+through «Как это выглядит внутри» and the FAQ question about Spec-Driven Development depth.

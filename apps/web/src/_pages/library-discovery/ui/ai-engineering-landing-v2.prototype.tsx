@@ -159,7 +159,6 @@ function CourseBlock({
       if (block.id === "faq") return <Faq block={block} />;
       if (block.id === "mentoring") return <Mentoring block={block} />;
       if (block.id === "position") return <Position block={block} />;
-      if (block.id === "method") return <Method block={block} />;
       if (block.id === "skills")
         return <Skills block={block} programme={programme} />;
       return <ChecklistCards block={block} />;
@@ -999,33 +998,6 @@ function Position({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
           </div>
         ))}
       </dl>
-    </section>
-  );
-}
-
-/** Метод курса: дорожка из восьми шагов, цвет точки показывает, кто делает шаг. */
-const methodRoles: Record<string, string> = {
-  Ты: "you",
-  Агент: "agent",
-  Вместе: "together",
-};
-function Method({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
-  return (
-    <section className="aie2-method">
-      <h2>{block.title}</h2>
-      {block.lead === "" ? null : <p>{block.lead}</p>}
-      <ol>
-        {block.items.map((item, index) => (
-          <li
-            data-role={methodRoles[item.detail] ?? "together"}
-            key={item.title}
-          >
-            <span className="aie2-method-dot">{String(index + 1)}</span>
-            <b>{item.title}</b>
-            <small>{item.detail}</small>
-          </li>
-        ))}
-      </ol>
     </section>
   );
 }

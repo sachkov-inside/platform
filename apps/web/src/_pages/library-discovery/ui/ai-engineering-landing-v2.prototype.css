@@ -1,7 +1,6 @@
 /* PROTOTYPE, prototype/ai-engineering-landing-v2: новые разделы лендинга курса. */
 
 .aie2-position,
-.aie2-method,
 .aie2-artifacts,
 .aie2-skills {
   margin-top: 6rem;
@@ -71,80 +70,6 @@
   background: color-mix(in srgb, var(--accent) 14%, var(--background));
   color: var(--foreground);
 }
-/* ---------- Метод: дорожка шагов ---------- */
-.aie2-method {
-  padding: 2.75rem 2.5rem 3rem;
-  border-radius: 1.5rem;
-  background: var(--primary);
-  color: var(--primary-foreground);
-}
-.aie2-method h2 {
-  color: var(--primary-foreground);
-}
-.ai-product-page .aie2-method > p {
-  color: color-mix(in srgb, var(--primary-foreground) 72%, var(--primary));
-}
-.aie2-method ol {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin: 2.75rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-/* Линия дорожки проходит через центры точек. */
-.aie2-method ol::before {
-  content: "";
-  position: absolute;
-  top: 1.125rem;
-  right: 6.25%;
-  left: 6.25%;
-  border-top: 1.5px solid
-    color-mix(in srgb, var(--primary-foreground) 22%, transparent);
-}
-.aie2-method li {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 0.35rem;
-  text-align: center;
-}
-.aie2-method-dot {
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  margin-bottom: 0.5rem;
-  border-radius: 50%;
-  font-family: var(--font-utility);
-  font-size: 0.85rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  box-shadow: 0 0 0 5px var(--primary);
-}
-.aie2-method [data-role="you"] .aie2-method-dot {
-  background: var(--accent);
-  color: var(--accent-foreground);
-}
-.aie2-method [data-role="together"] .aie2-method-dot {
-  background: var(--cover-lavender);
-  color: var(--cover-lavender-foreground);
-}
-.aie2-method [data-role="agent"] .aie2-method-dot {
-  background: var(--cover-mint);
-  color: var(--cover-mint-foreground);
-}
-.aie2-method li b {
-  font-size: 0.92rem;
-  font-weight: 650;
-  line-height: 1.25;
-}
-.aie2-method li small {
-  font-size: 0.78rem;
-  color: color-mix(in srgb, var(--primary-foreground) 62%, var(--primary));
-}
-
 /* ---------- Как это выглядит внутри: окно репозитория ---------- */
 .aie2-artifacts {
   display: grid;
@@ -315,13 +240,6 @@
 
 /* ---------- Планшет и телефон ---------- */
 @media (max-width: 63.999rem) {
-  .aie2-method ol {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    row-gap: 1.75rem;
-  }
-  .aie2-method ol::before {
-    display: none;
-  }
   .aie2-artifacts {
     grid-template-columns: 1fr;
     gap: 1.5rem;
@@ -329,7 +247,6 @@
 }
 @media (max-width: 47.999rem) {
   .aie2-position,
-  .aie2-method,
   .aie2-artifacts,
   .aie2-skills {
     margin-top: 4rem;
@@ -343,35 +260,6 @@
   }
   .aie2-roles > div {
     grid-template-columns: 1fr;
-  }
-  .aie2-method {
-    padding: 1.75rem 1.5rem 2rem;
-  }
-  /* На телефоне дорожка идёт сверху вниз: точка слева, подписи справа. */
-  .aie2-method ol {
-    grid-template-columns: 1fr;
-    row-gap: 0.9rem;
-    margin-top: 2rem;
-  }
-  .aie2-method ol::before {
-    display: block;
-    top: 1rem;
-    bottom: 1rem;
-    left: 1.125rem;
-    right: auto;
-    border-top: 0;
-    border-left: 1.5px solid
-      color-mix(in srgb, var(--primary-foreground) 22%, transparent);
-  }
-  .aie2-method li {
-    grid-template-columns: auto 1fr auto;
-    justify-items: start;
-    align-items: center;
-    column-gap: 0.85rem;
-    text-align: left;
-  }
-  .aie2-method-dot {
-    margin-bottom: 0;
   }
   .aie2-window {
     grid-template-columns: 1fr;
