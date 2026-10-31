@@ -746,6 +746,9 @@ function route(method, url, entitled) {
       product.slug === referenceProduct.slug
         ? chapterItems.length
         : Math.ceil(chapterItems.length / 2);
+    const linear = [...readerTitleFixtures.values()].some(
+      (fixture) => fixture.linear && fixture.product === product,
+    );
     return json({
       chapters: [
         {
@@ -775,13 +778,7 @@ function route(method, url, entitled) {
           name: "Продолжение",
           summary: "Следующие уроки.",
         },
-      ].filter(
-        (chapter) =>
-          chapter.materialIds.length > 0 &&
-          ![...readerTitleFixtures.values()].some(
-            (fixture) => fixture.linear && fixture.product === product,
-          ),
-      ),
+      ].filter((chapter) => chapter.materialIds.length > 0 && !linear),
       hasNext: false,
       items: items.map((lesson) => projection(lesson, entitled)),
       kind: "product",

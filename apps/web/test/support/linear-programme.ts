@@ -27,7 +27,7 @@ export async function expectLinearProgrammeReturn(
   mobile: boolean,
   href: string,
 ) {
-  // A streamed Reader first shows a loading frame with the same actions; React then removes it (#1908).
+  // A streamed Reader first shows a pending frame with the same actions; React then removes it (#1908).
   await expect(
     page.locator('[data-material-reader-state="available"]:visible'),
   ).toBeVisible();

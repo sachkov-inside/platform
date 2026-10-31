@@ -15,6 +15,11 @@ declare global {
 import { expectLinearProgrammeReturn } from "../support/linear-programme";
 import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
 
+/** The fake backend port is assigned by the navigation config before workers start. */
+function fakeBackendUrl() {
+  return `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+}
+
 const fixtureSchema = z.strictObject({
   scope: z.uuid(),
   productSlug: z.string().regex(/^reader-title-[0-9a-f-]+$/u),
@@ -26,7 +31,7 @@ async function provideReaderTitleFixture(
   layout: "course" | "linear",
   provideFixture: (fixture: ReaderTitleFixture) => Promise<void>,
 ) {
-  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const backend = fakeBackendUrl();
   const response = await request.post(
     `${backend}/__reader-title-fixtures?layout=${layout}`,
   );
@@ -95,7 +100,7 @@ async function signInReader(
   baseURL: string | undefined,
 ) {
   if (baseURL === undefined) throw new Error("Web origin required");
-  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const backend = fakeBackendUrl();
   const { wrapSession } = await import("@logto/node");
   await context.addCookies([
     {
@@ -182,7 +187,7 @@ test("Reader audit uses the identity of the existing programme after session set
 
 const linearReturnHref = "/products/linear/programme?page=1&at=lesson";
 
-/** Streaming shows the loading frame first; the Reader waits in a hidden segment until React swaps them. */
+/** Streaming shows the pending frame first; the Reader waits in a hidden segment until React swaps them. */
 function linearReturnDocument(revealed: boolean) {
   const actions = `<nav aria-label="Действия материала"><a href="${linearReturnHref}">Назад</a></nav><nav aria-label="Действия в конце материала"><a href="${linearReturnHref}">Назад</a></nav>`;
   const reader = `<div data-material-reader-state="available">${actions}<nav aria-label="Уроки продукта"><a href="${linearReturnHref}" aria-label="Программа, урок 1">1</a></nav></div>`;
@@ -191,7 +196,7 @@ function linearReturnDocument(revealed: boolean) {
     ? `<html><head>${head}</head><body><main>${reader}</main></body></html>`
     : `<html><head>${head}</head><body><main><div data-material-reader-state="pending">${actions}</div></main><div hidden>${reader}</div></body></html>`;
 }
-test("linear programme return rejects the Reader loading frame", async ({
+test("linear programme return rejects the Reader pending frame", async ({
   page,
 }, testInfo) => {
   await page.setContent(linearReturnDocument(false));
@@ -215,7 +220,7 @@ test("linear programme return accepts the revealed Reader", async ({
   await expect(action).toHaveAttribute("href", linearReturnHref);
 });
 
-test("streamed Reader replaces the loading frame and its return actions", async ({
+test("streamed Reader replaces the pending frame and its return actions", async ({
   page,
   context,
   baseURL,
@@ -223,7 +228,7 @@ test("streamed Reader replaces the loading frame and its return actions", async 
   linearReaderTitleFixture,
 }, testInfo) => {
   await signInReader(context, baseURL);
-  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const backend = fakeBackendUrl();
   const holdPersonalRead = async (held: boolean) => {
     const response = await request.post(
       `${backend}/__reader-title-fixtures/${linearReaderTitleFixture.scope}/personal-read-hold`,
@@ -243,7 +248,7 @@ test("streamed Reader replaces the loading frame and its return actions", async 
       .locator('[data-material-reader-state="pending"]:visible')
       .getByRole("navigation", { name: "Действия материала", exact: true })
       .getByRole("link", { name: "Назад", exact: true });
-    // The loading frame repeats the return actions of the Reader that later replaces it (#1908).
+    // The pending frame repeats the return actions of the Reader that later replaces it (#1908).
     await expect(loadingReturn).toHaveAttribute("href", from);
     const loadingNode = await loadingReturn.elementHandle();
     const ready = expectLinearProgrammeReturn(
@@ -260,7 +265,7 @@ test("streamed Reader replaces the loading frame and its return actions", async 
     await holdPersonalRead(false);
     const failure = await ready;
     if (failure !== undefined) throw failure;
-    // The helper returns only after React removed the loading frame and its actions.
+    // React has removed the pending frame together with its return actions.
     expect(await loadingNode.evaluate((node) => node.isConnected)).toBe(false);
   } finally {
     await holdPersonalRead(false);
