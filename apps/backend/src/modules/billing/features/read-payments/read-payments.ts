@@ -138,15 +138,17 @@ export async function refundDecisionViews(
 
 /**
  * События платежа для проверки владельцем (#1928): вторая оплата, подтверждение после отказа,
- * снятие попытки подтверждённой оплатой и покупка без платежа в банке. Фильтр `events: "review"`
- * выбирает покупки хотя бы с одним из них или с открытой отменой в банке; сторож production
- * сообщает о тех же видах. `bank_payment_absent` пишет #1922: в банке нет платежа покупки.
+ * снятие попытки подтверждённой оплатой, покупка без платежа в банке и неподтверждённая покупка
+ * с частичным возвратом, снятая с ожидания (#1929). Фильтр `events: "review"` выбирает покупки
+ * хотя бы с одним из них или с открытой отменой в банке; сторож production сообщает о тех же
+ * видах. `bank_payment_absent` пишет #1922: в банке нет платежа покупки.
  */
 export const reviewPaymentEventKinds = [
   "duplicate_payment_review",
   "payment_confirmed_after_failure",
   "superseded_by_confirmed_payment",
   "bank_payment_absent",
+  "partial_refund_released",
 ] as const;
 
 /**

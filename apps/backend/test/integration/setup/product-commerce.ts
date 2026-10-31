@@ -32,14 +32,6 @@ export function commerceValue<T>(
 }
 
 const value = commerceValue;
-
-/** Init, после которого в банке нет платежа: отказ с кодом ошибки, HTTP 503 или потерянный запрос. */
-export type InitFailure =
-  | { readonly errorCode: string; readonly message: string }
-  | "unavailable"
-  | "unreachable";
-type HeldInitAnswer = "answered" | "lost" | "unreachable";
-
 export function createProductCommerceFixture(db: TestDatabase, owner: string) {
   let now = new Date("2030-01-31T10:00:00Z");
   const config = syntheticTbankConfig({
@@ -188,12 +180,8 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       timeout = false,
       stateCalls = 0,
       cancelFailures = 0,
-      initGate:
-        | {
-            readonly arrived: () => void;
-            readonly released: Promise<HeldInitAnswer>;
-          }
-        | undefined,
+      initGate: BankGate | undefined,
+      stateGate: BankGate | undefined,
       initFailure: InitFailure | undefined,
       afterState: ((paymentId: string) => void) | undefined;
     // Каждый Init получает свой PaymentId, как в банке: повторная покупка не делит платёж с прежней.
@@ -202,16 +190,24 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     /** Платежи, созданные Init: GetState и Cancel отвечают о запрошенном платеже, а не о последнем. */
     const bankPayments = new Map<
       string,
-      { orderId: string; status?: string }
+      { orderId: string; amount: number; status?: string }
     >();
+    /** Суммы, с которыми Init может прийти: цена расчёта сценария и цены, разрешённые тестом. */
+    const initAmounts = new Set([quote.snapshot.firstPriceKopecks]);
     const cancelRequests: Record<string, unknown>[] = [];
     const paymentStatus = (id: string) =>
       bankPayments.get(id)?.status ?? status;
-    const event = (nextStatus = status, extra = {}) => ({
+    // Сумма платежа та, с которой его создал Init; платёж вне банка несёт цену расчёта сценария.
+    const event = (
+      nextStatus = status,
+      extra: { PaymentId?: string } & Record<string, unknown> = {},
+    ) => ({
       TerminalKey: config.terminalKey,
       OrderId: orderId,
       PaymentId: paymentId,
-      Amount: quote.snapshot.firstPriceKopecks,
+      Amount:
+        bankPayments.get(extra.PaymentId ?? paymentId)?.amount ??
+        quote.snapshot.firstPriceKopecks,
       Status: nextStatus,
       Success: true,
       ErrorCode: "0",
@@ -222,6 +218,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         .object({
           OrderId: z.string().optional(),
           PaymentId: z.string().optional(),
+          Amount: z.number().optional(),
         })
         .loose()
         .parse(JSON.parse(init.body));
@@ -245,10 +242,9 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
             Details: "",
           });
         const created = { orderId, paymentId };
-        bankPayments.set(paymentId, { orderId });
-        expect(body).toMatchObject({
-          Amount: quote.snapshot.firstPriceKopecks,
-        });
+        const amount = z.number().parse(body.Amount);
+        expect(initAmounts).toContain(amount);
+        bankPayments.set(paymentId, { orderId, amount });
         expect(body).not.toHaveProperty("Recurrent");
         if (timeout) throw new Error("Synthetic lost Init answer");
         if (initGate !== undefined) {
@@ -287,6 +283,10 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         });
       if (url.endsWith("/GetState")) {
         stateCalls++;
+        if (stateGate !== undefined) {
+          stateGate.arrived();
+          await stateGate.released;
+        }
         const requested = z.string().parse(body.PaymentId);
         const known = bankPayments.get(requested);
         const answer =
@@ -327,7 +327,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
           Status: after,
           Success: after !== before,
           ErrorCode: after !== before ? "0" : "4",
-          OriginalAmount: quote.snapshot.firstPriceKopecks,
+          OriginalAmount: known.amount,
           NewAmount: 0,
         });
       }
@@ -385,6 +385,10 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         known.status = next;
       },
       cancelRequests: () => [...cancelRequests],
+      /** Init может прийти и с этой суммой: например, с ценой ссылки на оплату. */
+      allowInitAmount: (amount: number) => {
+        initAmounts.add(amount);
+      },
       /** Следующие `count` запросов Cancel не доходят до банка. */
       failCancel: (count = 1) => {
         cancelFailures = count;
@@ -399,26 +403,51 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
        * теряет ответ, а платёж в банке остаётся; `release("unreachable")` теряет и сам платёж.
        */
       holdInit: () => {
-        const signals: {
-          arrived?: () => void;
-          release?: (answer: HeldInitAnswer) => void;
-        } = {};
-        const arrived = new Promise<void>((resolve) => {
-          signals.arrived = resolve;
+        const gate = bankGate(() => {
+          initGate = undefined;
         });
-        const released = new Promise<HeldInitAnswer>((resolve) => {
-          signals.release = resolve;
+        initGate = gate.gate;
+        return gate.control;
+      },
+      /** Ответ на следующий GetState ждёт `release`; `arrived` завершается, когда запрос дошёл до банка. */
+      holdState: () => {
+        const gate = bankGate(() => {
+          stateGate = undefined;
         });
-        initGate = {
-          arrived: () => signals.arrived?.(),
-          released,
-        };
+        stateGate = gate.gate;
+        return gate.control;
+      },
+      /** Покупатель снова нажимает «Оплатить»: новый расчёт, новое согласие и новая команда покупки. */
+      repeatCommand: async () => {
+        const repeatQuote = value(
+          await facets.pricing.quote(buyer, {
+            operationId: randomUUID(),
+            productId,
+            priceRevision: 1,
+          }),
+        );
+        const repeatConsent = await facets.contact.acceptConsents(
+          buyer,
+          pressedPaymentButton({
+            operationId: randomUUID(),
+            contextRef: repeatQuote.quoteRef,
+            documents: [
+              {
+                kind: "terms",
+                documentId: facets.document.documentId,
+                version: facets.document.version,
+                digest: facets.document.digest,
+                accepted: true,
+              },
+            ],
+          }),
+        );
+        if (!repeatConsent.ok) throw new Error(repeatConsent.error.code);
         return {
-          arrived,
-          release: (answer: HeldInitAnswer = "answered") => {
-            initGate = undefined;
-            signals.release?.(answer);
-          },
+          ...command,
+          operationId: randomUUID(),
+          quoteRef: repeatQuote.quoteRef,
+          consentEvidenceRefs: repeatConsent.evidenceRefs,
         };
       },
     };
@@ -431,6 +460,49 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       now = time;
     },
     time: () => now,
+  };
+}
+
+/** Init, после которого в банке нет платежа: отказ с кодом ошибки, HTTP 503 или потерянный запрос. */
+export type InitFailure =
+  | { readonly errorCode: string; readonly message: string }
+  | "unavailable"
+  | "unreachable";
+/** Чем кончается задержанный запрос: ответом, потерей ответа или потерей самого запроса. */
+type HeldAnswer = "answered" | "lost" | "unreachable";
+
+/** Запрос к двойнику банка ждёт `release`; `arrived` сообщает, что запрос уже дошёл. */
+interface BankGate {
+  readonly arrived: () => void;
+  readonly released: Promise<HeldAnswer>;
+}
+
+function bankGate(clear: () => void): {
+  readonly gate: BankGate;
+  readonly control: {
+    readonly arrived: Promise<void>;
+    readonly release: (answer?: HeldAnswer) => void;
+  };
+} {
+  const signals: {
+    arrived?: () => void;
+    release?: (answer: HeldAnswer) => void;
+  } = {};
+  const arrived = new Promise<void>((resolve) => {
+    signals.arrived = resolve;
+  });
+  const released = new Promise<HeldAnswer>((resolve) => {
+    signals.release = resolve;
+  });
+  return {
+    gate: { arrived: () => signals.arrived?.(), released },
+    control: {
+      arrived,
+      release: (answer: HeldAnswer = "answered") => {
+        clear();
+        signals.release?.(answer);
+      },
+    },
   };
 }
 

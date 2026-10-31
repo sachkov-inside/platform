@@ -1,8 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { declinedPaymentRecheckMilliseconds } from "../../src/modules/billing/facets/billing-payments/billing-payments.js";
-import { pressedPaymentButton } from "./setup/consent-documents.js";
 import {
   createProductCommerceWorld,
   commerceValue as value,
@@ -17,42 +15,6 @@ beforeAll(async () => {
   world = await createProductCommerceWorld();
 });
 afterAll(async () => world.dispose());
-
-type Scenario = Awaited<ReturnType<typeof world.scenario>>;
-
-/** Покупатель снова нажимает «Оплатить»: новый расчёт, новое согласие и новая команда покупки. */
-async function repeatPurchaseCommand(s: Scenario) {
-  const quote = value(
-    await s.pricing.quote(s.buyer, {
-      operationId: randomUUID(),
-      productId: s.productId,
-      priceRevision: 1,
-    }),
-  );
-  const consent = await s.contact.acceptConsents(
-    s.buyer,
-    pressedPaymentButton({
-      operationId: randomUUID(),
-      contextRef: quote.quoteRef,
-      documents: [
-        {
-          kind: "terms",
-          documentId: s.document.documentId,
-          version: s.document.version,
-          digest: s.document.digest,
-          accepted: true,
-        },
-      ],
-    }),
-  );
-  if (!consent.ok) throw new Error(consent.error.code);
-  return {
-    ...s.command,
-    operationId: randomUUID(),
-    quoteRef: quote.quoteRef,
-    consentEvidenceRefs: consent.evidenceRefs,
-  };
-}
 
 async function eventKinds(purchaseRef: string) {
   const rows = await world.db.prisma.billingPaymentEvent.findMany({
@@ -87,7 +49,7 @@ async function retiredRepeat() {
   const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
   await s.notify("REJECTED");
   const repeat = value(
-    await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s)),
+    await s.payments.purchase(s.buyer, await s.repeatCommand()),
   );
   const repeatPaymentId = s.paymentId();
   expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
@@ -180,7 +142,7 @@ test("a retired attempt that the bank confirmed before the cancel is confirmed a
   expect((await purchaseState(repeat.purchaseRef)).state).toBe("confirmed");
   expect(
     await eventPayload(repeat.purchaseRef, "duplicate_payment_review"),
-  ).toEqual({ paidPurchaseRefs: [first.purchaseRef] });
+  ).toEqual({ paidPurchaseRefs: [first.purchaseRef], heldProductIds: [] });
 });
 
 test("a buyer who pays between the reconciliation read and the cancel is confirmed, and no Cancel is sent", async () => {
@@ -202,7 +164,7 @@ test("a buyer who pays between the reconciliation read and the cancel is confirm
   expect((await purchaseState(repeat.purchaseRef)).state).toBe("confirmed");
   expect(
     await eventPayload(repeat.purchaseRef, "duplicate_payment_review"),
-  ).toEqual({ paidPurchaseRefs: [first.purchaseRef] });
+  ).toEqual({ paidPurchaseRefs: [first.purchaseRef], heldProductIds: [] });
 });
 
 test("a buyer who pays between the cancel check and the Cancel gets the money back, and the owner sees it", async () => {
@@ -250,7 +212,7 @@ test("recovery cancels a form retired late in the attempt's first day until a da
     };
     await s.notify("REJECTED");
     const repeat = value(
-      await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s)),
+      await s.payments.purchase(s.buyer, await s.repeatCommand()),
     );
     const repeatPaymentId = s.paymentId();
     world.setTime(new Date(start.getTime() + 20 * 60 * 60 * 1000));
@@ -276,7 +238,7 @@ test("a buyer repeating the retired purchase command sees the failed attempt wit
   const first = value(await s.payments.purchase(s.buyer, s.command));
   const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
   await s.notify("REJECTED");
-  const repeatCommand = await repeatPurchaseCommand(s);
+  const repeatCommand = await s.repeatCommand();
   const repeat = value(await s.payments.purchase(s.buyer, repeatCommand));
   expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
     ok: true,
@@ -310,6 +272,38 @@ test("an unavailable Cancel is sent again by the next recovery and closes with C
   });
 });
 
+test("a Cancel that keeps failing is retried on the decaying schedule counted from the retirement (#1929)", async () => {
+  const start = world.time();
+  try {
+    const s = await world.scenario();
+    const first = value(await s.payments.purchase(s.buyer, s.command));
+    const firstPayment = {
+      OrderId: first.purchaseRef,
+      PaymentId: s.paymentId(),
+    };
+    await s.notify("REJECTED");
+    value(await s.payments.purchase(s.buyer, await s.repeatCommand()));
+    const retiredAt = start.getTime() + 20 * 60 * 60 * 1000;
+    world.setTime(new Date(retiredAt));
+    expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
+      ok: true,
+    });
+    s.failCancel(10);
+    world.setTime(new Date(retiredAt + 60_000));
+    value(await s.payments.recover());
+    expect(s.cancelRequests()).toHaveLength(1);
+    // Следующий проход той же минуты банк не спрашивает.
+    value(await s.payments.recover());
+    expect(s.cancelRequests()).toHaveLength(1);
+    // Снятие было минуту назад, а не 20 часов: шаг опроса ещё минутный.
+    world.setTime(new Date(retiredAt + 2 * 60_000));
+    value(await s.payments.recover());
+    expect(s.cancelRequests()).toHaveLength(2);
+  } finally {
+    world.setTime(start);
+  }
+});
+
 test("a bank-declined attempt reopened on its payment form is never cancelled", async () => {
   const s = await world.scenario();
   const purchase = value(await s.payments.purchase(s.buyer, s.command));
@@ -329,10 +323,7 @@ test("an attempt retired while its Init was in flight keeps the late PaymentId a
   const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
   await s.notify("REJECTED");
   const init = s.holdInit();
-  const repeatStarted = s.payments.purchase(
-    s.buyer,
-    await repeatPurchaseCommand(s),
-  );
+  const repeatStarted = s.payments.purchase(s.buyer, await s.repeatCommand());
   // Банк уже создал платёж повторной попытки, но его ответ ещё не дошёл до Inside.
   await init.arrived;
   const repeatPaymentId = s.paymentId();
@@ -370,10 +361,7 @@ async function retiredWithLostInit(answer: "lost" | "unreachable") {
   const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
   await s.notify("REJECTED");
   const init = s.holdInit();
-  const repeatStarted = s.payments.purchase(
-    s.buyer,
-    await repeatPurchaseCommand(s),
-  );
+  const repeatStarted = s.payments.purchase(s.buyer, await s.repeatCommand());
   await init.arrived;
   const repeatPaymentId = s.paymentId();
   const { id: repeatRef } =
@@ -442,7 +430,7 @@ async function unknownRepeat() {
   const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
   await s.notify("REJECTED");
   s.loseInit();
-  await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s));
+  await s.payments.purchase(s.buyer, await s.repeatCommand());
   const repeat = await world.db.prisma.billingPurchase.findFirstOrThrow({
     where: { accountId: s.buyer, id: { not: first.purchaseRef } },
   });
@@ -484,8 +472,11 @@ test("an unknown repeat attempt that the bank reports paid is confirmed as a sec
   value(await s.payments.recover());
   expect(s.cancelRequests()).toEqual([]);
   expect((await purchaseState(repeat.id)).state).toBe("confirmed");
+  // Сверка выдаёт доступ по первой оплате до запросов к банку (#1929), поэтому вторая оплата
+  // видит продукт уже выданным.
   expect(await eventPayload(repeat.id, "duplicate_payment_review")).toEqual({
     paidPurchaseRefs: [first.purchaseRef],
+    heldProductIds: [s.productId],
   });
   expect(await eventPayload(repeat.id, "bank_cancel_confirmed")).toEqual({
     paymentId: repeatPaymentId,

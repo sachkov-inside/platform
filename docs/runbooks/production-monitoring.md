@@ -7,11 +7,11 @@
 
 Мониторинг состоит из трёх частей:
 
-| Часть                             | Где работает                        | Как часто                   | Что замечает                                                             |
-| --------------------------------- | ----------------------------------- | --------------------------- | ------------------------------------------------------------------------ |
-| Сторож `inside-watchdog`          | systemd timer на production-сервере | раз в минуту                | контейнеры, память, диск, бэкап, путь покупателя в базе, бот, журналы    |
-| Workflow `Production monitor`     | GitHub-hosted runner                | раз в 10 минут              | сайт, публичный API потоков, discovery Logto, срок TLS; потерю всего VPS |
-| Workflow `Production access pass` | GitHub-hosted runner                | раз в сутки и после выпуска | вход тестовыми identities и доступ к материалам                          |
+| Часть | Где работает | Как часто | Что замечает |
+|---|---|---|---|
+| Сторож `inside-watchdog` | systemd timer на production-сервере | раз в минуту | контейнеры, память, диск, бэкап, путь покупателя в базе, бот, журналы |
+| Workflow `Production monitor` | GitHub-hosted runner | раз в 10 минут | сайт, публичный API потоков, discovery Logto, срок TLS; потерю всего VPS |
+| Workflow `Production access pass` | GitHub-hosted runner | раз в сутки и после выпуска | вход тестовыми identities и доступ к материалам |
 
 Внешняя проверка читает Web на `https://sachkov.dev/`, публичный API потоков на
 `https://inside.sachkov.dev/billing/product-sales-states` и discovery на `https://auth.sachkov.dev`.
@@ -37,39 +37,39 @@
 `running` старше часа значит, что операцию убили без журнала; тогда сторож работает и сообщает об
 этом.
 
-| Шаг пути            | Условие                                                                                                                                                                                         | Запусков подряд |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| Процессы            | контейнер проектов Platform, PostgreSQL, Logto или Telegram `unhealthy`                                                                                                                         | 2               |
-| Процессы            | контейнер в любом состоянии, кроме `running`, `created` и `exited` с кодом 0                                                                                                                    | 1               |
-| Процессы            | у контейнера `OOMKilled: true`                                                                                                                                                                  | 1               |
-| Сервер              | доступно меньше 300 MiB памяти                                                                                                                                                                  | 2               |
-| Сервер              | корневой диск занят больше чем на 85%                                                                                                                                                           | 1               |
-| Бэкап               | последний запуск `inside-pgbackrest-backup@{incr,diff,full}` не `success`; таймер не `active`                                                                                                   | 1               |
-| Бэкап               | самый свежий успешный бэкап старше 8 часов                                                                                                                                                      | 1               |
-| Оплата              | покупка в `unknown` или `authorized` дольше 15 минут                                                                                                                                            | 1               |
-| Оплата              | покупка в `sent` или `pending` дольше 25 часов                                                                                                                                                  | 1               |
-| Выдача доступа      | строка `billing.fulfillment_outbox` без `applied_at` дольше 5 минут после события оплаты                                                                                                        | 1               |
-| Письма              | строка трёх `notification_outbox` без `published_at` дольше 10 минут                                                                                                                            | 1               |
-| Письма              | `notifications.email_effects` в `accepted`, `retrying` или `unknown` дольше 10 минут                                                                                                            | 1               |
-| Фоновая работа      | у `billing.payment-recovery` нет `completed` за 5 минут                                                                                                                                         | 2               |
-| События оплаты      | в `billing.payment_events` за сутки есть `duplicate_payment_review`, `payment_confirmed_after_failure`, `superseded_by_confirmed_payment` или `bank_payment_absent`; у каждого вида свой сигнал | 1               |
-| События оплаты      | `bank_cancel_requested` старше 30 минут и моложе 48 часов без `bank_cancel_confirmed` и `bank_payment_absent` той же покупки, покупка не `confirmed`                                            | 1               |
-| Оплата              | у Account больше 3 неуспешных разовых покупок без PaymentId за час; сигнал считает аккаунты                                                                                                     | 1               |
-| Бот                 | Telegram `/ready` не отвечает 200                                                                                                                                                               | 2               |
-| Бот                 | `getWebhookInfo` сообщает ошибку доставки за 10 минут                                                                                                                                           | 1               |
-| Бот                 | `getWebhookInfo` не читается через настроенный маршрут                                                                                                                                          | 2               |
-| Выпуск              | `operation.json` в `running` дольше часа без новой фазы                                                                                                                                         | 1               |
-| Бот                 | у webhook больше 100 необработанных обновлений                                                                                                                                                  | 2               |
-| Вступление в группу | `community_operations` в базе `inside_telegram` перешла в `failed` или `unknown` за 10 минут                                                                                                    | 1               |
-| Вступление в группу | `inside_telegram_community_oldest_due_seconds` больше 600                                                                                                                                       | 1               |
-| Активация в боте    | `inside_telegram_activation_oldest_pending_seconds` больше 600                                                                                                                                  | 1               |
-| Бот                 | `update_failed_total` или `delivery_api_rejected_total` выросли за 10 минут                                                                                                                     | 1               |
-| Webhook банка       | ответ не 200 на `/billing/tbank/notification` в журнале `api` за час, кроме ожидаемой 400-пробы verify                                                                                          | 1               |
-| Фоновая работа      | `"status":"operator_attention"` в журнале процесса Platform за 5 минут                                                                                                                          | 1               |
-| Вход                | 5 и больше событий `authentication_failed` в журнале `web` за 10 минут                                                                                                                          | 1               |
-| Web telemetry       | рост ошибок, новый digest/route, ≥480 MB schema или dropped quota; [пороги](web-telemetry.md)                                                                                                   | 1               |
-| Web telemetry       | `web-telemetry.retention` не завершалась за 26 часов                                                                                                                                            | 1               |
-| Web telemetry       | `web-telemetry-unavailable` или `client-report-limit-reached` в журнале web за 5 минут                                                                                                          | 1               |
+| Шаг пути | Условие | Запусков подряд |
+|---|---|---|
+| Процессы | контейнер проектов Platform, PostgreSQL, Logto или Telegram `unhealthy` | 2 |
+| Процессы | контейнер в любом состоянии, кроме `running`, `created` и `exited` с кодом 0 | 1 |
+| Процессы | у контейнера `OOMKilled: true` | 1 |
+| Сервер | доступно меньше 300 MiB памяти | 2 |
+| Сервер | корневой диск занят больше чем на 85% | 1 |
+| Бэкап | последний запуск `inside-pgbackrest-backup@{incr,diff,full}` не `success`; таймер не `active` | 1 |
+| Бэкап | самый свежий успешный бэкап старше 8 часов | 1 |
+| Оплата | покупка в `unknown` или `authorized` дольше 15 минут | 1 |
+| Оплата | покупка в `sent` или `pending` дольше 25 часов | 1 |
+| Выдача доступа | строка `billing.fulfillment_outbox` без `applied_at` дольше 5 минут после события оплаты | 1 |
+| Письма | строка трёх `notification_outbox` без `published_at` дольше 10 минут | 1 |
+| Письма | `notifications.email_effects` в `accepted`, `retrying` или `unknown` дольше 10 минут | 1 |
+| Фоновая работа | у `billing.payment-recovery` нет `completed` за 5 минут | 2 |
+| События оплаты | в `billing.payment_events` за сутки есть `duplicate_payment_review`, `payment_confirmed_after_failure`, `superseded_by_confirmed_payment`, `bank_payment_absent` или `partial_refund_released`; у каждого вида свой сигнал | 1 |
+| События оплаты | `bank_cancel_requested` старше 30 минут и моложе 48 часов без `bank_cancel_confirmed` и `bank_payment_absent` той же покупки, покупка не `confirmed` | 1 |
+| Оплата | у Account больше 3 неуспешных разовых покупок без PaymentId за час; сигнал считает аккаунты | 1 |
+| Бот | Telegram `/ready` не отвечает 200 | 2 |
+| Бот | `getWebhookInfo` сообщает ошибку доставки за 10 минут | 1 |
+| Бот | `getWebhookInfo` не читается через настроенный маршрут | 2 |
+| Выпуск | `operation.json` в `running` дольше часа без новой фазы | 1 |
+| Бот | у webhook больше 100 необработанных обновлений | 2 |
+| Вступление в группу | `community_operations` в базе `inside_telegram` перешла в `failed` или `unknown` за 10 минут | 1 |
+| Вступление в группу | `inside_telegram_community_oldest_due_seconds` больше 600 | 1 |
+| Активация в боте | `inside_telegram_activation_oldest_pending_seconds` больше 600 | 1 |
+| Бот | `update_failed_total` или `delivery_api_rejected_total` выросли за 10 минут | 1 |
+| Webhook банка | ответ не 200 на `/billing/tbank/notification` в журнале `api` за час, кроме ожидаемой 400-пробы verify | 1 |
+| Фоновая работа | `"status":"operator_attention"` в журнале процесса Platform за 5 минут | 1 |
+| Вход | 5 и больше событий `authentication_failed` в журнале `web` за 10 минут | 1 |
+| Web telemetry | рост ошибок, новый digest/route, ≥480 MB schema или dropped quota; [пороги](web-telemetry.md) | 1 |
+| Web telemetry | `web-telemetry.retention` не завершалась за 26 часов | 1 |
+| Web telemetry | `web-telemetry-unavailable` или `client-report-limit-reached` в журнале web за 5 минут | 1 |
 
 Отрицательная проба `production:verify` получает в журнале API `probe: "production_verify"`.
 API ставит признак только пустому POST на `/billing/tbank/notification` с точным служебным маркером и ответом 400.
@@ -87,14 +87,15 @@ Caddy удаляет маркер у соединений вне `127.0.0.1` и 
 без идентификаторов покупок. Каждое новое событие за сутки поднимает число и даёт строку «Хуже».
 Если за одну минуту одно событие вышло из окна, а другое вошло, число не меняется и строки «Хуже» нет.
 
-| Сигнал                                              | Что сделать                                                        |
-| --------------------------------------------------- | ------------------------------------------------------------------ |
-| Вторая оплата (`duplicate_payment_review`)          | открыть покупку и решить о возврате второй оплаты                  |
-| Подтверждение банка после отказа                    | проверить, что доступ выдан и снятые попытки закрыты               |
-| Попытки сняты подтверждённой оплатой                | проверить, что снятые попытки не оплачены в банке                  |
-| Покупки без платежа в банке (`bank_payment_absent`) | проверить причину отказа Init; покупатель может купить снова       |
-| Отмена в банке не подтверждена                      | сверить покупку и при необходимости закрыть форму в кабинете банка |
-| Всплеск неуспешных покупок без PaymentId            | найти покупателя по состоянию «Не прошёл» и проверить Init         |
+| Сигнал | Что сделать |
+|---|---|
+| Вторая оплата (`duplicate_payment_review`) | открыть покупку и решить о возврате второй оплаты |
+| Подтверждение банка после отказа | проверить, что доступ выдан и снятые попытки закрыты |
+| Попытки сняты подтверждённой оплатой | проверить, что снятые попытки не оплачены в банке |
+| Покупки без платежа в банке (`bank_payment_absent`) | проверить причину отказа Init; покупатель может купить снова |
+| Частичный возврат без подтверждённой оплаты (`partial_refund_released`) | сверить сумму в кабинете банка и решить: вернуть остаток или выдать доступ; покупатель может купить снова |
+| Отмена в банке не подтверждена | сверить покупку и при необходимости закрыть форму в кабинете банка |
+| Всплеск неуспешных покупок без PaymentId | найти покупателя по состоянию «Не прошёл» и проверить Init |
 
 Покупки с этими событиями показывает список платежей владельца. В фильтре «События оплаты» нужно
 выбрать «Есть события для проверки» (`/authoring/sales/payments?events=review`). Отмена в банке
@@ -104,11 +105,22 @@ Caddy удаляет маркер у соединений вне `127.0.0.1` и 
 Сторож ищет `bank_payment_absent` ([#1922](https://github.com/sachkov-inside/platform/issues/1922)),
 `bank_cancel_requested` и `bank_cancel_confirmed` ([#1923](https://github.com/sachkov-inside/platform/issues/1923))
 по имени. `bank_payment_absent` пишется, когда в банке нет платежа покупки: Init не ушёл, банк
-отказал без PaymentId или CheckOrder не находит платежей через 30 минут после первого пустого ответа. Причина лежит в
-`payload.reason`. Покупка без ответа на Init сначала остаётся в `unknown`, и её ловит сигнал
-«покупка в `unknown` дольше 15 минут». После `bank_payment_absent` она в `failed`, и сигнал
-всплеска считает её, если покупка создана в последний час. У снятой попытки это событие закрывает и
-отметку отмены: отменять в банке нечего.
+отказал без PaymentId или CheckOrder не находит платежей через 30 минут после первого пустого
+ответа. Причина лежит в `payload.reason`. Покупка без ответа на Init сначала остаётся в `unknown`,
+и её ловит сигнал «покупка в `unknown` дольше 15 минут». После `bank_payment_absent` она в `failed`,
+и сигнал всплеска считает её, если покупка создана в последний час. У снятой попытки это событие
+закрывает и отметку отмены: отменять в банке нечего.
+
+Подписанный статус банка не из [справочника T-Bank](https://developer.tbank.ru/eacq/intro/developer/operation-statuses)
+получает ответ `OK` и переводит открытую покупку в `unknown` (#1930). Её ловит тот же сигнал «покупка
+в `unknown` дольше 15 минут». Карточка платежа показывает событие `bank_status_unrecognized`, а сам
+статус хранит его `payload` в `billing.payment_events`. Нужно сверить платёж в кабинете банка и
+добавить статус в `infrastructure/tbank/tbank.ts`.
+
+Сигнал «Выдача доступа» держится и для строки с отметкой проверки: у неё нет `applied_at`. Отметку
+ставит выдача, которая без владельца не завершится: аккаунт покупателя удалён (`account_deleted`,
+#1930) или историческую покупку нельзя сопоставить с продуктом. Карточка платежа показывает событие
+`fulfillment_review_required`, а причину хранит `review_reason` строки `billing.fulfillment_outbox`.
 
 Почему пороги такие:
 
@@ -136,12 +148,12 @@ Caddy удаляет маркер у соединений вне `127.0.0.1` и 
 `/var/lib/inside/watchdog/signals.log` (последние 1000 строк). Доставка владельцу настраивается в
 `/etc/inside/watchdog/watchdog.env` (`root:root`, `0600`), строки `KEY=value` без кавычек:
 
-| Ключ                                                                | Назначение                                                                                            |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `WATCHDOG_TELEGRAM_BOT_TOKEN`, `WATCHDOG_TELEGRAM_CHAT_ID`          | бот сигналов и личный чат владельца                                                                   |
-| `WATCHDOG_TELEGRAM_RELAY_ADDRESS`                                   | необязательный адрес прежнего relay; по умолчанию и при пустой строке используется прямой DNS-маршрут |
-| `WATCHDOG_SMTP_URL`, `WATCHDOG_SMTP_USER`, `WATCHDOG_SMTP_PASSWORD` | почта запасным путём, например `smtps://smtp.example:465`                                             |
-| `WATCHDOG_EMAIL_FROM`, `WATCHDOG_EMAIL_TO`                          | отправитель и адрес владельца                                                                         |
+| Ключ | Назначение |
+|---|---|
+| `WATCHDOG_TELEGRAM_BOT_TOKEN`, `WATCHDOG_TELEGRAM_CHAT_ID` | бот сигналов и личный чат владельца |
+| `WATCHDOG_TELEGRAM_RELAY_ADDRESS` | необязательный адрес прежнего relay; по умолчанию и при пустой строке используется прямой DNS-маршрут |
+| `WATCHDOG_SMTP_URL`, `WATCHDOG_SMTP_USER`, `WATCHDOG_SMTP_PASSWORD` | почта запасным путём, например `smtps://smtp.example:465` |
+| `WATCHDOG_EMAIL_FROM`, `WATCHDOG_EMAIL_TO` | отправитель и адрес владельца |
 
 На [AMS](production-amsterdam.md) бот и сторож используют прямой маршрут Bot API.
 Для него `WATCHDOG_TELEGRAM_RELAY_ADDRESS` можно не задавать или оставить пустым;
@@ -232,7 +244,7 @@ GitHub Actions → `Production monitor` → `Run workflow`.
 - `docker logs --since` читает файлы журнала контейнера каждый запуск; при журнале около 100 MiB это
   заметный CPU. Журнал `api` сторож читает дважды: за 5 минут и за час для уведомлений банка.
   Замерить расход после первого выпуска: `systemctl show inside-watchdog.service
---property=CPUUsageNSec`.
+  --property=CPUUsageNSec`.
 - После перезагрузки сервера systemd не помнит прошлых бэкапов; возраст и итог бэкапа неизвестны до
   следующего запуска таймера, и сигналы о них сохраняют прежнее состояние до этого запуска.
 - Расписание GitHub Actions может опаздывать на минуты.

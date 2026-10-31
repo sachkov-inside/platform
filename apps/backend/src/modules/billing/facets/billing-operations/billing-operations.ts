@@ -199,7 +199,7 @@ export class BillingOperations {
   }
 
   /** Сверка незавершённых возвратов принадлежит процессу восстановления, не владельческой команде. */
-  reconcileRefunds(limit?: number) {
+  reconcileRefunds(limit?: number, budget?: AbortSignal) {
     return reconcileRefunds(
       {
         prisma: this.dependencies.prisma,
@@ -207,6 +207,7 @@ export class BillingOperations {
         payments: this.dependencies.payments,
       },
       limit,
+      budget,
     );
   }
 

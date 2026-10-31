@@ -447,7 +447,9 @@ test("when both attempts on one Payment Link are paid, the late confirmation is 
       },
       select: { payload: true },
     }),
-  ).toEqual({ payload: { paidPurchaseRefs: [repeat.purchaseRef] } });
+  ).toEqual({
+    payload: { paidPurchaseRefs: [repeat.purchaseRef], heldProductIds: [] },
+  });
 });
 
 test("a confirmation after a decline and a partial refund observation still retires the repeat attempt on the same Payment Link", async () => {
@@ -458,12 +460,12 @@ test("a confirmation after a decline and a partial refund observation still reti
   const repeat = value(
     await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s, link.id)),
   );
-  // Давнее правило: наблюдение частичного возврата переводит отказанную покупку в unknown.
+  // С #1929 частичный возврат оставляет отказанную покупку закрытой, а не переводит в unknown.
   expect(
     await s.notify("PARTIAL_REFUNDED", { ...firstPayment, Amount: 1000 }),
   ).toMatchObject({ ok: true });
   expect(value(await s.payments.status(s.buyer, first.purchaseRef)).state).toBe(
-    "unknown",
+    "failed",
   );
   expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
     ok: true,
@@ -566,7 +568,9 @@ test("a later confirmation of the unresolved repeat attempt is marked as a secon
       },
       select: { payload: true },
     }),
-  ).toEqual({ payload: { paidPurchaseRefs: [first.purchaseRef] } });
+  ).toEqual({
+    payload: { paidPurchaseRefs: [first.purchaseRef], heldProductIds: [] },
+  });
 });
 
 test("an archived Product blocks a new accepted quote while preserving existing holders", async () => {
@@ -1156,8 +1160,9 @@ test.each(["confirmed_first", "partial_first"] as const)(
       ok: true,
       value: {
         refundedKopecks: null,
+        // Неподтверждённая покупка снимается с ожидания и не держит продукт (#1929).
         ...(order === "partial_first"
-          ? { state: "unknown", access: "awaiting_payment" }
+          ? { state: "failed", access: "awaiting_payment" }
           : { access: "ready" }),
       },
     });

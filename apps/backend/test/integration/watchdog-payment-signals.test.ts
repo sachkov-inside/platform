@@ -133,6 +133,7 @@ it("reads no payment signals from an empty billing schema", async () => {
     payment_after_failure: 0,
     payment_superseded: 0,
     payment_bank_absent: 0,
+    payment_partial_refund: 0,
     payment_cancel_open: 0,
     payment_failed_burst: 0,
   });
@@ -149,6 +150,8 @@ it("counts recent payment events, open bank cancellations and failed bursts", as
   await event(recent, "superseded_by_confirmed_payment", "1 minute");
   await event(other, "superseded_by_confirmed_payment", "23 hours");
   await event(recent, "bank_payment_absent", "1 minute");
+  await event(recent, "partial_refund_released", "1 minute");
+  await event(older, "partial_refund_released", "25 hours");
   await event(recent, "payment_confirmed", "1 minute");
 
   // Open: requested 40 minutes ago, never confirmed. Closed, absent at the bank, too fresh,
@@ -197,6 +200,7 @@ it("counts recent payment events, open bank cancellations and failed bursts", as
     payment_after_failure: 1,
     payment_superseded: 2,
     payment_bank_absent: 2,
+    payment_partial_refund: 1,
     payment_cancel_open: 1,
     payment_failed_burst: 1,
   });

@@ -338,11 +338,17 @@ describe("payment presentation", () => {
     expect(paymentEventLabel("bank_cancel_requested")).toBe(
       "Попытка снята, сверка закроет её форму оплаты в банке",
     );
+    expect(paymentEventLabel("replaced_by_new_price")).toBe(
+      "Попытка заменена покупкой по другой цене",
+    );
     expect(paymentEventLabel("bank_cancel_confirmed")).toBe(
       "Банк закрыл форму оплаты снятой попытки",
     );
     expect(paymentEventLabel("bank_cancel_returned_payment")).toBe(
       "Покупатель успел оплатить снятую попытку, отмена вернула деньги",
+    );
+    expect(paymentEventLabel("bank_status_unrecognized")).toBe(
+      "Банк прислал статус не из справочника, покупку проверит сверка",
     );
     expect(paymentEventLabel("bank_order_empty")).toBe(
       "Банк не нашёл платёж по заказу, сверка проверит снова",

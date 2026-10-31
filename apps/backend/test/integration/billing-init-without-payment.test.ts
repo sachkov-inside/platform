@@ -1,9 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
 import { CoverageCatalog } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { BillingPayments } from "../../src/modules/billing/index.js";
-import { pressedPaymentButton } from "./setup/consent-documents.js";
 import {
   createProductCommerceWorld,
   commerceValue as value,
@@ -27,40 +25,6 @@ afterAll(async () => world.dispose());
 type Scenario = Awaited<ReturnType<typeof world.scenario>>;
 const minute = 60_000;
 
-/** Покупатель снова нажимает «Оплатить»: новый расчёт, новое согласие и новая команда покупки. */
-async function repeatPurchaseCommand(s: Scenario) {
-  const quote = value(
-    await s.pricing.quote(s.buyer, {
-      operationId: randomUUID(),
-      productId: s.productId,
-      priceRevision: 1,
-    }),
-  );
-  const consent = await s.contact.acceptConsents(
-    s.buyer,
-    pressedPaymentButton({
-      operationId: randomUUID(),
-      contextRef: quote.quoteRef,
-      documents: [
-        {
-          kind: "terms",
-          documentId: s.document.documentId,
-          version: s.document.version,
-          digest: s.document.digest,
-          accepted: true,
-        },
-      ],
-    }),
-  );
-  if (!consent.ok) throw new Error(consent.error.code);
-  return {
-    ...s.command,
-    operationId: randomUUID(),
-    quoteRef: quote.quoteRef,
-    consentEvidenceRefs: consent.evidenceRefs,
-  };
-}
-
 async function purchaseRow(purchaseRef: string) {
   return world.db.prisma.billingPurchase.findUniqueOrThrow({
     where: { id: purchaseRef },
@@ -81,7 +45,7 @@ async function events(purchaseRef: string) {
 async function expectNewPurchase(s: Scenario, closedRef: string) {
   const initCalls = s.initCalls();
   const next = value(
-    await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s)),
+    await s.payments.purchase(s.buyer, await s.repeatCommand()),
   );
   expect(next.purchaseRef).not.toBe(closedRef);
   expect(next).toMatchObject({ state: "pending" });
