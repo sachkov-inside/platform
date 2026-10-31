@@ -62,13 +62,21 @@ agent-worktree stop --name web-preview
 
 ## Finish the session
 
-Follow `session-cleanup` for ownership checks and Git lifetime. When a task used the host resource
-CLI, inspect `pnpm worktree:status`, then run `pnpm worktree:cleanup` for its disposable tracked
-resources. The command preserves previews started with `--keep`; record their continuing owner in
-the handoff. Without the CLI, status and cleanup report its absence and change no resources. Resolve
-any manually acquired resources through their existing owners.
+Follow `session-cleanup`. Its `pnpm session:cleanup` prints a plan with a reason for each worktree
+decision, for each process it would stop or that still serves a kept worktree, and for each old
+temporary entry matching an explicit rule. The default run changes nothing; `--apply` acts on the
+plan. The rules are the decisions in `planWorktree`, `planProcess` and `temporaryRules` of
+[the script](../../scripts/session-cleanup.mjs); its header summarises them. Stashes, containers
+and volumes are never changed. Removal needs a running Docker engine when Docker is installed:
+without it, Compose use is unknown and candidate worktrees stay.
 
-Opening a PR can release disposable processes and temporary files. Keep the writing worktree and
-branch while that PR is open. After merge or closure, the existing `session-cleanup` checks decide
-whether its clean, remotely preserved worktree and branch can be removed. A host resource cleanup
-is not Git worktree deletion. Preserve resources whose ownership is uncertain.
+The project `.claude/settings.json` runs `--session-end` when a Claude Code session exits. It reports
+this worktree's unpublished work and running processes, what can be removed elsewhere, and any
+warning; it changes nothing. Claude Code shows SessionEnd output only for a non-zero status, so the
+report arrives as a "SessionEnd hook ... failed" message in the terminal.
+
+When a task used the host resource CLI, inspect `pnpm worktree:status`, then run
+`pnpm worktree:cleanup` for its disposable tracked resources. The command preserves previews started
+with `--keep`; record their continuing owner in the handoff. Without the CLI, status and cleanup
+report its absence and change no resources. `pnpm session:cleanup` keeps a worktree while the CLI
+tracks a process in it.
