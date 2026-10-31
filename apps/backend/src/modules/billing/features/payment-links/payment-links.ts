@@ -305,28 +305,11 @@ export async function selectPaymentLinkPrice(
   if (result.value.snapshot.paymentOption.id !== optionId)
     return failure("not_found");
   switch (result.value.state) {
-    case "active": {
-      // При опубликованной цене ссылка продаёт. При неопубликованной продаёт только ссылка, выданная
-      // при закрытой продаже, и только пока ревизия цены та же. Поэтому снятие с публикации закрывает
-      // и ссылки, выданные при открытой продаже, и выданные до открытия: открытие и закрытие меняют
-      // ревизию цены.
-      const current = await selectPrice(
-        tx,
-        result.value.snapshot.product?.id ?? optionId,
-        now,
-        undefined,
-        { allowUnpublished: true },
-      );
-      if (!current.ok) return failure("not_found");
-      if (
-        current.value.offer.published === false &&
-        (result.value.snapshot.offer.published !== false ||
-          current.value.paymentOption.revision !==
-            result.value.snapshot.paymentOption.revision)
-      )
-        return failure("not_found");
+    case "active":
+      // Ссылка продаёт по сохранённой цене независимо от правок и публикации текущей цены: снятие
+      // с публикации только убирает цену с витрины. Архив цены уже дал состояние `changed`, архив
+      // продукта отсекает проверка продажи при расчёте и оплате.
       return { ok: true, value: result.value.snapshot };
-    }
     case "pending":
     case "unknown":
     case "paid":

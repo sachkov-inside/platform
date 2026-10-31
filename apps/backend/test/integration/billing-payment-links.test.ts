@@ -83,9 +83,23 @@ test("Payment Link issued for an unpublished price is quoted at its saved price:
   );
   expect(quote.snapshot.firstPriceKopecks).toBe(180000);
 });
-test("closing a sale also closes a Payment Link issued before the sale opened", async () => {
+test("price edits and publication changes leave a Payment Link payable at its saved price", async () => {
   const s = await world.scenario();
-  const save = async (expectedRevision: number, published: boolean) =>
+  const link = value(
+    await s.pricing.managePaymentLink(world.owner, {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+      price: { kind: "amount", amountKopecks: 150000 },
+      expiresAt: null,
+    }),
+  );
+  for (const [expectedRevision, priceKopecks, published] of [
+    [1, 300000, false],
+    [2, 250000, true],
+    [3, 90000, false],
+  ] as const)
     value(
       await s.pricing.manage(world.owner, {
         operation: "productPrices.save",
@@ -94,33 +108,50 @@ test("closing a sale also closes a Payment Link issued before the sale opened", 
         value: {
           productId: s.productId,
           name: "Курс",
-          priceKopecks: 200000,
+          priceKopecks,
           published,
         },
       }),
     );
-  await save(1, false);
+  const buyer = await world.scenario({
+    productId: s.productId,
+    paymentLinkId: link.id,
+  });
+  const purchase = value(
+    await buyer.payments.purchase(buyer.buyer, buyer.command),
+  );
+  expect(purchase.snapshot.firstPriceKopecks).toBe(150000);
+});
+test("archiving the price closes the sale for its Payment Links", async () => {
+  const s = await world.scenario();
   const link = value(
     await s.pricing.managePaymentLink(world.owner, {
       operation: "paymentLinks.create",
       operationId: randomUUID(),
       productId: s.productId,
-      priceRevision: 2,
+      priceRevision: 1,
       price: { kind: "discount", percent: 10 },
       expiresAt: null,
     }),
   );
-  await save(2, true);
-  await save(3, false);
+  value(
+    await s.pricing.manage(world.owner, {
+      operation: "productPrices.archive",
+      operationId: randomUUID(),
+      expectedRevision: 1,
+      id: s.productId,
+    }),
+  );
   const other = await world.scenario();
   expect(
     await s.pricing.quote(other.buyer, {
       operationId: randomUUID(),
       productId: s.productId,
-      priceRevision: 2,
+      priceRevision: 1,
       paymentLinkId: link.id,
     }),
-  ).toMatchObject({ ok: false, error: { code: "not_found" } });
+  ).toMatchObject({ ok: false });
+  expect(value(await s.pricing.paymentLink(link.id)).state).toBe("changed");
 });
 test("link creation is owner-authorized and exact replay is stable", async () => {
   const s = await world.scenario();
