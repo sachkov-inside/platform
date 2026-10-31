@@ -136,6 +136,20 @@ export async function refundDecisionViews(
   );
 }
 
+/**
+ * События платежа, которые ждут решения владельца (#1928): вторая оплата, подтверждение после
+ * отказа, снятие попытки подтверждённой оплатой, покупка без платежа в банке и запрошенная отмена в
+ * банке. Фильтр `events: "review"` выбирает покупки хотя бы с одним из них; сторож production
+ * сообщает о тех же видах.
+ */
+export const reviewPaymentEventKinds = [
+  "duplicate_payment_review",
+  "payment_confirmed_after_failure",
+  "superseded_by_confirmed_payment",
+  "bank_payment_absent",
+  "bank_cancel_requested",
+] as const;
+
 type ListPaymentsCommand = Extract<
   OwnerOperation,
   { operation: "payments.list" }
@@ -219,6 +233,14 @@ export async function listPayments(
             : Prisma.sql`and purchase.state = 'confirmed' and exists (
                 select 1 from billing.fulfillment_outbox as fulfillment
                 where fulfillment.purchase_ref = purchase.id and fulfillment.applied_at is null)`
+        }
+        ${
+          command.events === undefined
+            ? Prisma.empty
+            : Prisma.sql`and exists (
+                select 1 from billing.payment_events as event
+                where event.purchase_ref = purchase.id
+                  and event.kind = any(${[...reviewPaymentEventKinds]}::text[]))`
         }
         ${
           command.cursor === undefined

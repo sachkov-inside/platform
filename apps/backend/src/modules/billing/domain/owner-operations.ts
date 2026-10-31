@@ -104,6 +104,11 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
      * строка без `appliedAt`, в том числе требующая разбора). Как и состояние, со временем меняется.
      */
     fulfillment: z.literal("incomplete").optional(),
+    /**
+     * `review`: покупка с событием, которое ждёт решения владельца: вторая оплата, подтверждение
+     * после отказа, снятие подтверждённой оплатой, отсутствие платежа в банке, отмена в банке.
+     */
+    events: z.literal("review").optional(),
     /** Период создания `[from, to)`; `from` раньше `to`. */
     from: z.iso.datetime({ offset: true }).optional(),
     to: z.iso.datetime({ offset: true }).optional(),

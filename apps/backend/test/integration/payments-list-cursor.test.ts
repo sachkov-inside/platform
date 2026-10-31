@@ -57,6 +57,18 @@ const rows = [
   { n: 7, createdAt: "00.000789", state: "failed", pending: false },
 ];
 
+/**
+ * Payment events per purchase. `events=review` keeps purchases with at least one event that waits
+ * for the owner (#1928); `payment_confirmed` alone does not.
+ */
+const events: Readonly<Record<number, readonly string[]>> = {
+  2: ["superseded_by_confirmed_payment"],
+  3: ["payment_confirmed", "payment_confirmed_after_failure"],
+  4: ["payment_confirmed"],
+  5: ["payment_confirmed", "duplicate_payment_review"],
+  7: ["bank_payment_absent"],
+};
+
 /** `created_at desc, id desc`: microseconds first, the ID breaks the remaining ties. */
 const newestFirst = [6, 7, 5, 4, 3, 2, 1].map(purchase);
 
@@ -107,6 +119,18 @@ describe("Payments list cursor", () => {
           payload: {},
           appliedAt: row.pending ? null : new Date(instant - DAY_MS),
         })),
+    });
+    await prisma.billingPaymentEvent.createMany({
+      data: Object.entries(events).flatMap(([n, kinds]) =>
+        kinds.map((kind) => ({
+          id: randomUUID(),
+          purchaseRef: purchase(Number(n)),
+          kind,
+          payload: {},
+          occurredAt: new Date(instant - DAY_MS),
+          recordedAt: new Date(instant - DAY_MS),
+        })),
+      ),
     });
   });
 
@@ -159,6 +183,21 @@ describe("Payments list cursor", () => {
       );
     },
   );
+
+  test.each([1, 2])(
+    "pages of %i keep events=review across shared microseconds",
+    async (limit) => {
+      expect(await traverse({ events: "review" }, limit)).toEqual(
+        newestFirst.filter((ref) => [2, 3, 5, 7].map(purchase).includes(ref)),
+      );
+    },
+  );
+
+  test("events=review combines with a states filter", async () => {
+    expect(await traverse({ events: "review", states: ["failed"] }, 2)).toEqual(
+      newestFirst.filter((ref) => [2, 7].map(purchase).includes(ref)),
+    );
+  });
 
   test.each([1, 2])(
     "pages of %i keep a states filter across shared microseconds",

@@ -10,6 +10,7 @@ import {
 } from "@/shared/ui/admin";
 
 import {
+  eventsFilterLabel,
   fulfillmentFilterLabel,
   hasPaymentsFilters,
   paymentStates,
@@ -29,10 +30,11 @@ import "./owner-payments.css";
 
 const anyState = "all";
 const severalStates = "several";
+const anyEvents = "all";
 
 /**
- * Фильтры списка платежей: продукт по названию, период по московским дням и состояние. Выбор
- * хранит адрес страницы; модуль только показывает его и сообщает об изменении. Покупатель
+ * Фильтры списка платежей: продукт по названию, период по московским дням, состояние и события для
+ * проверки (#1928). Выбор хранит адрес страницы; модуль только показывает его и сообщает об изменении. Покупатель
  * (`?person=` из карточки человека) виден плашкой, которую можно снять.
  */
 export function PaymentFilters({
@@ -124,6 +126,23 @@ export function PaymentFilters({
                   ? (query.states[0] ?? anyState)
                   : severalStates,
           },
+          {
+            id: "events",
+            label: "События оплаты",
+            onChange: (value) => {
+              onQueryChange(
+                withPaymentsFilter(query, {
+                  key: "events",
+                  value: value === "review" ? "review" : undefined,
+                }),
+              );
+            },
+            options: [
+              { label: "Все платежи", value: anyEvents },
+              { label: eventsFilterLabel, value: "review" },
+            ],
+            value: query.events ?? anyEvents,
+          },
         ]}
         onReset={
           filtered
@@ -143,8 +162,8 @@ interface PaymentsFilterChip extends Omit<AdminFilterChip, "onRemove"> {
 }
 
 /**
- * Плашка на каждое состояние, продукт, период, выдачу и покупателя; снятие плашки убирает только
- * её выбор. Покупатель назван подписью человека, а не номером аккаунта.
+ * Плашка на каждое состояние, продукт, период, выдачу, события и покупателя; снятие плашки убирает
+ * только её выбор. Покупатель назван подписью человека, а не номером аккаунта.
  */
 export function paymentsFilterChips(
   query: PaymentsQuery,
@@ -177,6 +196,12 @@ export function paymentsFilterChips(
       id: "fulfillment",
       label: fulfillmentFilterLabel,
       next: withPaymentsFilter(query, { key: "fulfillment", value: undefined }),
+    });
+  if (query.events !== undefined)
+    chips.push({
+      id: "events",
+      label: eventsFilterLabel,
+      next: withPaymentsFilter(query, { key: "events", value: undefined }),
     });
   if (query.accountId !== undefined)
     chips.push({
