@@ -746,9 +746,11 @@ cancel is open exactly while `bank_cancel_requested` has neither `bank_cancel_co
 `bank_payment_absent`. Reconciliation, the owner's review list and the watchdog share that rule
 (`isBankCancelOpen` in `domain/payment-events.ts`). A buyer can still pay between that GetState
 and Cancel; the bank then returns the money, and `bank_cancel_returned_payment` records it for the
-owner's review list and the watchdog. The money is back with the buyer, so a later `CONFIRMED` or
-`REFUNDED` of that attempt grants no access and retires none of the buyer's current attempts. The
-attempt stays failed. The bank's `REFUNDED` closes the mark with `bank_cancel_confirmed`, which keeps
+owner's review list and the watchdog. When that event is recorded first, a later `CONFIRMED` or
+`REFUNDED` of that attempt grants no access and retires none of the buyer's current attempts, and
+the attempt stays failed. The bank can also notify `CONFIRMED` before it processes the Cancel; the
+attempt is then already confirmed with access, and the refund reaches the owner only through the
+event and its watchdog signal, so access stays the owner's decision. The bank's `REFUNDED` closes the mark with `bank_cancel_confirmed`, which keeps
 the PaymentId and status. When the retired attempt's Init
 answer was lost, reconciliation finds its PaymentId with CheckOrder. For an order without payments
 the provider answers `Success:false` with `ErrorCode` `335` (order not found, observed on the live
