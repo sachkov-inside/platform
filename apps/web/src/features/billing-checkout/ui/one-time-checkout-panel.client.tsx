@@ -14,6 +14,7 @@ import {
   attemptStateLabel,
   formatKopecks,
   paymentMode,
+  paymentLinkRegularPrice,
   promotionLabel,
   preorderDiscount,
   purchaseConsentPolicy,
@@ -118,6 +119,8 @@ export function OneTimeCheckoutPanel({
     conditions.firstPriceKopecks,
     afterStart,
   );
+  const regularPrice =
+    afterStart === null ? paymentLinkRegularPrice(conditions) : null;
   const terms = oneTimeOfferTerms(conditions);
   // Состав называет те же сроки, что сводка условий: оба читают снимок сохранённого расчёта, как
   // только он есть. Иначе смена сроков между загрузкой страницы и расчётом развела бы их.
@@ -164,6 +167,12 @@ export function OneTimeCheckoutPanel({
             <s className="text-sm text-muted-foreground">
               <span className="sr-only">Цена после старта: </span>
               {formatKopecks(afterStart)}
+            </s>
+          )}
+          {regularPrice === null ? null : (
+            <s className="text-sm text-muted-foreground">
+              <span className="sr-only">Обычная цена: </span>
+              {formatKopecks(regularPrice)}
             </s>
           )}
           {promotion === undefined && preorderSaving !== null ? (

@@ -8,7 +8,7 @@ export const instant = false;
 export const metadata: Metadata = {
   title: "Покупка по ссылке",
   robots: { index: false, follow: false },
-  referrer: "no-referrer",
+  referrer: "same-origin",
 };
 export default async function IndividualPurchaseRoute({
   params,
