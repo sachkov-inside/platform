@@ -96,7 +96,7 @@ through «Как это выглядит внутри» and the FAQ question abo
 ## Revision 6 (2026-10-31): contrast, project window, tablet layout
 
 - Role diagram sits on its own `--secondary` surface; white blended into the light page.
-- The artifact window became «Как устроен проект с агентами», moved below «Как проходит
+- The artifact window became «Научись выстраивать работу с агентом» (first titled «Как устроен проект с агентами»), moved below «Как проходит
   обучение». It is a dark editor window with eight files in four groups (Агенту: AGENTS.md, skill,
   hook; Домен и решения: GLOSSARY.md, ADR; Задача: specification, acceptance scenario; Проверки:
   architecture test). Each file shows one line about its purpose.
