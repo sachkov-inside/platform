@@ -110,6 +110,38 @@ export const Desktop: Story = {
 };
 
 /**
+ * Позиция, «Что изучим» и процесс с контролем над агентом (#1909): каждая тема получает свою
+ * иллюстрацию по названию, окно проекта переключает файлы кликом и стрелками.
+ */
+export const PositionTopicsAndProcess: Story = {
+  play: async ({ canvasElement, userEvent: user }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", {
+        name: "Код пишет агент. Что остаётся тебе?",
+      }),
+    ).toBeVisible();
+    const tiles = canvasElement.querySelectorAll(".aie-bento > li");
+    await expect(tiles.length).toBe(15);
+    for (const tile of tiles)
+      await expect(tile.querySelector(".aie-bento-art")).not.toBeNull();
+
+    const files = canvas.getByRole("tablist", { name: "Файлы проекта" });
+    const panel = canvas.getByRole("tabpanel");
+    await expect(within(panel).getByText("AGENTS.md")).toBeVisible();
+    await user.click(
+      within(files).getByRole("tab", { name: /Словарь домена/u }),
+    );
+    await expect(within(panel).getByText(/Обращение/u)).toBeVisible();
+    await user.keyboard("{ArrowDown}");
+    await expect(
+      within(files).getByRole("tab", { name: /Архитектурное решение/u }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(within(panel).getByText(/своя схема БД/u)).toBeVisible();
+  },
+};
+
+/**
  * Необязательные поля карточек и приглашение к бесплатным урокам: оформление курса показывает всё
  * написанное в описании продукта (ADR 0026).
  */
