@@ -525,9 +525,25 @@ async function declinedThenUnansweredRepeat() {
   return { s, first, repeat };
 }
 
-test("a paid Payment Link reservation is confirmed once the unresolved repeat attempt releases the link", async () => {
+test("a paid Payment Link reservation is confirmed in the same transaction that releases the link", async () => {
   const { s, first } = await declinedThenUnansweredRepeat();
+  // Отказ банка у повторной попытки сразу отдаёт ссылку оплаченной покупке, без ожидания сверки.
   expect(await s.notify("REJECTED")).toMatchObject({ ok: true });
+  expect(
+    await db.prisma.billingPromoReservation.findUniqueOrThrow({
+      where: { purchaseRef: first.purchaseRef },
+      select: { state: true },
+    }),
+  ).toEqual({ state: "confirmed" });
+});
+
+test("payment recovery confirms a paid Payment Link reservation whose holder was released elsewhere", async () => {
+  const { s, first, repeat } = await declinedThenUnansweredRepeat();
+  // Держатель отпал не через уведомление банка: подстраховка в сверке находит такой резерв.
+  await db.prisma.billingPromoReservation.update({
+    where: { purchaseRef: repeat.id },
+    data: { state: "failed" },
+  });
   value(await s.payments.recover());
   expect(
     await db.prisma.billingPromoReservation.findUniqueOrThrow({
