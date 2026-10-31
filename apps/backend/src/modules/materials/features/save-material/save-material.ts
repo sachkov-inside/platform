@@ -26,6 +26,7 @@ import {
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import type { MaterialMutationReceiptDto } from "../../facets/material-authoring/material-authoring.contract.js";
 import {
+  canEnterFeed,
   MaterialMetadataSelection,
   type MaterialDifficulty,
   type MaterialMetadata,
@@ -231,9 +232,7 @@ export function assembleSaveMaterial(
               transactionHandle(transaction),
             );
             const currentInFeed =
-              locked.inFeed &&
-              locked.access === "free" &&
-              currentMemberships.length === 0;
+              locked.inFeed && canEnterFeed(locked.access, currentMemberships);
             const sourceError = checkContentWrite(
               contentWriter(source?.id ?? null),
               [

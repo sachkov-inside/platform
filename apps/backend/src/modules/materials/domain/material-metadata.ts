@@ -271,7 +271,7 @@ export class MaterialMetadata {
    * курса закрыт гостю до входа через Telegram (ADR 0042), поэтому в ленте его нет.
    */
   canEnterFeed(): boolean {
-    return this.access === "free" && this.productMemberships.length === 0;
+    return canEnterFeed(this.access, this.productMemberships);
   }
 
   validateAuthoringCompleteness(): Result<
@@ -329,6 +329,14 @@ export class MaterialMetadata {
       productMemberships: this.productMemberships,
     };
   }
+}
+
+/** Правило ленты (ADR 0043) для значений, ещё не собранных в `MaterialMetadata`. */
+export function canEnterFeed(
+  access: MaterialAccess,
+  productMemberships: readonly unknown[],
+): boolean {
+  return access === "free" && productMemberships.length === 0;
 }
 
 function requiredPublicationIssues(

@@ -53,15 +53,15 @@ export class PublicMaterialAnnouncements {
         select: { id: true, title: true, summary: true, slug: true },
       });
       // Урок курса не в ленте (ADR 0043), даже если состав Product изменился после выбора автора.
-      const programme =
+      const productLessons: ReadonlyMap<string, unknown> =
         materials.length === 0
-          ? new Map()
+          ? new Map<string, unknown>()
           : await this.products.materialAccessFacts(
               materials.map((row) => row.id),
             );
       const current = new Map(
         materials
-          .filter((row) => !programme.has(row.id))
+          .filter((row) => !productLessons.has(row.id))
           .map((row) => [row.id, row]),
       );
       const items: MaterialAnnouncement[] = page.flatMap((announcement) => {

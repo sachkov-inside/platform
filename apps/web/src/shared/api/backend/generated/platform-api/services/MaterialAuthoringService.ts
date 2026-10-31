@@ -531,7 +531,6 @@ export class MaterialAuthoringService {
         schemaVersion: 1;
       };
       expectedContentVersion: number;
-      inFeed?: boolean;
       materialId: string;
       metadata: {
         access: 'free' | 'closed' | 'membership';
