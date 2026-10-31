@@ -47,6 +47,39 @@ test("Payment Link retains saved kopeck price across current catalogue edits and
   expect(quote.snapshot.firstPriceKopecks).toBe(123456);
   expect(quote.snapshot.individualPayment?.linkId).toBe(link.id);
 });
+test("Payment Link stays payable after its price is unpublished: a private sale needs no public price", async () => {
+  const s = await world.scenario();
+  const link = value(
+    await s.pricing.managePaymentLink(world.owner, {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+      price: { kind: "discount", percent: 10 },
+      expiresAt: null,
+    }),
+  );
+  value(
+    await s.pricing.manage(world.owner, {
+      operation: "productPrices.save",
+      operationId: randomUUID(),
+      expectedRevision: 1,
+      value: {
+        productId: s.productId,
+        name: "Курс",
+        priceKopecks: 200000,
+        published: false,
+      },
+    }),
+  );
+  const buyer = await world.scenario({
+    productId: s.productId,
+    paymentLinkId: link.id,
+  });
+  expect(
+    await buyer.payments.purchase(buyer.buyer, buyer.command),
+  ).toMatchObject({ ok: true });
+});
 test("link creation is owner-authorized and exact replay is stable", async () => {
   const s = await world.scenario();
   const command = {

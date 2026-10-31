@@ -118,6 +118,14 @@ export function OneTimeCheckoutPanel({
     conditions.firstPriceKopecks,
     afterStart,
   );
+  // Личная ссылка со скидкой: оферта велит показать до оплаты полную цену рядом с итоговой.
+  const basePrice = conditions.individualPayment?.basePriceKopecks;
+  const regularPrice =
+    afterStart === null &&
+    basePrice !== undefined &&
+    basePrice > conditions.firstPriceKopecks
+      ? basePrice
+      : null;
   const terms = oneTimeOfferTerms(conditions);
   // Состав называет те же сроки, что сводка условий: оба читают снимок сохранённого расчёта, как
   // только он есть. Иначе смена сроков между загрузкой страницы и расчётом развела бы их.
@@ -164,6 +172,12 @@ export function OneTimeCheckoutPanel({
             <s className="text-sm text-muted-foreground">
               <span className="sr-only">Цена после старта: </span>
               {formatKopecks(afterStart)}
+            </s>
+          )}
+          {regularPrice === null ? null : (
+            <s className="text-sm text-muted-foreground">
+              <span className="sr-only">Обычная цена: </span>
+              {formatKopecks(regularPrice)}
             </s>
           )}
           {promotion === undefined && preorderSaving !== null ? (

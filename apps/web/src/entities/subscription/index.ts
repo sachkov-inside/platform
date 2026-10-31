@@ -144,7 +144,6 @@ export {
   type PaymentLinkDetail,
 } from "./model/payment-link";
 
-export { PaymentLinkSummary } from "./ui/payment-link-summary";
 export {
   issueProductAccessOperation,
   restoreProductAccessOperation,

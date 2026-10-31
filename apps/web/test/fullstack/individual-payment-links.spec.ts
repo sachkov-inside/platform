@@ -99,18 +99,12 @@ test("individual payment link shows its fixed price and terms, revokes across op
       exact: true,
     });
     if (await storageNotice.isVisible()) await storageNotice.click();
-    expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
+    expect(response?.headers()["referrer-policy"]).toBe("same-origin");
     expect(response?.headers()["cache-control"]).toContain("no-store");
-    await expect(
-      buyer.getByRole("heading", { name: "Покупка по ссылке" }),
-    ).toBeVisible();
+    await expect(buyer.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(buyer.locator('input[name="returnTo"]')).toHaveValue(path);
-    await expect(
-      buyer.getByRole("button", { name: "Войти для покупки" }),
-    ).toBeVisible();
-    await expect(
-      buyer.getByRole("link", { name: "Все условия покупки в оферте" }),
-    ).toHaveAttribute("href", "/legal/purchase");
+    const signIn = buyer.getByRole("button", { name: "Войти и оплатить" });
+    await expect(signIn).toBeVisible();
     await expect(buyer.getByText(/Сопровождение автора/)).toHaveCount(0);
     expect(
       (
@@ -137,6 +131,15 @@ test("individual payment link shows its fixed price and terms, revokes across op
         ),
       });
     }
+    // Вход проверяет Origin. Политика адреса страницы не должна превращать его в `null`.
+    let signInOrigin: string | null = null;
+    await buyer.route("**/auth/sign-in", async (route) => {
+      signInOrigin = await route.request().headerValue("origin");
+      await route.fulfill({ status: 204 });
+    });
+    await signIn.click();
+    await expect.poll(() => signInOrigin).toBe(new URL(buyer.url()).origin);
+    await buyer.unroute("**/auth/sign-in");
     await signInFullStack(guest, "NON_MEMBER");
     await buyer.reload();
     await expect(

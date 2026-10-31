@@ -306,10 +306,13 @@ export async function selectPaymentLinkPrice(
     return failure("not_found");
   switch (result.value.state) {
     case "active": {
+      // Ссылку создают и на неопубликованную цену: это закрытая продажа. Архив цены её закрывает.
       const current = await selectPrice(
         tx,
         result.value.snapshot.product?.id ?? optionId,
         now,
+        undefined,
+        { allowUnpublished: true },
       );
       if (!current.ok) return failure("not_found");
       return { ok: true, value: result.value.snapshot };
