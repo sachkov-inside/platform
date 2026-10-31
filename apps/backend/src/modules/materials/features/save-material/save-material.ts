@@ -70,6 +70,7 @@ const saveMaterialCommand = z
     expectedContentVersion: z.number().int().positive(),
     publicationState: z.enum(["draft", "published", "unpublished"]),
     notifyTelegram: z.boolean().optional(),
+    inFeed: z.boolean().optional(),
     primaryVideoId: z.uuid().nullable().optional().default(null),
     deleteVideoId: z.uuid().nullable().optional().default(null),
     detachVideoIds: z
@@ -149,6 +150,8 @@ export function assembleSaveMaterial(
             ...(command.notifyTelegram === undefined
               ? {}
               : { notifyTelegram: command.notifyTelegram }),
+            // Absent when omitted, so a Save recorded before the feed choice replays with its key.
+            ...(command.inFeed === undefined ? {} : { inFeed: command.inFeed }),
             metadata: selection.value.toValues(),
             body: body.value,
             primaryVideoId: command.primaryVideoId,
@@ -379,6 +382,20 @@ export function assembleSaveMaterial(
                 slug,
               );
             }
+            // Лента публичная: в неё попадает только то, что гость открывает без входа (#1885).
+            // Урок курса закрыт гостю до входа через Telegram (ADR 0042), поэтому в ленте его нет.
+            const feedEligible =
+              materializedMetadata.access === "free" &&
+              materializedMetadata.productMemberships.length === 0;
+            if (command.inFeed === true && !feedEligible) {
+              return rollback({
+                code: "invalid_content",
+                issues: [
+                  { code: "feed_requires_public_material", path: "/inFeed" },
+                ],
+              });
+            }
+            const inFeed = (command.inFeed ?? locked.inFeed) && feedEligible;
             const requiresPublicationValidity =
               next.value.publicationState === "published";
             const publishable = materializedMetadata.validateForPublication();
@@ -518,6 +535,7 @@ export function assembleSaveMaterial(
                     }
                   : { slug }),
                 publicationState: next.value.publicationState,
+                inFeed,
                 contentVersion: BigInt(next.value.contentVersion),
                 firstPublishedAt: next.value.firstPublishedAt,
                 publishedAt: next.value.publishedAt,
@@ -554,6 +572,7 @@ export function assembleSaveMaterial(
                   materialId: command.materialId,
                   contentVersion: next.value.contentVersion,
                   metadata: publishable.value,
+                  inFeed,
                   publishedAt: requireDate(
                     next.value.publishedAt,
                     "publishedAt",
@@ -582,7 +601,9 @@ export function assembleSaveMaterial(
                   telegramManaged: publishable.value.access === "free",
                   telegramEnabled:
                     (command.notifyTelegram ?? locked.notifyTelegram) ===
-                      true && publishable.value.access === "free",
+                      true &&
+                    publishable.value.access === "free" &&
+                    inFeed,
                 },
                 savedAt,
               );
@@ -683,6 +704,7 @@ async function replacePublishedProjections(
       readonly title: string;
       readonly topicId: string;
     };
+    readonly inFeed: boolean;
     readonly publishedAt: Date;
     readonly publishedBy: string;
     readonly plainText: string;
@@ -699,6 +721,7 @@ async function replacePublishedProjections(
       title: values.metadata.title,
       summary: values.metadata.summary,
       access: values.metadata.access,
+      inFeed: values.inFeed,
       difficulty: values.metadata.difficulty,
       hasModeVariants: values.hasModeVariants,
       outcomes: [...values.metadata.outcomes],
@@ -716,6 +739,7 @@ async function replacePublishedProjections(
       title: values.metadata.title,
       summary: values.metadata.summary,
       access: values.metadata.access,
+      inFeed: values.inFeed,
       difficulty: values.metadata.difficulty,
       hasModeVariants: values.hasModeVariants,
       outcomes: [...values.metadata.outcomes],

@@ -24,6 +24,7 @@ export const applySourceBodySchema = z
     expectedContentVersion: z.number().int().positive(),
     publicationState: z.enum(["draft", "published", "unpublished"]),
     notifyTelegram: z.boolean().optional(),
+    inFeed: z.boolean().optional(),
     primaryVideoId: z.uuid().nullable(),
     videoChapters: videoChaptersSchema.optional(),
     metadata: materialMetadataSelectionWireSchema,

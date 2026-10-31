@@ -246,6 +246,55 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
         readyAt: new Date("2026-01-01"),
       });
   }
+  // Лента показывает только материалы, выложенные в неё автором вне курсов (#1885). Каждый корпус
+  // получает одни и те же восемь таких материалов каждого формата, новее остальных.
+  if (start === 0) {
+    for (let n = 0; n < 24; n += 1) {
+      const materialId = id(500000 + n);
+      const videoId = id(510000 + n);
+      const formatId = ["video", "guide", "note"][n % 3] ?? "note";
+      const publishedAt = new Date(Date.UTC(2026, 0, 1) + (n + 1) * 1000);
+      const metadata = {
+        slug: `feed-material-${n}`,
+        title: `Feed material ${n}`,
+        summary: "fixed",
+        topicId: id(100001),
+        formatId,
+        access: "free",
+        inFeed: true,
+        contentVersion: 1n,
+        publishedAt,
+        publishedBy: actor,
+        primaryVideoId: formatId === "video" ? videoId : null,
+      };
+      items.push({
+        ...metadata,
+        id: materialId,
+        schemaVersion: 1,
+        body: { type: "doc", content: [] },
+        createdBy: actor,
+        publicationState: "published",
+        firstPublishedAt: publishedAt,
+      });
+      publications.push({ ...metadata, materialId, publicSearchText: "fixed" });
+      if (formatId === "video")
+        videos.push({
+          id: videoId,
+          materialId,
+          createdBy: actor,
+          access: "free",
+          projectId: "free",
+          providerVideoId: `feed-${n}`,
+          title: "fixed",
+          origin: "platform_upload",
+          providerStatus: "ready",
+          state: "ready",
+          durationSeconds: 120,
+          providerEmbedLocator: "https://video.invalid/embed",
+          readyAt: new Date("2026-01-01"),
+        });
+    }
+  }
   // Prepare the corpus before observing Home; bounded batches also keep bind parameters below PostgreSQL's limit.
   for (let offset = 0; offset < items.length; offset += 300) {
     await prisma.topic.createMany({ data: topics.slice(offset, offset + 300) });
@@ -411,7 +460,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       where: { id: id(200000) },
       data: { archivedAt: new Date("2026-01-02") },
     });
-    // Closed Materials stay outside the feed; the legacy visibility flag cannot hide free Materials.
+    // Closed Materials and Product lessons stay outside the feed, even with a legacy visibility flag.
     await prisma.material.update({
       where: { id: id(2) },
       data: { access: "closed" },
@@ -421,7 +470,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       data: { access: "closed" },
     });
     await seedHistoricalFeedSource(prisma, id(4));
-    // A public note outside the first four Playlists is still a legacy feed preview.
+    // Notes of Product lessons with a public excerpt still stay outside the feed.
     await prisma.materialSearchDocument.createMany({
       data: [
         {
@@ -468,7 +517,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       where: { materialId: id(52) },
       data: { publishedAt: new Date("2026-01-03") },
     });
-    // Legacy visibility flags do not change feed previews or the complete catalogue.
+    // Legacy visibility flags and newer Product lessons do not change the feed or the complete catalogue.
     for (let n = 0; n < 6; n += 1) {
       await seedHistoricalFeedSource(prisma, id(28 + n));
     }
@@ -565,9 +614,9 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       expect(result.value.videos.map((item) => item.materialId)).not.toContain(
         id(2),
       );
-      expect(result.value.guides.map((item) => item.materialId)).toContain(
-        id(4),
-      );
+      const guides = result.value.guides.map((item) => item.materialId);
+      expect(guides).not.toContain(id(4));
+      expect(guides).toContain(id(500001));
     }
     const rights = {
       resolveForAccess: () => Promise.resolve({ kind: "required" as const }),

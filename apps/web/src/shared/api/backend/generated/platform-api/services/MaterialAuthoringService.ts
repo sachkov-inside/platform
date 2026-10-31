@@ -531,6 +531,7 @@ export class MaterialAuthoringService {
         schemaVersion: 1;
       };
       expectedContentVersion: number;
+      inFeed?: boolean;
       materialId: string;
       metadata: {
         access: 'free' | 'closed' | 'membership';
@@ -722,6 +723,7 @@ export class MaterialAuthoringService {
         schemaVersion: 1;
       };
       expectedContentVersion: number;
+      inFeed?: boolean;
       materialId: string;
       metadata: {
         access: 'free' | 'closed';
@@ -897,6 +899,7 @@ export class MaterialAuthoringService {
         doc: Record<string, any>;
         schemaVersion: 1;
       };
+      inFeed?: boolean;
       metadata: {
         access: 'free' | 'closed';
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
@@ -1573,6 +1576,7 @@ export class MaterialAuthoringService {
       }>;
     } | null;
     firstPublishedAt: string | null;
+    inFeed: boolean;
     latestVideoDeletion: {
       durationSeconds?: number;
       failureCode?: string;
@@ -1658,6 +1662,7 @@ export class MaterialAuthoringService {
       deleteVideoId: string | null;
       detachVideoIds: Array<string>;
       expectedContentVersion: number;
+      inFeed?: boolean;
       metadata: {
         access: 'free' | 'closed';
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;

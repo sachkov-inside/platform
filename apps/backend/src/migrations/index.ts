@@ -1,4 +1,8 @@
 import {
+  name as explicitFeedName,
+  statement as explicitFeedStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0115-explicit-feed.js";
+import {
   name as billingContactEmailFingerprintName,
   statement as billingContactEmailFingerprintStatement,
 } from "../modules/accounts/infrastructure/postgres/migrations/0114-billing-contact-email-fingerprint.js";
@@ -739,6 +743,7 @@ export const platformMigrations = [
     name: billingContactEmailFingerprintName,
     statement: billingContactEmailFingerprintStatement,
   },
+  { name: explicitFeedName, statement: explicitFeedStatement },
 ] as const;
 
 export function migrateToLatest(

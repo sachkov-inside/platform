@@ -2,7 +2,7 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import type { MaterialAnnouncement } from "@inside/contracts/material-announcements";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 
-/** Public feed announcements only. Cursor follows source rows, including rows filtered out later. */
+/** Public feed announcements only: the Material must still be in the feed (#1885). Cursor follows source rows, including rows filtered out later. */
 export class PublicMaterialAnnouncements {
   constructor(private readonly prisma: MaterialsPrismaClient) {}
 
@@ -44,6 +44,7 @@ export class PublicMaterialAnnouncements {
           publicationState: "published",
           access: "free",
           notifyTelegram: true,
+          inFeed: true,
         },
         select: { id: true, title: true, summary: true, slug: true },
       });

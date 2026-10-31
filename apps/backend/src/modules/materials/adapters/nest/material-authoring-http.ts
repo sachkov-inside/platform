@@ -68,6 +68,7 @@ export const materialSchema = z
   .object({
     source: reportedAuthoringSourceSchema.optional(),
     notifyTelegram: z.boolean().nullable(),
+    inFeed: z.boolean(),
     materialId: materialIdSchema,
     contentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,
@@ -94,6 +95,8 @@ export const saveMaterialBodySchema = z
   .object({
     expectedContentVersion: contentVersionSchema,
     notifyTelegram: z.boolean().optional(),
+    /** Выложить материал в ленту; без поля выбор автора не меняется. */
+    inFeed: z.boolean().optional(),
     publicationState: publicationStateWireSchema,
     primaryVideoId: z.uuid().nullable().default(null),
     deleteVideoId: z.uuid().nullable().default(null),
