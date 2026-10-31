@@ -104,24 +104,33 @@ class TechnicalScope(unittest.TestCase):
     def test_technical_seed_keeps_actors_contacts_materials_and_source_authority_without_umami(self):
         from contextlib import nullcontext
         from types import SimpleNamespace
-        with tempfile.TemporaryDirectory() as directory:
-            output=Path(directory);(output/'runtime/rabbitmq').mkdir(parents=True);(output/'provider').mkdir()
-            (output/'compose.json').write_text(json.dumps({'services':{'grafana':{'user':'1000:1000'}}}))
-            commands=[];queries=[]
-            def native(compose,args,**options):
-                commands.append(args)
-                if args[-1]=='establish':return json.dumps({'created':256,'accounts':[f'{i:08x}-0000-0000-0000-000000000000' for i in range(256)]})
-                return '{}'
-            def sql(compose,query,**options):
-                queries.append(query)
-                return '{"accounts":256,"materials":512,"public_materials":512}' if 'public_materials' in query else ''
-            with patch.object(fullstack,'prepared_scope',return_value='technical'),patch.object(fullstack.contact_job,'start',return_value=nullcontext(SimpleNamespace(wait=lambda:None))) as contacts,patch.object(fullstack,'invoke',side_effect=native),patch.object(fullstack,'sql',side_effect=sql),patch.object(fullstack.resource_runtime,'wait_ready'),patch.object(fullstack,'ready'),patch.object(fullstack.extra,'initialize'),patch.object(fullstack.telegram,'initialize'),patch.object(fullstack.source_cache,'select_caddy_server',return_value='srv0'),patch.object(fullstack.source_guard,'prove',return_value={'observed':True}) as source_guard,patch.object(fullstack.horizon_build,'verify'),patch.object(fullstack.pilot,'install_plugin'):
-                self.assertEqual(fullstack.seed([],output),{'observed':True})
-            contacts.assert_called_once();source_guard.assert_called_once()
-            self.assertIn('SELECT pg_stat_reset();',queries)
-            self.assertNotIn('umami',repr(commands)+repr(queries))
-            self.assertEqual(len(json.loads((output/'provider/accounts.json').read_text())),256)
-            self.assertFalse(list(output.rglob('umami*')))
+        for feed_materials,public_feed_materials in ((512,512),(0,512),(512,0),(511,512),(512,511)):
+            with self.subTest(feed_materials=feed_materials,public_feed_materials=public_feed_materials),tempfile.TemporaryDirectory() as directory:
+                output=Path(directory);(output/'runtime/rabbitmq').mkdir(parents=True);(output/'provider').mkdir()
+                (output/'compose.json').write_text(json.dumps({'services':{'grafana':{'user':'1000:1000'}}}))
+                commands=[];queries=[]
+                def native(compose,args,**options):
+                    commands.append(args)
+                    if args[-1]=='establish':return json.dumps({'created':256,'accounts':[f'{i:08x}-0000-0000-0000-000000000000' for i in range(256)]})
+                    return '{}'
+                def sql(compose,query,**options):
+                    queries.append(query)
+                    if 'public_materials' not in query:return ''
+                    counts={'accounts':256,'materials':512,'public_materials':512}
+                    if "'feed_materials'" in query:counts['feed_materials']=feed_materials
+                    if "'public_feed_materials'" in query:counts['public_feed_materials']=public_feed_materials
+                    return json.dumps(counts)
+                with patch.object(fullstack,'prepared_scope',return_value='technical'),patch.object(fullstack.contact_job,'start',return_value=nullcontext(SimpleNamespace(wait=lambda:None))) as contacts,patch.object(fullstack,'invoke',side_effect=native),patch.object(fullstack,'sql',side_effect=sql),patch.object(fullstack.resource_runtime,'wait_ready'),patch.object(fullstack,'ready'),patch.object(fullstack.extra,'initialize'),patch.object(fullstack.telegram,'initialize'),patch.object(fullstack.source_cache,'select_caddy_server',return_value='srv0'),patch.object(fullstack.source_guard,'prove',return_value={'observed':True}) as source_guard,patch.object(fullstack.horizon_build,'verify'),patch.object(fullstack.pilot,'install_plugin'):
+                    if (feed_materials,public_feed_materials)==(512,512):
+                        self.assertEqual(fullstack.seed([],output),{'observed':True})
+                    else:
+                        with self.assertRaisesRegex(ValueError,'representative_dataset_incomplete'):
+                            fullstack.seed([],output)
+                contacts.assert_called_once();source_guard.assert_called_once()
+                self.assertIn('SELECT pg_stat_reset();',queries)
+                self.assertNotIn('umami',repr(commands)+repr(queries))
+                self.assertEqual(len(json.loads((output/'provider/accounts.json').read_text())),256)
+                self.assertFalse(list(output.rglob('umami*')))
 
     def prepare_inputs(self,base):
         import subprocess

@@ -35,7 +35,7 @@ class PreparationOverlap(unittest.TestCase):
                 if args[-1:] == ['seed']:return '{"key":"synthetic"}'
                 return '{}'
             def sql(compose,query,**options):
-                if 'public_materials' in query:return '{"accounts":256,"materials":512,"public_materials":512}'
+                if 'public_materials' in query:return '{"accounts":256,"materials":512,"public_materials":512,"feed_materials":512,"public_feed_materials":512}'
                 return ''
             def assets(*args):
                 # Observe the committed start, rather than guessing scheduling by time.

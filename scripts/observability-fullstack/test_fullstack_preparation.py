@@ -109,7 +109,7 @@ class Preparation(unittest.TestCase):
                     if args[-1]=='seed':return '{"key":"synthetic"}'
                     if args[-1]=='establish':return json.dumps({'created':256,'accounts':[f'{i:08x}-0000-0000-0000-000000000000' for i in range(256)]})
                     return '{}'
-                def sql(compose,query,**options):return '{"accounts":256,"materials":512,"public_materials":512}' if 'public_materials' in query else ''
+                def sql(compose,query,**options):return '{"accounts":256,"materials":512,"public_materials":512,"feed_materials":512,"public_feed_materials":512}' if 'public_materials' in query else ''
                 with patch.object(fullstack.contact_job,'start',return_value=nullcontext(SimpleNamespace(wait=lambda:None))),patch.object(fullstack,'invoke',side_effect=native),patch.object(fullstack,'sql',side_effect=sql),patch.object(fullstack.resource_runtime,'wait_ready'),patch.object(fullstack,'ready'),patch.object(fullstack.extra,'initialize'),patch.object(fullstack.telegram,'initialize'),patch.object(fullstack.source_cache,'select_caddy_server',return_value='srv0'),patch.object(fullstack.source_guard,'prove',return_value={}),patch.object(fullstack.pilot,'install_horizon',side_effect=AssertionError('worker must never install/build')),patch.object(fullstack.pilot,'downloaded_asset',side_effect=AssertionError('worker must never download')),patch.object(horizon_build,'build',side_effect=AssertionError('worker must never compile')),patch.object(fullstack.pilot,'install_plugin'),patch.object(horizon_build,'verify',wraps=horizon_build.verify) as verify:
                     if fault=='valid':fullstack.seed([],output)
                     else:
