@@ -1084,6 +1084,22 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  // Вход в админку (#1879): у вошедшего автора двойника есть все права, отказы разделов
+  // отвечают двойники самих разделов. Проверка входа не попадает в журнал запросов.
+  if (url.pathname === "/accounts/current/permissions") {
+    if (request.headers.authorization === undefined)
+      send(401, { code: "invalid_proof" });
+    else
+      send(200, {
+        permissions: [
+          "materials:manage",
+          "communications:manage",
+          "billing:manage",
+          "platform:admin",
+        ],
+      });
+    return;
+  }
   if (url.pathname === "/__task-navigation-hold" && request.method === "POST") {
     const { hold } = z
       .object({ hold: z.boolean() })

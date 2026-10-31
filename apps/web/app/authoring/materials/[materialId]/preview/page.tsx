@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { requireAuthoringEntry } from "@/_app/authoring-entry.server";
 import { MaterialCurrentPreviewPage } from "@/_pages/material-authoring.server";
 import { parseAuthoringReturnHref } from "@/shared/routing/authoring";
 
@@ -20,6 +21,7 @@ export default async function Page({
     readonly product?: string | readonly string[];
   }>;
 }) {
+  await requireAuthoringEntry();
   const [{ materialId }, query] = await Promise.all([params, searchParams]);
   return (
     <MaterialCurrentPreviewPage

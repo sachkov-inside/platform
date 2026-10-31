@@ -155,6 +155,9 @@ const routeStarts = 3;
  * @param {() => Server} options.start
  * @param {(server: Server) => Promise<void>} options.stop
  * @param {(server: Server) => Promise<unknown>} options.ready
+ * @param {Readonly<Record<string, string>>} [options.headers] headers of every probe sent by the
+ *   default `request` (a custom `request` ignores them), such as the session cookie of a scenario
+ *   whose pages answer 404 to a guest
  * @param {(url: string) => Promise<{ status: number }>} [options.request]
  * @param {(message: string) => void} [options.log]
  * @returns {Promise<Server>}
@@ -165,8 +168,10 @@ export async function startWithRoutes({
   start,
   stop,
   ready,
+  headers = {},
   request = (url) =>
     fetch(url, {
+      headers,
       redirect: "manual",
       signal: AbortSignal.timeout(probeTimeoutMilliseconds),
     }),

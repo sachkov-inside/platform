@@ -48,7 +48,8 @@ test.describe("Закрытые от индексации разделы", () =>
     test(`${path} не индексируется`, async ({ page }) => {
       await page.goto(path);
 
-      await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+      // Закрытый раздел может отвечать 404, и тогда метку добавляет ещё и сама страница 404.
+      await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute(
         "content",
         /noindex/u,
       );

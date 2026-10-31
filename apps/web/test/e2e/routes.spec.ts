@@ -482,52 +482,32 @@ test("manager shell preserves desktop editor access and the four-item mobile doc
   }
 });
 
-test("authoring route owns a dedicated shell outside the public application shell", async ({
+test("a guest gets the 404 page and no admin shell on admin addresses (#1879)", async ({
   page,
-}, testInfo) => {
-  test.skip(navigationMode(testInfo.project.name) !== "desktop");
-
-  await page.goto("/authoring/materials/new");
-
-  await expect(
-    page.getByRole("heading", { name: "Нет доступа к редактору" }),
-  ).toBeVisible();
-  const signIn = page.getByRole("button", { name: "Войти через Telegram" });
-  await expect(signIn).toBeEnabled();
-  await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute(
-    "action",
-    "/auth/sign-in",
-  );
-  await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute(
-    "method",
-    "post",
-  );
-  await expect(
-    page.getByRole("complementary", { name: "Боковая панель" }),
-  ).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Основная" })).toHaveCount(
-    0,
-  );
-  const authoringSidebar = page.getByRole("complementary", {
-    name: "Админка",
-  });
-  await expect(authoringSidebar).toBeVisible();
-  await expect(page.getByRole("main")).toHaveCount(1);
-
-  const sidebarBox = await authoringSidebar.boundingBox();
-  const box = await page.getByRole("main").boundingBox();
-  expect(sidebarBox?.x).toBe(0);
-  expect(box?.x).toBe(sidebarBox?.width);
-  expect((box?.width ?? 0) + (sidebarBox?.width ?? 0)).toBe(1_440);
-});
-
-test("the admin entry is the Overview page itself, not a redirect (#1719)", async ({
   request,
 }) => {
-  const response = await request.get("/authoring", { maxRedirects: 0 });
-
-  expect(response.status()).toBe(200);
-  expect(response.headers()["location"]).toBeUndefined();
+  for (const path of [
+    "/authoring",
+    "/authoring/materials/new",
+    "/authoring/sales/funnel",
+  ]) {
+    // Ответ потоковый, поэтому 404 приходит экраном с noindex после статуса 200 (ADR 0027).
+    // Страницы раздела сами проверяют вход и в ответ не попадают.
+    const html = await (await request.get(path, { maxRedirects: 0 })).text();
+    expect(html, path).not.toContain("Нужен вход");
+    expect(html, path).not.toContain("data-authoring-overview-frame");
+    await page.goto(path);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Страница не найдена" }),
+    ).toBeVisible();
+    await expect(page).toHaveTitle("Страница не найдена · Sachkov Dev");
+    await expect(
+      page.getByRole("complementary", { name: "Админка" }),
+    ).toHaveCount(0);
+    await expect(
+      page.locator('meta[name="robots"][content*="noindex"]').first(),
+    ).toBeAttached();
+  }
 });
 
 test("former sales addresses lead to the new sales section with their query (#1718)", async ({
@@ -549,37 +529,6 @@ test("former sales addresses lead to the new sales section with their query (#17
     expect(response.status()).toBe(307);
     expect(response.headers()["location"]).toBe(destination);
   }
-});
-
-test("sales funnel report asks a signed-out visitor to sign in inside the authoring shell", async ({
-  page,
-}, testInfo) => {
-  const response = await page.goto("/authoring/sales/funnel");
-
-  expect(response?.status()).toBe(200);
-  await expect(page).toHaveTitle(/^Воронка продаж · Authoring/u);
-  await expect(page.getByRole("heading", { name: "Нужен вход" })).toBeVisible();
-  const signIn = page.getByRole("button", { name: "Войти через Telegram" });
-  await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute(
-    "action",
-    "/auth/sign-in",
-  );
-  await expect(
-    signIn.locator("xpath=ancestor::form").locator("input[name=returnTo]"),
-  ).toHaveValue("/authoring/sales/funnel");
-  if (navigationMode(testInfo.project.name) === "desktop")
-    await expect(
-      page
-        .getByRole("complementary", { name: "Админка" })
-        .getByRole("link", { name: "Воронка продаж" }),
-    ).toHaveAttribute("aria-current", "page");
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-  const accessibility = await new AxeBuilder({ page }).analyze();
-  expect(accessibility.violations).toEqual([]);
 });
 
 test("auth control hydrates without a server-client mismatch", async ({

@@ -392,6 +392,7 @@ function fakeAccounts(): Accounts {
           : { ok: false, error: { code: "account_not_found" } },
       ),
     checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
+    listPermissions: () => Promise.resolve({ ok: true, permissions: [] }),
   };
 }
 

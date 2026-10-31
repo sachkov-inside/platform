@@ -187,17 +187,13 @@ test("transferable saved-price Payment Link cannot bypass closed Product sales",
       expiresAt: null,
     }),
   );
+  // Закрытие продаж: архив цены. Снятие с публикации только убирает цену с витрины.
   value(
     await s.pricing.manage(owner, {
-      operation: "productPrices.save",
+      operation: "productPrices.archive",
       operationId: randomUUID(),
       expectedRevision: 1,
-      value: {
-        productId: s.productId,
-        name: "Курс",
-        priceKopecks: 300000,
-        published: false,
-      },
+      id: s.productId,
     }),
   );
   expect(
@@ -207,7 +203,7 @@ test("transferable saved-price Payment Link cannot bypass closed Product sales",
       priceRevision: 1,
       paymentLinkId: link.id,
     }),
-  ).toMatchObject({ ok: false, error: { code: "not_found" } });
+  ).toMatchObject({ ok: false, error: { code: "quote_changed" } });
 });
 test("a definitive failed purchase admits a new quote and a new attempt", async () => {
   const s = await scenario();
