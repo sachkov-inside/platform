@@ -222,9 +222,12 @@ describe("published Material HTTP contract", () => {
     expect(
       home.videos.find(({ slug }) => slug === "glubokie-moduli-na-praktike"),
     ).toMatchObject({ primaryVideoDurationSeconds: 481 });
-    expect(home.guides.length).toBeGreaterThan(0);
+    // Гайд демонстрационного курса тоже остаётся вне ленты, а гайды вне курса в ней есть.
     expect(home.guides.map(({ slug }) => slug)).not.toContain(
       "kak-ustroen-inside-platform",
+    );
+    expect(home.guides.map(({ slug }) => slug)).toContain(
+      "arkhitekturnaya-zametka-11",
     );
     expect(home.notes.map(({ slug }) => slug)).toContain(
       "granitsy-khoroshego-modulya",

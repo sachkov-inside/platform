@@ -164,7 +164,7 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
       z.object({
         slug: z.string(),
         access: z.literal("free"),
-        // The feed holds only Materials outside Products, open to everyone (ADR 0043).
+        // The feed holds only free Materials outside Products that the author placed there (ADR 0043).
         availability: z.literal("available"),
       }),
     ),

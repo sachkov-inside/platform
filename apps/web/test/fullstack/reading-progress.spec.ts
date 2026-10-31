@@ -117,7 +117,7 @@ test("reading progress persists for a free non-member, reconciles lost responses
   await page.goto("/");
   const card = await homeFeedCard(page, feedNote.title);
   await expect(card.locator("[data-material-reading-status]")).toHaveText(
-    "Изучено",
+    feedNote.label,
   );
   await page.screenshot({
     path: resolve(directory, `${testInfo.project.name}-library.png`),
