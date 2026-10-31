@@ -490,6 +490,55 @@ export const IndividualMember: Story = {
     await expect(canvas.getByText(/^29\s?000\s?₽$/u)).toBeVisible();
   },
 };
+/**
+ * Неоплаченная покупка с витрины не прячет оформление по ссылке: покупка по цене ссылки заменит
+ * её (#1925).
+ */
+export const IndividualMemberWithStorefrontPayment: Story = {
+  ...purchaseRoute(
+    "member",
+    { ...pendingPurchase, snapshot: productOnlyOffer },
+    false,
+    undefined,
+    true,
+  ),
+  args: { ...IndividualGuest.args, signedIn: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByRole("button", { name: /Оплатить/ }),
+    ).toBeVisible();
+    await expect(canvas.getAllByText(/^26\s?100\s?₽$/u)).toHaveLength(1);
+    await expect(
+      canvas.queryByRole("link", { name: "Открыть страницу оплаты" }),
+    ).not.toBeInTheDocument();
+  },
+};
+/** Удержанную банком покупку с витрины ссылка не заменяет: покупатель видит её статус. */
+export const IndividualMemberWithAuthorizedStorefrontPayment: Story = {
+  ...purchaseRoute(
+    "member",
+    {
+      ...pendingPurchase,
+      state: "authorized",
+      paymentUrl: null,
+      snapshot: productOnlyOffer,
+    },
+    false,
+    undefined,
+    true,
+  ),
+  args: { ...IndividualGuest.args, signedIn: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByRole("region", { name: "Ваша покупка" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: /Оплатить/ }),
+    ).not.toBeInTheDocument();
+  },
+};
 export const IndividualUnknown: Story = {
   ...purchaseRoute("guest", null, false, undefined, true),
   args: {

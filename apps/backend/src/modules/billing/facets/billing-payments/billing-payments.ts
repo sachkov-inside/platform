@@ -49,6 +49,7 @@ import {
 import {
   paymentFailure,
   purchaseProductSchema,
+  type PaymentFailureCode,
   purchaseStatusSchema,
   type PaymentResult,
   type PurchaseStatus,
@@ -204,6 +205,7 @@ export class BillingPayments {
       const email = orderEmail ?? contact.contact?.email;
       if (email === undefined) return paymentFailure("contact_required");
       const { email: _email, ...storedCommand } = command;
+      const productId = snapshot.product?.id ?? snapshot.paymentOption.id;
       const consents = await this.dependencies.contact.readConsents(
         accountId,
         command.consentEvidenceRefs,
@@ -241,6 +243,11 @@ export class BillingPayments {
         )
       )
         return paymentFailure("consent_required");
+      const unpaidPerBank = await this.unpaidAttemptAtOtherPrice(
+        accountId,
+        productId,
+        snapshot,
+      );
       const prepare = () =>
         this.dependencies.prisma.$transaction(
           async (
@@ -261,14 +268,7 @@ export class BillingPayments {
             // A completed lifecycle remains in history; only a later new purchase can reserve another slot.
 
             let continuingPurchase = await tx.billingPurchase.findFirst({
-              where: {
-                accountId,
-                kind: "one_time",
-                state: { in: inFlightStates },
-                ...savedContentProductWhere(
-                  snapshot.product?.id ?? snapshot.paymentOption.id,
-                ),
-              },
+              where: openAttemptWhere(accountId, productId),
               orderBy: { createdAt: "desc" },
             });
             if (continuingPurchase === null) {
@@ -277,9 +277,7 @@ export class BillingPayments {
                   accountId,
                   kind: "one_time",
                   state: "confirmed",
-                  ...savedContentProductWhere(
-                    snapshot.product?.id ?? snapshot.paymentOption.id,
-                  ),
+                  ...savedContentProductWhere(productId),
                 },
                 orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               });
@@ -295,7 +293,16 @@ export class BillingPayments {
                   };
               }
             }
-            if (continuingPurchase) {
+            const replaced =
+              continuingPurchase === null
+                ? null
+                : await replaceableAttempt(
+                    tx,
+                    continuingPurchase,
+                    snapshot,
+                    unpaidPerBank,
+                  );
+            if (continuingPurchase && replaced === null) {
               await tx.billingPurchaseCommand.create({
                 data: {
                   ...key,
@@ -318,12 +325,19 @@ export class BillingPayments {
             const acquired =
               await this.dependencies.grants.hasProductAcquisition(
                 accountId,
-                snapshot.product?.id ?? snapshot.paymentOption.id,
+                productId,
                 transactionHandle(tx),
               );
             if (!acquired.ok) return paymentFailure("dependency_unavailable");
             if (acquired.acquired) return paymentFailure("existing_access");
             const purchaseRef = randomUUID();
+            // Снятие откатывается вместе с транзакцией, если новая попытка не создана.
+            const rejected = (code: PaymentFailureCode) => {
+              if (replaced !== null) throw new ReplacementRejected(code);
+              return paymentFailure(code);
+            };
+            if (replaced !== null)
+              await retireReplacedAttempt(tx, replaced, purchaseRef, now);
             const reservation = await reservePurchaseInTransaction(
               tx,
               {
@@ -339,7 +353,7 @@ export class BillingPayments {
               this.dependencies.contentCatalog,
             );
             if (!reservation.ok)
-              return paymentFailure(
+              return rejected(
                 reservation.error.code === "reservation_conflict"
                   ? "payment_in_progress"
                   : reservation.error.code,
@@ -353,7 +367,7 @@ export class BillingPayments {
               await tx.billingPromoReservation.delete({
                 where: { purchaseRef },
               });
-              return paymentFailure(admission.error.code);
+              return rejected(admission.error.code);
             }
             await tx.billingPurchase.create({
               data: {
@@ -410,6 +424,8 @@ export class BillingPayments {
       }
       return prepared;
     } catch (error) {
+      if (error instanceof ReplacementRejected)
+        return paymentFailure(error.code);
       // Another open purchase of this Product holds the reservation: an answer, not a failure.
       if (isOpenProductReservationConflict(error))
         return paymentFailure("payment_in_progress");
@@ -418,6 +434,62 @@ export class BillingPayments {
         error,
         paymentFailure("dependency_unavailable"),
       );
+    }
+  }
+
+  /**
+   * Открытая попытка того же продукта по другой цене (#1925). Перед заменой банк отвечает о её
+   * форме, и ответ записывается как при сверке. Возвращает ссылку попытки, если банк назвал форму
+   * неоплаченной; иначе `null`, и покупка продолжит открытую попытку. Банк недоступен: тоже `null`.
+   */
+  private async unpaidAttemptAtOtherPrice(
+    accountId: string,
+    productId: string,
+    snapshot: PriceSnapshot,
+  ): Promise<string | null> {
+    const { prisma, bank } = this.dependencies;
+    const open = await prisma.billingPurchase.findFirst({
+      where: openAttemptWhere(accountId, productId),
+      orderBy: { createdAt: "desc" },
+      select: { id: true, amountKopecks: true, snapshot: true },
+    });
+    if (
+      bank === undefined ||
+      open === null ||
+      !pricedDifferently(open, snapshot)
+    )
+      return null;
+    try {
+      await this.awaitBankAnswer(open.id);
+      const row = await prisma.billingPurchase.findUniqueOrThrow({
+        where: { id: open.id },
+        select: {
+          state: true,
+          paymentId: true,
+          environment: true,
+          terminalRef: true,
+        },
+      });
+      if (
+        !["pending", "unknown"].includes(row.state) ||
+        !hasText(row.paymentId) ||
+        row.environment !== bank.config.environment ||
+        row.terminalRef !== bank.config.terminalKey
+      )
+        return null;
+      const payment = await bank.state(row.paymentId);
+      if (payment.OrderId !== open.id || payment.PaymentId !== row.paymentId)
+        return null;
+      const accepted = await this.accept(payment);
+      return accepted.ok && unpaidFormStatuses.includes(payment.Status)
+        ? open.id
+        : null;
+    } catch (error) {
+      reportDependencyFailure(
+        { module: "billing", operation: "purchase" },
+        error,
+      );
+      return null;
     }
   }
 
@@ -1628,13 +1700,7 @@ export class BillingPayments {
           });
         } else if (cancelMark !== null) {
           // Попытку с неизвестным исходом снимает только ответ банка о неоплаченной форме.
-          await retireAttempt(
-            tx,
-            row.id,
-            cancelMark.confirmedPurchaseRef,
-            now,
-            payment.PaymentId,
-          );
+          await retireAttempt(tx, row.id, cancelMark, now, payment.PaymentId);
           const released = await tx.billingPromoReservation.findUnique({
             where: { purchaseRef: row.id },
             select: { paymentLinkId: true },
@@ -1743,6 +1809,91 @@ type PurchaseRow = Awaited<
   ReturnType<BillingPrisma["billingPurchase"]["findUniqueOrThrow"]>
 >;
 
+/** Незавершённая разовая покупка этого продукта у Account. */
+function openAttemptWhere(
+  accountId: string,
+  productId: string,
+): Prisma.BillingPurchaseWhereInput {
+  return {
+    accountId,
+    kind: "one_time",
+    state: { in: inFlightStates },
+    ...savedContentProductWhere(productId),
+  };
+}
+
+/** Новый расчёт назначает другую сумму или другую ссылку на оплату, чем открытая попытка. */
+function pricedDifferently(
+  attempt: Pick<PurchaseRow, "amountKopecks" | "snapshot">,
+  snapshot: PriceSnapshot,
+): boolean {
+  return (
+    Number(attempt.amountKopecks) !== snapshot.firstPriceKopecks ||
+    priceSnapshotSchema.parse(attempt.snapshot).individualPayment?.linkId !==
+      snapshot.individualPayment?.linkId
+  );
+}
+
+/** Новая попытка не создана: снятие прежней откатывается вместе с транзакцией. */
+class ReplacementRejected extends Error {
+  constructor(readonly code: PaymentFailureCode) {
+    super(`Price replacement rejected: ${code}`);
+  }
+}
+
+/**
+ * Открытая попытка, которую заменяет покупка по другой цене (#1925), или `null`, если покупка её
+ * продолжает. Попытку `prepared` Init ещё не создал. Отправленную попытку заменяет только ответ
+ * банка о неоплаченной форме, полученный перед транзакцией. Оплаченная, удержанная и попытка с
+ * неизвестным исходом продолжаются: покупатель видит их статус. Вызывающий держит замок цен.
+ */
+async function replaceableAttempt(
+  tx: BillingPrisma,
+  attempt: PurchaseRow,
+  snapshot: PriceSnapshot,
+  unpaidPerBank: string | null,
+): Promise<{
+  readonly id: string;
+  readonly state: "prepared" | "pending";
+} | null> {
+  if (attempt.state === "confirmed" || !pricedDifferently(attempt, snapshot))
+    return null;
+  await lockBillingPurchase(tx, attempt.id);
+  const { state } = await tx.billingPurchase.findUniqueOrThrow({
+    where: { id: attempt.id },
+    select: { state: true },
+  });
+  if (state === "prepared") return { id: attempt.id, state };
+  return state === "pending" && attempt.id === unpaidPerBank
+    ? { id: attempt.id, state }
+    : null;
+}
+
+/**
+ * Покупка по другой цене снимает открытую попытку (#1925). Попытка, чей Init ушёл в банк,
+ * получает отметку отмены: сверка закроет её форму. Ссылка снятой попытки освобождается.
+ */
+async function retireReplacedAttempt(
+  tx: BillingPrisma,
+  attempt: { readonly id: string; readonly state: "prepared" | "pending" },
+  replacementPurchaseRef: string,
+  now: Date,
+): Promise<void> {
+  const retirement = {
+    reason: "replaced_by_new_price",
+    replacementPurchaseRef,
+  } as const;
+  if (attempt.state === "pending")
+    await requireBankCancel(tx, attempt.id, retirement, now);
+  await retireAttempt(tx, attempt.id, retirement, now);
+  const released = await tx.billingPromoReservation.findUnique({
+    where: { purchaseRef: attempt.id },
+    select: { paymentLinkId: true },
+  });
+  if (released?.paymentLinkId != null)
+    await confirmWaitingLinkReservation(tx, released.paymentLinkId);
+}
+
 /**
  * Банк подтвердил покупку, которую мы уже считали неуспешной. Пока она числилась неуспешной,
  * покупатель мог начать новую попытку того же продукта или занять ту же ссылку на оплату.
@@ -1789,11 +1940,15 @@ async function settleConfirmationAfterFailure(
       select: { state: true },
     });
     // Init ушёл или мог уйти в банк у всех, кроме prepared: такую форму сверка отменит.
+    const retirement = {
+      reason: "superseded_by_confirmed_payment",
+      confirmedPurchaseRef: row.id,
+    } as const;
     if (state === "sent" || state === "pending" || state === "unknown")
-      await requireBankCancel(tx, attempt.id, row.id, now);
+      await requireBankCancel(tx, attempt.id, retirement, now);
     // Неизвестный исход ждёт ответа банка: сверка снимет попытку, если форма не оплачена.
     if (!supersedableStates.includes(state)) continue;
-    await retireAttempt(tx, attempt.id, row.id, now);
+    await retireAttempt(tx, attempt.id, retirement, now);
     superseded.push(attempt.id);
   }
   const remainingHolders = linkHolders.filter(
@@ -1823,13 +1978,14 @@ async function settleConfirmationAfterFailure(
 }
 
 /**
- * Inside снимает неоплаченную попытку: она закрывается вместе с резервом и получает событие
- * `superseded_by_confirmed_payment`. Вызывающий держит замок покупки.
+ * Inside снимает неоплаченную попытку: она закрывается вместе с резервом и получает событие с
+ * именем причины, `superseded_by_confirmed_payment` или `replaced_by_new_price`. Вызывающий
+ * держит замок покупки.
  */
 async function retireAttempt(
   tx: BillingPrisma,
   attemptRef: string,
-  confirmedPurchaseRef: string,
+  retirement: Retirement,
   now: Date,
   paymentId?: string,
 ): Promise<void> {
@@ -1847,13 +2003,8 @@ async function retireAttempt(
     where: { purchaseRef: attemptRef },
     data: { state: "failed" },
   });
-  await recordEventOnce(
-    tx,
-    attemptRef,
-    "superseded_by_confirmed_payment",
-    { confirmedPurchaseRef },
-    now,
-  );
+  const { reason, ...payload } = retirement;
+  await recordEventOnce(tx, attemptRef, reason, payload, now);
 }
 
 /**
@@ -1887,26 +2038,34 @@ async function openRetiredForms(
   return rows.map((row) => row.purchase_ref);
 }
 
-const bankCancelRequestedSchema = z.object({
-  reason: z.literal("superseded_by_confirmed_payment"),
-  confirmedPurchaseRef: z.uuid(),
-});
+/**
+ * Причина снятия попытки: оплачена другая попытка того же продукта или ссылки, или покупатель
+ * начал покупку по другой цене (#1925). Отметка отмены хранит ту же причину.
+ */
+const retirementSchema = z.discriminatedUnion("reason", [
+  z.object({
+    reason: z.literal("superseded_by_confirmed_payment"),
+    confirmedPurchaseRef: z.uuid(),
+  }),
+  z.object({
+    reason: z.literal("replaced_by_new_price"),
+    replacementPurchaseRef: z.uuid(),
+  }),
+]);
+type Retirement = z.infer<typeof retirementSchema>;
 
 /** Отметка отмены: снятая попытка, чья форма в банке ещё может принять оплату. */
 async function requireBankCancel(
   tx: BillingPrisma,
   attemptRef: string,
-  confirmedPurchaseRef: string,
+  retirement: Retirement,
   now: Date,
 ): Promise<void> {
   await recordEventOnce(
     tx,
     attemptRef,
     bankCancelRequested,
-    bankCancelRequestedSchema.parse({
-      reason: "superseded_by_confirmed_payment",
-      confirmedPurchaseRef,
-    }),
+    retirementSchema.parse(retirement),
     now,
   );
 }
@@ -1940,7 +2099,7 @@ async function recordEventOnce(
 async function findOpenBankCancel(
   tx: BillingPrisma,
   purchaseRef: string,
-): Promise<z.infer<typeof bankCancelRequestedSchema> | null> {
+): Promise<Retirement | null> {
   const marks = await tx.billingPaymentEvent.findMany({
     where: {
       purchaseRef,
@@ -1952,7 +2111,7 @@ async function findOpenBankCancel(
   const required = marks.find((mark) => mark.kind === bankCancelRequested);
   return required === undefined
     ? null
-    : bankCancelRequestedSchema.parse(required.payload);
+    : retirementSchema.parse(required.payload);
 }
 
 /**
