@@ -9,6 +9,11 @@ import { z } from "zod";
 import type { TbankConfig } from "../../../../config/tbank-config.js";
 
 export const bankTimeoutMs = 10_000;
+/** Ответ CheckOrder на заказ без единого платежа у этого терминала. */
+const orderNotFoundSchema = z.object({
+  Success: z.union([z.literal(false), z.literal("false")]),
+  ErrorCode: z.union([z.literal("335"), z.literal(335)]),
+});
 const reference = z.union([z.string().min(1).max(64), z.int().nonnegative()]);
 const success = z.union([z.boolean(), z.enum(["true", "false"])]);
 /**
@@ -333,6 +338,11 @@ export class Tbank {
     return { sent: true, payment, result };
   }
   async order(orderId: string): Promise<readonly string[]> {
+    const answer = await this.call("CheckOrder", { OrderId: orderId });
+    // Заказ, по которому Init не создал платежа, банк не знает: боевой T-Bank 31.10.2026 ответил
+    // Success:false, ErrorCode "335" («OrderId … не найден для TerminalKey …»). Это пустой список
+    // платежей, а не сбой; любой другой отказ остаётся неизвестностью.
+    if (orderNotFoundSchema.safeParse(answer).success) return [];
     // CheckOrder locates an attempt; its optional amount/error fields are not payment proof.
     const result = z
       .object({
@@ -352,7 +362,7 @@ export class Tbank {
           )
           .max(100),
       })
-      .parse(await this.call("CheckOrder", { OrderId: orderId }));
+      .parse(answer);
     if (
       result.TerminalKey !== this.config.terminalKey ||
       result.OrderId !== orderId

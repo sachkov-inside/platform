@@ -265,8 +265,18 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
           PaymentURL: "https://securepay.tinkoff.ru/test",
         });
       }
-      // CheckOrder перечисляет платежи заказа, которые создал Init; без них список пуст.
-      if (url.endsWith("/CheckOrder"))
+      // CheckOrder перечисляет платежи заказа, которые создал Init. Заказ без платежей банк не знает:
+      // боевой T-Bank 31.10.2026 ответил на такой заказ Success:false, ErrorCode "335".
+      if (url.endsWith("/CheckOrder")) {
+        const known = [...bankPayments].some(
+          ([, payment]) => payment.orderId === body.OrderId,
+        );
+        if (!known)
+          return Response.json({
+            Success: false,
+            ErrorCode: "335",
+            Message: `OrderId ${String(body.OrderId)} не найден для TerminalKey ${config.terminalKey}`,
+          });
         return Response.json({
           Success: true,
           ErrorCode: "0",
@@ -281,6 +291,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
               ErrorCode: 0,
             })),
         });
+      }
       if (url.endsWith("/GetState")) {
         stateCalls++;
         if (stateGate !== undefined) {

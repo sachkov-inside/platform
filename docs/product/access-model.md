@@ -735,7 +735,9 @@ A failed Cancel is sent again within that window. `bank_cancel_confirmed` record
 that closed the form: `CANCELED` after Cancel, or `DEADLINE_EXPIRED`, `REVERSED`, `CONFIRMED` or
 `REFUNDED` without it. A buyer can still pay between that GetState and Cancel; the bank then
 returns the money, and `bank_cancel_returned_payment` records it. When the retired attempt's Init
-answer was lost, reconciliation finds its PaymentId with CheckOrder. If CheckOrder finds no payment
+answer was lost, reconciliation finds its PaymentId with CheckOrder. For an order without payments
+the provider answers `Success:false` with `ErrorCode` `335` (order not found, observed on the live
+terminal on 2026-10-31); Inside reads it as an empty payment list. If CheckOrder finds no payment
 for 30 minutes, `bank_payment_absent` closes the mark instead, because there is no form to cancel
 (#1922). A repeat attempt with an unknown
 outcome is first checked with the bank. An unpaid form retires and is cancelled; a paid one is
