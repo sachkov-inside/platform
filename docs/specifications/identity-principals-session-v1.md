@@ -37,7 +37,11 @@ Application module `Accounts` предоставляет операции уст
 прав и серверного разрешения identity для подтверждённой Telegram-связи:
 
 ```ts
-type PlatformPermission = "materials:manage" | "communications:manage" | "platform:admin";
+type PlatformPermission =
+  | "materials:manage"
+  | "communications:manage"
+  | "billing:manage"
+  | "platform:admin";
 
 interface AuthenticatedAccount {
   readonly accountId: string;
@@ -60,6 +64,11 @@ interface Accounts {
     readonly accountId: string;
     readonly permission: PlatformPermission;
   }): Promise<PermissionDecision>;
+
+  /** Effective permissions; `platform:admin` lists every permission (#1879). */
+  listPermissions(query: {
+    readonly accountId: string;
+  }): Promise<PermissionList>;
 }
 ```
 

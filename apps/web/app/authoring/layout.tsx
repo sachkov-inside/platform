@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 import { AuthoringApplicationShell, QueryProvider } from "@/_app";
+import { requireAuthoringEntry } from "@/_app/authoring-entry.server";
 
 /** Раздел целиком зависит от сессии и на слои не разложен: проверка мгновенности с него снята (ADR 0027). */
 export const instant = false;
@@ -19,11 +20,12 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function AuthoringLayout({
+export default async function AuthoringLayout({
   children,
 }: {
   readonly children: ReactNode;
 }) {
+  await requireAuthoringEntry();
   return (
     <QueryProvider>
       <AuthoringApplicationShell>{children}</AuthoringApplicationShell>

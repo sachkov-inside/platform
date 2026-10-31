@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { requireAuthoringEntry } from "@/_app/authoring-entry.server";
 import { AuthoringPersonPage } from "@/_pages/authoring-person.server";
 
 /** Раздел целиком зависит от сессии и на слои не разложен: проверка мгновенности с него снята (ADR 0027). */
@@ -12,6 +13,7 @@ export default async function Page({
 }: {
   readonly params: Promise<{ readonly accountId: string }>;
 }) {
+  await requireAuthoringEntry();
   const { accountId } = await params;
   return <AuthoringPersonPage accountId={accountId} />;
 }

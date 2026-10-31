@@ -31,6 +31,7 @@ export async function startLocalStand(learning: LearnerMcpDependencies) {
             : { ok: false, error: { code: "account_not_found" } },
         ),
       checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
+      listPermissions: () => Promise.resolve({ ok: true, permissions: [] }),
     },
     config: { host: "127.0.0.1", port: 0, serverUrl: `${auth.issuer}/mcp` },
     identityIssuer: auth.issuer,
