@@ -29,10 +29,13 @@ patchedDependencies:
   testcontainers@12.2.0: patches/testcontainers@12.2.0.patch
   # #1747: decode external file URLs for mock lookup. Remove when Vitest normalizes these identities.
   vitest@4.1.11: patches/vitest@4.1.11.patch
-# Security overrides only: each replaces an exact transitive pin that has a published advisory and
-# no fixed release of its parent on our major. Remove an entry once the named parent ships the fix
+# Security overrides only: each replaces a transitive dependency that its parent pins exactly or by a
+# range that excludes the fix of a published advisory, while the parent has no fixed release on our major. Remove an entry once the named parent ships the fix
 # (docs/runbooks/dependency-updates.md, Security overrides).
 overrides:
   # prisma 7.10.0 pins mysql2 3.15.3 and, through @prisma/config, deepmerge-ts 7.1.5.
   mysql2: 3.24.4
   deepmerge-ts: 8.0.2
+  # #1889: @fastify/static 10.1.8 (latest) depends on glob ^13; glob 14.0.3 also brings minimatch 11.
+  # Remove when a stable @fastify/static release depends on glob >= 14.0.2.
+  "@fastify/static>glob": 14.0.3
