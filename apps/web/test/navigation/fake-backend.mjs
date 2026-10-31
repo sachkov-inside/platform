@@ -200,6 +200,34 @@ const lessons = [
 const performanceTemplate = lessons[0];
 if (performanceTemplate === undefined)
   throw new Error("Missing lesson template");
+const readerTitleProducts = ["desktop", "mobile"].map((variant, index) => ({
+  cover: null,
+  hasModeVariants: false,
+  id: `16260000-0000-4000-8000-00000000010${String(index)}`,
+  name: "Курс заголовков",
+  slug: `reader-title-${variant}`,
+}));
+const readerTitleLessons = readerTitleProducts.flatMap((product, index) =>
+  [1, 2].map((ordinal) => ({
+    ...performanceTemplate,
+    access: "closed",
+    productMemberships: [
+      {
+        ordinal,
+        product: { id: product.id, name: product.name, slug: product.slug },
+        stepGroup: null,
+      },
+    ],
+    materialId: `16260000-0000-4000-8000-${String(index * 10 + ordinal).padStart(12, "0")}`,
+    slug: `${product.slug}-${String(ordinal)}`,
+    title:
+      ordinal === 1 ? "Первый заголовок читателя" : "Второй заголовок читателя",
+  })),
+);
+/** @type {Map<string, number>} */
+const readerTitleOpens = new Map();
+const readerTitleCommands = new Set();
+
 const performanceLessons = Array.from({ length: 120 }, (_, index) => ({
   ...performanceTemplate,
   materialId: `33333333-3333-4333-8333-${String(index + 201).padStart(12, "0")}`,
@@ -260,7 +288,7 @@ const lessonsOf = (product) =>
     ? performanceLessons
     : product.slug === referenceProduct.slug
       ? referenceLessons
-      : lessons.filter(
+      : [...lessons, ...readerTitleLessons].filter(
           (lesson) => lesson.productMemberships[0]?.product.id === product.id,
         );
 
@@ -663,7 +691,9 @@ function route(method, url, entitled) {
         ? performanceProduct
         : slug === referenceProduct.slug
           ? referenceProduct
-          : products.find((candidate) => candidate.slug === slug);
+          : [...products, ...readerTitleProducts].find(
+              (candidate) => candidate.slug === slug,
+            );
     if (
       product === undefined ||
       (product.slug === archivedProductSlug && !entitled)
@@ -756,6 +786,56 @@ function route(method, url, entitled) {
       },
       relatedProduct: [],
       topics: [],
+    });
+  }
+  const titleLesson = readerTitleLessons.find(
+    (lesson) => path === `/materials/${lesson.slug}`,
+  );
+  if (titleLesson !== undefined) {
+    if (!entitled)
+      return json({
+        kind: "teaser",
+        cacheScope: "private-no-store",
+        projection: readerProjection(titleLesson),
+        access: { availability: "locked", subscriptionOffered: false },
+      });
+    const document = body(titleLesson, true);
+    return json({
+      kind: "available",
+      cacheScope: "private-no-store",
+      primaryVideo: null,
+      projection: readerProjection(titleLesson),
+      body: {
+        ...document,
+        blocks: [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                marks: [],
+                text: `Открытий материала: ${String(readerTitleOpens.get(titleLesson.materialId) ?? 0)}`,
+              },
+            ],
+          },
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                text: "Следующий материал",
+                marks: [
+                  {
+                    kind: "link",
+                    href: `/materials/${titleLesson.slug.replace(/-1$/u, "-2")}`,
+                  },
+                ],
+              },
+            ],
+          },
+          ...document.blocks,
+        ],
+      },
     });
   }
   const material = /^\/materials\/([^/]+)$/u.exec(path);
@@ -1307,6 +1387,57 @@ const server = createServer(async (request, response) => {
         : [],
     });
     return;
+  }
+  if (request.method === "POST" && url.pathname === "/reading-activity/opens") {
+    const input = z
+      .strictObject({
+        materialId: z.uuid(),
+        contentVersion: z.number().int().positive(),
+        commandId: z.uuid(),
+      })
+      .parse(JSON.parse(await readBody(request)));
+    if (
+      authorized &&
+      readerTitleLessons.some(
+        ({ materialId }) => materialId === input.materialId,
+      )
+    ) {
+      const replayed = readerTitleCommands.has(input.commandId);
+      if (!replayed)
+        readerTitleOpens.set(
+          input.materialId,
+          (readerTitleOpens.get(input.materialId) ?? 0) + 1,
+        );
+      readerTitleCommands.add(input.commandId);
+      send(200, { openedAt: "2026-10-10T08:00:00.000Z", replayed });
+      return;
+    }
+  }
+  if (
+    request.method === "POST" &&
+    url.pathname === "/reading-activity/materials/query"
+  ) {
+    const input = z
+      .strictObject({ materialIds: z.array(z.uuid()).min(1).max(100) })
+      .parse(JSON.parse(await readBody(request)));
+    if (
+      authorized &&
+      input.materialIds.every((id) =>
+        readerTitleLessons.some(({ materialId }) => materialId === id),
+      )
+    ) {
+      send(
+        200,
+        input.materialIds.map((materialId) => ({
+          materialId,
+          isRead: false,
+          readAt: null,
+          updatedAt: null,
+          version: 0,
+        })),
+      );
+      return;
+    }
   }
   const result = state.unavailable
     ? json(

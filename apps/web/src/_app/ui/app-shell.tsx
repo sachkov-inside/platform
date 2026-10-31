@@ -28,7 +28,10 @@ export function AppShell({ children }: AppShellProps) {
     authStatus.accountId,
     accountKnown,
   );
-  useAccessChangeRefresh(authStatus.accountId, accountKnown);
+  const refreshPending = useAccessChangeRefresh(
+    authStatus.accountId,
+    accountKnown,
+  );
   const readingProviderKey = useReadingProviderKey(
     authStatus.accountId,
     authStatus.resolved,
@@ -56,6 +59,7 @@ export function AppShell({ children }: AppShellProps) {
           pathname={mobileNavigation.pendingHref?.split("?")[0] ?? pathname}
         >
           <div
+            data-route-refresh-pending={refreshPending}
             aria-hidden={mobileNavigation.pendingHref !== null || undefined}
             inert={mobileNavigation.pendingHref !== null}
             className={

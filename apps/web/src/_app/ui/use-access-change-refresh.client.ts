@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useTransition } from "react";
 
 import { subscribeToCurrentBillingChanges } from "@/features/billing-subscription";
 import { readingProgressChanges } from "@/features/reading-progress";
@@ -15,24 +15,30 @@ import { readingProgressChanges } from "@/features/reading-progress";
 export function useAccessChangeRefresh(
   accountId: string | null,
   authResolved: boolean,
-): void {
+): boolean {
   const router = useRouter();
   const previousAccount = useRef<string | null | undefined>(undefined);
+  const [pending, startTransition] = useTransition();
+  const refresh = useCallback(() => {
+    startTransition(() => {
+      router.refresh();
+    });
+  }, [router]);
 
   useEffect(
     () =>
       subscribeToCurrentBillingChanges(() => {
-        router.refresh();
+        refresh();
       }),
-    [router],
+    [refresh],
   );
 
   useEffect(() => {
     if (!authResolved || accountId === null) return;
     return readingProgressChanges(accountId).subscribe(() => {
-      router.refresh();
+      refresh();
     });
-  }, [accountId, authResolved, router]);
+  }, [accountId, authResolved, refresh]);
 
   useEffect(() => {
     if (!authResolved) return;
@@ -40,8 +46,9 @@ export function useAccessChangeRefresh(
       previousAccount.current !== undefined &&
       previousAccount.current !== accountId
     ) {
-      router.refresh();
+      refresh();
     }
     previousAccount.current = accountId;
-  }, [accountId, authResolved, router]);
+  }, [accountId, authResolved, refresh]);
+  return pending;
 }
