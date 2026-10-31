@@ -3,13 +3,8 @@
 import { Check, Copy } from "lucide-react";
 import { useRef } from "react";
 
+import { Button } from "@/shared/ui/button";
 import { type CopyTextState, useCopyText } from "./use-copy-text.client";
-
-const buttonLabels: Readonly<Record<CopyTextState, string>> = {
-  copied: "Код скопирован",
-  failed: "Скопировать код",
-  idle: "Скопировать код",
-};
 
 const statusText: Readonly<Record<CopyTextState, string>> = {
   copied: "Код скопирован",
@@ -37,19 +32,21 @@ export function MaterialCodeBlock({ text }: { readonly text: string }) {
       >
         <code ref={code}>{text}</code>
       </pre>
-      <button
-        aria-label={buttonLabels[state]}
-        className="m-1.5 inline-grid size-11 shrink-0 place-items-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      <Button
+        aria-label="Скопировать код"
+        className="m-2 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:hover:bg-sidebar-accent"
         onClick={copy}
-        title={buttonLabels[state]}
+        size="icon-lg"
+        title="Скопировать код"
         type="button"
+        variant="ghost"
       >
         {state === "copied" ? (
-          <Check aria-hidden="true" className="size-4" />
+          <Check aria-hidden="true" />
         ) : (
-          <Copy aria-hidden="true" className="size-4" />
+          <Copy aria-hidden="true" />
         )}
-      </button>
+      </Button>
       <span className="sr-only" role="status">
         {statusText[state]}
       </span>

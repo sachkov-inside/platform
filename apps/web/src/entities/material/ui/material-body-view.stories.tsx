@@ -243,22 +243,24 @@ export const CodeBlockCopy: Story = {
     const buttonBox = button.getBoundingClientRect();
     const codeBox = code.getBoundingClientRect();
     await expect(buttonBox.left).toBeGreaterThanOrEqual(codeBox.right);
-    await expect(buttonBox.height).toBeGreaterThanOrEqual(44);
+    await expect(buttonBox.height).toBeGreaterThanOrEqual(36);
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
     const copy = spyOn(navigator.clipboard, "writeText").mockResolvedValue();
     try {
       await userEvent.click(button);
       await expect(copy).toHaveBeenCalledWith(instructionExample);
-      await expect(
-        canvas.findByRole("button", { name: "Код скопирован" }),
-      ).resolves.toBeVisible();
-      await expect(canvas.getByRole("status")).toHaveTextContent(
+      await expect(canvas.findByRole("status")).resolves.toHaveTextContent(
         "Код скопирован",
       );
+      await expect(button).toHaveAccessibleName("Скопировать код");
     } finally {
       copy.mockRestore();
     }
   },
 };
+
 export const CodeBlockCopyMobile: Story = {
   ...CodeBlockCopy,
   globals: { viewport: { value: "mobile390", isRotated: false } },
@@ -285,5 +287,34 @@ export const CodeBlockCopyFailure: Story = {
       copy.mockRestore();
       window.getSelection()?.removeAllRanges();
     }
+  },
+};
+
+export const CodeBlockCopyUnavailable: Story = {
+  args: { blocks: [{ kind: "code_block", text: "const result = 1;" }] },
+  beforeEach: () => {
+    const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: undefined,
+    });
+    return () => {
+      if (previous === undefined)
+        Reflect.deleteProperty(navigator, "clipboard");
+      else Object.defineProperty(navigator, "clipboard", previous);
+      window.getSelection()?.removeAllRanges();
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Скопировать код" }),
+    );
+    await expect(canvas.findByRole("status")).resolves.toHaveTextContent(
+      "Не удалось скопировать. Код выделен, скопируйте его вручную",
+    );
+    await waitFor(() =>
+      expect(window.getSelection()?.toString()).toBe("const result = 1;"),
+    );
   },
 };
