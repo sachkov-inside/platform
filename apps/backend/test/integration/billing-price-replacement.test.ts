@@ -279,3 +279,31 @@ test("a replacement whose new reservation fails leaves the open attempt untouche
     }),
   ).toBe(1);
 });
+
+test("an open form the bank cannot check yet is neither replaced nor offered at the old price", async () => {
+  const s = await world.scenario();
+  const storefront = value(await s.payments.purchase(s.buyer, s.command));
+  const linkId = await paymentLink(s);
+  const command = await purchaseCommand(s, { paymentLinkId: linkId });
+  s.afterState(() => {
+    throw new Error("Synthetic unavailable GetState");
+  });
+
+  const unavailable = await s.payments.purchase(s.buyer, command);
+
+  expect(unavailable).toEqual({
+    ok: false,
+    error: { code: "provider_unavailable" },
+  });
+  expect(s.initCalls()).toBe(1);
+  expect((await purchaseRow(storefront.purchaseRef)).state).toBe("pending");
+  expect(await eventPayloads(storefront.purchaseRef)).toEqual({});
+
+  // The same command succeeds once the bank answers again.
+  s.afterState(undefined);
+  const replacement = value(await s.payments.purchase(s.buyer, command));
+
+  expect(replacement.purchaseRef).not.toBe(storefront.purchaseRef);
+  expect(replacement.snapshot.firstPriceKopecks).toBe(linkPriceKopecks);
+  expect((await purchaseRow(storefront.purchaseRef)).state).toBe("failed");
+});

@@ -392,6 +392,23 @@ export const RestoredPayment: Story = {
     ).toHaveAttribute("href", pendingPurchase.paymentUrl);
   },
 };
+/** Промокод из ссылки владельца: неоплаченная форма без скидки не прячет оформление (#1925). */
+export const PromoCodeWithOpenPayment: Story = {
+  ...purchaseRoute("member", {
+    ...pendingPurchase,
+    snapshot: productOnlyOffer,
+  }),
+  args: { promoCode: "INSIDE10" },
+  play: async ({ canvasElement }) => {
+    const content = routeContent(canvasElement);
+    await expect(
+      await content.findByRole("button", { name: /Оплатить/ }),
+    ).toBeVisible();
+    await expect(
+      content.queryByRole("link", { name: "Открыть страницу оплаты" }),
+    ).not.toBeInTheDocument();
+  },
+};
 export const PreparingAccess: Story = {
   ...purchaseRoute("member", {
     ...confirmedProductPurchase,

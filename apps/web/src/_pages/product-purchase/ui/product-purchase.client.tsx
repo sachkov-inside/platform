@@ -95,15 +95,19 @@ export function ProductPurchase({
       : restored.isError
         ? "Не удалось восстановить покупку."
         : undefined;
-  // Покупка по ссылке заменит неоплаченную форму с другой ценой (#1925): страница ссылки
-  // показывает оформление по цене ссылки, а не статус той формы.
+  // Покупка по другой цене заменит неоплаченную форму (#1925): страница ссылки и страница с
+  // промокодом показывают оформление по своей цене, а не статус той формы. Применится ли
+  // промокод, решает расчёт; при той же цене сервер продолжит прежнюю попытку.
+  const otherPrice =
+    purchase !== null &&
+    (individualLink === undefined
+      ? promoCode !== undefined && purchase.snapshot.promotion === null
+      : purchase.snapshot.individualPayment?.linkId !== individualLink.id);
   const openPurchase =
     buyAgain ||
     purchase === null ||
     purchase.state === "failed" ||
-    (individualLink !== undefined &&
-      purchase.snapshot.individualPayment?.linkId !== individualLink.id &&
-      replaceableStates.includes(purchase.state))
+    (otherPrice && replaceableStates.includes(purchase.state))
       ? null
       : purchase;
   const ready = purchase?.access === "ready";

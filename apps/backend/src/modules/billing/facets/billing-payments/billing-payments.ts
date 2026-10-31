@@ -85,6 +85,11 @@ export const declinedPaymentRecheckMilliseconds = 24 * 60 * 60 * 1000;
  */
 const supersedableStates = ["prepared", "sent", "pending"];
 /**
+ * Открытая попытка с PaymentId, о форме которой покупка по другой цене спрашивает банк (#1925).
+ * Неизвестный исход банк может прояснить: неоплаченная форма станет `pending` и будет заменена.
+ */
+const bankCheckedStates = ["pending", "unknown"];
+/**
  * Отметка снятой попытки: её форму в банке нужно отменить (#1923). Отметку закрывает событие
  * `bank_cancel_confirmed` со статусом банка: `CANCELED` после Cancel или статус, который закрыл
  * форму без него. Сторож (#1928) читает эти события по имени.
@@ -243,7 +248,7 @@ export class BillingPayments {
         )
       )
         return paymentFailure("consent_required");
-      const unpaidPerBank = await this.unpaidAttemptAtOtherPrice(
+      const bankUnpaidAttemptRef = await this.unpaidAttemptAtOtherPrice(
         accountId,
         productId,
         snapshot,
@@ -293,15 +298,21 @@ export class BillingPayments {
                   };
               }
             }
-            const replaced =
+            const decision =
               continuingPurchase === null
                 ? null
-                : await replaceableAttempt(
+                : await decideOpenAttempt(
                     tx,
                     continuingPurchase,
                     snapshot,
-                    unpaidPerBank,
+                    bankUnpaidAttemptRef,
                   );
+            // Банк не подтвердил, что форма по прежней цене не оплачена: покупатель повторит
+            // ту же команду, а не попадёт на форму по прежней цене.
+            if (decision?.kind === "unverified")
+              return paymentFailure("provider_unavailable");
+            const replaced =
+              decision?.kind === "replace" ? decision.attempt : null;
             if (continuingPurchase && replaced === null) {
               await tx.billingPurchaseCommand.create({
                 data: {
@@ -332,7 +343,7 @@ export class BillingPayments {
             if (acquired.acquired) return paymentFailure("existing_access");
             const purchaseRef = randomUUID();
             // Снятие откатывается вместе с транзакцией, если новая попытка не создана.
-            const rejected = (code: PaymentFailureCode) => {
+            const rejectPurchase = (code: PaymentFailureCode) => {
               if (replaced !== null) throw new ReplacementRejected(code);
               return paymentFailure(code);
             };
@@ -353,7 +364,7 @@ export class BillingPayments {
               this.dependencies.contentCatalog,
             );
             if (!reservation.ok)
-              return rejected(
+              return rejectPurchase(
                 reservation.error.code === "reservation_conflict"
                   ? "payment_in_progress"
                   : reservation.error.code,
@@ -367,7 +378,7 @@ export class BillingPayments {
               await tx.billingPromoReservation.delete({
                 where: { purchaseRef },
               });
-              return rejected(admission.error.code);
+              return rejectPurchase(admission.error.code);
             }
             await tx.billingPurchase.create({
               data: {
@@ -471,7 +482,7 @@ export class BillingPayments {
         },
       });
       if (
-        !["pending", "unknown"].includes(row.state) ||
+        !bankCheckedStates.includes(row.state) ||
         !hasText(row.paymentId) ||
         row.environment !== bank.config.environment ||
         row.terminalRef !== bank.config.terminalKey
@@ -1701,12 +1712,7 @@ export class BillingPayments {
         } else if (cancelMark !== null) {
           // Попытку с неизвестным исходом снимает только ответ банка о неоплаченной форме.
           await retireAttempt(tx, row.id, cancelMark, now, payment.PaymentId);
-          const released = await tx.billingPromoReservation.findUnique({
-            where: { purchaseRef: row.id },
-            select: { paymentLinkId: true },
-          });
-          if (released?.paymentLinkId != null)
-            await confirmWaitingLinkReservation(tx, released.paymentLinkId);
+          await releaseRetiredLink(tx, row.id);
         } else {
           const authorized =
             row.state === "authorized" || payment.Status === "AUTHORIZED";
@@ -1841,31 +1847,45 @@ class ReplacementRejected extends Error {
   }
 }
 
+/** Открытая попытка, которую снимает покупка по другой цене (#1925). */
+interface ReplaceableAttempt {
+  readonly id: string;
+  /** `prepared`: Init не уходил, и форму в банке отменять не нужно. */
+  readonly state: "prepared" | "pending";
+}
+
 /**
- * Открытая попытка, которую заменяет покупка по другой цене (#1925), или `null`, если покупка её
- * продолжает. Попытку `prepared` Init ещё не создал. Отправленную попытку заменяет только ответ
- * банка о неоплаченной форме, полученный перед транзакцией. Оплаченная, удержанная и попытка с
- * неизвестным исходом продолжаются: покупатель видит их статус. Вызывающий держит замок цен.
+ * Что покупка по другой цене (#1925) делает с открытой попыткой; `null`, если цена та же или
+ * попытка оплачена. Попытку `prepared` Init ещё не создал, и она снимается. Попытку `pending`
+ * снимает только ответ банка о неоплаченной форме, полученный перед транзакцией. Если банк этого
+ * не подтвердил, а у попытки есть или вот-вот появится форма по прежней цене (`sent` или `pending`
+ * со ссылкой формы), ответ `unverified`. Удержанная попытка, попытка с неизвестным исходом и
+ * `pending`, чью форму банк уже не принимает к оплате, продолжаются: покупатель видит их статус.
+ * Вызывающий держит замок цен.
  */
-async function replaceableAttempt(
+async function decideOpenAttempt(
   tx: BillingPrisma,
   attempt: PurchaseRow,
   snapshot: PriceSnapshot,
-  unpaidPerBank: string | null,
-): Promise<{
-  readonly id: string;
-  readonly state: "prepared" | "pending";
-} | null> {
+  bankUnpaidAttemptRef: string | null,
+): Promise<
+  | { readonly kind: "replace"; readonly attempt: ReplaceableAttempt }
+  | { readonly kind: "unverified" }
+  | null
+> {
   if (attempt.state === "confirmed" || !pricedDifferently(attempt, snapshot))
     return null;
   await lockBillingPurchase(tx, attempt.id);
-  const { state } = await tx.billingPurchase.findUniqueOrThrow({
+  const { state, paymentUrl } = await tx.billingPurchase.findUniqueOrThrow({
     where: { id: attempt.id },
-    select: { state: true },
+    select: { state: true, paymentUrl: true },
   });
-  if (state === "prepared") return { id: attempt.id, state };
-  return state === "pending" && attempt.id === unpaidPerBank
-    ? { id: attempt.id, state }
+  if (state === "prepared")
+    return { kind: "replace", attempt: { id: attempt.id, state } };
+  if (state === "pending" && attempt.id === bankUnpaidAttemptRef)
+    return { kind: "replace", attempt: { id: attempt.id, state } };
+  return state === "sent" || (state === "pending" && paymentUrl !== null)
+    ? { kind: "unverified" }
     : null;
 }
 
@@ -1875,7 +1895,7 @@ async function replaceableAttempt(
  */
 async function retireReplacedAttempt(
   tx: BillingPrisma,
-  attempt: { readonly id: string; readonly state: "prepared" | "pending" },
+  attempt: ReplaceableAttempt,
   replacementPurchaseRef: string,
   now: Date,
 ): Promise<void> {
@@ -1886,12 +1906,7 @@ async function retireReplacedAttempt(
   if (attempt.state === "pending")
     await requireBankCancel(tx, attempt.id, retirement, now);
   await retireAttempt(tx, attempt.id, retirement, now);
-  const released = await tx.billingPromoReservation.findUnique({
-    where: { purchaseRef: attempt.id },
-    select: { paymentLinkId: true },
-  });
-  if (released?.paymentLinkId != null)
-    await confirmWaitingLinkReservation(tx, released.paymentLinkId);
+  await releaseRetiredLink(tx, attempt.id);
 }
 
 /**
@@ -2258,6 +2273,19 @@ async function confirmWaitingLinkReservation(
     where: { purchaseRef: waiting.id },
     data: { state: "confirmed" },
   });
+}
+
+/** Снятая попытка отпустила ссылку на оплату: ждущий резерв оплаченной покупки подтверждается. */
+async function releaseRetiredLink(
+  tx: BillingPrisma,
+  attemptRef: string,
+): Promise<void> {
+  const released = await tx.billingPromoReservation.findUnique({
+    where: { purchaseRef: attemptRef },
+    select: { paymentLinkId: true },
+  });
+  if (released?.paymentLinkId != null)
+    await confirmWaitingLinkReservation(tx, released.paymentLinkId);
 }
 
 /** Другая неотказанная попытка той же ссылки на оплату. */
