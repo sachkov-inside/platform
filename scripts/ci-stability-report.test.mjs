@@ -318,7 +318,7 @@ test("malformed, missing, truncated and type-ambiguous API inputs retain incompl
   assert.equal(truncated.jobs[0]?.classification, "unknown");
 });
 
-test("provider/setup errors, cancellation and new evidence completion do not become test signatures", async () => {
+test("provider/setup errors, cancellation and failures without test output do not become test signatures", async () => {
   const result = await report({
     [runsPath]: { total_count: 1, workflow_runs: [run(1, 11, 2)] },
     [`${prefix}/runs/1/attempts/1/jobs?per_page=100&page=1`]: {
@@ -330,28 +330,22 @@ test("provider/setup errors, cancellation and new evidence completion do not bec
           steps: [{ name: "Set up Platform", conclusion: "failure" }],
         },
         job(3, "cancelled"),
-        { ...job(4, "failure"), name: "Independent review evidence" },
+        job(4, "failure"),
       ],
     },
     [`${prefix}/runs/1/attempts/2/jobs?per_page=100&page=1`]: {
       total_count: 1,
-      jobs: [{ ...job(5, "success"), name: "Independent review evidence" }],
+      jobs: [job(5, "success")],
     },
     [`${prefix}/jobs/1/logs`]:
       "The runner has lost communication with the server",
     [`${prefix}/jobs/2/logs`]: "package registry unavailable",
-    [`${prefix}/jobs/4/logs`]: "Missing review receipt",
+    [`${prefix}/jobs/4/logs`]: "Process exited without test output",
   });
   assert.equal(result.causes.length, 0);
   assert.deepEqual(
     result.jobs.map((row) => row.classification),
-    [
-      "provider-failure",
-      "setup-failure",
-      "cancelled",
-      "unknown",
-      "evidence-completion",
-    ],
+    ["provider-failure", "setup-failure", "cancelled", "unknown", "success"],
   );
 });
 

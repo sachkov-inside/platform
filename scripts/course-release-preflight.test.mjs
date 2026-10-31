@@ -451,7 +451,6 @@ function correspondenceFixture() {
       "Full-stack smoke",
       "CI Gate",
       "Coverage plan (isolated reruns)",
-      "Independent review evidence",
     ].map((name, index) => ({
       id: index + 1,
       run_id: 567,
@@ -463,7 +462,6 @@ function correspondenceFixture() {
     })),
     evidence: {
       schemaVersion: 1,
-      reviewStatus: "verified",
       repository: "sachkov-inside/platform",
       sourceSha: actualSha,
       treeSha,
@@ -501,22 +499,20 @@ function correspondenceCandidate(input) {
   return candidate;
 }
 
-test("v3 correspondence requires a successful review job bound to the actual source and attempt", () => {
+test("v3 correspondence requires a successful gate job bound to the actual source and attempt", () => {
   for (const change of ["missing", "failed", "source", "attempt"]) {
     const input = correspondenceFixture();
     assert.equal(assessCourseRelease(input, now).sourceSha, sha);
     const candidate = correspondenceCandidate(input);
-    const review = candidate.providerJobs.find(
-      (job) => job.name === "Independent review evidence",
-    );
-    assert.ok(review);
+    const gate = candidate.providerJobs.find((job) => job.name === "CI Gate");
+    assert.ok(gate);
     if (change === "missing")
       candidate.providerJobs = candidate.providerJobs.filter(
-        (job) => job !== review,
+        (job) => job !== gate,
       );
-    if (change === "failed") review.conclusion = "failure";
-    if (change === "source") review.head_sha = sha;
-    if (change === "attempt") review.run_attempt = 2;
+    if (change === "failed") gate.conclusion = "failure";
+    if (change === "source") gate.head_sha = sha;
+    if (change === "attempt") gate.run_attempt = 2;
     assert.throws(
       () => assessCourseRelease(input, now),
       /check evidence/u,
@@ -525,27 +521,37 @@ test("v3 correspondence requires a successful review job bound to the actual sou
   }
 });
 
-test("v3 correspondence rejects a successful review job without artifact review status", () => {
+test("v3 correspondence still accepts older runs with the retired review job and status", () => {
   const input = correspondenceFixture();
-  assert.equal(assessCourseRelease(input, now).sourceSha, sha);
   const candidate = correspondenceCandidate(input);
-  const { reviewStatus: _reviewStatus, ...withoutReviewStatus } =
-    candidate.evidence;
-  assert.throws(
-    () =>
-      assessCourseRelease(
-        {
-          ...input,
-          evidence: {
-            ...input.evidence,
-            sourceCorrespondence: {
-              candidates: [{ ...candidate, evidence: withoutReviewStatus }],
-            },
+  candidate.providerJobs.push({
+    id: 4,
+    run_id: 567,
+    run_attempt: 1,
+    head_sha: "d".repeat(40),
+    name: "Independent review evidence",
+    status: "completed",
+    conclusion: "success",
+  });
+  assert.equal(
+    assessCourseRelease(
+      {
+        ...input,
+        evidence: {
+          ...input.evidence,
+          sourceCorrespondence: {
+            candidates: [
+              {
+                ...candidate,
+                evidence: { ...candidate.evidence, reviewStatus: "verified" },
+              },
+            ],
           },
         },
-        now,
-      ),
-    /check evidence/u,
+      },
+      now,
+    ).sourceSha,
+    sha,
   );
 });
 

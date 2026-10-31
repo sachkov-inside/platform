@@ -1,6 +1,6 @@
 # Repository scripts
 
-Use this context when changing or reviewing root scripts. Root `WORKFLOW.md` owns delivery.
+Use this context when changing or reviewing root scripts. Root `AGENTS.md` and `docs/agents/` own delivery.
 
 ## Implementation context
 

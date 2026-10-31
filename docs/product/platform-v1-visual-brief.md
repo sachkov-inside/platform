@@ -422,7 +422,7 @@ floating/parallax движение, progress по scroll/time heuristics или 
 
 Owner попросил реализовывать направление поэтапно, проверяя rendered результат до расширения на
 следующие surfaces. Этот visual brief фиксирует только такой decision boundary; delivery и PR
-rules принадлежат [repository workflow](../../WORKFLOW.md).
+rules принадлежат [delivery](../agents/delivery.md) и [ship](../agents/ship.md).
 
 Owner также ожидает подходящие libraries и current best practices. UI laboratory проверяет
 bounded reference compositions и component sources через rendered owner review; принятые visual

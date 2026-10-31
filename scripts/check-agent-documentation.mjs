@@ -96,62 +96,29 @@ function requireText(failures, path, content, expected, explanation) {
   }
 }
 
-/**
- * @param {string[]} failures
- * @param {string} path
- * @param {string} content
- * @param {string} forbidden
- * @param {string} explanation
- */
-function rejectText(failures, path, content, forbidden, explanation) {
-  if (content.includes(forbidden)) {
-    failures.push(`${path}: ${explanation}`);
-  }
-}
-
 /** @param {string} repositoryRoot */
 export function checkHarnessConfiguration(
   repositoryRoot = defaultRepositoryRoot,
 ) {
   /** @type {string[]} */
   const failures = [];
-  const workflowPath = resolve(repositoryRoot, "WORKFLOW.md");
-  const workflow = existsSync(workflowPath)
-    ? read(repositoryRoot, "WORKFLOW.md")
+  const agents = existsSync(resolve(repositoryRoot, "AGENTS.md"))
+    ? read(repositoryRoot, "AGENTS.md")
     : "";
-  const modes = workflow.match(/^Session mode:.*$/gmu) ?? [];
+  const modes = agents.match(/^Session mode:.*$/gmu) ?? [];
   if (
     modes.length !== 1 ||
     !/^Session mode: (?:main|worktree)$/u.test(modes[0] ?? "")
   ) {
     failures.push(
-      "WORKFLOW.md: require exactly one Session mode: main or worktree",
+      "AGENTS.md: require exactly one Session mode: main or worktree",
     );
   }
-  const classifications = workflow.match(/^Classification:.*$/gmu) ?? [];
-  const classification = classifications[0] ?? "";
-  if (
-    classifications.length !== 1 ||
-    !/^Classification: (?:enabled; policy: [^\s;]+|disabled|deferred)$/u.test(
-      classification,
-    )
-  ) {
+  // Workspace decision 199 (#1915) retired WORKFLOW.md; the root AGENTS.md and docs/agents/ replace it.
+  if (existsSync(resolve(repositoryRoot, "WORKFLOW.md"))) {
     failures.push(
-      "WORKFLOW.md: require exactly one Classification: enabled with policy, disabled or deferred",
+      "WORKFLOW.md: retired; move its rules to AGENTS.md or docs/agents/",
     );
-  } else if (classification.startsWith("Classification: enabled; policy: ")) {
-    const policy = classification.slice(
-      "Classification: enabled; policy: ".length,
-    );
-    if (
-      policy.startsWith("/") ||
-      policy.split(/[\\/]/u).includes("..") ||
-      !existsSync(resolve(repositoryRoot, policy))
-    ) {
-      failures.push(
-        "WORKFLOW.md: enabled classification policy must resolve within the repository",
-      );
-    }
   }
   const documents = collectAgentDocumentation(repositoryRoot);
   if (existsSync(resolve(repositoryRoot, "CLAUDE.md")))
@@ -172,42 +139,51 @@ export function checkHarnessConfiguration(
       );
     }
     if (
+      path !== "AGENTS.md" &&
       path.endsWith("AGENTS.md") &&
       existsSync(resolve(repositoryRoot, path)) &&
       /^(?:Session mode:|Classification:|Режим агентов:)/mu.test(
         read(repositoryRoot, path),
       )
     ) {
-      failures.push(
-        `${path}: WORKFLOW.md owns session mode and classification declarations`,
-      );
+      failures.push(`${path}: the root AGENTS.md owns the session mode`);
     }
   }
   return failures;
 }
 
+/** Skills of the implementation route; `sync-pipeline` installs them together. */
+export const implementationRoute = [
+  "implement",
+  "implement-spec",
+  "tdd",
+  "code-review",
+  "pr",
+  "ship",
+];
+
 /** @param {string} repositoryRoot */
 export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
   /** @type {string[]} */
   const failures = [];
-  const entryPoint = ".agents/skills/implement-spec/SKILL.md";
-  if (!existsSync(resolve(repositoryRoot, entryPoint))) {
-    failures.push(`${entryPoint}: specification skill is missing`);
+  for (const skill of implementationRoute) {
+    if (
+      !existsSync(resolve(repositoryRoot, ".agents/skills", skill, "SKILL.md"))
+    ) {
+      failures.push(
+        `.agents/skills/${skill}/SKILL.md: implementation route skill is missing`,
+      );
+    }
   }
-  if (existsSync(resolve(repositoryRoot, ".agents/skills/orchestrate"))) {
-    failures.push(
-      ".agents/skills/orchestrate: superseded entry point remains active",
-    );
+  for (const retired of ["orchestrate", "classify-change"]) {
+    if (existsSync(resolve(repositoryRoot, ".agents/skills", retired))) {
+      failures.push(
+        `.agents/skills/${retired}: superseded skill remains active`,
+      );
+    }
   }
-  const files = ["AGENTS.md", "WORKFLOW.md", ".agents/skills/PIPELINE.md"];
-  for (const skill of [
-    "implement-spec",
-    "tdd",
-    "classify-change",
-    "code-review",
-    "implement",
-    "setup-matt-pocock-skills",
-  ]) {
+  const files = ["AGENTS.md", ".agents/skills/PIPELINE.md"];
+  for (const skill of [...implementationRoute, "setup-matt-pocock-skills"]) {
     walk(resolve(repositoryRoot, ".agents/skills", skill), (path, name) => {
       if (name.endsWith(".md")) files.push(relative(repositoryRoot, path));
     });
@@ -227,49 +203,12 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
         "keep explicit owner corrections reachable",
       );
     }
-    rejectText(
-      failures,
-      path,
-      content,
-      "orchestrate/SKILL.md",
-      "replace the superseded orchestrate pointer",
-    );
-    rejectText(
-      failures,
-      path,
-      content,
-      "/orchestrate",
-      "replace the superseded orchestrate command",
-    );
     for (const target of extractLocalMarkdownTargets(content)) {
       if (
         !existsSync(resolve(dirname(resolve(repositoryRoot, path)), target))
       ) {
         failures.push(`${path}: local pointer does not resolve: ${target}`);
       }
-    }
-    if (path === "WORKFLOW.md") {
-      requireText(
-        failures,
-        path,
-        content,
-        "A specification uses one integration branch and final PR",
-        "retain the coordinated specification integration contract",
-      );
-      rejectText(
-        failures,
-        path,
-        content,
-        "| Requested result | Route |",
-        "completion requirements must not select a pipeline stage",
-      );
-      requireText(
-        failures,
-        path,
-        content,
-        entryPoint,
-        "route whole-specification work to its skill",
-      );
     }
   }
   walk(resolve(repositoryRoot, ".agents/skills"), (path, name) => {
@@ -338,10 +277,7 @@ export function checkStandardsReviewRouting(
  * @param {string} repositoryRoot
  */
 export function collectReferenceDocuments(repositoryRoot) {
-  const agentDocuments = [
-    ...collectAgentDocumentation(repositoryRoot),
-    "WORKFLOW.md",
-  ];
+  const agentDocuments = collectAgentDocumentation(repositoryRoot);
   const documents = new Set([
     ...agentDocuments,
     "README.md",

@@ -168,8 +168,7 @@ Linking/sign-in preserve identity and correlation and create no Product Access a
 ## Delivery
 
 Telegram lives in `apps/telegram` of `sachkov-inside/platform`.
-Read [application AGENTS](AGENTS.md), [root AGENTS](../../AGENTS.md) and
-[root WORKFLOW](../../WORKFLOW.md). New tasks use the
+Read [application AGENTS](AGENTS.md), [root AGENTS](../../AGENTS.md). New tasks use the
 [Platform tracker](https://github.com/sachkov-inside/platform/issues).
 The five open source issues were transferred to Platform; the verified old-to-new map is in
 [platform#961](https://github.com/sachkov-inside/platform/issues/961).

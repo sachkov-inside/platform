@@ -1,5 +1,7 @@
 # platform
 
+Session mode: worktree
+
 ## Repository role
 
 Platform owns the Membership application, the Telegram application under `apps/telegram`,
@@ -8,17 +10,22 @@ processes, databases, migrations and runtime contracts. `REPOSITORIES.md` maps c
 historical sources. Build, test and runtime depend only on this repository; a sibling checkout is
 never a dependency.
 
-## Routing
+## Process
 
-- Assignments, implementation, branches, pull requests, review, classification, merge, handoff or
-  session coordination: read `WORKFLOW.md`. Its `Owner gates` list what needs the owner's approval.
-- Issues, version and specification layers, sub-issues, blocking or Wayfinder: read
-  `docs/agents/issue-tracker.md`.
-- Readiness-label triage: read `docs/agents/triage-labels.md`.
-- Product context, terminology or ADR placement: read `docs/agents/domain.md`.
-- Frontend delivery, Storybook review or a UI prototype: read `docs/agents/frontend-delivery.md`.
-- Local application review, interactive stand work, or switching worktrees on the shared stand:
-  use `.agents/skills/local-stand/SKILL.md`.
+Questions and discussion get answers; files change only on an explicit request. Readiness labels,
+status requests and resumed chats are context, not an assignment.
+Implementation runs the skill chain `implement` → `tdd` → `code-review` → `ship`; a whole
+specification runs `implement-spec`. [PIPELINE.md](.agents/skills/PIPELINE.md) records the skills' source.
+
+- Branches, worktrees, pull requests, blockers and handoff: [delivery](docs/agents/delivery.md).
+- Merge permission, sensitive zones and owner acceptance: [ship](docs/agents/ship.md).
+  PR body: [pr](docs/agents/pr.md).
+- Several sessions or workers: [coordinated execution](docs/agents/coordinated-execution.md).
+- Issues, specifications, sub-issues, blocking or Wayfinder: [issue tracker](docs/agents/issue-tracker.md).
+  Readiness labels: [triage labels](docs/agents/triage-labels.md).
+- Product context, terminology or ADR placement: [domain](docs/agents/domain.md).
+- Frontend delivery, Storybook review or a prototype: [frontend delivery](docs/agents/frontend-delivery.md).
+- Local application review or the shared stand: `.agents/skills/local-stand/SKILL.md`.
 - Before review, the Standards reviewer reads `CODING_STANDARDS.md` and the `CODING_STANDARDS.md`
   of each changed application.
 - After an explicit owner correction: follow [owner corrections](docs/agents/owner-corrections.md).
@@ -28,12 +35,20 @@ never a dependency.
 
 ## Commands
 
-- Product check: `pnpm check` on the final head, or exact-head CI under the
+- Product change: `pnpm check` on the final head, or exact-head CI under the
   [verification evidence policy](docs/agents/release-evidence.md).
+- Documentation-only change: `pnpm docs:check` and focused checks; application suites are not a local gate.
 - Docker with Compose runs the primary development stack; host Node.js and pnpm are an optional
   fallback pinned in `.node-version` and `packageManager`.
 - Before any repository Compose command, including the Compose smoke, read the
   [local stand runbook](docs/runbooks/local-stand.md) for stand ownership and the guarded recipe.
+
+## Owner gates
+
+Releases, deployments, publishing, paid actions, credentials, external messages and merges need the
+owner's permission. Standing or task-specific permission covers its stated scope until withdrawn;
+follow it without asking again. A resumed session keeps the existing permission for its assigned work.
+Waiting for an answer is never consent.
 
 ## Human-facing text
 

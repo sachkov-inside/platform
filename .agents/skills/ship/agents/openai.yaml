@@ -1,0 +1,3 @@
+interface:
+  display_name: "Ship"
+  short_description: "Deliver reviewed work and decide if the owner must check it"

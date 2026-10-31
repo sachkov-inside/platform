@@ -28,7 +28,7 @@ const report = z.object({
   membership: observation,
   files: z.record(z.string(), observation).default({}),
 });
-import { runReviewProcess } from "./review-evidence.test-support.mjs";
+import { runProcess } from "./process.test-support.mjs";
 
 test("current-process cgroup memory CLI resolves v2 and v1 with bounded explicit availability (filesystem adapter)", async (t) => {
   const root = mkdtempSync(join(tmpdir(), "cgroup-observations-"));
@@ -55,7 +55,7 @@ test("current-process cgroup memory CLI resolves v2 and v1 with bounded explicit
     writeFileSync(target, value);
   };
   const run = async () => {
-    const result = await runReviewProcess(process.execPath, [helper], {
+    const result = await runProcess(process.execPath, [helper], {
       timeoutMilliseconds: 5000,
     });
     assert.equal(result.status, 0, result.stderr);
@@ -127,10 +127,8 @@ test("current-process cgroup memory CLI resolves v2 and v1 with bounded explicit
 
   rmSync(proc);
   assert.equal((await run()).membership.availability, "missing");
-  const rejected = await runReviewProcess(
-    process.execPath,
-    [helper, "/private"],
-    { timeoutMilliseconds: 5000 },
-  );
+  const rejected = await runProcess(process.execPath, [helper, "/private"], {
+    timeoutMilliseconds: 5000,
+  });
   assert.equal(rejected.status, 1);
 });

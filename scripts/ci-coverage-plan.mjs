@@ -30,7 +30,6 @@ export const applicationCoverage = {
 /** @type {Record<string, string>} */
 export const ciJobNames = {
   security: "Secrets and production advisories",
-  "review-evidence": "Independent review evidence",
   plan: "Coverage plan (isolated reruns)",
   docs: "Documentation contracts",
   contracts: "Tooling contracts",
@@ -112,9 +111,7 @@ export function classifyPath(path) {
   )
     return "shared";
   if (
-    /^(AGENTS|WORKFLOW|CODING_STANDARDS|REPOSITORIES|GLOSSARY)\.md$/u.test(
-      path,
-    ) ||
+    /^(AGENTS|CODING_STANDARDS|REPOSITORIES|GLOSSARY)\.md$/u.test(path) ||
     path.startsWith("docs/agents/") ||
     path.startsWith(".agents/") ||
     path.startsWith(".claude/") ||

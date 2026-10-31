@@ -282,9 +282,7 @@ async function main() {
             input.conclusion === "cancelled"
               ? "cancelled"
               : input.conclusion === "success"
-                ? input.name === "Independent review evidence"
-                  ? "evidence-completion"
-                  : "success"
+                ? "success"
                 : "unknown",
         };
         /** @type {Observation[]} */

@@ -3,7 +3,7 @@
 Один процесс HTTP с фоновыми обработчиками и operations-команды из того же образа. Platform остаётся
 единственным владельцем решений о доступе. Приложение находится в `apps/telegram` репозитория
 `sachkov-inside/platform` и сохраняет отдельные процесс, базу и миграции.
-Общий процесс задают [root AGENTS](../../../../AGENTS.md) и [root WORKFLOW](../../../../WORKFLOW.md).
+Общий процесс задают [root AGENTS](../../../../AGENTS.md) и `docs/agents/` в корне.
 Текущие задачи ведутся в [Platform tracker](https://github.com/sachkov-inside/platform/issues).
 
 Telegram выпускается независимо из `sachkov-inside/platform`. Этот документ владеет выпуском,

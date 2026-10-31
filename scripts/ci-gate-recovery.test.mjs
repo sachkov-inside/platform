@@ -182,7 +182,6 @@ describe("missing CI Gate recovery", () => {
           [
             "Coverage plan (isolated reruns)",
             "Secrets and production advisories",
-            "Independent review evidence",
           ].includes(job.name)
             ? job
             : { ...job, conclusion: "skipped" },
@@ -210,7 +209,6 @@ describe("missing CI Gate recovery", () => {
       conclusion:
         job.name === ciJobNames["plan"] ||
         job.name === ciJobNames["security"] ||
-        job.name === ciJobNames["review-evidence"] ||
         selectedNames.includes(job.name) ||
         Object.entries(ciMatrixJobs).some(
           ([id, group]) =>

@@ -34,7 +34,7 @@
 
 Каждый репозиторий сохраняет собственные правила. Агент начинает сессию в репозитории
 или назначенном worktree и читает его `AGENTS.md`.
-Размещение и жизненный цикл worktree Platform задаёт [WORKFLOW.md](WORKFLOW.md).
+Размещение и жизненный цикл worktree Platform задаёт [delivery](docs/agents/delivery.md).
 Среда может назначить изолированный worktree вне канонического каталога.
 Существующие worktrees и ресурсы других сессий сохраняются.
 
@@ -58,7 +58,7 @@ Platform сохраняет действующий процесс exporter/previ
 - [Карта учёта 97 исходных файлов](docs/migrations/958-shared-documents.md) даёт исходные commits и соответствия.
 
 [Brief Telegram](apps/telegram/docs/product/telegram-application-brief.md), ADR и runbooks теперь доступны внутри приложения.
-Процесс разработки Inside принадлежит корневым `WORKFLOW.md` и `.agents/skills`; копии в Telegram удалены.
+Процесс разработки Inside принадлежит корневым `AGENTS.md`, `docs/agents/` и `.agents/skills`; копии в Telegram удалены.
 Корневой CI Gate проверяет Telegram на PR, merge_group и точном SHA reusable CI.
 Выпуск и откат Telegram принадлежат [production runbook](apps/telegram/docs/operations/production.md).
 Исторические nested workflows удалены; legacy Releases сохраняются для отката.

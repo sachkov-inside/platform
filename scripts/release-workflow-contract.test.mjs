@@ -50,21 +50,12 @@ describe("ordinal release workflow contract", () => {
       ci,
       /source_sha: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u,
     );
-    // Review checkouts run only for PR/queue events. Every checkout that can
-    // execute in a release call must still verify the captured immutable SHA.
-    const review = jobBlock(ciWorkflow, "review-evidence");
-    const reviewCheckouts = review
-      .split("      - name:")
-      .filter((step) => /uses: actions\/checkout@/u.test(step));
-    assert.equal(reviewCheckouts.length, 2);
-    for (const step of reviewCheckouts)
-      assert.match(step, /if: \$\{\{ inputs.source_sha == '' \}\}/u);
-    const releaseCi = ciWorkflow.replace(review, "");
+    // Every checkout in a release call must verify the captured immutable SHA.
     const checkouts =
-      releaseCi.match(/uses: actions\/checkout@/gu)?.length ?? 0;
+      ciWorkflow.match(/uses: actions\/checkout@/gu)?.length ?? 0;
     assert.ok(checkouts > 0);
     assert.equal(
-      releaseCi.match(/ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/gu)
+      ciWorkflow.match(/ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/gu)
         ?.length,
       checkouts,
     );
