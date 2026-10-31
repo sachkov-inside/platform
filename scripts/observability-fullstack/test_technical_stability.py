@@ -4,6 +4,7 @@ from contextlib import ExitStack, nullcontext
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -230,6 +231,18 @@ class TechnicalStability(unittest.TestCase):
                     inputs.assert_called_once_with(output,base/'images.json',protocol,**({'scope':'technical'} if scope=='technical' else {}))
             argv=['fullstack.py','diagnostic-run','--scope','technical','--output',str(output),'--images',str(base/'images.json'),'--protocol',protocol]
             with patch.object(fullstack.sys,'platform','linux'),patch.object(fullstack.sys,'argv',argv),patch.object(fullstack.pilot,'command',return_value=source),patch.object(fullstack.preparation,'recover_stage',return_value=stage):
+                ordinary_root=base/'ordinary-root';ordinary_root.mkdir()
+                ordinary,_=test_technical_scope.TechnicalScope().prepare_inputs(ordinary_root)
+                _owner(ordinary)
+                ordinary_parent=base/'ordinary-parent';ordinary_parent.symlink_to(ordinary_root,target_is_directory=True)
+                ordinary_alias=ordinary_parent/ordinary.name
+                with patch.object(fullstack.sys,'argv',['fullstack.py','recover','--scope','technical','--output',str(ordinary_alias)]),patch.object(fullstack.resource_runtime.ci,'recover',return_value={'down':'passed','residue':'passed'}) as recover:
+                    fullstack.main()
+                    recover.assert_called_once_with(ordinary_alias,project_prefix=fullstack.PREFIX,services=fullstack.services('technical'))
+                diagnostic_parent=base/'diagnostic-parent';diagnostic_parent.symlink_to(base,target_is_directory=True)
+                with patch.object(fullstack.sys,'argv',['fullstack.py','recover','--scope','technical','--output',str(diagnostic_parent/output.name)]),patch.object(fullstack.resource_runtime.ci,'recover') as recover,patch.object(fullstack.preparation,'recover_stage') as acquire:
+                    with self.assertRaises(ValueError):fullstack.main()
+                    recover.assert_not_called();acquire.assert_not_called()
                 for mode in ('popen','before_supervise','malformed_settlement'):
                     with self.subTest(primary_failure=mode):
                         _settled(output,exit_code=1)
@@ -253,7 +266,28 @@ class TechnicalStability(unittest.TestCase):
                         self.assertIn(origin[0],frames,'settlement must retain the original failure traceback')
                         if not (output/stability.OWNER).exists():
                             (output/stability.OWNER).write_text(snapshots[stability.OWNER]);(output/stability.OWNER).chmod(0o600)
-                for name,value in (('worker.json',None),('worker.json',{'pid':True}),
+                for secondary in (subprocess.SubprocessError('private-observer'),subprocess.CalledProcessError(7,['git']),
+                        subprocess.TimeoutExpired(['git'],1),RecursionError('private-json-depth')):
+                    with self.subTest(observer_failure=type(secondary).__name__):
+                        _settled(output,exit_code=1);primary=RuntimeError('private-primary');origin=[]
+                        def fail(*args,**options):
+                            try:raise primary
+                            except BaseException as error:origin.append(error.__traceback__);raise
+                        target=stability if isinstance(secondary,RecursionError) else fullstack.pilot
+                        name='technical_settlement' if isinstance(secondary,RecursionError) else 'command'
+                        caught=None;frames=[]
+                        with patch.object(fullstack.pilot,'run',side_effect=fail),patch.object(target,name,side_effect=secondary) as observer:
+                            try:fullstack.main()
+                            except BaseException as error:
+                                caught=error;frame=error.__traceback__
+                                while frame is not None:frames.append(frame);frame=frame.tb_next
+                            observer.assert_called_once()
+                        self.assertIs(caught,primary);self.assertIn(origin[0],frames)
+                        _settled(output)
+                        with patch.object(fullstack.pilot,'run',return_value=None),patch.object(target,name,side_effect=secondary),self.assertRaises(type(secondary)) as observed:
+                            fullstack.main()
+                        self.assertIs(observed.exception,secondary)
+                for name,value in (('owner.json',None),('worker.json',None),('worker.json',{'pid':True}),
                         ('worker-outcome.json',None),('worker-outcome.json',{'exit_code':0}),
                         ('cleanup.json',None),('cleanup.json',False)):
                     with self.subTest(successful_run_bad_receipt=name,value=value):
@@ -262,6 +296,7 @@ class TechnicalStability(unittest.TestCase):
                         else:fullstack.pilot.write_json(output/name,value)
                         with patch.object(fullstack.pilot,'run',return_value=None),self.assertRaises((OSError,ValueError)):
                             fullstack.main()
+                        if name=='owner.json':fullstack.pilot.write_json(output/'owner.json',owner)
                 for mode in ('failed_cleanup','malformed_cleanup','failed_outcome','monitor_failure'):
                     with self.subTest(successful_run_contradiction=mode):
                         _settled(output,exit_code=1 if mode=='failed_outcome' else 0,cleanup=mode!='failed_cleanup')

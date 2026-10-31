@@ -1137,7 +1137,7 @@ def main():
         marked=cpu_control.present(args.output/stability.MARKER) or cpu_control.present(args.output/stability.OWNER)
         if marked and args.scope=='full' and stability.read_json(args.output/stability.MARKER).get('scope')=='technical':
             raise ValueError('diagnostic_plan_binding')
-        diagnostic=args.scope=='technical' and (marked or bound and 'stability' in cpu_control.read(args.output/'fullstack-source.json',private=False))
+        diagnostic=args.scope=='technical' and (marked or bound and 'stability' in stage_timing.read_json(args.output/'fullstack-source.json',1_048_576))
         diagnostic_cleanup=None
         if diagnostic:
             stability.technical_request(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip())
@@ -1170,13 +1170,13 @@ def main():
             primary_failed=True
             raise
         finally:
-            if args.action=='diagnostic-run' and args.scope=='technical' and cpu_control.present(args.output/'owner.json'):
+            if args.action=='diagnostic-run' and args.scope=='technical' and (not primary_failed or cpu_control.present(args.output/'owner.json')):
                 try:
                     good=stability.technical_settlement(sys.modules[__name__],args.output,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip(),
                         exit_code=None if primary_failed else 0)
                     if not primary_failed:cpu_control.need(good)
-                except (OSError,ValueError,KeyError,TypeError):
-                    # Partial supervisor receipts cannot replace the primary run failure.
+                except Exception:
+                    # Observer failures cannot replace an existing primary run failure.
                     # Successful runs still require strict settlement; collect validates both paths.
                     if not primary_failed:raise
 
