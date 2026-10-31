@@ -203,12 +203,16 @@ const performanceTemplate = (() => {
   if (template === undefined) throw new Error("Missing lesson template");
   return template;
 })();
-/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string> }} ReaderTitleFixture */
+/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string>; personalRead: PromiseWithResolvers<void> | null; linear: boolean }} ReaderTitleFixture */
 /** @type {Map<string, ReaderTitleFixture>} */
 const readerTitleFixtures = new Map();
 
-/** Every allocation owns its data and a fresh shared-cache namespace. */
-function createReaderTitleFixture() {
+/**
+ * Every allocation owns its data and a fresh shared-cache namespace. A linear Product has no
+ * chapters, so its Reader keeps the return actions without the course frame.
+ * @param {boolean} linear
+ */
+function createReaderTitleFixture(linear) {
   const scope = randomUUID();
   const product = {
     cover: null,
@@ -239,6 +243,8 @@ function createReaderTitleFixture() {
     lessons,
     opens: new Map(),
     commands: new Set(),
+    personalRead: null,
+    linear,
   };
   readerTitleFixtures.set(scope, fixture);
   return fixture;
@@ -769,7 +775,13 @@ function route(method, url, entitled) {
           name: "Продолжение",
           summary: "Следующие уроки.",
         },
-      ].filter((chapter) => chapter.materialIds.length > 0),
+      ].filter(
+        (chapter) =>
+          chapter.materialIds.length > 0 &&
+          ![...readerTitleFixtures.values()].some(
+            (fixture) => fixture.linear && fixture.product === product,
+          ),
+      ),
       hasNext: false,
       items: items.map((lesson) => projection(lesson, entitled)),
       kind: "product",
@@ -1331,7 +1343,9 @@ const server = createServer(async (request, response) => {
     url.pathname === "/__reader-title-fixtures" &&
     request.method === "POST"
   ) {
-    const fixture = createReaderTitleFixture();
+    const fixture = createReaderTitleFixture(
+      url.searchParams.get("layout") === "linear",
+    );
     send(201, {
       scope: fixture.scope,
       productSlug: fixture.product.slug,
@@ -1344,10 +1358,38 @@ const server = createServer(async (request, response) => {
   );
   if (titleFixtureControl !== null && request.method === "DELETE") {
     const scope = z.uuid().parse(titleFixtureControl[1]);
+    readerTitleFixtures.get(scope)?.personalRead?.resolve();
     send(200, { deleted: readerTitleFixtures.delete(scope) });
     return;
   }
+  // Удержание личного чтения: Web сначала отдаёт ожидание Reader, а сам Reader приходит позже (#1908).
+  const personalReadControl =
+    /^\/__reader-title-fixtures\/([^/]+)\/personal-read-hold$/u.exec(
+      url.pathname,
+    );
+  if (personalReadControl !== null && request.method === "POST") {
+    const fixture = readerTitleFixtures.get(
+      z.uuid().parse(personalReadControl[1]),
+    );
+    const { held } = z
+      .strictObject({ held: z.boolean() })
+      .parse(JSON.parse(await readBody(request)));
+    if (fixture === undefined) {
+      send(404, { code: "fixture_not_found" });
+      return;
+    }
+    fixture.personalRead?.resolve();
+    fixture.personalRead = held ? Promise.withResolvers() : null;
+    send(200, { held });
+    return;
+  }
   const authorized = request.headers.authorization !== undefined;
+  if (authorized && request.method === "GET")
+    await findReaderTitleLesson(
+      url.pathname.startsWith("/materials/")
+        ? url.pathname.slice("/materials/".length)
+        : "",
+    )?.fixture.personalRead?.promise;
   state.requests.push({
     authorized,
     method: request.method,

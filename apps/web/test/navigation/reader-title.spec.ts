@@ -1,5 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test as base, type BrowserContext } from "@playwright/test";
+import {
+  expect,
+  test as base,
+  type APIRequestContext,
+  type BrowserContext,
+} from "@playwright/test";
 import { z } from "zod";
 
 declare global {
@@ -7,6 +12,7 @@ declare global {
     readerTitleObservations: { title: string; head: boolean }[];
   }
 }
+import { expectLinearProgrammeReturn } from "../support/linear-programme";
 import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
 
 const fixtureSchema = z.strictObject({
@@ -14,26 +20,40 @@ const fixtureSchema = z.strictObject({
   productSlug: z.string().regex(/^reader-title-[0-9a-f-]+$/u),
   materialSlugs: z.tuple([z.string(), z.string()]),
 });
-const test = base.extend<{ readerTitleFixture: z.infer<typeof fixtureSchema> }>(
-  {
-    readerTitleFixture: async ({ request }, provideFixture) => {
-      const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
-      const response = await request.post(`${backend}/__reader-title-fixtures`);
-      const body: unknown = await response.json();
-      const { scope } = z.object({ scope: z.uuid() }).parse(body);
-      try {
-        expect(response.status()).toBe(201);
-        await provideFixture(fixtureSchema.parse(body));
-      } finally {
-        const deleted = await request.delete(
-          `${backend}/__reader-title-fixtures/${scope}`,
-        );
-        expect(deleted.status()).toBe(200);
-        expect(await deleted.json()).toEqual({ deleted: true });
-      }
-    },
+type ReaderTitleFixture = z.infer<typeof fixtureSchema>;
+async function provideReaderTitleFixture(
+  request: APIRequestContext,
+  layout: "course" | "linear",
+  provideFixture: (fixture: ReaderTitleFixture) => Promise<void>,
+) {
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const response = await request.post(
+    `${backend}/__reader-title-fixtures?layout=${layout}`,
+  );
+  const body: unknown = await response.json();
+  const { scope } = z.object({ scope: z.uuid() }).parse(body);
+  try {
+    expect(response.status()).toBe(201);
+    await provideFixture(fixtureSchema.parse(body));
+  } finally {
+    const deleted = await request.delete(
+      `${backend}/__reader-title-fixtures/${scope}`,
+    );
+    expect(deleted.status()).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted: true });
+  }
+}
+const test = base.extend<{
+  readerTitleFixture: ReaderTitleFixture;
+  linearReaderTitleFixture: ReaderTitleFixture;
+}>({
+  readerTitleFixture: async ({ request }, provideFixture) => {
+    await provideReaderTitleFixture(request, "course", provideFixture);
   },
-);
+  linearReaderTitleFixture: async ({ request }, provideFixture) => {
+    await provideReaderTitleFixture(request, "linear", provideFixture);
+  },
+});
 
 const title = "Первый бесплатный урок · Sachkov Dev";
 
@@ -158,6 +178,93 @@ test("Reader audit uses the identity of the existing programme after session set
       exact: true,
     }),
   ).toBeInViewport();
+});
+
+const linearReturnHref = "/products/linear/programme?page=1&at=lesson";
+
+/** Streaming shows the loading frame first; the Reader waits in a hidden segment until React swaps them. */
+function linearReturnDocument(revealed: boolean) {
+  const actions = `<nav aria-label="Действия материала"><a href="${linearReturnHref}">Назад</a></nav><nav aria-label="Действия в конце материала"><a href="${linearReturnHref}">Назад</a></nav>`;
+  const reader = `<div data-material-reader-state="available">${actions}<nav aria-label="Уроки продукта"><a href="${linearReturnHref}" aria-label="Программа, урок 1">1</a></nav></div>`;
+  const head = `<meta name="viewport" content="width=device-width, initial-scale=1"><style>@media (min-width: 768px) { [aria-label="Уроки продукта"] { display: none; } }</style>`;
+  return revealed
+    ? `<html><head>${head}</head><body><main>${reader}</main></body></html>`
+    : `<html><head>${head}</head><body><main><div data-material-reader-state="pending">${actions}</div></main><div hidden>${reader}</div></body></html>`;
+}
+test("linear programme return rejects the Reader loading frame", async ({
+  page,
+}, testInfo) => {
+  await page.setContent(linearReturnDocument(false));
+  await expect(
+    expectLinearProgrammeReturn(
+      page,
+      testInfo.project.name === "mobile-chromium",
+      linearReturnHref,
+    ),
+  ).rejects.toThrow(/data-material-reader-state="available"/u);
+});
+test("linear programme return accepts the revealed Reader", async ({
+  page,
+}, testInfo) => {
+  await page.setContent(linearReturnDocument(true));
+  const action = await expectLinearProgrammeReturn(
+    page,
+    testInfo.project.name === "mobile-chromium",
+    linearReturnHref,
+  );
+  await expect(action).toHaveAttribute("href", linearReturnHref);
+});
+
+test("streamed Reader replaces the loading frame and its return actions", async ({
+  page,
+  context,
+  baseURL,
+  request,
+  linearReaderTitleFixture,
+}, testInfo) => {
+  await signInReader(context, baseURL);
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const holdPersonalRead = async (held: boolean) => {
+    const response = await request.post(
+      `${backend}/__reader-title-fixtures/${linearReaderTitleFixture.scope}/personal-read-hold`,
+      { data: { held } },
+    );
+    expect(response.status()).toBe(200);
+  };
+  const [slug] = linearReaderTitleFixture.materialSlugs;
+  const from = `/products/${linearReaderTitleFixture.productSlug}/programme?page=1&at=${slug}`;
+  await holdPersonalRead(true);
+  try {
+    // The held signed-in read keeps the document stream open, so navigation ends at commit.
+    await page.goto(`/materials/${slug}?from=${encodeURIComponent(from)}`, {
+      waitUntil: "commit",
+    });
+    const loadingReturn = page
+      .locator('[data-material-reader-state="pending"]:visible')
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .getByRole("link", { name: "Назад", exact: true });
+    // The loading frame repeats the return actions of the Reader that later replaces it (#1908).
+    await expect(loadingReturn).toHaveAttribute("href", from);
+    const loadingNode = await loadingReturn.elementHandle();
+    const ready = expectLinearProgrammeReturn(
+      page,
+      testInfo.project.name === "mobile-chromium",
+      from,
+    ).then(
+      () => undefined,
+      (error: unknown) =>
+        error instanceof Error
+          ? error
+          : new Error("Linear programme return failed", { cause: error }),
+    );
+    await holdPersonalRead(false);
+    const failure = await ready;
+    if (failure !== undefined) throw failure;
+    // The helper returns only after React removed the loading frame and its actions.
+    expect(await loadingNode.evaluate((node) => node.isConnected)).toBe(false);
+  } finally {
+    await holdPersonalRead(false);
+  }
 });
 
 test("Reader open refresh settles cold metadata and preserves an existing HEAD title", async ({
