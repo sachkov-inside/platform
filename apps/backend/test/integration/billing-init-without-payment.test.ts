@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
 import { CoverageCatalog } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { BillingPayments } from "../../src/modules/billing/index.js";
@@ -12,12 +12,16 @@ import {
 /**
  * Init, после которого в банке нет платежа, не держит покупку в `unknown` (#1922). Отказ до
  * отправки и отказ банка без PaymentId закрывают покупку сразу. Неизвестный исход закрывает
- * только CheckOrder, который 30 минут подряд не находит платежей заказа.
+ * только пустой ответ CheckOrder через 30 минут после первого пустого ответа.
  */
 let world: Awaited<ReturnType<typeof createProductCommerceWorld>>;
+let start: Date;
 beforeAll(async () => {
   world = await createProductCommerceWorld();
+  start = world.time();
 });
+// Каждый тест задаёт свои часы; следующий начинает с исходного времени мира.
+afterEach(() => world.setTime(start));
 afterAll(async () => world.dispose());
 
 type Scenario = Awaited<ReturnType<typeof world.scenario>>;
@@ -228,6 +232,33 @@ test("an empty CheckOrder long after the purchase was created still waits 30 min
     ),
   );
   expect((await purchaseRow(purchase.purchaseRef)).state).toBe("failed");
+});
+
+test("a purchase left in sent by a process crash during Init is closed by the same 30-minute window", async () => {
+  const createdAt = new Date("2030-02-01T10:00:00Z");
+  world.setTime(createdAt);
+  const s = await world.scenario();
+  s.failNextInit("unreachable");
+  const purchase = value(await s.payments.purchase(s.buyer, s.command));
+  // Процесс упал после отметки sent и до записи исхода Init.
+  await world.db.prisma.billingPurchase.update({
+    where: { id: purchase.purchaseRef },
+    data: { state: "sent" },
+  });
+  const firstEmptyAt = new Date(createdAt.getTime() + minute);
+  await reconcileAt(s, purchase.purchaseRef, firstEmptyAt);
+  expect((await purchaseRow(purchase.purchaseRef)).state).toBe("sent");
+  value(
+    await reconcileAt(
+      s,
+      purchase.purchaseRef,
+      new Date(firstEmptyAt.getTime() + 30 * minute),
+    ),
+  );
+  expect((await purchaseRow(purchase.purchaseRef)).state).toBe("failed");
+  expect(
+    (await events(purchase.purchaseRef)).map((event) => event.kind),
+  ).toEqual(["bank_order_empty", "bank_payment_absent"]);
 });
 
 test("a lost Init answer whose payment the bank created is found by CheckOrder and never closed as absent", async () => {

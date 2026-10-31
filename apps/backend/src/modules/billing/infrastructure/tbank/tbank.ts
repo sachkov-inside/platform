@@ -91,9 +91,11 @@ const bankInitDeclinedSchema = z
       .transform((value) => value === true || value === "true")
       .pipe(z.literal(false)),
     ErrorCode: z
-      .union([z.string(), z.int()])
-      .transform(String)
-      .pipe(z.string().regex(/^[1-9][0-9]{0,8}$/u)),
+      .union([z.string().min(1), z.int()])
+      .pipe(
+        z.coerce.number<string | number>().int().positive().max(999_999_999),
+      )
+      .transform(String),
     Message: z
       .string()
       .transform((value) => value.slice(0, 255))

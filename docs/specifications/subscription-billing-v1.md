@@ -1169,7 +1169,7 @@ Order не равен попытке списания, Payment не равен p
 | Init result received | Проверенные bank host/HTTPS PaymentURL и PaymentId сохранены; выдаётся redirect |
 | Сбой до отправки Init | `failed` с событием `bank_payment_absent`, `reason: init_not_sent`; покупатель может начать новую покупку |
 | Init: `Success:false` с кодом ошибки и без PaymentId | `failed` с событием `bank_payment_absent`, `reason: init_declined`, кодом и текстом отказа банка |
-| Init: сеть, таймаут, HTTP-ошибка, ответ не по схеме, crash | `unknown`; CheckOrder ищет точное совпадение, несколько платежей оставляют `unknown`. Первый пустой ответ CheckOrder пишет `bank_order_empty`. Пустой ответ через 30 минут после него и после создания покупки закрывает её: `failed` и `bank_payment_absent`, `reason: check_order_empty` (#1922). Второго Init нет |
+| Init: сеть, таймаут, HTTP-ошибка, ответ не по схеме, crash | `unknown` (после аварии процесса `sent`); CheckOrder ищет точное совпадение, несколько платежей оставляют `unknown`. Первый пустой ответ CheckOrder пишет `bank_order_empty`. Пустой ответ через 30 минут после него и после создания покупки закрывает её: `failed` и `bank_payment_absent`, `reason: check_order_empty` (#1922). Второго Init нет |
 | AUTHORIZED | Привязка сохраняется после проверки; paid period ещё не создан |
 | CONFIRMED | Единственный paid transition + period/event/outbox; webhook и reconciliation вызывают один use case |
 | Однозначный decline | Definitive failure, без automatic retry/grace; уже оплаченный срок не сокращается |

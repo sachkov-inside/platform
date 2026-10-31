@@ -121,9 +121,10 @@ type BankPaymentAbsence =
 /** Первый ответ CheckOrder без платежей заказа: от него отсчитывается окно отсутствия платежа. */
 const bankOrderEmpty = "bank_order_empty";
 /**
- * Сколько CheckOrder должен подряд не находить платежей заказа, чтобы попытка с неизвестным
- * исходом закрылась. Ответ Init ждёт не дольше `bankTimeoutMs`, поэтому платёж, созданный
- * потерянным Init, CheckOrder покажет задолго до конца окна.
+ * Окно отсутствия платежа. Попытку без PaymentId закрывает пустой ответ CheckOrder не раньше
+ * этого срока после первого пустого ответа и после создания покупки. Ответ Init ждёт не дольше
+ * `bankTimeoutMs`, поэтому платёж, созданный потерянным Init, CheckOrder покажет задолго до
+ * конца окна. Непустой ответ без сохранённого PaymentId окно не сбрасывает.
  */
 const bankPaymentAbsenceWindowMilliseconds = 30 * 60 * 1000;
 /** События, после которых отметке отмены нечего отменять: форма закрыта или платежа нет. */
@@ -922,10 +923,11 @@ export class BillingPayments {
         where: { id: purchaseRef },
         select: { state: true, paymentId: true, createdAt: true },
       });
-      // `sent` ждёт ответа Init, а у другого состояния уже есть свой исход.
+      // `sent` остаётся после аварии процесса во время Init: ответ Init не дольше
+      // `bankTimeoutMs`, поэтому окно закрывает её так же, как `unknown`.
       if (
         row.paymentId !== null ||
-        (row.state !== "unknown" && row.state !== "failed")
+        !["sent", "unknown", "failed"].includes(row.state)
       )
         return "waiting";
       const now = this.clock();

@@ -150,13 +150,14 @@ export const reviewPaymentEventKinds = [
 ] as const;
 
 /**
- * Отмена неоплаченной формы в банке (#1923) открыта, пока у покупки есть запрос без подтверждения
- * и покупка не подтверждена: опоздавшую отмену закрывает подтверждённая оплата. Имена событий
- * согласуются с #1923; пока их нет, открытых отмен нет.
+ * Отмена неоплаченной формы в банке (#1923) открыта, пока у покупки есть запрос, покупка не
+ * подтверждена и нет ни подтверждения отмены, ни `bank_payment_absent` (#1922): без платежа в
+ * банке отменять нечего. Опоздавшую отмену закрывает подтверждённая оплата.
  */
 export const bankCancelEventKinds = {
   requested: "bank_cancel_requested",
   confirmed: "bank_cancel_confirmed",
+  absent: "bank_payment_absent",
 } as const;
 
 type ListPaymentsCommand = Extract<
@@ -257,7 +258,10 @@ export async function listPayments(
                   and not exists (
                     select 1 from billing.payment_events as closed
                     where closed.purchase_ref = purchase.id
-                      and closed.kind = ${bankCancelEventKinds.confirmed}))))`
+                      and closed.kind = any(${[
+                        bankCancelEventKinds.confirmed,
+                        bankCancelEventKinds.absent,
+                      ]}::text[])))))`
         }
         ${
           command.cursor === undefined
