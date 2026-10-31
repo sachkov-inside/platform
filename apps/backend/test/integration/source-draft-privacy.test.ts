@@ -163,7 +163,7 @@ describe("source-imported draft privacy", () => {
     if (!product.ok) throw new Error(product.error.code);
     productId = product.value.id;
 
-    // A published sibling keeps the Product programme, search and feed non-empty.
+    // A published sibling keeps the Product programme and search non-empty.
     const sibling = await authoring.reserveSourceMaterial({
       actor: owner,
       source: siblingSource,
@@ -322,7 +322,9 @@ describe("source-imported draft privacy", () => {
         );
         if (!listed.ok) throw new Error(listed.error.code);
         const ids = listed.value.items.map((item) => item.materialId);
-        expect(ids).toContain(siblingId);
+        // Урок курса в ленту не попадает (#1885), поэтому там нет и опубликованного соседа.
+        if ("feedOnly" in query) expect(ids).not.toContain(siblingId);
+        else expect(ids).toContain(siblingId);
         expect(ids).not.toContain(draftId);
       }
       const programme = await discoverPublishedMaterials(

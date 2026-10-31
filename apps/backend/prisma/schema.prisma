@@ -349,6 +349,7 @@ model HomeProductPin {
 
 model Material {
   notifyTelegram Boolean? @map("notify_telegram")
+  inFeed         Boolean  @default(false) @map("in_feed")
   videoChapters Json @default(dbgenerated("'[]'::jsonb")) @map("video_chapters")
   sourceId         String?   @unique(map: "materials_source_id_unique") @map("source_id")
   sourcePath       String?   @map("source_path")
@@ -426,6 +427,7 @@ model PublishedMaterial {
   outcomes       Json     @default(dbgenerated("'[]'::jsonb"))
   hasModeVariants Boolean @default(false) @map("has_mode_variants")
   access         String
+  inFeed         Boolean  @default(false) @map("in_feed")
   topicId        String   @map("topic_id") @db.Uuid
   formatId       String   @map("format_id")
   publicSearchText String @map("public_search_text")

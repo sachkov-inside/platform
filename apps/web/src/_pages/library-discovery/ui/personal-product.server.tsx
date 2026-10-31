@@ -1,6 +1,9 @@
 import "server-only";
-import { Suspense, type ComponentProps } from "react";
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import {
+  dehydrate,
+  HydrationBoundary,
+  type DehydratedState,
+} from "@tanstack/react-query";
 import { resolveAccount } from "@/shared/api/backend/index.server";
 import { getQueryClient } from "@/shared/api/query-client";
 import {
@@ -94,60 +97,57 @@ export async function PersonalProduct({
         }
         slug={result.reference.slug}
       >
-        <Suspense fallback={programme}>
-          <OptionalProgrammeOnboarding
-            onboarding={onboarding}
-            accountId={accountId}
-            productId={result.reference.id}
-            productName={result.reference.name}
-            firstLessonHref={
-              result.kind === "ready" && result.items[0] !== undefined
-                ? materialReaderHref(
+        <ProductProgrammeOnboarding
+          accountId={accountId}
+          productId={result.reference.id}
+          productName={result.reference.name}
+          firstLessonHref={
+            result.kind === "ready" && result.items[0] !== undefined
+              ? materialReaderHref(
+                  result.items[0].slug,
+                  productReaderReturnHref(
+                    productProgrammeHref(result.reference.slug),
+                    1,
                     result.items[0].slug,
-                    productReaderReturnHref(
-                      productProgrammeHref(result.reference.slug),
-                      1,
-                      result.items[0].slug,
-                    ),
-                  )
-                : null
-            }
-          >
-            {programme}
-          </OptionalProgrammeOnboarding>
-        </Suspense>
+                  ),
+                )
+              : null
+          }
+          onboarding={
+            onboarding === null
+              ? null
+              : onboardingQueryState(onboarding, accountId, result.reference.id)
+          }
+        >
+          {programme}
+        </ProductProgrammeOnboarding>
       </ProductLearningSource>
     </HydrationBoundary>
   );
 }
 
-/** Optional onboarding streams independently; the same usable programme is the fallback. */
-async function OptionalProgrammeOnboarding({
-  onboarding,
-  ...props
-}: ComponentProps<typeof ProductProgrammeOnboarding> & {
-  readonly onboarding:
-    Extract<ProductReaderState, { kind: "learning" }>["onboarding"] | null;
-}) {
+/**
+ * Optional onboarding facts stream independently as query state. The programme does not wait for
+ * them and is not replaced when they arrive (#1883).
+ */
+async function onboardingQueryState(
+  onboarding: NonNullable<
+    Extract<ProductReaderState, { kind: "learning" }>["onboarding"]
+  >,
+  accountId: string | null,
+  productId: string | undefined,
+): Promise<DehydratedState> {
   const facts = await onboarding;
   const client = getQueryClient();
-  if (facts !== null && "billing" in facts)
+  if ("billing" in facts)
     client.setQueryData(currentBillingQueryKey, {
       ok: true,
       value: facts.billing,
     });
-  if (
-    facts?.kind === "ready" &&
-    props.accountId !== null &&
-    props.productId !== undefined
-  )
-    client.setQueryData(
-      productCommunityQueryKey(props.accountId, props.productId),
-      { ok: true, value: facts.entry },
-    );
-  return (
-    <HydrationBoundary state={dehydrate(client)}>
-      <ProductProgrammeOnboarding {...props} />
-    </HydrationBoundary>
-  );
+  if (facts.kind === "ready" && accountId !== null && productId !== undefined)
+    client.setQueryData(productCommunityQueryKey(accountId, productId), {
+      ok: true,
+      value: facts.entry,
+    });
+  return dehydrate(client);
 }

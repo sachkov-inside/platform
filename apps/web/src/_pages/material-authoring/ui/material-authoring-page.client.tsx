@@ -28,7 +28,10 @@ import {
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
 
-import { withMaterialNodeIds } from "@/widgets/material-authoring/model";
+import {
+  draftInFeed,
+  withMaterialNodeIds,
+} from "@/widgets/material-authoring/model";
 import { createMaterialDraftOperation } from "../api/create-material-draft.operation";
 import { saveMaterialOperation } from "../api/save-material.operation";
 import { getMaterialPublicUrl } from "../api/get-material-public-link.browser";
@@ -163,6 +166,8 @@ export function MaterialAuthoringPageClient({
         submissionId: crypto.randomUUID(),
         confirmedProductRemovals: confirmedRemovals.current,
         notifyTelegram: snapshot.notifyTelegram ?? false,
+        // Сервер отклоняет ленту у урока курса, поэтому редактор не просит невозможного.
+        inFeed: draftInFeed(snapshot),
       };
       retrySaveInput.current = input;
       const result = await saveMutation.mutateAsync(input);
@@ -326,6 +331,10 @@ export function MaterialAuthoringPageClient({
               ...draftRef.current,
               notifyTelegram: value === "true",
             });
+            return;
+          }
+          if (field === "inFeed") {
+            updateDraft({ ...draftRef.current, inFeed: value === "true" });
             return;
           }
           if (field === "access") {

@@ -29,6 +29,8 @@ export interface MaterialSelectOption {
 export interface MaterialDraftPresentation {
   readonly sourcePath?: string;
   readonly notifyTelegram?: boolean;
+  /** Автор выложил материал в ленту (#1885). */
+  readonly inFeed?: boolean;
   readonly wasPublished?: boolean;
   readonly access: "free" | "closed";
   readonly canDelete: boolean;
@@ -187,6 +189,7 @@ export interface MaterialAuthoringPresentation {
 
 export type MaterialDraftField =
   | "notifyTelegram"
+  | "inFeed"
   | "access"
   | "difficulty"
   | "formatId"

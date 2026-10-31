@@ -1,5 +1,6 @@
 import { seedHistoricalFeedSource } from "./setup/historical-source.js";
 import { PublicMaterialAnnouncements } from "../../src/modules/materials/index.js";
+import { ProductCatalogue } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -115,7 +116,10 @@ describe("анонс первой публикации материала", () =
   }
 
   function publicAnnouncements() {
-    const source = new PublicMaterialAnnouncements(database.prisma);
+    const source = new PublicMaterialAnnouncements(
+      database.prisma,
+      new ProductCatalogue(database.prisma),
+    );
     return {
       read: async (...args: Parameters<PublicMaterialAnnouncements["read"]>) =>
         value(await source.read(...args)),
@@ -152,6 +156,7 @@ describe("анонс первой публикации материала", () =
         expectedContentVersion: 1,
         publicationState: "draft",
         notifyTelegram: true,
+        inFeed: true,
         metadata: metadata("Telegram selected draft"),
         body: representativeDocument(),
       }),
@@ -160,6 +165,7 @@ describe("анонс первой публикации материала", () =
       await authoring.loadMaterial({ actor: ownerId, materialId: id }),
     );
     expect(loaded.notifyTelegram).toBe(true);
+    expect(loaded.inFeed).toBe(true);
     expect(await announcementsOf(id)).toBeNull();
     value(await publish(id, 2, "Telegram selected draft"));
     const announcement = await announcedOccurrence(id);
@@ -230,7 +236,7 @@ describe("анонс первой публикации материала", () =
     ).toEqual([]);
   });
 
-  test("публичный анонс следует действующей ленте: legacy showInFeed не скрывает, снятие и закрытие отзывают", async () => {
+  test("публичный анонс следует действующей ленте: legacy showInFeed не скрывает, уход из ленты, снятие и закрытие отзывают", async () => {
     const id = await draft("Telegram current eligibility");
     value(
       await materials().authoring.saveMaterial({
@@ -240,6 +246,7 @@ describe("анонс первой публикации материала", () =
         expectedContentVersion: 1,
         publicationState: "published",
         notifyTelegram: true,
+        inFeed: true,
         metadata: metadata("Telegram current eligibility"),
         body: representativeDocument(),
       }),
@@ -259,6 +266,7 @@ describe("анонс первой публикации материала", () =
     for (const change of [
       { access: "closed" },
       { publicationState: "unpublished" },
+      { inFeed: false },
     ]) {
       await database.prisma.material.update({ where: { id }, data: change });
       expect(
@@ -275,9 +283,30 @@ describe("анонс первой публикации материала", () =
         data: {
           access: "free",
           publicationState: "published",
+          inFeed: true,
         },
       });
     }
+    // Состав Product меняет Products, а не Save: урок курса всё равно не анонсируется.
+    const productId = randomUUID();
+    await database.prisma.product.create({
+      data: { id: productId, slug: "announcement-lesson", name: "Lesson" },
+    });
+    await database.prisma.productMembership.create({
+      data: { productId, materialId: id },
+    });
+    expect(
+      (
+        await source.read(
+          { announcementRef: announcement.id },
+          "https://inside.example",
+          announcement.occurredAt,
+        )
+      ).items,
+    ).toEqual([]);
+    await database.prisma.productMembership.delete({
+      where: { productId_materialId: { productId, materialId: id } },
+    });
     expect(
       (
         await source.read(

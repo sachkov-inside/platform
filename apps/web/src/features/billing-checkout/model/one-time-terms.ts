@@ -1,14 +1,9 @@
-import {
-  oneTimePriceShares,
-  oneTimePurchaseTerms,
-} from "@inside/legal/purchase-terms";
+import { oneTimePriceShares } from "@inside/legal/purchase-terms";
 
 import { fillOfferTerms, type OfferTerms } from "@/entities/product-page";
 import {
   formatKopecks,
-  formatMonths,
   formatTermMonths,
-  longestTerm,
   offerCompositionLabel,
   type PriceSnapshot,
 } from "@/entities/subscription";
@@ -35,20 +30,6 @@ import {
 
 const unlimitedTerm = "без ограничения срока";
 
-/**
- * Расчётный срок части цены «материалы и сообщество продукта», когда материалы или чат даны без ограничения
- * срока: 12 месяцев из оферты, но не короче срока другой составляющей, названного в месяцах
- * (оферта, раздел 4).
- */
-function calculationTerm(terms: OneTimeOfferTerms): string {
-  return formatMonths(
-    Math.max(
-      oneTimePurchaseTerms.unlimitedPartRefundMonths,
-      terms.materialsMonths ?? 0,
-      terms.chatMonths ?? 0,
-    ),
-  );
-}
 const supportNotIncluded = "не входит в покупку";
 
 /** Срок словами: «2 года», «6 месяцев», «без ограничения срока». */
@@ -100,24 +81,14 @@ function guaranteedTermLine(subject: string, months: number | null): string {
 }
 
 /**
- * Короткая сводка условий над согласием. Сроки — из предложения, остальное повторяет оферту:
- * сводка не добавляет обещаний сверх неё и не заменяет её текст.
+ * Короткая сводка условий над согласием: только то, что оферта велит показать до оплаты (сроки
+ * доступа и условие сопровождения). Отказ и возврат описывает сама оферта по ссылке рядом
+ * (решение владельца 31.10.2026).
  */
 export function oneTimeTermsSummary(
   terms: OneTimeOfferTerms,
 ): readonly string[] {
   const sameTerm = terms.materialsMonths === terms.chatMonths;
-  // У части цены без срока окончания оферта считает возврат по расчётному сроку (раздел 4).
-  const elapsed =
-    longestTerm(
-      terms.chatMonths === undefined
-        ? [terms.materialsMonths]
-        : [terms.materialsMonths, terms.chatMonths],
-    ) !== null
-      ? "за вычетом истекшего времени"
-      : terms.supportMonths === undefined
-        ? `за вычетом истекшего времени из расчётного срока ${calculationTerm(terms)}`
-        : `за вычетом истекшего времени: сопровождение — из его срока, ${terms.chatMonths === undefined ? "материалы" : "материалы и сообщество продукта"} — из расчётного срока ${calculationTerm(terms)}`;
   return [
     ...(sameTerm
       ? [
@@ -134,12 +105,7 @@ export function oneTimeTermsSummary(
         ]),
     ...(terms.supportMonths === undefined
       ? []
-      : [
-          "Сопровождение автора по условиям оферты: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
-        ]),
-    `Отказ в первые ${String(oneTimePurchaseTerms.fullRefundDays)} дней или до открытия доступа — полный возврат. Позже — ${elapsed}, но не меньше положенного по закону.`,
-    "Возврат оплаты и отзыв доступа выполняются отдельно.",
-    "Если с нашей стороны есть недостатки или нарушения, действуют правила закона. При наличии оснований возвращается вся сумма.",
+      : ["Сопровождение автора по условиям оферты."]),
   ];
 }
 

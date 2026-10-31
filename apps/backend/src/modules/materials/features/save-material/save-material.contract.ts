@@ -26,6 +26,8 @@ export interface SaveMaterialCommand {
   readonly expectedContentVersion: number;
   readonly publicationState: PublicationState;
   readonly notifyTelegram?: boolean | undefined;
+  /** Places a free Material outside Products in the public feed; omitted keeps the current choice. */
+  readonly inFeed?: boolean | undefined;
   readonly primaryVideoId?: string | null;
   readonly deleteVideoId?: string | null;
   /** Videos the author removed from this Material; none of them may return as its upload. */

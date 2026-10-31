@@ -39,6 +39,8 @@ export interface MaterialMetadataDto extends Omit<
 
 export interface MaterialDto {
   readonly notifyTelegram?: boolean | null;
+  /** The author placed this Material in the public feed (#1885). */
+  readonly inFeed: boolean;
   readonly source?: ReportedAuthoringSource;
   readonly materialId: string;
   readonly contentVersion: number;

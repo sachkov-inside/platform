@@ -181,7 +181,9 @@ const nextConfig: NextConfig = {
       {
         source: "/payment/links/:path*",
         headers: [
-          { key: "Referrer-Policy", value: "no-referrer" },
+          // Адрес ссылки не уходит на чужие сайты. Для своих POST браузер при этом присылает
+          // настоящий Origin: при `no-referrer` он шлёт `Origin: null`, и вход отвечает 403.
+          { key: "Referrer-Policy", value: "same-origin" },
           { key: "Cache-Control", value: "private, no-store" },
           { key: "X-Robots-Tag", value: "noindex, nofollow" },
         ],

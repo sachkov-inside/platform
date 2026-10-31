@@ -512,8 +512,14 @@ add mandatory steps. Existing reading-state records remain intact.
 Authoring composition accepts optional programmePlacements and chapter supplementaryMaterialIds. Omitted
 attachment fields preserve links; an empty list clears them. Platform's chapter attachment operation updates
 only attachment links, including for source-owned Products. Source originals and programme remain source-owned.
-Published free Materials always appear in the public feed. Current Sourcev2 has no `showInFeed` field. Original Sourcev1 values survive only in historical
-records and exact receipt decoding; they cannot hide Materials or block Product catalogue removal.
+The public feed shows a published Material only when the author set `inFeed`, its access is `free` and no
+Product holds it ([ADR 0043](../adr/0043-feed-holds-explicitly-placed-materials.md)). `inFeed` defaults to
+`false`; Save, source import and package v3 accept it, and an omitted value keeps the current choice. Save
+rejects `inFeed: true` on a closed Material or a Product lesson with `feed_requires_public_material` and
+clears the choice when the same Save adds the Material to a Product. The feed query checks all three
+conditions itself. Search and the catalogue ignore the choice. Current Sourcev2 has no `showInFeed` field.
+Original Sourcev1 values survive only in historical records and exact receipt decoding; they cannot place
+Materials in the feed or block Product catalogue removal.
 An anchored reference keeps the originating chapter and step, highlights the active document separately,
 and restores the originating lesson through its return links. A programme entry without an origin
 retains the course frame without claiming a curricular position. A standalone Material URL without
@@ -1905,9 +1911,9 @@ edition 7, accepted and published through #1464.
 
 ## Individual one-time payment links — #1450
 
-The owner can issue a transferable link for one existing Product's one-time payment option. The owner chooses a final RUB amount or an integer percentage discount. The link fixes its amount and composition; it does not publish or reprice the public Offer. It can sell while that Offer is unpublished. Free access uses the existing manual grant path. Optional expiry uses Europe/Moscow in the owner form; no expiry means until successful purchase or revocation.
+The owner can issue a transferable link for one existing Product's one-time payment option. The owner chooses a final RUB amount or an integer percentage discount. The link fixes its amount and composition; it does not publish or reprice the public Offer. It can sell while that Offer is unpublished, until the price changes after issue. Unpublishing closes the sale for every link: those issued while it was published and those issued before it opened, because opening and closing change the price revision. Free access uses the existing manual grant path. Optional expiry uses Europe/Moscow in the owner form; no expiry means until successful purchase or revocation.
 
-The first successful buyer receives the normal Product benefits. The buyer signs in, sees actual terms and applicable legal editions, accepts by pressing the payment button, and uses the existing quote, payment, receipt and grant path. The link survives sign-in and bank return. Opening a return URL proves no payment. Private entry uses no shared cache, no indexing and no referrer.
+The first successful buyer receives the normal Product benefits. The buyer signs in, sees actual terms and applicable legal editions, accepts by pressing the payment button, and uses the existing quote, payment, receipt and grant path. The link survives sign-in and bank return. Opening a return URL proves no payment. Private entry uses no shared cache, no indexing and no referrer to other sites; same-origin requests keep their real Origin, so sign-in and checkout pass the origin check.
 
 Quote creation and payment initiation recheck the link. Concurrent purchases reserve only once. A begun or uncertain payment retains its reservation until an authentic bank result. A definitive failure permits retry; a confirmed purchase consumes the link permanently, including after refund. Revocation is available before payment begins and does not revoke an existing purchase. Composition changes invalidate unused links; public publication or base-price changes do not change their saved amount.
 

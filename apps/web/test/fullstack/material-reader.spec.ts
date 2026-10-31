@@ -165,12 +165,13 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
       z.object({
         slug: z.string(),
         access: z.literal("free"),
-        // A free Product lesson stays locked for a guest until Telegram sign-in (#1825).
-        availability: z.enum(["available", "locked"]),
+        // The feed holds only free Materials outside Products that the author placed there (ADR 0043).
+        availability: z.literal("available"),
       }),
     ),
     nextCursor: z.string().nullable(),
-    totalCount: z.number().int().min(30),
+    // More than one page of twelve keeps the continuation under test.
+    totalCount: z.number().int().min(13),
   });
   const slugs: string[] = [];
   let response = await firstPageResponse;
