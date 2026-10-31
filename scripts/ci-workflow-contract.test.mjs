@@ -150,6 +150,28 @@ const resourceScopePrefix =
 const resourceScopeArgument =
   '          --scope "${{ steps.scope.outputs.scope }}"\n';
 
+it("refuses CPU technical scope, disk and budget bypasses while retaining full defaults", () => {
+  const body = resourceJobs(resourceWorkflow).get("cpu-control");
+  assert.ok(body);
+  assertResourceProtocol(resourceWorkflow);
+  for (const [before = "", after = ""] of [
+    ["&& 40 || 24", "&& 41 || 24"],
+    ["&& 40 || 24", "&& 40 || 25"],
+    ["hosted_disk.py", "hosted_disk.py --force"],
+    ["if: ${{ steps.scope.outputs.scope == 'technical' }}", "if: ${{ true }}"],
+    ["cpu-control-admission --scope", "cpu-control-admission --unknown-scope"],
+    ['--scope "${{ steps.scope.outputs.scope }}"', "--scope full"],
+    ["select-scope >>", "select-other >>"],
+  ]) {
+    assert.ok(body.includes(before));
+    assert.throws(() =>
+      assertResourceProtocol(
+        resourceWorkflow.replace(body, body.replace(before, after)),
+      ),
+    );
+  }
+});
+
 /** @param {string} source */
 function assertResourceProtocol(source) {
   const jobs = resourceJobs(source);
@@ -176,6 +198,53 @@ function assertResourceProtocol(source) {
     assert.ok(body.startsWith("    needs: fullstack-protocol\n"));
     assert.equal([...body.matchAll(/^ {4}needs:/gmu)].length, 1);
     let original = body.replace("    needs: fullstack-protocol\n", "");
+    if (name === "cpu-control") {
+      const disk = `      - name: Prepare preinstalled hosted Android SDK disk
+        if: \${{ steps.scope.outputs.scope == 'technical' }}
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+`;
+      const strict =
+        '        run: python3 scripts/observability-fullstack/fullstack.py cpu-control-admission --scope "${{ steps.scope.outputs.scope }}"\n';
+      const current =
+        "      - name: Run capped then uncapped through scope-bound supervisors\n        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 40 || 24 }}\n";
+      const previous =
+        "      - name: Run capped then uncapped through separate unchanged 600-second supervisors\n        timeout-minutes: 24\n";
+      const prefix =
+        "${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}";
+      for (const [delta, count] of /** @type {[string, number][]} */ ([
+        [resourceScopeStep, 1],
+        [disk, 1],
+        [strict, 1],
+        [current, 1],
+        [prefix, 14],
+        [resourceScopeArgument, 4],
+      ]))
+        assert.equal(original.split(delta).length, count + 1);
+      assert.ok(
+        original.includes(
+          resourceScopeStep +
+            "      - name: Require exact CPU marker in the strict PR context\n",
+        ),
+      );
+      assert.ok(
+        original.includes(
+          strict +
+            disk +
+            "      - name: Bind complete source and existing disk admission\n",
+        ),
+      );
+      original = original
+        .replace(resourceScopeStep, "")
+        .replace(disk, "")
+        .replace(
+          strict,
+          "        run: python3 scripts/observability-fullstack/fullstack.py cpu-control-admission\n",
+        )
+        .replace(current, previous)
+        .replaceAll(resourceScopeArgument, "")
+        .replaceAll(prefix, "cpu-control");
+    }
     if (name === "resource" || name === "fullstack") {
       const admission =
         name === "resource"

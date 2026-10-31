@@ -141,7 +141,7 @@ def inputs(output, images, *, core=None, scope='full'):
     source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
     pins=json.loads(images.read_text())
     if cpu_control.present(output.parent/cpu_control.PAIR):
-        request=cpu_control.pair(sys.modules[__name__],output.parent,source)
+        request=cpu_control.pair(sys.modules[__name__],output.parent,source,scope=scope)
         cpu_control.selector(output.name)
         cpu_control.need(not cpu_control.present(output) and cpu_control.read(images)==pins
                          and {k:pins[k] for k in cpu_control.IMAGES}==request['images'])
@@ -224,7 +224,7 @@ def inputs(output, images, *, core=None, scope='full'):
         plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(HERE/'phase-timing.mjs')+':/resource/phase-timing.mjs:ro',str(HERE/'stability-protocol.mjs')+':/resource/stability-protocol.mjs:ro',str(HERE/'responses.mjs')+':/resource/responses.mjs:ro',str(HERE/'test-responses.mjs')+':/resource/test-responses.mjs:ro',str(selected)+':/resource/full-profile.json:ro']
         plan['services'][name]['networks']=['pilot','telemetry',*(['storage'] if name=='loadgen' else [])]
     if cpu_control.present(output.parent/cpu_control.PAIR):
-        plan=cpu_control.prepare_plan(sys.modules[__name__],output,source,plan)
+        plan=cpu_control.prepare_plan(sys.modules[__name__],output,source,plan,scope=scope)
     pilot.write_json(output/'compose.json',plan)
     (output/'compose.json').chmod(0o600)
     prepared={'source':source,'images':pins,'profile':settings,
@@ -1062,24 +1062,25 @@ def main():
     parser.add_argument('--core',choices=core_layout.CORES)
     parser.add_argument('--scope',choices=('full','technical'),default='full')
     parser.add_argument('--contacts-token');parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
-    if args.scope=='technical' and args.action not in ('run','recover','collect'):parser.error('--scope technical requires acceptance run, recover or collect')
+    if args.scope=='technical' and args.action not in ('run','recover','collect','cpu-control-admission','cpu-control-run','cpu-control-recover','cpu-control-collect'):parser.error('--scope technical requires a scope-bound run, recover, collect or CPU admission')
     if args.scope=='technical' and args.core is not None:parser.error('technical scope uses primary core')
     if args.core is not None:
         if args.action!='run':parser.error('--core requires run action')
         core_layout.require_runtime(args.core)
     if args.protocol is not None and args.action not in ('diagnostic-run','diagnostic-collect'):parser.error('--protocol requires diagnostic action')
     protocol=args.protocol or stability.COLD_PROTOCOL
-    if args.action=='cpu-control-admission':return cpu_control.admission(sys.modules[__name__])
+    cpu_options={'scope':args.scope} if args.scope=='technical' else {}
+    if args.action=='cpu-control-admission':return cpu_control.admission(sys.modules[__name__],**cpu_options)
     if args.action=='diagnostic-admission':
         hosted.context();stability.require_marker(stability.read_json(Path(os.environ['GITHUB_EVENT_PATH'])))
         return
     if args.output is None:parser.error('--output required')
     if args.action.startswith('cpu-control-'):
         if args.action=='cpu-control-run':
-            try:return cpu_control.run_pair(sys.modules[__name__],args.output,args.images,args.metadata)
+            try:return cpu_control.run_pair(sys.modules[__name__],args.output,args.images,args.metadata,**cpu_options)
             except subprocess.CalledProcessError as error:raise SystemExit(error.returncode if 0<error.returncode<=255 else 1)
-        if args.action=='cpu-control-recover':return cpu_control.recover_pair(sys.modules[__name__],args.output,args.images)
-        return cpu_control.collect(sys.modules[__name__],args.output,args.metadata,args.public)
+        if args.action=='cpu-control-recover':return cpu_control.recover_pair(sys.modules[__name__],args.output,args.images,**cpu_options)
+        return cpu_control.collect(sys.modules[__name__],args.output,args.metadata,args.public,**cpu_options)
     if args.action in ('run','diagnostic-run'):cpu_control.reject(args.output)
     if args.action=='contacts':return contacts_worker(args.output,args.contacts_token)
     if args.action=='worker':return worker(args.output)

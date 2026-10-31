@@ -219,6 +219,25 @@ HOSTED_DISK_STEP = '''      - name: Prepare preinstalled hosted Android SDK disk
 
 
 class WorkflowInverse(unittest.TestCase):
+    def test_cpu_technical_scope_and_disk_delta_is_exact_and_never_weakens_legacy_policy(self):
+        from pathlib import Path
+        workflow=(Path(__file__).resolve().parents[2]/'.github/workflows/observability-resource.yml').read_text()
+        cpu=workflow.split('\n  cpu-control:\n',1)[1].split('\n  fullstack-protocol-shard:',1)[0]
+        self.assertIn("scope == 'technical' && 40 || 24",cpu)
+        self.assertLess(cpu.index('cpu-control-admission'),cpu.index('hosted_disk.py'))
+        self.assertLess(cpu.index('hosted_disk.py'),cpu.index('hosted.py admission'))
+        inverse_protocol_workflow(workflow)
+        for before,after in [("&& 40 || 24","&& 40 || 25"),("&& 40 || 24","&& 41 || 24"),
+                             ('hosted_disk.py','hosted_disk.py --force'),("if: ${{ steps.scope.outputs.scope == 'technical' }}","if: ${{ true }}"),
+                             ('cpu-control-admission --scope','cpu-control-admission --unknown-scope'),
+                             ('--scope "${{ steps.scope.outputs.scope }}"','--scope full'),
+                             ('select-scope >>','select-other >>')]:
+            self.assertIn(before,cpu)
+            with self.subTest(before=before),self.assertRaises(ValueError):inverse_protocol_workflow(workflow.replace(cpu,cpu.replace(before,after,1),1))
+        selection=cpu[cpu.index('      - name: Select exact assigned technical profile, otherwise full\n'):cpu.index('      - name: Require exact CPU marker in the strict PR context\n')]
+        moved=cpu.replace(selection,'',1).replace('      - name: Build five source-bound process images',selection+'      - name: Build five source-bound process images',1)
+        with self.assertRaises(ValueError):inverse_protocol_workflow(workflow.replace(cpu,moved,1))
+
     def test_hosted_disk_preparation_bypasses_are_refused_in_both_measurement_jobs(self):
         import re
         from pathlib import Path
@@ -295,6 +314,39 @@ class WorkflowInverse(unittest.TestCase):
                 inverse_protocol_workflow(workflow.replace(before, after, 1))
 
 
+def inverse_cpu_technical_scope(source):
+    """Undo only the assigned CPU scope wiring before checking historical bytes."""
+    anchor='\n  cpu-control:\n';end='\n  fullstack-protocol-shard:\n'
+    if source.count(anchor)!=1 or source.count(end)!=1:raise ValueError('Missing CPU scope job')
+    before,body=source.split(anchor);body,after=body.split(end)
+    step='''      - name: Select exact assigned technical profile, otherwise full
+        id: scope
+        timeout-minutes: 1
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+'''
+    disk='''      - name: Prepare preinstalled hosted Android SDK disk
+        if: ${{ steps.scope.outputs.scope == 'technical' }}
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+'''
+    strict='        run: python3 scripts/observability-fullstack/fullstack.py cpu-control-admission --scope "${{ steps.scope.outputs.scope }}"\n'
+    current='''      - name: Run capped then uncapped through scope-bound supervisors
+        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 40 || 24 }}
+'''
+    previous='''      - name: Run capped then uncapped through separate unchanged 600-second supervisors
+        timeout-minutes: 24
+'''
+    prefix="${{ steps.scope.outputs.scope == 'technical' && 'cpu-control-technical' || 'cpu-control' }}"
+    argument='          --scope "${{ steps.scope.outputs.scope }}"\n'
+    for value,count in ((step,1),(disk,1),(strict,1),(current,1),(prefix,14),(argument,4)):
+        if body.count(value)!=count:raise ValueError('Missing, repeated or changed CPU scope delta')
+    admission='      - name: Bind complete source and existing disk admission\n'
+    if (step+'      - name: Require exact CPU marker in the strict PR context\n') not in body or (disk+admission) not in body or (strict+disk) not in body:raise ValueError('Moved CPU scope or hosted disk preparation')
+    body=body.replace(step,'',1).replace(disk,'',1).replace(strict,'        run: python3 scripts/observability-fullstack/fullstack.py cpu-control-admission\n',1)
+    body=body.replace(current,previous,1).replace(argument,'').replace(prefix,'cpu-control')
+    return before+anchor+body+end+after
+
+
 def inverse_technical_scope(source):
     """Undo only the assigned closed scope addition, retaining all prior goldens."""
     current="""      - name: Measure paired full-process corpus through scope-bound supervisor
@@ -341,7 +393,7 @@ def inverse_hosted_disk_preparation(source):
 def inverse_seven_group_workflow(source):
     """Reverse only this allowance; recover the entire Root 4c9715e workflow."""
     import hashlib
-    source=inverse_technical_scope(inverse_hosted_disk_preparation(source))
+    source=inverse_technical_scope(inverse_hosted_disk_preparation(inverse_cpu_technical_scope(source)))
     for current, previous in [
         ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5]'),
         ('Require all seven provider results to succeed', 'Require all five provider results to succeed'),

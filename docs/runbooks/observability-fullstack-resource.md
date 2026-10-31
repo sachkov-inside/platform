@@ -359,7 +359,7 @@ worker нет. Запуск приложений, seed, warmup и все 12 фа
 срок worker; отдельный `down` остаётся 90 секунд. Ограничение сборки
 120 секунд действует на каждую команду, скачивание архива отдельно ограничено
 30 секундами. Это не общий срок подготовки и не обещание уложиться в прежние
-12/24-минутные шаги или 60-минутный CPU job. Измеренная в E61 установка за 30,369 секунды
+прежние full шаги12/24 минуты или CPU job60 минут. Технические шаги имеют отдельные пределы ниже. Измеренная в E61 установка за 30,369 секунды
 мотивирует перенос; фактическое ускорение требует нового native CI.
 
 Используется committed checkout, текущие pin, существующие disk admission и storage guard.
@@ -562,11 +562,19 @@ source profile и проверяет контекст строки. Diagnostic w
 Точный комментарий `<!-- monitoring-cpu-control: app-unlimited-v1 -->` в описании PR
 включает отдельный, по умолчанию выключенный job `Matched CPU-policy diagnostic
 (never capacity acceptance)` при следующем обычном событии PR. Само редактирование
-описания не создаёт запуск. Исходные short/full/stability jobs сохранены побайтово.
+описания не создаёт запуск. Исходные short/full/stability jobs сохраняют прежние правила.
 Проверка события требует точный регистр, один комментарий и обычное действие
 opened/reopened/synchronize. Неизвестный CPU selector, дубликат или смешение с
 комментарием stability отвергаются до подготовки образов. Права и pins прежние,
 новых secrets и ручного dispatch нет.
+
+CPU job выбирает `technical` через существующий `production.py select-scope` только для назначенного PR1716 с техническим маркером.
+Strict admission проверяет выбранный scope перед подготовкой hosted disk и образов.
+Technical использует отдельные пути `cpu-control-technical-*` и artifact `observability-cpu-control-technical-*`.
+Только technical вызывает прежний `hosted_disk.py` с пределом3 минуты перед независимой проверкой16GiB.
+Guard и команда удаления не меняются. Full сохраняет прежнюю подготовку без этого вызова.
+Ни технический маркер, ни этот код сами не включают CPU opt-in.
+Technical исключает Umami и сохраняет исходные400 disabled slots,2800 application HTTP и1600 ON OTLP probes в каждом профиле.
 
 На одном runner сначала выполняется `fixture-capped-v1`, затем
 `app-cpu-unlimited-v1`. Каждый использует исходные 3200 операций, 12 фаз,
@@ -599,10 +607,10 @@ CpusetCpus пустой; uncapped: все три числа0 и CpusetCpus пу�
 считаются нулём. Последний снимок требует прежние IDs последнего режима.
 Числовые снимки не содержат ID, labels, argv, env или raw errors.
 
-Каждый worker сохраняет прежние 600 секунд и отдельный cleanup 90 секунд.
-Общий job остаётся 60 минут, подготовки образов это не отменяет. Внутренний clock
-первого шага проверяет остаток не меньше 690 секунд перед подготовкой профиля
-и после неё, до приобретения worker.
+Full сохраняет worker600 секунд, technical использует канонические900 секунд существующего владельца `stage_timing`.
+Cleanup сохраняет отдельные90 секунд. Controller выводит остаток из выбранного worker и cleanup, то есть690 либо990 секунд.
+Общий job остаётся60 минут. Шаг пары сохраняет24 минуты для full и получает40 минут для technical.
+Внутренний clock первого шага проверяет этот остаток перед подготовкой профиля и после неё, до приобретения worker.
 Не более пяти двухсекундных quota-проверок входят в исходный срок каждого worker.
 Завершение всей пары в этот срок не обещается. Незапущенный или незаконченный
 профиль оставляет сравнение incomplete. Ошибка записи outcome не пропускает settlement
@@ -631,6 +639,15 @@ cleanup; вся пара incomplete, capacity=false и minimum_candidate_gib=nul
 Schema2 читается по прежним строгим правилам и не разрешает этот новый случай
 отсутствующего output с ненулевым кодом. Проверка занятого локального порта
 подтверждает границу обработки, причина прежнего native-отказа остаётся неизвестной.
+
+Full сохраняет прежние schema и поля. Technical использует pair/request/owner schema2 и outcome/public schema4.
+Pair связывает scope, source, images, workload, services и deadline900. Request связывает pair и оба плана.
+Owner дополнительно связывает исходный `scope_binding`, включая output, nonce, профиль, службы и базы.
+Прежняя quota schema1 связывает request и owner через digest. Worker подтверждает фактический deadline900.
+Collector проверяет технические raw phases, workload closure и существующую timing schema2 до создания публичного каталога.
+Смена scope, потеря binding и downgrade schema не дают legacy полномочий для cleanup либо публикации.
+Отсутствующий timing после раннего отказа оставляет comparison incomplete. Contacts сохраняет прежнюю schema1 и собственный срок75 секунд.
+Technical public schema4 сохраняет `full_spec_acceptance=deferred` и числовой `technical_workload` каждого полного профиля.
 
 Артефакт `observability-cpu-control-<run_id>-<run_attempt>` содержит отдельный
 `fullstack-cpu-control.json` schema3 (schema2 для прежнего outcome), source/profile/plan/workload bindings,
