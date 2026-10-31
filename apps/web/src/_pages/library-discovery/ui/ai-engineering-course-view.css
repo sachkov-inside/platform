@@ -1750,11 +1750,11 @@
 .aie-roles [data-role="agent"] dt {
   color: var(--muted-foreground);
 }
-.aie-roles [data-role="agent"] dd span {
+.aie-roles [data-role="agent"] dd span:not(.ai-product-item-detail) {
   background: var(--card);
   color: var(--muted-foreground);
 }
-.aie-roles [data-role="you"] dd span {
+.aie-roles [data-role="you"] dd span:not(.ai-product-item-detail) {
   background: color-mix(in srgb, var(--accent) 16%, var(--card));
   color: var(--foreground);
 }
