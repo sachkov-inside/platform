@@ -252,9 +252,12 @@ for (const subject of [
     }
     expect(feed.value.items).toContainEqual(
       expect.objectContaining({
-        slug: "kak-ustroen-inside-platform",
+        slug: "zametka-pro-granitsy-modulya",
         access: "free",
       }),
+    );
+    expect(feed.value.items).not.toContainEqual(
+      expect.objectContaining({ slug: "kak-ustroen-inside-platform" }),
     );
     for (const query of [
       {},

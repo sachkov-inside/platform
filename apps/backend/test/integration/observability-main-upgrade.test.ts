@@ -22,17 +22,19 @@ it.each([
   "main104",
   "main114",
   "main115",
+  "main116",
 ] as const)(
-  "upgrades exact frozen %s to canonical129 without changing its prefix",
+  "upgrades exact frozen %s to canonical130 without changing its prefix",
   async (label) => {
     const mainRegistry = frozenRegistry(label);
     expect(platformMigrations.slice(0, mainRegistry.length)).toEqual(
       mainRegistry,
     );
-    expect(platformMigrations).toHaveLength(129);
-    expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(129);
+    expect(platformMigrations).toHaveLength(130);
+    expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(130);
     expect(platformMigrations.slice(0, 114)).toEqual(frozenRegistry("main114"));
     expect(platformMigrations.slice(0, 115)).toEqual(frozenRegistry("main115"));
+    expect(platformMigrations.slice(0, 116)).toEqual(frozenRegistry("main116"));
     const database = await createTestDatabase();
     const ledger = async () =>
       parseAppliedMigrations(
@@ -282,8 +284,13 @@ it.each([
     target: frozenRegistry("legacy116"),
   },
   {
-    label: "currentCanonical126",
-    prefix: platformMigrations.slice(0, 126),
+    label: "currentCanonicalBeforeTrackingTrace",
+    prefix: platformMigrations.slice(
+      0,
+      platformMigrations.findIndex(
+        ({ name }) => name === "0125_communications_tracking_trace_context",
+      ),
+    ),
     target: platformMigrations,
   },
 ] as const)(
@@ -362,8 +369,13 @@ it.each([
     target: frozenRegistry("legacy116"),
   },
   {
-    label: "currentCanonical127",
-    prefix: platformMigrations.slice(0, 127),
+    label: "currentCanonicalBeforeWaitlistTrace",
+    prefix: platformMigrations.slice(
+      0,
+      platformMigrations.findIndex(
+        ({ name }) => name === "0126_waitlist_trace_context",
+      ),
+    ),
     target: platformMigrations,
   },
 ] as const)(
