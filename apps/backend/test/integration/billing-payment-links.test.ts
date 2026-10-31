@@ -393,3 +393,39 @@ test("a Payment Link of a Product whose price was archived reads and filters as 
     world.setTime(defaultNow);
   }
 });
+
+test("a Payment Link of an archived Product reads, lists and filters as changed, like an archived price", async () => {
+  try {
+    const s = await world.scenario();
+    const link = await createLink(s, "2030-02-01T10:00:00Z");
+    await world.db.prisma.product.update({
+      where: { id: s.productId },
+      data: { archivedAt: new Date("2030-02-01T11:00:00Z") },
+    });
+    expect(value(await s.pricing.paymentLink(link.id)).state).toBe("changed");
+    expect(
+      await s.pricing.paymentLinks(world.owner, { productId: s.productId }),
+    ).toMatchObject({
+      ok: true,
+      value: { items: [{ id: link.id, state: "changed" }], nextCursor: null },
+    });
+    expect(
+      await s.pricing.paymentLinks(world.owner, {
+        productId: s.productId,
+        state: "active",
+      }),
+    ).toEqual({ ok: true, value: { items: [], nextCursor: null } });
+    // Покупка по ссылке архивного продукта отвечает так же, как покупка без ссылки.
+    const other = await world.scenario();
+    expect(
+      await s.pricing.quote(other.buyer, {
+        operationId: randomUUID(),
+        productId: s.productId,
+        priceRevision: 1,
+        paymentLinkId: link.id,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "not_found" } });
+  } finally {
+    world.setTime(defaultNow);
+  }
+});

@@ -96,6 +96,7 @@ export async function quotePurchase(
                 command.paymentLinkId,
                 command.productId,
                 now,
+                contentCatalog,
               );
         if (!price.ok) return price;
         if (
