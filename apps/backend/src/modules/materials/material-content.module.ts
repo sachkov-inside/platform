@@ -21,9 +21,9 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
   providers: [
     {
       provide: PublicMaterialAnnouncements,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        new PublicMaterialAnnouncements(prisma),
+      inject: [PrismaClientProvider, ProductDiscovery],
+      useFactory: (prisma: PrismaClientProvider, products: ProductDiscovery) =>
+        new PublicMaterialAnnouncements(prisma, products),
     },
     {
       provide: CoverageCatalog,

@@ -27,7 +27,7 @@ import type {
   MaterialAuthoringPresentation,
 } from "../model/presentation";
 import { presentText } from "@/shared/lib/text";
-import { canPlaceInFeed } from "../model/feed-placement";
+import { canPlaceInFeed, draftInFeed } from "../model/feed-placement";
 
 interface MaterialMetadataPanelProps {
   readonly actions: MaterialAuthoringActions;
@@ -41,7 +41,7 @@ export function MaterialMetadataPanel({
   const disabled =
     presentation.blocking.kind === "not_found" || presentation.draft.readOnly;
   const feedAllowed = canPlaceInFeed(presentation.draft);
-  const inFeed = feedAllowed && (presentation.draft.inFeed ?? false);
+  const inFeed = draftInFeed(presentation.draft);
 
   return (
     <section

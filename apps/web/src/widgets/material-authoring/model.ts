@@ -16,6 +16,6 @@ export {
   type MaterialValidationIssue,
   type MaterialValidationState,
 } from "./model/presentation";
-export { canPlaceInFeed } from "./model/feed-placement";
+export { draftInFeed } from "./model/feed-placement";
 export { materialDocumentContentSchema } from "./model/material-document-content-schema";
 export { withMaterialNodeIds } from "./model/material-document-identifiers";

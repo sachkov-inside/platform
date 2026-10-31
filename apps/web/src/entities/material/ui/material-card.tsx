@@ -138,18 +138,16 @@ export function MaterialCard({
     material.cover != null && material.cover.renditions.length > 0;
   // Лента показывает только материалы, открытые каждому (#1885): ни размытия, ни метки доступа.
   const cover = hasCover ? (
-    <span className="relative block">
-      <ContentCoverImage
-        alt=""
-        className="aspect-video min-h-0 w-full rounded-xl"
-        cover={material.cover ?? null}
-        fallbackKind={
-          video ? "video" : material.formatSlug === "note" ? "note" : "material"
-        }
-        fallbackSeed={material.slug}
-        sizes="(min-width: 768px) 38rem, 100vw"
-      />
-    </span>
+    <ContentCoverImage
+      alt=""
+      className="aspect-video min-h-0 w-full rounded-xl"
+      cover={material.cover ?? null}
+      fallbackKind={
+        video ? "video" : material.formatSlug === "note" ? "note" : "material"
+      }
+      fallbackSeed={material.slug}
+      sizes="(min-width: 768px) 38rem, 100vw"
+    />
   ) : null;
   return (
     <article

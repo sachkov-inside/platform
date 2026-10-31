@@ -29,7 +29,7 @@ import {
 } from "@/shared/routing/authoring";
 
 import {
-  canPlaceInFeed,
+  draftInFeed,
   withMaterialNodeIds,
 } from "@/widgets/material-authoring/model";
 import { createMaterialDraftOperation } from "../api/create-material-draft.operation";
@@ -167,7 +167,7 @@ export function MaterialAuthoringPageClient({
         confirmedProductRemovals: confirmedRemovals.current,
         notifyTelegram: snapshot.notifyTelegram ?? false,
         // Сервер отклоняет ленту у урока курса, поэтому редактор не просит невозможного.
-        inFeed: canPlaceInFeed(snapshot) && (snapshot.inFeed ?? false),
+        inFeed: draftInFeed(snapshot),
       };
       retrySaveInput.current = input;
       const result = await saveMutation.mutateAsync(input);

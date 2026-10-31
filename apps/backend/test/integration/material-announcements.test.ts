@@ -1,5 +1,6 @@
 import { seedHistoricalFeedSource } from "./setup/historical-source.js";
 import { PublicMaterialAnnouncements } from "../../src/modules/materials/index.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -115,7 +116,10 @@ describe("анонс первой публикации материала", () =
   }
 
   function publicAnnouncements() {
-    const source = new PublicMaterialAnnouncements(database.prisma);
+    const source = new PublicMaterialAnnouncements(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    );
     return {
       read: async (...args: Parameters<PublicMaterialAnnouncements["read"]>) =>
         value(await source.read(...args)),
@@ -283,6 +287,26 @@ describe("анонс первой публикации материала", () =
         },
       });
     }
+    // Состав Product меняет Products, а не Save: урок курса всё равно не анонсируется.
+    const productId = randomUUID();
+    await database.prisma.product.create({
+      data: { id: productId, slug: "announcement-lesson", name: "Lesson" },
+    });
+    await database.prisma.productMembership.create({
+      data: { productId, materialId: id },
+    });
+    expect(
+      (
+        await source.read(
+          { announcementRef: announcement.id },
+          "https://inside.example",
+          announcement.occurredAt,
+        )
+      ).items,
+    ).toEqual([]);
+    await database.prisma.productMembership.delete({
+      where: { productId_materialId: { productId, materialId: id } },
+    });
     expect(
       (
         await source.read(

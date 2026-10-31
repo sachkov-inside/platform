@@ -1,10 +1,14 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAnnouncement } from "@inside/contracts/material-announcements";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type { ProductDiscovery } from "../../../products/index.js";
 
 /** Public feed announcements only: the Material must still be in the feed (#1885). Cursor follows source rows, including rows filtered out later. */
 export class PublicMaterialAnnouncements {
-  constructor(private readonly prisma: MaterialsPrismaClient) {}
+  constructor(
+    private readonly prisma: MaterialsPrismaClient,
+    private readonly products: Pick<ProductDiscovery, "snapshot">,
+  ) {}
 
   async read(
     input: { after?: string | undefined; announcementRef?: string | undefined },
@@ -48,7 +52,19 @@ export class PublicMaterialAnnouncements {
         },
         select: { id: true, title: true, summary: true, slug: true },
       });
-      const current = new Map(materials.map((row) => [row.id, row]));
+      // Урок курса не в ленте (ADR 0043), даже если состав Product изменился после выбора автора.
+      const programme = new Set(
+        materials.length === 0
+          ? []
+          : (await this.products.snapshot()).memberships.map(
+              (membership) => membership.materialId,
+            ),
+      );
+      const current = new Map(
+        materials
+          .filter((row) => !programme.has(row.id))
+          .map((row) => [row.id, row]),
+      );
       const items: MaterialAnnouncement[] = page.flatMap((announcement) => {
         const material = current.get(announcement.materialId);
         if (
