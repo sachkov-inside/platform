@@ -748,6 +748,26 @@ process restart. This timing does not establish the cause of the unavailable ter
 Attach the run URL, attempt, head SHA and artifacts to #1136; keep it open until a captured failure
 establishes the cause.
 
+The image-variants full-stack test attaches `image-first-failure` JSON before browser teardown
+when its first attempt fails. It retains up to 64 image requests with local request IDs, redirect
+links, response/failure state and Playwright timings, plus up to 32 image elements with
+`currentSrc`, `complete` and `naturalWidth`. URLs omit credentials, query and fragment; non-HTTP
+sources and browser error text are omitted. Each URL is limited to 512 characters. Browser
+state collection has a one-second diagnostic budget and cannot change the original test result.
+This evidence distinguishes a pending redirected request from a failed response; it does not
+establish the historical transport cause in #1865. The existing assertions, timeouts and retries
+remain the authority for success.
+
+Before Compose cleanup, `compose-failure-diagnostics.sh` captures MinIO (`object-storage`)
+even when healthy. Its JSON contains only running/health/restart state and CPU, memory,
+network, block-I/O and process counts. Each Docker observation has a two-second and 4-KiB
+output budget; unavailable observations become `null`. The collector runs directly from a fresh
+checkout before dependency installation. If the collector cannot run, the shell retains only
+allowlisted lifecycle status and health, with `collector: "unavailable"` and null resources.
+MinIO environment, health command output
+and raw server logs are never retained by this capture. Other failed containers keep the existing
+diagnostic path. Capture and cleanup do not authorize a retry.
+
 Every Compose job owns an isolated project on its runner and removes containers, networks and
 volumes even after a failed command. The production smoke additionally removes locally built
 images. It embeds a synthetic release identity, supplies the exact local image IDs to production
