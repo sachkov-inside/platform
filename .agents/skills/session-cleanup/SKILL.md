@@ -3,38 +3,37 @@ name: session-cleanup
 description: "Clean up resources owned by the current task or session before handoff, or when the owner requests cleanup."
 ---
 
-Cleanup is the writing agent's last step. Preserve other sessions and resources.
-Use the task and PR resource records to identify what this session acquired or explicitly inherited.
-A resource with changed ownership belongs to its new owner.
+Cleanup is the writing agent's last step. `pnpm session:cleanup` decides ownership by rules, not by
+memory: its plan gives an action and a reason for every worktree, process and temporary entry.
+The rules live in the header of [the script](../../../scripts/session-cleanup.mjs); a resource they
+cannot prove disposable is kept and reported.
 
-## 1. Inspect owned resources
+## 1. Read the plan
 
-Check the current worktree's status and branch. Inspect only recorded worktrees, branches,
-containers, volumes, processes, temporary files and safety stashes owned by this task.
-Use a process's PID and working directory, or a container's Compose labels, to confirm ownership.
-When ownership is uncertain, preserve the resource and record that uncertainty in the handoff.
-If the session acquired no disposable resources, record that fact; no machine-wide inventory is needed.
-Before any repository Compose command, follow the singleton ownership rule in
-[local development](../../../docs/runbooks/local-stand.md#parallel-worktrees-and-singleton-ownership).
+Run `pnpm session:cleanup` from the task worktree. It changes nothing. Read every `remove`, `prune`
+and `stop` line, and every `keep` reason for this task's worktree and processes.
 
-## 2. Release disposable resources
+## 2. Protect what the owner still needs
 
-Stop and remove the owned containers, volumes and processes. Delete owned temporary files.
-Preserve a preview while the owner needs it. Record its port, PID, cwd, source, and stop/restart
-instructions before closing its pane or handing ownership to another session.
+Record an owner review server's port, PID, cwd, source and stop/restart instructions in the handoff.
+The script stops a process only when its worktree is removed or its directory no longer exists.
+If the plan stops a server the owner still needs, skip step 3 and name that server in the handoff.
 
-## 3. Resolve task-local state
+## 3. Apply
 
-While a PR is open, keep its writing worktree and branch.
-After merge or closure, remove an owned task worktree and branch only when its changes are clean
-and every commit is preserved by a remote branch or merged PR. A squash-merged PR preserves its
-commits even when they are not ancestors of `main`.
-Inspect owned safety stashes against the merged result before dropping them.
-Keep unpublished work and record the exact remaining action.
-The primary checkout and unrelated local branches remain with their owners; update them only
-when the assignment includes that action.
+Run `pnpm session:cleanup --apply`. It rechecks each worktree before removal and keeps one that
+changed. A non-zero exit lists the failures; record each one in the handoff.
+
+## 4. Resolve what the rules keep
+
+- The current worktree stays: a later run removes it after its PR merges.
+- Unpublished commits and local changes stay; record the exact remaining action.
+- Stashes stay. Inspect a safety stash this task created against the merged result before dropping it.
+- Containers and volumes follow [the local stand runbook](../../../docs/runbooks/local-stand.md#stop-and-keep-data);
+  the script only reports them.
+- Resources outside the script's rules, such as a task-owned Compose project, go through their owners.
 
 ## Done when
 
-Every disposable resource owned by this task is released, or the handoff names its owner and why
-it remains. Other sessions' worktrees, branches, stashes, containers, volumes and processes are preserved.
+A fresh `pnpm session:cleanup` lists no `remove`, `prune` or `stop` line, or the handoff names each
+remaining one with its owner and reason.

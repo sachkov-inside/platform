@@ -62,13 +62,26 @@ agent-worktree stop --name web-preview
 
 ## Finish the session
 
-Follow `session-cleanup` for ownership checks and Git lifetime. When a task used the host resource
-CLI, inspect `pnpm worktree:status`, then run `pnpm worktree:cleanup` for its disposable tracked
-resources. The command preserves previews started with `--keep`; record their continuing owner in
-the handoff. Without the CLI, status and cleanup report its absence and change no resources. Resolve
-any manually acquired resources through their existing owners.
+Follow `session-cleanup`. Its `pnpm session:cleanup` lists every registered worktree, the processes it
+can stop or that still run in kept worktrees, and old temporary entries that match the script's
+explicit rules, each with an action and a reason. The default run changes nothing;
+`--apply` acts on the plan.
 
-Opening a PR can release disposable processes and temporary files. Keep the writing worktree and
-branch while that PR is open. After merge or closure, the existing `session-cleanup` checks decide
-whether its clean, remotely preserved worktree and branch can be removed. A host resource cleanup
-is not Git worktree deletion. Preserve resources whose ownership is uncertain.
+- A worktree is removed when its PR is merged or closed, it is clean, and its HEAD is in the merged
+  PR's commits or in a current remote branch. Orca worktrees go through `orca worktree rm`; others
+  through `git worktree remove`. Its branch is deleted only while it still points at that HEAD.
+- The primary checkout, the current worktree, locked worktrees, and worktrees with an open PR,
+  changes, a running agent session, local stand state or a Compose project stay.
+- Stashes, containers and volumes are never changed; the plan names the ones tied to removed
+  worktrees or missing directories.
+- PR data comes from one GitHub GraphQL request per run. When GitHub, Orca or the stand state is
+  unavailable, the affected worktrees stay and the plan says why.
+
+The project `.claude/settings.json` runs `--session-end` when a Claude Code session exits. It prints
+only what remains and changes nothing. Claude Code shows SessionEnd output only for a non-zero
+status, so the report arrives as a "SessionEnd hook ... failed" message in the terminal.
+
+When a task used the host resource CLI, inspect `pnpm worktree:status`, then run
+`pnpm worktree:cleanup` for its disposable tracked resources. The command preserves previews started
+with `--keep`; record their continuing owner in the handoff. Without the CLI, status and cleanup
+report its absence and change no resources. A host resource cleanup is not Git worktree deletion.

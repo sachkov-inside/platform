@@ -73,7 +73,7 @@ Use the environment-provided isolated worktree; CLI sessions without one create 
 The primary checkout belongs to the owner. Leave its tracked files unchanged; read it through `git -C`
 or absolute paths. Update it only when the owner assigns that action.
 Preserve other sessions' worktrees, branches, containers, volumes, stashes, servers and results; a resource with
-changed ownership belongs to its new owner.
+changed ownership belongs to its new owner. `pnpm session:cleanup` removes only what its rules prove disposable.
 An independent delivery has one branch and PR. A specification uses one integration branch and final PR;
 its worker branches and worktrees remain until integration, and independent assigned tasks use separate PRs.
 
@@ -131,8 +131,9 @@ For an integration PR:
 
 For a final handoff, state the result, actual checks, material limitations and the next action, and link the PR or
 artifact. A local preview update needs only its URL, scope and relevant checks, and triggers no cleanup.
-When the task ends, run `session-cleanup` for resources this session owns. Keep an owner review server running
-while it is needed; record its port, PID, cwd, source and stop/restart instructions before pane closure.
+When the task ends, run `session-cleanup`; its `pnpm session:cleanup` decides ownership by rules, and the project
+SessionEnd hook reports what remains. Keep an owner review server running while it is needed; record its port,
+PID, cwd, source and stop/restart instructions before pane closure.
 
 ## Skill exceptions
 
