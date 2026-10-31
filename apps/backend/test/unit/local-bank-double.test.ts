@@ -85,6 +85,50 @@ describe("local bank double", () => {
     expect(notifications[1]).toEqual(notifications[0]);
   });
 
+  test("Cancel закрывает неоплаченную форму, а оплаченный платёж адаптер не отменяет", async () => {
+    const { bank, notifications, outcome } = stand();
+    const unpaid = await bank.init(purchase);
+    const cancelled = await bank.cancel({
+      orderId: purchase.orderId,
+      paymentId: unpaid.PaymentId,
+    });
+    expect(cancelled).toMatchObject({
+      sent: true,
+      result: { Status: "CANCELED", Success: true, ErrorCode: "0" },
+    });
+    expect(bank.notification(notifications[0])).toMatchObject({
+      Status: "CANCELED",
+    });
+    expect(await bank.state(unpaid.PaymentId)).toMatchObject({
+      Status: "CANCELED",
+    });
+
+    const paidOrder = {
+      ...purchase,
+      orderId: "0f2f7c0e-6d9e-4d23-9c0e-1f3c6f1c2f02",
+    };
+    const paid = await bank.init(paidOrder);
+    await outcome(paid.PaymentURL, "confirmed");
+    expect(
+      await bank.cancel({
+        orderId: paidOrder.orderId,
+        paymentId: paid.PaymentId,
+      }),
+    ).toMatchObject({ sent: false, payment: { Status: "CONFIRMED" } });
+    expect(await bank.state(paid.PaymentId)).toMatchObject({
+      Status: "CONFIRMED",
+    });
+    // Платёж другого заказа адаптер не отменяет, даже если его форма открыта.
+    const other = await bank.init({
+      ...purchase,
+      orderId: "0f2f7c0e-6d9e-4d23-9c0e-1f3c6f1c2f03",
+    });
+    await expect(
+      bank.cancel({ orderId: purchase.orderId, paymentId: other.PaymentId }),
+    ).rejects.toThrow("Bank payment mismatch");
+    expect(await bank.state(other.PaymentId)).toMatchObject({ Status: "NEW" });
+  });
+
   test("returns to the purchase-specific bank URL", async () => {
     const { bank, outcome } = stand();
     const started = await bank.init({

@@ -287,7 +287,13 @@ continuation для того же `purchaseRef` и становится `null` �
 
 - `payments.list` отбирает платежи по `accountId`, `productId` (продукт из оплаченного снимка;
   историческая покупка без продукта в снимке не выбирается), `state` или `states` (до семи без
-  повторов; вместе с `state` не принимается), `kind` и периоду создания `[from, to)`;
+  повторов; вместе с `state` не принимается), `kind` и периоду создания `[from, to)`.
+  `events: "review"` ([#1928](https://github.com/sachkov-inside/platform/issues/1928)) оставляет
+  покупки с событием для проверки владельцем: `duplicate_payment_review`,
+  `payment_confirmed_after_failure` или `superseded_by_confirmed_payment`. С выпуском
+  [#1922](https://github.com/sachkov-inside/platform/issues/1922) к ним добавится
+  `bank_payment_absent`, а с выпуском [#1923](https://github.com/sachkov-inside/platform/issues/1923)
+  неподтверждённая покупка с `bank_cancel_requested` без `bank_cancel_confirmed`;
 - `paymentLinks.list` отдаёт ссылки на оплату от новых к старым с фильтрами `productId` и видимого
   состояния `state`; курсор действует только в своём фильтре;
 - `promotions.list` отдаёт скидки владельца от поздних к ранним по началу с фильтрами `archived`,
@@ -1169,7 +1175,7 @@ Order не равен попытке списания, Payment не равен p
 | Charge timeout | Сохраняется sent/unknown; GetState до любой новой mutation, даже NEW не разрешает слепой повтор Charge |
 | Cancel before send | Cancel revision блокирует отправку worker; оплаченный остаток сохраняется |
 | Cancel after send | Сверка прежней попытки; late success даёт период, новые списания запрещены |
-| Full refund confirmed | Продавец инициировал возврат в кабинете банка; подписанное REFUNDED или GetState сохраняет историю и отзывает права покупки; Platform не отправляет Cancel |
+| Full refund confirmed | Продавец инициировал возврат в кабинете банка; подписанное REFUNDED или GetState сохраняет историю и отзывает права покупки; для возврата Platform не отправляет Cancel (Cancel неоплаченной формы снятой попытки описан в [access model](../product/access-model.md), #1923) |
 | Receipt rejected/delayed | Отдельное fiscal state с alert/recovery; не повторная оплата и не скрытый success чека |
 
 Проверяются token/signature по actual payload и соответствие terminal/payment/order/amount,

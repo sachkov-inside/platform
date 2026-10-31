@@ -178,10 +178,23 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       status = "NEW",
       initCalls = 0,
       timeout = false,
-      stateCalls = 0;
+      stateCalls = 0,
+      cancelFailures = 0,
+      initGate:
+        | { readonly arrived: () => void; readonly released: Promise<void> }
+        | undefined,
+      afterState: ((paymentId: string) => void) | undefined;
     // Каждый Init получает свой PaymentId, как в банке: повторная покупка не делит платёж с прежней.
     const nextPaymentId = () => String(Math.floor(Math.random() * 1000000000));
     let paymentId = nextPaymentId();
+    /** Платежи, созданные Init: GetState и Cancel отвечают о запрошенном платеже, а не о последнем. */
+    const bankPayments = new Map<
+      string,
+      { orderId: string; status?: string }
+    >();
+    const cancelRequests: Record<string, unknown>[] = [];
+    const paymentStatus = (id: string) =>
+      bankPayments.get(id)?.status ?? status;
     const event = (nextStatus = status, extra = {}) => ({
       TerminalKey: config.terminalKey,
       OrderId: orderId,
@@ -192,47 +205,97 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       ErrorCode: "0",
       ...extra,
     });
-    const bank = new Tbank(config, (url, init) => {
+    const bank = new Tbank(config, async (url, init) => {
       const body = z
-        .object({ OrderId: z.string().optional() })
+        .object({
+          OrderId: z.string().optional(),
+          PaymentId: z.string().optional(),
+        })
         .loose()
         .parse(JSON.parse(init.body));
       if (url.endsWith("/Init")) {
         if (initCalls > 0) paymentId = nextPaymentId();
         initCalls++;
         orderId = z.string().parse(body.OrderId);
+        const created = { orderId, paymentId };
+        bankPayments.set(paymentId, { orderId });
         expect(body).toMatchObject({
           Amount: quote.snapshot.firstPriceKopecks,
         });
         expect(body).not.toHaveProperty("Recurrent");
         if (timeout) throw new Error("Synthetic lost Init answer");
-        return Promise.resolve(
-          Response.json({
-            ...event(),
-            PaymentURL: "https://securepay.tinkoff.ru/test",
+        if (initGate !== undefined) {
+          initGate.arrived();
+          await initGate.released;
+        }
+        return Response.json({
+          ...event(paymentStatus(created.paymentId), {
+            OrderId: created.orderId,
+            PaymentId: created.paymentId,
           }),
-        );
+          PaymentURL: "https://securepay.tinkoff.ru/test",
+        });
       }
       if (url.endsWith("/CheckOrder"))
-        return Promise.resolve(
-          Response.json({
-            Success: true,
-            ErrorCode: "0",
-            TerminalKey: config.terminalKey,
-            OrderId: body.OrderId,
-            Payments: [
-              {
-                PaymentId: paymentId,
-                Status: status,
-                Success: true,
-                ErrorCode: 0,
-              },
-            ],
-          }),
-        );
+        return Response.json({
+          Success: true,
+          ErrorCode: "0",
+          TerminalKey: config.terminalKey,
+          OrderId: body.OrderId,
+          Payments: [
+            {
+              PaymentId: paymentId,
+              Status: status,
+              Success: true,
+              ErrorCode: 0,
+            },
+          ],
+        });
       if (url.endsWith("/GetState")) {
         stateCalls++;
-        return Promise.resolve(Response.json(event()));
+        const requested = z.string().parse(body.PaymentId);
+        const known = bankPayments.get(requested);
+        const answer =
+          known === undefined
+            ? event()
+            : event(paymentStatus(requested), {
+                OrderId: known.orderId,
+                PaymentId: requested,
+              });
+        afterState?.(requested);
+        return Response.json(answer);
+      }
+      // Cancel без Amount отменяет полную сумму. Неоплаченная форма закрывается со статусом
+      // CANCELED; оплаченный платёж банк бы вернул, поэтому тесты проверяют, что такой Cancel не уходит.
+      if (url.endsWith("/Cancel")) {
+        cancelRequests.push(body);
+        if (cancelFailures > 0) {
+          cancelFailures--;
+          throw new Error("Synthetic unavailable Cancel");
+        }
+        const requested = z.string().parse(body.PaymentId);
+        const known = bankPayments.get(requested);
+        if (known === undefined) throw new Error("Unknown bank payment");
+        const before = paymentStatus(requested);
+        const after =
+          before === "NEW" || before === "FORM_SHOWED"
+            ? "CANCELED"
+            : before === "AUTHORIZED"
+              ? "REVERSED"
+              : before === "CONFIRMED"
+                ? "REFUNDED"
+                : before;
+        known.status = after;
+        return Response.json({
+          TerminalKey: config.terminalKey,
+          OrderId: known.orderId,
+          PaymentId: requested,
+          Status: after,
+          Success: after !== before,
+          ErrorCode: after !== before ? "0" : "4",
+          OriginalAmount: quote.snapshot.firstPriceKopecks,
+          NewAmount: 0,
+        });
       }
       throw new Error("Recurring or unsupported bank operation");
     });
@@ -273,6 +336,45 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       config,
       setStatus: (next: string) => {
         status = next;
+      },
+      /** Состояние одного платежа в банке; остальные платежи следуют общему `setStatus`. */
+      setPaymentStatus: (id: string, next: string) => {
+        const known = bankPayments.get(id);
+        if (known === undefined) throw new Error("Unknown bank payment");
+        known.status = next;
+      },
+      cancelRequests: () => [...cancelRequests],
+      /** Следующие `count` запросов Cancel не доходят до банка. */
+      failCancel: (count = 1) => {
+        cancelFailures = count;
+      },
+      /** Действие после ответа GetState: так покупатель платит между двумя запросами приложения. */
+      afterState: (action: ((paymentId: string) => void) | undefined) => {
+        afterState = action;
+      },
+      /**
+       * Ответ на следующий Init ждёт `release`: тем временем приложение может снять попытку.
+       * `arrived` завершается, когда Init дошёл до банка и платёж уже создан.
+       */
+      holdInit: () => {
+        const signals: { arrived?: () => void; release?: () => void } = {};
+        const arrived = new Promise<void>((resolve) => {
+          signals.arrived = resolve;
+        });
+        const released = new Promise<void>((resolve) => {
+          signals.release = resolve;
+        });
+        initGate = {
+          arrived: () => signals.arrived?.(),
+          released,
+        };
+        return {
+          arrived,
+          release: () => {
+            initGate = undefined;
+            signals.release?.();
+          },
+        };
       },
     };
   }

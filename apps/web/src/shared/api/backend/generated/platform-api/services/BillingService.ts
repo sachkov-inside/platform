@@ -606,6 +606,7 @@ export class BillingService {
     } | {
       accountId?: string;
       cursor?: string;
+      events?: 'review';
       from?: string;
       fulfillment?: 'incomplete';
       kind?: 'initial' | 'one_time' | 'renewal' | 'upgrade';
