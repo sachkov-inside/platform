@@ -10,6 +10,7 @@ import type {
   RenderedText,
 } from "../../material.model";
 import { MaterialLessonBlock } from "./material-blocks";
+import { MaterialCodeBlock } from "./material-code-block.client";
 import { MaterialModelComparison } from "./material-model-comparison.client";
 
 export interface MaterialBodyComparison {
@@ -244,17 +245,7 @@ function BodyBlockView({
         </blockquote>
       );
     case "code_block":
-      return (
-        <div className="mt-8 overflow-hidden rounded-xl bg-sidebar text-sidebar-foreground">
-          <pre
-            className="overflow-x-auto p-5 font-mono text-[0.8125rem] leading-6 [scrollbar-color:var(--sidebar-border)_var(--sidebar)]"
-            data-material-code-scroll
-            tabIndex={0}
-          >
-            <code>{block.text}</code>
-          </pre>
-        </div>
-      );
+      return <MaterialCodeBlock text={block.text} />;
     case "horizontal_rule":
       return <hr className="my-12 border-border" />;
     case "table":

@@ -1,13 +1,11 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
+import { type CopyTextState, useCopyText } from "../use-copy-text.client";
 
-type CopyState = "failed" | "idle" | "copied";
-
-const labels: Readonly<Record<CopyState, string>> = {
+const labels: Readonly<Record<CopyTextState, string>> = {
   copied: "Скопировано",
   failed: "Не удалось",
   idle: "Копировать",
@@ -21,32 +19,7 @@ export function MaterialAgentPrompt({
   readonly text: string;
   readonly title?: string | undefined;
 }) {
-  const [state, setState] = useState<CopyState>("idle");
-  const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  useEffect(
-    () => () => {
-      clearTimeout(reset.current);
-    },
-    [],
-  );
-
-  const copy = () => {
-    clearTimeout(reset.current);
-    void navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        setState("copied");
-      })
-      .catch(() => {
-        setState("failed");
-      })
-      .finally(() => {
-        reset.current = setTimeout(() => {
-          setState("idle");
-        }, 2000);
-      });
-  };
+  const { copy, state } = useCopyText(text);
 
   return (
     <div
