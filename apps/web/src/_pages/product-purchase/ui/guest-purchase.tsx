@@ -28,9 +28,10 @@ export function GuestPurchase({
   /** Обычная цена при скидке по личной ссылке: зачёркнута рядом с ценой. */
   readonly regularPriceKopecks?: number | null;
 }) {
-  const after = preorder?.priceAfterStartKopecks ?? regularPriceKopecks;
+  // Зачёркнута цена после старта предзаказа или полная цена личной ссылки.
+  const higher = preorder?.priceAfterStartKopecks ?? regularPriceKopecks;
   const struck =
-    after !== null && after > offer.firstPriceKopecks ? after : null;
+    higher !== null && higher > offer.firstPriceKopecks ? higher : null;
   const discount = preorderDiscount(offer.firstPriceKopecks, struck);
   return (
     <section className="relative rounded-2xl border border-border bg-card p-5 shadow-card sm:rounded-3xl sm:p-8">

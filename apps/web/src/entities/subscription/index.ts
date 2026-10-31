@@ -65,6 +65,7 @@ export {
   noticeLabel,
   offerCompositionLabel,
   paymentSubjectLabel,
+  paymentLinkRegularPrice,
   promotionLabel,
   type BenefitLine,
   type BenefitTerm,

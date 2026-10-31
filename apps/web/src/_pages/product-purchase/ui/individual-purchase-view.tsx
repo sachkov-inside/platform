@@ -1,7 +1,10 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
+import { legalDocumentPath } from "@/shared/routing/public-page-path";
 import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 import {
   paymentLinkHref,
+  paymentLinkRegularPrice,
   paymentLinkStateLabels,
   type PaymentLinkDetail,
 } from "@/entities/subscription";
@@ -33,9 +36,6 @@ export function IndividualPurchaseView({
     link.product.available &&
     link.product.slug !== null;
   const active = link.state === "active" && usable;
-  const regular =
-    link.snapshot.individualPayment?.basePriceKopecks ??
-    link.snapshot.paymentOption.priceKopecks;
   return (
     <div className="mx-auto w-full min-w-0 max-w-[38rem] py-8 pb-20">
       <HideMobileNavigation />
@@ -71,15 +71,21 @@ export function IndividualPurchaseView({
             </p>
           </section>
         ) : viewer === "guest" ? (
-          <GuestPurchase
-            offer={link.snapshot}
-            preorder={null}
-            promoCode={undefined}
-            regularPriceKopecks={
-              regular > link.snapshot.firstPriceKopecks ? regular : null
-            }
-            returnTo={paymentLinkHref(link.id)}
-          />
+          <>
+            <GuestPurchase
+              offer={link.snapshot}
+              preorder={null}
+              promoCode={undefined}
+              regularPriceKopecks={paymentLinkRegularPrice(link.snapshot)}
+              returnTo={paymentLinkHref(link.id)}
+            />
+            <Link
+              className="mt-4 inline-flex min-h-11 items-center text-sm text-action underline underline-offset-4"
+              href={legalDocumentPath("purchase")}
+            >
+              Условия покупки в оферте
+            </Link>
+          </>
         ) : viewer === "loading" ? (
           <p role="status" className="text-sm text-muted-foreground">
             Проверяем ваши покупки…

@@ -470,6 +470,9 @@ export const IndividualGuest: Story = {
       canvas.getByRole("button", { name: "Войти и оплатить" }),
     ).toBeVisible();
     await expect(
+      canvas.getByRole("link", { name: "Условия покупки в оферте" }),
+    ).toHaveAttribute("href", "/legal/purchase");
+    await expect(
       canvas.queryByText(/можно совершить одну покупку/u),
     ).not.toBeInTheDocument();
   },

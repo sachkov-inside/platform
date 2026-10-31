@@ -105,7 +105,9 @@ test("individual payment link shows its fixed price and terms, revokes across op
     await expect(buyer.locator('input[name="returnTo"]')).toHaveValue(path);
     const signIn = buyer.getByRole("button", { name: "Войти и оплатить" });
     await expect(signIn).toBeVisible();
-    await expect(buyer.getByText(/Сопровождение автора/)).toHaveCount(0);
+    await expect(
+      buyer.getByRole("link", { name: "Условия покупки в оферте" }),
+    ).toHaveAttribute("href", "/legal/purchase");
     expect(
       (
         await new AxeBuilder({ page: buyer })
@@ -142,9 +144,8 @@ test("individual payment link shows its fixed price and terms, revokes across op
     await buyer.unroute("**/auth/sign-in");
     await signInFullStack(guest, "NON_MEMBER");
     await buyer.reload();
-    await expect(
-      buyer.getByRole("button", { name: /Оплатить/ }),
-    ).toBeDisabled();
+    // Ссылка fixture стоит на неопубликованной цене: закрытая продажа оплачивается по ссылке.
+    await expect(buyer.getByRole("button", { name: /Оплатить/ })).toBeEnabled();
     await buyer
       .getByText("Условия и документы покупки", { exact: true })
       .click();
