@@ -718,8 +718,9 @@ the same Account's unpaid repeat attempts for the same Product or the same Payme
 buyer cannot pay twice through the newer form in Inside; the retired bank form stays payable until
 it expires. An attempt with an unknown outcome or held funds stays in reconciliation. A Payment
 Link is transferable, so another Account's attempt is never retired. While any of these attempts
-holds the link, the confirmed attempt keeps its reservation failed; recovery confirms that
-reservation once no other attempt holds the link. Every one-time confirmation checks for a second
+holds the link, the confirmed attempt keeps its reservation failed. A bank decline of the last
+holder confirms that reservation in the same transaction; recovery confirms it when the link was
+released another way. Every one-time confirmation checks for a second
 payment: an earlier paid purchase of the same Product by the same Account, or of the same Payment
 Link. Such a confirmation records `duplicate_payment_review` for the owner's refund decision.
 

@@ -1441,11 +1441,7 @@ export class BillingPayments {
               select: { paymentLinkId: true },
             });
             if (released.paymentLinkId !== null)
-              await confirmWaitingLinkReservation(
-                tx,
-                released.paymentLinkId,
-                row.id,
-              );
+              await confirmWaitingLinkReservation(tx, released.paymentLinkId);
           }
         } else if (
           ["REVERSING", "REFUNDING", "PARTIAL_REFUNDED"].includes(
@@ -1748,15 +1744,9 @@ async function confirmReleasedLinkReservations(
 async function confirmWaitingLinkReservation(
   tx: BillingPrisma,
   paymentLinkId: string,
-  releasedPurchaseRef?: string,
 ): Promise<void> {
   const reservations = await tx.billingPromoReservation.findMany({
-    where: {
-      paymentLinkId,
-      ...(releasedPurchaseRef === undefined
-        ? {}
-        : { purchaseRef: { not: releasedPurchaseRef } }),
-    },
+    where: { paymentLinkId },
     select: { purchaseRef: true, state: true },
   });
   if (reservations.some((reservation) => reservation.state !== "failed"))
