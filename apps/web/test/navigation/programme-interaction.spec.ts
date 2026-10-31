@@ -1,6 +1,41 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type BrowserContext } from "@playwright/test";
 import { z } from "zod";
 import { scrollProgrammeBoundaryIntoView } from "../support/programme-scroll";
+
+/** The navigation double answers this reader's personal reads by the token's slug. */
+async function signInAsReader(
+  context: BrowserContext,
+  baseURL: string,
+  backend: string,
+  slug: string,
+) {
+  const { wrapSession } = await import("@logto/node");
+  await context.addCookies([
+    {
+      name: "logto_inside-web-navigation",
+      url: baseURL,
+      httpOnly: true,
+      sameSite: "Lax",
+      value: await wrapSession(
+        {
+          accessToken: JSON.stringify({
+            [`@${backend}`]: {
+              // deterministic-test-allow wall-clock: the production Web process validates this synthetic session with its live clock.
+              expiresAt: Math.floor(Date.now() / 1000) + 3600,
+              scope: "",
+              token: `reader-state:${slug}`,
+            },
+          }),
+          idToken: "navigation.id.token",
+          refreshToken: "navigation-refresh-token",
+        },
+        "inside-navigation-logto-cookie-secret-key",
+      ),
+    },
+  ]);
+}
+
+const optionalHoldSchema = z.object({ blocked: z.array(z.string()) });
 
 test("the first available programme switch opens the catalogue across delayed hydration", async ({
   page,
@@ -51,30 +86,7 @@ test("a selected catalogue survives delivery of optional onboarding without repl
   if (baseURL === undefined) throw new Error("Web origin required");
   const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
   const slug = `reader-state-paid${info.project.name === "mobile-chromium" ? "-mobile" : ""}`;
-  const { wrapSession } = await import("@logto/node");
-  await context.addCookies([
-    {
-      name: "logto_inside-web-navigation",
-      url: baseURL,
-      httpOnly: true,
-      sameSite: "Lax",
-      value: await wrapSession(
-        {
-          accessToken: JSON.stringify({
-            [`@${backend}`]: {
-              // deterministic-test-allow wall-clock: the production Web process validates this synthetic session with its live clock.
-              expiresAt: Math.floor(Date.now() / 1000) + 3600,
-              scope: "",
-              token: `reader-state:${slug}`,
-            },
-          }),
-          idToken: "navigation.id.token",
-          refreshToken: "navigation-refresh-token",
-        },
-        "inside-navigation-logto-cookie-secret-key",
-      ),
-    },
-  ]);
+  await signInAsReader(context, baseURL, backend, slug);
   await request.delete(`${backend}/__product-reader-state`);
   await request.post(
     `${backend}/__reader-optional-hold?held=true&target=community-link`,
@@ -95,11 +107,9 @@ test("a selected catalogue survives delivery of optional onboarding without repl
     await surface.evaluate((node) => {
       node.setAttribute("data-retained-programme", "true");
     });
-    const gate = z
-      .object({ blocked: z.array(z.string()) })
-      .parse(
-        await (await request.get(`${backend}/__reader-optional-hold`)).json(),
-      );
+    const gate = optionalHoldSchema.parse(
+      await (await request.get(`${backend}/__reader-optional-hold`)).json(),
+    );
     expect(gate.blocked.some((path) => path.includes("community-entry"))).toBe(
       true,
     );
@@ -155,30 +165,8 @@ test("a selected catalogue survives optional onboarding that arrives after a ret
   if (baseURL === undefined) throw new Error("Web origin required");
   const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
   const slug = `reader-state-refresh${info.project.name === "mobile-chromium" ? "-mobile" : ""}`;
-  const { wrapSession } = await import("@logto/node");
-  await context.addCookies([
-    {
-      name: "logto_inside-web-navigation",
-      url: baseURL,
-      httpOnly: true,
-      sameSite: "Lax",
-      value: await wrapSession(
-        {
-          accessToken: JSON.stringify({
-            [`@${backend}`]: {
-              // deterministic-test-allow wall-clock: the production Web process validates this synthetic session with its live clock.
-              expiresAt: Math.floor(Date.now() / 1000) + 3600,
-              scope: "",
-              token: `reader-state:${slug}`,
-            },
-          }),
-          idToken: "navigation.id.token",
-          refreshToken: "navigation-refresh-token",
-        },
-        "inside-navigation-logto-cookie-secret-key",
-      ),
-    },
-  ]);
+  await signInAsReader(context, baseURL, backend, slug);
+  await request.delete(`${backend}/__product-reader-state`);
   try {
     const response = await page.goto(`/products/${slug}/programme`);
     await response?.finished();
@@ -192,12 +180,13 @@ test("a selected catalogue survives optional onboarding that arrives after a ret
     await expect(rows).toHaveCount(13);
     await rows.nth(12).getByRole("heading").getByRole("link").click();
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-    // The programme comes back by a client navigation while its optional onboarding is still held.
+    // The programme comes back by a client navigation while its optional onboarding is held.
     await request.post(
       `${backend}/__reader-optional-hold?held=true&target=community-link`,
     );
     await page.goBack();
     await expect(materials).toBeEnabled();
+    // The personal programme has replaced the shared one shown while access loads.
     await expect(
       page.locator("[data-product-access-pending]:visible"),
     ).toHaveCount(0);
@@ -206,27 +195,21 @@ test("a selected catalogue survives optional onboarding that arrives after a ret
     await surface.evaluate((node) => {
       node.setAttribute("data-retained-programme", "true");
     });
-    const gate = z
-      .object({ blocked: z.array(z.string()) })
-      .parse(
-        await (await request.get(`${backend}/__reader-optional-hold`)).json(),
-      );
+    const gate = optionalHoldSchema.parse(
+      await (await request.get(`${backend}/__reader-optional-hold`)).json(),
+    );
     expect(gate.blocked.some((path) => path.includes("community-entry"))).toBe(
       true,
     );
-    await request.post(`${backend}/__reader-optional-hold?held=false`);
-    await expect
-      .poll(
-        async () =>
-          z
-            .object({ blocked: z.array(z.string()) })
-            .parse(
-              await (
-                await request.get(`${backend}/__reader-optional-hold`)
-              ).json(),
-            ).blocked,
-      )
-      .toEqual([]);
+    // An incomplete community entry makes the arriving onboarding visible as its own part.
+    await request.post(
+      `${backend}/__reader-optional-hold?held=false&target=community-link`,
+    );
+    await expect(
+      page
+        .getByRole("navigation", { name: "Разделы продукта" })
+        .getByRole("button", { name: "Онбординг", exact: true }),
+    ).toBeVisible();
     // The onboarding facts merge into the programme in use instead of mounting a new one.
     await expect(surface).toHaveAttribute("data-retained-programme", "true");
     await expect(materials).toHaveAttribute("aria-current", "true");
@@ -249,30 +232,7 @@ test("programme tabs and composition survive an accepted background refresh afte
   if (baseURL === undefined) throw new Error("Web origin required");
   const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
   const slug = `reader-state-refresh${info.project.name === "mobile-chromium" ? "-mobile" : ""}`;
-  const { wrapSession } = await import("@logto/node");
-  await context.addCookies([
-    {
-      name: "logto_inside-web-navigation",
-      url: baseURL,
-      httpOnly: true,
-      sameSite: "Lax",
-      value: await wrapSession(
-        {
-          accessToken: JSON.stringify({
-            [`@${backend}`]: {
-              // deterministic-test-allow wall-clock: the production Web process validates this synthetic session with its live clock.
-              expiresAt: Math.floor(Date.now() / 1000) + 3600,
-              scope: "",
-              token: `reader-state:${slug}`,
-            },
-          }),
-          idToken: "navigation.id.token",
-          refreshToken: "navigation-refresh-token",
-        },
-        "inside-navigation-logto-cookie-secret-key",
-      ),
-    },
-  ]);
+  await signInAsReader(context, baseURL, backend, slug);
 
   const response = await page.goto(`/products/${slug}/programme`);
   await response?.finished();
@@ -298,9 +258,9 @@ test("programme tabs and composition survive an accepted background refresh afte
   await page.goBack();
   await expect(initialRows.nth(12)).toBeInViewport();
   // The refresh case starts from usable controls, rather than holding the RSC
-  // response needed to hydrate the history destination itself. The shared composition is usable
-  // while the personal part loads after the return, and the personal programme replaces it
-  // (#1883), so the scenario starts once no row still waits for its access.
+  // response needed to hydrate the history destination itself. Right after the return the
+  // shared composition can stand in while the personal part loads again (#1883), so the
+  // scenario starts once no row still waits for its access.
   await expect(materials).toBeEnabled();
   await expect(
     page.locator("[data-product-access-pending]:visible"),

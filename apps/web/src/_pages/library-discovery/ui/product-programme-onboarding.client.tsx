@@ -52,13 +52,17 @@ export function ProductProgrammeOnboarding({
   readonly onboarding?: Promise<DehydratedState> | null;
   readonly children: ReactNode;
 }) {
-  const [arrived, setArrived] = useState(onboarding === null);
+  const [arrived, setArrived] = useState(false);
+  // Nothing personal is shown or read before the server facts, as when this part streamed whole;
+  // a refresh without them needs no arrival.
+  const ready = arrived || onboarding === null;
   const reading = useMaterialReading();
   const currentAccountId = reading.resolved ? reading.accountId : accountId;
   const billing = useCurrentBilling({
-    enabled: arrived && currentAccountId !== null && productId !== undefined,
+    enabled: ready && currentAccountId !== null && productId !== undefined,
   });
   const purchased =
+    ready &&
     currentAccountId !== null &&
     productId !== undefined &&
     billing.data?.ok === true &&
@@ -103,7 +107,7 @@ export function ProductProgrammeOnboarding({
           ),
         };
   return (
-    <ProductOnboardingContext value={arrived ? presentation : undefined}>
+    <ProductOnboardingContext value={ready ? presentation : undefined}>
       {children}
       {onboarding === null ? null : (
         <Suspense fallback={null}>
@@ -119,7 +123,10 @@ export function ProductProgrammeOnboarding({
   );
 }
 
-/** Hydrates the server onboarding facts once they stream in, then reports their arrival. */
+/**
+ * Hydrates the server onboarding facts once they stream in, then reports their arrival. The
+ * signal is a child of the boundary, so it runs only after `use(state)` has resolved.
+ */
 function OnboardingArrival({
   state,
   onArrived,
@@ -139,7 +146,8 @@ function ArrivalSignal({
 }: {
   readonly onArrived: (arrived: true) => void;
 }) {
-  // Before paint, so the onboarding part does not appear one frame after its facts.
+  // The parent's queries already exist, so `HydrationBoundary` writes their server data in its
+  // passive effect, right after this one enables them.
   useLayoutEffect(() => {
     onArrived(true);
   }, [onArrived]);
