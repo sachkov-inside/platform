@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { attemptStateSchema } from "../../domain/payment-attempt.js";
+import {
+  attemptStateSchema,
+  retirementReasonSchema,
+} from "../../domain/payment-attempt.js";
 import { idSchema, priceSnapshotSchema } from "../../domain/pricing.js";
 
 export const purchaseProductSchema = z.strictObject({
@@ -28,6 +31,8 @@ export const purchaseStatusSchema = z.strictObject({
   fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),
   confirmedAt: z.iso.datetime().nullable(),
   periodEndsAt: z.iso.datetime().nullable(),
+  /** Причина снятия до отправки в банк; `null`, если покупку не снимали. */
+  retirementReason: retirementReasonSchema.nullable(),
 });
 export type PurchaseStatus = z.infer<typeof purchaseStatusSchema>;
 export const paymentFailureCodes = [

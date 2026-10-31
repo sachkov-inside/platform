@@ -443,6 +443,7 @@ export const pendingPurchase: PurchaseStatus = {
   fiscalization: "pending",
   confirmedAt: null,
   periodEndsAt: null,
+  retirementReason: null,
 };
 
 export const confirmedPurchase: PurchaseStatus = {
@@ -465,6 +466,7 @@ export const confirmedProductPurchase: PurchaseStatus = {
   fiscalization: "confirmed",
   confirmedAt: "2026-08-20T12:00:00.000Z",
   periodEndsAt: null,
+  retirementReason: null,
 };
 
 export const failedPurchase: PurchaseStatus = {

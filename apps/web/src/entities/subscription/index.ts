@@ -45,6 +45,7 @@ export {
   type PaymentMode,
   type PriceSnapshot,
   type PurchaseStatus,
+  type RetirementReason,
   type VerifiedContact,
 } from "./model/billing-contract";
 export {
@@ -67,6 +68,7 @@ export {
   paymentSubjectLabel,
   paymentLinkRegularPrice,
   promotionLabel,
+  purchaseRetirementMessage,
   type BenefitLine,
   type BenefitTerm,
 } from "./model/presentation";
