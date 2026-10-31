@@ -17,6 +17,7 @@ from unittest.mock import patch
 import fullstack
 import stage_timing
 import test_technical_scope
+from test_protocol_runner import inverse_stability_technical_scope
 
 SOURCE='a'*40
 
@@ -85,7 +86,7 @@ sys.exit(7 if mode=='failure' else 0)
             with self.assertRaises(ValueError):stage_timing.Timing(output,SOURCE,name=stage_timing.CONTACTS_NAME,**options)
 
     def test_only_technical_measurement_step_gets_30_minutes(self):
-        workflow=(fullstack.ROOT/'.github/workflows/observability-resource.yml').read_text()
+        workflow=inverse_stability_technical_scope((fullstack.ROOT/'.github/workflows/observability-resource.yml').read_text())
         job=workflow.split('\n  fullstack:\n')[1].split('\n  stability:\n')[0]
         measure=next(step for step in job.split('      - name: ') if 'fullstack.py run\n' in step)
         self.assertIn("timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}\n",measure)

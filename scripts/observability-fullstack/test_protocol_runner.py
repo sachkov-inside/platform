@@ -314,6 +314,46 @@ class WorkflowInverse(unittest.TestCase):
                 inverse_protocol_workflow(workflow.replace(before, after, 1))
 
 
+def inverse_stability_technical_scope(source):
+    """Reverse only assigned stability scope wiring before the original full goldens."""
+    import hashlib
+    anchor='  stability:\n';end='  cpu-control:\n'
+    if source.count(anchor)!=1 or source.count(end)!=1:raise ValueError('Missing stability scope job')
+    before,body=source.split(anchor);body,after=body.split(end)
+    step='''      - name: Select exact assigned technical profile, otherwise full
+        id: scope
+        timeout-minutes: 1
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
+'''
+    disk='''      - name: Prepare preinstalled hosted Android SDK disk
+        if: ${{ steps.scope.outputs.scope == 'technical' }}
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
+'''
+    strict='        run: python3 scripts/observability-fullstack/fullstack.py diagnostic-admission --scope "${{ steps.scope.outputs.scope }}"\n'
+    current='''      - name: Measure diagnostic control through scope-bound supervisor
+        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}
+'''
+    previous='''      - name: Measure diagnostic control through unchanged 600-second supervisor
+        timeout-minutes: 12
+'''
+    prefix="${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}"
+    argument='          --scope "${{ steps.scope.outputs.scope }}"\n'
+    for value,count in ((step,1),(disk,1),(strict,1),(current,1),(prefix,13),(argument,4)):
+        if body.count(value)!=count:raise ValueError('Missing, repeated or changed stability scope delta')
+    if (step+'      - name: Require exact diagnostic marker in the strict PR context\n') not in body or (strict+disk+'      - name: Bind complete source and existing disk admission\n') not in body:
+        raise ValueError('Moved stability admission or hosted disk preparation')
+    body=body.replace(step,'',1).replace(disk,'',1).replace(strict,'        run: python3 scripts/observability-fullstack/fullstack.py diagnostic-admission\n',1)
+    body=body.replace(current,previous,1).replace(argument,'').replace(prefix,'stability')
+    dependency='    needs: fullstack-protocol\n'
+    admission='      - name: Require exact diagnostic marker in the strict PR context\n'
+    if body.count(dependency)!=1 or body.count(admission)!=1:raise ValueError('Changed stability protocol predecessor')
+    original=body.replace(dependency,'',1).replace(admission,ORIGINAL_PROTOCOL_STEP+admission,1)
+    if hashlib.sha256(original.encode()).hexdigest()!=NATIVE_BODY_HASHES['stability']:
+        raise ValueError('Unrelated stability native policy mutation')
+    return before+anchor+body+end+after
+
+
 def inverse_cpu_technical_scope(source):
     """Undo only the assigned CPU scope wiring before checking historical bytes."""
     anchor='\n  cpu-control:\n';end='\n  fullstack-protocol-shard:\n'
@@ -393,7 +433,7 @@ def inverse_hosted_disk_preparation(source):
 def inverse_seven_group_workflow(source):
     """Reverse only this allowance; recover the entire Root 4c9715e workflow."""
     import hashlib
-    source=inverse_technical_scope(inverse_hosted_disk_preparation(inverse_cpu_technical_scope(source)))
+    source=inverse_technical_scope(inverse_hosted_disk_preparation(inverse_cpu_technical_scope(inverse_stability_technical_scope(source))))
     for current, previous in [
         ('group: [1, 2, 3, 4, 5, 6, 7]', 'group: [1, 2, 3, 4, 5]'),
         ('Require all seven provider results to succeed', 'Require all five provider results to succeed'),

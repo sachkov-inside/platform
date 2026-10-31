@@ -211,43 +211,55 @@ jobs:
           throw new Error("Resource host Node contract refused");
           console.log(JSON.stringify({ node: process.version, architecture: process.arch, platform: process.platform }));
           '
+      - name: Select exact assigned technical profile, otherwise full
+        id: scope
+        timeout-minutes: 1
+        run: python3 scripts/observability-production/production.py select-scope >> "$GITHUB_OUTPUT"
       - name: Require exact diagnostic marker in the strict PR context
         timeout-minutes: 1
-        run: python3 scripts/observability-fullstack/fullstack.py diagnostic-admission
+        run: python3 scripts/observability-fullstack/fullstack.py diagnostic-admission --scope "${{ steps.scope.outputs.scope }}"
+      - name: Prepare preinstalled hosted Android SDK disk
+        if: ${{ steps.scope.outputs.scope == 'technical' }}
+        timeout-minutes: 3
+        run: python3 scripts/observability-production/hosted_disk.py
       - name: Bind complete source and existing disk admission
         timeout-minutes: 1
-        run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/stability-metadata"
+        run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-metadata"
       - name: Build five source-bound process images under existing storage guard
         timeout-minutes: 30
         run: >-
           bash scripts/heavy-check.sh python3 scripts/observability-fullstack/prepare.py
-          --metadata "$RUNNER_TEMP/stability-metadata" --images "$RUNNER_TEMP/stability-images.json"
-          --consumer "$RUNNER_TEMP/stability-private"
-      - name: Measure diagnostic control through unchanged 600-second supervisor
-        timeout-minutes: 12
+          --scope "${{ steps.scope.outputs.scope }}"
+          --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-metadata" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-images.json"
+          --consumer "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-private"
+      - name: Measure diagnostic control through scope-bound supervisor
+        timeout-minutes: ${{ steps.scope.outputs.scope == 'technical' && 30 || 12 }}
         run: >-
           bash scripts/heavy-check.sh python3 scripts/observability-fullstack/fullstack.py diagnostic-run
-          --output "$RUNNER_TEMP/stability-private" --images "$RUNNER_TEMP/stability-images.json"
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-private" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-images.json"
           --protocol fixed-actor-primed400-v1
       - name: Recover only the registered project and preparation images
         if: ${{ always() }}
         timeout-minutes: 5
         run: >-
           python3 scripts/observability-fullstack/fullstack.py recover
-          --output "$RUNNER_TEMP/stability-private" --images "$RUNNER_TEMP/stability-images.json"
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-private" --images "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-images.json"
       - name: Collect diagnostic numerical evidence without acceptance authority
         if: ${{ always() }}
         timeout-minutes: 1
         run: >-
           python3 scripts/observability-fullstack/fullstack.py diagnostic-collect
-          --output "$RUNNER_TEMP/stability-private" --metadata "$RUNNER_TEMP/stability-metadata"
-          --public "$RUNNER_TEMP/stability-public" --protocol fixed-actor-primed400-v1
+          --scope "${{ steps.scope.outputs.scope }}"
+          --output "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-private" --metadata "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-metadata"
+          --public "$RUNNER_TEMP/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-public" --protocol fixed-actor-primed400-v1
       - name: Upload curated resource results
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: observability-stability-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/stability-public
+          name: observability-${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/${{ steps.scope.outputs.scope == 'technical' && 'stability-technical' || 'stability' }}-public
           if-no-files-found: warn
           retention-days: 7
 
