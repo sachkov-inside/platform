@@ -338,6 +338,9 @@ describe("payment presentation", () => {
     expect(paymentEventLabel("bank_cancel_requested")).toBe(
       "Попытка снята, сверка закроет её форму оплаты в банке",
     );
+    expect(paymentEventLabel("replaced_by_new_price")).toBe(
+      "Попытка заменена покупкой по другой цене",
+    );
     expect(paymentEventLabel("bank_cancel_confirmed")).toBe(
       "Банк закрыл форму оплаты снятой попытки",
     );

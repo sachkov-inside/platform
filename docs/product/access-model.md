@@ -720,7 +720,9 @@ creation: Init sends no `RedirectDueDate`, so the form keeps the
 [provider's default lifetime](https://developer.tbank.ru/eacq/api/init). The confirmation retires
 the same Account's unpaid repeat attempts for the same Product or the same Payment Link, so the
 buyer cannot pay twice through the newer form in Inside. Each such attempt whose Init could have
-reached the bank records `bank_cancel_requested`. Outside the transaction, the background
+reached the bank records `bank_cancel_requested`. A purchase at another price records the same
+mark for a replaced open attempt whose Init was sent (#1925, see the
+[billing specification](../specifications/subscription-billing-v1.md)). Outside the transaction, the background
 reconciliation and the owner's `payments.reconcile` close its bank form with the provider's
 [Cancel](https://developer.tbank.ru/eacq/api/cancel) for the full amount (#1923, owner decision of
 31.10.2026). Cancel is sent only when GetState, read immediately before it, reports `NEW` or
