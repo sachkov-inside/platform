@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type BrowserContext } from "@playwright/test";
+import { expect, test as base, type BrowserContext } from "@playwright/test";
 import { z } from "zod";
 
 declare global {
@@ -8,6 +8,32 @@ declare global {
   }
 }
 import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
+
+const fixtureSchema = z.strictObject({
+  scope: z.uuid(),
+  productSlug: z.string().regex(/^reader-title-[0-9a-f-]+$/u),
+  materialSlugs: z.tuple([z.string(), z.string()]),
+});
+const test = base.extend<{ readerTitleFixture: z.infer<typeof fixtureSchema> }>(
+  {
+    readerTitleFixture: async ({ request }, provideFixture) => {
+      const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+      const response = await request.post(`${backend}/__reader-title-fixtures`);
+      const body: unknown = await response.json();
+      const { scope } = z.object({ scope: z.uuid() }).parse(body);
+      try {
+        expect(response.status()).toBe(201);
+        await provideFixture(fixtureSchema.parse(body));
+      } finally {
+        const deleted = await request.delete(
+          `${backend}/__reader-title-fixtures/${scope}`,
+        );
+        expect(deleted.status()).toBe(200);
+        expect(await deleted.json()).toEqual({ deleted: true });
+      }
+    },
+  },
+);
 
 const title = "Первый бесплатный урок · Sachkov Dev";
 
@@ -80,6 +106,7 @@ test("Reader open refresh settles cold metadata and preserves an existing HEAD t
   page,
   context,
   baseURL,
+  readerTitleFixture,
 }) => {
   await signInReader(context, baseURL);
   await page.addInitScript(() => {
@@ -98,10 +125,9 @@ test("Reader open refresh settles cold metadata and preserves an existing HEAD t
       characterData: true,
     });
   });
-  const variant =
-    test.info().project.name === "mobile-chromium" ? "mobile" : "desktop";
-  for (const ordinal of [1, 2]) {
-    const path = `/materials/reader-title-${variant}-${String(ordinal)}`;
+  for (const [index, slug] of readerTitleFixture.materialSlugs.entries()) {
+    const ordinal = index + 1;
+    const path = `/materials/${slug}`;
     const expected =
       ordinal === 1
         ? "Первый заголовок читателя · Sachkov Dev"
@@ -138,7 +164,7 @@ test("Reader open refresh settles cold metadata and preserves an existing HEAD t
     try {
       if (ordinal === 1)
         await page.goto(
-          `${path}?from=${encodeURIComponent(`/products/reader-title-${variant}/programme`)}`,
+          `${path}?from=${encodeURIComponent(`/products/${readerTitleFixture.productSlug}/programme`)}`,
         );
       else
         await page
@@ -162,12 +188,13 @@ test("Reader open refresh settles cold metadata and preserves an existing HEAD t
       const audit = (async () => {
         await expectReaderReadyForAudit(page, expected);
         audited = true;
-        const committedBody = await page
+        const committedCount = await page
           .locator('[data-material-reader-state="available"]:visible')
-          .evaluate((reader) =>
-            reader.textContent.includes("Открытий материала: 1"),
+          .evaluate(
+            (reader) =>
+              /Открытий материала: (\d+)/u.exec(reader.textContent)?.[1],
           );
-        expect(committedBody).toBe(true);
+        expect(committedCount).toBe("1");
         const accessibility = await new AxeBuilder({ page })
           .withRules(["document-title"])
           .analyze();
@@ -220,11 +247,10 @@ test("late saved open survives Activity hide and return for the same Reader", as
   page,
   context,
   baseURL,
+  readerTitleFixture,
 }) => {
   await signInReader(context, baseURL);
-  const variant =
-    test.info().project.name === "mobile-chromium" ? "mobile" : "desktop";
-  const slug = `reader-title-${variant}-1`;
+  const slug = readerTitleFixture.materialSlugs[0];
   const openHeld = Promise.withResolvers<undefined>();
   const releaseOpen = Promise.withResolvers<undefined>();
   let opens = 0;
@@ -238,10 +264,10 @@ test("late saved open survives Activity hide and return for the same Reader", as
   });
   try {
     await page.goto(
-      `/products/reader-title-${variant}/programme?page=1&at=${slug}`,
+      `/products/${readerTitleFixture.productSlug}/programme?page=1&at=${slug}`,
     );
     const programme = page.locator(
-      `[data-product-programme="reader-title-${variant}"]:visible`,
+      `[data-product-programme="${readerTitleFixture.productSlug}"]:visible`,
     );
     await programme.locator(`a[href*='/materials/${slug}']`).first().click();
     await openHeld.promise;
