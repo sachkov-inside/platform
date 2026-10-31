@@ -136,8 +136,9 @@ export function MaterialCard({
     : feedLink(excerpt?.text ?? material.summary, excerpt?.linkUrl);
   const hasCover =
     material.cover != null && material.cover.renditions.length > 0;
+  // Лента показывает только материалы, открытые каждому (#1885): ни размытия, ни метки доступа.
   const cover = hasCover ? (
-    <AccessCover material={material}>
+    <span className="relative block">
       <ContentCoverImage
         alt=""
         className="aspect-video min-h-0 w-full rounded-xl"
@@ -148,7 +149,7 @@ export function MaterialCard({
         fallbackSeed={material.slug}
         sizes="(min-width: 768px) 38rem, 100vw"
       />
-    </AccessCover>
+    </span>
   ) : null;
   return (
     <article
@@ -199,29 +200,9 @@ export function MaterialCard({
           {material.title}
         </IntentPrefetchLink>
       </Heading>
-      {!hasCover && material.availability !== "available" ? (
-        <IntentPrefetchLink
-          className="relative mt-3 flex min-h-24 items-center overflow-hidden rounded-xl p-3 no-underline"
-          href={readerHref}
-          aria-label={`Открыть: ${material.title}. ${materialAccessLabel(material)}`}
-          data-access-text-preview={material.availability}
-        >
-          {/* Only the public summary is used here; protected bodies never enter a feed card. */}
-          <span
-            aria-hidden="true"
-            className="home-feed-post-copy block select-none text-sm text-body-muted blur-[4px] sm:text-[0.9375rem]"
-          >
-            {material.summary}
-          </span>
-          <span className="absolute inset-0 grid place-items-center">
-            <MaterialAccessBadge material={material} />
-          </span>
-        </IntentPrefetchLink>
-      ) : (
-        <p className="home-feed-post-copy mt-2 text-sm text-body-muted sm:mt-3 sm:text-[0.9375rem]">
-          {excerpt?.text ?? material.summary}
-        </p>
-      )}
+      <p className="home-feed-post-copy mt-2 text-sm text-body-muted sm:mt-3 sm:text-[0.9375rem]">
+        {excerpt?.text ?? material.summary}
+      </p>
       {!hasCover ? (
         link === undefined ? null : (
           <a

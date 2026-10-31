@@ -27,6 +27,7 @@ import type {
   MaterialAuthoringPresentation,
 } from "../model/presentation";
 import { presentText } from "@/shared/lib/text";
+import { canPlaceInFeed } from "../model/feed-placement";
 
 interface MaterialMetadataPanelProps {
   readonly actions: MaterialAuthoringActions;
@@ -39,6 +40,8 @@ export function MaterialMetadataPanel({
 }: MaterialMetadataPanelProps) {
   const disabled =
     presentation.blocking.kind === "not_found" || presentation.draft.readOnly;
+  const feedAllowed = canPlaceInFeed(presentation.draft);
+  const inFeed = feedAllowed && (presentation.draft.inFeed ?? false);
 
   return (
     <section
@@ -185,6 +188,34 @@ export function MaterialMetadataPanel({
           </Select>
         </Field>
         <div className="min-w-0 sm:col-span-2">
+          <p className="mb-2 text-sm font-medium">Лента</p>
+          <label
+            className="flex items-start gap-3 text-sm leading-6"
+            htmlFor="material-in-feed"
+          >
+            <input
+              className="mt-1 size-4 shrink-0 accent-primary"
+              id="material-in-feed"
+              name="inFeed"
+              type="checkbox"
+              checked={inFeed}
+              disabled={disabled || !feedAllowed}
+              onChange={(event) => {
+                actions.onFieldChange(
+                  "inFeed",
+                  String(event.currentTarget.checked),
+                );
+              }}
+            />
+            <span>
+              Показывать в ленте на главной.
+              {feedAllowed
+                ? " Без отметки материал открывается по прямой ссылке и в поиске."
+                : " Уроки курса и материалы для участников в ленту не попадают."}
+            </span>
+          </label>
+        </div>
+        <div className="min-w-0 sm:col-span-2">
           <p className="mb-2 text-sm font-medium">Уведомление в Telegram</p>
           <label
             className="flex items-start gap-3 text-sm leading-6"
@@ -201,7 +232,7 @@ export function MaterialMetadataPanel({
                 presentation.draft.wasPublished === true ||
                 presentation.draft.status === "published" ||
                 presentation.draft.status === "unpublished" ||
-                presentation.draft.access !== "free"
+                !inFeed
               }
               onChange={(event) => {
                 actions.onFieldChange(
@@ -211,7 +242,7 @@ export function MaterialMetadataPanel({
               }}
             />
             <span>
-              Отправить при первой публикации открытого материала в ленте.
+              Отправить при первой публикации материала в ленте.
               {presentation.draft.wasPublished === true
                 ? " Повторная публикация и правки не отправляют уведомление."
                 : " Пользователи с отключёнными уведомлениями не получат сообщение."}

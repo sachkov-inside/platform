@@ -56,28 +56,43 @@ export const WithoutSharingMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
-/** Бесплатный урок курса у гостя (#1825): закрыт до входа через Telegram, но помечен бесплатным. */
+/**
+ * Бесплатный урок курса у гостя (#1825): закрыт до входа через Telegram, но помечен бесплатным.
+ * В ленту урок курса не попадает (#1885), поэтому история показывает только строку каталога.
+ */
 export const FreeLessonForGuest: Story = {
-  render: (args) => (
-    <div className="mx-auto grid w-full max-w-3xl gap-6 p-4">
-      {(["feed", "row"] as const).map((variant) => (
-        <MaterialCard
-          {...args}
-          key={variant}
-          material={{
-            ...args.material,
-            access: "free",
-            availability: "locked",
-          }}
-          variant={variant}
-        />
-      ))}
-    </div>
-  ),
+  args: {
+    variant: "row",
+    material: { ...meta.args.material, access: "free", availability: "locked" },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.queryByText("Для участников")).not.toBeInTheDocument();
     await expect(canvas.queryByText("По подписке")).not.toBeInTheDocument();
     await expect(canvas.getAllByText("Бесплатно").length).toBeGreaterThan(0);
+  },
+};
+
+/** Лента показывает только открытые материалы (#1885): карточка без размытия и метки доступа. */
+export const FeedCardIsOpen: Story = {
+  args: {
+    material: {
+      ...meta.args.material,
+      cover: {
+        coverId: "94000000-0000-4000-8000-000000000061",
+        renditions: [{ width: 640, height: 360 }],
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Материал для самостоятельного чтения."),
+    ).toBeVisible();
+    await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector("[data-access-cover]"),
+    ).not.toBeInTheDocument();
+    await expect(canvasElement.querySelector(".blur-\\[4px\\]")).toBeNull();
   },
 };

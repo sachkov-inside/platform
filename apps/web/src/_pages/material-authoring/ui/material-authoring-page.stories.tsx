@@ -1539,14 +1539,90 @@ export const ReferenceSelectorMobileControls: Story = {
   },
 };
 
-export const TelegramAnnouncement: Story = {
-  name: "Уведомление об открытом материале",
+/** Автор выкладывает бесплатный материал вне курса в ленту, и Save передаёт этот выбор (#1885). */
+export const FeedPlacement: Story = {
+  name: "Материал в ленте",
   args: {
     initialPresentation: {
       ...materialAuthoringPresentation,
       draft: {
         ...materialAuthoringPresentation.draft,
         access: "free",
+        productIds: [],
+        inFeed: false,
+        notifyTelegram: false,
+        wasPublished: false,
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
+    const canvas = within(canvasElement);
+    const feed = canvas.getByRole("checkbox", {
+      name: /Показывать в ленте/u,
+    });
+    const telegram = canvas.getByRole("checkbox", {
+      name: /Отправить при первой публикации/u,
+    });
+    await expect(feed).toBeEnabled();
+    await expect(feed).not.toBeChecked();
+    // Уведомление обещает материал в ленте, поэтому без ленты его не выбрать.
+    await expect(telegram).toBeDisabled();
+    await userEvent.click(feed);
+    await expect(feed).toBeChecked();
+    await expect(telegram).toBeEnabled();
+    await waitFor(() => expect(savedField("inFeed")).toBe(true));
+  },
+};
+
+/** Урок курса в ленте не бывает: отметка недоступна, а Save не просит ленты. */
+export const FeedPlacementProductLesson: Story = {
+  name: "Урок курса вне ленты",
+  args: {
+    initialPresentation: {
+      ...materialAuthoringPresentation,
+      draft: {
+        ...materialAuthoringPresentation.draft,
+        access: "free",
+        inFeed: true,
+        notifyTelegram: false,
+        wasPublished: false,
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
+    const canvas = within(canvasElement);
+    const feed = canvas.getByRole("checkbox", {
+      name: /Показывать в ленте/u,
+    });
+    await expect(feed).toBeDisabled();
+    await expect(feed).not.toBeChecked();
+    await expect(
+      canvas.getByText(/Уроки курса и материалы для участников/u),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("checkbox", {
+        name: /Отправить при первой публикации/u,
+      }),
+    ).toBeDisabled();
+  },
+};
+
+export const TelegramAnnouncement: Story = {
+  name: "Уведомление о материале в ленте",
+  args: {
+    initialPresentation: {
+      ...materialAuthoringPresentation,
+      draft: {
+        ...materialAuthoringPresentation.draft,
+        access: "free",
+        productIds: [],
+        inFeed: true,
         notifyTelegram: false,
         wasPublished: false,
       },
@@ -1575,6 +1651,8 @@ export const TelegramAnnouncementPublished: Story = {
       draft: {
         ...materialAuthoringPresentation.draft,
         access: "free",
+        productIds: [],
+        inFeed: true,
         status: "published",
         notifyTelegram: true,
         wasPublished: true,

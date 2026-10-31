@@ -506,7 +506,10 @@ export const AiFirstProductLoadsInPlaceMobile: Story = {
   ...loadsInPlace(mobile),
 };
 
-/** Shared feed cards omit missing covers on Home and in the product Material catalog. */
+/**
+ * Feed cards omit missing covers. The feed holds only Materials open to everyone (#1885), so a card
+ * shows its summary without blur or an access badge.
+ */
 export const FeedWithoutCovers: Story = {
   beforeEach: () => {
     getQueryClient().clear();
@@ -517,31 +520,23 @@ export const FeedWithoutCovers: Story = {
       kind: "ready",
       facets: { formats: [], products: [], topics: threeTopics },
       nextCursor: null,
-      totalCount: 3,
+      totalCount: 2,
       items: [
         {
           ...note,
-          slug: "coverless-locked",
-          cover: null,
-          access: "closed",
-          availability: "locked",
-          title: "Закрытый материал без обложки",
-        },
-        {
-          ...note,
-          slug: "coverless-available",
+          slug: "coverless-note",
           cover: null,
           access: "free",
           availability: "available",
-          title: "Открытый материал без обложки",
+          title: "Открытая заметка без обложки",
         },
         {
           ...note,
-          slug: "coverless-unavailable",
+          slug: "coverless-second",
           cover: null,
-          access: "closed",
-          availability: "unavailable",
-          title: "Доступ временно не определён",
+          access: "free",
+          availability: "available",
+          title: "Вторая открытая заметка без обложки",
         },
       ],
     }),
@@ -549,28 +544,16 @@ export const FeedWithoutCovers: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await canvas.findByRole("heading", {
-      name: "Закрытый материал без обложки",
+      name: "Открытая заметка без обложки",
     });
-    const locked = canvasElement.querySelector(
-      '[data-material-slug="coverless-locked"]',
-    );
-    const available = canvasElement.querySelector(
-      '[data-material-slug="coverless-available"]',
-    );
-    const unavailable = canvasElement.querySelector(
-      '[data-material-slug="coverless-unavailable"]',
-    );
-    await expect(locked?.querySelector(".public-cover-grid")).toBeNull();
-    await expect(
-      locked?.querySelector('[data-access-text-preview="locked"]'),
-    ).toHaveTextContent("Для участников");
-    await expect(
-      available?.querySelector("[data-access-text-preview]"),
-    ).toBeNull();
-    await expect(available?.querySelector(".public-cover-grid")).toBeNull();
-    await expect(
-      unavailable?.querySelector('[data-access-text-preview="unavailable"]'),
-    ).toHaveTextContent("Недоступно");
+    for (const slug of ["coverless-note", "coverless-second"]) {
+      const card = canvasElement.querySelector(
+        `[data-material-slug="${slug}"]`,
+      );
+      await expect(card?.querySelector(".public-cover-grid")).toBeNull();
+      await expect(card?.querySelector("[data-access-cover]")).toBeNull();
+      await expect(card).not.toHaveTextContent("Бесплатно");
+    }
   },
 };
 export const FeedWithoutCoversMobile: Story = {

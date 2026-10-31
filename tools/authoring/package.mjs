@@ -89,6 +89,8 @@ export const materialSchema = z
     // Historical v1/v2 rows require this byte-bearing field; v3 forbids it.
     showInFeed: z.boolean().optional(),
     notifyTelegram: z.boolean().optional(),
+    // The author places a free Material outside Products in the feed (#1885); omitted keeps the target.
+    inFeed: z.boolean().optional(),
     difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
     outcomes: z.array(z.string()).nullable(),
     markdown: z.string(),
