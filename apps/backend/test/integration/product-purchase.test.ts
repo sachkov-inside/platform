@@ -2,6 +2,7 @@ import { CoverageCatalog } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import type { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { BillingPayments } from "../../src/modules/billing/index.js";
+import { declinedPaymentRecheckMilliseconds } from "../../src/modules/billing/facets/billing-payments/billing-payments.js";
 import { BillingContact } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { Tbank } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
@@ -480,7 +481,7 @@ test("payment recovery stops asking the bank about a declined payment after the 
   const purchase = value(await s.payments.purchase(s.buyer, s.command));
   await s.notify("REJECTED");
   const start = time();
-  setTime(new Date(start.getTime() + 24 * 60 * 60 * 1000 + 1000));
+  setTime(new Date(start.getTime() + declinedPaymentRecheckMilliseconds + 1));
   try {
     // Банк уже отвечает CONFIRMED: опрос этой покупки подтвердил бы её.
     s.setStatus("CONFIRMED");
