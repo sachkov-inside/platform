@@ -93,6 +93,8 @@ export function paymentEventLabel(kind: string): string {
     bank_cancel_confirmed: "Банк закрыл форму оплаты снятой попытки",
     bank_cancel_returned_payment:
       "Покупатель успел оплатить снятую попытку, отмена вернула деньги",
+    partial_refund_released:
+      "Частичный возврат без подтверждённой оплаты: покупка закрыта, нужно решение о деньгах",
   };
   return labels[kind] ?? `Событие ${kind}`;
 }

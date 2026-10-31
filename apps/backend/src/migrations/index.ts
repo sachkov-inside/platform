@@ -1,4 +1,8 @@
 import {
+  name as purchaseBankRecheckName,
+  statement as purchaseBankRecheckStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0117-purchase-bank-recheck.js";
+import {
   name as openReservationPerProductName,
   statement as openReservationPerProductStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0116-open-reservation-per-product.js";
@@ -751,6 +755,10 @@ export const platformMigrations = [
   {
     name: openReservationPerProductName,
     statement: openReservationPerProductStatement,
+  },
+  {
+    name: purchaseBankRecheckName,
+    statement: purchaseBankRecheckStatement,
   },
 ] as const;
 

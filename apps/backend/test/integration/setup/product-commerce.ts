@@ -183,6 +183,9 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       initGate:
         | { readonly arrived: () => void; readonly released: Promise<void> }
         | undefined,
+      stateGate:
+        | { readonly arrived: () => void; readonly released: Promise<void> }
+        | undefined,
       afterState: ((paymentId: string) => void) | undefined;
     // Каждый Init получает свой PaymentId, как в банке: повторная покупка не делит платёж с прежней.
     const nextPaymentId = () => String(Math.floor(Math.random() * 1000000000));
@@ -253,6 +256,10 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         });
       if (url.endsWith("/GetState")) {
         stateCalls++;
+        if (stateGate !== undefined) {
+          stateGate.arrived();
+          await stateGate.released;
+        }
         const requested = z.string().parse(body.PaymentId);
         const known = bankPayments.get(requested);
         const answer =
@@ -357,23 +364,51 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
        * `arrived` завершается, когда Init дошёл до банка и платёж уже создан.
        */
       holdInit: () => {
-        const signals: { arrived?: () => void; release?: () => void } = {};
-        const arrived = new Promise<void>((resolve) => {
-          signals.arrived = resolve;
+        const gate = bankGate(() => {
+          initGate = undefined;
         });
-        const released = new Promise<void>((resolve) => {
-          signals.release = resolve;
+        initGate = gate.gate;
+        return gate.control;
+      },
+      /** Ответ на следующий GetState ждёт `release`; `arrived` завершается, когда запрос дошёл до банка. */
+      holdState: () => {
+        const gate = bankGate(() => {
+          stateGate = undefined;
         });
-        initGate = {
-          arrived: () => signals.arrived?.(),
-          released,
-        };
+        stateGate = gate.gate;
+        return gate.control;
+      },
+      /** Покупатель снова нажимает «Оплатить»: новый расчёт, новое согласие и новая команда покупки. */
+      repeatCommand: async () => {
+        const repeatQuote = value(
+          await facets.pricing.quote(buyer, {
+            operationId: randomUUID(),
+            productId,
+            priceRevision: 1,
+          }),
+        );
+        const repeatConsent = await facets.contact.acceptConsents(
+          buyer,
+          pressedPaymentButton({
+            operationId: randomUUID(),
+            contextRef: repeatQuote.quoteRef,
+            documents: [
+              {
+                kind: "terms",
+                documentId: facets.document.documentId,
+                version: facets.document.version,
+                digest: facets.document.digest,
+                accepted: true,
+              },
+            ],
+          }),
+        );
+        if (!repeatConsent.ok) throw new Error(repeatConsent.error.code);
         return {
-          arrived,
-          release: () => {
-            initGate = undefined;
-            signals.release?.();
-          },
+          ...command,
+          operationId: randomUUID(),
+          quoteRef: repeatQuote.quoteRef,
+          consentEvidenceRefs: repeatConsent.evidenceRefs,
         };
       },
     };
@@ -386,6 +421,27 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       now = time;
     },
     time: () => now,
+  };
+}
+
+/** Запрос к двойнику банка ждёт `release`; `arrived` сообщает, что запрос уже дошёл. */
+function bankGate(clear: () => void) {
+  const signals: { arrived?: () => void; release?: () => void } = {};
+  const arrived = new Promise<void>((resolve) => {
+    signals.arrived = resolve;
+  });
+  const released = new Promise<void>((resolve) => {
+    signals.release = resolve;
+  });
+  return {
+    gate: { arrived: () => signals.arrived?.(), released },
+    control: {
+      arrived,
+      release: () => {
+        clear();
+        signals.release?.();
+      },
+    },
   };
 }
 

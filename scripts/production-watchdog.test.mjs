@@ -115,6 +115,7 @@ describe("production watchdog", () => {
             "payment_after_failure|1",
             "payment_superseded|2",
             "payment_bank_absent|3",
+            "payment_partial_refund|1",
             "payment_cancel_open|1",
             "payment_failed_burst|1",
             "",
@@ -126,6 +127,7 @@ describe("production watchdog", () => {
         /Отказ: Подтверждение банка после отказа \(payment_confirmed_after_failure\) за сутки: 1/u,
         /Отказ: Попытки сняты подтверждённой оплатой \(superseded_by_confirmed_payment\) за сутки: 2/u,
         /Отказ: Покупки без платежа в банке \(bank_payment_absent\) за сутки: 3/u,
+        /Отказ: Частичный возврат без подтверждённой оплаты \(partial_refund_released\) за сутки: 1/u,
         /Отказ: Отмена в банке не подтверждена дольше 30 минут: 1/u,
         /Отказ: Аккаунтов с более чем 3 неуспешными покупками без PaymentId за час: 1/u,
       ]) {
@@ -155,7 +157,8 @@ describe("production watchdog", () => {
         "sql",
         healthySql +
           "payment_duplicate|0\npayment_after_failure|0\npayment_superseded|0\n" +
-          "payment_bank_absent|0\npayment_cancel_open|0\npayment_failed_burst|0\n",
+          "payment_bank_absent|0\npayment_partial_refund|0\npayment_cancel_open|0\n" +
+          "payment_failed_burst|0\n",
       );
       assert.equal(assertRun(fixture), "");
     } finally {

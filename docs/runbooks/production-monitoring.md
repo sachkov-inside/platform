@@ -52,7 +52,7 @@
 | Письма | строка трёх `notification_outbox` без `published_at` дольше 10 минут | 1 |
 | Письма | `notifications.email_effects` в `accepted`, `retrying` или `unknown` дольше 10 минут | 1 |
 | Фоновая работа | у `billing.payment-recovery` нет `completed` за 5 минут | 2 |
-| События оплаты | в `billing.payment_events` за сутки есть `duplicate_payment_review`, `payment_confirmed_after_failure`, `superseded_by_confirmed_payment` или `bank_payment_absent`; у каждого вида свой сигнал | 1 |
+| События оплаты | в `billing.payment_events` за сутки есть `duplicate_payment_review`, `payment_confirmed_after_failure`, `superseded_by_confirmed_payment`, `bank_payment_absent` или `partial_refund_released`; у каждого вида свой сигнал | 1 |
 | События оплаты | `bank_cancel_requested` старше 30 минут и моложе 48 часов без `bank_cancel_confirmed` той же покупки, покупка не `confirmed` | 1 |
 | Оплата | у Account больше 3 неуспешных разовых покупок без PaymentId за час; сигнал считает аккаунты | 1 |
 | Бот | Telegram `/ready` не отвечает 200 | 2 |
@@ -93,6 +93,7 @@ Caddy удаляет маркер у соединений вне `127.0.0.1` и 
 | Подтверждение банка после отказа | проверить, что доступ выдан и снятые попытки закрыты |
 | Попытки сняты подтверждённой оплатой | проверить, что снятые попытки не оплачены в банке |
 | Покупки без платежа в банке (`bank_payment_absent`) | проверить причину отказа Init; покупатель может купить снова |
+| Частичный возврат без подтверждённой оплаты (`partial_refund_released`) | сверить сумму в кабинете банка и решить: вернуть остаток или выдать доступ; покупатель может купить снова |
 | Отмена в банке не подтверждена | сверить покупку и при необходимости закрыть форму в кабинете банка |
 | Всплеск неуспешных покупок без PaymentId | найти покупателя по состоянию «Не прошёл» и проверить Init |
 

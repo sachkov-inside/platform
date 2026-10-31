@@ -1164,13 +1164,20 @@ test.each(["confirmed_first", "partial_first"] as const)(
     const observed = await db.prisma.billingPurchase.findUniqueOrThrow({
       where: { id: purchase.purchaseRef },
     });
-    fixture.setTime(new Date("2030-02-01T10:00:00Z"));
+    const releasedAt = new Date("2030-02-01T10:00:00Z");
+    fixture.setTime(releasedAt);
     await s.payments.recover();
+    // Сверка банк не спрашивает. Неподтверждённую покупку она снимает с ожидания (#1929): иначе
+    // покупка держала бы продукт, а сумма возврата всё равно ждёт владельца.
     expect(
       await db.prisma.billingPurchase.findUniqueOrThrow({
         where: { id: purchase.purchaseRef },
       }),
-    ).toEqual(observed);
+    ).toEqual(
+      order === "partial_first"
+        ? { ...observed, state: "failed", updatedAt: releasedAt }
+        : observed,
+    );
     expect(
       await db.prisma.billingPaymentEvent.count({
         where: {

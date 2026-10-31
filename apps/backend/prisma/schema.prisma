@@ -1441,6 +1441,7 @@ model BillingPurchase {
   fiscalization String
   confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz
   periodEndsAt DateTime? @map("period_ends_at") @db.Timestamptz
+  bankRecheckAt DateTime? @map("bank_recheck_at") @db.Timestamptz
   createdAt DateTime @map("created_at") @db.Timestamptz
   updatedAt DateTime @map("updated_at") @db.Timestamptz
   @@unique([environment, terminalRef, paymentId])

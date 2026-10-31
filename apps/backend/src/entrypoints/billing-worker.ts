@@ -26,7 +26,10 @@ import {
 import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
-import { runRecoveryJob } from "./billing-worker/jobs.js";
+import {
+  recoveryBudgetMilliseconds,
+  runRecoveryJob,
+} from "./billing-worker/jobs.js";
 
 const telemetryCleanupQueue = "web-telemetry.retention";
 // The watchdog reads completion over 26 hours; keep receipts across two daily runs.
@@ -112,7 +115,13 @@ async function bootstrap(): Promise<void> {
       await jobs.work(
         recoveryQueue,
         observeJob("billing-worker", recoveryQueue, async () => {
-          return runRecoveryJob(payments, operations);
+          return runRecoveryJob(
+            payments,
+            operations,
+            AbortSignal.timeout(
+              recoveryBudgetMilliseconds(jobTimeoutSeconds * 1_000),
+            ),
+          );
         }),
       );
       if (!config.communityEntitlements) return;

@@ -8,7 +8,10 @@ export {
 } from "./adapters/mcp/register-billing-tools.js";
 export { BillingNotices } from "./facets/billing-notices/billing-notices.js";
 export { BillingOperations } from "./facets/billing-operations/billing-operations.js";
-export { BillingPayments } from "./facets/billing-payments/billing-payments.js";
+export {
+  BillingPayments,
+  recoveryItemMilliseconds,
+} from "./facets/billing-payments/billing-payments.js";
 export {
   BillingPaymentSearch,
   PAYMENT_SEARCH_ACCOUNT_LIMIT,

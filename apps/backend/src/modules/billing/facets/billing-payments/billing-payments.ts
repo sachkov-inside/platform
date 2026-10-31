@@ -79,6 +79,29 @@ const inFlightStates = ["prepared", "sent", "unknown", "pending", "authorized"];
  */
 export const declinedPaymentRecheckMilliseconds = 24 * 60 * 60 * 1000;
 /**
+ * Убывающий опрос формы, которая ещё может принять оплату: после отказа банка или у снятой
+ * попытки, чью форму нужно отменить (#1929). Чем дольше форма живёт без оплаты, тем реже сверка
+ * о ней спрашивает: раз в минуту первые 10 минут, раз в 5 минут до часа, раз в 15 минут до
+ * 4 часов, затем раз в час до конца окна. За сутки это около 50 запросов вместо 1440.
+ */
+const bankRecheckSteps = [
+  { ageBelowMilliseconds: 10 * 60_000, everyMilliseconds: 60_000 },
+  { ageBelowMilliseconds: 60 * 60_000, everyMilliseconds: 5 * 60_000 },
+  { ageBelowMilliseconds: 4 * 60 * 60_000, everyMilliseconds: 15 * 60_000 },
+] as const;
+const lastBankRecheckMilliseconds = 60 * 60_000;
+/**
+ * Самая долгая строка сверки: CheckOrder или GetState, затем GetState и Cancel отмены формы
+ * (#1923), каждый до `bankTimeoutMs`. Задание сверки берёт новую строку, только пока его бюджет
+ * не кончился, и оставляет начатой строке это время до своего срока.
+ */
+export const recoveryItemMilliseconds = 4 * bankTimeoutMs;
+/**
+ * Частичный возврат по неподтверждённой покупке: сумма не доказана, и покупку проверяет владелец.
+ * Сверка снимает такую покупку с ожидания, чтобы она не держала продукт (#1929).
+ */
+const partialRefundReleased = "partial_refund_released";
+/**
  * Неоплаченная повторная попытка. Удержанные деньги остаются на сверке. Попытку с неизвестным
  * исходом сверка сначала сверяет с банком и снимает, только если форма не оплачена.
  */
@@ -852,10 +875,21 @@ export class BillingPayments {
     }
   }
 
-  async recover(limit = 50): Promise<
+  /**
+   * Проход сверки. Выдача по подтверждённым оплатам и снятие покупок с частичным возвратом идут
+   * до первого запроса к банку и не ждут его. Строки для банка идут от давно не проверенных;
+   * новая строка начинается, только пока `budget` не прерван. Непроверенные строки сохраняют
+   * своё место и открывают следующий проход. Форму после отказа или снятия сверка спрашивает
+   * по убывающему расписанию `bankRecheckSteps`.
+   */
+  async recover(
+    limit = 50,
+    budget?: AbortSignal,
+  ): Promise<
     PaymentResult<{
       status: "ready" | "configuration_idle";
       inspected: number;
+      deferred: number;
       applied: number;
       failed: number;
     }>
@@ -863,21 +897,21 @@ export class BillingPayments {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       return paymentFailure("invalid_request");
     try {
-      let idle = this.dependencies.bank === undefined;
-      let failed = 0;
+      const { prisma, bank } = this.dependencies;
+      let { applied, failed } = await this.fulfillConfirmedPayments(limit);
+      await releaseRefundReviewPurchases(prisma, this.clock, limit);
+      let idle = bank === undefined;
+      const now = this.clock();
+      const windowStart = new Date(
+        now.getTime() - declinedPaymentRecheckMilliseconds,
+      );
       const retiredForms =
-        this.dependencies.bank === undefined
-          ? []
-          : await openRetiredForms(
-              this.dependencies.prisma,
-              new Date(
-                this.clock().getTime() - declinedPaymentRecheckMilliseconds,
-              ),
-              limit,
-            );
-      const rows = await this.dependencies.prisma.billingPurchase.findMany({
+        bank === undefined
+          ? new Map<string, Date>()
+          : await openRetiredForms(prisma, windowStart, now, limit);
+      const rows = await prisma.billingPurchase.findMany({
         where:
-          this.dependencies.bank === undefined
+          bank === undefined
             ? { state: "prepared", kind: { not: "one_time" } }
             : {
                 refundReviewRequired: false,
@@ -887,150 +921,61 @@ export class BillingPayments {
                     state: "failed",
                     kind: "one_time",
                     paymentId: { not: null },
-                    createdAt: {
-                      gte: new Date(
-                        this.clock().getTime() -
-                          declinedPaymentRecheckMilliseconds,
-                      ),
-                    },
+                    createdAt: { gte: windowStart },
+                    OR: [
+                      { bankRecheckAt: null },
+                      { bankRecheckAt: { lte: now } },
+                    ],
                   },
-                  { id: { in: retiredForms } },
+                  { id: { in: [...retiredForms.keys()] } },
                 ],
               },
-        orderBy: { updatedAt: "asc" },
+        orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
         take: limit,
       });
+      let inspected = 0;
       for (const row of rows) {
+        if (budget?.aborted === true) break;
+        inspected += 1;
         const reconciled = await this.reconcile(row.id);
         if (!reconciled.ok) {
           if (reconciled.error.code === "method_unavailable") idle = true;
           else failed += 1;
         }
-        await this.dependencies.prisma.billingPurchase.update({
+        // Проверенная строка уходит в конец очереди; форма после отказа ждёт свой шаг расписания.
+        const checkedAt = this.clock();
+        const markedAt = retiredForms.get(row.id);
+        await prisma.billingPurchase.update({
           where: { id: row.id },
-          data: { updatedAt: this.clock() },
+          data: {
+            updatedAt: checkedAt,
+            ...(row.state === "failed"
+              ? {
+                  bankRecheckAt: nextBankRecheck(
+                    markedAt !== undefined && markedAt > row.createdAt
+                      ? markedAt
+                      : row.createdAt,
+                    checkedAt,
+                  ),
+                }
+              : {}),
+          },
         });
       }
-      if (this.dependencies.bank !== undefined)
-        await confirmReleasedLinkReservations(this.dependencies.prisma, limit);
-      const pending =
-        await this.dependencies.prisma.billingFulfillment.findMany({
-          where: {
-            appliedAt: null,
-            reviewRequiredAt: null,
-            nextAttemptAt: { lte: this.clock() },
-          },
-          orderBy: [{ nextAttemptAt: "asc" }, { eventRef: "asc" }],
-          take: limit,
-        });
-      let applied = 0;
-      for (const row of pending) {
-        // A failed item moves behind other work; a process crash leaves it recoverable after a minute.
-        await this.dependencies.prisma.billingFulfillment.update({
-          where: { eventRef: row.eventRef },
-          data: {
-            nextAttemptAt: new Date(
-              this.clock().getTime() + fulfillmentRetryDelayMilliseconds,
-            ),
-          },
-        });
-        const purchase =
-          await this.dependencies.prisma.billingPurchase.findUnique({
-            where: { id: row.purchaseRef },
-          });
-        if (purchase === null) {
-          failed += 1;
-          continue;
-        }
-        if (purchase.kind !== "one_time") {
-          // Historical recurring facts remain readable but can never issue a new right or charge.
-          await this.dependencies.prisma.billingFulfillment.update({
-            where: { eventRef: row.eventRef },
-            data: { appliedAt: this.clock() },
-          });
-          continue;
-        }
-        const snapshot = priceSnapshotSchema.parse(purchase.snapshot);
-        const productIds = savedContentProductIds(snapshot);
-        if (productIds.length === 0 || purchase.confirmedAt === null) {
-          const reason =
-            productIds.length === 0
-              ? "historical_scope_unresolved"
-              : "capture_time_unresolved";
-          await this.dependencies.prisma.$transaction(async (tx) => {
-            await lockBillingPurchase(tx, purchase.id);
-            const current = await tx.billingFulfillment.findUniqueOrThrow({
-              where: { eventRef: row.eventRef },
-            });
-            if (current.appliedAt !== null || current.reviewRequiredAt !== null)
-              return;
-            const now = this.clock();
-            await tx.billingFulfillment.update({
-              where: { eventRef: row.eventRef },
-              data: { reviewRequiredAt: now, reviewReason: reason },
-            });
-            const reviewEvent = await tx.billingPaymentEvent.findUnique({
-              where: {
-                purchaseRef_kind: {
-                  purchaseRef: purchase.id,
-                  kind: "fulfillment_review_required",
-                },
-              },
-            });
-            // Old purchases may have one outbox row per benefit. The purchase event is immutable;
-            // each row still needs its own terminal review marker, including later-arriving rows.
-            if (reviewEvent === null) {
-              await tx.billingPaymentEvent.create({
-                data: {
-                  id: randomUUID(),
-                  purchaseRef: purchase.id,
-                  kind: "fulfillment_review_required",
-                  payload: {
-                    reason,
-                    savedBenefits: snapshot.offer.benefits,
-                    savedCoverage: snapshot.offer.coverage ?? null,
-                  },
-                  occurredAt: now,
-                  recordedAt: now,
-                },
-              });
-            }
-          });
-          continue;
-        }
-        let completed = true;
-        for (const productId of productIds) {
-          const result = await this.dependencies.grants.issueProductAccess(
-            { source: "purchase" },
-            {
-              accountId: purchase.accountId,
-              productId,
-              sourceRef:
-                productIds.length === 1
-                  ? `payment:${purchase.id}`
-                  : `payment:${purchase.id}:product:${productId}`,
-              issuedAt: purchase.confirmedAt.toISOString(),
-              reason: "payment_confirmed",
-            },
-          );
-          if (!result.ok) {
-            completed = false;
-            break;
-          }
-        }
-        if (completed) {
-          await this.dependencies.prisma.billingFulfillment.update({
-            where: { eventRef: row.eventRef },
-            data: { appliedAt: this.clock() },
-          });
-          applied += 1;
-        } else failed += 1;
+      if (bank !== undefined)
+        await confirmReleasedLinkReservations(prisma, limit);
+      // Оплата, которую банк подтвердил в этом проходе, получает доступ сразу, если бюджет остался.
+      if (budget?.aborted !== true) {
+        const late = await this.fulfillConfirmedPayments(limit);
+        applied += late.applied;
+        failed += late.failed;
       }
       return {
         ok: true,
         value: {
           status: idle ? "configuration_idle" : "ready",
-          inspected: rows.length,
+          inspected,
+          deferred: rows.length - inspected,
           applied,
           failed,
         },
@@ -1042,6 +987,126 @@ export class BillingPayments {
         paymentFailure("dependency_unavailable"),
       );
     }
+  }
+
+  /** Выдача доступа по подтверждённым оплатам из очереди выдачи. Банк она не спрашивает. */
+  private async fulfillConfirmedPayments(
+    limit: number,
+  ): Promise<{ applied: number; failed: number }> {
+    let applied = 0;
+    let failed = 0;
+    const pending = await this.dependencies.prisma.billingFulfillment.findMany({
+      where: {
+        appliedAt: null,
+        reviewRequiredAt: null,
+        nextAttemptAt: { lte: this.clock() },
+      },
+      orderBy: [{ nextAttemptAt: "asc" }, { eventRef: "asc" }],
+      take: limit,
+    });
+    for (const row of pending) {
+      // A failed item moves behind other work; a process crash leaves it recoverable after a minute.
+      await this.dependencies.prisma.billingFulfillment.update({
+        where: { eventRef: row.eventRef },
+        data: {
+          nextAttemptAt: new Date(
+            this.clock().getTime() + fulfillmentRetryDelayMilliseconds,
+          ),
+        },
+      });
+      const purchase =
+        await this.dependencies.prisma.billingPurchase.findUnique({
+          where: { id: row.purchaseRef },
+        });
+      if (purchase === null) {
+        failed += 1;
+        continue;
+      }
+      if (purchase.kind !== "one_time") {
+        // Historical recurring facts remain readable but can never issue a new right or charge.
+        await this.dependencies.prisma.billingFulfillment.update({
+          where: { eventRef: row.eventRef },
+          data: { appliedAt: this.clock() },
+        });
+        continue;
+      }
+      const snapshot = priceSnapshotSchema.parse(purchase.snapshot);
+      const productIds = savedContentProductIds(snapshot);
+      if (productIds.length === 0 || purchase.confirmedAt === null) {
+        const reason =
+          productIds.length === 0
+            ? "historical_scope_unresolved"
+            : "capture_time_unresolved";
+        await this.dependencies.prisma.$transaction(async (tx) => {
+          await lockBillingPurchase(tx, purchase.id);
+          const current = await tx.billingFulfillment.findUniqueOrThrow({
+            where: { eventRef: row.eventRef },
+          });
+          if (current.appliedAt !== null || current.reviewRequiredAt !== null)
+            return;
+          const now = this.clock();
+          await tx.billingFulfillment.update({
+            where: { eventRef: row.eventRef },
+            data: { reviewRequiredAt: now, reviewReason: reason },
+          });
+          const reviewEvent = await tx.billingPaymentEvent.findUnique({
+            where: {
+              purchaseRef_kind: {
+                purchaseRef: purchase.id,
+                kind: "fulfillment_review_required",
+              },
+            },
+          });
+          // Old purchases may have one outbox row per benefit. The purchase event is immutable;
+          // each row still needs its own terminal review marker, including later-arriving rows.
+          if (reviewEvent === null) {
+            await tx.billingPaymentEvent.create({
+              data: {
+                id: randomUUID(),
+                purchaseRef: purchase.id,
+                kind: "fulfillment_review_required",
+                payload: {
+                  reason,
+                  savedBenefits: snapshot.offer.benefits,
+                  savedCoverage: snapshot.offer.coverage ?? null,
+                },
+                occurredAt: now,
+                recordedAt: now,
+              },
+            });
+          }
+        });
+        continue;
+      }
+      let completed = true;
+      for (const productId of productIds) {
+        const result = await this.dependencies.grants.issueProductAccess(
+          { source: "purchase" },
+          {
+            accountId: purchase.accountId,
+            productId,
+            sourceRef:
+              productIds.length === 1
+                ? `payment:${purchase.id}`
+                : `payment:${purchase.id}:product:${productId}`,
+            issuedAt: purchase.confirmedAt.toISOString(),
+            reason: "payment_confirmed",
+          },
+        );
+        if (!result.ok) {
+          completed = false;
+          break;
+        }
+      }
+      if (completed) {
+        await this.dependencies.prisma.billingFulfillment.update({
+          where: { eventRef: row.eventRef },
+          data: { appliedAt: this.clock() },
+        });
+        applied += 1;
+      } else failed += 1;
+    }
+    return { applied, failed };
   }
 
   /**
@@ -1857,17 +1922,21 @@ async function retireAttempt(
 }
 
 /**
- * Снятые попытки с открытой отметкой отмены за последние сутки. Форма живёт сутки от Init, а
- * Init уходит до отметки, поэтому окно от отметки накрывает весь срок формы. Не больше `limit`.
+ * Снятые попытки с открытой отметкой отмены за последние сутки, чей шаг опроса уже наступил, и
+ * время их отметки. Форма живёт сутки от Init, а Init уходит до отметки, поэтому окно от отметки
+ * накрывает весь срок формы. Не больше `limit`.
  */
 async function openRetiredForms(
   prisma: BillingPrismaClient,
   markedSince: Date,
+  now: Date,
   limit: number,
-): Promise<string[]> {
-  const rows = z.array(z.object({ purchase_ref: z.uuid() })).parse(
-    await prisma.$queryRaw(Prisma.sql`
-        SELECT required.purchase_ref
+): Promise<Map<string, Date>> {
+  const rows = z
+    .array(z.object({ purchase_ref: z.uuid(), marked_at: z.date() }))
+    .parse(
+      await prisma.$queryRaw(Prisma.sql`
+        SELECT required.purchase_ref, required.occurred_at AS marked_at
         FROM billing.payment_events required
         JOIN billing.purchases purchase ON purchase.id = required.purchase_ref
         WHERE required.kind = ${bankCancelRequested}
@@ -1875,6 +1944,7 @@ async function openRetiredForms(
           AND purchase.state = 'failed'
           AND purchase.kind = 'one_time'
           AND purchase.payment_id IS NOT NULL
+          AND (purchase.bank_recheck_at IS NULL OR purchase.bank_recheck_at <= ${now})
           AND NOT EXISTS (
             SELECT 1 FROM billing.payment_events closed
             WHERE closed.purchase_ref = required.purchase_ref
@@ -1883,8 +1953,75 @@ async function openRetiredForms(
         ORDER BY purchase.updated_at, purchase.id
         LIMIT ${limit}
       `),
+    );
+  return new Map(rows.map((row) => [row.purchase_ref, row.marked_at]));
+}
+
+/** Следующий запрос к банку о форме, которая ждёт оплаты с момента `since`. */
+function nextBankRecheck(since: Date, now: Date): Date {
+  const age = now.getTime() - since.getTime();
+  const step = bankRecheckSteps.find(
+    (candidate) => age < candidate.ageBelowMilliseconds,
   );
-  return rows.map((row) => row.purchase_ref);
+  return new Date(
+    now.getTime() + (step?.everyMilliseconds ?? lastBankRecheckMilliseconds),
+  );
+}
+
+/**
+ * Неподтверждённая покупка с частичным возвратом (`refundReviewRequired`) остаётся `unknown`:
+ * сумма возврата не доказана, а сверка её не опрашивает. Такая покупка держала бы продукт и
+ * ссылку на оплату. Сверка закрывает её вместе с резервом и пишет `partial_refund_released`:
+ * покупатель может купить снова, а владелец видит покупку в фильтре проверки и в стороже.
+ * Признак `refundReviewRequired` остаётся до решения владельца.
+ */
+async function releaseRefundReviewPurchases(
+  prisma: BillingPrismaClient,
+  clock: () => Date,
+  limit: number,
+): Promise<void> {
+  const rows = await prisma.billingPurchase.findMany({
+    where: {
+      kind: "one_time",
+      refundReviewRequired: true,
+      state: { in: inFlightStates },
+    },
+    select: { id: true },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    take: limit,
+  });
+  for (const { id } of rows) {
+    await prisma.$transaction(async (tx) => {
+      await lockBillingPricing(tx);
+      await lockBillingPurchase(tx, id);
+      const current = await tx.billingPurchase.findUniqueOrThrow({
+        where: { id },
+        select: { state: true, kind: true, refundReviewRequired: true },
+      });
+      if (
+        current.kind !== "one_time" ||
+        !current.refundReviewRequired ||
+        !inFlightStates.includes(current.state)
+      )
+        return;
+      const now = clock();
+      await tx.billingPurchase.update({
+        where: { id },
+        data: { state: "failed", paymentUrl: null, updatedAt: now },
+      });
+      await tx.billingPromoReservation.updateMany({
+        where: { purchaseRef: id },
+        data: { state: "failed" },
+      });
+      await recordEventOnce(
+        tx,
+        id,
+        partialRefundReleased,
+        { previousState: current.state },
+        now,
+      );
+    });
+  }
 }
 
 const bankCancelRequestedSchema = z.object({

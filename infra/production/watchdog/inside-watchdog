@@ -265,8 +265,8 @@ select 'web_telemetry_retention', case when exists (
 SQL
 
 # События оплаты, которые ждут решения владельца (#1928). Вторая оплата, подтверждение после отказа,
-# снятие попытки подтверждённой оплатой и покупка без платежа в банке считаются за сутки: каждое новое
-# событие поднимает число и даёт строку «Хуже». Отмена в банке не закрыта, если за 30 минут после
+# снятие попытки подтверждённой оплатой, покупка без платежа в банке и снятая с ожидания покупка с
+# частичным возвратом (#1929) считаются за сутки: каждое новое событие поднимает число и даёт строку «Хуже». Отмена в банке не закрыта, если за 30 минут после
 # bank_cancel_requested нет bank_cancel_confirmed и покупка не подтверждена. Форма банка живёт 24
 # часа, поэтому запрос старше 48 часов уже не держит деньги покупателя. Всплеск: больше 3 неуспешных
 # разовых покупок без PaymentId у одного Account за час; строка считает аккаунты. bank_payment_absent
@@ -283,6 +283,9 @@ select 'payment_superseded', count(*) from billing.payment_events
 union all
 select 'payment_bank_absent', count(*) from billing.payment_events
  where kind = 'bank_payment_absent' and recorded_at > now() - interval '24 hours'
+union all
+select 'payment_partial_refund', count(*) from billing.payment_events
+ where kind = 'partial_refund_released' and recorded_at > now() - interval '24 hours'
 union all
 select 'payment_cancel_open', count(*) from billing.payment_events requested
   join billing.purchases purchase on purchase.id = requested.purchase_ref
@@ -347,6 +350,7 @@ check_database() {
       payment_after_failure) observe db.payment_after_failure 1 "Подтверждение банка после отказа (payment_confirmed_after_failure) за сутки: $value" "$value" ;;
       payment_superseded) observe db.payment_superseded 1 "Попытки сняты подтверждённой оплатой (superseded_by_confirmed_payment) за сутки: $value" "$value" ;;
       payment_bank_absent) observe db.payment_bank_absent 1 "Покупки без платежа в банке (bank_payment_absent) за сутки: $value" "$value" ;;
+      payment_partial_refund) observe db.payment_partial_refund 1 "Частичный возврат без подтверждённой оплаты (partial_refund_released) за сутки: $value" "$value" ;;
       payment_cancel_open) observe db.payment_cancel_open 1 "Отмена в банке не подтверждена дольше 30 минут: $value" "$value" ;;
       payment_failed_burst) observe db.payment_failed_burst 1 "Аккаунтов с более чем 3 неуспешными покупками без PaymentId за час: $value" "$value" ;;
     esac

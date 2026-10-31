@@ -310,6 +310,38 @@ test("an unavailable Cancel is sent again by the next recovery and closes with C
   });
 });
 
+test("a Cancel that keeps failing is retried on the decaying schedule counted from the retirement (#1929)", async () => {
+  const start = world.time();
+  try {
+    const s = await world.scenario();
+    const first = value(await s.payments.purchase(s.buyer, s.command));
+    const firstPayment = {
+      OrderId: first.purchaseRef,
+      PaymentId: s.paymentId(),
+    };
+    await s.notify("REJECTED");
+    value(await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s)));
+    const retiredAt = start.getTime() + 20 * 60 * 60 * 1000;
+    world.setTime(new Date(retiredAt));
+    expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
+      ok: true,
+    });
+    s.failCancel(10);
+    world.setTime(new Date(retiredAt + 60_000));
+    value(await s.payments.recover());
+    expect(s.cancelRequests()).toHaveLength(1);
+    // Следующий проход той же минуты банк не спрашивает.
+    value(await s.payments.recover());
+    expect(s.cancelRequests()).toHaveLength(1);
+    // Снятие было минуту назад, а не 20 часов: шаг опроса ещё минутный.
+    world.setTime(new Date(retiredAt + 2 * 60_000));
+    value(await s.payments.recover());
+    expect(s.cancelRequests()).toHaveLength(2);
+  } finally {
+    world.setTime(start);
+  }
+});
+
 test("a bank-declined attempt reopened on its payment form is never cancelled", async () => {
   const s = await world.scenario();
   const purchase = value(await s.payments.purchase(s.buyer, s.command));
