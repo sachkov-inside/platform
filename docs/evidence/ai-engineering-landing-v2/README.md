@@ -60,3 +60,19 @@ showing Platform itself as proof, letter for a manager.
 2. Production ticket: renderers for the new block ids in `ai-engineering-course-view.tsx`, topic
    art bound by topic, stories; copy moves to Inside Content.
 3. Content change: programme renames and the FAQ hour estimate.
+
+## Revision 2 (2026-10-31): less text
+
+Owner feedback: walls of text, sections overloaded, hero lead longer than two or three lines.
+
+- Hero leads cut to one sentence, at most two lines.
+- «Моя позиция»: one thesis, a role diagram (agent and you as topic chips) and five one-line
+  «было → стало» rows.
+- Method: an eight-step track with role colours; step paragraphs removed.
+- Artifacts: one repository window with a file list and one visible file in place of four code
+  blocks.
+- «Что изучим»: two topic clouds without descriptions.
+- Other sections: copy cut about in half; eyebrows above headings removed.
+- FAQ: merged with the owner's frequent questions (no IT experience, already using agents, tasks
+  do not block lessons, own project, what is ready, updates, paying for AI tools). The question
+  about hours per week is merged into «Есть ли сроки или дедлайны?».

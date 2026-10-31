@@ -64,10 +64,10 @@ export const HeroA: Story = {
   ...variant("A"),
   name: "Заголовок A. Инженер, а не кодер",
 };
-/** B. AI Product Engineer: профессии разработчика и продакт-менеджера сближаются. */
+/** B. AI Software Engineer: продукт, домен и инженерная база вместо ручного кода. */
 export const HeroB: Story = {
   ...variant("B"),
-  name: "Заголовок B. AI Product Engineer",
+  name: "Заголовок B. AI Software Engineer",
 };
 /** C. Процесс вокруг агента: агент проектирует, ты ставишь задачу и проверяешь. */
 export const HeroC: Story = {

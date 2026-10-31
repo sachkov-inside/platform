@@ -1,14 +1,5 @@
 import {
   ArrowRight,
-  BookOpen,
-  Boxes,
-  Brain,
-  Database,
-  FlaskConical,
-  History,
-  KeyRound,
-  Lock,
-  Network,
   Server,
   Workflow,
   Bot,
@@ -65,6 +56,7 @@ import { countFreeLessons } from "../model/free-lessons";
 import "./ai-first-product-view.css";
 import "./ai-engineering-course-view.css";
 import "./ai-engineering-landing-v2.prototype.css";
+import { ArtifactWindow } from "./ai-engineering-landing-v2-artifacts.prototype.client";
 
 type ResolvedProductResult = Extract<
   PublishedProductResult,
@@ -980,178 +972,44 @@ function Status({
 
 /* ---------- PROTOTYPE: новые разделы ---------- */
 
-/** Абзацы вводного текста карточного блока: автор разделяет их пустой строкой. */
-function Paragraphs({ text }: { readonly text: string }) {
-  return text
-    .split("\n\n")
-    .map((paragraph, index) => (
-      <p key={`${String(index)}-${paragraph.slice(0, 16)}`}>{paragraph}</p>
-    ));
-}
-
-/** Моя позиция: текст автора слева, таблица «было → стало» справа. */
+/**
+ * Моя позиция: короткий тезис, схема «агент и ты» и строки «было → стало». Роль или строку
+ * выбирает `detailLabel` пункта, а не его порядок.
+ */
 function Position({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
+  const roles = block.items.filter((item) => item.detailLabel === "Роль");
+  const shifts = block.items.filter((item) => item.detailLabel === "Было");
   return (
     <section className="aie2-position">
       <div className="aie2-position-copy">
-        <Eyebrow text={block.eyebrow} />
-        <h2>{block.title}</h2>
-        <Paragraphs text={block.lead} />
-      </div>
-      <div className="aie2-shift">
-        <div aria-hidden="true" className="aie2-shift-head">
-          <span>Без процесса</span>
-          <span>На курсе</span>
-        </div>
-        <ul>
-          {block.items.map((item) => (
-            <li key={item.title}>
-              <span className="aie2-shift-before">{item.title}</span>
-              <ArrowRight aria-hidden="true" />
-              <span className="aie2-shift-after">
-                <Check aria-hidden="true" />
-                {item.text}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-/** Тон метки «кто делает» по её тексту, а не по порядку шага. */
-const methodRoles: Record<string, string> = {
-  "Решаешь ты": "you",
-  "Пишет агент": "agent",
-  Вместе: "together",
-};
-/** Метод курса: восемь слоёв артефактов по порядку работы над задачей. */
-function Method({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
-  return (
-    <section className="aie2-method">
-      <div className="aie2-method-head">
-        <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
         {block.lead === "" ? null : <p>{block.lead}</p>}
-        <ul aria-label="Кто делает" className="aie2-method-legend">
-          <li data-role="you">
-            <UserRound aria-hidden="true" /> Решаешь ты
-          </li>
-          <li data-role="together">
-            <MessagesSquare aria-hidden="true" /> Вместе
-          </li>
-          <li data-role="agent">
-            <Bot aria-hidden="true" /> Пишет агент
-          </li>
-        </ul>
-      </div>
-      <ol>
-        {block.items.map((item, index) => (
-          <li
-            data-role={methodRoles[item.detail] ?? "together"}
-            key={item.title}
-          >
-            <div className="aie2-method-top">
-              <span aria-hidden="true" className="aie2-method-number">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span className="aie2-method-role">{item.detail}</span>
+        <dl className="aie2-roles">
+          {roles.map((role, index) => (
+            <div data-role={index === 0 ? "agent" : "you"} key={role.title}>
+              <dt>
+                {index === 0 ? (
+                  <Bot aria-hidden="true" />
+                ) : (
+                  <UserRound aria-hidden="true" />
+                )}
+                {role.title}
+              </dt>
+              <dd>
+                {role.text.split(", ").map((topic) => (
+                  <span key={topic}>{topic}</span>
+                ))}
+              </dd>
             </div>
-            <h3>{item.title}</h3>
-            <p>{item.text}</p>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-/**
- * Фрагменты артефактов. PROTOTYPE: черновые примеры по темам курса; перед production заменить
- * настоящими фрагментами из проекта курса.
- */
-const artifactFiles = [
-  {
-    file: "docs/specs/sign-in.md",
-    label: "Спецификация",
-    code: `## Вход в систему
-
-Поведение
-- Пользователь входит по email и паролю.
-- Сессия живёт 30 дней, токен обновления
-  меняется при каждом использовании.
-
-Критерии готовности
-- [ ] 5 неудачных попыток блокируют вход
-      на 15 минут
-- [ ] Выход отзывает все токены сессии
-- [ ] Ошибка не раскрывает, есть ли email`,
-  },
-  {
-    file: "features/sign-in.feature",
-    label: "Сценарий приёмки",
-    code: `# language: ru
-Функция: Вход в систему
-
-  Сценарий: Блокировка после неудачных попыток
-    Дано пользователь ввёл неверный пароль 5 раз
-    Когда он снова пытается войти
-    Тогда вход отклонён
-    И он видит, когда можно попробовать снова`,
-  },
-  {
-    file: "docs/adr/0004-schema-per-module.md",
-    label: "Архитектурное решение",
-    code: `# 4. У каждого модуля своя схема БД
-
-Статус: принято
-
-Решение
-Модуль читает и пишет только свою схему.
-Транзакции через границу модуля запрещены.
-
-Последствия
-Модули общаются через публичный
-интерфейс и события. Модуль можно
-вынести в сервис без переписывания.`,
-  },
-  {
-    file: "checks/module-boundaries.test.ts",
-    label: "Проверка архитектуры",
-    code: `test("billing не лезет во внутренности identity", () => {
-  expect(importsOf("src/modules/billing"))
-    .not.toContainPath("src/modules/identity/internal");
-});
-
-test("бизнес-логика не знает про базу данных", () => {
-  expect(importsOf("src/modules/*/domain"))
-    .not.toContainPath("src/infrastructure");
-});`,
-  },
-] as const;
-function Artifacts({ block }: { readonly block: ProductPageBlockOf<"text"> }) {
-  return (
-    <section className="aie2-artifacts">
-      <div className="aie2-artifacts-head">
-        <h2>{block.title}</h2>
-        {block.paragraphs.map((paragraph) => (
-          <p key={paragraph}>{paragraph}</p>
-        ))}
+          ))}
+        </dl>
       </div>
-      <ul>
-        {artifactFiles.map((artifact) => (
-          <li key={artifact.file}>
-            <div className="aie2-artifact-bar">
-              <span className="aie2-artifact-label">{artifact.label}</span>
-              <span className="aie2-artifact-file">
-                <FileCode2 aria-hidden="true" />
-                {artifact.file}
-              </span>
-            </div>
-            <pre tabIndex={0}>
-              <code>{artifact.code}</code>
-            </pre>
+      <ul aria-label="Было и стало" className="aie2-shift">
+        {shifts.map((shift) => (
+          <li key={shift.title}>
+            <s>{shift.title}</s>
+            <ArrowRight aria-hidden="true" />
+            <b>{shift.text}</b>
           </li>
         ))}
       </ul>
@@ -1159,40 +1017,62 @@ function Artifacts({ block }: { readonly block: ProductPageBlockOf<"text"> }) {
   );
 }
 
-/** Значок темы по её названию: порядок тем в описании может меняться. */
-const skillIcons: Record<string, typeof Bot> = {
-  "Домен и бизнес-логика": BookOpen,
-  Архитектура: Boxes,
-  Данные: Database,
-  "Доступ и безопасность": KeyRound,
-  Тестирование: FlaskConical,
-  "Процесс разработки": GitPullRequest,
-  "Релизы и эксплуатация": Rocket,
-  "Существующий проект": History,
-  Harness: Wrench,
-  "Контекст и память": Brain,
-  "Несколько агентов": Network,
-  "MCP и инструменты": Plug,
-  "Собственные агенты": Bot,
-  RAG: Search,
-  "Безопасность агентов": Lock,
-  "Качество и стоимость": Gauge,
+/** Метод курса: дорожка из восьми шагов, цвет точки показывает, кто делает шаг. */
+const methodRoles: Record<string, string> = {
+  Ты: "you",
+  Агент: "agent",
+  Вместе: "together",
 };
+function Method({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
+  return (
+    <section className="aie2-method">
+      <h2>{block.title}</h2>
+      {block.lead === "" ? null : <p>{block.lead}</p>}
+      <ol>
+        {block.items.map((item, index) => (
+          <li
+            data-role={methodRoles[item.detail] ?? "together"}
+            key={item.title}
+          >
+            <span className="aie2-method-dot">{String(index + 1)}</span>
+            <b>{item.title}</b>
+            <small>{item.detail}</small>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function Artifacts({ block }: { readonly block: ProductPageBlockOf<"text"> }) {
+  return (
+    <section className="aie2-artifacts">
+      <div>
+        <h2>{block.title}</h2>
+        {block.paragraphs.map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </div>
+      <ArtifactWindow />
+    </section>
+  );
+}
+
 const skillLayers = [
   {
     name: "Инженерная база",
-    text: "Как устроена система и как её развивать",
+    text: "Как устроена система",
     icon: Server,
     tone: "base",
   },
   {
     name: "AI-инжиниринг",
-    text: "Как строить процесс и продукты с агентами",
+    text: "Как работать с агентами и строить их",
     icon: Workflow,
     tone: "ai",
   },
 ] as const;
-/** Что изучим: два столбца по слою, который автор пишет в `detail` каждой темы. */
+/** Что изучим: два облака тем по слою, который автор пишет в `detail` каждой темы. */
 function Skills({
   block,
   programme,
@@ -1202,11 +1082,8 @@ function Skills({
 }) {
   return (
     <section className="aie2-skills">
-      <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
-      {block.lead === "" ? null : (
-        <p className="ai-product-section-intro">{block.lead}</p>
-      )}
+      {block.lead === "" ? null : <p>{block.lead}</p>}
       <div className="aie2-skills-layers">
         {skillLayers.map((layer) => {
           const LayerIcon = layer.icon;
@@ -1214,26 +1091,15 @@ function Skills({
             <section data-tone={layer.tone} key={layer.name}>
               <header>
                 <LayerIcon aria-hidden="true" />
-                <div>
-                  <h3>{layer.name}</h3>
-                  <p>{layer.text}</p>
-                </div>
+                <h3>{layer.name}</h3>
+                <p>{layer.text}</p>
               </header>
               <ul>
                 {block.items
                   .filter((item) => item.detail === layer.name)
-                  .map((item) => {
-                    const Icon = skillIcons[item.title] ?? Sparkles;
-                    return (
-                      <li key={item.title}>
-                        <Icon aria-hidden="true" />
-                        <span>
-                          <b>{item.title}</b>
-                          {item.text}
-                        </span>
-                      </li>
-                    );
-                  })}
+                  .map((item) => (
+                    <li key={item.title}>{item.title}</li>
+                  ))}
               </ul>
             </section>
           );
