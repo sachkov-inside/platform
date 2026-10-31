@@ -2235,6 +2235,7 @@ async function releaseForRefundReview(
       where: { purchaseRef },
       data: { state: "failed" },
     });
+    await releaseRetiredLink(tx, purchaseRef);
   }
   await recordEventOnce(
     tx,

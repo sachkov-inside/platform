@@ -126,8 +126,11 @@ test("a declined payment form is asked about at 1, 5, 15 and 60 minute steps, no
   expect(await askedAt(24 * 60 * minute + minute)).toBe(0);
 });
 
-/** Новая покупка того же продукта создаётся рядом с покупкой на проверке, а не продолжает её. */
-async function expectNewPurchaseBeside(
+/**
+ * Покупка на проверке закрыта с признаком `refundReviewRequired`, новая покупка того же продукта
+ * создаётся рядом с ней, а не продолжает её, и список проверки владельца показывает прежнюю.
+ */
+async function expectReleasedForOwnerReview(
   s: Awaited<ReturnType<typeof world.scenario>>,
   heldRef: string,
 ) {
@@ -162,7 +165,7 @@ test("an unconfirmed purchase with a partial refund stops holding the Product at
     ok: true,
   });
   // Сверка ещё не шла: уведомление само снимает покупку с ожидания.
-  await expectNewPurchaseBeside(s, held.purchaseRef);
+  await expectReleasedForOwnerReview(s, held.purchaseRef);
 });
 
 test("recovery releases an unknown purchase under partial refund review left before #1929", async () => {
@@ -174,5 +177,5 @@ test("recovery releases an unknown purchase under partial refund review left bef
     data: { state: "unknown", refundReviewRequired: true, paymentUrl: null },
   });
   value(await s.payments.recover());
-  await expectNewPurchaseBeside(s, held.purchaseRef);
+  await expectReleasedForOwnerReview(s, held.purchaseRef);
 });
