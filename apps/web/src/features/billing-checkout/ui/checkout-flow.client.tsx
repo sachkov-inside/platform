@@ -343,6 +343,8 @@ export function CheckoutFlow({
    * форма один раз сама запрашивает новый расчёт; повторный отказ ждёт кнопки покупателя.
    */
   const settleFailedPurchase = (failed: PurchaseStatus, identity: object) => {
+    // Покупатель уже выбрал другие условия: этот исход к ним не относится.
+    if (selection.identity !== identity) return;
     if (failed.retirementReason !== null) {
       setPaymentError(purchaseRetirementMessage(failed.retirementReason));
       updateSelection(
@@ -358,7 +360,6 @@ export function CheckoutFlow({
       updateSelection(identity, { quote: null });
       return;
     }
-    if (selection.identity !== identity) return;
     updateSelection(identity, { automaticQuoteUsed: true });
     requestQuote();
   };

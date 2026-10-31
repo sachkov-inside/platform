@@ -3,6 +3,7 @@ import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { CoverageCatalog } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { BillingPayments } from "../../src/modules/billing/index.js";
+import type { RetirementReason } from "../../src/modules/billing/domain/payment-attempt.js";
 import {
   createProductCommerceWorld,
   commerceValue as value,
@@ -74,7 +75,7 @@ async function warnings<Value>(
 async function expectRetirement(
   s: Scenario,
   purchaseRef: string,
-  reason: string,
+  reason: RetirementReason,
   lines: readonly unknown[],
 ): Promise<void> {
   expect(s.initCalls()).toBe(0);
@@ -98,7 +99,11 @@ async function expectRetirement(
   });
 }
 
-const closures = [
+const closures: readonly {
+  readonly closure: string;
+  readonly reason: RetirementReason;
+  readonly close: (s: Scenario) => Promise<void>;
+}[] = [
   {
     closure: "an archived price",
     reason: "sale_closed",

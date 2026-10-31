@@ -1052,7 +1052,8 @@ export class BillingPayments {
         return undefined;
       const kind = attemptKindSchema.parse(row.kind);
       // Prepared proves Init has not been sent: retirement releases the reservation and takes no
-      // money. The event and the log line let the owner see why the buyer got no payment form.
+      // money. The event marks the retirement in the owner's payment card; its reason reaches
+      // the buyer through the purchase status and the owner through the log line.
       const retire = async (reason: RetirementReason) => {
         const now = this.clock();
         await tx.billingPurchase.update({
