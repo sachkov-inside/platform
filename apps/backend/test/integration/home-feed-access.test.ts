@@ -252,7 +252,7 @@ for (const subject of [
     }
     expect(feed.value.items).toContainEqual(
       expect.objectContaining({
-        slug: "zametka-pro-granitsy-modulya",
+        slug: "granitsy-khoroshego-modulya",
         access: "free",
       }),
     );
