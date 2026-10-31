@@ -102,6 +102,64 @@ async function signInReader(
   ]);
 }
 
+test("Reader audit uses the identity of the existing programme after session setup", async ({
+  page,
+  context,
+  baseURL,
+  readerTitleFixture,
+}) => {
+  await page.goto(`/products/${readerTitleFixture.productSlug}/programme`);
+  await expect(
+    page
+      .getByRole("button", { name: "Войти через Telegram", exact: true })
+      .first(),
+  ).toBeVisible();
+  await signInReader(context, baseURL);
+  // Session cookies change outside this page; reload its guest auth snapshot before client navigation.
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Аккаунт", exact: true }),
+  ).toBeVisible();
+  const programme = page.locator(
+    `[data-product-programme="${readerTitleFixture.productSlug}"]:visible`,
+  );
+  await programme
+    .getByRole("link", { name: "Первый заголовок читателя", exact: true })
+    .click();
+  await expect(
+    page.locator('[data-material-reader-state="available"]:visible'),
+  ).toBeInViewport();
+  await expectReaderReadyForAudit(
+    page,
+    "Первый заголовок читателя · Sachkov Dev",
+  );
+  const committedCount = await page
+    .locator('[data-material-reader-state="available"]:visible')
+    .evaluate(
+      (reader) => /Открытий материала: (\d+)/u.exec(reader.textContent)?.[1],
+    );
+  expect(committedCount).toBe("1");
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    accessibility.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    ),
+  ).toEqual([]);
+  await page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("link", { name: "Назад", exact: true })
+    .click();
+  await expect(programme).toHaveCount(1);
+  await expect(
+    programme.getByRole("link", {
+      name: "Первый заголовок читателя",
+      exact: true,
+    }),
+  ).toBeInViewport();
+});
+
 test("Reader open refresh settles cold metadata and preserves an existing HEAD title", async ({
   page,
   context,

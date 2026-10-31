@@ -888,7 +888,19 @@ test("navigates Library → Topic → ordered Product and exposes canonical Read
 
   // The free lesson opens to a reader signed in through Telegram (#1825); the guest sees a gate.
   await signInFullStack(page.context());
-  await representativeProductItem
+  // Cookie setup runs outside this page; replace its guest auth snapshot before client navigation.
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Аккаунт", exact: true }),
+  ).toBeVisible();
+  const authenticatedProgramme = page.locator(
+    '[data-product-programme="platform-inside"]:visible',
+  );
+  const authenticatedProductItem = authenticatedProgramme
+    .locator("[data-product-order] [data-product-ordinal]")
+    .filter({ hasText: "Как устроен Inside Platform" });
+  await expect(authenticatedProductItem).toHaveCount(1);
+  await authenticatedProductItem
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
     .click();
   await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
@@ -920,13 +932,13 @@ test("navigates Library → Topic → ordered Product and exposes canonical Read
   await captureIssue271Evidence(page, testInfo, "reader");
   await programmeAction.click();
   await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
-  await expect(programme).toHaveCount(1);
-  await expect(representativeProductItem).toHaveCount(1);
-  await expect(representativeProductItem).toHaveAttribute(
+  await expect(authenticatedProgramme).toHaveCount(1);
+  await expect(authenticatedProductItem).toHaveCount(1);
+  await expect(authenticatedProductItem).toHaveAttribute(
     "data-product-ordinal",
     representativeOrdinal ?? "",
   );
-  await expect(representativeProductItem).toBeInViewport();
+  await expect(authenticatedProductItem).toBeInViewport();
 });
 
 test("uses the selected Product order for a shared Material and leaves standalone reading independent", async ({
