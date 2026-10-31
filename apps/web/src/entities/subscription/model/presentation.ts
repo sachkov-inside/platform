@@ -292,6 +292,17 @@ export function noticeLabel(kind: NoticeKind): string {
   }
 }
 
+/**
+ * Полная цена рядом с ценой личной ссылки: оферта велит показать её до оплаты, когда ссылка дала
+ * скидку. `null`, если это не ссылка или цена по ссылке не ниже полной.
+ */
+export function paymentLinkRegularPrice(
+  snapshot: PriceSnapshot,
+): number | null {
+  const base = snapshot.individualPayment?.basePriceKopecks;
+  return base !== undefined && base > snapshot.firstPriceKopecks ? base : null;
+}
+
 export function promotionLabel(snapshot: PriceSnapshot): string | undefined {
   return snapshot.promotion === null
     ? undefined

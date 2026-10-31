@@ -47,25 +47,17 @@ Repository dependency changes preserve:
 `pnpm quality:audit` runs `pnpm audit --prod --audit-level=moderate` in required candidate CI
 and the daily security workflow. Production dependencies stay free of moderate and higher advisories. Fix an advisory by updating the
 direct dependency first. When the fix exists only in a transitive package that a parent pins
-exactly, and the parent has no fixed release on our major line, `pnpm-workspace.yaml` may override
-that one package to the fixed version. Each override names its parent and removal condition in a
-comment, and `scripts/toolchain-contract.test.mjs` lists the allowed set, so a new override is a
-reviewed change of both. Current overrides (#688):
+exactly or by a range that excludes the fix, and the parent has no fixed release on our major line,
+`pnpm-workspace.yaml` may override that one package to the fixed version. When other packages use
+another major of it, scope the override to the parent (`parent>package`). Each override names its
+parent and removal condition in a comment, and `scripts/toolchain-contract.test.mjs` lists the
+allowed set, so a new override is a reviewed change of both. Current overrides (#688, #1889):
 
 | Package | Pinned by | Remove when |
 |---|---|---|
 | `mysql2` | `prisma` 7.10.0 | a stable Prisma release pins mysql2 ≥ 3.23.1 |
 | `deepmerge-ts` | `@prisma/config` 7.10.0 | a stable Prisma release uses deepmerge-ts ≥ 8 |
-| `@fastify/static>glob` | `@fastify/static` 10.x (scoped range exception below) | a stable 10.x release accepts glob ≥ 14.0.3 |
-
-The scoped `@fastify/static>glob: 14.0.3` override is the only range-based exception.
-`@fastify/static` 10.1.5 and the latest 10.1.8 both require `glob ^13.0.0`; that line has no fixed release.
-GHSA-3g3m-2fjr-6pw4 requires glob ≥ 14.0.2, and GHSA-g3hv-75wg-m249 requires minimatch ≥ 11.0.1.
-Glob 14.0.3 selects minimatch ≥ 11.0.2 without changing other minimatch callers.
-This exception preserves the parent plugin, Node engine range, CommonJS entry point and awaited `glob` API.
-Remove it when a stable `@fastify/static` release on major 10 accepts glob ≥ 14.0.3.
-The parent uses a caret range, so the exact-pin rule above does not authorize this exception.
-Changing this exception requires review and owner approval under the trusted workflow policy.
+| `@fastify/static>glob` | `@fastify/static` 10.1.5 (backend) and 10.1.8 (latest, through Nest), both `glob ^13` (#1889) | a stable `@fastify/static` release depends on glob ≥ 14.0.2 |
 
 Overrides never force a peer range onto an incompatible tool; the TypeScript 7 rule below stands.
 
