@@ -34,7 +34,7 @@ export function MaterialCodeBlock({ text }: { readonly text: string }) {
       </pre>
       <Button
         aria-label="Скопировать код"
-        className="m-2 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:hover:bg-sidebar-accent"
+        className="relative m-2 text-sidebar-foreground/70 after:absolute after:-inset-[5px] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:hover:bg-sidebar-accent"
         onClick={copy}
         size="icon-lg"
         title="Скопировать код"

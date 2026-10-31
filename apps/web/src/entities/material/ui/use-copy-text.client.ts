@@ -14,6 +14,7 @@ const copyFeedbackMs = 2000;
 export function useCopyText(text: string, onFailure?: () => void) {
   const [state, setState] = useState<CopyTextState>("idle");
   const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Stops the failure callback and the reset timer once the control has unmounted.
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -38,16 +39,17 @@ export function useCopyText(text: string, onFailure?: () => void) {
     clearTimeout(reset.current);
     // A fresh idle state lets a repeated result reach screen readers again.
     setState("idle");
-    void Promise.resolve()
-      .then(() => navigator.clipboard.writeText(text))
-      .then(
-        () => {
-          finish("copied");
-        },
-        () => {
-          finish("failed");
-        },
-      );
+    // The executor calls writeText inside the click and turns a missing Clipboard API into a rejection.
+    void new Promise<void>((resolve) => {
+      resolve(navigator.clipboard.writeText(text));
+    }).then(
+      () => {
+        finish("copied");
+      },
+      () => {
+        finish("failed");
+      },
+    );
   };
 
   return { copy, state };

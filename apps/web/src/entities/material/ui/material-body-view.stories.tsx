@@ -244,6 +244,11 @@ export const CodeBlockCopy: Story = {
     const codeBox = code.getBoundingClientRect();
     await expect(buttonBox.left).toBeGreaterThanOrEqual(codeBox.right);
     await expect(buttonBox.height).toBeGreaterThanOrEqual(36);
+    // The visible control may be compact; its touch area stays at least 44 px.
+    const touchArea = getComputedStyle(button, "::after");
+    await expect(touchArea.position).toBe("absolute");
+    await expect(parseFloat(touchArea.width)).toBeGreaterThanOrEqual(44);
+    await expect(parseFloat(touchArea.height)).toBeGreaterThanOrEqual(44);
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
       document.documentElement.clientWidth,
     );
@@ -251,8 +256,8 @@ export const CodeBlockCopy: Story = {
     try {
       await userEvent.click(button);
       await expect(copy).toHaveBeenCalledWith(instructionExample);
-      await expect(canvas.findByRole("status")).resolves.toHaveTextContent(
-        "Код скопирован",
+      await waitFor(() =>
+        expect(canvas.getByRole("status")).toHaveTextContent("Код скопирован"),
       );
       await expect(button).toHaveAccessibleName("Скопировать код");
     } finally {
@@ -264,6 +269,10 @@ export const CodeBlockCopy: Story = {
 export const CodeBlockCopyMobile: Story = {
   ...CodeBlockCopy,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const CodeBlockCopyDesktop: Story = {
+  ...CodeBlockCopy,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
 };
 
 export const CodeBlockCopyFailure: Story = {
@@ -277,8 +286,10 @@ export const CodeBlockCopyFailure: Story = {
       await userEvent.click(
         canvas.getByRole("button", { name: "Скопировать код" }),
       );
-      await expect(canvas.findByRole("status")).resolves.toHaveTextContent(
-        "Не удалось скопировать. Код выделен, скопируйте его вручную",
+      await waitFor(() =>
+        expect(canvas.getByRole("status")).toHaveTextContent(
+          "Не удалось скопировать. Код выделен, скопируйте его вручную",
+        ),
       );
       await waitFor(() =>
         expect(window.getSelection()?.toString()).toBe("const result = 1;"),
@@ -310,8 +321,10 @@ export const CodeBlockCopyUnavailable: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Скопировать код" }),
     );
-    await expect(canvas.findByRole("status")).resolves.toHaveTextContent(
-      "Не удалось скопировать. Код выделен, скопируйте его вручную",
+    await waitFor(() =>
+      expect(canvas.getByRole("status")).toHaveTextContent(
+        "Не удалось скопировать. Код выделен, скопируйте его вручную",
+      ),
     );
     await waitFor(() =>
       expect(window.getSelection()?.toString()).toBe("const result = 1;"),
