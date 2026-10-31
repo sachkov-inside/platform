@@ -138,6 +138,96 @@ export const PositionTopicsAndProcess: Story = {
       within(files).getByRole("tab", { name: /Архитектурное решение/u }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(within(panel).getByText(/своя схема БД/u)).toBeVisible();
+    await user.keyboard("{End}");
+    await expect(
+      within(files).getByRole("tab", { name: /Проверка архитектуры/u }),
+    ).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{Home}");
+    await expect(
+      within(files).getByRole("tab", { name: /Инструкции/u }),
+    ).toHaveFocus();
+  },
+};
+
+/** Темы «Что изучим» в описании, опубликованном до лендинга #1909. */
+const publishedTopics = [
+  "AI-first разработка",
+  "Harness",
+  "Работа с контекстом",
+  "Пайплайны разработки",
+  "Собственные агенты",
+  "RAG",
+  "Контроль агентов",
+  "Evals и эксплуатация",
+  "MCP и инструменты агентов",
+  "Экономия токенов",
+];
+/**
+ * Описание, опубликованное до лендинга #1909: темы сохраняют свои иллюстрации, пока текст в Inside
+ * Content не обновлён, а блок с незнакомым `id` рисуется по своему виду.
+ */
+export const PublishedDescription: Story = {
+  args: {
+    result: {
+      ...meta.args.result,
+      reference: {
+        ...meta.args.result.reference,
+        productPage: {
+          presentation: "ai-engineering-course",
+          page: {
+            ...aiEngineeringCoursePage,
+            blocks: [
+              ...aiEngineeringCoursePage.blocks.filter(
+                (block) => block.id === "hero",
+              ),
+              {
+                id: "topics",
+                kind: "cards" as const,
+                eyebrow: "",
+                title: "Что изучим",
+                lead: "",
+                note: "",
+                items: publishedTopics.map((title) => ({
+                  title,
+                  text: `Описание темы «${title}».`,
+                  detailLabel: "",
+                  detail: "",
+                })),
+              },
+              {
+                id: "unknown-block",
+                kind: "cards" as const,
+                eyebrow: "",
+                title: "Незнакомый блок",
+                lead: "",
+                note: "",
+                items: [
+                  {
+                    title: "Пункт",
+                    text: "Рисуется общим видом карточек.",
+                    detailLabel: "",
+                    detail: "",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const tiles = canvasElement.querySelectorAll(".aie-bento > li");
+    await expect(tiles.length).toBe(publishedTopics.length);
+    for (const tile of tiles)
+      await expect(tile.querySelector(".aie-bento-art")).not.toBeNull();
+    await expect(
+      canvas.getByRole("heading", { name: "Незнакомый блок" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Рисуется общим видом карточек."),
+    ).toBeVisible();
   },
 };
 
@@ -208,13 +298,21 @@ export const OptionalFields: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    for (const id of ["mentoring", "topics", "value", "audience", "faq"]) {
+    for (const id of [
+      "position",
+      "topics",
+      "mentoring",
+      "value",
+      "process",
+      "audience",
+      "faq",
+    ]) {
       await expect(canvas.getByText(`Надзаголовок ${id}`)).toBeInTheDocument();
       await expect(
         canvas.getByText(`Подробность ${id}`, { exact: false }),
       ).toBeInTheDocument();
     }
-    for (const id of ["mentoring", "value"])
+    for (const id of ["position", "mentoring", "value", "process"])
       await expect(canvas.getByText(`Заметка ${id}`)).toBeInTheDocument();
     await expect(
       canvas.getByRole("heading", { name: "Начни с бесплатных уроков" }),

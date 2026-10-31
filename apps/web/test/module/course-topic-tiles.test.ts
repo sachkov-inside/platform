@@ -31,7 +31,7 @@ function spans(titles: readonly string[]): number[] {
 }
 
 describe("Course topic tiles", () => {
-  test("gives every topic of the course description its own illustration", () => {
+  test("gives every topic of the accepted landing description its own illustration", () => {
     for (const title of topicsOf(aiEngineeringCoursePage)) {
       expect(courseTopicTile(title), title).toBeDefined();
     }
@@ -44,12 +44,15 @@ describe("Course topic tiles", () => {
   });
 
   test("binds an illustration to the topic, not to its position", () => {
-    const [first, second] = publishedTopics;
-    if (first === undefined || second === undefined)
-      throw new Error("No topics");
-    expect(courseTopicTile(first)).toEqual(courseTopicTile(first));
-    expect(courseTopicTile(first)?.art).not.toBe(courseTopicTile(second)?.art);
+    const tiles = publishedTopics.map((title) => courseTopicTile(title));
+    const reversed = publishedTopics
+      .toReversed()
+      .map((title) => courseTopicTile(title));
+    expect(reversed).toEqual(tiles.toReversed());
     expect(courseTopicTile("RAG")?.art).toBe("rag");
+    expect(courseTopicTile("AI-first разработка")?.art).not.toBe(
+      courseTopicTile("Harness")?.art,
+    );
   });
 
   test("leaves an unknown topic without an illustration", () => {

@@ -162,7 +162,7 @@ function CourseBlock({
       if (block.id === "faq") return <Faq block={block} />;
       if (block.id === "mentoring") return <Mentoring block={block} />;
       if (block.id === "position") return <Position block={block} />;
-      if (block.id === "artifacts") return <Process block={block} />;
+      if (block.id === "process") return <Process block={block} />;
       return <ChecklistCards block={block} />;
     case "text":
       if (block.id === "practice") return <Practice block={block} />;
@@ -1121,7 +1121,10 @@ function Position({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
       </div>
       <dl className="aie-roles">
         {block.items.map((role, index) => (
-          <div data-role={index === 0 ? "agent" : "you"} key={role.title}>
+          <div
+            data-role={index === 0 ? "agent" : "you"}
+            key={`${String(index)}-${role.title}`}
+          >
             <dt>
               {index === 0 ? (
                 <Bot aria-hidden="true" />
@@ -1131,9 +1134,10 @@ function Position({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
               {role.title}
             </dt>
             <dd>
-              {role.text.split(", ").map((topic) => (
-                <span key={topic}>{topic}</span>
+              {role.text.split(", ").map((topic, topicIndex) => (
+                <span key={`${String(topicIndex)}-${topic}`}>{topic}</span>
               ))}
+              <ItemDetail item={role} />
             </dd>
           </div>
         ))}
@@ -1145,12 +1149,12 @@ function Position({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
 /** Значки пунктов контроля по их порядку: спецификация, проверки, решение человека. */
 const controlIcons = [FileText, ShieldCheck, UserRound] as const;
 /**
- * Процесс и контроль над агентом (блок `artifacts`): тезис, три пункта контроля и окно проекта,
+ * Процесс и контроль над агентом (блок `process`): тезис, три пункта контроля и окно проекта,
  * где видно, как процесс устроен в файлах.
  */
 function Process({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
-    <section className="aie-artifacts">
+    <section className="aie-process">
       <div>
         <div>
           <Eyebrow text={block.eyebrow} />
@@ -1162,11 +1166,12 @@ function Process({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
         {block.items.map((item, index) => {
           const Icon = controlIcons[index] ?? Check;
           return (
-            <li key={item.title}>
+            <li key={`${String(index)}-${item.title}`}>
               <Icon aria-hidden="true" />
               <span>
                 <b>{item.title}</b>
                 {item.text}
+                <ItemDetail item={item} />
               </span>
             </li>
           );

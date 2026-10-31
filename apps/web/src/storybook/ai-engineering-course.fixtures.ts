@@ -173,7 +173,7 @@ export const aiEngineeringCoursePage: ProductPage = {
       link: "Открыть программу",
     },
     {
-      id: "artifacts",
+      id: "process",
       kind: "cards",
       eyebrow: "",
       title: "Понятный процесс и контроль над агентом",

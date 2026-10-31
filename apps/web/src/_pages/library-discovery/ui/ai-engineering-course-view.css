@@ -1683,11 +1683,11 @@
 /* ---------- Позиция, процесс с окном проекта и новые иллюстрации тем (#1909) ---------- */
 
 .aie-position,
-.aie-artifacts {
+.aie-process {
   margin-top: 6rem;
 }
 .ai-product-page .aie-position-copy > p,
-.ai-product-page .aie-artifacts > div > p {
+.ai-product-page .aie-process > div > p {
   max-width: 34rem;
   color: var(--muted-foreground);
 }
@@ -1752,14 +1752,14 @@
 }
 /* ---------- Как устроен проект: тёмное окно репозитория ---------- */
 /* Заголовок слева, описание справа по нижней линии: верх раздела не пустеет справа. */
-.aie-artifacts > div:first-child {
+.aie-process > div:first-child {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem 3rem;
   align-items: end;
   margin-bottom: 2.25rem;
 }
-.ai-product-page.aie-course .aie-artifacts > div:first-child > p {
+.ai-product-page.aie-course .aie-process > div:first-child > p {
   margin-top: 0;
 }
 .aie-control {
@@ -1814,7 +1814,7 @@
   border-radius: 1.25rem;
   background: var(--aie-ink);
   color: var(--aie-ink-text);
-  box-shadow: 0 24px 48px -28px rgb(0 0 0 / 45%);
+  box-shadow: var(--elevation-cover);
 }
 .aie-window-tree {
   display: flex;
@@ -1863,7 +1863,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 160ms ease-out;
+  transition: background-color var(--motion-duration-fast) ease-out;
 }
 .aie-window-tree button svg {
   margin-top: 0.2rem;
@@ -2099,20 +2099,18 @@
   .aie-control {
     grid-template-columns: 1fr;
   }
-  .aie-artifacts > div:first-child {
+  .aie-process > div:first-child {
     grid-template-columns: 1fr;
     margin-bottom: 1.75rem;
   }
 }
 @media (max-width: 47.999rem) {
   .aie-position,
-  .aie-artifacts {
+  .aie-process {
     margin-top: 4rem;
   }
   .aie-position {
     grid-template-columns: 1fr;
-  }
-  .aie-position {
     gap: 2rem;
   }
   .aie-roles > div {
@@ -2142,18 +2140,19 @@
   .aie-window-repo {
     display: none;
   }
+  /* Вкладка-строка не ниже 44px: её удобно нажать пальцем. */
   .aie-window-tree button {
     width: auto;
+    min-height: 2.75rem;
     flex: none;
+    align-items: center;
+    padding: 0.35rem 0.75rem;
   }
   .aie-window-tree button span {
     font-size: 0;
   }
   .aie-window-tree button b {
     font-size: 0.85rem;
-  }
-  .aie-window-tree button {
-    padding: 0.35rem 0.6rem;
   }
   .aie-window-tree button svg {
     display: none;

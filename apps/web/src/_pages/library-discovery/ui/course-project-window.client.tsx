@@ -129,6 +129,22 @@ description: Ревью изменений по стандартам и спец
 ];
 const files = groups.flatMap((group) => group.files);
 
+/**
+ * Вкладка после нажатия клавиши: стрелки идут по кругу в обе стороны, потому что на широком экране
+ * вкладки стоят столбцом, а на телефоне строками; Home и End ведут к первой и последней.
+ */
+function nextTab(key: string, selected: number, count: number) {
+  if (key === "Home") return 0;
+  if (key === "End") return count - 1;
+  const step =
+    key === "ArrowDown" || key === "ArrowRight"
+      ? 1
+      : key === "ArrowUp" || key === "ArrowLeft"
+        ? -1
+        : 0;
+  return step === 0 ? undefined : (selected + step + count) % count;
+}
+
 export function CourseProjectWindow() {
   const [selected, setSelected] = useState(0);
   const id = useId();
@@ -139,7 +155,6 @@ export function CourseProjectWindow() {
     <div className="aie-window">
       <div
         aria-label="Файлы проекта"
-        aria-orientation="vertical"
         className="aie-window-tree"
         role="tablist"
       >
@@ -168,16 +183,9 @@ export function CourseProjectWindow() {
                     setSelected(index);
                   }}
                   onKeyDown={(event) => {
-                    const step =
-                      event.key === "ArrowDown" || event.key === "ArrowRight"
-                        ? 1
-                        : event.key === "ArrowUp" || event.key === "ArrowLeft"
-                          ? -1
-                          : 0;
-                    if (step === 0) return;
+                    const next = nextTab(event.key, selected, files.length);
+                    if (next === undefined) return;
                     event.preventDefault();
-                    const next =
-                      (selected + step + files.length) % files.length;
                     setSelected(next);
                     document.getElementById(tabId(next))?.focus();
                   }}
