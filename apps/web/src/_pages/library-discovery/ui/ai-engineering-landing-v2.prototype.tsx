@@ -162,10 +162,10 @@ function CourseBlock({
       if (block.id === "faq") return <Faq block={block} />;
       if (block.id === "mentoring") return <Mentoring block={block} />;
       if (block.id === "position") return <Position block={block} />;
+      if (block.id === "artifacts") return <Artifacts block={block} />;
       return <ChecklistCards block={block} />;
     case "text":
       if (block.id === "practice") return <Practice block={block} />;
-      if (block.id === "artifacts") return <Artifacts block={block} />;
       return <SplitText block={block} />;
     case "steps":
       return <FormatCards block={block} programme={programme} />;
@@ -1096,15 +1096,33 @@ function Position({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   );
 }
 
-function Artifacts({ block }: { readonly block: ProductPageBlockOf<"text"> }) {
+/** Значки пунктов контроля по их порядку: спецификация, проверки, решение человека. */
+const controlIcons = [FileText, ShieldCheck, UserRound] as const;
+/**
+ * Процесс и контроль над агентом: тезис, три пункта контроля и окно проекта, где видно, как это
+ * устроено в файлах.
+ */
+function Artifacts({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
     <section className="aie2-artifacts">
       <div>
         <h2>{block.title}</h2>
-        {block.paragraphs.map((paragraph) => (
-          <p key={paragraph}>{paragraph}</p>
-        ))}
+        {block.lead === "" ? null : <p>{block.lead}</p>}
       </div>
+      <ul className="aie2-control">
+        {block.items.map((item, index) => {
+          const Icon = controlIcons[index] ?? Check;
+          return (
+            <li key={item.title}>
+              <Icon aria-hidden="true" />
+              <span>
+                <b>{item.title}</b>
+                {item.text}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
       <ArtifactWindow />
     </section>
   );

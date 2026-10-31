@@ -138,3 +138,10 @@ description returns under the heading.
   support-service examples as illustrative.
 - Programme renames (decision 10) in Inside Content.
 - Production fixes found here: topic art bound by title, «Что даёт курс» two columns on tablets.
+
+## Revision 10 (2026-10-31): process and agent control
+
+The owner asked to state a clear workflow and control over agents. The agent section is now
+«Понятный процесс и контроль над агентом»: one-sentence lead, three control points (Задача по
+спецификации, Проверки на каждом шаге, Решение за тобой) and the project window below. The block is
+`cards` with id `artifacts`, so its copy can live in Inside Content.
