@@ -57,7 +57,7 @@ allowed set, so a new override is a reviewed change of both. Current overrides (
 |---|---|---|
 | `mysql2` | `prisma` 7.10.0 | a stable Prisma release pins mysql2 ≥ 3.23.1 |
 | `deepmerge-ts` | `@prisma/config` 7.10.0 | a stable Prisma release uses deepmerge-ts ≥ 8 |
-| `@fastify/static>glob` | `@fastify/static` 10.1.8 (`glob ^13`, #1889) | a stable `@fastify/static` release depends on glob ≥ 14.0.2 |
+| `@fastify/static>glob` | `@fastify/static` 10.1.5 (backend) and 10.1.8 (latest, through Nest), both `glob ^13` (#1889) | a stable `@fastify/static` release depends on glob ≥ 14.0.2 |
 
 Overrides never force a peer range onto an incompatible tool; the TypeScript 7 rule below stands.
 
