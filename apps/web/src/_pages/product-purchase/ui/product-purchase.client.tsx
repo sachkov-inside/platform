@@ -98,16 +98,16 @@ export function ProductPurchase({
   // Покупка по другой цене заменит неоплаченную форму (#1925): страница ссылки и страница с
   // промокодом показывают оформление по своей цене, а не статус той формы. Применится ли
   // промокод, решает расчёт; при той же цене сервер продолжит прежнюю попытку.
-  const otherPrice =
+  const atOtherPrice =
     purchase !== null &&
     (individualLink === undefined
-      ? promoCode !== undefined && purchase.snapshot.promotion === null
+      ? promoCode !== undefined
       : purchase.snapshot.individualPayment?.linkId !== individualLink.id);
   const openPurchase =
     buyAgain ||
     purchase === null ||
     purchase.state === "failed" ||
-    (otherPrice && replaceableStates.includes(purchase.state))
+    (atOtherPrice && replaceableStates.includes(purchase.state))
       ? null
       : purchase;
   const ready = purchase?.access === "ready";

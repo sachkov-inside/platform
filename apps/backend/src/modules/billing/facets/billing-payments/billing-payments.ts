@@ -1855,12 +1855,13 @@ interface ReplaceableAttempt {
 }
 
 /**
- * Что покупка по другой цене (#1925) делает с открытой попыткой; `null`, если цена та же или
- * попытка оплачена. Попытку `prepared` Init ещё не создал, и она снимается. Попытку `pending`
+ * Что покупка делает с открытой попыткой того же продукта. Та же цена и оплаченная попытка:
+ * `continue`. При другой цене (#1925) попытку `prepared` Init ещё не создал, и она снимается. Попытку `pending`
  * снимает только ответ банка о неоплаченной форме, полученный перед транзакцией. Если банк этого
  * не подтвердил, а у попытки есть или вот-вот появится форма по прежней цене (`sent` или `pending`
  * со ссылкой формы), ответ `unverified`. Удержанная попытка, попытка с неизвестным исходом и
- * `pending`, чью форму банк уже не принимает к оплате, продолжаются: покупатель видит их статус.
+ * `pending`, чью форму банк уже не принимает к оплате, получают `continue`: покупатель видит их
+ * статус.
  * Вызывающий держит замок цен.
  */
 async function decideOpenAttempt(
@@ -1871,10 +1872,10 @@ async function decideOpenAttempt(
 ): Promise<
   | { readonly kind: "replace"; readonly attempt: ReplaceableAttempt }
   | { readonly kind: "unverified" }
-  | null
+  | { readonly kind: "continue" }
 > {
   if (attempt.state === "confirmed" || !pricedDifferently(attempt, snapshot))
-    return null;
+    return { kind: "continue" };
   await lockBillingPurchase(tx, attempt.id);
   const { state, paymentUrl } = await tx.billingPurchase.findUniqueOrThrow({
     where: { id: attempt.id },
@@ -1886,7 +1887,7 @@ async function decideOpenAttempt(
     return { kind: "replace", attempt: { id: attempt.id, state } };
   return state === "sent" || (state === "pending" && paymentUrl !== null)
     ? { kind: "unverified" }
-    : null;
+    : { kind: "continue" };
 }
 
 /**
