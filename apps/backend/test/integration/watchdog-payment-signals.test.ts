@@ -4,7 +4,10 @@ import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { z } from "zod";
 
-import { reviewPaymentEventKinds } from "../../src/modules/billing/features/read-payments/read-payments.js";
+import {
+  bankCancelEventKinds,
+  reviewPaymentEventKinds,
+} from "../../src/modules/billing/features/read-payments/read-payments.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -13,7 +16,8 @@ import {
 /**
  * The production watchdog (#1928) reads payment signals with one SQL statement. This contract runs
  * that statement from the script itself against the migrated billing schema in a read-only
- * transaction, as the watchdog does, so a renamed column or kind fails here, not on the server.
+ * transaction, as the watchdog does: a renamed table or column fails here, not on the server.
+ * Event kinds are compared only with the owner payments filter, not with the code that writes them.
  */
 const watchdog = readFileSync(
   new URL(
@@ -59,14 +63,15 @@ afterEach(async () => {
 });
 
 /**
- * A failed one-time purchase created `age` ago by the database clock, as an interval literal.
- * Database-clock adapter contract: the fixture and the watchdog query both use SQL now(), and each
- * age stays away from its window edge by at least ten minutes.
+ * A one-time purchase, failed unless stated, created `age` ago by the database clock, as an
+ * interval literal. Database-clock adapter contract: the fixture and the watchdog query both use
+ * SQL now(), and each age stays away from its window edge by at least ten minutes.
  */
-async function failedPurchase(
+async function oneTimePurchase(
   accountId: string,
   age: string,
   paymentId: string | null = null,
+  state: "failed" | "confirmed" = "failed",
 ): Promise<string> {
   const id = randomUUID();
   const quoteRef = randomUUID();
@@ -78,11 +83,13 @@ async function failedPurchase(
     INSERT INTO billing.purchases (
       id, quote_ref, account_id, kind, state, environment, terminal_ref, payment_id,
       amount_kopecks, snapshot, acceptance, contact, fiscalization, lifecycle_active,
-      created_at, updated_at)
+      confirmed_at, created_at, updated_at)
     VALUES (
-      ${id}::uuid, ${quoteRef}::uuid, ${accountId}::uuid, 'one_time', 'failed', 'demo', 'WATCHDOG',
+      ${id}::uuid, ${quoteRef}::uuid, ${accountId}::uuid, 'one_time', ${state}, 'demo', 'WATCHDOG',
       ${paymentId}, 150000, ${JSON.stringify(snapshot)}::jsonb, '{}'::jsonb, '{}'::jsonb,
-      'not_configured', false, now() - ${age}::interval, now() - ${age}::interval)`;
+      'not_configured', false,
+      CASE WHEN ${state} = 'confirmed' THEN now() - ${age}::interval END,
+      now() - ${age}::interval, now() - ${age}::interval)`;
   return id;
 }
 
@@ -133,9 +140,9 @@ it("reads no payment signals from an empty billing schema", async () => {
 
 it("counts recent payment events, open bank cancellations and failed bursts", async () => {
   const buyer = randomUUID();
-  const recent = await failedPurchase(buyer, "2 hours");
-  const older = await failedPurchase(buyer, "3 days");
-  const other = await failedPurchase(buyer, "2 hours", "PAID-1");
+  const recent = await oneTimePurchase(buyer, "2 hours");
+  const older = await oneTimePurchase(buyer, "3 days");
+  const other = await oneTimePurchase(buyer, "2 hours", "PAID-1");
   await event(recent, "duplicate_payment_review", "1 minute");
   await event(older, "duplicate_payment_review", "25 hours");
   await event(recent, "payment_confirmed_after_failure", "1 minute");
@@ -144,12 +151,23 @@ it("counts recent payment events, open bank cancellations and failed bursts", as
   await event(recent, "bank_payment_absent", "1 minute");
   await event(recent, "payment_confirmed", "1 minute");
 
-  // Open: requested 40 minutes ago, never confirmed. Closed, too fresh and expired do not count.
-  const open = await failedPurchase(randomUUID(), "2 hours", "CANCEL-OPEN");
-  const closed = await failedPurchase(randomUUID(), "2 hours", "CANCEL-CLOSED");
-  const fresh = await failedPurchase(randomUUID(), "2 hours", "CANCEL-FRESH");
-  const expired = await failedPurchase(randomUUID(), "3 days", "CANCEL-OLD");
+  // Open: requested 40 minutes ago, never confirmed. Closed, too fresh, expired and paid do not count.
+  const open = await oneTimePurchase(randomUUID(), "2 hours", "CANCEL-OPEN");
+  const closed = await oneTimePurchase(
+    randomUUID(),
+    "2 hours",
+    "CANCEL-CLOSED",
+  );
+  const fresh = await oneTimePurchase(randomUUID(), "2 hours", "CANCEL-FRESH");
+  const expired = await oneTimePurchase(randomUUID(), "3 days", "CANCEL-OLD");
+  const paid = await oneTimePurchase(
+    randomUUID(),
+    "2 hours",
+    "CANCEL-PAID",
+    "confirmed",
+  );
   await event(open, "bank_cancel_requested", "40 minutes");
+  await event(paid, "bank_cancel_requested", "40 minutes");
   await event(closed, "bank_cancel_requested", "40 minutes");
   await event(closed, "bank_cancel_confirmed", "20 minutes");
   await event(fresh, "bank_cancel_requested", "10 minutes");
@@ -157,18 +175,18 @@ it("counts recent payment events, open bank cancellations and failed bursts", as
 
   // Burst: four failed one-time purchases without PaymentId within the hour for one Account.
   const burst = randomUUID();
-  for (let n = 0; n < 4; n += 1) await failedPurchase(burst, "20 minutes");
+  for (let n = 0; n < 4; n += 1) await oneTimePurchase(burst, "20 minutes");
   // Three is the threshold, not a burst.
   const three = randomUUID();
-  for (let n = 0; n < 3; n += 1) await failedPurchase(three, "20 minutes");
+  for (let n = 0; n < 3; n += 1) await oneTimePurchase(three, "20 minutes");
   // A PaymentId or an attempt older than the hour leaves three in the window.
   const withPayment = randomUUID();
   for (let n = 0; n < 3; n += 1)
-    await failedPurchase(withPayment, "20 minutes");
-  await failedPurchase(withPayment, "20 minutes", "BANK-1");
+    await oneTimePurchase(withPayment, "20 minutes");
+  await oneTimePurchase(withPayment, "20 minutes", "BANK-1");
   const aged = randomUUID();
-  for (let n = 0; n < 3; n += 1) await failedPurchase(aged, "20 minutes");
-  await failedPurchase(aged, "80 minutes");
+  for (let n = 0; n < 3; n += 1) await oneTimePurchase(aged, "20 minutes");
+  await oneTimePurchase(aged, "80 minutes");
 
   expect(await readSignals()).toEqual({
     payment_duplicate: 1,
@@ -181,6 +199,9 @@ it("counts recent payment events, open bank cancellations and failed bursts", as
 });
 
 it("watches every event kind that the owner payments filter offers for review", () => {
-  for (const kind of reviewPaymentEventKinds)
+  for (const kind of [
+    ...reviewPaymentEventKinds,
+    ...Object.values(bankCancelEventKinds),
+  ])
     expect(paymentQuery).toContain(`'${kind}'`);
 });

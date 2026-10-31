@@ -31,9 +31,8 @@ export interface PaymentsQuery {
    */
   readonly fulfillment?: PaymentFulfillmentFilter;
   /**
-   * `review`: покупки с событием, которое ждёт решения владельца: вторая оплата, подтверждение
-   * после отказа, снятие попытки, отсутствие платежа в банке, отмена в банке (#1928). Виды событий
-   * выбирает billing.
+   * `review`: покупки с событием для проверки владельцем (#1928), например со второй оплатой.
+   * Виды событий выбирает billing.
    */
   readonly events?: PaymentEventsFilter;
   /**

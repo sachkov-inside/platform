@@ -288,9 +288,12 @@ continuation для того же `purchaseRef` и становится `null` �
 - `payments.list` отбирает платежи по `accountId`, `productId` (продукт из оплаченного снимка;
   историческая покупка без продукта в снимке не выбирается), `state` или `states` (до семи без
   повторов; вместе с `state` не принимается), `kind` и периоду создания `[from, to)`.
-  `events: "review"` оставляет покупки с событием, которое ждёт решения владельца:
-  `duplicate_payment_review`, `payment_confirmed_after_failure`, `superseded_by_confirmed_payment`,
-  `bank_payment_absent` или `bank_cancel_requested` ([#1928](https://github.com/sachkov-inside/platform/issues/1928));
+  `events: "review"` ([#1928](https://github.com/sachkov-inside/platform/issues/1928)) оставляет
+  покупки с событием для проверки владельцем: `duplicate_payment_review`,
+  `payment_confirmed_after_failure` или `superseded_by_confirmed_payment`. С выпуском
+  [#1922](https://github.com/sachkov-inside/platform/issues/1922) к ним добавится
+  `bank_payment_absent`, а с выпуском [#1923](https://github.com/sachkov-inside/platform/issues/1923)
+  неподтверждённая покупка с `bank_cancel_requested` без `bank_cancel_confirmed`;
 - `paymentLinks.list` отдаёт ссылки на оплату от новых к старым с фильтрами `productId` и видимого
   состояния `state`; курсор действует только в своём фильтре;
 - `promotions.list` отдаёт скидки владельца от поздних к ранним по началу с фильтрами `archived`,

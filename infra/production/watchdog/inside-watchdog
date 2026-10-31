@@ -267,9 +267,10 @@ SQL
 # События оплаты, которые ждут решения владельца (#1928). Вторая оплата, подтверждение после отказа,
 # снятие попытки подтверждённой оплатой и покупка без платежа в банке считаются за сутки: каждое новое
 # событие поднимает число и даёт строку «Хуже». Отмена в банке не закрыта, если за 30 минут после
-# bank_cancel_requested нет bank_cancel_confirmed; после 48 часов форма банка уже истекла. Всплеск:
-# больше 3 неуспешных разовых покупок без PaymentId у одного Account за час; строка считает аккаунты.
-# Пока billing не пишет событие этого вида, его строка равна нулю.
+# bank_cancel_requested нет bank_cancel_confirmed и покупка не подтверждена. Форма банка живёт 24
+# часа, поэтому запрос старше 48 часов уже не держит деньги покупателя. Всплеск: больше 3 неуспешных
+# разовых покупок без PaymentId у одного Account за час; строка считает аккаунты. bank_payment_absent
+# пишет #1922, события отмены пишет #1923; пока billing не пишет событие этого вида, строка равна нулю.
 read -r -d '' payment_query <<'SQL' || true
 select 'payment_duplicate', count(*) from billing.payment_events
  where kind = 'duplicate_payment_review' and recorded_at > now() - interval '24 hours'
@@ -284,7 +285,9 @@ select 'payment_bank_absent', count(*) from billing.payment_events
  where kind = 'bank_payment_absent' and recorded_at > now() - interval '24 hours'
 union all
 select 'payment_cancel_open', count(*) from billing.payment_events requested
+  join billing.purchases purchase on purchase.id = requested.purchase_ref
  where requested.kind = 'bank_cancel_requested'
+   and purchase.state <> 'confirmed'
    and requested.recorded_at < now() - interval '30 minutes'
    and requested.recorded_at > now() - interval '48 hours'
    and not exists (

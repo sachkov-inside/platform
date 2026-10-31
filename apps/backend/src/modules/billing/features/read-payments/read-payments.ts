@@ -137,18 +137,27 @@ export async function refundDecisionViews(
 }
 
 /**
- * События платежа, которые ждут решения владельца (#1928): вторая оплата, подтверждение после
- * отказа, снятие попытки подтверждённой оплатой, покупка без платежа в банке и запрошенная отмена в
- * банке. Фильтр `events: "review"` выбирает покупки хотя бы с одним из них; сторож production
- * сообщает о тех же видах.
+ * События платежа для проверки владельцем (#1928): вторая оплата, подтверждение после отказа,
+ * снятие попытки подтверждённой оплатой и покупка без платежа в банке. Фильтр `events: "review"`
+ * выбирает покупки хотя бы с одним из них или с открытой отменой в банке; сторож production
+ * сообщает о тех же видах. `bank_payment_absent` пишет #1922; пока его нет, вид ничего не выбирает.
  */
 export const reviewPaymentEventKinds = [
   "duplicate_payment_review",
   "payment_confirmed_after_failure",
   "superseded_by_confirmed_payment",
   "bank_payment_absent",
-  "bank_cancel_requested",
 ] as const;
+
+/**
+ * Отмена неоплаченной формы в банке (#1923) открыта, пока у покупки есть запрос без подтверждения
+ * и покупка не подтверждена: опоздавшую отмену закрывает подтверждённая оплата. Имена событий
+ * согласуются с #1923; пока их нет, открытых отмен нет.
+ */
+export const bankCancelEventKinds = {
+  requested: "bank_cancel_requested",
+  confirmed: "bank_cancel_confirmed",
+} as const;
 
 type ListPaymentsCommand = Extract<
   OwnerOperation,
@@ -237,10 +246,18 @@ export async function listPayments(
         ${
           command.events === undefined
             ? Prisma.empty
-            : Prisma.sql`and exists (
+            : Prisma.sql`and (exists (
                 select 1 from billing.payment_events as event
                 where event.purchase_ref = purchase.id
-                  and event.kind = any(${[...reviewPaymentEventKinds]}::text[]))`
+                  and event.kind = any(${[...reviewPaymentEventKinds]}::text[]))
+              or (purchase.state <> 'confirmed' and exists (
+                select 1 from billing.payment_events as requested
+                where requested.purchase_ref = purchase.id
+                  and requested.kind = ${bankCancelEventKinds.requested}
+                  and not exists (
+                    select 1 from billing.payment_events as closed
+                    where closed.purchase_ref = purchase.id
+                      and closed.kind = ${bankCancelEventKinds.confirmed}))))`
         }
         ${
           command.cursor === undefined
