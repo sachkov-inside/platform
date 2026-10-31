@@ -19,6 +19,7 @@ import {
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 import {
+  aiEngineeringPublishedTopics,
   aiEngineeringCourseChapters,
   aiEngineeringCoursePage,
 } from "@/storybook/ai-engineering-course.fixtures";
@@ -110,6 +111,115 @@ export const Desktop: Story = {
 };
 
 /**
+ * Позиция, «Что изучим» и процесс с контролем над агентом (#1909): каждая тема получает свою
+ * иллюстрацию по названию, окно проекта переключает файлы кликом и стрелками.
+ */
+export const PositionTopicsAndProcess: Story = {
+  play: async ({ canvasElement, userEvent: user }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", {
+        name: "Код пишет агент. Что остаётся тебе?",
+      }),
+    ).toBeVisible();
+    const tiles = canvasElement.querySelectorAll(".aie-bento > li");
+    await expect(tiles.length).toBe(15);
+    for (const tile of tiles)
+      await expect(tile.querySelector(".aie-bento-art")).not.toBeNull();
+
+    const files = canvas.getByRole("tablist", { name: "Файлы проекта" });
+    const panel = canvas.getByRole("tabpanel");
+    await expect(within(panel).getByText("AGENTS.md")).toBeVisible();
+    await user.click(
+      within(files).getByRole("tab", { name: /Словарь домена/u }),
+    );
+    await expect(within(panel).getByText(/Обращение/u)).toBeVisible();
+    await user.keyboard("{ArrowDown}");
+    await expect(
+      within(files).getByRole("tab", { name: /Архитектурное решение/u }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(within(panel).getByText(/своя схема БД/u)).toBeVisible();
+    await user.keyboard("{End}");
+    await expect(
+      within(files).getByRole("tab", { name: /Проверка архитектуры/u }),
+    ).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{Home}");
+    await expect(
+      within(files).getByRole("tab", { name: /Инструкции/u }),
+    ).toHaveFocus();
+  },
+};
+
+/**
+ * Описание, опубликованное до лендинга #1909: темы сохраняют свои иллюстрации, пока текст в Inside
+ * Content не обновлён, а блок с незнакомым `id` рисуется по своему виду.
+ */
+export const PublishedDescription: Story = {
+  args: {
+    result: {
+      ...meta.args.result,
+      reference: {
+        ...meta.args.result.reference,
+        productPage: {
+          presentation: "ai-engineering-course",
+          page: {
+            ...aiEngineeringCoursePage,
+            blocks: [
+              ...aiEngineeringCoursePage.blocks.filter(
+                (block) => block.id === "hero",
+              ),
+              {
+                id: "topics",
+                kind: "cards" as const,
+                eyebrow: "",
+                title: "Что изучим",
+                lead: "",
+                note: "",
+                items: aiEngineeringPublishedTopics.map((title) => ({
+                  title,
+                  text: `Описание темы «${title}».`,
+                  detailLabel: "",
+                  detail: "",
+                })),
+              },
+              {
+                id: "unknown-block",
+                kind: "cards" as const,
+                eyebrow: "",
+                title: "Незнакомый блок",
+                lead: "",
+                note: "",
+                items: [
+                  {
+                    title: "Пункт",
+                    text: "Рисуется общим видом карточек.",
+                    detailLabel: "",
+                    detail: "",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const tiles = canvasElement.querySelectorAll(".aie-bento > li");
+    await expect(tiles.length).toBe(aiEngineeringPublishedTopics.length);
+    for (const tile of tiles)
+      await expect(tile.querySelector(".aie-bento-art")).not.toBeNull();
+    await expect(
+      canvas.getByRole("heading", { name: "Незнакомый блок" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Рисуется общим видом карточек."),
+    ).toBeVisible();
+  },
+};
+
+/**
  * Необязательные поля карточек и приглашение к бесплатным урокам: оформление курса показывает всё
  * написанное в описании продукта (ADR 0026).
  */
@@ -176,13 +286,21 @@ export const OptionalFields: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    for (const id of ["mentoring", "topics", "value", "audience", "faq"]) {
+    for (const id of [
+      "position",
+      "topics",
+      "mentoring",
+      "value",
+      "process",
+      "audience",
+      "faq",
+    ]) {
       await expect(canvas.getByText(`Надзаголовок ${id}`)).toBeInTheDocument();
       await expect(
         canvas.getByText(`Подробность ${id}`, { exact: false }),
       ).toBeInTheDocument();
     }
-    for (const id of ["mentoring", "value"])
+    for (const id of ["position", "mentoring", "value", "process"])
       await expect(canvas.getByText(`Заметка ${id}`)).toBeInTheDocument();
     await expect(
       canvas.getByRole("heading", { name: "Начни с бесплатных уроков" }),
