@@ -1024,15 +1024,15 @@ export class BillingPayments {
             data: { appliedAt: this.clock() },
           });
           applied += 1;
-        } else if (outcome === "failed") failed += 1;
-        // Повтор выдачи удалённому аккаунту не поможет: решение о деньгах принимает владелец.
-        else
+        } else if (outcome === "account_deleted")
+          // Повтор выдачи удалённому аккаунту не поможет: решение о деньгах принимает владелец.
           await this.requireFulfillmentReview(
             purchase.id,
             row.eventRef,
             outcome,
             snapshot,
           );
+        else failed += 1;
       }
       return {
         ok: true,
@@ -2042,7 +2042,7 @@ async function closeBankCancel(
  * из любого источника (вручную, активацией Course, прежней покупкой), в том числе отозванный.
  * Деньги остаются подтверждёнными, событие ведёт владельца к решению о возврате. Доступ читается
  * через Account Rights в той же транзакции под замком изменений прав Account: выдача, начатая
- * параллельно, либо уже видна, либо ждёт подтверждения.
+ * параллельно, либо уже видна, либо ждёт конца этой транзакции.
  */
 async function recordDuplicatePayment(
   tx: BillingPrisma,
