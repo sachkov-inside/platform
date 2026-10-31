@@ -68,6 +68,8 @@ export async function reservePurchase(
       },
     );
   } catch (error) {
+    if (isOpenProductReservationConflict(error))
+      return failure("reservation_conflict");
     return dependencyFailure(
       { module: "billing", operation: "reservePurchase" },
       error,

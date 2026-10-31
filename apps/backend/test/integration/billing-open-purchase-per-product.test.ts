@@ -162,4 +162,14 @@ test("an open reservation of the same Product without a continuable purchase ans
       where: { accountId: s.buyer },
     }),
   ).toBe(0);
+  // The internal reserve step answers the same conflict as a reservation conflict.
+  const another = await purchaseCommand(s, s.productId);
+  expect(
+    await s.pricing.reserve({
+      accountId: s.buyer,
+      purchaseRef: randomUUID(),
+      quoteRef: another.quoteRef,
+      amountLimits: { minimumKopecks: 100, maximumKopecks: 1_000_000 },
+    }),
+  ).toEqual({ ok: false, error: { code: "reservation_conflict" } });
 });

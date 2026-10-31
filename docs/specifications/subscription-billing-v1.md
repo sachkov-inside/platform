@@ -1042,7 +1042,7 @@ Workshop отменён [ADR 0033](https://github.com/sachkov-inside/platform/bl
 |---|---|
 | Offer/вариант | Стабильный ID и revision; архивирование сохраняет старые snapshots |
 | Subscription | Не более одного незавершённого/действующего subscription lifecycle на Account для текущего предложения Inside; lifetime — независимый grant |
-| Purchase command | Account + operationId; та же нагрузка повторяется, другая конфликтует; одна открытая попытка покупки даже при другом ID из второй вкладки |
+| Purchase command | Account + operationId; та же нагрузка повторяется, другая конфликтует; одна открытая попытка покупки продукта даже при другом ID из второй вкладки (#1924) |
 | Period/attempt | Subscription + logical period; только одна potentially sent attempt на период; новая попытка после unknown не создаётся |
 | Provider reference | Environment + provider + terminalRef + PaymentId; чужой terminal/Account/order не сопоставляется |
 | Webhook/event receipt | Stable event/application key и fingerprint; подпись проверяется до dedupe acceptance |
