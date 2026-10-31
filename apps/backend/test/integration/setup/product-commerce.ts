@@ -179,7 +179,9 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       initCalls = 0,
       timeout = false,
       stateCalls = 0;
-    const paymentId = String(Math.floor(Math.random() * 1000000000));
+    // Каждый Init получает свой PaymentId, как в банке: повторная покупка не делит платёж с прежней.
+    const nextPaymentId = () => String(Math.floor(Math.random() * 1000000000));
+    let paymentId = nextPaymentId();
     const event = (nextStatus = status, extra = {}) => ({
       TerminalKey: config.terminalKey,
       OrderId: orderId,
@@ -196,6 +198,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         .loose()
         .parse(JSON.parse(init.body));
       if (url.endsWith("/Init")) {
+        if (initCalls > 0) paymentId = nextPaymentId();
         initCalls++;
         orderId = z.string().parse(body.OrderId);
         expect(body).toMatchObject({
@@ -261,6 +264,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       notify,
       initCalls: () => initCalls,
       stateCalls: () => stateCalls,
+      paymentId: () => paymentId,
       loseInit: () => {
         timeout = true;
       },
@@ -279,6 +283,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     setTime: (time: Date) => {
       now = time;
     },
+    time: () => now,
   };
 }
 

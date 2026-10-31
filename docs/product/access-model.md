@@ -706,6 +706,24 @@ Late partial observations cannot erase an already proven full refund. Current pr
 does not establish partial-notification Amount semantics, so no difference or zero is fabricated.
 See the [provider refund scenario](https://developer.tbank.ru/eacq/scenarios/cancel_confirm/).
 
+A bank decline (`REJECTED`, `AUTH_FAIL`, `CANCELED`, `DEADLINE_EXPIRED` or `REVERSED`) marks the
+attempt failed in Inside, but the provider can still capture the same PaymentId: on the payment
+form the buyer can pick another method after a declined one, such as a card after installments.
+An exactly verified `CONFIRMED` or full `REFUNDED` of that PaymentId therefore confirms a failed
+one-time attempt and issues its saved fulfillment. Recovery and the owner's reconciliation ask the
+bank about a failed one-time attempt with a known PaymentId. Recovery does so for 24 hours after
+creation: Init sends no `RedirectDueDate`, so the form keeps the
+[provider's default lifetime](https://developer.tbank.ru/eacq/api/init). The confirmation retires
+the same Account's unpaid repeat attempts for the same Product or the same Payment Link, so the
+buyer cannot pay twice through the newer form in Inside; the retired bank form stays payable until
+it expires. An attempt with an unknown outcome or held funds stays in reconciliation. A Payment
+Link is transferable, so another Account's attempt is never retired. While any of these attempts
+holds the link, the confirmed attempt keeps its reservation failed. A bank decline of the last
+holder confirms that reservation in the same transaction; recovery confirms it when the link was
+released another way. Every one-time confirmation checks for a second
+payment: an earlier paid purchase of the same Product by the same Account, or of the same Payment
+Link. Such a confirmation records `duplicate_payment_review` for the owner's refund decision.
+
 Fresh purchase admission and dispatch read Product acquisition state through Account Rights on the
 same transaction handle under the Account entitlement lock. Both active and owner-revoked lifetime
 state prevent another sale. Already sent attempts continue their saved recovery without another Init.
