@@ -114,7 +114,7 @@ describe("authoring source Material", () => {
       }),
     ).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
-  test("feed includes every published free Material without a source visibility flag", async () => {
+  test("feed includes an imported Material only when its source places it in the feed", async () => {
     const { authoring, publishedMaterialReader } = assembleMaterials({
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === actor },
@@ -146,6 +146,7 @@ describe("authoring source Material", () => {
         expectedContentVersion: 1,
         idempotencyKey: `feed-${identity}`,
         publicationState: "published",
+        ...(identity === "one" ? { inFeed: true } : {}),
         primaryVideoId: null,
         metadata: {
           ...metadata,
@@ -168,18 +169,19 @@ describe("authoring source Material", () => {
     expect(feed).toMatchObject({
       ok: true,
       value: {
-        totalCount: 2,
-        facets: { topics: [{ count: 2 }], formats: [{ count: 2 }] },
+        totalCount: 1,
+        items: [{ materialId: ids[0] }],
+        facets: { topics: [{ count: 1 }], formats: [{ count: 1 }] },
       },
     });
     const hiddenSearch = await publishedMaterialReader.listProjections({
       first: 12,
       feedOnly: true,
-      q: "one",
+      q: "two",
     });
     expect(hiddenSearch).toMatchObject({
       ok: true,
-      value: { totalCount: 1, items: [{ materialId: ids[0] }] },
+      value: { totalCount: 0, items: [] },
     });
   });
 

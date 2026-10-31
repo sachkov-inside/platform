@@ -26,6 +26,7 @@ import {
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import type { MaterialMutationReceiptDto } from "../../facets/material-authoring/material-authoring.contract.js";
 import {
+  canEnterFeed,
   MaterialMetadataSelection,
   type MaterialDifficulty,
   type MaterialMetadata,
@@ -70,6 +71,7 @@ const saveMaterialCommand = z
     expectedContentVersion: z.number().int().positive(),
     publicationState: z.enum(["draft", "published", "unpublished"]),
     notifyTelegram: z.boolean().optional(),
+    inFeed: z.boolean().optional(),
     primaryVideoId: z.uuid().nullable().optional().default(null),
     deleteVideoId: z.uuid().nullable().optional().default(null),
     detachVideoIds: z
@@ -149,6 +151,8 @@ export function assembleSaveMaterial(
             ...(command.notifyTelegram === undefined
               ? {}
               : { notifyTelegram: command.notifyTelegram }),
+            // Absent when omitted, so a Save recorded before the feed choice replays with its key.
+            ...(command.inFeed === undefined ? {} : { inFeed: command.inFeed }),
             metadata: selection.value.toValues(),
             body: body.value,
             primaryVideoId: command.primaryVideoId,
@@ -222,6 +226,13 @@ export function assembleSaveMaterial(
             if (locked === undefined) {
               return rollback({ code: "material_not_found" });
             }
+            // Без поля сохраняется выбор, который видит загрузка: у урока курса он выключен.
+            const currentMemberships = await dependencies.memberships.load(
+              command.materialId,
+              transactionHandle(transaction),
+            );
+            const currentInFeed =
+              locked.inFeed && canEnterFeed(locked.access, currentMemberships);
             const sourceError = checkContentWrite(
               contentWriter(source?.id ?? null),
               [
@@ -379,6 +390,16 @@ export function assembleSaveMaterial(
                 slug,
               );
             }
+            const feedEligible = materializedMetadata.canEnterFeed();
+            if (command.inFeed === true && !feedEligible) {
+              return rollback({
+                code: "invalid_content",
+                issues: [
+                  { code: "feed_requires_public_material", path: "/inFeed" },
+                ],
+              });
+            }
+            const inFeed = (command.inFeed ?? currentInFeed) && feedEligible;
             const requiresPublicationValidity =
               next.value.publicationState === "published";
             const publishable = materializedMetadata.validateForPublication();
@@ -518,6 +539,7 @@ export function assembleSaveMaterial(
                     }
                   : { slug }),
                 publicationState: next.value.publicationState,
+                inFeed,
                 contentVersion: BigInt(next.value.contentVersion),
                 firstPublishedAt: next.value.firstPublishedAt,
                 publishedAt: next.value.publishedAt,
@@ -554,6 +576,7 @@ export function assembleSaveMaterial(
                   materialId: command.materialId,
                   contentVersion: next.value.contentVersion,
                   metadata: publishable.value,
+                  inFeed,
                   publishedAt: requireDate(
                     next.value.publishedAt,
                     "publishedAt",
@@ -582,7 +605,9 @@ export function assembleSaveMaterial(
                   telegramManaged: publishable.value.access === "free",
                   telegramEnabled:
                     (command.notifyTelegram ?? locked.notifyTelegram) ===
-                      true && publishable.value.access === "free",
+                      true &&
+                    publishable.value.access === "free" &&
+                    inFeed,
                 },
                 savedAt,
               );
@@ -683,6 +708,7 @@ async function replacePublishedProjections(
       readonly title: string;
       readonly topicId: string;
     };
+    readonly inFeed: boolean;
     readonly publishedAt: Date;
     readonly publishedBy: string;
     readonly plainText: string;
@@ -699,6 +725,7 @@ async function replacePublishedProjections(
       title: values.metadata.title,
       summary: values.metadata.summary,
       access: values.metadata.access,
+      inFeed: values.inFeed,
       difficulty: values.metadata.difficulty,
       hasModeVariants: values.hasModeVariants,
       outcomes: [...values.metadata.outcomes],
@@ -716,6 +743,7 @@ async function replacePublishedProjections(
       title: values.metadata.title,
       summary: values.metadata.summary,
       access: values.metadata.access,
+      inFeed: values.inFeed,
       difficulty: values.metadata.difficulty,
       hasModeVariants: values.hasModeVariants,
       outcomes: [...values.metadata.outcomes],

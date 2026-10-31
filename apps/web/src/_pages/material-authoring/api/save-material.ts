@@ -133,6 +133,7 @@ function backendSaveInput(input: ParsedSaveMaterialInput):
       ...(input.notifyTelegram === undefined
         ? {}
         : { notifyTelegram: input.notifyTelegram }),
+      ...(input.inFeed === undefined ? {} : { inFeed: input.inFeed }),
       primaryVideoId: input.primaryVideoId,
       productIds: documentFields.productIds,
       summary: emptyToNull(input.summary),

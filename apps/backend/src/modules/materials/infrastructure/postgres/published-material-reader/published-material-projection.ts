@@ -374,7 +374,6 @@ function projectionQueries(
     const metadata = homeMetadataSchema.array().parse(rawMetadata)[0];
     if (metadata === undefined)
       throw new TypeError("Home projection metadata is missing");
-    const notes = await projectHomeFeedNotes(prisma, rawNotes);
     const previews = await selectPublishedMaterialProjectionsByIds(
       prisma,
       metadata.products.flatMap(({ previewMaterialIds }) => previewMaterialIds),
@@ -403,53 +402,13 @@ function projectionQueries(
         .parse(rawGuides)
         .slice(0, 8)
         .map(toProjection),
-      notes,
+      // Урок курса в ленту не попадает, поэтому отрывок заметки ленты всегда публичный.
+      notes: searchedPublishedMaterialProjectionRowSchema
+        .array()
+        .parse(rawNotes)
+        .slice(0, 8)
+        .map(toProjection),
     };
-  }
-
-  /** The legacy feed drops an excerpt when any active Product uses that note as a feed preview. */
-  async function projectHomeFeedNotes(
-    prisma: MaterialsPrisma,
-    rawNotes: unknown,
-  ): Promise<readonly PublishedMaterialProjectionDto[]> {
-    const notes = searchedPublishedMaterialProjectionRowSchema
-      .array()
-      .parse(rawNotes)
-      .slice(0, 8);
-    const excerptIds = notes
-      .filter((note) => note.note_excerpt != null)
-      .map((note) => note.material_id);
-    if (excerptIds.length === 0) return notes.map(toProjection);
-    // Inspect only the selected notes; do not hydrate or enrich invisible Product previews.
-    const previewNotes = z
-      .object({ material_id: z.uuid() })
-      .strict()
-      .array()
-      .parse(
-        await prisma.$queryRaw(Prisma.sql`
-      select distinct membership.material_id
-      from (${relations.publishedMemberships}) as membership
-      join (${relations.products}) as product on product.id = membership.product_id
-      where product.archived_at is null
-        and membership.material_id in (${Prisma.join(excerptIds)})
-        and (
-          select count(*)
-          from (${relations.publishedMemberships}) as earlier
-          join materials.published_materials as publication on publication.material_id = earlier.material_id
-          where earlier.product_id = membership.product_id
-            and (earlier.ordinal, earlier.material_id) < (membership.ordinal, membership.material_id)
-            and ${projectionScopeSql(true)}
-        ) < 3
-    `),
-      );
-    const previewIds = new Set(previewNotes.map((note) => note.material_id));
-    return notes.map((note) =>
-      toProjection(
-        previewIds.has(note.material_id)
-          ? { ...note, note_excerpt: null }
-          : note,
-      ),
-    );
   }
 
   function searchProjectionQuery(
@@ -1353,9 +1312,16 @@ function projectionQueries(
     };
   }
 
+  /**
+   * Лента показывает только материалы, которые автор выложил в неё (#1885). Урок курса закрыт
+   * гостю до входа через Telegram (ADR 0042), поэтому запрос исключает его и при поставленном флаге.
+   */
   function projectionScopeSql(feedOnly: boolean): Prisma.Sql {
     return feedOnly
-      ? Prisma.sql`publication.access = 'free'`
+      ? Prisma.sql`publication.in_feed and publication.access = 'free' and not exists (
+          select 1 from (${relations.memberships}) as feed_programme
+          where feed_programme.material_id = publication.material_id
+        )`
       : Prisma.sql`true`;
   }
 

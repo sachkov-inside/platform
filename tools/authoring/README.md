@@ -9,7 +9,12 @@
 из `/authoring/import/materials/environment`. Текущий контракт имеет `version: 2`. Новые запросы
 передают `source: { version: 2, id, path, revision, commit? }`, `metadata.productIds` и `productId`
 для состава Product и закрепления на Home. Чтение принадлежности использует `productMemberships`.
-Предпросмотр больше не предлагает изменение появления в ленте.
+
+Материал выходит в ленту только по выбору автора: необязательное поле `inFeed` материала
+([ADR 0043](../../docs/adr/0043-feed-holds-explicitly-placed-materials.md)). Пакет без поля
+оставляет выбор получателя как есть. Platform принимает `inFeed: true` только у бесплатного
+материала вне Products. Предпросмотр релиза показывает изменение выбора в `feedChange`.
+Сохранение без изменений (preservation) отказывается менять ленту.
 
 ## Исторические пакеты и неизвестный результат запроса
 
