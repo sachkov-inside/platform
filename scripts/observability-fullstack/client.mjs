@@ -77,7 +77,11 @@ const privateTokens = () => {
     return raw["tokens"];
   });
 };
+// The fullstack runner publishes accounts once before load phases.
+/** @type {ReadonlyArray<string> | undefined} */
+let accounts;
 const privateAccounts = () => {
+  if (accounts !== undefined) return accounts;
   const text = clientWork(2, () =>
     readFileSync("/private/accounts.json", "utf8"),
   );
@@ -89,8 +93,16 @@ const privateAccounts = () => {
       !raw.every((value) => typeof value === "string")
     )
       throw new Error("256 private Account identities required");
-    return raw;
+    accounts = Object.freeze(raw);
+    return accounts;
   });
+};
+// extra.py publishes this public CA once. Every request owns a mutable copy.
+/** @type {Buffer | undefined} */
+let ca;
+const publicCa = () => {
+  ca ??= readFileSync("/private/caddy-root.pem");
+  return Buffer.from(ca);
 };
 const analytics = () => {
   const raw = parse(readFileSync("/private/umami.json", "utf8"));
@@ -235,9 +247,7 @@ async function call(
         {
           ...(tls
             ? {
-                ca: clientWork(4, () =>
-                  readFileSync("/private/caddy-root.pem"),
-                ),
+                ca: clientWork(4, publicCa),
                 servername: host,
               }
             : {}),
@@ -635,7 +645,6 @@ async function operation(
   observer = undefined,
 ) {
   const actor = (cohort * 50 + Math.floor(index / 8)) % profile.accounts;
-  const bearer = privateTokens()[actor];
   const kind = index % 8;
   if (kind === 0)
     return {
@@ -689,7 +698,7 @@ async function operation(
         "GET",
         undefined,
         {
-          authorization: "Bearer " + bearer,
+          authorization: "Bearer " + privateTokens()[actor],
         },
         1_048_576,
         observer,
@@ -714,7 +723,7 @@ async function operation(
           },
         },
         {
-          authorization: "Bearer " + bearer,
+          authorization: "Bearer " + privateTokens()[actor],
           accept: "application/json, text/event-stream",
           host: "api.resource.test",
         },
@@ -888,6 +897,9 @@ async function load(definition, enabled, pair, diagnosticOrdinal) {
   clientTiming = timing;
   timing.startGc();
   try {
+    // Preserve private-fixture admission before any nonempty load transport.
+    // Bearer consumers still read their current tokens independently.
+    if (definition.requests_per_second > 0) privateTokens();
     const occupancy = slotOccupancy(phase, enabled, start);
     /** @type {{label:string,elapsed_ms:number}[]} */ const latency = [];
     /** @type {number[]} */ const querySeconds = [];

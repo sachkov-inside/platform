@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import { readFile, rm, stat, writeFile } from "node:fs/promises";
+import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
@@ -117,6 +117,23 @@ function sourceVector(ready = 2) {
     },
   };
 }
+let generation = 0;
+const tokenPath = join(directory, "rotating-tokens.json");
+const readReceipt = join(directory, "fixture-reads.json");
+async function publishTokens() {
+  await writeFile(
+    tokenPath + ".new",
+    JSON.stringify({
+      tokens: Array.from(
+        { length: 256 },
+        (_, index) => `synthetic-${generation}-${index}`,
+      ),
+    }),
+  );
+  await rename(tokenPath + ".new", tokenPath);
+}
+await publishTokens();
+let refreshedConsumers = 0;
 const server = createServer(async (request, response) => {
   const host = String(request.headers["x-fixture-host"]);
   counts[host] = (counts[host] ?? 0) + 1;
@@ -137,6 +154,18 @@ const server = createServer(async (request, response) => {
   let body = "";
   for await (const chunk of request) body += String(chunk);
   let status = 200;
+  if (
+    host === "mcp" ||
+    (host === "api.resource.test" && request.url === "/accounts/current")
+  ) {
+    const bearer = String(request.headers.authorization);
+    if (!bearer.startsWith(`Bearer synthetic-${generation}-`)) status = 401;
+    else if (generation === 1) refreshedConsumers++;
+    if (host === "mcp" && generation === 0) {
+      generation = 1;
+      await publishTokens();
+    }
+  }
   /** @type {unknown} */ let value;
   if (host === "alloy") {
     // deterministic-test-allow duration-wait: model the actual probe prelude in the externally owned HTTP contract; it must remain outside application HTTP timing.
@@ -310,7 +339,8 @@ else
     await writeFile(
       loader,
       `import fs from 'node:fs';import http from 'node:http';import https from 'node:https';import timers from 'node:timers/promises';import {syncBuiltinESMExports} from 'node:module';
-const read=fs.readFileSync;fs.readFileSync=(p,...a)=>{if(${technicalScope}&&p==='/private/umami.json')throw new Error('technical analytics identity forbidden');return p==='/resource/full-profile.json'?read(${JSON.stringify(profile)},...a):p==='/private/token.json'?JSON.stringify({tokens:Array.from({length:256},(_,index)=>'synthetic-'+index)}):p==='/private/accounts.json'?JSON.stringify(Array(256).fill(${JSON.stringify(account)})):p==='/private/caddy-root.pem'?'unused':p==='/query/key'?'synthetic':p==='/private/umami.json'?JSON.stringify({site:'synthetic',key:'synthetic'}):read(p,...a);};
+const reads=[0,0,0];const read=fs.readFileSync;fs.readFileSync=(p,...a)=>{const index=['/private/token.json','/private/accounts.json','/private/caddy-root.pem'].indexOf(p);if(index>=0)reads[index]++;if(${technicalScope}&&p==='/private/umami.json')throw new Error('technical analytics identity forbidden');return p==='/resource/full-profile.json'?read(${JSON.stringify(profile)},...a):p==='/private/token.json'?read(${JSON.stringify(tokenPath)},...a):p==='/private/accounts.json'?JSON.stringify(Array(256).fill(${JSON.stringify(account)})):p==='/private/caddy-root.pem'?Buffer.from('unused'):p==='/query/key'?'synthetic':p==='/private/umami.json'?JSON.stringify({site:'synthetic',key:'synthetic'}):read(p,...a);};
+process.on('exit',()=>fs.writeFileSync(${JSON.stringify(readReceipt)},JSON.stringify(reads)));
 const timer=timers.setTimeout;let requested=0,selected=false,completed=0,overflow=0;timers.setTimeout=(ms,...a)=>{if(ms===500){if(requested<128)requested++;else overflow=1;if(${enabled && !queryFailures}&&!selected){selected=true;return timer(0,...a).then(value=>{completed=1;return value;});}}return timer(ms,...a);};process.on('exit',()=>fs.writeFileSync(${JSON.stringify(timerReceipt)},JSON.stringify([requested,completed,overflow])));
 const request=http.request;const mapped=(o,cb)=>{if(${technicalScope}&&o.hostname.startsWith('umami'))throw new Error('technical analytics transport forbidden');if(!['site.resource.test','api.resource.test','mcp','telegram','logto','alloy','gateway','umami-query','umami-ingest'].includes(o.hostname))throw new Error('fixture target');return request({...o,hostname:'127.0.0.1',port:${address.port},headers:{...o.headers,'x-fixture-host':o.hostname}},cb);};http.request=mapped;https.request=mapped;syncBuiltinESMExports();`,
     );
@@ -447,7 +477,22 @@ const request=http.request;const mapped=(o,cb)=>{if(${technicalScope}&&o.hostnam
         assert.ok(typeof kind === "number" && kind >= 0 && kind <= 9);
         workCounts[kind]++;
       }
-      assert.deepEqual(workCounts.slice(0, 5), [400, 400, 50, 50, 200]);
+      assert.equal(
+        generation,
+        1,
+        "actual MCP triggers atomic provider replacement",
+      );
+      assert.equal(
+        refreshedConsumers,
+        98,
+        "both bearer consumers use replacement tokens",
+      );
+      assert.deepEqual(
+        JSON.parse(await readFile(readReceipt, "utf8")),
+        [101, 1, 1],
+        "physical reads follow bearer consumers and immutable fixtures",
+      );
+      assert.deepEqual(workCounts.slice(0, 5), [101, 101, 1, 1, 200]);
       assert.equal(field(field(timing, "client_work"), "overflow"), 0);
       assert.equal(field(field(timing, "client_work"), "invalid"), 0);
     }
@@ -611,6 +656,11 @@ const request=http.request;const mapped=(o,cb)=>{if(${technicalScope}&&o.hostnam
       assert.equal(JSON.stringify(result).includes("private-sentinel"), false);
       const timings = field(result, "query_seconds");
       assert.ok(Array.isArray(timings) && timings.length > 0);
+      assert.deepEqual(
+        JSON.parse(await readFile(readReceipt, "utf8")),
+        [0, 0, 0],
+        "idle load needs no private tokens, accounts or CA",
+      );
       assert.equal(result.scheduled, 0);
       assert.equal(result.success, 0);
       console.log(
@@ -742,9 +792,135 @@ function diagnosticScalars(value) {
   );
 }
 
+/** Actual CLI rejects malformed credentials before transport or at the next bearer consumer. */
+async function tokenFailureContract() {
+  assert.ok(directory);
+  const tokens = join(directory, "failure-tokens.json");
+  const loader = join(directory, "failure-preload.mjs");
+  let requests = 0,
+    bearerConsumers = 0;
+  /** @type {string | undefined} */ let replacement;
+  const listener = createServer(async (request, response) => {
+    requests++;
+    if (request.url === "/accounts/current") {
+      bearerConsumers++;
+      assert.equal(request.headers.authorization, "Bearer synthetic-current");
+      if (replacement === undefined) await rm(tokens);
+      else {
+        await writeFile(tokens + ".new", replacement);
+        await rename(tokens + ".new", tokens);
+      }
+      response.end(JSON.stringify({ account: { accountId: account } }));
+    } else if (request.url === "/")
+      response.end('<html><body class="home-page">Главная</body></html>');
+    else if (request.url?.startsWith("/materials/"))
+      response.end("<h1>Synthetic 2</h1>");
+    else {
+      assert.equal(request.url, "/library/site-index");
+      response.end(
+        JSON.stringify({
+          items: [],
+          nextCursor: null,
+          productSlugs: [],
+          topicSlugs: [],
+        }),
+      );
+    }
+  });
+  try {
+    listener.listen(0, "127.0.0.1");
+    await once(listener, "listening");
+    const address = listener.address();
+    assert.ok(address && typeof address !== "string");
+    await writeFile(
+      loader,
+      `import fs from 'node:fs';import http from 'node:http';import https from 'node:https';import {syncBuiltinESMExports} from 'node:module';
+const read=fs.readFileSync;fs.readFileSync=(path,...args)=>path==='/resource/full-profile.json'?read(${JSON.stringify(profile)},...args):path==='/private/token.json'?read(${JSON.stringify(tokens)},...args):path==='/private/accounts.json'?JSON.stringify(Array(256).fill(${JSON.stringify(account)})):path==='/private/caddy-root.pem'?Buffer.from('unused'):read(path,...args);
+const request=http.request;http.request=https.request=(options,callback)=>{if(!['site.resource.test','api.resource.test','mcp'].includes(options.hostname))throw new Error('fixture target');return request({...options,hostname:'127.0.0.1',port:${address.port}},callback);};syncBuiltinESMExports();`,
+    );
+    const valid = JSON.stringify({
+      tokens: Array(256).fill("synthetic-current"),
+    });
+    /** @type {(string | undefined)[]} */ const invalid = [
+      "{",
+      JSON.stringify({ tokens: Array(255).fill("synthetic-current") }),
+      JSON.stringify({
+        tokens: Array.from({ length: 256 }, (_, index) =>
+          index === 255 ? 1 : "synthetic-current",
+        ),
+      }),
+      undefined,
+    ];
+    for (const refreshed of [false, true]) {
+      for (const text of invalid) {
+        requests = 0;
+        bearerConsumers = 0;
+        replacement = text;
+        const initial = refreshed ? valid : text;
+        if (initial === undefined) await rm(tokens, { force: true });
+        else await writeFile(tokens, initial);
+        // deterministic-test-allow process-cleanup: inherited child stays in the externally owned worker group; finally reaps it before socket cleanup.
+        child = spawn(
+          process.execPath,
+          [
+            "--import",
+            loader,
+            client,
+            "load",
+            JSON.stringify({
+              name: "spike",
+              seconds: 10,
+              requests_per_second: 10,
+            }),
+            refreshed ? "off" : "on",
+            "0",
+          ],
+          { stdio: ["ignore", "pipe", "pipe"] },
+        );
+        closed = once(child, "close");
+        let stdout = "",
+          stderr = "";
+        child.stdout?.on("data", (chunk) => {
+          stdout += String(chunk);
+          if (Buffer.byteLength(stdout) > 65536) child?.kill("SIGKILL");
+        });
+        child.stderr?.on("data", (chunk) => {
+          stderr += String(chunk);
+          if (Buffer.byteLength(stderr) > 65536) child?.kill("SIGKILL");
+        });
+        const [code] = await closed;
+        assert.equal(
+          code,
+          1,
+          "malformed/missing private tokens must fail the actual CLI",
+        );
+        assert.equal(stdout, "");
+        assert.ok(
+          !stderr.includes("synthetic-current"),
+          "no bearer bytes in failure output",
+        );
+        assert.equal(
+          requests,
+          refreshed ? 4 : 0,
+          "initial admission precedes all HTTP; replacement fails before MCP HTTP",
+        );
+        assert.equal(bearerConsumers, refreshed ? 1 : 0);
+      }
+    }
+  } finally {
+    if (child && child.exitCode === null && child.signalCode === null)
+      child.kill("SIGKILL");
+    await closed?.catch(() => {});
+    listener.closeAllConnections();
+    if (listener.listening)
+      await new Promise((resolve) => listener.close(() => resolve(undefined)));
+  }
+}
+
 /** Real TLS and actual client functions, with only private-file and destination routing doubled. */
 async function webTransportContract() {
   assert.ok(directory);
+  await tokenFailureContract();
   const { execFileSync } = await import("node:child_process");
   const fs = (await import("node:fs")).default;
   const https = (await import("node:https")).default;
@@ -766,6 +942,12 @@ async function webTransportContract() {
   let releaseHeaders = () => {},
     releaseBody = () => {},
     received = () => {};
+  let accountText = "{",
+    accountReadFailure = false,
+    caReadFailure = true;
+  let accountReads = 0,
+    caReads = 0;
+  /** @type {Buffer[]} */ const suppliedCa = [];
   let behavior = "ok",
     automatic = false,
     connections = 0,
@@ -789,9 +971,16 @@ async function webTransportContract() {
       return;
     }
     await headers;
-    res.writeHead(incoming.url === "/webhooks/telegram" ? 202 : 200, {
-      "content-type": "text/html",
-    });
+    res.writeHead(
+      behavior === "unauthorized"
+        ? 401
+        : incoming.url === "/webhooks/telegram"
+          ? 202
+          : 200,
+      {
+        "content-type": "text/html",
+      },
+    );
     res.flushHeaders();
     await body;
     if (behavior === "response-error") {
@@ -861,8 +1050,17 @@ async function webTransportContract() {
     const plainAddress = plain.address();
     assert.ok(plainAddress && typeof plainAddress !== "string");
     /** @param {import("node:fs").PathOrFileDescriptor} path @param {Parameters<typeof read>[1]} options */
-    const mappedRead = (path, options) =>
-      path === "/resource/full-profile.json"
+    const mappedRead = (path, options) => {
+      if (path === "/private/caddy-root.pem") {
+        caReads++;
+        if (caReadFailure) throw new Error("synthetic CA read failure");
+      }
+      if (path === "/private/accounts.json") {
+        accountReads++;
+        if (accountReadFailure)
+          throw new Error("synthetic accounts read failure");
+      }
+      return path === "/resource/full-profile.json"
         ? read(profile, options)
         : path === "/private/caddy-root.pem"
           ? ca
@@ -871,7 +1069,7 @@ async function webTransportContract() {
                 tokens: Array(256).fill("private-token-sentinel"),
               })
             : path === "/private/accounts.json"
-              ? JSON.stringify(Array(256).fill(account))
+              ? accountText
               : path === "/query/key"
                 ? "private-query-sentinel"
                 : path === "/private/umami.json"
@@ -880,6 +1078,7 @@ async function webTransportContract() {
                       key: "private-query-sentinel",
                     })
                   : read(path, options);
+    };
     assert.ok(Reflect.set(fs, "readFileSync", mappedRead));
     /** @param {import("node:https").RequestOptions} options @param {(response:import("node:http").IncomingMessage)=>void} callback */
     const mappedRequest = (options, callback) => {
@@ -892,6 +1091,12 @@ async function webTransportContract() {
       assert.equal(options.servername, options.hostname);
       assert.equal(options.agent, false);
       assert.deepEqual(options.ca, ca);
+      assert.ok(Buffer.isBuffer(options.ca));
+      assert.ok(
+        !suppliedCa.includes(options.ca),
+        "each request owns a separate CA Buffer",
+      );
+      suppliedCa.push(options.ca);
       assert.equal(options.method, "GET");
       assert.deepEqual(
         options.headers,
@@ -955,7 +1160,7 @@ async function webTransportContract() {
     await writeFile(
       modulePath,
       source +
-        "\nexport {call,operation,readMonitoring};export function recording(timing){clientTiming=timing;}\n",
+        "\nexport {call,operation,readMonitoring,privateAccounts};export function recording(timing){clientTiming=timing;}\n",
     );
     /** @type {unknown} */ const actual = await import(
       pathToFileURL(modulePath).href
@@ -974,6 +1179,43 @@ async function webTransportContract() {
       );
       return value;
     }
+    for (const text of [
+      "{",
+      "{}",
+      JSON.stringify(Array(255).fill(account)),
+      JSON.stringify(
+        Array.from({ length: 256 }, (_, index) =>
+          index === 255 ? 1 : account,
+        ),
+      ),
+    ]) {
+      accountText = text;
+      await assert.rejects(invoke("privateAccounts", []));
+    }
+    accountReadFailure = true;
+    await assert.rejects(
+      invoke("privateAccounts", []),
+      /synthetic accounts read failure/u,
+    );
+    accountReadFailure = false;
+    accountText = JSON.stringify(Array(256).fill(account));
+    const identities = await invoke("privateAccounts", []);
+    assert.ok(Array.isArray(identities) && Object.isFrozen(identities));
+    assert.deepEqual(identities, Array(256).fill(account));
+    assert.equal(Reflect.set(identities, "0", "changed"), false);
+    accountText = "{}";
+    assert.equal(await invoke("privateAccounts", []), identities);
+    assert.equal(
+      accountReads,
+      6,
+      "only validated identities populate the immutable cache",
+    );
+    await assert.rejects(
+      invoke("operation", [0, false, 2]),
+      /synthetic CA read failure/u,
+    );
+    assert.equal(seen.length, 0, "failed CA read must precede TLS transport");
+    caReadFailure = false;
     const origin = performance.now(),
       timing = phaseTiming(2, 0, origin, Date.now(), performance.now());
     let arrived = () => {};
@@ -1024,6 +1266,9 @@ async function webTransportContract() {
     assert.equal(field(result, "seconds"), (ended - started) / 1000);
     assert.equal(connections, 1);
     assert.equal(requests, 1);
+    const firstCa = suppliedCa[0];
+    assert.ok(firstCa);
+    firstCa.fill(0);
     assert.equal(leaf.state, "complete");
     assert.equal(JSON.stringify(leaf).includes("private"), false);
     const catalog = timing.requestTransport(2, 2);
@@ -1190,6 +1435,20 @@ async function webTransportContract() {
     behavior = "ok";
     automatic = true;
     received = () => {};
+    behavior = "unauthorized";
+    const refused = await invoke("operation", [3, false, 2]);
+    assert.equal(field(refused, "status"), 401);
+    const { operationOk } = await import("./responses.mjs");
+    assert.equal(
+      operationOk(
+        { status: 401, value: field(refused, "value") },
+        "api_account",
+        account,
+      ),
+      false,
+      "valid but rejected bearer cannot count as success",
+    );
+    behavior = "ok";
     /** @type {Record<string,number>[]} */ const overhead = [];
     for (const mode of [0, 1, 1, 0]) {
       const origin = performance.now(),
@@ -1248,6 +1507,11 @@ async function webTransportContract() {
     );
     assert.equal(connections, seen.length);
     assert.equal(requests, seen.length + plainSeen.length);
+    assert.equal(
+      caReads,
+      2,
+      "failed read is retried; successful immutable CA is read once",
+    );
     for (const req of [...seen, ...plainSeen]) {
       assert.equal(req.listenerCount("socket"), 0);
       assert.ok(req.listenerCount("finish") <= 1);
