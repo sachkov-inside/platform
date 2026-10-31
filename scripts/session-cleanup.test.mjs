@@ -489,7 +489,34 @@ test("printed command lines mask credential values", () => {
     ),
     "node seed.js --token=*** --db postgres://app:***@localhost/db API_KEY=***",
   );
+  assert.equal(
+    redact(
+      "curl -H Authorization: Bearer abc.def gh --with ghp_abcdef123 --key k1",
+    ),
+    "curl -H Authorization: Bearer *** gh --with *** --key ***",
+  );
 });
+
+test(
+  "JSON output masks credential values in command lines",
+  budget,
+  async (t) => {
+    const context = fixture(t);
+    context.processes.push(
+      proc(1101, "node server.js --password=hunter2", context.primary, {
+        ports: [3000],
+      }),
+    );
+
+    await context.run(["--json"]);
+
+    assert.match(
+      context.output,
+      /"args": "node server\.js --password=\*\*\*"/u,
+    );
+    assert.doesNotMatch(context.output, /hunter2/u);
+  },
+);
 
 test(
   "unavailable GitHub keeps every candidate and reports the reason",
@@ -766,6 +793,82 @@ test(
       /keep\s+PID 31 node storybook dev -p 6006 .*: runs in the current worktree/u,
     );
     assert.doesNotMatch(context.output, /PID (10|20|21|30|999999) /u);
+  },
+);
+
+test(
+  "Orca workspaces of other repositories are not worktree roots",
+  budget,
+  async (t) => {
+    const context = fixture(t);
+    const foreign = join(context.root, "orca-workspaces", "other-repo", "task");
+    context.orcaPaths.add(foreign);
+    context.processes.push(
+      proc(
+        1201,
+        "node other-dev",
+        join(context.root, "orca-workspaces", "other-repo", "gone"),
+      ),
+    );
+
+    await context.run([]);
+
+    assert.doesNotMatch(context.output, /PID 1201/u);
+  },
+);
+
+test(
+  "session-end names a merged current worktree instead of reporting unpublished work",
+  budget,
+  async (t) => {
+    const context = fixture(t);
+    const current = context.worktree("feat/24-merged");
+    context.pull("feat/24-merged", { commits: [current.head] });
+
+    const status = await context.run(["--session-end"], { cwd: current.path });
+
+    assert.equal(status, 1);
+    assert.match(
+      context.output,
+      /This worktree: merged PR #100 contains HEAD; a later cleanup run removes this worktree\./u,
+    );
+    assert.doesNotMatch(context.output, /not on any remote branch/u);
+  },
+);
+
+test(
+  "ignored .env files inside ignored directories keep a worktree",
+  budget,
+  async (t) => {
+    const context = fixture(t);
+    const task = context.worktree("feat/25-local");
+    writeFileSync(join(task.path, ".gitignore"), ".local/\n");
+    git(task.path, ["add", "."]);
+    git(task.path, ["commit", "-q", "-m", "ignore local"]);
+    context.pull("feat/25-local", {
+      commits: [git(task.path, ["rev-parse", "HEAD"])],
+    });
+    mkdirSync(join(task.path, ".local"));
+    writeFileSync(join(task.path, ".local", ".env"), "LOCAL=1");
+
+    await context.run([]);
+
+    assert.match(
+      context.output,
+      /keep\s+\S+feat-25-local .*ignored local files: \.local\/\.env/u,
+    );
+  },
+);
+
+test(
+  "session-end stays silent without candidates even when Docker is unavailable",
+  budget,
+  async (t) => {
+    const context = fixture(t);
+    context.state.docker = new Error("Cannot connect to the Docker daemon");
+
+    assert.equal(await context.run(["--session-end"]), 0);
+    assert.equal(context.output, "");
   },
 );
 

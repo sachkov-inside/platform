@@ -80,19 +80,22 @@ export const temporaryRules = [
   { prefix: "session-cleanup-", source: "scripts/session-cleanup.test.mjs" },
 ];
 
-/** Executable names of agent sessions and of Orca's agent launcher. */
-const agentExecutables = new Set([
+/** Executable names of agent sessions. */
+const agentNames = [
   "claude",
   "codex",
   "opencode",
   "gemini",
   "cursor-agent",
   "aider",
-  "Orca",
-]);
+];
+/** Agent executables, plus Orca's agent launcher. */
+const agentExecutables = new Set([...agentNames, "Orca"]);
 /** Agents started through an interpreter show up only in their arguments. */
-const agentArguments =
-  /(?:^|\/)(?:claude|codex|opencode|gemini|cursor-agent|aider)(?:\.[cm]?js)?(?:\s|$)|@anthropic-ai\/claude-code|@openai\/codex|@google\/gemini-cli/u;
+const agentArguments = new RegExp(
+  `(?:^|/)(?:${agentNames.join("|")})(?:\\.[cm]?js)?(?:\\s|$)|@anthropic-ai/claude-code|@openai/codex|@google/gemini-cli`,
+  "u",
+);
 const shellExecutables = new Set([
   "zsh",
   "bash",
@@ -102,6 +105,8 @@ const shellExecutables = new Set([
   "ksh",
   "tcsh",
 ]);
+const dockerUnknown = "Docker unavailable; Compose use is unknown";
+const unpublished = "HEAD is not on any remote branch";
 /** Ignored files that hold local work or configuration rather than build output. */
 const ignoredLocalWork = /(?:^|\/)\.env[^/]*$|^\.reports(?:\/|$)/u;
 
@@ -173,7 +178,7 @@ export async function runSessionCleanup(options) {
   if (!values.apply) {
     options.write(
       values.json
-        ? `${JSON.stringify(plan, null, 2)}\n`
+        ? `${JSON.stringify(plan, redactArguments, 2)}\n`
         : formatPlan(plan, false),
     );
     return 0;
@@ -181,7 +186,7 @@ export async function runSessionCleanup(options) {
   const failures = await applyPlan(plan, options);
   options.write(
     values.json
-      ? `${JSON.stringify({ ...plan, failures }, null, 2)}\n`
+      ? `${JSON.stringify({ ...plan, failures }, redactArguments, 2)}\n`
       : formatPlan(plan, true),
   );
   for (const failure of failures) options.write(`failed  ${failure}\n`);
@@ -221,7 +226,10 @@ async function planCleanup(options) {
   const primary = registered[0]?.path;
   if (!primary) throw new Error("git reported no worktrees");
 
-  const [processList, orcaPaths, composeDirectories] = await Promise.all([
+  const worktreePaths = registered.map((entry) => entry.path);
+  /** @type {string | undefined} */
+  let dockerError;
+  const [processList, orcaListed, composeDirectories] = await Promise.all([
     options.processes.list().catch((/** @type {unknown} */ error) => {
       warnings.push(
         `process list unavailable; no process is stopped and every worktree is kept: ${message(error)}`,
@@ -235,17 +243,19 @@ async function planCleanup(options) {
     options.docker
       .composeDirectories()
       .catch((/** @type {unknown} */ error) => {
-        warnings.push(
-          `Docker unavailable; Compose use is unknown, so candidate worktrees are kept: ${message(error)}`,
-        );
+        dockerError = message(error);
         return null;
       }),
   ]);
+  // Orca lists the workspaces of every repository; only this repository's worktrees count.
+  const orcaPaths =
+    orcaListed &&
+    new Set([...orcaListed].filter((path) => worktreePaths.includes(path)));
   const sessionTree = processTree(processList ?? [], options.selfPid);
   const processes = (processList ?? []).filter((p) => !sessionTree.has(p.pid));
   const context = {
     current,
-    worktreePaths: registered.map((entry) => entry.path),
+    worktreePaths,
     processes,
     orcaPaths,
     composeDirectories,
@@ -270,8 +280,47 @@ async function planCleanup(options) {
     if (plan.action === "keep" && !plan.reason && entry.branch)
       pending.set(entry.branch, plan);
   }
+  if (worktrees.some((w) => w.reason === dockerUnknown))
+    warnings.push(
+      `Docker unavailable; Compose use is unknown, so candidate worktrees are kept: ${dockerError}`,
+    );
+  const currentEntry = registered.find((entry) => entry.path === current);
+  const currentState =
+    current && current !== primary
+      ? await worktreeState(current, { requirePublished: true })
+      : [];
+  // A squash-merged branch is preserved by its PR even after its remote branch is deleted.
+  const currentBranch = currentState.includes(unpublished)
+    ? currentEntry?.branch
+    : undefined;
+  const requested = new Set(pending.keys());
+  if (currentBranch) requested.add(currentBranch);
+  /** @type {Map<string, PullRequest[]> | undefined} */
+  let pulls;
+  if (requested.size)
+    pulls = await options.github
+      .pullRequests(requested)
+      .catch((/** @type {unknown} */ error) => {
+        warnings.push(`GitHub PR data unavailable: ${message(error)}`);
+        return undefined;
+      });
   if (pending.size)
-    await decideByPullRequests(repository, pending, options.github, warnings);
+    await decideByPullRequests(repository, pending, pulls, warnings);
+  const currentMerge =
+    currentBranch &&
+    pulls
+      ?.get(currentBranch)
+      ?.find(
+        (pull) =>
+          pull.state === "MERGED" &&
+          pull.commits.includes(currentEntry?.head ?? ""),
+      );
+  if (currentMerge)
+    currentState.splice(
+      currentState.indexOf(unpublished),
+      1,
+      `merged PR #${currentMerge.number} contains HEAD; a later cleanup run removes this worktree`,
+    );
   for (const plan of pending.values()) {
     if (plan.action !== "remove") continue;
     const tracked = await options.tracker
@@ -304,7 +353,7 @@ async function planCleanup(options) {
   const kept = new Set(
     worktrees.filter((w) => w.action === "keep").map((w) => w.path),
   );
-  const roots = worktreeRoots(primary, context.worktreePaths, orcaPaths);
+  const roots = worktreeRoots(primary, worktreePaths, orcaPaths);
   /** @type {ProcessPlan[]} */
   const processPlans = processes.flatMap((process) => {
     const worktree = deepestContaining(context.worktreePaths, process.cwd);
@@ -346,10 +395,6 @@ async function planCleanup(options) {
       notices.push(
         `Compose project ${compose.project} refers to missing ${compose.directory}; its containers and volumes follow docs/runbooks/local-stand.md`,
       );
-  const currentState =
-    current && current !== primary
-      ? await worktreeState(current, { requirePublished: true })
-      : [];
   return {
     primary,
     current,
@@ -414,8 +459,7 @@ async function planWorktree(entry, context) {
       ? decide("keep", "Orca worktree directory is missing; remove it in Orca")
       : decide("prune", "directory is missing; prune its registration");
   if (!entry.branch) return decide("keep", "detached HEAD has no PR");
-  if (context.composeDirectories === null)
-    return decide("keep", "Docker unavailable; Compose use is unknown");
+  if (context.composeDirectories === null) return decide("keep", dockerUnknown);
   const local = await worktreeState(entry.path);
   if (local.length) return decide("keep", local.join("; "));
   return decide("keep", "");
@@ -466,19 +510,14 @@ function planProcess(process, worktree, context) {
 }
 
 /**
- * One GraphQL request decides every candidate branch; a missing answer keeps the worktree.
+ * Decides every candidate branch from the run's single GraphQL answer; no answer keeps them all.
  * @param {string} repository
  * @param {Map<string, WorktreePlan>} pending
- * @param {Adapters["github"]} github
+ * @param {Map<string, PullRequest[]> | undefined} pulls
  * @param {string[]} warnings
  */
-async function decideByPullRequests(repository, pending, github, warnings) {
-  /** @type {Map<string, PullRequest[]>} */
-  let pulls;
-  try {
-    pulls = await github.pullRequests(new Set(pending.keys()));
-  } catch (error) {
-    warnings.push(`GitHub PR data unavailable: ${message(error)}`);
+async function decideByPullRequests(repository, pending, pulls, warnings) {
+  if (!pulls) {
     for (const plan of pending.values()) plan.reason = "PR data unavailable";
     return;
   }
@@ -600,19 +639,24 @@ async function worktreeState(path, { requirePublished = false } = {}) {
       ]);
       if (existsSync(markerPath)) return [`${operation} in progress`];
     }
+    // The pathspec also finds matches inside wholly ignored directories.
     const ignored = await gitText(path, [
       "ls-files",
       "--others",
       "--ignored",
       "--exclude-standard",
-      "--directory",
+      "--",
+      ":(glob)**/.env*",
+      ":(glob).reports/**",
     ]);
     const local = ignored
       .split("\n")
       .map((line) => line.replace(/\/$/u, ""))
       .filter((line) => ignoredLocalWork.test(line));
     if (local.length)
-      return [`ignored local files: ${local.slice(0, 3).join(", ")}`];
+      return [
+        `ignored local files: ${[...new Set(local.map((line) => line.replace(/^(\.reports)\/.*$/u, "$1")))].slice(0, 3).join(", ")}`,
+      ];
     if (!requirePublished) return [];
     const published = await gitText(path, [
       "for-each-ref",
@@ -622,7 +666,7 @@ async function worktreeState(path, { requirePublished = false } = {}) {
       "--format=%(refname)",
       "refs/remotes",
     ]);
-    return published ? [] : ["HEAD is not on any remote branch"];
+    return published ? [] : [unpublished];
   } catch (error) {
     return [`git state unreadable: ${message(error)}`];
   }
@@ -837,13 +881,20 @@ function describeProcess(p) {
   return `PID ${p.pid} ${shown} (cwd ${p.cwd}${p.ports.length ? `, ports ${p.ports.join(", ")}` : ""})`;
 }
 
+/** JSON replacer that masks printed command lines; the plan keeps exact ones for identity checks. @param {string} key @param {unknown} value */
+function redactArguments(key, value) {
+  return key === "args" && typeof value === "string" ? redact(value) : value;
+}
+
 /** Masks argument values that look like credentials before a command line is printed. @param {string} args */
 export function redact(args) {
   return args
+    .replace(/(\bBearer\s+)\S+/giu, "$1***")
     .replace(
-      /(\b[\w.-]*(?:token|secret|password|passwd|apikey|api-key|api_key|auth|credential)[\w.-]*(?:=|:|\s+))\S+/giu,
+      /(\b[\w.-]*(?:token|secret|password|passwd|key|auth|credential)[\w.-]*(?:=|:|\s+))(?!\*\*\*)\S+/giu,
       "$1***",
     )
+    .replace(/\b(?:gh[pousr]_|github_pat_|sk-|xox[abpr]-)[\w-]+/gu, "***")
     .replace(/(\/\/[^/\s:@]+:)[^@\s]+@/gu, "$1***@");
 }
 
@@ -1032,13 +1083,19 @@ async function commandText(command, args, cwd) {
   return stdout;
 }
 
-/** @param {unknown} error */
-function missingCommand(error) {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "ENOENT"
+/** Runs a host CLI that may be absent; undefined when it is not installed. @param {string} command @param {string[]} args @param {string} [cwd] */
+async function optionalCommand(command, args, cwd) {
+  return commandText(command, args, cwd).catch(
+    (/** @type {unknown} */ error) => {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "ENOENT"
+      )
+        return undefined;
+      throw error;
+    },
   );
 }
 
@@ -1131,9 +1188,11 @@ export function processAdapter({
   const describe = async (pids) => {
     const [commandOutput, argsOutput] = await Promise.all([
       commandText("ps", ["-ww", "-o", "pid=,ppid=,comm=", ...pids]).catch(
-        psOutput,
+        partialOutput,
       ),
-      commandText("ps", ["-ww", "-o", "pid=,args=", ...pids]).catch(psOutput),
+      commandText("ps", ["-ww", "-o", "pid=,args=", ...pids]).catch(
+        partialOutput,
+      ),
     ]);
     /** @type {Map<number, { ppid: number; command: string; args: string }>} */
     const rows = new Map();
@@ -1166,7 +1225,7 @@ export function processAdapter({
         "-p",
         String(pid),
         "-Fpn",
-      ]).catch(lsofOutput),
+      ]).catch(partialOutput),
     ).get(pid);
   return {
     async list() {
@@ -1179,7 +1238,7 @@ export function processAdapter({
           "-u",
           user,
           "-Fpn",
-        ]).catch(lsofOutput),
+        ]).catch(partialOutput),
         commandText("lsof", [
           "-w",
           "-nP",
@@ -1189,7 +1248,7 @@ export function processAdapter({
           "-u",
           user,
           "-Fpn",
-        ]).catch(lsofOutput),
+        ]).catch(partialOutput),
       ]);
       const cwds = lsofRecords(cwdOutput);
       const rows = await describe(["-ax"]);
@@ -1245,8 +1304,8 @@ export function processAdapter({
   };
 }
 
-/** ps exits 1 when a selected PID is gone. @param {unknown} error */
-function psOutput(error) {
+/** ps exits 1 when a selected PID is gone and lsof when some processes are unreadable; both still print the rest. @param {unknown} error */
+function partialOutput(error) {
   if (
     typeof error === "object" &&
     error !== null &&
@@ -1255,11 +1314,6 @@ function psOutput(error) {
   )
     return error.stdout;
   throw error;
-}
-
-/** lsof exits 1 when some processes are unreadable but still prints the rest. @param {unknown} error */
-function lsofOutput(error) {
-  return psOutput(error);
 }
 
 /** @param {string} output */
@@ -1286,14 +1340,11 @@ function lsofRecords(output) {
 export function orcaAdapter(repository) {
   return {
     async worktrees() {
-      const found = await commandText(
+      const found = await optionalCommand(
         "orca",
         ["worktree", "list", "--json"],
         repository,
-      ).catch((/** @type {unknown} */ error) => {
-        if (missingCommand(error)) return undefined;
-        throw error;
-      });
+      );
       if (found === undefined) return new Set();
       const result = field(JSON.parse(found), "result");
       if (field(result, "truncated") !== false)
@@ -1322,17 +1373,14 @@ export function orcaAdapter(repository) {
 export function dockerAdapter() {
   return {
     async composeDirectories() {
-      const output = await commandText("docker", [
+      const output = await optionalCommand("docker", [
         "ps",
         "--all",
         "--filter",
         "label=com.docker.compose.project",
         "--format",
         '{{.Label "com.docker.compose.project"}}\t{{.Label "com.docker.compose.project.working_dir"}}',
-      ]).catch((/** @type {unknown} */ error) => {
-        if (missingCommand(error)) return undefined;
-        throw error;
-      });
+      ]);
       if (output === undefined) return [];
       return [...new Set(output.split("\n").filter(Boolean))].flatMap(
         (line) => {
@@ -1350,14 +1398,7 @@ export function dockerAdapter() {
 export function trackerAdapter() {
   return {
     async trackedProcesses(path) {
-      const output = await commandText(
-        "agent-worktree",
-        ["status"],
-        path,
-      ).catch((/** @type {unknown} */ error) => {
-        if (missingCommand(error)) return undefined;
-        throw error;
-      });
+      const output = await optionalCommand("agent-worktree", ["status"], path);
       if (output === undefined) return 0;
       const processes = field(JSON.parse(output), "processes");
       if (!Array.isArray(processes))

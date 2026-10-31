@@ -11,7 +11,8 @@ a resource they cannot prove disposable is kept and reported.
 ## 1. Read the plan
 
 Run `pnpm session:cleanup` from the task worktree. It changes nothing. Read every `remove`, `prune`
-and `stop` line, and every `keep` reason for this task's worktree and processes.
+and `stop` line, and every `keep` reason for this task's worktree and processes. A warning means the
+plan kept resources it could not check; start the named tool, such as Docker, and run it again.
 
 ## 2. Protect what the owner still needs
 
@@ -27,8 +28,7 @@ changed. A non-zero exit lists the failures; record each one in the handoff.
 ## 4. Resolve what the rules keep
 
 - The current worktree stays: a later run removes it after its PR merges.
-- Unpublished commits, local changes and ignored local files (`.env*`, `.reports/`) stay; record
-  the exact remaining action.
+- Unpublished commits, local changes and ignored local files stay; record the exact remaining action.
 - Stashes stay. Inspect a safety stash this task created against the merged result before dropping it.
 - Containers and volumes follow [the local stand runbook](../../../docs/runbooks/local-stand.md#stop-and-keep-data);
   the script only reports them.

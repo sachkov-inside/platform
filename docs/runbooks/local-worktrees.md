@@ -65,8 +65,10 @@ agent-worktree stop --name web-preview
 Follow `session-cleanup`. Its `pnpm session:cleanup` prints a plan with a reason for each worktree
 decision, for each process it would stop or that still serves a kept worktree, and for each old
 temporary entry matching an explicit rule. The default run changes nothing; `--apply` acts on the
-plan. The rules, and the cases that keep a resource, are listed at the top of
-[the script](../../scripts/session-cleanup.mjs). Stashes, containers and volumes are never changed.
+plan. The rules are the decisions in `planWorktree`, `planProcess` and `temporaryRules` of
+[the script](../../scripts/session-cleanup.mjs); its header summarises them. Stashes, containers
+and volumes are never changed. Removal needs a running Docker engine when Docker is installed:
+without it, Compose use is unknown and candidate worktrees stay.
 
 The project `.claude/settings.json` runs `--session-end` when a Claude Code session exits. It reports
 this worktree's unpublished work and running processes, what can be removed elsewhere, and any
