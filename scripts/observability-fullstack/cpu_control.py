@@ -102,24 +102,45 @@ def require_event(event,*,head=None,base=None):
          and '<!-- monitoring-stability:' not in body.lower())
 
 
-def admission(full):
+def admission(full,*,scope='full'):
+    full.profile(scope)
     full.hosted.context()
     # The provider event can have unrelated fields; only this bounded closed decision is used.
-    require_event(read(Path(os.environ['GITHUB_EVENT_PATH']),private=False,limit=262144),
-                  head=os.environ['PILOT_PR_HEAD_SHA'],base=os.environ['PILOT_PR_BASE_SHA'])
+    event=read(Path(os.environ['GITHUB_EVENT_PATH']),private=False,limit=262144)
+    require_event(event,head=os.environ['PILOT_PR_HEAD_SHA'],base=os.environ['PILOT_PR_BASE_SHA'])
+    need(full.production.select_ci_scope(event)==scope)
     started=float(os.environ['CPU_CONTROL_JOB_STARTED']);need(math.isfinite(started) and 0<=time.monotonic()-started<3600)
     return started
 
 
-def pair(full,root,source):
+def workload(full,scope):
+    full.profile(scope)
+    path=full.PROFILE.with_name('technical-profile.json') if scope=='technical' else full.PROFILE
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def scope_fields(full,scope):
+    full.profile(scope)
+    return {'scope':scope,'worker_deadline_seconds':full.stage_timing.SCHEMA2_TECHNICAL_FULL_DEADLINE_SECONDS} if scope=='technical' else {}
+
+
+def pair(full,root,source,*,scope='full'):
+    fields=scope_fields(full,scope)
     root=directory(root);value=read(root/PAIR)
-    need(type(value) is dict and set(value)=={'schema','kind','source','root','nonce','profiles','images','workload_sha256'})
-    need(type(value['schema']) is int and value['schema']==1 and value['kind']==KIND and value['source']==source
+    need(type(value) is dict and set(value)=={'schema','kind','source','root','nonce','profiles','images','workload_sha256'}|set(fields)|({'services'} if fields else set()))
+    need(type(value['schema']) is int and value['schema']==(2 if fields else 1) and value['kind']==KIND and value['source']==source
          and re.fullmatch('[a-f0-9]{40}',source) and value['root']==str(root) and value['profiles']==list(PROFILES)
          and type(value['nonce']) is str and re.fullmatch('[a-f0-9]{32}',value['nonce'])
-         and value['workload_sha256']==hashlib.sha256(full.PROFILE.read_bytes()).hexdigest())
-    image_set(value['images']);full.acceptance.validate_profile(json.loads(full.PROFILE.read_text()))
+         and value['workload_sha256']==workload(full,scope))
+    if fields:need(all(type(value[k]) is type(v) and value[k]==v for k,v in fields.items()) and value['services']==list(full.services(scope)))
+    image_set(value['images'])
     return value
+
+
+def bound_pair(full,root,source):
+    value=read(Path(root)/PAIR);need(type(value) is dict)
+    scope=value.get('scope','full')
+    return scope,pair(full,root,source,scope=scope)
 
 
 def transform(plan,profile):
@@ -135,13 +156,13 @@ def transform(plan,profile):
     return result
 
 
-def prepare_plan(full,output,source,plan):
-    value=pair(full,output.parent,source);profile=selector(output.name)
-    need(set(plan['services'])==set(full.SERVICES))
+def prepare_plan(full,output,source,plan,*,scope='full'):
+    value=pair(full,output.parent,source,scope=scope);profile=selector(output.name)
+    need(set(plan['services'])==set(full.services(scope)))
     selected=transform(plan,profile)
     output.chmod(0o700);directory(output)
     write(output/BASELINE,plan,once=True)
-    marker={'schema':1,'kind':KIND,'source':source,'profile':profile,'output':digest(str(output)),
+    marker={'schema':2 if scope=='technical' else 1,**scope_fields(full,scope),'kind':KIND,'source':source,'profile':profile,'output':digest(str(output)),
             'pair':digest(value),'workload_sha256':value['workload_sha256'],'baseline_sha256':digest(plan),
             'plan_sha256':digest(selected),'roles':list(ROLES)}
     write(output/MARKER,marker,once=True)
@@ -149,21 +170,27 @@ def prepare_plan(full,output,source,plan):
 
 
 def expected_request(full,output,source):
-    output=directory(output);value=pair(full,output.parent,source);profile=selector(output.name)
+    output=directory(output);scope,value=bound_pair(full,output.parent,source);profile=selector(output.name)
     baseline=read(output/BASELINE);plan=transform(baseline,profile)
-    expected={'schema':1,'kind':KIND,'source':source,'profile':profile,'output':digest(str(output)),
+    expected={'schema':2 if scope=='technical' else 1,**scope_fields(full,scope),'kind':KIND,'source':source,'profile':profile,'output':digest(str(output)),
               'pair':digest(value),'workload_sha256':value['workload_sha256'],'baseline_sha256':digest(baseline),
               'plan_sha256':digest(plan),'roles':list(ROLES)}
-    need(set(baseline['services'])==set(full.SERVICES))
+    need(set(baseline['services'])==set(full.services(scope)))
     prepared=read(output/'fullstack-source.json',private=False)
-    need(prepared['source']==source and digest(prepared['profile'])==digest(json.loads(full.PROFILE.read_text()))
+    need(prepared['source']==source and prepared.get('scope','full')==scope and prepared['images'].get('scope','full')==scope
+         and digest(prepared['profile'])==digest(full.profile(scope))
          and {k:prepared['images'][k] for k in IMAGES}==value['images'])
+    if scope=='technical':
+        full.prepared_scope(output,expected=scope,source=source)
+        need(type(prepared['scope_binding'].get('worker_deadline_seconds')) is int
+             and prepared['scope_binding']['worker_deadline_seconds']==scope_fields(full,scope)['worker_deadline_seconds'])
     return expected,plan
 
 
 def request(full,output,source):
     expected,plan=expected_request(full,output,source);actual=read(output/MARKER)
     need(type(actual) is dict and type(actual.get('schema')) is int and actual==expected)
+    if expected.get('scope')=='technical':need(type(actual.get('worker_deadline_seconds')) is int)
     return expected,plan
 
 
@@ -171,7 +198,9 @@ def owner_binding(full,output,owner,marker):
     need(type(owner) is dict and set(owner)=={'project','cwd','supervisor_pid','docker_storage','orbstack','daemon','cleanup'})
     need(owner['cwd']==str(full.ROOT) and type(owner['supervisor_pid']) is int and owner['supervisor_pid']>0
          and type(owner['project']) is str and re.fullmatch(re.escape(full.PREFIX)+'[a-f0-9]{12}',owner['project']))
-    return {'schema':1,'source':marker['source'],'request':digest(marker),'owner':digest(owner),
+    technical=marker.get('scope')=='technical'
+    return {'schema':2 if technical else 1,**({'scope_binding':read(output/'fullstack-source.json',private=False)['scope_binding']} if technical else {}),
+            'source':marker['source'],'request':digest(marker),'owner':digest(owner),
             'project':owner['project'],'nonce':owner['project'][-12:],'output':marker['output'],
             'profile':marker['profile'],'baseline_sha256':marker['baseline_sha256'],'plan_sha256':marker['plan_sha256']}
 
@@ -226,6 +255,7 @@ def ledger(full,output,source):
     marker,_=request(full,output,source);owner=read(output/'owner.json',private=False)
     binding=owner_binding(full,output,owner,marker);recorded=read(output/OWNER)
     need(type(recorded) is dict and type(recorded.get('schema')) is int and recorded==binding)
+    if marker.get('scope')=='technical':need(type(recorded['scope_binding'].get('worker_deadline_seconds')) is int)
     value=read(output/QUOTAS)
     need(type(value) is dict and set(value)=={'schema','source','request','owner','snapshots','last_ids'}
          and type(value['schema']) is int and value['schema']==1 and value['source']==source
@@ -276,6 +306,7 @@ def validate_owner_plan(full,output,source):
     owner=read(output/'owner.json',private=False);binding=owner_binding(full,output,owner,marker)
     if present(output/OWNER):
         recorded=read(output/OWNER);need(type(recorded) is dict and type(recorded.get('schema')) is int and recorded==binding)
+        if marker.get('scope')=='technical':need(type(recorded['scope_binding'].get('worker_deadline_seconds')) is int)
     else:request(full,output,source)
     current=read(output/'compose.json')
     need(current in (initial,mode_plan(full,initial,False),mode_plan(full,initial,True)))
@@ -284,11 +315,13 @@ def validate_owner_plan(full,output,source):
 def worker_cleanup(full,output,source,exit_code):
     directory(output);validate_owner_plan(full,output,source)
     owner=read(output/'owner.json',private=False)
+    scope,_=bound_pair(full,output.parent,source)
+    deadline=scope_fields(full,scope).get('worker_deadline_seconds',full.pilot.PILOT_DEADLINE_SECONDS)
     worker=read(output/'worker.json',private=False)
     need(type(worker) is dict and set(worker)=={'pid','group','supervisor_pid','deadline_seconds'}
          and type(worker['pid']) is int and worker['pid']>0 and type(worker['group']) is int
          and worker['group']==worker['pid'] and type(worker['supervisor_pid']) is int and worker['supervisor_pid']==owner['supervisor_pid']
-         and type(worker['deadline_seconds']) is int and worker['deadline_seconds']==600)
+         and type(worker['deadline_seconds']) is int and worker['deadline_seconds']==deadline)
     outcome=read(output/'worker-outcome.json',private=False);cleanup=read(output/'cleanup.json',private=False)
     need(type(outcome) is dict and set(outcome)=={'exit_code','duration_seconds','monitor_failed','cleanup'}
          and type(outcome['exit_code']) is int and outcome['exit_code']==exit_code
@@ -314,10 +347,12 @@ def recover_profile(full,stage,output):
     if not present(output):
         stage.release(str(output),cleanup_ok=True);return True
     directory(output)
+    scope,_=bound_pair(full,output.parent,stage.receipt['source'])
+    if scope=='technical':full.prepared_scope(output,expected=scope,source=stage.receipt['source'])
     if not present(output/'owner.json'):
         stage.release(str(output),cleanup_ok=True);return True
     validate_owner_plan(full,output,stage.receipt['source'])
-    result=full.resource_runtime.ci.recover(output,project_prefix=full.PREFIX,services=full.SERVICES)
+    result=full.resource_runtime.ci.recover(output,project_prefix=full.PREFIX,services=full.services(scope))
     good=cleanup_passed(result);stage.release(str(output),cleanup_ok=good);return good
 
 
@@ -362,11 +397,15 @@ def checked_context(entry,value,profile,exit_code):
     return entry
 
 
-def run_pair(full,root,images,metadata):
-    started=admission(full);source,disk=full.hosted.metadata_source(metadata);need(disk['ready'])
+def run_pair(full,root,images,metadata,*,scope='full'):
+    fields=scope_fields(full,scope)
+    deadline=full.worker_deadline(scope)
+    allowance=deadline+full.pilot.CLEANUP_TIMEOUT_SECONDS
+    started=admission(full,**({'scope':scope} if fields else {}));source,disk=full.hosted.metadata_source(metadata);need(disk['ready'])
     root=Path(root).absolute();need(root==root.resolve() and not present(root))
     directory(root.parent,private=False)
-    pins=read(images);need(pins['source']==source['checkout_sha'])
+    pins=read(images);need(pins['source']==source['checkout_sha'] and pins.get('scope','full')==scope)
+    need(set(pins)=={'schema','source','owner',*IMAGES}|({'scope'} if fields else set()) and type(pins['schema']) is int and pins['schema']==3)
     selected=image_set({k:pins[k] for k in IMAGES})
     stage=full.preparation.recover_stage(images);need(stage.receipt['source']==source['checkout_sha'])
     capped,uncapped=(root/profile for profile in PROFILES)
@@ -374,10 +413,11 @@ def run_pair(full,root,images,metadata):
         stage.require_consumer(str(capped));stage.retain(str(uncapped),'second CPU-control profile')
         root.mkdir(mode=0o700)
         import secrets
-        value={'schema':1,'kind':KIND,'source':source['checkout_sha'],'root':str(root),'nonce':secrets.token_hex(16),
-               'profiles':list(PROFILES),'images':selected,'workload_sha256':hashlib.sha256(full.PROFILE.read_bytes()).hexdigest()}
+        value={'schema':2 if fields else 1,**fields,**({'services':list(full.services(scope))} if fields else {}),
+               'kind':KIND,'source':source['checkout_sha'],'root':str(root),'nonce':secrets.token_hex(16),
+               'profiles':list(PROFILES),'images':selected,'workload_sha256':workload(full,scope)}
         write(root/PAIR,value,once=True)
-        result={'schema':3,'source':source['checkout_sha'],'pair':digest(value),'exits':[None,None],'cleanup':[False,False],
+        result={'schema':4 if fields else 3,**fields,'source':source['checkout_sha'],'pair':digest(value),'exits':[None,None],'cleanup':[False,False],
                 'publication_failed':False,'profiles':[profile_context(value,profile) for profile in PROFILES]}
         first_error=None
         def remember(error):
@@ -391,7 +431,7 @@ def run_pair(full,root,images,metadata):
         for index,output in enumerate((capped,uncapped)):
             if result['publication_failed'] or index and not result['cleanup'][0]:break
             # Full per-profile worker+cleanup allowance must remain inside the same60min job.
-            if not 0<=time.monotonic()-started<=3600-690:break
+            if not 0<=time.monotonic()-started<=3600-allowance:break
             try:
                 stage.require_consumer(str(output));full.hosted.metadata_source(metadata)
                 need(read(images)==pins)
@@ -401,13 +441,14 @@ def run_pair(full,root,images,metadata):
             observed=result['profiles'][index];observed['stage']='pilot_admission'
             def prepare(path):
                 observed['stage']='prepare_inputs'
-                full.inputs(path,images)
-                need(0<=time.monotonic()-started<=3600-690)
+                full.inputs(path,images,**({'scope':scope} if fields else {}))
+                need(0<=time.monotonic()-started<=3600-allowance)
                 observed['prepared']=True
             try:
                 full.pilot.run(output,prepare_inputs=prepare,worker_script=Path(__file__).resolve(),
-                    ports=(18427,13000,14318,1514,13301),services=full.SERVICES,project_prefix=full.PREFIX,
-                    scope='CPU-policy diagnostic only; not capacity acceptance',missing=['production capacity and seven days'],worker_pass_fds=stage.pass_fds())
+                    ports=(18427,13000,14318,1514,13301),services=full.services(scope),project_prefix=full.PREFIX,
+                    scope='CPU-policy diagnostic only; not capacity acceptance',missing=['production capacity and seven days'],worker_pass_fds=stage.pass_fds(),
+                    **({'worker_deadline_seconds':deadline} if fields else {}))
                 result['exits'][index]=0
                 observed.update(stage='worker',state='returned',exit_code=0)
             except BaseException as error:
@@ -433,11 +474,16 @@ def run_pair(full,root,images,metadata):
         need(result['exits']==[0,0] and result['cleanup']==[True,True])
 
 
-def recover_pair(full,root,images):
+def recover_pair(full,root,images,*,scope='full'):
+    full.profile(scope)
     root=Path(root).absolute();need(root==root.resolve())
+    if present(root):
+        value=read(root/PAIR);need(type(value) is dict)
+        pair(full,root,value.get('source'),scope=scope)
     if not full.preparation.directory(images).exists():
         need(not present(root));return
     stage=full.preparation.recover_stage(images)
+    if present(root):need(stage.receipt['source']==value['source'])
     with stage.in_use():
         for profile in PROFILES:
             output=root/profile;key=full.preparation.consumer_key(str(output))
@@ -479,7 +525,7 @@ def assessment(value):
     return value
 
 
-def cfs_phase(full,output,ordinal,summary):
+def cfs_phase(full,output,ordinal,summary,*,scope='full',definition=None):
     raw=read(output/('fullstack-phase-'+str(ordinal)+'.json'),private=False)
     need(type(raw) is dict and type(raw.get('pair')) is int and (raw.get('pair'),raw.get('mode'),raw.get('name'))==(summary['pair'],summary['mode'],summary['name']))
     frames=raw.get('samples');need(type(frames) is list and 2<=len(frames)<=64 and all(type(frame) is dict for frame in frames))
@@ -490,6 +536,13 @@ def cfs_phase(full,output,ordinal,summary):
          and raw.get('loadgen_cpu_pressure')==summary['loadgen_cpu_pressure'])
     counters=[];clean=True
     active=set((*full.APPS,*full.CORE) if summary['mode']=='on' else full.APPS)
+    if scope=='technical':
+        active-= {'umami','umami-ingest','umami-query'}
+        need(raw.get('scope_binding')==summary['scope_binding'] and raw.get('storage_samples')==summary['storage_samples'])
+        need(full.validate_technical_phase(raw,summary['pair'],summary['mode'],definition)==full.validate_technical_phase(summary,summary['pair'],summary['mode'],definition))
+        phase=summary['pair']*6+(3 if summary['mode']=='on' else 0)+('idle','steady','spike').index(summary['name'])
+        leaf=full.slot_refusal.validate(raw['load'].get('slot_refusal'),phase,summary['mode']=='on',raw['load'].get('missed'))
+        need(raw['load'].get('completed') is not True or leaf['state']!='captured')
     for frame in frames:
         need(type(frame) is dict and type(frame.get('counters')) is dict)
         value=frame['counters'];services=value.get('services');errors=value.get('errors')
@@ -527,13 +580,21 @@ def cfs_phase(full,output,ordinal,summary):
             'duration_seconds':duration,'roles':roles},complete
 
 
-def measurement(full,output,proof,*,pending=False):
+def measurement(full,output,proof,*,pending=False,scope='full'):
     need(type(proof) is dict and type(proof.get('schema')) is int and proof['schema']==1
-         and digest(proof.get('profile'))==digest(json.loads(full.PROFILE.read_text())) and proof.get('state') in ('running','measured','failed'))
+         and digest(proof.get('profile'))==digest(full.profile(scope)) and proof.get('state') in ('running','measured','failed'))
     phases=proof.get('phases');need(type(phases) is list and len(phases)<=12)
-    if len(phases)<12:return {'available':False}
-    profile=json.loads(full.PROFILE.read_text())
+    profile=full.profile(scope)
     expected=[(pair,mode,definition) for pair,modes in enumerate(profile['pairs']) for mode in modes for definition in profile['phases']]
+    if scope=='technical':
+        prepared=read(output/'fullstack-source.json',private=False)
+        need(proof.get('scope')==scope and proof.get('scope_binding')==prepared['scope_binding'] and proof.get('full_spec_acceptance')=='deferred')
+        for ordinal,(row,(pair,mode,definition)) in enumerate(zip(phases,expected)):
+            need(type(row) is dict and row.get('scope_binding')==prepared['scope_binding'])
+            full.validate_technical_phase(row,pair,mode,definition)
+            if len(phases)<12:cfs_phase(full,output,ordinal,row,scope=scope,definition=definition)
+    else:need(proof.get('scope','full')=='full' and 'scope_binding' not in proof)
+    if len(phases)<12:return {'available':False}
     totals=dict.fromkeys(('scheduled','success','missed','unexpected_failures','unexplained_probe_loss'),0)
     quality=True;http=True;source=True;counter_complete=True;phase_errors=0;cfs=[];inodes=[]
     for ordinal,(row,(pair,mode,definition)) in enumerate(zip(phases,expected)):
@@ -583,7 +644,7 @@ def measurement(full,output,proof,*,pending=False):
             values=[host.get(key) for host in hosts]
             quality=quality and all(v is not None for v in values) and all(b>=a for a,b in zip(values,values[1:]))
         quality=quality and hosts[-1]['cpu_total']>hosts[0]['cpu_total']
-        projected,known=cfs_phase(full,output,ordinal,row);cfs.append(projected)
+        projected,known=cfs_phase(full,output,ordinal,row,**({'scope':scope,'definition':definition} if scope=='technical' else {}));cfs.append(projected)
         counter_complete=counter_complete and known and projected['duration_seconds']>=definition['seconds']
     # The owning worker commits the whole-workload flag only after outage recovery.
     need(type(proof.get('source_cache_workload')) is bool and (proof['source_cache_workload'] is False if pending else proof['source_cache_workload']==source))
@@ -592,6 +653,11 @@ def measurement(full,output,proof,*,pending=False):
                  and not inputs['oom'] and not inputs['enospc'] and inputs['unexplained_loss']==0
                  and all(value is not None for value in inputs.values())
                  and proof.get('controlled_outage')=={'attempted':1,'acknowledged':0,'explained_loss':1,'post_restart_acknowledged':1,'post_restart_stored':1,'outage_stored':0})
+    closure=None
+    if scope=='technical':
+        # A failed resource gate can still accompany a fully measured workload.
+        try:closure=full.technical_closure(proof)
+        except ValueError:quality=False
     pairs=[]
     for pair in (0,1):
         for label in LABELS:
@@ -604,22 +670,25 @@ def measurement(full,output,proof,*,pending=False):
     # its exact value exposes that original condition without a second gate formula.
     gates['host_inode_reserve']={'minimum_free_fraction':min(inodes) if inodes and all(v is not None for v in inodes) else None,
                                  'passed':inputs['complete'] if quality else None}
-    return {'available':True,'assessment_inputs':inputs,'p95_pairs':pairs,'cfs_phases':cfs,'resource_gates':gates,
+    return {'available':True,**({'technical_workload':closure} if scope=='technical' else {}),
+            'assessment_inputs':inputs,'p95_pairs':pairs,'cfs_phases':cfs,'resource_gates':gates,
             'quality':{'complete':quality,**totals,'http_complete':bool(http),'source_complete':bool(source),
                        'counter_complete':bool(counter_complete),'phase_errors':phase_errors}}
 
 
-def collect(full,root,metadata,destination):
+def collect(full,root,metadata,destination,*,scope='full'):
+    fields=scope_fields(full,scope)
     source,disk=full.hosted.metadata_source(metadata);sha=source['checkout_sha']
-    root=directory(root);value=pair(full,root,sha);outcome=read(root/OUTCOME)
-    need(type(outcome) is dict and type(outcome.get('schema')) is int and outcome['schema'] in (2,3)
-         and set(outcome)=={'schema','source','pair','exits','cleanup','publication_failed'}|({'profiles'} if outcome['schema']==3 else set())
+    root=directory(root);value=pair(full,root,sha,scope=scope);outcome=read(root/OUTCOME)
+    need(type(outcome) is dict and type(outcome.get('schema')) is int and outcome['schema'] in ((4,) if fields else (2,3))
+         and set(outcome)=={'schema','source','pair','exits','cleanup','publication_failed'}|set(fields)|({'profiles'} if outcome['schema'] in (3,4) else set())
          and outcome['source']==sha
          and type(outcome['publication_failed']) is bool and outcome['pair']==digest(value)
          and type(outcome['exits']) is list and len(outcome['exits'])==2 and all(v is None or type(v) is int and -255<=v<=255 for v in outcome['exits'])
          and type(outcome['cleanup']) is list and len(outcome['cleanup'])==2 and all(type(v) is bool for v in outcome['cleanup']))
+    need(all(type(outcome[k]) is type(v) and outcome[k]==v for k,v in fields.items()))
     contexts=None
-    if outcome['schema']==3:
+    if outcome['schema'] in (3,4):
         need(type(outcome['profiles']) is list and len(outcome['profiles'])==2)
         contexts=[checked_context(entry,value,profile,exit_code) for entry,profile,exit_code in zip(outcome['profiles'],PROFILES,outcome['exits'])]
     rows=[];verdicts={}
@@ -632,6 +701,9 @@ def collect(full,root,metadata,destination):
             row['failure']={key:context[key] for key in ('stage','category','errno','exit_code')}
         if present(output):
             marker,_=request(full,output,sha);row.update(plan_sha256=marker['plan_sha256'],baseline_sha256=marker['baseline_sha256'],state='incomplete')
+            timing=None
+            if fields and present(output/full.stage_timing.NAME):
+                timing=full.stage_timing.read(output,sha,**full.timing_options(output,sha))
             if row['run_exit'] is not None:
                 observed=worker_cleanup(full,output,sha,row['run_exit']);need(not row['cleanup'] or observed)
             if present(output/QUOTAS):
@@ -646,7 +718,7 @@ def collect(full,root,metadata,destination):
                          and proof.get('source_cache_workload') is False and 'controlled_outage' in proof and proof['controlled_outage'] is None)
                     original={'state':'incomplete','minimum_candidate_gib':None}
                 else:original=verdict(original)
-                measured=measurement(full,output,proof,pending=pending);row['measurement']=measured
+                measured=measurement(full,output,proof,pending=pending,**({'scope':scope} if fields else {}));row['measurement']=measured
                 if measured['available'] and not pending:need(full.acceptance.assess(measured['assessment_inputs'])==original)
                 else:need(original['state']=='incomplete')
                 row['original_oracle']=original;verdicts[profile+'-verdict.json']=original
@@ -654,7 +726,7 @@ def collect(full,root,metadata,destination):
                 need(row['run_exit'] is None or worker.get('exit_code')==row['run_exit'])
                 runtime_complete=(row['run_exit']==0 and original['state']=='passed' and proof.get('state')=='measured'
                                   or row['run_exit']==1 and original['state']=='failed' and proof.get('state')=='failed')
-                if runtime_complete and row['cleanup'] and measured['available'] and measured['quality']['complete'] and [s['ordinal'] for s in quotas['snapshots']]==list(range(5)):
+                if runtime_complete and (not fields or timing is not None) and row['cleanup'] and measured['available'] and measured['quality']['complete'] and [s['ordinal'] for s in quotas['snapshots']]==list(range(5)):
                     row['state']='measurement_complete'
         else:
             if context is not None and context['state']=='failed':
@@ -663,7 +735,8 @@ def collect(full,root,metadata,destination):
             else:need(row['run_exit'] is None and not row['cleanup'])
         rows.append(row)
     # Baselines use fresh output paths; their hashes need not equal one another.
-    result={'schema':outcome['schema'],'kind':KIND,'source':sha,'workload_sha256':value['workload_sha256'],'images':value['images'],
+    result={'schema':outcome['schema'],**fields,**({'full_spec_acceptance':'deferred'} if fields else {}),
+            'kind':KIND,'source':sha,'workload_sha256':value['workload_sha256'],'images':value['images'],
             **ACCEPTANCE,'state':'measurement_complete' if not outcome['publication_failed'] and all(row['state']=='measurement_complete' for row in rows) else 'incomplete','profiles':rows,
             'measurement_complete':not outcome['publication_failed'] and all(row['state']=='measurement_complete' for row in rows),
             'publication_failed':outcome['publication_failed'],
