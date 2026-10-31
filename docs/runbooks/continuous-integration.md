@@ -757,7 +757,10 @@ remain the authority for success.
 Before Compose cleanup, `compose-failure-diagnostics.sh` captures MinIO (`object-storage`)
 even when healthy. Its JSON contains only running/health/restart state and CPU, memory,
 network, block-I/O and process counts. Each Docker observation has a two-second and 4-KiB
-output budget; unavailable observations become `null`. MinIO environment, health command output
+output budget; unavailable observations become `null`. The collector runs directly from a fresh
+checkout before dependency installation. If the collector cannot run, the shell retains only
+allowlisted lifecycle status and health, with `collector: "unavailable"` and null resources.
+MinIO environment, health command output
 and raw server logs are never retained by this capture. Other failed containers keep the existing
 diagnostic path. Capture and cleanup do not authorize a retry.
 

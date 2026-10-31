@@ -1,8 +1,15 @@
 // @ts-check
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
-import { z } from "zod";
 import { writeFileSync } from "node:fs";
+
+/** This collector runs before pnpm install in the Docker-only CI job.
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 /** Never persist Docker errors, health command output, labels, environment or server logs.
  * @param {string[]} args
@@ -32,9 +39,9 @@ async function observation(args) {
   try {
     const status = await exit;
     if (rejected || status !== 0) return null;
-    return z
-      .record(z.string(), z.unknown())
-      .parse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+    /** @type {unknown} */
+    const value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    return isRecord(value) ? value : null;
   } catch {
     return null;
   } finally {
@@ -78,11 +85,13 @@ writeFileSync(
           restarts: Number.isSafeInteger(state["restarts"])
             ? state["restarts"]
             : null,
-          health: ["healthy", "unhealthy", "starting", "none"].includes(
-            String(state["health"]),
-          )
-            ? state["health"]
-            : null,
+          health:
+            typeof state["health"] === "string" &&
+            ["healthy", "unhealthy", "starting", "none"].includes(
+              state["health"],
+            )
+              ? state["health"]
+              : null,
         }
       : null,
     resources: resources

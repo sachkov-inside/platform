@@ -10,7 +10,21 @@ for container_id in $container_ids; do
   lifecycle="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}:{{.State.Status}}:{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id")" || continue
   case "$lifecycle" in
     object-storage:*)
-      node "$(dirname "$0")/minio-failure-diagnostics.mjs" "$container_id" "$artifact_dir/$container_id-minio.json" || true
+      if ! node "$(dirname "$0")/minio-failure-diagnostics.mjs" "$container_id" "$artifact_dir/$container_id-minio.json" 2>/dev/null; then
+        status="${lifecycle#*:}"
+        status="${status%%:*}"
+        health="${lifecycle##*:}"
+        case "$status" in
+          created|running|paused|restarting|removing|exited|dead) ;;
+          *) status="unknown" ;;
+        esac
+        case "$health" in
+          healthy|unhealthy|starting) ;;
+          *) health="none" ;;
+        esac
+        printf '{"collector":"unavailable","state":{"status":"%s","health":"%s"},"resources":null}\n' "$status" "$health" >"$artifact_dir/$container_id-minio.json"
+        printf 'Compose MinIO collector unavailable; retained lifecycle only.\n' >&2
+      fi
       continue
       ;;
   esac
