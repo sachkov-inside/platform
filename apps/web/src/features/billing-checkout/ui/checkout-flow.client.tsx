@@ -6,6 +6,7 @@ import {
   acceptBillingConsents,
   billingErrorMessage,
   checkoutButtonLabel,
+  purchaseRetirementMessage,
   type BillingQuote,
   type LegalDocument,
   type PreorderTerms,
@@ -58,6 +59,8 @@ interface CheckoutSelection {
   readonly existingAccess: boolean;
   readonly legacyBlocked: boolean;
   readonly error: string | undefined;
+  /** Новый расчёт после неуспешной покупки уже запрашивался сам; следующий только по кнопке. */
+  readonly automaticQuoteUsed: boolean;
 }
 
 interface PurchaseAttempt {
@@ -86,8 +89,16 @@ function newSelection(key: string): CheckoutSelection {
     existingAccess: false,
     legacyBlocked: false,
     error: undefined,
+    automaticQuoteUsed: false,
   };
 }
+
+/**
+ * Вторая неуспешная покупка подряд не запускает новый расчёт сама (#1927): иначе форма сразу
+ * снова готова к оплате, и покупатель создаёт новые неуспешные покупки, не узнав причину.
+ */
+const repeatedPurchaseFailure =
+  "Оплата снова не прошла. Чтобы попробовать ещё раз, обновите условия.";
 
 /**
  * Сервер отвечает на покупку `payment_in_progress`, когда незавершённую покупку этого продукта
@@ -270,11 +281,8 @@ export function CheckoutFlow({
             ? "/payment/return"
             : `/payment/links/${snapshot.individualPayment.linkId}?purchaseRef=${result.value.purchaseRef}`,
         );
-      else if (
-        result.value.state === "failed" &&
-        selection.identity === identity
-      )
-        requestQuote();
+      else if (result.value.state === "failed")
+        settleFailedPurchase(result.value, identity);
     },
   });
 
@@ -302,7 +310,8 @@ export function CheckoutFlow({
         setAttempt(null);
         setPaymentError(undefined);
         completeOperation("purchase");
-        if (result.value.state === "failed") requestQuote();
+        if (result.value.state === "failed")
+          settleFailedPurchase(result.value, selection.identity);
         else
           (onNavigate ?? defaultNavigate)(
             snapshot.individualPayment === undefined
@@ -327,6 +336,31 @@ export function CheckoutFlow({
       identity: selection.identity,
       input: { operationId: operationId("quote", input), ...input },
     });
+  };
+  /**
+   * Покупка не прошла. Снятую до банка покупку объясняет причина, и новый расчёт сам не
+   * начинается: новая покупка по тем же условиям была бы снята так же. После отказа банка
+   * форма один раз сама запрашивает новый расчёт; повторный отказ ждёт кнопки покупателя.
+   */
+  const settleFailedPurchase = (failed: PurchaseStatus, identity: object) => {
+    if (failed.retirementReason !== null) {
+      setPaymentError(purchaseRetirementMessage(failed.retirementReason));
+      updateSelection(
+        identity,
+        failed.retirementReason === "already_owned"
+          ? { existingAccess: true }
+          : { quote: null },
+      );
+      return;
+    }
+    if (selection.automaticQuoteUsed) {
+      setPaymentError(repeatedPurchaseFailure);
+      updateSelection(identity, { quote: null });
+      return;
+    }
+    if (selection.identity !== identity) return;
+    updateSelection(identity, { automaticQuoteUsed: true });
+    requestQuote();
   };
   // Разовая покупка рассчитывается автоматически; подписка сохраняет явный шаг расчёта.
   useEffect(() => {
@@ -400,7 +434,11 @@ export function CheckoutFlow({
       {...shared}
       preorder={preorder}
       showInclusions={showInclusions}
-      onRetryQuote={requestQuote}
+      onRetryQuote={() => {
+        // Покупатель сам начинает новый расчёт: прежнее объяснение отказа больше не относится к форме.
+        setPaymentError(undefined);
+        requestQuote();
+      }}
       promoRejected={promoRejected}
     />
   );

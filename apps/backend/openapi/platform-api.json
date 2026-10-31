@@ -11159,6 +11159,16 @@
                       "nullable": true,
                       "type": "integer"
                     },
+                    "retirementReason": {
+                      "enum": [
+                        "sale_closed",
+                        "price_unavailable",
+                        "already_owned",
+                        "unsupported_attempt"
+                      ],
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "snapshot": {
                       "additionalProperties": false,
                       "properties": {
@@ -11502,7 +11512,8 @@
                     "access",
                     "fiscalization",
                     "confirmedAt",
-                    "periodEndsAt"
+                    "periodEndsAt",
+                    "retirementReason"
                   ],
                   "type": "object"
                 }
@@ -12131,6 +12142,16 @@
                       "nullable": true,
                       "type": "integer"
                     },
+                    "retirementReason": {
+                      "enum": [
+                        "sale_closed",
+                        "price_unavailable",
+                        "already_owned",
+                        "unsupported_attempt"
+                      ],
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "snapshot": {
                       "additionalProperties": false,
                       "properties": {
@@ -12474,7 +12495,8 @@
                     "access",
                     "fiscalization",
                     "confirmedAt",
-                    "periodEndsAt"
+                    "periodEndsAt",
+                    "retirementReason"
                   ],
                   "type": "object"
                 }
@@ -13060,6 +13082,16 @@
                       "nullable": true,
                       "type": "integer"
                     },
+                    "retirementReason": {
+                      "enum": [
+                        "sale_closed",
+                        "price_unavailable",
+                        "already_owned",
+                        "unsupported_attempt"
+                      ],
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "snapshot": {
                       "additionalProperties": false,
                       "properties": {
@@ -13403,7 +13435,8 @@
                     "access",
                     "fiscalization",
                     "confirmedAt",
-                    "periodEndsAt"
+                    "periodEndsAt",
+                    "retirementReason"
                   ],
                   "type": "object"
                 }

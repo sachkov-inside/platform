@@ -29,3 +29,16 @@ export type AttemptState = z.infer<typeof attemptStateSchema>;
 export function isQuotedPurchase(kind: AttemptKind): boolean {
   return kind === "initial" || kind === "one_time";
 }
+
+/**
+ * Почему покупка снята до отправки в банк: продажа закрыта (цена или продукт в архиве), цена
+ * снята с витрины или её нет, продукт уже есть у покупателя, попытка сохранена по условиям,
+ * которые разовая покупка больше не отправляет. Init не уходил, поэтому денег банк не брал.
+ */
+export const retirementReasonSchema = z.enum([
+  "sale_closed",
+  "price_unavailable",
+  "already_owned",
+  "unsupported_attempt",
+]);
+export type RetirementReason = z.infer<typeof retirementReasonSchema>;

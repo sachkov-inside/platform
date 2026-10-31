@@ -3,6 +3,7 @@ import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
 
+import type { RetirementReason } from "@/entities/subscription";
 import {
   productOnlyOffer,
   productWithSupportOffer as baseProductB,
@@ -589,8 +590,12 @@ export const UnavailableBankKeepsOriginalCommand: Story = {
   },
 };
 
+/** Исход покупки; `retired:` значит, что сервер снял покупку до банка по названной причине. */
+type PurchaseOutcome =
+  "pending" | "failed" | "confirmed" | `retired:${RetirementReason}`;
+
 function bankOutcomes(
-  states: readonly ("pending" | "failed" | "confirmed")[],
+  outcomes: readonly PurchaseOutcome[],
   formAvailable = true,
 ) {
   let quotes = 0;
@@ -628,7 +633,11 @@ function bankOutcomes(
     }
     if (path === "/api/account/billing/purchase") {
       purchaseRequest(purchaseInputSchema.parse(body));
-      const state = states[purchases++] ?? "pending";
+      const outcome = outcomes[purchases++] ?? "pending";
+      const retirementReason = outcome.startsWith("retired:")
+        ? outcome.slice("retired:".length)
+        : null;
+      const state = retirementReason === null ? outcome : "failed";
       return Promise.resolve(
         Response.json({
           ok: true,
@@ -636,6 +645,7 @@ function bankOutcomes(
             ...pendingPurchase,
             snapshot: productOnlyOffer,
             state,
+            retirementReason,
             paymentUrl:
               state === "pending" && formAvailable
                 ? pendingPurchase.paymentUrl
@@ -795,5 +805,75 @@ export const ProductPurchaseInProgressExplainsWithoutRetry: Story = {
     await expect(purchaseRequest).toHaveBeenCalledTimes(1);
     await expect(args.onPurchase).not.toHaveBeenCalled();
     await expect(args.onNavigate).not.toHaveBeenCalled();
+  },
+};
+
+/**
+ * Сервер снял покупку до банка (#1927): форма называет причину и сама не начинает новый расчёт,
+ * поэтому повторное нажатие не создаёт новую покупку, которую снимут по той же причине.
+ */
+function retiredPurchaseExplainsWithoutNewQuote(
+  reason: RetirementReason,
+  message: string,
+): Story {
+  return {
+    beforeEach: () => bankOutcomes([`retired:${reason}`]),
+    play: async ({ canvasElement, args }) => {
+      const canvas = within(canvasElement);
+      const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
+      await waitFor(() => expect(pay).toBeEnabled());
+      await userEvent.click(pay);
+      await expect(await canvas.findByRole("alert")).toHaveTextContent(message);
+      await expect(pay).toBeDisabled();
+      await expect(quoteRequest).toHaveBeenCalledTimes(1);
+      await expect(purchaseRequest).toHaveBeenCalledTimes(1);
+      await expect(args.onNavigate).not.toHaveBeenCalled();
+    },
+  };
+}
+
+export const SaleClosedRetirementExplainsWithoutNewQuote =
+  retiredPurchaseExplainsWithoutNewQuote(
+    "sale_closed",
+    "Продажа этого продукта закрыта. Покупка остановлена до оплаты, деньги не списаны.",
+  );
+export const PriceUnavailableRetirementExplainsWithoutNewQuote =
+  retiredPurchaseExplainsWithoutNewQuote(
+    "price_unavailable",
+    "Цена этого продукта сейчас недоступна. Покупка остановлена до оплаты, деньги не списаны.",
+  );
+export const AlreadyOwnedRetirementExplainsWithoutNewQuote =
+  retiredPurchaseExplainsWithoutNewQuote(
+    "already_owned",
+    "Этот продукт у вас уже открыт. Покупка остановлена до оплаты, деньги не списаны.",
+  );
+export const UnsupportedAttemptRetirementExplainsWithoutNewQuote =
+  retiredPurchaseExplainsWithoutNewQuote(
+    "unsupported_attempt",
+    "Покупка была начата на прежних условиях. Она остановлена до оплаты, деньги не списаны.",
+  );
+
+/** После второго отказа подряд новый расчёт начинается только по кнопке покупателя (#1927). */
+export const RepeatedFailureStartsNoSecondAutomaticQuote: Story = {
+  beforeEach: () => bankOutcomes(["failed", "failed"]),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await waitFor(() => expect(quoteRequest).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Оплата снова не прошла. Чтобы попробовать ещё раз, обновите условия.",
+    );
+    await expect(pay).toBeDisabled();
+    await expect(quoteRequest).toHaveBeenCalledTimes(2);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Обновить условия" }),
+    );
+    await waitFor(() => expect(quoteRequest).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(pay).toBeEnabled());
+    await expect(purchaseRequest).toHaveBeenCalledTimes(2);
   },
 };

@@ -149,6 +149,7 @@ export class BillingService {
     periodEndsAt: string | null;
     purchaseRef: string;
     refundedKopecks?: number | null;
+    retirementReason: 'sale_closed' | 'price_unavailable' | 'already_owned' | 'unsupported_attempt' | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
@@ -241,6 +242,7 @@ export class BillingService {
     periodEndsAt: string | null;
     purchaseRef: string;
     refundedKopecks?: number | null;
+    retirementReason: 'sale_closed' | 'price_unavailable' | 'already_owned' | 'unsupported_attempt' | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
@@ -322,6 +324,7 @@ export class BillingService {
     periodEndsAt: string | null;
     purchaseRef: string;
     refundedKopecks?: number | null;
+    retirementReason: 'sale_closed' | 'price_unavailable' | 'already_owned' | 'unsupported_attempt' | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
