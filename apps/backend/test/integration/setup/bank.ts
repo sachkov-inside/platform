@@ -144,16 +144,21 @@ export class BankFixture {
       entry[1].status = this.chargeOutcome;
       return Response.json(this.event(entry[0]));
     }
-    // Подтверждённый возврат. Отказ и потерянный ответ банка на возврат принадлежат
+    // Неоплаченная форма отменяется со статусом CANCELED, как в банке (#1923); иначе это
+    // подтверждённый возврат. Отказ и потерянный ответ банка на возврат принадлежат
     // `billing-operations`: своего двойника с этими исходами он уже держит.
     if (url.endsWith("/Cancel")) {
       const paymentId = z.string().parse(body.PaymentId);
       const [orderId, order] = this.byPayment(paymentId);
+      order.status =
+        order.status === "NEW" || order.status === "FORM_SHOWED"
+          ? "CANCELED"
+          : "REFUNDED";
       return Response.json({
         TerminalKey: this.config.terminalKey,
         OrderId: orderId,
         PaymentId: paymentId,
-        Status: "REFUNDED",
+        Status: order.status,
         Success: true,
         ErrorCode: "0",
         OriginalAmount: order.amount,

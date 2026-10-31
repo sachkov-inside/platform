@@ -287,6 +287,9 @@ describe("payment presentation", () => {
     expect(paymentEventLabel(`partial_refund_observed:${"a".repeat(64)}`)).toBe(
       "Банк сообщил о частичном возврате, сумму нужно проверить",
     );
+    expect(paymentEventLabel("bank_form_closed")).toBe(
+      "Банк закрыл форму оплаты снятой попытки",
+    );
     expect(paymentEventLabel("new_bank_event")).toBe("Событие new_bank_event");
   });
 

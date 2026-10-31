@@ -99,7 +99,8 @@ psql_read --command "select delivery, result_status, count(*), min(issued_at) as
    `purchaseRef` на странице платежа `/authoring/sales/payments/<purchaseRef>` или через MCP.
    Повтор `Init` приложение не делает никогда.
 4. **Исторический возврат с потерянным ответом** остаётся `unknown` до чтения банковского состояния.
-   С #1420 сверка не отправляет `Cancel`. Читайте `refunds.read`; при пропущенном полном
+   С #1420 сверка не отправляет `Cancel` для возврата. `Cancel` уходит только для неоплаченной
+   формы снятой попытки (#1923). Читайте `refunds.read`; при пропущенном полном
    возврате из кабинета банка выполните `payments.reconcile` по точной покупке.
 5. **Tribute** — по [Tribute access convergence](tribute-access-convergence.md): `tribute.status`,
    `tribute.retryEvent`, сверка реестра.

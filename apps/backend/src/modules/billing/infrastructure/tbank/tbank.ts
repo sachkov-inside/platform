@@ -57,7 +57,15 @@ export const refundTerminalStatuses = [
   "REVERSED",
   "PARTIAL_REVERSED",
 ] as const;
-const bankRefundSchema = z
+/**
+ * Статусы неоплаченной формы. Только у них Cancel закрывает форму без движения денег
+ * (решение владельца 31.10.2026, #1921): https://developer.tbank.ru/eacq/api/cancel
+ */
+export const unpaidFormStatuses: readonly BankPayment["Status"][] = [
+  "NEW",
+  "FORM_SHOWED",
+];
+const bankCancelSchema = z
   .object({
     TerminalKey: z.string().min(1).max(64),
     OrderId: z.string().min(1).max(50),
@@ -73,7 +81,7 @@ const bankRefundSchema = z
     PaymentId: String(PaymentId),
     Success: Success === true || Success === "true",
   }));
-export type BankRefund = z.infer<typeof bankRefundSchema>;
+export type BankCancel = z.infer<typeof bankCancelSchema>;
 /**
  * `OperationInitiatorType` банка: `0` — разовая оплата покупателем без сохранения карты,
  * `1` — оплата покупателем с сохранением привязки, `2` — оплата сохранённой картой по его
@@ -199,6 +207,44 @@ export class Tbank {
     return bankPaymentSchema.parse(
       await this.call("GetState", { PaymentId: paymentId }),
     );
+  }
+  /**
+   * Отменяет неоплаченную форму заказа. Адаптер сам читает GetState прямо перед Cancel и шлёт
+   * Cancel, только если платёж этого заказа на этом терминале ещё `NEW` или `FORM_SHOWED`.
+   * Cancel без Amount отменяет полную сумму. Оплаченный платёж Cancel вернул бы покупателю,
+   * а возвраты идут только через кабинет банка (#1420): такой платёж возвращается без Cancel.
+   */
+  async cancel(input: { orderId: string; paymentId: string }): Promise<
+    | { readonly sent: false; readonly payment: BankPayment }
+    | {
+        readonly sent: true;
+        readonly payment: BankPayment;
+        readonly result: BankCancel;
+      }
+  > {
+    const payment = await this.state(input.paymentId);
+    if (
+      payment.TerminalKey !== this.config.terminalKey ||
+      payment.OrderId !== input.orderId ||
+      payment.PaymentId !== input.paymentId
+    )
+      throw new Error("Bank payment mismatch");
+    if (
+      !payment.Success ||
+      payment.ErrorCode !== "0" ||
+      !unpaidFormStatuses.includes(payment.Status)
+    )
+      return { sent: false, payment };
+    const result = bankCancelSchema.parse(
+      await this.call("Cancel", { PaymentId: input.paymentId }),
+    );
+    if (
+      result.TerminalKey !== this.config.terminalKey ||
+      result.OrderId !== input.orderId ||
+      result.PaymentId !== input.paymentId
+    )
+      throw new Error("Bank cancel mismatch");
+    return { sent: true, payment, result };
   }
   async order(orderId: string): Promise<readonly string[]> {
     // CheckOrder locates an attempt; its optional amount/error fields are not payment proof.

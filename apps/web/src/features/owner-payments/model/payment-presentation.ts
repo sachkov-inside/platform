@@ -88,6 +88,9 @@ export function paymentEventLabel(kind: string): string {
       "Попытка закрыта: оплачена прежняя попытка этой покупки",
     duplicate_payment_review:
       "Продукт оплачен второй раз, нужно решение о возврате",
+    bank_cancel_required:
+      "Попытка снята, её форму оплаты нужно закрыть в банке",
+    bank_form_closed: "Банк закрыл форму оплаты снятой попытки",
   };
   return labels[kind] ?? `Событие ${kind}`;
 }
