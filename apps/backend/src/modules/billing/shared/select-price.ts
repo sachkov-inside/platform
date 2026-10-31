@@ -11,6 +11,8 @@ import {
 import { promotionUsage } from "./promotion-usage.js";
 export interface SelectPriceOptions {
   readonly allowUnpublished?: boolean;
+  /** Цена без акций: ссылке на оплату важны только архив и состав, а не текущая сумма. */
+  readonly withoutPromotions?: boolean;
 }
 type ProductPriceRow = Awaited<
   ReturnType<BillingPrisma["billingProductPrice"]["findMany"]>
@@ -90,7 +92,7 @@ export async function selectPricesForOptions(
       priceKopecks: Number(row.priceKopecks),
       archived: false,
     };
-    const best = promotions
+    const best = (options.withoutPromotions === true ? [] : promotions)
       .filter(
         (p) =>
           applicablePromotion(p, option, now, promoCode) &&
