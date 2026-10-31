@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
+import { declinedPaymentRecheckMilliseconds } from "../../src/modules/billing/facets/billing-payments/billing-payments.js";
 import { pressedPaymentButton } from "./setup/consent-documents.js";
-import { eventually } from "./setup/eventually.js";
 import {
   createProductCommerceWorld,
   commerceValue as value,
@@ -101,7 +101,7 @@ async function retiredRepeat() {
   // Уведомление банка подтверждает оплату в транзакции; Cancel в нём не уходит.
   expect(s.cancelRequests()).toEqual([]);
   expect(
-    await eventPayload(repeat.purchaseRef, "bank_cancel_required"),
+    await eventPayload(repeat.purchaseRef, "bank_cancel_requested"),
   ).toEqual({
     reason: "superseded_by_confirmed_payment",
     confirmedPurchaseRef: first.purchaseRef,
@@ -127,7 +127,9 @@ test.each(["NEW", "FORM_SHOWED"])(
       TerminalKey: s.config.terminalKey,
       PaymentId: repeatPaymentId,
     });
-    expect(await eventPayload(repeat.purchaseRef, "bank_form_closed")).toEqual({
+    expect(
+      await eventPayload(repeat.purchaseRef, "bank_cancel_confirmed"),
+    ).toEqual({
       paymentId: repeatPaymentId,
       status: "CANCELED",
     });
@@ -138,10 +140,16 @@ test.each(["NEW", "FORM_SHOWED"])(
 );
 
 test.each([
+  ["PREAUTHORIZING", null],
+  ["AUTHORIZING", null],
   ["AUTHORIZED", null],
+  ["CONFIRMING", null],
   ["REJECTED", null],
   ["AUTH_FAIL", null],
-  ["REVERSED", null],
+  ["REVERSING", null],
+  ["REFUNDING", null],
+  ["PARTIAL_REFUNDED", null],
+  ["REVERSED", "REVERSED"],
   ["CANCELED", "CANCELED"],
   ["DEADLINE_EXPIRED", "DEADLINE_EXPIRED"],
   ["CONFIRMED", "CONFIRMED"],
@@ -154,7 +162,9 @@ test.each([
     value(await s.payments.reconcile(repeat.purchaseRef));
     value(await s.payments.reconcile(repeat.purchaseRef));
     expect(s.cancelRequests()).toEqual([]);
-    expect(await eventPayload(repeat.purchaseRef, "bank_form_closed")).toEqual(
+    expect(
+      await eventPayload(repeat.purchaseRef, "bank_cancel_confirmed"),
+    ).toEqual(
       closedStatus === null
         ? null
         : { paymentId: repeatPaymentId, status: closedStatus },
@@ -195,17 +205,102 @@ test("a buyer who pays between the reconciliation read and the cancel is confirm
   ).toEqual({ paidPurchaseRefs: [first.purchaseRef] });
 });
 
-test("an unavailable Cancel is repeated by the next recovery until the bank confirms CANCELED", async () => {
+test("a buyer who pays between the cancel check and the Cancel gets the money back, and the owner sees it", async () => {
+  const { s, repeat, repeatPaymentId } = await retiredRepeat();
+  let reads = 0;
+  // Проверка перед Cancel ещё видела NEW; Cancel пришёл уже к оплаченному платежу.
+  s.afterState((paymentId) => {
+    if (paymentId !== repeatPaymentId) return;
+    reads += 1;
+    if (reads === 2) s.setPaymentStatus(repeatPaymentId, "CONFIRMED");
+  });
+  try {
+    value(await s.payments.reconcile(repeat.purchaseRef));
+  } finally {
+    s.afterState(undefined);
+  }
+  expect(s.cancelRequests()).toHaveLength(1);
+  expect(
+    await eventPayload(repeat.purchaseRef, "bank_cancel_returned_payment"),
+  ).toEqual({ paymentId: repeatPaymentId, status: "REFUNDED" });
+  expect(
+    await eventPayload(repeat.purchaseRef, "bank_cancel_confirmed"),
+  ).toBeNull();
+  // Следующая сверка принимает возврат обычным путём и больше не шлёт Cancel.
+  value(await s.payments.reconcile(repeat.purchaseRef));
+  expect(s.cancelRequests()).toHaveLength(1);
+  expect((await purchaseState(repeat.purchaseRef)).state).toBe("confirmed");
+  expect(
+    await eventPayload(repeat.purchaseRef, "bank_cancel_confirmed"),
+  ).toEqual({ paymentId: repeatPaymentId, status: "REFUNDED" });
+});
+
+test("recovery cancels a form retired late in the attempt's first day until a day after the retirement", async () => {
+  const start = world.time();
+  try {
+    const s = await world.scenario();
+    const first = value(await s.payments.purchase(s.buyer, s.command));
+    const firstPayment = {
+      OrderId: first.purchaseRef,
+      PaymentId: s.paymentId(),
+    };
+    await s.notify("REJECTED");
+    const repeat = value(
+      await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s)),
+    );
+    const repeatPaymentId = s.paymentId();
+    world.setTime(new Date(start.getTime() + 20 * 60 * 60 * 1000));
+    expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
+      ok: true,
+    });
+    // Прошло больше суток от создания попытки, но меньше суток от её снятия.
+    world.setTime(
+      new Date(start.getTime() + declinedPaymentRecheckMilliseconds + 60_000),
+    );
+    value(await s.payments.recover());
+    expect(s.cancelRequests()).toMatchObject([{ PaymentId: repeatPaymentId }]);
+    expect(
+      await eventPayload(repeat.purchaseRef, "bank_cancel_confirmed"),
+    ).toEqual({ paymentId: repeatPaymentId, status: "CANCELED" });
+  } finally {
+    world.setTime(start);
+  }
+});
+
+test("a buyer repeating the retired purchase command sees the failed attempt without waiting for the Cancel", async () => {
+  const s = await world.scenario();
+  const first = value(await s.payments.purchase(s.buyer, s.command));
+  const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
+  await s.notify("REJECTED");
+  const repeatCommand = await repeatPurchaseCommand(s);
+  const repeat = value(await s.payments.purchase(s.buyer, repeatCommand));
+  expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
+    ok: true,
+  });
+  expect(await s.payments.purchase(s.buyer, repeatCommand)).toMatchObject({
+    ok: true,
+    value: { purchaseRef: repeat.purchaseRef, state: "failed" },
+  });
+  expect(s.cancelRequests()).toEqual([]);
+  value(await s.payments.reconcile(repeat.purchaseRef));
+  expect(s.cancelRequests()).toHaveLength(1);
+});
+
+test("an unavailable Cancel is sent again by the next recovery and closes with CANCELED", async () => {
   const { s, repeat, repeatPaymentId } = await retiredRepeat();
   s.failCancel();
   expect(await s.payments.reconcile(repeat.purchaseRef)).toMatchObject({
     ok: false,
     error: { code: "provider_unavailable" },
   });
-  expect(await eventPayload(repeat.purchaseRef, "bank_form_closed")).toBeNull();
+  expect(
+    await eventPayload(repeat.purchaseRef, "bank_cancel_confirmed"),
+  ).toBeNull();
   value(await s.payments.recover());
   expect(s.cancelRequests()).toHaveLength(2);
-  expect(await eventPayload(repeat.purchaseRef, "bank_form_closed")).toEqual({
+  expect(
+    await eventPayload(repeat.purchaseRef, "bank_cancel_confirmed"),
+  ).toEqual({
     paymentId: repeatPaymentId,
     status: "CANCELED",
   });
@@ -220,7 +315,7 @@ test("a bank-declined attempt reopened on its payment form is never cancelled", 
   value(await s.payments.reconcile(purchase.purchaseRef));
   expect(s.cancelRequests()).toEqual([]);
   expect(await eventKinds(purchase.purchaseRef)).not.toContain(
-    "bank_cancel_required",
+    "bank_cancel_requested",
   );
 });
 
@@ -229,26 +324,24 @@ test("an attempt retired while its Init was in flight keeps the late PaymentId a
   const first = value(await s.payments.purchase(s.buyer, s.command));
   const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
   await s.notify("REJECTED");
-  const release = s.holdInit();
+  const init = s.holdInit();
   const repeatStarted = s.payments.purchase(
     s.buyer,
     await repeatPurchaseCommand(s),
   );
-  let repeatRef = "";
-  await eventually(async () => {
-    const sent = await world.db.prisma.billingPurchase.findFirst({
+  // Банк уже создал платёж повторной попытки, но его ответ ещё не дошёл до Inside.
+  await init.arrived;
+  const repeatPaymentId = s.paymentId();
+  const { id: repeatRef } =
+    await world.db.prisma.billingPurchase.findFirstOrThrow({
       where: { accountId: s.buyer, state: "sent" },
       select: { id: true },
     });
-    expect(sent).not.toBeNull();
-    repeatRef = sent?.id ?? "";
-  }, 10_000);
-  const repeatPaymentId = s.paymentId();
   expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
     ok: true,
   });
   expect((await purchaseState(repeatRef)).state).toBe("failed");
-  release();
+  init.release();
   await repeatStarted;
   expect(await purchaseState(repeatRef)).toEqual({
     state: "failed",
@@ -257,7 +350,7 @@ test("an attempt retired while its Init was in flight keeps the late PaymentId a
   });
   value(await s.payments.recover());
   expect(s.cancelRequests()).toMatchObject([{ PaymentId: repeatPaymentId }]);
-  expect(await eventPayload(repeatRef, "bank_form_closed")).toEqual({
+  expect(await eventPayload(repeatRef, "bank_cancel_confirmed")).toEqual({
     paymentId: repeatPaymentId,
     status: "CANCELED",
   });
@@ -281,7 +374,7 @@ async function unknownRepeat() {
   });
   // Исход неизвестен: Inside не снимает попытку, пока не спросит банк.
   expect((await purchaseState(repeat.id)).state).toBe("unknown");
-  expect(await eventPayload(repeat.id, "bank_cancel_required")).toEqual({
+  expect(await eventPayload(repeat.id, "bank_cancel_requested")).toEqual({
     reason: "superseded_by_confirmed_payment",
     confirmedPurchaseRef: first.purchaseRef,
   });
@@ -300,7 +393,7 @@ test("an unknown repeat attempt is checked with the bank first and its unpaid fo
     await eventPayload(repeat.id, "superseded_by_confirmed_payment"),
   ).toEqual({ confirmedPurchaseRef: first.purchaseRef });
   expect(s.cancelRequests()).toMatchObject([{ PaymentId: repeatPaymentId }]);
-  expect(await eventPayload(repeat.id, "bank_form_closed")).toEqual({
+  expect(await eventPayload(repeat.id, "bank_cancel_confirmed")).toEqual({
     paymentId: repeatPaymentId,
     status: "CANCELED",
   });
@@ -315,7 +408,7 @@ test("an unknown repeat attempt that the bank reports paid is confirmed as a sec
   expect(await eventPayload(repeat.id, "duplicate_payment_review")).toEqual({
     paidPurchaseRefs: [first.purchaseRef],
   });
-  expect(await eventPayload(repeat.id, "bank_form_closed")).toEqual({
+  expect(await eventPayload(repeat.id, "bank_cancel_confirmed")).toEqual({
     paymentId: repeatPaymentId,
     status: "CONFIRMED",
   });

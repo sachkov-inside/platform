@@ -180,7 +180,9 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       timeout = false,
       stateCalls = 0,
       cancelFailures = 0,
-      initGate: Promise<void> | undefined,
+      initGate:
+        | { readonly arrived: () => void; readonly released: Promise<void> }
+        | undefined,
       afterState: ((paymentId: string) => void) | undefined;
     // Каждый Init получает свой PaymentId, как в банке: повторная покупка не делит платёж с прежней.
     const nextPaymentId = () => String(Math.floor(Math.random() * 1000000000));
@@ -222,7 +224,10 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         });
         expect(body).not.toHaveProperty("Recurrent");
         if (timeout) throw new Error("Synthetic lost Init answer");
-        await initGate;
+        if (initGate !== undefined) {
+          initGate.arrived();
+          await initGate.released;
+        }
         return Response.json({
           ...event(paymentStatus(created.paymentId), {
             OrderId: created.orderId,
@@ -347,15 +352,28 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       afterState: (action: ((paymentId: string) => void) | undefined) => {
         afterState = action;
       },
-      /** Ответ на следующие Init ждёт `release`: тем временем приложение может снять попытку. */
+      /**
+       * Ответ на следующий Init ждёт `release`: тем временем приложение может снять попытку.
+       * `arrived` завершается, когда Init дошёл до банка и платёж уже создан.
+       */
       holdInit: () => {
-        const released: { resolve?: () => void } = {};
-        initGate = new Promise<void>((resolve) => {
-          released.resolve = resolve;
+        const signals: { arrived?: () => void; release?: () => void } = {};
+        const arrived = new Promise<void>((resolve) => {
+          signals.arrived = resolve;
         });
-        return () => {
-          initGate = undefined;
-          released.resolve?.();
+        const released = new Promise<void>((resolve) => {
+          signals.release = resolve;
+        });
+        initGate = {
+          arrived: () => signals.arrived?.(),
+          released,
+        };
+        return {
+          arrived,
+          release: () => {
+            initGate = undefined;
+            signals.release?.();
+          },
         };
       },
     };

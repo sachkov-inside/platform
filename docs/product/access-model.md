@@ -716,15 +716,19 @@ creation: Init sends no `RedirectDueDate`, so the form keeps the
 [provider's default lifetime](https://developer.tbank.ru/eacq/api/init). The confirmation retires
 the same Account's unpaid repeat attempts for the same Product or the same Payment Link, so the
 buyer cannot pay twice through the newer form in Inside. Each such attempt whose Init could have
-reached the bank records `bank_cancel_required`. Outside the transaction, reconciliation closes
-its bank form with the provider's [Cancel](https://developer.tbank.ru/eacq/api/cancel) for the full
-amount (#1923, owner decision of 31.10.2026). Cancel is sent only when GetState, read
-immediately before it, reports `NEW` or `FORM_SHOWED` for that order's PaymentId. A paid payment is
-never cancelled: refunds stay in the bank's dashboard (#1420). A failed Cancel is repeated by the
-next reconciliation. `bank_form_closed` records the bank status that closed the form: `CANCELED`
-after Cancel, or `DEADLINE_EXPIRED`, `CONFIRMED` or `REFUNDED` without it. A repeat attempt with
-an unknown outcome is first checked with the bank. An unpaid form retires and is cancelled; a paid
-one is confirmed as a second payment. Held funds stay in reconciliation. A Payment
+reached the bank records `bank_cancel_requested`. Outside the transaction, the background
+reconciliation and the owner's `payments.reconcile` close its bank form with the provider's
+[Cancel](https://developer.tbank.ru/eacq/api/cancel) for the full amount (#1923, owner decision of
+31.10.2026). Cancel is sent only when GetState, read immediately before it, reports `NEW` or
+`FORM_SHOWED` for that order's PaymentId. A paid payment is never cancelled on purpose: refunds stay
+in the bank's dashboard (#1420). Recovery asks the bank about such an attempt for 24 hours after
+`bank_cancel_requested`, because Init precedes the mark and the form lives 24 hours after Init.
+A failed Cancel is sent again within that window. `bank_cancel_confirmed` records the bank status
+that closed the form: `CANCELED` after Cancel, or `DEADLINE_EXPIRED`, `REVERSED`, `CONFIRMED` or
+`REFUNDED` without it. A buyer can still pay between that GetState and Cancel; the bank then
+returns the money, and `bank_cancel_returned_payment` records it. A repeat attempt with an unknown
+outcome is first checked with the bank. An unpaid form retires and is cancelled; a paid one is
+confirmed as a second payment. Held funds stay in reconciliation. A Payment
 Link is transferable, so another Account's attempt is never retired. While any of these attempts
 holds the link, the confirmed attempt keeps its reservation failed. A bank decline of the last
 holder confirms that reservation in the same transaction; recovery confirms it when the link was

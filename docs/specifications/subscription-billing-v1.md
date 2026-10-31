@@ -1147,7 +1147,7 @@ Order не равен попытке списания, Payment не равен p
 | Charge timeout | Сохраняется sent/unknown; GetState до любой новой mutation, даже NEW не разрешает слепой повтор Charge |
 | Cancel before send | Cancel revision блокирует отправку worker; оплаченный остаток сохраняется |
 | Cancel after send | Сверка прежней попытки; late success даёт период, новые списания запрещены |
-| Full refund confirmed | Продавец инициировал возврат в кабинете банка; подписанное REFUNDED или GetState сохраняет историю и отзывает права покупки; Platform не отправляет Cancel |
+| Full refund confirmed | Продавец инициировал возврат в кабинете банка; подписанное REFUNDED или GetState сохраняет историю и отзывает права покупки; для возврата Platform не отправляет Cancel (Cancel неоплаченной формы снятой попытки описан в [access model](../product/access-model.md), #1923) |
 | Receipt rejected/delayed | Отдельное fiscal state с alert/recovery; не повторная оплата и не скрытый success чека |
 
 Проверяются token/signature по actual payload и соответствие terminal/payment/order/amount,
