@@ -1,21 +1,10 @@
 import { describe, expect, test } from "vitest";
 
 import { courseTopicTile } from "@/_pages/library-discovery/model/course-topic-tiles";
-import { aiEngineeringCoursePage } from "@/storybook/ai-engineering-course.fixtures";
-
-/** Темы описания курса на production до переноса нового лендинга (sachkov.dev, 30.10.2026). */
-const publishedTopics = [
-  "AI-first разработка",
-  "Harness",
-  "Работа с контекстом",
-  "Пайплайны разработки",
-  "Собственные агенты",
-  "RAG",
-  "Контроль агентов",
-  "Evals и эксплуатация",
-  "MCP и инструменты агентов",
-  "Экономия токенов",
-];
+import {
+  aiEngineeringCoursePage,
+  aiEngineeringPublishedTopics,
+} from "@/storybook/ai-engineering-course.fixtures";
 
 function topicsOf(page: typeof aiEngineeringCoursePage): string[] {
   const block = page.blocks.find((item) => item.id === "topics");
@@ -38,14 +27,16 @@ describe("Course topic tiles", () => {
   });
 
   test("keeps illustrations for the description published before the new landing", () => {
-    for (const title of publishedTopics) {
+    for (const title of aiEngineeringPublishedTopics) {
       expect(courseTopicTile(title), title).toBeDefined();
     }
   });
 
   test("binds an illustration to the topic, not to its position", () => {
-    const tiles = publishedTopics.map((title) => courseTopicTile(title));
-    const reversed = publishedTopics
+    const tiles = aiEngineeringPublishedTopics.map((title) =>
+      courseTopicTile(title),
+    );
+    const reversed = aiEngineeringPublishedTopics
       .toReversed()
       .map((title) => courseTopicTile(title));
     expect(reversed).toEqual(tiles.toReversed());
@@ -60,7 +51,10 @@ describe("Course topic tiles", () => {
   });
 
   test("fills whole rows of the four-column grid", () => {
-    for (const titles of [topicsOf(aiEngineeringCoursePage), publishedTopics]) {
+    for (const titles of [
+      topicsOf(aiEngineeringCoursePage),
+      aiEngineeringPublishedTopics,
+    ]) {
       let row = 0;
       for (const span of spans(titles)) {
         row += span;

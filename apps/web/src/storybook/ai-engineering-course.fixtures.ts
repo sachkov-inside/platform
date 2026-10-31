@@ -296,6 +296,20 @@ export const aiEngineeringCoursePage: ProductPage = {
   ],
 };
 
+/** Темы «Что изучим» в описании, опубликованном до лендинга #1909 (sachkov.dev, 30.10.2026). */
+export const aiEngineeringPublishedTopics: readonly string[] = [
+  "AI-first разработка",
+  "Harness",
+  "Работа с контекстом",
+  "Пайплайны разработки",
+  "Собственные агенты",
+  "RAG",
+  "Контроль агентов",
+  "Evals и эксплуатация",
+  "MCP и инструменты агентов",
+  "Экономия токенов",
+];
+
 /** Snapshot of the authored eight-chapter programme; lessons retain their own readiness. */
 export const aiEngineeringCourseChapters: readonly ProductChapter[] = [
   {

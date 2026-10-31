@@ -19,6 +19,7 @@ import {
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 import {
+  aiEngineeringPublishedTopics,
   aiEngineeringCourseChapters,
   aiEngineeringCoursePage,
 } from "@/storybook/ai-engineering-course.fixtures";
@@ -149,19 +150,6 @@ export const PositionTopicsAndProcess: Story = {
   },
 };
 
-/** Темы «Что изучим» в описании, опубликованном до лендинга #1909. */
-const publishedTopics = [
-  "AI-first разработка",
-  "Harness",
-  "Работа с контекстом",
-  "Пайплайны разработки",
-  "Собственные агенты",
-  "RAG",
-  "Контроль агентов",
-  "Evals и эксплуатация",
-  "MCP и инструменты агентов",
-  "Экономия токенов",
-];
 /**
  * Описание, опубликованное до лендинга #1909: темы сохраняют свои иллюстрации, пока текст в Inside
  * Content не обновлён, а блок с незнакомым `id` рисуется по своему виду.
@@ -187,7 +175,7 @@ export const PublishedDescription: Story = {
                 title: "Что изучим",
                 lead: "",
                 note: "",
-                items: publishedTopics.map((title) => ({
+                items: aiEngineeringPublishedTopics.map((title) => ({
                   title,
                   text: `Описание темы «${title}».`,
                   detailLabel: "",
@@ -219,7 +207,7 @@ export const PublishedDescription: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const tiles = canvasElement.querySelectorAll(".aie-bento > li");
-    await expect(tiles.length).toBe(publishedTopics.length);
+    await expect(tiles.length).toBe(aiEngineeringPublishedTopics.length);
     for (const tile of tiles)
       await expect(tile.querySelector(".aie-bento-art")).not.toBeNull();
     await expect(

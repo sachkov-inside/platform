@@ -1739,6 +1739,14 @@
   font-weight: 550;
   line-height: 1.3;
 }
+/* Подробность роли из описания курса: строка текста под темами, а не ещё одна плашка. */
+.aie-roles dd .ai-product-item-detail {
+  flex-basis: 100%;
+  padding: 0;
+  background: none;
+  font-weight: 450;
+  color: var(--muted-foreground);
+}
 .aie-roles [data-role="agent"] dt {
   color: var(--muted-foreground);
 }
