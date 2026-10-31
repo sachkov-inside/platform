@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { pressedPaymentButton } from "./setup/consent-documents.js";
 import {
   createProductCommerceWorld,
   commerceValue as value,
@@ -21,44 +20,6 @@ afterAll(async () => world.dispose());
 type Scenario = Awaited<ReturnType<typeof world.scenario>>;
 
 const linkPriceKopecks = 150000;
-
-/** The buyer presses "Оплатить" on another page: a new quote, a new consent and a new command. */
-async function purchaseCommand(
-  s: Scenario,
-  pricing: { paymentLinkId?: string; promoCode?: string } = {},
-) {
-  const quote = value(
-    await s.pricing.quote(s.buyer, {
-      operationId: randomUUID(),
-      productId: s.productId,
-      priceRevision: 1,
-      ...pricing,
-    }),
-  );
-  const consent = await s.contact.acceptConsents(
-    s.buyer,
-    pressedPaymentButton({
-      operationId: randomUUID(),
-      contextRef: quote.quoteRef,
-      documents: [
-        {
-          kind: "terms",
-          documentId: s.document.documentId,
-          version: s.document.version,
-          digest: s.document.digest,
-          accepted: true,
-        },
-      ],
-    }),
-  );
-  if (!consent.ok) throw new Error(consent.error.code);
-  return {
-    ...s.command,
-    operationId: randomUUID(),
-    quoteRef: quote.quoteRef,
-    consentEvidenceRefs: consent.evidenceRefs,
-  };
-}
 
 async function paymentLink(s: Scenario): Promise<string> {
   s.allowInitAmount(linkPriceKopecks);
@@ -105,7 +66,7 @@ test("a Payment Link purchase replaces the open storefront attempt and cancels i
   const replacement = value(
     await s.payments.purchase(
       s.buyer,
-      await purchaseCommand(s, { paymentLinkId: linkId }),
+      await s.commandFor({ paymentLinkId: linkId }),
     ),
   );
 
@@ -152,12 +113,74 @@ test("a Payment Link purchase replaces the open storefront attempt and cancels i
   expect((await purchaseRow(replacement.purchaseRef)).state).toBe("pending");
 });
 
+test("money that a late Cancel returned grants no access and leaves the buyer's current attempt open", async () => {
+  const s = await world.scenario();
+  const storefront = value(await s.payments.purchase(s.buyer, s.command));
+  const storefrontPayment = {
+    OrderId: storefront.purchaseRef,
+    PaymentId: s.paymentId(),
+  };
+  const linkId = await paymentLink(s);
+  const replacement = value(
+    await s.payments.purchase(
+      s.buyer,
+      await s.commandFor({ paymentLinkId: linkId }),
+    ),
+  );
+  let reads = 0;
+  // The check before Cancel still sees NEW; Cancel reaches an already paid form.
+  s.afterState((paymentId) => {
+    if (paymentId !== storefrontPayment.PaymentId) return;
+    reads += 1;
+    if (reads === 2)
+      s.setPaymentStatus(storefrontPayment.PaymentId, "CONFIRMED");
+  });
+  try {
+    value(await s.payments.reconcile(storefront.purchaseRef));
+  } finally {
+    s.afterState(undefined);
+  }
+  expect(
+    await world.eventPayload(
+      storefront.purchaseRef,
+      "bank_cancel_returned_payment",
+    ),
+  ).toEqual({ paymentId: storefrontPayment.PaymentId, status: "REFUNDED" });
+
+  // The delayed CONFIRMED of the paid form arrives after the bank returned the money.
+  expect(
+    await s.notify("CONFIRMED", { ...storefrontPayment, Amount: 200000 }),
+  ).toMatchObject({ ok: true });
+  value(await s.payments.reconcile(storefront.purchaseRef));
+
+  expect((await purchaseRow(storefront.purchaseRef)).state).toBe("failed");
+  expect(
+    await world.db.prisma.billingFulfillment.count({
+      where: { purchaseRef: storefront.purchaseRef },
+    }),
+  ).toBe(0);
+  expect(await eventPayloads(storefront.purchaseRef)).toMatchObject({
+    bank_cancel_confirmed: {
+      paymentId: storefrontPayment.PaymentId,
+      status: "REFUNDED",
+    },
+  });
+  expect(
+    await world.eventPayload(storefront.purchaseRef, "payment_confirmed"),
+  ).toBeNull();
+  expect(await purchaseRow(replacement.purchaseRef)).toMatchObject({
+    state: "pending",
+    paymentUrl: expect.any(String) as unknown,
+  });
+  expect(s.cancelRequests()).toHaveLength(1);
+});
+
 test("a new storefront quote at the same price continues the open attempt without another Init", async () => {
   const s = await world.scenario();
   const first = value(await s.payments.purchase(s.buyer, s.command));
 
   const repeated = value(
-    await s.payments.purchase(s.buyer, await purchaseCommand(s)),
+    await s.payments.purchase(s.buyer, await s.commandFor()),
   );
 
   expect(repeated.purchaseRef).toBe(first.purchaseRef);
@@ -190,7 +213,7 @@ test("a promo code price replaces the open storefront attempt at the full price"
   const promoted = value(
     await s.payments.purchase(
       s.buyer,
-      await purchaseCommand(s, { promoCode: "INSIDE10" }),
+      await s.commandFor({ promoCode: "INSIDE10" }),
     ),
   );
 
@@ -213,7 +236,7 @@ test("an open attempt the bank already confirmed is not replaced: the buyer sees
   const answer = value(
     await s.payments.purchase(
       s.buyer,
-      await purchaseCommand(s, { paymentLinkId: linkId }),
+      await s.commandFor({ paymentLinkId: linkId }),
     ),
   );
 
@@ -240,7 +263,7 @@ test("an authorized open attempt is not replaced by another price", async () => 
   const answer = value(
     await s.payments.purchase(
       s.buyer,
-      await purchaseCommand(s, { paymentLinkId: linkId }),
+      await s.commandFor({ paymentLinkId: linkId }),
     ),
   );
 
@@ -257,7 +280,7 @@ test("a replacement whose new reservation fails leaves the open attempt untouche
   const s = await world.scenario();
   const storefront = value(await s.payments.purchase(s.buyer, s.command));
   const linkId = await paymentLink(s);
-  const command = await purchaseCommand(s, { paymentLinkId: linkId });
+  const command = await s.commandFor({ paymentLinkId: linkId });
   // Another Account takes the link between the buyer's quote and the purchase.
   const other = await world.scenario({
     productId: s.productId,
@@ -284,7 +307,7 @@ test("an open form the bank cannot check yet is neither replaced nor offered at 
   const s = await world.scenario();
   const storefront = value(await s.payments.purchase(s.buyer, s.command));
   const linkId = await paymentLink(s);
-  const command = await purchaseCommand(s, { paymentLinkId: linkId });
+  const command = await s.commandFor({ paymentLinkId: linkId });
   s.afterState(() => {
     throw new Error("Synthetic unavailable GetState");
   });

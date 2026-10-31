@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paymentEventKind } from "./payment-events.js";
 
 /**
  * Вид попытки оплаты. Разовая покупка стоит рядом с подпиской: она оплачивается один раз,
@@ -55,5 +56,5 @@ export type RetirementReason = z.infer<typeof retirementReasonSchema>;
  */
 export const purchaseRetirementReasonSchema = z.enum([
   ...retirementReasonSchema.options,
-  "form_address_lost",
+  paymentEventKind.formAddressLost,
 ]);

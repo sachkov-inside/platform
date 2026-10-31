@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, expect, test } from "vitest";
 import { CoverageCatalog } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { BillingPayments } from "../../src/modules/billing/index.js";
 import type { RetirementReason } from "../../src/modules/billing/domain/payment-attempt.js";
+import { warnings } from "./setup/log-lines.js";
 import {
   createProductCommerceWorld,
   commerceValue as value,
@@ -54,21 +55,6 @@ async function interruptedPurchase(s: Scenario): Promise<string> {
   });
   expect(row.state).toBe("prepared");
   return row.id;
-}
-
-/** Строки журнала уровня warn, записанные за время работы. */
-async function warnings<Value>(
-  work: () => Promise<Value>,
-): Promise<{ readonly result: Value; readonly lines: unknown[] }> {
-  const lines: unknown[] = [];
-  const warn = vi.spyOn(console, "warn").mockImplementation((line: unknown) => {
-    lines.push(JSON.parse(String(line)));
-  });
-  try {
-    return { result: await work(), lines };
-  } finally {
-    warn.mockRestore();
-  }
 }
 
 /** Снятие оставляет одно событие с причиной, строку журнала и причину в статусе покупки. */

@@ -5,9 +5,11 @@ import { afterEach, beforeEach, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
-  bankCancelEventKinds,
+  bankCancelClosingEventKinds,
+  paymentEventKind,
   reviewPaymentEventKinds,
-} from "../../src/modules/billing/features/read-payments/read-payments.js";
+} from "../../src/modules/billing/domain/payment-events.js";
+import { listPayments } from "../../src/modules/billing/features/read-payments/read-payments.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -17,7 +19,8 @@ import {
  * The production watchdog (#1928) reads payment signals with one SQL statement. This contract runs
  * that statement from the script itself against the migrated billing schema in a read-only
  * transaction, as the watchdog does: a renamed table or column fails here, not on the server.
- * Event kinds are compared only with the owner payments filter, not with the code that writes them.
+ * Event kinds and the open bank cancel rule are compared with `domain/payment-events.ts`, which the
+ * code that writes the events and the owner payments filter share.
  */
 const watchdog = readFileSync(
   new URL(
@@ -126,36 +129,61 @@ async function readSignals(): Promise<Record<string, number>> {
   );
 }
 
-it("reads no payment signals from an empty billing schema", async () => {
-  expect(paymentQuery).not.toBe("");
-  expect(await readSignals()).toEqual({
-    payment_duplicate: 0,
-    payment_after_failure: 0,
-    payment_superseded: 0,
-    payment_bank_absent: 0,
-    payment_partial_refund: 0,
+/** Watchdog signal of each owner review event kind; every kind has its own signal. */
+const reviewSignals: Readonly<
+  Record<(typeof reviewPaymentEventKinds)[number], string>
+> = {
+  duplicate_payment_review: "payment_duplicate",
+  payment_confirmed_after_failure: "payment_after_failure",
+  payment_confirmed_by_partial_refund: "payment_partial_confirmed",
+  superseded_by_confirmed_payment: "payment_superseded",
+  replaced_by_new_price: "payment_replaced",
+  form_address_lost: "payment_form_address_lost",
+  dispatch_retired: "payment_dispatch_retired",
+  bank_payment_absent: "payment_bank_absent",
+  partial_refund_released: "payment_partial_refund",
+  bank_cancel_returned_payment: "payment_cancel_returned",
+};
+
+function quietSignals(): Record<string, number> {
+  return {
+    ...Object.fromEntries(
+      Object.values(reviewSignals).map((signal) => [signal, 0]),
+    ),
     payment_cancel_open: 0,
     payment_failed_burst: 0,
-  });
+  };
+}
+
+it("reads no payment signals from an empty billing schema", async () => {
+  expect(paymentQuery).not.toBe("");
+  expect(await readSignals()).toEqual(quietSignals());
 });
 
-it("counts recent payment events, open bank cancellations and failed bursts", async () => {
+it("counts each review event kind of the last day under its own signal", async () => {
   const buyer = randomUUID();
   const recent = await oneTimePurchase(buyer, "2 hours");
   const older = await oneTimePurchase(buyer, "3 days");
   const other = await oneTimePurchase(buyer, "2 hours", "PAID-1");
-  await event(recent, "duplicate_payment_review", "1 minute");
-  await event(older, "duplicate_payment_review", "25 hours");
-  await event(recent, "payment_confirmed_after_failure", "1 minute");
-  await event(recent, "superseded_by_confirmed_payment", "1 minute");
-  await event(other, "superseded_by_confirmed_payment", "23 hours");
-  await event(recent, "bank_payment_absent", "1 minute");
-  await event(recent, "partial_refund_released", "1 minute");
-  await event(older, "partial_refund_released", "25 hours");
-  await event(recent, "payment_confirmed", "1 minute");
+  for (const kind of reviewPaymentEventKinds) {
+    await event(recent, kind, "1 minute");
+    await event(older, kind, "25 hours");
+  }
+  await event(other, paymentEventKind.supersededByConfirmedPayment, "23 hours");
+  await event(recent, paymentEventKind.paymentConfirmed, "1 minute");
 
-  // Open: requested 40 minutes ago, never confirmed. Closed, absent at the bank, too fresh,
-  // expired and paid do not count.
+  expect(await readSignals()).toEqual({
+    ...quietSignals(),
+    ...Object.fromEntries(
+      Object.values(reviewSignals).map((signal) => [signal, 1]),
+    ),
+    payment_superseded: 2,
+  });
+});
+
+it("counts open bank cancellations and failed bursts", async () => {
+  // Open: requested 40 minutes ago, never closed. Closed by Cancel, closed by the confirmation of
+  // a paid form, absent at the bank, too fresh and expired do not count.
   const open = await oneTimePurchase(randomUUID(), "2 hours", "CANCEL-OPEN");
   const closed = await oneTimePurchase(
     randomUUID(),
@@ -175,6 +203,7 @@ it("counts recent payment events, open bank cancellations and failed bursts", as
   );
   await event(open, "bank_cancel_requested", "40 minutes");
   await event(paid, "bank_cancel_requested", "40 minutes");
+  await event(paid, "bank_cancel_confirmed", "20 minutes");
   await event(closed, "bank_cancel_requested", "40 minutes");
   await event(closed, "bank_cancel_confirmed", "20 minutes");
   await event(fresh, "bank_cancel_requested", "10 minutes");
@@ -196,20 +225,64 @@ it("counts recent payment events, open bank cancellations and failed bursts", as
   await oneTimePurchase(aged, "80 minutes");
 
   expect(await readSignals()).toEqual({
-    payment_duplicate: 1,
-    payment_after_failure: 1,
-    payment_superseded: 2,
-    payment_bank_absent: 2,
-    payment_partial_refund: 1,
+    ...quietSignals(),
+    payment_bank_absent: 1,
     payment_cancel_open: 1,
     payment_failed_burst: 1,
   });
 });
 
+it("lists a purchase with each review event kind or an open bank cancel in the owner review filter", async () => {
+  const buyer = randomUUID();
+  const reviewed = new Map<string, string>();
+  for (const kind of reviewPaymentEventKinds) {
+    const purchaseRef = await oneTimePurchase(buyer, "2 hours");
+    await event(purchaseRef, kind, "1 minute");
+    reviewed.set(purchaseRef, kind);
+  }
+  const open = await oneTimePurchase(buyer, "2 hours", "CANCEL-OPEN");
+  await event(open, "bank_cancel_requested", "40 minutes");
+  const closed = await oneTimePurchase(buyer, "2 hours", "CANCEL-CLOSED");
+  await event(closed, "bank_cancel_requested", "40 minutes");
+  await event(closed, "bank_cancel_confirmed", "20 minutes");
+  const confirmed = await oneTimePurchase(
+    buyer,
+    "2 hours",
+    "PAID",
+    "confirmed",
+  );
+  await event(confirmed, paymentEventKind.paymentConfirmed, "1 minute");
+
+  const listed = await listPayments(database.prisma, {
+    operation: "payments.list",
+    operationId: randomUUID(),
+    accountId: buyer,
+    events: "review",
+    limit: 100,
+  });
+  if (!listed.ok || listed.result.outcome !== "payments")
+    throw new Error(JSON.stringify(listed));
+  expect(listed.result.items.map((item) => item.purchaseRef).sort()).toEqual(
+    [...reviewed.keys(), open].sort(),
+  );
+});
+
 it("watches every event kind that the owner payments filter offers for review", () => {
-  for (const kind of [
-    ...reviewPaymentEventKinds,
-    ...Object.values(bankCancelEventKinds),
-  ])
-    expect(paymentQuery).toContain(`'${kind}'`);
+  for (const kind of reviewPaymentEventKinds)
+    expect(paymentQuery).toContain(
+      `select '${reviewSignals[kind]}', count(*) from billing.payment_events\n where kind = '${kind}'`,
+    );
+});
+
+it("closes an open bank cancel by exactly the events of the shared rule", () => {
+  const closing = /closed\.kind in \(([^)]*)\)/u.exec(paymentQuery)?.[1];
+  expect(
+    closing
+      ?.split(",")
+      .map((kind) => kind.trim().replace(/^'|'$/gu, ""))
+      .sort(),
+  ).toEqual([...bankCancelClosingEventKinds].sort());
+  expect(paymentQuery).toContain(
+    `requested.kind = '${paymentEventKind.bankCancelRequested}'`,
+  );
 });

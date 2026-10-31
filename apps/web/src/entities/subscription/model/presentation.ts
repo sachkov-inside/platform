@@ -311,8 +311,9 @@ export function promotionLabel(snapshot: PriceSnapshot): string | undefined {
 }
 
 /**
- * Причина, по которой сервер снял покупку до банка. Init не уходил, поэтому текст говорит,
- * что деньги не списаны.
+ * Причина, по которой сервер снял покупку до оплаты. Четыре причины снимают покупку до Init.
+ * `form_address_lost` снимает её после Init: у Inside нет адреса формы оплаты, а банк назвал
+ * форму неоплаченной (#1926). В обоих случаях деньги не списаны, и текст говорит об этом.
  */
 export function purchaseRetirementMessage(reason: RetirementReason): string {
   switch (reason) {

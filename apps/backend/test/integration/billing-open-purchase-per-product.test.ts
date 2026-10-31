@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { pressedPaymentButton } from "./setup/consent-documents.js";
 import {
   createProductCommerceWorld,
   commerceValue as value,
@@ -36,40 +35,6 @@ async function publishedProduct(s: Scenario): Promise<string> {
   return productId;
 }
 
-/** The buyer presses "Оплатить" for a Product: a new quote, a new consent and a new command. */
-async function purchaseCommand(s: Scenario, productId: string) {
-  const quote = value(
-    await s.pricing.quote(s.buyer, {
-      operationId: randomUUID(),
-      productId,
-      priceRevision: 1,
-    }),
-  );
-  const consent = await s.contact.acceptConsents(
-    s.buyer,
-    pressedPaymentButton({
-      operationId: randomUUID(),
-      contextRef: quote.quoteRef,
-      documents: [
-        {
-          kind: "terms",
-          documentId: s.document.documentId,
-          version: s.document.version,
-          digest: s.document.digest,
-          accepted: true,
-        },
-      ],
-    }),
-  );
-  if (!consent.ok) throw new Error(consent.error.code);
-  return {
-    ...s.command,
-    operationId: randomUUID(),
-    quoteRef: quote.quoteRef,
-    consentEvidenceRefs: consent.evidenceRefs,
-  };
-}
-
 function openReservations(accountId: string) {
   return world.db.prisma.billingPromoReservation.findMany({
     where: { accountId, state: { in: ["reserved", "sent", "unknown"] } },
@@ -85,7 +50,7 @@ test("an unfinished purchase of one Product does not block the same Account from
 
   const second = await s.payments.purchase(
     s.buyer,
-    await purchaseCommand(s, other),
+    await s.commandFor({ productId: other }),
   );
 
   expect(second).toMatchObject({ ok: true, value: { state: "pending" } });
@@ -103,7 +68,7 @@ test("a repeated purchase of the same Product continues its unfinished purchase"
 
   const repeated = await s.payments.purchase(
     s.buyer,
-    await purchaseCommand(s, s.productId),
+    await s.commandFor({ productId: s.productId }),
   );
 
   expect(repeated).toMatchObject({
@@ -118,7 +83,7 @@ test("a repeated purchase of the same Product continues its unfinished purchase"
 
 test("concurrent purchases of the same Product from two tabs share one purchase and one Init", async () => {
   const s = await world.scenario();
-  const second = await purchaseCommand(s, s.productId);
+  const second = await s.commandFor({ productId: s.productId });
 
   const started = await Promise.all([
     s.payments.purchase(s.buyer, s.command),
@@ -149,7 +114,7 @@ test("an open reservation of the same Product without a continuable purchase ans
 
   const blocked = await s.payments.purchase(
     s.buyer,
-    await purchaseCommand(s, s.productId),
+    await s.commandFor({ productId: s.productId }),
   );
 
   expect(blocked).toEqual({
@@ -163,7 +128,7 @@ test("an open reservation of the same Product without a continuable purchase ans
     }),
   ).toBe(0);
   // The internal reserve step answers the same conflict as a reservation conflict.
-  const another = await purchaseCommand(s, s.productId);
+  const another = await s.commandFor({ productId: s.productId });
   expect(
     await s.pricing.reserve({
       accountId: s.buyer,

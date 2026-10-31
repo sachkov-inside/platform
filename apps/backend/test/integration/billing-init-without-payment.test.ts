@@ -25,13 +25,6 @@ afterAll(async () => world.dispose());
 type Scenario = Awaited<ReturnType<typeof world.scenario>>;
 const minute = 60_000;
 
-async function purchaseRow(purchaseRef: string) {
-  return world.db.prisma.billingPurchase.findUniqueOrThrow({
-    where: { id: purchaseRef },
-    select: { state: true, paymentId: true, paymentUrl: true },
-  });
-}
-
 async function events(purchaseRef: string) {
   const rows = await world.db.prisma.billingPaymentEvent.findMany({
     where: { purchaseRef },
@@ -59,7 +52,7 @@ test("a bank refusal of Init with an error code and no PaymentId closes the purc
   s.failNextInit({ errorCode: "9999", message: "Неверные параметры" });
   const refused = value(await s.payments.purchase(s.buyer, s.command));
   expect(refused).toMatchObject({ state: "failed", paymentUrl: null });
-  expect(await purchaseRow(refused.purchaseRef)).toEqual({
+  expect(await world.purchaseRow(refused.purchaseRef)).toEqual({
     state: "failed",
     paymentId: null,
     paymentUrl: null,
@@ -103,7 +96,7 @@ test("a failure while preparing Init closes the purchase without a bank request,
   const closed = value(await unprepared.purchase(s.buyer, s.command));
   expect(closed).toMatchObject({ state: "failed", paymentUrl: null });
   expect(s.initCalls()).toBe(0);
-  expect(await purchaseRow(closed.purchaseRef)).toEqual({
+  expect(await world.purchaseRow(closed.purchaseRef)).toEqual({
     state: "failed",
     paymentId: null,
     paymentUrl: null,
@@ -129,9 +122,10 @@ test.each(["unreachable", "unavailable"] as const)(
     const purchase = value(await s.payments.purchase(s.buyer, s.command));
     expect(purchase).toMatchObject({ state: "unknown", paymentUrl: null });
     const firstEmptyAt = new Date(createdAt.getTime() + minute);
+    // Окно отсутствия ещё идёт: сверка ждёт, а не сообщает о сбое банка.
     expect(await reconcileAt(s, purchase.purchaseRef, firstEmptyAt)).toEqual({
-      ok: false,
-      error: { code: "provider_unavailable" },
+      ok: true,
+      value: true,
     });
     expect(
       await reconcileAt(
@@ -139,8 +133,10 @@ test.each(["unreachable", "unavailable"] as const)(
         purchase.purchaseRef,
         new Date(firstEmptyAt.getTime() + 30 * minute - 1),
       ),
-    ).toEqual({ ok: false, error: { code: "provider_unavailable" } });
-    expect((await purchaseRow(purchase.purchaseRef)).state).toBe("unknown");
+    ).toEqual({ ok: true, value: true });
+    expect((await world.purchaseRow(purchase.purchaseRef)).state).toBe(
+      "unknown",
+    );
     expect(
       await reconcileAt(
         s,
@@ -148,7 +144,7 @@ test.each(["unreachable", "unavailable"] as const)(
         new Date(firstEmptyAt.getTime() + 30 * minute),
       ),
     ).toEqual({ ok: true, value: true });
-    expect(await purchaseRow(purchase.purchaseRef)).toEqual({
+    expect(await world.purchaseRow(purchase.purchaseRef)).toEqual({
       state: "failed",
       paymentId: null,
       paymentUrl: null,
@@ -186,8 +182,8 @@ test("an empty CheckOrder long after the purchase was created still waits 30 min
       purchase.purchaseRef,
       new Date(firstEmptyAt.getTime() + 29 * minute),
     ),
-  ).toEqual({ ok: false, error: { code: "provider_unavailable" } });
-  expect((await purchaseRow(purchase.purchaseRef)).state).toBe("unknown");
+  ).toEqual({ ok: true, value: true });
+  expect((await world.purchaseRow(purchase.purchaseRef)).state).toBe("unknown");
   value(
     await reconcileAt(
       s,
@@ -195,7 +191,7 @@ test("an empty CheckOrder long after the purchase was created still waits 30 min
       new Date(firstEmptyAt.getTime() + 30 * minute),
     ),
   );
-  expect((await purchaseRow(purchase.purchaseRef)).state).toBe("failed");
+  expect((await world.purchaseRow(purchase.purchaseRef)).state).toBe("failed");
 });
 
 test("a purchase left in sent by a process crash during Init is closed by the same 30-minute window", async () => {
@@ -211,7 +207,7 @@ test("a purchase left in sent by a process crash during Init is closed by the sa
   });
   const firstEmptyAt = new Date(createdAt.getTime() + minute);
   await reconcileAt(s, purchase.purchaseRef, firstEmptyAt);
-  expect((await purchaseRow(purchase.purchaseRef)).state).toBe("sent");
+  expect((await world.purchaseRow(purchase.purchaseRef)).state).toBe("sent");
   value(
     await reconcileAt(
       s,
@@ -219,7 +215,7 @@ test("a purchase left in sent by a process crash during Init is closed by the sa
       new Date(firstEmptyAt.getTime() + 30 * minute),
     ),
   );
-  expect((await purchaseRow(purchase.purchaseRef)).state).toBe("failed");
+  expect((await world.purchaseRow(purchase.purchaseRef)).state).toBe("failed");
   expect(
     (await events(purchase.purchaseRef)).map((event) => event.kind),
   ).toEqual(["bank_order_empty", "bank_payment_absent"]);
@@ -241,7 +237,7 @@ test("a lost Init answer whose payment the bank created is found by CheckOrder a
   );
   // Платёж найден, поэтому окно отсутствия не закрывает попытку. Адреса формы у Inside нет:
   // через 2 минуты после создания сверка снимает её и отменяет форму в банке (#1926).
-  expect(await purchaseRow(purchase.purchaseRef)).toMatchObject({
+  expect(await world.purchaseRow(purchase.purchaseRef)).toMatchObject({
     state: "failed",
     paymentId: s.paymentId(),
   });
@@ -253,4 +249,32 @@ test("a lost Init answer whose payment the bank created is found by CheckOrder a
     { kind: "bank_cancel_requested", payload: { reason: "form_address_lost" } },
     { kind: "form_address_lost", payload: {} },
   ]);
+});
+
+test("waiting inside the absence window is deferred work: recovery reports no failure and the buyer sees the purchase status", async () => {
+  // Сверка спрашивает банк о каждой открытой покупке базы, а двойник банка знает только платежи
+  // своего сценария: проход идёт по отдельной базе, где других покупок нет.
+  const own = await createProductCommerceWorld();
+  try {
+    const createdAt = new Date("2030-02-01T10:00:00Z");
+    own.setTime(createdAt);
+    const s = await own.scenario();
+    s.failNextInit("unreachable");
+    const purchase = value(await s.payments.purchase(s.buyer, s.command));
+    own.setTime(new Date(createdAt.getTime() + minute));
+    // Задание сверки бросает ошибку при `failed > 0`, и сторож поднял бы billing_queue_idle.
+    expect(value(await s.payments.recover())).toMatchObject({
+      inspected: 1,
+      deferred: 1,
+      failed: 0,
+    });
+    expect((await own.purchaseRow(purchase.purchaseRef)).state).toBe("unknown");
+    // Повтор той же команды отдаёт статус покупки, а не сбой банка.
+    expect(await s.payments.purchase(s.buyer, s.command)).toMatchObject({
+      ok: true,
+      value: { purchaseRef: purchase.purchaseRef, state: "unknown" },
+    });
+  } finally {
+    await own.dispose();
+  }
 });

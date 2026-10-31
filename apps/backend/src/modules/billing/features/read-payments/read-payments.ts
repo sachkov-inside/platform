@@ -18,6 +18,8 @@ import {
   type OwnerOutcome,
   type OwnerResult,
 } from "../../domain/owner-operations.js";
+import { reviewPaymentEventKinds } from "../../domain/payment-events.js";
+import { bankCancelOpenSql } from "../../shared/open-bank-cancel.js";
 import { refundTotalsOf } from "../../shared/refund-amounts.js";
 
 type PurchaseRow = Awaited<
@@ -136,32 +138,6 @@ export async function refundDecisionViews(
   );
 }
 
-/**
- * События платежа для проверки владельцем (#1928): вторая оплата, подтверждение после отказа,
- * снятие попытки подтверждённой оплатой, покупка без платежа в банке и неподтверждённая покупка
- * с частичным возвратом, снятая с ожидания (#1929). Фильтр `events: "review"` выбирает покупки
- * хотя бы с одним из них или с открытой отменой в банке; сторож production сообщает о тех же
- * видах. `bank_payment_absent` пишет #1922: в банке нет платежа покупки.
- */
-export const reviewPaymentEventKinds = [
-  "duplicate_payment_review",
-  "payment_confirmed_after_failure",
-  "superseded_by_confirmed_payment",
-  "bank_payment_absent",
-  "partial_refund_released",
-] as const;
-
-/**
- * Отмена неоплаченной формы в банке (#1923) открыта, пока у покупки есть запрос, покупка не
- * подтверждена и нет ни подтверждения отмены, ни `bank_payment_absent` (#1922): без платежа в
- * банке отменять нечего. Опоздавшую отмену закрывает подтверждённая оплата.
- */
-export const bankCancelEventKinds = {
-  requested: "bank_cancel_requested",
-  confirmed: "bank_cancel_confirmed",
-  absent: "bank_payment_absent",
-} as const;
-
 type ListPaymentsCommand = Extract<
   OwnerOperation,
   { operation: "payments.list" }
@@ -249,21 +225,12 @@ export async function listPayments(
         ${
           command.events === undefined
             ? Prisma.empty
-            : Prisma.sql`and (exists (
+            : // Виды для проверки и открытую отмену задаёт `domain/payment-events.ts`.
+              Prisma.sql`and (exists (
                 select 1 from billing.payment_events as event
                 where event.purchase_ref = purchase.id
                   and event.kind = any(${[...reviewPaymentEventKinds]}::text[]))
-              or (purchase.state <> 'confirmed' and exists (
-                select 1 from billing.payment_events as requested
-                where requested.purchase_ref = purchase.id
-                  and requested.kind = ${bankCancelEventKinds.requested}
-                  and not exists (
-                    select 1 from billing.payment_events as closed
-                    where closed.purchase_ref = purchase.id
-                      and closed.kind = any(${[
-                        bankCancelEventKinds.confirmed,
-                        bankCancelEventKinds.absent,
-                      ]}::text[])))))`
+              or (${bankCancelOpenSql(Prisma.sql`purchase.id`)}))`
         }
         ${
           command.cursor === undefined

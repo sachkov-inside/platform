@@ -85,6 +85,8 @@ export function paymentEventLabel(kind: string): string {
     dispatch_retired: "Покупка снята до отправки в банк, деньги не списаны",
     payment_confirmed_after_failure:
       "Банк подтвердил оплату после отказа по той же форме",
+    payment_confirmed_by_partial_refund:
+      "Частичный возврат доказал оплату: доступ выдан, сумму возврата нужно проверить",
     superseded_by_confirmed_payment:
       "Попытка закрыта: оплачена прежняя попытка этой покупки",
     duplicate_payment_review:
@@ -98,7 +100,7 @@ export function paymentEventLabel(kind: string): string {
     bank_cancel_returned_payment:
       "Покупатель успел оплатить снятую попытку, отмена вернула деньги",
     partial_refund_released:
-      "Частичный возврат без подтверждённой оплаты: покупка закрыта, нужно решение о деньгах",
+      "Частичная отмена без подтверждённой оплаты: покупка закрыта, нужно решение о деньгах",
     bank_status_unrecognized:
       "Банк прислал статус не из справочника, покупку проверит сверка",
     bank_order_empty: "Банк не нашёл платёж по заказу, сверка проверит снова",

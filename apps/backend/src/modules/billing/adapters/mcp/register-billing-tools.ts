@@ -78,7 +78,7 @@ function description(operation: string): string {
     case "payments.reconcile":
       return "Re-read one payment from the bank and apply its verified result. Never starts a new payment or charge.";
     case "payments.list":
-      return "List stored payments newest first, optionally by accountId, productId, kind, one state or several states, fulfillment incomplete (confirmed but access not yet applied), events review (a payment event for the owner to check: second payment, confirmation after failure, superseded attempt, unconfirmed purchase with a partial refund released for review, no payment at the bank, an unconfirmed bank cancellation) and a creation period [from, to). Card bindings and receipt contacts are not exposed. Sends nothing.";
+      return "List stored payments newest first, optionally by accountId, productId, kind, one state or several states, fulfillment incomplete (confirmed but access not yet applied), events review (payments with an event the owner must check: a second payment, a confirmation after a decline or by a partial refund, any automatic retirement of an attempt, no payment at the bank, a partial reversal without a confirmed payment, money returned by a late bank cancellation, or a bank cancellation that is still open) and a creation period [from, to). Card bindings and receipt contacts are not exposed. Sends nothing.";
     case "payments.read":
       return "Read stored payments, their bank state, paid conditions, access readiness and owner audit. Sends nothing; card bindings and receipt contacts are not exposed.";
     case "respondents.import":

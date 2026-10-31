@@ -116,6 +116,11 @@ describe("production watchdog", () => {
             "payment_superseded|2",
             "payment_bank_absent|3",
             "payment_partial_refund|1",
+            "payment_partial_confirmed|1",
+            "payment_replaced|1",
+            "payment_form_address_lost|1",
+            "payment_dispatch_retired|1",
+            "payment_cancel_returned|1",
             "payment_cancel_open|1",
             "payment_failed_burst|1",
             "",
@@ -127,7 +132,12 @@ describe("production watchdog", () => {
         /Отказ: Подтверждение банка после отказа \(payment_confirmed_after_failure\) за сутки: 1/u,
         /Отказ: Попытки сняты подтверждённой оплатой \(superseded_by_confirmed_payment\) за сутки: 2/u,
         /Отказ: Покупки без платежа в банке \(bank_payment_absent\) за сутки: 3/u,
-        /Отказ: Частичный возврат без подтверждённой оплаты \(partial_refund_released\) за сутки: 1/u,
+        /Отказ: Частичная отмена без подтверждённой оплаты \(partial_refund_released\) за сутки: 1/u,
+        /Отказ: Покупки подтверждены частичным возвратом \(payment_confirmed_by_partial_refund\) за сутки: 1/u,
+        /Отказ: Попытки заменены покупкой по другой цене \(replaced_by_new_price\) за сутки: 1/u,
+        /Отказ: Попытки сняты без адреса формы оплаты \(form_address_lost\) за сутки: 1/u,
+        /Отказ: Покупки сняты до отправки в банк \(dispatch_retired\) за сутки: 1/u,
+        /Отказ: Опоздавшая отмена вернула деньги покупателю \(bank_cancel_returned_payment\) за сутки: 1/u,
         /Отказ: Отмена в банке не подтверждена дольше 30 минут: 1/u,
         /Отказ: Аккаунтов с более чем 3 неуспешными покупками без PaymentId за час: 1/u,
       ]) {
@@ -158,6 +168,8 @@ describe("production watchdog", () => {
         healthySql +
           "payment_duplicate|0\npayment_after_failure|0\npayment_superseded|0\n" +
           "payment_bank_absent|0\npayment_partial_refund|0\npayment_cancel_open|0\n" +
+          "payment_partial_confirmed|0\npayment_replaced|0\npayment_form_address_lost|0\n" +
+          "payment_dispatch_retired|0\npayment_cancel_returned|0\n" +
           "payment_failed_burst|0\n",
       );
       assert.equal(assertRun(fixture), "");

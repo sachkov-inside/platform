@@ -158,20 +158,129 @@ async function expectReleasedForOwnerReview(
   });
 }
 
-test("an unconfirmed purchase with a partial refund stops holding the Product at once and is listed for the owner", async () => {
+/**
+ * `PARTIAL_REFUNDED` доказывает списание (#1921, инвариант 1): покупка подтверждена, сохранённая
+ * выдача открывает доступ, сумма возврата остаётся неизвестной, и владелец видит покупку в
+ * списке проверки.
+ */
+async function expectConfirmedForOwnerReview(
+  s: Awaited<ReturnType<typeof world.scenario>>,
+  heldRef: string,
+  paymentId: string,
+) {
+  value(await s.payments.recover());
+  expect(
+    await world.db.prisma.billingPurchase.findUniqueOrThrow({
+      where: { id: heldRef },
+      select: { state: true, paymentId: true, refundReviewRequired: true },
+    }),
+  ).toEqual({ state: "confirmed", paymentId, refundReviewRequired: true });
+  expect(await s.payments.status(s.buyer, heldRef)).toMatchObject({
+    ok: true,
+    value: { state: "confirmed", access: "ready", refundedKopecks: null },
+  });
+  expect(
+    await world.eventPayload(heldRef, "payment_confirmed_by_partial_refund"),
+  ).toEqual({ paymentId, status: "PARTIAL_REFUNDED" });
+  const review = await listPayments(world.db.prisma, {
+    operation: "payments.list",
+    operationId: randomUUID(),
+    accountId: s.buyer,
+    events: "review",
+    limit: 100,
+  });
+  expect(review).toMatchObject({
+    ok: true,
+    result: { items: [{ purchaseRef: heldRef }] },
+  });
+}
+
+test("an authenticated PARTIAL_REFUNDED of an unconfirmed purchase confirms it with its saved fulfillment and lists it for the owner", async () => {
   const s = await world.scenario();
   const held = value(await s.payments.purchase(s.buyer, s.command));
   expect(await s.notify("PARTIAL_REFUNDED", { Amount: 1000 })).toMatchObject({
     ok: true,
   });
-  // Сверка ещё не шла: уведомление само снимает покупку с ожидания.
+  await expectConfirmedForOwnerReview(s, held.purchaseRef, s.paymentId());
+  // Доступ уже выдан: новая покупка того же продукта не начинается.
+  expect(
+    await s.payments.purchase(s.buyer, await s.repeatCommand()),
+  ).toMatchObject({ ok: false, error: { code: "existing_access" } });
+});
+
+test("a confirmation proven by a partial refund is a paid purchase for the second payment check", async () => {
+  const s = await world.scenario();
+  const first = value(await s.payments.purchase(s.buyer, s.command));
+  const firstPayment = { OrderId: first.purchaseRef, PaymentId: s.paymentId() };
+  await s.notify("REJECTED");
+  const repeat = value(
+    await s.payments.purchase(s.buyer, await s.repeatCommand()),
+  );
+  const repeatPayment = {
+    OrderId: repeat.purchaseRef,
+    PaymentId: s.paymentId(),
+  };
+  expect(
+    await s.notify("PARTIAL_REFUNDED", { ...firstPayment, Amount: 1000 }),
+  ).toMatchObject({ ok: true });
+  expect((await world.purchaseRow(first.purchaseRef)).state).toBe("confirmed");
+  // Покупатель всё же оплатил форму снятой повторной попытки.
+  expect(await s.notify("CONFIRMED", repeatPayment)).toMatchObject({
+    ok: true,
+  });
+  expect(
+    await world.eventPayload(repeat.purchaseRef, "duplicate_payment_review"),
+  ).toEqual({ paidPurchaseRefs: [first.purchaseRef], heldProductIds: [] });
+});
+
+test("an unconfirmed purchase with a partial reversal of its hold stops holding the Product at once and is listed for the owner", async () => {
+  const s = await world.scenario();
+  const held = value(await s.payments.purchase(s.buyer, s.command));
+  expect(await s.notify("PARTIAL_REVERSED", { Amount: 1000 })).toMatchObject({
+    ok: true,
+  });
+  // Частичная отмена холда не доказывает списание: уведомление само снимает покупку с ожидания.
   await expectReleasedForOwnerReview(s, held.purchaseRef);
 });
 
-test("recovery releases an unknown purchase under partial refund review left before #1929", async () => {
+test("recovery confirms an unknown purchase whose partial refund was observed before #1929", async () => {
   const s = await world.scenario();
   const held = value(await s.payments.purchase(s.buyer, s.command));
-  // Так частичный возврат оставлял покупку до #1929: unknown с открытым резервом.
+  const paymentId = s.paymentId();
+  // Так частичный возврат оставлял покупку до #1929: unknown с открытым резервом, без PaymentId
+  // и с наблюдением статуса банка.
+  await world.db.prisma.billingPurchase.update({
+    where: { id: held.purchaseRef },
+    data: {
+      state: "unknown",
+      refundReviewRequired: true,
+      paymentUrl: null,
+      paymentId: null,
+    },
+  });
+  await world.db.prisma.billingPaymentEvent.create({
+    data: {
+      id: randomUUID(),
+      purchaseRef: held.purchaseRef,
+      kind: `partial_refund_observed:${"0".repeat(64)}`,
+      payload: {
+        status: "PARTIAL_REFUNDED",
+        paymentId,
+        orderId: held.purchaseRef,
+        observedAmountKopecks: 1000,
+        resolution: "amount_unresolved",
+      },
+      occurredAt: world.time(),
+      recordedAt: world.time(),
+    },
+  });
+  value(await s.payments.recover());
+  await expectConfirmedForOwnerReview(s, held.purchaseRef, paymentId);
+});
+
+test("recovery releases an unknown purchase under partial refund review without a partial refund observation", async () => {
+  const s = await world.scenario();
+  const held = value(await s.payments.purchase(s.buyer, s.command));
   await world.db.prisma.billingPurchase.update({
     where: { id: held.purchaseRef },
     data: { state: "unknown", refundReviewRequired: true, paymentUrl: null },

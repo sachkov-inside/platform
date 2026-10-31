@@ -174,6 +174,49 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       email: "order@example.test",
       consentEvidenceRefs: consent.evidenceRefs,
     };
+    /**
+     * Покупатель нажимает «Оплатить» на другой странице: новый расчёт, новое согласие и новая
+     * команда покупки. Без аргумента расчёт идёт по продукту сценария и цене витрины.
+     */
+    async function commandFor(
+      pricing: {
+        readonly productId?: string;
+        readonly paymentLinkId?: string;
+        readonly promoCode?: string;
+      } = {},
+    ) {
+      const nextQuote = value(
+        await facets.pricing.quote(buyer, {
+          operationId: randomUUID(),
+          productId,
+          priceRevision: 1,
+          ...pricing,
+        }),
+      );
+      const nextConsent = await facets.contact.acceptConsents(
+        buyer,
+        pressedPaymentButton({
+          operationId: randomUUID(),
+          contextRef: nextQuote.quoteRef,
+          documents: [
+            {
+              kind: "terms",
+              documentId: facets.document.documentId,
+              version: facets.document.version,
+              digest: facets.document.digest,
+              accepted: true,
+            },
+          ],
+        }),
+      );
+      if (!nextConsent.ok) throw new Error(nextConsent.error.code);
+      return {
+        ...command,
+        operationId: randomUUID(),
+        quoteRef: nextQuote.quoteRef,
+        consentEvidenceRefs: nextConsent.evidenceRefs,
+      };
+    }
     let orderId = "",
       status = "NEW",
       initCalls = 0,
@@ -437,39 +480,9 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         stateGate = gate.gate;
         return gate.control;
       },
+      commandFor,
       /** Покупатель снова нажимает «Оплатить»: новый расчёт, новое согласие и новая команда покупки. */
-      repeatCommand: async () => {
-        const repeatQuote = value(
-          await facets.pricing.quote(buyer, {
-            operationId: randomUUID(),
-            productId,
-            priceRevision: 1,
-          }),
-        );
-        const repeatConsent = await facets.contact.acceptConsents(
-          buyer,
-          pressedPaymentButton({
-            operationId: randomUUID(),
-            contextRef: repeatQuote.quoteRef,
-            documents: [
-              {
-                kind: "terms",
-                documentId: facets.document.documentId,
-                version: facets.document.version,
-                digest: facets.document.digest,
-                accepted: true,
-              },
-            ],
-          }),
-        );
-        if (!repeatConsent.ok) throw new Error(repeatConsent.error.code);
-        return {
-          ...command,
-          operationId: randomUUID(),
-          quoteRef: repeatQuote.quoteRef,
-          consentEvidenceRefs: repeatConsent.evidenceRefs,
-        };
-      },
+      repeatCommand: () => commandFor(),
     };
   }
 
@@ -545,6 +558,20 @@ export async function createProductCommerceWorld() {
     db,
     owner,
     ...createProductCommerceFixture(db, owner),
+    /** Payload события покупки этого вида или `null`, если события нет. */
+    eventPayload: async (purchaseRef: string, kind: string) => {
+      const row = await db.prisma.billingPaymentEvent.findUnique({
+        where: { purchaseRef_kind: { purchaseRef, kind } },
+        select: { payload: true },
+      });
+      return row?.payload ?? null;
+    },
+    /** Состояние покупки, её PaymentId и сохранённый адрес формы оплаты. */
+    purchaseRow: (purchaseRef: string) =>
+      db.prisma.billingPurchase.findUniqueOrThrow({
+        where: { id: purchaseRef },
+        select: { state: true, paymentId: true, paymentUrl: true },
+      }),
     dispose: () => db.dispose(),
   };
 }

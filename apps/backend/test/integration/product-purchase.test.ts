@@ -460,13 +460,16 @@ test("a confirmation after a decline and a partial refund observation still reti
   const repeat = value(
     await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s, link.id)),
   );
-  // С #1929 частичный возврат оставляет отказанную покупку закрытой, а не переводит в unknown.
+  // Частичный возврат доказывает списание: отказанная покупка подтверждается сразу (#1921).
   expect(
     await s.notify("PARTIAL_REFUNDED", { ...firstPayment, Amount: 1000 }),
   ).toMatchObject({ ok: true });
   expect(value(await s.payments.status(s.buyer, first.purchaseRef)).state).toBe(
-    "failed",
+    "confirmed",
   );
+  expect(
+    value(await s.payments.status(s.buyer, repeat.purchaseRef)).state,
+  ).toBe("failed");
   expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
     ok: true,
   });
@@ -1160,9 +1163,10 @@ test.each(["confirmed_first", "partial_first"] as const)(
       ok: true,
       value: {
         refundedKopecks: null,
-        // Неподтверждённая покупка снимается с ожидания и не держит продукт (#1929).
+        // Частичный возврат доказывает списание: неподтверждённая покупка подтверждается, и её
+        // сохранённая выдача ждёт сверки (#1921, инвариант 1).
         ...(order === "partial_first"
-          ? { state: "failed", access: "awaiting_payment" }
+          ? { state: "confirmed", access: "preparing" }
           : { access: "ready" }),
       },
     });
@@ -1362,7 +1366,7 @@ test("a crash after historical Product issuance preserves an owner revoke when p
   ).toBe(2);
 });
 
-test("partial Amount is preserved as an observation without weakening full capture proof or binding an unknown PaymentId", async () => {
+test("a signed partial refund after a lost Init answer binds the PaymentId and confirms the purchase, but its Amount proves neither capture amount nor refund", async () => {
   const s = await scenario();
   s.loseInit();
   const lost = await s.payments.purchase(s.buyer, s.command);
@@ -1377,8 +1381,13 @@ test("partial Amount is preserved as an observation without weakening full captu
   const observed = await db.prisma.billingPurchase.findUniqueOrThrow({
     where: { id: purchase.id },
   });
-  expect(observed.paymentId).toBeNull();
-  expect(observed.refundReviewRequired).toBe(true);
+  // Подписанное уведомление по заказу Inside доказывает списание этого PaymentId (#1921).
+  expect(observed).toMatchObject({
+    state: "confirmed",
+    paymentId: s.paymentId(),
+    amountKopecks: purchase.amountKopecks,
+    refundReviewRequired: true,
+  });
   expect(await s.notify("CONFIRMED", { Amount: 50000 })).toMatchObject({
     ok: false,
     error: { code: "invalid_notification" },
@@ -1387,12 +1396,13 @@ test("partial Amount is preserved as an observation without weakening full captu
     ok: false,
     error: { code: "invalid_notification" },
   });
+  // Одна выдача: её записало подтверждение частичным возвратом, точный CONFIRMED не добавляет вторую.
+  expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
   expect(
     await db.prisma.billingFulfillment.count({
       where: { purchaseRef: purchase.id },
     }),
-  ).toBe(0);
-  expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
+  ).toBe(1);
   await s.payments.recover();
   expect(await s.payments.status(s.buyer, purchase.id)).toMatchObject({
     ok: true,

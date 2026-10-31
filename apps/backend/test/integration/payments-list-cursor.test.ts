@@ -61,10 +61,10 @@ const rows = [
 /**
  * Payment events per purchase. `events=review` keeps purchases with an event for the owner to check
  * or a bank cancellation that is still open (#1928). `payment_confirmed` alone, a confirmed
- * cancellation and a cancellation of a purchase paid anyway do not count.
+ * cancellation and a cancellation closed by the confirmation of a paid form do not count.
  */
 const events: Readonly<Record<number, readonly string[]>> = {
-  1: ["payment_confirmed", "bank_cancel_requested"],
+  1: ["payment_confirmed", "bank_cancel_requested", "bank_cancel_confirmed"],
   2: ["superseded_by_confirmed_payment"],
   3: ["payment_confirmed", "payment_confirmed_after_failure"],
   4: ["payment_confirmed"],

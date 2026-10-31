@@ -27,14 +27,6 @@ async function purchaseRow(purchaseRef: string) {
   });
 }
 
-async function eventPayload(purchaseRef: string, kind: string) {
-  const row = await world.db.prisma.billingPaymentEvent.findUnique({
-    where: { purchaseRef_kind: { purchaseRef, kind } },
-    select: { payload: true },
-  });
-  return row?.payload ?? null;
-}
-
 /** Покупка с открытой формой оплаты: Init дошёл до банка, форма ещё не оплачена. */
 async function openForm(s?: Scenario) {
   const scenario = s ?? (await world.scenario());
@@ -84,9 +76,9 @@ test.each(["PAY_CHECKING", "CONFIRM_CHECKING", "ASYNC_REFUNDING"])(
       state: "unknown",
       paymentUrl: null,
     });
-    expect(await eventPayload(purchaseRef, "bank_status_unrecognized")).toBe(
-      null,
-    );
+    expect(
+      await world.eventPayload(purchaseRef, "bank_status_unrecognized"),
+    ).toBe(null);
   },
 );
 
@@ -140,7 +132,9 @@ test("an authentic status missing from the documented list is acknowledged, sent
     state: "unknown",
     paymentUrl: null,
   });
-  expect(await eventPayload(purchaseRef, "bank_status_unrecognized")).toEqual({
+  expect(
+    await world.eventPayload(purchaseRef, "bank_status_unrecognized"),
+  ).toEqual({
     paymentId: s.paymentId(),
     status: "QR_SETTLING",
   });
@@ -198,9 +192,9 @@ test.each([
       error: { code: "invalid_notification" },
     });
     expect((await purchaseRow(purchaseRef)).state).toBe("pending");
-    expect(await eventPayload(purchaseRef, "bank_status_unrecognized")).toBe(
-      null,
-    );
+    expect(
+      await world.eventPayload(purchaseRef, "bank_status_unrecognized"),
+    ).toBe(null);
   },
 );
 
@@ -221,9 +215,9 @@ test.each(["manual", "course_activation"] as const)(
     expect(issued).toMatchObject({ ok: true, outcome: "issued" });
     expect(await s.notify("CONFIRMED")).toEqual({ ok: true, value: true });
     expect((await purchaseRow(purchaseRef)).state).toBe("confirmed");
-    expect(await eventPayload(purchaseRef, "duplicate_payment_review")).toEqual(
-      { paidPurchaseRefs: [], heldProductIds: [s.productId] },
-    );
+    expect(
+      await world.eventPayload(purchaseRef, "duplicate_payment_review"),
+    ).toEqual({ paidPurchaseRefs: [], heldProductIds: [s.productId] });
   },
 );
 
@@ -247,7 +241,9 @@ test("a confirmed payment for a product whose access the owner revoked is marked
     }),
   );
   expect(await s.notify("CONFIRMED")).toEqual({ ok: true, value: true });
-  expect(await eventPayload(purchaseRef, "duplicate_payment_review")).toEqual({
+  expect(
+    await world.eventPayload(purchaseRef, "duplicate_payment_review"),
+  ).toEqual({
     paidPurchaseRefs: [],
     heldProductIds: [s.productId],
   });
@@ -256,9 +252,9 @@ test("a confirmed payment for a product whose access the owner revoked is marked
 test("a first payment without any earlier access records no second payment", async () => {
   const { s, purchaseRef } = await openForm();
   expect(await s.notify("CONFIRMED")).toEqual({ ok: true, value: true });
-  expect(await eventPayload(purchaseRef, "duplicate_payment_review")).toBe(
-    null,
-  );
+  expect(
+    await world.eventPayload(purchaseRef, "duplicate_payment_review"),
+  ).toBe(null);
 });
 
 test("fulfillment for a deleted Account moves to owner review once instead of retrying forever", async () => {
@@ -275,7 +271,7 @@ test("fulfillment for a deleted Account moves to owner review once instead of re
     reviewReason: "account_deleted",
   });
   expect(
-    await eventPayload(purchaseRef, "fulfillment_review_required"),
+    await world.eventPayload(purchaseRef, "fulfillment_review_required"),
   ).toEqual(expect.objectContaining({ reason: "account_deleted" }));
   world.setTime(new Date(world.time().getTime() + 5 * 60_000));
   value(await s.payments.recover());

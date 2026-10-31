@@ -1,6 +1,7 @@
-import { afterAll, beforeAll, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { lostFormAddressMilliseconds } from "../../src/modules/billing/facets/billing-payments/billing-payments.js";
+import { warnings } from "./setup/log-lines.js";
 import {
   createProductCommerceWorld,
   commerceValue as value,
@@ -19,21 +20,6 @@ beforeAll(async () => {
   world = await createProductCommerceWorld();
 });
 afterAll(async () => world.dispose());
-
-async function eventPayload(purchaseRef: string, kind: string) {
-  const row = await world.db.prisma.billingPaymentEvent.findUnique({
-    where: { purchaseRef_kind: { purchaseRef, kind } },
-    select: { payload: true },
-  });
-  return row?.payload ?? null;
-}
-
-async function purchaseRow(purchaseRef: string) {
-  return world.db.prisma.billingPurchase.findUniqueOrThrow({
-    where: { id: purchaseRef },
-    select: { state: true, paymentId: true, paymentUrl: true },
-  });
-}
 
 /** Время теста идёт от `start`; после теста часы мира возвращаются назад. */
 async function fromStart(work: (start: Date) => Promise<void>): Promise<void> {
@@ -62,21 +48,6 @@ async function lostFormAddress(s: Scenario) {
   return { purchaseRef: row.id, paymentId: s.paymentId() };
 }
 
-/** Строки журнала уровня warn, записанные за время работы. */
-async function warnings<Value>(
-  work: () => Promise<Value>,
-): Promise<{ readonly result: Value; readonly lines: unknown[] }> {
-  const lines: unknown[] = [];
-  const warn = vi.spyOn(console, "warn").mockImplementation((line: unknown) => {
-    lines.push(JSON.parse(String(line)));
-  });
-  try {
-    return { result: await work(), lines };
-  } finally {
-    warn.mockRestore();
-  }
-}
-
 test.each(["NEW", "FORM_SHOWED"])(
   "recovery retires a purchase without a form address two minutes after creation and cancels its %s form",
   async (formStatus) => {
@@ -85,29 +56,35 @@ test.each(["NEW", "FORM_SHOWED"])(
       const { purchaseRef, paymentId } = await lostFormAddress(s);
       s.setPaymentStatus(paymentId, formStatus);
       value(await s.payments.recover());
-      expect(await purchaseRow(purchaseRef)).toEqual({
+      expect(await world.purchaseRow(purchaseRef)).toEqual({
         state: "pending",
         paymentId,
         paymentUrl: null,
       });
       world.setTime(after(start, lostFormAddressMilliseconds - 1));
       value(await s.payments.recover());
-      expect((await purchaseRow(purchaseRef)).state).toBe("pending");
+      expect((await world.purchaseRow(purchaseRef)).state).toBe("pending");
       expect(s.cancelRequests()).toEqual([]);
 
       world.setTime(after(start, lostFormAddressMilliseconds));
       value(await s.payments.recover());
-      expect(await purchaseRow(purchaseRef)).toEqual({
+      expect(await world.purchaseRow(purchaseRef)).toEqual({
         state: "failed",
         paymentId,
         paymentUrl: null,
       });
-      expect(await eventPayload(purchaseRef, "form_address_lost")).toEqual({});
-      expect(await eventPayload(purchaseRef, "bank_cancel_requested")).toEqual({
+      expect(
+        await world.eventPayload(purchaseRef, "form_address_lost"),
+      ).toEqual({});
+      expect(
+        await world.eventPayload(purchaseRef, "bank_cancel_requested"),
+      ).toEqual({
         reason: "form_address_lost",
       });
       expect(s.cancelRequests()).toMatchObject([{ PaymentId: paymentId }]);
-      expect(await eventPayload(purchaseRef, "bank_cancel_confirmed")).toEqual({
+      expect(
+        await world.eventPayload(purchaseRef, "bank_cancel_confirmed"),
+      ).toEqual({
         paymentId,
         status: "CANCELED",
       });
@@ -129,7 +106,7 @@ test("after the retirement the buyer starts a new purchase with its own payment 
     const { purchaseRef } = await lostFormAddress(s);
     world.setTime(after(start, lostFormAddressMilliseconds));
     value(await s.payments.reconcile(purchaseRef));
-    expect((await purchaseRow(purchaseRef)).state).toBe("failed");
+    expect((await world.purchaseRow(purchaseRef)).state).toBe("failed");
 
     const repeat = value(
       await s.payments.purchase(s.buyer, await s.repeatCommand()),
@@ -171,8 +148,10 @@ test.each(["3DS_CHECKING", "AUTHORIZING", "AUTHORIZED", "PAY_CHECKING"])(
       s.setPaymentStatus(paymentId, bankStatus);
       world.setTime(after(start, 10 * lostFormAddressMilliseconds));
       value(await s.payments.reconcile(purchaseRef));
-      expect((await purchaseRow(purchaseRef)).state).not.toBe("failed");
-      expect(await eventPayload(purchaseRef, "form_address_lost")).toBeNull();
+      expect((await world.purchaseRow(purchaseRef)).state).not.toBe("failed");
+      expect(
+        await world.eventPayload(purchaseRef, "form_address_lost"),
+      ).toBeNull();
       expect(s.cancelRequests()).toEqual([]);
     });
   },
@@ -184,7 +163,7 @@ test("a purchase with a stored form address is never retired by the wait", async
     const purchase = value(await s.payments.purchase(s.buyer, s.command));
     world.setTime(after(start, 10 * lostFormAddressMilliseconds));
     value(await s.payments.reconcile(purchase.purchaseRef));
-    expect(await purchaseRow(purchase.purchaseRef)).toEqual({
+    expect(await world.purchaseRow(purchase.purchaseRef)).toEqual({
       state: "pending",
       paymentId: s.paymentId(),
       paymentUrl: "https://securepay.tinkoff.ru/test",
@@ -218,7 +197,7 @@ test("a form address outside formOrigins asks for operator attention and the pur
 
     world.setTime(after(start, lostFormAddressMilliseconds));
     value(await s.payments.reconcile(row.id));
-    expect((await purchaseRow(row.id)).state).toBe("failed");
+    expect((await world.purchaseRow(row.id)).state).toBe("failed");
     expect(s.cancelRequests()).toMatchObject([{ PaymentId: s.paymentId() }]);
   });
 });

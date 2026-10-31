@@ -304,11 +304,17 @@ continuation для того же `purchaseRef` и становится `null` �
   историческая покупка без продукта в снимке не выбирается), `state` или `states` (до семи без
   повторов; вместе с `state` не принимается), `kind` и периоду создания `[from, to)`.
   `events: "review"` ([#1928](https://github.com/sachkov-inside/platform/issues/1928)) оставляет
-  покупки с событием для проверки владельцем: `duplicate_payment_review`,
-  `payment_confirmed_after_failure`, `superseded_by_confirmed_payment`,
-  `partial_refund_released` ([#1929](https://github.com/sachkov-inside/platform/issues/1929)) или
-  `bank_payment_absent` ([#1922](https://github.com/sachkov-inside/platform/issues/1922)). Туда же
-  попадает неподтверждённая покупка с `bank_cancel_requested` без `bank_cancel_confirmed`
+  покупки с событием для проверки владельцем. Перечень задаёт `reviewPaymentEventKinds` в
+  `apps/backend/src/modules/billing/domain/payment-events.ts`: вторая оплата
+  (`duplicate_payment_review`), подтверждение после отказа (`payment_confirmed_after_failure`) или
+  частичным возвратом (`payment_confirmed_by_partial_refund`), каждое автоматическое снятие попытки
+  (`superseded_by_confirmed_payment`, `replaced_by_new_price`, `form_address_lost`,
+  `dispatch_retired`), покупка без платежа в банке (`bank_payment_absent`,
+  [#1922](https://github.com/sachkov-inside/platform/issues/1922)), частичная отмена без
+  подтверждённой оплаты (`partial_refund_released`,
+  [#1929](https://github.com/sachkov-inside/platform/issues/1929)) и деньги, которые вернул
+  опоздавший Cancel (`bank_cancel_returned_payment`). Туда же попадает покупка с открытой отменой в
+  банке: `bank_cancel_requested` без `bank_cancel_confirmed` и без `bank_payment_absent`
   ([#1923](https://github.com/sachkov-inside/platform/issues/1923));
 - `paymentLinks.list` отдаёт ссылки на оплату от новых к старым с фильтрами `productId` и видимого
   состояния `state`; курсор действует только в своём фильтре;
@@ -715,9 +721,11 @@ Web читает поток одного Product через `GET billing/cohorts
 | `unsupported_attempt` | Попытка сохранена по условиям, которые разовая покупка не отправляет в банк |
 
 Снятие пишет событие `dispatch_retired` с `payload.reason` и строку журнала `billing_dispatch_retired`
-уровня `warn`. Статус покупки отдаёт причину в поле `retirementReason`; у остальных покупок поле
-равно `null`. Форма оплаты называет причину и говорит, что деньги не списаны. Новый расчёт после
-снятия она сама не запрашивает. После первого отказа банка на выбранных условиях форма сама
+уровня `warn`. Статус покупки отдаёт причину в поле `retirementReason`. Там же он отдаёт
+`form_address_lost` для попытки, снятой без адреса формы после Init (#1926, см. выше). У остальных
+покупок поле равно `null`. Форма оплаты называет причину и говорит, что деньги не списаны. После
+снятия до Init она сама не запрашивает новый расчёт. После `form_address_lost` она берёт новый
+расчёт сразу: следующий Init откроет форму с адресом. После первого отказа банка на выбранных условиях форма сама
 запрашивает новый расчёт. После каждого следующего отказа новый расчёт начинается только по кнопке
 «Обновить условия».
 
@@ -1204,7 +1212,7 @@ Order не равен попытке списания, Payment не равен p
 | Init result received | Проверенные bank host/HTTPS PaymentURL и PaymentId сохранены; выдаётся redirect |
 | Сбой до отправки Init | `failed` с событием `bank_payment_absent`, `reason: init_not_sent`; покупатель может начать новую покупку |
 | Init: `Success:false` с кодом ошибки и без PaymentId | `failed` с событием `bank_payment_absent`, `reason: init_declined`, кодом и текстом отказа банка |
-| Init: сеть, таймаут, HTTP-ошибка, ответ не по схеме, crash | `unknown` (после аварии процесса `sent`); CheckOrder ищет точное совпадение, несколько платежей оставляют `unknown`. Заказ без платежей банк не знает и отвечает `Success:false`, `ErrorCode` `335`; это пустой ответ, любой другой отказ остаётся `unknown`. Первый пустой ответ CheckOrder пишет `bank_order_empty`. Пустой ответ через 30 минут после него и после создания покупки закрывает её: `failed` и `bank_payment_absent`, `reason: check_order_empty` (#1922). Второго Init нет |
+| Init: сеть, таймаут, HTTP-ошибка, ответ не по схеме, crash | `unknown` (после аварии процесса `sent`); CheckOrder ищет точное совпадение, несколько платежей оставляют `unknown`. Заказ без платежей банк не знает и отвечает `Success:false`, `ErrorCode` `335`; это пустой ответ, любой другой отказ остаётся `unknown`. Первый пустой ответ CheckOrder пишет `bank_order_empty`. Пустой ответ через 30 минут после него и после создания покупки закрывает её: `failed` и `bank_payment_absent`, `reason: check_order_empty` (#1922). Пока окно идёт, сверка откладывает строку (`deferred`), а не считает сбоем: задание сверки не падает, покупатель и владелец получают статус покупки. Второго Init нет |
 | AUTHORIZED | Привязка сохраняется после проверки; paid period ещё не создан |
 | CONFIRMED | Единственный paid transition + period/event/outbox; webhook и reconciliation вызывают один use case |
 | Однозначный decline | Definitive failure, без automatic retry/grace; уже оплаченный срок не сокращается |

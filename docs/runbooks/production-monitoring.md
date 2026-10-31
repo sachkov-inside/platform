@@ -52,8 +52,8 @@
 | Письма | строка трёх `notification_outbox` без `published_at` дольше 10 минут | 1 |
 | Письма | `notifications.email_effects` в `accepted`, `retrying` или `unknown` дольше 10 минут | 1 |
 | Фоновая работа | у `billing.payment-recovery` нет `completed` за 5 минут | 2 |
-| События оплаты | в `billing.payment_events` за сутки есть `duplicate_payment_review`, `payment_confirmed_after_failure`, `superseded_by_confirmed_payment`, `bank_payment_absent` или `partial_refund_released`; у каждого вида свой сигнал | 1 |
-| События оплаты | `bank_cancel_requested` старше 30 минут и моложе 48 часов без `bank_cancel_confirmed` и `bank_payment_absent` той же покупки, покупка не `confirmed` | 1 |
+| События оплаты | в `billing.payment_events` за сутки есть событие из `reviewPaymentEventKinds` (`domain/payment-events.ts`): `duplicate_payment_review`, `payment_confirmed_after_failure`, `payment_confirmed_by_partial_refund`, `superseded_by_confirmed_payment`, `replaced_by_new_price`, `form_address_lost`, `dispatch_retired`, `bank_payment_absent`, `partial_refund_released` или `bank_cancel_returned_payment`; у каждого вида свой сигнал | 1 |
+| События оплаты | `bank_cancel_requested` старше 30 минут и моложе 48 часов без `bank_cancel_confirmed` и `bank_payment_absent` той же покупки (правило `isBankCancelOpen`) | 1 |
 | Оплата | у Account больше 3 неуспешных разовых покупок без PaymentId за час; сигнал считает аккаунты | 1 |
 | Бот | Telegram `/ready` не отвечает 200 | 2 |
 | Бот | `getWebhookInfo` сообщает ошибку доставки за 10 минут | 1 |
@@ -93,7 +93,12 @@ Caddy удаляет маркер у соединений вне `127.0.0.1` и 
 | Подтверждение банка после отказа | проверить, что доступ выдан и снятые попытки закрыты |
 | Попытки сняты подтверждённой оплатой | проверить, что снятые попытки не оплачены в банке |
 | Покупки без платежа в банке (`bank_payment_absent`) | проверить причину отказа Init; покупатель может купить снова |
-| Частичный возврат без подтверждённой оплаты (`partial_refund_released`) | сверить сумму в кабинете банка и решить: вернуть остаток или выдать доступ; покупатель может купить снова |
+| Покупки подтверждены частичным возвратом (`payment_confirmed_by_partial_refund`) | доступ уже выдан; сверить сумму возврата в кабинете банка и решить о деньгах |
+| Попытки заменены покупкой по другой цене (`replaced_by_new_price`) | проверить, что форма прежней попытки закрыта в банке, а новая покупка идёт |
+| Попытки сняты без адреса формы оплаты (`form_address_lost`) | проверить, что форма закрыта в банке; при всплеске проверить ответ Init и `formOrigins` терминала |
+| Покупки сняты до отправки в банк (`dispatch_retired`) | прочитать причину в `payload.reason`; деньги не списаны |
+| Частичная отмена без подтверждённой оплаты (`partial_refund_released`) | сверить сумму в кабинете банка и решить: вернуть остаток или выдать доступ; покупатель может купить снова |
+| Опоздавшая отмена вернула деньги покупателю (`bank_cancel_returned_payment`) | убедиться в кабинете банка, что возврат прошёл; доступ по этой попытке не выдаётся |
 | Отмена в банке не подтверждена | сверить покупку и при необходимости закрыть форму в кабинете банка |
 | Всплеск неуспешных покупок без PaymentId | найти покупателя по состоянию «Не прошёл» и проверить Init |
 
@@ -102,9 +107,12 @@ Caddy удаляет маркер у соединений вне `127.0.0.1` и 
 попадает в фильтр, пока она открыта. Всплеск неуспешных покупок не пишет событие, поэтому фильтр
 его не показывает.
 
-Сторож ищет `bank_payment_absent` ([#1922](https://github.com/sachkov-inside/platform/issues/1922)),
-`bank_cancel_requested` и `bank_cancel_confirmed` ([#1923](https://github.com/sachkov-inside/platform/issues/1923))
-по имени. `bank_payment_absent` пишется, когда в банке нет платежа покупки: Init не ушёл, банк
+Сторож ищет события по имени. Имена и правило открытой отмены задаёт
+`apps/backend/src/modules/billing/domain/payment-events.ts`; `watchdog-payment-signals.test.ts`
+сверяет с ним `payment_query`. Подтверждённая оплата снятой попытки всегда пишет
+`bank_cancel_confirmed`, поэтому отдельной проверки состояния покупки в сигнале нет.
+Задание сверки не падает, пока покупка ждёт окно отсутствия платежа: такая строка отложена, а не
+неуспешна, и сигнал «Фоновая работа» не поднимается. `bank_payment_absent` пишется, когда в банке нет платежа покупки: Init не ушёл, банк
 отказал без PaymentId или CheckOrder не находит платежей через 30 минут после первого пустого
 ответа. Причина лежит в `payload.reason`. Покупка без ответа на Init сначала остаётся в `unknown`,
 и её ловит сигнал «покупка в `unknown` дольше 15 минут». После `bank_payment_absent` она в `failed`,

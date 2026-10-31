@@ -703,11 +703,17 @@ Per-Product payment source identities preserve owner withdrawal across a partial
 
 An authenticated `PARTIAL_REFUNDED` or `PARTIAL_REVERSED` observation records the exact observed
 provider fields without interpreting `Amount` as a refunded amount. Refund totals remain unknown (`null`) and automatic
-payment reconciliation pauses for review. An unconfirmed purchase with such an observation is
-closed together with its reservation and records `partial_refund_released`, so it no longer holds
-the Product and the owner's review list shows it (#1929). The observation never binds an unknown PaymentId,
-proves capture, issues rights or revokes access. An independently verified exact `CONFIRMED`
-can finish saved fulfillment; an exact full `REFUNDED` can resolve the financial amount.
+payment reconciliation pauses for review. A partial refund can only return captured money, so an
+authenticated `PARTIAL_REFUNDED` for an unconfirmed one-time purchase proves capture (#1921,
+invariant 1). The purchase is confirmed with its saved fulfillment, binds the observed PaymentId when
+the Init answer was lost, and records `payment_confirmed_by_partial_refund` for the owner's review
+list and the watchdog. A later payment of the same Product is then a second payment. The
+confirmation records the purchase amount, never the notification `Amount`. A `PARTIAL_REVERSED`
+releases only part of a hold and does not prove capture. An unconfirmed purchase with that
+observation is closed together with its reservation and records `partial_refund_released`, so it
+no longer holds the Product and the owner's review list shows it (#1929). Neither observation
+revokes access. An independently verified exact `CONFIRMED` can finish saved fulfillment; an exact
+full `REFUNDED` can resolve the financial amount.
 Late partial observations cannot erase an already proven full refund. Current provider evidence
 does not establish partial-notification Amount semantics, so no difference or zero is fabricated.
 See the [provider refund scenario](https://developer.tbank.ru/eacq/scenarios/cancel_confirm/).
@@ -734,9 +740,16 @@ reconciliation and the owner's `payments.reconcile` close its bank form with the
 in the bank's dashboard (#1420). Recovery asks the bank about such an attempt for 24 hours after
 `bank_cancel_requested`, because Init precedes the mark and the form lives 24 hours after Init.
 A failed Cancel is sent again within that window. `bank_cancel_confirmed` records the bank status
-that closed the form: `CANCELED` after Cancel, or `DEADLINE_EXPIRED`, `REVERSED`, `CONFIRMED` or
-`REFUNDED` without it. A buyer can still pay between that GetState and Cancel; the bank then
-returns the money, and `bank_cancel_returned_payment` records it. When the retired attempt's Init
+that closed the form: `CANCELED` after Cancel, or `DEADLINE_EXPIRED`, `REVERSED`, `CONFIRMED`,
+`REFUNDED` or `PARTIAL_REFUNDED` without it. A confirmation of a paid form always writes it, so a
+cancel is open exactly while `bank_cancel_requested` has neither `bank_cancel_confirmed` nor
+`bank_payment_absent`. Reconciliation, the owner's review list and the watchdog share that rule
+(`isBankCancelOpen` in `domain/payment-events.ts`). A buyer can still pay between that GetState
+and Cancel; the bank then returns the money, and `bank_cancel_returned_payment` records it for the
+owner's review list and the watchdog. The money is back with the buyer, so a later `CONFIRMED` or
+`REFUNDED` of that attempt grants no access and retires none of the buyer's current attempts. The
+attempt stays failed. The bank's `REFUNDED` closes the mark with `bank_cancel_confirmed`, which keeps
+the PaymentId and status. When the retired attempt's Init
 answer was lost, reconciliation finds its PaymentId with CheckOrder. For an order without payments
 the provider answers `Success:false` with `ErrorCode` `335` (order not found, observed on the live
 terminal on 2026-10-31); Inside reads it as an empty payment list. If CheckOrder finds no payment

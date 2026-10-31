@@ -264,14 +264,16 @@ select 'web_telemetry_retention', case when exists (
 ) then 0 else 1 end;
 SQL
 
-# События оплаты, которые ждут решения владельца (#1928). Вторая оплата, подтверждение после отказа,
-# снятие попытки подтверждённой оплатой, покупка без платежа в банке и снятая с ожидания покупка с
-# частичным возвратом (#1929) считаются за сутки: каждое новое событие поднимает число и даёт строку
-# «Хуже». Отмена в банке не закрыта, если за 30 минут после bank_cancel_requested нет ни
-# bank_cancel_confirmed, ни bank_payment_absent (платежа в банке нет, отменять нечего) и покупка не
-# подтверждена. Форма банка живёт 24 часа, поэтому запрос старше 48 часов уже не держит деньги
+# События оплаты, которые ждут решения владельца (#1921, инвариант 4). Виды задаёт
+# reviewPaymentEventKinds в apps/backend/src/modules/billing/domain/payment-events.ts: вторая оплата,
+# подтверждение после отказа или частичным возвратом, каждое автоматическое снятие попытки, покупка
+# без платежа в банке, частичная отмена без подтверждённой оплаты и деньги, которые вернул
+# опоздавший Cancel. Каждый вид считается за сутки своим сигналом: новое событие поднимает число и
+# даёт строку «Хуже». Открытую отмену в банке задаёт правило isBankCancelOpen того же файла:
+# bank_cancel_requested без bank_cancel_confirmed и без bank_payment_absent. Сигнал ждёт 30 минут
+# после запроса. Форма банка живёт 24 часа, поэтому запрос старше 48 часов уже не держит деньги
 # покупателя. Всплеск: больше 3 неуспешных разовых покупок без PaymentId у одного Account за час;
-# строка считает аккаунты. bank_payment_absent пишет #1922, события отмены пишет #1923.
+# строка считает аккаунты. watchdog-payment-signals.test.ts сверяет запрос с payment-events.ts.
 read -r -d '' payment_query <<'SQL' || true
 select 'payment_duplicate', count(*) from billing.payment_events
  where kind = 'duplicate_payment_review' and recorded_at > now() - interval '24 hours'
@@ -279,8 +281,20 @@ union all
 select 'payment_after_failure', count(*) from billing.payment_events
  where kind = 'payment_confirmed_after_failure' and recorded_at > now() - interval '24 hours'
 union all
+select 'payment_partial_confirmed', count(*) from billing.payment_events
+ where kind = 'payment_confirmed_by_partial_refund' and recorded_at > now() - interval '24 hours'
+union all
 select 'payment_superseded', count(*) from billing.payment_events
  where kind = 'superseded_by_confirmed_payment' and recorded_at > now() - interval '24 hours'
+union all
+select 'payment_replaced', count(*) from billing.payment_events
+ where kind = 'replaced_by_new_price' and recorded_at > now() - interval '24 hours'
+union all
+select 'payment_form_address_lost', count(*) from billing.payment_events
+ where kind = 'form_address_lost' and recorded_at > now() - interval '24 hours'
+union all
+select 'payment_dispatch_retired', count(*) from billing.payment_events
+ where kind = 'dispatch_retired' and recorded_at > now() - interval '24 hours'
 union all
 select 'payment_bank_absent', count(*) from billing.payment_events
  where kind = 'bank_payment_absent' and recorded_at > now() - interval '24 hours'
@@ -288,10 +302,11 @@ union all
 select 'payment_partial_refund', count(*) from billing.payment_events
  where kind = 'partial_refund_released' and recorded_at > now() - interval '24 hours'
 union all
+select 'payment_cancel_returned', count(*) from billing.payment_events
+ where kind = 'bank_cancel_returned_payment' and recorded_at > now() - interval '24 hours'
+union all
 select 'payment_cancel_open', count(*) from billing.payment_events requested
-  join billing.purchases purchase on purchase.id = requested.purchase_ref
  where requested.kind = 'bank_cancel_requested'
-   and purchase.state <> 'confirmed'
    and requested.recorded_at < now() - interval '30 minutes'
    and requested.recorded_at > now() - interval '48 hours'
    and not exists (
@@ -352,7 +367,12 @@ check_database() {
       payment_after_failure) observe db.payment_after_failure 1 "Подтверждение банка после отказа (payment_confirmed_after_failure) за сутки: $value" "$value" ;;
       payment_superseded) observe db.payment_superseded 1 "Попытки сняты подтверждённой оплатой (superseded_by_confirmed_payment) за сутки: $value" "$value" ;;
       payment_bank_absent) observe db.payment_bank_absent 1 "Покупки без платежа в банке (bank_payment_absent) за сутки: $value" "$value" ;;
-      payment_partial_refund) observe db.payment_partial_refund 1 "Частичный возврат без подтверждённой оплаты (partial_refund_released) за сутки: $value" "$value" ;;
+      payment_partial_refund) observe db.payment_partial_refund 1 "Частичная отмена без подтверждённой оплаты (partial_refund_released) за сутки: $value" "$value" ;;
+      payment_partial_confirmed) observe db.payment_partial_confirmed 1 "Покупки подтверждены частичным возвратом (payment_confirmed_by_partial_refund) за сутки: $value" "$value" ;;
+      payment_replaced) observe db.payment_replaced 1 "Попытки заменены покупкой по другой цене (replaced_by_new_price) за сутки: $value" "$value" ;;
+      payment_form_address_lost) observe db.payment_form_address_lost 1 "Попытки сняты без адреса формы оплаты (form_address_lost) за сутки: $value" "$value" ;;
+      payment_dispatch_retired) observe db.payment_dispatch_retired 1 "Покупки сняты до отправки в банк (dispatch_retired) за сутки: $value" "$value" ;;
+      payment_cancel_returned) observe db.payment_cancel_returned 1 "Опоздавшая отмена вернула деньги покупателю (bank_cancel_returned_payment) за сутки: $value" "$value" ;;
       payment_cancel_open) observe db.payment_cancel_open 1 "Отмена в банке не подтверждена дольше 30 минут: $value" "$value" ;;
       payment_failed_burst) observe db.payment_failed_burst 1 "Аккаунтов с более чем 3 неуспешными покупками без PaymentId за час: $value" "$value" ;;
     esac

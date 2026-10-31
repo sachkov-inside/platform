@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { type BillingPrisma } from "../../../../infrastructure/prisma/index.js";
 import { lifecycleWindow, refundSourceRef } from "../../domain/notice.js";
+import { paymentEventKind } from "../../domain/payment-events.js";
 import { priceSnapshotSchema } from "../../domain/pricing.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { unsettledRefundStates } from "../../shared/refund-amounts.js";
@@ -20,7 +21,7 @@ export async function acceptBankRefund(
     where: { id: purchase.id },
     data: { refundReviewRequired: false },
   });
-  const kind = "full_refund_confirmed";
+  const kind = paymentEventKind.fullRefundConfirmed;
   if (
     await tx.billingPaymentEvent.findUnique({
       where: { purchaseRef_kind: { purchaseRef: purchase.id, kind } },

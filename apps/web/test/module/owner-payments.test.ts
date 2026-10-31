@@ -356,6 +356,12 @@ describe("payment presentation", () => {
     expect(paymentEventLabel("bank_payment_absent")).toBe(
       "Платежа в банке нет, покупка закрыта, деньги не списаны",
     );
+    expect(paymentEventLabel("payment_confirmed_by_partial_refund")).toBe(
+      "Частичный возврат доказал оплату: доступ выдан, сумму возврата нужно проверить",
+    );
+    expect(paymentEventLabel("partial_refund_released")).toBe(
+      "Частичная отмена без подтверждённой оплаты: покупка закрыта, нужно решение о деньгах",
+    );
     expect(paymentEventLabel("new_bank_event")).toBe("Событие new_bank_event");
   });
 
