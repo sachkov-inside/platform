@@ -57,9 +57,8 @@ const tiles: Readonly<Record<string, CourseTopicTile>> = {
   "Параллельные и облачные агенты": tile("team", "wide", "lavender"),
   "Существующий проект": tile("legacy", "narrow", "sand"),
   "Безопасность агентов": tile("security", "narrow", "good"),
-  "Релизы и эксплуатация": tile("release", "narrow", "example"),
+  "Релизы и эксплуатация": tile("release", "wide", "example"),
   "Собственные агенты и MCP": tile("agent", "wide", "ink"),
-  "Evals и стоимость": tile("evals", "narrow", "lavender"),
   // Темы описания, опубликованного до нового лендинга: страница не теряет картинки, пока текст
   // в Inside Content не обновлён.
   "AI-first разработка": tile("engineering", "wide", "ink"),

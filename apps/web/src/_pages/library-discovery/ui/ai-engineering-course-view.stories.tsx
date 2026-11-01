@@ -123,7 +123,12 @@ export const PositionTopicsAndProcess: Story = {
       }),
     ).toBeVisible();
     const tiles = canvasElement.querySelectorAll(".aie-bento > li");
-    await expect(tiles.length).toBe(15);
+    const topics = aiEngineeringCoursePage.blocks.find(
+      (block) => block.id === "topics",
+    );
+    await expect(tiles.length).toBe(
+      topics?.kind === "cards" ? topics.items.length : -1,
+    );
     for (const tile of tiles)
       await expect(tile.querySelector(".aie-bento-art")).not.toBeNull();
 
