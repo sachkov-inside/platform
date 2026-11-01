@@ -847,7 +847,9 @@ describe("durable activation ingress, identity and continuation", () => {
     await a.worker.processAvailable();
     a.state.platformSilent = true;
     a.clock.value = new Date(a.clock.now().getTime() + 2000);
+    const begun = a.begins.length;
     await a.worker.processAvailable();
+    expect(a.begins.length).toBeGreaterThan(begun);
     await outbound.processAvailable(10, a.clock.now());
     expect(a.sent).toHaveLength(waiting);
     await a.ingress(70120, "/start a_course");
@@ -875,6 +877,24 @@ describe("durable activation ingress, identity and continuation", () => {
     });
   });
 
+  it("answers a repeated start that arrives while a background check holds the attempt", async ({
+    activation: a,
+  }) => {
+    const outbound = a.app.get(StartResponseDeliveryProcessor);
+    await a.ingress(70123, "/start a_course");
+    await outbound.processAvailable(10, a.clock.now());
+    const first = a.sent.length;
+    // An expired source proof makes the background pass check the group again.
+    a.clock.value = new Date(a.clock.now().getTime() + 301_000);
+    a.state.onSourceCheck = () => a.ingress(70123, "/start a_course");
+    await a.worker.processAvailable();
+    expect(a.state.onSourceCheck).toBeUndefined();
+    await outbound.processAvailable(10, a.clock.now());
+    expect(a.sent.slice(first).map((message) => message.text)).toEqual([
+      expect.stringContaining("Продолжите на платформе"),
+    ]);
+  });
+
   it("edits an account prompt sent before replies were keyed per request", async ({
     activation: a,
   }) => {
@@ -882,7 +902,7 @@ describe("durable activation ingress, identity and continuation", () => {
     await a.ingress(70122, "/start a_course");
     await outbound.processAvailable(10, a.clock.now());
     const prompt = a.sent.length;
-    // The previous release keyed the prompt by attempt alone.
+    // Until 01.11.2026 the prompt was keyed by attempt alone.
     await a.db
       .updateTable("start_response_deliveries")
       .set({ source_key: `activation:${a.begins[0]}:needs_account` })
@@ -890,7 +910,9 @@ describe("durable activation ingress, identity and continuation", () => {
       .where("source_key", "like", "activation:%:needs_account:%")
       .execute();
     a.clock.value = new Date(a.clock.now().getTime() + 2000);
+    const begun = a.begins.length;
     await a.worker.processAvailable();
+    expect(a.begins.length).toBeGreaterThan(begun);
     await outbound.processAvailable(10, a.clock.now());
     expect(a.sent).toHaveLength(prompt);
     await a.link(70122);

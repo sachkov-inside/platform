@@ -57,10 +57,10 @@ import { reportFailure } from "../../shared/failure-diagnostics.js";
 
 type Attempt = Selectable<ActivationTables["activation_attempts"]>;
 /**
- * A claimed attempt. `requested` is true when a person's start or retry runs this pass and
+ * A claimed attempt. `personWaiting` is true when a person's start or retry runs this pass and
  * waits for its answer; a background pass stays silent about a temporary failure.
  */
-type ClaimedAttempt = Attempt & { readonly requested: boolean };
+type ClaimedAttempt = Attempt & { readonly personWaiting: boolean };
 const RETENTION = 30 * 24 * 60 * 60_000;
 const CADENCE = 60_000;
 const SOURCE_PROOF_WINDOW_MS = 300_000;
@@ -516,13 +516,12 @@ export class CourseActivation {
         return {
           ...row,
           lease_token: lease,
-          requested: selected !== undefined,
+          personWaiting: selected !== undefined,
         };
       });
       if (!attempt) break;
       try {
         await this.process(attempt);
-        await this.flush(requestReplyKey(attempt, "needs_account"));
       } catch (error) {
         reportFailure("activation.process", error, {
           attempt_id: attempt.attempt_id,
@@ -677,8 +676,12 @@ export class CourseActivation {
     }
     const rule = begun.value.rule;
     // Only a person's request shows progress; a background pass changes no message.
-    if (this.config.deliveryMode === "live" && attempt.requested) {
-      const progressKey = requestReplyKey(attempt, "progress");
+    if (this.config.deliveryMode === "live" && attempt.personWaiting) {
+      const progressKey = activationReplyKey(
+        attempt.attempt_id,
+        "progress",
+        attempt.trigger_update_id,
+      );
       await this.replies.enqueue({
         ...this.delivery(
           this.contact(attempt),
@@ -746,17 +749,31 @@ export class CourseActivation {
     }
     if (lookup.value.state === "unlinked") {
       // Each request gets the account prompt again; a background pass only waits for the link.
-      if (attempt.requested) {
+      const current = await this.db
+        .selectFrom("activation_attempts")
+        .select("trigger_update_id")
+        .where("attempt_id", "=", attempt.attempt_id)
+        .executeTakeFirst();
+      const answered = answeredUpdate(
+        attempt,
+        current?.trigger_update_id ?? attempt.trigger_update_id,
+      );
+      if (answered !== undefined) {
         const editMessageId = await this.replies.deliveredMessageId(
-          requestReplyKey(attempt, "progress"),
+          activationReplyKey(attempt.attempt_id, "progress", answered),
+        );
+        const promptKey = activationReplyKey(
+          attempt.attempt_id,
+          "needs_account",
+          answered,
         );
         await this.replies.enqueue({
           ...(hasText(editMessageId) ? { editMessageId } : {}),
           ...this.delivery(
-            this.contact(attempt),
+            this.contact({ ...attempt, trigger_update_id: answered }),
             `${rule.product?.name ?? "Курс"}\n\nУчастие в ${this.sourceName(rule.sourceRef)} подтверждено. Продолжите на платформе, чтобы получить доступ к курсу.`,
           ),
-          sourceKey: requestReplyKey(attempt, "needs_account"),
+          sourceKey: promptKey,
           buttons: [
             {
               text: "Продолжить на платформе",
@@ -770,6 +787,7 @@ export class CourseActivation {
             },
           ],
         });
+        await this.flush(promptKey);
       }
       await this.defer(attempt, "needs_account", "needs_account", 1000);
       return;
@@ -900,14 +918,22 @@ export class CourseActivation {
       reviewBinding?.ok === true && reviewBinding.value.state === "linked"
         ? reviewBinding.value.binding.accountRef
         : undefined;
-    // The latest request's card turns into the result. Keys without a request
-    // belong to cards sent before replies were keyed per request.
+    // The latest request's card turns into the result. Until 01.11.2026 cards were keyed by
+    // attempt alone; such a card of a still waiting attempt is edited too.
     let editMessageId: string | undefined;
     for (const key of [
-      requestReplyKey(attempt, "needs_account"),
-      requestReplyKey(attempt, "progress"),
-      `activation:${attempt.attempt_id}:needs_account`,
-      `activation:${attempt.attempt_id}:progress`,
+      activationReplyKey(
+        attempt.attempt_id,
+        "needs_account",
+        attempt.trigger_update_id,
+      ),
+      activationReplyKey(
+        attempt.attempt_id,
+        "progress",
+        attempt.trigger_update_id,
+      ),
+      activationReplyKey(attempt.attempt_id, "needs_account"),
+      activationReplyKey(attempt.attempt_id, "progress"),
     ]) {
       editMessageId = await this.replies.deliveredMessageId(key);
       if (hasText(editMessageId)) break;
@@ -964,11 +990,10 @@ export class CourseActivation {
           [{ code: attempt.code, outcome: outcomeOf(result) }],
           stored.evidence?.accountRef ?? reviewAccountRef,
         );
-      // A temporary outcome answers only a waiting person: a newer request during this pass counts.
+      // A temporary outcome answers only a waiting person.
       if (
         retry &&
-        !attempt.requested &&
-        stored.trigger_update_id === attempt.trigger_update_id
+        answeredUpdate(attempt, stored.trigger_update_id) === undefined
       )
         return;
       if (
@@ -1102,16 +1127,15 @@ export class CourseActivation {
       .where("lease_token", "=", attempt.lease_token)
       .returning("trigger_update_id")
       .executeTakeFirst();
-    const triggerUpdateId =
-      stored?.trigger_update_id ?? attempt.trigger_update_id;
     // A background pass, such as a check during a Platform restart, does not report its
-    // temporary failure. A person's request, also one that arrived during the pass, gets it.
-    if (
-      state === "retry" &&
-      (attempt.requested || triggerUpdateId !== attempt.trigger_update_id)
-    )
+    // temporary failure.
+    const answered = answeredUpdate(
+      attempt,
+      stored?.trigger_update_id ?? attempt.trigger_update_id,
+    );
+    if (state === "retry" && answered !== undefined)
       await this.reply(
-        this.contact({ ...attempt, trigger_update_id: triggerUpdateId }),
+        this.contact({ ...attempt, trigger_update_id: answered }),
         "Не удалось проверить доступ. Попробуйте ещё раз.",
         attempt.code,
       );
@@ -1268,10 +1292,29 @@ async function reschedule(
     .where("attempt_id", "=", row.attempt_id)
     .execute();
 }
-/** Replies of one request: a repeated start gets its own progress and account prompt. */
-function requestReplyKey(
-  attempt: Attempt,
+/**
+ * Replies of one request: a repeated start gets its own progress and account prompt.
+ * Without an update it is the key used until 01.11.2026, one per attempt.
+ */
+function activationReplyKey(
+  attemptId: string,
   step: "progress" | "needs_account",
+  updateId?: string,
 ): string {
-  return `activation:${attempt.attempt_id}:${step}:${attempt.trigger_update_id}`;
+  return updateId === undefined
+    ? `activation:${attemptId}:${step}`
+    : `activation:${attemptId}:${step}:${updateId}`;
+}
+/**
+ * The update a pass answers, with `currentUpdateId` read from the stored attempt. A person's
+ * pass answers it. A background pass answers only a start or retry that arrived during the
+ * pass, while it held the lease; otherwise it returns `undefined` and stays silent.
+ */
+function answeredUpdate(
+  attempt: ClaimedAttempt,
+  currentUpdateId: string,
+): string | undefined {
+  return attempt.personWaiting || currentUpdateId !== attempt.trigger_update_id
+    ? currentUpdateId
+    : undefined;
 }
