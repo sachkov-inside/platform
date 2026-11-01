@@ -29,6 +29,9 @@
   `requestId`;
 - `video_deletion_failed` — удаление видео у провайдера не завершилось окончательно;
 - `stored_page_rejected` — сохранённое описание страницы руководства не прочиталось;
+- `bank_payment_url_rejected`: адрес формы оплаты от банка отклонён. Его origin не входит в
+  `formOrigins`, в нём есть логин, пароль или фрагмент, или его нельзя разобрать. Строка несёт
+  `purchaseRef` и `origin` адреса (`null` для неразобранного), без пути и параметров (#1926);
 - `healthcheck_failed` — проверка готовности воркера в контейнере не прошла;
 - `worker_ready`, `worker_draining`, `worker_stopped`, `process_ready`, `mcp_listening` — жизненный
   цикл процесса;
@@ -39,7 +42,7 @@
 - `nest` — сообщения Nest, в том числе необработанное исключение запроса.
 
 Строки `process_failed`, `queue_unavailable`, `queue_attention`, `worker_stop_failed`,
-`video_deletion_failed`, `stored_page_rejected` и тревожные `notification_transport` несут `"status":"operator_attention"`, как и прежние сигналы
+`video_deletion_failed`, `stored_page_rejected`, `bank_payment_url_rejected` и тревожные `notification_transport` несут `"status":"operator_attention"`, как и прежние сигналы
 воркеров, поэтому прежние `grep` по этому статусу их находят.
 
 ## Найти запрос

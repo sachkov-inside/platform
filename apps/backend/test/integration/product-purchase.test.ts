@@ -344,12 +344,19 @@ test("payment recovery asks the bank again about a recently declined payment and
     value(await s.payments.status(s.buyer, purchase.purchaseRef)).state,
   ).toBe("failed");
   // Уведомление CONFIRMED не дошло, но банк отвечает о том же платеже уже подтверждением.
+  // Форму после отказа сверка спрашивает по расписанию (#1929): первый шаг через минуту.
   s.setStatus("CONFIRMED");
-  value(await s.payments.recover());
-  value(await s.payments.recover());
-  expect(
-    value(await s.payments.status(s.buyer, purchase.purchaseRef)),
-  ).toMatchObject({ state: "confirmed", access: "ready" });
+  const start = time();
+  setTime(new Date(start.getTime() + 60_000));
+  try {
+    value(await s.payments.recover());
+    value(await s.payments.recover());
+    expect(
+      value(await s.payments.status(s.buyer, purchase.purchaseRef)),
+    ).toMatchObject({ state: "confirmed", access: "ready" });
+  } finally {
+    setTime(start);
+  }
 });
 
 test("a confirmed payment after a decline retires the unpaid repeat attempt that holds the same Payment Link", async () => {
@@ -447,7 +454,9 @@ test("when both attempts on one Payment Link are paid, the late confirmation is 
       },
       select: { payload: true },
     }),
-  ).toEqual({ payload: { paidPurchaseRefs: [repeat.purchaseRef] } });
+  ).toEqual({
+    payload: { paidPurchaseRefs: [repeat.purchaseRef], heldProductIds: [] },
+  });
 });
 
 test("a confirmation after a decline and a partial refund observation still retires the repeat attempt on the same Payment Link", async () => {
@@ -458,13 +467,16 @@ test("a confirmation after a decline and a partial refund observation still reti
   const repeat = value(
     await s.payments.purchase(s.buyer, await repeatPurchaseCommand(s, link.id)),
   );
-  // Давнее правило: наблюдение частичного возврата переводит отказанную покупку в unknown.
+  // Частичный возврат доказывает списание: отказанная покупка подтверждается сразу (#1921).
   expect(
     await s.notify("PARTIAL_REFUNDED", { ...firstPayment, Amount: 1000 }),
   ).toMatchObject({ ok: true });
   expect(value(await s.payments.status(s.buyer, first.purchaseRef)).state).toBe(
-    "unknown",
+    "confirmed",
   );
+  expect(
+    value(await s.payments.status(s.buyer, repeat.purchaseRef)).state,
+  ).toBe("failed");
   expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
     ok: true,
   });
@@ -566,7 +578,9 @@ test("a later confirmation of the unresolved repeat attempt is marked as a secon
       },
       select: { payload: true },
     }),
-  ).toEqual({ payload: { paidPurchaseRefs: [first.purchaseRef] } });
+  ).toEqual({
+    payload: { paidPurchaseRefs: [first.purchaseRef], heldProductIds: [] },
+  });
 });
 
 test("an archived Product blocks a new accepted quote while preserving existing holders", async () => {
@@ -1156,8 +1170,10 @@ test.each(["confirmed_first", "partial_first"] as const)(
       ok: true,
       value: {
         refundedKopecks: null,
+        // Частичный возврат доказывает списание: неподтверждённая покупка подтверждается, и её
+        // сохранённая выдача ждёт сверки (#1921, инвариант 1).
         ...(order === "partial_first"
-          ? { state: "unknown", access: "awaiting_payment" }
+          ? { state: "confirmed", access: "preparing" }
           : { access: "ready" }),
       },
     });
@@ -1357,7 +1373,7 @@ test("a crash after historical Product issuance preserves an owner revoke when p
   ).toBe(2);
 });
 
-test("partial Amount is preserved as an observation without weakening full capture proof or binding an unknown PaymentId", async () => {
+test("a signed partial refund after a lost Init answer binds the PaymentId and confirms the purchase, but its Amount proves neither capture amount nor refund", async () => {
   const s = await scenario();
   s.loseInit();
   const lost = await s.payments.purchase(s.buyer, s.command);
@@ -1372,8 +1388,13 @@ test("partial Amount is preserved as an observation without weakening full captu
   const observed = await db.prisma.billingPurchase.findUniqueOrThrow({
     where: { id: purchase.id },
   });
-  expect(observed.paymentId).toBeNull();
-  expect(observed.refundReviewRequired).toBe(true);
+  // Подписанное уведомление по заказу Inside доказывает списание этого PaymentId (#1921).
+  expect(observed).toMatchObject({
+    state: "confirmed",
+    paymentId: s.paymentId(),
+    amountKopecks: purchase.amountKopecks,
+    refundReviewRequired: true,
+  });
   expect(await s.notify("CONFIRMED", { Amount: 50000 })).toMatchObject({
     ok: false,
     error: { code: "invalid_notification" },
@@ -1382,12 +1403,13 @@ test("partial Amount is preserved as an observation without weakening full captu
     ok: false,
     error: { code: "invalid_notification" },
   });
+  // Одна выдача: её записало подтверждение частичным возвратом, точный CONFIRMED не добавляет вторую.
+  expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
   expect(
     await db.prisma.billingFulfillment.count({
       where: { purchaseRef: purchase.id },
     }),
-  ).toBe(0);
-  expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
+  ).toBe(1);
   await s.payments.recover();
   expect(await s.payments.status(s.buyer, purchase.id)).toMatchObject({
     ok: true,

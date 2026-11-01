@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import {
+  BankInitRefused,
   Tbank,
   tbankToken,
   validatedPaymentUrl,
@@ -56,6 +57,89 @@ describe("concrete bank boundary", () => {
         email: "buyer@example.test",
       }),
     ).resolves.toMatchObject({ PaymentURL: paymentUrl, Status: "NEW" });
+  });
+  describe("Init without a bank payment", () => {
+    const purchase = {
+      orderId: "synthetic-order",
+      accountId: "synthetic-account",
+      amount: 10000,
+      name: "Synthetic purchase",
+      email: "buyer@example.test",
+    };
+    const answering = (answer: Record<string, unknown>) =>
+      new Tbank(config, () =>
+        Promise.resolve({ ok: true, json: () => Promise.resolve(answer) }),
+      );
+    const declined = {
+      TerminalKey: config.terminalKey,
+      OrderId: purchase.orderId,
+      Success: false,
+      ErrorCode: "9999",
+      Message: "Неверные параметры",
+      Details: "",
+    };
+    test("a bank refusal with an error code and no PaymentId is a definite refusal", async () => {
+      const refused = await answering(declined)
+        .init(purchase)
+        .catch((error: unknown) => error);
+      expect(refused).toBeInstanceOf(BankInitRefused);
+      expect(refused).toMatchObject({
+        refusal: {
+          reason: "declined",
+          errorCode: "9999",
+          message: "Неверные параметры",
+        },
+      });
+    });
+    test.each([
+      ["a PaymentId", { PaymentId: "synthetic-payment" }],
+      ["error code 0", { ErrorCode: "0" }],
+      ["another terminal", { TerminalKey: "OTHER" }],
+      ["another order", { OrderId: "other-order" }],
+      ["Success:true", { Success: true }],
+    ])(
+      "a refusal with %s leaves the outcome unknown",
+      async (_case, change) => {
+        const failure = await answering({ ...declined, ...change })
+          .init(purchase)
+          .catch((error: unknown) => error);
+        expect(failure).toBeInstanceOf(Error);
+        expect(failure).not.toBeInstanceOf(BankInitRefused);
+      },
+    );
+    test("a return path outside the return origin is refused before the request", async () => {
+      let requests = 0;
+      const bank = new Tbank(config, () => {
+        requests += 1;
+        return Promise.reject(new Error("unexpected request"));
+      });
+      const refused = await bank
+        .init({ ...purchase, returnPath: "https://attacker.invalid/" })
+        .catch((error: unknown) => error);
+      expect(refused).toMatchObject({ refusal: { reason: "request_invalid" } });
+      expect(requests).toBe(0);
+    });
+  });
+  test("CheckOrder for an order the bank never saw is an empty payment list; other refusals stay unknown", async () => {
+    const answering = (answer: unknown) =>
+      new Tbank(config, () =>
+        Promise.resolve({ ok: true, json: () => Promise.resolve(answer) }),
+      );
+    // Ответ боевого T-Bank 31.10.2026 на заказ, по которому Init не создал платежа.
+    await expect(
+      answering({
+        Success: false,
+        ErrorCode: "335",
+        Message: "OrderId synthetic-order не найден для TerminalKey SYNTHETIC",
+      }).order("synthetic-order"),
+    ).resolves.toEqual([]);
+    await expect(
+      answering({
+        Success: false,
+        ErrorCode: "9999",
+        Message: "Внутренняя ошибка",
+      }).order("synthetic-order"),
+    ).rejects.toThrow();
   });
   test("bank returns identify the purchase without browser storage", async () => {
     const requests: Record<string, unknown>[] = [];

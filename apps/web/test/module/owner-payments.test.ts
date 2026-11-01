@@ -168,6 +168,54 @@ describe("payments of one person (#1717)", () => {
   });
 });
 
+describe("payments with events for the owner's review (#1928)", () => {
+  it("keeps events=review in the address and sends it to payments.list", () => {
+    const chosen: PaymentsQuery = { states: ["failed"], events: "review" };
+    expect(serializePaymentsQuery(chosen)).toBe("state=failed&events=review");
+    expect(query("state=failed&events=review")).toEqual(chosen);
+    expect(query("events=all")).toEqual(emptyPaymentsQuery);
+    expect(hasPaymentsFilters({ states: [], events: "review" })).toBe(true);
+    expect(paymentsListRequest(chosen)).toEqual({
+      limit: 50,
+      states: ["failed"],
+      events: "review",
+    });
+    const request = paymentsListRequest(chosen);
+    expect(
+      parsePaymentsListRequest(
+        new URLSearchParams(serializePaymentsListRequest(request)),
+      ),
+    ).toEqual(request);
+    expect(
+      parsePaymentsListRequest(new URLSearchParams("events=all")),
+    ).toBeNull();
+  });
+
+  it("names the filter in a chip whose removal keeps the other filters", () => {
+    const chosen: PaymentsQuery = {
+      states: [],
+      productId,
+      events: "review",
+      cursor,
+    };
+    expect(
+      paymentsFilterChips(chosen, { kind: "pending" }).find(
+        (chip) => chip.id === "events",
+      ),
+    ).toEqual({
+      id: "events",
+      label: "Есть события для проверки",
+      next: { states: [], productId },
+    });
+    expect(
+      withPaymentsFilter(
+        { states: [], cursor },
+        { key: "events", value: "review" },
+      ),
+    ).toEqual({ states: [], events: "review" });
+  });
+});
+
 describe("authoring addresses encode their identifiers (#1717)", () => {
   it("encodes the account and the purchase reference as one path segment", () => {
     expect(authoringPersonHref("a/b?c")).toBe("/authoring/people/a%2Fb%3Fc");
@@ -286,6 +334,33 @@ describe("payment presentation", () => {
     );
     expect(paymentEventLabel(`partial_refund_observed:${"a".repeat(64)}`)).toBe(
       "Банк сообщил о частичном возврате, сумму нужно проверить",
+    );
+    expect(paymentEventLabel("bank_cancel_requested")).toBe(
+      "Попытка снята, сверка закроет её форму оплаты в банке",
+    );
+    expect(paymentEventLabel("replaced_by_new_price")).toBe(
+      "Попытка заменена покупкой по другой цене",
+    );
+    expect(paymentEventLabel("bank_cancel_confirmed")).toBe(
+      "Банк закрыл форму оплаты снятой попытки",
+    );
+    expect(paymentEventLabel("bank_cancel_returned_payment")).toBe(
+      "Покупатель успел оплатить снятую попытку, отмена вернула деньги",
+    );
+    expect(paymentEventLabel("bank_status_unrecognized")).toBe(
+      "Банк прислал статус не из справочника, покупку проверит сверка",
+    );
+    expect(paymentEventLabel("bank_order_empty")).toBe(
+      "Банк не нашёл платёж по заказу, сверка проверит снова",
+    );
+    expect(paymentEventLabel("bank_payment_absent")).toBe(
+      "Платежа в банке нет, покупка закрыта, деньги не списаны",
+    );
+    expect(paymentEventLabel("payment_confirmed_by_partial_refund")).toBe(
+      "Частичный возврат доказал оплату: доступ выдан, сумму возврата нужно проверить",
+    );
+    expect(paymentEventLabel("partial_refund_released")).toBe(
+      "Частичная отмена без подтверждённой оплаты: покупка закрыта, нужно решение о деньгах",
     );
     expect(paymentEventLabel("new_bank_event")).toBe("Событие new_bank_event");
   });

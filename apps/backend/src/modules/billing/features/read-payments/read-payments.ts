@@ -18,6 +18,8 @@ import {
   type OwnerOutcome,
   type OwnerResult,
 } from "../../domain/owner-operations.js";
+import { reviewPaymentEventKinds } from "../../domain/payment-events.js";
+import { bankCancelOpenSql } from "../../shared/open-bank-cancel.js";
 import { refundTotalsOf } from "../../shared/refund-amounts.js";
 
 type PurchaseRow = Awaited<
@@ -219,6 +221,16 @@ export async function listPayments(
             : Prisma.sql`and purchase.state = 'confirmed' and exists (
                 select 1 from billing.fulfillment_outbox as fulfillment
                 where fulfillment.purchase_ref = purchase.id and fulfillment.applied_at is null)`
+        }
+        ${
+          command.events === undefined
+            ? Prisma.empty
+            : // Виды для проверки и открытую отмену задаёт `domain/payment-events.ts`.
+              Prisma.sql`and (exists (
+                select 1 from billing.payment_events as event
+                where event.purchase_ref = purchase.id
+                  and event.kind = any(${[...reviewPaymentEventKinds]}::text[]))
+              or (${bankCancelOpenSql(Prisma.sql`purchase.id`)}))`
         }
         ${
           command.cursor === undefined

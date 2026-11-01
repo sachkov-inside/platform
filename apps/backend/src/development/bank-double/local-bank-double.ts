@@ -310,13 +310,30 @@ export function createLocalBankDouble(
   }
 
   /**
-   * Возврат исполняется сразу и закреплён за `ExternalRequestId`: повтор той же попытки не
-   * возвращает деньги второй раз. Запомнен только состоявшийся возврат — отказ банка не становится
-   * вечным ответом на эту попытку. Частичным возврат делает сама запрошенная сумма, как в банке.
+   * Неоплаченная форма (`NEW`, `FORM_SHOWED`) отменяется на полную сумму со статусом `CANCELED`,
+   * как в банке. Возврат исполняется сразу и закреплён за `ExternalRequestId`: повтор той же
+   * попытки не возвращает деньги второй раз. Запомнен только состоявшийся возврат — отказ банка не
+   * становится вечным ответом на эту попытку. Частичным возврат делает сама запрошенная сумма.
    */
   async function cancel(
     body: z.infer<typeof requestSchema>,
   ): Promise<Response> {
+    const unpaid = orderByPayment(paymentReferenceSchema.parse(body).PaymentId);
+    if (unpaid?.status === "NEW" || unpaid?.status === "FORM_SHOWED") {
+      apply(unpaid, { status: "CANCELED", success: true, errorCode: "0" });
+      persist();
+      await announce(unpaid);
+      return Response.json({
+        TerminalKey: config.terminalKey,
+        OrderId: unpaid.orderId,
+        PaymentId: unpaid.paymentId,
+        Status: "CANCELED",
+        Success: true,
+        ErrorCode: "0",
+        OriginalAmount: unpaid.amount,
+        NewAmount: 0,
+      });
+    }
     const input = cancelSchema.parse(body);
     const known = orderByPayment(input.PaymentId);
     if (!known) return Response.json(notFound(input.PaymentId));

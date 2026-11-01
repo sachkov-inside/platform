@@ -18,6 +18,7 @@ import {
   BillingOperations,
   BillingPayments,
   BillingPricing,
+  recoveryBudgetMilliseconds,
 } from "../modules/billing/index.js";
 import {
   COMMUNITY_RECONCILIATION_INTERVAL_MS,
@@ -112,7 +113,11 @@ async function bootstrap(): Promise<void> {
       await jobs.work(
         recoveryQueue,
         observeJob("billing-worker", recoveryQueue, async () => {
-          return runRecoveryJob(payments, operations);
+          return runRecoveryJob(
+            payments,
+            operations,
+            AbortSignal.timeout(recoveryBudgetMilliseconds(jobTimeoutSeconds)),
+          );
         }),
       );
       if (!config.communityEntitlements) return;

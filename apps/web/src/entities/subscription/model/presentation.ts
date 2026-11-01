@@ -13,6 +13,7 @@ import type {
   BillingPaymentOption,
   NoticeKind,
   PriceSnapshot,
+  RetirementReason,
 } from "./billing-contract";
 
 const moscow = "Europe/Moscow";
@@ -307,6 +308,26 @@ export function promotionLabel(snapshot: PriceSnapshot): string | undefined {
   return snapshot.promotion === null
     ? undefined
     : `${snapshot.promotion.name} · −${String(snapshot.promotion.percent)}%`;
+}
+
+/**
+ * Причина, по которой сервер снял покупку до оплаты. Четыре причины снимают покупку до Init.
+ * `form_address_lost` снимает её после Init: у Inside нет адреса формы оплаты, а банк назвал
+ * форму неоплаченной (#1926). В обоих случаях деньги не списаны, и текст говорит об этом.
+ */
+export function purchaseRetirementMessage(reason: RetirementReason): string {
+  switch (reason) {
+    case "sale_closed":
+      return "Продажа этого продукта закрыта. Покупка остановлена до оплаты, деньги не списаны.";
+    case "price_unavailable":
+      return "Цена этого продукта сейчас недоступна. Покупка остановлена до оплаты, деньги не списаны.";
+    case "already_owned":
+      return "Этот продукт у вас уже открыт. Покупка остановлена до оплаты, деньги не списаны.";
+    case "unsupported_attempt":
+      return "Покупка была начата на прежних условиях. Она остановлена до оплаты, деньги не списаны.";
+    case "form_address_lost":
+      return "Страница оплаты не открылась, поэтому мы остановили эту попытку. Деньги не списаны, можно купить снова.";
+  }
 }
 
 /**

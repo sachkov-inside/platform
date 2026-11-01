@@ -14,6 +14,7 @@ import {
   type PreorderTerms,
   type PriceSnapshot,
   type PaymentLinkDetail,
+  type PurchaseStatus,
 } from "@/entities/subscription";
 import { useBillingContact } from "@/features/billing-contact";
 import {
@@ -47,6 +48,13 @@ export interface ProductPurchaseProps {
   readonly accountId?: string | null;
   readonly individualLink?: PaymentLinkDetail;
 }
+
+/** Неоплаченная форма: покупка по другой цене заменит её, если банк не принял оплату. */
+const replaceableStates: readonly PurchaseStatus["state"][] = [
+  "prepared",
+  "sent",
+  "pending",
+];
 
 /** Собственные покупки читает браузер: страница рендерится сервером и без них. */
 export function ProductPurchase({
@@ -87,6 +95,25 @@ export function ProductPurchase({
       : restored.isError
         ? "Не удалось восстановить покупку."
         : undefined;
+  // Покупка по другой цене заменит неоплаченную форму (#1925): страница ссылки и страница с
+  // промокодом показывают оформление по своей цене, а не статус той формы. Применится ли
+  // промокод, решает расчёт; при той же цене сервер продолжит прежнюю попытку.
+  const atOtherPrice =
+    purchase !== null &&
+    (individualLink === undefined
+      ? promoCode !== undefined
+      : purchase.snapshot.individualPayment?.linkId !== individualLink.id);
+  // Попытку без адреса формы сервер отменил (#1926): страница объясняет это и ждёт «Купить снова».
+  const cancelledWithoutForm =
+    purchase?.state === "failed" &&
+    purchase.retirementReason === "form_address_lost";
+  const openPurchase =
+    buyAgain ||
+    purchase === null ||
+    (purchase.state === "failed" && !cancelledWithoutForm) ||
+    (atOtherPrice && replaceableStates.includes(purchase.state))
+      ? null
+      : purchase;
   const ready = purchase?.access === "ready";
   const router = useRouter();
   const announced = useRef<string | null>(null);
@@ -126,7 +153,7 @@ export function ProductPurchase({
     <ProductPurchaseView
       {...(individualLink === undefined ? {} : { individualLink })}
       hasPurchase={
-        (!buyAgain && purchase !== null && purchase.state !== "failed") ||
+        openPurchase !== null ||
         alreadyOpen ||
         (signedIn &&
           !signedOut &&
@@ -167,12 +194,12 @@ export function ProductPurchase({
             Попробовать ещё раз
           </Button>
         </section>
-      ) : !buyAgain && purchase !== null && purchase.state !== "failed" ? (
+      ) : openPurchase !== null ? (
         <ProductPaymentStatus
           onBuyAgain={() => {
             setBuyAgain(true);
           }}
-          purchase={purchase}
+          purchase={openPurchase}
           programmeHref={productProgrammeHref(slug)}
           loading={restored.isFetching}
           onRefresh={() => {

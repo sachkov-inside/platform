@@ -7,34 +7,62 @@ import {
 } from "node:crypto";
 import { z } from "zod";
 import type { TbankConfig } from "../../../../config/tbank-config.js";
+import { writeLog } from "../../../../infrastructure/observability/index.js";
 
 export const bankTimeoutMs = 10_000;
+/** Ответ CheckOrder на заказ без единого платежа у этого терминала. */
+const orderNotFoundSchema = z.object({
+  Success: z.union([z.literal(false), z.literal("false")]),
+  ErrorCode: z.union([z.literal("335"), z.literal(335)]),
+});
 const reference = z.union([z.string().min(1).max(64), z.int().nonnegative()]);
 const success = z.union([z.boolean(), z.enum(["true", "false"])]);
+/**
+ * Все 23 статуса платежа из справочника T-Bank на 31.10.2026 и `RECEIPT`:
+ * https://developer.tbank.ru/eacq/intro/developer/operation-statuses
+ * `RECEIPT` не входит в справочник: это уведомление о чеке, а не о платеже.
+ */
+export const bankPaymentStatuses = [
+  "RECEIPT",
+  "NEW",
+  "FORM_SHOWED",
+  "ATTEMPTS_EXPIRED",
+  "DEADLINE_EXPIRED",
+  "CANCELED",
+  "PREAUTHORIZING",
+  "3DS_CHECKING",
+  "3DS_CHECKED",
+  "AUTHORIZING",
+  "PAY_CHECKING",
+  "AUTHORIZED",
+  "AUTH_FAIL",
+  "REJECTED",
+  "CONFIRMING",
+  "CONFIRM_CHECKING",
+  "CONFIRMED",
+  "REVERSING",
+  "PARTIAL_REVERSED",
+  "REVERSED",
+  "REFUNDING",
+  "ASYNC_REFUNDING",
+  "PARTIAL_REFUNDED",
+  "REFUNDED",
+] as const;
+/**
+ * Подписанный статус вне справочника: банк может добавить новый статус раньше, чем Inside. Такой
+ * статус принимается, а покупка уходит на сверку. Он состоит, как статусы справочника, из заглавных
+ * латинских букв, цифр и `_` и не длиннее 64 символов.
+ */
+const unrecognizedStatusSchema = z
+  .string()
+  .regex(/^[A-Z0-9_]{1,64}$/u)
+  .brand<"UnrecognizedBankStatus">();
 const bankPaymentInputSchema = z.object({
   TerminalKey: z.string().min(1).max(64),
   OrderId: z.string().min(1).max(50),
   PaymentId: reference,
   Amount: z.int().nonnegative(),
-  Status: z.enum([
-    "RECEIPT",
-    "NEW",
-    "FORM_SHOWED",
-    "DEADLINE_EXPIRED",
-    "CANCELED",
-    "PREAUTHORIZING",
-    "AUTHORIZING",
-    "AUTHORIZED",
-    "AUTH_FAIL",
-    "REJECTED",
-    "CONFIRMING",
-    "CONFIRMED",
-    "REVERSING",
-    "REVERSED",
-    "REFUNDING",
-    "PARTIAL_REFUNDED",
-    "REFUNDED",
-  ]),
+  Status: z.union([z.enum(bankPaymentStatuses), unrecognizedStatusSchema]),
   Success: success,
   ErrorCode: z.string(),
   RebillId: reference.optional(),
@@ -51,13 +79,27 @@ export const bankPaymentSchema = bankPaymentInputSchema.transform(
   }),
 );
 export type BankPayment = z.infer<typeof bankPaymentSchema>;
+export type BankPaymentStatus = (typeof bankPaymentStatuses)[number];
+export function isRecognizedBankStatus(
+  status: BankPayment["Status"],
+): status is BankPaymentStatus {
+  return (bankPaymentStatuses as readonly string[]).includes(status);
+}
 export const refundTerminalStatuses = [
   "REFUNDED",
   "PARTIAL_REFUNDED",
   "REVERSED",
   "PARTIAL_REVERSED",
 ] as const;
-const bankRefundSchema = z
+/**
+ * Статусы неоплаченной формы. Только у них Cancel закрывает форму без движения денег
+ * (решение владельца 31.10.2026, #1921): https://developer.tbank.ru/eacq/api/cancel
+ */
+export const unpaidFormStatuses: readonly BankPayment["Status"][] = [
+  "NEW",
+  "FORM_SHOWED",
+];
+const bankCancelSchema = z
   .object({
     TerminalKey: z.string().min(1).max(64),
     OrderId: z.string().min(1).max(50),
@@ -73,7 +115,48 @@ const bankRefundSchema = z
     PaymentId: String(PaymentId),
     Success: Success === true || Success === "true",
   }));
-export type BankRefund = z.infer<typeof bankRefundSchema>;
+export type BankCancel = z.infer<typeof bankCancelSchema>;
+/** Отказ банка на Init: `Success:false`, ненулевой код ошибки и нет PaymentId. */
+const bankInitDeclinedSchema = z
+  .object({
+    TerminalKey: z.string(),
+    OrderId: z.string().optional(),
+    Success: success
+      .transform((value) => value === true || value === "true")
+      .pipe(z.literal(false)),
+    ErrorCode: z
+      .union([z.string().min(1), z.int()])
+      .pipe(
+        z.coerce.number<string | number>().int().positive().max(999_999_999),
+      )
+      .transform(String),
+    Message: z
+      .string()
+      .transform((value) => value.slice(0, 255))
+      .optional(),
+    PaymentId: z.never().optional(),
+  })
+  .loose();
+/**
+ * Init определённо не создал платёж в банке. `request_invalid`: запрос не собран и не ушёл.
+ * `declined`: банк ответил `Success:false` с кодом ошибки и без PaymentId. Любой другой сбой
+ * Init, в том числе сеть, таймаут, HTTP-ошибка и ответ не по схеме, оставляет исход неизвестным.
+ */
+export class BankInitRefused extends Error {
+  constructor(
+    readonly refusal:
+      | { readonly reason: "request_invalid" }
+      | {
+          readonly reason: "declined";
+          readonly errorCode: string;
+          readonly message: string | null;
+        },
+    message: string,
+  ) {
+    super(message);
+    this.name = "BankInitRefused";
+  }
+}
 /**
  * `OperationInitiatorType` банка: `0` — разовая оплата покупателем без сохранения карты,
  * `1` — оплата покупателем с сохранением привязки, `2` — оплата сохранённой картой по его
@@ -103,19 +186,35 @@ export function tbankToken(
     )
     .digest("hex");
 }
-/** Форма оплаты открывается в браузере, поэтому её origin сверяется с контуром терминала. */
+/**
+ * Форма оплаты открывается в браузере, поэтому её origin сверяется с контуром терминала. Адрес
+ * отклоняется, если его нельзя разобрать, его origin не входит в `formOrigins` или в нём есть
+ * логин, пароль или фрагмент. Тогда покупатель не откроет форму, и строка журнала зовёт
+ * оператора (#1926). Она называет только origin (`null` для неразобранного адреса): в пути и
+ * параметрах адреса может быть ключ формы.
+ */
 export function validatedPaymentUrl(
   value: unknown,
   origins: readonly string[],
+  purchaseRef?: string,
 ): string {
-  const url = new URL(z.url().parse(value));
+  const parsed = z.url().safeParse(value);
+  const url = parsed.success ? new URL(parsed.data) : null;
   if (
+    url === null ||
     !origins.includes(url.origin) ||
     url.username !== "" ||
     url.password !== "" ||
     url.hash !== ""
-  )
+  ) {
+    writeLog("warn", "bank_payment_url_rejected", {
+      module: "billing",
+      status: "operator_attention",
+      ...(purchaseRef === undefined ? {} : { purchaseRef }),
+      origin: url?.origin ?? null,
+    });
     throw new Error("Invalid bank payment URL");
+  }
   return url.toString();
 }
 
@@ -158,7 +257,10 @@ export class Tbank {
       returnUrl.password !== "" ||
       returnUrl.hash !== ""
     )
-      throw new Error("Invalid purchase return path");
+      throw new BankInitRefused(
+        { reason: "request_invalid" },
+        "Invalid purchase return path",
+      );
     returnUrl.searchParams.set("purchaseRef", input.orderId);
     const result = await this.call("Init", {
       Amount: input.amount,
@@ -186,12 +288,27 @@ export class Tbank {
         ],
       },
     });
+    const declined = bankInitDeclinedSchema.safeParse(result);
+    if (
+      declined.success &&
+      declined.data.TerminalKey === this.config.terminalKey &&
+      (declined.data.OrderId ?? input.orderId) === input.orderId
+    )
+      throw new BankInitRefused(
+        {
+          reason: "declined",
+          errorCode: declined.data.ErrorCode,
+          message: declined.data.Message ?? null,
+        },
+        `Bank declined Init with error ${declined.data.ErrorCode}`,
+      );
     const payment = bankPaymentSchema.parse(result);
     return {
       ...payment,
       PaymentURL: validatedPaymentUrl(
         notificationSchema.parse(result)["PaymentURL"],
         this.config.endpoints.formOrigins,
+        input.orderId,
       ),
     };
   }
@@ -200,7 +317,50 @@ export class Tbank {
       await this.call("GetState", { PaymentId: paymentId }),
     );
   }
+  /**
+   * Отменяет неоплаченную форму заказа. Адаптер сам читает GetState прямо перед Cancel и шлёт
+   * Cancel, только если платёж этого заказа на этом терминале ещё `NEW` или `FORM_SHOWED`.
+   * Cancel без Amount отменяет полную сумму. Оплаченный платёж Cancel вернул бы покупателю,
+   * а возвраты идут только через кабинет банка (#1420): такой платёж возвращается без Cancel.
+   */
+  async cancel(input: { orderId: string; paymentId: string }): Promise<
+    | { readonly sent: false; readonly payment: BankPayment }
+    | {
+        readonly sent: true;
+        readonly payment: BankPayment;
+        readonly result: BankCancel;
+      }
+  > {
+    const payment = await this.state(input.paymentId);
+    if (
+      payment.TerminalKey !== this.config.terminalKey ||
+      payment.OrderId !== input.orderId ||
+      payment.PaymentId !== input.paymentId
+    )
+      throw new Error("Bank payment mismatch");
+    if (
+      !payment.Success ||
+      payment.ErrorCode !== "0" ||
+      !unpaidFormStatuses.includes(payment.Status)
+    )
+      return { sent: false, payment };
+    const result = bankCancelSchema.parse(
+      await this.call("Cancel", { PaymentId: input.paymentId }),
+    );
+    if (
+      result.TerminalKey !== this.config.terminalKey ||
+      result.OrderId !== input.orderId ||
+      result.PaymentId !== input.paymentId
+    )
+      throw new Error("Bank cancel mismatch");
+    return { sent: true, payment, result };
+  }
   async order(orderId: string): Promise<readonly string[]> {
+    const answer = await this.call("CheckOrder", { OrderId: orderId });
+    // Заказ, по которому Init не создал платежа, банк не знает: боевой T-Bank 31.10.2026 ответил
+    // Success:false, ErrorCode "335" («OrderId … не найден для TerminalKey …»). Это пустой список
+    // платежей, а не сбой; любой другой отказ остаётся неизвестностью.
+    if (orderNotFoundSchema.safeParse(answer).success) return [];
     // CheckOrder locates an attempt; its optional amount/error fields are not payment proof.
     const result = z
       .object({
@@ -220,7 +380,7 @@ export class Tbank {
           )
           .max(100),
       })
-      .parse(await this.call("CheckOrder", { OrderId: orderId }));
+      .parse(answer);
     if (
       result.TerminalKey !== this.config.terminalKey ||
       result.OrderId !== orderId

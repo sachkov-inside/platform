@@ -442,7 +442,7 @@ test("conflicting old prices, archived options and recurring candidates stay pas
     const saved = async () =>
       (
         await pool.query<{ quote: unknown; link: unknown; purchase: unknown }>(
-          "select (select to_jsonb(q) from billing.price_quotes q where id=$1) quote,(select to_jsonb(l) from billing.payment_links l where id=$2) link,(select to_jsonb(p) - 'refund_review_required' from billing.purchases p where id=$3) purchase",
+          "select (select to_jsonb(q) from billing.price_quotes q where id=$1) quote,(select to_jsonb(l) from billing.payment_links l where id=$2) link,(select to_jsonb(p) - 'refund_review_required' - 'bank_recheck_at' from billing.purchases p where id=$3) purchase",
           [quote, link, purchase],
         )
       ).rows;

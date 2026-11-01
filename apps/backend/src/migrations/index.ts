@@ -1,4 +1,12 @@
 import {
+  name as purchaseBankRecheckName,
+  statement as purchaseBankRecheckStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0117-purchase-bank-recheck.js";
+import {
+  name as openReservationPerProductName,
+  statement as openReservationPerProductStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0116-open-reservation-per-product.js";
+import {
   name as explicitFeedName,
   statement as explicitFeedStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0115-explicit-feed.js";
@@ -744,6 +752,14 @@ export const platformMigrations = [
     statement: billingContactEmailFingerprintStatement,
   },
   { name: explicitFeedName, statement: explicitFeedStatement },
+  {
+    name: openReservationPerProductName,
+    statement: openReservationPerProductStatement,
+  },
+  {
+    name: purchaseBankRecheckName,
+    statement: purchaseBankRecheckStatement,
+  },
 ] as const;
 
 export function migrateToLatest(

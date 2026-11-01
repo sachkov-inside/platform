@@ -695,13 +695,25 @@ provide content authority for an already sent one-time payment. Support or commu
 whole-platform coverage and Material membership never create new lifetime Product rights.
 Unmappable confirmed purchases retain their immutable financial facts and enter a durable
 `review_required` fulfillment disposition. Recovery does not repeatedly retry that disposition.
+A confirmed payment whose Account no longer exists enters the same disposition with reason
+`account_deleted` (#1930): Account Rights cannot issue to a missing Account, so a retry cannot help.
+The purchase records `fulfillment_review_required` once, and the unapplied outbox row keeps the
+watchdog's fulfillment signal raised until the owner resolves it.
 Per-Product payment source identities preserve owner withdrawal across a partially completed replay.
 
-An authenticated `PARTIAL_REFUNDED` observation records the exact observed provider fields without
-interpreting `Amount` as a refunded amount. Refund totals remain unknown (`null`) and automatic
-payment reconciliation pauses for review. The observation never binds an unknown PaymentId,
-proves capture, issues rights or revokes access. An independently verified exact `CONFIRMED`
-can finish saved fulfillment; an exact full `REFUNDED` can resolve the financial amount.
+An authenticated `PARTIAL_REFUNDED` or `PARTIAL_REVERSED` observation records the exact observed
+provider fields without interpreting `Amount` as a refunded amount. Refund totals remain unknown (`null`) and automatic
+payment reconciliation pauses for review. A partial refund can only return captured money, so an
+authenticated `PARTIAL_REFUNDED` for an unconfirmed one-time purchase proves capture (#1921,
+invariant 1). The purchase is confirmed with its saved fulfillment, binds the observed PaymentId when
+the Init answer was lost, and records `payment_confirmed_by_partial_refund` for the owner's review
+list and the watchdog. A later payment of the same Product is then a second payment. The
+confirmation records the purchase amount, never the notification `Amount`. A `PARTIAL_REVERSED`
+releases only part of a hold and does not prove capture. An unconfirmed purchase with that
+observation is closed together with its reservation and records `partial_refund_released`, so it
+no longer holds the Product and the owner's review list shows it (#1929). Neither observation
+revokes access. An independently verified exact `CONFIRMED` can finish saved fulfillment; an exact
+full `REFUNDED` can resolve the financial amount.
 Late partial observations cannot erase an already proven full refund. Current provider evidence
 does not establish partial-notification Amount semantics, so no difference or zero is fabricated.
 See the [provider refund scenario](https://developer.tbank.ru/eacq/scenarios/cancel_confirm/).
@@ -715,14 +727,60 @@ bank about a failed one-time attempt with a known PaymentId. Recovery does so fo
 creation: Init sends no `RedirectDueDate`, so the form keeps the
 [provider's default lifetime](https://developer.tbank.ru/eacq/api/init). The confirmation retires
 the same Account's unpaid repeat attempts for the same Product or the same Payment Link, so the
-buyer cannot pay twice through the newer form in Inside; the retired bank form stays payable until
-it expires. An attempt with an unknown outcome or held funds stays in reconciliation. A Payment
+buyer cannot pay twice through the newer form in Inside. Each such attempt whose Init could have
+reached the bank records `bank_cancel_requested`. A purchase at another price records the same
+mark for a replaced open attempt whose Init was sent (#1925, see the
+[billing specification](../specifications/subscription-billing-v1.md)). An attempt without a stored
+form address, whose unpaid form the bank still reports `NEW` or `FORM_SHOWED`, is retired with the
+same mark by the first bank answer at least 2 minutes after creation (`form_address_lost`, #1926). Outside the transaction, the background
+reconciliation and the owner's `payments.reconcile` close its bank form with the provider's
+[Cancel](https://developer.tbank.ru/eacq/api/cancel) for the full amount (#1923, owner decision of
+31.10.2026). Cancel is sent only when GetState, read immediately before it, reports `NEW` or
+`FORM_SHOWED` for that order's PaymentId. A paid payment is never cancelled on purpose: refunds stay
+in the bank's dashboard (#1420). Recovery asks the bank about such an attempt for 24 hours after
+`bank_cancel_requested`, because Init precedes the mark and the form lives 24 hours after Init.
+A failed Cancel is sent again within that window. `bank_cancel_confirmed` records the bank status
+that closed the form: `CANCELED` after Cancel, or `DEADLINE_EXPIRED`, `REVERSED`, `CONFIRMED`,
+`REFUNDED` or `PARTIAL_REFUNDED` without it. A confirmation of a paid form always writes it, so a
+cancel is open exactly while `bank_cancel_requested` has neither `bank_cancel_confirmed` nor
+`bank_payment_absent`. Reconciliation, the owner's review list and the watchdog share that rule
+(`isBankCancelOpen` in `domain/payment-events.ts`). A buyer can still pay between that GetState
+and Cancel; the bank then returns the money, and `bank_cancel_returned_payment` records it for the
+owner's review list and the watchdog. When that event is recorded first, a later `CONFIRMED` or
+`REFUNDED` of that attempt grants no access and retires none of the buyer's current attempts, and
+the attempt stays failed. The bank can also notify `CONFIRMED` before it processes the Cancel; the
+attempt is then already confirmed with access, and the refund reaches the owner only through the
+event and its watchdog signal, so access stays the owner's decision. In that order the confirmation
+itself closes the mark with `bank_cancel_confirmed` (status `CONFIRMED`). In the first order the
+bank's `REFUNDED` closes the mark with `bank_cancel_confirmed`, which keeps the PaymentId and status.
+When the retired attempt's Init answer was lost, reconciliation finds its PaymentId with CheckOrder. For an order without payments
+the provider answers `Success:false` with `ErrorCode` `335` (order not found, observed on the live
+terminal on 2026-10-31); Inside reads it as an empty payment list. If CheckOrder finds no payment
+for 30 minutes, `bank_payment_absent` closes the mark instead, because there is no form to cancel
+(#1922). A repeat attempt with an unknown
+outcome is first checked with the bank. An unpaid form retires and is cancelled; a paid one is
+confirmed as a second payment. Held funds stay in reconciliation. A Payment
 Link is transferable, so another Account's attempt is never retired. While any of these attempts
 holds the link, the confirmed attempt keeps its reservation failed. A bank decline of the last
 holder confirms that reservation in the same transaction; recovery confirms it when the link was
 released another way. Every one-time confirmation checks for a second
 payment: an earlier paid purchase of the same Product by the same Account, or of the same Payment
-Link. Such a confirmation records `duplicate_payment_review` for the owner's refund decision.
+Link. It also checks Product acquisition through Account Rights on the same transaction handle under
+the Account entitlement lock: access the Account already holds from any source (manual issuance,
+Course activation, an earlier purchase), active or owner-revoked, also makes the payment a second
+one (#1930). Such a confirmation records `duplicate_payment_review` with `paidPurchaseRefs` and
+`heldProductIds` for the owner's refund decision.
+
+The provider's [status reference](https://developer.tbank.ru/eacq/intro/developer/operation-statuses)
+lists 23 payment statuses; notifications and GetState accept all of them (#1930). `3DS_CHECKING` and
+`3DS_CHECKED` keep an open attempt waiting: `pending`, or `authorized` once the hold is known.
+`ATTEMPTS_EXPIRED` is a decline like `DEADLINE_EXPIRED`. `PAY_CHECKING`, `CONFIRM_CHECKING`,
+`REVERSING`, `REFUNDING` and `ASYNC_REFUNDING` mean the bank has not decided, so the attempt becomes
+`unknown` for reconciliation. A signed status outside the
+reference, made of `A-Z`, `0-9` and `_` and at most 64 characters, is acknowledged with `OK`. It moves
+an open attempt to `unknown` and records `bank_status_unrecognized` once. A confirmed or failed
+purchase keeps its state. Signature and terminal checks apply to every status; the amount must
+match the purchase for every status except the two partial returns.
 
 Fresh purchase admission and dispatch read Product acquisition state through Account Rights on the
 same transaction handle under the Account entitlement lock. Both active and owner-revoked lifetime

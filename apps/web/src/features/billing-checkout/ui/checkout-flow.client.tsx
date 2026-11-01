@@ -6,6 +6,7 @@ import {
   acceptBillingConsents,
   billingErrorMessage,
   checkoutButtonLabel,
+  purchaseRetirementMessage,
   type BillingQuote,
   type LegalDocument,
   type PreorderTerms,
@@ -58,6 +59,8 @@ interface CheckoutSelection {
   readonly existingAccess: boolean;
   readonly legacyBlocked: boolean;
   readonly error: string | undefined;
+  /** Новый расчёт после неуспешной покупки уже запрашивался сам; следующий только по кнопке. */
+  readonly automaticQuoteUsed: boolean;
 }
 
 interface PurchaseAttempt {
@@ -86,8 +89,23 @@ function newSelection(key: string): CheckoutSelection {
     existingAccess: false,
     legacyBlocked: false,
     error: undefined,
+    automaticQuoteUsed: false,
   };
 }
+
+/**
+ * Вторая неуспешная покупка подряд не запускает новый расчёт сама (#1927): иначе форма сразу
+ * снова готова к оплате, и покупатель создаёт новые неуспешные покупки, не узнав причину.
+ */
+const repeatedPurchaseFailure =
+  "Оплата снова не прошла. Чтобы попробовать ещё раз, обновите условия.";
+
+/**
+ * Сервер отвечает на покупку `payment_in_progress`, когда незавершённую покупку этого продукта
+ * нельзя продолжить. Покупки других продуктов она не держит (#1924), поэтому текст называет продукт.
+ */
+const productPurchaseInProgress =
+  "Покупка этого продукта уже начата и ещё не завершена. Проверьте раздел «Покупки» в кабинете. Новая покупка не создаётся.";
 
 /** Расчёт принадлежит выбранным условиям; команда оплаты переживает смену выбора. */
 export function CheckoutFlow({
@@ -216,7 +234,11 @@ export function CheckoutFlow({
           setAttempt(null);
           completeOperation("purchase");
         }
-        setPaymentError(billingErrorMessage(result.code));
+        setPaymentError(
+          result.code === "payment_in_progress"
+            ? productPurchaseInProgress
+            : billingErrorMessage(result.code),
+        );
         if (result.code === "existing_access")
           updateSelection(identity, { existingAccess: true });
         if (result.code === "legacy_review_required")
@@ -259,11 +281,8 @@ export function CheckoutFlow({
             ? "/payment/return"
             : `/payment/links/${snapshot.individualPayment.linkId}?purchaseRef=${result.value.purchaseRef}`,
         );
-      else if (
-        result.value.state === "failed" &&
-        selection.identity === identity
-      )
-        requestQuote();
+      else if (result.value.state === "failed")
+        settleFailedPurchase(result.value, identity);
     },
   });
 
@@ -291,7 +310,8 @@ export function CheckoutFlow({
         setAttempt(null);
         setPaymentError(undefined);
         completeOperation("purchase");
-        if (result.value.state === "failed") requestQuote();
+        if (result.value.state === "failed")
+          settleFailedPurchase(result.value, selection.identity);
         else
           (onNavigate ?? defaultNavigate)(
             snapshot.individualPayment === undefined
@@ -316,6 +336,39 @@ export function CheckoutFlow({
       identity: selection.identity,
       input: { operationId: operationId("quote", input), ...input },
     });
+  };
+  /**
+   * Покупка не прошла. Снятую до банка покупку объясняет причина, и новый расчёт сам не
+   * начинается: новая покупка по тем же условиям была бы снята так же. Попытку без адреса формы
+   * (#1926) причина тоже объясняет, но новый расчёт начинается сразу: следующий Init откроет
+   * новую форму. После отказа банка форма один раз сама запрашивает новый расчёт; повторный
+   * отказ ждёт кнопки покупателя.
+   */
+  const settleFailedPurchase = (failed: PurchaseStatus, identity: object) => {
+    // Покупатель уже выбрал другие условия: этот исход к ним не относится.
+    if (selection.identity !== identity) return;
+    if (failed.retirementReason === "form_address_lost") {
+      setPaymentError(purchaseRetirementMessage(failed.retirementReason));
+      requestQuote();
+      return;
+    }
+    if (failed.retirementReason !== null) {
+      setPaymentError(purchaseRetirementMessage(failed.retirementReason));
+      updateSelection(
+        identity,
+        failed.retirementReason === "already_owned"
+          ? { existingAccess: true }
+          : { quote: null },
+      );
+      return;
+    }
+    if (selection.automaticQuoteUsed) {
+      setPaymentError(repeatedPurchaseFailure);
+      updateSelection(identity, { quote: null });
+      return;
+    }
+    updateSelection(identity, { automaticQuoteUsed: true });
+    requestQuote();
   };
   // Разовая покупка рассчитывается автоматически; подписка сохраняет явный шаг расчёта.
   useEffect(() => {
@@ -389,7 +442,11 @@ export function CheckoutFlow({
       {...shared}
       preorder={preorder}
       showInclusions={showInclusions}
-      onRetryQuote={requestQuote}
+      onRetryQuote={() => {
+        // Покупатель сам начинает новый расчёт: прежнее объяснение отказа больше не относится к форме.
+        setPaymentError(undefined);
+        requestQuote();
+      }}
       promoRejected={promoRejected}
     />
   );

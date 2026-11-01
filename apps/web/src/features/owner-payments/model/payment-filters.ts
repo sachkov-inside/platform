@@ -31,6 +31,11 @@ export interface PaymentsQuery {
    */
   readonly fulfillment?: PaymentFulfillmentFilter;
   /**
+   * `review`: покупки с событием для проверки владельцем (#1928), например со второй оплатой.
+   * Виды событий выбирает billing.
+   */
+  readonly events?: PaymentEventsFilter;
+  /**
    * Покупатель (`?person=`): все платежи одного человека. Список открывается с ним из карточки
    * человека, которая сама показывает только последние оплаты.
    */
@@ -44,6 +49,10 @@ export const emptyPaymentsQuery: PaymentsQuery = { states: [] };
 const fulfillmentSchema = z.literal("incomplete");
 export type PaymentFulfillmentFilter = z.infer<typeof fulfillmentSchema>;
 export const fulfillmentFilterLabel = "Выдача не завершена";
+
+const eventsSchema = z.literal("review");
+export type PaymentEventsFilter = z.infer<typeof eventsSchema>;
+export const eventsFilterLabel = "Есть события для проверки";
 
 /** Сколько строк просит одна страница списка. */
 export const paymentsPageSize = 50;
@@ -73,12 +82,14 @@ export function parsePaymentsSearchParams(
   const fulfillment = fulfillmentSchema.safeParse(
     params.get("fulfillment"),
   ).data;
+  const events = eventsSchema.safeParse(params.get("events")).data;
   return {
     states: paymentStates.filter((state) => requested.has(state)),
     ...(productId === undefined ? {} : { productId }),
     ...(from === undefined ? {} : { from }),
     ...(to === undefined ? {} : { to }),
     ...(fulfillment === undefined ? {} : { fulfillment }),
+    ...(events === undefined ? {} : { events }),
     ...(accountId === undefined ? {} : { accountId }),
     ...(cursor === undefined ? {} : { cursor }),
   };
@@ -92,6 +103,7 @@ export function serializePaymentsQuery(query: PaymentsQuery): string {
   if (query.to !== undefined) params.set("to", query.to);
   if (query.fulfillment !== undefined)
     params.set("fulfillment", query.fulfillment);
+  if (query.events !== undefined) params.set("events", query.events);
   if (query.accountId !== undefined) params.set("person", query.accountId);
   if (query.cursor !== undefined) params.set("cursor", query.cursor);
   return params.toString();
@@ -111,8 +123,8 @@ export function personPaymentsHref(accountId: string): Route {
 }
 
 /**
- * Состояние, продукт, период, выдача или покупатель сужают список; позиция продолжения сама по
- * себе нет.
+ * Состояние, продукт, период, выдача, события или покупатель сужают список; позиция продолжения
+ * сама по себе нет.
  */
 export function hasPaymentsFilters(query: PaymentsQuery): boolean {
   return (
@@ -121,6 +133,7 @@ export function hasPaymentsFilters(query: PaymentsQuery): boolean {
     query.from !== undefined ||
     query.to !== undefined ||
     query.fulfillment !== undefined ||
+    query.events !== undefined ||
     query.accountId !== undefined
   );
 }
@@ -132,6 +145,10 @@ export type PaymentsFilterChange =
   | { readonly key: "to"; readonly value: string | undefined }
   | { readonly key: "period"; readonly value: undefined }
   | { readonly key: "fulfillment"; readonly value: undefined }
+  | {
+      readonly key: "events";
+      readonly value: PaymentEventsFilter | undefined;
+    }
   | { readonly key: "accountId"; readonly value: undefined };
 
 /**
@@ -174,6 +191,12 @@ export function withPaymentsFilter(
       const { fulfillment: _fulfillment, ...withoutFulfillment } = rest;
       return withoutFulfillment;
     }
+    case "events": {
+      const { events: _events, ...withoutEvents } = rest;
+      return change.value === undefined
+        ? withoutEvents
+        : { ...withoutEvents, events: change.value };
+    }
     case "accountId": {
       const { accountId: _accountId, ...withoutPerson } = rest;
       return withoutPerson;
@@ -206,6 +229,7 @@ export interface PaymentsListRequest {
   /** Мгновение ISO, исключительно. */
   readonly to?: string;
   readonly fulfillment?: PaymentFulfillmentFilter;
+  readonly events?: PaymentEventsFilter;
   readonly cursor?: string;
 }
 
@@ -223,6 +247,7 @@ export function paymentsListRequest(query: PaymentsQuery): PaymentsListRequest {
     ...(query.fulfillment === undefined
       ? {}
       : { fulfillment: query.fulfillment }),
+    ...(query.events === undefined ? {} : { events: query.events }),
     ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
   };
 }
@@ -242,6 +267,7 @@ export function serializePaymentsListRequest(
   if (request.to !== undefined) params.set("to", request.to);
   if (request.fulfillment !== undefined)
     params.set("fulfillment", request.fulfillment);
+  if (request.events !== undefined) params.set("events", request.events);
   if (request.cursor !== undefined) params.set("cursor", request.cursor);
   return params.toString();
 }
@@ -277,6 +303,7 @@ export function parsePaymentsListRequest(
   const from = optional("from", instantSchema);
   const to = optional("to", instantSchema);
   const fulfillment = optional("fulfillment", fulfillmentSchema);
+  const events = optional("events", eventsSchema);
   const cursor = optional("cursor", uuidSchema);
   if (
     !limit.success ||
@@ -286,6 +313,7 @@ export function parsePaymentsListRequest(
     !from.ok ||
     !to.ok ||
     !fulfillment.ok ||
+    !events.ok ||
     !cursor.ok
   )
     return null;
@@ -302,6 +330,7 @@ export function parsePaymentsListRequest(
     ...(fulfillment.value === undefined
       ? {}
       : { fulfillment: fulfillment.value }),
+    ...(events.value === undefined ? {} : { events: events.value }),
     ...(cursor.value === undefined ? {} : { cursor: cursor.value }),
   };
 }

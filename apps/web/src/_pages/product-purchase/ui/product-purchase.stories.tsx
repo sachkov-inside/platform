@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
 import { getStoryRouter } from "../../../../.storybook/mocks/next-navigation";
-import { expect, fn, mocked, waitFor, within } from "storybook/test";
+import { expect, fn, mocked, userEvent, waitFor, within } from "storybook/test";
 
 import {
   individualLink,
@@ -392,6 +392,66 @@ export const RestoredPayment: Story = {
     ).toHaveAttribute("href", pendingPurchase.paymentUrl);
   },
 };
+/**
+ * Ответ банка с адресом формы потерян (#1926): покупка ждёт оплаты без страницы оплаты. Сервер
+ * снимет неоплаченную попытку, а пока страница объясняет, что будет дальше.
+ */
+export const LostPaymentForm: Story = {
+  ...purchaseRoute("member", {
+    ...pendingPurchase,
+    snapshot: productOnlyOffer,
+    paymentUrl: null,
+  }),
+  play: async ({ canvasElement }) => {
+    const content = routeContent(canvasElement);
+    await expect(
+      await content.findByText(/Если страница оплаты не открылась/u),
+    ).toBeVisible();
+    await expect(
+      content.queryByRole("button", { name: "Купить снова" }),
+    ).not.toBeInTheDocument();
+  },
+};
+/** Сервер снял попытку без адреса формы: «Купить снова» открывает новую покупку (#1926). */
+export const LostPaymentFormCancelled: Story = {
+  ...purchaseRoute("member", {
+    ...failedPurchase,
+    snapshot: productOnlyOffer,
+    retirementReason: "form_address_lost",
+  }),
+  play: async ({ canvasElement }) => {
+    const content = routeContent(canvasElement);
+    await expect(
+      await content.findByRole("heading", { name: "Оплата отменена" }),
+    ).toBeVisible();
+    await expect(content.getByText(/Деньги не списаны/u)).toBeVisible();
+    await expect(
+      content.queryByRole("button", { name: /^Оплатить /u }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      content.getByRole("button", { name: "Купить снова" }),
+    );
+    const pay = await content.findByRole("button", { name: /^Оплатить /u });
+    await waitFor(() => expect(pay).toBeEnabled());
+  },
+};
+/** Промокод из ссылки владельца: неоплаченная форма без скидки не прячет оформление (#1925). */
+export const PromoCodeWithOpenPayment: Story = {
+  ...purchaseRoute("member", {
+    ...pendingPurchase,
+    snapshot: productOnlyOffer,
+  }),
+  args: { promoCode: "INSIDE10" },
+  play: async ({ canvasElement }) => {
+    const content = routeContent(canvasElement);
+    await expect(
+      await content.findByRole("button", { name: /Оплатить/ }),
+    ).toBeVisible();
+    await expect(
+      content.queryByRole("link", { name: "Открыть страницу оплаты" }),
+    ).not.toBeInTheDocument();
+  },
+};
 export const PreparingAccess: Story = {
   ...purchaseRoute("member", {
     ...confirmedProductPurchase,
@@ -488,6 +548,55 @@ export const IndividualMember: Story = {
     // Одна цена в оплате и полная цена рядом, как велит оферта.
     await expect(canvas.getAllByText(/^26\s?100\s?₽$/u)).toHaveLength(1);
     await expect(canvas.getByText(/^29\s?000\s?₽$/u)).toBeVisible();
+  },
+};
+/**
+ * Неоплаченная покупка с витрины не прячет оформление по ссылке: покупка по цене ссылки заменит
+ * её (#1925).
+ */
+export const IndividualMemberWithStorefrontPayment: Story = {
+  ...purchaseRoute(
+    "member",
+    { ...pendingPurchase, snapshot: productOnlyOffer },
+    false,
+    undefined,
+    true,
+  ),
+  args: { ...IndividualGuest.args, signedIn: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByRole("button", { name: /Оплатить/ }),
+    ).toBeVisible();
+    await expect(canvas.getAllByText(/^26\s?100\s?₽$/u)).toHaveLength(1);
+    await expect(
+      canvas.queryByRole("link", { name: "Открыть страницу оплаты" }),
+    ).not.toBeInTheDocument();
+  },
+};
+/** Удержанную банком покупку с витрины ссылка не заменяет: покупатель видит её статус. */
+export const IndividualMemberWithAuthorizedStorefrontPayment: Story = {
+  ...purchaseRoute(
+    "member",
+    {
+      ...pendingPurchase,
+      state: "authorized",
+      paymentUrl: null,
+      snapshot: productOnlyOffer,
+    },
+    false,
+    undefined,
+    true,
+  ),
+  args: { ...IndividualGuest.args, signedIn: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByRole("region", { name: "Ваша покупка" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: /Оплатить/ }),
+    ).not.toBeInTheDocument();
   },
 };
 export const IndividualUnknown: Story = {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paymentEventKind } from "./payment-events.js";
 
 /**
  * Вид попытки оплаты. Разовая покупка стоит рядом с подпиской: она оплачивается один раз,
@@ -29,3 +30,31 @@ export type AttemptState = z.infer<typeof attemptStateSchema>;
 export function isQuotedPurchase(kind: AttemptKind): boolean {
   return kind === "initial" || kind === "one_time";
 }
+
+/**
+ * Почему покупка снята до отправки в банк:
+ * - `sale_closed`: цена в архиве или каталог не подтверждает единственный продукт снимка к продаже
+ *   (продукт в архиве, не найден или снимок не называет ровно один продукт);
+ * - `price_unavailable`: цены продукта нет или покупка с витрины, а цена снята с витрины;
+ * - `already_owned`: продукт уже есть у покупателя;
+ * - `unsupported_attempt`: попытка сохранена по условиям, которые разовая покупка не отправляет.
+ * Init не уходил, поэтому денег банк не брал.
+ */
+export const retirementReasonSchema = z.enum([
+  "sale_closed",
+  "price_unavailable",
+  "already_owned",
+  "unsupported_attempt",
+]);
+export type RetirementReason = z.infer<typeof retirementReasonSchema>;
+
+/**
+ * Почему Inside сняла покупку до оплаты, как её видит покупатель: одна из причин снятия до
+ * отправки в банк или `form_address_lost`. Во втором случае Init ушёл, но адреса формы оплаты у
+ * Inside нет: ответ Init потерян или адрес не прошёл проверку `formOrigins` (#1926). Попытка
+ * снята, деньги не списаны, а неоплаченную форму в банке отменяет сверка.
+ */
+export const purchaseRetirementReasonSchema = z.enum([
+  ...retirementReasonSchema.options,
+  paymentEventKind.formAddressLost,
+]);

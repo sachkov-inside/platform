@@ -13,6 +13,7 @@ import { hasText } from "../../../../infrastructure/contracts/text.js";
 import {
   dependencyFailure,
   reportDependencyFailure,
+  writeLog,
 } from "../../../../infrastructure/observability/index.js";
 import {
   lockAccountEntitlementChanges,
@@ -20,7 +21,7 @@ import {
   lockBillingPurchase,
   type BillingPrisma,
   type BillingPrismaClient,
-  Prisma,
+  type Prisma,
 } from "../../../../infrastructure/prisma/index.js";
 import type {
   AccessGrants,
@@ -31,7 +32,14 @@ import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import {
   attemptKindSchema,
   isQuotedPurchase,
+  retirementReasonSchema,
+  type RetirementReason,
 } from "../../domain/payment-attempt.js";
+import {
+  partialRefundObservedKindPrefix,
+  paymentEventKind,
+  type PaymentEventKind,
+} from "../../domain/payment-events.js";
 import {
   paymentMode,
   priceSnapshotSchema,
@@ -49,13 +57,20 @@ import {
 import {
   paymentFailure,
   purchaseProductSchema,
+  type PaymentFailureCode,
   purchaseStatusSchema,
   type PaymentResult,
   type PurchaseStatus,
 } from "../../features/purchase-product/purchase-product.contract.js";
-import { reservePurchaseInTransaction } from "../../features/reserve-purchase/reserve-purchase.js";
+import {
+  isOpenProductReservationConflict,
+  reservePurchaseInTransaction,
+} from "../../features/reserve-purchase/reserve-purchase.js";
 import {
   bankTimeoutMs,
+  isRecognizedBankStatus,
+  refundTerminalStatuses,
+  unpaidFormStatuses,
   validatedPaymentUrl,
   type BankPayment,
   type Tbank,
@@ -64,6 +79,24 @@ import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 import { openOrderEmail } from "../../shared/order-email.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
+import {
+  closeAttempt,
+  confirmReleasedLinkReservations,
+  hasEvent,
+  recordEventOnce,
+} from "./attempt-closure.js";
+import {
+  closeBankCancel,
+  findOpenBankCancel,
+  openRetiredForms,
+  requireBankCancel,
+  retireAttempt,
+} from "./bank-form-cancel.js";
+import {
+  initAbsence,
+  recordBankPaymentAbsent,
+  settleEmptyOrder,
+} from "./payment-absence.js";
 
 const inFlightStates = ["prepared", "sent", "unknown", "pending", "authorized"];
 /**
@@ -73,8 +106,92 @@ const inFlightStates = ["prepared", "sent", "unknown", "pending", "authorized"];
  * поэтому форма живёт срок банка по умолчанию, 24 часа: https://developer.tbank.ru/eacq/api/init
  */
 export const declinedPaymentRecheckMilliseconds = 24 * 60 * 60 * 1000;
-/** Неоплаченная повторная попытка. Неизвестный исход и удержанные деньги остаются на сверке. */
+/**
+ * Убывающий опрос формы, которая ещё может принять оплату: после отказа банка или у снятой
+ * попытки, чью форму нужно отменить (#1929). Чем дольше форма живёт без оплаты, тем реже сверка
+ * о ней спрашивает: раз в минуту первые 10 минут, раз в 5 минут до часа, раз в 15 минут до
+ * 4 часов, затем раз в час до конца окна. За сутки это около 50 запросов вместо 1440.
+ */
+const bankRecheckSteps = [
+  { ageBelowMilliseconds: 10 * 60_000, everyMilliseconds: 60_000 },
+  { ageBelowMilliseconds: 60 * 60_000, everyMilliseconds: 5 * 60_000 },
+  { ageBelowMilliseconds: 4 * 60 * 60_000, everyMilliseconds: 15 * 60_000 },
+] as const;
+const finalBankRecheckEveryMilliseconds = 60 * 60_000;
+/**
+ * Срок, после которого попытка без адреса формы оплаты снимается (#1926). Адрес приходит только
+ * в ответе Init, а GetState его не возвращает: если ответ потерян или адрес не прошёл проверку
+ * `formOrigins`, покупатель не может открыть форму. Срок задан в #1926 и много больше ожидания
+ * ответа Init (`bankTimeoutMs`): снятие не обгоняет ответ, который ещё в пути. Затем первый
+ * ответ банка о неоплаченной форме снимает попытку: сверка, повтор команды или запрос перед
+ * заменой цены. Форму в банке отменяет сверка.
+ */
+export const lostFormAddressMilliseconds = 2 * 60_000;
+/**
+ * Разовые попытки, у которых может не оказаться адреса формы: Init ушёл, а оплата ещё не
+ * началась. Снимает такую попытку первый ответ банка о платеже не раньше этого срока.
+ */
+const formAddressAwaitedStates = ["sent", "unknown", "pending"];
+/**
+ * Самая долгая строка сверки: до четырёх запросов к банку по `bankTimeoutMs`. Это CheckOrder,
+ * если PaymentId ещё нет, GetState сверки, затем GetState и Cancel отмены формы (#1923).
+ */
+const recoveryItemMilliseconds = 4 * bankTimeoutMs;
+
+/**
+ * Бюджет прохода сверки меньше срока задания на две самые долгие строки: одну, начатую в последний
+ * миг бюджета, и одну в запас на работу с базой после запросов к банку (#1929).
+ */
+export function recoveryBudgetMilliseconds(jobDeadlineSeconds: number): number {
+  return jobDeadlineSeconds * 1_000 - 2 * recoveryItemMilliseconds;
+}
+/**
+ * Неоплаченная повторная попытка. Удержанные деньги остаются на сверке. Попытку с неизвестным
+ * исходом сверка сначала сверяет с банком и снимает, только если форма не оплачена.
+ */
 const supersedableStates = ["prepared", "sent", "pending"];
+const dispatchRetiredPayloadSchema = z.object({
+  reason: retirementReasonSchema,
+});
+/**
+ * Открытая попытка с PaymentId, о форме которой покупка по другой цене спрашивает банк (#1925).
+ * Неизвестный исход банк может прояснить: неоплаченная форма станет `pending` и будет заменена.
+ */
+const bankCheckedStates = ["pending", "unknown"];
+/** Наблюдение частичного возврата, сохранённое приёмом ответа банка: статус и PaymentId. */
+const partialRefundObservationSchema = z.object({
+  status: z.string(),
+  paymentId: z.string().min(1),
+});
+/** Отказ банка по попытке. Тот же PaymentId ещё может прийти подтверждённым. */
+const declinedStatuses: readonly BankPayment["Status"][] = [
+  "REJECTED",
+  "AUTH_FAIL",
+  "CANCELED",
+  "ATTEMPTS_EXPIRED",
+  "DEADLINE_EXPIRED",
+  "REVERSED",
+];
+/**
+ * Частичный возврат подтверждённого (`PARTIAL_REFUNDED`) или авторизованного (`PARTIAL_REVERSED`)
+ * платежа. Его Amount не равен сумме покупки и не доказывает сумму возврата.
+ */
+const partialReturnStatuses: readonly BankPayment["Status"][] = [
+  "PARTIAL_REFUNDED",
+  "PARTIAL_REVERSED",
+];
+/**
+ * Банк ещё не решил исход операции: деньги могли уже двигаться, поэтому покупка ждёт сверки.
+ * `PAY_CHECKING` и `CONFIRM_CHECKING` банк ставит, когда сам не знает исход авторизации:
+ * https://developer.tbank.ru/eacq/intro/developer/operation-statuses
+ */
+const undecidedStatuses: readonly BankPayment["Status"][] = [
+  "PAY_CHECKING",
+  "CONFIRM_CHECKING",
+  "REVERSING",
+  "REFUNDING",
+  "ASYNC_REFUNDING",
+];
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Кабинет показывает обозримую историю; полный журнал платежей остаётся владельческой операцией.
 const ownPaymentHistoryLimit = 50;
@@ -176,6 +293,7 @@ export class BillingPayments {
       const email = orderEmail ?? contact.contact?.email;
       if (email === undefined) return paymentFailure("contact_required");
       const { email: _email, ...storedCommand } = command;
+      const productId = snapshot.product?.id ?? snapshot.paymentOption.id;
       const consents = await this.dependencies.contact.readConsents(
         accountId,
         command.consentEvidenceRefs,
@@ -213,6 +331,11 @@ export class BillingPayments {
         )
       )
         return paymentFailure("consent_required");
+      const bankUnpaidAttemptRef = await this.unpaidAttemptAtOtherPrice(
+        accountId,
+        productId,
+        snapshot,
+      );
       const prepare = () =>
         this.dependencies.prisma.$transaction(
           async (
@@ -233,14 +356,7 @@ export class BillingPayments {
             // A completed lifecycle remains in history; only a later new purchase can reserve another slot.
 
             let continuingPurchase = await tx.billingPurchase.findFirst({
-              where: {
-                accountId,
-                kind: "one_time",
-                state: { in: inFlightStates },
-                ...savedContentProductWhere(
-                  snapshot.product?.id ?? snapshot.paymentOption.id,
-                ),
-              },
+              where: openAttemptWhere(accountId, productId),
               orderBy: { createdAt: "desc" },
             });
             if (continuingPurchase === null) {
@@ -249,9 +365,7 @@ export class BillingPayments {
                   accountId,
                   kind: "one_time",
                   state: "confirmed",
-                  ...savedContentProductWhere(
-                    snapshot.product?.id ?? snapshot.paymentOption.id,
-                  ),
+                  ...savedContentProductWhere(productId),
                 },
                 orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               });
@@ -267,7 +381,22 @@ export class BillingPayments {
                   };
               }
             }
-            if (continuingPurchase) {
+            const decision =
+              continuingPurchase === null
+                ? null
+                : await decideOpenAttempt(
+                    tx,
+                    continuingPurchase,
+                    snapshot,
+                    bankUnpaidAttemptRef,
+                  );
+            // Банк не подтвердил, что форма по прежней цене не оплачена: покупатель повторит
+            // ту же команду, а не попадёт на форму по прежней цене.
+            if (decision?.kind === "unverified")
+              return paymentFailure("provider_unavailable");
+            const replaced =
+              decision?.kind === "replace" ? decision.attempt : null;
+            if (continuingPurchase && replaced === null) {
               await tx.billingPurchaseCommand.create({
                 data: {
                   ...key,
@@ -290,12 +419,19 @@ export class BillingPayments {
             const acquired =
               await this.dependencies.grants.hasProductAcquisition(
                 accountId,
-                snapshot.product?.id ?? snapshot.paymentOption.id,
+                productId,
                 transactionHandle(tx),
               );
             if (!acquired.ok) return paymentFailure("dependency_unavailable");
             if (acquired.acquired) return paymentFailure("existing_access");
             const purchaseRef = randomUUID();
+            // Снятие откатывается вместе с транзакцией, если новая попытка не создана.
+            const rejectPurchase = (code: PaymentFailureCode) => {
+              if (replaced !== null) throw new ReplacementRejected(code);
+              return paymentFailure(code);
+            };
+            if (replaced !== null)
+              await retireReplacedAttempt(tx, replaced, purchaseRef, now);
             const reservation = await reservePurchaseInTransaction(
               tx,
               {
@@ -311,7 +447,7 @@ export class BillingPayments {
               this.dependencies.contentCatalog,
             );
             if (!reservation.ok)
-              return paymentFailure(
+              return rejectPurchase(
                 reservation.error.code === "reservation_conflict"
                   ? "payment_in_progress"
                   : reservation.error.code,
@@ -325,7 +461,7 @@ export class BillingPayments {
               await tx.billingPromoReservation.delete({
                 where: { purchaseRef },
               });
-              return paymentFailure(admission.error.code);
+              return rejectPurchase(admission.error.code);
             }
             await tx.billingPurchase.create({
               data: {
@@ -382,11 +518,72 @@ export class BillingPayments {
       }
       return prepared;
     } catch (error) {
+      if (error instanceof ReplacementRejected)
+        return paymentFailure(error.code);
+      // Another open purchase of this Product holds the reservation: an answer, not a failure.
+      if (isOpenProductReservationConflict(error))
+        return paymentFailure("payment_in_progress");
       return dependencyFailure(
         { module: "billing", operation: "purchase" },
         error,
         paymentFailure("dependency_unavailable"),
       );
+    }
+  }
+
+  /**
+   * Открытая попытка того же продукта по другой цене (#1925). Перед заменой банк отвечает о её
+   * форме, и ответ записывается как при сверке. Возвращает ссылку попытки, если банк назвал форму
+   * неоплаченной; иначе `null`, и покупка продолжит открытую попытку. Банк недоступен: тоже `null`.
+   */
+  private async unpaidAttemptAtOtherPrice(
+    accountId: string,
+    productId: string,
+    snapshot: PriceSnapshot,
+  ): Promise<string | null> {
+    const { prisma, bank } = this.dependencies;
+    const open = await prisma.billingPurchase.findFirst({
+      where: openAttemptWhere(accountId, productId),
+      orderBy: { createdAt: "desc" },
+      select: { id: true, amountKopecks: true, snapshot: true },
+    });
+    if (
+      bank === undefined ||
+      open === null ||
+      !pricedDifferently(open, snapshot)
+    )
+      return null;
+    try {
+      await this.awaitBankAnswer(open.id);
+      const row = await prisma.billingPurchase.findUniqueOrThrow({
+        where: { id: open.id },
+        select: {
+          state: true,
+          paymentId: true,
+          environment: true,
+          terminalRef: true,
+        },
+      });
+      if (
+        !bankCheckedStates.includes(row.state) ||
+        !hasText(row.paymentId) ||
+        row.environment !== bank.config.environment ||
+        row.terminalRef !== bank.config.terminalKey
+      )
+        return null;
+      const payment = await bank.state(row.paymentId);
+      if (payment.OrderId !== open.id || payment.PaymentId !== row.paymentId)
+        return null;
+      const accepted = await this.accept(payment);
+      return accepted.ok && unpaidFormStatuses.includes(payment.Status)
+        ? open.id
+        : null;
+    } catch (error) {
+      reportDependencyFailure(
+        { module: "billing", operation: "purchase" },
+        error,
+      );
+      return null;
     }
   }
 
@@ -433,7 +630,9 @@ export class BillingPayments {
       return paymentFailure("existing_access");
     await this.awaitBankAnswer(purchaseRef);
     if (dispatched === "skipped") {
-      const reconciled = await this.reconcile(purchaseRef);
+      // Запрос покупателя не ждёт Cancel снятой попытки: форму в банке закрывает фоновая сверка.
+      // Окно отсутствия платежа ещё идёт (`deferred`): покупатель видит статус покупки.
+      const reconciled = await this.reconcileAttempt(purchaseRef, "never");
       if (!reconciled.ok) return reconciled;
     }
     const result = await this.status(accountId, purchaseRef);
@@ -445,6 +644,7 @@ export class BillingPayments {
         paymentUrl: validatedPaymentUrl(
           result.value.paymentUrl,
           bank.config.endpoints.formOrigins,
+          purchaseRef,
         ),
       }),
     };
@@ -536,11 +736,39 @@ export class BillingPayments {
         where: { purchaseRef, state: "confirmed" },
         _sum: { amountKopecks: true },
       });
+      const retirements =
+        row.state === "failed"
+          ? await this.dependencies.prisma.billingPaymentEvent.findMany({
+              where: {
+                purchaseRef,
+                kind: {
+                  in: [
+                    paymentEventKind.dispatchRetired,
+                    paymentEventKind.formAddressLost,
+                  ],
+                },
+              },
+              select: { kind: true, payload: true },
+            })
+          : [];
+      const dispatchRetirement = retirements.find(
+        (event) => event.kind === paymentEventKind.dispatchRetired,
+      );
+      const formAddressRetirement = retirements.find(
+        (event) => event.kind === paymentEventKind.formAddressLost,
+      );
       return {
         ok: true,
         value: purchaseStatusSchema.parse({
           purchaseRef,
           state: row.state,
+          retirementReason:
+            dispatchRetirement !== undefined
+              ? dispatchRetiredPayloadSchema.parse(dispatchRetirement.payload)
+                  .reason
+              : formAddressRetirement !== undefined
+                ? paymentEventKind.formAddressLost
+                : null,
           refundedKopecks: row.refundReviewRequired
             ? null
             : Number(refunds._sum.amountKopecks ?? 0),
@@ -723,7 +951,20 @@ export class BillingPayments {
     return this.accept(payment);
   }
 
+  /**
+   * Сверка одной покупки с банком; снятая попытка с неоплаченной формой получает Cancel. Ожидание
+   * в окне отсутствия платежа не считается сбоем: сверка отвечает успехом, а покупка остаётся `unknown`.
+   */
   async reconcile(purchaseRef: string): Promise<PaymentResult<true>> {
+    const reconciled = await this.reconcileAttempt(purchaseRef, "retired_form");
+    return reconciled.ok ? { ok: true, value: true } : reconciled;
+  }
+
+  /** `deferred`: CheckOrder ещё в окне отсутствия платежа, и исход решит следующая сверка. */
+  private async reconcileAttempt(
+    purchaseRef: string,
+    sendCancel: "retired_form" | "never",
+  ): Promise<PaymentResult<true | "deferred">> {
     const { prisma, bank } = this.dependencies;
     try {
       const row = await prisma.billingPurchase.findUnique({
@@ -739,32 +980,14 @@ export class BillingPayments {
           });
           if (current.state !== "prepared" || current.kind === "one_time")
             return;
-          const now = this.clock();
-          await tx.billingPurchase.update({
-            where: { id: row.id },
-            data: {
-              state: "failed",
-              lifecycleActive: false,
-              paymentUrl: null,
-              updatedAt: now,
-            },
-          });
-          await tx.billingPromoReservation.updateMany({
-            where: { purchaseRef: row.id },
-            data: { state: "failed" },
-          });
-          await tx.billingPaymentEvent.create({
-            data: {
-              id: randomUUID(),
-              purchaseRef: row.id,
-              kind: "legacy_dispatch_retired",
+          await closeAttempt(tx, row.id, this.clock(), {
+            event: {
+              kind: paymentEventKind.legacyDispatchRetired,
               payload: {
                 kind: current.kind,
                 reason:
                   "Unsent recurring operation retired without bank dispatch",
               },
-              occurredAt: now,
-              recordedAt: now,
             },
           });
         });
@@ -784,15 +1007,24 @@ export class BillingPayments {
         return { ok: true, value: true };
       }
       // Разовую покупку с PaymentId спрашиваем и после отказа: он мог смениться оплатой.
+      // Снятую попытку без PaymentId с открытой отметкой отмены ищем через CheckOrder: ответ
+      // её Init мог потеряться, а форма в банке осталась.
       if (
         row.state === "failed" &&
-        (row.kind !== "one_time" || !hasText(row.paymentId))
+        (row.kind !== "one_time" ||
+          (!hasText(row.paymentId) &&
+            (await findOpenBankCancel(prisma, row.id)) === null))
       )
         return { ok: true, value: true };
       let paymentId = row.paymentId;
       if (!hasText(paymentId)) {
         const candidates = await bank.order(row.id);
-        // Empty/multiple results are uncertainty, not permission to send another Init.
+        // An empty answer starts or closes the absence window; neither sends another Init.
+        if (candidates.length === 0)
+          return (await settleEmptyOrder(prisma, row.id, this.clock)) ===
+            "closed"
+            ? { ok: true, value: true }
+            : { ok: true, value: "deferred" };
         if (candidates.length !== 1 || !hasText(candidates[0]))
           return paymentFailure("provider_unavailable");
         paymentId = candidates[0];
@@ -801,7 +1033,8 @@ export class BillingPayments {
       if (payment.OrderId !== row.id || payment.PaymentId !== paymentId)
         return paymentFailure("invalid_notification");
       const accepted = await this.accept(payment);
-      return accepted;
+      if (!accepted.ok || sendCancel === "never") return accepted;
+      return await this.cancelRetiredForm(bank, row.id, payment);
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "reconcile" },
@@ -811,10 +1044,22 @@ export class BillingPayments {
     }
   }
 
-  async recover(limit = 50): Promise<
+  /**
+   * Проход сверки. Выдача по подтверждённым оплатам и разбор прежних покупок с частичным
+   * возвратом идут до первого запроса к банку и не ждут его. Строки для банка идут от давно не проверенных;
+   * новая строка начинается, только пока `budget` не прерван. Непроверенные строки сохраняют
+   * своё место и открывают следующий проход. Форму после отказа или снятия сверка спрашивает
+   * по убывающему расписанию `bankRecheckSteps`. `deferred` считает непроверенные строки и
+   * строки в окне отсутствия платежа: обе ждут следующего прохода и не считаются сбоем.
+   */
+  async recover(
+    limit = 50,
+    budget?: AbortSignal,
+  ): Promise<
     PaymentResult<{
       status: "ready" | "configuration_idle";
       inspected: number;
+      deferred: number;
       applied: number;
       failed: number;
     }>
@@ -822,11 +1067,21 @@ export class BillingPayments {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       return paymentFailure("invalid_request");
     try {
-      let idle = this.dependencies.bank === undefined;
-      let failed = 0;
-      const rows = await this.dependencies.prisma.billingPurchase.findMany({
+      const { prisma, bank } = this.dependencies;
+      let { applied, failed } = await this.fulfillConfirmedPayments(limit);
+      await this.settleLegacyRefundReviewPurchases(limit);
+      let idle = bank === undefined;
+      const now = this.clock();
+      const windowStart = new Date(
+        now.getTime() - declinedPaymentRecheckMilliseconds,
+      );
+      const retiredForms =
+        bank === undefined
+          ? new Map<string, Date>()
+          : await openRetiredForms(prisma, windowStart, now, limit);
+      const rows = await prisma.billingPurchase.findMany({
         where:
-          this.dependencies.bank === undefined
+          bank === undefined
             ? { state: "prepared", kind: { not: "one_time" } }
             : {
                 refundReviewRequired: false,
@@ -836,149 +1091,71 @@ export class BillingPayments {
                     state: "failed",
                     kind: "one_time",
                     paymentId: { not: null },
-                    createdAt: {
-                      gte: new Date(
-                        this.clock().getTime() -
-                          declinedPaymentRecheckMilliseconds,
-                      ),
-                    },
+                    createdAt: { gte: windowStart },
+                    OR: [
+                      { bankRecheckAt: null },
+                      { bankRecheckAt: { lte: now } },
+                    ],
                   },
+                  { id: { in: [...retiredForms.keys()] } },
                 ],
               },
-        orderBy: { updatedAt: "asc" },
+        orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
         take: limit,
       });
+      let inspected = 0;
+      let waiting = 0;
       for (const row of rows) {
-        const reconciled = await this.reconcile(row.id);
+        if (budget?.aborted === true) break;
+        inspected += 1;
+        const reconciled = await this.reconcileAttempt(row.id, "retired_form");
         if (!reconciled.ok) {
           if (reconciled.error.code === "method_unavailable") idle = true;
           else failed += 1;
-        }
-        await this.dependencies.prisma.billingPurchase.update({
+        } else if (reconciled.value === "deferred") waiting += 1;
+        // Проверенная строка уходит в конец очереди; форма после отказа ждёт свой шаг расписания.
+        // Шаг считается по состоянию после проверки: попытка, снятая в этом же проходе, сразу
+        // получает срок, и повторный проход в тот же момент её не трогает.
+        const checkedAt = this.clock();
+        const markedAt = retiredForms.get(row.id);
+        const checked = await prisma.billingPurchase.findUnique({
           where: { id: row.id },
-          data: { updatedAt: this.clock() },
+          select: { state: true },
+        });
+        await prisma.billingPurchase.update({
+          where: { id: row.id },
+          data: {
+            updatedAt: checkedAt,
+            ...(checked?.state === "failed"
+              ? {
+                  // Попытка, снятая в этом проходе, считает шаги от снятия, а не от создания.
+                  bankRecheckAt: nextBankRecheck(
+                    row.state !== "failed"
+                      ? checkedAt
+                      : markedAt !== undefined && markedAt > row.createdAt
+                        ? markedAt
+                        : row.createdAt,
+                    checkedAt,
+                  ),
+                }
+              : {}),
+          },
         });
       }
-      if (this.dependencies.bank !== undefined)
-        await confirmReleasedLinkReservations(this.dependencies.prisma, limit);
-      const pending =
-        await this.dependencies.prisma.billingFulfillment.findMany({
-          where: {
-            appliedAt: null,
-            reviewRequiredAt: null,
-            nextAttemptAt: { lte: this.clock() },
-          },
-          orderBy: [{ nextAttemptAt: "asc" }, { eventRef: "asc" }],
-          take: limit,
-        });
-      let applied = 0;
-      for (const row of pending) {
-        // A failed item moves behind other work; a process crash leaves it recoverable after a minute.
-        await this.dependencies.prisma.billingFulfillment.update({
-          where: { eventRef: row.eventRef },
-          data: {
-            nextAttemptAt: new Date(
-              this.clock().getTime() + fulfillmentRetryDelayMilliseconds,
-            ),
-          },
-        });
-        const purchase =
-          await this.dependencies.prisma.billingPurchase.findUnique({
-            where: { id: row.purchaseRef },
-          });
-        if (purchase === null) {
-          failed += 1;
-          continue;
-        }
-        if (purchase.kind !== "one_time") {
-          // Historical recurring facts remain readable but can never issue a new right or charge.
-          await this.dependencies.prisma.billingFulfillment.update({
-            where: { eventRef: row.eventRef },
-            data: { appliedAt: this.clock() },
-          });
-          continue;
-        }
-        const snapshot = priceSnapshotSchema.parse(purchase.snapshot);
-        const productIds = savedContentProductIds(snapshot);
-        if (productIds.length === 0 || purchase.confirmedAt === null) {
-          const reason =
-            productIds.length === 0
-              ? "historical_scope_unresolved"
-              : "capture_time_unresolved";
-          await this.dependencies.prisma.$transaction(async (tx) => {
-            await lockBillingPurchase(tx, purchase.id);
-            const current = await tx.billingFulfillment.findUniqueOrThrow({
-              where: { eventRef: row.eventRef },
-            });
-            if (current.appliedAt !== null || current.reviewRequiredAt !== null)
-              return;
-            const now = this.clock();
-            await tx.billingFulfillment.update({
-              where: { eventRef: row.eventRef },
-              data: { reviewRequiredAt: now, reviewReason: reason },
-            });
-            const reviewEvent = await tx.billingPaymentEvent.findUnique({
-              where: {
-                purchaseRef_kind: {
-                  purchaseRef: purchase.id,
-                  kind: "fulfillment_review_required",
-                },
-              },
-            });
-            // Old purchases may have one outbox row per benefit. The purchase event is immutable;
-            // each row still needs its own terminal review marker, including later-arriving rows.
-            if (reviewEvent === null) {
-              await tx.billingPaymentEvent.create({
-                data: {
-                  id: randomUUID(),
-                  purchaseRef: purchase.id,
-                  kind: "fulfillment_review_required",
-                  payload: {
-                    reason,
-                    savedBenefits: snapshot.offer.benefits,
-                    savedCoverage: snapshot.offer.coverage ?? null,
-                  },
-                  occurredAt: now,
-                  recordedAt: now,
-                },
-              });
-            }
-          });
-          continue;
-        }
-        let completed = true;
-        for (const productId of productIds) {
-          const result = await this.dependencies.grants.issueProductAccess(
-            { source: "purchase" },
-            {
-              accountId: purchase.accountId,
-              productId,
-              sourceRef:
-                productIds.length === 1
-                  ? `payment:${purchase.id}`
-                  : `payment:${purchase.id}:product:${productId}`,
-              issuedAt: purchase.confirmedAt.toISOString(),
-              reason: "payment_confirmed",
-            },
-          );
-          if (!result.ok) {
-            completed = false;
-            break;
-          }
-        }
-        if (completed) {
-          await this.dependencies.prisma.billingFulfillment.update({
-            where: { eventRef: row.eventRef },
-            data: { appliedAt: this.clock() },
-          });
-          applied += 1;
-        } else failed += 1;
+      if (bank !== undefined)
+        await confirmReleasedLinkReservations(prisma, limit);
+      // Оплата, которую банк подтвердил в этом проходе, получает доступ сразу, если бюджет остался.
+      if (budget?.aborted !== true) {
+        const late = await this.fulfillConfirmedPayments(limit);
+        applied += late.applied;
+        failed += late.failed;
       }
       return {
         ok: true,
         value: {
           status: idle ? "configuration_idle" : "ready",
-          inspected: rows.length,
+          inspected,
+          deferred: rows.length - inspected + waiting,
           applied,
           failed,
         },
@@ -990,6 +1167,288 @@ export class BillingPayments {
         paymentFailure("dependency_unavailable"),
       );
     }
+  }
+
+  /**
+   * До #1929 частичный возврат оставлял неподтверждённую покупку в `unknown` с признаком
+   * `refundReviewRequired`, и она держала продукт навсегда. Сверка разбирает такие покупки так же,
+   * как теперь приём ответа банка: сохранённое наблюдение `PARTIAL_REFUNDED` подтверждает
+   * покупку, иначе она закрывается до решения владельца.
+   */
+  private async settleLegacyRefundReviewPurchases(
+    limit: number,
+  ): Promise<void> {
+    const { prisma, grants } = this.dependencies;
+    const rows = await prisma.billingPurchase.findMany({
+      where: {
+        kind: "one_time",
+        refundReviewRequired: true,
+        state: { in: inFlightStates },
+      },
+      select: { id: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: limit,
+    });
+    for (const { id } of rows) {
+      await prisma.$transaction(async (tx) => {
+        await lockBillingPricing(tx);
+        await lockBillingPurchase(tx, id);
+        const current = await tx.billingPurchase.findUniqueOrThrow({
+          where: { id },
+        });
+        if (
+          current.kind !== "one_time" ||
+          !current.refundReviewRequired ||
+          !inFlightStates.includes(current.state)
+        )
+          return;
+        const now = this.clock();
+        const observations = await tx.billingPaymentEvent.findMany({
+          where: {
+            purchaseRef: id,
+            kind: { startsWith: partialRefundObservedKindPrefix },
+          },
+          orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
+          select: { payload: true },
+        });
+        const capture = observations
+          .map((event) =>
+            partialRefundObservationSchema.safeParse(event.payload),
+          )
+          .find(
+            (parsed) =>
+              parsed.success &&
+              parsed.data.status === "PARTIAL_REFUNDED" &&
+              (current.paymentId === null ||
+                current.paymentId === parsed.data.paymentId),
+          );
+        if (capture?.success === true)
+          await confirmByPartialRefund(
+            tx,
+            grants,
+            current,
+            capture.data.paymentId,
+            now,
+          );
+        else await releaseForRefundReview(tx, id, current.state, now);
+      });
+    }
+  }
+
+  /** Выдача доступа по подтверждённым оплатам из очереди выдачи. Банк она не спрашивает. */
+  private async fulfillConfirmedPayments(
+    limit: number,
+  ): Promise<{ applied: number; failed: number }> {
+    let applied = 0;
+    let failed = 0;
+    const pending = await this.dependencies.prisma.billingFulfillment.findMany({
+      where: {
+        appliedAt: null,
+        reviewRequiredAt: null,
+        nextAttemptAt: { lte: this.clock() },
+      },
+      orderBy: [{ nextAttemptAt: "asc" }, { eventRef: "asc" }],
+      take: limit,
+    });
+    for (const row of pending) {
+      // A failed item moves behind other work; a process crash leaves it recoverable after a minute.
+      await this.dependencies.prisma.billingFulfillment.update({
+        where: { eventRef: row.eventRef },
+        data: {
+          nextAttemptAt: new Date(
+            this.clock().getTime() + fulfillmentRetryDelayMilliseconds,
+          ),
+        },
+      });
+      const purchase =
+        await this.dependencies.prisma.billingPurchase.findUnique({
+          where: { id: row.purchaseRef },
+        });
+      if (purchase === null) {
+        failed += 1;
+        continue;
+      }
+      if (purchase.kind !== "one_time") {
+        // Historical recurring facts remain readable but can never issue a new right or charge.
+        await this.dependencies.prisma.billingFulfillment.update({
+          where: { eventRef: row.eventRef },
+          data: { appliedAt: this.clock() },
+        });
+        continue;
+      }
+      const snapshot = priceSnapshotSchema.parse(purchase.snapshot);
+      const productIds = savedContentProductIds(snapshot);
+      if (productIds.length === 0 || purchase.confirmedAt === null) {
+        const reason =
+          productIds.length === 0
+            ? "historical_scope_unresolved"
+            : "capture_time_unresolved";
+        await this.requireFulfillmentReview(
+          purchase.id,
+          row.eventRef,
+          reason,
+          snapshot,
+        );
+        continue;
+      }
+      let outcome: "applied" | "failed" | "account_deleted" = "applied";
+      for (const productId of productIds) {
+        const result = await this.dependencies.grants.issueProductAccess(
+          { source: "purchase" },
+          {
+            accountId: purchase.accountId,
+            productId,
+            sourceRef:
+              productIds.length === 1
+                ? `payment:${purchase.id}`
+                : `payment:${purchase.id}:product:${productId}`,
+            issuedAt: purchase.confirmedAt.toISOString(),
+            reason: "payment_confirmed",
+          },
+        );
+        if (!result.ok) {
+          // Выдаче по покупке Account Rights отвечает `not_found`, только если аккаунта нет.
+          outcome =
+            result.error.code === "not_found" ? "account_deleted" : "failed";
+          break;
+        }
+      }
+      if (outcome === "applied") {
+        await this.dependencies.prisma.billingFulfillment.update({
+          where: { eventRef: row.eventRef },
+          data: { appliedAt: this.clock() },
+        });
+        applied += 1;
+      } else if (outcome === "account_deleted")
+        // Повтор выдачи удалённому аккаунту не поможет: решение о деньгах принимает владелец.
+        await this.requireFulfillmentReview(
+          purchase.id,
+          row.eventRef,
+          outcome,
+          snapshot,
+        );
+      else failed += 1;
+    }
+    return { applied, failed };
+  }
+
+  /**
+   * Выдача доступа не может завершиться без владельца: историческую покупку не удаётся сопоставить
+   * с продуктом или аккаунт покупателя удалён. Строка выдачи получает отметку проверки и больше
+   * не повторяется, а покупка один раз получает событие `fulfillment_review_required`. Строка без
+   * `applied_at` держит сигнал сторожа «Выдача доступа».
+   */
+  private async requireFulfillmentReview(
+    purchaseRef: string,
+    eventRef: string,
+    reason:
+      | "historical_scope_unresolved"
+      | "capture_time_unresolved"
+      | "account_deleted",
+    snapshot: PriceSnapshot,
+  ): Promise<void> {
+    await this.dependencies.prisma.$transaction(async (tx) => {
+      await lockBillingPurchase(tx, purchaseRef);
+      const current = await tx.billingFulfillment.findUniqueOrThrow({
+        where: { eventRef },
+      });
+      if (current.appliedAt !== null || current.reviewRequiredAt !== null)
+        return;
+      const now = this.clock();
+      await tx.billingFulfillment.update({
+        where: { eventRef },
+        data: { reviewRequiredAt: now, reviewReason: reason },
+      });
+      // Old purchases may have one outbox row per benefit. The purchase event is immutable;
+      // each row still needs its own terminal review marker, including later-arriving rows.
+      await recordEventOnce(
+        tx,
+        purchaseRef,
+        paymentEventKind.fulfillmentReviewRequired,
+        {
+          reason,
+          savedBenefits: snapshot.offer.benefits,
+          savedCoverage: snapshot.offer.coverage ?? null,
+        },
+        now,
+      );
+    });
+  }
+
+  /**
+   * Снятая в Inside попытка с открытой отметкой отмены и неоплаченной формой отменяется в банке.
+   * Запрос идёт вне транзакции. Если отмена не удалась, сверка повторяет её, пока банк не
+   * подтвердит `CANCELED`, а восстановление спрашивает банк о такой попытке сутки после отметки.
+   * Если покупатель успел оплатить форму, оплата принимается обычным путём и отмечается как
+   * вторая. Если он оплатил её между GetState и Cancel, банк вернёт деньги: это фиксирует
+   * `bank_cancel_returned_payment`. Если это событие записано раньше подтверждения оплаты,
+   * попытка остаётся неуспешной и доступа не даёт. Если банк прислал `CONFIRMED` раньше, чем
+   * обработал Cancel, покупка уже подтверждена и доступ выдан, а отметку закрыло само
+   * подтверждение (`bank_cancel_confirmed` со статусом `CONFIRMED`): возврат виден владельцу
+   * только по событию и сигналу сторожа, решение о доступе за ним. В первом случае следующая
+   * сверка записывает возврат в `bank_cancel_confirmed`.
+   */
+  private async cancelRetiredForm(
+    bank: Tbank,
+    purchaseRef: string,
+    observed: BankPayment,
+  ): Promise<PaymentResult<true>> {
+    const { prisma } = this.dependencies;
+    if (!unpaidFormStatuses.includes(observed.Status))
+      return { ok: true, value: true };
+    const row = await prisma.billingPurchase.findUnique({
+      where: { id: purchaseRef },
+      select: { state: true, kind: true, paymentId: true },
+    });
+    if (
+      row?.state !== "failed" ||
+      row.kind !== "one_time" ||
+      row.paymentId !== observed.PaymentId
+    )
+      return { ok: true, value: true };
+    if ((await findOpenBankCancel(prisma, purchaseRef)) === null)
+      return { ok: true, value: true };
+    const cancelled = await bank.cancel({
+      orderId: purchaseRef,
+      paymentId: row.paymentId,
+    });
+    if (!cancelled.sent) return await this.accept(cancelled.payment);
+    const { result } = cancelled;
+    if (
+      !result.Success ||
+      result.ErrorCode !== "0" ||
+      (result.Status !== "CANCELED" &&
+        !(refundTerminalStatuses as readonly string[]).includes(result.Status))
+    )
+      return dependencyFailure(
+        { module: "billing", operation: "reconcile" },
+        new Error(
+          `Bank Cancel answered ${result.Status} with error ${result.ErrorCode}`,
+        ),
+        paymentFailure("provider_unavailable"),
+      );
+    await prisma.$transaction(async (tx) => {
+      await lockBillingPurchase(tx, purchaseRef);
+      const now = this.clock();
+      if (result.Status === "CANCELED") {
+        await closeBankCancel(
+          tx,
+          purchaseRef,
+          result.PaymentId,
+          "CANCELED",
+          now,
+        );
+        return;
+      }
+      await recordEventOnce(
+        tx,
+        purchaseRef,
+        paymentEventKind.bankCancelReturnedPayment,
+        { paymentId: result.PaymentId, status: result.Status },
+        now,
+      );
+    });
+    return { ok: true, value: true };
   }
 
   /** Закрытие сроков идёт отдельно от списаний, в том числе при простое терминала. */
@@ -1024,6 +1483,18 @@ export class BillingPayments {
       )
         return undefined;
       const kind = attemptKindSchema.parse(row.kind);
+      // Prepared proves Init has not been sent: retirement releases the reservation and takes no
+      // money. The event marks the retirement in the owner's payment card; its reason reaches
+      // the buyer through the purchase status and the owner through the log line.
+      const retire = async (reason: RetirementReason) => {
+        await closeAttempt(tx, attemptRef, this.clock(), {
+          event: {
+            kind: paymentEventKind.dispatchRetired,
+            payload: { reason },
+          },
+        });
+        return { status: "retired", reason } as const;
+      };
       if (
         !z
           .object({ commercialModel: z.literal("product-lifetime-v1") })
@@ -1031,25 +1502,9 @@ export class BillingPayments {
         !isQuotedPurchase(kind) ||
         paymentMode(priceSnapshotSchema.parse(row.snapshot).paymentOption) !==
           "one_time"
-      ) {
-        // Prepared proves Init has not been sent. Release this reservation so an obsolete
-        // subscription cannot block a later one-time Product purchase for the Account.
-        await tx.billingPurchase.update({
-          where: { id: attemptRef },
-          data: {
-            state: "failed",
-            lifecycleActive: false,
-            paymentUrl: null,
-            updatedAt: this.clock(),
-          },
-        });
-        if (isQuotedPurchase(kind))
-          await tx.billingPromoReservation.updateMany({
-            where: { purchaseRef: attemptRef },
-            data: { state: "failed" },
-          });
-        return { status: "retired" } as const;
-      }
+      )
+        // An obsolete subscription attempt cannot block a later one-time Product purchase.
+        return await retire("unsupported_attempt");
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const productId =
         snapshot.product?.id ??
@@ -1063,30 +1518,19 @@ export class BillingPayments {
       // Покупка по ссылке на оплату не зависит от публикации цены: снятие с публикации убирает
       // цену только с витрины. Архив цены и продукта закрывает продажу на всех путях.
       if (
-        current === null ||
-        current.archived ||
-        (!current.published && snapshot.individualPayment === undefined) ||
+        current?.archived === true ||
         !(await productSaleAvailable(
           this.dependencies.contentCatalog,
           snapshot,
           transactionHandle(tx),
         ))
-      ) {
-        await tx.billingPurchase.update({
-          where: { id: attemptRef },
-          data: {
-            state: "failed",
-            lifecycleActive: false,
-            paymentUrl: null,
-            updatedAt: this.clock(),
-          },
-        });
-        await tx.billingPromoReservation.updateMany({
-          where: { purchaseRef: attemptRef },
-          data: { state: "failed" },
-        });
-        return { status: "retired" } as const;
-      }
+      )
+        return await retire("sale_closed");
+      if (
+        current === null ||
+        (!current.published && snapshot.individualPayment === undefined)
+      )
+        return await retire("price_unavailable");
       await lockAccountEntitlementChanges(tx, row.accountId);
       const acquired = await this.dependencies.grants.hasProductAcquisition(
         row.accountId,
@@ -1095,22 +1539,7 @@ export class BillingPayments {
       );
       if (!acquired.ok)
         throw new Error("Current Product acquisition is unavailable");
-      if (acquired.acquired) {
-        await tx.billingPurchase.update({
-          where: { id: attemptRef },
-          data: {
-            state: "failed",
-            lifecycleActive: false,
-            paymentUrl: null,
-            updatedAt: this.clock(),
-          },
-        });
-        await tx.billingPromoReservation.updateMany({
-          where: { purchaseRef: attemptRef },
-          data: { state: "failed" },
-        });
-        return { status: "already_owned" } as const;
-      }
+      if (acquired.acquired) return await retire("already_owned");
       const now = this.clock();
       await tx.billingPurchase.update({
         where: { id: attemptRef },
@@ -1123,10 +1552,20 @@ export class BillingPayments {
         });
       return { status: "prepared", row, kind } as const;
     });
-    if (prepared?.status === "retired") return "skipped";
-    if (prepared?.status === "already_owned") return "already_owned";
     if (!prepared) return "skipped";
+    if (prepared.status === "retired") {
+      // Written after commit: a rolled-back retirement never reaches the log.
+      writeLog("warn", "billing_dispatch_retired", {
+        module: "billing",
+        operation: "dispatch",
+        purchaseRef: attemptRef,
+        reason: prepared.reason,
+      });
+      return prepared.reason === "already_owned" ? "already_owned" : "skipped";
+    }
     const { row, kind } = prepared;
+    // До вызова Init банк заказа не видел: сбой подготовки закрывает попытку без платежа.
+    let initRequested = false;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const email = openOrderEmail(bank, row.id, row.contact);
@@ -1148,6 +1587,7 @@ export class BillingPayments {
           : undefined;
       const product = products?.filter((entry) => entry.kind === "product");
       const returnSlug = product?.length === 1 ? product[0]?.slug : null;
+      initRequested = true;
       const payment = await bank.init({
         orderId: row.id,
         accountId: row.accountId,
@@ -1175,8 +1615,14 @@ export class BillingPayments {
         { module: "billing", operation: "dispatch" },
         error,
       );
+      const absence = initAbsence(error, initRequested);
       await prisma.$transaction(async (tx) => {
         await lockBillingPricing(tx);
+        if (absence !== null) {
+          await recordBankPaymentAbsent(tx, row.id, absence, this.clock());
+          return;
+        }
+        // Сеть, таймаут, HTTP-ошибка или ответ не по схеме: платёж мог появиться, исход решит сверка.
         const changed = await tx.billingPurchase.updateMany({
           where: { id: row.id, state: { in: ["sent", "pending"] } },
           data: { state: "unknown", updatedAt: this.clock() },
@@ -1211,7 +1657,7 @@ export class BillingPayments {
           row.environment !== bank.config.environment ||
           row.terminalRef !== payment.TerminalKey ||
           row.terminalRef !== bank.config.terminalKey ||
-          (payment.Status !== "PARTIAL_REFUNDED" &&
+          (!partialReturnStatuses.includes(payment.Status) &&
             Number(row.amountKopecks) !== payment.Amount) ||
           (row.paymentId !== null && row.paymentId !== payment.PaymentId) ||
           row.state === "prepared"
@@ -1219,6 +1665,15 @@ export class BillingPayments {
           return paymentFailure("invalid_notification");
         const now = this.clock();
         const kind = attemptKindSchema.parse(row.kind);
+        // Подписанный статус вне справочника банка виден владельцу; покупку ниже решает сверка.
+        if (!isRecognizedBankStatus(payment.Status))
+          await recordEventOnce(
+            tx,
+            row.id,
+            paymentEventKind.bankStatusUnrecognized,
+            { paymentId: payment.PaymentId, status: payment.Status },
+            now,
+          );
 
         if (payment.Status === "RECEIPT") {
           const fiscalization =
@@ -1255,7 +1710,7 @@ export class BillingPayments {
           }
           return { ok: true, value: true };
         }
-        if (payment.Status === "PARTIAL_REFUNDED") {
+        if (partialReturnStatuses.includes(payment.Status)) {
           if (!payment.Success || payment.ErrorCode !== "0")
             return paymentFailure("invalid_notification");
           // The authenticated status is known. Its Amount is NOT an authoritative refunded sum.
@@ -1267,41 +1722,53 @@ export class BillingPayments {
             observedAmountKopecks: payment.Amount,
             resolution: "amount_unresolved",
           };
-          const kind = `partial_refund_observed:${createHash("sha256").update(JSON.stringify(observation)).digest("hex")}`;
-          if (
-            !(await tx.billingPaymentEvent.findUnique({
-              where: { purchaseRef_kind: { purchaseRef: row.id, kind } },
-            }))
-          ) {
-            await tx.billingPaymentEvent.create({
-              data: {
-                id: randomUUID(),
-                purchaseRef: row.id,
-                kind,
-                payload: observation,
-                occurredAt: now,
-                recordedAt: now,
-              },
-            });
-            const fullRefundKnown = await tx.billingPaymentEvent.findUnique({
-              where: {
-                purchaseRef_kind: {
-                  purchaseRef: row.id,
-                  kind: "full_refund_confirmed",
-                },
-              },
-            });
-            if (fullRefundKnown === null)
+          const observationKind: PaymentEventKind = `${partialRefundObservedKindPrefix}${createHash("sha256").update(JSON.stringify(observation)).digest("hex")}`;
+          const known = await hasEvent(tx, row.id, observationKind);
+          if (!known) {
+            await recordEventOnce(
+              tx,
+              row.id,
+              observationKind,
+              observation,
+              now,
+            );
+            if (
+              !(await hasEvent(
+                tx,
+                row.id,
+                paymentEventKind.fullRefundConfirmed,
+              ))
+            )
               await tx.billingPurchase.update({
                 where: { id: row.id },
-                data: {
-                  refundReviewRequired: true,
-                  ...(row.state === "confirmed"
-                    ? {}
-                    : { state: "unknown", paymentUrl: null }),
-                },
+                data: { refundReviewRequired: true },
               });
           }
+          if (row.state === "confirmed") return { ok: true, value: true };
+          // Деньги снятой попытки вернул опоздавший Cancel: доступа нет, как и при REFUNDED ниже.
+          if (await returnedByLateCancel(tx, row)) {
+            await closeBankCancel(
+              tx,
+              row.id,
+              payment.PaymentId,
+              payment.Status,
+              now,
+            );
+            return { ok: true, value: true };
+          }
+          // Вернуть часть можно только из списанных денег: `PARTIAL_REFUNDED` доказывает списание,
+          // и покупка получает доступ (#1921, инвариант 1). Сумма возврата остаётся неизвестной.
+          if (payment.Status === "PARTIAL_REFUNDED" && kind === "one_time")
+            await confirmByPartialRefund(
+              tx,
+              this.dependencies.grants,
+              row,
+              payment.PaymentId,
+              now,
+            );
+          // Частичная отмена холда списания не доказывает: покупка закрывается до решения владельца.
+          else if (!known)
+            await releaseForRefundReview(tx, row.id, row.state, now);
           return { ok: true, value: true };
         }
         const refunded = payment.Status === "REFUNDED";
@@ -1314,152 +1781,113 @@ export class BillingPayments {
         // Подтверждение того же PaymentId сильнее прежнего отказа: деньги списаны, покупка оплачена.
         // Исторические попытки подписки так не оживают: их механика снята с продажи.
         if (row.state === "failed") {
-          if (payment.Status !== "CONFIRMED" && !refunded)
+          if (payment.Status !== "CONFIRMED" && !refunded) {
+            // Ответ Init снятой попытки может прийти уже после снятия. PaymentId нужен,
+            // чтобы сверка нашла этот платёж и отменила его форму в банке.
+            if (row.paymentId === null && kind === "one_time")
+              await tx.billingPurchase.update({
+                where: { id: row.id },
+                data: { paymentId: payment.PaymentId },
+              });
+            await closeBankCancel(
+              tx,
+              row.id,
+              payment.PaymentId,
+              payment.Status,
+              now,
+            );
             return { ok: true, value: true };
+          }
           if (kind !== "one_time")
             return paymentFailure("invalid_notification");
+          // Эти деньги уже вернул опоздавший Cancel: оплата не даёт доступа и не снимает текущую
+          // попытку покупателя. Владелец видит `bank_cancel_returned_payment`; возврат банка
+          // закрывает отметку отмены записью `bank_cancel_confirmed` с PaymentId и статусом.
+          // `CONFIRMED` отметку не закрывает: сверка дождётся возврата.
+          if (await returnedByLateCancel(tx, row)) {
+            if (refunded)
+              await closeBankCancel(
+                tx,
+                row.id,
+                payment.PaymentId,
+                payment.Status,
+                now,
+              );
+            return { ok: true, value: true };
+          }
         }
         const common = {
           paymentId: payment.PaymentId,
           updatedAt: now,
         };
+        // Адреса формы у Inside нет, и GetState его не вернёт: неоплаченная форма снимается (#1926).
+        const formAddressLost =
+          kind === "one_time" &&
+          formAddressAwaitedStates.includes(row.state) &&
+          row.paymentUrl === null &&
+          !hasText(paymentUrl) &&
+          unpaidFormStatuses.includes(payment.Status) &&
+          now.getTime() - row.createdAt.getTime() >=
+            lostFormAddressMilliseconds;
+        // Отметку без снятия получает только попытка с неизвестным исходом.
+        const cancelMark =
+          row.state === "unknown" &&
+          kind === "one_time" &&
+          unpaidFormStatuses.includes(payment.Status)
+            ? await findOpenBankCancel(tx, row.id)
+            : null;
         if (payment.Status === "CONFIRMED" || refunded) {
           if (!payment.Success || payment.ErrorCode !== "0")
             return paymentFailure("invalid_notification");
           // A verified full refund also proves prior capture when CONFIRMED delivery was lost.
           // Payment fulfillment and the independent refund fact commit together.
-          const paidAt = now;
-          const eventRef = randomUUID();
-          const snapshot = priceSnapshotSchema.parse(row.snapshot);
-          const confirmedPurchase = await tx.billingPurchase.update({
-            where: { id: row.id },
-            data: {
-              ...common,
-              state: "confirmed",
-              confirmedAt: paidAt,
-              periodEndsAt: null,
-              paymentUrl: null,
-            },
-          });
-          const reservation = isQuotedPurchase(kind)
-            ? await tx.billingPromoReservation.findUnique({
-                where: { purchaseRef: row.id },
-                select: { state: true, paymentLinkId: true },
-              })
-            : null;
-          // Отказ мог остаться и только в резерве: failed → PARTIAL_REFUNDED → unknown.
-          const reservationConfirmed =
-            row.state === "failed" || reservation?.state === "failed"
-              ? await settleConfirmationAfterFailure(
-                  tx,
-                  row,
-                  snapshot,
-                  reservation?.paymentLinkId ?? null,
-                  now,
-                )
-              : true;
-          if (reservation !== null && reservationConfirmed)
-            await tx.billingPromoReservation.update({
-              where: { purchaseRef: row.id },
-              data: { state: "confirmed" },
-            });
-          if (kind === "one_time")
-            await recordDuplicatePayment(
-              tx,
-              row,
-              snapshot,
-              reservation?.paymentLinkId ?? null,
-              now,
-            );
-          await tx.billingPaymentEvent.create({
-            data: {
-              id: eventRef,
-              purchaseRef: row.id,
-              kind: "payment_confirmed",
-              payload: {
-                accountId: row.accountId,
-                amountKopecks: payment.Amount,
-                periodRef: row.id,
-                startsAt: paidAt.toISOString(),
-                endsAt: null,
-                snapshot,
-              },
-              occurredAt: paidAt,
-              recordedAt: now,
-            },
-          });
-          // Подтверждённая оплата — повод сообщения; имя и сумма берутся из снимка самой операции.
-          await recordBillingNotice(
+          const confirmedPurchase = await confirmCapturedPayment(
             tx,
-            {
-              kind: "payment_succeeded",
-              accountId: row.accountId,
-              sourceRef: attemptSourceRef(row.id),
-              attemptRef: row.id,
-              title: snapshot.offer.name,
-              amountKopecks: payment.Amount,
-              ...lifecycleWindow(paidAt),
-            },
+            this.dependencies.grants,
+            row,
+            { paymentId: payment.PaymentId, status: payment.Status },
             now,
           );
-          if (kind === "one_time") {
-            await tx.billingFulfillment.create({
-              data: {
-                eventRef,
-                purchaseRef: row.id,
-                payload: {
-                  version: "product-access-v1",
-                  accountId: row.accountId,
-                  confirmedAt: paidAt.toISOString(),
-                },
-              },
-            });
-          }
           if (refunded) await acceptBankRefund(tx, confirmedPurchase, now);
-        } else if (
-          [
-            "REJECTED",
-            "AUTH_FAIL",
-            "CANCELED",
-            "DEADLINE_EXPIRED",
-            "REVERSED",
-          ].includes(payment.Status)
-        ) {
-          await tx.billingPurchase.update({
-            where: { id: row.id },
-            data: {
-              ...common,
-              state: "failed",
-              lifecycleActive: false,
-              paymentUrl: null,
-            },
-          });
-          if (isQuotedPurchase(kind)) {
-            const released = await tx.billingPromoReservation.update({
-              where: { purchaseRef: row.id },
-              data: { state: "failed" },
-              select: { paymentLinkId: true },
-            });
-            if (released.paymentLinkId !== null)
-              await confirmWaitingLinkReservation(tx, released.paymentLinkId);
-          }
-        } else if (
-          ["REVERSING", "REFUNDING", "PARTIAL_REFUNDED"].includes(
+        } else if (declinedStatuses.includes(payment.Status)) {
+          await closeAttempt(tx, row.id, now, { paymentId: payment.PaymentId });
+          await closeBankCancel(
+            tx,
+            row.id,
+            payment.PaymentId,
             payment.Status,
-          ) ||
+            now,
+          );
+        } else if (
+          undecidedStatuses.includes(payment.Status) ||
+          !isRecognizedBankStatus(payment.Status) ||
           !payment.Success ||
           payment.ErrorCode !== "0"
         ) {
-          // An unsupported or contradictory bank state requires reconciliation, never a new charge.
+          // An undecided, unrecognized or contradictory bank state requires reconciliation,
+          // never a new charge.
           await tx.billingPurchase.update({
             where: { id: row.id },
             data: { ...common, state: "unknown", paymentUrl: null },
           });
+        } else if (cancelMark !== null) {
+          // Попытку с неизвестным исходом снимает только ответ банка о неоплаченной форме.
+          await retireAttempt(tx, row.id, cancelMark, now, {
+            paymentId: payment.PaymentId,
+          });
+        } else if (formAddressLost) {
+          // Форму закрывает Cancel сверки, как у любой снятой попытки (#1923).
+          const retirement = {
+            reason: paymentEventKind.formAddressLost,
+          } as const;
+          await requireBankCancel(tx, row.id, retirement, now);
+          await retireAttempt(tx, row.id, retirement, now, {
+            paymentId: payment.PaymentId,
+          });
         } else {
           const authorized =
             row.state === "authorized" || payment.Status === "AUTHORIZED";
-          const payable =
-            payment.Status === "NEW" || payment.Status === "FORM_SHOWED";
+          const payable = unpaidFormStatuses.includes(payment.Status);
           await tx.billingPurchase.update({
             where: { id: row.id },
             data: {
@@ -1471,6 +1899,7 @@ export class BillingPayments {
                     paymentUrl: validatedPaymentUrl(
                       paymentUrl,
                       bank.config.endpoints.formOrigins,
+                      row.id,
                     ),
                   }
                 : {}),
@@ -1558,10 +1987,105 @@ type PurchaseRow = Awaited<
   ReturnType<BillingPrisma["billingPurchase"]["findUniqueOrThrow"]>
 >;
 
+/** Незавершённая разовая покупка этого продукта у Account. */
+function openAttemptWhere(
+  accountId: string,
+  productId: string,
+): Prisma.BillingPurchaseWhereInput {
+  return {
+    accountId,
+    kind: "one_time",
+    state: { in: inFlightStates },
+    ...savedContentProductWhere(productId),
+  };
+}
+
+/** Новый расчёт назначает другую сумму или другую ссылку на оплату, чем открытая попытка. */
+function pricedDifferently(
+  attempt: Pick<PurchaseRow, "amountKopecks" | "snapshot">,
+  snapshot: PriceSnapshot,
+): boolean {
+  return (
+    Number(attempt.amountKopecks) !== snapshot.firstPriceKopecks ||
+    priceSnapshotSchema.parse(attempt.snapshot).individualPayment?.linkId !==
+      snapshot.individualPayment?.linkId
+  );
+}
+
+/** Новая попытка не создана: снятие прежней откатывается вместе с транзакцией. */
+class ReplacementRejected extends Error {
+  constructor(readonly code: PaymentFailureCode) {
+    super(`Price replacement rejected: ${code}`);
+  }
+}
+
+/** Открытая попытка, которую снимает покупка по другой цене (#1925). */
+interface ReplaceableAttempt {
+  readonly id: string;
+  /** `prepared`: Init не уходил, и форму в банке отменять не нужно. */
+  readonly state: "prepared" | "pending";
+}
+
+/**
+ * Что покупка делает с открытой попыткой того же продукта. Та же цена и оплаченная попытка:
+ * `continue`. При другой цене (#1925) попытку `prepared` Init ещё не создал, и она снимается. Попытку `pending`
+ * снимает только ответ банка о неоплаченной форме, полученный перед транзакцией. Если банк этого
+ * не подтвердил, а у попытки есть или вот-вот появится форма по прежней цене (`sent` или `pending`
+ * со ссылкой формы), ответ `unverified`. Удержанная попытка, попытка с неизвестным исходом и
+ * `pending`, чью форму банк уже не принимает к оплате, получают `continue`: покупатель видит их
+ * статус.
+ * Вызывающий держит замок цен.
+ */
+async function decideOpenAttempt(
+  tx: BillingPrisma,
+  attempt: PurchaseRow,
+  snapshot: PriceSnapshot,
+  bankUnpaidAttemptRef: string | null,
+): Promise<
+  | { readonly kind: "replace"; readonly attempt: ReplaceableAttempt }
+  | { readonly kind: "unverified" }
+  | { readonly kind: "continue" }
+> {
+  if (attempt.state === "confirmed" || !pricedDifferently(attempt, snapshot))
+    return { kind: "continue" };
+  await lockBillingPurchase(tx, attempt.id);
+  const { state, paymentUrl } = await tx.billingPurchase.findUniqueOrThrow({
+    where: { id: attempt.id },
+    select: { state: true, paymentUrl: true },
+  });
+  if (state === "prepared")
+    return { kind: "replace", attempt: { id: attempt.id, state } };
+  if (state === "pending" && attempt.id === bankUnpaidAttemptRef)
+    return { kind: "replace", attempt: { id: attempt.id, state } };
+  return state === "sent" || (state === "pending" && paymentUrl !== null)
+    ? { kind: "unverified" }
+    : { kind: "continue" };
+}
+
+/**
+ * Покупка по другой цене снимает открытую попытку (#1925). Попытка, чей Init ушёл в банк,
+ * получает отметку отмены: сверка закроет её форму. Ссылка снятой попытки освобождается.
+ */
+async function retireReplacedAttempt(
+  tx: BillingPrisma,
+  attempt: ReplaceableAttempt,
+  replacementPurchaseRef: string,
+  now: Date,
+): Promise<void> {
+  const retirement = {
+    reason: paymentEventKind.replacedByNewPrice,
+    replacementPurchaseRef,
+  } as const;
+  if (attempt.state === "pending")
+    await requireBankCancel(tx, attempt.id, retirement, now);
+  await retireAttempt(tx, attempt.id, retirement, now);
+}
+
 /**
  * Банк подтвердил покупку, которую мы уже считали неуспешной. Пока она числилась неуспешной,
  * покупатель мог начать новую попытку того же продукта или занять ту же ссылку на оплату.
- * Неоплаченные попытки этого Account снимаются, чтобы он не заплатил дважды. Ответ `false`
+ * Неоплаченные попытки этого Account снимаются, чтобы он не заплатил дважды, а их формы в банке
+ * получают отметку отмены. Попытку с неизвестным исходом сверка сначала сверяет с банком. Ответ `false`
  * значит, что ссылку держит другая попытка: резерв этой покупки остаётся неуспешным. Вторая
  * оплаченная покупка того же продукта или той же ссылки получает событие для решения владельца.
  */
@@ -1593,35 +2117,27 @@ async function settleConfirmationAfterFailure(
   for (const attempt of related) {
     if (
       attempt.accountId !== row.accountId ||
-      !supersedableStates.includes(attempt.state)
+      (!supersedableStates.includes(attempt.state) &&
+        attempt.state !== "unknown")
     )
       continue;
     await lockBillingPurchase(tx, attempt.id);
-    const retired = await tx.billingPurchase.updateMany({
-      where: { id: attempt.id, state: { in: supersedableStates } },
-      data: {
-        state: "failed",
-        lifecycleActive: false,
-        paymentUrl: null,
-        updatedAt: now,
-      },
+    const { state } = await tx.billingPurchase.findUniqueOrThrow({
+      where: { id: attempt.id },
+      select: { state: true },
     });
-    if (retired.count === 0) continue;
+    // Init ушёл или мог уйти в банк у всех, кроме prepared: такую форму сверка отменит.
+    const retirement = {
+      reason: paymentEventKind.supersededByConfirmedPayment,
+      confirmedPurchaseRef: row.id,
+    } as const;
+    if (state === "sent" || state === "pending" || state === "unknown")
+      await requireBankCancel(tx, attempt.id, retirement, now);
+    // Неизвестный исход ждёт ответа банка: сверка снимет попытку, если форма не оплачена.
+    if (!supersedableStates.includes(state)) continue;
+    // Резерв ссылки решает эта функция ниже: подтверждённой покупке он нужен самой.
+    await retireAttempt(tx, attempt.id, retirement, now, { keepLink: true });
     superseded.push(attempt.id);
-    await tx.billingPromoReservation.updateMany({
-      where: { purchaseRef: attempt.id },
-      data: { state: "failed" },
-    });
-    await tx.billingPaymentEvent.create({
-      data: {
-        id: randomUUID(),
-        purchaseRef: attempt.id,
-        kind: "superseded_by_confirmed_payment",
-        payload: { confirmedPurchaseRef: row.id },
-        occurredAt: now,
-        recordedAt: now,
-      },
-    });
   }
   const remainingHolders = linkHolders.filter(
     (ref) => !superseded.includes(ref),
@@ -1640,7 +2156,7 @@ async function settleConfirmationAfterFailure(
     data: {
       id: randomUUID(),
       purchaseRef: row.id,
-      kind: "payment_confirmed_after_failure",
+      kind: paymentEventKind.paymentConfirmedAfterFailure,
       payload: { supersededPurchaseRefs: superseded, reservation },
       occurredAt: now,
       recordedAt: now,
@@ -1649,13 +2165,207 @@ async function settleConfirmationAfterFailure(
   return remainingHolders.length === 0;
 }
 
+/** Следующий запрос к банку о форме, которая ждёт оплаты с момента `since`. */
+function nextBankRecheck(since: Date, now: Date): Date {
+  const age = now.getTime() - since.getTime();
+  const step = bankRecheckSteps.find(
+    (candidate) => age < candidate.ageBelowMilliseconds,
+  );
+  return new Date(
+    now.getTime() +
+      (step?.everyMilliseconds ?? finalBankRecheckEveryMilliseconds),
+  );
+}
+
+/**
+ * Частичная отмена холда (`PARTIAL_REVERSED`) по неподтверждённой покупке (#1929). Списания она
+ * не доказывает, сумма не известна, и сверка такую покупку не опрашивает. Чтобы покупка не держала
+ * продукт и ссылку на оплату, она закрывается вместе с резервом. Событие `partial_refund_released`
+ * ведёт владельца к решению о деньгах: оно попадает в фильтр проверки и в сторож. Признак
+ * `refundReviewRequired` остаётся до этого решения. Вызывающий держит замки цен и покупки.
+ */
+async function releaseForRefundReview(
+  tx: BillingPrisma,
+  purchaseRef: string,
+  previousState: string,
+  now: Date,
+): Promise<void> {
+  if (previousState !== "failed") await closeAttempt(tx, purchaseRef, now);
+  await recordEventOnce(
+    tx,
+    purchaseRef,
+    paymentEventKind.partialRefundReleased,
+    { previousState },
+    now,
+  );
+}
+
+/**
+ * Деньги этой снятой попытки уже вернул опоздавший Cancel (`bank_cancel_returned_payment`). Её
+ * поздняя оплата или возврат не подтверждают покупку и не снимают текущую попытку покупателя.
+ */
+async function returnedByLateCancel(
+  tx: BillingPrisma,
+  row: PurchaseRow,
+): Promise<boolean> {
+  return (
+    row.state === "failed" &&
+    (await hasEvent(tx, row.id, paymentEventKind.bankCancelReturnedPayment))
+  );
+}
+
+/**
+ * Банк доказал списание разовой покупки: `CONFIRMED`, полный `REFUNDED` или `PARTIAL_REFUNDED`.
+ * Покупка подтверждается, её резерв и снятые ради неё попытки решает подтверждение после отказа,
+ * вторая оплата получает событие, отметка отмены закрывается, а сохранённая выдача встаёт в
+ * очередь. Сумма оплаты берётся из покупки: Amount частичного возврата её не доказывает.
+ * Вызывающий держит замки цен и покупки.
+ */
+async function confirmCapturedPayment(
+  tx: BillingPrisma,
+  grants: Pick<AccessGrants, "hasProductAcquisition">,
+  row: PurchaseRow,
+  capture: {
+    readonly paymentId: string;
+    readonly status: BankPayment["Status"];
+  },
+  now: Date,
+): Promise<PurchaseRow> {
+  const kind = attemptKindSchema.parse(row.kind);
+  const eventRef = randomUUID();
+  const snapshot = priceSnapshotSchema.parse(row.snapshot);
+  const amountKopecks = Number(row.amountKopecks);
+  const confirmedPurchase = await tx.billingPurchase.update({
+    where: { id: row.id },
+    data: {
+      paymentId: capture.paymentId,
+      updatedAt: now,
+      state: "confirmed",
+      confirmedAt: now,
+      periodEndsAt: null,
+      paymentUrl: null,
+    },
+  });
+  const reservation = isQuotedPurchase(kind)
+    ? await tx.billingPromoReservation.findUnique({
+        where: { purchaseRef: row.id },
+        select: { state: true, paymentLinkId: true },
+      })
+    : null;
+  // Отказ мог остаться и только в резерве: до #1929 частичный возврат переводил отказанную
+  // покупку в unknown, а резерв оставался failed.
+  const reservationConfirmed =
+    row.state === "failed" || reservation?.state === "failed"
+      ? await settleConfirmationAfterFailure(
+          tx,
+          row,
+          snapshot,
+          reservation?.paymentLinkId ?? null,
+          now,
+        )
+      : true;
+  if (reservation !== null && reservationConfirmed)
+    await tx.billingPromoReservation.update({
+      where: { purchaseRef: row.id },
+      data: { state: "confirmed" },
+    });
+  if (kind === "one_time")
+    await recordDuplicatePayment(
+      tx,
+      grants,
+      row,
+      snapshot,
+      reservation?.paymentLinkId ?? null,
+      now,
+    );
+  await closeBankCancel(tx, row.id, capture.paymentId, capture.status, now);
+  await tx.billingPaymentEvent.create({
+    data: {
+      id: eventRef,
+      purchaseRef: row.id,
+      kind: paymentEventKind.paymentConfirmed,
+      payload: {
+        accountId: row.accountId,
+        amountKopecks,
+        periodRef: row.id,
+        startsAt: now.toISOString(),
+        endsAt: null,
+        snapshot,
+      },
+      occurredAt: now,
+      recordedAt: now,
+    },
+  });
+  // Подтверждённая оплата — повод сообщения; имя и сумма берутся из снимка самой операции.
+  await recordBillingNotice(
+    tx,
+    {
+      kind: "payment_succeeded",
+      accountId: row.accountId,
+      sourceRef: attemptSourceRef(row.id),
+      attemptRef: row.id,
+      title: snapshot.offer.name,
+      amountKopecks,
+      ...lifecycleWindow(now),
+    },
+    now,
+  );
+  if (kind === "one_time")
+    await tx.billingFulfillment.create({
+      data: {
+        eventRef,
+        purchaseRef: row.id,
+        payload: {
+          version: "product-access-v1",
+          accountId: row.accountId,
+          confirmedAt: now.toISOString(),
+        },
+      },
+    });
+  return confirmedPurchase;
+}
+
+/**
+ * Вернуть часть можно только из списанных денег: подписанный `PARTIAL_REFUNDED` по заказу Inside
+ * доказывает списание (#1921, инвариант 1). Неподтверждённая разовая покупка подтверждается с
+ * сохранённой выдачей. Признак `refundReviewRequired` остаётся: Amount уведомления не равен сумме
+ * возврата. Событие `payment_confirmed_by_partial_refund` ведёт владельца к решению о деньгах.
+ * Вызывающий держит замки цен и покупки.
+ */
+async function confirmByPartialRefund(
+  tx: BillingPrisma,
+  grants: Pick<AccessGrants, "hasProductAcquisition">,
+  row: PurchaseRow,
+  paymentId: string,
+  now: Date,
+): Promise<void> {
+  await confirmCapturedPayment(
+    tx,
+    grants,
+    row,
+    { paymentId, status: "PARTIAL_REFUNDED" },
+    now,
+  );
+  await recordEventOnce(
+    tx,
+    row.id,
+    paymentEventKind.paymentConfirmedByPartialRefund,
+    { paymentId, status: "PARTIAL_REFUNDED" },
+    now,
+  );
+}
+
 /**
  * Любое подтверждение разовой покупки проверяет вторую оплату: тот же Account уже оплатил этот
- * продукт или по той же ссылке уже есть оплаченная покупка. Деньги остаются подтверждёнными,
- * событие ведёт владельца к решению о возврате.
+ * продукт, по той же ссылке уже есть оплаченная покупка или Account уже получил доступ к продукту
+ * из любого источника (вручную, активацией Course, прежней покупкой), в том числе отозванный.
+ * Деньги остаются подтверждёнными, событие ведёт владельца к решению о возврате. Доступ читается
+ * через Account Rights в той же транзакции под замком изменений прав Account: выдача, начатая
+ * параллельно, либо уже видна, либо ждёт конца этой транзакции.
  */
 async function recordDuplicatePayment(
   tx: BillingPrisma,
+  grants: Pick<AccessGrants, "hasProductAcquisition">,
   row: PurchaseRow,
   snapshot: PriceSnapshot,
   paymentLinkId: string | null,
@@ -1671,99 +2381,49 @@ async function recordDuplicatePayment(
           })
         ).map((reservation) => reservation.purchaseRef);
   const scope = relatedPurchaseScope(row, snapshot, linkPurchases);
-  if (scope.length === 0) return;
-  const paid = await tx.billingPurchase.findMany({
-    where: {
-      id: { not: row.id },
-      kind: "one_time",
-      state: "confirmed",
-      OR: scope,
-    },
-    select: { id: true },
-    orderBy: { id: "asc" },
-  });
-  if (paid.length === 0) return;
+  const paid =
+    scope.length === 0
+      ? []
+      : await tx.billingPurchase.findMany({
+          where: {
+            id: { not: row.id },
+            kind: "one_time",
+            state: "confirmed",
+            OR: scope,
+          },
+          select: { id: true },
+          orderBy: { id: "asc" },
+        });
+  const productIds = savedContentProductIds(snapshot);
+  if (productIds.length > 0)
+    await lockAccountEntitlementChanges(tx, row.accountId);
+  const heldProductIds: string[] = [];
+  for (const productId of productIds) {
+    const acquisition = await grants.hasProductAcquisition(
+      row.accountId,
+      productId,
+      transactionHandle(tx),
+    );
+    // Без ответа Account Rights вторую оплату не проверить: откат вернёт банку отказ, и он повторит.
+    if (!acquisition.ok)
+      throw new Error(
+        `Product acquisition is unavailable: ${acquisition.error.code}`,
+      );
+    if (acquisition.acquired) heldProductIds.push(productId);
+  }
+  if (paid.length === 0 && heldProductIds.length === 0) return;
   await tx.billingPaymentEvent.create({
     data: {
       id: randomUUID(),
       purchaseRef: row.id,
-      kind: "duplicate_payment_review",
-      payload: { paidPurchaseRefs: paid.map((purchase) => purchase.id) },
+      kind: paymentEventKind.duplicatePaymentReview,
+      payload: {
+        paidPurchaseRefs: paid.map((purchase) => purchase.id),
+        heldProductIds,
+      },
       occurredAt: now,
       recordedAt: now,
     },
-  });
-}
-
-/**
- * Подтверждённая после отказа покупка оставила резерв неуспешным, пока ссылку держала другая
- * попытка. Когда держатель отпал, резерв подтверждается: иначе оплаченная ссылка выглядит
- * свободной и её можно оплатить ещё раз. Выборка видит только такие резервы и не больше `limit`.
- */
-async function confirmReleasedLinkReservations(
-  prisma: BillingPrismaClient,
-  limit: number,
-): Promise<void> {
-  const rows = z.array(z.object({ purchase_ref: z.uuid() })).parse(
-    await prisma.$queryRaw(Prisma.sql`
-        SELECT reservation.purchase_ref
-        FROM billing.promo_reservations reservation
-        JOIN billing.purchases purchase ON purchase.id = reservation.purchase_ref
-        WHERE reservation.state = 'failed'
-          AND reservation.payment_link_id IS NOT NULL
-          AND purchase.state = 'confirmed'
-          AND purchase.kind = 'one_time'
-          AND NOT EXISTS (
-            SELECT 1 FROM billing.promo_reservations holder
-            WHERE holder.payment_link_id = reservation.payment_link_id
-              AND holder.purchase_ref <> reservation.purchase_ref
-              AND holder.state <> 'failed'
-          )
-        ORDER BY reservation.purchase_ref
-        LIMIT ${limit}
-      `),
-  );
-  for (const { purchase_ref: purchaseRef } of rows) {
-    await prisma.$transaction(async (tx) => {
-      await lockBillingPricing(tx);
-      await lockBillingPurchase(tx, purchaseRef);
-      const reservation = await tx.billingPromoReservation.findUnique({
-        where: { purchaseRef },
-        select: { paymentLinkId: true },
-      });
-      if (reservation?.paymentLinkId != null)
-        await confirmWaitingLinkReservation(tx, reservation.paymentLinkId);
-    });
-  }
-}
-
-/**
- * Ссылку отпустила последняя неотказанная попытка: резерв оплаченной покупки этой ссылки,
- * оставшийся неуспешным, подтверждается в той же транзакции. Вызывающий держит замок цен.
- */
-async function confirmWaitingLinkReservation(
-  tx: BillingPrisma,
-  paymentLinkId: string,
-): Promise<void> {
-  const reservations = await tx.billingPromoReservation.findMany({
-    where: { paymentLinkId },
-    select: { purchaseRef: true, state: true },
-  });
-  if (reservations.some((reservation) => reservation.state !== "failed"))
-    return;
-  const waiting = await tx.billingPurchase.findFirst({
-    where: {
-      id: { in: reservations.map((reservation) => reservation.purchaseRef) },
-      kind: "one_time",
-      state: "confirmed",
-    },
-    orderBy: [{ confirmedAt: "asc" }, { id: "asc" }],
-    select: { id: true },
-  });
-  if (waiting === null) return;
-  await tx.billingPromoReservation.update({
-    where: { purchaseRef: waiting.id },
-    data: { state: "confirmed" },
   });
 }
 

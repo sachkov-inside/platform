@@ -3,6 +3,7 @@ import type { Route } from "next";
 import {
   attemptStateLabel,
   formatKopecks,
+  purchaseRetirementMessage,
   type PurchaseStatus,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
@@ -12,14 +13,18 @@ export function ProductPaymentStatus({
   programmeHref,
   onRefresh,
   loading,
-  onBuyAgain: _onBuyAgain,
+  onBuyAgain,
 }: {
   readonly purchase: PurchaseStatus;
   readonly programmeHref: Route;
   readonly onRefresh: () => void;
   readonly loading: boolean;
+  /** Новая покупка после попытки, которую сервер отменил без адреса формы (#1926). */
   readonly onBuyAgain: () => void;
 }) {
+  const cancelledWithoutForm =
+    purchase.state === "failed" &&
+    purchase.retirementReason === "form_address_lost";
   return (
     <section
       aria-label="Ваша покупка"
@@ -30,15 +35,30 @@ export function ProductPaymentStatus({
       </p>
       <div className="mt-6 border-t border-border pt-6" aria-live="polite">
         <h2 className="text-xl font-semibold">
-          {purchase.access === "ready"
-            ? "Продукт открыт"
-            : purchase.access === "unavailable"
-              ? "Доступ завершён"
-              : purchase.access === "preparing"
-                ? "Открываем доступ"
-                : attemptStateLabel(purchase.state)}
+          {cancelledWithoutForm
+            ? "Оплата отменена"
+            : purchase.access === "ready"
+              ? "Продукт открыт"
+              : purchase.access === "unavailable"
+                ? "Доступ завершён"
+                : purchase.access === "preparing"
+                  ? "Открываем доступ"
+                  : attemptStateLabel(purchase.state)}
         </h2>
-        {purchase.access === "ready" ? (
+        {cancelledWithoutForm ? (
+          <>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {purchaseRetirementMessage("form_address_lost")}
+            </p>
+            <Button
+              className="mt-5 min-h-12 w-full"
+              type="button"
+              onClick={onBuyAgain}
+            >
+              Купить снова
+            </Button>
+          </>
+        ) : purchase.access === "ready" ? (
           <Button asChild className="mt-5 min-h-12 w-full">
             <Link href={programmeHref}>Открыть продукт</Link>
           </Button>
@@ -51,11 +71,21 @@ export function ProductPaymentStatus({
             </p>
           </>
         ) : purchase.paymentUrl === null ? (
-          <p className="mt-3 text-sm text-muted-foreground" role="status">
-            {purchase.access === "preparing"
-              ? "Оплата подтверждена. Открываем доступ."
-              : "Проверяем оплату."}
-          </p>
+          <>
+            <p className="mt-3 text-sm text-muted-foreground" role="status">
+              {purchase.access === "preparing"
+                ? "Оплата подтверждена. Открываем доступ."
+                : "Проверяем оплату."}
+            </p>
+            {purchase.access === "awaiting_payment" &&
+            (purchase.state === "pending" || purchase.state === "unknown") ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Если страница оплаты не открылась, подождите несколько минут. Мы
+                проверим попытку в банке и остановим её, если она не оплачена.
+                Тогда здесь можно будет купить снова.
+              </p>
+            ) : null}
+          </>
         ) : (
           <Button asChild className="mt-5 min-h-12 w-full">
             <a href={purchase.paymentUrl}>Открыть страницу оплаты</a>
