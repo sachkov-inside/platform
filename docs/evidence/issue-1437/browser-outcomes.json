@@ -1,0 +1,2436 @@
+{
+  "utc": "2026-10-13T16:57:03.833Z",
+  "version": "151.0.7922.173",
+  "rows": [
+    {
+      "attempt": 1,
+      "path": "/products/inside-ai-engineering",
+      "ms": 4136,
+      "title": "Продукт не найден · Sachkov Inside",
+      "text": "Подборка не найдена\n\nПроверьте адрес или выберите другую тему или продукт в Базе знаний.\n\nНа главную\n\nInside хранит в браузере только то, без чего не работают вход и сохранение прогресса. Рекламы и сторонней аналитики нет. Подробнее\n\nПонятно\n"
+    },
+    {
+      "attempt": 1,
+      "path": "/products/inside-ai-engineering/programme",
+      "ms": 482,
+      "title": "Продукт не найден · Sachkov Inside",
+      "text": "Подборка не найдена\n\nПроверьте адрес или выберите другую тему или продукт в Базе знаний.\n\nНа главную\n\nInside хранит в браузере только то, без чего не работают вход и сохранение прогресса. Рекламы и сторонней аналитики нет. Подробнее\n\nПонятно\n"
+    },
+    {
+      "attempt": 1,
+      "path": "/products/inside-ai-engineering/buy",
+      "ms": 578,
+      "title": "Покупка продукта · Sachkov Inside",
+      "text": "Подборка не найдена\n\nПроверьте адрес или выберите другую тему или продукт в Базе знаний.\n\nНа главную\n\nInside хранит в браузере только то, без чего не работают вход и сохранение прогресса. Рекламы и сторонней аналитики нет. Подробнее\n\nПонятно\n"
+    },
+    {
+      "attempt": 1,
+      "path": "/payment/return",
+      "ms": 10226,
+      "title": "Возврат после оплаты · Sachkov Inside",
+      "text": "Возвращаемся из банка\n\nПереход обратно не подтверждает оплату. Ниже — состояние, которое сохранил наш сервер.\n\nНе нашли начатую оплату в этом браузере.\n\nОткройте платёжный кабинет: там видны ваши покупки, действующие права доступа и их сроки.\n\nПлатёжный кабинет\n\nInside хранит в браузере только то, без чего не работают вход и сохранение прогресса. Рекламы и сторонней аналитики нет. Подробнее\n\nПонятно\n",
+      "error": "Content completion not observed within 10s",
+      "qualification": "Wait predicate incorrectly treats the permanent heading as loading. Visible missing-payment-context is observed; elapsed time is not a product latency measurement."
+    },
+    {
+      "attempt": 1,
+      "path": "/",
+      "ms": 383,
+      "title": "Главная · Sachkov Inside",
+      "text": "Главная\nВсе\nВидео\nГайды\nЗаметки\n\nМатериалы скоро появятся.\n\nInside хранит в браузере только то, без чего не работают вход и сохранение прогресса. Рекламы и сторонней аналитики нет. Подробнее\n\nПонятно\n"
+    },
+    {
+      "attempt": 1,
+      "flow": "sign-in-entry",
+      "ms": 2343,
+      "host": "auth.sachkov.dev",
+      "path": "/sign-in",
+      "text": "Войди в свой аккаунт\n+7\nЭлектронная почта\nВойти\nили\nВойти через Telegram\nКак мы используем данные — политика. Условия использования вы примете сразу после входа."
+    },
+    {
+      "attempt": 1,
+      "events": [
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3v12wdkp-2szr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/4372ouy3a0-6n.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2uo3v_bqf2nr9.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0q7ev1y68wjxt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0al_1avtw0ebd.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/icon.svg",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering/programme",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2uo3v_bqf2nr9.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3v12wdkp-2szr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0q7ev1y68wjxt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/4372ouy3a0-6n.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0al_1avtw0ebd.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/icon.svg",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/privacy",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering/buy",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0al_1avtw0ebd.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3v12wdkp-2szr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0q7ev1y68wjxt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/4372ouy3a0-6n.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0jjdev-8422sv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3tg36ft7c7cn6.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2w0z4vd475lhv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/payment/return",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3tg36ft7c7cn6.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/40k3ly15u86ht.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/privacy",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/icon.svg",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/contacts",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/account/subscription",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/account/subscription",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/privacy",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/api/home/materials",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2621msbwhny4j.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/30w7znejfj7va.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0hca-7p6xxb-a.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/api/home/materials",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/contacts",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/sign-in",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/oidc/auth",
+          "status": 303
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/sign-in",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/vendors-Dv-33be7.css",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/index-BpnmO9q5.css",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/react-DGR2s017.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/i18next-CARGAxeI.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/phrases-en-CZz6JDoe.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/vendors-B6LlXOlw.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/core-js-DAwiF3AZ.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/libphonenumber-js-mT3v7F1D.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/index-Dpctglby.js",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "path": "/products/inside-ai-engineering",
+      "ms": 3499,
+      "title": "Продукт не найден · Sachkov Inside",
+      "text": "Подборка не найдена\n\nПроверьте адрес или выберите другую тему или продукт в Базе знаний.\n\nНа главную\n\nInside хранит в браузере только то, без чего не работают вход и сохранение прогресса. Рекламы и сторонней аналитики нет. Подробнее\n\nПонятно\n"
+    },
+    {
+      "attempt": 2,
+      "path": "/products/inside-ai-engineering/programme",
+      "ms": 448,
+      "title": "Продукт не найден · Sachkov Inside",
+      "text": "Подборка не найдена\n\nПроверьте адрес или выберите другую тему или продукт в Базе знаний.\n\nНа главную\n\nInside хранит в браузере только то, без чего не работают вход и сохранение прогресса. Рекламы и сторонней аналитики нет. Подробнее\n\nПонятно\n"
+    },
+    {
+      "attempt": 2,
+      "path": "/products/inside-ai-engineering/buy",
+      "ms": 545,
+      "title": "Покупка продукта · Sachkov Inside",
+      "text": "Подборка не найдена\n\nПроверьте адрес или выберите другую тему или продукт в Базе знаний.\n\nНа главную\n\nInside хранит в браузере только то, без чего не работают вход и сохранение прогресса. Рекламы и сторонней аналитики нет. Подробнее\n\nПонятно\n"
+    },
+    {
+      "attempt": 2,
+      "path": "/payment/return",
+      "ms": 10291,
+      "title": "Возврат после оплаты · Sachkov Inside",
+      "text": "Возвращаемся из банка\n\nПереход обратно не подтверждает оплату. Ниже — состояние, которое сохранил наш сервер.\n\nНе нашли начатую оплату в этом браузере.\n\nОткройте платёжный кабинет: там видны ваши покупки, действующие права доступа и их сроки.\n\nПлатёжный кабинет\n\nInside хранит в браузере только то, без чего не работают вход и сохранение прогресса. Рекламы и сторонней аналитики нет. Подробнее\n\nПонятно\n",
+      "error": "Content completion not observed within 10s",
+      "qualification": "Wait predicate incorrectly treats the permanent heading as loading. Visible missing-payment-context is observed; elapsed time is not a product latency measurement."
+    },
+    {
+      "attempt": 2,
+      "path": "/",
+      "ms": 353,
+      "title": "Главная · Sachkov Inside",
+      "text": "Главная\nВсе\nВидео\nГайды\nЗаметки\n\nМатериалы скоро появятся.\n\nInside хранит в браузере только то, без чего не работают вход и сохранение прогресса. Рекламы и сторонней аналитики нет. Подробнее\n\nПонятно\n"
+    },
+    {
+      "attempt": 2,
+      "flow": "sign-in-entry",
+      "ms": 1983,
+      "host": "auth.sachkov.dev",
+      "path": "/sign-in",
+      "text": "Войди в свой аккаунт\n+7\nЭлектронная почта\nВойти\nили\nВойти через Telegram\nКак мы используем данные — политика. Условия использования вы примете сразу после входа."
+    },
+    {
+      "attempt": 2,
+      "events": [
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2uo3v_bqf2nr9.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3v12wdkp-2szr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0q7ev1y68wjxt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/4372ouy3a0-6n.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0al_1avtw0ebd.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering/programme",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2uo3v_bqf2nr9.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3v12wdkp-2szr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0q7ev1y68wjxt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/4372ouy3a0-6n.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0al_1avtw0ebd.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/icon.svg",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering/buy",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0al_1avtw0ebd.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3v12wdkp-2szr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0q7ev1y68wjxt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/4372ouy3a0-6n.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0jjdev-8422sv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3tg36ft7c7cn6.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2w0z4vd475lhv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/icon.svg",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/privacy",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/payment/return",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3tg36ft7c7cn6.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/40k3ly15u86ht.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/privacy",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/icon.svg",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/contacts",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/account/subscription",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/api/home/materials",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/account/subscription",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/privacy",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0hca-7p6xxb-a.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2621msbwhny4j.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/30w7znejfj7va.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/api/home/materials",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/icon.svg",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/sign-in",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/oidc/auth",
+          "status": 303
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/sign-in",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/index-BpnmO9q5.css",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/core-js-DAwiF3AZ.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/react-DGR2s017.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/index-Dpctglby.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/phrases-en-CZz6JDoe.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/libphonenumber-js-mT3v7F1D.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/vendors-Dv-33be7.css",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/i18next-CARGAxeI.js",
+          "status": 200
+        },
+        {
+          "host": "auth.sachkov.dev",
+          "path": "/assets/vendors-B6LlXOlw.js",
+          "status": 200
+        }
+      ]
+    }
+  ]
+}
