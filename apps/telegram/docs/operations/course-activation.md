@@ -66,11 +66,15 @@ Source chat identifiers, id ботов и списки identity находятс
 и действия по текущим правам Platform. Без связанного аккаунта бот ведёт на платформу, сохраняя
 выбранный продукт. После связывания бот автоматически обновляет карточку; отдельная кнопка проверки
 для продолжения не нужна. При сбое ученик получает сообщение о недоступной проверке и действие
-для повтора, а не ложное подтверждение доступа. Фоновое восстановление сохраняется.
+для повтора, а не ложное подтверждение доступа. Фоновое восстановление сохраняется. Фоновая
+проверка без запроса человека молчит о временном сбое, например во время перезапуска Platform:
+сообщение о сбое получает только тот, кто сейчас сам запустил проверку. Окончательный результат
+фоновая проверка присылает как прежде.
 
 Each new activation or retry command receives a result even when Platform repeats a saved
 confirmation. Reply deduplication includes the command's Telegram update ID; replaying that same
-update or recovering a worker does not duplicate the reply. A retry during a leased background
+update or recovering a worker does not duplicate the reply. A repeated start of an activation that
+still waits for an Account gets the account prompt again; a background check never repeats it. A retry during a leased background
 check preserves the lease and evidence; the running worker answers the latest processed request.
 
 Ссылка перезапускает только своё правило, остальные проверки человека не трогает. Человек с уже
