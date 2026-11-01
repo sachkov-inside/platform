@@ -87,23 +87,6 @@ describe("Product page description", () => {
       },
     ],
     [
-      "more items than a block allows",
-      {
-        ...page,
-        blocks: [
-          {
-            ...page.blocks[2],
-            items: Array.from({ length: 13 }, (_, index) => ({
-              title: `Пункт ${String(index)}`,
-              text: "Текст.",
-              detailLabel: "",
-              detail: "",
-            })),
-          },
-        ],
-      },
-    ],
-    [
       "an invalid block id",
       { ...page, blocks: [{ ...page.blocks[1], id: "Shift" }] },
     ],
@@ -155,6 +138,23 @@ describe("Product page description", () => {
     expect(productPageSchema.safeParse(value).success).toBe(false);
     expect(readStoredProductPage(value)).toBe("invalid");
   });
+
+  /** Блок вида `cards`, `steps` или `list` из страницы-образца с заданным числом пунктов. */
+  function blockWithItems(id: string, count: number) {
+    const block = page.blocks.find((item) => item.id === id);
+    if (block === undefined || !("items" in block))
+      throw new Error(`No items block ${id}`);
+    const [first] = block.items;
+    return { ...block, items: Array.from({ length: count }, () => first) };
+  }
+
+  test.each(["audience", "programme", "stack"])(
+    "a %s block accepts forty items",
+    (id) => {
+      const many = { ...page, blocks: [blockWithItems(id, 40)] };
+      expect(productPageSchema.safeParse(many).success).toBe(true);
+    },
+  );
 
   test("an author may write braces and omit the Home card caption", () => {
     const withBraces = {

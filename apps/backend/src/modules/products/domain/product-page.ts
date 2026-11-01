@@ -17,7 +17,6 @@ export type ProductPresentation = z.infer<typeof productPresentationSchema>;
 const PRODUCT_PAGE_SHORT_MAX = 200;
 const PRODUCT_PAGE_LONG_MAX = 4000;
 const PRODUCT_PAGE_BLOCKS_MAX = 16;
-const PRODUCT_PAGE_ITEMS_MAX = 12;
 
 /** Сроки оферты подставляет web; другие подстановки автор писать не может. */
 export const productPageTerms = ["access_term", "support_term"] as const;
@@ -43,8 +42,9 @@ const short = text(PRODUCT_PAGE_SHORT_MAX);
 const long = text(PRODUCT_PAGE_LONG_MAX);
 const requiredShort = short.pipe(z.string().min(1));
 const requiredLong = long.pipe(z.string().min(1));
-const list = <T extends z.ZodType>(item: T, min = 1) =>
-  z.array(item).min(min).max(PRODUCT_PAGE_ITEMS_MAX);
+// Число пунктов в блоке не ограничено (решение владельца, #1940): размер описания держит
+// PRODUCT_PAGE_BYTES_MAX.
+const list = <T extends z.ZodType>(item: T, min = 1) => z.array(item).min(min);
 const blockId = z.string().regex(/^[a-z][a-z0-9-]{0,63}$/u);
 
 const block = <K extends string, S extends z.ZodRawShape>(kind: K, shape: S) =>
