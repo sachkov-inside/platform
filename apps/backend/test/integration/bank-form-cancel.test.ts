@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { declinedPaymentRecheckMilliseconds } from "../../src/modules/billing/facets/billing-payments/billing-payments.js";
+import { paymentFormRecheckMilliseconds } from "../../src/modules/billing/facets/billing-payments/billing-payments.js";
+import { readPayment } from "../../src/modules/billing/features/read-payments/read-payments.js";
 import {
   createProductCommerceWorld,
   commerceValue as value,
@@ -194,7 +195,61 @@ test("a buyer who pays between the cancel check and the Cancel gets the money ba
   ).toEqual({ paymentId: repeatPaymentId, status: "REFUNDED" });
 });
 
-test("recovery cancels a form retired late in the attempt's first day until a day after the retirement", async () => {
+/** Карточка платежа владельца: сам платёж и история возвратов. */
+async function ownerPaymentCard(purchaseRef: string) {
+  const payment = await readPayment(world.db.prisma, purchaseRef);
+  if (!payment.ok) throw new Error("payment card is unavailable");
+  return payment.result;
+}
+
+test("money returned by a late Cancel is one refund row with the automatic Inside cancel basis, seen by the buyer and the owner", async () => {
+  const { s, repeat, repeatPaymentId } = await retiredRepeat();
+  let reads = 0;
+  // Проверка перед Cancel ещё видела NEW; Cancel пришёл уже к оплаченному платежу.
+  s.afterState((paymentId) => {
+    if (paymentId !== repeatPaymentId) return;
+    reads += 1;
+    if (reads === 2) s.setPaymentStatus(repeatPaymentId, "CONFIRMED");
+  });
+  try {
+    value(await s.payments.reconcile(repeat.purchaseRef));
+  } finally {
+    s.afterState(undefined);
+  }
+  // Повторные наблюдения возврата: сверка и уведомление банка.
+  value(await s.payments.reconcile(repeat.purchaseRef));
+  expect(
+    await s.notify("REFUNDED", {
+      OrderId: repeat.purchaseRef,
+      PaymentId: repeatPaymentId,
+    }),
+  ).toMatchObject({ ok: true });
+
+  const card = await ownerPaymentCard(repeat.purchaseRef);
+  expect(card.decisions).toEqual([
+    expect.objectContaining({
+      actorId: null,
+      basis: "automatic_cancel",
+      amountKopecks: 200000,
+      access: "keep",
+      state: "executed",
+      attempt: expect.objectContaining({
+        state: "confirmed",
+        amountKopecks: 200000,
+        observedStatus: "REFUNDED",
+      }) as unknown,
+    }),
+  ]);
+  expect(card.value).toMatchObject({
+    state: "failed",
+    refundedKopecks: 200000,
+  });
+  expect(
+    value(await s.payments.status(s.buyer, repeat.purchaseRef)),
+  ).toMatchObject({ state: "failed", refundedKopecks: 200000 });
+});
+
+test("recovery cancels a form retired late in the attempt's recheck window until the window after the retirement", async () => {
   const start = world.time();
   try {
     const s = await world.scenario();
@@ -208,13 +263,13 @@ test("recovery cancels a form retired late in the attempt's first day until a da
       await s.payments.purchase(s.buyer, await s.repeatCommand()),
     );
     const repeatPaymentId = s.paymentId();
-    world.setTime(new Date(start.getTime() + 20 * 60 * 60 * 1000));
+    world.setTime(new Date(start.getTime() + 100 * 60_000));
     expect(await s.notify("CONFIRMED", firstPayment)).toMatchObject({
       ok: true,
     });
-    // Прошло больше суток от создания попытки, но меньше суток от её снятия.
+    // Окно от создания попытки уже кончилось, а окно от её снятия ещё идёт.
     world.setTime(
-      new Date(start.getTime() + declinedPaymentRecheckMilliseconds + 60_000),
+      new Date(start.getTime() + paymentFormRecheckMilliseconds + 60_000),
     );
     value(await s.payments.recover());
     expect(s.cancelRequests()).toMatchObject([{ PaymentId: repeatPaymentId }]);

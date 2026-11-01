@@ -36,6 +36,7 @@ describe("local bank double process/HTTP contracts", () => {
       amount: 290_000,
       name: "Руководство «Стенд»",
       email: "buyer@example.test",
+      formExpiresAt: new Date("2030-01-31T11:00:00Z"),
     });
     await first.double.handle(
       new Request(started.PaymentURL, {

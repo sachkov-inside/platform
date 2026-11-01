@@ -3,7 +3,7 @@ import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
 
-import type { RetirementReason } from "@/entities/subscription";
+import type { PurchaseRetirementReason } from "@/entities/subscription";
 import {
   productOnlyOffer,
   productWithSupportOffer as baseProductB,
@@ -115,6 +115,7 @@ function commandBody(init: RequestInit | undefined): unknown {
 const quoteRequest = fn();
 const purchaseRequest = fn();
 const consentRequest = fn();
+const statusRequest = fn();
 const releaseLateQuote = fn<() => void>();
 const commandSchema = z.object({
   productId: z.uuid(),
@@ -140,6 +141,7 @@ const meta = {
     quoteRequest.mockClear();
     purchaseRequest.mockClear();
     consentRequest.mockClear();
+    statusRequest.mockClear();
     releaseLateQuote.mockReset();
   },
 } satisfies Meta<typeof CheckoutFlow>;
@@ -592,12 +594,21 @@ export const UnavailableBankKeepsOriginalCommand: Story = {
 
 /** Исход покупки; `retired` значит, что сервер снял покупку до оплаты по названной причине. */
 type PurchaseOutcome =
-  "pending" | "failed" | "confirmed" | { readonly retired: RetirementReason };
+  | "pending"
+  | "failed"
+  | "confirmed"
+  | { readonly retired: PurchaseRetirementReason };
 
-function purchaseStatusBody(outcome: PurchaseOutcome, formAvailable: boolean) {
+function purchaseStatusBody(
+  outcome: PurchaseOutcome,
+  formAvailable: boolean,
+  index = 0,
+) {
   const state = typeof outcome === "string" ? outcome : "failed";
   return {
     ...pendingPurchase,
+    // Каждая команда покупки создаёт свою покупку.
+    purchaseRef: `00000000-0000-4000-8000-${String(1900 + index).padStart(12, "0")}`,
     snapshot: productOnlyOffer,
     state,
     retirementReason: typeof outcome === "string" ? null : outcome.retired,
@@ -613,11 +624,17 @@ function bankOutcomes(
 ) {
   let quotes = 0;
   let purchases = 0;
+  let latest: ReturnType<typeof purchaseStatusBody> | null = null;
   return fetchBeforeRender((input, init) => {
     const path = new URL(
       input instanceof Request ? input.url : String(input),
       window.location.origin,
     ).pathname;
+    // «Проверить статус» читает последнюю покупку без тела запроса.
+    if (path === "/api/account/billing/purchase-status" && latest !== null) {
+      statusRequest(latest.purchaseRef);
+      return Promise.resolve(Response.json({ ok: true, value: latest }));
+    }
     const body = commandBody(init);
     if (path === "/api/account/billing/quote") {
       quotes += 1;
@@ -646,15 +663,13 @@ function bankOutcomes(
     }
     if (path === "/api/account/billing/purchase") {
       purchaseRequest(purchaseInputSchema.parse(body));
-      return Promise.resolve(
-        Response.json({
-          ok: true,
-          value: purchaseStatusBody(
-            outcomes[purchases++] ?? "pending",
-            formAvailable,
-          ),
-        }),
+      const index = purchases++;
+      latest = purchaseStatusBody(
+        outcomes[index] ?? "pending",
+        formAvailable,
+        index,
       );
+      return Promise.resolve(Response.json({ ok: true, value: latest }));
     }
     return Promise.resolve(Response.json({ ok: false, code: "unavailable" }));
   })();
@@ -814,7 +829,7 @@ export const ProductPurchaseInProgressExplainsWithoutRetry: Story = {
  * поэтому повторное нажатие не создаёт новую покупку, которую снимут по той же причине.
  */
 function retiredPurchaseExplainsWithoutNewQuote(
-  reason: RetirementReason,
+  reason: PurchaseRetirementReason,
   message: string,
 ): Story {
   return {
@@ -905,5 +920,64 @@ export const RepeatedFailureStartsNoSecondAutomaticQuote: Story = {
     await waitFor(() => expect(quoteRequest).toHaveBeenCalledTimes(3));
     await waitFor(() => expect(pay).toBeEnabled());
     await expect(purchaseRequest).toHaveBeenCalledTimes(2);
+  },
+};
+
+/**
+ * Ручное «Обновить условия» снова разрешает один автоматический расчёт (#1932): следующий отказ
+ * сам берёт новый расчёт, а отказ после него снова ждёт кнопки покупателя.
+ */
+export const ManualRefreshAllowsOneMoreAutomaticQuote: Story = {
+  beforeEach: () => bankOutcomes(["failed", "failed", "failed", "failed"]),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await waitFor(() => expect(quoteRequest).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Оплата снова не прошла. Чтобы попробовать ещё раз, обновите условия.",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Обновить условия" }),
+    );
+    await waitFor(() => expect(quoteRequest).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await waitFor(() => expect(purchaseRequest).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(quoteRequest).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await expect(await canvas.findByRole("alert")).toHaveTextContent(
+      "Оплата снова не прошла. Чтобы попробовать ещё раз, обновите условия.",
+    );
+    await expect(pay).toBeDisabled();
+    await expect(quoteRequest).toHaveBeenCalledTimes(4);
+    await expect(purchaseRequest).toHaveBeenCalledTimes(4);
+  },
+};
+
+/**
+ * Повторная проверка той же неуспешной покупки не считается новым отказом (#1932): форма не
+ * берёт ещё один расчёт и не прячет уже полученный.
+ */
+export const RecheckingTheSameFailedPurchaseStartsNoQuote: Story = {
+  beforeEach: () => bankOutcomes(["failed"]),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await waitFor(() => expect(quoteRequest).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(pay).toBeEnabled());
+    const recheck = canvas.getByRole("button", { name: "Проверить статус" });
+    await userEvent.click(recheck);
+    await waitFor(() => expect(statusRequest).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(recheck).toBeEnabled());
+    await expect(pay).toBeEnabled();
+    await expect(canvas.queryByRole("alert")).toBeNull();
+    await expect(quoteRequest).toHaveBeenCalledTimes(2);
   },
 };

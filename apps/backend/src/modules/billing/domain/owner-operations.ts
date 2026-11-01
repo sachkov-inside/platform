@@ -45,9 +45,15 @@ const listBounds = {
 
 /**
  * Основание возврата. Отказ от договора прекращает права покупки; компенсация без отказа доступ
- * сохраняет. Судьба доступа выводится из основания и отдельно не выбирается.
+ * сохраняет. Судьба доступа выводится из основания и отдельно не выбирается. `automatic_cancel`:
+ * деньги снятой попытки вернул опоздавший Cancel Inside (#1932); такой возврат записывает сам
+ * Inside, без решения владельца.
  */
-export const refundBasisSchema = z.enum(["withdrawal", "compensation"]);
+export const refundBasisSchema = z.enum([
+  "withdrawal",
+  "compensation",
+  "automatic_cancel",
+]);
 export type RefundBasis = z.infer<typeof refundBasisSchema>;
 export const refundAccessSchema = z.enum(["keep", "revoke"]);
 export type RefundAccess = z.infer<typeof refundAccessSchema>;

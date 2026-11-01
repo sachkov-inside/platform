@@ -1,8 +1,7 @@
 /**
  * Имена событий покупки в `billing.payment_events`. Их пишет сверка и приём ответов банка, а
  * читают фильтр проверки владельца и сторож production. Сторож хранит имена в своём SQL;
- * `watchdog-payment-signals.test.ts` сверяет этот SQL с перечнями ниже. Отметки чека
- * `fiscalization_confirmed` и `fiscalization_failed` приём чека строит из итога сам.
+ * `watchdog-payment-signals.test.ts` сверяет этот SQL с перечнями ниже.
  */
 export const paymentEventKind = {
   paymentConfirmed: "payment_confirmed",
@@ -16,6 +15,10 @@ export const paymentEventKind = {
   duplicatePaymentReview: "duplicate_payment_review",
   fulfillmentReviewRequired: "fulfillment_review_required",
   fullRefundConfirmed: "full_refund_confirmed",
+  /** Банк прислал чек об оплате (`RECEIPT`) без ошибки. */
+  fiscalizationConfirmed: "fiscalization_confirmed",
+  /** Банк сообщил, что чек об оплате не выдан. */
+  fiscalizationFailed: "fiscalization_failed",
   /** Покупка снята до Init; причина лежит в `payload.reason`. */
   dispatchRetired: "dispatch_retired",
   /** Неотправленная попытка прежней подписки закрыта без запроса к банку. */
@@ -26,6 +29,11 @@ export const paymentEventKind = {
   replacedByNewPrice: "replaced_by_new_price",
   /** Попытка снята без адреса формы оплаты (#1926). */
   formAddressLost: "form_address_lost",
+  /**
+   * Inside получила адрес формы оплаты из ответа Init (#1932). Отметка постоянна: попытку с ней
+   * снятие #1926 не трогает, даже если сохранённого адреса уже нет.
+   */
+  formAddressReceived: "form_address_received",
   /** Неподтверждённая покупка с частичной отменой холда закрыта до решения владельца (#1929). */
   partialRefundReleased: "partial_refund_released",
   /** Форму снятой попытки нужно отменить в банке (#1923). */

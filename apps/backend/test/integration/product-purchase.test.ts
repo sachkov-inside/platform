@@ -2,7 +2,7 @@ import { CoverageCatalog } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import type { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { BillingPayments } from "../../src/modules/billing/index.js";
-import { declinedPaymentRecheckMilliseconds } from "../../src/modules/billing/facets/billing-payments/billing-payments.js";
+import { paymentFormRecheckMilliseconds } from "../../src/modules/billing/facets/billing-payments/billing-payments.js";
 import { BillingContact } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { Tbank } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
@@ -330,6 +330,7 @@ test("a bank decline on the payment form does not lose a later confirmed payment
       orderBy: { kind: "asc" },
     }),
   ).toEqual([
+    { kind: "form_address_received" },
     { kind: "payment_confirmed" },
     { kind: "payment_confirmed_after_failure" },
   ]);
@@ -493,7 +494,7 @@ test("payment recovery stops asking the bank about a declined payment after the 
   const purchase = value(await s.payments.purchase(s.buyer, s.command));
   await s.notify("REJECTED");
   const start = time();
-  setTime(new Date(start.getTime() + declinedPaymentRecheckMilliseconds + 1));
+  setTime(new Date(start.getTime() + paymentFormRecheckMilliseconds + 1));
   try {
     // Банк уже отвечает CONFIRMED: опрос этой покупки подтвердил бы её.
     s.setStatus("CONFIRMED");

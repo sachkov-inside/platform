@@ -998,7 +998,7 @@ export class BillingService {
           state: 'sent' | 'unknown' | 'confirmed' | 'failed';
           updatedAt: string;
         } | null;
-        basis: 'withdrawal' | 'compensation' | null;
+        basis: 'withdrawal' | 'compensation' | 'automatic_cancel' | null;
         createdAt: string;
         decisionRef: string;
         purchaseRef: string;
@@ -1176,7 +1176,7 @@ export class BillingService {
           state: 'sent' | 'unknown' | 'confirmed' | 'failed';
           updatedAt: string;
         } | null;
-        basis: 'withdrawal' | 'compensation' | null;
+        basis: 'withdrawal' | 'compensation' | 'automatic_cancel' | null;
         createdAt: string;
         decisionRef: string;
         purchaseRef: string;

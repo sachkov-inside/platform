@@ -140,6 +140,7 @@ test("bank adapter binds only scalar signed facts and rejects a payment URL outs
       amount: 200000,
       name: "Product",
       email: "order@example.test",
+      formExpiresAt: new Date("2030-01-31T11:00:00Z"),
     }),
   ).rejects.toThrow();
 });

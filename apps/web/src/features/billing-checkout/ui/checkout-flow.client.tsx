@@ -59,8 +59,13 @@ interface CheckoutSelection {
   readonly existingAccess: boolean;
   readonly legacyBlocked: boolean;
   readonly error: string | undefined;
-  /** Новый расчёт после неуспешной покупки уже запрашивался сам; следующий только по кнопке. */
+  /**
+   * Новый расчёт после отказа банка уже запрашивался сам; следующий только по кнопке «Обновить
+   * условия», которая снова разрешает один автоматический расчёт (#1932).
+   */
   readonly automaticQuoteUsed: boolean;
+  /** Неуспешная покупка, исход которой форма уже разобрала: повторная проверка её не повторяет. */
+  readonly settledFailureRef: string | null;
 }
 
 interface PurchaseAttempt {
@@ -90,6 +95,7 @@ function newSelection(key: string): CheckoutSelection {
     legacyBlocked: false,
     error: undefined,
     automaticQuoteUsed: false,
+    settledFailureRef: null,
   };
 }
 
@@ -342,11 +348,14 @@ export function CheckoutFlow({
    * начинается: новая покупка по тем же условиям была бы снята так же. Попытку без адреса формы
    * (#1926) причина тоже объясняет, но новый расчёт начинается сразу: следующий Init откроет
    * новую форму. После отказа банка форма один раз сама запрашивает новый расчёт; повторный
-   * отказ ждёт кнопки покупателя.
+   * отказ ждёт кнопки покупателя. Так одно действие покупателя запрашивает не больше одного
+   * автоматического расчёта, а повторная проверка той же покупки не запрашивает ни одного (#1932).
    */
   const settleFailedPurchase = (failed: PurchaseStatus, identity: object) => {
     // Покупатель уже выбрал другие условия: этот исход к ним не относится.
     if (selection.identity !== identity) return;
+    if (selection.settledFailureRef === failed.purchaseRef) return;
+    updateSelection(identity, { settledFailureRef: failed.purchaseRef });
     if (failed.retirementReason === "form_address_lost") {
       setPaymentError(purchaseRetirementMessage(failed.retirementReason));
       requestQuote();
@@ -443,8 +452,10 @@ export function CheckoutFlow({
       preorder={preorder}
       showInclusions={showInclusions}
       onRetryQuote={() => {
-        // Покупатель сам начинает новый расчёт: прежнее объяснение отказа больше не относится к форме.
+        // Покупатель сам начинает новый расчёт: прежнее объяснение отказа больше не относится к
+        // форме, а следующий отказ снова может один раз сам запросить расчёт (#1932).
         setPaymentError(undefined);
+        updateSelection(selection.identity, { automaticQuoteUsed: false });
         requestQuote();
       }}
       promoRejected={promoRejected}

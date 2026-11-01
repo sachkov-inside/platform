@@ -723,34 +723,45 @@ attempt failed in Inside, but the provider can still capture the same PaymentId:
 form the buyer can pick another method after a declined one, such as a card after installments.
 An exactly verified `CONFIRMED` or full `REFUNDED` of that PaymentId therefore confirms a failed
 one-time attempt and issues its saved fulfillment. Recovery and the owner's reconciliation ask the
-bank about a failed one-time attempt with a known PaymentId. Recovery does so for 24 hours after
-creation: Init sends no `RedirectDueDate`, so the form keeps the
-[provider's default lifetime](https://developer.tbank.ru/eacq/api/init). The confirmation retires
+bank about a failed one-time attempt with a known PaymentId. Since #1932 Init sends
+[`RedirectDueDate`](https://developer.tbank.ru/eacq/api/init) 60 minutes after the request, so
+the form closes with `DEADLINE_EXPIRED` then instead of the terminal's default lifetime (one day
+unless `REDIRECT_TIMEOUT` says otherwise). Recovery asks for two hours after creation: the form
+lifetime plus a one-hour margin for a delayed Init, an authorization that started before the deadline
+and clock difference (`paymentFormRecheckMilliseconds`). The confirmation retires
 the same Account's unpaid repeat attempts for the same Product or the same Payment Link, so the
 buyer cannot pay twice through the newer form in Inside. Each such attempt whose Init could have
 reached the bank records `bank_cancel_requested`. A purchase at another price records the same
 mark for a replaced open attempt whose Init was sent (#1925, see the
 [billing specification](../specifications/subscription-billing-v1.md)). An attempt without a stored
 form address, whose unpaid form the bank still reports `NEW` or `FORM_SHOWED`, is retired with the
-same mark by the first bank answer at least 2 minutes after creation (`form_address_lost`, #1926). Outside the transaction, the background
+same mark by the first bank answer at least 2 minutes after creation (`form_address_lost`, #1926).
+Since #1932 only an attempt whose address Inside never received is retired this way: storing the
+address from the Init answer writes the permanent mark `form_address_received`, and intermediate
+statuses (3-D Secure, authorization, undecided or unrecognized statuses) no longer erase the stored
+address. Outside the transaction, the background
 reconciliation and the owner's `payments.reconcile` close its bank form with the provider's
 [Cancel](https://developer.tbank.ru/eacq/api/cancel) for the full amount (#1923, owner decision of
 31.10.2026). Cancel is sent only when GetState, read immediately before it, reports `NEW` or
 `FORM_SHOWED` for that order's PaymentId. A paid payment is never cancelled on purpose: refunds stay
-in the bank's dashboard (#1420). Recovery asks the bank about such an attempt for 24 hours after
-`bank_cancel_requested`, because Init precedes the mark and the form lives 24 hours after Init.
-A failed Cancel is sent again within that window. `bank_cancel_confirmed` records the bank status
+in the bank's dashboard (#1420). Recovery asks the bank about such an attempt within the same
+two-hour window after `bank_cancel_requested`, because Init precedes the mark and the form lives
+60 minutes after Init. A failed Cancel is sent again within that window. `bank_cancel_confirmed` records the bank status
 that closed the form: `CANCELED` after Cancel, or `DEADLINE_EXPIRED`, `REVERSED`, `CONFIRMED`,
 `REFUNDED` or `PARTIAL_REFUNDED` without it. A confirmation of a paid form always writes it, so a
 cancel is open exactly while `bank_cancel_requested` has neither `bank_cancel_confirmed` nor
 `bank_payment_absent`. Reconciliation, the owner's review list and the watchdog share that rule
 (`isBankCancelOpen` in `domain/payment-events.ts`). A buyer can still pay between that GetState
 and Cancel; the bank then returns the money, and `bank_cancel_returned_payment` records it for the
-owner's review list and the watchdog. When that event is recorded first, a later `CONFIRMED` or
+owner's review list and the watchdog. Since #1932 a full return (`REFUNDED` or `REVERSED`) is also
+an ordinary refund row with the basis `automatic_cancel`, written by Inside without an owner
+decision, so the purchase's refund history, its `refundedKopecks` and the owner's `refunds.read` show
+it. The row carries what remains of the purchase amount after recorded refunds; a repeated
+observation, or a full refund already recorded from a `REFUNDED` notification, adds no row. When that event is recorded first, a later `CONFIRMED` or
 `REFUNDED` of that attempt grants no access and retires none of the buyer's current attempts, and
 the attempt stays failed. The bank can also notify `CONFIRMED` before it processes the Cancel; the
-attempt is then already confirmed with access, and the refund reaches the owner only through the
-event and its watchdog signal, so access stays the owner's decision. In that order the confirmation
+attempt is then already confirmed with access, and the refund reaches the owner through the event,
+its watchdog signal and the `automatic_cancel` refund row, so access stays the owner's decision. In that order the confirmation
 itself closes the mark with `bank_cancel_confirmed` (status `CONFIRMED`). In the first order the
 bank's `REFUNDED` closes the mark with `bank_cancel_confirmed`, which keeps the PaymentId and status.
 When the retired attempt's Init answer was lost, reconciliation finds its PaymentId with CheckOrder. For an order without payments

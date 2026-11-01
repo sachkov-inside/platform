@@ -13,7 +13,7 @@ import type {
   BillingPaymentOption,
   NoticeKind,
   PriceSnapshot,
-  RetirementReason,
+  PurchaseRetirementReason,
 } from "./billing-contract";
 
 const moscow = "Europe/Moscow";
@@ -315,7 +315,9 @@ export function promotionLabel(snapshot: PriceSnapshot): string | undefined {
  * `form_address_lost` снимает её после Init: у Inside нет адреса формы оплаты, а банк назвал
  * форму неоплаченной (#1926). В обоих случаях деньги не списаны, и текст говорит об этом.
  */
-export function purchaseRetirementMessage(reason: RetirementReason): string {
+export function purchaseRetirementMessage(
+  reason: PurchaseRetirementReason,
+): string {
   switch (reason) {
     case "sale_closed":
       return "Продажа этого продукта закрыта. Покупка остановлена до оплаты, деньги не списаны.";

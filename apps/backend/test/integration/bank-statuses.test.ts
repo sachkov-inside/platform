@@ -19,6 +19,8 @@ beforeAll(async () => {
 afterAll(async () => world.dispose());
 
 type Scenario = Awaited<ReturnType<typeof world.scenario>>;
+/** Адрес формы оплаты из ответа Init двойника банка. */
+const formAddress = "https://securepay.tinkoff.ru/test";
 
 async function reviewState(purchaseRef: string) {
   return world.db.prisma.billingPurchase.findUniqueOrThrow({
@@ -55,13 +57,14 @@ function signed(s: Scenario, fields: Record<string, unknown>) {
 }
 
 test.each(["3DS_CHECKING", "3DS_CHECKED"])(
-  "a form in 3-D Secure (%s) is acknowledged and keeps the purchase waiting for the bank",
+  "a form in 3-D Secure (%s) is acknowledged and keeps the purchase and its form address waiting for the bank",
   async (status) => {
     const { s, purchaseRef } = await openForm();
     expect(await s.notify(status)).toEqual({ ok: true, value: true });
+    // Банк может вернуть покупателя на ту же форму, поэтому адрес остаётся (#1932).
     expect(await reviewState(purchaseRef)).toEqual({
       state: "pending",
-      paymentUrl: null,
+      paymentUrl: formAddress,
       refundReviewRequired: false,
     });
   },
@@ -74,8 +77,11 @@ test.each(["PAY_CHECKING", "CONFIRM_CHECKING", "ASYNC_REFUNDING"])(
     expect(await s.notify(status)).toEqual({ ok: true, value: true });
     expect(await reviewState(purchaseRef)).toMatchObject({
       state: "unknown",
-      paymentUrl: null,
+      paymentUrl: formAddress,
     });
+    expect(
+      value(await s.payments.status(s.buyer, purchaseRef)).paymentUrl,
+    ).toBeNull();
     expect(
       await world.eventPayload(purchaseRef, "bank_status_unrecognized"),
     ).toBe(null);
@@ -130,8 +136,11 @@ test("an authentic status missing from the documented list is acknowledged, sent
   expect(await s.notify("QR_SETTLING")).toEqual({ ok: true, value: true });
   expect(await reviewState(purchaseRef)).toMatchObject({
     state: "unknown",
-    paymentUrl: null,
+    paymentUrl: formAddress,
   });
+  expect(
+    value(await s.payments.status(s.buyer, purchaseRef)).paymentUrl,
+  ).toBeNull();
   expect(
     await world.eventPayload(purchaseRef, "bank_status_unrecognized"),
   ).toEqual({

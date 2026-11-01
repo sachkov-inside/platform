@@ -92,7 +92,7 @@ test("a recovery pass takes no new row after its budget ends, and the next pass 
   ]);
 });
 
-test("a declined payment form is asked about at 1, 5, 15 and 60 minute steps, not on every pass", async () => {
+test("a declined payment form is asked about at 1, 5 and 15 minute steps, not on every pass", async () => {
   const start = world.time();
   const s = await world.scenario();
   value(await s.payments.purchase(s.buyer, s.command));
@@ -114,16 +114,12 @@ test("a declined payment form is asked about at 1, 5, 15 and 60 minute steps, no
   expect(await askedAt(30 * minute)).toBe(1);
   expect(await askedAt(34 * minute)).toBe(0);
   expect(await askedAt(35 * minute)).toBe(1);
-  // До 4 часов: раз в 15 минут.
-  expect(await askedAt(120 * minute)).toBe(1);
-  expect(await askedAt(134 * minute)).toBe(0);
-  expect(await askedAt(135 * minute)).toBe(1);
-  // Дальше до конца суток: раз в час.
-  expect(await askedAt(300 * minute)).toBe(1);
-  expect(await askedAt(359 * minute)).toBe(0);
-  expect(await askedAt(360 * minute)).toBe(1);
-  // Форма живёт сутки: после них сверка о ней не спрашивает.
-  expect(await askedAt(24 * 60 * minute + minute)).toBe(0);
+  // Дальше до конца окна формы: раз в 15 минут.
+  expect(await askedAt(90 * minute)).toBe(1);
+  expect(await askedAt(104 * minute)).toBe(0);
+  expect(await askedAt(105 * minute)).toBe(1);
+  // Форма живёт 60 минут, окно с запасом два часа: после него сверка о ней не спрашивает.
+  expect(await askedAt(2 * 60 * minute + minute)).toBe(0);
 });
 
 /**
