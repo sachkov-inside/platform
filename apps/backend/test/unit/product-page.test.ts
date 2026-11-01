@@ -93,7 +93,7 @@ describe("Product page description", () => {
         blocks: [
           {
             ...page.blocks[2],
-            items: Array.from({ length: 13 }, (_, index) => ({
+            items: Array.from({ length: 17 }, (_, index) => ({
               title: `Пункт ${String(index)}`,
               text: "Текст.",
               detailLabel: "",
@@ -155,6 +155,25 @@ describe("Product page description", () => {
     expect(productPageSchema.safeParse(value).success).toBe(false);
     expect(readStoredProductPage(value)).toBe("invalid");
   });
+
+  /** Блок вида `cards`, `steps` или `list` из страницы-образца с заданным числом пунктов. */
+  function blockWithItems(id: string, count: number) {
+    const block = page.blocks.find((item) => item.id === id);
+    if (block === undefined || !("items" in block))
+      throw new Error(`No items block ${id}`);
+    const [first] = block.items;
+    return { ...block, items: Array.from({ length: count }, () => first) };
+  }
+
+  test.each(["audience", "programme", "stack"])(
+    "a %s block holds up to sixteen items",
+    (id) => {
+      const accepted = { ...page, blocks: [blockWithItems(id, 16)] };
+      const rejected = { ...page, blocks: [blockWithItems(id, 17)] };
+      expect(productPageSchema.safeParse(accepted).success).toBe(true);
+      expect(productPageSchema.safeParse(rejected).success).toBe(false);
+    },
+  );
 
   test("an author may write braces and omit the Home card caption", () => {
     const withBraces = {

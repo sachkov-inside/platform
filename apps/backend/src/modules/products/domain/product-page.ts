@@ -17,7 +17,8 @@ export type ProductPresentation = z.infer<typeof productPresentationSchema>;
 const PRODUCT_PAGE_SHORT_MAX = 200;
 const PRODUCT_PAGE_LONG_MAX = 4000;
 const PRODUCT_PAGE_BLOCKS_MAX = 16;
-const PRODUCT_PAGE_ITEMS_MAX = 12;
+// Пунктов в блоке не больше, чем блоков на странице: лендинг курса держит 14 тем (#1940).
+const PRODUCT_PAGE_ITEMS_MAX = 16;
 
 /** Сроки оферты подставляет web; другие подстановки автор писать не может. */
 export const productPageTerms = ["access_term", "support_term"] as const;
