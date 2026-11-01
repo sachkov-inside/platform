@@ -82,8 +82,6 @@ jobs:
     needs: plan
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
     uses: ./.github/workflows/ci.yml
     with:
       source_sha: ${{ needs.plan.outputs.source_sha }}
