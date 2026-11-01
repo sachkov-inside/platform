@@ -863,11 +863,16 @@ describe("оплата, выдача прав и доступ к материа�
       ),
     );
     expect(repeated.every((result) => result.ok)).toBe(true);
+    // Шесть повторов дают одно подтверждение; отметка полученного адреса формы (#1932) пишется Init.
     expect(
-      await db.prisma.billingPaymentEvent.count({
-        where: { purchaseRef: bought.purchaseRef },
-      }),
-    ).toBe(1);
+      (
+        await db.prisma.billingPaymentEvent.findMany({
+          where: { purchaseRef: bought.purchaseRef },
+          select: { kind: true },
+          orderBy: { kind: "asc" },
+        })
+      ).map((event) => event.kind),
+    ).toEqual(["form_address_received", "payment_confirmed"]);
     value(await payments.recover());
     const granted = await db.prisma.productAccess.findMany({
       where: { accountId: account, productId: productA },
