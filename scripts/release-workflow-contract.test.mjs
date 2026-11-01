@@ -10,6 +10,7 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** @param {string} path */
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
 const releaseWorkflow = read(".github/workflows/release.yml");
+const telegramReleaseWorkflow = read(".github/workflows/telegram-release.yml");
 const ciWorkflow = read(".github/workflows/ci.yml");
 const planScript = read("scripts/plan-release.sh");
 const overprivilegedFinalize = read(
@@ -198,7 +199,7 @@ describe("ordinal release workflow contract", () => {
   it("keeps permissions at the owning job", () => {
     assertReleasePermissions(releaseWorkflow, releasePermissions);
     assertReleasePermissions(
-      read(".github/workflows/telegram-release.yml"),
+      telegramReleaseWorkflow,
       telegramReleasePermissions,
     );
     assert.throws(
