@@ -301,6 +301,31 @@ test("the owner's payment card records once that Inside received the form addres
   ]);
 });
 
+test("an attempt whose form address Inside once received is not retired as lost after the stored address is gone", async () => {
+  await fromStart(async (start) => {
+    const s = await world.scenario();
+    const purchase = value(await s.payments.purchase(s.buyer, s.command));
+    // Удержание денег стирает адрес, затем исход становится неизвестным.
+    expect(await s.notify("AUTHORIZED")).toEqual({ ok: true, value: true });
+    expect(await s.notify("PAY_CHECKING")).toEqual({ ok: true, value: true });
+    expect(await world.purchaseRow(purchase.purchaseRef)).toEqual({
+      state: "unknown",
+      paymentId: s.paymentId(),
+      paymentUrl: null,
+    });
+    s.setStatus("FORM_SHOWED");
+    world.setTime(after(start, 10 * lostFormAddressMilliseconds));
+    value(await s.payments.reconcile(purchase.purchaseRef));
+    expect((await world.purchaseRow(purchase.purchaseRef)).state).toBe(
+      "pending",
+    );
+    expect(
+      await world.eventPayload(purchase.purchaseRef, "form_address_lost"),
+    ).toBeNull();
+    expect(s.cancelRequests()).toEqual([]);
+  });
+});
+
 test("a purchase whose form address never arrived has no received-address mark", async () => {
   const s = await world.scenario();
   const { purchaseRef } = await lostFormAddress(s);

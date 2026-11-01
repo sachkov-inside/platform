@@ -70,7 +70,6 @@ import {
   reservePurchaseInTransaction,
 } from "../../features/reserve-purchase/reserve-purchase.js";
 import {
-  bankStatusIn,
   declinedStatuses,
   fullReturnStatuses,
   isRecognizedBankStatus,
@@ -1415,7 +1414,7 @@ export class BillingPayments {
       !result.Success ||
       result.ErrorCode !== "0" ||
       (result.Status !== "CANCELED" &&
-        !bankStatusIn(refundTerminalStatuses, result.Status))
+        !refundTerminalStatuses.includes(result.Status))
     )
       return dependencyFailure(
         { module: "billing", operation: "reconcile" },
@@ -1445,22 +1444,18 @@ export class BillingPayments {
         )
       )
         return;
+      const returned = { paymentId: result.PaymentId, status: result.Status };
       await recordEventOnce(
         tx,
         purchaseRef,
         paymentEventKind.bankCancelReturnedPayment,
-        { paymentId: result.PaymentId, status: result.Status },
+        returned,
         now,
       );
       // Полный возврат пишется строкой истории возвратов (#1932). Частичный статус суммы не
       // доказывает: его разбирает владелец по событию, как любое частичное наблюдение.
-      if (bankStatusIn(fullReturnStatuses, result.Status))
-        await acceptAutomaticCancelRefund(
-          tx,
-          purchaseRef,
-          { paymentId: result.PaymentId, status: result.Status },
-          now,
-        );
+      if (fullReturnStatuses.includes(result.Status))
+        await acceptAutomaticCancelRefund(tx, purchaseRef, returned, now);
     });
     return { ok: true, value: true };
   }

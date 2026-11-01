@@ -1,5 +1,6 @@
-// Статусы платежа T-Bank и их классы: единственное место, где billing решает, что значит статус
-// банка. Справочник статусов: https://developer.tbank.ru/eacq/intro/developer/operation-statuses
+// Статусы платежа T-Bank и классы, в которые billing их собирает. Класс из нескольких статусов
+// задаётся только здесь; отдельный статус код сравнивает на месте, например `CONFIRMED`.
+// Справочник статусов: https://developer.tbank.ru/eacq/intro/developer/operation-statuses
 import { z } from "zod";
 
 /**
@@ -119,11 +120,3 @@ export const closedFormStatuses: readonly BankStatus[] = [
   "REFUNDED",
   "PARTIAL_REFUNDED",
 ];
-
-/** Статус из класса `statuses`. Принимает и статус ответа Cancel, который банк присылает строкой. */
-export function bankStatusIn(
-  statuses: readonly BankStatus[],
-  status: string,
-): boolean {
-  return (statuses as readonly string[]).includes(status);
-}

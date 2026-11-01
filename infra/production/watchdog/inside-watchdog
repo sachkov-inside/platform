@@ -232,8 +232,8 @@ check_backup() {
 # Путь покупателя в базе Platform. Запрос только читает: транзакция read-only и с ограничением времени.
 # «sent» — покупатель получил ссылку на оплату; сверка переводит её в «pending», пока банк отвечает
 # NEW или FORM_SHOWED. Брошенную оплату банк закрывает после истечения ссылки: Init передаёт
-# RedirectDueDate через 60 минут (#1932). Порог этих двух состояний — окно сверки формы, два часа
-# (paymentFormRecheckMilliseconds в billing-payments.ts: срок формы и час запаса), а не 15 минут.
+# RedirectDueDate через 60 минут (#1932). Порог этих двух состояний равен окну сверки формы, два
+# часа (paymentFormRecheckMilliseconds в billing-payments.ts: срок формы и час запаса), а не 15 минут.
 read -r -d '' platform_query <<'SQL' || true
 select 'purchases', count(*) from billing.purchases
  where (state in ('unknown', 'authorized') and created_at < now() - interval '15 minutes')

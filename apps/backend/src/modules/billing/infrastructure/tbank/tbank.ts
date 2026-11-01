@@ -45,7 +45,7 @@ const bankCancelSchema = z
     TerminalKey: z.string().min(1).max(64),
     OrderId: z.string().min(1).max(50),
     PaymentId: reference,
-    Status: z.string().min(1).max(64),
+    Status: bankStatusSchema,
     Success: success,
     ErrorCode: z.string(),
     OriginalAmount: z.int().nonnegative().optional(),

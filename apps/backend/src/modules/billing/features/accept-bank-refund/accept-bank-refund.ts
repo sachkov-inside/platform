@@ -67,43 +67,19 @@ export async function acceptBankRefund(
   }
   const remaining = purchase.amountKopecks - recorded;
   if (remaining < 0n) throw new Error("Refund history exceeds purchase amount");
-  const decisionRef = randomUUID(),
-    refundRef = randomUUID();
   if (remaining > 0n) {
-    await tx.billingRefundDecision.create({
-      data: {
-        id: decisionRef,
-        purchaseRef: purchase.id,
-        accountId: purchase.accountId,
-        actorId: null,
-        operationId: null,
+    const refundRef = await recordBankConfirmedRefund(
+      tx,
+      purchase,
+      {
         amountKopecks: remaining,
         basis: "withdrawal",
-        access: "keep",
-        recurring: "keep",
         reason: "Full refund confirmed by T-Bank; initiated outside Platform",
-        state: "executed",
-        revision: 1,
-        createdAt: now,
-        updatedAt: now,
-      },
-    });
-    await tx.billingRefund.create({
-      data: {
-        id: refundRef,
-        decisionRef,
-        purchaseRef: purchase.id,
-        environment: purchase.environment,
-        terminalRef: purchase.terminalRef,
         paymentId: z.string().parse(purchase.paymentId),
-        amountKopecks: remaining,
-        state: "confirmed",
         observedStatus: "REFUNDED",
-        errorCode: "0",
-        createdAt: now,
-        updatedAt: now,
       },
-    });
+      now,
+    );
     await recordRefundNotice(tx, purchase, refundRef, remaining, now);
   }
   // A bank refund is financial history. Only an explicit owner command may withdraw Product Access.
@@ -144,7 +120,40 @@ export async function acceptAutomaticCancelRefund(
     purchase.amountKopecks,
   );
   if (refundableKopecks <= 0) return;
-  const decisionRef = randomUUID();
+  await recordBankConfirmedRefund(
+    tx,
+    purchase,
+    {
+      amountKopecks: BigInt(refundableKopecks),
+      basis: "automatic_cancel",
+      reason:
+        "Late automatic Cancel of a retired attempt returned the payment; confirmed by T-Bank",
+      paymentId: returned.paymentId,
+      observedStatus: returned.status,
+    },
+    now,
+  );
+}
+
+/**
+ * Возврат, который банк уже подтвердил, а владелец не решал: решение без владельца сразу
+ * `executed`, попытка возврата сразу `confirmed`. Доступ покупки он не трогает. Возвращает
+ * ссылку попытки возврата.
+ */
+async function recordBankConfirmedRefund(
+  tx: BillingPrisma,
+  purchase: Purchase,
+  refund: {
+    readonly amountKopecks: bigint;
+    readonly basis: "withdrawal" | "automatic_cancel";
+    readonly reason: string;
+    readonly paymentId: string;
+    readonly observedStatus: string;
+  },
+  now: Date,
+): Promise<string> {
+  const decisionRef = randomUUID(),
+    refundRef = randomUUID();
   await tx.billingRefundDecision.create({
     data: {
       id: decisionRef,
@@ -152,12 +161,11 @@ export async function acceptAutomaticCancelRefund(
       accountId: purchase.accountId,
       actorId: null,
       operationId: null,
-      amountKopecks: BigInt(refundableKopecks),
-      basis: "automatic_cancel",
+      amountKopecks: refund.amountKopecks,
+      basis: refund.basis,
       access: "keep",
       recurring: "keep",
-      reason:
-        "Late automatic Cancel of a retired attempt returned the payment; confirmed by T-Bank",
+      reason: refund.reason,
       state: "executed",
       revision: 1,
       createdAt: now,
@@ -166,20 +174,21 @@ export async function acceptAutomaticCancelRefund(
   });
   await tx.billingRefund.create({
     data: {
-      id: randomUUID(),
+      id: refundRef,
       decisionRef,
       purchaseRef: purchase.id,
       environment: purchase.environment,
       terminalRef: purchase.terminalRef,
-      paymentId: returned.paymentId,
-      amountKopecks: BigInt(refundableKopecks),
+      paymentId: refund.paymentId,
+      amountKopecks: refund.amountKopecks,
       state: "confirmed",
-      observedStatus: returned.status,
+      observedStatus: refund.observedStatus,
       errorCode: "0",
       createdAt: now,
       updatedAt: now,
     },
   });
+  return refundRef;
 }
 
 async function recordRefundNotice(

@@ -9,6 +9,7 @@ import {
   paymentEventKind,
   reviewPaymentEventKinds,
 } from "../../src/modules/billing/domain/payment-events.js";
+import { paymentFormRecheckMilliseconds } from "../../src/modules/billing/facets/billing-payments/billing-payments.js";
 import { listPayments } from "../../src/modules/billing/features/read-payments/read-payments.js";
 import {
   createMigratedTestDatabase,
@@ -285,4 +286,29 @@ it("closes an open bank cancel by exactly the events of the shared rule", () => 
   expect(paymentQuery).toContain(
     `requested.kind = '${paymentEventKind.bankCancelRequested}'`,
   );
+});
+
+/** Интервал SQL сторожа в часах, например `'2 hours'`. */
+function hoursOf(match: RegExpExecArray | null): number {
+  return Number(match?.[1]);
+}
+
+it("derives its payment form thresholds from the payment form recheck window (#1932)", () => {
+  const windowHours = paymentFormRecheckMilliseconds / 3_600_000;
+  // Покупка ждёт оплаты дольше окна сверки формы: банк уже должен был закрыть форму.
+  expect(
+    hoursOf(
+      /state in \('sent', 'pending'\) and created_at < now\(\) - interval '(\d+) hours'/u.exec(
+        watchdog,
+      ),
+    ),
+  ).toBe(windowHours);
+  // Открытая отмена видна вдвое дольше окна, в котором сверка ещё шлёт Cancel.
+  expect(
+    hoursOf(
+      /requested\.recorded_at > now\(\) - interval '(\d+) hours'/u.exec(
+        paymentQuery,
+      ),
+    ),
+  ).toBe(2 * windowHours);
 });
