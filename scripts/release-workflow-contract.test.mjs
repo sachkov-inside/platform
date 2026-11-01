@@ -196,10 +196,29 @@ describe("ordinal release workflow contract", () => {
   }
 
   it("keeps permissions at the owning job", () => {
-    assertReleasePermissions(releaseWorkflow);
+    assertReleasePermissions(releaseWorkflow, releasePermissions);
+    assertReleasePermissions(
+      read(".github/workflows/telegram-release.yml"),
+      telegramReleasePermissions,
+    );
     assert.throws(
-      () => assertReleasePermissions(overprivilegedFinalize),
+      () =>
+        assertReleasePermissions(overprivilegedFinalize, releasePermissions),
       /finalize permissions differ from the release policy/u,
+    );
+  });
+
+  it("rejects review grants on the reused CI", () => {
+    assert.throws(
+      () =>
+        assertReleasePermissions(
+          releaseWorkflow.replace(
+            "    permissions:\n      contents: read\n    uses: ./.github/workflows/ci.yml",
+            "    permissions:\n      contents: read\n      pull-requests: read\n      issues: read\n    uses: ./.github/workflows/ci.yml",
+          ),
+          releasePermissions,
+        ),
+      /ci permissions differ from the release policy/u,
     );
   });
 });
@@ -250,14 +269,29 @@ function jobPermissions(workflow, job) {
   );
 }
 
-/** @param {string} workflow */
-function assertReleasePermissions(workflow) {
-  const expected = {
-    plan: { contents: "read", actions: "read" },
-    ci: { contents: "read", "pull-requests": "read", issues: "read" },
-    "build-images": { contents: "read", packages: "write" },
-    finalize: { actions: "read", contents: "write" },
-  };
+/** @typedef {Record<string, Record<string, "read" | "write">>} PermissionPolicy */
+
+/** @type {PermissionPolicy} */
+const releasePermissions = {
+  plan: { contents: "read", actions: "read" },
+  ci: { contents: "read" },
+  "build-images": { contents: "read", packages: "write" },
+  finalize: { actions: "read", contents: "write" },
+};
+
+/** @type {PermissionPolicy} */
+const telegramReleasePermissions = {
+  plan: { contents: "read", actions: "read" },
+  ci: { contents: "read" },
+  image: { contents: "read", packages: "write" },
+  publish: { contents: "write", actions: "read" },
+};
+
+/**
+ * @param {string} workflow
+ * @param {PermissionPolicy} expected
+ */
+function assertReleasePermissions(workflow, expected) {
   for (const [job, permissions] of Object.entries(expected)) {
     if (!isDeepStrictEqual(jobPermissions(workflow, job), permissions)) {
       throw new Error(`${job} permissions differ from the release policy`);
