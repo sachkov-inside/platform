@@ -115,6 +115,8 @@ async function createFixture(canonicalChatId = "-1001234567890") {
     onSourceCheck: undefined as (() => Promise<void>) | undefined,
     source: "member" as "member" | "not_member" | "unavailable",
     bindingUnavailable: false,
+    /** Platform gives no answer, as during its restart. */
+    platformSilent: false,
     ownUnavailable: false,
     author: "denied" as "allowed" | "denied" | "unavailable",
     editRejected: false,
@@ -161,6 +163,7 @@ async function createFixture(canonicalChatId = "-1001234567890") {
     },
     begin(input) {
       begins.push(input.attemptId);
+      if (state.platformSilent) return Promise.resolve(undefined);
       if (results.has(input.attemptId))
         return Promise.resolve(
           structuredClone(required(results.get(input.attemptId))),
@@ -830,6 +833,95 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(a.sent.at(-1)?.text).toContain("Курс доступен");
     await outbound.processAvailable(10, a.clock.now());
     expect(a.sent).toHaveLength(before + 1);
+  });
+
+  it("keeps a background check silent while Platform restarts and answers the person's own start", async ({
+    activation: a,
+  }) => {
+    const outbound = a.app.get(StartResponseDeliveryProcessor);
+    await a.ingress(70120, "/start a_course");
+    await outbound.processAvailable(10, a.clock.now());
+    const waiting = a.sent.length;
+    expect(a.sent.at(-1)?.text).toContain("Продолжите на платформе");
+    a.clock.value = new Date(a.clock.now().getTime() + 2000);
+    await a.worker.processAvailable();
+    a.state.platformSilent = true;
+    a.clock.value = new Date(a.clock.now().getTime() + 2000);
+    const begun = a.begins.length;
+    await a.worker.processAvailable();
+    expect(a.begins.length).toBeGreaterThan(begun);
+    await outbound.processAvailable(10, a.clock.now());
+    expect(a.sent).toHaveLength(waiting);
+    await a.ingress(70120, "/start a_course");
+    await outbound.processAvailable(10, a.clock.now());
+    expect(a.sent.slice(waiting).map((message) => message.text)).toEqual([
+      "Не удалось проверить доступ. Попробуйте ещё раз.",
+    ]);
+  });
+
+  it("repeats the account prompt for a repeated start of a waiting activation", async ({
+    activation: a,
+  }) => {
+    const outbound = a.app.get(StartResponseDeliveryProcessor);
+    await a.ingress(70121, "/start a_course");
+    await outbound.processAvailable(10, a.clock.now());
+    const first = a.sent.length;
+    a.clock.value = new Date(a.clock.now().getTime() + 60_000);
+    await a.ingress(70121, "/start a_course");
+    await outbound.processAvailable(10, a.clock.now());
+    const repeated = a.sent.slice(first);
+    expect(repeated.at(-1)?.text).toContain("Продолжите на платформе");
+    expect(repeated.at(-1)?.buttons).toContainEqual({
+      text: "Продолжить на платформе",
+      url: `https://sachkov.dev/telegram/continue?attempt=${a.begins[0]}`,
+    });
+  });
+
+  it("answers a repeated start that arrives while a background check holds the attempt", async ({
+    activation: a,
+  }) => {
+    const outbound = a.app.get(StartResponseDeliveryProcessor);
+    await a.ingress(70123, "/start a_course");
+    await outbound.processAvailable(10, a.clock.now());
+    const first = a.sent.length;
+    // An expired source proof makes the background pass check the group again.
+    a.clock.value = new Date(a.clock.now().getTime() + 301_000);
+    a.state.onSourceCheck = () => a.ingress(70123, "/start a_course");
+    await a.worker.processAvailable();
+    expect(a.state.onSourceCheck).toBeUndefined();
+    await outbound.processAvailable(10, a.clock.now());
+    expect(a.sent.slice(first).map((message) => message.text)).toEqual([
+      expect.stringContaining("Продолжите на платформе"),
+    ]);
+  });
+
+  it("edits an account prompt sent before replies were keyed per request", async ({
+    activation: a,
+  }) => {
+    const outbound = a.app.get(StartResponseDeliveryProcessor);
+    await a.ingress(70122, "/start a_course");
+    await outbound.processAvailable(10, a.clock.now());
+    const prompt = a.sent.length;
+    // Until 01.11.2026 the prompt was keyed by attempt alone.
+    await a.db
+      .updateTable("start_response_deliveries")
+      .set({ source_key: `activation:${a.begins[0]}:needs_account` })
+      .where("bot_identity", "=", a.bot)
+      .where("source_key", "like", "activation:%:needs_account:%")
+      .execute();
+    a.clock.value = new Date(a.clock.now().getTime() + 2000);
+    const begun = a.begins.length;
+    await a.worker.processAvailable();
+    expect(a.begins.length).toBeGreaterThan(begun);
+    await outbound.processAvailable(10, a.clock.now());
+    expect(a.sent).toHaveLength(prompt);
+    await a.link(70122);
+    a.clock.value = new Date(a.clock.now().getTime() + 2000);
+    await a.worker.processAvailable();
+    await outbound.processAvailable(10, a.clock.now());
+    expect(a.edited.at(-1)?.messageId).toBe(String(prompt));
+    expect(a.edited.at(-1)?.text).toContain("Курс доступен");
+    expect(a.sent).toHaveLength(prompt);
   });
 
   it("keeps a verified source proof's actual time when linking continues", async ({

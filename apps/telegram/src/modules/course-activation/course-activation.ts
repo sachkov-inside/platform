@@ -56,6 +56,11 @@ import type { ActivationTables, GroundOutcome } from "./activation-storage.js";
 import { reportFailure } from "../../shared/failure-diagnostics.js";
 
 type Attempt = Selectable<ActivationTables["activation_attempts"]>;
+/**
+ * A claimed attempt. `personWaiting` is true when a person's start or retry runs this pass and
+ * waits for its answer; a background pass stays silent about a temporary failure.
+ */
+type ClaimedAttempt = Attempt & { readonly personWaiting: boolean };
 const RETENTION = 30 * 24 * 60 * 60_000;
 const CADENCE = 60_000;
 const SOURCE_PROOF_WINDOW_MS = 300_000;
@@ -508,12 +513,15 @@ export class CourseActivation {
           })
           .where("attempt_id", "=", row.attempt_id)
           .execute();
-        return { ...row, lease_token: lease };
+        return {
+          ...row,
+          lease_token: lease,
+          personWaiting: selected !== undefined,
+        };
       });
       if (!attempt) break;
       try {
         await this.process(attempt);
-        await this.flush(`activation:${attempt.attempt_id}:needs_account`);
       } catch (error) {
         reportFailure("activation.process", error, {
           attempt_id: attempt.attempt_id,
@@ -559,7 +567,7 @@ export class CourseActivation {
     return processed;
   }
 
-  private async process(attempt: Attempt): Promise<void> {
+  private async process(attempt: ClaimedAttempt): Promise<void> {
     // An uncertain write is replayed byte-for-byte before considering new source evidence.
     if (attempt.evidence && attempt.result === null) {
       const replay = await this.platform.evidence(attempt.evidence);
@@ -667,8 +675,13 @@ export class CourseActivation {
       return;
     }
     const rule = begun.value.rule;
-    if (this.config.deliveryMode === "live") {
-      const progressKey = `activation:${attempt.attempt_id}:progress`;
+    // Only a person's request shows progress; a background pass changes no message.
+    if (this.config.deliveryMode === "live" && attempt.personWaiting) {
+      const progressKey = activationReplyKey(
+        attempt.attempt_id,
+        "progress",
+        attempt.trigger_update_id,
+      );
       await this.replies.enqueue({
         ...this.delivery(
           this.contact(attempt),
@@ -735,29 +748,47 @@ export class CourseActivation {
       return;
     }
     if (lookup.value.state === "unlinked") {
-      const editMessageId = await this.replies.deliveredMessageId(
-        `activation:${attempt.attempt_id}:progress`,
+      // Each request gets the account prompt again; a background pass only waits for the link.
+      const current = await this.db
+        .selectFrom("activation_attempts")
+        .select("trigger_update_id")
+        .where("attempt_id", "=", attempt.attempt_id)
+        .executeTakeFirst();
+      const answered = answeredUpdate(
+        attempt,
+        current?.trigger_update_id ?? attempt.trigger_update_id,
       );
-      await this.replies.enqueue({
-        ...(hasText(editMessageId) ? { editMessageId } : {}),
-        ...this.delivery(
-          this.contact(attempt),
-          `${rule.product?.name ?? "Курс"}\n\nУчастие в ${this.sourceName(rule.sourceRef)} подтверждено. Продолжите на платформе, чтобы получить доступ к курсу.`,
-        ),
-        sourceKey: `activation:${attempt.attempt_id}:needs_account`,
-        buttons: [
-          {
-            text: "Продолжить на платформе",
-            url: `https://sachkov.dev/telegram/continue?attempt=${attempt.attempt_id}`,
-          },
-          {
-            text: "Помощь",
-            callbackData: rule.product
-              ? `access:help:${rule.product.id}`
-              : "access:help",
-          },
-        ],
-      });
+      if (answered !== undefined) {
+        const editMessageId = await this.replies.deliveredMessageId(
+          activationReplyKey(attempt.attempt_id, "progress", answered),
+        );
+        const promptKey = activationReplyKey(
+          attempt.attempt_id,
+          "needs_account",
+          answered,
+        );
+        await this.replies.enqueue({
+          ...(hasText(editMessageId) ? { editMessageId } : {}),
+          ...this.delivery(
+            this.contact({ ...attempt, trigger_update_id: answered }),
+            `${rule.product?.name ?? "Курс"}\n\nУчастие в ${this.sourceName(rule.sourceRef)} подтверждено. Продолжите на платформе, чтобы получить доступ к курсу.`,
+          ),
+          sourceKey: promptKey,
+          buttons: [
+            {
+              text: "Продолжить на платформе",
+              url: `https://sachkov.dev/telegram/continue?attempt=${attempt.attempt_id}`,
+            },
+            {
+              text: "Помощь",
+              callbackData: rule.product
+                ? `access:help:${rule.product.id}`
+                : "access:help",
+            },
+          ],
+        });
+        await this.flush(promptKey);
+      }
       await this.defer(attempt, "needs_account", "needs_account", 1000);
       return;
     }
@@ -806,7 +837,7 @@ export class CourseActivation {
   }
 
   private async finish(
-    attempt: Attempt,
+    attempt: ClaimedAttempt,
     result: ActivationResult<ActivationResponse>,
     delay = CADENCE,
   ): Promise<void> {
@@ -887,13 +918,26 @@ export class CourseActivation {
       reviewBinding?.ok === true && reviewBinding.value.state === "linked"
         ? reviewBinding.value.binding.accountRef
         : undefined;
-    const editMessageId =
-      (await this.replies.deliveredMessageId(
-        `activation:${attempt.attempt_id}:needs_account`,
-      )) ??
-      (await this.replies.deliveredMessageId(
-        `activation:${attempt.attempt_id}:progress`,
-      ));
+    // The latest request's card turns into the result. Until 01.11.2026 cards were keyed by
+    // attempt alone; such a card of a still waiting attempt is edited too.
+    let editMessageId: string | undefined;
+    for (const key of [
+      activationReplyKey(
+        attempt.attempt_id,
+        "needs_account",
+        attempt.trigger_update_id,
+      ),
+      activationReplyKey(
+        attempt.attempt_id,
+        "progress",
+        attempt.trigger_update_id,
+      ),
+      activationReplyKey(attempt.attempt_id, "needs_account"),
+      activationReplyKey(attempt.attempt_id, "progress"),
+    ]) {
+      editMessageId = await this.replies.deliveredMessageId(key);
+      if (hasText(editMessageId)) break;
+    }
     await this.db.transaction().execute(async (tx) => {
       const stored = await tx
         .updateTable("activation_attempts")
@@ -946,6 +990,12 @@ export class CourseActivation {
           [{ code: attempt.code, outcome: outcomeOf(result) }],
           stored.evidence?.accountRef ?? reviewAccountRef,
         );
+      // A temporary outcome answers only a waiting person.
+      if (
+        retry &&
+        answeredUpdate(attempt, stored.trigger_update_id) === undefined
+      )
+        return;
       if (
         await this.replies.hasSource(
           `access:${attempt.bot_identity}:${stored.trigger_update_id}`,
@@ -1059,12 +1109,12 @@ export class CourseActivation {
       : {};
   }
   private async defer(
-    attempt: Attempt,
+    attempt: ClaimedAttempt,
     code: string,
     state: "retry" | "needs_account" = "retry",
     delay = CADENCE,
   ): Promise<void> {
-    await this.db
+    const stored = await this.db
       .updateTable("activation_attempts")
       .set({
         state,
@@ -1075,10 +1125,17 @@ export class CourseActivation {
       })
       .where("attempt_id", "=", attempt.attempt_id)
       .where("lease_token", "=", attempt.lease_token)
-      .execute();
-    if (state === "retry")
+      .returning("trigger_update_id")
+      .executeTakeFirst();
+    // A background pass, such as a check during a Platform restart, does not report its
+    // temporary failure.
+    const answered = answeredUpdate(
+      attempt,
+      stored?.trigger_update_id ?? attempt.trigger_update_id,
+    );
+    if (state === "retry" && answered !== undefined)
       await this.reply(
-        this.contact(attempt),
+        this.contact({ ...attempt, trigger_update_id: answered }),
         "Не удалось проверить доступ. Попробуйте ещё раз.",
         attempt.code,
       );
@@ -1234,4 +1291,30 @@ async function reschedule(
     })
     .where("attempt_id", "=", row.attempt_id)
     .execute();
+}
+/**
+ * Replies of one request: a repeated start gets its own progress and account prompt.
+ * Without an update it is the key used until 01.11.2026, one per attempt.
+ */
+function activationReplyKey(
+  attemptId: string,
+  step: "progress" | "needs_account",
+  updateId?: string,
+): string {
+  return updateId === undefined
+    ? `activation:${attemptId}:${step}`
+    : `activation:${attemptId}:${step}:${updateId}`;
+}
+/**
+ * The update a pass answers, with `currentUpdateId` read from the stored attempt. A person's
+ * pass answers it. A background pass answers only a start or retry that arrived during the
+ * pass, while it held the lease; otherwise it returns `undefined` and stays silent.
+ */
+function answeredUpdate(
+  attempt: ClaimedAttempt,
+  currentUpdateId: string,
+): string | undefined {
+  return attempt.personWaiting || currentUpdateId !== attempt.trigger_update_id
+    ? currentUpdateId
+    : undefined;
 }
