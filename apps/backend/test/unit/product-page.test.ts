@@ -149,7 +149,7 @@ describe("Product page description", () => {
   }
 
   test.each(["audience", "programme", "stack"])(
-    "a %s block holds as many items as the page size allows",
+    "a %s block accepts forty items",
     (id) => {
       const many = { ...page, blocks: [blockWithItems(id, 40)] };
       expect(productPageSchema.safeParse(many).success).toBe(true);
