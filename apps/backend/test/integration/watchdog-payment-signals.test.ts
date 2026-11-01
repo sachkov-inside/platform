@@ -293,7 +293,7 @@ function hoursOf(match: RegExpExecArray | null): number {
   return Number(match?.[1]);
 }
 
-it("derives its payment form thresholds from the payment form recheck window (#1932)", () => {
+it("keeps its payment form thresholds equal to the payment form recheck window and twice it (#1932)", () => {
   const windowHours = paymentFormRecheckMilliseconds / 3_600_000;
   // Покупка ждёт оплаты дольше окна сверки формы: банк уже должен был закрыть форму.
   expect(

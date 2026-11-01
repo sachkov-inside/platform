@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { type BillingPrisma } from "../../../../infrastructure/prisma/index.js";
 import { lifecycleWindow, refundSourceRef } from "../../domain/notice.js";
+import type { RefundBasis } from "../../domain/owner-operations.js";
 import { paymentEventKind } from "../../domain/payment-events.js";
 import { priceSnapshotSchema } from "../../domain/pricing.js";
+import type { BankStatus } from "../../infrastructure/tbank/bank-statuses.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import {
   refundTotals,
@@ -108,7 +110,7 @@ export async function acceptBankRefund(
 export async function acceptAutomaticCancelRefund(
   tx: BillingPrisma,
   purchaseRef: string,
-  returned: { readonly paymentId: string; readonly status: string },
+  returned: { readonly paymentId: string; readonly status: BankStatus },
   now: Date,
 ): Promise<void> {
   const purchase = await tx.billingPurchase.findUniqueOrThrow({
@@ -145,7 +147,7 @@ async function recordBankConfirmedRefund(
   purchase: Purchase,
   refund: {
     readonly amountKopecks: bigint;
-    readonly basis: "withdrawal" | "automatic_cancel";
+    readonly basis: Extract<RefundBasis, "withdrawal" | "automatic_cancel">;
     readonly reason: string;
     readonly paymentId: string;
     readonly observedStatus: string;
