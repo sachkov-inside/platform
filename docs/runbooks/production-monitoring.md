@@ -47,13 +47,13 @@
 | Бэкап | последний запуск `inside-pgbackrest-backup@{incr,diff,full}` не `success`; таймер не `active` | 1 |
 | Бэкап | самый свежий успешный бэкап старше 8 часов | 1 |
 | Оплата | покупка в `unknown` или `authorized` дольше 15 минут | 1 |
-| Оплата | покупка в `sent` или `pending` дольше 25 часов | 1 |
+| Оплата | покупка в `sent` или `pending` дольше 2 часов: форма живёт 60 минут, окно сверки с запасом два часа (#1932) | 1 |
 | Выдача доступа | строка `billing.fulfillment_outbox` без `applied_at` дольше 5 минут после события оплаты | 1 |
 | Письма | строка трёх `notification_outbox` без `published_at` дольше 10 минут | 1 |
 | Письма | `notifications.email_effects` в `accepted`, `retrying` или `unknown` дольше 10 минут | 1 |
 | Фоновая работа | у `billing.payment-recovery` нет `completed` за 5 минут | 2 |
 | События оплаты | в `billing.payment_events` за сутки есть событие из `reviewPaymentEventKinds` (`domain/payment-events.ts`): `duplicate_payment_review`, `payment_confirmed_after_failure`, `payment_confirmed_by_partial_refund`, `superseded_by_confirmed_payment`, `replaced_by_new_price`, `form_address_lost`, `dispatch_retired`, `bank_payment_absent`, `partial_refund_released` или `bank_cancel_returned_payment`; у каждого вида свой сигнал | 1 |
-| События оплаты | `bank_cancel_requested` старше 30 минут и моложе 48 часов без `bank_cancel_confirmed` и `bank_payment_absent` той же покупки (правило `isBankCancelOpen`) | 1 |
+| События оплаты | `bank_cancel_requested` старше 30 минут и моложе 4 часов без `bank_cancel_confirmed` и `bank_payment_absent` той же покупки (правило `isBankCancelOpen`) | 1 |
 | Оплата | у Account больше 3 неуспешных разовых покупок без PaymentId за час; сигнал считает аккаунты | 1 |
 | Бот | Telegram `/ready` не отвечает 200 | 2 |
 | Бот | `getWebhookInfo` сообщает ошибку доставки за 10 минут | 1 |
@@ -98,7 +98,7 @@ Caddy удаляет маркер у соединений вне `127.0.0.1` и 
 | Попытки сняты без адреса формы оплаты (`form_address_lost`) | проверить, что форма закрыта в банке; при всплеске проверить ответ Init и `formOrigins` терминала |
 | Покупки сняты до отправки в банк (`dispatch_retired`) | прочитать причину в `payload.reason`; деньги не списаны |
 | Частичная отмена без подтверждённой оплаты (`partial_refund_released`) | сверить сумму в кабинете банка и решить: вернуть остаток или выдать доступ; покупатель может купить снова |
-| Опоздавшая отмена вернула деньги покупателю (`bank_cancel_returned_payment`) | убедиться в кабинете банка, что возврат прошёл; если банк подтвердил оплату раньше отмены, доступ по этой попытке уже выдан, решить, оставить ли его |
+| Опоздавшая отмена вернула деньги покупателю (`bank_cancel_returned_payment`) | убедиться в кабинете банка, что возврат прошёл; полный возврат уже записан строкой истории возвратов с основанием «Автоматическая отмена Inside» (#1932); если банк подтвердил оплату раньше отмены, доступ по этой попытке уже выдан, решить, оставить ли его |
 | Отмена в банке не подтверждена | сверить покупку и при необходимости закрыть форму в кабинете банка |
 | Всплеск неуспешных покупок без PaymentId | найти покупателя по состоянию «Не прошёл» и проверить Init |
 

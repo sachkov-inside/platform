@@ -45,6 +45,7 @@ const purchase = {
   amount: 290_000,
   name: "Руководство «Стенд»",
   email: "buyer@example.test",
+  formExpiresAt: new Date("2030-01-31T11:00:00Z"),
 };
 
 describe("local bank double", () => {

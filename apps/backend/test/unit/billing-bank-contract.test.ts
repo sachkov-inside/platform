@@ -55,6 +55,7 @@ describe("concrete bank boundary", () => {
         amount: 10000,
         name: "Synthetic purchase",
         email: "buyer@example.test",
+        formExpiresAt: new Date("2030-01-31T11:00:00Z"),
       }),
     ).resolves.toMatchObject({ PaymentURL: paymentUrl, Status: "NEW" });
   });
@@ -65,6 +66,7 @@ describe("concrete bank boundary", () => {
       amount: 10000,
       name: "Synthetic purchase",
       email: "buyer@example.test",
+      formExpiresAt: new Date("2030-01-31T11:00:00Z"),
     };
     const answering = (answer: Record<string, unknown>) =>
       new Tbank(config, () =>
@@ -168,10 +170,13 @@ describe("concrete bank boundary", () => {
       amount: 10000,
       name: "Product",
       email: "buyer@example.test",
+      formExpiresAt: new Date("2030-01-31T11:00:00.750Z"),
     });
     expect(requests[0]).toMatchObject({
       SuccessURL: "https://example.test/account?purchaseRef=purchase-1442",
       FailURL: "https://example.test/account?purchaseRef=purchase-1442",
+      // Формат T-Bank YYYY-MM-DDTHH24:MI:SS+GMT без долей секунды: форма не живёт дольше срока.
+      RedirectDueDate: "2030-01-31T14:00:00+03:00",
     });
   });
   test("signature excludes nested receipt/DATA and Token, but binds all scalar fields", () => {

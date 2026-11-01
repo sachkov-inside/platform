@@ -1,3 +1,7 @@
+// Отмена формы снятой попытки в банке (#1923). Попытка, чей Init мог дойти до банка, получает
+// отметку `bank_cancel_requested`. Сверка вне транзакции отменяет её неоплаченную форму, а
+// закрывает отметку `bank_cancel_confirmed` со статусом банка или `bank_payment_absent` (#1922).
+// Правило открытой отметки задаёт `isBankCancelOpen`.
 import { z } from "zod";
 import {
   type BillingPrisma,
@@ -9,30 +13,10 @@ import {
   isBankCancelOpen,
   paymentEventKind,
 } from "../../domain/payment-events.js";
+import { closedFormStatuses } from "../../infrastructure/tbank/bank-statuses.js";
 import type { BankPayment } from "../../infrastructure/tbank/tbank.js";
 import { bankCancelNotClosedSql } from "../../shared/open-bank-cancel.js";
 import { closeAttempt, recordEventOnce } from "./attempt-closure.js";
-
-/**
- * Отмена формы снятой попытки в банке (#1923). Попытка, чей Init мог дойти до банка, получает
- * отметку `bank_cancel_requested`. Сверка вне транзакции отменяет её неоплаченную форму, а
- * закрывает отметку `bank_cancel_confirmed` со статусом банка или `bank_payment_absent` (#1922).
- * Правило открытой отметки задаёт `isBankCancelOpen`.
- */
-
-/**
- * После этих статусов форма уже не принимает оплату, и Cancel ей не нужен. `PARTIAL_REFUNDED`
- * доказывает, что форма оплачена: подтверждение такой оплаты закрывает отметку.
- */
-const closedFormStatuses: readonly BankPayment["Status"][] = [
-  "CANCELED",
-  "ATTEMPTS_EXPIRED",
-  "DEADLINE_EXPIRED",
-  "REVERSED",
-  "CONFIRMED",
-  "REFUNDED",
-  "PARTIAL_REFUNDED",
-];
 
 /**
  * Причина снятия попытки после Init. Имя причины совпадает с именем события снятия:
@@ -40,7 +24,7 @@ const closedFormStatuses: readonly BankPayment["Status"][] = [
  * `replaced_by_new_price` (покупка по другой цене, #1925) или `form_address_lost` (у неоплаченной
  * формы нет адреса, #1926). Отметка отмены хранит ту же причину.
  */
-const retirementSchema = z.discriminatedUnion("reason", [
+const formRetirementSchema = z.discriminatedUnion("reason", [
   z.object({
     reason: z.literal(paymentEventKind.supersededByConfirmedPayment),
     confirmedPurchaseRef: z.uuid(),
@@ -51,7 +35,7 @@ const retirementSchema = z.discriminatedUnion("reason", [
   }),
   z.object({ reason: z.literal(paymentEventKind.formAddressLost) }),
 ]);
-export type Retirement = z.infer<typeof retirementSchema>;
+export type FormRetirement = z.infer<typeof formRetirementSchema>;
 
 /**
  * Inside снимает неоплаченную попытку после Init: она закрывается вместе с резервом и получает
@@ -60,7 +44,7 @@ export type Retirement = z.infer<typeof retirementSchema>;
 export async function retireAttempt(
   tx: BillingPrisma,
   attemptRef: string,
-  retirement: Retirement,
+  retirement: FormRetirement,
   now: Date,
   options: { readonly paymentId?: string; readonly keepLink?: boolean } = {},
 ): Promise<void> {
@@ -75,14 +59,14 @@ export async function retireAttempt(
 export async function requireBankCancel(
   tx: BillingPrisma,
   attemptRef: string,
-  retirement: Retirement,
+  retirement: FormRetirement,
   now: Date,
 ): Promise<void> {
   await recordEventOnce(
     tx,
     attemptRef,
     paymentEventKind.bankCancelRequested,
-    retirementSchema.parse(retirement),
+    formRetirementSchema.parse(retirement),
     now,
   );
 }
@@ -91,7 +75,7 @@ export async function requireBankCancel(
 export async function findOpenBankCancel(
   tx: BillingPrisma,
   purchaseRef: string,
-): Promise<Retirement | null> {
+): Promise<FormRetirement | null> {
   const marks = await tx.billingPaymentEvent.findMany({
     where: {
       purchaseRef,
@@ -110,7 +94,7 @@ export async function findOpenBankCancel(
   );
   return required === undefined
     ? null
-    : retirementSchema.parse(required.payload);
+    : formRetirementSchema.parse(required.payload);
 }
 
 /**
@@ -139,9 +123,9 @@ export async function closeBankCancel(
 }
 
 /**
- * Снятые попытки с открытой отметкой отмены за последние сутки, чей шаг опроса уже наступил, и
- * время их отметки. Форма живёт сутки от Init, а Init уходит до отметки, поэтому окно от отметки
- * накрывает весь срок формы. Попытка без PaymentId тоже входит: ответ её Init мог потеряться, и
+ * Снятые попытки с открытой отметкой отмены не раньше `markedSince`, чей шаг опроса уже наступил,
+ * и время их отметки. Вызывающий отсчитывает `markedSince` окном сверки формы: срок формы идёт от
+ * Init, а Init уходит до отметки, поэтому окно от отметки накрывает весь срок формы. Попытка без PaymentId тоже входит: ответ её Init мог потеряться, и
  * платёж ищет CheckOrder. Не больше `limit`.
  */
 export async function openRetiredForms(

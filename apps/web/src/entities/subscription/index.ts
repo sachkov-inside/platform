@@ -45,7 +45,7 @@ export {
   type PaymentMode,
   type PriceSnapshot,
   type PurchaseStatus,
-  type RetirementReason,
+  type PurchaseRetirementReason,
   type VerifiedContact,
 } from "./model/billing-contract";
 export {

@@ -207,7 +207,7 @@ it("counts open bank cancellations and failed bursts", async () => {
   await event(closed, "bank_cancel_requested", "40 minutes");
   await event(closed, "bank_cancel_confirmed", "20 minutes");
   await event(fresh, "bank_cancel_requested", "10 minutes");
-  await event(expired, "bank_cancel_requested", "50 hours");
+  await event(expired, "bank_cancel_requested", "5 hours");
 
   // Burst: four failed one-time purchases without PaymentId within the hour for one Account.
   const burst = randomUUID();

@@ -79847,7 +79847,8 @@
                                   "basis": {
                                     "enum": [
                                       "withdrawal",
-                                      "compensation"
+                                      "compensation",
+                                      "automatic_cancel"
                                     ],
                                     "nullable": true,
                                     "type": "string"
@@ -81012,7 +81013,8 @@
                                   "basis": {
                                     "enum": [
                                       "withdrawal",
-                                      "compensation"
+                                      "compensation",
+                                      "automatic_cancel"
                                     ],
                                     "nullable": true,
                                     "type": "string"

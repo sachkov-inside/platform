@@ -40,13 +40,15 @@ export function isQuotedPurchase(kind: AttemptKind): boolean {
  * - `unsupported_attempt`: попытка сохранена по условиям, которые разовая покупка не отправляет.
  * Init не уходил, поэтому денег банк не брал.
  */
-export const retirementReasonSchema = z.enum([
+export const dispatchRetirementReasonSchema = z.enum([
   "sale_closed",
   "price_unavailable",
   "already_owned",
   "unsupported_attempt",
 ]);
-export type RetirementReason = z.infer<typeof retirementReasonSchema>;
+export type DispatchRetirementReason = z.infer<
+  typeof dispatchRetirementReasonSchema
+>;
 
 /**
  * Почему Inside сняла покупку до оплаты, как её видит покупатель: одна из причин снятия до
@@ -55,6 +57,6 @@ export type RetirementReason = z.infer<typeof retirementReasonSchema>;
  * снята, деньги не списаны, а неоплаченную форму в банке отменяет сверка.
  */
 export const purchaseRetirementReasonSchema = z.enum([
-  ...retirementReasonSchema.options,
+  ...dispatchRetirementReasonSchema.options,
   paymentEventKind.formAddressLost,
 ]);

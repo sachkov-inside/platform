@@ -148,7 +148,7 @@ export const attemptStateSchema = z.enum([
  * `form_address_lost`: Init ушёл, но адреса формы оплаты нет; сервер снял попытку и отменяет её
  * неоплаченную форму в банке (#1926).
  */
-export const retirementReasonSchema = z.enum([
+export const purchaseRetirementReasonSchema = z.enum([
   "sale_closed",
   "price_unavailable",
   "already_owned",
@@ -266,7 +266,7 @@ export const purchaseStatusSchema = z.object({
   confirmedAt: z.iso.datetime().nullable(),
   periodEndsAt: z.iso.datetime().nullable(),
   // Ответ без поля читается как покупка, которую не снимали.
-  retirementReason: retirementReasonSchema.nullable().default(null),
+  retirementReason: purchaseRetirementReasonSchema.nullable().default(null),
 });
 export const quoteSchema = z.object({
   quoteRef: z.uuid(),
@@ -322,7 +322,9 @@ export type BillingPaymentOption = z.infer<typeof paymentOptionSchema>;
 export type PriceSnapshot = z.infer<typeof priceSnapshotSchema>;
 export type OffersPage = z.infer<typeof offersPageSchema>;
 export type AttemptState = z.infer<typeof attemptStateSchema>;
-export type RetirementReason = z.infer<typeof retirementReasonSchema>;
+export type PurchaseRetirementReason = z.infer<
+  typeof purchaseRetirementReasonSchema
+>;
 export type NoticeView = z.infer<typeof noticeViewSchema>;
 export type NoticeKind = z.infer<typeof noticeKindSchema>;
 export type CurrentBilling = z.infer<typeof currentBillingSchema>;

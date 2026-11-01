@@ -3,7 +3,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { CoverageCatalog } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { BillingPayments } from "../../src/modules/billing/index.js";
-import type { RetirementReason } from "../../src/modules/billing/domain/payment-attempt.js";
+import type { DispatchRetirementReason } from "../../src/modules/billing/domain/payment-attempt.js";
 import { warnings } from "./setup/log-lines.js";
 import {
   createProductCommerceWorld,
@@ -61,7 +61,7 @@ async function interruptedPurchase(s: Scenario): Promise<string> {
 async function expectRetirement(
   s: Scenario,
   purchaseRef: string,
-  reason: RetirementReason,
+  reason: DispatchRetirementReason,
   lines: readonly unknown[],
 ): Promise<void> {
   expect(s.initCalls()).toBe(0);
@@ -87,7 +87,7 @@ async function expectRetirement(
 
 const closures: readonly {
   readonly closure: string;
-  readonly reason: RetirementReason;
+  readonly reason: DispatchRetirementReason;
   readonly close: (s: Scenario) => Promise<void>;
 }[] = [
   {

@@ -1,4 +1,8 @@
 import {
+  name as automaticCancelRefundName,
+  statement as automaticCancelRefundStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0118-automatic-cancel-refund.js";
+import {
   name as purchaseBankRecheckName,
   statement as purchaseBankRecheckStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0117-purchase-bank-recheck.js";
@@ -759,6 +763,10 @@ export const platformMigrations = [
   {
     name: purchaseBankRecheckName,
     statement: purchaseBankRecheckStatement,
+  },
+  {
+    name: automaticCancelRefundName,
+    statement: automaticCancelRefundStatement,
   },
 ] as const;
 

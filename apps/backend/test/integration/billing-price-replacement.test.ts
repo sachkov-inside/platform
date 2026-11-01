@@ -90,6 +90,7 @@ test("a Payment Link purchase replaces the open storefront attempt and cancels i
     paymentUrl: null,
   });
   expect(await eventPayloads(storefront.purchaseRef)).toEqual({
+    form_address_received: {},
     bank_cancel_requested: {
       reason: "replaced_by_new_price",
       replacementPurchaseRef: replacement.purchaseRef,
@@ -192,7 +193,9 @@ test("a new storefront quote at the same price continues the open attempt withou
   expect(repeated.purchaseRef).toBe(first.purchaseRef);
   expect(repeated.paymentUrl).toBe(first.paymentUrl);
   expect(s.initCalls()).toBe(1);
-  expect(await eventPayloads(first.purchaseRef)).toEqual({});
+  expect(await eventPayloads(first.purchaseRef)).toEqual({
+    form_address_received: {},
+  });
 });
 
 test("a promo code price replaces the open storefront attempt at the full price", async () => {
@@ -279,7 +282,9 @@ test("an authorized open attempt is not replaced by another price", async () => 
     paymentUrl: null,
   });
   expect(s.initCalls()).toBe(1);
-  expect(await eventPayloads(storefront.purchaseRef)).toEqual({});
+  expect(await eventPayloads(storefront.purchaseRef)).toEqual({
+    form_address_received: {},
+  });
 });
 
 test("a replacement whose new reservation fails leaves the open attempt untouched", async () => {
@@ -301,7 +306,9 @@ test("a replacement whose new reservation fails leaves the open attempt untouche
   expect(await attemptRow(storefront.purchaseRef)).toMatchObject({
     state: "pending",
   });
-  expect(await eventPayloads(storefront.purchaseRef)).toEqual({});
+  expect(await eventPayloads(storefront.purchaseRef)).toEqual({
+    form_address_received: {},
+  });
   expect(
     await world.db.prisma.billingPurchase.count({
       where: { accountId: s.buyer },
@@ -326,7 +333,9 @@ test("an open form the bank cannot check yet is neither replaced nor offered at 
   });
   expect(s.initCalls()).toBe(1);
   expect((await attemptRow(storefront.purchaseRef)).state).toBe("pending");
-  expect(await eventPayloads(storefront.purchaseRef)).toEqual({});
+  expect(await eventPayloads(storefront.purchaseRef)).toEqual({
+    form_address_received: {},
+  });
 
   // The same command succeeds once the bank answers again.
   s.afterState(undefined);

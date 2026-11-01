@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 import type { TbankConfig } from "../../../../config/tbank-config.js";
 import { writeLog } from "../../../../infrastructure/observability/index.js";
+import { bankStatusSchema, unpaidFormStatuses } from "./bank-statuses.js";
 
 export const bankTimeoutMs = 10_000;
 /** Ответ CheckOrder на заказ без единого платежа у этого терминала. */
@@ -17,52 +18,12 @@ const orderNotFoundSchema = z.object({
 });
 const reference = z.union([z.string().min(1).max(64), z.int().nonnegative()]);
 const success = z.union([z.boolean(), z.enum(["true", "false"])]);
-/**
- * Все 23 статуса платежа из справочника T-Bank на 31.10.2026 и `RECEIPT`:
- * https://developer.tbank.ru/eacq/intro/developer/operation-statuses
- * `RECEIPT` не входит в справочник: это уведомление о чеке, а не о платеже.
- */
-export const bankPaymentStatuses = [
-  "RECEIPT",
-  "NEW",
-  "FORM_SHOWED",
-  "ATTEMPTS_EXPIRED",
-  "DEADLINE_EXPIRED",
-  "CANCELED",
-  "PREAUTHORIZING",
-  "3DS_CHECKING",
-  "3DS_CHECKED",
-  "AUTHORIZING",
-  "PAY_CHECKING",
-  "AUTHORIZED",
-  "AUTH_FAIL",
-  "REJECTED",
-  "CONFIRMING",
-  "CONFIRM_CHECKING",
-  "CONFIRMED",
-  "REVERSING",
-  "PARTIAL_REVERSED",
-  "REVERSED",
-  "REFUNDING",
-  "ASYNC_REFUNDING",
-  "PARTIAL_REFUNDED",
-  "REFUNDED",
-] as const;
-/**
- * Подписанный статус вне справочника: банк может добавить новый статус раньше, чем Inside. Такой
- * статус принимается, а покупка уходит на сверку. Он состоит, как статусы справочника, из заглавных
- * латинских букв, цифр и `_` и не длиннее 64 символов.
- */
-const unrecognizedStatusSchema = z
-  .string()
-  .regex(/^[A-Z0-9_]{1,64}$/u)
-  .brand<"UnrecognizedBankStatus">();
 const bankPaymentInputSchema = z.object({
   TerminalKey: z.string().min(1).max(64),
   OrderId: z.string().min(1).max(50),
   PaymentId: reference,
   Amount: z.int().nonnegative(),
-  Status: z.union([z.enum(bankPaymentStatuses), unrecognizedStatusSchema]),
+  Status: bankStatusSchema,
   Success: success,
   ErrorCode: z.string(),
   RebillId: reference.optional(),
@@ -79,26 +40,6 @@ export const bankPaymentSchema = bankPaymentInputSchema.transform(
   }),
 );
 export type BankPayment = z.infer<typeof bankPaymentSchema>;
-export type BankPaymentStatus = (typeof bankPaymentStatuses)[number];
-export function isRecognizedBankStatus(
-  status: BankPayment["Status"],
-): status is BankPaymentStatus {
-  return (bankPaymentStatuses as readonly string[]).includes(status);
-}
-export const refundTerminalStatuses = [
-  "REFUNDED",
-  "PARTIAL_REFUNDED",
-  "REVERSED",
-  "PARTIAL_REVERSED",
-] as const;
-/**
- * Статусы неоплаченной формы. Только у них Cancel закрывает форму без движения денег
- * (решение владельца 31.10.2026, #1921): https://developer.tbank.ru/eacq/api/cancel
- */
-export const unpaidFormStatuses: readonly BankPayment["Status"][] = [
-  "NEW",
-  "FORM_SHOWED",
-];
 const bankCancelSchema = z
   .object({
     TerminalKey: z.string().min(1).max(64),
@@ -218,6 +159,18 @@ export function validatedPaymentUrl(
   return url.toString();
 }
 
+const moscowOffsetMilliseconds = 3 * 60 * 60_000;
+/**
+ * Срок формы оплаты для Init в формате T-Bank `YYYY-MM-DDTHH24:MI:SS+GMT`. Банк принимает срок
+ * от 1 минуты до 90 дней от текущей даты: https://developer.tbank.ru/eacq/api/init
+ * Смещение `+03:00` повторяет пример документации: у Москвы постоянное смещение от UTC. Доли
+ * секунды отбрасываются, поэтому форма закрывается не позже переданного мгновения.
+ */
+export function redirectDueDate(at: Date): string {
+  const moscow = new Date(at.getTime() + moscowOffsetMilliseconds);
+  return `${moscow.toISOString().slice(0, 19)}+03:00`;
+}
+
 /**
  * Узкий шов исходящего запроса к банку. Он описывает ровно то, что нужно адаптеру, поэтому
  * подходит и встроенный `fetch`, и клиент с собственным корневым сертификатом.
@@ -247,6 +200,8 @@ export class Tbank {
     name: string;
     email: string;
     returnPath?: string;
+    /** Когда банк закроет форму оплаты: `RedirectDueDate`. */
+    formExpiresAt: Date;
   }): Promise<BankPayment & { PaymentURL: string }> {
     const base = new URL(this.config.returnUrl);
     const returnUrl =
@@ -269,6 +224,7 @@ export class Tbank {
       CustomerKey: input.accountId,
       PayType: "O",
       DATA: { OperationInitiatorType: "0" },
+      RedirectDueDate: redirectDueDate(input.formExpiresAt),
       SuccessURL: returnUrl.toString(),
       FailURL: returnUrl.toString(),
       NotificationURL: this.config.notificationUrl,

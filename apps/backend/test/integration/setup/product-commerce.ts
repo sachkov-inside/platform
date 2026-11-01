@@ -239,6 +239,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     /** Суммы, с которыми Init может прийти: цена расчёта сценария и цены, разрешённые тестом. */
     const initAmounts = new Set([quote.snapshot.firstPriceKopecks]);
     const cancelRequests: Record<string, unknown>[] = [];
+    const initRequests: Record<string, unknown>[] = [];
     const paymentStatus = (id: string) =>
       bankPayments.get(id)?.status ?? status;
     // Сумма платежа та, с которой его создал Init; платёж вне банка несёт цену расчёта сценария.
@@ -267,6 +268,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         .loose()
         .parse(JSON.parse(init.body));
       if (url.endsWith("/Init")) {
+        initRequests.push(body);
         const failure = initFailure;
         initFailure = undefined;
         // Запрос не дошёл до банка: банк не видел заказ и не создал платёж.
@@ -448,6 +450,8 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         known.status = next;
       },
       cancelRequests: () => [...cancelRequests],
+      /** Тела запросов Init в порядке отправки, в том числе тех, что не дошли до банка. */
+      initRequests: () => [...initRequests],
       /** Init может прийти и с этой суммой: например, с ценой ссылки на оплату. */
       allowInitAmount: (amount: number) => {
         initAmounts.add(amount);

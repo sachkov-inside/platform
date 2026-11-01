@@ -32,8 +32,8 @@ import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import {
   attemptKindSchema,
   isQuotedPurchase,
-  retirementReasonSchema,
-  type RetirementReason,
+  dispatchRetirementReasonSchema,
+  type DispatchRetirementReason,
 } from "../../domain/payment-attempt.js";
 import {
   partialRefundObservedKindPrefix,
@@ -49,7 +49,10 @@ import {
   saleCapability,
   type SaleCapability,
 } from "../../domain/sale-capability.js";
-import { acceptBankRefund } from "../../features/accept-bank-refund/accept-bank-refund.js";
+import {
+  acceptAutomaticCancelRefund,
+  acceptBankRefund,
+} from "../../features/accept-bank-refund/accept-bank-refund.js";
 import {
   ownPaymentSchema,
   type OwnPayment,
@@ -67,10 +70,17 @@ import {
   reservePurchaseInTransaction,
 } from "../../features/reserve-purchase/reserve-purchase.js";
 import {
-  bankTimeoutMs,
+  bankStatusIn,
+  declinedStatuses,
+  fullReturnStatuses,
   isRecognizedBankStatus,
+  partialReturnStatuses,
   refundTerminalStatuses,
+  undecidedStatuses,
   unpaidFormStatuses,
+} from "../../infrastructure/tbank/bank-statuses.js";
+import {
+  bankTimeoutMs,
   validatedPaymentUrl,
   type BankPayment,
   type Tbank,
@@ -100,24 +110,38 @@ import {
 
 const inFlightStates = ["prepared", "sent", "unknown", "pending", "authorized"];
 /**
- * Отказ банка по форме оплаты не окончателен: покупатель может выбрать на той же форме другой
- * способ, и тот же PaymentId придёт подтверждённым. Сверка спрашивает банк о таком платеже ещё
- * сутки после создания покупки. Init уходит сразу после создания и не передаёт RedirectDueDate,
- * поэтому форма живёт срок банка по умолчанию, 24 часа: https://developer.tbank.ru/eacq/api/init
+ * Срок формы оплаты: Init передаёт `RedirectDueDate` через 60 минут после отправки (#1932). Без
+ * этого параметра срок задаёт настройка терминала `REDIRECT_TIMEOUT`, а по умолчанию это сутки:
+ * https://developer.tbank.ru/eacq/api/init Истёкшую форму банк закрывает статусом
+ * `DEADLINE_EXPIRED`, и попытка закрывается как после отказа.
  */
-export const declinedPaymentRecheckMilliseconds = 24 * 60 * 60 * 1000;
+export const paymentFormLifetimeMilliseconds = 60 * 60_000;
+/**
+ * Запас окна сверки сверх срока формы. Он покрывает три задержки: Init уходит после создания
+ * покупки или раньше снятия попытки (зависшую `prepared` сверка отправляет на следующем проходе),
+ * оплата, начатая до срока, проходит авторизацию и 3DS уже после него, а часы Inside и банка
+ * расходятся.
+ */
+const paymentFormMarginMilliseconds = 60 * 60_000;
+/**
+ * Окно сверки формы, которая ещё может принять оплату. Отказ банка не окончателен: покупатель
+ * может выбрать на той же форме другой способ, и тот же PaymentId придёт подтверждённым. Сверка
+ * спрашивает банк о такой форме это время после создания покупки, а о форме снятой попытки это
+ * время после отметки отмены. Позже форма уже закрыта сроком `RedirectDueDate`.
+ */
+export const paymentFormRecheckMilliseconds =
+  paymentFormLifetimeMilliseconds + paymentFormMarginMilliseconds;
 /**
  * Убывающий опрос формы, которая ещё может принять оплату: после отказа банка или у снятой
  * попытки, чью форму нужно отменить (#1929). Чем дольше форма живёт без оплаты, тем реже сверка
- * о ней спрашивает: раз в минуту первые 10 минут, раз в 5 минут до часа, раз в 15 минут до
- * 4 часов, затем раз в час до конца окна. За сутки это около 50 запросов вместо 1440.
+ * о ней спрашивает: раз в минуту первые 10 минут, раз в 5 минут до часа, затем раз в 15 минут до
+ * конца окна `paymentFormRecheckMilliseconds`. За окно это около 24 запросов вместо 120.
  */
 const bankRecheckSteps = [
   { ageBelowMilliseconds: 10 * 60_000, everyMilliseconds: 60_000 },
   { ageBelowMilliseconds: 60 * 60_000, everyMilliseconds: 5 * 60_000 },
-  { ageBelowMilliseconds: 4 * 60 * 60_000, everyMilliseconds: 15 * 60_000 },
 ] as const;
-const finalBankRecheckEveryMilliseconds = 60 * 60_000;
+const finalBankRecheckEveryMilliseconds = 15 * 60_000;
 /**
  * Срок, после которого попытка без адреса формы оплаты снимается (#1926). Адрес приходит только
  * в ответе Init, а GetState его не возвращает: если ответ потерян или адрес не прошёл проверку
@@ -151,7 +175,7 @@ export function recoveryBudgetMilliseconds(jobDeadlineSeconds: number): number {
  */
 const supersedableStates = ["prepared", "sent", "pending"];
 const dispatchRetiredPayloadSchema = z.object({
-  reason: retirementReasonSchema,
+  reason: dispatchRetirementReasonSchema,
 });
 /**
  * Открытая попытка с PaymentId, о форме которой покупка по другой цене спрашивает банк (#1925).
@@ -163,35 +187,6 @@ const partialRefundObservationSchema = z.object({
   status: z.string(),
   paymentId: z.string().min(1),
 });
-/** Отказ банка по попытке. Тот же PaymentId ещё может прийти подтверждённым. */
-const declinedStatuses: readonly BankPayment["Status"][] = [
-  "REJECTED",
-  "AUTH_FAIL",
-  "CANCELED",
-  "ATTEMPTS_EXPIRED",
-  "DEADLINE_EXPIRED",
-  "REVERSED",
-];
-/**
- * Частичный возврат подтверждённого (`PARTIAL_REFUNDED`) или авторизованного (`PARTIAL_REVERSED`)
- * платежа. Его Amount не равен сумме покупки и не доказывает сумму возврата.
- */
-const partialReturnStatuses: readonly BankPayment["Status"][] = [
-  "PARTIAL_REFUNDED",
-  "PARTIAL_REVERSED",
-];
-/**
- * Банк ещё не решил исход операции: деньги могли уже двигаться, поэтому покупка ждёт сверки.
- * `PAY_CHECKING` и `CONFIRM_CHECKING` банк ставит, когда сам не знает исход авторизации:
- * https://developer.tbank.ru/eacq/intro/developer/operation-statuses
- */
-const undecidedStatuses: readonly BankPayment["Status"][] = [
-  "PAY_CHECKING",
-  "CONFIRM_CHECKING",
-  "REVERSING",
-  "REFUNDING",
-  "ASYNC_REFUNDING",
-];
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Кабинет показывает обозримую историю; полный журнал платежей остаётся владельческой операцией.
 const ownPaymentHistoryLimit = 50;
@@ -1073,7 +1068,7 @@ export class BillingPayments {
       let idle = bank === undefined;
       const now = this.clock();
       const windowStart = new Date(
-        now.getTime() - declinedPaymentRecheckMilliseconds,
+        now.getTime() - paymentFormRecheckMilliseconds,
       );
       const retiredForms =
         bank === undefined
@@ -1378,14 +1373,16 @@ export class BillingPayments {
   /**
    * Снятая в Inside попытка с открытой отметкой отмены и неоплаченной формой отменяется в банке.
    * Запрос идёт вне транзакции. Если отмена не удалась, сверка повторяет её, пока банк не
-   * подтвердит `CANCELED`, а восстановление спрашивает банк о такой попытке сутки после отметки.
+   * подтвердит `CANCELED`, а восстановление спрашивает банк о такой попытке в течение
+   * `paymentFormRecheckMilliseconds` после отметки.
    * Если покупатель успел оплатить форму, оплата принимается обычным путём и отмечается как
    * вторая. Если он оплатил её между GetState и Cancel, банк вернёт деньги: это фиксирует
-   * `bank_cancel_returned_payment`. Если это событие записано раньше подтверждения оплаты,
+   * `bank_cancel_returned_payment`, а полный возврат ещё и строка истории возвратов с основанием
+   * `automatic_cancel` (#1932). Если это событие записано раньше подтверждения оплаты,
    * попытка остаётся неуспешной и доступа не даёт. Если банк прислал `CONFIRMED` раньше, чем
    * обработал Cancel, покупка уже подтверждена и доступ выдан, а отметку закрыло само
    * подтверждение (`bank_cancel_confirmed` со статусом `CONFIRMED`): возврат виден владельцу
-   * только по событию и сигналу сторожа, решение о доступе за ним. В первом случае следующая
+   * по событию, сигналу сторожа и строке возврата, решение о доступе за ним. В первом случае следующая
    * сверка записывает возврат в `bank_cancel_confirmed`.
    */
   private async cancelRetiredForm(
@@ -1418,7 +1415,7 @@ export class BillingPayments {
       !result.Success ||
       result.ErrorCode !== "0" ||
       (result.Status !== "CANCELED" &&
-        !(refundTerminalStatuses as readonly string[]).includes(result.Status))
+        !bankStatusIn(refundTerminalStatuses, result.Status))
     )
       return dependencyFailure(
         { module: "billing", operation: "reconcile" },
@@ -1440,6 +1437,14 @@ export class BillingPayments {
         );
         return;
       }
+      if (
+        await hasEvent(
+          tx,
+          purchaseRef,
+          paymentEventKind.bankCancelReturnedPayment,
+        )
+      )
+        return;
       await recordEventOnce(
         tx,
         purchaseRef,
@@ -1447,6 +1452,15 @@ export class BillingPayments {
         { paymentId: result.PaymentId, status: result.Status },
         now,
       );
+      // Полный возврат пишется строкой истории возвратов (#1932). Частичный статус суммы не
+      // доказывает: его разбирает владелец по событию, как любое частичное наблюдение.
+      if (bankStatusIn(fullReturnStatuses, result.Status))
+        await acceptAutomaticCancelRefund(
+          tx,
+          purchaseRef,
+          { paymentId: result.PaymentId, status: result.Status },
+          now,
+        );
     });
     return { ok: true, value: true };
   }
@@ -1486,7 +1500,7 @@ export class BillingPayments {
       // Prepared proves Init has not been sent: retirement releases the reservation and takes no
       // money. The event marks the retirement in the owner's payment card; its reason reaches
       // the buyer through the purchase status and the owner through the log line.
-      const retire = async (reason: RetirementReason) => {
+      const retire = async (reason: DispatchRetirementReason) => {
         await closeAttempt(tx, attemptRef, this.clock(), {
           event: {
             kind: paymentEventKind.dispatchRetired,
@@ -1594,6 +1608,9 @@ export class BillingPayments {
         amount: Number(row.amountKopecks),
         name: snapshot.offer.name,
         email,
+        formExpiresAt: new Date(
+          this.clock().getTime() + paymentFormLifetimeMilliseconds,
+        ),
         ...(snapshot.individualPayment !== undefined
           ? {
               returnPath: `/payment/links/${snapshot.individualPayment.linkId}`,
@@ -1686,28 +1703,19 @@ export class BillingPayments {
               where: { id: row.id },
               data: { fiscalization },
             });
-          const kind = `fiscalization_${fiscalization}`;
-          if (
-            !(await tx.billingPaymentEvent.findUnique({
-              where: { purchaseRef_kind: { purchaseRef: row.id, kind } },
-            }))
-          ) {
-            const observedAt = this.clock();
-            await tx.billingPaymentEvent.create({
-              data: {
-                id: randomUUID(),
-                purchaseRef: row.id,
-                kind,
-                payload: {
-                  paymentId: payment.PaymentId,
-                  amountKopecks: payment.Amount,
-                  errorCode: payment.ErrorCode,
-                },
-                occurredAt: observedAt,
-                recordedAt: observedAt,
-              },
-            });
-          }
+          await recordEventOnce(
+            tx,
+            row.id,
+            fiscalization === "confirmed"
+              ? paymentEventKind.fiscalizationConfirmed
+              : paymentEventKind.fiscalizationFailed,
+            {
+              paymentId: payment.PaymentId,
+              amountKopecks: payment.Amount,
+              errorCode: payment.ErrorCode,
+            },
+            now,
+          );
           return { ok: true, value: true };
         }
         if (partialReturnStatuses.includes(payment.Status)) {
@@ -1820,7 +1828,8 @@ export class BillingPayments {
           paymentId: payment.PaymentId,
           updatedAt: now,
         };
-        // Адреса формы у Inside нет, и GetState его не вернёт: неоплаченная форма снимается (#1926).
+        // Адреса формы у Inside нет и не было, а GetState его не вернёт: неоплаченная форма
+        // снимается (#1926). Отметка получения адреса постоянна (#1932).
         const formAddressLost =
           kind === "one_time" &&
           formAddressAwaitedStates.includes(row.state) &&
@@ -1828,7 +1837,8 @@ export class BillingPayments {
           !hasText(paymentUrl) &&
           unpaidFormStatuses.includes(payment.Status) &&
           now.getTime() - row.createdAt.getTime() >=
-            lostFormAddressMilliseconds;
+            lostFormAddressMilliseconds &&
+          !(await hasEvent(tx, row.id, paymentEventKind.formAddressReceived));
         // Отметку без снятия получает только попытка с неизвестным исходом.
         const cancelMark =
           row.state === "unknown" &&
@@ -1865,10 +1875,11 @@ export class BillingPayments {
           payment.ErrorCode !== "0"
         ) {
           // An undecided, unrecognized or contradictory bank state requires reconciliation,
-          // never a new charge.
+          // never a new charge. The stored form address stays: the form may still be payable,
+          // and `status` hides it while the outcome is unknown (#1932).
           await tx.billingPurchase.update({
             where: { id: row.id },
-            data: { ...common, state: "unknown", paymentUrl: null },
+            data: { ...common, state: "unknown" },
           });
         } else if (cancelMark !== null) {
           // Попытку с неизвестным исходом снимает только ответ банка о неоплаченной форме.
@@ -1885,26 +1896,37 @@ export class BillingPayments {
             paymentId: payment.PaymentId,
           });
         } else {
+          // Удержанные деньги закрывают форму. Промежуточный статус (3DS, авторизация) адрес не
+          // стирает: банк может вернуть покупателя на ту же форму (#1932).
           const authorized =
             row.state === "authorized" || payment.Status === "AUTHORIZED";
-          const payable = unpaidFormStatuses.includes(payment.Status);
+          const receivedUrl =
+            hasText(paymentUrl) &&
+            !authorized &&
+            unpaidFormStatuses.includes(payment.Status)
+              ? validatedPaymentUrl(
+                  paymentUrl,
+                  bank.config.endpoints.formOrigins,
+                  row.id,
+                )
+              : null;
           await tx.billingPurchase.update({
             where: { id: row.id },
             data: {
               ...common,
               state: authorized ? "authorized" : "pending",
-              ...(!payable || authorized ? { paymentUrl: null } : {}),
-              ...(hasText(paymentUrl) && !authorized && payable
-                ? {
-                    paymentUrl: validatedPaymentUrl(
-                      paymentUrl,
-                      bank.config.endpoints.formOrigins,
-                      row.id,
-                    ),
-                  }
-                : {}),
+              ...(authorized ? { paymentUrl: null } : {}),
+              ...(receivedUrl === null ? {} : { paymentUrl: receivedUrl }),
             },
           });
+          if (receivedUrl !== null)
+            await recordEventOnce(
+              tx,
+              row.id,
+              paymentEventKind.formAddressReceived,
+              {},
+              now,
+            );
         }
         return { ok: true, value: true };
       });
@@ -2031,9 +2053,9 @@ interface ReplaceableAttempt {
  * `continue`. При другой цене (#1925) попытку `prepared` Init ещё не создал, и она снимается. Попытку `pending`
  * снимает только ответ банка о неоплаченной форме, полученный перед транзакцией. Если банк этого
  * не подтвердил, а у попытки есть или вот-вот появится форма по прежней цене (`sent` или `pending`
- * со ссылкой формы), ответ `unverified`. Удержанная попытка, попытка с неизвестным исходом и
- * `pending`, чью форму банк уже не принимает к оплате, получают `continue`: покупатель видит их
- * статус.
+ * со ссылкой формы), ответ `unverified`. Сюда входит и форма в 3DS или авторизации: банк может
+ * вернуть покупателя на неё (#1932). Удержанная попытка, попытка с неизвестным исходом и `pending`
+ * без адреса формы получают `continue`: покупатель видит их статус.
  * Вызывающий держит замок цен.
  */
 async function decideOpenAttempt(

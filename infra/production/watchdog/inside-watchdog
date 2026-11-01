@@ -231,12 +231,13 @@ check_backup() {
 
 # Путь покупателя в базе Platform. Запрос только читает: транзакция read-only и с ограничением времени.
 # «sent» — покупатель получил ссылку на оплату; сверка переводит её в «pending», пока банк отвечает
-# NEW или FORM_SHOWED. Брошенную оплату банк закрывает после истечения ссылки, поэтому порог этих двух
-# состояний — сутки и час, а не 15 минут.
+# NEW или FORM_SHOWED. Брошенную оплату банк закрывает после истечения ссылки: Init передаёт
+# RedirectDueDate через 60 минут (#1932). Порог этих двух состояний — окно сверки формы, два часа
+# (paymentFormRecheckMilliseconds в billing-payments.ts: срок формы и час запаса), а не 15 минут.
 read -r -d '' platform_query <<'SQL' || true
 select 'purchases', count(*) from billing.purchases
  where (state in ('unknown', 'authorized') and created_at < now() - interval '15 minutes')
-    or (state in ('sent', 'pending') and created_at < now() - interval '25 hours')
+    or (state in ('sent', 'pending') and created_at < now() - interval '2 hours')
 union all
 select 'fulfillment', count(*) from billing.fulfillment_outbox f
   left join billing.payment_events e on e.id = f.event_ref
@@ -271,8 +272,8 @@ SQL
 # опоздавший Cancel. Каждый вид считается за сутки своим сигналом: новое событие поднимает число и
 # даёт строку «Хуже». Открытую отмену в банке задаёт правило isBankCancelOpen того же файла:
 # bank_cancel_requested без bank_cancel_confirmed и без bank_payment_absent. Сигнал ждёт 30 минут
-# после запроса. Форма банка живёт 24 часа, поэтому запрос старше 48 часов уже не держит деньги
-# покупателя. Всплеск: больше 3 неуспешных разовых покупок без PaymentId у одного Account за час;
+# после запроса. Форма банка живёт 60 минут, а сверка спрашивает о ней два часа после запроса
+# (#1932). Сигнал держит запрос вдвое дольше, 4 часа: старше он уже не держит деньги покупателя. Всплеск: больше 3 неуспешных разовых покупок без PaymentId у одного Account за час;
 # строка считает аккаунты. watchdog-payment-signals.test.ts сверяет запрос с payment-events.ts.
 read -r -d '' payment_query <<'SQL' || true
 select 'payment_duplicate', count(*) from billing.payment_events
@@ -308,7 +309,7 @@ union all
 select 'payment_cancel_open', count(*) from billing.payment_events requested
  where requested.kind = 'bank_cancel_requested'
    and requested.recorded_at < now() - interval '30 minutes'
-   and requested.recorded_at > now() - interval '48 hours'
+   and requested.recorded_at > now() - interval '4 hours'
    and not exists (
      select 1 from billing.payment_events closed
       where closed.purchase_ref = requested.purchase_ref

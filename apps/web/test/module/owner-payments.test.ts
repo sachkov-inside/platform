@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { PaymentView } from "@/features/owner-payments/model/payment-contract";
+import {
+  refundDecisionViewSchema,
+  type PaymentView,
+} from "@/features/owner-payments/model/payment-contract";
 import {
   emptyPaymentsQuery,
   hasPaymentsFilters,
@@ -24,6 +27,7 @@ import {
   paymentStateBadge,
   paymentStateLabels,
   refundAmountText,
+  refundBasisLabels,
 } from "@/features/owner-payments/model/payment-presentation";
 import { paymentsFilterChips } from "@/features/owner-payments/ui/payment-filters.client";
 import {
@@ -216,6 +220,31 @@ describe("payments with events for the owner's review (#1928)", () => {
   });
 });
 
+describe("a refund returned by a late automatic Cancel (#1932)", () => {
+  it("reads the automatic cancel basis and names it for the owner", () => {
+    const decision = refundDecisionViewSchema.parse({
+      decisionRef: "00000000-0000-4000-8000-000000001932",
+      purchaseRef: "00000000-0000-4000-8000-000000001933",
+      accountId,
+      actorId: null,
+      amountKopecks: 200000,
+      basis: "automatic_cancel",
+      access: "keep",
+      recurring: "keep",
+      reason: "Late automatic Cancel",
+      state: "executed",
+      revision: 1,
+      createdAt: "2026-11-01T10:00:00.000Z",
+      updatedAt: "2026-11-01T10:00:00.000Z",
+      attempt: null,
+    });
+    expect(decision.basis).toBe("automatic_cancel");
+    expect(refundBasisLabels.automatic_cancel).toBe(
+      "Автоматическая отмена Inside",
+    );
+  });
+});
+
 describe("authoring addresses encode their identifiers (#1717)", () => {
   it("encodes the account and the purchase reference as one path segment", () => {
     expect(authoringPersonHref("a/b?c")).toBe("/authoring/people/a%2Fb%3Fc");
@@ -340,6 +369,9 @@ describe("payment presentation", () => {
     );
     expect(paymentEventLabel("replaced_by_new_price")).toBe(
       "Попытка заменена покупкой по другой цене",
+    );
+    expect(paymentEventLabel("form_address_received")).toBe(
+      "Inside получила адрес формы оплаты",
     );
     expect(paymentEventLabel("bank_cancel_confirmed")).toBe(
       "Банк закрыл форму оплаты снятой попытки",

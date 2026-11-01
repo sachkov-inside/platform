@@ -48,7 +48,7 @@ export const refundDecisionViewSchema = z.object({
   accountId: z.uuid(),
   actorId: z.uuid().nullable(),
   amountKopecks: z.number().int().positive(),
-  basis: z.enum(["withdrawal", "compensation"]).nullable(),
+  basis: z.enum(["withdrawal", "compensation", "automatic_cancel"]).nullable(),
   access: z.enum(["keep", "revoke"]),
   recurring: z.enum(["keep", "cancel"]),
   reason: z.string(),

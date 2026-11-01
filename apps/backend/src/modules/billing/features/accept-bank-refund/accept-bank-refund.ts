@@ -5,7 +5,10 @@ import { lifecycleWindow, refundSourceRef } from "../../domain/notice.js";
 import { paymentEventKind } from "../../domain/payment-events.js";
 import { priceSnapshotSchema } from "../../domain/pricing.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
-import { unsettledRefundStates } from "../../shared/refund-amounts.js";
+import {
+  refundTotals,
+  unsettledRefundStates,
+} from "../../shared/refund-amounts.js";
 
 type Purchase = Awaited<
   ReturnType<BillingPrisma["billingPurchase"]["findUniqueOrThrow"]>
@@ -115,6 +118,66 @@ export async function acceptBankRefund(
       },
       occurredAt: now,
       recordedAt: now,
+    },
+  });
+}
+
+/**
+ * Опоздавший Cancel снятой попытки вернул покупателю деньги (#1932). Возврат пишется обычной
+ * строкой истории с основанием `automatic_cancel`: решение принял Inside, а не владелец. Cancel
+ * без Amount возвращает полную сумму, поэтому строка несёт остаток покупки сверх уже записанных
+ * возвратов. Если полный возврат уже записан, например уведомлением `REFUNDED`, строка не
+ * создаётся. Доступа у снятой попытки нет, и строка его не трогает. Вызывающий держит замок покупки.
+ */
+export async function acceptAutomaticCancelRefund(
+  tx: BillingPrisma,
+  purchaseRef: string,
+  returned: { readonly paymentId: string; readonly status: string },
+  now: Date,
+): Promise<void> {
+  const purchase = await tx.billingPurchase.findUniqueOrThrow({
+    where: { id: purchaseRef },
+  });
+  const { refundableKopecks } = await refundTotals(
+    tx,
+    purchase.id,
+    purchase.amountKopecks,
+  );
+  if (refundableKopecks <= 0) return;
+  const decisionRef = randomUUID();
+  await tx.billingRefundDecision.create({
+    data: {
+      id: decisionRef,
+      purchaseRef: purchase.id,
+      accountId: purchase.accountId,
+      actorId: null,
+      operationId: null,
+      amountKopecks: BigInt(refundableKopecks),
+      basis: "automatic_cancel",
+      access: "keep",
+      recurring: "keep",
+      reason:
+        "Late automatic Cancel of a retired attempt returned the payment; confirmed by T-Bank",
+      state: "executed",
+      revision: 1,
+      createdAt: now,
+      updatedAt: now,
+    },
+  });
+  await tx.billingRefund.create({
+    data: {
+      id: randomUUID(),
+      decisionRef,
+      purchaseRef: purchase.id,
+      environment: purchase.environment,
+      terminalRef: purchase.terminalRef,
+      paymentId: returned.paymentId,
+      amountKopecks: BigInt(refundableKopecks),
+      state: "confirmed",
+      observedStatus: returned.status,
+      errorCode: "0",
+      createdAt: now,
+      updatedAt: now,
     },
   });
 }
