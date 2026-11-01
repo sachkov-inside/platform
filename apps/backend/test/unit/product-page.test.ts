@@ -87,23 +87,6 @@ describe("Product page description", () => {
       },
     ],
     [
-      "more items than a block allows",
-      {
-        ...page,
-        blocks: [
-          {
-            ...page.blocks[2],
-            items: Array.from({ length: 17 }, (_, index) => ({
-              title: `Пункт ${String(index)}`,
-              text: "Текст.",
-              detailLabel: "",
-              detail: "",
-            })),
-          },
-        ],
-      },
-    ],
-    [
       "an invalid block id",
       { ...page, blocks: [{ ...page.blocks[1], id: "Shift" }] },
     ],
@@ -166,12 +149,10 @@ describe("Product page description", () => {
   }
 
   test.each(["audience", "programme", "stack"])(
-    "a %s block holds up to sixteen items",
+    "a %s block holds as many items as the page size allows",
     (id) => {
-      const accepted = { ...page, blocks: [blockWithItems(id, 16)] };
-      const rejected = { ...page, blocks: [blockWithItems(id, 17)] };
-      expect(productPageSchema.safeParse(accepted).success).toBe(true);
-      expect(productPageSchema.safeParse(rejected).success).toBe(false);
+      const many = { ...page, blocks: [blockWithItems(id, 40)] };
+      expect(productPageSchema.safeParse(many).success).toBe(true);
     },
   );
 
