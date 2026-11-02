@@ -1,3 +1,4 @@
+import { CommunityDiscussions } from "../modules/community-discussions/index.js";
 import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import { VIDEOS, type Videos } from "../modules/videos/index.js";
 import { BillingOperations } from "../modules/billing/index.js";
@@ -59,6 +60,7 @@ async function bootstrap(): Promise<void> {
     authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
     videos: application.get<Videos>(VIDEOS),
     communications: application.get(Communications),
+    communityDiscussions: application.get(CommunityDiscussions),
     billing: application.get(BillingOperations),
     telemetry: application.get(WebTelemetry),
     config: mcpConfig,

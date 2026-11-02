@@ -1,3 +1,4 @@
+import type { CommunityDiscussions } from "../../modules/community-discussions/index.js";
 import type { WebTelemetry } from "../../modules/web-telemetry/index.js";
 import type { BillingOwnerTools } from "../../modules/billing/index.js";
 import type { VideoAuthoringTools } from "../../modules/videos/index.js";
@@ -50,6 +51,7 @@ export function createMcpHttpServer(dependencies: {
   readonly learning: LearnerMcpDependencies;
   readonly authoring: MaterialAuthoring;
   readonly videos: VideoAuthoringTools;
+  readonly communityDiscussions: Pick<CommunityDiscussions, "execute">;
   readonly communications: Pick<Communications, "execute">;
   readonly telemetry: Pick<WebTelemetry, "summary">;
   readonly billing: BillingOwnerTools;
@@ -74,6 +76,7 @@ export function createMcpHttpServer(dependencies: {
         billing: dependencies.billing,
         telemetry: dependencies.telemetry,
         communications: dependencies.communications,
+        communityDiscussions: dependencies.communityDiscussions,
         videos: dependencies.videos,
       }),
     { responseMode: "json" },

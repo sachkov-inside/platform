@@ -74,4 +74,5 @@ Read then returns `text: null` with the retained role, time and source URL.
 The grouping adapter uses `ai` and `@ai-sdk/openai-compatible`; transcription is disabled until #1955.
 #1955 extends the message owner and read projection with transcription and Telegram file handling.
 #1956 records model usage returned by this port, checks its budget before each call, and persists run diagnostics.
-#1954 consumes the shared runtime schemas and extends the shared corpus with cross-application scenarios.
+Platform exposes author MCP tools through the [Platform integration](../../../../docs/integrations/community-discussions-v1.md).
+Both applications consume the [shared corpus](../../../../docs/contracts/inside-community-discussions-v1/README.md).
