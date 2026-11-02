@@ -71,8 +71,11 @@ Discussion summaries, statuses and source references have independent storage an
 Read then returns `text: null` with the retained role, time and source URL.
 
 `modules/community-discussions/discussion-model.ts` owns one `group`/`transcribe` model port.
-The grouping adapter uses `ai` and `@ai-sdk/openai-compatible`; transcription is disabled until #1955.
-#1955 extends the message owner and read projection with transcription and Telegram file handling.
-#1956 records model usage returned by this port, checks its budget before each call, and persists run diagnostics.
+The grouping adapter uses `ai` and `@ai-sdk/openai-compatible`.
+Transcription uses `@ai-sdk/openai` against its separately configured OpenAI-compatible audio endpoint.
+The same model port carries both operations through the durable monthly budget gate.
+The daily processor downloads and transcribes pending audio before grouping and exposes transcript state through read.
+The budget gate records usage and attempt estimates, blocks calls at the monthly limit and persists run diagnostics.
 Platform exposes author MCP tools through the [Platform integration](../../../../docs/integrations/community-discussions-v1.md).
-Both applications consume the [shared corpus](../../../../docs/contracts/inside-community-discussions-v1/README.md).
+Both applications verify the [shared corpus](../../../../docs/contracts/inside-community-discussions-v1/README.md) and its HTTP scenarios.
+The [launch runbook](../operations/community-discussions.md) owns configuration, cost units and the owner quality checks.
