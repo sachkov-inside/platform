@@ -20,6 +20,27 @@ export async function botPlatformLinks(
   return rows.map(platformLink);
 }
 
+/** Complete current links for the given bot-scoped sender set, in bounded SQL batches. */
+export async function platformLinksForTelegramUsers(
+  database: Executor,
+  botIdentity: string,
+  telegramUserIds: readonly string[],
+): Promise<readonly PlatformLink[]> {
+  const ids = [...new Set(telegramUserIds)];
+  const links: PlatformLink[] = [];
+  const batchSize = 1000;
+  for (let offset = 0; offset < ids.length; offset += batchSize) {
+    const rows = await database
+      .selectFrom("platform_links")
+      .selectAll()
+      .where("bot_identity", "=", botIdentity)
+      .where("telegram_user_id", "in", ids.slice(offset, offset + batchSize))
+      .execute();
+    links.push(...rows.map(platformLink));
+  }
+  return links;
+}
+
 /** A confirmed link between a Platform Account and one Telegram identity of the bot. */
 export interface PlatformLink {
   readonly accountRef: string;

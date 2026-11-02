@@ -76,6 +76,7 @@ function runGuardrail(root?: string) {
 }
 
 const currentTableOwners = {
+  community_messages: "community-discussions",
   activation_announcement_deliveries: "course-activation",
   activation_attempts: "course-activation",
   activation_review_requests: "course-activation",

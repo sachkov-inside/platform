@@ -1,3 +1,5 @@
+import { CommunityMessages } from "./modules/community-discussions/community-messages.js";
+import { CommunityAuthors } from "./modules/communications/community-authors.js";
 import {
   NATIVE_MESSAGE_ARCHIVE,
   DisabledNativeMessageArchive,
@@ -171,6 +173,8 @@ export class AppModule {
         TelegramWebhookController,
       ],
       providers: [
+        CommunityMessages,
+        CommunityAuthors,
         {
           provide: WAITLIST_CONFIRMATION_AUTHORIZATION,
           useValue: new HttpWaitlistConfirmationAdapter(

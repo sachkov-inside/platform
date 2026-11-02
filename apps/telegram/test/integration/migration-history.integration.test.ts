@@ -147,7 +147,8 @@ it.each(["communications-first", "sign-in-first"] as const)(
     await assertPreserved();
     await migrateToLatest(database);
     await assertPreserved();
-    // Empty 039 and 038 roll back independently; 037 refuses the communication contract rollback.
+    // Empty 040, 039 and 038 roll back independently; 037 refuses the communication contract rollback.
+    await migrateDown(database);
     await migrateDown(database);
     await migrateDown(database);
     await assertPreserved();
@@ -164,7 +165,7 @@ it.each(["communications-first", "sign-in-first"] as const)(
     const ledger = await sql<{
       count: string;
     }>`select count(*) from kysely_migration`.execute(database);
-    expect(ledger.rows[0]?.count).toBe("40");
+    expect(ledger.rows[0]?.count).toBe("41");
   },
 );
 
@@ -206,6 +207,7 @@ it("preserves legacy restriction receipts without inventing an audit during upgr
   expect(await read()).toEqual(historical);
   await migrateToLatest(database);
   expect(await read()).toEqual(historical);
+  await migrateDown(database);
   await migrateDown(database);
   await migrateDown(database);
   await expect(migrateDown(database)).rejects.toMatchObject({

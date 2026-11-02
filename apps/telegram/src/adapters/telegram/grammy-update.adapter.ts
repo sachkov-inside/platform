@@ -1,3 +1,4 @@
+import { translateCommunityMessage } from "./grammy-community-message.adapter.js";
 import { hasText } from "../../shared/text.js";
 import type { AccessAction } from "../../modules/course-activation/course-activation.js";
 import { createHash } from "node:crypto";
@@ -135,6 +136,14 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
     if (!isRecord(payload)) {
       return { kind: "ignored" };
     }
+
+    const communityMessage = translateCommunityMessage(
+      botIdentity,
+      updateId,
+      payload,
+    );
+    if (communityMessage)
+      return { kind: "community-message", value: communityMessage };
 
     const update = payload as Partial<Update>;
     const decision = privateSignInDecision(botIdentity, update.callback_query);

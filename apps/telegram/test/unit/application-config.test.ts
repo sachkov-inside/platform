@@ -16,6 +16,39 @@ const validEnvironment = {
 };
 
 describe("application configuration", () => {
+  it("enables community capture without a provider and validates its topic allowlist", () => {
+    expect(
+      loadApplicationConfig(validEnvironment).communityDiscussions,
+    ).toBeUndefined();
+    expect(
+      loadApplicationConfig({
+        ...validEnvironment,
+        TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "true",
+        TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS: "[12, 34, 12]",
+      }).communityDiscussions,
+    ).toEqual({ topicIds: [12, 34] });
+    for (const topics of ["invalid", "{}", "[0]", "[1.5]", '["12"]']) {
+      expect(() =>
+        loadApplicationConfig({
+          ...validEnvironment,
+          TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "true",
+          TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS: topics,
+        }),
+      ).toThrow("TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS");
+    }
+    expect(() =>
+      loadApplicationConfig({
+        ...validEnvironment,
+        TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "yes",
+      }),
+    ).toThrow("TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED");
+    expect(() =>
+      loadApplicationConfig({
+        ...validEnvironment,
+        TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS: "[12]",
+      }),
+    ).toThrow("TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED");
+  });
   it("keeps ordinary broadcasts disabled by default and accepts only an explicit boolean", () => {
     expect(loadApplicationConfig(validEnvironment).broadcastsEnabled).toBe(
       false,
