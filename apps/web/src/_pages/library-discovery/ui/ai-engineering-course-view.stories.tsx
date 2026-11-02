@@ -158,6 +158,33 @@ export const PositionTopicsAndProcess: Story = {
 };
 
 /**
+ * Окно проекта на телефоне — вкладки редактора: строка вкладок с именами файлов листается вбок,
+ * назначение файла стоит над кодом (решение владельца 02.11.2026).
+ */
+export const ProjectWindowMobile: Story = {
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement, userEvent: user }) => {
+    const canvas = within(canvasElement);
+    const files = canvas.getByRole("tablist", { name: "Файлы проекта" });
+    const panel = canvas.getByRole("tabpanel");
+    // Вкладки идут одной строкой и показывают имена файлов, а не только их назначение.
+    await expect(getComputedStyle(files).flexWrap).toBe("nowrap");
+    await expect(within(files).getByText("GLOSSARY.md")).toBeVisible();
+    await expect(within(panel).getByText("Инструкции")).toBeVisible();
+    const glossary = within(files).getByRole("tab", {
+      name: /Словарь домена/u,
+    });
+    await user.click(glossary);
+    await expect(within(panel).getByText("Словарь домена")).toBeVisible();
+    await expect(within(panel).getByText(/Обращение/u)).toBeVisible();
+    // Вкладка не ниже 44px: её удобно нажать пальцем.
+    await expect(
+      glossary.getBoundingClientRect().height,
+    ).toBeGreaterThanOrEqual(44);
+  },
+};
+
+/**
  * Описание, опубликованное до лендинга #1909: темы сохраняют свои иллюстрации, пока текст в Inside
  * Content не обновлён, а блок с незнакомым `id` рисуется по своему виду.
  */
