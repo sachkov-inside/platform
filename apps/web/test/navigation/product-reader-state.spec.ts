@@ -81,6 +81,19 @@ for (const scenario of [
     if (["paid", "manual", "archive", "unknown"].includes(scenario)) {
       await signIn(context, baseURL, slug);
     }
+    // Личная часть приходит потоком после гидратации провайдера; она не должна расходиться с
+    // ответом сервера (#1938).
+    const hydrationErrors: string[] = [];
+    page.on("pageerror", (error) => hydrationErrors.push(error.message));
+    page.on("console", (message) => {
+      if (
+        message.type() === "error" &&
+        /#418|#423|#425|hydrat|did not match|didn't match/iu.test(
+          message.text(),
+        )
+      )
+        hydrationErrors.push(message.text());
+    });
     await request.delete(`${backend}/__product-reader-state`);
     const documentResponse = await page.goto(`/products/${slug}`, {
       waitUntil: "commit",
@@ -157,6 +170,7 @@ for (const scenario of [
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
+    expect(hydrationErrors).toEqual([]);
     if (["manual", "waitlist", "unknown"].includes(scenario)) {
       const capture = await screenshotWholePage(page);
       await saveEvidence(info, `${scenario}.png`, capture);

@@ -3,8 +3,10 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,16 +23,74 @@ import {
   joinWaitlist,
   withdrawWaitlist,
 } from "@/features/product-waitlist";
-const Context = createContext<{
-  state: WaitlistState;
-  productSlug: string;
-  begin: () => void;
-  withdraw: () => void;
-  finishLink: () => Promise<void>;
-  notice: string;
-  retryingWithdrawal: boolean;
-  retry: () => void;
-} | null>(null);
+interface WaitlistView {
+  readonly state: WaitlistState;
+  readonly productSlug: string;
+  readonly notice: string;
+  readonly retryingWithdrawal: boolean;
+}
+interface WaitlistCommands {
+  readonly begin: () => void;
+  readonly withdraw: () => void;
+  readonly finishLink: () => Promise<void>;
+  readonly retry: () => void;
+}
+/**
+ * Context несёт хранилище, которое не меняется, а не само значение. Новое значение context над
+ * страницей заставило бы React гидрировать пришедшие потоком слоты с клиентским состоянием, и их
+ * текст разошёлся бы с ответом сервера (#418, #1938). Слот гидрируется по серверному снимку и
+ * обновляется после гидратации; команды всегда вызывают последнюю версию провайдера.
+ */
+interface WaitlistStore {
+  readonly subscribe: (listener: () => void) => () => void;
+  readonly getSnapshot: () => WaitlistView;
+  readonly getServerSnapshot: () => WaitlistView;
+  readonly publish: (view: WaitlistView, commands: WaitlistCommands) => void;
+  readonly commands: WaitlistCommands;
+}
+function createWaitlistStore(
+  initial: WaitlistView,
+  initialCommands: WaitlistCommands,
+): WaitlistStore {
+  let current = initial;
+  let latest = initialCommands;
+  const listeners = new Set<() => void>();
+  return {
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    getSnapshot: () => current,
+    getServerSnapshot: () => initial,
+    publish: (view, commands) => {
+      latest = commands;
+      if (
+        view.state === current.state &&
+        view.productSlug === current.productSlug &&
+        view.notice === current.notice &&
+        view.retryingWithdrawal === current.retryingWithdrawal
+      )
+        return;
+      current = view;
+      for (const listener of listeners) listener();
+    },
+    commands: {
+      begin: () => {
+        latest.begin();
+      },
+      withdraw: () => {
+        latest.withdraw();
+      },
+      finishLink: () => latest.finishLink(),
+      retry: () => {
+        latest.retry();
+      },
+    },
+  };
+}
+const Context = createContext<WaitlistStore | null>(null);
 type Retry = "join" | "withdraw" | null;
 /** Owns one mutation lifecycle for both course slots; the feature owns the Account-scoped fact. */
 export function WaitlistProvider({
@@ -182,32 +242,33 @@ export function WaitlistProvider({
             : query.data.kind === "ready" && query.data.active
               ? "success"
               : "idle");
-  return (
-    <Context
-      value={{
-        state,
-        productSlug,
-        begin: () => {
-          if (retry === "withdraw") withdraw.mutate();
-          else if (retry === "join") continuation.mutate();
-          else begin.mutate();
-        },
-        withdraw: () => {
-          withdraw.mutate();
-        },
-        finishLink,
-        notice,
-        retryingWithdrawal: retry === "withdraw",
-        retry: () => {
-          if (retry === "withdraw") withdraw.mutate();
-          else if (retry === "join") continuation.mutate();
-          else void query.refetch();
-        },
-      }}
-    >
-      {children}
-    </Context>
-  );
+  const view: WaitlistView = {
+    state,
+    productSlug,
+    notice,
+    retryingWithdrawal: retry === "withdraw",
+  };
+  const commands: WaitlistCommands = {
+    begin: () => {
+      if (retry === "withdraw") withdraw.mutate();
+      else if (retry === "join") continuation.mutate();
+      else begin.mutate();
+    },
+    withdraw: () => {
+      withdraw.mutate();
+    },
+    finishLink,
+    retry: () => {
+      if (retry === "withdraw") withdraw.mutate();
+      else if (retry === "join") continuation.mutate();
+      else void query.refetch();
+    },
+  };
+  const [store] = useState(() => createWaitlistStore(view, commands));
+  useLayoutEffect(() => {
+    store.publish(view, commands);
+  });
+  return <Context value={store}>{children}</Context>;
 }
 export function ProductWaitlistSlot({
   lower = false,
@@ -218,30 +279,56 @@ export function ProductWaitlistSlot({
   readonly existingOnly?: boolean;
   readonly programmeLabel?: string;
 }) {
-  const context = useContext(Context);
-  if (context === null) return null;
+  const store = useContext(Context);
+  if (store === null) return null;
+  return (
+    <WaitlistSlotView
+      existingOnly={existingOnly}
+      lower={lower}
+      programmeLabel={programmeLabel}
+      store={store}
+    />
+  );
+}
+function WaitlistSlotView({
+  store,
+  lower,
+  existingOnly,
+  programmeLabel,
+}: {
+  readonly store: WaitlistStore;
+  readonly lower: boolean;
+  readonly existingOnly: boolean;
+  readonly programmeLabel: string | undefined;
+}) {
+  const view = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getServerSnapshot,
+  );
+  const { commands } = store;
   if (existingOnly)
     return (
       <WaitlistMembership
-        state={context.state}
-        onBegin={context.retry}
-        onWithdraw={context.withdraw}
-        notice={context.notice}
-        retryingWithdrawal={context.retryingWithdrawal}
-        linking={<TelegramLinkAction onRefresh={context.finishLink} />}
+        state={view.state}
+        onBegin={commands.retry}
+        onWithdraw={commands.withdraw}
+        notice={view.notice}
+        retryingWithdrawal={view.retryingWithdrawal}
+        linking={<TelegramLinkAction onRefresh={commands.finishLink} />}
       />
     );
   return (
     <WaitlistAction
       lower={lower}
       {...(programmeLabel === undefined ? {} : { programmeLabel })}
-      productSlug={context.productSlug}
-      state={context.state}
-      onBegin={context.begin}
-      onWithdraw={context.withdraw}
-      notice={context.notice}
-      retryingWithdrawal={context.retryingWithdrawal}
-      linking={<TelegramLinkAction onRefresh={context.finishLink} />}
+      productSlug={view.productSlug}
+      state={view.state}
+      onBegin={commands.begin}
+      onWithdraw={commands.withdraw}
+      notice={view.notice}
+      retryingWithdrawal={view.retryingWithdrawal}
+      linking={<TelegramLinkAction onRefresh={commands.finishLink} />}
     />
   );
 }
