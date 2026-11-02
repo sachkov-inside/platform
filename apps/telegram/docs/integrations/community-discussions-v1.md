@@ -21,7 +21,7 @@ Errors contain only the contract version and a stable status.
 | `discussions.read` | `discussionId`. Returns `discussion` with every source message in numeric Telegram order. |
 | `discussions.mark` | `discussionId`, `status`, `materialUrls`. Returns the saved discussion. |
 
-List pagination orders by creation time and UUID. A cursor binds the status and date filters.
+List pagination orders by creation time and UUID. A cursor binds the status and normalized date filters; equivalent ISO instants share the same scope.
 The list exposes summaries and dates; read adds message text, anonymous role and original Telegram links.
 `used` requires 1..20 HTTP(S) Material URLs. Other statuses require an empty URL list.
 Setting `new` removes a manual mark. This operation never creates or edits a Material.
@@ -38,13 +38,15 @@ Restart after a committed batch continues pending work without duplicating discu
 
 Before grouping, the processor traverses every author-resolution page, including pages containing unavailable roles.
 A confirmed linked Account with current `communications:manage` is the author. Unlinked or denied senders are participants.
-Unavailable roles remain null and are deferred without a processing mark until another run resolves them.
+Unavailable roles remain null. If any pending role in the finite snapshot stays unavailable, grouping defers the whole snapshot.
+The run reports failure and retries after five minutes without acknowledging related answers as chatter.
 AuthorMode, Telegram administrator status and usernames never establish authorship.
 
 One run captures a finite upper message ID. Each model call receives at most 200 pending messages.
 Context contains `new` or `awaiting_answer` discussions updated in the last seven days,
 plus discussions referenced by edits or direct replies.
-This includes manually marked and older discussions. The limits are 200 discussions and 2000 source IDs per call.
+This includes manually marked and older discussions. The limits are 200 discussions and 2000 sources per call.
+Each existing discussion includes its source message IDs, topics, reply IDs and original message times.
 Exceeding a context limit fails explicitly and leaves the batch pending. Redacted diagnostics name that limit.
 
 The model receives message text, time, topic, reply IDs and anonymous roles only.
@@ -58,6 +60,8 @@ An edit or reply assigned to an existing discussion cannot be moved to a new dis
 Only a saved result acknowledges a batch; non-question chatter is acknowledged without discussion membership.
 A concurrent edit invalidates the batch snapshot and leaves it retryable.
 A later edit clears its processing mark and updates its existing discussion on the next run.
+Revision order uses `edit_date` (or original `date`), then `update_id` for revisions within the same second.
+Telegram can choose a random `update_id` after a week without updates. Accepted media changes clear the cached transcript.
 Discussion changes, source references and processing marks commit in one transaction.
 
 New unanswered questions start as `awaiting_answer`; answered questions start as `new`.

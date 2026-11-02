@@ -222,3 +222,60 @@ test("provider refuses a list page larger than the caller's bound", async () => 
     error: { code: "provider_invalid_response" },
   });
 });
+
+test.each([
+  {
+    label: "error status",
+    status: 200,
+    body: { contractVersion: success.contractVersion, status: "forbidden" },
+    cause: "response_status",
+  },
+  {
+    label: "success status",
+    status: 503,
+    body: success,
+    cause: "response_status",
+  },
+  {
+    label: "shape",
+    status: 200,
+    body: { ...success, unexpected: "private-message-body" },
+    cause: "response_shape",
+  },
+  {
+    label: "binding",
+    status: 200,
+    body: { ...success, requestId: "private-message-body" },
+    cause: "response_binding",
+  },
+])(
+  "records a safe dependency cause for invalid $label",
+  async ({ status, body, cause }) => {
+    const lines = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      await expect(
+        new HttpCommunityDiscussionsProvider(config, () =>
+          Promise.resolve(Response.json(body, { status })),
+        ).execute(request),
+      ).resolves.toEqual({
+        ok: false,
+        error: { code: "provider_invalid_response" },
+      });
+      expect(lines).toHaveBeenCalledOnce();
+      const line = String(lines.mock.calls[0]?.[0]);
+      expect(JSON.parse(line)).toMatchObject({
+        event: "dependency_failure",
+        module: "community-discussions",
+        operation: "execute",
+        outcome: "provider_invalid_response",
+        error: { code: cause },
+      });
+      expect(line).not.toContain("private-message-body");
+      expect(line).not.toContain(config.secret);
+    } finally {
+      lines.mockRestore();
+    }
+  },
+);

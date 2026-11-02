@@ -48,16 +48,16 @@ export class HttpCommunityDiscussionsProvider {
       if (error.success)
         return response.status === errorStatuses[error.data.status]
           ? discussionsFailure(error.data.status)
-          : discussionsFailure("provider_invalid_response");
+          : invalidResponse("response_status");
       const parsed = communityDiscussionsSuccessSchema.safeParse(body);
+      if (!parsed.success) return invalidResponse("response_shape");
+      if (response.status !== 200) return invalidResponse("response_status");
       if (
-        !parsed.success ||
-        response.status !== 200 ||
         parsed.data.operation !== request.operation ||
         parsed.data.requestId !== request.requestId ||
         !matchesDiscussion(request, parsed.data)
       )
-        return discussionsFailure("provider_invalid_response");
+        return invalidResponse("response_binding");
       return { ok: true, value: parsed.data };
     } catch (error) {
       // A timed-out mark may already have committed; only the caller can retry its original request ID.
@@ -90,5 +90,18 @@ function matchesDiscussion(
     (response.discussion.status === request.status &&
       JSON.stringify(response.discussion.materialUrls) ===
         JSON.stringify(request.materialUrls))
+  );
+}
+
+function invalidResponse(
+  code: "response_status" | "response_shape" | "response_binding",
+): CommunityDiscussionsResult {
+  return dependencyFailure(
+    { module: "community-discussions", operation: "execute" },
+    Object.assign(
+      new Error("Community discussions provider protocol validation failed"),
+      { code },
+    ),
+    discussionsFailure("provider_invalid_response"),
   );
 }

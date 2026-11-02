@@ -155,6 +155,16 @@ export class CommunityDiscussionProcessor {
           });
           after = resolved.nextAfter ?? undefined;
         } while (after !== undefined);
+        const unresolved = await this.pending()
+          .select("message_id")
+          .where("message_id", "<=", upper.message_id)
+          .where("is_author", "is", null)
+          .executeTakeFirst();
+        // A resolved answer may depend on an unresolved question anywhere in this finite snapshot.
+        if (unresolved)
+          throw new DiscussionProcessingFailure(
+            "author_resolution_unavailable",
+          );
         for (;;) {
           signal?.throwIfAborted();
           await this.renew(token);
@@ -408,7 +418,13 @@ export class CommunityDiscussionProcessor {
       recent.length > 0
         ? await this.database
             .selectFrom("community_discussion_sources")
-            .select(["discussion_id", "message_id"])
+            .select([
+              "discussion_id",
+              "message_id",
+              "thread_id",
+              "reply_to_message_id",
+              "sent_at",
+            ])
             .where("bot_identity", "=", this.config.botIdentity)
             .where("chat_id", "=", this.config.canonicalChatId)
             .where(
@@ -452,9 +468,14 @@ export class CommunityDiscussionProcessor {
         question: row.question,
         answers: row.answers,
         conclusion: row.conclusion,
-        messageIds: sources
+        sources: sources
           .filter((source) => source.discussion_id === row.id)
-          .map((source) => source.message_id),
+          .map((source) => ({
+            messageId: source.message_id,
+            threadId: source.thread_id,
+            replyToMessageId: source.reply_to_message_id,
+            sentAt: source.sent_at.toISOString(),
+          })),
       })),
     };
   }
@@ -483,7 +504,7 @@ export class CommunityDiscussionProcessor {
         if (!knownMessages.has(id) || assigned.has(id))
           throw new DiscussionProcessingFailure("invalid_message_assignment");
         const existing = input.discussions.find((candidate) =>
-          candidate.messageIds.includes(id),
+          candidate.sources.some((source) => source.messageId === id),
         );
         const replyId = input.messages.find(
           (message) => message.messageId === id,
@@ -491,7 +512,9 @@ export class CommunityDiscussionProcessor {
         const replyDiscussion =
           replyId !== null && replyId !== undefined
             ? input.discussions.find((candidate) =>
-                candidate.messageIds.includes(replyId),
+                candidate.sources.some(
+                  (source) => source.messageId === replyId,
+                ),
               )
             : undefined;
         if (
@@ -506,7 +529,9 @@ export class CommunityDiscussionProcessor {
     for (const message of input.messages) {
       if (
         input.discussions.some((discussion) =>
-          discussion.messageIds.includes(message.messageId),
+          discussion.sources.some(
+            (source) => source.messageId === message.messageId,
+          ),
         ) &&
         !assigned.has(message.messageId)
       )

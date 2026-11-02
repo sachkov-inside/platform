@@ -28,7 +28,22 @@ const input: GroupInput = {
       text: "Как выбрать инструмент?",
     },
   ],
-  discussions: [],
+  discussions: [
+    {
+      discussionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      question: "Как выбрать инструмент?",
+      answers: "",
+      conclusion: "",
+      sources: [
+        {
+          messageId: "9",
+          threadId: "7",
+          replyToMessageId: null,
+          sentAt: "2026-10-06T09:00:00Z",
+        },
+      ],
+    },
+  ],
 };
 async function serve(responseBody: unknown, status = 200) {
   const received: {
