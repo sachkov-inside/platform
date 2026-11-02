@@ -53,8 +53,6 @@ export interface JourneyRow {
   readonly after?: ReactNode;
   readonly available: boolean;
   readonly card: ReactNode;
-  /** Бесплатный урок: по нему отрезок решает ширину столбца доступа у всех своих строк (#1837). */
-  readonly free: boolean;
   readonly ordinal: number;
   readonly returnHref: Route;
   readonly slug: string;
@@ -447,15 +445,10 @@ export function ProductJourneyControls({
                               : `Материалы главы «${run.chapter.name}»`
                           }
                           className={cn(
-                            "group/product-order grid gap-2",
+                            "grid gap-2",
                             run.chapter === null ? "" : "mt-3",
                           )}
                           data-product-order
-                          // Решение по всему отрезку, а не по показанным строкам: столбец не
-                          // меняет ширину, когда подгружаются следующие уроки.
-                          data-product-free-lessons={
-                            run.rows.some((row) => row.free) ? "" : undefined
-                          }
                           start={run.offset + 1}
                         >
                           {rows.map((row, index) => (

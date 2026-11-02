@@ -216,12 +216,12 @@ export const InProgress: Story = {
     await expect(
       canvasElement.querySelector('[data-product-marker-read="true"] svg'),
     ).toBeInTheDocument();
-    // Столбец доступа одной ширины во всей главе: длительности изученных и неизученных уроков стоят
-    // колонкой.
-    await expect(
-      rightEdges(canvasElement.querySelectorAll("[data-product-duration]"))
-        .size,
-    ).toBe(1);
+    // Длительность видео стоит в строке формата под названием (подпись под названием, решение
+    // владельца 02.11.2026), а не в столбце справа.
+    for (const duration of canvasElement.querySelectorAll(
+      "[data-product-duration]",
+    ))
+      await expect(duration.closest("[data-product-meta]")).not.toBeNull();
   },
 };
 export const Mobile: Story = {
@@ -247,25 +247,12 @@ export const Guest: Story = {
         label.closest('[data-material-availability="locked"]'),
       ).toBeNull();
     }
-    // Слово стоит в том же столбце доступа, что и замок (решение владельца 29.10.2026, #1837):
-    // правые края меток и длительностей совпадают у уроков с видео и без него.
-    for (const label of free)
-      await expect(label.closest("[data-product-status]")).not.toBeNull();
-    await expect(rightEdges(free).size).toBe(1);
-    // Замки стоят в том же столбце: у всех строк он одной ширины.
-    await expect(
-      new Set(
-        [
-          ...canvasElement.querySelectorAll<HTMLElement>(
-            "[data-product-status]",
-          ),
-        ].map((status) => Math.round(status.getBoundingClientRect().width)),
-      ).size,
-    ).toBe(1);
-    await expect(
-      rightEdges(canvasElement.querySelectorAll("[data-product-duration]"))
-        .size,
-    ).toBe(1);
+    // Плашка «Бесплатно» стоит в строке формата под названием, справа остаётся только замок
+    // (подпись под названием, решение владельца 02.11.2026).
+    for (const label of free) {
+      await expect(label.closest("[data-product-meta]")).not.toBeNull();
+      await expect(label.closest("[data-product-status]")).toBeNull();
+    }
     const cards = canvasElement.querySelectorAll("[data-product-ordinal]");
     const locked = canvasElement.querySelectorAll(
       '[data-material-availability="locked"]',
@@ -294,21 +281,15 @@ export const HolderSeesNoFreeMark: Story = {
     await expect(
       canvas.getByRole("img", { name: "Материал 1, изучен" }),
     ).toBeVisible();
-    // Без слова длительности по-прежнему стоят одной колонкой.
-    await expect(
-      rightEdges(canvasElement.querySelectorAll("[data-product-duration]"))
-        .size,
-    ).toBe(1);
+    // Справа нет пустого места под слово «Бесплатно»: столбец шириной с отметку «изучен» (20 px).
+    for (const status of canvasElement.querySelectorAll<HTMLElement>(
+      "[data-product-status]",
+    ))
+      await expect(status.getBoundingClientRect().width).toBeLessThanOrEqual(
+        20,
+      );
   },
 };
-/** Правые края элементов, округлённые до пикселя: совпадающие края дают один элемент множества. */
-function rightEdges(elements: Iterable<Element>): ReadonlySet<number> {
-  return new Set(
-    [...elements].map((element) =>
-      Math.round(element.getBoundingClientRect().right),
-    ),
-  );
-}
 
 function fail(message: string): never {
   throw new Error(message);
@@ -1394,8 +1375,8 @@ export const CompactMobileRoute: Story = {
       rows.getByRole("link", { name: "Как устроен релиз моего проекта" }),
     ).toHaveAttribute("href", expect.stringContaining("series-material-1"));
     await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
-    // Метка бесплатного урока остаётся и на телефоне (#1647). У изученного бесплатного урока на её
-    // месте отметка «изучен»: в строке одна отметка доступа (#1837).
+    // Метка бесплатного урока остаётся и на телефоне (#1647). Она стоит в строке формата, поэтому
+    // у изученного бесплатного урока видны и метка, и отметка «изучен» справа.
     const free = rows.getAllByText("Бесплатно");
     await expect(free).toHaveLength(2);
     const row = (ordinal: number) =>
@@ -1404,11 +1385,12 @@ export const CompactMobileRoute: Story = {
           `[data-product-ordinal="${String(ordinal)}"]`,
         ) ?? fail(`Missing lesson ${String(ordinal)}`),
       );
-    await expect(row(1).getByText("Бесплатно")).not.toBeVisible();
+    await expect(row(1).getByText("Бесплатно")).toBeVisible();
     await expect(row(2).getByText("Бесплатно")).toBeVisible();
-    // Ни одна строка не подписана форматом материала отдельным словом.
+    // Под названием строка формата: у урока без видео слово «Текст», а не тип материала.
     await expect(rows.queryByText("Гайд")).not.toBeInTheDocument();
-    await expect(rows.queryByText("Видео")).not.toBeInTheDocument();
+    await expect(row(2).getByText("Текст")).toBeVisible();
+    await expect(row(3).getByText("Текст")).toBeVisible();
     await expect(rows.queryByText("По подписке")).not.toBeInTheDocument();
     await expect(rows.getByText("Продолжить", { exact: true })).toBeVisible();
     await expect(
@@ -1423,8 +1405,13 @@ export const CompactMobileRoute: Story = {
     );
     await expect(durations).toHaveLength(1);
     await expect(durations[0]).toBeVisible();
-    await expect(durations[0]).toHaveTextContent("Видео, 21:00");
-    await expect(durations[0]?.querySelector("svg")).toBeVisible();
+    await expect(durations[0]).toHaveTextContent("Видео · 21:00");
+    // Значок воспроизведения рисует CSS по data-product-format (product-material-row.css).
+    await expect(durations[0]).toHaveAttribute("data-product-format", "video");
+    await expect(
+      getComputedStyle(durations[0] ?? fail("Missing duration"), "::before")
+        .width,
+    ).toBe("12px");
     await expect(
       route.querySelector('[data-product-ordinal="2"]'),
     ).toHaveAttribute("aria-current", "step");
@@ -1459,7 +1446,12 @@ export const DesktopRouteDetails: Story = {
     );
     await expect(durations).toHaveLength(1);
     await expect(durations[0]).toBeVisible();
-    await expect(durations[0]?.querySelector("svg")).toBeVisible();
+    // Значок воспроизведения рисует CSS по data-product-format (product-material-row.css).
+    await expect(durations[0]).toHaveAttribute("data-product-format", "video");
+    await expect(
+      getComputedStyle(durations[0] ?? fail("Missing duration"), "::before")
+        .width,
+    ).toBe("12px");
     await expect(cards[0]).toContainElement(durations[0] ?? null);
     const card = cards[2];
     const title = card?.querySelector("h3,h4");
@@ -1470,15 +1462,12 @@ export const DesktopRouteDetails: Story = {
       const box = element.getBoundingClientRect();
       return box.top + box.height / 2;
     };
-    // По центру строки стоит текстовый блок с названием.
+    // По центру строки стоит текстовый блок: название и строка формата под ним.
     const text = title.parentElement ?? title;
+    await expect(text.querySelector("[data-product-meta]")).not.toBeNull();
     await expect(Math.abs(center(text) - center(card))).toBeLessThan(1);
-    // Номер урока — мелкая цифра у первой строки названия, без плитки и обложки.
-    await expect(
-      Math.abs(
-        preview.getBoundingClientRect().top - title.getBoundingClientRect().top,
-      ),
-    ).toBeLessThan(2);
+    // Номер урока — мелкая цифра по центру этого блока, без плитки и обложки.
+    await expect(Math.abs(center(preview) - center(text))).toBeLessThan(2);
     await expect(preview.getBoundingClientRect().width).toBeLessThanOrEqual(28);
     await expect(preview).toHaveTextContent(/^0?3$/u);
     for (const cover of canvasElement.querySelectorAll(
