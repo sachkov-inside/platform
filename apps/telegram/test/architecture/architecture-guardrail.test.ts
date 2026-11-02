@@ -76,6 +76,9 @@ function runGuardrail(root?: string) {
 }
 
 const currentTableOwners = {
+  community_discussion_budget_months: "community-discussions",
+  community_discussion_model_calls: "community-discussions",
+  community_discussion_runs: "community-discussions",
   community_discussions: "community-discussions",
   community_discussion_sources: "community-discussions",
   community_discussion_schedule: "community-discussions",

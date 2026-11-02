@@ -26,7 +26,10 @@ describe("application configuration", () => {
         TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "true",
         TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS: "[12, 34, 12]",
       }).communityDiscussions,
-    ).toEqual({ topicIds: [12, 34] });
+    ).toMatchObject({
+      topicIds: [12, 34],
+      budget: { monthlyLimitMicroUsd: 0 },
+    });
     for (const topics of ["invalid", "{}", "[0]", "[1.5]", '["12"]']) {
       expect(() =>
         loadApplicationConfig({

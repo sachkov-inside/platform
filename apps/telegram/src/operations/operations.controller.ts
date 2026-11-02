@@ -1,3 +1,4 @@
+import { CommunityDiscussionBudget } from "../modules/community-discussions/community-discussion-budget.js";
 import { CommunityProvider } from "../modules/community/community-provider.js";
 import { WaitlistConfirmations } from "../modules/communications/waitlist-confirmations.js";
 import {
@@ -19,6 +20,8 @@ import { RuntimeMetrics } from "./runtime-metrics.js";
 @Controller()
 export class OperationsController {
   constructor(
+    @Inject(CommunityDiscussionBudget)
+    private readonly discussionBudget: CommunityDiscussionBudget,
     @Inject(WaitlistConfirmations)
     private readonly waitlistConfirmations: WaitlistConfirmations,
     @Inject(DATABASE) private readonly database: Database,
@@ -49,6 +52,9 @@ export class OperationsController {
   async metricsText(): Promise<string> {
     this.metrics.recordWaitlistConfirmations(
       await this.waitlistConfirmations.snapshot(),
+    );
+    this.metrics.recordCommunityDiscussions(
+      await this.discussionBudget.snapshot(),
     );
     // Scrape persisted facts even if the community worker stopped after its last snapshot.
     if (this.config.communityMode === "live")

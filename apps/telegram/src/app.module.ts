@@ -1,3 +1,7 @@
+import {
+  CommunityDiscussionBudget,
+  BudgetedDiscussionModel,
+} from "./modules/community-discussions/community-discussion-budget.js";
 import { CommunityDiscussions } from "./modules/community-discussions/community-discussions.js";
 import { CommunityDiscussionProcessor } from "./modules/community-discussions/community-discussion-processor.js";
 import { CommunityDiscussionsController } from "./modules/community-discussions/community-discussions.controller.js";
@@ -185,13 +189,19 @@ export class AppModule {
         CommunityMessages,
         CommunityDiscussions,
         CommunityDiscussionProcessor,
+        CommunityDiscussionBudget,
         {
           provide: COMMUNITY_DISCUSSION_MODEL,
-          useValue: config.communityDiscussions?.grouping
-            ? new OpenAICompatibleDiscussionModelAdapter(
-                config.communityDiscussions.grouping,
-              )
-            : new DisabledCommunityDiscussionModel(),
+          inject: [CommunityDiscussionBudget],
+          useFactory: (budget: CommunityDiscussionBudget) =>
+            new BudgetedDiscussionModel(
+              config.communityDiscussions?.grouping
+                ? new OpenAICompatibleDiscussionModelAdapter(
+                    config.communityDiscussions.grouping,
+                  )
+                : new DisabledCommunityDiscussionModel(),
+              budget,
+            ),
         },
         CommunityAuthors,
         {

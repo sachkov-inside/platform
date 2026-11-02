@@ -17,6 +17,7 @@ export const groupingOutputSchema = z.strictObject({
 });
 export type GroupingOutput = z.infer<typeof groupingOutputSchema>;
 export interface ModelUsage {
+  readonly durationSeconds?: number | null;
   readonly inputTokens: number | null;
   readonly outputTokens: number | null;
 }
@@ -44,7 +45,11 @@ export type GroupResult = GroupingOutput & { readonly usage: ModelUsage };
 export interface CommunityDiscussionModel {
   group(input: GroupInput, signal?: AbortSignal): Promise<GroupResult>;
   transcribe(
-    input: { readonly bytes: Uint8Array; readonly mediaType: string },
+    input: {
+      readonly bytes: Uint8Array;
+      readonly mediaType: string;
+      readonly durationSeconds?: number;
+    },
     signal?: AbortSignal,
   ): Promise<{ readonly text: string; readonly usage: ModelUsage }>;
 }

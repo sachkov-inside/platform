@@ -36,6 +36,9 @@ const sharedForbiddenLayers = ["modules", "adapters", "operations", "config"];
 // The owning module reads or writes these tables, through owner interfaces.
 // `database/` keeps the schema, migrations and retention for every table.
 const tableOwners = {
+  community_discussion_budget_months: "modules/community-discussions",
+  community_discussion_model_calls: "modules/community-discussions",
+  community_discussion_runs: "modules/community-discussions",
   community_discussions: "modules/community-discussions",
   community_discussion_sources: "modules/community-discussions",
   community_discussion_schedule: "modules/community-discussions",
