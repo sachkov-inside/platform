@@ -434,7 +434,9 @@ function ProductMaterialRow({
   readonly productOpen: boolean;
   readonly readingStatus: React.ReactNode;
 }) {
-  // Значок воспроизведения обещает видео, поэтому длительность берётся только у основного видео.
+  // Длительность берётся только у основного видео: у урока без него строка формата пишет «Видео»
+  // без времени.
+  const video = materialPreviewHasVideo(material);
   const duration =
     material.primaryVideoDurationSeconds === undefined
       ? undefined
@@ -445,21 +447,19 @@ function ProductMaterialRow({
     material.availability === "locked" &&
     material.access !== "free";
   const unavailable = !pending && material.availability === "unavailable";
+  const freeMark = !pending && !productOpen && material.access === "free";
   return (
     <ProductRowArticle
       availability={pending ? "pending" : material.availability}
       className="group/row relative flex min-h-14 min-w-0 flex-col justify-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
       slug={material.slug}
     >
-      {/* Строка в одну линию: номер, название, у урока продолжения компактная кнопка, затем
-          длительность видео и справа столбец доступа (решение владельца 29.10.2026, #1837). Формат
-          словом не пишется: урок с видео узнаётся по значку и длительности (решение владельца
-          29.10.2026). В столбце доступа одна отметка: замок у закрытого урока, слово «Бесплатно»
-          акцентным цветом у бесплатного, отметка «изучен» у пройденного, и она занимает место
-          слова. В списке уроков с бесплатным уроком столбец у всех строк шириной со слово, поэтому
-          слова, замки и длительности стоят колонками; без бесплатных он шириной со значок. Тому, кому
-          продукт открыт, слово не показывается (решение владельца 30.10.2026 о купивших курс), а
-          ширина столбца остаётся прежней, чтобы личная часть не сдвигала строки. */}
+      {/* Вариант A (решение владельца 02.11.2026): номер, название и под ним строка формата —
+          «Видео · 9:23» или «Текст», у гостя с плашкой «Бесплатно». Справа только кнопка
+          продолжения и одна отметка: замок у закрытого урока или «изучен» у пройденного. Тому, кому
+          продукт открыт, плашка не показывается (решение владельца 30.10.2026 о купивших курс).
+          Строка формата есть и пока личная часть идёт, поэтому плашка встаёт на место без сдвига
+          строк. */}
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
@@ -482,28 +482,49 @@ function ProductMaterialRow({
               {material.title}
             </IntentPrefetchLink>
           </Heading>
+          <span
+            className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-muted-foreground"
+            data-product-meta
+          >
+            {video ? (
+              <span
+                className="inline-flex items-center gap-1 tabular-nums"
+                {...(duration === undefined
+                  ? {}
+                  : { "data-product-duration": "" })}
+              >
+                <Play aria-hidden="true" className="size-3 fill-current" />
+                Видео
+                {duration === undefined ? null : (
+                  <>
+                    {" "}
+                    <span aria-hidden="true">·</span> {duration}
+                  </>
+                )}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <FileText aria-hidden="true" className="size-3.5" />
+                Текст
+              </span>
+            )}
+            {freeMark ? (
+              <span
+                className="inline-flex shrink-0 items-center rounded-full bg-accent/12 px-2 py-0.5 text-[0.6875rem] font-semibold leading-4 text-action"
+                data-product-free
+              >
+                Бесплатно
+              </span>
+            ) : null}
+          </span>
         </div>
         {/* Название начинается с 112 px: если рядом с такой шириной блок справа не помещается, блок
             уходит на следующую строку и там переносится сам. Пиксели, а не rem, чтобы при крупном
             шрифте браузера номер урока оставался рядом с названием. */}
-        <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
+        <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-3 text-xs text-muted-foreground">
           <ProductContinuationAction href={readerHref} slug={material.slug} />
-          {duration === undefined ? null : (
-            <span
-              className="inline-flex items-center gap-1 tabular-nums"
-              data-product-duration
-            >
-              <Play aria-hidden="true" className="size-3 fill-current" />
-              <span className="sr-only">Видео, </span>
-              {duration}
-            </span>
-          )}
-          {/* Ширину столбца решает список уроков (`group/product-order` с
-              `data-product-free-lessons` в product-journey-controls): 4.25rem вмещают слово
-              «Бесплатно» в text-xs, а меньше слова столбец не станет. Отметка «изучен» приходит из
-              ProductMaterialMarker (`data-product-marker-read`) и прячет слово. */}
           <span
-            className="flex min-w-5 shrink-0 items-center justify-end group-data-[product-free-lessons]/product-order:min-w-[4.25rem] [&:has([data-product-marker-read])_[data-product-free]]:hidden"
+            className="flex shrink-0 items-center justify-end empty:hidden"
             data-product-status
           >
             {pending ? (
@@ -517,22 +538,10 @@ function ProductMaterialRow({
                 <LockKeyhole aria-hidden="true" className="size-4" />
                 <span className="sr-only">Нужен доступ</span>
               </>
+            ) : unavailable ? (
+              <span className="sr-only">Доступ временно не определён</span>
             ) : (
-              <>
-                {material.access === "free" && !productOpen ? (
-                  <span
-                    className="whitespace-nowrap font-medium text-action"
-                    data-product-free
-                  >
-                    Бесплатно
-                  </span>
-                ) : null}
-                {unavailable ? (
-                  <span className="sr-only">Доступ временно не определён</span>
-                ) : (
-                  readingStatus
-                )}
-              </>
+              readingStatus
             )}
           </span>
         </span>
