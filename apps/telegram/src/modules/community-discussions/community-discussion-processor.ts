@@ -71,10 +71,7 @@ export class CommunityDiscussionProcessor {
       transcriptions: 0,
       transcriptionErrors: 0,
     };
-    if (
-      !this.config.communityDiscussions ||
-      !this.config.communityDiscussions.grouping
-    ) {
+    if (!this.config.communityDiscussions?.grouping) {
       const status = this.config.communityDiscussions
         ? "unconfigured"
         : "disabled";
@@ -231,7 +228,7 @@ export class CommunityDiscussionProcessor {
         messages: count,
         discussions,
         ...audio,
-        ...(failureCode ? { failureCode } : {}),
+        ...(failureCode !== undefined ? { failureCode } : {}),
       };
     }
   }
