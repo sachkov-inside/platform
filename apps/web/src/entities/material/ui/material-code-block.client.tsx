@@ -25,11 +25,7 @@ export function MaterialCodeBlock({ text }: { readonly text: string }) {
       className="mt-8 flex overflow-hidden rounded-xl bg-sidebar text-sidebar-foreground"
       data-material-block="codeBlock"
     >
-      <pre
-        className="min-w-0 flex-1 overflow-x-auto py-5 pl-5 pr-2 font-mono text-[0.8125rem] leading-6 [scrollbar-color:var(--sidebar-border)_var(--sidebar)]"
-        data-material-code-scroll
-        tabIndex={0}
-      >
+      <pre className="min-w-0 flex-1 whitespace-pre-wrap py-5 pl-5 pr-2 font-mono text-[0.8125rem] leading-6 [overflow-wrap:anywhere]">
         <code ref={code}>{text}</code>
       </pre>
       <Button
