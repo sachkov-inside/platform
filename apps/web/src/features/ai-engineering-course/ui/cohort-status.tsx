@@ -48,10 +48,13 @@ const ticketCopy = {
 export function CohortStatusView({
   status,
   contact,
+  telegramHandle,
 }: {
   readonly status: CohortStatus;
   /** Связь с автором под кнопками билета; страница курса решает, на какой ник она ведёт. */
   readonly contact?: ReactNode;
+  /** Ник автора: под кнопкой оплаты к нему зовут тех, кто платит не из России. Без ника строки нет. */
+  readonly telegramHandle?: string | undefined;
 }) {
   return (
     <div className="aie-cohort-status">
@@ -78,7 +81,12 @@ export function CohortStatusView({
             <p className="aie-cohort-ticket-soon">Откроется скоро</p>
           ) : (
             <PreorderPriceView
-              note={null}
+              // Части через «Долями» на форме Т-Банка; без открытой оплаты подписи нет (02.11.2026).
+              note={
+                status.purchaseHref === null
+                  ? null
+                  : "Можно оплатить частями через «Долями»"
+              }
               price={status.price}
               struckLabel={ticketCopy[status.kind].struck}
             />
@@ -94,6 +102,10 @@ export function CohortStatusView({
                 <ArrowRight aria-hidden="true" />
               </Link>
             )}
+            {status.purchaseHref === null ||
+            telegramHandle === undefined ? null : (
+              <ForeignPaymentNote telegramHandle={telegramHandle} />
+            )}
             <IntentPrefetchLink
               className="aie-cohort-ticket-programme"
               href={status.programmeHref}
@@ -105,6 +117,30 @@ export function CohortStatusView({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Под кнопкой покупки: кто платит не из России, пишет автору в Telegram (решение владельца
+ * 02.11.2026). Строка не пункт списка: стили страницы курса красят пункты списков в тёмном блоке.
+ */
+function ForeignPaymentNote({
+  telegramHandle,
+}: {
+  readonly telegramHandle: string;
+}) {
+  return (
+    <p className="aie-cohort-ticket-payment">
+      Не из России?{" "}
+      <a
+        href={`https://t.me/${telegramHandle}`}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        Напиши мне в Telegram
+      </a>
+      , помогу с оплатой.
+    </p>
   );
 }
 

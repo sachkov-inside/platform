@@ -116,6 +116,25 @@
   display: grid;
   gap: 0.5rem;
 }
+/* Оплата не из России: мелкий текст прямо под кнопкой покупки, до ссылки в программу. */
+.ai-product-page .aie-cohort-ticket-payment {
+  margin: 0 0 0.25rem;
+  padding: 0;
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-align: center;
+}
+.aie-cohort-ticket-payment a {
+  color: var(--foreground);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.aie-cohort-ticket-payment a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
 .aie-cohort-ticket-buy,
 .aie-cohort-ticket-programme {
   display: inline-flex;
