@@ -324,6 +324,16 @@ const platformConfigSchema = z
       })
       .readonly()
       .optional(),
+    communityDiscussions: z
+      .object({
+        endpoint: telegramIntegrationEndpointSchema(
+          "TELEGRAM_COMMUNITY_DISCUSSIONS_ENDPOINT",
+          "/integrations/platform/v1/community-discussions",
+        ),
+        secret: telegramSecretSchema("TELEGRAM_COMMUNITY_DISCUSSIONS_SECRET"),
+      })
+      .readonly()
+      .optional(),
     communications: z
       .object({
         endpoint: telegramIntegrationEndpointSchema(
@@ -523,6 +533,15 @@ export function parsePlatformConfig(
       "TELEGRAM_SALES_FUNNEL_INGRESS_SECRET",
     ),
     communicationsTrackingOrigin: environment["TELEGRAM_TRACKING_ORIGIN"],
+    communityDiscussions: [
+      environment["TELEGRAM_COMMUNITY_DISCUSSIONS_ENDPOINT"],
+      environment["TELEGRAM_COMMUNITY_DISCUSSIONS_SECRET"],
+    ].every((value) => value === undefined)
+      ? undefined
+      : {
+          endpoint: environment["TELEGRAM_COMMUNITY_DISCUSSIONS_ENDPOINT"],
+          secret: environment["TELEGRAM_COMMUNITY_DISCUSSIONS_SECRET"],
+        },
     communications: [
       environment["TELEGRAM_COMMUNICATIONS_ENDPOINT"],
       environment["TELEGRAM_COMMUNICATIONS_SECRET"],
@@ -944,6 +963,27 @@ export function parsePlatformConfig(
     ].includes(salesFunnelSecret)
   ) {
     throw new Error("Sales funnel ingress requires a separate Telegram secret");
+  }
+
+  const discussionsSecret = config.data.communityDiscussions?.secret;
+  if (
+    discussionsSecret !== undefined &&
+    [
+      config.data.telegramMembership.linkingSecret,
+      config.data.telegramMembership.evidenceIngressSecret,
+      config.data.telegramMembership.activationIngressSecret,
+      config.data.identity.telegramSignInIntegrationSecret,
+      config.data.communityEntitlements?.dispatchSecret,
+      config.data.communityEntitlements?.providerSecret,
+      config.data.communications?.secret,
+      config.data.communications?.authorizationSecret,
+      config.data.notificationDelivery?.telegramSecret,
+      config.data.salesFunnelIngressSecret,
+    ].includes(discussionsSecret)
+  ) {
+    throw new Error(
+      "Community discussions requires a separate Telegram secret",
+    );
   }
 
   if (config.data.identity.telegramSignInEnabled) {
