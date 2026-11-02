@@ -1,0 +1,7 @@
+{
+  "repository": "sachkov-inside/platform",
+  "specification": "https://github.com/sachkov-inside/platform/issues/1949",
+  "task": "https://github.com/sachkov-inside/platform/issues/1954",
+  "path": "docs/contracts/inside-community-discussions-v1",
+  "status": "Canonical runtime Zod codecs; shared synthetic fixtures and cross-application scenarios. No production rollout is claimed."
+}

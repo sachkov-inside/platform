@@ -154,6 +154,13 @@ test("an archived Product keeps Task pages, embedded tasks and files for holders
     },
     authoring: app.get<MaterialAuthoring>(MATERIAL_AUTHORING),
     videos: app.get<Videos>(VIDEOS),
+    communityDiscussions: {
+      execute: () =>
+        Promise.resolve({
+          ok: false as const,
+          error: { code: "provider_unavailable" as const },
+        }),
+    },
     communications: app.get(Communications),
     billing: app.get(BillingOperations),
     telemetry: app.get(WebTelemetry),

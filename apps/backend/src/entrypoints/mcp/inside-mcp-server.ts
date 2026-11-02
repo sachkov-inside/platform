@@ -1,4 +1,8 @@
 import {
+  registerCommunityDiscussionsTools,
+  type CommunityDiscussions,
+} from "../../modules/community-discussions/index.js";
+import {
   registerWebTelemetryTool,
   type WebTelemetry,
 } from "../../modules/web-telemetry/index.js";
@@ -25,6 +29,7 @@ export interface InsideMcpToolDependencies {
   readonly accountId: string;
   readonly authoring: MaterialAuthoring;
   readonly videos: VideoAuthoringTools;
+  readonly communityDiscussions: Pick<CommunityDiscussions, "execute">;
   readonly communications: Pick<Communications, "execute">;
   readonly telemetry: Pick<WebTelemetry, "summary">;
   readonly billing: BillingOwnerTools;
@@ -46,6 +51,10 @@ export function assembleInsideMcpServer(
   registerCommunicationsTools(server, {
     accountId,
     communications: dependencies.communications,
+  });
+  registerCommunityDiscussionsTools(server, {
+    accountId,
+    communityDiscussions: dependencies.communityDiscussions,
   });
   registerBillingTools(server, { accountId, billing: dependencies.billing });
   registerWebTelemetryTool(server, {

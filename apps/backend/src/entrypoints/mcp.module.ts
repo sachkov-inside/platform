@@ -1,3 +1,4 @@
+import { CommunityDiscussionsModule } from "../modules/community-discussions/index.js";
 import { ProductAuthoringCompositionModule } from "./composition/product-authoring-composition.module.js";
 import { ContentAccessCompositionModule } from "./composition/content-access-composition.module.js";
 import { WebTelemetryModule } from "../modules/web-telemetry/index.js";
@@ -33,6 +34,7 @@ export class McpModule {
         AccountsModule,
         WebTelemetryModule,
         CommunicationsModule,
+        CommunityDiscussionsModule,
         MaterialsModule,
         ContentAccessCompositionModule,
         ProductAuthoringCompositionModule,

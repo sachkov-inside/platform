@@ -1,0 +1,133 @@
+[
+  {
+    "name": "list-success",
+    "credential": "valid",
+    "authorization": "allowed",
+    "request": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20
+    },
+    "status": 200,
+    "response": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "status": "ok",
+      "operation": "discussions.list",
+      "items": [],
+      "nextCursor": null
+    }
+  },
+  {
+    "name": "missing-service-secret",
+    "credential": "missing",
+    "authorization": "allowed",
+    "request": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20
+    },
+    "status": 401,
+    "response": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "unauthorized"
+    }
+  },
+  {
+    "name": "wrong-service-secret",
+    "credential": "wrong",
+    "authorization": "allowed",
+    "request": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20
+    },
+    "status": 401,
+    "response": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "unauthorized"
+    }
+  },
+  {
+    "name": "permission-denied",
+    "credential": "valid",
+    "authorization": "denied",
+    "request": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20
+    },
+    "status": 403,
+    "response": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "forbidden"
+    }
+  },
+  {
+    "name": "permission-revoked",
+    "credential": "valid",
+    "authorization": "denied",
+    "request": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20
+    },
+    "status": 403,
+    "response": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "forbidden"
+    }
+  },
+  {
+    "name": "authorization-unavailable",
+    "credential": "valid",
+    "authorization": "unavailable",
+    "request": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20
+    },
+    "status": 503,
+    "response": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "authorization_unavailable"
+    }
+  },
+  {
+    "name": "malformed-wire",
+    "credential": "valid",
+    "authorization": "allowed",
+    "request": {
+      "contractVersion": "inside.community-discussions.v1"
+    },
+    "status": 400,
+    "response": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "malformed"
+    }
+  }
+]

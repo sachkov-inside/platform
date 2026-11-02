@@ -134,6 +134,13 @@ describe("scoped learner access over the learner MCP transport", () => {
       },
       authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
       videos: application.get<Videos>(VIDEOS),
+      communityDiscussions: {
+        execute: () =>
+          Promise.resolve({
+            ok: false as const,
+            error: { code: "provider_unavailable" as const },
+          }),
+      },
       communications: application.get(Communications),
       billing: application.get(BillingOperations),
       telemetry: application.get(WebTelemetry),
