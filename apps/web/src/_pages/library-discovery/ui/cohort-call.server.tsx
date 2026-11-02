@@ -1,5 +1,5 @@
 import "server-only";
-import { Suspense, type ReactNode } from "react";
+import { Suspense } from "react";
 import type { ProductSale } from "@/entities/subscription.sale.server";
 import { ProductWaitlistSlot } from "./waitlist-provider.client";
 
@@ -122,16 +122,22 @@ export async function PersonalCohortStatus({
           slug,
           freeStart,
         });
+  // Ник автора из подписи частых вопросов: на него ведут консультация и оплата не из России.
+  const handle = courseTelegramHandle(
+    result.reference.productPage?.page ?? null,
+  );
   return (
     <>
       {status === null ? null : (
         <CohortStatusView
           // Консультация стоит под ценой; в билете анонса цены ещё нет.
-          contact={status.price === null ? null : ticketContact(result)}
+          contact={
+            status.price === null || handle === undefined ? null : (
+              <TicketContact handle={handle} />
+            )
+          }
           status={status}
-          telegramHandle={courseTelegramHandle(
-            result.reference.productPage?.page ?? null,
-          )}
+          telegramHandle={handle}
         />
       )}
       {state.waitlist.kind === "ready" ? (
@@ -187,14 +193,6 @@ function SaleCountdown({ sale }: { readonly sale: ProductSale }) {
       ? cohortCountdown(sale.cohort)
       : null;
   return countdown === null ? null : <StartCountdownBadge text={countdown} />;
-}
-
-/** Связь с автором в билете: на ник из подписи частых вопросов, если он там есть. */
-function ticketContact(result: ResolvedProduct): ReactNode {
-  const handle = courseTelegramHandle(
-    result.reference.productPage?.page ?? null,
-  );
-  return handle === undefined ? null : <TicketContact handle={handle} />;
 }
 
 function withoutCohort(slug: string): CohortCall {
