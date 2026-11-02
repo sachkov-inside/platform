@@ -10,6 +10,11 @@ export interface DiscussionTables {
     month: string;
     cost_micro_usd: ColumnType<string, string, string>;
     notified: boolean;
+    notification_after_user: ColumnType<
+      string | null,
+      string | null | undefined,
+      string | null
+    >;
   };
   community_discussion_model_calls: {
     id: string;

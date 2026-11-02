@@ -9,7 +9,7 @@ export const communityDiscussionBudgetMigration: Migration = {
     await sql`create table community_discussion_budget_months (
       bot_identity text not null, month text not null,
       cost_micro_usd bigint not null default 0 check(cost_micro_usd >= 0),
-      notified boolean not null default false,
+      notified boolean not null default false, notification_after_user bigint,
       primary key(bot_identity, month)
     )`.execute(db);
     await sql`create table community_discussion_model_calls (

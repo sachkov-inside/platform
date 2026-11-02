@@ -17,7 +17,6 @@ export const groupingOutputSchema = z.strictObject({
 });
 export type GroupingOutput = z.infer<typeof groupingOutputSchema>;
 export interface ModelUsage {
-  readonly durationSeconds?: number | null;
   readonly inputTokens: number | null;
   readonly outputTokens: number | null;
   readonly durationSeconds?: number | null;

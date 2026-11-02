@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
-import { sql } from "kysely";
-import { DATABASE, type Database } from "../../database/database.js";
+import { sql, type Transaction } from "kysely";
+import {
+  DATABASE,
+  type Database,
+  type DatabaseSchema,
+} from "../../database/database.js";
 import {
   APPLICATION_CONFIG,
   type ApplicationConfig,
@@ -115,6 +119,7 @@ export class CommunityDiscussionBudget {
         .set({ state: "failed" })
         .where("id", "=", id)
         .execute();
+      if (await this.exhausted()) await this.notify(month, now);
       throw error;
     }
     const usage = response.usage;
@@ -149,6 +154,25 @@ export class CommunityDiscussionBudget {
     return response;
   }
 
+  async assertAvailable(): Promise<void> {
+    const now = this.clock.now();
+    const month = now.toISOString().slice(0, 7);
+    await this.database
+      .insertInto("community_discussion_budget_months")
+      .values({
+        bot_identity: this.config.botIdentity,
+        month,
+        cost_micro_usd: "0",
+        notified: false,
+      })
+      .onConflict((c) => c.columns(["bot_identity", "month"]).doNothing())
+      .execute();
+    if (await this.exhausted()) {
+      await this.notify(month, now);
+      throw new DiscussionBudgetExceeded();
+    }
+  }
+
   async exhausted(): Promise<boolean> {
     const snapshot = await this.snapshot();
     return (
@@ -157,13 +181,21 @@ export class CommunityDiscussionBudget {
     );
   }
 
-  async persistRun(run: DiscussionRun): Promise<void> {
+  async persistRun(
+    run: DiscussionRun,
+    transaction?: Transaction<DatabaseSchema>,
+  ): Promise<void> {
     const values = {
       bot_identity: this.config.botIdentity,
       finished_at: this.clock.now(),
-      ...run,
+      status: run.status,
+      messages: run.messages,
+      transcriptions: run.transcriptions,
+      discussions: run.discussions,
+      errors: run.errors,
+      skips: run.skips,
     };
-    await this.database
+    await (transaction ?? this.database)
       .insertInto("community_discussion_runs")
       .values(values)
       .onConflict((c) => c.column("bot_identity").doUpdateSet(values))
@@ -199,8 +231,24 @@ export class CommunityDiscussionBudget {
     };
   }
 
+  async retryNotification(): Promise<void> {
+    const now = this.clock.now();
+    await this.notify(now.toISOString().slice(0, 7), now);
+  }
+
   private async notify(month: string, now: Date): Promise<void> {
     try {
+      const prior = await this.database
+        .selectFrom("community_discussion_budget_months")
+        .selectAll()
+        .where("bot_identity", "=", this.config.botIdentity)
+        .where("month", "=", month)
+        .executeTakeFirst();
+      if (!prior || prior.notified) return;
+      const candidate = await this.authors.budgetNoticeCandidate(
+        this.config.botIdentity,
+        prior.notification_after_user ?? undefined,
+      );
       await this.database.transaction().execute(async (tx) => {
         const total = await tx
           .selectFrom("community_discussion_budget_months")
@@ -210,20 +258,20 @@ export class CommunityDiscussionBudget {
           .forUpdate()
           .executeTakeFirstOrThrow();
         if (total.notified) return;
-        if (
-          await this.authors.enqueueBudgetNotice(
+        const notified =
+          candidate.recipient !== null &&
+          (await this.authors.enqueueBudgetNotice(
             tx,
-            this.config.botIdentity,
+            candidate.recipient,
             month,
             now,
-          )
-        )
-          await tx
-            .updateTable("community_discussion_budget_months")
-            .set({ notified: true })
-            .where("bot_identity", "=", this.config.botIdentity)
-            .where("month", "=", month)
-            .execute();
+          ));
+        await tx
+          .updateTable("community_discussion_budget_months")
+          .set({ notified, notification_after_user: candidate.nextAfter })
+          .where("bot_identity", "=", this.config.botIdentity)
+          .where("month", "=", month)
+          .execute();
       });
     } catch (error) {
       reportFailure("community-discussions.budget-notification", error);

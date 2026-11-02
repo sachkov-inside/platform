@@ -9,6 +9,9 @@ import {
   DiscussionBudgetExceeded,
 } from "../../src/modules/community-discussions/community-discussion-budget.js";
 import type { CommunityDiscussionModel } from "../../src/modules/community-discussions/discussion-model.js";
+import { AuthorDelivery } from "../../src/modules/communications/author-delivery.js";
+import type { AuthorAuthorization } from "../../src/modules/communications/author-authorization.js";
+import { seedCommunityBinding } from "../support/community-binding.js";
 import { CommunityAuthors } from "../../src/modules/communications/community-authors.js";
 import { required } from "../support/required.js";
 import {
@@ -41,8 +44,8 @@ const model: CommunityDiscussionModel = {
   },
 };
 const input = { messages: [], discussions: [] };
-function budget(limit = 10000) {
-  const config = loadApplicationConfig({
+function configuration(limit = 10000) {
+  return loadApplicationConfig({
     DATABASE_URL: required(process.env["DATABASE_URL"]),
     TELEGRAM_BOT_IDENTITY: "budget-test",
     TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
@@ -57,13 +60,18 @@ function budget(limit = 10000) {
     TELEGRAM_LINKED_UNAVAILABLE_TEXT: "Synthetic unavailable",
     WORKERS_ENABLED: "false",
   });
+}
+function budget(
+  limit = 10000,
+  authorization: AuthorAuthorization = {
+    authorize: () => Promise.resolve("allowed"),
+  },
+) {
   return new CommunityDiscussionBudget(
     database,
-    config,
+    configuration(limit),
     { now: () => current },
-    new CommunityAuthors(database, {
-      authorize: () => Promise.resolve("allowed"),
-    }),
+    new CommunityAuthors(database, authorization),
   );
 }
 beforeAll(async () => {
@@ -73,7 +81,7 @@ beforeEach(async () => {
   current = now;
   calls = 0;
   providerFailure = false;
-  await sql`truncate community_discussion_model_calls, community_discussion_budget_months, community_discussion_runs restart identity cascade`.execute(
+  await sql`truncate telegram_transport_slots, telegram_transport_fairness, communication_author_outbox, platform_links, link_transactions, bot_contacts, community_discussion_model_calls, community_discussion_budget_months, community_discussion_runs restart identity cascade`.execute(
     database,
   );
 });
@@ -109,3 +117,164 @@ it("stops both model operations at the durable monthly limit and resumes after a
     modelCalls: 1,
   });
 });
+
+it("keeps a failed provider attempt charged and prevents parallel stale budget checks", async () => {
+  const entered = deferred();
+  const release = deferred();
+  const slow: CommunityDiscussionModel = {
+    ...model,
+    group: async () => {
+      calls += 1;
+      entered.resolve();
+      await release.promise;
+      throw new Error("synthetic billed invalid output");
+    },
+  };
+  const pending = new BudgetedDiscussionModel(slow, budget()).group(input);
+  const rejected = expect(pending).rejects.toThrow(
+    "synthetic billed invalid output",
+  );
+  try {
+    await entered.promise;
+    await expect(
+      new BudgetedDiscussionModel(model, budget()).group(input),
+    ).rejects.toBeInstanceOf(DiscussionBudgetExceeded);
+    expect(calls).toBe(1);
+  } finally {
+    release.resolve();
+  }
+  await rejected;
+  expect(await budget().snapshot()).toMatchObject({
+    monthCostMicroUsd: 10000,
+    modelCalls: 1,
+  });
+});
+
+it("prices transcription duration even when the provider returns no usage", async () => {
+  await new BudgetedDiscussionModel(model, budget(20000)).transcribe({
+    bytes: new Uint8Array([1]),
+    mediaType: "audio/ogg",
+    durationSeconds: 130,
+  });
+  expect(await budget().snapshot()).toMatchObject({
+    monthCostMicroUsd: 13000,
+    modelCalls: 1,
+  });
+});
+
+it("enqueues one monthly author notice durably and never holds the budget lock during author authorization", async () => {
+  await seedCommunityBinding(
+    database,
+    {
+      accountRef: "budget-author",
+      telegramIdentityRef: "budget-author-identity",
+      linkRef: "budget-link",
+      linkRevision: 1,
+    },
+    now,
+    "900",
+    "budget-test",
+  );
+  const entered = deferred();
+  const release = deferred();
+  const authorization: AuthorAuthorization = {
+    authorize: async () => {
+      entered.resolve();
+      await release.promise;
+      return "allowed";
+    },
+  };
+  const pending = new BudgetedDiscussionModel(
+    model,
+    budget(0, authorization),
+  ).group(input);
+  const rejected = expect(pending).rejects.toBeInstanceOf(
+    DiscussionBudgetExceeded,
+  );
+  try {
+    await entered.promise;
+    await new BudgetedDiscussionModel(model, budget(20000)).group(input);
+    expect(calls).toBe(1);
+  } finally {
+    release.resolve();
+  }
+  await rejected;
+  await Promise.all([
+    budget(0).retryNotification(),
+    budget(0).retryNotification(),
+  ]);
+  const delivered: string[] = [];
+  const outbox = new AuthorDelivery(
+    database,
+    { ...configuration(), deliveryMode: "live" },
+    { authorize: () => Promise.resolve("allowed") },
+    {
+      send: (message) => {
+        delivered.push(message.chatId);
+        return Promise.resolve({
+          kind: "delivered",
+          providerMessageId: "notice-1",
+        });
+      },
+    },
+  );
+  expect(await outbox.processAvailable(now)).toBe(1);
+  expect(await outbox.processAvailable(now)).toBe(0);
+  expect(delivered).toEqual(["900"]);
+});
+
+it("continues bounded recipient pages and selects only a confirmed authorized author", async () => {
+  for (let id = 901; id <= 907; id += 1)
+    await seedCommunityBinding(
+      database,
+      {
+        accountRef: `budget-author-${id}`,
+        telegramIdentityRef: `budget-identity-${id}`,
+        linkRef: `budget-link-${id}`,
+        linkRevision: 1,
+      },
+      now,
+      String(id),
+      "budget-test",
+    );
+  const checked: string[] = [];
+  const authorization: AuthorAuthorization = {
+    authorize: (actor) => {
+      checked.push(actor.accountRef);
+      return Promise.resolve(
+        actor.accountRef === "budget-author-907" ? "allowed" : "denied",
+      );
+    },
+  };
+  await expect(
+    new BudgetedDiscussionModel(model, budget(0, authorization)).group(input),
+  ).rejects.toBeInstanceOf(DiscussionBudgetExceeded);
+  expect(checked).toHaveLength(5);
+  const delivered: string[] = [];
+  const outbox = new AuthorDelivery(
+    database,
+    { ...configuration(), deliveryMode: "live" },
+    authorization,
+    {
+      send: (message) => {
+        delivered.push(message.chatId);
+        return Promise.resolve({
+          kind: "delivered",
+          providerMessageId: "notice-page",
+        });
+      },
+    },
+  );
+  expect(await outbox.processAvailable(now)).toBe(0);
+  await budget(0, authorization).retryNotification();
+  expect(await outbox.processAvailable(now)).toBe(1);
+  expect(delivered).toEqual(["907"]);
+});
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
