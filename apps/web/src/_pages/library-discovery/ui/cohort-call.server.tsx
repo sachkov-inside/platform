@@ -129,6 +129,9 @@ export async function PersonalCohortStatus({
           // Консультация стоит под ценой; в билете анонса цены ещё нет.
           contact={status.price === null ? null : ticketContact(result)}
           status={status}
+          telegramHandle={courseTelegramHandle(
+            result.reference.productPage?.page ?? null,
+          )}
         />
       )}
       {state.waitlist.kind === "ready" ? (

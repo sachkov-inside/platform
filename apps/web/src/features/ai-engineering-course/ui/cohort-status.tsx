@@ -48,10 +48,13 @@ const ticketCopy = {
 export function CohortStatusView({
   status,
   contact,
+  telegramHandle,
 }: {
   readonly status: CohortStatus;
   /** Связь с автором под кнопками билета; страница курса решает, на какой ник она ведёт. */
   readonly contact?: ReactNode;
+  /** Ник автора: под кнопкой оплаты к нему зовут тех, кто платит не из России. Без ника строки нет. */
+  readonly telegramHandle?: string | undefined;
 }) {
   return (
     <div className="aie-cohort-status">
@@ -94,6 +97,9 @@ export function CohortStatusView({
                 <ArrowRight aria-hidden="true" />
               </Link>
             )}
+            {status.purchaseHref === null ? null : (
+              <PaymentNotes telegramHandle={telegramHandle} />
+            )}
             <IntentPrefetchLink
               className="aie-cohort-ticket-programme"
               href={status.programmeHref}
@@ -104,6 +110,36 @@ export function CohortStatusView({
           {contact}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Способы оплаты под кнопкой покупки: части через «Долями» на форме Т-Банка и связь с автором для
+ * тех, кто платит не из России (решение владельца 02.11.2026). Строки не списком: стили страницы
+ * курса красят пункты списков в тёмном блоке.
+ */
+function PaymentNotes({
+  telegramHandle,
+}: {
+  readonly telegramHandle: string | undefined;
+}) {
+  return (
+    <div className="aie-cohort-ticket-payment">
+      <span>Можно оплатить частями через «Долями».</span>
+      {telegramHandle === undefined ? null : (
+        <span>
+          Не из России?{" "}
+          <a
+            href={`https://t.me/${telegramHandle}`}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Напиши мне в Telegram
+          </a>
+          , помогу с оплатой.
+        </span>
+      )}
     </div>
   );
 }

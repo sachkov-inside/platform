@@ -868,6 +868,7 @@ export const FreeStartSale: Story = {
             today: "2026-10-29",
           }) ?? fail("Идущий поток с продажей рисует билет")
         }
+        telegramHandle={courseTelegramHandle(aiEngineeringCoursePage)}
         contact={
           <TicketContact
             handle={
@@ -907,6 +908,13 @@ export const FreeStartSale: Story = {
     ).toBeVisible();
     await expect(
       within(ticket).getByRole("link", { name: /Написать в Telegram/u }),
+    ).toHaveAttribute("href", "https://t.me/sachkova_mng");
+    // Рядом с оплатой: части через «Долями» и связь для оплаты не из России (02.11.2026).
+    await expect(
+      within(ticket).getByText(/Можно оплатить частями через «Долями»/u),
+    ).toBeVisible();
+    await expect(
+      within(ticket).getByRole("link", { name: /Напиши мне в Telegram/u }),
     ).toHaveAttribute("href", "https://t.me/sachkova_mng");
   },
 };
