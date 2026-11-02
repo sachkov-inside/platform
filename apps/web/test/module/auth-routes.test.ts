@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({
   cookies: new Map<string, string>(),
+  cookieWrites: [] as { name: string; value: string }[],
   connection: vi.fn(() => Promise.resolve()),
   config: {
     endpoint: "https://identity.example.test",
@@ -43,8 +44,13 @@ vi.mock("next/headers", () => ({
         const value = fakes.cookies.get(key);
         return value === undefined ? undefined : { value };
       },
-      set: (key: string, value: string) => {
-        fakes.cookies.set(key, value);
+      getAll: () =>
+        [...fakes.cookies].map(([name, value]) => ({ name, value })),
+      set: (key: string | { name: string; value: string }, value?: string) => {
+        const cookie =
+          typeof key === "string" ? { name: key, value: value ?? "" } : key;
+        fakes.cookieWrites.push(cookie);
+        fakes.cookies.set(cookie.name, cookie.value);
       },
       delete: (key: string) => {
         fakes.cookies.delete(key);
@@ -83,6 +89,7 @@ vi.mock("@/shared/auth/complete-platform-sign-in.server", () => ({
 vi.mock("@/shared/auth/index.server", () => ({
   readLogtoBffConfig: () => fakes.config,
   clearLogtoSessionCookie: fakes.clearLogtoSessionCookie,
+  logtoSessionCookieName: (appId: string) => `logto_${appId}`,
   isSameOriginMutation: (request: Request, baseUrl: string) =>
     request.headers.get("origin") === new URL(baseUrl).origin,
   providerCallbackUrl: (requestUrl: string, baseUrl: string) => {
@@ -127,6 +134,7 @@ describe("Logto BFF route orchestration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     fakes.cookies.clear();
+    fakes.cookieWrites.length = 0;
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(authInstant));
   });
@@ -275,6 +283,61 @@ describe("Logto BFF route orchestration", () => {
     expect(fakes.completePlatformSignIn).toHaveBeenCalledWith(
       "platform-access-token",
     );
+  });
+
+  it("answers a repeated callback from the same browser without a second code exchange", async () => {
+    // iOS WebKit sends the same callback twice; a second exchange makes Logto revoke the first.
+    const sessionCookie = "logto_inside-web";
+    let finishExchange: (() => void) | undefined;
+    fakes.handleSignInCallback.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishExchange = () => {
+            fakes.cookies.set(sessionCookie, "signed-in-session");
+            resolve("https://inside.example.test/courses");
+          };
+        }),
+    );
+    fakes.cookies.set(sessionCookie, "sign-in-transaction");
+    const repeatedRequest = () =>
+      new Request("http://localhost:3000/callback?code=once&state=attempt");
+
+    const first = callback(repeatedRequest());
+    const second = callback(repeatedRequest());
+    await vi.waitFor(() => {
+      expect(fakes.handleSignInCallback).toHaveBeenCalledOnce();
+    });
+    finishExchange?.();
+    const responses = await Promise.all([first, second]);
+
+    expect(fakes.handleSignInCallback).toHaveBeenCalledOnce();
+    expect(
+      responses.map((response) => response.headers.get("location")),
+    ).toEqual([
+      "https://inside.example.test/courses",
+      "https://inside.example.test/courses",
+    ]);
+    expect(responses.map((response) => response.status)).toEqual([303, 303]);
+    expect(fakes.cookieWrites).toContainEqual(
+      expect.objectContaining({
+        name: sessionCookie,
+        value: "signed-in-session",
+      }),
+    );
+  });
+
+  it("does not hand a callback result to a request from another browser", async () => {
+    const fromBrowser = (session: string) => {
+      fakes.cookies.set("logto_inside-web", session);
+      return callback(
+        new Request("http://localhost:3000/callback?code=shared&state=shared"),
+      );
+    };
+
+    await fromBrowser("first-browser");
+    await fromBrowser("second-browser");
+
+    expect(fakes.handleSignInCallback).toHaveBeenCalledTimes(2);
   });
 
   it("keeps a retryable Account establishment recoverable", async () => {
