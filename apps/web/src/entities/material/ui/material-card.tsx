@@ -30,6 +30,7 @@ import {
   ProductContinuationAction,
   ProductRowArticle,
 } from "./product-continuation.client";
+import "./product-material-row.css";
 
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
@@ -495,18 +496,14 @@ function ProductMaterialRow({
               {material.title}
             </IntentPrefetchLink>
           </Heading>
-          <span
-            className="mt-1 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-muted-foreground"
-            data-product-meta
-          >
+          <span data-product-meta>
             {video ? (
               <span
-                className="inline-flex items-center gap-1 tabular-nums"
+                data-product-format="video"
                 {...(duration === undefined
                   ? {}
                   : { "data-product-duration": "" })}
               >
-                <Play aria-hidden="true" className="size-3 fill-current" />
                 Видео
                 {duration === undefined ? null : (
                   <>
@@ -516,18 +513,11 @@ function ProductMaterialRow({
                 )}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1">
-                <FileText aria-hidden="true" className="size-3.5" />
-                Текст
-              </span>
+              <span data-product-format="text">Текст</span>
             )}
             {freeMark === null ? null : (
               <span
                 aria-hidden={freeMark === "reserved" ? true : undefined}
-                className={cn(
-                  "inline-flex shrink-0 items-center rounded-full bg-accent/12 px-2 py-0.5 text-[0.6875rem] font-semibold leading-4 text-action",
-                  freeMark === "reserved" && "invisible",
-                )}
                 data-product-free={freeMark}
               >
                 Бесплатно

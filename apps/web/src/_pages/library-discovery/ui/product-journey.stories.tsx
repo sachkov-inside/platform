@@ -1406,7 +1406,12 @@ export const CompactMobileRoute: Story = {
     await expect(durations).toHaveLength(1);
     await expect(durations[0]).toBeVisible();
     await expect(durations[0]).toHaveTextContent("Видео · 21:00");
-    await expect(durations[0]?.querySelector("svg")).toBeVisible();
+    // Значок воспроизведения рисует CSS по data-product-format (product-material-row.css).
+    await expect(durations[0]).toHaveAttribute("data-product-format", "video");
+    await expect(
+      getComputedStyle(durations[0] ?? fail("Missing duration"), "::before")
+        .width,
+    ).toBe("12px");
     await expect(
       route.querySelector('[data-product-ordinal="2"]'),
     ).toHaveAttribute("aria-current", "step");
@@ -1441,7 +1446,12 @@ export const DesktopRouteDetails: Story = {
     );
     await expect(durations).toHaveLength(1);
     await expect(durations[0]).toBeVisible();
-    await expect(durations[0]?.querySelector("svg")).toBeVisible();
+    // Значок воспроизведения рисует CSS по data-product-format (product-material-row.css).
+    await expect(durations[0]).toHaveAttribute("data-product-format", "video");
+    await expect(
+      getComputedStyle(durations[0] ?? fail("Missing duration"), "::before")
+        .width,
+    ).toBe("12px");
     await expect(cards[0]).toContainElement(durations[0] ?? null);
     const card = cards[2];
     const title = card?.querySelector("h3,h4");
