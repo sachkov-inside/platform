@@ -17,7 +17,8 @@ interface CallbackOutcome {
 
 // A browser repeats the callback within a second; the result stays available a little longer.
 const settledOutcomeLifetimeMilliseconds = 60_000;
-// Entry rate limits bound the map in practice; this cap keeps memory bounded under any load.
+// Entry rate limits bound the map in practice. Under a flood the oldest outcome leaves first, so
+// the protection keeps working for fresh attempts instead of switching off.
 const maximumOutcomes = 1_000;
 const outcomes = new Map<string, Promise<CallbackOutcome>>();
 
@@ -48,7 +49,10 @@ export async function runSignInCallbackOnce(
     for (const cookie of outcome.changedCookies) store.set(cookie);
     return outcome.location;
   }
-  if (outcomes.size >= maximumOutcomes) return completeSignIn();
+  if (outcomes.size >= maximumOutcomes) {
+    const oldest = outcomes.keys().next().value;
+    if (oldest !== undefined) outcomes.delete(oldest);
+  }
 
   const outcome = (async (): Promise<CallbackOutcome> => {
     const location = await completeSignIn();
@@ -58,14 +62,18 @@ export async function runSignInCallbackOnce(
   outcome.then(
     () => {
       setTimeout(() => {
-        outcomes.delete(key);
+        forget(key, outcome);
       }, settledOutcomeLifetimeMilliseconds).unref();
     },
     () => {
-      outcomes.delete(key);
+      forget(key, outcome);
     },
   );
   return (await outcome).location;
+}
+
+function forget(key: string, outcome: Promise<CallbackOutcome>): void {
+  if (outcomes.get(key) === outcome) outcomes.delete(key);
 }
 
 function attemptKey(
