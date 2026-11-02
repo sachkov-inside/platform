@@ -869,6 +869,11 @@ export const FreeStartSale: Story = {
       within(ticket).getByRole("link", { name: /Приобрести доступ/u }),
     ).toHaveAttribute("href", "/products/ai-engineering/buy");
     await expect(within(ticket).getByText(/29\s900\s₽/u)).toBeVisible();
+    // Без потоков зачёркнутая цена — цена без скидки, а не цена после старта (02.11.2026).
+    await expect(
+      within(ticket).getByText(/Цена без скидки/u),
+    ).toBeInTheDocument();
+    await expect(within(ticket).queryByText(/Цена после старта/u)).toBeNull();
     // Под ценой автор зовёт сомневающихся на бесплатную консультацию (решение владельца 02.11.2026).
     await expect(
       within(ticket).getByText(/бесплатно проконсультирую/u),

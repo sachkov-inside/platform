@@ -10,12 +10,15 @@ export function PreorderPriceView({
   price,
   note = `до старта ${price.startsOn}`,
   tone = "light",
+  struckLabel = "Цена после старта",
 }: {
   readonly price: PreorderPrice;
   /** Подпись под ценой; по умолчанию — день старта, `null` — без подписи. */
   readonly note?: string | null | undefined;
   /** На тёмной плашке подписи светлее. */
   readonly tone?: "light" | "dark";
+  /** Что значит зачёркнутая цена, для экранного диктора; без потоков это цена без скидки. */
+  readonly struckLabel?: string;
 }) {
   return (
     <div className="preorder-price" data-tone={tone}>
@@ -25,7 +28,7 @@ export function PreorderPriceView({
           <>
             {" "}
             <s className="preorder-price-after">
-              <span className="sr-only">Цена после старта: </span>
+              <span className="sr-only">{struckLabel}: </span>
               {price.priceAfterStart}
             </s>
           </>
