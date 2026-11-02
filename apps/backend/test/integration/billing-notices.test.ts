@@ -20,7 +20,6 @@ import {
 } from "../../src/modules/billing/index.js";
 import {
   Notifications,
-  resolveBillingSource,
   type SendNotificationEmail,
 } from "../../src/modules/notifications/index.js";
 
@@ -218,7 +217,7 @@ describe("служебные сообщения подписки (реальны
         sources: {
           resolve: (event) =>
             event.eventType === "billing.notice-ready"
-              ? resolveBillingSource(notices, payments)(event)
+              ? notices.resolveNotice(event)
               : Promise.resolve({ status: "unavailable" }),
           canRead: () => Promise.resolve("denied"),
         },
@@ -596,11 +595,12 @@ describe("служебные сообщения подписки (реальны
         "Продукт: Материалы",
         "Сумма: 1000.00 ₽",
         "Время: 31.01.2030, 13:00 по Москве",
-        `Покупатель: ${s.buyer}@example.test`,
         "",
         `${origin}/authoring/sales/payments/${purchaseRef}`,
       ].join("\n"),
     );
+    // Данных покупателя в тексте нет: автор находит его по ссылке на карточку оплаты.
+    expect(sales[0]?.text).not.toContain(s.buyer);
     expect(s.salesFor(stranger)).toHaveLength(0);
     expect(s.salesFor(s.buyer)).toHaveLength(0);
     // Почтой о продаже не пишут никому, а покупатель получает своё обычное письмо.

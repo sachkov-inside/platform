@@ -36,7 +36,8 @@ export type BillingNoticeSource =
       readonly purchaseRef?: string;
       readonly amountMinor?: number;
       readonly dueAt?: string;
-      readonly promotion?: SalePromotion | null;
+      /** Факты продажи для авторов: только применённая скидка, без данных покупателя. */
+      readonly sale?: { readonly promotion: SalePromotion | null };
     };
 
 interface Dependencies {
@@ -98,10 +99,12 @@ export class BillingNotices {
           ? {
               accountId: null,
               audience: "sales_managers" as const,
-              promotion:
-                notice.promotion === null
-                  ? null
-                  : salePromotionSchema.parse(notice.promotion),
+              sale: {
+                promotion:
+                  notice.promotion === null
+                    ? null
+                    : salePromotionSchema.parse(notice.promotion),
+              },
             }
           : { accountId: notice.accountId }),
         title: notice.title,

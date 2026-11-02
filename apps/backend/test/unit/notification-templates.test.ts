@@ -75,12 +75,11 @@ const sale: Extract<NotificationSource, { status: "current" }> = {
   purchaseRef: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
   amountMinor: 2_000_000,
   sale: {
-    buyerEmail: "buyer@example.test",
     promotion: { name: "Осенняя скидка", code: "AUTUMN", percent: 20 },
   },
 };
 
-test("продажа: автор видит продукт, сумму, промокод, московское время, покупателя и карточку оплаты", () => {
+test("продажа: автор видит продукт, сумму, промокод, московское время и карточку оплаты", () => {
   expect(renderNotification(sale, "https://inside.example.test")).toEqual({
     templateRef: "inside.sale_recorded",
     templateRevision: 1,
@@ -92,29 +91,27 @@ test("продажа: автор видит продукт, сумму, пром
       "Сумма: 20000.00 ₽",
       "Промокод: AUTUMN (скидка 20%)",
       "Время: 02.11.2026, 14:05 по Москве",
-      "Покупатель: buyer@example.test",
       "",
       "https://inside.example.test/authoring/sales/payments/eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
     ].join("\n"),
   });
 });
 
-test("продажа без кода и без адреса: автоматическая скидка по названию, покупатель не указан", () => {
-  const text = renderNotification(
-    {
-      ...sale,
-      sale: {
-        buyerEmail: null,
-        promotion: { name: "Осенняя скидка", code: null, percent: 20 },
-      },
-    },
-    "https://inside.example.test",
-  ).text;
-  expect(text).toContain("Скидка: Осенняя скидка (20%)");
-  expect(text).toContain("Покупатель: адрес заказа не указан");
+test("продажа без кода: автоматическая скидка по названию; без скидки строки нет", () => {
   expect(
     renderNotification(
-      { ...sale, sale: { buyerEmail: "b@example.test", promotion: null } },
+      {
+        ...sale,
+        sale: {
+          promotion: { name: "Осенняя скидка", code: null, percent: 20 },
+        },
+      },
+      "https://inside.example.test",
+    ).text,
+  ).toContain("Скидка: Осенняя скидка (20%)");
+  expect(
+    renderNotification(
+      { ...sale, sale: { promotion: null } },
       "https://inside.example.test",
     ).text,
   ).not.toMatch(/Промокод|Скидка/u);

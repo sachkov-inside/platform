@@ -77,7 +77,7 @@
       },
       "templateRef": "inside.sale_recorded",
       "templateRevision": 1,
-      "text": "Новая покупка\n\nПродукт: AI Engineering\nСумма: 20000.00 ₽\nВремя: 08.09.2026, 15:00 по Москве\nПокупатель: buyer@example.test\n\nhttps://inside.example/authoring/sales/payments/00000000-0000-4000-8000-000000000108",
+      "text": "Новая покупка\n\nПродукт: AI Engineering\nСумма: 20000.00 ₽\nВремя: 08.09.2026, 15:00 по Москве\n\nhttps://inside.example/authoring/sales/payments/00000000-0000-4000-8000-000000000108",
       "issuedAt": "2026-09-08T12:00:00Z",
       "notAfter": "2026-09-08T12:10:00Z",
       "binding": {

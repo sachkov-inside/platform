@@ -88,7 +88,6 @@ export function renderNotification(
         `Сумма: ${(source.amountMinor / 100).toFixed(2)} ₽`,
         ...promotionLine(sale.promotion),
         `Время: ${moscowTime.format(new Date(source.event.occurredAt))} по Москве`,
-        `Покупатель: ${sale.buyerEmail === null ? "адрес заказа не указан" : oneLine(sale.buyerEmail)}`,
         "",
         url.href,
       ].join("\n"),

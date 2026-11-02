@@ -24,11 +24,13 @@ export type NotificationSource =
       readonly purchaseRef?: string;
       readonly amountMinor?: number;
       readonly dueAt?: string;
-      /** Неизменяемые факты продажи для автора: адрес заказа и применённая скидка. */
+      /**
+       * Неизменяемые факты продажи для автора. Данных покупателя здесь нет: автор находит его по
+       * ссылке на карточку оплаты, а персональные данные не уходят в Telegram.
+       */
       readonly sale?: SaleFacts;
     };
 export interface SaleFacts {
-  readonly buyerEmail: string | null;
   readonly promotion: {
     readonly name: string;
     readonly code: string | null;

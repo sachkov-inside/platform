@@ -13,14 +13,14 @@ RabbitMQ adapters принадлежат infrastructure; доменные опе
 pg-boss обслуживает локальные задания и sweeps; межсервисные events/delivery/results идут RabbitMQ.
 Runtime #436 добавляет core/facets/email; producers подключаются в #410/#437.
 
-| Владелец | Интерфейс, вводимый вместе с потребителем |
-|---|---|
-| Billing | Immutable notice-ready event/outbox; `resolveNotice(event)` returns authoritative purpose, template data, recipient Account, optional purchase reference and deadline; public BillingPayments resolves an owned Order Email |
-| Materials | First-publication event/outbox; `resolveAnnouncement(materialRef, occurrenceRef)` возвращает publication identity, текущие title/reader path/contentVersion или unpublished/not_found |
-| Accounts | Публичные verified email/contact revision и Account enumeration; никакого чтения чужой schema |
-| ContentAccess | Текущий доступ Account к Material через существующий публичный facet; нет provider I/O |
-| Notifications | `acceptEvent`, `readPreferences`, `changePreferences`, `authorizeDispatch`, `acceptDeliveryResult`, `readDeliveries`, `resolveUnknown` |
-| Telegram/email | Schema-valid command inbox, собственный effect ledger и correlated result outbox |
+| Владелец       | Интерфейс, вводимый вместе с потребителем                                                                                                                                                                                   |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Billing        | Immutable notice-ready event/outbox; `resolveNotice(event)` returns authoritative purpose, template data, recipient Account, optional purchase reference and deadline; public BillingPayments resolves an owned Order Email |
+| Materials      | First-publication event/outbox; `resolveAnnouncement(materialRef, occurrenceRef)` возвращает publication identity, текущие title/reader path/contentVersion или unpublished/not_found                                       |
+| Accounts       | Публичные verified email/contact revision и Account enumeration; никакого чтения чужой schema                                                                                                                               |
+| ContentAccess  | Текущий доступ Account к Material через существующий публичный facet; нет provider I/O                                                                                                                                      |
+| Notifications  | `acceptEvent`, `readPreferences`, `changePreferences`, `authorizeDispatch`, `acceptDeliveryResult`, `readDeliveries`, `resolveUnknown`                                                                                      |
+| Telegram/email | Schema-valid command inbox, собственный effect ledger и correlated result outbox                                                                                                                                            |
 
 Названия выше задают ответственность и требуемый результат, не пустые DI tokens. Exact HTTP schemas
 публичных endpoints вводятся вместе с #436/#437; actor берётся из trusted session, не body.
@@ -92,12 +92,12 @@ Telegram, по связи и доступности бота, как у оста
 Перед каждой отправкой Notifications снова проверяет право получателя. Без права отправка
 отклоняется с `access_denied`.
 
-Текст содержит продукт, списанную сумму, применённую скидку или промокод, время по Москве,
-адрес заказа покупателя и ссылку на карточку оплаты в разделе продаж. Все эти факты неизменяемы:
-скидка фиксируется в поводе, адрес заказа принадлежит покупке. Поэтому повторная сборка текста
-перед отправкой совпадает с выпущенной командой. Имя и username покупателя в Telegram в текст не
-входят: они меняются, и тогда команда была бы отклонена как `superseded`. Автор видит их в карточке
-оплаты. Повод продажи не показывается в истории покупок покупателя.
+Текст содержит продукт, списанную сумму, применённую скидку или промокод, время по Москве и
+ссылку на карточку оплаты в разделе продаж. Данных покупателя в тексте нет: ни адреса, ни имени,
+ни username. Персональные данные покупателя не уходят в Telegram, и автор находит покупателя по
+ссылке. Все факты текста неизменяемы, скидка фиксируется в поводе. Поэтому повторная сборка
+текста перед отправкой совпадает с выпущенной командой. Повод продажи не показывается в истории
+покупок покупателя.
 
 ## Проверка и реализация
 
