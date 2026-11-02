@@ -491,6 +491,22 @@ One attempt to make a CommunityEntitlement real in Telegram. Its desired state, 
 acceptance and the observed membership are separate facts.
 _Avoid_: Queue acknowledgement as membership, entitlement revision as proof of admission
 
+**Community Group Topic**:
+One separate chat inside a Community Group. In Russian product language: «Тема группы»; a bare
+«Тема» keeps meaning a Material Topic.
+_Avoid_: Topic, chat, thread
+
+**Community Discussion**:
+The related messages of a Community Group around one question, including the answers of the author
+and other participants. The author turns it into Materials; the Discussion itself is not a
+Material. In Russian product language: «Обсуждение сообщества».
+_Avoid_: Thread, reply chain, FAQ entry, knowledge base
+
+**Community Digest**:
+A periodic summary of recent Community Discussions sent to a separate chat. In Russian product
+language: «Сводка сообщества».
+_Avoid_: Report, newsletter, Broadcast
+
 **BillingNotice**:
 A fact about a Product purchase or its Payment that calls for a service message to the buyer.
 A confirmed one-time purchase also gives a sale notice: a message about the sale to every Account
