@@ -1413,6 +1413,12 @@ export const LessonBlocksLong: Story = {
     ).toBeInTheDocument();
     const page = canvasElement.ownerDocument.documentElement;
     await expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth);
+    // A long prompt line wraps: no text hides behind a horizontal scroll.
+    const prompt = canvasElement.querySelector(
+      '[data-material-block="agentPrompt"] pre',
+    );
+    if (prompt === null) throw new Error("A prompt needs a pre element");
+    await expect(prompt.scrollWidth).toBeLessThanOrEqual(prompt.clientWidth);
   },
 };
 

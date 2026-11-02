@@ -294,7 +294,7 @@ export const CodeBlockCopyDesktop: Story = {
   globals: { viewport: { value: "desktop1440", isRotated: false } },
 };
 
-export const CodeBlockInOpenCallout: Story = {
+export const CodeBlockInPlainCallout: Story = {
   args: {
     blocks: [
       {
@@ -312,8 +312,8 @@ export const CodeBlockInOpenCallout: Story = {
     await expectCodeFillsCallout(canvasElement);
   },
 };
-export const CodeBlockInOpenCalloutMobile: Story = {
-  ...CodeBlockInOpenCallout,
+export const CodeBlockInPlainCalloutMobile: Story = {
+  ...CodeBlockInPlainCallout,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 

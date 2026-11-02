@@ -45,10 +45,7 @@ export function MaterialAgentPrompt({
           <span role="status">{labels[state]}</span>
         </Button>
       </div>
-      <pre
-        className="overflow-x-auto px-5 pb-5 font-mono text-[0.8125rem] leading-6 [scrollbar-color:var(--sidebar-border)_var(--sidebar)] sm:px-6"
-        tabIndex={0}
-      >
+      <pre className="whitespace-pre-wrap px-5 pb-5 font-mono text-[0.8125rem] leading-6 [overflow-wrap:anywhere] sm:px-6">
         <code>{text}</code>
       </pre>
     </div>
