@@ -117,12 +117,13 @@ test("discussion access binds the confirmed Account and rechecks its actual perm
     ok: true,
   });
   expect(fetcher).toHaveBeenCalledTimes(1);
-  expect(fetcher.mock.calls[0]?.[1]?.body).toBe(
-    JSON.stringify({
-      ...input,
-      actor: { accountRef: "synthetic-author" },
-    }),
-  );
+  const body = fetcher.mock.calls[0]?.[1]?.body;
+  if (typeof body !== "string")
+    throw new Error("Expected JSON provider request");
+  expect(JSON.parse(body)).toEqual({
+    ...input,
+    actor: { accountRef: "synthetic-author" },
+  });
   await database.prisma.accountPermission.deleteMany({
     where: { accountId, permission: "communications:manage" },
   });
