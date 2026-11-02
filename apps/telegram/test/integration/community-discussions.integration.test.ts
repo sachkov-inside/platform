@@ -3,6 +3,7 @@ import {
   type CommunityDiscussionsRequest,
   type CommunityDiscussionsSuccess,
 } from "@inside/contracts/community-discussions";
+import { COMMUNITY_FILES } from "../../src/modules/community-discussions/community-files.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { purgeExpiredRecords } from "../../src/database/retention.js";
 import { seedCommunityBinding } from "../support/community-binding.js";
@@ -50,6 +51,9 @@ const actor = { accountRef: "synthetic-author" };
 const version = "inside.community-discussions.v1";
 let permission: "allowed" | "denied" | "unavailable" = "allowed";
 const inputs: GroupInput[] = [];
+let transcriptions = 0;
+let downloads = 0;
+let transcriptionFailure = false;
 let result: GroupResult;
 let failure: Error | undefined;
 let authorize:
@@ -64,7 +68,15 @@ const model: CommunityDiscussionModel = {
         ? Promise.reject(failure)
         : Promise.resolve(result);
   },
-  transcribe: () => Promise.reject(new Error("Not enabled")),
+  transcribe: () => {
+    transcriptions++;
+    return transcriptionFailure
+      ? Promise.reject(new Error("synthetic transcription failure"))
+      : Promise.resolve({
+          text: "Сначала определите задачу.",
+          usage: { inputTokens: null, outputTokens: null, durationSeconds: 23 },
+        });
+  },
 };
 
 beforeAll(async () => {
@@ -74,6 +86,9 @@ beforeEach(async () => {
   await sql`truncate community_discussion_mark_receipts, community_discussion_sources, community_discussions, community_discussion_schedule, community_messages, telegram_updates, bot_contacts, start_response_deliveries, platform_links, link_transactions restart identity cascade`.execute(
     database,
   );
+  transcriptions = 0;
+  downloads = 0;
+  transcriptionFailure = false;
   permission = "allowed";
   inputs.length = 0;
   failure = undefined;
@@ -108,6 +123,11 @@ async function start(grouping = true) {
           COMMUNITY_DISCUSSIONS_MODEL_BASE_URL: "http://127.0.0.1:19999/v1",
           COMMUNITY_DISCUSSIONS_MODEL_API_KEY: "synthetic",
           COMMUNITY_DISCUSSIONS_MODEL: "synthetic-model",
+          COMMUNITY_DISCUSSIONS_TRANSCRIPTION_BASE_URL:
+            "http://127.0.0.1:19998/v1",
+          COMMUNITY_DISCUSSIONS_TRANSCRIPTION_API_KEY: "synthetic-audio",
+          COMMUNITY_DISCUSSIONS_TRANSCRIPTION_MODEL:
+            "synthetic-transcription-model",
         }
       : {}),
     TELEGRAM_WELCOME_TEXT: "Synthetic welcome",
@@ -120,6 +140,13 @@ async function start(grouping = true) {
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
+    .overrideProvider(COMMUNITY_FILES)
+    .useValue({
+      download: () => {
+        downloads++;
+        return Promise.resolve(Buffer.from("OggSsynthetic"));
+      },
+    })
     .overrideProvider(COMMUNITY_DISCUSSION_MODEL)
     .useValue(model)
     .overrideProvider(AUTHOR_AUTHORIZATION)
@@ -218,6 +245,135 @@ async function api(
 }
 
 describe("community discussion processing", () => {
+  it("transcribes voice and video notes before grouping and exposes cached transcripts through HTTP", async () => {
+    for (const [id, kind] of [
+      [10, "voice"],
+      [11, "video_note"],
+    ] as const) {
+      await application().inject({
+        method: "POST",
+        url: "/webhooks/telegram",
+        headers: {
+          "x-telegram-bot-api-secret-token":
+            "synthetic_webhook_secret_for_tests_only",
+        },
+        payload: {
+          update_id: id,
+          message: {
+            message_id: id,
+            date: now.getTime() / 1000,
+            chat: { id: -1000000000000, type: "supergroup" },
+            from: { id: 42, is_bot: false },
+            [kind]: { file_id: `synthetic-${id}`, duration: 23 },
+          },
+        },
+      });
+    }
+    await application().get(TelegramUpdateProcessor).processAvailable(10, now);
+    expect(downloads).toBe(0);
+    expect(
+      (await application().get(CommunityMessages).readMessages({ limit: 10 }))
+        .messages,
+    ).toMatchObject([
+      { kind: "voice", fileId: "synthetic-10" },
+      { kind: "video_note", fileId: "synthetic-11" },
+    ]);
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", transcriptions: 2 });
+    expect(inputs[0]?.messages.map((message) => message.text)).toEqual([
+      "Сначала определите задачу.",
+      "Сначала определите задачу.",
+    ]);
+    const discussionId = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    ).discussionId;
+    expect(
+      (await api("discussions.read", { discussionId })).json().discussion
+        .messages,
+    ).toMatchObject([
+      {
+        transcript: "Сначала определите задачу.",
+        transcriptionStatus: "completed",
+      },
+      { transcriptionStatus: "completed" },
+    ]);
+    vi.setSystemTime(now.getTime() + 86_400_000);
+    await application().get(CommunityDiscussionProcessor).processDue();
+    expect(transcriptions).toBe(2);
+    expect(downloads).toBe(2);
+    vi.setSystemTime(now.getTime() + 91 * 86_400_000);
+    await purgeExpiredRecords(
+      database,
+      new Date(now.getTime() + 91 * 86_400_000),
+      { membershipCheckDays: 30, salesFunnelEventDays: 30 },
+    );
+    expect(
+      (await application().get(CommunityMessages).readMessages({ limit: 10 }))
+        .messages,
+    ).toEqual([]);
+    expect(
+      (await api("discussions.read", { discussionId })).json().discussion
+        .messages,
+    ).toMatchObject([
+      { text: null, transcript: null, transcriptionStatus: "expired" },
+      { transcriptionStatus: "expired" },
+    ]);
+  });
+  it("marks a failed voice transcript and retries it while grouping other messages", async () => {
+    await capture("10", "Как выбрать инструмент?");
+    await application().get(CommunityMessages).capture({
+      botIdentity: "inside",
+      chatId: "-1000000000000",
+      messageId: "11",
+      updateId: "11",
+      threadId: "7",
+      replyToMessageId: "10",
+      sentAt: now,
+      editedAt: null,
+      senderTelegramUserId: "43",
+      kind: "voice",
+      text: "",
+      fileId: "synthetic-voice",
+      durationSeconds: 23,
+    });
+    transcriptionFailure = true;
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({
+      status: "completed",
+      transcriptionErrors: 1,
+      messages: 2,
+    });
+    const discussionId = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    ).discussionId;
+    expect(
+      (await api("discussions.read", { discussionId })).json().discussion
+        .messages,
+    ).toMatchObject([
+      { transcriptionStatus: "not_applicable" },
+      { transcript: null, transcriptionStatus: "pending" },
+    ]);
+    vi.setSystemTime(now.getTime() + 86_400_000);
+    transcriptionFailure = false;
+    result.discussions[0] = {
+      ...required(result.discussions[0]),
+      discussionId,
+      messageIds: ["11"],
+    };
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", transcriptions: 1, messages: 1 });
+    expect(
+      (await api("discussions.read", { discussionId })).json().discussion
+        .messages[1],
+    ).toMatchObject({
+      transcript: "Сначала определите задачу.",
+      transcriptionStatus: "completed",
+    });
+    expect(transcriptions).toBe(2);
+  });
   it("groups related captured messages once and returns their source links through HTTP", async () => {
     for (const [messageId, text, sender] of [
       [10, "Как выбрать инструмент?", 42],
@@ -526,6 +682,9 @@ describe("community discussion processing", () => {
     expect((await api("discussions.list", { limit: 10 })).statusCode).toBe(403);
     permission = "unavailable";
     expect((await api("discussions.list", { limit: 10 })).statusCode).toBe(503);
+    transcriptions = 0;
+    downloads = 0;
+    transcriptionFailure = false;
     permission = "allowed";
     await capture("10", "Как выбрать инструмент?");
     await capture("11", "Сначала определите задачу.");
@@ -620,6 +779,9 @@ describe("community discussion processing", () => {
     expect(
       inputs[0]?.messages.some((message) => message.messageId === "1"),
     ).toBe(false);
+    transcriptions = 0;
+    downloads = 0;
+    transcriptionFailure = false;
     permission = "allowed";
     vi.setSystemTime(now.getTime() + 86_400_000);
     result.discussions = [

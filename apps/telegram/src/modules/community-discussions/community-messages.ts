@@ -48,6 +48,7 @@ export class CommunityMessages {
         kind: input.kind,
         text: input.text,
         file_id: input.fileId,
+        duration_seconds: input.durationSeconds ?? null,
         last_update_id: input.updateId,
       })
       .onConflict((conflict) =>
@@ -58,6 +59,10 @@ export class CommunityMessages {
             text: input.text,
             kind: input.kind,
             file_id: input.fileId,
+            duration_seconds: input.durationSeconds ?? null,
+            transcript: sql<
+              string | null
+            >`case when excluded.file_id is not distinct from community_messages.file_id and excluded.kind = community_messages.kind then community_messages.transcript else null end`,
             edited_at: input.editedAt,
             last_update_id: input.updateId,
           })
@@ -170,6 +175,7 @@ export class CommunityMessages {
         kind: row.kind,
         text: row.text,
         fileId: row.file_id,
+        durationSeconds: row.duration_seconds,
       })),
       nextAfter:
         rows.length > input.limit ? (page.at(-1)?.message_id ?? null) : null,
