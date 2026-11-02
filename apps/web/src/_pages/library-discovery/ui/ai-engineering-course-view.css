@@ -1918,6 +1918,11 @@
   border-bottom: 1px solid
     color-mix(in srgb, var(--aie-ink-text) 12%, var(--aie-ink));
 }
+.aie-window-kind {
+  display: none;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
 .aie-window-path {
   font-family: var(--font-mono);
   font-size: 0.75rem;
@@ -2138,32 +2143,64 @@
   .aie-window-code {
     padding-inline: 1.1rem;
   }
-  /* На телефоне вкладки переносятся строками, а код по словам: без полос прокрутки. */
+  /*
+   * На телефоне дерево — строка вкладок редактора: имена файлов с иконками одной строкой,
+   * листаются вбок. Край строки затухает, чтобы было видно, что вкладок больше.
+   */
   .aie-window-tree {
     flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    padding: 0.75rem;
+    flex-wrap: nowrap;
+    gap: 0;
+    padding: 0;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, #000 85%, transparent);
+  }
+  .aie-window-tree::-webkit-scrollbar {
+    display: none;
   }
   .aie-window-repo {
     display: none;
   }
-  /* Вкладка-строка не ниже 44px: её удобно нажать пальцем. */
+  /* Вкладка не ниже 44px: её удобно нажать пальцем. */
   .aie-window-tree button {
+    position: relative;
     width: auto;
     min-height: 2.75rem;
     flex: none;
     align-items: center;
-    padding: 0.35rem 0.75rem;
-  }
-  .aie-window-tree button span {
-    font-size: 0;
-  }
-  .aie-window-tree button b {
-    font-size: 0.85rem;
+    gap: 0.45rem;
+    padding: 0 0.9rem;
+    border-radius: 0;
+    border-right: 1px solid
+      color-mix(in srgb, var(--aie-ink-text) 10%, var(--aie-ink));
+    box-shadow: inset 0 -2px 0 transparent;
+    scroll-snap-align: start;
   }
   .aie-window-tree button svg {
-    display: none;
+    margin-top: 0;
+  }
+  .aie-window-tree button span {
+    display: block;
+    font-size: 0.78rem;
+  }
+  /* Назначение остаётся в имени вкладки для диктора, а глазу его показывает заголовок файла. */
+  .aie-window-tree button b {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .aie-window-tree button[aria-selected="true"] {
+    background: var(--aie-ink);
+    color: var(--aie-ink-text);
+    box-shadow: inset 0 -2px 0 var(--accent-bright);
+  }
+  .aie-window-kind {
+    display: block;
   }
   .aie-window-code {
     overflow-x: visible;
@@ -2179,4 +2216,23 @@
 }
 .aie-bento .aie-art-evals span {
   top: -2.4rem;
+}
+/*
+ * Связь с автором в билете под кнопками: короткий вопрос и кнопка Telegram во всю ширину билета
+ * (решение владельца 02.11.2026).
+ */
+.aie-ticket-contact {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.ai-product-page .aie-ticket-contact p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.aie-ticket-contact .aie-telegram-button {
+  justify-content: center;
 }

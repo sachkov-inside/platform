@@ -46,6 +46,13 @@ describe("Course topic tiles", () => {
     );
   });
 
+  test("keeps the parallel agents illustration while production shows the former title", () => {
+    // До доставки нового текста на production плитка называется по-старому (02.11.2026).
+    expect(courseTopicTile("Параллельные и облачные агенты")).toEqual(
+      courseTopicTile("Параллельные агенты"),
+    );
+  });
+
   test("leaves an unknown topic without an illustration", () => {
     expect(courseTopicTile("Тема, которой нет")).toBeUndefined();
   });

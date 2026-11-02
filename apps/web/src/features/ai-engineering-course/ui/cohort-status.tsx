@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { PreorderPriceView, type PreorderPrice } from "@/entities/subscription";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -31,14 +32,26 @@ export interface CohortStatus {
 }
 
 const ticketCopy = {
-  preorder: { head: "Предзаказ", purchase: "Оформить предзаказ" },
-  access: { head: "Доступ к курсу", purchase: "Приобрести доступ" },
+  preorder: {
+    head: "Предзаказ",
+    purchase: "Оформить предзаказ",
+    struck: "Цена после старта",
+  },
+  // Курс продаётся без потоков: зачёркнута цена без скидки (решение владельца 02.11.2026).
+  access: {
+    head: "Доступ к курсу",
+    purchase: "Приобрести доступ",
+    struck: "Цена без скидки",
+  },
 } as const;
 
 export function CohortStatusView({
   status,
+  contact,
 }: {
   readonly status: CohortStatus;
+  /** Связь с автором под кнопками билета; страница курса решает, на какой ник она ведёт. */
+  readonly contact?: ReactNode;
 }) {
   return (
     <div className="aie-cohort-status">
@@ -64,7 +77,11 @@ export function CohortStatusView({
           {status.price === null ? (
             <p className="aie-cohort-ticket-soon">Откроется скоро</p>
           ) : (
-            <PreorderPriceView note={null} price={status.price} />
+            <PreorderPriceView
+              note={null}
+              price={status.price}
+              struckLabel={ticketCopy[status.kind].struck}
+            />
           )}
           <div className="aie-cohort-ticket-tear" aria-hidden="true" />
           <div className="aie-cohort-ticket-actions">
@@ -84,6 +101,7 @@ export function CohortStatusView({
               {programmeCallLabel(status.freeStart)}
             </IntentPrefetchLink>
           </div>
+          {contact}
         </div>
       </div>
     </div>

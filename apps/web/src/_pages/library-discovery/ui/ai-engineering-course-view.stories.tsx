@@ -27,6 +27,8 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
+import { courseTelegramHandle } from "../model/course-contact";
+import { TicketContact } from "./telegram-contact";
 import { LearnerCourseStatus } from "./ai-engineering-course-view";
 import { ProductLandingView } from "./product-landing-view";
 
@@ -152,6 +154,33 @@ export const PositionTopicsAndProcess: Story = {
     await expect(
       within(files).getByRole("tab", { name: /Инструкции/u }),
     ).toHaveFocus();
+  },
+};
+
+/**
+ * Окно проекта на телефоне — вкладки редактора: строка вкладок с именами файлов листается вбок,
+ * назначение файла стоит над кодом (решение владельца 02.11.2026).
+ */
+export const ProjectWindowMobile: Story = {
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement, userEvent: user }) => {
+    const canvas = within(canvasElement);
+    const files = canvas.getByRole("tablist", { name: "Файлы проекта" });
+    const panel = canvas.getByRole("tabpanel");
+    // Вкладки идут одной строкой и показывают имена файлов, а не только их назначение.
+    await expect(getComputedStyle(files).flexWrap).toBe("nowrap");
+    await expect(within(files).getByText("GLOSSARY.md")).toBeVisible();
+    await expect(within(panel).getByText("Инструкции")).toBeVisible();
+    const glossary = within(files).getByRole("tab", {
+      name: /Словарь домена/u,
+    });
+    await user.click(glossary);
+    await expect(within(panel).getByText("Словарь домена")).toBeVisible();
+    await expect(within(panel).getByText(/Обращение/u)).toBeVisible();
+    // Вкладка не ниже 44px: её удобно нажать пальцем.
+    await expect(
+      glossary.getBoundingClientRect().height,
+    ).toBeGreaterThanOrEqual(44);
   },
 };
 
@@ -659,7 +688,7 @@ export const CohortBetween: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("link", { name: /Идёт набор на курс/u }),
+      canvas.getByRole("link", { name: /Можно начать уже сейчас/u }),
     ).toHaveAttribute("href", "#enroll");
     await expect(
       canvas.getByText(/Следующий поток: эфир 15 декабря/u),
@@ -839,6 +868,14 @@ export const FreeStartSale: Story = {
             today: "2026-10-29",
           }) ?? fail("Идущий поток с продажей рисует билет")
         }
+        contact={
+          <TicketContact
+            handle={
+              courseTelegramHandle(aiEngineeringCoursePage) ??
+              fail("Ник автора в подписи частых вопросов")
+            }
+          />
+        }
       />
     ),
   },
@@ -849,7 +886,7 @@ export const FreeStartSale: Story = {
       canvasElement.querySelector<HTMLElement>(".aie-hero") ??
       fail("Первый экран курса");
     await expect(
-      within(hero).getByRole("link", { name: /Идёт набор на курс/u }),
+      within(hero).getByRole("link", { name: /Можно начать уже сейчас/u }),
     ).toHaveAttribute("href", "#enroll");
     await expect(within(hero).queryByText(/₽/u)).toBeNull();
     const ticket =
@@ -859,6 +896,18 @@ export const FreeStartSale: Story = {
       within(ticket).getByRole("link", { name: /Приобрести доступ/u }),
     ).toHaveAttribute("href", "/products/ai-engineering/buy");
     await expect(within(ticket).getByText(/29\s900\s₽/u)).toBeVisible();
+    // Без потоков зачёркнутая цена — цена без скидки, а не цена после старта (02.11.2026).
+    await expect(
+      within(ticket).getByText(/Цена без скидки/u),
+    ).toBeInTheDocument();
+    await expect(within(ticket).queryByText(/Цена после старта/u)).toBeNull();
+    // Под ценой автор зовёт сомневающихся на бесплатную консультацию (решение владельца 02.11.2026).
+    await expect(
+      within(ticket).getByText(/бесплатно проконсультирую/u),
+    ).toBeVisible();
+    await expect(
+      within(ticket).getByRole("link", { name: /Написать в Telegram/u }),
+    ).toHaveAttribute("href", "https://t.me/sachkova_mng");
   },
 };
 export const FreeStartSaleMobile: Story = {

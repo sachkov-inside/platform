@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { ProductSalesState } from "@/entities/subscription";
 import { cohortStatus } from "@/_pages/library-discovery/model/cohort-status";
-import { formatDaysUntilStart } from "@/entities/subscription";
+import {
+  formatDaysUntilStart,
+  preorderDiscount,
+} from "@/entities/subscription";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 
 const cohort: ProductSalesState = {
@@ -175,5 +178,17 @@ describe("days until the cohort start", () => {
     expect(formatDaysUntilStart("2026-11-09", "2026-11-10")).toBe(
       "старт 9 ноября",
     );
+  });
+});
+
+describe("discount to the struck-through price", () => {
+  it("counts a whole percent exactly instead of losing it to floating point", () => {
+    // 32 000 ₽ от 40 000 ₽ — ровно 20 %; дробное 1 − 0.8 давало 19.999… и «−19 %».
+    expect(preorderDiscount(3_200_000, 4_000_000)).toBe("−20\u00a0%");
+    expect(preorderDiscount(2_990_000, 3_990_000)).toBe("−25\u00a0%");
+  });
+
+  it("rounds a fractional percent down so the page never promises more", () => {
+    expect(preorderDiscount(3_000_000, 3_990_000)).toBe("−24\u00a0%");
   });
 });
