@@ -1,5 +1,6 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { generateText, Output } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { generateText, Output, transcribe } from "ai";
 import type { CommunityDiscussionsConfig } from "../../config/community-discussions-config.js";
 import {
   groupingOutputSchema,
@@ -14,6 +15,7 @@ export class OpenAICompatibleDiscussionModelAdapter implements CommunityDiscussi
     private readonly config: NonNullable<
       CommunityDiscussionsConfig["grouping"]
     >,
+    private readonly transcription?: CommunityDiscussionsConfig["transcription"],
   ) {}
   async group(input: GroupInput, signal?: AbortSignal): Promise<GroupResult> {
     const provider = createOpenAICompatible({
@@ -40,9 +42,36 @@ export class OpenAICompatibleDiscussionModelAdapter implements CommunityDiscussi
       },
     };
   }
-  transcribe(): Promise<{ readonly text: string; readonly usage: ModelUsage }> {
-    return Promise.reject(
-      new Error("Discussion transcription is not configured"),
-    );
+  async transcribe(
+    input: {
+      readonly bytes: Uint8Array;
+      readonly mediaType: string;
+      readonly durationSeconds?: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<{ readonly text: string; readonly usage: ModelUsage }> {
+    signal?.throwIfAborted();
+    if (!this.transcription)
+      throw new Error("Discussion transcription is not configured");
+    const provider = createOpenAI({
+      baseURL: this.transcription.baseUrl,
+      apiKey: this.transcription.apiKey,
+      fetch: (url, init) => fetch(url, { ...init, redirect: "error" }),
+    });
+    const result = await transcribe({
+      model: provider.transcription(this.transcription.model),
+      audio: input.bytes,
+      maxRetries: 0,
+      ...(signal ? { abortSignal: signal } : {}),
+    });
+    return {
+      text: result.text,
+      usage: {
+        inputTokens: null,
+        outputTokens: null,
+        durationSeconds:
+          result.durationInSeconds ?? input.durationSeconds ?? null,
+      },
+    };
   }
 }

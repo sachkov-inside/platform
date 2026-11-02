@@ -9,6 +9,11 @@ export interface CommunityDiscussionsConfig {
   /** Absent means every topic, including the general topic. An empty list captures none. */
   readonly topicIds?: readonly number[];
   readonly secret?: string;
+  readonly transcription?: {
+    readonly baseUrl: string;
+    readonly apiKey: string;
+    readonly model: string;
+  };
   readonly grouping?: {
     readonly baseUrl: string;
     readonly apiKey: string;
@@ -24,6 +29,12 @@ export function loadCommunityDiscussionsConfig(
   const secret = environment["PLATFORM_COMMUNITY_DISCUSSIONS_SECRET"]?.trim();
   const baseUrl = environment["COMMUNITY_DISCUSSIONS_MODEL_BASE_URL"]?.trim();
   const apiKey = environment["COMMUNITY_DISCUSSIONS_MODEL_API_KEY"]?.trim();
+  const transcriptionBaseUrl =
+    environment["COMMUNITY_DISCUSSIONS_TRANSCRIPTION_BASE_URL"]?.trim();
+  const transcriptionApiKey =
+    environment["COMMUNITY_DISCUSSIONS_TRANSCRIPTION_API_KEY"]?.trim();
+  const transcriptionModel =
+    environment["COMMUNITY_DISCUSSIONS_TRANSCRIPTION_MODEL"]?.trim();
   const model = environment["COMMUNITY_DISCUSSIONS_MODEL"]?.trim();
   if (enabled !== undefined && enabled !== "true" && enabled !== "false")
     throw new Error(
@@ -31,9 +42,16 @@ export function loadCommunityDiscussionsConfig(
     );
   if (enabled !== "true") {
     if (
-      [topics, secret, baseUrl, apiKey, model].some(
-        (value) => value !== undefined,
-      )
+      [
+        topics,
+        secret,
+        baseUrl,
+        apiKey,
+        model,
+        transcriptionBaseUrl,
+        transcriptionApiKey,
+        transcriptionModel,
+      ].some((value) => value !== undefined)
     )
       throw new Error(
         "TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED=true is required with discussion settings",
@@ -50,6 +68,30 @@ export function loadCommunityDiscussionsConfig(
       );
     assertServiceEndpoint(baseUrl, "COMMUNITY_DISCUSSIONS_MODEL_BASE_URL");
     grouping = { baseUrl, apiKey, model };
+  }
+  let transcription: CommunityDiscussionsConfig["transcription"];
+  if (
+    [transcriptionBaseUrl, transcriptionApiKey, transcriptionModel].some(
+      (value) => value !== undefined,
+    )
+  ) {
+    if (
+      !hasText(transcriptionBaseUrl) ||
+      !hasText(transcriptionApiKey) ||
+      !hasText(transcriptionModel)
+    )
+      throw new Error(
+        "Discussion transcription requires COMMUNITY_DISCUSSIONS_TRANSCRIPTION_BASE_URL, COMMUNITY_DISCUSSIONS_TRANSCRIPTION_API_KEY and COMMUNITY_DISCUSSIONS_TRANSCRIPTION_MODEL together",
+      );
+    assertServiceEndpoint(
+      transcriptionBaseUrl,
+      "COMMUNITY_DISCUSSIONS_TRANSCRIPTION_BASE_URL",
+    );
+    transcription = {
+      baseUrl: transcriptionBaseUrl,
+      apiKey: transcriptionApiKey,
+      model: transcriptionModel,
+    };
   }
   let topicIds: number[] | undefined;
   if (topics !== undefined) {
@@ -69,5 +111,6 @@ export function loadCommunityDiscussionsConfig(
     ...(topicIds ? { topicIds } : {}),
     ...(secret !== undefined ? { secret } : {}),
     ...(grouping ? { grouping } : {}),
+    ...(transcription ? { transcription } : {}),
   };
 }

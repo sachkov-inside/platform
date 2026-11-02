@@ -1,3 +1,5 @@
+import { COMMUNITY_FILES } from "./modules/community-discussions/community-files.js";
+import { TelegramCommunityFilesAdapter } from "./adapters/telegram/telegram-community-files.adapter.js";
 import { CommunityDiscussions } from "./modules/community-discussions/community-discussions.js";
 import { CommunityDiscussionProcessor } from "./modules/community-discussions/community-discussion-processor.js";
 import { CommunityDiscussionsController } from "./modules/community-discussions/community-discussions.controller.js";
@@ -182,6 +184,10 @@ export class AppModule {
         TelegramWebhookController,
       ],
       providers: [
+        {
+          provide: COMMUNITY_FILES,
+          useValue: new TelegramCommunityFilesAdapter(config.botToken),
+        },
         CommunityMessages,
         CommunityDiscussions,
         CommunityDiscussionProcessor,
@@ -190,6 +196,7 @@ export class AppModule {
           useValue: config.communityDiscussions?.grouping
             ? new OpenAICompatibleDiscussionModelAdapter(
                 config.communityDiscussions.grouping,
+                config.communityDiscussions.transcription,
               )
             : new DisabledCommunityDiscussionModel(),
         },

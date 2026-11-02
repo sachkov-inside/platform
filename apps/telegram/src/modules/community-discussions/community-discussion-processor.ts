@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { COMMUNITY_FILES, type CommunityFiles } from "./community-files.js";
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import type { Selectable } from "kysely";
@@ -33,6 +35,8 @@ export interface DiscussionProcessingResult {
     "completed" | "not_due" | "disabled" | "unconfigured" | "failed";
   readonly messages: number;
   readonly discussions: number;
+  readonly transcriptions: number;
+  readonly transcriptionErrors: number;
   readonly failureCode?: string;
 }
 
@@ -45,10 +49,16 @@ export class CommunityDiscussionProcessor {
     @Inject(CommunityMessages) private readonly messages: CommunityMessages,
     @Inject(COMMUNITY_DISCUSSION_MODEL)
     private readonly model: CommunityDiscussionModel,
+    @Inject(COMMUNITY_FILES) private readonly files: CommunityFiles,
   ) {}
 
   async processDue(signal?: AbortSignal): Promise<DiscussionProcessingResult> {
-    const empty = { messages: 0, discussions: 0 };
+    const empty = {
+      messages: 0,
+      discussions: 0,
+      transcriptions: 0,
+      transcriptionErrors: 0,
+    };
     if (!this.config.communityDiscussions)
       return { ...empty, status: "disabled" };
     if (!this.config.communityDiscussions.grouping)
@@ -81,7 +91,10 @@ export class CommunityDiscussionProcessor {
     if (!claim) return { ...empty, status: "not_due" };
     let count = 0;
     let discussions = 0;
+    const audio = { transcriptions: 0, transcriptionErrors: 0 };
     try {
+      if (this.config.communityDiscussions.transcription)
+        await this.transcribePending(token, audio, signal);
       // A finite snapshot prevents an active group from extending today's run without a bound.
       const upper = await this.pending()
         .select("message_id")
@@ -131,11 +144,93 @@ export class CommunityDiscussionProcessor {
         }
       }
       await this.finish(token, new Date(now.getTime() + DAY_MS));
-      return { status: "completed", messages: count, discussions };
+      return { status: "completed", messages: count, discussions, ...audio };
     } catch (error) {
       const failureCode = reportFailure("community-discussions.process", error);
       await this.finish(token, new Date(this.clock.now().getTime() + RETRY_MS));
-      return { status: "failed", messages: count, discussions, failureCode };
+      return {
+        status: "failed",
+        messages: count,
+        discussions,
+        ...audio,
+        failureCode,
+      };
+    }
+  }
+
+  private async transcribePending(
+    token: string,
+    counts: { transcriptions: number; transcriptionErrors: number },
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const eligible = () =>
+      this.database
+        .selectFrom("community_messages")
+        .where("bot_identity", "=", this.config.botIdentity)
+        .where("chat_id", "=", this.config.canonicalChatId)
+        .where("kind", "in", ["voice", "video_note"])
+        .where("transcript", "is", null);
+    const upper = await eligible()
+      .select("message_id")
+      .orderBy("message_id", "desc")
+      .executeTakeFirst();
+    if (!upper) return;
+    let after: string | undefined;
+    for (;;) {
+      let query = eligible()
+        .selectAll()
+        .where("message_id", "<=", upper.message_id);
+      if (after !== undefined) query = query.where("message_id", ">", after);
+      const batch = await query
+        .orderBy("message_id")
+        .limit(AUTHOR_PAGE)
+        .execute();
+      if (batch.length === 0) return;
+      for (const message of batch) {
+        signal?.throwIfAborted();
+        await this.renew(token);
+        try {
+          if (message.file_id === null) throw new Error("Missing audio file");
+          const bytes = await this.files.download(message.file_id, signal);
+          const timeout = AbortSignal.timeout(PROVIDER_TIMEOUT_MS);
+          const result = await this.model.transcribe(
+            {
+              bytes,
+              mediaType: message.kind === "voice" ? "audio/ogg" : "video/mp4",
+              ...(message.duration_seconds !== null
+                ? { durationSeconds: message.duration_seconds }
+                : {}),
+            },
+            signal ? AbortSignal.any([signal, timeout]) : timeout,
+          );
+          const transcript = z
+            .string()
+            .trim()
+            .min(1)
+            .max(16000)
+            .parse(result.text);
+          const saved = await this.database
+            .updateTable("community_messages")
+            .set({ transcript, processed_at: null })
+            .where("bot_identity", "=", this.config.botIdentity)
+            .where("chat_id", "=", this.config.canonicalChatId)
+            .where("message_id", "=", message.message_id)
+            .where("last_update_id", "=", message.last_update_id)
+            .where("transcript", "is", null)
+            .executeTakeFirst();
+          counts.transcriptions += Number(saved.numUpdatedRows);
+        } catch (error) {
+          signal?.throwIfAborted();
+          if (
+            error instanceof Error &&
+            error.name === "discussion_budget_exceeded"
+          )
+            throw error;
+          counts.transcriptionErrors++;
+          reportFailure("community-discussions.transcribe", error);
+        }
+      }
+      after = batch.at(-1)?.message_id;
     }
   }
 
@@ -249,7 +344,13 @@ export class CommunityDiscussionProcessor {
           sentAt: message.sent_at.toISOString(),
           role,
           kind: message.kind,
-          text: message.text,
+          text:
+            message.transcript ??
+            (message.kind === "voice"
+              ? "[Голосовое сообщение без расшифровки]"
+              : message.kind === "video_note"
+                ? "[Кружок без расшифровки]"
+                : message.text),
         };
       }),
       discussions: recent.map((row) => ({
