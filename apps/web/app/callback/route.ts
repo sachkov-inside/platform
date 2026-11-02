@@ -9,8 +9,10 @@ import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-cli
 import { readTermsGate } from "@/features/terms-acceptance.server";
 import { welcomePath } from "@/features/terms-acceptance";
 import { completePlatformSignIn } from "@/shared/auth/complete-platform-sign-in.server";
+import { runSignInCallbackOnce } from "@/shared/auth/sign-in-callback-once.server";
 import {
   clearLogtoSessionCookie,
+  logtoSessionCookieName,
   providerCallbackUrl,
   readLogtoBffConfig,
   safePostSignInReturnUri,
@@ -21,6 +23,22 @@ export async function GET(request: Request): Promise<Response> {
   // Вне `try`: отказ от предсборки приходит исключением, и перехват стёр бы cookie сессии.
   await connection();
   const config = readLogtoBffConfig();
+  const location = await runSignInCallbackOnce(
+    request,
+    logtoSessionCookieName(config.appId),
+    () => completeSignInCallback(request, config),
+  );
+  return NextResponse.redirect(location, {
+    status: 303,
+    headers: { "cache-control": "no-store, private" },
+  });
+}
+
+/** Exchanges the code once and returns the local address to continue at. */
+async function completeSignInCallback(
+  request: Request,
+  config: ReturnType<typeof readLogtoBffConfig>,
+): Promise<string> {
   try {
     const client = new AudienceBoundLogtoClient(config);
     const postRedirectUri = await client.handleSignInCallback(
@@ -66,11 +84,8 @@ function localRedirect(
   baseUrl: string,
   error?: string,
   postRedirectUri?: string,
-): NextResponse {
+): string {
   const target = new URL(postRedirectUri ?? "/", baseUrl);
   if (error !== undefined) target.searchParams.set("authentication", error);
-  return NextResponse.redirect(target, {
-    status: 303,
-    headers: { "cache-control": "no-store, private" },
-  });
+  return target.href;
 }
