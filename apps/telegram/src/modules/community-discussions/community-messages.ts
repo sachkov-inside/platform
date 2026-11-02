@@ -67,7 +67,8 @@ export class CommunityMessages {
             last_update_id: input.updateId,
           })
           .where(
-            sql<boolean>`excluded.last_update_id > community_messages.last_update_id`,
+            // Telegram may restart update IDs randomly after a week without updates.
+            sql<boolean>`(coalesce(excluded.edited_at, excluded.sent_at), excluded.last_update_id) > (coalesce(community_messages.edited_at, community_messages.sent_at), community_messages.last_update_id)`,
           ),
       )
       .execute();

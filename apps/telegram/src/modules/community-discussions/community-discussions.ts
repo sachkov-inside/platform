@@ -118,8 +118,8 @@ export class CommunityDiscussions {
       throw new CommunityDiscussionsError("malformed");
     const filters = JSON.stringify([
       request.status ?? null,
-      request.from ?? null,
-      request.to ?? null,
+      request.from === undefined ? null : new Date(request.from).toISOString(),
+      request.to === undefined ? null : new Date(request.to).toISOString(),
     ]);
     let query = this.scoped();
     if (request.status !== undefined)

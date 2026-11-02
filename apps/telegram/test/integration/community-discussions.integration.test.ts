@@ -625,30 +625,42 @@ describe("community discussion processing", () => {
     expect(JSON.stringify(inputs)).not.toContain("senderTelegramUserId");
     expect(JSON.stringify(inputs)).not.toContain("Private synthetic name");
   });
-  it("reprocesses a later edit in its existing discussion without duplicate membership", async () => {
-    await capture("10", "Как выбрать инструмент?");
+  it("accepts a newer webhook edit after update ID reset and ignores stale revisions", async () => {
+    const deliver = async (updateId: number, text: string, editedAt?: Date) => {
+      const response = await application().inject({
+        method: "POST",
+        url: "/webhooks/telegram",
+        headers: {
+          "x-telegram-bot-api-secret-token":
+            "synthetic_webhook_secret_for_tests_only",
+        },
+        payload: {
+          update_id: updateId,
+          [editedAt ? "edited_message" : "message"]: {
+            message_id: 10,
+            date: now.getTime() / 1000,
+            ...(editedAt ? { edit_date: editedAt.getTime() / 1000 } : {}),
+            message_thread_id: 7,
+            chat: { id: -1000000000000, type: "supergroup" },
+            from: { id: 42, is_bot: false },
+            text,
+          },
+        },
+      });
+      expect(response.statusCode).toBe(202);
+      await application()
+        .get(TelegramUpdateProcessor)
+        .processAvailable(10, required(vi.getMockedSystemTime()));
+    };
+    await deliver(10000, "Как выбрать инструмент?");
     await capture("11", "Сначала определите задачу.");
     await application().get(CommunityDiscussionProcessor).processDue();
     const initial = required(
       (await api("discussions.list", { limit: 10 })).json().items[0],
     );
-    vi.setSystemTime(now.getTime() + 8 * 86_400_000);
-    await application()
-      .get(CommunityMessages)
-      .capture({
-        botIdentity: "inside",
-        chatId: "-1000000000000",
-        updateId: "12",
-        messageId: "10",
-        threadId: "7",
-        replyToMessageId: null,
-        sentAt: now,
-        editedAt: new Date(now.getTime() + 8 * 86_400_000),
-        senderTelegramUserId: "42",
-        kind: "text",
-        text: "Уточнённый вопрос",
-        fileId: null,
-      });
+    const editTime = new Date(now.getTime() + 8 * 86400000);
+    vi.setSystemTime(editTime);
+    await deliver(1, "Уточнённый вопрос", editTime);
     result.discussions[0] = {
       ...required(result.discussions[0]),
       discussionId: initial.discussionId,
@@ -672,6 +684,115 @@ describe("community discussion processing", () => {
         { messageId: "11" },
       ],
     });
+    // Replay and delayed delivery must not clear the accepted processing mark.
+    await deliver(1, "Duplicate payload", editTime);
+    await deliver(
+      10001,
+      "Outdated question",
+      new Date(editTime.getTime() - 1000),
+    );
+    vi.setSystemTime(editTime.getTime() + 86400000);
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 0 });
+    expect(inputs).toHaveLength(2);
+    expect(
+      (
+        await api("discussions.read", { discussionId: initial.discussionId })
+      ).json().discussion.messages[0]?.text,
+    ).toBe("Уточнённый вопрос");
+  });
+
+  it("refreshes audio only for accepted edits and uses update IDs to order edits within one second", async () => {
+    const messages = application().get(CommunityMessages);
+    const voice = {
+      botIdentity: "inside",
+      chatId: "-1000000000000",
+      messageId: "11",
+      threadId: "7",
+      replyToMessageId: "10",
+      sentAt: now,
+      senderTelegramUserId: "43",
+      kind: "voice" as const,
+      text: "",
+      fileId: "first-audio",
+    };
+    await capture("10", "Как выбрать инструмент?");
+    await messages.capture({ ...voice, updateId: "10000", editedAt: null });
+    await application().get(CommunityDiscussionProcessor).processDue();
+    const initial = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    );
+    const editTime = new Date(now.getTime() + 8 * 86400000);
+    vi.setSystemTime(editTime);
+    await messages.capture({
+      ...voice,
+      fileId: "second-audio",
+      updateId: "1",
+      editedAt: editTime,
+    });
+    result.discussions[0] = {
+      ...required(result.discussions[0]),
+      discussionId: initial.discussionId,
+      messageIds: ["11"],
+    };
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 1, transcriptions: 1 });
+    expect(transcriptions).toBe(2);
+    // A higher update ID orders revisions sharing Telegram's one-second timestamp.
+    await messages.capture({
+      ...voice,
+      fileId: "third-audio",
+      updateId: "2",
+      editedAt: editTime,
+    });
+    await messages.capture({
+      ...voice,
+      fileId: "stale-audio",
+      updateId: "1",
+      editedAt: editTime,
+    });
+    vi.setSystemTime(editTime.getTime() + 86400000);
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 1, transcriptions: 1 });
+    expect(transcriptions).toBe(3);
+    await messages.capture({
+      ...voice,
+      fileId: "duplicate-audio",
+      updateId: "2",
+      editedAt: editTime,
+    });
+    await messages.capture({
+      ...voice,
+      fileId: "outdated-audio",
+      updateId: "10001",
+      editedAt: new Date(editTime.getTime() - 1000),
+    });
+    vi.setSystemTime(editTime.getTime() + 2 * 86400000);
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 0, transcriptions: 0 });
+    expect(transcriptions).toBe(3);
+    expect(
+      (await messages.readMessages({ limit: 10 })).messages[1]?.fileId,
+    ).toBe("third-audio");
+    expect(
+      (
+        await api("discussions.read", { discussionId: initial.discussionId })
+      ).json().discussion.messages,
+    ).toMatchObject([
+      { messageId: "10" },
+      {
+        messageId: "11",
+        transcript: "Сначала определите задачу.",
+        transcriptionStatus: "completed",
+      },
+    ]);
+    expect(
+      (await api("discussions.list", { limit: 10 })).json().items,
+    ).toHaveLength(1);
   });
 
   it("adds tomorrow's answer to the same awaiting discussion and preserves manual marks", async () => {
@@ -746,6 +867,99 @@ describe("community discussion processing", () => {
         })
       ).json().discussion.materialUrls,
     ).toEqual([]);
+  });
+
+  it("continues the matching topic without reply among identical existing questions", async () => {
+    const captureTopic = async (
+      messageId: string,
+      threadId: string,
+      text: string,
+      sentAt: Date,
+    ) => {
+      await application().get(CommunityMessages).capture({
+        botIdentity: "inside",
+        chatId: "-1000000000000",
+        updateId: messageId,
+        messageId,
+        threadId,
+        replyToMessageId: null,
+        sentAt,
+        editedAt: null,
+        senderTelegramUserId: "42",
+        kind: "text",
+        text,
+        fileId: null,
+      });
+    };
+    await captureTopic("10", "7", "Как выбрать инструмент?", now);
+    await captureTopic(
+      "20",
+      "8",
+      "Как выбрать инструмент?",
+      new Date(now.getTime() - 3600000),
+    );
+    result.discussions = ["10", "20"].map((messageId) => ({
+      discussionId: null,
+      messageIds: [messageId],
+      question: "Как выбрать инструмент?",
+      answers: "",
+      conclusion: "",
+      answered: false,
+    }));
+    await application().get(CommunityDiscussionProcessor).processDue();
+    const initial = (await api("discussions.list", { limit: 10 })).json().items;
+    vi.setSystemTime(now.getTime() + 86400000);
+    await captureTopic(
+      "21",
+      "8",
+      "Сначала определите задачу.",
+      new Date(now.getTime() + 86400000),
+    );
+    respond = (input) => {
+      const matching = input.discussions.find((discussion) =>
+        discussion.sources.some((source) => source.threadId === "8"),
+      );
+      expect(matching?.sources).toEqual([
+        {
+          messageId: "20",
+          threadId: "8",
+          replyToMessageId: null,
+          sentAt: new Date(now.getTime() - 3600000).toISOString(),
+        },
+      ]);
+      return Promise.resolve({
+        discussions: [
+          {
+            discussionId: required(matching).discussionId,
+            messageIds: ["21"],
+            question: "Как выбрать инструмент?",
+            answers: "Сначала определите задачу.",
+            conclusion: "Выбор зависит от задачи.",
+            answered: true,
+          },
+        ],
+        usage: { inputTokens: 100, outputTokens: 50 },
+      });
+    };
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 1 });
+    const saved = (await api("discussions.list", { limit: 10 })).json().items;
+    expect(saved).toHaveLength(2);
+    const answered = required(
+      saved.find((discussion) => discussion.status === "new"),
+    );
+    expect(initial.map((discussion) => discussion.discussionId)).toContain(
+      answered.discussionId,
+    );
+    expect(
+      (
+        await api("discussions.read", { discussionId: answered.discussionId })
+      ).json().discussion.messages,
+    ).toMatchObject([
+      { messageId: "20", threadId: "8" },
+      { messageId: "21", threadId: "8", replyToMessageId: null },
+    ]);
   });
 
   it("retries provider failure without losing messages or duplicating saved results", async () => {
@@ -930,7 +1144,7 @@ describe("community discussion processing", () => {
     });
   });
 
-  it("continues every author-resolution page and defers still unavailable messages", async () => {
+  it("defers the finite snapshot until author roles resolve and preserves related answers", async () => {
     await seedCommunityBinding(
       database,
       {
@@ -945,36 +1159,80 @@ describe("community discussion processing", () => {
     permission = "unavailable";
     await capture("1", "Вопрос автора", "81");
     for (let id = 2; id <= 201; id += 1)
-      await capture(String(id), "Обычный разговор");
+      await capture(
+        String(id),
+        id === 2 ? "Связанный ответ" : "Обычный разговор",
+      );
     result.discussions = [];
     expect(
       await application().get(CommunityDiscussionProcessor).processDue(),
-    ).toMatchObject({ status: "completed", messages: 200 });
-    expect(inputs[0]?.messages).toHaveLength(200);
+    ).toMatchObject({ status: "failed", messages: 0 });
+    expect(inputs).toHaveLength(0);
+    const startResponse = await application().inject({
+      method: "POST",
+      url: "/webhooks/telegram",
+      headers: {
+        "x-telegram-bot-api-secret-token":
+          "synthetic_webhook_secret_for_tests_only",
+      },
+      payload: {
+        update_id: 1000,
+        message: {
+          message_id: 1000,
+          date: now.getTime() / 1000,
+          chat: { id: 42, type: "private" },
+          from: { id: 42, is_bot: false },
+          text: "/start",
+        },
+      },
+    });
+    expect(startResponse.statusCode).toBe(202);
     expect(
-      inputs[0]?.messages.some((message) => message.messageId === "1"),
-    ).toBe(false);
+      await application()
+        .get(TelegramUpdateProcessor)
+        .processAvailable(10, now),
+    ).toBe(1);
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "not_due" });
     transcriptions = 0;
     downloads = 0;
     transcriptionFailure = false;
     permission = "allowed";
-    vi.setSystemTime(now.getTime() + 86_400_000);
+    vi.setSystemTime(now.getTime() + 300_000);
     result.discussions = [
       {
         discussionId: null,
-        messageIds: ["1"],
+        messageIds: ["1", "2"],
         question: "Вопрос автора",
-        answers: "",
+        answers: "Связанный ответ",
         conclusion: "",
-        answered: false,
+        answered: true,
       },
     ];
+    respond = (input) =>
+      Promise.resolve({
+        ...result,
+        discussions: input.messages.some((message) => message.messageId === "1")
+          ? result.discussions
+          : [],
+      });
     expect(
       await application().get(CommunityDiscussionProcessor).processDue(),
-    ).toMatchObject({ status: "completed", messages: 1 });
-    expect(inputs[1]?.messages).toMatchObject([
+    ).toMatchObject({ status: "completed", messages: 201 });
+    expect(inputs[0]?.messages.slice(0, 2)).toMatchObject([
       { messageId: "1", role: "автор" },
+      { messageId: "2", text: "Связанный ответ" },
     ]);
+    const saved = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    );
+    expect(saved.status).toBe("new");
+    expect(
+      (
+        await api("discussions.read", { discussionId: saved.discussionId })
+      ).json().discussion.messages,
+    ).toMatchObject([{ messageId: "1" }, { messageId: "2" }]);
   });
 
   it("excludes overlapping daily claims and preserves a mark committed while grouping waits", async () => {
@@ -1064,7 +1322,7 @@ describe("community discussion processing", () => {
     expect(inputs[1]?.messages[0]?.text).toBe("Исправленный вопрос");
   });
 
-  it("paginates tied dates without duplicates and binds continuation to filters", async () => {
+  it("round-trips long fractional date filters across tied-date pages", async () => {
     await capture("10", "Первый вопрос?");
     await capture("11", "Второй вопрос?", "43");
     result.discussions = [
@@ -1084,7 +1342,7 @@ describe("community discussion processing", () => {
       await api("discussions.list", {
         limit: 1,
         status: "new",
-        from: now.toISOString(),
+        from: now.toISOString().replace(".000Z", `.${"0".repeat(1600)}Z`),
         to: now.toISOString(),
       })
     ).json();

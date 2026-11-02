@@ -37,7 +37,12 @@ export interface GroupInput {
     readonly question: string;
     readonly answers: string;
     readonly conclusion: string;
-    readonly messageIds: readonly string[];
+    readonly sources: readonly {
+      readonly messageId: string;
+      readonly threadId: string | null;
+      readonly replyToMessageId: string | null;
+      readonly sentAt: string;
+    }[];
   }[];
 }
 export type GroupResult = GroupingOutput & { readonly usage: ModelUsage };

@@ -147,6 +147,7 @@ describe("community message capture", () => {
           kind: "text",
           text: "Как выбрать инструмент?",
           fileId: null,
+          durationSeconds: null,
         },
       ],
       nextAfter: null,
