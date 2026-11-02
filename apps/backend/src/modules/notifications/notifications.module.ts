@@ -38,6 +38,7 @@ import {
 } from "./features/read-deliveries/notifications.controller.js";
 import { NotificationDispatchController } from "./features/authorize-dispatch/notification-dispatch.controller.js";
 import { assembleNotificationRecipients } from "./assemble-notification-recipients.js";
+import { resolveBillingSource } from "./assemble-billing-source.js";
 
 @Module({
   imports: [
@@ -91,7 +92,8 @@ import { assembleNotificationRecipients } from "./assemble-notification-recipien
               resolve: (event) =>
                 (
                   ({
-                    "billing.notice-ready": () => notices.resolveNotice(event),
+                    "billing.notice-ready": () =>
+                      resolveBillingSource(notices, payments)(event),
                     "material.published": () =>
                       announcements.resolveAnnouncement(event),
                   }) satisfies Record<

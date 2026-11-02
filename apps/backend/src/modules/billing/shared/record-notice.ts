@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
+import {
+  Prisma,
+  type BillingPrisma,
+} from "../../../infrastructure/prisma/index.js";
 import {
   noticeConditions,
   noticeEvent,
@@ -15,6 +18,7 @@ function unchanged(
     title: string;
     amountKopecks: bigint | null;
     dueAt: Date | null;
+    promotion: unknown;
     notAfter: Date;
     state: string;
   },
@@ -71,6 +75,7 @@ export async function recordBillingNotice(
         ? null
         : BigInt(occurrence.amountKopecks),
     dueAt: occurrence.dueAt ?? null,
+    promotion: occurrence.promotion ?? Prisma.DbNull,
     updatedAt: now,
   };
   if (existing)

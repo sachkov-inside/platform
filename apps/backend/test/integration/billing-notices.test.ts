@@ -20,6 +20,7 @@ import {
 } from "../../src/modules/billing/index.js";
 import {
   Notifications,
+  resolveBillingSource,
   type SendNotificationEmail,
 } from "../../src/modules/notifications/index.js";
 
@@ -217,11 +218,12 @@ describe("служебные сообщения подписки (реальны
         sources: {
           resolve: (event) =>
             event.eventType === "billing.notice-ready"
-              ? notices.resolveNotice(event)
+              ? resolveBillingSource(notices, payments)(event)
               : Promise.resolve({ status: "unavailable" }),
           canRead: () => Promise.resolve("denied"),
         },
         recipients: {
+          salesManagers: () => contacts.salesManagers(),
           exists: (id) => contacts.exists(id),
           enumerate: (query) => contacts.enumerate(query),
           email: (binding) => contacts.email(binding),
@@ -411,7 +413,44 @@ describe("служебные сообщения подписки (реальны
         where: { messageId: { in: revisions.map((row) => row.messageId) } },
       });
     };
+    /** Account со связанным Telegram и, если задано, правом продаж. */
+    async function author(permission: "billing:manage" | null) {
+      const id = randomUUID();
+      await db.prisma.account.create({
+        data: {
+          id,
+          logtoIssuer: "https://identity.example.test",
+          logtoSubject: id,
+        },
+      });
+      if (permission !== null)
+        await db.prisma.accountPermission.create({
+          data: { accountId: id, permission },
+        });
+      await db.prisma.telegramAccountLinkState.create({
+        data: {
+          accountId: id,
+          linkRef: randomUUID(),
+          revision: 1,
+          principalRef: `principal-${id}`,
+          identityRef: `identity-${id}`,
+          updatedAt: now,
+        },
+      });
+      return id;
+    }
+    /** Команды о продаже, адресованные одному Account. */
+    const salesFor = (accountId: string) =>
+      telegramCommands
+        .map((command) => deliverySchema.parse(command))
+        .filter(
+          (command) =>
+            command.content.kind === "sale_recorded" &&
+            command.binding.accountRef === accountId,
+        );
     return {
+      author,
+      salesFor,
       buyer,
       bank,
       payments,
@@ -449,7 +488,8 @@ describe("служебные сообщения подписки (реальны
       await s.payments.notification(s.bank.notify(purchaseRef, "CONFIRMED")),
     ).toMatchObject({ ok: true });
     expect(await s.noticesOf("payment_succeeded")).toHaveLength(1);
-    expect(await s.staged()).toBe(1);
+    // Два повода одной оплаты: сообщение покупателю и сообщение авторам о продаже.
+    expect(await s.staged()).toBe(2);
 
     await s.pump(s.deliverEmail);
     expect(s.sent).toHaveLength(1);
@@ -533,6 +573,76 @@ describe("служебные сообщения подписки (реальны
     await s.pump(s.deliverEmail);
     expect(attempts).toBe(1);
     expect(s.sent).toHaveLength(0);
+  });
+
+  test("продажа: автор с правом продаж получает одно сообщение в Telegram, покупатель и Account без права — нет", async () => {
+    const s = await scenario({ telegram: true });
+    const seller = await s.author("billing:manage");
+    const stranger = await s.author(null);
+    const purchaseRef = await s.buy();
+    expect(
+      await s.payments.notification(s.bank.notify(purchaseRef, "CONFIRMED")),
+    ).toMatchObject({ ok: true });
+    await s.pump(s.deliverEmail);
+    await s.pump(s.deliverEmail);
+
+    const sales = s.salesFor(seller);
+    expect(sales).toHaveLength(1);
+    expect(sales[0]?.text).toBe(
+      [
+        "Новая покупка",
+        "",
+        "Продукт: Материалы",
+        "Сумма: 1000.00 ₽",
+        "Время: 31.01.2030, 13:00 по Москве",
+        `Покупатель: ${s.buyer}@example.test`,
+        "",
+        `${origin}/authoring/sales/payments/${purchaseRef}`,
+      ].join("\n"),
+    );
+    expect(s.salesFor(stranger)).toHaveLength(0);
+    expect(s.salesFor(s.buyer)).toHaveLength(0);
+    // Почтой о продаже не пишут никому, а покупатель получает своё обычное письмо.
+    expect(s.sent.map((message) => message.subject)).toEqual([
+      "Оплата Inside подтверждена",
+    ]);
+    // Повод продажи не входит в историю покупок покупателя.
+    expect(
+      (await s.notices.readNotices(s.buyer)).map((notice) => notice.kind),
+    ).toEqual(["payment_succeeded"]);
+  });
+
+  test("продажа: автор, лишившийся права продаж до отправки, сообщение не получает", async () => {
+    const s = await scenario();
+    const seller = await s.author("billing:manage");
+    await s.buy();
+    await s.prepare();
+    const stored = await db.prisma.notificationCommand.findFirstOrThrow({
+      where: { delivery: { notification: { accountId: seller } } },
+    });
+    const command = deliverySchema.parse(JSON.parse(stored.payload));
+    expect(command.content).toEqual({
+      category: "subscription",
+      kind: "sale_recorded",
+    });
+    const request = () => ({
+      contractVersion: "inside.notification-dispatch.v1",
+      operationId: randomUUID(),
+      deliveryOperationId: command.operationId,
+      deliveryRef: command.deliveryRef,
+      commandRevision: command.commandRevision,
+      payloadDigest: stored.digest,
+      attemptRef: randomUUID(),
+    });
+    expect(
+      await s.notifications.authorizeDispatch("telegram", request()),
+    ).toMatchObject({ status: "allowed" });
+    await db.prisma.accountPermission.deleteMany({
+      where: { accountId: seller },
+    });
+    expect(
+      await s.notifications.authorizeDispatch("telegram", request()),
+    ).toMatchObject({ status: "denied", reason: "access_denied" });
   });
 
   // ------------------------------------------------------------- неоплаченный доступ (#909)

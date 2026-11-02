@@ -56,6 +56,7 @@ export const contentSchema = z.discriminatedUnion("category", [
       "renewal_cancelled",
       "access_expired",
       "refund_resolved",
+      "sale_recorded",
     ]),
   }),
 ]);

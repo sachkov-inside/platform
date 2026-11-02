@@ -1,4 +1,8 @@
 import {
+  name as saleNoticesName,
+  statement as saleNoticesStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0119-sale-notices.js";
+import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0118-automatic-cancel-refund.js";
@@ -768,6 +772,7 @@ export const platformMigrations = [
     name: automaticCancelRefundName,
     statement: automaticCancelRefundStatement,
   },
+  { name: saleNoticesName, statement: saleNoticesStatement },
 ] as const;
 
 export function migrateToLatest(

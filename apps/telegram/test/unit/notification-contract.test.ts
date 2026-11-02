@@ -57,6 +57,35 @@ it.each([
     ),
   ).toBeUndefined();
 });
+it("accepts the author sale message in the subscription lane as plain text", () => {
+  const sale = conforming(
+    required(fixtures.find((f) => f.name === "sale-telegram")).value,
+    notificationValidator<NotificationCommand>("telegramDelivery"),
+  );
+  expect(sale.content).toEqual({
+    category: "subscription",
+    kind: "sale_recorded",
+  });
+  expect(
+    parseNotification(
+      Buffer.from(JSON.stringify(sale)),
+      { ...envelope, messageId: sale.operationId },
+      "subscription",
+    ),
+  ).toEqual(sale);
+  expect(
+    parseNotification(
+      Buffer.from(
+        JSON.stringify({
+          ...sale,
+          content: { category: "subscription", kind: "sale_refunded" },
+        }),
+      ),
+      { ...envelope, messageId: sale.operationId },
+      "subscription",
+    ),
+  ).toBeUndefined();
+});
 it("lowercases UUID fields but preserves opaque references, text, wire times and key-independent digest", () => {
   const value = {
     ...c,

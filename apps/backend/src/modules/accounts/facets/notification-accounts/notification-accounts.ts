@@ -3,6 +3,9 @@ import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/ind
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 
+/** Предел полного списка получателей сообщений о продажах; больше — отказ, а не обрезка. */
+const SALES_MANAGERS_LIMIT = 100;
+
 /** Account enumeration and current verified contact, shared by the Notifications composition. */
 export class NotificationAccounts {
   constructor(
@@ -28,6 +31,22 @@ export class NotificationAccounts {
       select: { id: true },
     });
     return rows.map((row) => row.id);
+  }
+  /**
+   * Полный список Account с правом продаж: `billing:manage` или `platform:admin`, как в
+   * checkPermission. Список не обрезается: больше предела — отказ чтения.
+   */
+  async salesManagers(): Promise<readonly string[]> {
+    const rows = await this.prisma.accountPermission.findMany({
+      where: { permission: { in: ["billing:manage", "platform:admin"] } },
+      distinct: ["accountId"],
+      orderBy: { accountId: "asc" },
+      take: SALES_MANAGERS_LIMIT + 1,
+      select: { accountId: true },
+    });
+    if (rows.length > SALES_MANAGERS_LIMIT)
+      throw new Error("notification_sales_audience_too_large");
+    return rows.map((row) => row.accountId);
   }
   async exists(accountId: string) {
     return (

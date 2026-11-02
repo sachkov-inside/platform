@@ -14,12 +14,17 @@ export const noticeKinds = [
   "renewal_cancelled",
   "access_expired",
   "refund_resolved",
+  "sale_recorded",
 ] as const;
 export const noticeKindSchema = z.enum(noticeKinds);
 export type NoticeKind = z.infer<typeof noticeKindSchema>;
-/** Purchase history retains stored notice kinds without resuming retired schedules. */
+/**
+ * Purchase history retains stored notice kinds without resuming retired schedules. Повод продажи
+ * адресован авторам, а не покупателю, поэтому в историю покупок не входит.
+ */
 export const cabinetNoticeKindSchema = noticeKindSchema.exclude([
   "access_ending",
+  "sale_recorded",
 ]);
 export const noticeStateSchema = z.enum(["current", "superseded"]);
 
@@ -55,11 +60,20 @@ export const noticeViewSchema = z.strictObject({
 });
 export type NoticeView = z.infer<typeof noticeViewSchema>;
 
-/** Что именно обещано получателю: название операции и, если они есть, сумма и дата. */
+/** Скидка проданной покупки в том виде, в каком она применилась к оплате. */
+export const salePromotionSchema = z.strictObject({
+  name: z.string().min(1).max(200),
+  code: z.string().min(1).max(100).nullable(),
+  percent: z.int().min(1).max(100),
+});
+export type SalePromotion = z.infer<typeof salePromotionSchema>;
+
+/** Что именно обещано получателю: название операции и, если они есть, сумма, дата и скидка. */
 export interface NoticeConditions {
   readonly title: string;
   readonly amountKopecks?: number | undefined;
   readonly dueAt?: Date | undefined;
+  readonly promotion?: SalePromotion | undefined;
 }
 export interface NoticeOccurrence extends NoticeConditions {
   readonly kind: NoticeKind;
@@ -75,6 +89,7 @@ export function noticeConditions(row: {
   title: string;
   amountKopecks: bigint | null;
   dueAt: Date | null;
+  promotion: unknown;
 }): NoticeConditions {
   return {
     title: row.title,
@@ -82,6 +97,9 @@ export function noticeConditions(row: {
       ? {}
       : { amountKopecks: Number(row.amountKopecks) }),
     ...(row.dueAt === null ? {} : { dueAt: row.dueAt }),
+    ...(row.promotion === null
+      ? {}
+      : { promotion: salePromotionSchema.parse(row.promotion) }),
   };
 }
 export function sameNoticeConditions(
@@ -91,7 +109,9 @@ export function sameNoticeConditions(
   return (
     left.title === right.title &&
     left.amountKopecks === right.amountKopecks &&
-    left.dueAt?.getTime() === right.dueAt?.getTime()
+    left.dueAt?.getTime() === right.dueAt?.getTime() &&
+    JSON.stringify(left.promotion ?? null) ===
+      JSON.stringify(right.promotion ?? null)
   );
 }
 
@@ -102,6 +122,10 @@ export function attemptSourceRef(attemptRef: string): string {
 /** Один повод на попытку возврата: частичные возвраты одного платежа сообщаются каждый. */
 export function refundSourceRef(refundRef: string): string {
   return `refund:${idSchema.parse(refundRef)}`;
+}
+/** Один повод продажи на покупку: повтор подтверждения банком сохраняет тот же повод. */
+export function saleSourceRef(purchaseRef: string): string {
+  return `sale:${idSchema.parse(purchaseRef)}`;
 }
 /**
  * Поводы окончания Enrollment: ключ начинается с него, у поводов оплаты и подписки — нет.

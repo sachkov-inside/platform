@@ -493,7 +493,8 @@ _Avoid_: Queue acknowledgement as membership, entitlement revision as proof of a
 
 **BillingNotice**:
 A fact about a Product purchase or its Payment that calls for a service message to the buyer.
-It is distinct from the message and its delivery.
+A confirmed one-time purchase also gives a sale notice: a message about the sale to every Account
+that manages sales. It is distinct from the message and its delivery.
 _Avoid_: Notification, Delivery, email, reminder job
 
 **Prior Participants**:

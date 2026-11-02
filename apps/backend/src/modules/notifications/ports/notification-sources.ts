@@ -13,13 +13,28 @@ export type NotificationSource =
       readonly event: NotificationEvent;
       readonly content: DeliveryCommand["content"];
       readonly accountId: string | null;
+      /**
+       * Получатели без своего Account в поводе. `sales_managers`: каждый Account с правом
+       * `billing:manage` или `platform:admin`; только Telegram, право проверяется перед отправкой.
+       */
+      readonly audience?: "sales_managers";
       readonly title: string;
       readonly telegramManaged?: boolean;
       readonly readerPath: string;
       readonly purchaseRef?: string;
       readonly amountMinor?: number;
       readonly dueAt?: string;
+      /** Неизменяемые факты продажи для автора: адрес заказа и применённая скидка. */
+      readonly sale?: SaleFacts;
     };
+export interface SaleFacts {
+  readonly buyerEmail: string | null;
+  readonly promotion: {
+    readonly name: string;
+    readonly code: string | null;
+    readonly percent: number;
+  } | null;
+}
 export interface NotificationSources {
   canReadAccounts?(
     accountIds: readonly string[],
@@ -32,6 +47,11 @@ export interface NotificationSources {
   ): Promise<"allowed" | "denied" | "unavailable">;
 }
 export interface NotificationRecipients {
+  /**
+   * Полный список Account с правом продаж (`billing:manage` или `platform:admin`). Список не
+   * обрезается: превышение предела владельца — отказ чтения, а не тихая потеря получателя.
+   */
+  salesManagers?(): Promise<readonly string[]>;
   bindings?(
     accountIds: readonly string[],
     source?: NotificationSource,
