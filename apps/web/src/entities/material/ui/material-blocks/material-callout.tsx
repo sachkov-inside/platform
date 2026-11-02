@@ -5,6 +5,13 @@ import { ChevronRight } from "lucide-react";
 import { calloutTonePresentation } from "./callout-tone";
 
 /**
+ * Блок кода во врезке занимает её тело до краёв: тёмная поверхность продолжает врезку, а не
+ * рисует вторую рамку внутри первой. Нижний блок кода закрывает врезку по её скруглению.
+ */
+const codeBlockFill =
+  "[&>[data-material-block=codeBlock]]:mx-[calc(-1*var(--callout-pad-x))] [&>[data-material-block=codeBlock]]:mt-4 [&>[data-material-block=codeBlock]]:rounded-none [&>[data-material-block=codeBlock]:last-child]:mb-[calc(-1*var(--callout-pad-b))] [&>[data-material-block=codeBlock]:last-child]:rounded-b-[calc(var(--radius-xl)-1px)]";
+
+/**
  * Врезка урока. Вид виден словом, значком и цветом; цвет берётся из токена вида, а не из
  * собственной палитры блока.
  * Temporary semantic UI for #1196.
@@ -44,7 +51,11 @@ export function MaterialCallout({
           />
           {title ?? label}
         </summary>
-        <div className="px-4 pb-3 [&>:first-child]:mt-0">{children}</div>
+        <div
+          className={`px-(--callout-pad-x) pb-(--callout-pad-b) [--callout-pad-b:--spacing(3)] [--callout-pad-x:--spacing(4)] ${codeBlockFill} [&>:first-child]:mt-0 [&>[data-material-block=codeBlock]:first-child]:mt-0`}
+        >
+          {children}
+        </div>
       </details>
     );
   }
@@ -52,7 +63,7 @@ export function MaterialCallout({
   return (
     <aside
       aria-label={title === undefined ? label : `${label}: ${title}`}
-      className="mt-8 rounded-xl border px-5 py-4 text-[0.9375rem] leading-7 sm:px-6"
+      className={`mt-8 rounded-xl border px-(--callout-pad-x) pt-4 pb-(--callout-pad-b) text-[0.9375rem] leading-7 [--callout-pad-b:--spacing(4)] [--callout-pad-x:--spacing(5)] sm:[--callout-pad-x:--spacing(6)] ${codeBlockFill}`}
       data-callout={tone}
       data-material-block="callout"
     >

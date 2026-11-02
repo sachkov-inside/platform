@@ -213,8 +213,24 @@ export const ProseLinksDark: Story = {
 const instructionExample = [
   "## Writing to the owner",
   "",
-  "Apply these rules to explanations, reports, and questions. Project style governs content such as lessons, scripts, and posts.",
+  "Apply these rules to explanations, reports, and questions. Project style governs content such as lessons, scripts, and posts, as well as code, commit messages, and documents for agents.",
 ].join("\n");
+
+/** Блок кода во врезке занимает её тело до краёв: рамка не вкладывается в рамку. */
+async function expectCodeFillsCallout(canvasElement: HTMLElement) {
+  const callout = canvasElement.querySelector("[data-callout]");
+  const block = canvasElement.querySelector(
+    '[data-material-block="codeBlock"]',
+  );
+  if (callout === null || block === null)
+    throw new Error("The story needs a code block inside a callout");
+  const outer = callout.getBoundingClientRect();
+  const inner = block.getBoundingClientRect();
+  // Only the callout's 1 px border separates the two edges.
+  await expect(inner.left - outer.left).toBeLessThanOrEqual(1);
+  await expect(outer.right - inner.right).toBeLessThanOrEqual(1);
+  await expect(outer.bottom - inner.bottom).toBeLessThanOrEqual(1);
+}
 
 export const CodeBlockCopy: Story = {
   args: {
@@ -243,6 +259,9 @@ export const CodeBlockCopy: Story = {
     const buttonBox = button.getBoundingClientRect();
     const codeBox = code.getBoundingClientRect();
     await expect(buttonBox.left).toBeGreaterThanOrEqual(codeBox.right);
+    // A long line wraps: the reader sees the whole text without a hidden horizontal scroll.
+    await expect(code.scrollWidth).toBeLessThanOrEqual(code.clientWidth);
+    await expectCodeFillsCallout(canvasElement);
     await expect(buttonBox.height).toBeGreaterThanOrEqual(36);
     // The visible control may be compact; its touch area stays at least 44 px.
     const touchArea = getComputedStyle(button, "::after");
@@ -273,6 +292,29 @@ export const CodeBlockCopyMobile: Story = {
 export const CodeBlockCopyDesktop: Story = {
   ...CodeBlockCopy,
   globals: { viewport: { value: "desktop1440", isRotated: false } },
+};
+
+export const CodeBlockInPlainCallout: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "callout",
+        tone: "example",
+        title: "Пример промпта",
+        content: [{ kind: "code_block", text: instructionExample }],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("button", { name: "Скопировать код" }),
+    ).toBeVisible();
+    await expectCodeFillsCallout(canvasElement);
+  },
+};
+export const CodeBlockInPlainCalloutMobile: Story = {
+  ...CodeBlockInPlainCallout,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
 export const CodeBlockCopyFailure: Story = {
