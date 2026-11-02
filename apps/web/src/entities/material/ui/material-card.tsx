@@ -447,7 +447,14 @@ function ProductMaterialRow({
     material.availability === "locked" &&
     material.access !== "free";
   const unavailable = !pending && material.availability === "unavailable";
-  const freeMark = !pending && !productOpen && material.access === "free";
+  // Пока личная часть идёт, плашка бесплатного урока стоит невидимой: тот же перенос строки
+  // формата, что и у готовой строки гостя, поэтому плашка появляется без сдвига (#670).
+  const freeMark =
+    material.access !== "free" || productOpen
+      ? null
+      : pending
+        ? "reserved"
+        : "shown";
   return (
     <ProductRowArticle
       availability={pending ? "pending" : material.availability}
@@ -514,14 +521,18 @@ function ProductMaterialRow({
                 Текст
               </span>
             )}
-            {freeMark ? (
+            {freeMark === null ? null : (
               <span
-                className="inline-flex shrink-0 items-center rounded-full bg-accent/12 px-2 py-0.5 text-[0.6875rem] font-semibold leading-4 text-action"
-                data-product-free
+                aria-hidden={freeMark === "reserved" ? true : undefined}
+                className={cn(
+                  "inline-flex shrink-0 items-center rounded-full bg-accent/12 px-2 py-0.5 text-[0.6875rem] font-semibold leading-4 text-action",
+                  freeMark === "reserved" && "invisible",
+                )}
+                data-product-free={freeMark}
               >
                 Бесплатно
               </span>
-            ) : null}
+            )}
           </span>
         </div>
         {/* Название начинается с 112 px: если рядом с такой шириной блок справа не помещается, блок
