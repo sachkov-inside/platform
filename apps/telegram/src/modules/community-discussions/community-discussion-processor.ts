@@ -82,23 +82,24 @@ export class CommunityDiscussionProcessor {
     let count = 0;
     let discussions = 0;
     try {
-      let after: string | undefined;
-      do {
-        signal?.throwIfAborted();
-        await this.renew(token);
-        const resolved = await this.messages.resolveAuthors({
-          limit: AUTHOR_PAGE,
-          ...(signal ? { signal } : {}),
-          ...(after !== undefined ? { after } : {}),
-        });
-        after = resolved.nextAfter ?? undefined;
-      } while (after !== undefined);
       // A finite snapshot prevents an active group from extending today's run without a bound.
       const upper = await this.pending()
         .select("message_id")
         .orderBy("message_id", "desc")
         .executeTakeFirst();
       if (upper) {
+        let after: string | undefined;
+        do {
+          signal?.throwIfAborted();
+          await this.renew(token);
+          const resolved = await this.messages.resolveAuthors({
+            limit: AUTHOR_PAGE,
+            through: upper.message_id,
+            ...(signal ? { signal } : {}),
+            ...(after !== undefined ? { after } : {}),
+          });
+          after = resolved.nextAfter ?? undefined;
+        } while (after !== undefined);
         for (;;) {
           signal?.throwIfAborted();
           await this.renew(token);
@@ -195,22 +196,19 @@ export class CommunityDiscussionProcessor {
       .select(["id", "question", "answers", "conclusion"])
       .where("bot_identity", "=", this.config.botIdentity)
       .where("chat_id", "=", this.config.canonicalChatId)
-      .where((eb) =>
-        discussionIds.length > 0
-          ? eb.or([
-              eb(
-                "updated_at",
-                ">=",
-                new Date(now.getTime() - RECENT_DAYS * DAY_MS),
-              ),
-              eb("id", "in", discussionIds),
-            ])
-          : eb(
-              "updated_at",
-              ">=",
-              new Date(now.getTime() - RECENT_DAYS * DAY_MS),
-            ),
-      )
+      .where((eb) => {
+        const open = eb.and([
+          eb("status", "in", ["new", "awaiting_answer"]),
+          eb(
+            "updated_at",
+            ">=",
+            new Date(now.getTime() - RECENT_DAYS * DAY_MS),
+          ),
+        ]);
+        return discussionIds.length > 0
+          ? eb.or([open, eb("id", "in", discussionIds)])
+          : open;
+      })
       .orderBy("updated_at", "desc")
       .orderBy("id")
       .limit(CONTEXT_LIMIT + 1)

@@ -73,6 +73,7 @@ export class CommunityMessages {
     readonly limit: number;
     readonly after?: string;
     readonly signal?: AbortSignal;
+    readonly through?: string;
   }): Promise<{
     readonly resolved: number;
     readonly nextAfter: string | null;
@@ -93,6 +94,8 @@ export class CommunityMessages {
       .where("is_author", "is", null);
     if (input.after !== undefined)
       query = query.where("message_id", ">", input.after);
+    if (input.through !== undefined)
+      query = query.where("message_id", "<=", input.through);
     const rows = await query
       .orderBy("message_id")
       .limit(input.limit + 1)

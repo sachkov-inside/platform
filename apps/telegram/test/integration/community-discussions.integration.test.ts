@@ -71,7 +71,7 @@ beforeAll(async () => {
   await migrateToLatest(database);
 });
 beforeEach(async () => {
-  await sql`truncate community_discussion_mark_receipts, community_discussion_sources, community_discussions, community_discussion_schedule, community_messages, platform_links, link_transactions restart identity cascade`.execute(
+  await sql`truncate community_discussion_mark_receipts, community_discussion_sources, community_discussions, community_discussion_schedule, community_messages, telegram_updates, bot_contacts, start_response_deliveries, platform_links, link_transactions restart identity cascade`.execute(
     database,
   );
   permission = "allowed";
@@ -159,7 +159,7 @@ async function capture(
       updateId: messageId,
       messageId,
       threadId: "7",
-      replyToMessageId: messageId === "11" ? "10" : null,
+      replyToMessageId: ["11", "12"].includes(messageId) ? "10" : null,
       sentAt,
       editedAt: null,
       senderTelegramUserId: sender,
@@ -386,7 +386,7 @@ describe("community discussion processing", () => {
         })
       ).statusCode,
     ).toBe(200);
-    vi.setSystemTime(now.getTime() + 2 * 86_400_000);
+    vi.setSystemTime(now.getTime() + 9 * 86_400_000);
     await capture("12", "Дополнительное пояснение");
     result.discussions[0] = {
       ...required(result.discussions[0]),
@@ -840,6 +840,39 @@ describe("community discussion processing", () => {
         .messages[0]?.isAuthor,
     ).toBeNull();
     expect(inputs).toHaveLength(0);
+  });
+  it("defers messages arriving during author resolution to the next finite run", async () => {
+    await seedCommunityBinding(
+      database,
+      {
+        accountRef: "synthetic-author",
+        linkRef: "synthetic-link",
+        linkRevision: 1,
+        telegramIdentityRef: "synthetic-identity",
+      },
+      now,
+      "81",
+    );
+    await capture("1", "Вопрос автора", "81");
+    authorize = async () => {
+      await capture("2", "Новое сообщение");
+      return "allowed";
+    };
+    result.discussions = [];
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 1 });
+    expect(inputs[0]?.messages.map((message) => message.messageId)).toEqual([
+      "1",
+    ]);
+    vi.setSystemTime(now.getTime() + 86_400_000);
+    authorize = undefined;
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 1 });
+    expect(inputs[1]?.messages.map((message) => message.messageId)).toEqual([
+      "2",
+    ]);
   });
 });
 

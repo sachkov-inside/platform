@@ -42,7 +42,8 @@ Unavailable roles remain null and are deferred without a processing mark until a
 AuthorMode, Telegram administrator status and usernames never establish authorship.
 
 One run captures a finite upper message ID. Each model call receives at most 200 pending messages.
-Context contains discussions updated in the last seven days, plus discussions referenced by edits or direct replies.
+Context contains `new` or `awaiting_answer` discussions updated in the last seven days,
+plus discussions referenced by edits or direct replies.
 This includes manually marked and older discussions. The limits are 200 discussions and 2000 source IDs per call.
 Exceeding a context limit fails explicitly and leaves the batch pending. Redacted diagnostics name that limit.
 
