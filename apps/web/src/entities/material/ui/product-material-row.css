@@ -50,7 +50,9 @@
   border-radius: 999px;
   padding: 0.125rem 0.5rem;
   background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--action);
+  /* Мелкий текст на подкрашенной строке: цвет действия, сдвинутый к цвету текста, держит
+     контраст не ниже 4.5:1 в обеих темах (#1946). */
+  color: color-mix(in srgb, var(--action) 85%, var(--foreground));
   font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1rem;
