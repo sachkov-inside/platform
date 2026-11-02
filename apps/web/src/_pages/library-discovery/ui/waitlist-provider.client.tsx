@@ -66,11 +66,12 @@ function createWaitlistStore(
     getServerSnapshot: () => initial,
     publish: (view, commands) => {
       latest = commands;
+      // Поля сравниваются по одному: новое поле снимка сравнивается само.
+      const fields: ReadonlyMap<string, unknown> = new Map(
+        Object.entries(current),
+      );
       if (
-        view.state === current.state &&
-        view.productSlug === current.productSlug &&
-        view.notice === current.notice &&
-        view.retryingWithdrawal === current.retryingWithdrawal
+        Object.entries(view).every(([key, value]) => fields.get(key) === value)
       )
         return;
       current = view;
