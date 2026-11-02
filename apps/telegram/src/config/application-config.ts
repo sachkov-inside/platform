@@ -452,6 +452,7 @@ export function loadApplicationConfig(
     TELEGRAM_WEBHOOK_SECRET: webhookSecret,
     PLATFORM_INTEGRATION_SECRET: platformIntegrationSecret,
     PLATFORM_COMMUNICATIONS_SECRET: communicationsSecret,
+    PLATFORM_COMMUNITY_DISCUSSIONS_SECRET: communityDiscussions?.secret,
     TELEGRAM_SIGN_IN_INTEGRATION_SECRET: signInIntegrationSecret,
     PLATFORM_COMMUNITY_INTEGRATION_SECRET: communityIntegrationSecret,
     PLATFORM_COMMUNITY_DISPATCH_SECRET: communityDispatchSecret,

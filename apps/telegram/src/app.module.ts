@@ -1,3 +1,11 @@
+import { CommunityDiscussions } from "./modules/community-discussions/community-discussions.js";
+import { CommunityDiscussionProcessor } from "./modules/community-discussions/community-discussion-processor.js";
+import { CommunityDiscussionsController } from "./modules/community-discussions/community-discussions.controller.js";
+import {
+  COMMUNITY_DISCUSSION_MODEL,
+  DisabledCommunityDiscussionModel,
+} from "./modules/community-discussions/discussion-model.js";
+import { OpenAICompatibleDiscussionModelAdapter } from "./adapters/models/openai-compatible-discussion-model.adapter.js";
 import { CommunityMessages } from "./modules/community-discussions/community-messages.js";
 import { CommunityAuthors } from "./modules/communications/community-authors.js";
 import {
@@ -163,6 +171,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        CommunityDiscussionsController,
         TelegramContactsController,
         TelegramContactsV2Controller,
         BotSignInController,
@@ -174,6 +183,16 @@ export class AppModule {
       ],
       providers: [
         CommunityMessages,
+        CommunityDiscussions,
+        CommunityDiscussionProcessor,
+        {
+          provide: COMMUNITY_DISCUSSION_MODEL,
+          useValue: config.communityDiscussions?.grouping
+            ? new OpenAICompatibleDiscussionModelAdapter(
+                config.communityDiscussions.grouping,
+              )
+            : new DisabledCommunityDiscussionModel(),
+        },
         CommunityAuthors,
         {
           provide: WAITLIST_CONFIRMATION_AUTHORIZATION,

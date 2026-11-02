@@ -40,6 +40,10 @@
     "./material-announcements": {
       "types": "./dist/runtime/material-announcements.d.ts",
       "default": "./dist/runtime/material-announcements.js"
+    },
+    "./community-discussions": {
+      "types": "./dist/runtime/community-discussions.d.ts",
+      "default": "./dist/runtime/community-discussions.js"
     }
   },
   "files": [

@@ -271,3 +271,10 @@ Telegram privacy or administrator settings. The owner controls those settings.
 `TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS` optionally contains a JSON array of positive topic IDs.
 Omitting it captures every topic and the general topic. An empty array captures none. Supplying
 this setting while capture is disabled fails configuration validation.
+
+## Community discussions
+
+Community intake and daily grouping are opt-in. The [discussion integration](docs/integrations/community-discussions-v1.md)
+owns the HTTP protocol, processing, role resolution, retry and retention rules. Set the grouping URL, key and model together
+to enable model calls. Leave them absent to collect messages without grouping. Use a separate
+`PLATFORM_COMMUNITY_DISCUSSIONS_SECRET` for HTTP and configure the existing Platform author authorization callback.

@@ -1,3 +1,4 @@
+import type { DiscussionTables } from "../modules/community-discussions/discussion-storage.js";
 import type { CommunityMessageTables } from "../modules/community-discussions/community-message-storage.js";
 import type { NativeMessageSource } from "../modules/communications/native-message-source.js";
 import type { MaterialAnnouncement } from "@inside/contracts/material-announcements";
@@ -314,6 +315,7 @@ export type JsonColumn<Value> = ColumnType<Value, string, string>;
 export interface DatabaseSchema
   extends
     CommunityMessageTables,
+    DiscussionTables,
     ActivationTables,
     TransportTables,
     IdentityTables,
