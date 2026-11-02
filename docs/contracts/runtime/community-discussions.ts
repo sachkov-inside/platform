@@ -29,11 +29,13 @@ export type Discussion = z.infer<typeof discussionSchema>;
 export const discussionMessageSchema: z.ZodObject<{
   messageId: z.ZodString; threadId: z.ZodNullable<z.ZodString>; replyToMessageId: z.ZodNullable<z.ZodString>;
   sentAt: z.ZodISODateTime; role: z.ZodString; kind: z.ZodString;
-  text: z.ZodNullable<z.ZodString>; sourceUrl: z.ZodURL;
+  text: z.ZodNullable<z.ZodString>; transcript: z.ZodNullable<z.ZodString>;
+  transcriptionStatus: z.ZodEnum<{ not_applicable: "not_applicable"; pending: "pending"; completed: "completed"; expired: "expired" }>; sourceUrl: z.ZodURL;
 }, z.core.$strict> = z.strictObject({
   messageId: z.string().min(1).max(30), threadId: z.string().nullable(), replyToMessageId: z.string().nullable(),
   sentAt: z.iso.datetime({ offset: true }), role: z.string().min(1).max(100), kind: z.string().min(1).max(30),
-  text: z.string().nullable(), sourceUrl: z.url({ protocol: /^https?$/ }).max(2000),
+  text: z.string().nullable(), transcript: z.string().nullable(),
+  transcriptionStatus: z.enum(["not_applicable", "pending", "completed", "expired"]), sourceUrl: z.url({ protocol: /^https?$/ }).max(2000),
 });
 export type DiscussionMessage = z.infer<typeof discussionMessageSchema>;
 const detail: z.ZodObject<typeof discussionSchema.shape & { messages: z.ZodArray<typeof discussionMessageSchema> }, z.core.$strict> = discussionSchema.extend({ messages: z.array(discussionMessageSchema) });

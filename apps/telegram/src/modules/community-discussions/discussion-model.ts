@@ -20,6 +20,7 @@ export interface ModelUsage {
   readonly durationSeconds?: number | null;
   readonly inputTokens: number | null;
   readonly outputTokens: number | null;
+  readonly durationSeconds?: number | null;
 }
 export interface ModelMessage {
   readonly messageId: string;
@@ -41,7 +42,7 @@ export interface GroupInput {
   }[];
 }
 export type GroupResult = GroupingOutput & { readonly usage: ModelUsage };
-/** One model boundary owns grouping and transcription. Audio is enabled by #1955. */
+/** One model boundary owns grouping and transcription, including budget decoration. */
 export interface CommunityDiscussionModel {
   group(input: GroupInput, signal?: AbortSignal): Promise<GroupResult>;
   transcribe(

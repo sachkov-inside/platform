@@ -38,6 +38,7 @@
     "test:contracts": "bash ../../scripts/heavy-check.sh vitest run --config vitest.contract.config.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "4.0.106",
     "@ai-sdk/openai-compatible": "3.0.82",
     "@inside/access-capabilities": "workspace:*",
     "@inside/contracts": "workspace:*",

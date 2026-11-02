@@ -9,9 +9,10 @@ export interface CommunityMessageInput {
   readonly sentAt: Date;
   readonly editedAt: Date | null;
   readonly senderTelegramUserId: string;
-  readonly kind: "text" | "photo" | "document";
+  readonly kind: "text" | "photo" | "document" | "voice" | "video_note";
   readonly text: string;
   readonly fileId: string | null;
+  readonly durationSeconds?: number | null;
 }
 
 export type CommunityMessage = Omit<CommunityMessageInput, "updateId"> & {
