@@ -70,7 +70,7 @@ export function renderNotification(
     source.dueAt === undefined
       ? ""
       : `\nДата: ${new Date(source.dueAt).toISOString()}.`;
-  const title = source.title.replaceAll(/[\r\n]+/gu, " ").trim();
+  const title = oneLine(source.title);
   if (title === "" || title.length > 1_500)
     throw new Error("notification_title_invalid");
   if (source.content.kind === "sale_recorded") {

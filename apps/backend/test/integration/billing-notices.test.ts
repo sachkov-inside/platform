@@ -439,14 +439,15 @@ describe("служебные сообщения подписки (реальны
       });
       return id;
     }
-    /** Команды о продаже, адресованные одному Account. */
+    /** Команды о продаже, адресованные Telegram одного Account. */
     const salesFor = (accountId: string) =>
       telegramCommands
         .map((command) => deliverySchema.parse(command))
         .filter(
           (command) =>
             command.content.kind === "sale_recorded" &&
-            command.binding.accountRef === accountId,
+            command.binding.channel === "telegram" &&
+            command.binding.telegramIdentityRef === `identity-${accountId}`,
         );
     return {
       author,

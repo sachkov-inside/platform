@@ -7,6 +7,7 @@ import {
   type NotificationsPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import { MATERIAL_EVENT_LIFETIME_MS } from "../../../../infrastructure/notification-transport/wire.js";
+import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   eventSchema,
   deliverySchema,
@@ -78,7 +79,13 @@ export async function salesManagerAccess(
   accountId: string,
 ): Promise<"allowed" | "denied" | "unavailable"> {
   const managers = await settle(() => readSalesManagers(deps));
-  if (managers.status === "rejected") return "unavailable";
+  if (managers.status === "rejected") {
+    reportDependencyFailure(
+      { module: "notifications", operation: "salesManagerAccess" },
+      managers.reason,
+    );
+    return "unavailable";
+  }
   return managers.value.includes(accountId) ? "allowed" : "denied";
 }
 /** Ответ чужого Module вместе с его отказом: отказ поднимается там, где операция берёт ответ. */
