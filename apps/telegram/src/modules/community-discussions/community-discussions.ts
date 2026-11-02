@@ -189,6 +189,7 @@ export class CommunityDiscussions {
         "source.kind",
         "source.source_url",
         "message.text",
+        "message.transcript",
       ])
       .where("source.discussion_id", "=", id)
       .where("source.bot_identity", "=", this.config.botIdentity)
@@ -206,6 +207,15 @@ export class CommunityDiscussions {
         kind: source.kind,
         sourceUrl: source.source_url,
         text: source.text,
+        transcript: source.transcript,
+        transcriptionStatus:
+          source.kind !== "voice" && source.kind !== "video_note"
+            ? ("not_applicable" as const)
+            : source.text === null
+              ? ("expired" as const)
+              : source.transcript === null
+                ? ("pending" as const)
+                : ("completed" as const),
       })),
     };
   }

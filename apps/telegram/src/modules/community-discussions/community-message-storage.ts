@@ -17,6 +17,16 @@ export interface CommunityMessageTables {
     kind: CommunityMessageInput["kind"];
     text: string;
     file_id: string | null;
+    duration_seconds: ColumnType<
+      number | null,
+      number | null | undefined,
+      number | null
+    >;
+    transcript: ColumnType<
+      string | null,
+      string | null | undefined,
+      string | null
+    >;
     last_update_id: string;
     processed_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
   };

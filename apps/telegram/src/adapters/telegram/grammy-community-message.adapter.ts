@@ -2,6 +2,10 @@ import { z } from "zod";
 import type { CommunityMessageInput } from "../../modules/community-discussions/community-message.js";
 
 const messageId = z.int().positive();
+const audioSchema = z.object({
+  file_id: z.string().min(1).max(1000),
+  duration: z.int().nonnegative().max(86400),
+});
 const messageSchema = z.object({
   message_id: messageId,
   date: z.int().nonnegative().max(8_000_000_000_000),
@@ -19,6 +23,8 @@ const messageSchema = z.object({
     .array(z.object({ file_id: z.string().min(1) }))
     .min(1)
     .optional(),
+  voice: audioSchema.optional(),
+  video_note: audioSchema.optional(),
   document: z.object({ file_id: z.string().min(1) }).optional(),
 });
 
@@ -46,7 +52,11 @@ export function translateCommunityMessage(
         ? "photo"
         : message.document !== undefined
           ? "document"
-          : undefined;
+          : message.voice !== undefined
+            ? "voice"
+            : message.video_note !== undefined
+              ? "video_note"
+              : undefined;
   const text = message.text ?? message.caption ?? "";
   if (kind === undefined) return;
   return {
@@ -70,6 +80,8 @@ export function translateCommunityMessage(
     senderTelegramUserId: String(message.from.id),
     kind,
     text,
-    fileId: null,
+    fileId: message.voice?.file_id ?? message.video_note?.file_id ?? null,
+    durationSeconds:
+      message.voice?.duration ?? message.video_note?.duration ?? null,
   };
 }
