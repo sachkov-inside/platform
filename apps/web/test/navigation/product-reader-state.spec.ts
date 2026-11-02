@@ -81,6 +81,19 @@ for (const scenario of [
     if (["paid", "manual", "archive", "unknown"].includes(scenario)) {
       await signIn(context, baseURL, slug);
     }
+    // Личная часть приходит потоком после гидратации провайдера; она не должна расходиться с
+    // ответом сервера (#1938).
+    const renderErrors: string[] = [];
+    page.on("pageerror", (error) => renderErrors.push(error.message));
+    page.on("console", (message) => {
+      if (
+        message.type() === "error" &&
+        /#418|#423|#425|hydrat|did not match|didn't match/iu.test(
+          message.text(),
+        )
+      )
+        renderErrors.push(message.text());
+    });
     await request.delete(`${backend}/__product-reader-state`);
     const documentResponse = await page.goto(`/products/${slug}`, {
       waitUntil: "commit",
@@ -110,11 +123,13 @@ for (const scenario of [
       ).toBeVisible();
       await expect(visibleLanding.locator(".aie-status")).toBeHidden();
     } else if (scenario === "waitlist") {
-      await expect(
-        page
-          .getByRole("button", { name: "Вступить в список ожидания" })
-          .first(),
-      ).toBeVisible();
+      // Сервер рисует гостю «Проверяю запись…»; доступная кнопка появляется только после
+      // гидратации слотов, поэтому она же служит барьером для проверки ошибок ниже.
+      const joins = page.getByRole("button", {
+        name: "Вступить в список ожидания",
+      });
+      await expect(joins).toHaveCount(2);
+      for (const join of await joins.all()) await expect(join).toBeEnabled();
       // Курс с бесплатными уроками зовёт из билета попробовать бесплатно (#1647).
       await expect(
         page
@@ -157,6 +172,7 @@ for (const scenario of [
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
+    expect(renderErrors).toEqual([]);
     if (["manual", "waitlist", "unknown"].includes(scenario)) {
       const capture = await screenshotWholePage(page);
       await saveEvidence(info, `${scenario}.png`, capture);
