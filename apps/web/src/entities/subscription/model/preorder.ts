@@ -133,6 +133,9 @@ export function preorderDiscount(
 ): string | null {
   if (afterStartKopecks === null || afterStartKopecks <= priceKopecks)
     return null;
-  const percent = Math.floor((1 - priceKopecks / afterStartKopecks) * 100);
+  // Целые копейки: дробное 1 − цена/старая цена теряет ровный процент (32 000 от 40 000 → 19).
+  const percent = Math.floor(
+    ((afterStartKopecks - priceKopecks) * 100) / afterStartKopecks,
+  );
   return percent < 1 ? null : `−${String(percent)}\u00a0%`;
 }
