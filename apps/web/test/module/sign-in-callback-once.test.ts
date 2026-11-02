@@ -64,6 +64,9 @@ describe("runSignInCallbackOnce", () => {
     const second = requestScope.run(secondStore, () =>
       runSignInCallbackOnce(request(), "logto_web", handle),
     );
+    await vi.waitFor(() => {
+      expect(handle).toHaveBeenCalledOnce();
+    });
     finish?.();
 
     await expect(first).resolves.toBe("https://inside.example.test/");

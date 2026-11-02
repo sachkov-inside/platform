@@ -298,10 +298,9 @@ describe("Logto BFF route orchestration", () => {
           };
         }),
     );
+    fakes.cookies.set(sessionCookie, "sign-in-transaction");
     const repeatedRequest = () =>
-      new Request("http://localhost:3000/callback?code=once&state=attempt", {
-        headers: { cookie: `${sessionCookie}=sign-in-transaction` },
-      });
+      new Request("http://localhost:3000/callback?code=once&state=attempt");
 
     const first = callback(repeatedRequest());
     const second = callback(repeatedRequest());
@@ -328,13 +327,15 @@ describe("Logto BFF route orchestration", () => {
   });
 
   it("does not hand a callback result to a request from another browser", async () => {
-    const request = (session: string) =>
-      new Request("http://localhost:3000/callback?code=shared&state=shared", {
-        headers: { cookie: `logto_inside-web=${session}` },
-      });
+    const fromBrowser = (session: string) => {
+      fakes.cookies.set("logto_inside-web", session);
+      return callback(
+        new Request("http://localhost:3000/callback?code=shared&state=shared"),
+      );
+    };
 
-    await callback(request("first-browser"));
-    await callback(request("second-browser"));
+    await fromBrowser("first-browser");
+    await fromBrowser("second-browser");
 
     expect(fakes.handleSignInCallback).toHaveBeenCalledTimes(2);
   });

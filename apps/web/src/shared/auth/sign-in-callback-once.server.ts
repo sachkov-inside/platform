@@ -3,7 +3,6 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { cookies } from "next/headers";
-import { NextRequest } from "next/server";
 
 /** Cookie with its attributes, as Next.js keeps it after `cookies().set()` in a route handler. */
 type ChangedCookie = Parameters<
@@ -35,11 +34,11 @@ export async function runSignInCallbackOnce(
   sessionCookieName: string,
   completeSignIn: () => Promise<string>,
 ): Promise<string> {
-  const originalCookies = new NextRequest(request).cookies;
-  const key = attemptKey(
-    request,
-    originalCookies.get(sessionCookieName)?.value,
+  // Read before the callback runs: afterwards the store also holds the cookies it set.
+  const originalCookies = new Map(
+    (await cookies()).getAll().map(({ name, value }) => [name, value]),
   );
+  const key = attemptKey(request, originalCookies.get(sessionCookieName));
   if (key === undefined) return completeSignIn();
 
   const running = outcomes.get(key);
@@ -94,11 +93,9 @@ function attemptKey(
 
 /** Cookies whose value the callback changed, deletions included, with their attributes. */
 async function changedCookies(
-  original: NextRequest["cookies"],
+  original: ReadonlyMap<string, string>,
 ): Promise<ChangedCookie[]> {
   // In a route handler Next.js returns response cookies: set and deleted entries keep attributes.
   const current = (await cookies()).getAll() as ChangedCookie[];
-  return current.filter(
-    (cookie) => original.get(cookie.name)?.value !== cookie.value,
-  );
+  return current.filter((cookie) => original.get(cookie.name) !== cookie.value);
 }
