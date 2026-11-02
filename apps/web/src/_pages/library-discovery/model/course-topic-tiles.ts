@@ -54,13 +54,14 @@ const tiles: Readonly<Record<string, CourseTopicTile>> = {
   Модульность: tile("modules", "narrow", "good"),
   "Контекст и память": tile("memory", "wide", "coral"),
   "Автоматические проверки": tile("checks", "narrow", "blue"),
-  "Параллельные и облачные агенты": tile("team", "wide", "lavender"),
+  "Параллельные агенты": tile("team", "wide", "lavender"),
   "Существующий проект": tile("legacy", "narrow", "sand"),
   "Безопасность агентов": tile("security", "narrow", "good"),
   "Релизы и эксплуатация": tile("release", "wide", "example"),
   "Собственные агенты и MCP": tile("agent", "wide", "ink"),
   // Темы описания, опубликованного до нового лендинга: страница не теряет картинки, пока текст
-  // в Inside Content не обновлён.
+  // в Inside Content не обновлён. Прежнее название плитки с облачными агентами (до 02.11.2026).
+  "Параллельные и облачные агенты": tile("team", "wide", "lavender"),
   "AI-first разработка": tile("engineering", "wide", "ink"),
   Harness: tile("harness", "narrow", "example"),
   "Работа с контекстом": tile("context", "narrow", "blue"),
