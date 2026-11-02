@@ -80,7 +80,8 @@
         "payment_failed",
         "renewal_cancelled",
         "access_expired",
-        "refund_resolved"
+        "refund_resolved",
+        "sale_recorded"
       ]
     },
     "bindingTelegram": {

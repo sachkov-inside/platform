@@ -1,4 +1,7 @@
-import type { NotificationSource } from "../ports/notification-sources.js";
+import type {
+  NotificationSource,
+  SaleFacts,
+} from "../ports/notification-sources.js";
 const subjects = {
   material_published: "Новый материал в Inside",
   renewal_reminder: "Скоро продление подписки Inside",
@@ -8,7 +11,26 @@ const subjects = {
   renewal_cancelled: "Продление Inside отменено",
   access_expired: "Доступ Inside закончился",
   refund_resolved: "Результат возврата Inside",
+  sale_recorded: "Новая покупка",
 } as const;
+/** Авторы работают по московскому времени: снимок цены покупки тоже хранит Europe/Moscow. */
+const moscowTime = new Intl.DateTimeFormat("ru-RU", {
+  timeZone: "Europe/Moscow",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const oneLine = (value: string) => value.replaceAll(/[\r\n]+/gu, " ").trim();
+function promotionLine(promotion: SaleFacts["promotion"]): string[] {
+  if (promotion === null) return [];
+  return promotion.code === null
+    ? [`Скидка: ${oneLine(promotion.name)} (${String(promotion.percent)}%)`]
+    : [
+        `Промокод: ${oneLine(promotion.code)} (скидка ${String(promotion.percent)}%)`,
+      ];
+}
 /** Петля не выходит наружу, поэтому стенд читается по http; любой другой узел обязан быть под TLS. */
 function readerLinkAllowed(base: URL): boolean {
   return (
@@ -48,9 +70,29 @@ export function renderNotification(
     source.dueAt === undefined
       ? ""
       : `\nДата: ${new Date(source.dueAt).toISOString()}.`;
-  const title = source.title.replaceAll(/[\r\n]+/gu, " ").trim();
+  const title = oneLine(source.title);
   if (title === "" || title.length > 1_500)
     throw new Error("notification_title_invalid");
+  if (source.content.kind === "sale_recorded") {
+    const sale = source.sale;
+    if (sale === undefined || source.amountMinor === undefined)
+      throw new Error("notification_sale_invalid");
+    return {
+      templateRef: `inside.${source.content.kind}`,
+      templateRevision: 1,
+      subject,
+      text: [
+        subject,
+        "",
+        `Продукт: ${title}`,
+        `Сумма: ${(source.amountMinor / 100).toFixed(2)} ₽`,
+        ...promotionLine(sale.promotion),
+        `Время: ${moscowTime.format(new Date(source.event.occurredAt))} по Москве`,
+        "",
+        url.href,
+      ].join("\n"),
+    };
+  }
   return {
     templateRef: `inside.${source.content.kind}`,
     templateRevision: 1,

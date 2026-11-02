@@ -15,6 +15,7 @@ import {
 } from "../../domain/notification-wire.js";
 import { renderNotification } from "../../domain/templates.js";
 import {
+  salesManagerAccess,
   validSource,
   type NotificationDependencies,
 } from "../expand-audience/expand-audience.js";
@@ -112,6 +113,14 @@ export async function authorizeDispatch(
         if (access === "denied")
           return { ...request, status: "denied", reason: "access_denied" };
       }
+      // Автор, у которого отозвали право продаж, сообщение о продаже уже не получает.
+      if (source.audience === "sales_managers") {
+        const { access } = facts;
+        if (access === undefined || access === "unavailable")
+          return { ...request, status: "error", code: "unavailable" };
+        if (access === "denied")
+          return { ...request, status: "denied", reason: "access_denied" };
+      }
       const { binding } = facts;
       if (!binding || fingerprint(binding) !== fingerprint(command.binding))
         return { ...request, status: "denied", reason: "binding_conflict" };
@@ -162,9 +171,16 @@ async function readDispatchFacts(
   if (!event.success) return undefined;
   const source = await deps.sources.resolve(event.data);
   const access =
-    source.status === "current" && source.content.category === "material"
-      ? await deps.sources.canRead(notification.accountId, event.data.sourceRef)
-      : undefined;
+    source.status !== "current"
+      ? undefined
+      : source.content.category === "material"
+        ? await deps.sources.canRead(
+            notification.accountId,
+            event.data.sourceRef,
+          )
+        : source.audience === "sales_managers"
+          ? await salesManagerAccess(deps, notification.accountId)
+          : undefined;
   const binding = await deps.recipients.binding(
     notification.accountId,
     channel,

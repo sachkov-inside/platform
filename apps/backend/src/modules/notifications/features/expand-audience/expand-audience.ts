@@ -7,6 +7,7 @@ import {
   type NotificationsPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import { MATERIAL_EVENT_LIFETIME_MS } from "../../../../infrastructure/notification-transport/wire.js";
+import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   eventSchema,
   deliverySchema,
@@ -56,8 +57,36 @@ export function validSource(
       ? source.content.category === "material" && source.accountId === null
       : source.content.category === "subscription" &&
         source.content.kind === event.kind &&
-        source.accountId === event.accountRef)
+        // Повод продажи адресован авторам: Account повода — покупатель, а не получатель.
+        (event.kind === "sale_recorded"
+          ? source.accountId === null && source.audience === "sales_managers"
+          : source.accountId === event.accountRef &&
+            source.audience === undefined))
   );
+}
+/** Список получателей сообщений о продажах; без чтения владельца повод ждёт, а не теряет адресата. */
+export function readSalesManagers(
+  deps: Pick<NotificationDependencies, "recipients">,
+): Promise<readonly string[]> {
+  const read = deps.recipients.salesManagers?.bind(deps.recipients);
+  if (read === undefined)
+    return Promise.reject(new Error("notification_sales_audience_unavailable"));
+  return read();
+}
+/** Право продаж получателя проверяется снова перед каждой выдачей и заменой команды. */
+export async function salesManagerAccess(
+  deps: Pick<NotificationDependencies, "recipients">,
+  accountId: string,
+): Promise<"allowed" | "denied" | "unavailable"> {
+  const managers = await settle(() => readSalesManagers(deps));
+  if (managers.status === "rejected") {
+    reportDependencyFailure(
+      { module: "notifications", operation: "salesManagerAccess" },
+      managers.reason,
+    );
+    return "unavailable";
+  }
+  return managers.value.includes(accountId) ? "allowed" : "denied";
 }
 /** Ответ чужого Module вместе с его отказом: отказ поднимается там, где операция берёт ответ. */
 type Read<Answer> = PromiseSettledResult<Answer>;
@@ -201,17 +230,19 @@ async function readAudienceFacts(
   const source = await settle(() => deps.sources.resolve(event));
   if (source.status === "rejected" || !validSource(event, source.value))
     return { after, source, access, bindings };
-  const { accountId: recipient, content } = source.value;
+  const { accountId: recipient, content, audience } = source.value;
   const accounts = await settle(async () =>
-    recipient === null
-      ? deps.recipients.enumerate({
-          occurredAt: new Date(event.occurredAt),
-          after,
-          limit: AUDIENCE_BATCH_SIZE,
-        })
-      : (await deps.recipients.exists(recipient))
-        ? [recipient]
-        : [],
+    audience === "sales_managers"
+      ? readSalesManagers(deps)
+      : recipient === null
+        ? deps.recipients.enumerate({
+            occurredAt: new Date(event.occurredAt),
+            after,
+            limit: AUDIENCE_BATCH_SIZE,
+          })
+        : (await deps.recipients.exists(recipient))
+          ? [recipient]
+          : [],
   );
   const accountIds = accounts.status === "fulfilled" ? accounts.value : [];
   const readAccessSet = deps.sources.canReadAccounts?.bind(deps.sources);
@@ -371,6 +402,8 @@ async function expandRow(
     const channels: Channel[] = [];
     for (const channel of ["email", "telegram"] as const) {
       if (channel === "telegram" && source.telegramManaged === true) continue;
+      // Сообщение о продаже приходит автору только в Telegram.
+      if (channel === "email" && source.audience === "sales_managers") continue;
       if (
         source.content.category === "subscription" ||
         preferences.get(accountId)?.[channel] === true
@@ -456,8 +489,11 @@ async function expandRow(
     }
     count += 1;
   }
+  // Получатель повода и полный список продаж читаются целиком; перечисление всех Account — пачками.
   const done =
-    source.accountId !== null || accounts.length < AUDIENCE_BATCH_SIZE;
+    source.accountId !== null ||
+    source.audience !== undefined ||
+    accounts.length < AUDIENCE_BATCH_SIZE;
   await transaction.notificationInbox.update({
     where: key,
     data: {

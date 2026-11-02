@@ -93,6 +93,15 @@ When confirmation replaces an order binding, a correlated `suppressed` result pr
 Only then may Notifications stage the next command revision for the same Delivery, using the current confirmed contact and delivery v1.
 The old order command remains unchanged. `sent` and `unknown` results prohibit this promotion.
 
+## Sale message
+
+Kind `sale_recorded` extends the closed `subscription` kind list. It uses `billing.notice-ready`,
+delivery v1 and the existing Telegram subscription lane. Its event `accountRef` names the buyer;
+the recipients are the Accounts that manage sales, so the email channel is never staged.
+The text carries no buyer data; the payment card link identifies the purchase.
+Platform authorization also denies a recipient who lost the sales permission (`access_denied`).
+An older Telegram rejects the new kind. Release Telegram before Platform for this change.
+
 ## Delivery command и дедупликация
 
 `inside.notification-delivery.v1`: общий Notification/Delivery, closed content category/kind,

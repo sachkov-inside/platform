@@ -12,6 +12,7 @@ import { renderNotification } from "../../domain/templates.js";
 import { optedIn } from "../change-preferences/change-preferences.js";
 import {
   answer,
+  salesManagerAccess,
   settle,
   validSource,
   type NotificationDependencies,
@@ -91,6 +92,11 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
           answer(facts.access) !== "allowed")
       )
         return;
+      if (
+        source.audience === "sales_managers" &&
+        answer(facts.access) !== "allowed"
+      )
+        return;
       const binding = answer(facts.binding);
       if (!binding) return;
       // Only a correlated suppressed result proves that the order send never started.
@@ -160,7 +166,9 @@ async function readRefreshFacts(
       ? await settle(() =>
           deps.sources.canRead(notification.accountId, event.data.sourceRef),
         )
-      : undefined;
+      : current?.audience === "sales_managers"
+        ? await settle(() => salesManagerAccess(deps, notification.accountId))
+        : undefined;
   const binding =
     channel.success &&
     current &&

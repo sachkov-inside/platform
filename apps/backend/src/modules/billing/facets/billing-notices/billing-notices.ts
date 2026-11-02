@@ -7,9 +7,11 @@ import {
   noticeEventSchema,
   noticeKindSchema,
   noticeViewSchema,
+  salePromotionSchema,
   type NoticeEvent,
   type NoticeKind,
   type NoticeView,
+  type SalePromotion,
 } from "../../domain/notice.js";
 
 type NoticeRow = Awaited<
@@ -26,12 +28,16 @@ export type BillingNoticeSource =
         readonly category: "subscription";
         readonly kind: NoticeKind;
       };
-      readonly accountId: string;
+      /** Покупатель; у повода продажи получателей выбирает аудитория, а не Account повода. */
+      readonly accountId: string | null;
+      readonly audience?: "sales_managers";
       readonly title: string;
       readonly readerPath: string;
       readonly purchaseRef?: string;
       readonly amountMinor?: number;
       readonly dueAt?: string;
+      /** Факты продажи для авторов: только применённая скидка, без данных покупателя. */
+      readonly sale?: { readonly promotion: SalePromotion | null };
     };
 
 interface Dependencies {
@@ -81,6 +87,7 @@ export class BillingNotices {
       const readerPath = await this.currentReaderPath(notice, now);
       if (readerPath === undefined) return { status: "superseded" };
       const purchaseRef = await this.purchaseOfNotice(notice);
+      const sale = notice.kind === "sale_recorded";
       return {
         status: "current",
         event: stored.data,
@@ -88,7 +95,18 @@ export class BillingNotices {
           category: "subscription",
           kind: noticeKindSchema.parse(notice.kind),
         },
-        accountId: notice.accountId,
+        ...(sale
+          ? {
+              accountId: null,
+              audience: "sales_managers" as const,
+              sale: {
+                promotion:
+                  notice.promotion === null
+                    ? null
+                    : salePromotionSchema.parse(notice.promotion),
+              },
+            }
+          : { accountId: notice.accountId }),
         title: notice.title,
         readerPath,
         ...(purchaseRef === undefined ? {} : { purchaseRef }),
@@ -111,6 +129,8 @@ export class BillingNotices {
   ): Promise<string | undefined> {
     if (notice.sourceRef.startsWith("payment:"))
       return z.uuid().parse(notice.sourceRef.slice("payment:".length));
+    if (notice.sourceRef.startsWith("sale:"))
+      return z.uuid().parse(notice.sourceRef.slice("sale:".length));
     if (notice.sourceRef.startsWith("refund:")) {
       const refund = await this.dependencies.prisma.billingRefund.findFirst({
         where: {
@@ -155,12 +175,15 @@ export class BillingNotices {
   ): Promise<string | undefined> {
     if (
       notice.kind !== "payment_succeeded" &&
-      notice.kind !== "refund_resolved"
+      notice.kind !== "refund_resolved" &&
+      notice.kind !== "sale_recorded"
     )
       return undefined;
     const purchaseRef = await this.purchaseOfNotice(notice);
-    return purchaseRef === undefined
-      ? undefined
+    if (purchaseRef === undefined) return undefined;
+    // Автор открывает карточку оплаты в разделе продаж, покупатель — страницу своей оплаты.
+    return notice.kind === "sale_recorded"
+      ? `/authoring/sales/payments/${encodeURIComponent(purchaseRef)}`
       : `/payment/return?purchaseRef=${encodeURIComponent(purchaseRef)}`;
   }
 }

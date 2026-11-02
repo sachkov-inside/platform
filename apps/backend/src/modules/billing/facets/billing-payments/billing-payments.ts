@@ -28,7 +28,11 @@ import type {
   CoverageCatalog,
 } from "../../../account-rights/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
-import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
+import {
+  attemptSourceRef,
+  lifecycleWindow,
+  saleSourceRef,
+} from "../../domain/notice.js";
 import {
   attemptKindSchema,
   isQuotedPurchase,
@@ -2266,7 +2270,11 @@ async function confirmCapturedPayment(
   const reservation = isQuotedPurchase(kind)
     ? await tx.billingPromoReservation.findUnique({
         where: { purchaseRef: row.id },
-        select: { state: true, paymentLinkId: true },
+        select: {
+          state: true,
+          paymentLinkId: true,
+          promotion: { select: { code: true } },
+        },
       })
     : null;
   // Отказ мог остаться и только в резерве: до #1929 частичный возврат переводил отказанную
@@ -2327,6 +2335,31 @@ async function confirmCapturedPayment(
     },
     now,
   );
+  // Разовая покупка — ещё и повод для авторов: продажа, сумма и применённая скидка из снимка.
+  // Код берётся из акции в момент оплаты и фиксируется в поводе: позже его могут изменить.
+  if (kind === "one_time")
+    await recordBillingNotice(
+      tx,
+      {
+        kind: "sale_recorded",
+        accountId: row.accountId,
+        sourceRef: saleSourceRef(row.id),
+        attemptRef: row.id,
+        title: snapshot.product?.name ?? snapshot.offer.name,
+        amountKopecks,
+        ...(snapshot.promotion === null
+          ? {}
+          : {
+              promotion: {
+                name: snapshot.promotion.name,
+                code: reservation?.promotion?.code ?? null,
+                percent: snapshot.promotion.percent,
+              },
+            }),
+        ...lifecycleWindow(now),
+      },
+      now,
+    );
   if (kind === "one_time")
     await tx.billingFulfillment.create({
       data: {

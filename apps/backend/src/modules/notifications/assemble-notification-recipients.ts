@@ -12,12 +12,14 @@ export function assembleNotificationRecipients(
     NotificationAccounts,
     "enumerate" | "exists" | "email" | "binding"
   > &
-    Partial<Pick<NotificationAccounts, "bindings">>,
+    Partial<Pick<NotificationAccounts, "bindings" | "salesManagers">>,
   payments: Pick<BillingPayments, "purchaseEmail">,
   telegram: Pick<TelegramAccountLinks, "readBinding"> &
     Partial<Pick<TelegramAccountLinks, "readBindings">>,
 ): NotificationRecipients {
+  const salesManagers = contacts.salesManagers?.bind(contacts);
   return {
+    ...(salesManagers === undefined ? {} : { salesManagers }),
     enumerate: (query) => contacts.enumerate(query),
     exists: (account) => contacts.exists(account),
     email: async (binding) => {

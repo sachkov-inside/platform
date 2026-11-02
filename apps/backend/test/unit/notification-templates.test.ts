@@ -57,3 +57,62 @@ test("ссылка читателя ведёт только на сам Platform
     ),
   ).toThrow("notification_link_invalid");
 });
+
+const saleEvent = {
+  ...event,
+  kind: "sale_recorded" as const,
+  occurredAt: "2026-11-02T11:05:00.000Z",
+  notAfter: "2026-11-03T11:05:00.000Z",
+};
+const sale: Extract<NotificationSource, { status: "current" }> = {
+  status: "current",
+  event: saleEvent,
+  content: { category: "subscription", kind: "sale_recorded" },
+  accountId: null,
+  audience: "sales_managers",
+  title: "AI Engineering",
+  readerPath: "/authoring/sales/payments/eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+  purchaseRef: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+  amountMinor: 2_000_000,
+  sale: {
+    promotion: { name: "Осенняя скидка", code: "AUTUMN", percent: 20 },
+  },
+};
+
+test("продажа: автор видит продукт, сумму, промокод, московское время и карточку оплаты", () => {
+  expect(renderNotification(sale, "https://inside.example.test")).toEqual({
+    templateRef: "inside.sale_recorded",
+    templateRevision: 1,
+    subject: "Новая покупка",
+    text: [
+      "Новая покупка",
+      "",
+      "Продукт: AI Engineering",
+      "Сумма: 20000.00 ₽",
+      "Промокод: AUTUMN (скидка 20%)",
+      "Время: 02.11.2026, 14:05 по Москве",
+      "",
+      "https://inside.example.test/authoring/sales/payments/eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    ].join("\n"),
+  });
+});
+
+test("продажа без кода: автоматическая скидка по названию; без скидки строки нет", () => {
+  expect(
+    renderNotification(
+      {
+        ...sale,
+        sale: {
+          promotion: { name: "Осенняя скидка", code: null, percent: 20 },
+        },
+      },
+      "https://inside.example.test",
+    ).text,
+  ).toContain("Скидка: Осенняя скидка (20%)");
+  expect(
+    renderNotification(
+      { ...sale, sale: { promotion: null } },
+      "https://inside.example.test",
+    ).text,
+  ).not.toMatch(/Промокод|Скидка/u);
+});

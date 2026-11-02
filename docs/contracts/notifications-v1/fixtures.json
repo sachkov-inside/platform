@@ -61,6 +61,35 @@
     }
   },
   {
+    "name": "sale-telegram",
+    "definition": "telegramDelivery",
+    "valid": true,
+    "value": {
+      "contractVersion": "inside.notification-delivery.v1",
+      "operationId": "00000000-0000-4000-8000-000000000104",
+      "notificationRef": "00000000-0000-4000-8000-000000000105",
+      "deliveryRef": "00000000-0000-4000-8000-000000000106",
+      "commandRevision": 1,
+      "sourceEventId": "00000000-0000-4000-8000-000000000001",
+      "content": {
+        "category": "subscription",
+        "kind": "sale_recorded"
+      },
+      "templateRef": "inside.sale_recorded",
+      "templateRevision": 1,
+      "text": "Новая покупка\n\nПродукт: AI Engineering\nСумма: 20000.00 ₽\nВремя: 08.09.2026, 15:00 по Москве\n\nhttps://inside.example/authoring/sales/payments/00000000-0000-4000-8000-000000000108",
+      "issuedAt": "2026-09-08T12:00:00Z",
+      "notAfter": "2026-09-08T12:10:00Z",
+      "binding": {
+        "channel": "telegram",
+        "accountRef": "author-example",
+        "telegramIdentityRef": "identity-example",
+        "linkRef": "00000000-0000-4000-8000-000000000007",
+        "linkRevision": 1
+      }
+    }
+  },
+  {
     "name": "access-ending-telegram",
     "definition": "telegramDelivery",
     "valid": true,
