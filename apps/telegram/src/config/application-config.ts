@@ -1,3 +1,7 @@
+import {
+  loadCommunityDiscussionsConfig,
+  type CommunityDiscussionsConfig,
+} from "./community-discussions-config.js";
 import { isTruthy } from "../shared/truthiness.js";
 import { hasText, presentText } from "../shared/text.js";
 import {
@@ -58,6 +62,7 @@ export interface CommunityWelcomeSalesState {
 }
 
 export interface ApplicationConfig {
+  readonly communityDiscussions?: CommunityDiscussionsConfig | undefined;
   readonly activation?: ActivationConfig | undefined;
   readonly notifications?: NotificationConfig | undefined;
   readonly botIdentity: string;
@@ -438,6 +443,7 @@ export function loadApplicationConfig(
     if (platformTrackingTargetPrefixes.some((p) => redirectUrl.startsWith(p)))
       throw new Error("Tracking redirect cannot be a tracking destination");
   }
+  const communityDiscussions = loadCommunityDiscussionsConfig(environment);
   const activation = loadActivationConfig(environment, canonicalChatId);
   const notifications = loadNotificationConfig(environment);
   const salesFunnel = loadSalesFunnelConfig(environment);
@@ -455,6 +461,7 @@ export function loadApplicationConfig(
     PLATFORM_SALES_FUNNEL_EVENTS_SECRET: salesFunnel.delivery?.secret,
   });
   return Object.freeze({
+    ...(communityDiscussions ? { communityDiscussions } : {}),
     ...(activation ? { activation } : {}),
     notifications,
     ...(hasText(platformTrackingRedirectUrl)

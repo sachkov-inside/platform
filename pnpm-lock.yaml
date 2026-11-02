@@ -246,6 +246,9 @@ importers:
       rxjs:
         specifier: 7.8.2
         version: 7.8.2
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
       '@axe-core/playwright':
         specifier: 4.13.0
@@ -271,9 +274,6 @@ importers:
       vitest:
         specifier: 4.1.11
         version: 4.1.11(patch_hash=b4d908025c445948d0eb19a5b025620fc094c2a095b10469dba33a7c725140f3)(@opentelemetry/api@1.9.1)(@types/node@26.6.4)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
-      zod:
-        specifier: 4.6.7
-        version: 4.6.7
 
   apps/web:
     dependencies:

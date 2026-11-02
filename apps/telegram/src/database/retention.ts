@@ -11,6 +11,7 @@ const BATCH = 1000;
  */
 const OPERATIONAL_DAYS = 30;
 const PUBLISHED_RESULT_DAYS = 7;
+const COMMUNITY_MESSAGE_DAYS = 90;
 
 /**
  * Configured periods: the owner decided the membership check period (inside-telegram#91); the
@@ -34,11 +35,17 @@ export async function purgeExpiredRecords(
   now: Date,
   periods: RetentionPeriods,
 ): Promise<number> {
+  const communityMessages = daysBefore(now, COMMUNITY_MESSAGE_DAYS);
   const operational = daysBefore(now, OPERATIONAL_DAYS);
   const published = daysBefore(now, PUBLISHED_RESULT_DAYS);
   const checks = daysBefore(now, periods.membershipCheckDays);
   const funnelEvents = daysBefore(now, periods.salesFunnelEventDays);
   const batches: RawBuilder<unknown>[] = [
+    // Original send time owns raw-message retention; edits cannot extend the period.
+    sql`delete from community_messages where (bot_identity, chat_id, message_id) in (
+      select bot_identity, chat_id, message_id from community_messages
+      where sent_at < ${communityMessages}
+      limit ${BATCH})`,
     // Settled updates keep only their deduplication key and redacted failure code.
     sql`delete from telegram_updates where (bot_identity, update_id) in (
       select bot_identity, update_id from telegram_updates

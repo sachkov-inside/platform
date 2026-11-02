@@ -1,3 +1,4 @@
+import { CommunityMessages } from "../../src/modules/community-discussions/community-messages.js";
 import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
 import { linkEffects } from "../../src/application/link-effects.js";
 import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
@@ -895,6 +896,7 @@ describe("bot sign-in provider", () => {
         application.get(StartResponseDeliveryQueue),
         new GrammyUpdateAdapter(),
         application.get(LinkProfiles),
+        application.get(CommunityMessages),
       );
       expect(await processor.processAvailable()).toBe(2);
       expect(claim.mock.calls[0]?.[0]).toEqual(current);

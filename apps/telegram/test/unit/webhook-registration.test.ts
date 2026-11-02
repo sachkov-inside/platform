@@ -9,6 +9,7 @@ const relayUrl = "https://telegram.example.test:88/webhooks/telegram";
 const secret = "synthetic_webhook_secret_for_tests_only";
 const required = [
   "message",
+  "edited_message",
   "chat_member",
   "my_chat_member",
   "chat_join_request",
@@ -29,7 +30,7 @@ const relayInfo = {
 };
 
 describe("webhook registration plan", () => {
-  it("adds chat_join_request while keeping the relay port, ip_address and connection limit", () => {
+  it("adds edited_message and chat_join_request while keeping the relay port, ip_address and connection limit", () => {
     const plan = planWebhookRegistration(relayInfo, relayUrl, secret);
 
     expect(plan).toEqual({
@@ -46,7 +47,7 @@ describe("webhook registration plan", () => {
         port: "88",
         ipAddressPreserved: true,
         maxConnections: 40,
-        addedUpdates: ["chat_join_request"],
+        addedUpdates: ["edited_message", "chat_join_request"],
         removedUpdates: [],
         pendingUpdateCount: 0,
       },

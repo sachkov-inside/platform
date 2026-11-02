@@ -21,6 +21,7 @@ describe("GrammyUpdateAdapter", () => {
   it("pins the explicit webhook update registration", () => {
     expect(TELEGRAM_WEBHOOK_ALLOWED_UPDATES).toEqual([
       "message",
+      "edited_message",
       "chat_member",
       "my_chat_member",
       "chat_join_request",

@@ -261,3 +261,13 @@ reject a missing dependent sign-in migration. Do not rename applied keys or edit
 This application owns Telegram bot identity handling, bot contacts, linking, member-status
 updates, reconciliation, normalized Membership Evidence and author communication templates. Platform remains the authority for
 Platform Accounts, permissions, entitlements, profiles, and every content-access decision.
+
+## Community message capture
+
+`TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED=true` enables capture from `TELEGRAM_CANONICAL_CHAT_ID`.
+Capture needs no model-provider key. The bot must receive ordinary group messages through its
+Telegram privacy or administrator settings. The owner controls those settings.
+
+`TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS` optionally contains a JSON array of positive topic IDs.
+Omitting it captures every topic and the general topic. An empty array captures none. Supplying
+this setting while capture is disabled fails configuration validation.

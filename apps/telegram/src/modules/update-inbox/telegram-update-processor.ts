@@ -1,3 +1,4 @@
+import { CommunityMessages } from "../community-discussions/community-messages.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { unhandled } from "../../shared/unhandled.js";
@@ -84,6 +85,8 @@ export class TelegramUpdateProcessor {
     private readonly translator: TelegramUpdateTranslator,
     @Inject(LinkProfiles)
     private readonly linkProfiles: Pick<LinkProfiles, "observe">,
+    @Inject(CommunityMessages)
+    private readonly communityMessages: Pick<CommunityMessages, "capture">,
   ) {
     // Counted by webhook arrival, so a backlog after a processing delay is not refused.
     this.senderLimit = new SenderRateLimit(
@@ -176,6 +179,8 @@ export class TelegramUpdateProcessor {
     const sender = senderOf(command);
     if (sender) await this.linkProfiles.observe(sender);
     switch (command.kind) {
+      case "community-message":
+        return this.communityMessages.capture(command.value);
       case "access-action":
         await this.botContacts.observeStart(command.value, "none");
         await this.activation.action(
@@ -339,6 +344,7 @@ function senderOf(
     case "membership":
     case "join-request":
     case "ignored":
+    case "community-message":
       return undefined;
     default:
       return unhandled(command, "Telegram update command");
@@ -373,6 +379,7 @@ function userRequest(command: TelegramUpdateCommand): UserRequest | undefined {
     case "membership":
     case "join-request":
     case "ignored":
+    case "community-message":
       return undefined;
     default:
       return unhandled(command, "Telegram update command");

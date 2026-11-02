@@ -1,3 +1,4 @@
+import type { CommunityMessageInput } from "../community-discussions/community-message.js";
 import type { AccessAction } from "../course-activation/course-activation.js";
 import type {
   VerifiedPrivateContactability,
@@ -13,6 +14,10 @@ import type { DurableMembershipEnvelope } from "../community/membership-event.js
 
 /** Everything the application does with one Telegram update; the processor handles each kind. */
 export type TelegramUpdateCommand =
+  | {
+      readonly kind: "community-message";
+      readonly value: CommunityMessageInput;
+    }
   | {
       readonly kind: "access-action";
       readonly value: VerifiedPrivateStart;

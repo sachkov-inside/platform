@@ -26,6 +26,7 @@ export const TELEGRAM_WEBHOOK_PATH = "webhooks/telegram";
 
 export const TELEGRAM_WEBHOOK_ALLOWED_UPDATES = [
   "message",
+  "edited_message",
   "chat_member",
   "my_chat_member",
   "chat_join_request",
