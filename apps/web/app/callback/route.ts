@@ -15,6 +15,7 @@ import {
   logtoSessionCookieName,
   providerCallbackUrl,
   readLogtoBffConfig,
+  type ResolvedLogtoBffConfig,
   safePostSignInReturnUri,
 } from "@/shared/auth/index.server";
 import { writeStructuredLog } from "@/shared/lib/structured-log.server";
@@ -37,7 +38,7 @@ export async function GET(request: Request): Promise<Response> {
 /** Exchanges the code once and returns the local address to continue at. */
 async function completeSignInCallback(
   request: Request,
-  config: ReturnType<typeof readLogtoBffConfig>,
+  config: ResolvedLogtoBffConfig,
 ): Promise<string> {
   try {
     const client = new AudienceBoundLogtoClient(config);

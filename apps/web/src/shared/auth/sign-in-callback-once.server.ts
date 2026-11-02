@@ -12,7 +12,7 @@ type ChangedCookie = Parameters<
 
 interface CallbackOutcome {
   readonly location: string;
-  readonly cookies: readonly ChangedCookie[];
+  readonly changedCookies: readonly ChangedCookie[];
 }
 
 // A browser repeats the callback within a second; the result stays available a little longer.
@@ -23,32 +23,36 @@ const outcomes = new Map<string, Promise<CallbackOutcome>>();
 
 /**
  * Runs one sign-in callback per browser attempt. iOS WebKit can send the same callback request
- * twice. The authorization code is single-use: a second exchange fails, and Logto then revokes the
+ * twice (production logs, 2026-11-02). The authorization code is single-use: a second exchange fails, and Logto then revokes the
  * tokens of the first one. A repeated request with the same `state`, `code` and session cookie
  * waits for the first, then receives its redirect and its changed cookies. The key holds the
  * session cookie, so only the browser that started the attempt receives the result. Outcomes live
- * in memory: ADR 0028 keeps web as a single process.
+ * in memory: like the entry rate limit, they assume a single web process (ADR 0028).
  */
 export async function runSignInCallbackOnce(
   request: Request,
   sessionCookieName: string,
-  handle: () => Promise<string>,
+  completeSignIn: () => Promise<string>,
 ): Promise<string> {
-  const key = attemptKey(request, sessionCookieName);
-  if (key === undefined) return handle();
+  const originalCookies = new NextRequest(request).cookies;
+  const key = attemptKey(
+    request,
+    originalCookies.get(sessionCookieName)?.value,
+  );
+  if (key === undefined) return completeSignIn();
 
   const running = outcomes.get(key);
   if (running !== undefined) {
     const outcome = await running;
     const store = await cookies();
-    for (const cookie of outcome.cookies) store.set(cookie);
+    for (const cookie of outcome.changedCookies) store.set(cookie);
     return outcome.location;
   }
-  if (outcomes.size >= maximumOutcomes) return handle();
+  if (outcomes.size >= maximumOutcomes) return completeSignIn();
 
   const outcome = (async (): Promise<CallbackOutcome> => {
-    const location = await handle();
-    return { location, cookies: await changedCookies(request) };
+    const location = await completeSignIn();
+    return { location, changedCookies: await changedCookies(originalCookies) };
   })();
   outcomes.set(key, outcome);
   outcome.then(
@@ -66,15 +70,12 @@ export async function runSignInCallbackOnce(
 
 function attemptKey(
   request: Request,
-  sessionCookieName: string,
+  session: string | undefined,
 ): string | undefined {
   const parameters = new URL(request.url).searchParams;
   const state = parameters.get("state");
   const code = parameters.get("code");
   // Without the cookie there is no sign-in transaction, and the SDK rejects the callback anyway.
-  const session = new NextRequest(request).cookies.get(
-    sessionCookieName,
-  )?.value;
   if ([state, code, session].some((value) => value == null || value === "")) {
     return undefined;
   }
@@ -84,8 +85,9 @@ function attemptKey(
 }
 
 /** Cookies whose value the callback changed, deletions included, with their attributes. */
-async function changedCookies(request: Request): Promise<ChangedCookie[]> {
-  const original = new NextRequest(request).cookies;
+async function changedCookies(
+  original: NextRequest["cookies"],
+): Promise<ChangedCookie[]> {
   // In a route handler Next.js returns response cookies: set and deleted entries keep attributes.
   const current = (await cookies()).getAll() as ChangedCookie[];
   return current.filter(
