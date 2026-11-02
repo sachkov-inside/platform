@@ -7,7 +7,7 @@ import { z } from "zod";
 import { COMMUNITY_FILES, type CommunityFiles } from "./community-files.js";
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
-import type { Selectable } from "kysely";
+import { sql, type Selectable } from "kysely";
 import { DATABASE, type Database } from "../../database/database.js";
 import {
   APPLICATION_CONFIG,
@@ -302,6 +302,11 @@ export class CommunityDiscussionProcessor {
             .where("chat_id", "=", this.config.canonicalChatId)
             .where("message_id", "=", message.message_id)
             .where("last_update_id", "=", message.last_update_id)
+            .where(
+              sql<Date>`coalesce(edited_at, sent_at)`,
+              "=",
+              message.edited_at ?? message.sent_at,
+            )
             .where("transcript", "is", null)
             .executeTakeFirst();
           counts.transcriptions += Number(saved.numUpdatedRows);
@@ -559,7 +564,13 @@ export class CommunityDiscussionProcessor {
         throw new DiscussionProcessingFailure("claim_expired_before_commit");
       const current = await tx
         .selectFrom("community_messages")
-        .select(["message_id", "last_update_id", "processed_at"])
+        .select([
+          "message_id",
+          "last_update_id",
+          "processed_at",
+          "sent_at",
+          "edited_at",
+        ])
         .where("bot_identity", "=", this.config.botIdentity)
         .where("chat_id", "=", this.config.canonicalChatId)
         .where(
@@ -572,11 +583,16 @@ export class CommunityDiscussionProcessor {
         .execute();
       if (
         current.length !== batch.length ||
-        current.some(
-          (message, index) =>
+        current.some((message, index) => {
+          const previous = batch[index];
+          return (
+            previous === undefined ||
             message.processed_at !== null ||
-            message.last_update_id !== batch[index]?.last_update_id,
-        )
+            message.last_update_id !== previous.last_update_id ||
+            (message.edited_at ?? message.sent_at).getTime() !==
+              (previous.edited_at ?? previous.sent_at).getTime()
+          );
+        })
       )
         throw new DiscussionProcessingFailure("message_snapshot_changed");
       for (const discussion of output.discussions) {
