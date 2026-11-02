@@ -81,7 +81,12 @@ export function CohortStatusView({
             <p className="aie-cohort-ticket-soon">Откроется скоро</p>
           ) : (
             <PreorderPriceView
-              note={null}
+              // Части через «Долями» на форме Т-Банка; без открытой оплаты подписи нет (02.11.2026).
+              note={
+                status.purchaseHref === null
+                  ? null
+                  : "Можно оплатить частями через «Долями»"
+              }
               price={status.price}
               struckLabel={ticketCopy[status.kind].struck}
             />
@@ -97,8 +102,9 @@ export function CohortStatusView({
                 <ArrowRight aria-hidden="true" />
               </Link>
             )}
-            {status.purchaseHref === null ? null : (
-              <PaymentNotes telegramHandle={telegramHandle} />
+            {status.purchaseHref === null ||
+            telegramHandle === undefined ? null : (
+              <ForeignPaymentNote telegramHandle={telegramHandle} />
             )}
             <IntentPrefetchLink
               className="aie-cohort-ticket-programme"
@@ -115,32 +121,26 @@ export function CohortStatusView({
 }
 
 /**
- * Способы оплаты под кнопкой покупки: части через «Долями» на форме Т-Банка и связь с автором для
- * тех, кто платит не из России (решение владельца 02.11.2026). Строки не списком: стили страницы
- * курса красят пункты списков в тёмном блоке.
+ * Под кнопкой покупки: кто платит не из России, пишет автору в Telegram (решение владельца
+ * 02.11.2026). Строка не пункт списка: стили страницы курса красят пункты списков в тёмном блоке.
  */
-function PaymentNotes({
+function ForeignPaymentNote({
   telegramHandle,
 }: {
-  readonly telegramHandle: string | undefined;
+  readonly telegramHandle: string;
 }) {
   return (
-    <div className="aie-cohort-ticket-payment">
-      <span>Можно оплатить частями через «Долями».</span>
-      {telegramHandle === undefined ? null : (
-        <span>
-          Не из России?{" "}
-          <a
-            href={`https://t.me/${telegramHandle}`}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Напиши мне в Telegram
-          </a>
-          , помогу с оплатой.
-        </span>
-      )}
-    </div>
+    <p className="aie-cohort-ticket-payment">
+      Не из России?{" "}
+      <a
+        href={`https://t.me/${telegramHandle}`}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        Напиши мне в Telegram
+      </a>
+      , помогу с оплатой.
+    </p>
   );
 }
 
