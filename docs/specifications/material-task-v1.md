@@ -92,7 +92,9 @@ An unbound lesson renders no invented Task or verification state. The practice i
 
 Embedded and legacy Tasks create no additional programme positions, counters, previous/next entries or
 chapter-selector entries. A chapter using embedded practice displays unified Material steps without
-Task badges. Material rows carry no format badge in any chapter; standalone Task rows keep «Задание».
+Task badges. Material rows carry no Material-type badge in any chapter: the line under the title says only
+«Видео» or «Текст» (see [Страница руководства](platform-v1.md#страница-руководства)); standalone
+Task rows keep «Задание».
 Reading activity and saved Task submissions remain distinct persisted facts; opening a lesson or
 producing an unsent report never creates a submission or changes `isRead` automatically.
 

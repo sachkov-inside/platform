@@ -733,11 +733,14 @@ single-paragraph summary does not create an empty disclosure. No lesson list, re
 delivery date is invented for a planned chapter. Chapter headings remain visible while lesson
 rows are progressively revealed. Ordinal lesson numbers are smaller than chapter headings.
 A muted format line sits under each lesson title (owner decision 02.11.2026). A lesson with video
-shows a play icon and «Видео · 9:23» at every width, the duration taken from the primary video;
-every other lesson shows a page icon and «Текст». Task rows keep their «Задание» label. For a
+shows a play icon and «Видео · 9:23» at every width, the duration taken from the primary video; a
+video lesson without a primary-video duration shows «Видео» alone. Every other lesson shows a page
+icon and «Текст». Task rows keep their «Задание» label. For a
 reader to whom the Product is not open, a free lesson adds a «Бесплатно» badge to that line. The
 right end of the row holds only the continuation button and one status mark: a lock on a closed
-lesson or a thin accent check without a filled circle on a studied one. No empty slot is reserved.
+lesson or a thin accent check without a filled circle on a studied one. The mark keeps a slot one
+icon wide, so the row does not shift when the reader's access and reading state arrive; no wider
+slot is reserved.
 The continuation lesson row is highlighted and carries a compact «Продолжить» or «Начать
 обучение» button, not a full-width button below the title. The title starts at 112 px; when the
 right-hand group does not fit beside that width, the group wraps to its own line.

@@ -216,8 +216,8 @@ export const InProgress: Story = {
     await expect(
       canvasElement.querySelector('[data-product-marker-read="true"] svg'),
     ).toBeInTheDocument();
-    // Длительность видео стоит в строке формата под названием (вариант A, решение владельца
-    // 02.11.2026), а не в столбце справа.
+    // Длительность видео стоит в строке формата под названием (подпись под названием, решение
+    // владельца 02.11.2026), а не в столбце справа.
     for (const duration of canvasElement.querySelectorAll(
       "[data-product-duration]",
     ))
@@ -248,7 +248,7 @@ export const Guest: Story = {
       ).toBeNull();
     }
     // Плашка «Бесплатно» стоит в строке формата под названием, справа остаётся только замок
-    // (вариант A, решение владельца 02.11.2026).
+    // (подпись под названием, решение владельца 02.11.2026).
     for (const label of free) {
       await expect(label.closest("[data-product-meta]")).not.toBeNull();
       await expect(label.closest("[data-product-status]")).toBeNull();
@@ -281,7 +281,7 @@ export const HolderSeesNoFreeMark: Story = {
     await expect(
       canvas.getByRole("img", { name: "Материал 1, изучен" }),
     ).toBeVisible();
-    // Справа нет пустого места под слово «Бесплатно»: столбец не шире отметки «изучен».
+    // Справа нет пустого места под слово «Бесплатно»: столбец шириной с отметку «изучен» (20 px).
     for (const status of canvasElement.querySelectorAll<HTMLElement>(
       "[data-product-status]",
     ))

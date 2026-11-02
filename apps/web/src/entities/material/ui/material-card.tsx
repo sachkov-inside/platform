@@ -454,12 +454,13 @@ function ProductMaterialRow({
       className="group/row relative flex min-h-14 min-w-0 flex-col justify-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
       slug={material.slug}
     >
-      {/* Вариант A (решение владельца 02.11.2026): номер, название и под ним строка формата —
+      {/* Вариант «Подпись под названием» из прототипа `prototype/lesson-row-meta` (решение
+          владельца 02.11.2026): номер, название и под ним строка формата:
           «Видео · 9:23» или «Текст», у гостя с плашкой «Бесплатно». Справа только кнопка
           продолжения и одна отметка: замок у закрытого урока или «изучен» у пройденного. Тому, кому
           продукт открыт, плашка не показывается (решение владельца 30.10.2026 о купивших курс).
-          Строка формата есть и пока личная часть идёт, поэтому плашка встаёт на место без сдвига
-          строк. */}
+          Пока личная часть идёт, строка формата уже стоит и держит высоту плашки, а столбец отметки
+          держит ширину значка, поэтому замок, плашка и отметка встают на место без сдвига. */}
       <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
@@ -474,7 +475,12 @@ function ProductMaterialRow({
           <span className="sr-only">
             {ordinal === undefined ? "" : `Урок ${String(ordinal)}. `}
           </span>
-          <Heading className="min-w-0 text-sm font-medium leading-5 [overflow-wrap:anywhere] sm:text-base sm:leading-6">
+          <Heading
+            className={cn(
+              "min-w-0 text-sm font-medium leading-5 [overflow-wrap:anywhere] sm:text-base sm:leading-6",
+              locked && "text-foreground/70",
+            )}
+          >
             <IntentPrefetchLink
               className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
               href={readerHref}
@@ -483,7 +489,7 @@ function ProductMaterialRow({
             </IntentPrefetchLink>
           </Heading>
           <span
-            className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-muted-foreground"
+            className="mt-1 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-muted-foreground"
             data-product-meta
           >
             {video ? (
@@ -524,7 +530,7 @@ function ProductMaterialRow({
         <span className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-3 text-xs text-muted-foreground">
           <ProductContinuationAction href={readerHref} slug={material.slug} />
           <span
-            className="flex shrink-0 items-center justify-end empty:hidden"
+            className="flex min-w-5 shrink-0 items-center justify-end"
             data-product-status
           >
             {pending ? (

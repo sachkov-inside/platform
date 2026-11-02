@@ -445,7 +445,7 @@ export function ProductJourneyControls({
                               : `Материалы главы «${run.chapter.name}»`
                           }
                           className={cn(
-                            "group/product-order grid gap-2",
+                            "grid gap-2",
                             run.chapter === null ? "" : "mt-3",
                           )}
                           data-product-order
