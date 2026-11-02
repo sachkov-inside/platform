@@ -27,6 +27,7 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
+import { courseTelegramHandle } from "../model/course-contact";
 import { TicketContact } from "./telegram-contact";
 import { LearnerCourseStatus } from "./ai-engineering-course-view";
 import { ProductLandingView } from "./product-landing-view";
@@ -840,7 +841,14 @@ export const FreeStartSale: Story = {
             today: "2026-10-29",
           }) ?? fail("Идущий поток с продажей рисует билет")
         }
-        contact={<TicketContact handle="sachkova_mng" />}
+        contact={
+          <TicketContact
+            handle={
+              courseTelegramHandle(aiEngineeringCoursePage) ??
+              fail("Ник автора в подписи частых вопросов")
+            }
+          />
+        }
       />
     ),
   },

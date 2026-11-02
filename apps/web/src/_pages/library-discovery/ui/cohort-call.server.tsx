@@ -125,7 +125,11 @@ export async function PersonalCohortStatus({
   return (
     <>
       {status === null ? null : (
-        <CohortStatusView contact={ticketContact(result)} status={status} />
+        <CohortStatusView
+          // Консультация стоит под ценой; в билете анонса цены ещё нет.
+          contact={status.price === null ? null : ticketContact(result)}
+          status={status}
+        />
       )}
       {state.waitlist.kind === "ready" ? (
         <ProductWaitlistSlot existingOnly />
