@@ -58,6 +58,7 @@ const inputs: GroupInput[] = [];
 let transcriptions = 0;
 let downloads = 0;
 let transcriptionFailure = false;
+let transcribeRespond: CommunityDiscussionModel["transcribe"] | undefined;
 let result: GroupResult;
 let failure: Error | undefined;
 let authorize:
@@ -72,8 +73,9 @@ const model: CommunityDiscussionModel = {
         ? Promise.reject(failure)
         : Promise.resolve(result);
   },
-  transcribe: () => {
+  transcribe: (input, signal) => {
     transcriptions++;
+    if (transcribeRespond) return transcribeRespond(input, signal);
     return transcriptionFailure
       ? Promise.reject(new Error("synthetic transcription failure"))
       : Promise.resolve({
@@ -93,6 +95,7 @@ beforeEach(async () => {
   transcriptions = 0;
   downloads = 0;
   transcriptionFailure = false;
+  transcribeRespond = undefined;
   permission = "allowed";
   inputs.length = 0;
   failure = undefined;
@@ -147,9 +150,9 @@ async function start(grouping = true, limit = "1000000", budgeted = false) {
   })
     .overrideProvider(COMMUNITY_FILES)
     .useValue({
-      download: () => {
+      download: (fileId: string) => {
         downloads++;
-        return Promise.resolve(Buffer.from("OggSsynthetic"));
+        return Promise.resolve(Buffer.from(`OggS${fileId}`));
       },
     })
     .overrideProvider(COMMUNITY_DISCUSSION_MODEL)
@@ -204,6 +207,31 @@ async function capture(
       fileId: null,
     });
 }
+async function deliverCommunityUpdate(
+  updateId: number,
+  message: Record<string, unknown>,
+  edited = false,
+) {
+  const response = await application().inject({
+    method: "POST",
+    url: "/webhooks/telegram",
+    headers: {
+      "x-telegram-bot-api-secret-token":
+        "synthetic_webhook_secret_for_tests_only",
+    },
+    payload: {
+      update_id: updateId,
+      [edited ? "edited_message" : "message"]: message,
+    },
+  });
+  expect(response.statusCode).toBe(202);
+  expect(
+    await application()
+      .get(TelegramUpdateProcessor)
+      .processAvailable(10, required(vi.getMockedSystemTime())),
+  ).toBe(1);
+}
+
 type ApiResponse<Operation extends CommunityDiscussionsRequest["operation"]> = {
   statusCode: number;
   json: () => Extract<CommunityDiscussionsSuccess, { operation: Operation }>;
@@ -495,6 +523,112 @@ describe("community discussion processing", () => {
       { transcriptionStatus: "expired" },
     ]);
   });
+  it("discards a transcript when a newer webhook audio edit reuses an expired update ID", async () => {
+    const sentAt = new Date(now.getTime() - 40 * 86400000);
+    const message = {
+      date: sentAt.getTime() / 1000,
+      message_thread_id: 7,
+      chat: { id: -1000000000000, type: "supergroup" },
+      from: { id: 43, is_bot: false },
+    };
+    vi.setSystemTime(sentAt);
+    await deliverCommunityUpdate(10, {
+      ...message,
+      message_id: 10,
+      text: "Как выбрать инструмент?",
+    });
+    const voice = {
+      ...message,
+      message_id: 11,
+      reply_to_message: { message_id: 10 },
+      voice: { file_id: "old-audio", duration: 23 },
+    };
+    await deliverCommunityUpdate(11, voice);
+    vi.setSystemTime(now);
+    expect(
+      await purgeExpiredRecords(database, now, {
+        membershipCheckDays: 90,
+        salesFunnelEventDays: 30,
+      }),
+    ).toBe(2);
+    const entered = deferred();
+    const release = deferred();
+    transcribeRespond = async (input) => {
+      if (transcriptions === 1) {
+        expect(Buffer.from(input.bytes).toString()).toBe("OggSold-audio");
+        entered.resolve();
+        await release.promise;
+        return {
+          text: "Старый ответ",
+          usage: { inputTokens: null, outputTokens: null, durationSeconds: 23 },
+        };
+      }
+      expect(Buffer.from(input.bytes).toString()).toBe("OggSnew-audio");
+      return {
+        text: "Актуальный ответ",
+        usage: { inputTokens: null, outputTokens: null, durationSeconds: 23 },
+      };
+    };
+    const pending = application()
+      .get(CommunityDiscussionProcessor)
+      .processDue();
+    try {
+      await entered.promise;
+      await deliverCommunityUpdate(
+        11,
+        {
+          ...voice,
+          edit_date: now.getTime() / 1000,
+          voice: { file_id: "new-audio", duration: 23 },
+        },
+        true,
+      );
+    } finally {
+      release.resolve();
+    }
+    expect(await pending).toMatchObject({
+      status: "completed",
+      transcriptions: 0,
+    });
+    const initial = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    );
+    expect(
+      (
+        await api("discussions.read", { discussionId: initial.discussionId })
+      ).json().discussion.messages[1],
+    ).toMatchObject({
+      sentAt: sentAt.toISOString(),
+      transcript: null,
+      transcriptionStatus: "pending",
+    });
+    expect(inputs[0]?.messages[1]?.text).toBe(
+      "[Голосовое сообщение без расшифровки]",
+    );
+    vi.setSystemTime(now.getTime() + 86400000);
+    result.discussions[0] = {
+      ...required(result.discussions[0]),
+      discussionId: initial.discussionId,
+      messageIds: ["11"],
+    };
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", transcriptions: 1, messages: 1 });
+    expect(inputs[1]?.messages[0]?.text).toBe("Актуальный ответ");
+    expect(
+      (
+        await api("discussions.read", { discussionId: initial.discussionId })
+      ).json().discussion.messages[1],
+    ).toMatchObject({
+      transcript: "Актуальный ответ",
+      transcriptionStatus: "completed",
+    });
+    expect(downloads).toBe(2);
+    expect(
+      (await api("discussions.list", { limit: 10 })).json().items,
+    ).toHaveLength(1);
+  });
+
   it("marks a failed voice transcript and retries it while grouping other messages", async () => {
     await capture("10", "Как выбрать инструмент?");
     await application().get(CommunityMessages).capture({
@@ -1285,42 +1419,84 @@ describe("community discussion processing", () => {
     });
   });
 
-  it("rolls back grouping when a new edit arrives during the model call", async () => {
-    await capture("10", "Как выбрать инструмент?");
-    result.discussions[0] = {
-      ...required(result.discussions[0]),
-      messageIds: ["10"],
-    };
-    respond = async () => {
-      await application().get(CommunityMessages).capture({
-        botIdentity: "inside",
-        chatId: "-1000000000000",
-        updateId: "11",
-        messageId: "10",
-        threadId: "7",
-        replyToMessageId: null,
-        sentAt: now,
-        editedAt: now,
-        senderTelegramUserId: "42",
-        kind: "text",
-        text: "Исправленный вопрос",
-        fileId: null,
-      });
-      return result;
-    };
-    expect(
-      await application().get(CommunityDiscussionProcessor).processDue(),
-    ).toMatchObject({ status: "failed", messages: 0 });
-    expect((await api("discussions.list", { limit: 10 })).json().items).toEqual(
-      [],
-    );
-    respond = undefined;
-    vi.setSystemTime(now.getTime() + 300_000);
-    expect(
-      await application().get(CommunityDiscussionProcessor).processDue(),
-    ).toMatchObject({ status: "completed", messages: 1 });
-    expect(inputs[1]?.messages[0]?.text).toBe("Исправленный вопрос");
-  });
+  it.each([
+    { label: "higher update ID", updateId: 11 },
+    { label: "reused update ID", updateId: 10 },
+  ])(
+    "rolls back grouping when a webhook edit with $label arrives during the model call",
+    async ({ updateId }) => {
+      const sentAt = new Date(now.getTime() - 40 * 86400000);
+      const message = {
+        message_id: 10,
+        date: sentAt.getTime() / 1000,
+        message_thread_id: 7,
+        chat: { id: -1000000000000, type: "supergroup" },
+        from: { id: 42, is_bot: false },
+        text: "Как выбрать инструмент?",
+      };
+      vi.setSystemTime(sentAt);
+      await deliverCommunityUpdate(10, message);
+      vi.setSystemTime(now);
+      expect(
+        await purgeExpiredRecords(database, now, {
+          membershipCheckDays: 90,
+          salesFunnelEventDays: 30,
+        }),
+      ).toBe(1);
+      result.discussions[0] = {
+        ...required(result.discussions[0]),
+        messageIds: ["10"],
+      };
+      const entered = deferred();
+      const release = deferred();
+      respond = async () => {
+        entered.resolve();
+        await release.promise;
+        return result;
+      };
+      const pending = application()
+        .get(CommunityDiscussionProcessor)
+        .processDue();
+      try {
+        await entered.promise;
+        await deliverCommunityUpdate(
+          updateId,
+          {
+            ...message,
+            edit_date: now.getTime() / 1000,
+            text: "Исправленный вопрос",
+          },
+          true,
+        );
+      } finally {
+        release.resolve();
+      }
+      expect(await pending).toMatchObject({ status: "failed", messages: 0 });
+      expect(
+        (await api("discussions.list", { limit: 10 })).json().items,
+      ).toEqual([]);
+      respond = undefined;
+      vi.setSystemTime(now.getTime() + 300000);
+      expect(
+        await application().get(CommunityDiscussionProcessor).processDue(),
+      ).toMatchObject({ status: "completed", messages: 1 });
+      expect(inputs[1]?.messages[0]?.text).toBe("Исправленный вопрос");
+      const saved = required(
+        (await api("discussions.list", { limit: 10 })).json().items[0],
+      );
+      expect(
+        (
+          await api("discussions.read", { discussionId: saved.discussionId })
+        ).json().discussion.messages,
+      ).toMatchObject([
+        {
+          messageId: "10",
+          sentAt: sentAt.toISOString(),
+          text: "Исправленный вопрос",
+        },
+      ]);
+    },
+  );
 
   it("round-trips long fractional date filters across tied-date pages", async () => {
     await capture("10", "Первый вопрос?");
