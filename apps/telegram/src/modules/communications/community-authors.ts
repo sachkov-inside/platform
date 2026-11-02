@@ -20,6 +20,7 @@ export class CommunityAuthors {
   async rolesFor(
     botIdentity: string,
     telegramUserIds: readonly string[],
+    signal?: AbortSignal,
   ): Promise<ReadonlyMap<string, boolean | null>> {
     const roles = new Map<string, boolean | null>(
       telegramUserIds.map((id) => [id, false]),
@@ -30,6 +31,7 @@ export class CommunityAuthors {
       telegramUserIds,
     );
     for (const link of links) {
+      signal?.throwIfAborted();
       try {
         const permission = await authorizeAuthor(this.authorization, {
           kind: "telegram",
@@ -37,11 +39,13 @@ export class CommunityAuthors {
           telegramIdentityRef: link.telegramIdentityRef,
           botIdentity,
         });
+        signal?.throwIfAborted();
         roles.set(
           link.telegramUserId,
           permission === "unavailable" ? null : permission === "allowed",
         );
       } catch (error) {
+        signal?.throwIfAborted();
         reportFailure("community-discussions.author-authorization", error);
         roles.set(link.telegramUserId, null);
       }

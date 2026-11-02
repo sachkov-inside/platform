@@ -54,6 +54,7 @@ export class CommunityMessages {
         conflict
           .columns(["bot_identity", "chat_id", "message_id"])
           .doUpdateSet({
+            processed_at: null,
             text: input.text,
             kind: input.kind,
             file_id: input.fileId,
@@ -71,6 +72,7 @@ export class CommunityMessages {
   async resolveAuthors(input: {
     readonly limit: number;
     readonly after?: string;
+    readonly signal?: AbortSignal;
   }): Promise<{
     readonly resolved: number;
     readonly nextAfter: string | null;
@@ -96,11 +98,14 @@ export class CommunityMessages {
       .limit(input.limit + 1)
       .execute();
     const page = rows.slice(0, input.limit);
-    const roles = await this.authors.rolesFor(this.config.botIdentity, [
-      ...new Set(page.map((row) => row.sender_telegram_user_id)),
-    ]);
+    const roles = await this.authors.rolesFor(
+      this.config.botIdentity,
+      [...new Set(page.map((row) => row.sender_telegram_user_id))],
+      input.signal,
+    );
     let resolved = 0;
     for (const row of page) {
+      input.signal?.throwIfAborted();
       const isAuthor = roles.get(row.sender_telegram_user_id);
       if (isAuthor === null || isAuthor === undefined) continue;
       const result = await this.database
