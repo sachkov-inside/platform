@@ -5,7 +5,17 @@ import {
   assertServiceSecret,
 } from "./service-secret.js";
 
+export interface DiscussionBudgetConfig {
+  readonly monthlyLimitMicroUsd: number;
+  readonly inputMicroUsdPerMillionTokens: number;
+  readonly outputMicroUsdPerMillionTokens: number;
+  readonly transcriptionMicroUsdPerMinute: number;
+  readonly groupingFallbackMicroUsd: number;
+  readonly transcriptionFallbackMicroUsd: number;
+}
+
 export interface CommunityDiscussionsConfig {
+  readonly budget: DiscussionBudgetConfig;
   /** Absent means every topic, including the general topic. An empty list captures none. */
   readonly topicIds?: readonly number[];
   readonly secret?: string;
@@ -42,16 +52,14 @@ export function loadCommunityDiscussionsConfig(
     );
   if (enabled !== "true") {
     if (
-      [
-        topics,
-        secret,
-        baseUrl,
-        apiKey,
-        model,
-        transcriptionBaseUrl,
-        transcriptionApiKey,
-        transcriptionModel,
-      ].some((value) => value !== undefined)
+      [topics, secret, baseUrl, apiKey, model].some(
+        (value) => value !== undefined,
+      ) ||
+      Object.keys(environment).some(
+        (key) =>
+          key.startsWith("COMMUNITY_DISCUSSIONS_") &&
+          environment[key] !== undefined,
+      )
     )
       throw new Error(
         "TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED=true is required with discussion settings",
@@ -107,7 +115,41 @@ export function loadCommunityDiscussionsConfig(
       );
     }
   }
+  const amount = (key: string, fallback: number, minimum = 0): number => {
+    const raw = environment[`COMMUNITY_DISCUSSIONS_${key}`];
+    const value = raw === undefined ? fallback : Number(raw);
+    if (raw?.trim() === "" || !Number.isSafeInteger(value) || value < minimum)
+      throw new Error(
+        `COMMUNITY_DISCUSSIONS_${key} must be a safe integer >= ${minimum}`,
+      );
+    return value;
+  };
   return {
+    budget: {
+      monthlyLimitMicroUsd: amount("MONTHLY_LIMIT_MICRO_USD", 0),
+      inputMicroUsdPerMillionTokens: amount(
+        "INPUT_MICRO_USD_PER_MILLION_TOKENS",
+        1_000_000,
+      ),
+      outputMicroUsdPerMillionTokens: amount(
+        "OUTPUT_MICRO_USD_PER_MILLION_TOKENS",
+        3_000_000,
+      ),
+      transcriptionMicroUsdPerMinute: amount(
+        "TRANSCRIPTION_MICRO_USD_PER_MINUTE",
+        6000,
+      ),
+      groupingFallbackMicroUsd: amount(
+        "GROUPING_FALLBACK_MICRO_USD",
+        10_000,
+        1,
+      ),
+      transcriptionFallbackMicroUsd: amount(
+        "TRANSCRIPTION_FALLBACK_MICRO_USD",
+        10_000,
+        1,
+      ),
+    },
     ...(topicIds ? { topicIds } : {}),
     ...(secret !== undefined ? { secret } : {}),
     ...(grouping ? { grouping } : {}),

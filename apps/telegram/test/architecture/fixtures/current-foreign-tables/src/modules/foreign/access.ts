@@ -1,5 +1,18 @@
 // CLI fixture: literal reads and writes remain with their table owner.
 export async function access(database: any) {
+  await database.selectFrom("community_discussion_budget_months").selectAll().execute();
+  await database.insertInto("community_discussion_budget_months").values({}).execute();
+  await database.updateTable("community_discussion_budget_months").set({}).execute();
+  await database.deleteFrom("community_discussion_budget_months").execute();
+  await database.selectFrom("community_discussion_model_calls").selectAll().execute();
+  await database.insertInto("community_discussion_model_calls").values({}).execute();
+  await database.updateTable("community_discussion_model_calls").set({}).execute();
+  await database.deleteFrom("community_discussion_model_calls").execute();
+  await database.selectFrom("community_discussion_runs").selectAll().execute();
+  await database.insertInto("community_discussion_runs").values({}).execute();
+  await database.updateTable("community_discussion_runs").set({}).execute();
+  await database.deleteFrom("community_discussion_runs").execute();
+
   await database.selectFrom("activation_announcement_deliveries").selectAll().execute();
   await database.insertInto("activation_announcement_deliveries").values({}).execute();
   await database.updateTable("activation_announcement_deliveries").set({}).execute();

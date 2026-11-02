@@ -1,4 +1,8 @@
 import {
+  CommunityDiscussionBudget,
+  BudgetedDiscussionModel,
+} from "../../src/modules/community-discussions/community-discussion-budget.js";
+import {
   communityDiscussionsSuccessSchema,
   type CommunityDiscussionsRequest,
   type CommunityDiscussionsSuccess,
@@ -83,7 +87,7 @@ beforeAll(async () => {
   await migrateToLatest(database);
 });
 beforeEach(async () => {
-  await sql`truncate community_discussion_mark_receipts, community_discussion_sources, community_discussions, community_discussion_schedule, community_messages, telegram_updates, bot_contacts, start_response_deliveries, platform_links, link_transactions restart identity cascade`.execute(
+  await sql`truncate community_discussion_model_calls, community_discussion_budget_months, community_discussion_runs, community_discussion_mark_receipts, community_discussion_sources, community_discussions, community_discussion_schedule, community_messages, telegram_updates, bot_contacts, start_response_deliveries, platform_links, link_transactions restart identity cascade`.execute(
     database,
   );
   transcriptions = 0;
@@ -109,7 +113,7 @@ beforeEach(async () => {
   };
   await start();
 });
-async function start(grouping = true) {
+async function start(grouping = true, limit = "1000000", budgeted = false) {
   const config = loadApplicationConfig({
     DATABASE_URL: required(process.env["DATABASE_URL"]),
     TELEGRAM_BOT_IDENTITY: "inside",
@@ -117,6 +121,7 @@ async function start(grouping = true) {
     TELEGRAM_WEBHOOK_SECRET: "synthetic_webhook_secret_for_tests_only",
     PLATFORM_INTEGRATION_SECRET: "synthetic_platform_secret_for_tests_only",
     TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "true",
+    COMMUNITY_DISCUSSIONS_MONTHLY_LIMIT_MICRO_USD: limit,
     PLATFORM_COMMUNITY_DISCUSSIONS_SECRET: secret,
     ...(grouping
       ? {
@@ -148,7 +153,11 @@ async function start(grouping = true) {
       },
     })
     .overrideProvider(COMMUNITY_DISCUSSION_MODEL)
-    .useValue(model)
+    .useFactory({
+      inject: [CommunityDiscussionBudget],
+      factory: (budget: CommunityDiscussionBudget) =>
+        budgeted ? new BudgetedDiscussionModel(model, budget) : model,
+    })
     .overrideProvider(AUTHOR_AUTHORIZATION)
     .useValue({
       authorize: () => (authorize ? authorize() : Promise.resolve(permission)),
@@ -245,6 +254,172 @@ async function api(
 }
 
 describe("community discussion processing", () => {
+  it("keeps capture active at zero budget and resumes on the next run after each cap increase", async () => {
+    await application().close();
+    app = undefined;
+    await start(true, "0", true);
+    await capture("10", "Вопрос?");
+    await capture("11", "Ответ.");
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "budget_exceeded", messages: 0 });
+    expect(inputs).toHaveLength(0);
+    expect(
+      (await application().get(CommunityMessages).readMessages({ limit: 10 }))
+        .messages,
+    ).toHaveLength(2);
+    await application().close();
+    app = undefined;
+    await start(true, "10000", true);
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "budget_exceeded", messages: 2, discussions: 1 });
+    await capture("12", "Следующий вопрос?");
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "not_due" });
+    await application().close();
+    app = undefined;
+    await start(true, "20000", true);
+    result.discussions = [];
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "budget_exceeded", messages: 1 });
+    expect(
+      await application().get(CommunityDiscussionBudget).snapshot(),
+    ).toMatchObject({
+      monthCostMicroUsd: 20000,
+      modelCalls: 2,
+      lastRun: {
+        messages: 1,
+        transcriptions: 0,
+        discussions: 0,
+        errors: 0,
+        skips: 1,
+        status: "budget_exceeded",
+      },
+    });
+    const metrics = await application().inject({
+      method: "GET",
+      url: "/metrics",
+    });
+    expect(metrics.body).toContain(
+      "inside_telegram_community_discussions_month_cost_micro_usd 20000",
+    );
+    expect(metrics.body).toContain(
+      "inside_telegram_community_discussions_last_run_messages 1",
+    );
+  });
+  it("resumes a billed provider failure immediately after a cap increase and preserves its error count", async () => {
+    await application().close();
+    app = undefined;
+    await start(true, "10000", true);
+    await capture("10", "Вопрос?");
+    await capture("11", "Ответ.");
+    failure = new Error("synthetic billed failure");
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "budget_exceeded", messages: 0 });
+    expect(
+      await application().get(CommunityDiscussionBudget).snapshot(),
+    ).toMatchObject({
+      monthCostMicroUsd: 10000,
+      lastRun: { errors: 1, skips: 1 },
+    });
+    await application().close();
+    app = undefined;
+    await start(true, "20000", true);
+    failure = undefined;
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "budget_exceeded", messages: 2 });
+  });
+  it("charges an invalid grouping response and persists failed-run diagnostics before retrying", async () => {
+    await application().close();
+    app = undefined;
+    await start(true, "100000", true);
+    await capture("10", "Вопрос?");
+    await capture("11", "Ответ.");
+    result.discussions[0] = {
+      ...required(result.discussions[0]),
+      messageIds: ["unknown"],
+    };
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "failed", messages: 0 });
+    expect(
+      await application().get(CommunityDiscussionBudget).snapshot(),
+    ).toMatchObject({
+      monthCostMicroUsd: 10000,
+      modelCalls: 1,
+      lastRun: { status: "failed", errors: 1, skips: 0, messages: 0 },
+    });
+    vi.setSystemTime(now.getTime() + 300000);
+    result.discussions[0] = {
+      ...required(result.discussions[0]),
+      messageIds: ["10", "11"],
+    };
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 2 });
+    expect(
+      await application().get(CommunityDiscussionBudget).snapshot(),
+    ).toMatchObject({
+      monthCostMicroUsd: 20000,
+      modelCalls: 2,
+      lastRun: { status: "completed", errors: 0, messages: 2 },
+    });
+  });
+  it("stops transcription at the limit without downloading remaining audio and resumes before grouping", async () => {
+    await application().close();
+    app = undefined;
+    await start(true, "10000", true);
+    for (const messageId of ["10", "11"])
+      await application()
+        .get(CommunityMessages)
+        .capture({
+          botIdentity: "inside",
+          chatId: "-1000000000000",
+          updateId: messageId,
+          messageId,
+          threadId: null,
+          replyToMessageId: null,
+          sentAt: now,
+          editedAt: null,
+          senderTelegramUserId: "42",
+          kind: "voice",
+          text: "",
+          fileId: `synthetic-${messageId}`,
+          durationSeconds: 23,
+        });
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({
+      status: "budget_exceeded",
+      transcriptions: 1,
+      messages: 0,
+    });
+    expect(downloads).toBe(1);
+    expect(inputs).toHaveLength(0);
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "not_due" });
+    expect(downloads).toBe(1);
+    await application().close();
+    app = undefined;
+    await start(true, "30000", true);
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({
+      status: "budget_exceeded",
+      transcriptions: 1,
+      messages: 2,
+    });
+    expect(downloads).toBe(2);
+    expect(
+      await application().get(CommunityDiscussionBudget).snapshot(),
+    ).toMatchObject({ monthCostMicroUsd: 30000, modelCalls: 3 });
+  });
   it("transcribes voice and video notes before grouping and exposes cached transcripts through HTTP", async () => {
     for (const [id, kind] of [
       [10, "voice"],

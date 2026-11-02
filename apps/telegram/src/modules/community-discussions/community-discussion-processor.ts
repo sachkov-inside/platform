@@ -1,3 +1,8 @@
+import {
+  CommunityDiscussionBudget,
+  DiscussionBudgetExceeded,
+  type DiscussionRun,
+} from "./community-discussion-budget.js";
 import { z } from "zod";
 import { COMMUNITY_FILES, type CommunityFiles } from "./community-files.js";
 import { randomUUID } from "node:crypto";
@@ -32,7 +37,12 @@ const CONTEXT_LIMIT = 200;
 type Message = Selectable<CommunityMessageTables["community_messages"]>;
 export interface DiscussionProcessingResult {
   readonly status:
-    "completed" | "not_due" | "disabled" | "unconfigured" | "failed";
+    | "completed"
+    | "not_due"
+    | "disabled"
+    | "unconfigured"
+    | "failed"
+    | "budget_exceeded";
   readonly messages: number;
   readonly discussions: number;
   readonly transcriptions: number;
@@ -50,6 +60,8 @@ export class CommunityDiscussionProcessor {
     @Inject(COMMUNITY_DISCUSSION_MODEL)
     private readonly model: CommunityDiscussionModel,
     @Inject(COMMUNITY_FILES) private readonly files: CommunityFiles,
+    @Inject(CommunityDiscussionBudget)
+    private readonly budget: CommunityDiscussionBudget,
   ) {}
 
   async processDue(signal?: AbortSignal): Promise<DiscussionProcessingResult> {
@@ -59,10 +71,13 @@ export class CommunityDiscussionProcessor {
       transcriptions: 0,
       transcriptionErrors: 0,
     };
-    if (!this.config.communityDiscussions)
-      return { ...empty, status: "disabled" };
-    if (!this.config.communityDiscussions.grouping)
-      return { ...empty, status: "unconfigured" };
+    if (!this.config.communityDiscussions?.grouping) {
+      const status = this.config.communityDiscussions
+        ? "unconfigured"
+        : "disabled";
+      await this.budget.persistRun({ ...empty, status, errors: 0, skips: 1 });
+      return { ...empty, status };
+    }
     const now = this.clock.now();
     const token = randomUUID();
     await this.database
@@ -84,15 +99,42 @@ export class CommunityDiscussionProcessor {
       .where("bot_identity", "=", this.config.botIdentity)
       .where("next_run_at", "<=", now)
       .where((eb) =>
+        eb.or([
+          eb("budget_blocked_limit", "is", null),
+          eb(
+            "budget_blocked_limit",
+            "!=",
+            String(
+              this.config.communityDiscussions?.budget.monthlyLimitMicroUsd ??
+                0,
+            ),
+          ),
+          eb("budget_blocked_month", "!=", now.toISOString().slice(0, 7)),
+        ]),
+      )
+      .where((eb) =>
         eb.or([eb("lease_until", "is", null), eb("lease_until", "<=", now)]),
       )
       .returning("bot_identity")
       .executeTakeFirst();
-    if (!claim) return { ...empty, status: "not_due" };
+    if (!claim) {
+      const blocked = await this.database
+        .selectFrom("community_discussion_schedule")
+        .select("budget_blocked_limit")
+        .where("bot_identity", "=", this.config.botIdentity)
+        .executeTakeFirst();
+      if (
+        blocked?.budget_blocked_limit !== null &&
+        blocked?.budget_blocked_limit !== undefined
+      )
+        await this.budget.retryNotification();
+      return { ...empty, status: "not_due" };
+    }
     let count = 0;
     let discussions = 0;
     const audio = { transcriptions: 0, transcriptionErrors: 0 };
     try {
+      await this.budget.assertAvailable();
       if (this.config.communityDiscussions.transcription)
         await this.transcribePending(token, audio, signal);
       // A finite snapshot prevents an active group from extending today's run without a bound.
@@ -143,17 +185,50 @@ export class CommunityDiscussionProcessor {
           discussions += output.discussions.length;
         }
       }
-      await this.finish(token, new Date(now.getTime() + DAY_MS));
-      return { status: "completed", messages: count, discussions, ...audio };
+      const blocked = await this.budget.exhausted();
+      const status = blocked ? "budget_exceeded" : "completed";
+      await this.finish(
+        token,
+        blocked ? now : new Date(now.getTime() + DAY_MS),
+        {
+          status,
+          messages: count,
+          discussions,
+          transcriptions: audio.transcriptions,
+          errors: audio.transcriptionErrors,
+          skips: blocked ? 1 : 0,
+        },
+        blocked,
+      );
+      return { status, messages: count, discussions, ...audio };
     } catch (error) {
-      const failureCode = reportFailure("community-discussions.process", error);
-      await this.finish(token, new Date(this.clock.now().getTime() + RETRY_MS));
+      const budgetFailure = error instanceof DiscussionBudgetExceeded;
+      const blocked = budgetFailure || (await this.budget.exhausted());
+      const status = blocked ? "budget_exceeded" : "failed";
+      const failureCode = budgetFailure
+        ? undefined
+        : reportFailure("community-discussions.process", error);
+      await this.finish(
+        token,
+        blocked
+          ? this.clock.now()
+          : new Date(this.clock.now().getTime() + RETRY_MS),
+        {
+          status,
+          messages: count,
+          discussions,
+          transcriptions: audio.transcriptions,
+          errors: audio.transcriptionErrors + (budgetFailure ? 0 : 1),
+          skips: blocked ? 1 : 0,
+        },
+        blocked,
+      );
       return {
-        status: "failed",
+        status,
         messages: count,
         discussions,
         ...audio,
-        failureCode,
+        ...(failureCode !== undefined ? { failureCode } : {}),
       };
     }
   }
@@ -190,6 +265,7 @@ export class CommunityDiscussionProcessor {
         signal?.throwIfAborted();
         await this.renew(token);
         try {
+          await this.budget.assertAvailable();
           if (message.file_id === null) throw new Error("Missing audio file");
           const bytes = await this.files.download(message.file_id, signal);
           const timeout = AbortSignal.timeout(PROVIDER_TIMEOUT_MS);
@@ -221,11 +297,7 @@ export class CommunityDiscussionProcessor {
           counts.transcriptions += Number(saved.numUpdatedRows);
         } catch (error) {
           signal?.throwIfAborted();
-          if (
-            error instanceof Error &&
-            error.name === "discussion_budget_exceeded"
-          )
-            throw error;
+          if (error instanceof DiscussionBudgetExceeded) throw error;
           counts.transcriptionErrors++;
           reportFailure("community-discussions.transcribe", error);
         }
@@ -253,13 +325,35 @@ export class CommunityDiscussionProcessor {
     if (Number(renewed.numUpdatedRows) !== 1)
       throw new DiscussionProcessingFailure("claim_expired");
   }
-  private async finish(token: string, nextRunAt: Date) {
-    await this.database
-      .updateTable("community_discussion_schedule")
-      .set({ lease_token: null, lease_until: null, next_run_at: nextRunAt })
-      .where("bot_identity", "=", this.config.botIdentity)
-      .where("lease_token", "=", token)
-      .execute();
+  private async finish(
+    token: string,
+    nextRunAt: Date,
+    run: DiscussionRun,
+    blocked = false,
+  ) {
+    await this.database.transaction().execute(async (tx) => {
+      const result = await tx
+        .updateTable("community_discussion_schedule")
+        .set({
+          lease_token: null,
+          lease_until: null,
+          next_run_at: nextRunAt,
+          budget_blocked_limit: blocked
+            ? String(
+                this.config.communityDiscussions?.budget.monthlyLimitMicroUsd ??
+                  0,
+              )
+            : null,
+          budget_blocked_month: blocked
+            ? this.clock.now().toISOString().slice(0, 7)
+            : null,
+        })
+        .where("bot_identity", "=", this.config.botIdentity)
+        .where("lease_token", "=", token)
+        .returning("bot_identity")
+        .executeTakeFirst();
+      if (result) await this.budget.persistRun(run, tx);
+    });
   }
 
   private async modelInput(
