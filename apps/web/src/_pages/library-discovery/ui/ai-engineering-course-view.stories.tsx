@@ -27,6 +27,7 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
+import { TicketContact } from "./telegram-contact";
 import { LearnerCourseStatus } from "./ai-engineering-course-view";
 import { ProductLandingView } from "./product-landing-view";
 
@@ -659,7 +660,7 @@ export const CohortBetween: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("link", { name: /Идёт набор на курс/u }),
+      canvas.getByRole("link", { name: /Можно начать уже сейчас/u }),
     ).toHaveAttribute("href", "#enroll");
     await expect(
       canvas.getByText(/Следующий поток: эфир 15 декабря/u),
@@ -839,6 +840,7 @@ export const FreeStartSale: Story = {
             today: "2026-10-29",
           }) ?? fail("Идущий поток с продажей рисует билет")
         }
+        contact={<TicketContact handle="sachkova_mng" />}
       />
     ),
   },
@@ -849,7 +851,7 @@ export const FreeStartSale: Story = {
       canvasElement.querySelector<HTMLElement>(".aie-hero") ??
       fail("Первый экран курса");
     await expect(
-      within(hero).getByRole("link", { name: /Идёт набор на курс/u }),
+      within(hero).getByRole("link", { name: /Можно начать уже сейчас/u }),
     ).toHaveAttribute("href", "#enroll");
     await expect(within(hero).queryByText(/₽/u)).toBeNull();
     const ticket =
@@ -859,6 +861,13 @@ export const FreeStartSale: Story = {
       within(ticket).getByRole("link", { name: /Приобрести доступ/u }),
     ).toHaveAttribute("href", "/products/ai-engineering/buy");
     await expect(within(ticket).getByText(/29\s900\s₽/u)).toBeVisible();
+    // Под ценой автор зовёт сомневающихся на бесплатную консультацию (решение владельца 02.11.2026).
+    await expect(
+      within(ticket).getByText(/бесплатно проконсультирую/u),
+    ).toBeVisible();
+    await expect(
+      within(ticket).getByRole("link", { name: /Написать в Telegram/u }),
+    ).toHaveAttribute("href", "https://t.me/sachkova_mng");
   },
 };
 export const FreeStartSaleMobile: Story = {

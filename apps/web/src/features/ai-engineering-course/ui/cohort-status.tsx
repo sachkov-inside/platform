@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { PreorderPriceView, type PreorderPrice } from "@/entities/subscription";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -37,8 +38,11 @@ const ticketCopy = {
 
 export function CohortStatusView({
   status,
+  contact,
 }: {
   readonly status: CohortStatus;
+  /** Связь с автором под кнопками билета; страница курса решает, на какой ник она ведёт. */
+  readonly contact?: ReactNode;
 }) {
   return (
     <div className="aie-cohort-status">
@@ -84,6 +88,7 @@ export function CohortStatusView({
               {programmeCallLabel(status.freeStart)}
             </IntentPrefetchLink>
           </div>
+          {contact}
         </div>
       </div>
     </div>

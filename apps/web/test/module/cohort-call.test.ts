@@ -100,7 +100,7 @@ describe("first screen call of a product cohort", () => {
       expect(call({ cohort: { ...cohort, stage } })).toEqual({
         banner: {
           kind: "live",
-          text: "Идёт набор на курс",
+          text: "Можно начать уже сейчас",
           detail: "",
           href: "#enroll",
         },
