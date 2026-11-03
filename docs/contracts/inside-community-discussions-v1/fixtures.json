@@ -532,5 +532,102 @@
       }
     },
     "valid": true
+  },
+  {
+    "name": "list-changes-request",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20,
+      "unreviewedOnly": true,
+      "changedSince": "2026-11-01T12:00:00Z"
+    },
+    "valid": true
+  },
+  {
+    "name": "mark-version-request",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.mark",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "status": "reviewed",
+      "materialUrls": [],
+      "expectedRevision": 2
+    },
+    "valid": true
+  },
+  {
+    "name": "mark-zero-version-rejected",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.mark",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "status": "reviewed",
+      "materialUrls": [],
+      "expectedRevision": 0
+    },
+    "valid": false
+  },
+  {
+    "name": "mark-string-version-rejected",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.mark",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "status": "reviewed",
+      "materialUrls": [],
+      "expectedRevision": "2"
+    },
+    "valid": false
+  },
+  {
+    "name": "list-string-unreviewed-rejected",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20,
+      "unreviewedOnly": "true"
+    },
+    "valid": false
+  },
+  {
+    "name": "list-invalid-changed-since-rejected",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20,
+      "changedSince": "yesterday"
+    },
+    "valid": false
   }
 ]

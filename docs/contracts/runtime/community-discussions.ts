@@ -8,19 +8,21 @@ const common: { contractVersion: z.ZodLiteral<"inside.community-discussions.v1">
   contractVersion: z.literal(COMMUNITY_DISCUSSIONS_VERSION),
   requestId: z.string().min(1).max(200), actor,
 };
-const list: z.ZodObject<typeof common & { operation: z.ZodLiteral<"discussions.list">; status: z.ZodOptional<typeof discussionStatusSchema>; from: z.ZodOptional<z.ZodISODateTime>; to: z.ZodOptional<z.ZodISODateTime>; limit: z.ZodNumberFormat; cursor: z.ZodOptional<z.ZodString> }, z.core.$strict> = z.strictObject({ ...common, operation: z.literal("discussions.list"), status: discussionStatusSchema.optional(), from: z.iso.datetime({ offset: true }).optional(), to: z.iso.datetime({ offset: true }).optional(), limit: z.int().min(1).max(100), cursor: z.string().min(1).max(2000).optional() });
+const list: z.ZodObject<typeof common & { operation: z.ZodLiteral<"discussions.list">; status: z.ZodOptional<typeof discussionStatusSchema>; from: z.ZodOptional<z.ZodISODateTime>; to: z.ZodOptional<z.ZodISODateTime>; unreviewedOnly: z.ZodOptional<z.ZodBoolean>; changedSince: z.ZodOptional<z.ZodISODateTime>; limit: z.ZodNumberFormat; cursor: z.ZodOptional<z.ZodString> }, z.core.$strict> = z.strictObject({ ...common, operation: z.literal("discussions.list"), status: discussionStatusSchema.optional(), from: z.iso.datetime({ offset: true }).optional(), to: z.iso.datetime({ offset: true }).optional(), unreviewedOnly: z.boolean().optional(), changedSince: z.iso.datetime({ offset: true }).optional(), limit: z.int().min(1).max(100), cursor: z.string().min(1).max(2000).optional() });
 const read: z.ZodObject<typeof common & { operation: z.ZodLiteral<"discussions.read">; discussionId: z.ZodUUID }, z.core.$strict> = z.strictObject({ ...common, operation: z.literal("discussions.read"), discussionId: z.uuid() });
-const mark: z.ZodObject<typeof common & { operation: z.ZodLiteral<"discussions.mark">; discussionId: z.ZodUUID; status: typeof discussionStatusSchema; materialUrls: z.ZodArray<z.ZodURL> }, z.core.$strict> = z.strictObject({ ...common, operation: z.literal("discussions.mark"), discussionId: z.uuid(), status: discussionStatusSchema, materialUrls: z.array(z.url({ protocol: /^https?$/ }).max(2000)).max(20) }).refine((request) => (request.status === "used") === (request.materialUrls.length > 0), "Only used discussions require material URLs");
+const mark: z.ZodObject<typeof common & { operation: z.ZodLiteral<"discussions.mark">; discussionId: z.ZodUUID; status: typeof discussionStatusSchema; materialUrls: z.ZodArray<z.ZodURL>; expectedRevision: z.ZodOptional<z.ZodNumberFormat> }, z.core.$strict> = z.strictObject({ ...common, operation: z.literal("discussions.mark"), discussionId: z.uuid(), status: discussionStatusSchema, materialUrls: z.array(z.url({ protocol: /^https?$/ }).max(2000)).max(20), expectedRevision: z.int().positive().optional() }).refine((request) => (request.status === "used") === (request.materialUrls.length > 0), "Only used discussions require material URLs");
 export const communityDiscussionsRequestSchema: z.ZodDiscriminatedUnion<[typeof list, typeof read, typeof mark], "operation"> = z.discriminatedUnion("operation", [list, read, mark]);
 export type CommunityDiscussionsRequest = z.infer<typeof communityDiscussionsRequestSchema>;
 
 export const discussionSchema: z.ZodObject<{
   discussionId: z.ZodUUID; status: typeof discussionStatusSchema;
+  revision: z.ZodOptional<z.ZodNumberFormat>; hasChanges: z.ZodOptional<z.ZodBoolean>;
   question: z.ZodString; answers: z.ZodString; conclusion: z.ZodString;
   createdAt: z.ZodISODateTime; updatedAt: z.ZodISODateTime;
   materialUrls: z.ZodArray<z.ZodURL>;
 }, z.core.$strict> = z.strictObject({
   discussionId: z.uuid(), status: discussionStatusSchema,
+  revision: z.int().positive().optional(), hasChanges: z.boolean().optional(),
   question: z.string().min(1).max(4000), answers: z.string().max(12000), conclusion: z.string().max(4000),
   createdAt: z.iso.datetime({ offset: true }), updatedAt: z.iso.datetime({ offset: true }),
   materialUrls: z.array(z.url({ protocol: /^https?$/ }).max(2000)).max(20),
