@@ -80,8 +80,9 @@ export class CommunityDiscussionBudget {
         .forUpdate()
         .executeTakeFirstOrThrow();
       if (
+        policy.monthlyLimitMicroUsd !== null &&
         BigInt(total.cost_micro_usd) + BigInt(fallback) >
-        BigInt(policy.monthlyLimitMicroUsd)
+          BigInt(policy.monthlyLimitMicroUsd)
       )
         return false;
       await tx
@@ -174,11 +175,10 @@ export class CommunityDiscussionBudget {
   }
 
   async exhausted(): Promise<boolean> {
+    const limit = this.config.communityDiscussions?.budget.monthlyLimitMicroUsd;
+    if (limit === null) return false;
     const snapshot = await this.snapshot();
-    return (
-      snapshot.monthCostMicroUsd >=
-      (this.config.communityDiscussions?.budget.monthlyLimitMicroUsd ?? 0)
-    );
+    return snapshot.monthCostMicroUsd >= (limit ?? 0);
   }
 
   async persistRun(
@@ -237,6 +237,8 @@ export class CommunityDiscussionBudget {
   }
 
   private async notify(month: string, now: Date): Promise<void> {
+    if (this.config.communityDiscussions?.budget.monthlyLimitMicroUsd === null)
+      return;
     try {
       const prior = await this.database
         .selectFrom("community_discussion_budget_months")

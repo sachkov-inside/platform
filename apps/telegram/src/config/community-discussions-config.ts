@@ -6,7 +6,8 @@ import {
 } from "./service-secret.js";
 
 export interface DiscussionBudgetConfig {
-  readonly monthlyLimitMicroUsd: number;
+  /** null is the explicitly configured unlimited mode; zero pauses paid calls. */
+  readonly monthlyLimitMicroUsd: number | null;
   readonly inputMicroUsdPerMillionTokens: number;
   readonly outputMicroUsdPerMillionTokens: number;
   readonly transcriptionMicroUsdPerMinute: number;
@@ -126,7 +127,11 @@ export function loadCommunityDiscussionsConfig(
   };
   return {
     budget: {
-      monthlyLimitMicroUsd: amount("MONTHLY_LIMIT_MICRO_USD", 0),
+      monthlyLimitMicroUsd:
+        environment["COMMUNITY_DISCUSSIONS_MONTHLY_LIMIT_MICRO_USD"] ===
+        "unlimited"
+          ? null
+          : amount("MONTHLY_LIMIT_MICRO_USD", 0),
       inputMicroUsdPerMillionTokens: amount(
         "INPUT_MICRO_USD_PER_MILLION_TOKENS",
         1_000_000,

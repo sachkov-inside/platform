@@ -78,6 +78,8 @@ export class CommunityDiscussionProcessor {
       await this.budget.persistRun({ ...empty, status, errors: 0, skips: 1 });
       return { ...empty, status };
     }
+    const monthlyLimit =
+      this.config.communityDiscussions.budget.monthlyLimitMicroUsd;
     const now = this.clock.now();
     const token = randomUUID();
     await this.database
@@ -99,18 +101,13 @@ export class CommunityDiscussionProcessor {
       .where("bot_identity", "=", this.config.botIdentity)
       .where("next_run_at", "<=", now)
       .where((eb) =>
-        eb.or([
-          eb("budget_blocked_limit", "is", null),
-          eb(
-            "budget_blocked_limit",
-            "!=",
-            String(
-              this.config.communityDiscussions?.budget.monthlyLimitMicroUsd ??
-                0,
-            ),
-          ),
-          eb("budget_blocked_month", "!=", now.toISOString().slice(0, 7)),
-        ]),
+        monthlyLimit === null
+          ? eb.val(true)
+          : eb.or([
+              eb("budget_blocked_limit", "is", null),
+              eb("budget_blocked_limit", "!=", String(monthlyLimit)),
+              eb("budget_blocked_month", "!=", now.toISOString().slice(0, 7)),
+            ]),
       )
       .where((eb) =>
         eb.or([eb("lease_until", "is", null), eb("lease_until", "<=", now)]),

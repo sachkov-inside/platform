@@ -2,6 +2,19 @@ import { describe, expect, it } from "vitest";
 import { loadCommunityDiscussionsConfig } from "../../src/config/community-discussions-config.js";
 
 describe("community discussion budget settings", () => {
+  it("requires an explicit unlimited value to remove the monthly cap", () => {
+    expect(
+      loadCommunityDiscussionsConfig({
+        TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "true",
+        COMMUNITY_DISCUSSIONS_MONTHLY_LIMIT_MICRO_USD: "unlimited",
+      })?.budget.monthlyLimitMicroUsd,
+    ).toBeNull();
+    expect(
+      loadCommunityDiscussionsConfig({
+        TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "true",
+      })?.budget.monthlyLimitMicroUsd,
+    ).toBe(0);
+  });
   it("loads a zero monthly limit as a deliberate pause with positive fallback costs", () => {
     const config = loadCommunityDiscussionsConfig({
       TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "true",
@@ -13,7 +26,7 @@ describe("community discussion budget settings", () => {
       groupingFallbackMicroUsd: 12500,
     });
   });
-  it.each(["-1", "0.5", "NaN", "9007199254740992", ""])(
+  it.each(["-1", "0.5", "NaN", "Infinity", "null", "9007199254740992", ""])(
     "rejects an invalid monthly limit %j",
     (limit) => {
       expect(() =>

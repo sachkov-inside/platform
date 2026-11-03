@@ -282,6 +282,42 @@ async function api(
 }
 
 describe("community discussion processing", () => {
+  it("resumes a zero-budget pause immediately when the monthly cap becomes unlimited", async () => {
+    await application().close();
+    app = undefined;
+    await start(true, "0", true);
+    await capture("10", "Вопрос?");
+    await capture("11", "Ответ.");
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "budget_exceeded", messages: 0 });
+    await application().close();
+    app = undefined;
+    await start(true, "unlimited", true);
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 2, discussions: 1 });
+    expect(
+      (await api("discussions.list", { limit: 10 })).json().items,
+    ).toHaveLength(1);
+    expect(
+      await application().get(CommunityDiscussionBudget).snapshot(),
+    ).toMatchObject({
+      monthCostMicroUsd: 10000,
+      modelCalls: 1,
+      lastRun: { status: "completed", messages: 2, errors: 0, skips: 0 },
+    });
+    const metrics = await application().inject({
+      method: "GET",
+      url: "/metrics",
+    });
+    expect(metrics.body).toContain(
+      "inside_telegram_community_discussions_month_cost_micro_usd 10000",
+    );
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "not_due" });
+  });
   it("keeps capture active at zero budget and resumes on the next run after each cap increase", async () => {
     await application().close();
     app = undefined;
