@@ -1,0 +1,2468 @@
+{
+  "utc": "2026-10-13T16:52:45.000Z",
+  "version": "151.0.7922.173",
+  "result": [
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "path": "/products/inside-ai-engineering",
+      "status": 200,
+      "ms": 656,
+      "title": "Продукт не найден · Sachkov Inside"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "path": "/products/inside-ai-engineering/programme",
+      "status": 200,
+      "ms": 374,
+      "title": "Продукт не найден · Sachkov Inside"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "path": "/products/inside-ai-engineering/buy",
+      "status": 200,
+      "ms": 265,
+      "title": "Покупка продукта · Sachkov Inside"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "path": "/payment/return",
+      "status": 200,
+      "ms": 358,
+      "title": "Возврат после оплаты · Sachkov Inside"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "path": "/",
+      "status": 200,
+      "ms": 328,
+      "title": "Главная · Sachkov Inside"
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "flow": "sign-in-entry",
+      "host": "sachkov.dev",
+      "path": "/",
+      "error": "locator.click: Timeout 30000ms exceeded.",
+      "qualification": "Harness used link locator, but source owns a form/button. This timeout is not a product failure."
+    },
+    {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "events": [
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0q7ev1y68wjxt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0al_1avtw0ebd.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering/programme",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0q7ev1y68wjxt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0al_1avtw0ebd.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2uo3v_bqf2nr9.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3v12wdkp-2szr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/4372ouy3a0-6n.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering/buy",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0al_1avtw0ebd.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3v12wdkp-2szr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0q7ev1y68wjxt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/4372ouy3a0-6n.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0jjdev-8422sv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/payment/return",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3tg36ft7c7cn6.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/40k3ly15u86ht.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/icon.svg",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/api/home/materials",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0hca-7p6xxb-a.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        }
+      ]
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "path": "/products/inside-ai-engineering",
+      "status": 200,
+      "ms": 1130,
+      "title": "Продукт не найден · Sachkov Inside"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "path": "/products/inside-ai-engineering/programme",
+      "status": 200,
+      "ms": 417,
+      "title": "Продукт не найден · Sachkov Inside"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "path": "/products/inside-ai-engineering/buy",
+      "status": 200,
+      "ms": 388,
+      "title": "Покупка продукта · Sachkov Inside"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "path": "/payment/return",
+      "status": 200,
+      "ms": 318,
+      "title": "Возврат после оплаты · Sachkov Inside"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "path": "/",
+      "status": 200,
+      "ms": 448,
+      "title": "Главная · Sachkov Inside"
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "flow": "sign-in-entry",
+      "host": "sachkov.dev",
+      "path": "/",
+      "error": "locator.click: Timeout 30000ms exceeded.",
+      "qualification": "Harness used link locator, but source owns a form/button. This timeout is not a product failure."
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "events": [
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering/programme",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/products/inside-ai-engineering/buy",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2d1zgg9_vh3m_.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/27pz5u3n8nqjs.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/payment/return",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/40k3ly15u86ht.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_cyrillic_wght_normal.p.1hmx3sz6swr8m.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/media/manrope_latin_wght_normal.p.1p_a2k8qd5zhp.woff2",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/23_whgxrhi63m.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2bz_5rce0m2jx.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1vveyyboeumfu.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2horcqvs45t00.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1n6f-pb697i91.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/223gb2jz15r23.css",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0zdta7es0952q.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3uwdcy44td6qv.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/02xe4hlu4mkdr.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/turbopack-3ki-b6qy0g4i0.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1tg3ms-7ry2yp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1w_q1j2ey2a_o.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0vknsoremfb_s.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3dmumpxrv_dyo.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2tp8d5cvazbkt.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1egm9l_uh7cet.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0fgkyexg61uog.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0n3b_r18kkmft.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3a_f049gf8sxp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/396pw-1tw139x.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/12v0wbsj62lo-.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2pel-3taxdayy.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0e6ig-5qc84od.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/3ecm6m8fycq5g.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/36p9fx9g39pse.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/07tdac2jmx-2r.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/388py5m-70ffp.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2ruaw9q569yfz.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/1asadrp71z9m3.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": true
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/icon.svg",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/auth/status",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/account",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/api/home/materials",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/bookmarks",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/account",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/privacy",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal/cookies",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/0hca-7p6xxb-a.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/_next/static/chunks/2621msbwhny4j.js",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        },
+        {
+          "host": "sachkov.dev",
+          "path": "/legal",
+          "status": 200,
+          "protocol": "h2",
+          "fromDiskCache": false
+        }
+      ]
+    }
+  ]
+}
