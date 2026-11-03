@@ -70,4 +70,40 @@ test("the author MCP exposes three discussion tools and binds its delegated Acco
     arguments: { requestId: "list-1", limit: 20, accountId: "forged" },
   });
   expect(execute).toHaveBeenCalledTimes(1);
+  await client.callTool({
+    name: "community_discussions_list",
+    arguments: {
+      requestId: "changes-1",
+      limit: 20,
+      unreviewedOnly: true,
+      changedSince: "2026-11-01T12:00:00Z",
+    },
+  });
+  expect(execute).toHaveBeenLastCalledWith("delegated-account", {
+    contractVersion: "inside.community-discussions.v1",
+    operation: "discussions.list",
+    requestId: "changes-1",
+    limit: 20,
+    unreviewedOnly: true,
+    changedSince: "2026-11-01T12:00:00Z",
+  });
+  await client.callTool({
+    name: "community_discussions_mark",
+    arguments: {
+      requestId: "review-1",
+      discussionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      status: "reviewed",
+      materialUrls: [],
+      expectedRevision: 2,
+    },
+  });
+  expect(execute).toHaveBeenLastCalledWith("delegated-account", {
+    contractVersion: "inside.community-discussions.v1",
+    operation: "discussions.mark",
+    requestId: "review-1",
+    discussionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    status: "reviewed",
+    materialUrls: [],
+    expectedRevision: 2,
+  });
 });

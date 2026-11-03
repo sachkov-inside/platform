@@ -77,7 +77,13 @@ function matchesDiscussion(
   if (request.operation === "discussions.list")
     return (
       response.operation === "discussions.list" &&
-      response.items.length <= request.limit
+      response.items.length <= request.limit &&
+      response.items.every(
+        (discussion) =>
+          (request.unreviewedOnly !== true || discussion.hasChanges === true) &&
+          (request.changedSince === undefined ||
+            new Date(discussion.updatedAt) >= new Date(request.changedSince)),
+      )
     );
   if (
     !("discussion" in response) ||

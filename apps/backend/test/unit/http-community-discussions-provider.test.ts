@@ -23,6 +23,35 @@ const success = {
   nextCursor: null,
 };
 
+test("a filtered list rejects content already acknowledged by the author", async () => {
+  const input = communityDiscussionsRequestSchema.parse({
+    ...request,
+    unreviewedOnly: true,
+  });
+  const value = {
+    ...success,
+    items: [
+      {
+        discussionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        status: "reviewed",
+        question: "Question",
+        answers: "Answer",
+        conclusion: "Conclusion",
+        createdAt: "2026-11-01T12:00:00Z",
+        updatedAt: "2026-11-01T12:00:00Z",
+        materialUrls: [],
+        revision: 1,
+        hasChanges: false,
+      },
+    ],
+  };
+  expect(
+    await new HttpCommunityDiscussionsProvider(config, () =>
+      Promise.resolve(Response.json(value)),
+    ).execute(input),
+  ).toEqual({ ok: false, error: { code: "provider_invalid_response" } });
+});
+
 test.each([undefined, 2])(
   "a version-bound mark rejects acknowledgement of revision %s",
   async (revision) => {
