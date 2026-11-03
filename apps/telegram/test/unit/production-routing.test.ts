@@ -24,6 +24,7 @@ describe("production provider routes", () => {
     "/webhooks/telegram",
     "/integrations/platform/v1/identity-links",
     "/integrations/platform/v1/community-entitlements",
+    "/integrations/platform/v1/community-discussions",
     "/integrations/platform/v2/communications",
     "/integrations/platform/v1/telegram-contacts",
     "/integrations/platform/v2/telegram-contacts/search",
@@ -59,6 +60,8 @@ describe("production provider routes", () => {
     "/integrations/platform/v2/telegram-contacts/list",
     "/integrations/platform/v2/communications/",
     "/integrations/platform/v1/community-entitlements/extra",
+    "/integrations/platform/v1/community-discussions/",
+    "/integrations/platform/v1/community-discussions/extra",
     "/prefix/integrations/identity/v1/sign-in",
   ])("rejects paths outside the production boundary: %s", (path) => {
     expect(paths.test(path)).toBe(false);
