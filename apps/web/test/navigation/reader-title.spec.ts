@@ -14,6 +14,7 @@ declare global {
 }
 import { expectLinearProgrammeReturn } from "../support/linear-programme";
 import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
+import { expectOpenProgrammeReady } from "../support/open-programme-readiness";
 
 /** The fake backend port is assigned by the navigation config before workers start. */
 function fakeBackendUrl() {
@@ -61,6 +62,57 @@ const test = base.extend<{
 });
 
 const title = "Первый бесплатный урок · Sachkov Dev";
+
+for (const state of ["access-pending", "progress-loading"] as const) {
+  test(`programme readiness rejects ${state} links`, async ({ page }) => {
+    await page.setContent(`<main data-product-programme="readiness-fixture">
+    <header data-programme-part="header"><h1>Курс</h1><p>2 материала${state === "access-pending" ? "" : " · всё открыто"}</p><p role="status">Загружаем прогресс…</p></header>
+    <a href="/materials/first">Первый урок</a>
+  </main>`);
+    await expect(
+      expectOpenProgrammeReady(page, "readiness-fixture"),
+    ).rejects.toThrow();
+  });
+}
+
+test("programme readiness admits navigation after the signed-in read settles", async ({
+  page,
+  context,
+  baseURL,
+  request,
+  readerTitleFixture,
+}) => {
+  const holdUrl = `${fakeBackendUrl()}/__reader-title-fixtures/${readerTitleFixture.scope}/personal-read-hold`;
+  const holdPersonalRead = async (held: boolean) => {
+    const response = await request.post(holdUrl, { data: { held } });
+    expect(response.status()).toBe(200);
+  };
+  await signInReader(context, baseURL);
+  await holdPersonalRead(true);
+  const [slug] = readerTitleFixture.materialSlugs;
+  try {
+    await page.goto(
+      `/products/${readerTitleFixture.productSlug}/programme?page=1&at=${slug}`,
+      { waitUntil: "commit" },
+    );
+    const sharedProgramme = page.locator(
+      `[data-product-programme="${readerTitleFixture.productSlug}"]:visible`,
+    );
+    await expect(
+      sharedProgramme.getByRole("link", { name: "Первый заголовок читателя" }),
+    ).toBeVisible();
+    const [programme] = await Promise.all([
+      expectOpenProgrammeReady(page, readerTitleFixture.productSlug),
+      holdPersonalRead(false),
+    ]);
+    await programme.locator(`a[href*='/materials/${slug}']`).first().click();
+    await expect(
+      page.locator('[data-material-reader-state="available"]:visible'),
+    ).toBeVisible();
+  } finally {
+    await holdPersonalRead(false);
+  }
+});
 
 function settledDocument(head: string, body: string, state = "saved") {
   return `<html><head>${head}</head><body><div data-route-refresh-pending="false"><div data-material-open-state="${state}"><main data-material-reader-state="available">Reader</main></div></div>${body}</body></html>`;
@@ -145,8 +197,9 @@ test("Reader audit uses the identity of the existing programme after session set
   await expect(
     page.getByRole("button", { name: "Аккаунт", exact: true }),
   ).toBeVisible();
-  const programme = page.locator(
-    `[data-product-programme="${readerTitleFixture.productSlug}"]:visible`,
+  const programme = await expectOpenProgrammeReady(
+    page,
+    readerTitleFixture.productSlug,
   );
   await programme
     .getByRole("link", { name: "Первый заголовок читателя", exact: true })
@@ -436,8 +489,11 @@ test("late saved open survives Activity hide and return for the same Reader", as
     await page.goto(
       `/products/${readerTitleFixture.productSlug}/programme?page=1&at=${slug}`,
     );
-    const programme = page.locator(
-      `[data-product-programme="${readerTitleFixture.productSlug}"]:visible`,
+    // This case tests a late saved open, so settle the streamed programme and browser progress first.
+    // Starting on visible links alone races their hydration and the first navigation (#1913).
+    const programme = await expectOpenProgrammeReady(
+      page,
+      readerTitleFixture.productSlug,
     );
     await programme.locator(`a[href*='/materials/${slug}']`).first().click();
     await openHeld.promise;
