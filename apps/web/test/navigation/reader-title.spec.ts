@@ -107,7 +107,7 @@ test("programme readiness admits navigation after the signed-in read settles", a
       expectOpenProgrammeReady(page, readerTitleFixture.productSlug),
       holdPersonalRead(false),
     ]);
-    await materialShell.ready;
+    await materialShell.ready();
     await programme.locator(`a[href*='/materials/${slug}']`).first().click();
     await expect(
       page.locator('[data-material-reader-state="available"]:visible'),
@@ -188,7 +188,6 @@ test("Reader audit uses the identity of the existing programme after session set
   baseURL,
   readerTitleFixture,
 }) => {
-  const materialShell = await observeAppShellPrefetch(page, "/materials/");
   await page.goto(`/products/${readerTitleFixture.productSlug}/programme`);
   await expect(
     page
@@ -196,6 +195,7 @@ test("Reader audit uses the identity of the existing programme after session set
       .first(),
   ).toBeVisible();
   await signInReader(context, baseURL);
+  const materialShell = await observeAppShellPrefetch(page, "/materials/");
   // Session cookies change outside this page; reload its guest auth snapshot before client navigation.
   await page.reload();
   await expect(
@@ -205,7 +205,7 @@ test("Reader audit uses the identity of the existing programme after session set
     page,
     readerTitleFixture.productSlug,
   );
-  await materialShell.ready;
+  await materialShell.ready();
   await programme
     .getByRole("link", { name: "Первый заголовок читателя", exact: true })
     .click();
@@ -500,7 +500,7 @@ test("late saved open survives Activity hide and return for the same Reader", as
       page,
       readerTitleFixture.productSlug,
     );
-    await materialShell.ready;
+    await materialShell.ready();
     await programme.locator(`a[href*='/materials/${slug}']`).first().click();
     await openHeld.promise;
     const readerUrl = page.url();
