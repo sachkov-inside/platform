@@ -142,7 +142,7 @@ describe("OpenAI compatible grouping HTTP contract", () => {
       .object({
         model: z.string(),
         messages: z.array(z.object({ role: z.string(), content: z.string() })),
-        response_format: z.object({ type: z.string() }),
+        response_format: z.looseObject({ type: z.string() }),
       })
       .parse(received[0]?.body);
     expect(received[0]).toMatchObject({
@@ -151,6 +151,19 @@ describe("OpenAI compatible grouping HTTP contract", () => {
     });
     expect(request.model).toBe("synthetic-group-model");
     expect(request.response_format.type).toBe("json_schema");
+    expect(request.response_format).toMatchObject({
+      json_schema: {
+        schema: {
+          properties: {
+            discussions: {
+              items: {
+                properties: { messageIds: { items: { enum: ["10"] } } },
+              },
+            },
+          },
+        },
+      },
+    });
     const instructions = request.messages
       .map((message) => message.content)
       .join("\n");
@@ -168,6 +181,26 @@ describe("OpenAI compatible grouping HTTP contract", () => {
       invalid.adapter.group(input, AbortSignal.timeout(3000)),
     ).rejects.toThrow();
     expect(invalid.received).toHaveLength(1);
+  });
+  it("rejects historical source IDs as incoming membership in an update", async () => {
+    const { adapter } = await serve(
+      completion({
+        discussions: [
+          {
+            discussionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            messageIds: ["9", "10"],
+            question: "Как выбрать инструмент?",
+            answers: "Ответ автора: сравните инструменты.",
+            conclusion: "Выбор зависит от задачи.",
+            answered: true,
+            hasNewInformation: true,
+          },
+        ],
+      }),
+    );
+    await expect(
+      adapter.group(input, AbortSignal.timeout(3000)),
+    ).rejects.toThrow();
   });
   it("does not retry a billed provider attempt", async () => {
     const failed = await serve(

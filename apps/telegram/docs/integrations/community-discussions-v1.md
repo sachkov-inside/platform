@@ -68,6 +68,8 @@ Message content itself can contain personal data; model instructions cannot guar
 A local HTTP adapter contract verifies the actual AI SDK request. Production model quality requires owner acceptance under #1957.
 
 The module validates structured output and checks known message IDs, eligible discussion IDs and unique membership.
+The AI SDK request also constrains output message IDs to an enum of incoming IDs. Historical source IDs remain context,
+not new membership; server-side validation remains authoritative even if a provider ignores its requested schema.
 An edit or reply assigned to an existing discussion cannot be moved to a new discussion by the model.
 Only a saved result acknowledges a batch; non-question chatter is acknowledged without discussion membership.
 A concurrent edit invalidates the batch snapshot and leaves it retryable.

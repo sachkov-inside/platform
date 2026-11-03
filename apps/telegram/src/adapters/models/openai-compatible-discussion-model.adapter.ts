@@ -1,6 +1,7 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, Output, transcribe } from "ai";
+import { z } from "zod";
 import type { CommunityDiscussionsConfig } from "../../config/community-discussions-config.js";
 import {
   groupingOutputSchema,
@@ -18,6 +19,22 @@ export class OpenAICompatibleDiscussionModelAdapter implements CommunityDiscussi
     private readonly transcription?: CommunityDiscussionsConfig["transcription"],
   ) {}
   async group(input: GroupInput, signal?: AbortSignal): Promise<GroupResult> {
+    if (input.messages.length === 0)
+      throw new Error("Grouping requires incoming messages");
+    // Historical source IDs are context only. Constrain the provider's actual output
+    // schema so it cannot copy them into the incoming membership of an update.
+    const outputSchema = groupingOutputSchema.extend({
+      discussions: z
+        .array(
+          groupingOutputSchema.shape.discussions.element.extend({
+            messageIds: z
+              .array(z.enum(input.messages.map((message) => message.messageId)))
+              .min(1)
+              .max(200),
+          }),
+        )
+        .max(200),
+    });
     const provider = createOpenAICompatible({
       name: "community-discussions",
       baseURL: this.config.baseUrl,
@@ -27,12 +44,13 @@ export class OpenAICompatibleDiscussionModelAdapter implements CommunityDiscussi
     });
     const result = await generateText({
       model: provider.chatModel(this.config.model),
-      output: Output.object({ schema: groupingOutputSchema }),
+      output: Output.object({ schema: outputSchema }),
       instructions:
         "Group community questions and answers by reply, topic and nearby time. Ignore chatter without a question. " +
         "Saved discussions include recent conversations and ranked historical candidates. Reuse discussionId for the same question, including repeated questions from the same participant or another participant. " +
         "Shared keywords or a broad topic alone do not establish a match. If uncertain, keep distinct questions separate. " +
         "Return only IDs of new messages from messages. Use discussionId=null for a new discussion. Each message belongs to at most one discussion. " +
+        "For example, historical source 1 and incoming message 10 must produce messageIds=[10], never [1,10]. Historical source IDs must not be copied into messageIds. " +
         "Summarize only supplied facts in Russian: what was asked, what was answered, and what remains unresolved. " +
         "In answers use separate headings 'Ответ автора:' and 'Ответы участников:'; explicitly state when a section has no substantive answer. " +
         "Do not turn participant suggestions into the author's position, add outside facts, recommend new Materials, or propose course changes. " +
