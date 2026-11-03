@@ -16,6 +16,80 @@ const validEnvironment = {
 };
 
 describe("application configuration", () => {
+  it("enables community capture without a provider and validates its topic allowlist", () => {
+    expect(
+      loadApplicationConfig(validEnvironment).communityDiscussions,
+    ).toBeUndefined();
+    expect(
+      loadApplicationConfig({
+        ...validEnvironment,
+        TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "true",
+        TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS: "[12, 34, 12]",
+      }).communityDiscussions,
+    ).toMatchObject({
+      topicIds: [12, 34],
+      budget: { monthlyLimitMicroUsd: 0 },
+    });
+    for (const topics of ["invalid", "{}", "[0]", "[1.5]", '["12"]']) {
+      expect(() =>
+        loadApplicationConfig({
+          ...validEnvironment,
+          TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "true",
+          TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS: topics,
+        }),
+      ).toThrow("TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS");
+    }
+    expect(() =>
+      loadApplicationConfig({
+        ...validEnvironment,
+        TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "yes",
+      }),
+    ).toThrow("TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED");
+    expect(() =>
+      loadApplicationConfig({
+        ...validEnvironment,
+        TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS: "[12]",
+      }),
+    ).toThrow("TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED");
+  });
+  it("requires grouping URL, key and model together and keeps the discussion secret separate", () => {
+    const enabled = {
+      ...validEnvironment,
+      TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED: "true",
+    };
+    expect(() =>
+      loadApplicationConfig({
+        ...enabled,
+        COMMUNITY_DISCUSSIONS_MODEL_API_KEY: "synthetic",
+      }),
+    ).toThrow("requires");
+    expect(() =>
+      loadApplicationConfig({
+        ...enabled,
+        PLATFORM_COMMUNITY_DISCUSSIONS_SECRET:
+          validEnvironment.PLATFORM_INTEGRATION_SECRET,
+      }),
+    ).toThrow("must be separate");
+    expect(() =>
+      loadApplicationConfig({
+        ...enabled,
+        COMMUNITY_DISCUSSIONS_MODEL_BASE_URL: "http://provider.example.test/v1",
+        COMMUNITY_DISCUSSIONS_MODEL_API_KEY: "synthetic",
+        COMMUNITY_DISCUSSIONS_MODEL: "synthetic",
+      }),
+    ).toThrow("HTTPS");
+    expect(
+      loadApplicationConfig({
+        ...enabled,
+        PLATFORM_COMMUNITY_DISCUSSIONS_SECRET:
+          "synthetic_discussions_secret_for_tests_only",
+        COMMUNITY_DISCUSSIONS_MODEL_BASE_URL:
+          "https://provider.example.test/v1",
+        COMMUNITY_DISCUSSIONS_MODEL_API_KEY: "synthetic",
+        COMMUNITY_DISCUSSIONS_MODEL: "synthetic",
+      }).communityDiscussions,
+    ).toMatchObject({ grouping: { model: "synthetic" } });
+  });
   it("keeps ordinary broadcasts disabled by default and accepts only an explicit boolean", () => {
     expect(loadApplicationConfig(validEnvironment).broadcastsEnabled).toBe(
       false,

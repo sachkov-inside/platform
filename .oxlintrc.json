@@ -261,6 +261,7 @@
     {
       "files": [
         "scripts/**/*.mjs",
+        "docs/contracts/*.mjs",
         "tools/**/*.mjs",
         "release/**/*.mjs",
         "apps/backend/scripts/**/*.mjs",

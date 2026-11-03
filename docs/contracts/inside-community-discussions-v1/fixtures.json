@@ -1,0 +1,536 @@
+[
+  {
+    "name": "list-request",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20
+    },
+    "valid": true
+  },
+  {
+    "name": "read-request",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.read",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    },
+    "valid": true
+  },
+  {
+    "name": "mark-request",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.mark",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "status": "reviewed",
+      "materialUrls": []
+    },
+    "valid": true
+  },
+  {
+    "name": "list-filtered-request",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20,
+      "status": "awaiting_answer",
+      "from": "2026-11-01T00:00:00Z",
+      "to": "2026-11-02T00:00:00Z",
+      "cursor": "opaque-cursor"
+    },
+    "valid": true
+  },
+  {
+    "name": "mark-used-request",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.mark",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "status": "used",
+      "materialUrls": [
+        "https://inside.example/materials/example"
+      ]
+    },
+    "valid": true
+  },
+  {
+    "name": "remove-mark-request",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.mark",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "status": "new",
+      "materialUrls": []
+    },
+    "valid": true
+  },
+  {
+    "name": "list-success",
+    "definition": "success",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "status": "ok",
+      "operation": "discussions.list",
+      "items": [
+        {
+          "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "status": "new",
+          "question": "Как выбрать инструмент?",
+          "answers": "Сначала определите задачу.",
+          "conclusion": "Выбор зависит от задачи.",
+          "createdAt": "2026-11-01T12:00:00Z",
+          "updatedAt": "2026-11-01T12:00:00Z",
+          "materialUrls": []
+        }
+      ],
+      "nextCursor": null
+    },
+    "valid": true
+  },
+  {
+    "name": "read-success",
+    "definition": "success",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "status": "ok",
+      "operation": "discussions.read",
+      "discussion": {
+        "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "status": "new",
+        "question": "Как выбрать инструмент?",
+        "answers": "Сначала определите задачу.",
+        "conclusion": "Выбор зависит от задачи.",
+        "createdAt": "2026-11-01T12:00:00Z",
+        "updatedAt": "2026-11-01T12:00:00Z",
+        "materialUrls": [],
+        "messages": [
+          {
+            "messageId": "10",
+            "threadId": "3",
+            "replyToMessageId": null,
+            "sentAt": "2026-11-01T12:00:00Z",
+            "role": "участник 1",
+            "kind": "text",
+            "text": "Как выбрать инструмент?",
+            "sourceUrl": "https://t.me/c/123456/10",
+            "transcript": null,
+            "transcriptionStatus": "not_applicable"
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "retained-source-success",
+    "definition": "success",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "status": "ok",
+      "operation": "discussions.read",
+      "discussion": {
+        "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "status": "new",
+        "question": "Как выбрать инструмент?",
+        "answers": "Сначала определите задачу.",
+        "conclusion": "Выбор зависит от задачи.",
+        "createdAt": "2026-11-01T12:00:00Z",
+        "updatedAt": "2026-11-01T12:00:00Z",
+        "materialUrls": [],
+        "messages": [
+          {
+            "messageId": "10",
+            "threadId": "3",
+            "replyToMessageId": null,
+            "sentAt": "2026-11-01T12:00:00Z",
+            "role": "участник 1",
+            "kind": "text",
+            "text": null,
+            "sourceUrl": "https://t.me/c/123456/10",
+            "transcript": null,
+            "transcriptionStatus": "not_applicable"
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "mark-success",
+    "definition": "success",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "status": "ok",
+      "operation": "discussions.mark",
+      "discussion": {
+        "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "status": "reviewed",
+        "question": "Как выбрать инструмент?",
+        "answers": "Сначала определите задачу.",
+        "conclusion": "Выбор зависит от задачи.",
+        "createdAt": "2026-11-01T12:00:00Z",
+        "updatedAt": "2026-11-01T12:00:00Z",
+        "materialUrls": []
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "unauthorized-error",
+    "definition": "error",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "unauthorized"
+    },
+    "valid": true
+  },
+  {
+    "name": "forbidden-error",
+    "definition": "error",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "forbidden"
+    },
+    "valid": true
+  },
+  {
+    "name": "authorization_unavailable-error",
+    "definition": "error",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "authorization_unavailable"
+    },
+    "valid": true
+  },
+  {
+    "name": "malformed-error",
+    "definition": "error",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "malformed"
+    },
+    "valid": true
+  },
+  {
+    "name": "not_found-error",
+    "definition": "error",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "not_found"
+    },
+    "valid": true
+  },
+  {
+    "name": "operation_conflict-error",
+    "definition": "error",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "operation_conflict"
+    },
+    "valid": true
+  },
+  {
+    "name": "missing-actor",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "operation": "discussions.list",
+      "limit": 20
+    },
+    "valid": false
+  },
+  {
+    "name": "forged-permission",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20,
+      "permission": "communications:manage"
+    },
+    "valid": false
+  },
+  {
+    "name": "forged-destination",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.read",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "chatId": "foreign"
+    },
+    "valid": false
+  },
+  {
+    "name": "oversized-list",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 101
+    },
+    "valid": false
+  },
+  {
+    "name": "used-without-material",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.mark",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "status": "used",
+      "materialUrls": []
+    },
+    "valid": false
+  },
+  {
+    "name": "reviewed-with-material",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.mark",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "status": "reviewed",
+      "materialUrls": [
+        "https://inside.example/materials/example"
+      ]
+    },
+    "valid": false
+  },
+  {
+    "name": "unsafe-material",
+    "definition": "request",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.mark",
+      "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "status": "used",
+      "materialUrls": [
+        "javascript:alert(1)"
+      ]
+    },
+    "valid": false
+  },
+  {
+    "name": "wrong-version",
+    "definition": "request",
+    "value": {
+      "contractVersion": "other",
+      "requestId": "request-1",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "operation": "discussions.list",
+      "limit": 20
+    },
+    "valid": false
+  },
+  {
+    "name": "unknown-response-field",
+    "definition": "success",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "status": "ok",
+      "operation": "discussions.list",
+      "items": [
+        {
+          "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "status": "new",
+          "question": "Как выбрать инструмент?",
+          "answers": "Сначала определите задачу.",
+          "conclusion": "Выбор зависит от задачи.",
+          "createdAt": "2026-11-01T12:00:00Z",
+          "updatedAt": "2026-11-01T12:00:00Z",
+          "materialUrls": []
+        }
+      ],
+      "nextCursor": null,
+      "secret": "forbidden"
+    },
+    "valid": false
+  },
+  {
+    "name": "malformed-response",
+    "definition": "success",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "status": "ok"
+    },
+    "valid": false
+  },
+  {
+    "name": "wrong-error-version",
+    "definition": "error",
+    "value": {
+      "contractVersion": "other",
+      "status": "forbidden"
+    },
+    "valid": false
+  },
+  {
+    "name": "pending-voice-success",
+    "definition": "success",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "status": "ok",
+      "operation": "discussions.read",
+      "discussion": {
+        "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "status": "new",
+        "question": "Как выбрать инструмент?",
+        "answers": "Сначала определите задачу.",
+        "conclusion": "Выбор зависит от задачи.",
+        "createdAt": "2026-11-01T12:00:00Z",
+        "updatedAt": "2026-11-01T12:00:00Z",
+        "materialUrls": [],
+        "messages": [
+          {
+            "messageId": "10",
+            "threadId": "3",
+            "replyToMessageId": null,
+            "sentAt": "2026-11-01T12:00:00Z",
+            "role": "участник 1",
+            "kind": "voice",
+            "text": null,
+            "sourceUrl": "https://t.me/c/123456/10",
+            "transcript": null,
+            "transcriptionStatus": "pending"
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "transcribed-voice-success",
+    "definition": "success",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "status": "ok",
+      "operation": "discussions.read",
+      "discussion": {
+        "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "status": "new",
+        "question": "Как выбрать инструмент?",
+        "answers": "Сначала определите задачу.",
+        "conclusion": "Выбор зависит от задачи.",
+        "createdAt": "2026-11-01T12:00:00Z",
+        "updatedAt": "2026-11-01T12:00:00Z",
+        "materialUrls": [],
+        "messages": [
+          {
+            "messageId": "10",
+            "threadId": "3",
+            "replyToMessageId": null,
+            "sentAt": "2026-11-01T12:00:00Z",
+            "role": "участник 1",
+            "kind": "voice",
+            "text": null,
+            "sourceUrl": "https://t.me/c/123456/10",
+            "transcript": "Сначала определите задачу.",
+            "transcriptionStatus": "completed"
+          }
+        ]
+      }
+    },
+    "valid": true
+  },
+  {
+    "name": "expired-voice-success",
+    "definition": "success",
+    "value": {
+      "contractVersion": "inside.community-discussions.v1",
+      "requestId": "request-1",
+      "status": "ok",
+      "operation": "discussions.read",
+      "discussion": {
+        "discussionId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "status": "new",
+        "question": "Как выбрать инструмент?",
+        "answers": "Сначала определите задачу.",
+        "conclusion": "Выбор зависит от задачи.",
+        "createdAt": "2026-11-01T12:00:00Z",
+        "updatedAt": "2026-11-01T12:00:00Z",
+        "materialUrls": [],
+        "messages": [
+          {
+            "messageId": "10",
+            "threadId": "3",
+            "replyToMessageId": null,
+            "sentAt": "2026-11-01T12:00:00Z",
+            "role": "участник 1",
+            "kind": "voice",
+            "text": null,
+            "sourceUrl": "https://t.me/c/123456/10",
+            "transcript": null,
+            "transcriptionStatus": "expired"
+          }
+        ]
+      }
+    },
+    "valid": true
+  }
+]

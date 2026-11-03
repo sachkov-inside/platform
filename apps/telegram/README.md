@@ -261,3 +261,29 @@ reject a missing dependent sign-in migration. Do not rename applied keys or edit
 This application owns Telegram bot identity handling, bot contacts, linking, member-status
 updates, reconciliation, normalized Membership Evidence and author communication templates. Platform remains the authority for
 Platform Accounts, permissions, entitlements, profiles, and every content-access decision.
+
+## Community message capture
+
+`TELEGRAM_COMMUNITY_DISCUSSIONS_ENABLED=true` enables capture from `TELEGRAM_CANONICAL_CHAT_ID`.
+Capture needs no model-provider key. The bot must receive ordinary group messages through its
+Telegram privacy or administrator settings. The owner controls those settings.
+
+`TELEGRAM_COMMUNITY_DISCUSSIONS_TOPIC_IDS` optionally contains a JSON array of positive topic IDs.
+Omitting it captures every topic and the general topic. An empty array captures none. Supplying
+this setting while capture is disabled fails configuration validation.
+
+## Community discussions
+
+Community intake and daily grouping are opt-in. The [discussion integration](docs/integrations/community-discussions-v1.md)
+owns the HTTP protocol, processing, role resolution, retry and retention rules. Set the grouping URL, key and model together
+to enable model calls. Leave them absent to collect messages without grouping. Use a separate
+`PLATFORM_COMMUNITY_DISCUSSIONS_SECRET` for HTTP and configure the existing Platform author authorization callback.
+
+Voice and video notes keep a Telegram file reference during capture. Set
+`COMMUNITY_DISCUSSIONS_TRANSCRIPTION_BASE_URL`, `COMMUNITY_DISCUSSIONS_TRANSCRIPTION_API_KEY`
+and `COMMUNITY_DISCUSSIONS_TRANSCRIPTION_MODEL` together to enable transcription before grouping.
+The transcription endpoint can differ from the grouping endpoint. Downloads have a 20 MiB limit
+and a 30-second deadline. Provider calls have a 120-second deadline and no automatic retries.
+Successful transcripts remain cached when grouping fails. Failed transcripts retry during the next daily run.
+File bytes remain in memory during transcription; the database keeps the reference and transcript for 90 days.
+HTTP discussion reads expose the transcript and its status, including pending and expired voice messages.

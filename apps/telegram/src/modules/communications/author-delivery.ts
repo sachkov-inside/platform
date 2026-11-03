@@ -61,6 +61,7 @@ const authorOutbox: DurableQueue<"communication_author_outbox"> = {
 export async function enqueueAuthorMessage(
   tx: Transaction<DatabaseSchema>,
   input: {
+    now?: Date;
     deliveryId: string;
     botIdentity: string;
     accountRef: string;
@@ -69,6 +70,7 @@ export async function enqueueAuthorMessage(
     message: CommunicationMessage;
   },
 ) {
+  const now = input.now ?? new Date();
   await tx
     .insertInto("communication_author_outbox")
     .values({
@@ -79,8 +81,8 @@ export async function enqueueAuthorMessage(
       telegram_identity_ref: input.telegramIdentityRef,
       message: JSON.stringify(input.message),
       state: "pending",
-      created_at: new Date(),
-      available_at: new Date(),
+      created_at: now,
+      available_at: now,
       attempted_at: null,
       provider_message_id: null,
     })

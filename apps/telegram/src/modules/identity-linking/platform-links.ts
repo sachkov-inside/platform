@@ -20,6 +20,43 @@ export async function botPlatformLinks(
   return rows.map(platformLink);
 }
 
+/** One bounded page of confirmed bot links; the Telegram user ID is its stable continuation. */
+export async function botPlatformLinksPage(
+  database: Executor,
+  botIdentity: string,
+  after?: string,
+): Promise<readonly PlatformLink[]> {
+  let query = database
+    .selectFrom("platform_links")
+    .selectAll()
+    .where("bot_identity", "=", botIdentity);
+  if (after !== undefined) query = query.where("telegram_user_id", ">", after);
+  return (await query.orderBy("telegram_user_id").limit(5).execute()).map(
+    platformLink,
+  );
+}
+
+/** Complete current links for the given bot-scoped sender set, in bounded SQL batches. */
+export async function platformLinksForTelegramUsers(
+  database: Executor,
+  botIdentity: string,
+  telegramUserIds: readonly string[],
+): Promise<readonly PlatformLink[]> {
+  const ids = [...new Set(telegramUserIds)];
+  const links: PlatformLink[] = [];
+  const batchSize = 1000;
+  for (let offset = 0; offset < ids.length; offset += batchSize) {
+    const rows = await database
+      .selectFrom("platform_links")
+      .selectAll()
+      .where("bot_identity", "=", botIdentity)
+      .where("telegram_user_id", "in", ids.slice(offset, offset + batchSize))
+      .execute();
+    links.push(...rows.map(platformLink));
+  }
+  return links;
+}
+
 /** A confirmed link between a Platform Account and one Telegram identity of the bot. */
 export interface PlatformLink {
   readonly accountRef: string;

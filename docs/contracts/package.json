@@ -40,6 +40,10 @@
     "./material-announcements": {
       "types": "./dist/runtime/material-announcements.d.ts",
       "default": "./dist/runtime/material-announcements.js"
+    },
+    "./community-discussions": {
+      "types": "./dist/runtime/community-discussions.d.ts",
+      "default": "./dist/runtime/community-discussions.js"
     }
   },
   "files": [
@@ -49,7 +53,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "postinstall": "pnpm build",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "discussions:generate": "pnpm build && node generate-community-discussions.mjs",
+    "discussions:check": "pnpm build && node generate-community-discussions.mjs --check"
   },
   "dependencies": {
     "ajv-formats": "3.0.1",

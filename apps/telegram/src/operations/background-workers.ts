@@ -1,3 +1,4 @@
+import { CommunityDiscussionProcessor } from "../modules/community-discussions/community-discussion-processor.js";
 import { WaitlistConfirmations } from "../modules/communications/waitlist-confirmations.js";
 import { isTruthy } from "../shared/truthiness.js";
 import { CourseActivation } from "../modules/course-activation/course-activation.js";
@@ -58,6 +59,8 @@ export class BackgroundWorkers
   private loops: WorkerLoop[] = [];
 
   constructor(
+    @Inject(CommunityDiscussionProcessor)
+    private readonly discussions: CommunityDiscussionProcessor,
     @Inject(CourseActivation)
     private readonly activation: CourseActivation,
     @Inject(APPLICATION_CONFIG)
@@ -95,6 +98,15 @@ export class BackgroundWorkers
       loops.push(loop);
       return loop;
     };
+
+    if (this.config.communityDiscussions) {
+      add(
+        "community-discussions",
+        BACKGROUND,
+        async (signal) =>
+          (await this.discussions.processDue(signal)).messages > 0,
+      );
+    }
 
     if (isTruthy(this.config.activation?.enabled)) {
       add("activation", BACKGROUND, async () => {

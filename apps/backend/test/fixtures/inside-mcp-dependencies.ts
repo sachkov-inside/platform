@@ -20,6 +20,7 @@ export function refusingMcpToolDependencies(): Omit<
     authoring: stubMaterialAuthoring(),
     billing: { execute: refuse },
     communications: { execute: refuse },
+    communityDiscussions: { execute: refuse },
     videos: { attachExisting: refuse, initUpload: refuse, reconcile: refuse },
   };
 }

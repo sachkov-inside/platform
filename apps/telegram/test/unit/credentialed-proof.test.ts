@@ -205,6 +205,7 @@ describe("credentialed Telegram proof redaction", () => {
         {
           allowed_updates: [
             "message",
+            "edited_message",
             "my_chat_member",
             "chat_member",
             "chat_join_request",
@@ -235,6 +236,7 @@ describe("credentialed Telegram proof redaction", () => {
         {
           allowed_updates: [
             "message",
+            "edited_message",
             "my_chat_member",
             "chat_member",
             "chat_join_request",

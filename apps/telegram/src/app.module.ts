@@ -1,4 +1,20 @@
 import {
+  CommunityDiscussionBudget,
+  BudgetedDiscussionModel,
+} from "./modules/community-discussions/community-discussion-budget.js";
+import { COMMUNITY_FILES } from "./modules/community-discussions/community-files.js";
+import { TelegramCommunityFilesAdapter } from "./adapters/telegram/telegram-community-files.adapter.js";
+import { CommunityDiscussions } from "./modules/community-discussions/community-discussions.js";
+import { CommunityDiscussionProcessor } from "./modules/community-discussions/community-discussion-processor.js";
+import { CommunityDiscussionsController } from "./modules/community-discussions/community-discussions.controller.js";
+import {
+  COMMUNITY_DISCUSSION_MODEL,
+  DisabledCommunityDiscussionModel,
+} from "./modules/community-discussions/discussion-model.js";
+import { OpenAICompatibleDiscussionModelAdapter } from "./adapters/models/openai-compatible-discussion-model.adapter.js";
+import { CommunityMessages } from "./modules/community-discussions/community-messages.js";
+import { CommunityAuthors } from "./modules/communications/community-authors.js";
+import {
   NATIVE_MESSAGE_ARCHIVE,
   DisabledNativeMessageArchive,
 } from "./modules/communications/native-message-archive.js";
@@ -161,6 +177,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        CommunityDiscussionsController,
         TelegramContactsController,
         TelegramContactsV2Controller,
         BotSignInController,
@@ -171,6 +188,29 @@ export class AppModule {
         TelegramWebhookController,
       ],
       providers: [
+        {
+          provide: COMMUNITY_FILES,
+          useValue: new TelegramCommunityFilesAdapter(config.botToken),
+        },
+        CommunityMessages,
+        CommunityDiscussions,
+        CommunityDiscussionProcessor,
+        CommunityDiscussionBudget,
+        {
+          provide: COMMUNITY_DISCUSSION_MODEL,
+          inject: [CommunityDiscussionBudget],
+          useFactory: (budget: CommunityDiscussionBudget) =>
+            new BudgetedDiscussionModel(
+              config.communityDiscussions?.grouping
+                ? new OpenAICompatibleDiscussionModelAdapter(
+                    config.communityDiscussions.grouping,
+                    config.communityDiscussions.transcription,
+                  )
+                : new DisabledCommunityDiscussionModel(),
+              budget,
+            ),
+        },
+        CommunityAuthors,
         {
           provide: WAITLIST_CONFIRMATION_AUTHORIZATION,
           useValue: new HttpWaitlistConfirmationAdapter(
