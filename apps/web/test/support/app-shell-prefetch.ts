@@ -20,3 +20,31 @@ export function installAppShellPrefetchClassifier() {
     );
   };
 }
+import { expect, type Page } from "@playwright/test";
+
+/** Register before navigation; links can share a completed shell with other destinations in this route. */
+export async function observeAppShellPrefetch(
+  page: Page,
+  pathnamePrefix: string,
+) {
+  await page.addInitScript(installAppShellPrefetchClassifier);
+  const ready = page
+    .waitForResponse(async (response) => {
+      const headers = response.request().headers();
+      if (
+        headers["rsc"] !== "1" ||
+        !new URL(response.url()).pathname.startsWith(pathnamePrefix)
+      )
+        return false;
+      return page.evaluate(
+        (requestHeaders) =>
+          window.__isAppShellPrefetch(new Headers(requestHeaders)),
+        headers,
+      );
+    })
+    .then(async (response) => {
+      expect(response.ok()).toBe(true);
+      expect(await response.finished()).toBeNull();
+    });
+  return { ready };
+}

@@ -15,6 +15,7 @@ declare global {
 import { expectLinearProgrammeReturn } from "../support/linear-programme";
 import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
 import { expectOpenProgrammeReady } from "../support/open-programme-readiness";
+import { observeAppShellPrefetch } from "../support/app-shell-prefetch";
 
 /** The fake backend port is assigned by the navigation config before workers start. */
 function fakeBackendUrl() {
@@ -66,7 +67,7 @@ const title = "Первый бесплатный урок · Sachkov Dev";
 for (const state of ["access-pending", "progress-loading"] as const) {
   test(`programme readiness rejects ${state} links`, async ({ page }) => {
     await page.setContent(`<main data-product-programme="readiness-fixture">
-    <header data-programme-part="header"><h1>Курс</h1><p>2 материала${state === "access-pending" ? "" : " · всё открыто"}</p><p role="status">Загружаем прогресс…</p></header>
+    <header data-programme-part="header"><h1>Курс</h1><p>2 материала${state === "access-pending" ? "" : " · всё открыто"}</p><p role="status">${state === "access-pending" ? "Прогресс сейчас не загрузился. Материалы можно читать." : "Загружаем прогресс…"}</p></header>
     <a href="/materials/first">Первый урок</a>
   </main>`);
     await expect(
@@ -89,6 +90,7 @@ test("programme readiness admits navigation after the signed-in read settles", a
   };
   await signInReader(context, baseURL);
   await holdPersonalRead(true);
+  const materialShell = await observeAppShellPrefetch(page, "/materials/");
   const [slug] = readerTitleFixture.materialSlugs;
   try {
     await page.goto(
@@ -105,6 +107,7 @@ test("programme readiness admits navigation after the signed-in read settles", a
       expectOpenProgrammeReady(page, readerTitleFixture.productSlug),
       holdPersonalRead(false),
     ]);
+    await materialShell.ready;
     await programme.locator(`a[href*='/materials/${slug}']`).first().click();
     await expect(
       page.locator('[data-material-reader-state="available"]:visible'),
@@ -185,6 +188,7 @@ test("Reader audit uses the identity of the existing programme after session set
   baseURL,
   readerTitleFixture,
 }) => {
+  const materialShell = await observeAppShellPrefetch(page, "/materials/");
   await page.goto(`/products/${readerTitleFixture.productSlug}/programme`);
   await expect(
     page
@@ -201,6 +205,7 @@ test("Reader audit uses the identity of the existing programme after session set
     page,
     readerTitleFixture.productSlug,
   );
+  await materialShell.ready;
   await programme
     .getByRole("link", { name: "Первый заголовок читателя", exact: true })
     .click();
@@ -472,6 +477,7 @@ test("late saved open survives Activity hide and return for the same Reader", as
   baseURL,
   readerTitleFixture,
 }) => {
+  const materialShell = await observeAppShellPrefetch(page, "/materials/");
   await signInReader(context, baseURL);
   const slug = readerTitleFixture.materialSlugs[0];
   const openHeld = Promise.withResolvers<undefined>();
@@ -489,12 +495,12 @@ test("late saved open survives Activity hide and return for the same Reader", as
     await page.goto(
       `/products/${readerTitleFixture.productSlug}/programme?page=1&at=${slug}`,
     );
-    // This case tests a late saved open, so settle the streamed programme and browser progress first.
-    // Starting on visible links alone races their hydration and the first navigation (#1913).
+    // The case owns a late saved open; first settle programme reads and the destination shell (#1913).
     const programme = await expectOpenProgrammeReady(
       page,
       readerTitleFixture.productSlug,
     );
+    await materialShell.ready;
     await programme.locator(`a[href*='/materials/${slug}']`).first().click();
     await openHeld.promise;
     const readerUrl = page.url();
