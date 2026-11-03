@@ -1359,7 +1359,7 @@ const server = createServer(async (request, response) => {
     send(200, { deleted: readerTitleFixtures.delete(scope) });
     return;
   }
-  // Удержание личного чтения: Web сначала отдаёт ожидание Reader, а сам Reader приходит позже (#1908).
+  // Удержание личного чтения Reader или программы: общая часть приходит до личной (#1908, #1913).
   const personalReadControl =
     /^\/__reader-title-fixtures\/([^/]+)\/personal-read-hold$/u.exec(
       url.pathname,
@@ -1382,11 +1382,18 @@ const server = createServer(async (request, response) => {
   }
   const authorized = request.headers.authorization !== undefined;
   if (authorized && request.method === "GET")
-    await findReaderTitleLesson(
-      url.pathname.startsWith("/materials/")
-        ? url.pathname.slice("/materials/".length)
-        : "",
-    )?.fixture.personalRead?.promise;
+    await (
+      url.pathname.startsWith("/library/products/")
+        ? [...readerTitleFixtures.values()].find(
+            ({ product }) =>
+              url.pathname === `/library/products/${product.slug}`,
+          )
+        : findReaderTitleLesson(
+            url.pathname.startsWith("/materials/")
+              ? url.pathname.slice("/materials/".length)
+              : "",
+          )?.fixture
+    )?.personalRead?.promise;
   state.requests.push({
     authorized,
     method: request.method,
