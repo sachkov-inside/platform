@@ -44,7 +44,7 @@ const model: CommunityDiscussionModel = {
   },
 };
 const input = { messages: [], discussions: [] };
-function configuration(limit = 10000) {
+function configuration(limit: number | "unlimited" = 10000) {
   return loadApplicationConfig({
     DATABASE_URL: required(process.env["DATABASE_URL"]),
     TELEGRAM_BOT_IDENTITY: "budget-test",
@@ -62,7 +62,7 @@ function configuration(limit = 10000) {
   });
 }
 function budget(
-  limit = 10000,
+  limit: number | "unlimited" = 10000,
   authorization: AuthorAuthorization = {
     authorize: () => Promise.resolve("allowed"),
   },
@@ -87,6 +87,31 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   await database.destroy();
+});
+
+it("accounts for both operations, concurrent calls and provider failures without a monthly cap", async () => {
+  const unlimited = budget("unlimited");
+  const gate = new BudgetedDiscussionModel(model, unlimited);
+  await Promise.all([
+    gate.group(input),
+    gate.transcribe({
+      bytes: new Uint8Array([1]),
+      mediaType: "audio/ogg",
+      durationSeconds: 130,
+    }),
+  ]);
+  providerFailure = true;
+  await expect(gate.group(input)).rejects.toThrow("synthetic provider failure");
+  providerFailure = false;
+  const restarted = budget("unlimited");
+  await restarted.assertAvailable();
+  await new BudgetedDiscussionModel(model, restarted).group(input);
+  expect(await restarted.exhausted()).toBe(false);
+  expect(await restarted.snapshot()).toMatchObject({
+    monthCostMicroUsd: 43000,
+    modelCalls: 4,
+  });
+  expect(calls).toBe(4);
 });
 
 it("stops both model operations at the durable monthly limit and resumes after a limit increase or month rollover", async () => {
@@ -160,6 +185,41 @@ it("prices transcription duration even when the provider returns no usage", asyn
     monthCostMicroUsd: 13000,
     modelCalls: 1,
   });
+});
+
+it("does not enqueue budget notices in unlimited mode, including notification retries", async () => {
+  await seedCommunityBinding(
+    database,
+    {
+      accountRef: "budget-author",
+      telegramIdentityRef: "budget-author-identity",
+      linkRef: "budget-link",
+      linkRevision: 1,
+    },
+    now,
+    "900",
+    "budget-test",
+  );
+  const unlimited = budget("unlimited");
+  await new BudgetedDiscussionModel(model, unlimited).group(input);
+  await unlimited.retryNotification();
+  const delivered: string[] = [];
+  const outbox = new AuthorDelivery(
+    database,
+    { ...configuration("unlimited"), deliveryMode: "live" },
+    { authorize: () => Promise.resolve("allowed") },
+    {
+      send: (message) => {
+        delivered.push(message.chatId);
+        return Promise.resolve({
+          kind: "delivered",
+          providerMessageId: "notice-unlimited",
+        });
+      },
+    },
+  );
+  expect(await outbox.processAvailable(now)).toBe(0);
+  expect(delivered).toEqual([]);
 });
 
 it("enqueues one monthly author notice durably and never holds the budget lock during author authorization", async () => {
