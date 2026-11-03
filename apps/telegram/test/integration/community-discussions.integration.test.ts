@@ -110,6 +110,7 @@ beforeEach(async () => {
         answers: "Сначала определите задачу.",
         conclusion: "Выбор зависит от задачи.",
         answered: true,
+        hasNewInformation: true,
       },
     ],
     usage: { inputTokens: 100, outputTokens: 50 },
@@ -282,6 +283,215 @@ async function api(
 }
 
 describe("community discussion processing", () => {
+  it("does not let stale acknowledgement or receipt replay hide a corrected answer", async () => {
+    await capture("10", "Как выбрать инструмент?");
+    await capture("11", "Сначала определите задачу.");
+    await application().get(CommunityDiscussionProcessor).processDue();
+    const initial = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    );
+    const mark = {
+      requestId: "review-initial",
+      discussionId: initial.discussionId,
+      status: "reviewed",
+      materialUrls: [],
+      expectedRevision: 1,
+    };
+    const reviewed = (await api("discussions.mark", mark)).json();
+    vi.setSystemTime(now.getTime() + 86_400_000);
+    await application()
+      .get(CommunityMessages)
+      .capture({
+        botIdentity: "inside",
+        updateId: "100",
+        chatId: "-1000000000000",
+        messageId: "11",
+        threadId: "7",
+        replyToMessageId: "10",
+        sentAt: now,
+        editedAt: required(vi.getMockedSystemTime()),
+        senderTelegramUserId: "42",
+        kind: "text",
+        text: "Поправка: сначала сравните инструменты.",
+        fileId: null,
+      });
+    result.discussions[0] = {
+      ...required(result.discussions[0]),
+      discussionId: initial.discussionId,
+      messageIds: ["11"],
+      answers: "Автор уточнил ответ: сначала сравните инструменты.",
+      hasNewInformation: false,
+    };
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed" });
+    const updated = (
+      await api("discussions.read", { discussionId: initial.discussionId })
+    ).json().discussion;
+    expect(updated).toMatchObject({
+      revision: 2,
+      hasChanges: true,
+      status: "reviewed",
+      answers: "Автор уточнил ответ: сначала сравните инструменты.",
+    });
+    expect(
+      (await api("discussions.mark", { ...mark, requestId: "stale-review" }))
+        .statusCode,
+    ).toBe(409);
+    expect((await api("discussions.mark", mark)).json()).toEqual(reviewed);
+    expect(
+      (await api("discussions.mark", { ...mark, expectedRevision: 2 }))
+        .statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await api("discussions.read", { discussionId: initial.discussionId })
+      ).json().discussion.hasChanges,
+    ).toBe(true);
+    expect(
+      (
+        await api("discussions.mark", {
+          ...mark,
+          requestId: "review-current",
+          expectedRevision: 2,
+        })
+      ).json().discussion,
+    ).toMatchObject({ revision: 2, hasChanges: false });
+  });
+  it("keeps pure repeats quiet and exposes substantive additions after review", async () => {
+    await capture("10", "Как выбрать инструмент?");
+    await capture("11", "Сначала определите задачу.");
+    await application().get(CommunityDiscussionProcessor).processDue();
+    const initial = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    );
+    expect(initial).toMatchObject({ revision: 1, hasChanges: true });
+    expect(
+      (
+        await api("discussions.mark", {
+          discussionId: initial.discussionId,
+          status: "reviewed",
+          materialUrls: [],
+          expectedRevision: 1,
+        })
+      ).statusCode,
+    ).toBe(200);
+    vi.setSystemTime(now.getTime() + 86_400_000);
+    await capture(
+      "30",
+      "Как выбрать инструмент?",
+      "42",
+      required(vi.getMockedSystemTime()),
+    );
+    result.discussions[0] = {
+      ...required(result.discussions[0]),
+      discussionId: initial.discussionId,
+      messageIds: ["30"],
+      answers: "Перефразировка без новых сведений.",
+      hasNewInformation: false,
+    };
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed" });
+    expect(
+      (
+        await api("discussions.list", { limit: 10, unreviewedOnly: true })
+      ).json().items,
+    ).toEqual([]);
+    expect(
+      (
+        await api("discussions.read", { discussionId: initial.discussionId })
+      ).json().discussion,
+    ).toMatchObject({
+      revision: 1,
+      hasChanges: false,
+      answers: initial.answers,
+      updatedAt: initial.updatedAt,
+      messages: [{ messageId: "10" }, { messageId: "11" }, { messageId: "30" }],
+    });
+    vi.setSystemTime(now.getTime() + 2 * 86_400_000);
+    await capture(
+      "31",
+      "Для сложных задач сначала проведите сравнение.",
+      "42",
+      required(vi.getMockedSystemTime()),
+    );
+    result.discussions[0] = {
+      ...required(result.discussions[0]),
+      messageIds: ["31"],
+      answers: "Ответ автора: сначала сравните инструменты на задаче.",
+      hasNewInformation: true,
+    };
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed" });
+    expect(
+      (
+        await api("discussions.list", { limit: 10, unreviewedOnly: true })
+      ).json().items,
+    ).toMatchObject([
+      {
+        discussionId: initial.discussionId,
+        revision: 2,
+        hasChanges: true,
+        status: "reviewed",
+      },
+    ]);
+  });
+  it("links a repeated question to reviewed history after raw messages expire", async () => {
+    await capture("10", "Как выбрать инструмент?");
+    await capture("11", "Сначала определите задачу.");
+    await application().get(CommunityDiscussionProcessor).processDue();
+    const initial = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    );
+    await api("discussions.mark", {
+      discussionId: initial.discussionId,
+      status: "reviewed",
+      materialUrls: [],
+    });
+    vi.setSystemTime(now.getTime() + 120 * 86_400_000);
+    await purgeExpiredRecords(database, required(vi.getMockedSystemTime()), {
+      membershipCheckDays: 30,
+      salesFunnelEventDays: 30,
+    });
+    await capture(
+      "30",
+      "Подскажите, как выбирать инструмент для задачи?",
+      "42",
+      required(vi.getMockedSystemTime()),
+    );
+    respond = (input) => {
+      const previous = required(
+        input.discussions.find((d) => d.discussionId === initial.discussionId),
+      );
+      return Promise.resolve({
+        ...result,
+        discussions: [
+          {
+            ...required(result.discussions[0]),
+            discussionId: previous.discussionId,
+            messageIds: ["30"],
+          },
+        ],
+      });
+    };
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 1 });
+    expect(
+      (await api("discussions.list", { limit: 10 })).json().items,
+    ).toHaveLength(1);
+    expect(
+      (
+        await api("discussions.read", { discussionId: initial.discussionId })
+      ).json().discussion.messages,
+    ).toMatchObject([
+      { messageId: "10", text: null },
+      { messageId: "11", text: null },
+      { messageId: "30" },
+    ]);
+  });
   it("resumes a zero-budget pause immediately when the monthly cap becomes unlimited", async () => {
     await application().close();
     app = undefined;
@@ -972,6 +1182,7 @@ describe("community discussion processing", () => {
       answers: "",
       conclusion: "",
       answered: false,
+      hasNewInformation: true,
     };
     await capture("10", "Как выбрать инструмент?");
     await application().get(CommunityDiscussionProcessor).processDue();
@@ -987,6 +1198,7 @@ describe("community discussion processing", () => {
       messageIds: ["11"],
       answers: "Сначала определите задачу.",
       answered: true,
+      hasNewInformation: true,
     };
     expect(
       await application().get(CommunityDiscussionProcessor).processDue(),
@@ -1075,6 +1287,7 @@ describe("community discussion processing", () => {
       answers: "",
       conclusion: "",
       answered: false,
+      hasNewInformation: true,
     }));
     await application().get(CommunityDiscussionProcessor).processDue();
     const initial = (await api("discussions.list", { limit: 10 })).json().items;
@@ -1106,6 +1319,7 @@ describe("community discussion processing", () => {
             answers: "Сначала определите задачу.",
             conclusion: "Выбор зависит от задачи.",
             answered: true,
+            hasNewInformation: true,
           },
         ],
         usage: { inputTokens: 100, outputTokens: 50 },
@@ -1378,6 +1592,7 @@ describe("community discussion processing", () => {
         answers: "Связанный ответ",
         conclusion: "",
         answered: true,
+        hasNewInformation: true,
       },
     ];
     respond = (input) =>

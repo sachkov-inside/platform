@@ -88,6 +88,8 @@ function matchesDiscussion(
   return (
     request.operation !== "discussions.mark" ||
     (response.discussion.status === request.status &&
+      (request.expectedRevision === undefined ||
+        response.discussion.revision === request.expectedRevision) &&
       JSON.stringify(response.discussion.materialUrls) ===
         JSON.stringify(request.materialUrls))
   );

@@ -11,6 +11,7 @@ export const groupingOutputSchema = z.strictObject({
         answers: z.string().max(12000),
         conclusion: z.string().max(4000),
         answered: z.boolean(),
+        hasNewInformation: z.boolean(),
       }),
     )
     .max(200),

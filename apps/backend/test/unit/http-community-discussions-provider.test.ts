@@ -23,6 +23,44 @@ const success = {
   nextCursor: null,
 };
 
+test.each([undefined, 2])(
+  "a version-bound mark rejects acknowledgement of revision %s",
+  async (revision) => {
+    const input = communityDiscussionsRequestSchema.parse({
+      contractVersion: request.contractVersion,
+      requestId: request.requestId,
+      actor: request.actor,
+      operation: "discussions.mark",
+      discussionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      status: "reviewed",
+      materialUrls: [],
+      expectedRevision: 1,
+    });
+    const value = {
+      contractVersion: request.contractVersion,
+      requestId: request.requestId,
+      operation: "discussions.mark",
+      status: "ok",
+      discussion: {
+        discussionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        status: "reviewed",
+        question: "Question",
+        answers: "Answer",
+        conclusion: "Conclusion",
+        createdAt: "2026-11-01T12:00:00Z",
+        updatedAt: "2026-11-01T12:00:00Z",
+        materialUrls: [],
+        revision,
+      },
+    };
+    expect(
+      await new HttpCommunityDiscussionsProvider(config, () =>
+        Promise.resolve(Response.json(value)),
+      ).execute(input),
+    ).toEqual({ ok: false, error: { code: "provider_invalid_response" } });
+  },
+);
+
 test("discussion provider preserves the request and validates its matching response", async () => {
   const fetcher = vi
     .fn<typeof fetch>()

@@ -118,6 +118,7 @@ describe("OpenAI compatible grouping HTTP contract", () => {
             answers: "",
             conclusion: "",
             answered: false,
+            hasNewInformation: true,
           },
         ],
       }),
@@ -131,6 +132,7 @@ describe("OpenAI compatible grouping HTTP contract", () => {
           answers: "",
           conclusion: "",
           answered: false,
+          hasNewInformation: true,
         },
       ],
       usage: { inputTokens: 120, outputTokens: 30 },
@@ -149,6 +151,13 @@ describe("OpenAI compatible grouping HTTP contract", () => {
     });
     expect(request.model).toBe("synthetic-group-model");
     expect(request.response_format.type).toBe("json_schema");
+    const instructions = request.messages
+      .map((message) => message.content)
+      .join("\n");
+    expect(instructions).toContain("Ответ автора:");
+    expect(instructions).toContain("Ответы участников:");
+    expect(instructions).toContain("hasNewInformation=false");
+    expect(instructions).toContain("I do not know");
     expect(JSON.parse(requiredUser(request.messages))).toEqual(input);
   });
   it("rejects invalid structured output and makes one attempt on provider failure", async () => {

@@ -36,6 +36,8 @@ export interface DiscussionTables {
     skips: number;
   };
   community_discussions: {
+    content_revision: ColumnType<number, number | undefined, number>;
+    reviewed_revision: ColumnType<number, number | undefined, number>;
     id: string;
     bot_identity: string;
     chat_id: string;

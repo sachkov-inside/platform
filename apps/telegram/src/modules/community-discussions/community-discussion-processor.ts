@@ -34,6 +34,8 @@ const AUTHOR_PAGE = 20;
 const MESSAGE_BATCH = 200;
 const RECENT_DAYS = 7;
 const CONTEXT_LIMIT = 200;
+const HISTORY_CANDIDATES = 40;
+const HISTORY_MESSAGE_PREVIEW_CHARACTERS = 1000;
 type Message = Selectable<CommunityMessageTables["community_messages"]>;
 export interface DiscussionProcessingResult {
   readonly status:
@@ -392,23 +394,46 @@ export class CommunityDiscussionProcessor {
     const discussionIds = [
       ...new Set(referenced.map((source) => source.discussion_id)),
     ];
+    // Search durable questions across all dates/statuses. These are ranked candidates,
+    // not a completeness claim or an instruction to merge semantically different questions.
+    const preview = batch
+      .map((message) =>
+        (message.transcript ?? message.text).slice(
+          0,
+          HISTORY_MESSAGE_PREVIEW_CHARACTERS,
+        ),
+      )
+      .join(" ");
+    const history = await sql<{ id: string }>`
+      with terms as (
+        select string_agg(quote_literal(term), ' | ') as query
+        from unnest(tsvector_to_array(to_tsvector('russian'::regconfig, ${preview}))) as term
+      ), search as (
+        select to_tsquery('russian'::regconfig, query) as query from terms where query is not null
+      )
+      select discussion.id from community_discussions as discussion, search
+      where discussion.bot_identity = ${this.config.botIdentity}
+        and discussion.chat_id = ${this.config.canonicalChatId}::bigint
+        and discussion.question_search @@ search.query
+      order by ts_rank_cd(discussion.question_search, search.query) desc,
+        discussion.updated_at desc, discussion.id
+      limit ${HISTORY_CANDIDATES}
+    `.execute(this.database);
+    discussionIds.push(...history.rows.map((row) => row.id));
     const recent = await this.database
       .selectFrom("community_discussions")
       .select(["id", "question", "answers", "conclusion"])
       .where("bot_identity", "=", this.config.botIdentity)
       .where("chat_id", "=", this.config.canonicalChatId)
       .where((eb) => {
-        const open = eb.and([
-          eb("status", "in", ["new", "awaiting_answer"]),
-          eb(
-            "updated_at",
-            ">=",
-            new Date(now.getTime() - RECENT_DAYS * DAY_MS),
-          ),
-        ]);
+        const recent = eb(
+          "updated_at",
+          ">=",
+          new Date(now.getTime() - RECENT_DAYS * DAY_MS),
+        );
         return discussionIds.length > 0
-          ? eb.or([open, eb("id", "in", discussionIds)])
-          : open;
+          ? eb.or([recent, eb("id", "in", discussionIds)])
+          : recent;
       })
       .orderBy("updated_at", "desc")
       .orderBy("id")
@@ -492,6 +517,10 @@ export class CommunityDiscussionProcessor {
     const assigned = new Set<string>();
     const updated = new Set<string>();
     for (const discussion of output.discussions) {
+      if (discussion.discussionId === null && !discussion.hasNewInformation)
+        throw new DiscussionProcessingFailure(
+          "repeat_requires_existing_discussion",
+        );
       if (discussion.discussionId !== null) {
         if (
           !knownDiscussions.has(discussion.discussionId) ||
@@ -624,17 +653,27 @@ export class CommunityDiscussionProcessor {
             .executeTakeFirst();
           if (!existing)
             throw new DiscussionProcessingFailure("discussion_disappeared");
-          await tx
-            .updateTable("community_discussions")
-            .set({
-              ...summary,
-              status:
-                existing.status === "awaiting_answer" && discussion.answered
-                  ? "new"
-                  : existing.status,
-            })
-            .where("id", "=", id)
-            .execute();
+          const editedSource = input.discussions.some(
+            (previous) =>
+              previous.discussionId === id &&
+              previous.sources.some((source) =>
+                discussion.messageIds.includes(source.messageId),
+              ),
+          );
+          if (discussion.hasNewInformation || editedSource) {
+            await tx
+              .updateTable("community_discussions")
+              .set({
+                ...summary,
+                content_revision: sql<number>`content_revision + 1`,
+                status:
+                  existing.status === "awaiting_answer" && discussion.answered
+                    ? "new"
+                    : existing.status,
+              })
+              .where("id", "=", id)
+              .execute();
+          }
         }
         const assigned = discussion.messageIds.map((messageId) => {
           const message = batch.find(

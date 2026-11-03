@@ -1,3 +1,4 @@
+import { communityDiscussionHistoryMigration } from "./migrations/044-community-discussion-history.js";
 import { communityDiscussionBudgetMigration } from "./migrations/043-community-discussion-budget.js";
 import { communityTranscriptsMigration } from "./migrations/042-community-transcripts.js";
 import { communityDiscussionsMigration } from "./migrations/041-community-discussions.js";
@@ -53,6 +54,7 @@ import { communicationsTemplatesMigration } from "./migrations/010-communication
 import { authorAdminMigration } from "./migrations/014-author-admin.js";
 
 const migrations = {
+  "044-community-discussion-history": communityDiscussionHistoryMigration,
   "043-community-discussion-budget": communityDiscussionBudgetMigration,
   "042-community-transcripts": communityTranscriptsMigration,
   "040-community-messages": communityMessagesMigration,

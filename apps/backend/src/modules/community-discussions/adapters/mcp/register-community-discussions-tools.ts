@@ -27,8 +27,8 @@ export function registerCommunityDiscussionsTools(
       {
         title: operation,
         description: readOnly
-          ? "Read community discussions with the current author's communications:manage permission. List uses a bounded page; follow nextCursor until null."
-          : "Set a discussion status. used requires Material URLs; new removes a manual mark. Reuse requestId and the complete input after an uncertain response.",
+          ? "Read factual community questions, attributed answers and source links with the current author's communications:manage permission. List unreviewedOnly=true for new or substantively updated discussions, including reviewed/used statuses. changedSince filters content updates, not manual marks. Follow nextCursor until null. hasChanges distinguishes additions from pure repeats."
+          : "Set a discussion status. Pass expectedRevision from read to acknowledge exactly the content reviewed; a newer revision returns operation_conflict. reviewed/used acknowledge that revision, new/awaiting_answer remove its acknowledgement. used requires Material URLs. Reuse requestId and the complete input after an uncertain response.",
         inputSchema: z.strictObject(shape),
         annotations: {
           readOnlyHint: readOnly,

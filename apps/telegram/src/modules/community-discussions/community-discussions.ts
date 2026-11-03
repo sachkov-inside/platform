@@ -16,7 +16,6 @@ import {
   APPLICATION_CONFIG,
   type ApplicationConfig,
 } from "../../config/application-config.js";
-import { CLOCK, type Clock } from "../../shared/clock.js";
 import {
   AUTHOR_AUTHORIZATION,
   authorizeAuthor,
@@ -47,6 +46,8 @@ function view(
     materialUrls: row.material_urls,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
+    revision: row.content_revision,
+    hasChanges: row.content_revision > row.reviewed_revision,
   };
 }
 
@@ -55,7 +56,6 @@ export class CommunityDiscussions {
   constructor(
     @Inject(DATABASE) private readonly database: Database,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
-    @Inject(CLOCK) private readonly clock: Clock,
     @Inject(AUTHOR_AUTHORIZATION)
     private readonly authorization: AuthorAuthorization,
   ) {}
@@ -120,6 +120,14 @@ export class CommunityDiscussions {
       request.status ?? null,
       request.from === undefined ? null : new Date(request.from).toISOString(),
       request.to === undefined ? null : new Date(request.to).toISOString(),
+      ...(request.unreviewedOnly === true || request.changedSince !== undefined
+        ? [
+            request.unreviewedOnly === true,
+            request.changedSince === undefined
+              ? null
+              : new Date(request.changedSince).toISOString(),
+          ]
+        : []),
     ]);
     let query = this.scoped();
     if (request.status !== undefined)
@@ -128,6 +136,10 @@ export class CommunityDiscussions {
       query = query.where("created_at", ">=", new Date(request.from));
     if (request.to !== undefined)
       query = query.where("created_at", "<=", new Date(request.to));
+    if (request.unreviewedOnly === true)
+      query = query.whereRef("content_revision", ">", "reviewed_revision");
+    if (request.changedSince !== undefined)
+      query = query.where("updated_at", ">=", new Date(request.changedSince));
     if (request.cursor !== undefined) {
       let cursor: z.infer<typeof cursorSchema>;
       try {
@@ -229,6 +241,9 @@ export class CommunityDiscussions {
           request.discussionId,
           request.status,
           request.materialUrls,
+          ...(request.expectedRevision === undefined
+            ? []
+            : [request.expectedRevision]),
         ]),
       )
       .digest("hex");
@@ -249,12 +264,29 @@ export class CommunityDiscussions {
           throw new CommunityDiscussionsError("operation_conflict");
         return receipt.response;
       }
+      const current = await tx
+        .selectFrom("community_discussions")
+        .selectAll()
+        .where("id", "=", request.discussionId)
+        .where("bot_identity", "=", this.config.botIdentity)
+        .where("chat_id", "=", this.config.canonicalChatId)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!current) throw new CommunityDiscussionsError("not_found");
+      if (
+        request.expectedRevision !== undefined &&
+        request.expectedRevision !== current.content_revision
+      )
+        throw new CommunityDiscussionsError("operation_conflict");
       const row = await tx
         .updateTable("community_discussions")
         .set({
           status: request.status,
           material_urls: JSON.stringify(request.materialUrls),
-          updated_at: this.clock.now(),
+          reviewed_revision:
+            request.status === "reviewed" || request.status === "used"
+              ? current.content_revision
+              : 0,
         })
         .where("id", "=", request.discussionId)
         .where("bot_identity", "=", this.config.botIdentity)
