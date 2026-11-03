@@ -396,9 +396,12 @@ def verify_telegram(manifest, state, record):
              '/integrations/platform/v1/community-entitlements', '/integrations/platform/v2/communications',
              '/integrations/identity/v1/sign-in']
     paths += ['/integrations/identity/v1/sign-in/release-probe/' + suffix for suffix in ['status', 'consume', 'account-link']]
+    discussions = '/integrations/platform/v1/community-discussions'
+    paths.append(discussions)
     routes = [(method, path, 401 if method == 'POST' else 404) for path in paths for method in ['POST', 'GET']]
     routes += [('GET', '/ready', 404), ('GET', '/metrics', 404), ('POST', '/unknown', 404),
-               ('POST', paths[2] + '/nested', 404), ('POST', paths[6] + '/nested', 404)]
+               ('POST', paths[2] + '/nested', 404), ('POST', paths[6] + '/nested', 404),
+               ('POST', discussions + '/nested', 404)]
     for method, path, expected in routes:
         status, _ = http('https://telegram.sachkov.dev' + path, method, 'telegram.sachkov.dev')
         record.append(check(method + ' ' + path, status == expected, 'expected allowlist/authentication boundary'))

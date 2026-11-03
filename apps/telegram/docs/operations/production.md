@@ -601,6 +601,7 @@ curl --silent --output /dev/null --write-out '%{http_code}\n' \
 | `/integrations/platform/v1/identity-links`, `/identity-links/<ref>/confirm` | Platform API |
 | `/integrations/platform/v1/community-entitlements` | Platform billing-worker |
 | `/integrations/platform/v2/communications` | Platform API и MCP |
+| `/integrations/platform/v1/community-discussions` | Platform MCP |
 | `/integrations/platform/v1/telegram-contacts`, `/integrations/platform/v2/telegram-contacts/read`, `/v2/telegram-contacts/search` | Platform API |
 | `/integrations/identity/v1/sign-in`, `/sign-in/<ref>/status`, `/consume`, `/account-link` | Logto и Platform API |
 
