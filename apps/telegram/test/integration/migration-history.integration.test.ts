@@ -147,14 +147,8 @@ it.each(["communications-first", "sign-in-first"] as const)(
     await assertPreserved();
     await migrateToLatest(database);
     await assertPreserved();
-    // Empty 044, 043, 042, 041, 040, 039 and 038 roll back independently; 037 refuses the communication contract rollback.
-    await migrateDown(database);
-    await migrateDown(database);
-    await migrateDown(database);
-    await migrateDown(database);
-    await migrateDown(database);
-    await migrateDown(database);
-    await migrateDown(database);
+    // Later migrations return to the explicit irreversible communications boundary.
+    await migrateTo(database, "037-canonical-communication-sequences");
     await assertPreserved();
     await expect(migrateDown(database)).rejects.toMatchObject({
       message: "Database rollback failed",
@@ -211,12 +205,7 @@ it("preserves legacy restriction receipts without inventing an audit during upgr
   expect(await read()).toEqual(historical);
   await migrateToLatest(database);
   expect(await read()).toEqual(historical);
-  await migrateDown(database);
-  await migrateDown(database);
-  await migrateDown(database);
-  await migrateDown(database);
-  await migrateDown(database);
-  await migrateDown(database);
+  await migrateTo(database, "037-canonical-communication-sequences");
   await expect(migrateDown(database)).rejects.toMatchObject({
     message: "Database rollback failed",
     cause: {

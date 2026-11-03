@@ -283,6 +283,29 @@ async function api(
 }
 
 describe("community discussion processing", () => {
+  it("bounds history search terms without blocking a full batch of distinct message vocabularies", async () => {
+    await capture("10", "Как выбрать инструмент?");
+    await capture("11", "Сначала определите задачу.");
+    await application().get(CommunityDiscussionProcessor).processDue();
+    vi.setSystemTime(now.getTime() + 86_400_000);
+    for (let message = 0; message < 200; message++) {
+      const text = Array.from(
+        { length: 100 },
+        (_, word) => `a${String(message * 100 + word).padStart(5, "0")}`,
+      ).join(" ");
+      await capture(
+        String(1000 + message),
+        text,
+        "42",
+        required(vi.getMockedSystemTime()),
+      );
+    }
+    result.discussions = [];
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 200 });
+    expect(inputs.at(-1)?.messages).toHaveLength(200);
+  });
   it("preserves saved summaries and marks when upgrading existing discussions", async () => {
     await capture("10", "Как выбрать инструмент?");
     await capture("20", "Как выбрать модель?");
