@@ -535,6 +535,7 @@ export const countsSchema = z.strictObject({
   "failed": z.number().int().min(0).max(2147483647),
   "unknown": z.number().int().min(0).max(2147483647),
   "partialCancelled": z.number().int().min(0).max(2147483647),
+  "productAccessSkipped": z.number().int().min(0).max(2147483647).optional(),
   "pending": z.number().int().min(0).max(2147483647),
 });
 

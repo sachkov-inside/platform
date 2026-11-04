@@ -27,6 +27,8 @@ type Counts = {
   failed: number;
   unknown: number;
   partialCancelled: number;
+  /** Recipients the scheduler skipped because they already have Product Access. */
+  productAccessSkipped: number;
   pending: number;
 };
 export type StatisticsResult = {
@@ -228,7 +230,8 @@ export async function readStatistics(
     count(*) filter(where state='failed')::int failed, count(*) filter(where state='unknown')::int unknown,
     count(*) filter(where state in ('pending','in_flight'))::int pending,
     (select count(*)::int from deliveries where completed_at is not null and parts @> '[{"state":"sent"}]'::jsonb
-      and (parts @> '[{"state":"cancelled"}]'::jsonb or parts @> '[{"state":"suppressed"}]'::jsonb)) as "partialCancelled"
+      and (parts @> '[{"state":"cancelled"}]'::jsonb or parts @> '[{"state":"suppressed"}]'::jsonb)) as "partialCancelled",
+    (select count(*)::int from deliveries where cancellation_reason='product_access') as "productAccessSkipped"
     from parts`.execute(tx);
   const hits = await sql<{
     hits: number;

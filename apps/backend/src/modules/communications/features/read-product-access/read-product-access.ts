@@ -28,7 +28,8 @@ export async function readProductAccess(
   const states = await resolve(accountIds.map((id) => accountId(id)));
   const withAccess: string[] = [];
   for (const identityRef of request.telegramIdentityRefs) {
-    const account = current.accounts.get(identityRef);
+    // The link read keys identities by their trimmed spelling.
+    const account = current.accounts.get(identityRef.trim());
     if (account === undefined) continue;
     const state = states.get(account);
     if (

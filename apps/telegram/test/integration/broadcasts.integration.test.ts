@@ -1468,6 +1468,13 @@ describe("marketing skips contacts with Product Access", () => {
       command("broadcasts.read", { broadcastId: value.broadcastId }),
     );
     expect(read.json<CommunicationsBody>().broadcast.state).toBe("completed");
+    const stats = await http(
+      command("statistics.read", { broadcastId: value.broadcastId }),
+    );
+    expect(responseValidator(stats.json<CommunicationsBody>())).toBe(true);
+    expect(
+      stats.json<CommunicationsBody>().statistics.deliveries,
+    ).toMatchObject({ sent: 2, productAccessSkipped: 1 });
   });
 
   it("a broadcast to everyone also reaches buyers without asking Platform", async () => {

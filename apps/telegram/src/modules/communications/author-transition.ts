@@ -168,7 +168,7 @@ function step(t: Turn, event: AuthorEvent): void {
           ? ""
           : `Активных записей при запуске: ${audience.active}\nПолучателей в снимке: ${audience.eligible}\nНедоступно при запуске: ${audience.excluded}\n`;
       return t.reply(
-        `Результаты рассылки\n${summary}Отправлено: ${d.sent}\nОжидает: ${d.pending}\nПропущено: ${d.suppressed}\nОшибки: ${d.failed}\nНеизвестный результат: ${d.unknown}\nЧастично отменено: ${d.partialCancelled}\nОбновите статус, чтобы увидеть новые результаты.`,
+        `Результаты рассылки\n${summary}Отправлено: ${d.sent}\nОжидает: ${d.pending}\nПропущено: ${d.suppressed}\nОшибки: ${d.failed}\nНеизвестный результат: ${d.unknown}\nЧастично отменено: ${d.partialCancelled}${isTruthy(d.productAccessSkipped) ? `\nНе отправлено купившим курс: ${d.productAccessSkipped}` : ""}\nОбновите статус, чтобы увидеть новые результаты.`,
         [["К рассылке", { kind: "read-broadcast", id: event.broadcastId }]],
       );
     }

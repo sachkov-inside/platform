@@ -95,13 +95,14 @@ test("reports only the identities whose Account has Product Access", async () =>
       `identity-${buyer}`,
       `identity-${reader}`,
       "identity-without-account",
+      ` identity-${buyer} `,
     ],
   });
   expect(response.statusCode).toBe(200);
   expect(response.json()).toEqual({
     contractVersion: "inside-communications-v2",
     requestId,
-    withAccess: [`identity-${buyer}`],
+    withAccess: [`identity-${buyer}`, ` identity-${buyer} `],
   });
 });
 

@@ -616,7 +616,8 @@ Platform owns the answer. Telegram calls the service-authenticated
 `POST /integrations/telegram/v2/communications/product-access` beside the configured author
 authorization endpoint, with the same secret. The shared `productAccessRequest/Response`
 definitions own its closed envelope: at most 100 Telegram identity refs in, the subset whose current
-Account has active Product Access out. An unlinked, ambiguous or unknown identity has no access.
+Account has active Product Access out. An unlinked, ambiguous or unknown identity has no access. Like
+the waitlist and material routes, it trusts the bot's service credential and takes no author actor.
 Without the author authorization configuration nobody is known to have access, and marketing is
 not narrowed.
 
@@ -626,7 +627,8 @@ access, the delivery is cancelled with reason `product_access` and nothing is se
 completes, so the next step is planned at its own due time and checked again; a revoked access
 therefore resumes the sequence. An unavailable answer sends nothing and retries on a later cycle.
 The audience snapshot keeps buyers, so `broadcasts.read` snapshot size counts them.
-`deliveries.read` shows their cancellation; `statistics.read` counts no cancelled part. The check runs at claim time, so a purchase during an already
+`deliveries.read` shows their cancellation, and `statistics.read` counts these recipients in the
+optional `productAccessSkipped`. The bot's broadcast results name them «Не отправлено купившим курс». The check runs at claim time, so a purchase during an already
 admitted provider call cannot recall that message.
 
 ## Broadcast messages and saved posts in the bot (#37, #101)

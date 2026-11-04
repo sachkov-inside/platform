@@ -166,6 +166,7 @@ describe("main menu", () => {
         failed: 0,
         unknown: 0,
         partialCancelled: 0,
+        productAccessSkipped: 0,
       },
     });
 
@@ -175,6 +176,30 @@ describe("main menu", () => {
     expect(() =>
       transition(dialog.state, { kind: "statistics-read" }, dialog.env),
     ).toThrow("malformed");
+  });
+
+  it("names the buyers a broadcast skipped in its results", () => {
+    const dialog = new Dialog({
+      ...emptyAuthorState("menu"),
+      actions: [{ kind: "statistics" }],
+      broadcast: broadcast({ state: "completed", revision: 2 }),
+    }).send({ kind: "callback", data: "author:menu:0" });
+    dialog.send({
+      kind: "statistics-read",
+      broadcastId: uuid(900),
+      deliveries: {
+        sent: 2,
+        pending: 0,
+        suppressed: 0,
+        failed: 0,
+        unknown: 0,
+        partialCancelled: 0,
+        productAccessSkipped: 1,
+      },
+    });
+    expect(required(dialog.menu).text).toContain(
+      "Не отправлено купившим курс: 1",
+    );
   });
 
   it("keeps an edited sequence as a draft when the author goes home", () => {
