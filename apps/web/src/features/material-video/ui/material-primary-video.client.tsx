@@ -84,6 +84,13 @@ export function MaterialPrimaryVideo({
   const [activeChapter, setActiveChapter] = useState<number | null>(null);
   const [phase, setPhase] = useState<PlayerPhase>("loading");
   const [retryAttempt, setRetryAttempt] = useState(0);
+  // Where a player error interrupted the viewer: the next player starts there.
+  const interruptedAtRef = useRef<{
+    readonly seconds: number;
+    readonly videoId: string;
+  } | null>(null);
+  // The current player replaced a failed one and has not played on since.
+  const recoveringRef = useRef(false);
   const [measuredDuration, setMeasuredDuration] = useState<number | null>(null);
   const anonymousWatched = useSyncExternalStore(
     subscribeAnonymousProgress,
@@ -259,12 +266,19 @@ export function MaterialPrimaryVideo({
           savedPositionSeconds,
           duration,
         );
-        const resumeSeconds = resolveVideoStartPosition(
-          savedPositionSeconds,
-          duration,
-          new URL(requestedHref).hash,
-        );
+        const interruptedAt =
+          interruptedAtRef.current?.videoId === video.videoId
+            ? Math.min(duration, interruptedAtRef.current.seconds)
+            : null;
+        const resumeSeconds =
+          interruptedAt ??
+          resolveVideoStartPosition(
+            savedPositionSeconds,
+            duration,
+            new URL(requestedHref).hash,
+          );
         let currentTime = resumeSeconds ?? 0;
+        const startSeconds = currentTime;
         showChapterAt(currentTime);
         let pendingSeek: number | null = null;
         let seeking = false;
@@ -325,10 +339,29 @@ export function MaterialPrimaryVideo({
           ({ data: { currentTime: nextTime } }) => {
             currentTime = nextTime;
             showChapterAt(nextTime);
+            if (Math.abs(nextTime - startSeconds) >= 1)
+              recoveringRef.current = false;
             if (Math.abs(currentTime - lastPersisted) >= 15)
               persist(currentTime);
           },
         );
+        // Kinescope may ask for a licence long after the session was issued; the provider's own
+        // «Обновить» repeats the same token. A new session recovers where the viewer was. A
+        // replacement that fails before it plays is not a stale session: the Reader asks.
+        player.on(player.Events.Error, () => {
+          if (!isActive()) return;
+          interruptedAtRef.current = {
+            seconds: currentTime,
+            videoId: video.videoId,
+          };
+          if (recoveringRef.current) {
+            setPhase("error");
+            return;
+          }
+          recoveringRef.current = true;
+          setPhase("loading");
+          setRetryAttempt((attempt) => attempt + 1);
+        });
         player.on(player.Events.Pause, () => {
           persist(currentTime);
         });
