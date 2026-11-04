@@ -378,6 +378,9 @@
               "enum": [
                 "all"
               ]
+            },
+            "excludeProductAccess": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -401,6 +404,9 @@
               },
               "minItems": 1,
               "maxItems": 100
+            },
+            "excludeProductAccess": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -3735,6 +3741,65 @@
         "active",
         "eligible",
         "excluded"
+      ]
+    },
+    "productAccessRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contractVersion": {
+          "enum": [
+            "inside-communications-v2"
+          ]
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "telegramIdentityRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "minItems": 1,
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "contractVersion",
+        "requestId",
+        "telegramIdentityRefs"
+      ]
+    },
+    "productAccessResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contractVersion": {
+          "enum": [
+            "inside-communications-v2"
+          ]
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "withAccess": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "contractVersion",
+        "requestId",
+        "withAccess"
       ]
     },
     "historicalReceipt": {

@@ -11,6 +11,12 @@ import {
   type WaitlistAuthorizationResult,
 } from "./waitlist-authorization.js";
 import {
+  PRODUCT_ACCESS,
+  UnknownProductAccess,
+  productAccessOf,
+  type ProductAccess,
+} from "./product-access.js";
+import {
   SIGN_IN_REPLY_ELIGIBILITY,
   type SignInReplyEligibility,
 } from "../outbound/sign-in-reply-eligibility.js";
@@ -126,6 +132,9 @@ export class SequenceScheduler {
     @Optional()
     @Inject(MaterialAnnouncements)
     private readonly materialAnnouncements?: MaterialAnnouncements,
+    @Optional()
+    @Inject(PRODUCT_ACCESS)
+    private readonly productAccess: ProductAccess = new UnknownProductAccess(),
   ) {}
   async assertConfigured(): Promise<void> {
     if (!this.config.marketingEnabled) return;
@@ -525,6 +534,7 @@ export class SequenceScheduler {
     if (!delivery || !part) return { kind: "released" };
     let waitlistQuery: WaitlistDispatchQuery | undefined;
     let materialAnnouncement: string | undefined;
+    let excludeProductAccess = delivery.kind === "step";
     if (delivery.broadcast_id !== null) {
       const broadcast = await tx
         .selectFrom("communication_broadcasts")
@@ -547,6 +557,9 @@ export class SequenceScheduler {
       }
       if (materialStatus === "current")
         materialAnnouncement = broadcast.broadcast_id;
+      excludeProductAccess =
+        broadcast.audience.kind !== "waitlist" &&
+        broadcast.audience.excludeProductAccess === true;
       if (broadcast.audience.kind === "waitlist") {
         const recipient = await tx
           .selectFrom("communication_waitlist_recipients")
@@ -602,6 +615,33 @@ export class SequenceScheduler {
           await cancelDelivery(tx, delivery, now, "waitlist_ineligible");
           return { kind: "released" };
         }
+      }
+    }
+    if (excludeProductAccess) {
+      // Marketing skips people who already have the course; a contact without a link has no
+      // known Account, so it still receives the message.
+      const link = await findPlatformLink(tx, {
+        botIdentity: this.config.botIdentity,
+        telegramUserId: candidate.telegram_user_id,
+      });
+      const access =
+        link &&
+        (await productAccessOf(this.productAccess, link.telegramIdentityRef));
+      if (access === "unavailable") return { kind: "capacity_busy" };
+      if (access === "access") {
+        await cancelDelivery(tx, delivery, now, "product_access");
+        if (delivery.broadcast_id === null)
+          // The next step gets its own due time and check, so a revoked access resumes the sequence.
+          await reconcileSequences(tx, this.config.botIdentity, now, {
+            contactId: delivery.contact_id,
+          });
+        else
+          await completeBroadcasts(
+            tx,
+            this.config.botIdentity,
+            delivery.broadcast_id,
+          );
+        return { kind: "released" };
       }
     }
     if (waitlistQuery === undefined && materialAnnouncement === undefined) {

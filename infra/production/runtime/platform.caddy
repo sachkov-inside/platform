@@ -78,6 +78,13 @@ sachkov.dev, inside.sachkov.dev {
 		}
 		reverse_proxy @communications_waitlist {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
+		# Доступ к продукту у получателей маркетинга бота: тот же отдельный bearer communications.
+		@communications_product_access {
+			method POST
+			path /integrations/telegram/v2/communications/product-access
+		}
+		reverse_proxy @communications_product_access {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
 		@communications_materials {
 			method POST
 			path /integrations/telegram/v2/communications/materials

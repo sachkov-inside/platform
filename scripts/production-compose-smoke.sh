@@ -946,6 +946,8 @@ for host in sachkov.dev inside.sachkov.dev; do
   assert_public_status POST /integrations/telegram/v2/communications/waitlist 401 "$host" \
     --header 'Authorization: Bearer synthetic-wrong-waitlist-service-credential'
   assert_public_status GET /integrations/telegram/v2/communications/waitlist 404 "$host"
+  assert_public_status POST /integrations/telegram/v2/communications/product-access 401 "$host"
+  assert_public_status GET /integrations/telegram/v2/communications/product-access 404 "$host"
   assert_public_status POST /integrations/telegram/v2/communications/materials 401 "$host"
   assert_public_status GET /integrations/telegram/v2/communications/materials 404 "$host"
   assert_public_status POST /integrations/telegram/v2/communications/materials/unknown 404 "$host"

@@ -43,6 +43,11 @@ import {
 } from "./modules/communications/waitlist-confirmations.js";
 import { HttpWaitlistConfirmationAdapter } from "./adapters/platform/http-waitlist-confirmation.adapter.js";
 import { HttpWaitlistAuthorizationAdapter } from "./adapters/platform/http-waitlist-authorization.adapter.js";
+import { HttpProductAccessAdapter } from "./adapters/platform/http-product-access.adapter.js";
+import {
+  PRODUCT_ACCESS,
+  UnknownProductAccess,
+} from "./modules/communications/product-access.js";
 import {
   WAITLIST_AUTHORIZATION,
   DisabledWaitlistAuthorization,
@@ -496,6 +501,17 @@ export class AppModule {
                   config.platformAuthorAuthorizationSecret,
                 )
               : new DisabledWaitlistAuthorization(),
+        },
+        {
+          provide: PRODUCT_ACCESS,
+          useFactory: () =>
+            hasText(config.platformAuthorAuthorizationUrl) &&
+            hasText(config.platformAuthorAuthorizationSecret)
+              ? new HttpProductAccessAdapter(
+                  config.platformAuthorAuthorizationUrl,
+                  config.platformAuthorAuthorizationSecret,
+                )
+              : new UnknownProductAccess(),
         },
         {
           provide: COMMUNICATION_TRANSPORT,

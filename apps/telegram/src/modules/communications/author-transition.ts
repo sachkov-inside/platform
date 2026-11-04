@@ -88,6 +88,7 @@ type BroadcastAction = Extract<
       | "statistics"
       | "confirm-launch"
       | "confirm-cancel"
+      | "launch-buyers"
       | "launch"
       | "pause"
       | "resume"
@@ -429,6 +430,7 @@ function perform(t: Turn, a: AuthorAction): void {
     case "statistics":
     case "confirm-launch":
     case "confirm-cancel":
+    case "launch-buyers":
     case "launch":
     case "pause":
     case "resume":
@@ -550,21 +552,48 @@ function performOnBroadcast(
       return saveBroadcast(t, { kind: "card" });
     case "statistics":
       return t.ask({ kind: "read-statistics", broadcastId: b.broadcastId });
+    case "launch-buyers":
+      if (b.audience.kind !== "all")
+        throw new CommunicationsError("revision_conflict");
+      b.audience = {
+        kind: "all",
+        excludeProductAccess: a.value === "exclude",
+      };
+      return saveBroadcast(t, { kind: "confirm-launch" });
     case "confirm-launch":
     case "confirm-cancel":
       if (a.kind === "confirm-launch" && b.audience.kind === "sequences") {
-        b.audience = { kind: "all" };
+        b.audience = {
+          kind: "all",
+          excludeProductAccess: b.audience.excludeProductAccess === true,
+        };
         return saveBroadcast(t, { kind: "confirm-launch" });
       }
-      return t.reply(
-        a.kind === "confirm-launch"
-          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "waitlist" ? "список ожидания выбранного набора" : b.audience.kind === "all" ? "все доступные контакты" : `выбранные последовательности: ${b.audience.sequenceIds.length}, без дублей`}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
-          : "Отменить рассылку? Уже отправленные сообщения останутся у получателей.",
-        [
+      if (a.kind === "confirm-cancel")
+        return t.reply(
+          "Отменить рассылку? Уже отправленные сообщения останутся у получателей.",
           [
-            a.kind === "confirm-launch" ? "Запустить рассылку" : "Да, отменить",
-            { kind: a.kind === "confirm-launch" ? "launch" : "cancel" },
+            ["Да, отменить", { kind: "cancel" }],
+            ["Назад", { kind: "read-broadcast", id: b.broadcastId }],
           ],
+        );
+      return t.reply(
+        `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${audienceText(b.audience)}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`,
+        [
+          ["Запустить рассылку", { kind: "launch" }],
+          ...(b.audience.kind === "all"
+            ? [
+                (b.audience.excludeProductAccess === true
+                  ? [
+                      "Отправить и купившим курс",
+                      { kind: "launch-buyers", value: "include" },
+                    ]
+                  : [
+                      "Не отправлять купившим курс",
+                      { kind: "launch-buyers", value: "exclude" },
+                    ]) as AuthorButton,
+              ]
+            : []),
           ["Назад", { kind: "read-broadcast", id: b.broadcastId }],
         ],
       );
@@ -593,6 +622,17 @@ function performOnBroadcast(
   }
 }
 
+/** Who receives the broadcast, as the author reads it before launch and on the card. */
+function audienceText(audience: AuthorBroadcast["audience"]): string {
+  if (audience.kind === "waitlist") return "список ожидания выбранного набора";
+  const buyers =
+    audience.excludeProductAccess === true
+      ? "кроме купивших курс"
+      : "включая купивших курс";
+  if (audience.kind === "all") return `все доступные контакты, ${buyers}`;
+  return `выбранные последовательности: ${audience.sequenceIds.length}, без дублей, ${buyers}`;
+}
+
 function selectedBroadcast(t: Turn): AuthorBroadcast {
   const b = t.state.broadcast;
   if (!b) throw new CommunicationsError("not_found");
@@ -614,7 +654,8 @@ function newBroadcast(
     revision: 0,
     state: "draft",
     parts: parts.map((p) => ({ ...p, partId: t.newId() })),
-    audience: { kind: "all" },
+    // Marketing does not reach people who already have the course unless the author asks.
+    audience: { kind: "all", excludeProductAccess: true },
     scheduledAt: null,
     audienceSnapshotId: null,
     snapshotSize: 0,
@@ -728,7 +769,7 @@ function broadcastCard(t: Turn) {
       )
       .join(
         "\n",
-      )}${b.parts.length > 5 ? `\nЕщё сообщений: ${b.parts.length - 5}` : ""}\nКому: всем доступным подписчикам.${b.state === "draft" ? " Время сообщений отсчитывается от запуска." : ""}`,
+      )}${b.parts.length > 5 ? `\nЕщё сообщений: ${b.parts.length - 5}` : ""}\nКому: ${audienceText(b.audience)}.${b.state === "draft" ? " Время сообщений отсчитывается от запуска." : ""}`,
     [
       ...pending,
       ...(b.state === "draft" && !isTruthy(pending.length)

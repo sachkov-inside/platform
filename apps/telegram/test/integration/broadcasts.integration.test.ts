@@ -40,6 +40,11 @@ import type {
   MessagePart,
 } from "../../src/modules/communications/sequence-types.js";
 import { CLOCK } from "../../src/shared/clock.js";
+import {
+  PRODUCT_ACCESS,
+  type ProductAccess,
+  type ProductAccessResult,
+} from "../../src/modules/communications/product-access.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
@@ -93,6 +98,18 @@ const transport = {
 const authorization = {
   authorize: vi.fn(() => Promise.resolve("allowed")),
 };
+// Telegram identities whose Account has Product Access, as Platform would answer.
+const buyers = new Set<string>();
+let accessAvailable = true;
+const productAccess = {
+  read: vi.fn<ProductAccess["read"]>((refs): Promise<ProductAccessResult> =>
+    Promise.resolve(
+      accessAvailable
+        ? { status: "ok", withAccess: refs.filter((ref) => buyers.has(ref)) }
+        : { status: "unavailable" },
+    ),
+  ),
+};
 let app: NestFastifyApplication;
 let sequences: CommunicationSequences;
 let scheduler: SequenceScheduler;
@@ -109,6 +126,8 @@ beforeAll(async () => {
     .useValue(authorization)
     .overrideProvider(COMMUNICATION_TRANSPORT)
     .useValue(transport)
+    .overrideProvider(PRODUCT_ACCESS)
+    .useValue(productAccess)
     .overrideProvider(TELEGRAM_MESSAGES)
     .useValue({
       sendText: () =>
@@ -136,6 +155,12 @@ beforeEach(async () => {
   sent.length = 0;
   transport.send.mockClear();
   authorization.authorize.mockResolvedValue("allowed");
+  await sql`truncate platform_links, link_transactions cascade`.execute(
+    database,
+  );
+  buyers.clear();
+  accessAvailable = true;
+  productAccess.read.mockClear();
 });
 afterAll(async () => {
   await sql`truncate communication_broadcasts cascade`.execute(database);
@@ -1375,4 +1400,135 @@ describe("broadcast elapsed schedule", () => {
       );
     },
   );
+});
+
+/** A confirmed Platform link of one bot contact, with an opaque identity derived from its user. */
+async function linkContact(user: string) {
+  await database
+    .insertInto("link_transactions")
+    .values({
+      account_ref: `account-${user}`,
+      bot_identity: "inside",
+      candidate_telegram_user_id: user,
+      confirmed_at: now,
+      expires_at: now,
+      link_transaction_ref: `link-${user}`,
+      received_at: now,
+      registered_at: now,
+      return_correlation: `return-${user}`,
+      state: "linked",
+      token_digest: user.padEnd(43, "a"),
+    })
+    .execute();
+  await database
+    .insertInto("platform_links")
+    .values({
+      account_ref: `account-${user}`,
+      bot_identity: "inside",
+      evidence_version: 0,
+      last_membership_observation_at: null,
+      last_membership_observation_update_id: null,
+      link_transaction_ref: `link-${user}`,
+      linked_at: now,
+      telegram_identity_ref: `identity-${user}`,
+      telegram_user_id: user,
+    })
+    .execute();
+  return `identity-${user}`;
+}
+
+describe("marketing skips contacts with Product Access", () => {
+  async function drain(seconds = 3) {
+    for (let round = 0; round < seconds; round++) {
+      now = new Date(+now + 1000);
+      await scheduler.processAvailable();
+    }
+  }
+  function recipients() {
+    return sent.map((message) => message.chatId).toSorted();
+  }
+
+  it("a broadcast that excludes buyers reaches unlinked and linked contacts without access", async () => {
+    for (const user of ["42", "43", "44"]) await oldContact(user);
+    buyers.add(await linkContact("42"));
+    await linkContact("43");
+    const { value } = await launch(
+      broadcast([part("offer")], null, {
+        kind: "all",
+        excludeProductAccess: true,
+      }),
+    );
+    await drain();
+    expect(recipients()).toEqual(["43", "44"]);
+    const deliveries = await broadcastDeliveries(value.broadcastId);
+    expect(
+      deliveries.map((delivery) => delivery.cancellation_reason).toSorted(),
+    ).toEqual([null, null, "product_access"]);
+    const read = await http(
+      command("broadcasts.read", { broadcastId: value.broadcastId }),
+    );
+    expect(read.json<CommunicationsBody>().broadcast.state).toBe("completed");
+  });
+
+  it("a broadcast to everyone also reaches buyers without asking Platform", async () => {
+    for (const user of ["42", "43"]) await oldContact(user);
+    buyers.add(await linkContact("42"));
+    await launch(broadcast([part("news")]));
+    await drain();
+    expect(recipients()).toEqual(["42", "43"]);
+    expect(productAccess.read).not.toHaveBeenCalled();
+  });
+
+  it("sequence steps skip a buyer and resume after the access is revoked", async () => {
+    await setup();
+    await start("1", undefined, "42");
+    await start("2", undefined, "43");
+    const buyer = await linkContact("42");
+    buyers.add(buyer);
+    const skipped = () =>
+      database
+        .selectFrom("communication_deliveries")
+        .select("delivery_id")
+        .where("kind", "=", "step")
+        .where("cancellation_reason", "=", "product_access")
+        .execute();
+    for (
+      let second = 0;
+      second < 30 && (await skipped()).length === 0;
+      second++
+    )
+      await drain(1);
+    expect(await skipped()).toHaveLength(1);
+    buyers.delete(buyer);
+    await drain(30);
+    const texts = (user: string) =>
+      sent
+        .filter((message) => message.chatId === user)
+        .map((message) => message.content.text);
+    // The reply to the buyer's own /start stays; the first delayed step does not.
+    expect(texts("42")).toEqual(["intro", "general:entry", "general:step2"]);
+    expect(texts("43")).toEqual([
+      "intro",
+      "general:entry",
+      "general:step1",
+      "general:step2",
+    ]);
+  });
+
+  it("an unavailable Platform answer holds the message until access can be checked", async () => {
+    await oldContact("42");
+    await linkContact("42");
+    accessAvailable = false;
+    await launch(
+      broadcast([part("offer")], null, {
+        kind: "all",
+        excludeProductAccess: true,
+      }),
+    );
+    await drain();
+    expect(sent).toHaveLength(0);
+    accessAvailable = true;
+    await drain();
+    expect(recipients()).toEqual(["42"]);
+  });
 });

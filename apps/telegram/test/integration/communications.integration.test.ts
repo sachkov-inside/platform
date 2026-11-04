@@ -1264,7 +1264,7 @@ describe("simple sequential authoring", () => {
       type: "voice",
       fileId: "prepared-voice",
     });
-    expect(b.audience).toEqual({ kind: "all" });
+    expect(b.audience).toEqual({ kind: "all", excludeProductAccess: true });
     const labels = required((await sessionState()).menu).buttons.map(
       ([label]) => label,
     );
