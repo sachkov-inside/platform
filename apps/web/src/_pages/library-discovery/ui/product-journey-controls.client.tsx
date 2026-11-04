@@ -821,7 +821,7 @@ function MaterialCatalog({
         <label className="flex items-center gap-2 text-xs text-muted-foreground sm:text-sm">
           <span>Порядок</span>
           <select
-            className="min-h-8 rounded-lg bg-muted px-2 font-semibold text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            className="min-h-11 rounded-lg bg-muted px-2 text-base font-semibold text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:min-h-8 sm:text-sm"
             onChange={(event) => {
               setOrder(
                 event.currentTarget.value === "programme" ? "programme" : "new",
