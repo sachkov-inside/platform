@@ -8,6 +8,7 @@ import { advisoryLockWaiting } from "../support/advisory-lock-wait.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
+import { DATABASE } from "../../src/database/database.js";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   FastifyAdapter,
@@ -111,6 +112,7 @@ const blockedRepliesTest = it.extend<{ blockedReplies: number }>({
 });
 
 async function createFixture() {
+  let reads = 0;
   const sent: { message: CommunicationMessage; at: number }[] = [];
   let beganDispatch!: () => void;
   const dispatchStarted = new Promise<void>((resolve) => {
@@ -123,6 +125,17 @@ async function createFixture() {
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
+    .overrideProvider(DATABASE)
+    .useFactory({
+      factory: () =>
+        createDatabase(required(databaseUrl)).withPlugin({
+          transformQuery(args) {
+            if (args.node.kind === "SelectQueryNode") reads += 1;
+            return args.node;
+          },
+          transformResult: (args) => Promise.resolve(args.result),
+        }),
+    })
     // The webhook and the shared 40 ms transport lane use the same advancing virtual Date.
     .overrideProvider(CLOCK)
     .useValue({ now: () => runtimeClock.now() })
@@ -160,7 +173,13 @@ async function createFixture() {
     await nest.close();
     throw error;
   }
-  return { app: nest, sent, dispatchStarted, replyReceived };
+  return {
+    app: nest,
+    sent,
+    dispatchStarted,
+    replyReceived,
+    selectReads: () => reads,
+  };
 }
 beforeAll(async () => {
   await migrateToLatest(database);
@@ -691,6 +710,7 @@ describe("blocked replies", () => {
     "keeps answering new /start behind a head of replies that cannot be sent yet",
     async ({ load }) => {
       const { app, sent } = load;
+      const acceptedAt = performance.now();
       await app.get(TelegramWebhook).accept(config.webhookSecret, {
         update_id: 902,
         message: {
@@ -701,17 +721,36 @@ describe("blocked replies", () => {
           text: "/start",
         },
       });
+      const acceptedMs = performance.now() - acceptedAt;
+      const processingAt = performance.now();
       await app
         .get(TelegramUpdateProcessor)
         .processAvailable(1, runtimeClock.now());
+      const processingMs = performance.now() - processingAt;
       const scheduler = app.get(SequenceScheduler);
+      const readsBefore = load.selectReads();
+      const cycles: { ms: number; reads: number }[] = [];
       for (let cycle = 0; cycle < 5; cycle++) {
+        const began = performance.now();
+        const before = load.selectReads();
         await scheduler.processAvailable();
+        cycles.push({
+          ms: Math.round(performance.now() - began),
+          reads: load.selectReads() - before,
+        });
         if (sent.some((s) => s.message.chatId === "778")) break;
       }
+      console.info("blocked replies load", {
+        acceptedMs: Math.round(acceptedMs),
+        processingMs: Math.round(processingMs),
+        cycles,
+        reads: load.selectReads() - readsBefore,
+      });
       expect(
         sent.map((s) => [s.message.chatId, s.message.content.text]),
       ).toEqual([["778", "intro"]]);
+      // Count actual SQL reads at the database boundary: blocked replies must be filtered as a set.
+      expect(load.selectReads() - readsBefore).toBeLessThan(100);
     },
   );
 });
