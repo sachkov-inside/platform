@@ -2086,6 +2086,7 @@ export class CommunicationsService {
           failed: number;
           partialCancelled: number;
           pending: number;
+          productAccessSkipped?: number;
           sent: number;
           suppressed: number;
           unknown: number;
@@ -3914,6 +3915,7 @@ export class CommunicationsService {
           failed: number;
           partialCancelled: number;
           pending: number;
+          productAccessSkipped?: number;
           sent: number;
           suppressed: number;
           unknown: number;

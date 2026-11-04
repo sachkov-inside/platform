@@ -99795,6 +99795,11 @@
                                       "minimum": 0,
                                       "type": "integer"
                                     },
+                                    "productAccessSkipped": {
+                                      "maximum": 2147483647,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
                                     "sent": {
                                       "maximum": 2147483647,
                                       "minimum": 0,
@@ -113319,6 +113324,11 @@
                                       "type": "integer"
                                     },
                                     "pending": {
+                                      "maximum": 2147483647,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "productAccessSkipped": {
                                       "maximum": 2147483647,
                                       "minimum": 0,
                                       "type": "integer"
