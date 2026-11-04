@@ -85,10 +85,11 @@ async function verifyDiagram(
   ).toBe(true);
 }
 
-async function navigateWithHydrationProof(
+async function verifyWithHydrationProof(
   page: Page,
   href: string,
   narrow: boolean,
+  verify: () => Promise<void>,
 ) {
   let release = () => {
     /* Replaced synchronously by the promise executor. */
@@ -121,6 +122,10 @@ async function navigateWithHydrationProof(
     const after = await composition.boundingBox();
     expect(after?.height).toBeCloseTo(before?.height ?? 0, 0);
     expect(after?.y).toBeCloseTo(before?.y ?? 0, 0);
+    // Removing the last route disables Chromium interception. During a cross-origin image
+    // redirect that can strand the redirected request before it reaches object storage (#1907).
+    // Keep interception through image verification, then tear it down in finally.
+    await verify();
   } finally {
     release();
     await page.unroute("**/_next/**/*.js*");
@@ -147,16 +152,17 @@ test("imported Material and Task c diagrams follow column width and theme with z
   const narrow = (testInfo.project.use.viewport?.width ?? 1440) < 560;
   // The free lesson opens after Telegram sign-in (#1825); the reader is not the subject here.
   await signInFullStack(page.context());
-  await navigateWithHydrationProof(
+  await verifyWithHydrationProof(
     page,
     `/products/${product}/tasks/${code}`,
     narrow,
+    () => verifyDiagram(page, task, narrow),
   );
-  await verifyDiagram(page, task, narrow);
   const lesson = await page
     .getByRole("link", { name: "уроку", exact: true })
     .getAttribute("href");
   if (lesson === null) throw new Error("Missing lesson link");
-  await navigateWithHydrationProof(page, lesson, narrow);
-  await verifyDiagram(page, material, narrow);
+  await verifyWithHydrationProof(page, lesson, narrow, () =>
+    verifyDiagram(page, material, narrow),
+  );
 });
