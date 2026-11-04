@@ -178,12 +178,14 @@ test("payments are the current sales item and their filters live in the address 
 
   await page.getByLabel("С какого дня", { exact: true }).fill("2026-10-24");
   await expect(page).toHaveURL(/&from=2026-10-24$/u);
-  const lastList = (await listCommands(request)).at(-1);
-  expect(lastList).toMatchObject({
-    states: ["unknown"],
-    productId: agents.id,
-    from: "2026-10-23T21:00:00.000Z",
-  });
+  // The URL changes before payments.list arrives; both results contain one row.
+  await expect
+    .poll(async () => (await listCommands(request)).at(-1))
+    .toMatchObject({
+      states: ["unknown"],
+      productId: agents.id,
+      from: "2026-10-23T21:00:00.000Z",
+    });
   await expect(paymentRows(page)).toHaveCount(1);
   await salesAdminEvidence(page, info, "payments-filtered");
 
