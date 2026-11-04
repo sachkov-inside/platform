@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   addFullStackSessionCookie,
   fullStackSessionState,
+  fullStackPageRequest,
   fullStackBrowserJsonRequest,
   fullStackBaseUrl,
   signInFullStack,
@@ -20,6 +21,29 @@ test("renews an access token that has already run out", async ({ context }) => {
   await addFullStackSessionCookie(context, "PAST_EXPIRY");
 
   await expect(fullStackSessionState(context)).resolves.toBe("authenticated");
+});
+
+test("server-renders the Material after renewing an expired session on loopback", async ({
+  context,
+  page,
+}) => {
+  await signInFullStack(context, "PAST_EXPIRY");
+  const cookieName = process.env["FULLSTACK_LOGTO_COOKIE_NAME"];
+  expect(
+    (await context.cookies()).find(({ name }) => name === cookieName)?.secure,
+  ).toBe(true);
+
+  const readerRequest = await fullStackPageRequest(page);
+  try {
+    const response = await readerRequest.get(
+      "/materials/kak-ustroen-inside-platform?from=%2F",
+    );
+    const html = await response.text();
+    expect(response.status()).toBe(200);
+    expect(html).toContain("Первый вертикальный срез");
+  } finally {
+    await readerRequest.dispose();
+  }
 });
 
 test("reports a session it cannot renew as signed out", async ({ context }) => {

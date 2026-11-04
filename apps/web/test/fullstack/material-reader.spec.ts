@@ -12,7 +12,10 @@ import {
   expectLinearProgrammeReturn,
   expectProgrammeReturnTarget,
 } from "../support/linear-programme";
-import { signInFullStack } from "../support/full-stack-session";
+import {
+  fullStackPageRequest,
+  signInFullStack,
+} from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
 import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
@@ -406,12 +409,18 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   expect(guestHtml).not.toContain("Первый вертикальный срез");
   // The representative body is server-rendered to a reader signed in through Telegram.
   await signInFullStack(page.context());
-  const documentResponse = await page.context().request.get(materialHref);
-  const initialHtml = await documentResponse.text();
+  // Renewal sets a Secure cookie that Playwright's HTTP client omits on loopback (#1948).
+  const readerRequest = await fullStackPageRequest(page);
+  try {
+    const documentResponse = await readerRequest.get(materialHref);
+    const initialHtml = await documentResponse.text();
 
-  expect(documentResponse.status()).toBe(200);
-  expect(initialHtml).toContain("Как устроен Inside Platform");
-  expect(initialHtml).toContain("Первый вертикальный срез");
+    expect(documentResponse.status()).toBe(200);
+    expect(initialHtml).toContain("Как устроен Inside Platform");
+    expect(initialHtml).toContain("Первый вертикальный срез");
+  } finally {
+    await readerRequest.dispose();
+  }
 
   const browserResponse = await page.goto(materialHref);
   expect(browserResponse?.status()).toBe(200);
