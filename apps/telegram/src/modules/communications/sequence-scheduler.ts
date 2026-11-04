@@ -349,6 +349,25 @@ export class SequenceScheduler {
         ]),
       )
       .where("b.contactability", "=", "reachable")
+      // Apply the intro prerequisite before paging: blocked entries must not consume the scan
+      // or cause per-contact reads. nextPart still rechecks it after taking the contact lock.
+      .where((eb) =>
+        eb.or([
+          eb("d.sequence_id", "is", null),
+          eb("c.marketing_enabled", "=", false),
+          eb.exists(
+            eb
+              .selectFrom("communication_deliveries as intro")
+              .select("intro.delivery_id")
+              .where(
+                "intro.dedup_key",
+                "=",
+                sql<string>`'intro:' || d.contact_id::text`,
+              )
+              .where("intro.completed_at", "is not", null),
+          ),
+        ]),
+      )
       .where((eb) =>
         eb.or([
           eb("d.broadcast_id", "is", null),
