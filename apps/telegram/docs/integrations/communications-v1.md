@@ -625,8 +625,8 @@ contact with a current Platform link is asked; a contact without one receives th
 access, the delivery is cancelled with reason `product_access` and nothing is sent. A cancelled step
 completes, so the next step is planned at its own due time and checked again; a revoked access
 therefore resumes the sequence. An unavailable answer sends nothing and retries on a later cycle.
-The audience snapshot keeps buyers, so `broadcasts.read` snapshot size counts them; their
-deliveries report the cancellation. The check runs at claim time, so a purchase during an already
+The audience snapshot keeps buyers, so `broadcasts.read` snapshot size counts them.
+`deliveries.read` shows their cancellation; `statistics.read` counts no cancelled part. The check runs at claim time, so a purchase during an already
 admitted provider call cannot recall that message.
 
 ## Broadcast messages and saved posts in the bot (#37, #101)

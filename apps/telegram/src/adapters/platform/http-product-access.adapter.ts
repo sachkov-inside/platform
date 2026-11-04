@@ -14,8 +14,9 @@ const validResponse = contractValidator<{
   readonly requestId: string;
   readonly withAccess: readonly string[];
 }>("productAccessResponse");
-// At most 100 identities of 256 characters each.
-const MAX_RESPONSE_BYTES = 64_000;
+// 100 identities of 256 characters, up to four UTF-8 bytes each, plus the envelope.
+const MAX_RESPONSE_BYTES = 128_000;
+const READ_TIMEOUT_MILLISECONDS = 5_000;
 export class HttpProductAccessAdapter implements ProductAccess {
   private readonly endpoint: string;
   constructor(
@@ -29,7 +30,7 @@ export class HttpProductAccessAdapter implements ProductAccess {
     telegramIdentityRefs: readonly string[],
   ): Promise<ProductAccessResult> {
     const requestId = randomUUID();
-    const signal = AbortSignal.timeout(5000);
+    const signal = AbortSignal.timeout(READ_TIMEOUT_MILLISECONDS);
     try {
       const response = await this.fetcher(this.endpoint, {
         method: "POST",
