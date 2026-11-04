@@ -47,7 +47,6 @@ const DEFAULT_KINESCOPE_WEBHOOK_USERNAME = "inside-local-webhook";
 const DEFAULT_KINESCOPE_WEBHOOK_PASSWORD = "inside-local-webhook-password";
 const DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET =
   "inside-local-kinescope-playback-secret";
-const DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS = "60";
 
 export const PLATFORM_CONFIG = Symbol("PLATFORM_CONFIG");
 
@@ -216,11 +215,6 @@ const kinescopeSchema = z
     callbackUsername: z.string().min(1),
     membershipProjectId: z.string().min(1).max(128),
     playbackJwtSecret: z.string().min(32),
-    playbackJwtTtlSeconds: integerStringSchema(
-      "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS must be an integer between 30 and 300",
-      30,
-      300,
-    ),
     providerMode: z.enum(["real", "test"]),
     publicProjectId: z.string().min(1).max(128),
     // Ed25519 halves of the stand's preview key, base64url as in a JWK (#1808).
@@ -390,7 +384,6 @@ const unusedProductionGroups = {
     KINESCOPE_MEMBERSHIP_PROJECT_ID: "unused-membership-project",
     KINESCOPE_PLAYBACK_JWT_SECRET:
       "unused-playback-secret-at-least-32-characters",
-    KINESCOPE_PLAYBACK_JWT_TTL_SECONDS: "60",
     KINESCOPE_PROVIDER_MODE: "real",
     KINESCOPE_PUBLIC_PROJECT_ID: "unused-public-project",
     KINESCOPE_UPLOADER_BASE_URL: "https://uploader.kinescope.io",
@@ -712,12 +705,6 @@ export function parsePlatformConfig(
         "KINESCOPE_PLAYBACK_JWT_SECRET",
         mode,
         DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET,
-      ),
-      playbackJwtTtlSeconds: readRuntimeValue(
-        environment,
-        "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS",
-        mode,
-        DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS,
       ),
       providerMode:
         presentText(environment["KINESCOPE_PROVIDER_MODE"]?.trim()) ??
@@ -1060,7 +1047,6 @@ function readRuntimeValue(
     | "KINESCOPE_CALLBACK_USERNAME"
     | "KINESCOPE_MEMBERSHIP_PROJECT_ID"
     | "KINESCOPE_PLAYBACK_JWT_SECRET"
-    | "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS"
     | "KINESCOPE_PUBLIC_PROJECT_ID"
     | "KINESCOPE_UPLOADER_BASE_URL"
     | "KINESCOPE_WEBHOOK_PASSWORD"

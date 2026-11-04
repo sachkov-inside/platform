@@ -102,6 +102,13 @@ export function standPreviewKeys(halves: {
   };
 }
 
+/**
+ * Kinescope asks for a licence again long after the page opened: after a pause, a seek or a
+ * quality switch. Each such callback repeats ContentAccess, so the token only binds a viewer to
+ * one recording and lasts a day; a member's token still ends with the membership.
+ */
+export const PLAYBACK_TOKEN_TTL_SECONDS = 24 * 60 * 60;
+
 const STAND_PREVIEW_ISSUER = "inside-stand";
 /** Production accepts no stand preview that lives longer, whatever the stand's TTL. */
 const STAND_PREVIEW_MAX_SECONDS = 300;
@@ -110,7 +117,6 @@ const STAND_PREVIEW_CLOCK_SKEW_SECONDS = 5;
 export function assembleVideoPlayback(dependencies: {
   readonly contentAccess: Pick<ContentAccess, "authorize">;
   readonly jwtSecret: string;
-  readonly jwtTtlSeconds: number;
   readonly standPreview?: StandPreviewKeys;
   readonly videos: Pick<
     Videos,
@@ -178,10 +184,10 @@ export function assembleVideoPlayback(dependencies: {
       const expiresAt =
         decision.reason === "active_membership" && decision.validUntil !== null
           ? Math.min(
-              issuedAt + dependencies.jwtTtlSeconds,
+              issuedAt + PLAYBACK_TOKEN_TTL_SECONDS,
               Math.floor(Date.parse(decision.validUntil) / 1_000),
             )
-          : issuedAt + dependencies.jwtTtlSeconds;
+          : issuedAt + PLAYBACK_TOKEN_TTL_SECONDS;
       // A protected recording needs a token for every viewer, including an anonymous one of a
       // free Material: access is the Material's and may change without moving the recording.
       const standSigning = dependencies.standPreview?.signing;
@@ -209,13 +215,7 @@ export function assembleVideoPlayback(dependencies: {
               )
               .setJti(randomUUID())
               .setIssuedAt(issuedAt)
-              .setExpirationTime(
-                issuedAt +
-                  Math.min(
-                    dependencies.jwtTtlSeconds,
-                    STAND_PREVIEW_MAX_SECONDS,
-                  ),
-              )
+              .setExpirationTime(issuedAt + STAND_PREVIEW_MAX_SECONDS)
               .sign(standSigning)
           : await new SignJWT({
               // The provider callback repeats the same action: a preview token stays a preview.

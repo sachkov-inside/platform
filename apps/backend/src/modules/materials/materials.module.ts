@@ -268,7 +268,6 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
         assembleVideoPlayback({
           contentAccess,
           jwtSecret: config.kinescope.playbackJwtSecret,
-          jwtTtlSeconds: config.kinescope.playbackJwtTtlSeconds,
           standPreview: standPreviewKeys({
             privateKey: config.kinescope.standPreviewPrivateKey,
             publicKey: config.kinescope.standPreviewPublicKey,

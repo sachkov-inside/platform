@@ -356,7 +356,6 @@ describe("оплата, выдача прав и доступ к материа�
       contentAccess: access,
       videos,
       jwtSecret: "synthetic-matrix-playback-key-508",
-      jwtTtlSeconds: 60,
       clock: () => now,
     });
   });
