@@ -255,6 +255,7 @@ edge описано в
 | POST | `/internal/notifications/dispatch/authorize` | Telegram | bearer `NOTIFICATIONS_TELEGRAM_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v2/communications/authorize` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v2/communications/waitlist` | бот Telegram: активная аудитория набора и допуск отправки | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v2/communications/product-access` | бот Telegram: у кого из получателей рассылки или воронки есть доступ к продукту | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v2/communications/materials` | бот Telegram: публичные анонсы ленты и повторная проверка перед отправкой | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v2/communications/validate-content` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/sales-funnel/events` | бот Telegram | bearer `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` | `401 unauthorized` (без настройки — тоже `401`) |

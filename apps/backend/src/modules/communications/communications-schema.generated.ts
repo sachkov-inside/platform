@@ -103,10 +103,12 @@ export const sourceSchema = z.strictObject({
 export const audienceSchema = z.union([
 z.strictObject({
   "kind": z.literal("all"),
+  "excludeProductAccess": z.boolean().optional(),
 }),
 z.strictObject({
   "kind": z.literal("sequences"),
   "sequenceIds": z.array(z.guid()).min(1).max(100),
+  "excludeProductAccess": z.boolean().optional(),
 }),
 z.strictObject({
   "kind": z.literal("waitlist"),
@@ -533,6 +535,7 @@ export const countsSchema = z.strictObject({
   "failed": z.number().int().min(0).max(2147483647),
   "unknown": z.number().int().min(0).max(2147483647),
   "partialCancelled": z.number().int().min(0).max(2147483647),
+  "productAccessSkipped": z.number().int().min(0).max(2147483647).optional(),
   "pending": z.number().int().min(0).max(2147483647),
 });
 
@@ -783,4 +786,16 @@ export const waitlistAudienceResponseSchema = z.strictObject({
   "purchaseUrl": z.url().max(2048),
   "active": z.number().int().min(0).max(10000),
   "members": z.array(waitlistMemberSchema).max(10000),
+});
+
+export const productAccessRequestSchema = z.strictObject({
+  "contractVersion": z.literal("inside-communications-v2"),
+  "requestId": z.guid(),
+  "telegramIdentityRefs": z.array(z.string().min(1).max(256)).min(1).max(100),
+});
+
+export const productAccessResponseSchema = z.strictObject({
+  "contractVersion": z.literal("inside-communications-v2"),
+  "requestId": z.guid(),
+  "withAccess": z.array(z.string().min(1).max(256)).max(100),
 });

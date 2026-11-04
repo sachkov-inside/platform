@@ -33,6 +33,7 @@ const AUTHOR_ACTIONS = {
   "create-broadcast": {},
   home: {},
   launch: {},
+  "launch-buyers": { value: ["include", "exclude"] },
   "menu:page": { value: "required" },
   "move-part": { value: "required" },
   "new-broadcast": {},

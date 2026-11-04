@@ -290,7 +290,8 @@ armed schedule. The originating launch operation remains attached to that record
 returns its original response; read returns the current state and revision.
 
 The audience is all BotContacts or a deduplicated union of owned sequence participations. Legacy contacts
-need no Account or participation. Stop and blocked contacts are excluded at launch. The launch
+need no Account or participation. Stop and blocked contacts are excluded at launch. Either audience
+may set `excludeProductAccess`; see [Marketing without buyers](#marketing-without-buyers). The launch
 locks the audience contact rows, so a concurrent stop or block either excludes the contact or
 cancels its new delivery. After launch, content and audience cannot be edited. Resume preserves the snapshot; cancelled/completed IDs cannot launch
 again. Pause before launch delays the snapshot until resumed. Cancel preserves in-flight/unknown
@@ -603,7 +604,38 @@ intro is checked before save because saving immediately applies it to future rec
 No real Telegram send, marketing enablement or deployment is part of local verification. Author
 samples are queued only for the confirmed author's private chat and use the existing transport gate.
 
+## Marketing without buyers
+
+Marketing does not reach a person who already has Product Access. Sequence steps always apply this
+rule. An ordinary broadcast applies it when its `all` or `sequences` audience sets
+`excludeProductAccess: true`; an absent flag sends to everyone. The intro, entry and fallback
+replies answer the person's own `/start` and stay unchanged. Waitlist notifications, material
+announcements and service notifications keep their own rules.
+
+Platform owns the answer. Telegram calls the service-authenticated
+`POST /integrations/telegram/v2/communications/product-access` beside the configured author
+authorization endpoint, with the same secret. The shared `productAccessRequest/Response`
+definitions own its closed envelope: at most 100 Telegram identity refs in, the subset whose current
+Account has active Product Access out. An unlinked, ambiguous or unknown identity has no access. Like
+the waitlist and material routes, it trusts the bot's service credential and takes no author actor.
+Without the author authorization configuration nobody is known to have access, and marketing is
+not narrowed.
+
+The scheduler asks for each claimed part of such a delivery, outside the claim transaction. Only a
+contact with a current Platform link is asked; a contact without one receives the message. With
+access, the delivery is cancelled with reason `product_access` and nothing is sent. A cancelled step
+completes, so the next step is planned at its own due time and checked again; a revoked access
+therefore resumes the sequence. An unavailable answer sends nothing and retries on a later cycle.
+The audience snapshot keeps buyers, so `broadcasts.read` snapshot size counts them.
+`deliveries.read` shows their cancellation, and `statistics.read` counts these recipients in the
+optional `productAccessSkipped`. The bot's broadcast results name them «Не отправлено купившим курс». The check runs at claim time, so a purchase during an already
+admitted provider call cannot recall that message.
+
 ## Broadcast messages and saved posts in the bot (#37, #101)
+
+A broadcast created in the bot starts with `{ kind: "all", excludeProductAccess: true }`. The card
+and the launch confirmation name the audience. The confirmation offers «Отправить и купившим курс»
+or «Не отправлять купившим курс»; the choice saves the broadcast before launch.
 
 `/admin` → «Рассылки» offers «Сохранённые посты» beside «Создать рассылку». The list pages through
 `templates.list` with a text or type search and returns to the broadcasts. A post card keeps

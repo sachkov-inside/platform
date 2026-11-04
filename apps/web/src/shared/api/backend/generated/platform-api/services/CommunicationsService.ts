@@ -571,8 +571,10 @@ export class CommunicationsService {
       operationId: string;
       payload: {
         audience: ({
+          excludeProductAccess?: boolean;
           kind: 'all';
         } | {
+          excludeProductAccess?: boolean;
           kind: 'sequences';
           sequenceIds: Array<string>;
         } | {
@@ -1852,8 +1854,10 @@ export class CommunicationsService {
     } | {
       broadcast: {
         audience: ({
+          excludeProductAccess?: boolean;
           kind: 'all';
         } | {
+          excludeProductAccess?: boolean;
           kind: 'sequences';
           sequenceIds: Array<string>;
         } | {
@@ -2082,6 +2086,7 @@ export class CommunicationsService {
           failed: number;
           partialCancelled: number;
           pending: number;
+          productAccessSkipped?: number;
           sent: number;
           suppressed: number;
           unknown: number;
@@ -2438,8 +2443,10 @@ export class CommunicationsService {
     } | {
       broadcasts: Array<{
         audience: ({
+          excludeProductAccess?: boolean;
           kind: 'all';
         } | {
+          excludeProductAccess?: boolean;
           kind: 'sequences';
           sequenceIds: Array<string>;
         } | {
@@ -3676,8 +3683,10 @@ export class CommunicationsService {
     } | {
       broadcast: {
         audience: ({
+          excludeProductAccess?: boolean;
           kind: 'all';
         } | {
+          excludeProductAccess?: boolean;
           kind: 'sequences';
           sequenceIds: Array<string>;
         } | {
@@ -3906,6 +3915,7 @@ export class CommunicationsService {
           failed: number;
           partialCancelled: number;
           pending: number;
+          productAccessSkipped?: number;
           sent: number;
           suppressed: number;
           unknown: number;
@@ -4262,8 +4272,10 @@ export class CommunicationsService {
     } | {
       broadcasts: Array<{
         audience: ({
+          excludeProductAccess?: boolean;
           kind: 'all';
         } | {
+          excludeProductAccess?: boolean;
           kind: 'sequences';
           sequenceIds: Array<string>;
         } | {
@@ -4703,6 +4715,31 @@ export class CommunicationsService {
     return this.httpRequest.request({
       method: 'POST',
       url: '/integrations/telegram/v2/communications/materials',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Report which Telegram identities belong to an Account with Product Access
+   * @returns any
+   * @throws ApiError
+   */
+  public readTelegramProductAccess({
+    requestBody,
+  }: {
+    requestBody: {
+      contractVersion: 'inside-communications-v2';
+      requestId: string;
+      telegramIdentityRefs: Array<string>;
+    },
+  }): CancelablePromise<{
+    contractVersion: 'inside-communications-v2';
+    requestId: string;
+    withAccess: Array<string>;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/integrations/telegram/v2/communications/product-access',
       body: requestBody,
       mediaType: 'application/json',
     });

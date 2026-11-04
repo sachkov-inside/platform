@@ -44,8 +44,12 @@ export interface TemplateSnapshot {
 }
 export type BroadcastAudience =
   | { readonly kind: "waitlist"; readonly intakeId: string }
-  | { readonly kind: "all" }
-  | { readonly kind: "sequences"; readonly sequenceIds: readonly string[] };
+  | { readonly kind: "all"; readonly excludeProductAccess?: boolean }
+  | {
+      readonly kind: "sequences";
+      readonly sequenceIds: readonly string[];
+      readonly excludeProductAccess?: boolean;
+    };
 export interface CommunicationsRequest {
   readonly contractVersion: typeof COMMUNICATIONS_VERSION;
   readonly operation: string;

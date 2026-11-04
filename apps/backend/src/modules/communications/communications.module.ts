@@ -1,5 +1,7 @@
 import { ProductReadingModule } from "../products/index.js";
 import { ReadMaterialAnnouncementsController } from "./features/read-material-announcements/read-material-announcements.controller.js";
+import { ReadProductAccessController } from "./features/read-product-access/read-product-access.controller.js";
+import { AccountRightsModule } from "../account-rights/index.js";
 import { ReadWaitlistAudienceController } from "./features/read-waitlist-audience/read-waitlist-audience.controller.js";
 import { BillingModule } from "../billing/index.js";
 import { SalesFunnelModule } from "../sales-funnel/index.js";
@@ -92,8 +94,10 @@ export class TrackingHitPump
     AccountsModule,
     TelegramAccountLinksModule,
     MaterialContentModule,
+    AccountRightsModule,
   ],
   controllers: [
+    ReadProductAccessController,
     ReadMaterialAnnouncementsController,
     ReadWaitlistAudienceController,
     TrackVisitController,

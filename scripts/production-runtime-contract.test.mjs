@@ -46,6 +46,11 @@ const callbackRoutes = [
     "/integrations/telegram/v2/communications/waitlist",
   ],
   [
+    "communications_product_access",
+    "POST",
+    "/integrations/telegram/v2/communications/product-access",
+  ],
+  [
     "communications_materials",
     "POST",
     "/integrations/telegram/v2/communications/materials",

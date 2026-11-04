@@ -166,6 +166,7 @@ describe("main menu", () => {
         failed: 0,
         unknown: 0,
         partialCancelled: 0,
+        productAccessSkipped: 0,
       },
     });
 
@@ -175,6 +176,30 @@ describe("main menu", () => {
     expect(() =>
       transition(dialog.state, { kind: "statistics-read" }, dialog.env),
     ).toThrow("malformed");
+  });
+
+  it("names the buyers a broadcast skipped in its results", () => {
+    const dialog = new Dialog({
+      ...emptyAuthorState("menu"),
+      actions: [{ kind: "statistics" }],
+      broadcast: broadcast({ state: "completed", revision: 2 }),
+    }).send({ kind: "callback", data: "author:menu:0" });
+    dialog.send({
+      kind: "statistics-read",
+      broadcastId: uuid(900),
+      deliveries: {
+        sent: 2,
+        pending: 0,
+        suppressed: 0,
+        failed: 0,
+        unknown: 0,
+        partialCancelled: 0,
+        productAccessSkipped: 1,
+      },
+    });
+    expect(required(dialog.menu).text).toContain(
+      "Не отправлено купившим курс: 1",
+    );
   });
 
   it("keeps an edited sequence as a draft when the author goes home", () => {
@@ -404,7 +429,7 @@ describe("broadcast", () => {
     }).send({ kind: "callback", data: "author:menu:0" });
 
     expect(required(dialog.menu).text).toBe(
-      "Запустить «Анонс»?\n1 сообщений, версия 1.\nКому: все доступные контакты.\nКогда: сразу после подтверждения.",
+      "Запустить «Анонс»?\n1 сообщений, версия 1.\nКому: все доступные контакты, включая купивших курс.\nКогда: сразу после подтверждения.",
     );
     dialog.click("Запустить рассылку");
     expect(dialog.query("change-broadcast")).toEqual({
@@ -425,6 +450,53 @@ describe("broadcast", () => {
       "Результаты отправки",
       "Все рассылки",
     ]);
+  });
+
+  it("lets the author send a broadcast to buyers or keep it away from them before launch", () => {
+    const dialog = new Dialog({
+      ...emptyAuthorState("menu"),
+      actions: [{ kind: "confirm-launch" }],
+      broadcast: broadcast({
+        audience: { kind: "all", excludeProductAccess: true },
+      }),
+      broadcastName: "Анонс",
+    }).send({ kind: "callback", data: "author:menu:0" });
+    expect(required(dialog.menu).text).toContain(
+      "Кому: все доступные контакты, кроме купивших курс.",
+    );
+    expect(dialog.labels()).toEqual([
+      "Запустить рассылку",
+      "Отправить и купившим курс",
+      "Назад",
+    ]);
+
+    dialog.click("Отправить и купившим курс");
+    const save = dialog.query("save-broadcast");
+    expect(save.broadcast.audience).toEqual({
+      kind: "all",
+      excludeProductAccess: false,
+    });
+    expect(save.then).toEqual({ kind: "confirm-launch" });
+    dialog.send({
+      kind: "broadcast-saved",
+      broadcast: { ...save.broadcast, revision: 2 },
+      then: save.then,
+    });
+    expect(required(dialog.menu).text).toContain(
+      "Кому: все доступные контакты, включая купивших курс.",
+    );
+    expect(dialog.labels()).toContain("Не отправлять купившим курс");
+  });
+
+  it("starts a new broadcast without buyers", () => {
+    const dialog = new Dialog({
+      ...emptyAuthorState("menu"),
+      actions: [{ kind: "new-broadcast" }],
+    }).send({ kind: "callback", data: "author:menu:0" });
+    expect(dialog.state.broadcast?.audience).toEqual({
+      kind: "all",
+      excludeProductAccess: true,
+    });
   });
 
   it("keeps the explicit waitlist audience through owner confirmation and launch", () => {
