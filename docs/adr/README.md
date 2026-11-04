@@ -47,6 +47,7 @@ ADR фиксируют причины выбора и компромиссы; т
 | [0041](0041-protected-recording-serves-any-access.md) | Защищённая запись служит уроку с любым доступом |
 | [0042](0042-free-product-lesson-needs-telegram.md) | Бесплатный урок продукта открывает связанный Telegram |
 | [0043](0043-feed-holds-explicitly-placed-materials.md) | Лента показывает только материалы, выложенные в неё автором |
+| [0044](0044-playback-token-lasts-a-day.md) | Токен воспроизведения живёт сутки |
 
 ## Telegram
 

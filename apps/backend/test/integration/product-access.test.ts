@@ -477,7 +477,6 @@ describe("independent product, library, support and shared chat rights", () => {
       contentAccess,
       videos,
       jwtSecret: "synthetic-playback-signing-key-407",
-      jwtTtlSeconds: 60,
       clock: () => now,
     });
     const subject = { kind: "account" as const, accountId: accountId(buyer) };
@@ -700,7 +699,6 @@ describe("independent product, library, support and shared chat rights", () => {
       }),
       videos,
       jwtSecret: "synthetic-playback-signing-key-838",
-      jwtTtlSeconds: 60,
       clock: () => now,
     });
     async function draftWithVideo(access: "free" | "closed") {

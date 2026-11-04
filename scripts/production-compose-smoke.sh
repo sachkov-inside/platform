@@ -268,7 +268,6 @@ KINESCOPE_CALLBACK_PASSWORD=inside-production-smoke-callback-password
 KINESCOPE_WEBHOOK_USERNAME=inside-production-smoke-webhook
 KINESCOPE_WEBHOOK_PASSWORD=inside-production-smoke-webhook-password
 KINESCOPE_PLAYBACK_JWT_SECRET=inside-production-smoke-playback-signing-secret
-KINESCOPE_PLAYBACK_JWT_TTL_SECONDS=60
 TBANK_CONFIG_JSON={"environment":"production","terminalKey":"INSIDEPRODUCTIONSMOKE","password":"inside-production-smoke-terminal-password","bindingEncryptionKey":"$smoke_encryption_key","minimumKopecks":100,"maximumKopecks":30000000,"returnUrl":"https://sachkov.dev/payment/return","notificationUrl":"https://inside.sachkov.dev/billing/tbank/notification","receipt":{"taxation":"usn_income","tax":"none"}}
 BILLING_CONTACT_ENCRYPTION_KEY=$smoke_encryption_key
 BILLING_CONTACT_SMTP_HOST=smtp.production-smoke.invalid
@@ -317,7 +316,6 @@ KINESCOPE_CALLBACK_PASSWORD=inside-production-smoke-callback-password
 KINESCOPE_WEBHOOK_USERNAME=inside-production-smoke-webhook
 KINESCOPE_WEBHOOK_PASSWORD=inside-production-smoke-webhook-password
 KINESCOPE_PLAYBACK_JWT_SECRET=inside-production-smoke-playback-signing-secret
-KINESCOPE_PLAYBACK_JWT_TTL_SECONDS=60
 EOF
   {
     printf 'NODE_ENV=production\nDATABASE_URL=postgresql://platform:platform-production-smoke-password@postgres:5432/inside\n'

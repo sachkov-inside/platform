@@ -17,9 +17,14 @@ const videoId = "81000000-0000-4000-8000-000000000003";
 const now = new Date("2026-09-01T12:00:00.000Z");
 
 describe("Video playback authorization", () => {
-  test.each([new Date(now.getTime() + 5 * 60_000).toISOString(), null])(
+  // Kinescope asks for a licence again minutes after the page opened (ADR 0044): the token lasts
+  // a day, never past the membership; each callback still repeats ContentAccess.
+  test.each([
+    [new Date(now.getTime() + 5 * 60_000).toISOString(), 5 * 60],
+    [null, 24 * 60 * 60],
+  ])(
     "issues a bounded member token for validity %s and reauthorizes callbacks",
-    async (validUntil) => {
+    async (validUntil, lifetimeSeconds) => {
       const authorize = vi.fn().mockResolvedValue({
         decidedAt: now.toISOString(),
         effect: "allow",
@@ -31,7 +36,6 @@ describe("Video playback authorization", () => {
         clock: () => now,
         contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
         jwtSecret: "test-playback-secret-with-at-least-32-characters",
-        jwtTtlSeconds: 60,
         videos,
       });
 
@@ -48,8 +52,20 @@ describe("Video playback authorization", () => {
       if (!session.ok || session.value.drmAuthToken === null)
         throw new Error("member token missing");
       expect(decodeJwt(session.value.drmAuthToken).exp).toBe(
-        Math.floor(now.getTime() / 1000) + 60,
+        Math.floor(now.getTime() / 1000) + lifetimeSeconds,
       );
+      const lastSecond = assembleVideoPlayback({
+        clock: () => new Date(now.getTime() + (lifetimeSeconds - 1) * 1_000),
+        contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
+        jwtSecret: "test-playback-secret-with-at-least-32-characters",
+        videos,
+      });
+      await expect(
+        lastSecond.authorizeProvider({
+          providerVideoId: "provider-video",
+          token: session.value.drmAuthToken,
+        }),
+      ).resolves.toBe(true);
       await expect(
         playback.authorizeProvider({
           providerVideoId: "provider-video",
@@ -69,10 +85,9 @@ describe("Video playback authorization", () => {
         }),
       ).resolves.toBe(false);
       const expiredPlayback = assembleVideoPlayback({
-        clock: () => new Date(now.getTime() + 61_000),
+        clock: () => new Date(now.getTime() + (lifetimeSeconds + 1) * 1_000),
         contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
         jwtSecret: "test-playback-secret-with-at-least-32-characters",
-        jwtTtlSeconds: 60,
         videos,
       });
       await expect(
@@ -118,7 +133,6 @@ describe("Video playback authorization", () => {
       clock: () => now,
       contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
       jwtSecret: "test-playback-secret-with-at-least-32-characters",
-      jwtTtlSeconds: 60,
       videos,
     });
 
@@ -161,7 +175,6 @@ describe("Video playback authorization", () => {
       clock: () => now,
       contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
       jwtSecret: "test-playback-secret-with-at-least-32-characters",
-      jwtTtlSeconds: 60,
       videos,
     });
 
@@ -216,7 +229,6 @@ describe("Video playback authorization", () => {
       clock: () => now,
       contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
       jwtSecret: "test-playback-secret-with-at-least-32-characters",
-      jwtTtlSeconds: 60,
       videos: videoDependencies({ protected: false }),
     });
     const token = await new SignJWT({ pid: "provider-video", vid: videoId })
@@ -249,7 +261,6 @@ describe("Video playback authorization", () => {
       clock: () => now,
       contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
       jwtSecret: "test-playback-secret-with-at-least-32-characters",
-      jwtTtlSeconds: 60,
       videos,
     });
 
@@ -336,7 +347,6 @@ describe("Video playback authorization", () => {
       clock: () => now,
       contentAccess: { authorize: managerAllows },
       jwtSecret: "stand-playback-secret-with-at-least-32-characters",
-      jwtTtlSeconds: 60,
       standPreview: standPreviewKeys(stand),
       videos: videoDependencies({ protected: true }),
     });
@@ -352,7 +362,6 @@ describe("Video playback authorization", () => {
         clock,
         contentAccess: { authorize: productionAuthorize },
         jwtSecret: "production-playback-secret-with-at-least-32-characters",
-        jwtTtlSeconds: 60,
         standPreview: keys,
         // Production knows no stand Video: a lookup would find nothing.
         videos: {
@@ -393,10 +402,10 @@ describe("Video playback authorization", () => {
       production().authorizeProvider({ providerVideoId: "other-video", token }),
     ).resolves.toBe(false);
     await expect(
-      // Past the token's 60 seconds and the stand's five seconds of clock drift.
+      // Past the token's five minutes and the stand's five seconds of clock drift.
       production(
         undefined,
-        () => new Date(now.getTime() + 66_000),
+        () => new Date(now.getTime() + (300 + 5 + 1) * 1_000),
       ).authorizeProvider({
         providerVideoId: "provider-video",
         token,
@@ -497,7 +506,6 @@ describe("Video playback authorization", () => {
         clock: () => now,
         contentAccess: { authorize },
         jwtSecret: "stand-playback-secret-with-at-least-32-characters",
-        jwtTtlSeconds: 3_600,
         standPreview: keys,
         videos: videoDependencies(recording),
       });
@@ -505,7 +513,6 @@ describe("Video playback authorization", () => {
       clock: () => now,
       contentAccess: { authorize: vi.fn() },
       jwtSecret: "production-playback-secret-with-at-least-32-characters",
-      jwtTtlSeconds: 60,
       standPreview: standPreviewKeys({
         privateKey: undefined,
         publicKey: stand.publicKey,
@@ -648,7 +655,6 @@ describe("Video playback authorization", () => {
       clock: () => now,
       contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
       jwtSecret: "test-playback-secret-with-at-least-32-characters",
-      jwtTtlSeconds: 60,
       videos,
     });
 

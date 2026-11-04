@@ -230,7 +230,6 @@ describe("process configuration", () => {
           KINESCOPE_MEMBERSHIP_PROJECT_ID: "worker-membership-project",
           KINESCOPE_PLAYBACK_JWT_SECRET:
             "worker-playback-secret-at-least-32-characters",
-          KINESCOPE_PLAYBACK_JWT_TTL_SECONDS: "60",
           KINESCOPE_PROVIDER_MODE: "real",
           KINESCOPE_PUBLIC_PROJECT_ID: "worker-public-project",
           KINESCOPE_UPLOADER_BASE_URL: "https://uploader.kinescope.io",
@@ -336,7 +335,6 @@ const localKinescopeConfig = {
   callbackUsername: "inside-local-callback",
   membershipProjectId: "inside-local-membership-project",
   playbackJwtSecret: "inside-local-kinescope-playback-secret",
-  playbackJwtTtlSeconds: 60,
   providerMode: "test",
   publicProjectId: "inside-local-public-project",
   uploaderBaseUrl: "https://uploader.kinescope.io",
@@ -604,7 +602,6 @@ describe("stand preview key", () => {
     KINESCOPE_MEMBERSHIP_PROJECT_ID: "worker-membership-project",
     KINESCOPE_PLAYBACK_JWT_SECRET:
       "worker-playback-secret-at-least-32-characters",
-    KINESCOPE_PLAYBACK_JWT_TTL_SECONDS: "60",
     KINESCOPE_PROVIDER_MODE: "real",
     KINESCOPE_PUBLIC_PROJECT_ID: "worker-public-project",
     KINESCOPE_UPLOADER_BASE_URL: "https://uploader.kinescope.io",

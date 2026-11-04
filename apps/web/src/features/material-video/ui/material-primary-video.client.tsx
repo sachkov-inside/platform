@@ -84,6 +84,13 @@ export function MaterialPrimaryVideo({
   const [activeChapter, setActiveChapter] = useState<number | null>(null);
   const [phase, setPhase] = useState<PlayerPhase>("loading");
   const [retryAttempt, setRetryAttempt] = useState(0);
+  // Where a player error interrupted the viewer: the next player starts there.
+  const interruptedAtRef = useRef<{
+    readonly seconds: number;
+    readonly videoId: string;
+  } | null>(null);
+  // The current player replaced a failed one and has not played on since.
+  const recoveringRef = useRef(false);
   const [measuredDuration, setMeasuredDuration] = useState<number | null>(null);
   const anonymousWatched = useSyncExternalStore(
     subscribeAnonymousProgress,
@@ -129,6 +136,8 @@ export function MaterialPrimaryVideo({
       const href = event.newURL === "" ? window.location.href : event.newURL;
       requestedHref = href;
       if (readVideoTimeFragment(new URL(href).hash, Infinity) === null) return;
+      // A chosen moment wins over the one a player error interrupted.
+      interruptedAtRef.current = null;
       setStarted(true);
       // Keep Next's canonical URL in sync before a pending refresh can erase it.
       window.history.replaceState(null, "", href);
@@ -259,12 +268,21 @@ export function MaterialPrimaryVideo({
           savedPositionSeconds,
           duration,
         );
-        const resumeSeconds = resolveVideoStartPosition(
-          savedPositionSeconds,
-          duration,
-          new URL(requestedHref).hash,
-        );
+        const interruptedAt =
+          interruptedAtRef.current?.videoId === video.videoId
+            ? Math.min(duration, interruptedAtRef.current.seconds)
+            : null;
+        interruptedAtRef.current = null;
+        const resumeSeconds =
+          interruptedAt ??
+          resolveVideoStartPosition(
+            savedPositionSeconds,
+            duration,
+            new URL(requestedHref).hash,
+          );
         let currentTime = resumeSeconds ?? 0;
+        const startSeconds = currentTime;
+        let paused = true;
         showChapterAt(currentTime);
         let pendingSeek: number | null = null;
         let seeking = false;
@@ -325,14 +343,41 @@ export function MaterialPrimaryVideo({
           ({ data: { currentTime: nextTime } }) => {
             currentTime = nextTime;
             showChapterAt(nextTime);
+            if (Math.abs(nextTime - startSeconds) >= 1)
+              recoveringRef.current = false;
             if (Math.abs(currentTime - lastPersisted) >= 15)
               persist(currentTime);
           },
         );
+        // Kinescope may ask for a licence long after the session was issued (ADR 0044); the
+        // provider's own «Обновить» repeats the same token. A new session recovers where the viewer was. A
+        // replacement that fails before it plays is not a stale session: the Reader asks.
+        player.on(player.Events.Error, () => {
+          if (!isActive()) return;
+          persist(currentTime);
+          interruptedAtRef.current = {
+            seconds: currentTime,
+            videoId: video.videoId,
+          };
+          // A paused viewer stays paused in the new player.
+          startRequestedRef.current = !paused;
+          if (recoveringRef.current) {
+            setPhase("error");
+            return;
+          }
+          recoveringRef.current = true;
+          setPhase("loading");
+          setRetryAttempt((attempt) => attempt + 1);
+        });
+        player.on(player.Events.Play, () => {
+          paused = false;
+        });
         player.on(player.Events.Pause, () => {
+          paused = true;
           persist(currentTime);
         });
         player.on(player.Events.Ended, () => {
+          paused = true;
           if (!isActive()) return;
           persist(duration);
           setWatchedOverride(true);
@@ -341,6 +386,7 @@ export function MaterialPrimaryVideo({
         startPlayerRef.current = async () => {
           try {
             await player.play();
+            paused = false;
           } catch {
             if (isActive()) setPhase("error");
           }

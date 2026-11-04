@@ -17,7 +17,6 @@ const config = {
     callbackUsername: "callback-user",
     membershipProjectId: "member-project",
     playbackJwtSecret: "test-playback-secret-with-at-least-32-characters",
-    playbackJwtTtlSeconds: 60,
     providerMode: "test",
     publicProjectId: "public-project",
     uploaderBaseUrl: "https://uploader.kinescope.io",
