@@ -30,6 +30,7 @@ import { NotificationBroker } from "../../src/adapters/amqp/notification-broker.
 import type { NotificationInbox } from "../../src/modules/notifications/notification-ports.js";
 import {
   notificationValidator,
+  type Category,
   type NotificationCommand,
 } from "../../src/modules/notifications/notification-contract.js";
 import topology from "../../docs/operations/notification-topology.json" with { type: "json" };
@@ -269,6 +270,10 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       TELEGRAM_BOT_TOKEN: "synthetic-never-passed-to-real-adapter",
     });
     const sent: string[] = [];
+    let releaseSubscriptionSend!: () => void;
+    const subscriptionSend = new Promise<void>((resolve) => {
+      releaseSubscriptionSend = resolve;
+    });
     let releaseLastSend!: () => void;
     const lastSend = new Promise<void>((resolve) => {
       releaseLastSend = resolve;
@@ -278,6 +283,12 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       db,
       {
         sendText: async (message) => {
+          // A slow subscription response must not stop material deliveries.
+          if (
+            message.text.startsWith("subscription:") &&
+            sent.filter((text) => text.startsWith("subscription:")).length === 2
+          )
+            await subscriptionSend;
           sent.push(message.text);
           const providerMessageId = String(sent.length);
           if (sent.length === commands.length) await lastSend;
@@ -316,15 +327,26 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
           });
       }, 30);
       try {
+        const committedSends = async (category: Category) =>
+          (
+            await db
+              .selectFrom("notification_commands")
+              .select("operation_id")
+              .where("category", "=", category)
+              .where("state", "=", "sent")
+              .execute()
+          ).length;
         await expect
-          .poll(
-            () => sent.filter((text) => text.startsWith("material:")).length,
-            { timeout: 10000 },
-          )
+          .poll(() => committedSends("subscription"), { timeout: 10000 })
+          .toBe(2);
+        await expect
+          .poll(() => committedSends("material"), { timeout: 10000 })
           .toBeGreaterThanOrEqual(3);
-        expect(
-          sent.filter((text) => text.startsWith("subscription:")).length,
-        ).toBeGreaterThanOrEqual(3);
+        releaseSubscriptionSend();
+        // Material progress does not prove that subscription delivery has settled.
+        await expect
+          .poll(() => committedSends("subscription"), { timeout: 10000 })
+          .toBeGreaterThanOrEqual(3);
         expect(general).toBeGreaterThan(0);
         expect(
           await db
@@ -377,6 +399,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       await expect.poll(unpublishedResults).toBe(0);
       expect(authorizations.length).toBeGreaterThanOrEqual(2);
     } finally {
+      releaseSubscriptionSend();
       releaseLastSend();
       await worker.onModuleDestroy();
       await new Promise<void>((resolve) => server.close(() => resolve()));
