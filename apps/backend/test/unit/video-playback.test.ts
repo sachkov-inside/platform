@@ -17,7 +17,7 @@ const videoId = "81000000-0000-4000-8000-000000000003";
 const now = new Date("2026-09-01T12:00:00.000Z");
 
 describe("Video playback authorization", () => {
-  // A licence is asked again long after the page opened (pause, seek, quality): the token lasts
+  // Kinescope asks for a licence again minutes after the page opened (ADR 0044): the token lasts
   // a day, never past the membership; each callback still repeats ContentAccess.
   test.each([
     [new Date(now.getTime() + 5 * 60_000).toISOString(), 5 * 60],
@@ -405,7 +405,7 @@ describe("Video playback authorization", () => {
       // Past the token's five minutes and the stand's five seconds of clock drift.
       production(
         undefined,
-        () => new Date(now.getTime() + 306_000),
+        () => new Date(now.getTime() + (300 + 5 + 1) * 1_000),
       ).authorizeProvider({
         providerVideoId: "provider-video",
         token,

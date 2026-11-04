@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 declare global {
   interface Window {
     __playerProbe: {
-      emit(event: "time" | "error", currentTime?: number): void;
+      emit(event: "time" | "pause" | "error", currentTime?: number): void;
       players(): number;
     };
   }
@@ -14,8 +14,14 @@ declare global {
 // Kinescope asks for a licence again long after the page opened; a refused one ends in the
 // player's own error screen, and its «Обновить» repeats the same token. The Reader recovers with
 // a new session where the viewer was.
-for (const outcome of ["recovers", "fails-again"] as const) {
-  test(`a player error during playback ${outcome === "recovers" ? "resumes with a new session" : "twice in a row offers a retry"}`, async ({
+const titles = {
+  recovers: "resumes with a new session",
+  "fails-again": "twice in a row offers a retry",
+  paused: "while paused keeps the new player paused",
+} as const;
+
+for (const outcome of ["recovers", "fails-again", "paused"] as const) {
+  test(`a player error during playback ${titles[outcome]}`, async ({
     page,
   }) => {
     let sessions = 0;
@@ -69,6 +75,7 @@ for (const outcome of ["recovers", "fails-again"] as const) {
                   Ended: "ended",
                   Error: "error",
                   Pause: "pause",
+                  Play: "play",
                   TimeUpdate: "time",
                 },
                 on: (event: string, handler: (event: unknown) => void) => {
@@ -106,17 +113,25 @@ for (const outcome of ["recovers", "fails-again"] as const) {
       .getByRole("button", { name: "Смотреть видео: Fragment video" })
       .click();
     await expect(iframe).toHaveAttribute("data-playing", "true");
-    await page.evaluate(() => {
+    await page.evaluate((pause) => {
       window.__playerProbe.emit("time", 412);
+      if (pause) window.__playerProbe.emit("pause");
       window.__playerProbe.emit("error");
-    });
+    }, outcome === "paused");
 
     // A second session, a second player with its token, at the moment the viewer reached.
     await expect(iframe).toHaveAttribute("data-player", "2");
     await expect(iframe).toHaveAttribute("src", /drmauthtoken=token-2/u);
     await expect(iframe).toHaveAttribute("data-position", "412");
-    await expect(iframe).toHaveAttribute("data-playing", "true");
     expect(sessions).toBe(2);
+    if (outcome === "paused") {
+      // The chapter seek follows the start decision, so the check below sees it settled.
+      await page.getByRole("link", { name: "4:21 Later chapter" }).click();
+      await expect(iframe).toHaveAttribute("data-position", "261");
+      await expect(iframe).not.toHaveAttribute("data-playing");
+      return;
+    }
+    await expect(iframe).toHaveAttribute("data-playing", "true");
 
     if (outcome === "fails-again") {
       // A new token that fails at once is not a stale token: the Reader stops and asks.

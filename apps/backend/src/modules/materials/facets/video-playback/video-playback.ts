@@ -103,11 +103,11 @@ export function standPreviewKeys(halves: {
 }
 
 /**
- * Kinescope asks for a licence again long after the page opened: after a pause, a seek or a
- * quality switch. Each such callback repeats ContentAccess, so the token only binds a viewer to
- * one recording and lasts a day; a member's token still ends with the membership.
+ * Kinescope asks for a licence again minutes after the page opened (ADR 0044). Each callback
+ * repeats ContentAccess, so the token only binds a viewer to one recording and lasts a day; a
+ * member's token still ends with the membership.
  */
-export const PLAYBACK_TOKEN_TTL_SECONDS = 24 * 60 * 60;
+const PLAYBACK_TOKEN_TTL_SECONDS = 24 * 60 * 60;
 
 const STAND_PREVIEW_ISSUER = "inside-stand";
 /** Production accepts no stand preview that lives longer, whatever the stand's TTL. */
