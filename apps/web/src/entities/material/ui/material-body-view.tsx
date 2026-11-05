@@ -1,4 +1,5 @@
 import { proseLinkClassName } from "@/shared/ui/prose-link";
+import { ProseAnchor } from "@/shared/ui/prose-anchor.client";
 import { Fragment, type ReactNode } from "react";
 
 import { BodyFragmentNavigation } from "@/shared/ui/body-fragment-navigation.client";
@@ -348,9 +349,13 @@ function applyMarks(
       case "link": {
         const custom = link?.(mark.href, child, path);
         return custom === undefined ? (
-          <a className={proseLinkClassName} href={mark.href} key={markKey}>
+          <ProseAnchor
+            className={proseLinkClassName}
+            href={mark.href}
+            key={markKey}
+          >
             {child}
-          </a>
+          </ProseAnchor>
         ) : (
           <Fragment key={markKey}>{custom}</Fragment>
         );

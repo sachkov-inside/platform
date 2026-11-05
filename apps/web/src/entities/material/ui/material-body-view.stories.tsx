@@ -210,6 +210,87 @@ export const ProseLinksDark: Story = {
   ],
 };
 
+export const ExternalProseLinks: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Документация",
+            marks: [{ kind: "link", href: "https://example.com/docs" }],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const link = within(canvasElement).getByRole("link", {
+      name: "Документация",
+    });
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  },
+};
+
+export const SameOriginProseLinks: Story = {
+  render: (args) => (
+    <MaterialBodyView
+      {...args}
+      blocks={[
+        {
+          kind: "paragraph",
+          content: [
+            {
+              kind: "text",
+              text: "Раздел материала",
+              marks: [
+                {
+                  kind: "link",
+                  href: `${window.location.origin}/materials/current#section`,
+                },
+              ],
+            },
+          ],
+        },
+      ]}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const link = within(canvasElement).getByRole("link", {
+      name: "Раздел материала",
+    });
+    await expect(link).not.toHaveAttribute("target");
+  },
+};
+
+export const SameOriginProtocolRelativeLinks: Story = {
+  ...SameOriginProseLinks,
+  render: (args) => (
+    <MaterialBodyView
+      {...args}
+      blocks={[
+        {
+          kind: "paragraph",
+          content: [
+            {
+              kind: "text",
+              text: "Раздел материала",
+              marks: [
+                {
+                  kind: "link",
+                  href: `//${window.location.host}/materials/current#section`,
+                },
+              ],
+            },
+          ],
+        },
+      ]}
+    />
+  ),
+};
+
 const instructionExample = [
   "## Writing to the owner",
   "",
