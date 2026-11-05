@@ -9,6 +9,7 @@ export interface AuthorInput extends NativeMessageInput {
   readonly privateChatId: string;
   readonly text: string;
   readonly content: unknown;
+  readonly callbackMessageId?: string;
   readonly callbackData?: string;
   readonly callbackQueryId?: string;
 }

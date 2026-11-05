@@ -354,6 +354,11 @@ export class AuthorAdmin {
           },
           authorMenu: true,
           editMenu: isTruthy(c.input.callbackData) && !effect.fresh,
+          ...(isTruthy(c.input.callbackData) &&
+          !effect.fresh &&
+          c.input.callbackMessageId !== undefined
+            ? { editMessageId: c.input.callbackMessageId }
+            : {}),
           authorButtons: effect.buttons,
         });
         return;

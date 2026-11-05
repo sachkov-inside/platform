@@ -1177,6 +1177,48 @@ describe("author transport and API", () => {
       { state: "delivered", attempt_count: 1 },
     ]);
   });
+  it.each(["author:home", "author:home:0"])(
+    "opens management in the clicked learner message for %s after an older admin menu",
+    async (data) => {
+      await seedLink();
+      const delivered: CommunicationMessage[] = [];
+      const worker = new AuthorDelivery(
+        database,
+        { ...config, deliveryMode: "live" },
+        authorization,
+        {
+          send: (message) => {
+            delivered.push(message);
+            return Promise.resolve({
+              kind: "delivered",
+              providerMessageId: "123",
+            });
+          },
+        },
+      );
+      // deterministic-test-allow wall-clock: registerFixedClock shares virtual Date between producers and delivery.
+      const time = Date.now() + 1000;
+      await authorMessage(100, "/admin");
+      await trackCaseWork(() => worker.processAvailable(new Date(time)));
+      const input = required(
+        translateAuthorInput("inside", "101", {
+          callback_query: {
+            id: "101",
+            data,
+            from: { id: 42, is_bot: false },
+            message: { message_id: 456, chat: { id: 42, type: "private" } },
+          },
+        }),
+      );
+      await trackCaseWork(() => app.get(AuthorAdmin).handle(input));
+      await trackCaseWork(() => worker.processAvailable(new Date(time + 2000)));
+      expect(delivered).toHaveLength(2);
+      expect(delivered[1]).toMatchObject({
+        editMessageId: "456",
+        content: { text: "Админка коммуникаций" },
+      });
+    },
+  );
   it("starts a new menu after an unknown edit so a late completion cannot overwrite it", async () => {
     await seedLink();
     const sent: CommunicationMessage[] = [];

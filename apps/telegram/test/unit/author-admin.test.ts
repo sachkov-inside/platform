@@ -32,6 +32,16 @@ describe("native author input", () => {
       }),
     ).toBeUndefined();
   });
+  it("preserves the clicked private message as the menu edit target", () => {
+    expect(
+      translateAuthorInput("inside", "1", {
+        callback_query: {
+          ...callback,
+          message: { message_id: 321, chat: { id: 42, type: "private" } },
+        },
+      })?.callbackMessageId,
+    ).toBe("321");
+  });
   it("preserves native keyboard rows and rejects unsupported markup", () => {
     const content = snapshot({
       text: "Post",
