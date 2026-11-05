@@ -210,6 +210,30 @@ export const ProseLinksDark: Story = {
   ],
 };
 
+export const ExternalProseLinks: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Документация",
+            marks: [{ kind: "link", href: "https://example.com/docs" }],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const link = within(canvasElement).getByRole("link", {
+      name: "Документация",
+    });
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  },
+};
+
 const instructionExample = [
   "## Writing to the owner",
   "",

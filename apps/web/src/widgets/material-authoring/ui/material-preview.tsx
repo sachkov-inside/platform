@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { proseLinkTarget } from "@/shared/ui/prose-link";
 
 import {
   MaterialAssetFile,
@@ -375,6 +376,7 @@ function applyMarks(
             className="underline decoration-accent underline-offset-4"
             href={mark.href}
             key={markKey}
+            {...proseLinkTarget(mark.href)}
           >
             {node}
           </a>
