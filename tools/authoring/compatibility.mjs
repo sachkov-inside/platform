@@ -17,7 +17,8 @@ function rename(value, oldName, newName) {
 }
 
 /** @param {unknown} value */
-const access = (value) => (value === "membership" ? "closed" : value);
+const access = (value) =>
+  value === "membership" || value === "paid" ? "closed" : value;
 
 /** The persisted fingerprint vocabulary predates #1065.
  * @param {unknown} value

@@ -1,4 +1,5 @@
 // @ts-check
+import { isSnapshot, previewSnapshot, applySnapshot } from "./snapshot.mjs";
 import { assertReceiverContract } from "./contract.mjs";
 import {
   assertLegacyTaskReplay,
@@ -985,6 +986,25 @@ if (
     if (packagePath === undefined) throw new Error("Name a package or Content");
     if (exported !== undefined && values.commit !== undefined)
       throw new Error("--commit names a ready package's Content commit");
+    if (await isSnapshot(packagePath)) {
+      if (
+        values.archive.length ||
+        values["task-access"].length ||
+        values["confirm-product-removal"].length ||
+        values.publish.length
+      )
+        throw new Error("Snapshot policy is carried by its packages");
+      const result = await previewSnapshot(packagePath, values.state, {
+        origin: values.target,
+        accessToken: sessionFor(values.target),
+        sourceCommit: values.commit,
+        contentRepository: values.content ?? values["content-repository"],
+      });
+      process.stdout.write(
+        `${JSON.stringify({ preview: result.path, ...result.preview }, null, 2)}\n`,
+      );
+      process.exit(0);
+    }
     const { path, summary, preview } = await previewRelease(
       packagePath,
       values.state,
@@ -1006,6 +1026,19 @@ if (
       .object({ target: z.string() })
       .passthrough()
       .parse(JSON.parse(await readFile(values.preview, "utf8")));
+    const raw = z
+      .object({ scope: z.string().optional() })
+      .passthrough()
+      .parse(JSON.parse(await readFile(values.preview, "utf8")));
+    if (raw.scope === "content-snapshot") {
+      if (values.archive.length)
+        throw new Error("Snapshot never archives omitted rows");
+      const report = await applySnapshot(values.preview, values.state, {
+        accessToken: sessionFor(reviewed.target),
+      });
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      process.exit(0);
+    }
     const report = await applyRelease(values.preview, values.state, {
       archive: values.archive,
       accessToken: sessionFor(reviewed.target),

@@ -94,7 +94,7 @@ async function gitHead(repository) {
 }
 
 /**
- * @typedef {(repository: string, guide: string, stateDirectory: string, ref: string) => Promise<{ commit: string; packagePath: string }>} ExportPackage
+ * @typedef {(repository: string, guide: string | null, stateDirectory: string, ref: string) => Promise<{ commit: string; packagePath: string }>} ExportPackage
  */
 
 /**
