@@ -129,6 +129,7 @@ test("two bounded guides and ready assignment publish together with a new standa
     publicationState: "unpublished",
   };
   let taskAccess = "free";
+  let taskCommit = f.envelope.commit;
   /** @type {import('./target.mjs').LocalTransport} */
   const request = async (path, body, key) => {
     if (path === "/authoring/collections?kind=product") return products;
@@ -157,7 +158,7 @@ test("two bounded guides and ready assignment publish together with a new standa
             programmeVisibility: "standalone",
             embeddedMaterialId: null,
             access: taskAccess,
-            sourceCommit: f.envelope.commit,
+            sourceCommit: taskCommit,
           },
         ],
       };
@@ -224,4 +225,31 @@ test("two bounded guides and ready assignment publish together with a new standa
       .tasks?.[0]?.publicationState,
     "unpublished",
   );
+  for (const relation of ["older", "diverged"]) {
+    await t.test(
+      `receiver Task history refuses ${relation} snapshots before any write`,
+      async () => {
+        taskCommit = "b".repeat(40);
+        const guarded = {
+          ...options,
+          isAncestor: /** @type {import('./source-commit.mjs').IsAncestor} */ (
+            async (ancestor, descendant) =>
+              relation === "older" &&
+              ancestor === f.envelope.commit &&
+              descendant === taskCommit
+          ),
+        };
+        const count = server.writes.length;
+        const revision = task.revision;
+        await assert.rejects(previewSnapshot(f.path, state, guarded), {
+          code: `source_commit_${relation}`,
+        });
+        await assert.rejects(applySnapshot(preview.path, state, guarded), {
+          code: `source_commit_${relation}`,
+        });
+        assert.equal(server.writes.length, count);
+        assert.equal(task.revision, revision);
+      },
+    );
+  }
 });

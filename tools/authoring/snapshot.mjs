@@ -10,12 +10,15 @@ import {
   contentMaterials,
   contentTasks,
 } from "./package.mjs";
-import { selectedContentRevisions } from "./source-commit.mjs";
+import { selectedContentRevisions, gitAncestry } from "./source-commit.mjs";
 import { exportCommittedPackage } from "./git-local.mjs";
 import { previewRelease, applyRelease } from "./release.mjs";
-import { readNamespaceState } from "./preservation-state.mjs";
+import {
+  readNamespaceState,
+  apiPreservationState,
+} from "./preservation-state.mjs";
 import { authoringTarget, transportFor } from "./target.mjs";
-import { writeImmutable } from "./preservation.mjs";
+import { writeImmutable, commitRelations } from "./preservation.mjs";
 
 const entrySchema = z
   .object({
@@ -160,7 +163,7 @@ async function executablePackage(entry, stateDirectory) {
   return path;
 }
 
-/** @typedef {{origin: string; request?: import('./target.mjs').LocalTransport | undefined; accessToken?: import('./target.mjs').AccessToken | undefined; sourceCommit?: string | undefined; contentRepository?: string | undefined; exportPackage?: import('./source-commit.mjs').ExportPackage}} SnapshotOptions */
+/** @typedef {{origin: string; request?: import('./target.mjs').LocalTransport | undefined; accessToken?: import('./target.mjs').AccessToken | undefined; sourceCommit?: string | undefined; contentRepository?: string | undefined; exportPackage?: import('./source-commit.mjs').ExportPackage; isAncestor?: import('./source-commit.mjs').IsAncestor}} SnapshotOptions */
 
 /** @param {Awaited<ReturnType<typeof loadSnapshot>>} snapshot
  * @param {string} stateDirectory @param {SnapshotOptions} options */
@@ -191,6 +194,32 @@ async function verifySnapshotSource(snapshot, stateDirectory, options) {
     throw new Error("Snapshot content changed at Content HEAD");
 }
 
+/** The receiver's recorded history wins even when this local journal has never seen a row.
+ * @param {Awaited<ReturnType<typeof loadSnapshot>>} snapshot @param {SnapshotOptions} options */
+async function verifyTargetHistory(snapshot, options) {
+  const send =
+    options.request ??
+    transportFor(authoringTarget(options.origin), options.accessToken);
+  const isAncestor =
+    options.isAncestor ?? gitAncestry(resolve(options.contentRepository ?? ""));
+  for (const {
+    pkg: { manifest },
+  } of snapshot.entries) {
+    const key = /** @param {string} id */ (id) =>
+      `${manifest.sourceNamespace}:${id}`;
+    const state = await apiPreservationState(send, manifest.sourceNamespace)(
+      contentMaterials(manifest).map((row) => key(row.sourceId)),
+      contentTasks(manifest).map((row) => key(row.sourceId)),
+    );
+    await commitRelations(
+      manifest,
+      state,
+      snapshot.manifest.commit,
+      isAncestor,
+    );
+  }
+}
+
 /** One committed export proves the complete snapshot, including standalone articles.
  * @param {string} packagePath @param {string} stateDirectory @param {SnapshotOptions} options */
 export async function previewSnapshot(packagePath, stateDirectory, options) {
@@ -201,6 +230,7 @@ export async function previewSnapshot(packagePath, stateDirectory, options) {
   if (!options.contentRepository)
     throw new Error("Snapshot needs --content-repository");
   await verifySnapshotSource(snapshot, stateDirectory, options);
+  await verifyTargetHistory(snapshot, options);
   const entries = [];
   for (const entry of snapshot.entries) {
     const result = await previewRelease(
@@ -263,7 +293,7 @@ const previewSchema = z
 /** Apply every reviewed constituent and report only rows verified by a fresh comparison.
  * A partial failure keeps normal release journals; a fresh snapshot preview resumes safely.
  * @param {string} previewPath @param {string} stateDirectory
- * @param {Pick<SnapshotOptions, "request" | "accessToken" | "exportPackage">} [options] */
+ * @param {Pick<SnapshotOptions, "request" | "accessToken" | "exportPackage" | "isAncestor">} [options] */
 export async function applySnapshot(previewPath, stateDirectory, options = {}) {
   const preview = previewSchema.parse(
     JSON.parse(await readFile(previewPath, "utf8")),
@@ -282,6 +312,11 @@ export async function applySnapshot(previewPath, stateDirectory, options = {}) {
     ...options,
     origin: preview.target,
     sourceCommit: preview.sourceCommit,
+    contentRepository: preview.contentRepository,
+  });
+  await verifyTargetHistory(snapshot, {
+    ...options,
+    origin: preview.target,
     contentRepository: preview.contentRepository,
   });
   // Recheck all plans before the first write, including a later entry's changed target.

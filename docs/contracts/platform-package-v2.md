@@ -112,7 +112,10 @@ An ordinary v1 deliver continues to preserve target access and publication.
 Preview verifies all package bytes and the committed export before preparing every constituent
 release preview. It performs no target writes. Apply binds the envelope, packages, target and every
 child fingerprint. It repeats the committed-export and HEAD checks before receiver writes. It compares every child plan again before the first new write. Each child then
-uses the ordinary release's version, ancestry, authorization and idempotency checks.
+uses the ordinary release's version, authorization and idempotency checks.
+Before preview and apply, authenticated state reads check ancestry for every selected existing
+Material and Task, including identities absent from the local journal. Older and diverged commits
+stop the whole snapshot before new writes. Unknown commits require fetching Content history.
 Omission never authorizes archive. Snapshot apply accepts no archive choices.
 
 A snapshot is one owner action, not a database transaction. Entries apply sequentially. A later
