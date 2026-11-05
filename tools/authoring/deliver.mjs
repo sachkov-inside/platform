@@ -394,9 +394,14 @@ export async function deliveryPreview({
 const canonicalIds = (values) => JSON.stringify(sorted(values));
 
 /**
- * @param {{ receiptPath: string; stateDirectory: string; connect: Connect }} options
+ * @param {{ receiptPath: string; stateDirectory: string; connect: Connect; exportPackage?: import("./source-commit.mjs").ExportPackage }} options
  */
-export async function deliveryApply({ receiptPath, stateDirectory, connect }) {
+export async function deliveryApply({
+  receiptPath,
+  stateDirectory,
+  connect,
+  exportPackage,
+}) {
   const raw = z
     .object({ scope: z.string().optional(), target: z.string().optional() })
     .passthrough()
@@ -407,6 +412,7 @@ export async function deliveryApply({ receiptPath, stateDirectory, connect }) {
     return connect(target, async (connection) => ({
       command: "apply",
       ...(await applySnapshot(receiptPath, stateDirectory, {
+        ...(exportPackage === undefined ? {} : { exportPackage }),
         request: connection.send,
         accessToken: connection.accessToken,
       })),
@@ -565,6 +571,9 @@ export async function runDelivery(argv, dependencies = {}) {
         receiptPath: values.receipt,
         stateDirectory: values.state,
         connect,
+        ...(dependencies.exportPackage === undefined
+          ? {}
+          : { exportPackage: dependencies.exportPackage }),
       });
     else if (
       command === "reconcile" &&

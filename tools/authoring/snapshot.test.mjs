@@ -2,85 +2,14 @@
 import { z } from "zod";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, mkdir, writeFile, rm, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { canonical, checksum } from "./package.mjs";
-import { currentEnvironment, reservationBodySchema } from "./test-support.mjs";
-import { materialApplyRequest } from "./local-boundaries.mjs";
-import { sourceUuid } from "./markdown.mjs";
+import { fixture, receiver } from "./snapshot-test-support.mjs";
 import { runDelivery } from "./deliver.mjs";
 import { pinnedNode } from "./delivery-environment.mjs";
 import { authoringTarget } from "./target.mjs";
 import { loadSnapshot, previewSnapshot, applySnapshot } from "./snapshot.mjs";
-
-/** @param {import('node:test').TestContext} t */
-async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "authoring-snapshot-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const entries = [];
-  for (const id of ["guide-one", "guide-two", "article"]) {
-    const row = {
-      sourceId: id,
-      sourcePath: `${id}.md`,
-      sourceIds: [],
-      relatedMaterialIds: [],
-      readingTimeMinutes: null,
-      kind: "note",
-      title: id,
-      summary: "Summary",
-      stage: "ready",
-      topicId: null,
-      access: "free",
-      showInFeed: false,
-      difficulty: null,
-      outcomes: [],
-      markdown: "Text",
-      links: {},
-      images: {},
-      coverAssetId: null,
-      coverAlt: null,
-      video: null,
-      videoChapters: [],
-      artifacts: [],
-    };
-    const manifest = {
-      schemaVersion: 2,
-      requiredFeatures: [],
-      sourceNamespace: "inside-content",
-      selection: {
-        guideId: id === "article" ? null : id,
-        chapterIds: [],
-        materialIds: [id],
-        taskIds: [],
-        complete: true,
-      },
-      guides: [],
-      materials: [row],
-      tasks: [],
-      assets: [],
-      diagnostics: [],
-    };
-    const bytes = canonical(manifest);
-    await mkdir(join(root, id));
-    await writeFile(join(root, id, "package.json"), bytes);
-    entries.push({
-      id,
-      path: `${id}/package.json`,
-      sha256: checksum(bytes),
-      access: { [id]: "free" },
-    });
-  }
-  const envelope = {
-    contract: "platform-package-v2",
-    commit: "a".repeat(40),
-    entries,
-  };
-  const path = join(root, "snapshot.json");
-  const write = () => writeFile(path, canonical(envelope));
-  await write();
-  return { root, path, envelope, write };
-}
 
 test("snapshot loads two guide packages and a standalone article without changing their bytes", async (t) => {
   const f = await fixture(t);
@@ -113,89 +42,6 @@ test("snapshot rejects a modified constituent and repeated selected identities",
   await assert.rejects(loadSnapshot(f.path), /Duplicate selected/u);
 });
 
-/** Synthetic receiver contract: reservations, versioned writes and authoritative state reads. */
-function receiver() {
-  /** @type {Map<string, {materialId: string, contentVersion: number, primaryVideoId: null, cover: null, publicationState: string, metadata: {slug: string, access: string}, source: {id: string, path: string, revision: string, commit?: string, version?: number}}>} */
-  const rows = new Map();
-  /** @type {string[]} */
-  const writes = [];
-  /** @type {import('./target.mjs').LocalTransport} */
-  const request = async (path, body) => {
-    if (path.endsWith("/environment")) return currentEnvironment("production");
-    if (path.startsWith("/authoring/collections?")) return [];
-    if (path.endsWith("/validate")) return { valid: true };
-    if (path.includes("/materials/state?"))
-      return {
-        namespace: "inside-content",
-        materials: [...rows.values()].map((row) => ({
-          sourceId: row.source.id,
-          materialId: row.materialId,
-          slug: row.metadata.slug,
-          contentVersion: row.contentVersion,
-          access: row.metadata.access,
-          publicationState: row.publicationState,
-          source: {
-            ...row.source,
-            version: 2,
-            commit: row.source.commit ?? null,
-          },
-          memberships: [],
-        })),
-      };
-    if (path.includes("/tasks/state?"))
-      return { namespace: "inside-content", tasks: [] };
-    if (path.endsWith("/reserve")) {
-      const { source } = reservationBodySchema.parse(body);
-      const key = source.id;
-      let row = rows.get(key);
-      if (!row) {
-        row = {
-          materialId: sourceUuid(key),
-          contentVersion: 1,
-          primaryVideoId: null,
-          cover: null,
-          publicationState: "draft",
-          metadata: { slug: key.split(":")[1] ?? key, access: "free" },
-          source: {
-            id: key,
-            version: 2,
-            path: "reserved.md",
-            revision: "b".repeat(64),
-          },
-        };
-        rows.set(key, row);
-      }
-      writes.push(path);
-      return structuredClone(row);
-    }
-    if (path.startsWith("/authoring/materials/")) {
-      const row = [...rows.values()].find((value) =>
-        path.endsWith(value.materialId),
-      );
-      assert.ok(row);
-      return structuredClone(row);
-    }
-    if (path.endsWith("/apply")) {
-      const command = materialApplyRequest({ path, body })?.body;
-      assert.ok(command);
-      const row = rows.get(command.source.id);
-      assert.ok(row);
-      assert.equal(command.expectedContentVersion, row.contentVersion);
-      row.contentVersion += 1;
-      row.source = {
-        ...command.source,
-        commit: String(command.source["commit"]),
-      };
-      row.metadata.access = command.metadata.access;
-      row.publicationState = command.publicationState;
-      writes.push(path);
-      return { materialId: row.materialId, contentVersion: row.contentVersion };
-    }
-    throw new Error(`Unexpected ${path}`);
-  };
-  return { request, writes, rows };
-}
-
 test("snapshot release previews all entries, applies once, and reads back accepted rows", async (t) => {
   const f = await fixture(t);
   const server = receiver();
@@ -214,9 +60,7 @@ test("snapshot release previews all entries, applies once, and reads back accept
   const first = await previewSnapshot(f.path, state, options);
   assert.equal(first.preview.entries.length, 3);
   assert.deepEqual(server.writes, []);
-  const report = await applySnapshot(first.path, state, {
-    request: server.request,
-  });
+  const report = await applySnapshot(first.path, state, options);
   assert.equal(report.applied, 3);
   assert.deepEqual(
     report.delivered.map((row) => [
@@ -233,9 +77,7 @@ test("snapshot release previews all entries, applies once, and reads back accept
     ],
   );
   const second = await previewSnapshot(f.path, state, options);
-  const again = await applySnapshot(second.path, state, {
-    request: server.request,
-  });
+  const again = await applySnapshot(second.path, state, options);
   assert.equal(again.applied, 0);
   assert.ok(again.delivered.every((row) => row.status === "unchanged"));
 });
@@ -298,7 +140,10 @@ test("deliver accepts the snapshot selection and refuses a changed later target 
   assert.ok(article);
   article.contentVersion = 9;
   // An unknown reservation is not in the journal, so use a known row and a second reviewed preview.
-  await applySnapshot(receipt, state, { request: server.request });
+  await applySnapshot(receipt, state, {
+    request: server.request,
+    exportPackage: dependencies.exportPackage,
+  });
   const reviewed = await runDelivery(argv, dependencies);
   assert.equal(reviewed.exitCode, 0);
   const next = z
@@ -383,4 +228,129 @@ test("a forged export or newer selected access stops snapshot preview without ta
     /Content HEAD/u,
   );
   assert.equal(requests, 0);
+});
+
+test("Task page asset changes in HEAD refuse the complete snapshot before receiver access", async (t) => {
+  const older = await fixture(t);
+  const newer = await fixture(t);
+  for (const [
+    f,
+    image,
+  ] of /** @type {[Awaited<ReturnType<typeof fixture>>, string][]} */ ([
+    [older, "old-image"],
+    [newer, "new-image"],
+  ])) {
+    const snapshot = await loadSnapshot(f.path);
+    const entry = snapshot.entries[0];
+    assert.ok(entry);
+    const manifest = entry.pkg.manifest;
+    const row = manifest.materials[0];
+    assert.ok(row);
+    manifest.products = [
+      {
+        sourceId: "course",
+        title: "Course",
+        summary: "",
+        complete: true,
+        materialIds: [row.sourceId],
+        supplementaryMaterialIds: [],
+        chapters: [
+          {
+            sourceId: "chapter",
+            title: "Chapter",
+            summary: "",
+            materialIds: [row.sourceId],
+          },
+        ],
+      },
+    ];
+    manifest.tasks = [
+      {
+        sourceId: "assignment",
+        productId: "course",
+        chapterId: "chapter",
+        title: "Assignment",
+        access: "free",
+        definition: {},
+        relatedMaterialIds: [],
+        publicationState: "unpublished",
+        provenance: {
+          repository: "synthetic/content",
+          commit: f.envelope.commit,
+          path: "assignment.yaml",
+        },
+        page: {
+          ...row,
+          sourceId: "assignment",
+          sourcePath: "assignment.md",
+          markdown: "![Image](image.png)",
+          images: { "image.png": "image" },
+        },
+      },
+    ];
+    manifest.selection.taskIds = ["assignment"];
+    manifest.assets = [
+      {
+        sourceId: "image",
+        path: "image.png",
+        sha256: checksum(image),
+        mimeType: "image/png",
+      },
+    ];
+    await writeFile(join(entry.pkg.directory, "image.png"), image);
+    const bytes = canonical(manifest);
+    await writeFile(entry.packagePath, bytes);
+    const envelopeEntry = f.envelope.entries[0];
+    assert.ok(envelopeEntry);
+    envelopeEntry.sha256 = checksum(bytes);
+    envelopeEntry.access["assignment"] = "free";
+    await f.write();
+  }
+  let requests = 0;
+  await assert.rejects(
+    previewSnapshot(older.path, join(older.root, "state"), {
+      origin: "production",
+      contentRepository: older.root,
+      exportPackage: async (_repo, _guide, _state, ref) => ({
+        commit: older.envelope.commit,
+        packagePath: ref === "HEAD" ? newer.path : older.path,
+      }),
+      request: async () => {
+        requests += 1;
+        throw new Error("Unexpected target request");
+      },
+    }),
+    /Content HEAD/u,
+  );
+  assert.equal(requests, 0);
+});
+
+test("apply refuses Content HEAD access drift after preview before any receiver write", async (t) => {
+  const f = await fixture(t);
+  const changed = await fixture(t);
+  const entry = changed.envelope.entries[0];
+  assert.ok(entry);
+  entry.access["guide-one"] = "paid";
+  await changed.write();
+  let head = f.path;
+  const server = receiver();
+  const state = join(f.root, "state");
+  const options = {
+    origin: "production",
+    request: server.request,
+    contentRepository: f.root,
+    exportPackage: /** @type {import("./source-commit.mjs").ExportPackage} */ (
+      async (_repo, _guide, _state, ref) => ({
+        commit: f.envelope.commit,
+        packagePath: ref === "HEAD" ? head : f.path,
+      })
+    ),
+  };
+  const reviewed = await previewSnapshot(f.path, state, options);
+  head = changed.path;
+  await assert.rejects(
+    applySnapshot(reviewed.path, state, options),
+    /Content HEAD/u,
+  );
+  assert.deepEqual(server.writes, []);
 });

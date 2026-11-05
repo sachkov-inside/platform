@@ -70,6 +70,7 @@ separate migration and are refused in a snapshot.
 `access` names exactly every selected Material and Task of that entry by source ID. Values come
 from Studio manifests. `free` means Platform `free`; `paid` means Platform `closed`.
 The receiver derives an executable package with those access values and keeps original bytes.
+Selected ready Tasks receive `publicationState: published` only in that executable package.
 The normal Product membership, permission and protected-video rules still apply. A closed Material
 must belong to a Product. A standalone article without a Product therefore must be free.
 This contract does not introduce a paid standalone entitlement.
@@ -110,7 +111,7 @@ An ordinary v1 deliver continues to preserve target access and publication.
 
 Preview verifies all package bytes and the committed export before preparing every constituent
 release preview. It performs no target writes. Apply binds the envelope, packages, target and every
-child fingerprint. It compares every child plan again before the first new write. Each child then
+child fingerprint. It repeats the committed-export and HEAD checks before receiver writes. It compares every child plan again before the first new write. Each child then
 uses the ordinary release's version, ancestry, authorization and idempotency checks.
 Omission never authorizes archive. Snapshot apply accepts no archive choices.
 

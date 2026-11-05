@@ -9,8 +9,8 @@ import {
   loadPackage,
   contentMaterials,
   contentTasks,
-  materialRevision,
 } from "./package.mjs";
+import { selectedContentRevisions } from "./source-commit.mjs";
 import { exportCommittedPackage } from "./git-local.mjs";
 import { previewRelease, applyRelease } from "./release.mjs";
 import { readNamespaceState } from "./preservation-state.mjs";
@@ -121,14 +121,8 @@ function contentSignature(snapshot) {
       id,
       access: snapshot.manifest.entries.find((entry) => entry.id === id)
         ?.access,
-      materials: contentMaterials(manifest).map((row) => [
-        row.sourceId,
-        materialRevision(manifest, row),
-      ]),
-      tasks: contentTasks(manifest).map((row) => ({
-        ...row,
-        provenance: { ...row.provenance, commit: null },
-      })),
+      rows: [...selectedContentRevisions(manifest)],
+      assets: manifest.assets,
       products: manifest.products,
       selection: manifest.selection,
     })),
@@ -146,6 +140,8 @@ async function executablePackage(entry, stateDirectory) {
   ]) {
     row.access = entry.access[row.sourceId] === "paid" ? "closed" : "free";
   }
+  for (const task of contentTasks(manifest))
+    task.publicationState = "published";
   const bytes = canonical(manifest);
   const directory = join(
     resolve(stateDirectory),
@@ -166,13 +162,10 @@ async function executablePackage(entry, stateDirectory) {
 
 /** @typedef {{origin: string; request?: import('./target.mjs').LocalTransport | undefined; accessToken?: import('./target.mjs').AccessToken | undefined; sourceCommit?: string | undefined; contentRepository?: string | undefined; exportPackage?: import('./source-commit.mjs').ExportPackage}} SnapshotOptions */
 
-/** One committed export proves the complete snapshot, including standalone articles.
- * @param {string} packagePath @param {string} stateDirectory @param {SnapshotOptions} options */
-export async function previewSnapshot(packagePath, stateDirectory, options) {
-  const snapshot = await loadSnapshot(packagePath);
+/** @param {Awaited<ReturnType<typeof loadSnapshot>>} snapshot
+ * @param {string} stateDirectory @param {SnapshotOptions} options */
+async function verifySnapshotSource(snapshot, stateDirectory, options) {
   const commit = options.sourceCommit ?? snapshot.manifest.commit;
-  if (commit !== snapshot.manifest.commit)
-    throw new Error("Snapshot commit mismatch");
   if (!options.contentRepository)
     throw new Error("Snapshot needs --content-repository");
   const exporter = options.exportPackage ?? exportCommittedPackage;
@@ -196,6 +189,18 @@ export async function previewSnapshot(packagePath, stateDirectory, options) {
     contentSignature(snapshot)
   )
     throw new Error("Snapshot content changed at Content HEAD");
+}
+
+/** One committed export proves the complete snapshot, including standalone articles.
+ * @param {string} packagePath @param {string} stateDirectory @param {SnapshotOptions} options */
+export async function previewSnapshot(packagePath, stateDirectory, options) {
+  const snapshot = await loadSnapshot(packagePath);
+  const commit = options.sourceCommit ?? snapshot.manifest.commit;
+  if (commit !== snapshot.manifest.commit)
+    throw new Error("Snapshot commit mismatch");
+  if (!options.contentRepository)
+    throw new Error("Snapshot needs --content-repository");
+  await verifySnapshotSource(snapshot, stateDirectory, options);
   const entries = [];
   for (const entry of snapshot.entries) {
     const result = await previewRelease(
@@ -258,7 +263,7 @@ const previewSchema = z
 /** Apply every reviewed constituent and report only rows verified by a fresh comparison.
  * A partial failure keeps normal release journals; a fresh snapshot preview resumes safely.
  * @param {string} previewPath @param {string} stateDirectory
- * @param {{request?: import('./target.mjs').LocalTransport | undefined; accessToken?: import('./target.mjs').AccessToken | undefined}} [options] */
+ * @param {Pick<SnapshotOptions, "request" | "accessToken" | "exportPackage">} [options] */
 export async function applySnapshot(previewPath, stateDirectory, options = {}) {
   const preview = previewSchema.parse(
     JSON.parse(await readFile(previewPath, "utf8")),
@@ -273,6 +278,12 @@ export async function applySnapshot(previewPath, stateDirectory, options = {}) {
     preview.entries.length !== snapshot.entries.length
   )
     throw new Error("Snapshot differs from reviewed preview");
+  await verifySnapshotSource(snapshot, stateDirectory, {
+    ...options,
+    origin: preview.target,
+    sourceCommit: preview.sourceCommit,
+    contentRepository: preview.contentRepository,
+  });
   // Recheck all plans before the first write, including a later entry's changed target.
   const reviewed = [];
   for (const [index, entry] of snapshot.entries.entries()) {
