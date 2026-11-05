@@ -234,6 +234,37 @@ export const ExternalProseLinks: Story = {
   },
 };
 
+export const SameOriginProseLinks: Story = {
+  render: (args) => (
+    <MaterialBodyView
+      {...args}
+      blocks={[
+        {
+          kind: "paragraph",
+          content: [
+            {
+              kind: "text",
+              text: "Раздел материала",
+              marks: [
+                {
+                  kind: "link",
+                  href: `${window.location.origin}/materials/current#section`,
+                },
+              ],
+            },
+          ],
+        },
+      ]}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const link = within(canvasElement).getByRole("link", {
+      name: "Раздел материала",
+    });
+    await expect(link).not.toHaveAttribute("target");
+  },
+};
+
 const instructionExample = [
   "## Writing to the owner",
   "",

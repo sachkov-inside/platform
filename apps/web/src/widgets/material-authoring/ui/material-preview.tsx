@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { proseLinkTarget } from "@/shared/ui/prose-link";
+import { ProseAnchor } from "@/shared/ui/prose-anchor.client";
 
 import {
   MaterialAssetFile,
@@ -372,14 +372,13 @@ function applyMarks(
         return <s key={markKey}>{node}</s>;
       case "link":
         return (
-          <a
+          <ProseAnchor
             className="underline decoration-accent underline-offset-4"
             href={mark.href}
             key={markKey}
-            {...proseLinkTarget(mark.href)}
           >
             {node}
-          </a>
+          </ProseAnchor>
         );
     }
   }, text);

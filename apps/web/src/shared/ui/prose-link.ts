@@ -2,12 +2,13 @@
 export const proseLinkClassName =
   "text-action underline decoration-current decoration-1 underline-offset-4 hover:text-action-hover hover:decoration-2";
 
-/** Document routes and fragments are relative; absolute web links leave the document open. */
-export function proseLinkTarget(href: string) {
+/** Relative routes and same-origin web links keep the current tab. */
+export function proseLinkTarget(href: string, origin?: string) {
   try {
     const url = new URL(href, "https://inside.local");
     if (
       (url.protocol === "http:" || url.protocol === "https:") &&
+      url.origin !== origin &&
       (/^https?:/iu.test(href.trim()) || href.trim().startsWith("//"))
     )
       return { target: "_blank", rel: "noopener noreferrer" } as const;
