@@ -255,6 +255,8 @@ export function resolveAuthorCallback(
   state: AuthorState,
   callbackData: string,
 ): AuthorAction | undefined {
+  // Learner menus sent before the fix used the permanent home link without an index.
+  if (callbackData === "author:home") return { kind: "home" };
   const [, token, index = ""] = callbackData.split(":");
   if (token === "open-broadcast")
     return BROADCAST_ID.test(index)
