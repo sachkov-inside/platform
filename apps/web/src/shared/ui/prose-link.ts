@@ -5,7 +5,7 @@ export const proseLinkClassName =
 /** Relative routes and same-origin web links keep the current tab. */
 export function proseLinkTarget(href: string, origin?: string) {
   try {
-    const url = new URL(href, "https://inside.local");
+    const url = new URL(href, origin ?? "https://inside.local");
     if (
       (url.protocol === "http:" || url.protocol === "https:") &&
       url.origin !== origin &&

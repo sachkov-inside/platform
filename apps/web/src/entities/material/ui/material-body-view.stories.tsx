@@ -265,6 +265,32 @@ export const SameOriginProseLinks: Story = {
   },
 };
 
+export const SameOriginProtocolRelativeLinks: Story = {
+  ...SameOriginProseLinks,
+  render: (args) => (
+    <MaterialBodyView
+      {...args}
+      blocks={[
+        {
+          kind: "paragraph",
+          content: [
+            {
+              kind: "text",
+              text: "Раздел материала",
+              marks: [
+                {
+                  kind: "link",
+                  href: `//${window.location.host}/materials/current#section`,
+                },
+              ],
+            },
+          ],
+        },
+      ]}
+    />
+  ),
+};
+
 const instructionExample = [
   "## Writing to the owner",
   "",
