@@ -19,7 +19,7 @@ export function ProseAnchor({
 }) {
   const origin = useSyncExternalStore(subscribe, browserOrigin, serverOrigin);
   return (
-    <a href={href} className={className} {...proseLinkTarget(href, origin)}>
+    <a className={className} href={href} {...proseLinkTarget(href, origin)}>
       {children}
     </a>
   );
