@@ -1,3 +1,4 @@
+import { productList } from "../../src/modules/course-activation/learner-view.js";
 import { describe, expect, it } from "vitest";
 import {
   emptyAuthorState,
@@ -125,6 +126,31 @@ function isEffect<Kind extends AuthorEffect["kind"]>(
 }
 
 describe("main menu", () => {
+  it.each(["learner menu", "previously sent learner menu"])(
+    "opens management from the %s without a prior author session",
+    (source) => {
+      const button = required(
+        productList([], true).buttons.find(
+          (item) => item.text === "Управление",
+        ),
+      );
+      const dialog = new Dialog().send({
+        kind: "callback",
+        data:
+          source === "learner menu"
+            ? required(button.callbackData)
+            : "author:home",
+      });
+
+      expect(dialog.menu?.text).toBe("Админка коммуникаций");
+      expect(dialog.labels()).toEqual([
+        "Рассылки",
+        "Последовательности",
+        "Статистика",
+      ]);
+    },
+  );
+
   it("opens the home menu and starts a fresh session", () => {
     const dialog = new Dialog({
       ...emptyAuthorState("old"),

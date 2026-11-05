@@ -79,6 +79,9 @@ describe("author callback navigation", () => {
 
   it("keeps the permanent home, broadcast list and broadcast links working", () => {
     const stale = stateWith([]);
+    expect(resolveAuthorCallback(stale, "author:home")).toEqual({
+      kind: "home",
+    });
     expect(resolveAuthorCallback(stale, "author:home:0")).toEqual({
       kind: "home",
     });

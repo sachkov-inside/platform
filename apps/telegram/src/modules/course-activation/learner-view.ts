@@ -33,7 +33,9 @@ export function productList(
       })),
       { text: "На платформу", url: PLATFORM_URL },
       help(),
-      ...(author ? [{ text: "Управление", callbackData: "author:home" }] : []),
+      ...(author
+        ? [{ text: "Управление", callbackData: "author:home:0" }]
+        : []),
     ],
   };
 }

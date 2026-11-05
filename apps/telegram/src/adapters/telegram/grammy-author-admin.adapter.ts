@@ -56,6 +56,11 @@ export function translateAuthorInput(
         : "",
     content: callback ? null : snapshot(message),
     ...(source !== undefined ? { nativeSource: source } : {}),
+    ...(callback &&
+    Number.isSafeInteger(message["message_id"]) &&
+    Number(message["message_id"]) > 0
+      ? { callbackMessageId: String(message["message_id"]) }
+      : {}),
     ...pressed,
   };
 }

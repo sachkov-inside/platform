@@ -652,7 +652,7 @@ describe("durable activation ingress, identity and continuation", () => {
     await outbound.processAvailable(10, a.clock.now());
     expect(a.sent.at(-1)?.buttons).toContainEqual({
       text: "Управление",
-      callbackData: "author:home",
+      callbackData: "author:home:0",
     });
   });
   it("keeps the selected Product through help and edits the current inline message", async ({
