@@ -129,3 +129,19 @@ test("Platform product selection reaches Content export-platform as --guide", as
     join(state, "packages", "hash", "package.json"),
   );
 });
+
+// Process adapter contract: snapshot mode must not turn null into a guide argument.
+test("Platform snapshot selection reaches the committed exporter as --snapshot", async (t) => {
+  const { root } = await repository(t);
+  await exportCommittedPackage(
+    root,
+    null,
+    join(root, "state"),
+    "HEAD",
+    async (_command, args) => {
+      assert.ok(args.includes("--snapshot"));
+      assert.ok(!args.includes("--guide"));
+      return { stdout: join(root, "export"), stderr: "" };
+    },
+  );
+});

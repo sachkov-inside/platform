@@ -1,4 +1,10 @@
 // @ts-check
+import {
+  isSnapshot,
+  loadSnapshot,
+  previewSnapshot,
+  applySnapshot,
+} from "./snapshot.mjs";
 import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
 // The supported content-only delivery from Content Studio (#1672): one entrypoint for the stand and
 // production. It previews first, applies exactly the reviewed receipt, preserves the target's
@@ -257,6 +263,40 @@ export async function deliveryPreview({
   exportPackage = exportCommittedPackage,
 }) {
   deliveryTarget(target);
+  if (await isSnapshot(packagePath)) {
+    const snapshot = await loadSnapshot(packagePath);
+    const materials = snapshot.entries.flatMap(({ pkg }) =>
+      contentMaterials(pkg.manifest).map((row) => row.sourceId),
+    );
+    const tasks = snapshot.entries.flatMap(({ pkg }) =>
+      contentTasks(pkg.manifest).map((row) => row.sourceId),
+    );
+    if (
+      canonicalIds(materials) !== canonicalIds(materialIds) ||
+      canonicalIds(tasks) !== canonicalIds(taskIds)
+    )
+      throw refusal(
+        "selection_mismatch",
+        "Snapshot selection differs from command",
+      );
+    return connect(target, async (connection) => {
+      const result = await previewSnapshot(packagePath, stateDirectory, {
+        origin: connection.target.id,
+        request: connection.send,
+        accessToken: connection.accessToken,
+        sourceCommit,
+        contentRepository,
+        exportPackage,
+      });
+      return {
+        command: "preview",
+        sourceCommit,
+        receipt: result.path,
+        preview: result.preview,
+        selection: { materialIds: materials, taskIds: tasks },
+      };
+    });
+  }
   const pkg = await loadPackage(packagePath);
   const bounded = pkg.manifest.selection.contentOnly;
   if (bounded === undefined)
@@ -354,9 +394,30 @@ export async function deliveryPreview({
 const canonicalIds = (values) => JSON.stringify(sorted(values));
 
 /**
- * @param {{ receiptPath: string; stateDirectory: string; connect: Connect }} options
+ * @param {{ receiptPath: string; stateDirectory: string; connect: Connect; exportPackage?: import("./source-commit.mjs").ExportPackage }} options
  */
-export async function deliveryApply({ receiptPath, stateDirectory, connect }) {
+export async function deliveryApply({
+  receiptPath,
+  stateDirectory,
+  connect,
+  exportPackage,
+}) {
+  const raw = z
+    .object({ scope: z.string().optional(), target: z.string().optional() })
+    .passthrough()
+    .parse(JSON.parse(await readFile(receiptPath, "utf8")));
+  if (raw.scope === "content-snapshot") {
+    const target = z.string().parse(raw.target);
+    deliveryTarget(target);
+    return connect(target, async (connection) => ({
+      command: "apply",
+      ...(await applySnapshot(receiptPath, stateDirectory, {
+        ...(exportPackage === undefined ? {} : { exportPackage }),
+        request: connection.send,
+        accessToken: connection.accessToken,
+      })),
+    }));
+  }
   const envelope = z
     .object({
       target: z.string(),
@@ -510,6 +571,9 @@ export async function runDelivery(argv, dependencies = {}) {
         receiptPath: values.receipt,
         stateDirectory: values.state,
         connect,
+        ...(dependencies.exportPackage === undefined
+          ? {}
+          : { exportPackage: dependencies.exportPackage }),
       });
     else if (
       command === "reconcile" &&

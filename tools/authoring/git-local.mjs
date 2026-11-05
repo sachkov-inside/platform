@@ -72,7 +72,7 @@ export async function withGitSnapshot(repository, ref, use) {
  * unstaged and untracked files never enter it.
  *
  * @param {string} repository
- * @param {string} productId
+ * @param {string | null} productId
  * @param {string} stateDirectory
  * @param {string} [ref]
  * @param {(command: string, args: string[], options: typeof commandOptions & { cwd: string }) => Promise<{ stdout: string; stderr: string }>} [exporter]
@@ -96,8 +96,7 @@ export async function exportCommittedPackage(
         "python",
         "tools/content.py",
         "export-platform",
-        "--guide",
-        productId,
+        ...(productId === null ? ["--snapshot"] : ["--guide", productId]),
         "--output",
         join(state, "packages"),
       ],

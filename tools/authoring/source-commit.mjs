@@ -94,7 +94,7 @@ async function gitHead(repository) {
 }
 
 /**
- * @typedef {(repository: string, guide: string, stateDirectory: string, ref: string) => Promise<{ commit: string; packagePath: string }>} ExportPackage
+ * @typedef {(repository: string, guide: string | null, stateDirectory: string, ref: string) => Promise<{ commit: string; packagePath: string }>} ExportPackage
  */
 
 /**
@@ -102,7 +102,7 @@ async function gitHead(repository) {
  *
  * @param {import("./package.mjs").Manifest} manifest
  */
-function selectedContent(manifest) {
+export function selectedContentRevisions(manifest) {
   return new Map([
     ...contentMaterials(manifest).map(
       (row) =>
@@ -157,7 +157,7 @@ export async function verifyPackageSource(
       "package_guide_missing",
       "A content-only package names its Guide in selection.productId",
     );
-  const wanted = selectedContent(pkg.manifest);
+  const wanted = selectedContentRevisions(pkg.manifest);
   /** @param {string} ref */
   const differing = async (ref) => {
     const exported = await exportPackage(
@@ -166,7 +166,7 @@ export async function verifyPackageSource(
       stateDirectory,
       ref,
     );
-    const rows = selectedContent(
+    const rows = selectedContentRevisions(
       (await loadPackage(exported.packagePath)).manifest,
     );
     return {

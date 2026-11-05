@@ -1,3 +1,9 @@
+# Снимки Content Studio
+
+Контракт [platform-package-v2](../../docs/contracts/platform-package-v2.md) задаёт одну доставку
+нескольких guides и самостоятельных статей из одного commit. Команды `authoring:deliver`
+и `authoring:release` принимают оболочку через `--package`. Обычные пакеты сохраняют прежнее поведение.
+
 # Формат переноса
 
 Текущий пакет использует `schemaVersion: 3`, `selection.productId`, `products` и обязательную
