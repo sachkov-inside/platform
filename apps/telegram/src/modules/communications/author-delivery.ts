@@ -269,11 +269,7 @@ export class AuthorDelivery {
               return undefined;
             const message = row.message;
             outgoing = message;
-            if (
-              isTruthy(message.authorMenu) &&
-              isTruthy(message.editMenu) &&
-              !hasText(message.editMessageId)
-            ) {
+            if (isTruthy(message.authorMenu) && isTruthy(message.editMenu)) {
               const previous = await tx
                 .selectFrom("communication_author_outbox")
                 .select(["message", "provider_message_id", "state"])
@@ -285,6 +281,16 @@ export class AuthorDelivery {
                 .orderBy("sequence_id", "desc")
                 .executeTakeFirst();
               if (
+                previous?.state === "unknown" &&
+                hasText(message.editMessageId)
+              ) {
+                // A late edit must not overwrite the menu shown after recovery.
+                const { editMessageId: _target, ...fresh } = message;
+                outgoing = { ...fresh, editMenu: false };
+                return { message: JSON.stringify(outgoing) };
+              }
+              if (
+                !hasText(message.editMessageId) &&
                 previous?.state === "delivered" &&
                 isTruthy(previous.message.authorMenu) &&
                 hasText(previous.provider_message_id)

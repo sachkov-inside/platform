@@ -1246,7 +1246,9 @@ describe("author transport and API", () => {
     expect(required(sent[1]).editMessageId).toBe("1");
     // The author retries an old visible button after the edit response was lost.
     await trackCaseWork(() =>
-      app.get(AuthorAdmin).handle({ ...stale, updateId: "1020" }),
+      app
+        .get(AuthorAdmin)
+        .handle({ ...stale, updateId: "1020", callbackMessageId: "1" }),
     );
     await trackCaseWork(() => worker.processAvailable(new Date(time + 4000)));
     expect(required(sent[2]).editMessageId).toBeUndefined();
