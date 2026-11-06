@@ -384,11 +384,17 @@ export function MaterialPrimaryVideo({
         });
         // Install listeners before a queued start; no continuation may outlive this resource.
         startPlayerRef.current = async () => {
+          // Consume this request once: Activity retains refs when leaving the Reader.
+          // Returning recreates the player, but is not another request to play.
+          startRequestedRef.current = false;
           try {
             await player.play();
             paused = false;
           } catch {
-            if (isActive()) setPhase("error");
+            if (isActive()) {
+              startRequestedRef.current = true;
+              setPhase("error");
+            }
           }
         };
         if (startRequestedRef.current) await startPlayerRef.current();
