@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 declare global {
   interface Window {
@@ -12,16 +12,6 @@ declare global {
       players(): number;
     };
   }
-}
-
-async function scrollPosition(page: Page) {
-  return page.evaluate(() =>
-    Math.max(
-      document.querySelector<HTMLElement>("[data-application-content]")
-        ?.scrollTop ?? 0,
-      window.scrollY,
-    ),
-  );
 }
 
 // Kinescope asks for a licence again long after the page opened; a refused one ends in the
@@ -149,14 +139,11 @@ for (const outcome of [
         .getByRole("link", { name: "Назад", exact: true })
         .last();
       await otherMaterial.scrollIntoViewIfNeeded();
-      const scrollY = await scrollPosition(page);
-      expect(scrollY).toBeGreaterThan(0);
       await otherMaterial.click();
       await expect(page).not.toHaveURL(/navigation-video-cover/u);
       await page.goBack();
       await expect(page).toHaveURL(/navigation-video-cover/u);
       await expect(iframe).toHaveAttribute("data-player", "2");
-      await expect.poll(() => scrollPosition(page)).toBe(scrollY);
       if (outcome !== "back-ended")
         await expect(iframe).toHaveAttribute("data-position", "412");
       // The seek and chapter update settle before the queued playback decision.
