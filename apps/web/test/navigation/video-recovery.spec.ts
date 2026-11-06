@@ -5,7 +5,10 @@ import { expect, test } from "@playwright/test";
 declare global {
   interface Window {
     __playerProbe: {
-      emit(event: "time" | "pause" | "error", currentTime?: number): void;
+      emit(
+        event: "time" | "pause" | "ended" | "error",
+        currentTime?: number,
+      ): void;
       players(): number;
     };
   }
@@ -18,12 +21,21 @@ const titles = {
   recovers: "resumes with a new session",
   "fails-again": "twice in a row offers a retry",
   paused: "while paused keeps the new player paused",
+  "back-paused": "a paused video stays paused after navigating away and back",
+  "back-ended": "a finished video stays paused after navigating away and back",
+  "back-playing":
+    "a playing video waits for Play after navigating away and back",
 } as const;
 
-for (const outcome of ["recovers", "fails-again", "paused"] as const) {
-  test(`a player error during playback ${titles[outcome]}`, async ({
-    page,
-  }) => {
+for (const outcome of [
+  "recovers",
+  "fails-again",
+  "paused",
+  "back-paused",
+  "back-ended",
+  "back-playing",
+] as const) {
+  test(titles[outcome], async ({ page }) => {
     let sessions = 0;
     await page.route("**/api/material-video-playback-sessions", (route) => {
       sessions += 1;
@@ -113,6 +125,38 @@ for (const outcome of ["recovers", "fails-again", "paused"] as const) {
       .getByRole("button", { name: "Смотреть видео: Fragment video" })
       .click();
     await expect(iframe).toHaveAttribute("data-playing", "true");
+    if (
+      outcome === "back-paused" ||
+      outcome === "back-ended" ||
+      outcome === "back-playing"
+    ) {
+      await page.evaluate((state) => {
+        window.__playerProbe.emit("time", state === "back-ended" ? 600 : 412);
+        if (state === "back-paused") window.__playerProbe.emit("pause");
+        if (state === "back-ended") window.__playerProbe.emit("ended");
+      }, outcome);
+      const otherMaterial = page.getByRole("link", {
+        name: "Другой материал после видео",
+      });
+      await otherMaterial.scrollIntoViewIfNeeded();
+      const scrollY = await page.evaluate(() => window.scrollY);
+      expect(scrollY).toBeGreaterThan(0);
+      await otherMaterial.click();
+      await expect(page).not.toHaveURL(/navigation-video-cover/u);
+      await page.goBack();
+      await expect(page).toHaveURL(/navigation-video-cover/u);
+      await expect(iframe).toHaveAttribute("data-player", "2");
+      await expect
+        .poll(() => page.evaluate(() => window.scrollY))
+        .toBe(scrollY);
+      if (outcome !== "back-ended")
+        await expect(iframe).toHaveAttribute("data-position", "412");
+      // The seek and chapter update settle before the queued playback decision.
+      await page.getByRole("link", { name: "4:21 Later chapter" }).click();
+      await expect(iframe).toHaveAttribute("data-position", "261");
+      await expect(iframe).not.toHaveAttribute("data-playing");
+      return;
+    }
     await page.evaluate((pause) => {
       window.__playerProbe.emit("time", 412);
       if (pause) window.__playerProbe.emit("pause");

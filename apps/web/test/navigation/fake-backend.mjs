@@ -912,7 +912,24 @@ function route(method, url, entitled) {
           : {}),
         primaryVideoId: videoId,
       },
-      body: body(template, false),
+      body: {
+        ...body(template, false),
+        blocks: [
+          ...body(template, false).blocks,
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                text: "Другой материал после видео",
+                marks: [
+                  { kind: "link", href: "/materials/reference-lesson-7" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
     });
   }
   if (
