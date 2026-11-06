@@ -2,6 +2,8 @@ import { resolve } from "node:path";
 
 import { expect, test } from "@playwright/test";
 
+import { observeAppShellPrefetch } from "../support/app-shell-prefetch";
+
 declare global {
   interface Window {
     __playerProbe: {
@@ -118,6 +120,10 @@ for (const outcome of [
       });
     });
 
+    const programmePrefetch = await observeAppShellPrefetch(
+      page,
+      "/products/navigation-proof/programme",
+    );
     await page.goto("/materials/navigation-video-cover");
     const iframe = page.locator("[data-video-player-mount] iframe");
     await expect(iframe).toHaveAttribute("data-position", "37");
@@ -139,6 +145,8 @@ for (const outcome of [
         .getByRole("link", { name: "Назад", exact: true })
         .last();
       await otherMaterial.scrollIntoViewIfNeeded();
+      await otherMaterial.hover();
+      await programmePrefetch.ready();
       await otherMaterial.click();
       await expect(page).not.toHaveURL(/navigation-video-cover/u);
       await page.goBack();
