@@ -564,12 +564,30 @@ observation of the first entry, not a proven cause of a purchase. In Russian pro
 «метка источника».
 _Avoid_: UTM, campaign, attribution model, referrer
 
+## Assistant
+
+**Assistant**:
+Platform's built-in conversational helper that answers only from published Inside Materials,
+Prepared Answers and the person's own Platform data, and refers people to the community or the author.
+In Russian product language: «Помощник».
+_Avoid_: Learner agent, AI mentor, chatbot, агент, помощник курса
+
+**Prepared Answer**:
+An author-written answer to a recurring question about a Product or Inside, with the audience
+allowed to receive it. In Russian product language: «Готовый ответ».
+_Avoid_: FAQ Material, canned reply, Template
+
+**Assistant Scenario**:
+A predefined sequence of steps that the Assistant leads a person through without deviation, such as
+linking Telegram or restoring missing Product Access. In Russian product language: «Сценарий».
+_Avoid_: Flow, funnel, Communication Sequence, workflow
+
 ## Shared Inside terms
 
 **Support**:
 The author's help with a Product promised for a stated term, independent of lifetime Product Access.
 In Russian product language: «Сопровождение».
-_Avoid_: Lifetime personal support, separately purchased renewal, community participation
+_Avoid_: Lifetime personal support, separately purchased renewal, community participation, менторинг
 
 **TelegramIdentity**:
 The provider-verified Telegram identity from which bot updates originate; it may be linked to an
