@@ -1,0 +1,12 @@
+{
+  "name": "prototype-1984-assistant",
+  "private": true,
+  "type": "module",
+  "description": "PROTOTYPE, throwaway: technical checks for Помощник Inside (#1984). Never merged.",
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.86",
+    "ai": "^7.0.164",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  }
+}

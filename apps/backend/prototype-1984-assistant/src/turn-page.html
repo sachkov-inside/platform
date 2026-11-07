@@ -1,0 +1,58 @@
+<!doctype html>
+<!-- PROTOTYPE, throwaway (#1984). Shows every event the tab receives, so the owner sees replay and live. -->
+<meta charset="utf-8" />
+<title>Прототип: ход на сервере</title>
+<style>
+  body { font: 15px system-ui; max-width: 900px; margin: 24px auto; }
+  #answer { white-space: pre-wrap; border: 1px solid #ccc; padding: 12px; min-height: 80px; }
+  #log { font: 12px monospace; height: 260px; overflow: auto; background: #f6f6f6; padding: 8px; }
+  .replay { color: #a60; }
+  .history { color: #555; border-bottom: 1px dashed #ccc; padding: 6px 0; }
+</style>
+<h1>Прототип: ход на сервере</h1>
+<p>Открой эту страницу в двух вкладках. Отправь вопрос, перезагрузи одну вкладку посреди ответа, нажми «Остановить».
+  Оранжевые строки журнала пришли досылкой из таблицы, чёрные пришли вживую.</p>
+<div id="history"></div>
+<input id="q" size="60" value="Как агенту помнить прошлую сессию?" />
+<button id="send">Отправить</button>
+<button id="stop">Остановить</button>
+<p>Статус хода: <b id="status">нет</b>. Последний номер события: <b id="seq">0</b>. Соединение: <b id="conn">нет</b>.</p>
+<div id="answer"></div>
+<h3>Журнал событий этой вкладки</h3>
+<div id="log"></div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let text = "";
+  async function history() {
+    const rows = await (await fetch("/api/history")).json();
+    $("history").innerHTML = rows.map((r) => `<div class="history"><b>${r.question}</b> [${r.status}]<br>${r.answer}</div>`).join("");
+  }
+  function connect() {
+    // A fresh page asks for the active turn from its start; EventSource then reconnects itself with Last-Event-ID.
+    const source = new EventSource("/api/events?after=-1");
+    source.onopen = () => ($("conn").textContent = "открыто");
+    source.onerror = () => ($("conn").textContent = "обрыв, переподключаюсь");
+    source.onmessage = (message) => {
+      const { seq, chunk, replay } = JSON.parse(message.data);
+      $("seq").textContent = seq;
+      const line = document.createElement("div");
+      line.className = replay ? "replay" : "";
+      line.textContent = `${seq} ${chunk.type} ${chunk.delta ?? chunk.status ?? ""}`;
+      $("log").prepend(line);
+      if (chunk.type === "turn-status" && chunk.status === "running") text = "";
+      if (chunk.type === "text-delta") text += chunk.delta;
+      if (chunk.type === "turn-status") {
+        $("status").textContent = chunk.status;
+        if (chunk.status !== "running") { history(); }
+      }
+      $("answer").textContent = text;
+    };
+  }
+  $("send").onclick = async () => {
+    const r = await fetch("/api/message", { method: "POST", body: JSON.stringify({ text: $("q").value }) });
+    if (r.status === 409) alert("Ход уже идёт: поле ввода ждёт.");
+  };
+  $("stop").onclick = () => fetch("/api/stop", { method: "POST" });
+  history();
+  connect();
+</script>
