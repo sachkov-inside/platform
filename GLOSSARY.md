@@ -585,6 +585,12 @@ own data after the person presses its button. Each Scenario ends either resolved
 the community or support. In Russian product language: «Сценарий».
 _Avoid_: Flow, funnel, Communication Sequence, workflow
 
+**Assistant Episode**:
+A continuous part of a person's single Assistant chat that begins after a long pause or when the
+person starts over; the Assistant sees earlier Episodes only as a short recap.
+In Russian product language: «эпизод».
+_Avoid_: Session, topic, thread
+
 ## Shared Inside terms
 
 **Support**:
