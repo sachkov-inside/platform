@@ -288,13 +288,13 @@ MCP не регистрирует эти инструменты. `refunds.read` 
 Уведомление `REFUNDED` проходит прежнюю проверку подписи и привязки terminal/payment/order/amount.
 Тот же результат может поступить из `GetState` при явной сверке подтверждённого платежа.
 Полный успешный возврат атомарно сохраняет банковскую историю,
-сумму и событие `full_refund_confirmed`, а отзыв прав отправляет через fulfillment outbox.
+сумму и событие `full_refund_confirmed`. Product Access он не меняет: возврат остаётся
+финансовой историей, а доступ снимает только отдельная команда владельца
+([решение владельца от 23.10.2026](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)).
 Исходные сумма, состояние `confirmed` и событие оплаты сохраняются. Новая банковская запись
 не приписывается администратору: `actorId` и внутренний `operationId` равны `null`.
 Если `REFUNDED` пришёл раньше локального `CONFIRMED`, расчёт фиксируется без выдачи прав;
-подписка создаётся и отменяется в одной транзакции. Повтор и поздний `CONFIRMED` не выдают права заново. Другие покупки, manual, lifetime и legacy
-основания остаются действующими; право на сообщество снимается только при отсутствии другого
-основания. Автопродление отменяется только у той подписки, чей текущий оплаченный период
+подписка создаётся и отменяется в одной транзакции. Повтор и поздний `CONFIRMED` не выдают права заново. Автопродление отменяется только у той подписки, чей текущий оплаченный период
 соответствует возвращённой покупке; возврат старого периода не отменяет новый.
 
 Исторические решения и суммы не переписываются. Незавершённая историческая попытка сверяется
@@ -1137,7 +1137,7 @@ Workshop отменён [ADR 0033](https://github.com/sachkov-inside/platform/bl
 | Promo reservation | Цена и лимит резервируются до отправки; confirmed расходует один раз; unknown удерживает резерв до сверки |
 | Paid grant receipt | EventRef + periodRef + Account + revision; повтор не добавляет длительность |
 | Manual/batch operation | Actor + operationId + rowKey, targetAccount и immutable payload; preview не выдаёт права |
-| Refund attempt | Payment + full_refund_confirmed; запись результата и outbox отзыва сериализуются замком покупки |
+| Refund attempt | Payment + full_refund_confirmed; запись результата сериализуется замком покупки, доступ не отзывается |
 | Notice/dispatch | NoticeRef + revision + channel + recipient reference/version; external-send-started сохраняется до I/O |
 
 Integer kopecks, RUB, без float. Время сохраняется как instant; расчёт календарных месяцев —
@@ -1242,7 +1242,7 @@ Order не равен попытке списания, Payment не равен p
 | Charge timeout | Сохраняется sent/unknown; GetState до любой новой mutation, даже NEW не разрешает слепой повтор Charge |
 | Cancel before send | Cancel revision блокирует отправку worker; оплаченный остаток сохраняется |
 | Cancel after send | Сверка прежней попытки; late success даёт период, новые списания запрещены |
-| Full refund confirmed | Продавец инициировал возврат в кабинете банка; подписанное REFUNDED или GetState сохраняет историю и отзывает права покупки; для возврата Platform не отправляет Cancel (Cancel неоплаченной формы снятой попытки описан в [access model](../product/access-model.md), #1923) |
+| Full refund confirmed | Продавец инициировал возврат в кабинете банка; подписанное REFUNDED или GetState сохраняет историю, доступ снимает только отдельная команда владельца; для возврата Platform не отправляет Cancel (Cancel неоплаченной формы снятой попытки описан в [access model](../product/access-model.md), #1923) |
 | Receipt rejected/delayed | Отдельное fiscal state с alert/recovery; не повторная оплата и не скрытый success чека |
 
 Проверяются token/signature по actual payload и соответствие terminal/payment/order/amount,

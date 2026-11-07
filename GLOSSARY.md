@@ -573,13 +573,16 @@ In Russian product language: «Помощник».
 _Avoid_: Learner agent, AI mentor, chatbot, агент, помощник курса
 
 **Prepared Answer**:
-An author-written answer to a recurring question about a Product or Inside, with the audience
-allowed to receive it. In Russian product language: «Готовый ответ».
+An author-written answer to a recurring question about one Product or about Inside as a whole.
+A Product answer reaches only people with Product Access to that Product. In Russian product
+language: «Готовый ответ».
 _Avoid_: FAQ Material, canned reply, Template
 
 **Assistant Scenario**:
 A predefined sequence of steps that the Assistant leads a person through without deviation, such as
-linking Telegram or restoring missing Product Access. In Russian product language: «Сценарий».
+linking Telegram or restoring missing Product Access. A step may perform an action on the person's
+own data after the person presses its button. Each Scenario ends either resolved or handed over to
+the community or support. In Russian product language: «Сценарий».
 _Avoid_: Flow, funnel, Communication Sequence, workflow
 
 **Assistant Episode**:
