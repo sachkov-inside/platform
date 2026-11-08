@@ -41,7 +41,14 @@ const variants: Variant[] = [
   ...embeddingModels.flatMap((model): Variant[] => [
     { name: `meaning, ${model}`, run: async (q) => vectors(`vec_${model.replace(/\W/g, "_")}`, questionVectors[model][q.id]) },
     {
-      name: `hybrid RRF, ${model}`,
+      name: `hybrid RRF 1:1, ${model}`,
+      run: async (q) =>
+        expansions[q.id]
+          ? rrf([rrf(await Promise.all(expansions[q.id].map((x) => words(x, "or")))), await vectors(`vec_${model.replace(/\W/g, "_")}`, questionVectors[model][q.id])])
+          : null,
+    },
+    {
+      name: `hybrid RRF 5:1, ${model}`,
       run: async (q) =>
         expansions[q.id]
           ? rrf([...(await Promise.all(expansions[q.id].map((x) => words(x, "or")))), await vectors(`vec_${model.replace(/\W/g, "_")}`, questionVectors[model][q.id])])

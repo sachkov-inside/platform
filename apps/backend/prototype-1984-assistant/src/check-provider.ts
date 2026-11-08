@@ -4,7 +4,8 @@
 // Run: node src/check-provider.ts aitunnel|deepseek
 import { ToolLoopAgent, isStepCount, tool } from "ai";
 import { z } from "zod";
-import { balances, model, type ProviderName } from "./providers.ts";
+import { aitunnelPrice, balances, chatModel, model, type ProviderName } from "./providers.ts";
+import { record } from "./spend.ts";
 
 const name = (process.argv[2] ?? "aitunnel") as ProviderName;
 const calls: string[] = [];
@@ -28,28 +29,46 @@ const agent = new ToolLoopAgent({
 });
 
 const before = await balances();
-const started = Date.now();
-let firstText: number | null = null;
-const parts: string[] = [];
-const result = await agent.stream({ prompt: "Почему у меня закрыт урок про TDD и о чём он вообще?" });
-for await (const part of result.fullStream) {
-  if (part.type === "text-delta" && firstText === null) firstText = Date.now() - started;
-  if (["start-step", "tool-call", "tool-result", "finish-step", "error"].includes(part.type) || (part.type === "text-delta" && parts.at(-1) !== "text-delta"))
-    parts.push(part.type === "tool-call" ? `tool-call:${part.toolName}` : part.type);
-  if (part.type === "error") console.error(part.error);
+// Two runs of the same question: the second shows whether the provider serves the repeated start from cache.
+for (const run of [1, 2]) {
+  calls.length = 0;
+  const started = Date.now();
+  let firstText: number | null = null;
+  const parts: string[] = [];
+  const result = await agent.stream({ prompt: "Почему у меня закрыт урок про TDD и о чём он вообще?" });
+  for await (const part of result.fullStream) {
+    if (part.type === "text-delta" && firstText === null) firstText = Date.now() - started;
+    if (["start-step", "tool-call", "tool-result", "finish-step", "error"].includes(part.type) || (part.type === "text-delta" && parts.at(-1) !== "text-delta"))
+      parts.push(part.type === "tool-call" ? `tool-call:${part.toolName}` : part.type);
+    if (part.type === "error") console.error(part.error);
+  }
+  const steps = await result.steps;
+  const usage = await result.totalUsage;
+  const input = usage.inputTokens ?? 0;
+  const cached = usage.inputTokenDetails.cacheReadTokens ?? 0;
+  const output = usage.outputTokens ?? 0;
+  const price = aitunnelPrice[chatModel.aitunnel];
+  record({
+    stage: "2-provider",
+    provider: name,
+    model: chatModel[name],
+    inputTokens: input,
+    outputTokens: output,
+    // DeepSeek bills in USD: its cost is taken from the balance difference instead.
+    costRub: name === "aitunnel" ? ((input - cached) * price.input + cached * price.input * (1 - 0.867) + output * price.output) / 1e6 : undefined,
+  });
+  console.log({
+    run,
+    provider: name,
+    streamOrder: parts.join(" → "),
+    toolCallsPerStep: steps.map((s) => s.toolCalls.length),
+    sameMoment: new Set(calls.map((c) => c.split(" at ")[1])).size === 1,
+    firstTextMs: firstText,
+    totalMs: Date.now() - started,
+    inputTokens: input,
+    cacheReadTokens: cached,
+    perStepCacheRead: steps.map((s) => s.usage.inputTokenDetails.cacheReadTokens ?? 0),
+    outputTokens: output,
+  });
 }
-const steps = await result.steps;
-const usage = await result.totalUsage;
-console.log({
-  provider: name,
-  streamOrder: parts.join(" → "),
-  toolCallsPerStep: steps.map((s) => s.toolCalls.length),
-  toolExecutions: calls,
-  firstTextMs: firstText,
-  totalMs: Date.now() - started,
-  inputTokens: usage.inputTokens,
-  outputTokens: usage.outputTokens,
-  text: (await result.text).slice(0, 300),
-});
-// Balances update with a delay; the summary script compares them later.
-console.log("balance before", before);
+console.log("balance before", before, "after", await balances());

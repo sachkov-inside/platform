@@ -1,7 +1,7 @@
 // PROTOTYPE, throwaway (#1984). Stage 3: the model writes 2-5 search queries per question,
 // the same way the search tool will ask for them. Cached in .data/expansions.json.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { generateText, Output } from "ai";
+import { generateText, tool } from "ai";
 import { z } from "zod";
 import { model, chatModel, aitunnelPrice } from "./providers.ts";
 import { record, total } from "./spend.ts";
@@ -25,9 +25,15 @@ for (const q of questions.filter((q) => !cache[q.id])) {
     model: model("aitunnel"),
     instructions,
     prompt: q.text,
-    output: Output.object({ schema: z.object({ queries: z.array(z.string()).min(2).max(5) }) }),
+    // JSON mode returned the schema itself instead of an answer; a forced tool call is what the
+    // real search tool gets anyway.
+    tools: { search_materials: tool({ description: "Поиск по материалам курса", inputSchema: z.object({ queries: z.array(z.string()).min(1) }) }) },
+    toolChoice: { type: "tool", toolName: "search_materials" },
   });
-  cache[q.id] = result.output.queries;
+  const queries: string[] = (result.toolCalls[0]?.input as { queries: string[] } | undefined)?.queries ?? [];
+  if (queries.length === 0) { console.log(q.id, "no tool call"); continue; }
+  if (queries.length > 5) console.log(q.id, "model wrote", queries.length, "queries, kept 5");
+  cache[q.id] = queries.slice(0, 5);
   const price = aitunnelPrice[chatModel.aitunnel];
   const input = result.usage.inputTokens ?? 0;
   const output = result.usage.outputTokens ?? 0;
