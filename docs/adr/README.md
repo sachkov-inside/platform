@@ -50,6 +50,7 @@ ADR фиксируют причины выбора и компромиссы; т
 | [0044](0044-playback-token-lasts-a-day.md) | Токен воспроизведения живёт сутки |
 | [0045](0045-assistant-on-ai-sdk-with-own-conversation-storage.md) | Помощник на Vercel AI SDK со своим хранением разговора |
 | [0046](0046-assistant-tools-inside-the-process.md) | Инструменты Помощника внутри процесса |
+| [0047](0047-assistant-hybrid-search-with-pgvector.md) | Гибридный поиск Помощника и pgvector в образе базы |
 
 ## Telegram
 
