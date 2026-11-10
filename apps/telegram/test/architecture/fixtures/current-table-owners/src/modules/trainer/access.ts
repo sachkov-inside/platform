@@ -20,4 +20,8 @@ export async function access(database: any) {
   await database.insertInto("trainer_issues").values({}).execute();
   await database.updateTable("trainer_issues").set({}).execute();
   await database.deleteFrom("trainer_issues").execute();
+  await database.selectFrom("trainer_daily_questions").selectAll().execute();
+  await database.insertInto("trainer_daily_questions").values({}).execute();
+  await database.updateTable("trainer_daily_questions").set({}).execute();
+  await database.deleteFrom("trainer_daily_questions").execute();
 }
