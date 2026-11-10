@@ -229,7 +229,8 @@ async function reach(page: Page, route: Route, text: Filler): Promise<void> {
 
 interface Layout {
   readonly height: number;
-  readonly fontSize: string;
+  /** Computed pixels after the widget adapts to the platform’s font metrics. */
+  readonly fontSize: number;
   /** Elements whose box leaves the bubble sideways. */
   readonly overflowing: string[];
   readonly pageWidth: number;
@@ -241,7 +242,7 @@ const layout = (page: Page): Promise<Layout> =>
     const width = document.documentElement.clientWidth;
     return {
       height: document.body.offsetHeight,
-      fontSize: root.style.fontSize,
+      fontSize: Number.parseFloat(getComputedStyle(root).fontSize),
       pageWidth: document.documentElement.scrollWidth,
       overflowing: [...root.querySelectorAll<HTMLElement>("*")]
         .filter((element) => {
@@ -257,7 +258,7 @@ describe("trainer widget screens in a browser", () => {
     "in a %i px bubble with texts at the limits",
     (width) => {
       it.each(routes)(
-        "$name is not taller than 560 px at the default text size and stays inside the bubble",
+        "$name fits 560 px with the default text setting, readable text and no overflow",
         async (route) => {
           const page = await openWidget(width);
           await reach(page, route, realisticText);
@@ -266,7 +267,8 @@ describe("trainer widget screens in a browser", () => {
 
           expect(measured.overflowing).toEqual([]);
           expect(measured.pageWidth).toBe(width);
-          expect(measured.fontSize).toBe("");
+          expect(measured.fontSize).toBeGreaterThanOrEqual(11);
+          expect(measured.fontSize).toBeLessThanOrEqual(15);
           expect(measured.height).toBeLessThanOrEqual(
             TRAINER_WIDGET_TARGET_HEIGHT_PX,
           );
@@ -290,6 +292,8 @@ describe("trainer widget screens in a browser", () => {
 
         expect(measured.overflowing).toEqual([]);
         expect(measured.pageWidth).toBe(320);
+        expect(measured.fontSize).toBeGreaterThanOrEqual(11);
+        expect(measured.fontSize).toBeLessThanOrEqual(options.textSizePx);
         expect(measured.height).toBeLessThanOrEqual(
           TRAINER_WIDGET_TARGET_HEIGHT_PX,
         );
@@ -609,7 +613,8 @@ describe("trainer widget screens in a browser", () => {
       const measured = await layout(page);
       expect(measured.overflowing).toEqual([]);
       expect(measured.pageWidth).toBe(320);
-      expect(measured.fontSize).toBe("");
+      expect(measured.fontSize).toBeGreaterThanOrEqual(11);
+      expect(measured.fontSize).toBeLessThanOrEqual(15);
       expect(measured.height).toBeLessThanOrEqual(560);
 
       await tap(
