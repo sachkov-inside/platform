@@ -540,6 +540,72 @@ describe("trainer widget screens in a browser", () => {
     );
   });
 
+  describe("in «Тренировка по теме»", () => {
+    /** Nine topics as the bot sends them: names of the limit length and the person's counters. */
+    const nineTopics: TrainerWidgetData = [
+      "t",
+      Array.from({ length: 9 }, (_, index) => [
+        `t${String(index + 1)}`,
+        realisticText(TRAINER_TOPIC_NAME_MAX_CHARS, index),
+        index * 2,
+        20,
+      ]),
+    ];
+
+    it("lists nine topics with their counters within 560 px in a 320 px bubble and starts the tapped topic", async () => {
+      const page = await openWidget(320);
+
+      await tap(page, "Тренировка по теме", nineTopics);
+
+      const rows = await page.getByRole("button").allInnerTexts();
+      for (const index of [0, 4, 8]) {
+        const row = rows.find((each) =>
+          each.includes(realisticText(TRAINER_TOPIC_NAME_MAX_CHARS, index)),
+        );
+        expect(row).toContain(`${String(index * 2)} из 20`);
+      }
+      const measured = await layout(page);
+      expect(measured.overflowing).toEqual([]);
+      expect(measured.pageWidth).toBe(320);
+      expect(measured.fontSize).toBe("");
+      expect(measured.height).toBeLessThanOrEqual(560);
+
+      await tap(
+        page,
+        realisticText(TRAINER_TOPIC_NAME_MAX_CHARS, 8),
+        question(realisticText),
+      );
+      expect(await requests(page)).toEqual(["t", "tt9"]);
+    });
+
+    it("names the topic in the result and offers another topic or home", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Тренировка по теме", nineTopics);
+
+      await tap(page, realisticText(TRAINER_TOPIC_NAME_MAX_CHARS, 0), [
+        "r",
+        "Синтетическая тема 1",
+        7,
+        10,
+        "Хороший результат. Разборы помогут закрыть пробелы.",
+        0,
+        0,
+        0,
+        1,
+      ]);
+
+      const shown = await page.locator("#w").innerText();
+      expect(shown).toContain("Синтетическая тема 1");
+      expect(shown).toContain("7 из 10");
+      expect(
+        (await page.getByRole("button").allInnerTexts()).slice(0, 2),
+      ).toEqual(["Другая тема", "На главный"]);
+      await tap(page, "Другая тема", nineTopics);
+      await tap(page, "←", home);
+      expect(await requests(page)).toEqual(["t", "tt1", "t", "h"]);
+    });
+  });
+
   describe("in a round of «Проверить себя»", () => {
     const TOO_OFTEN = "Слишком часто. Повторите через несколько секунд.";
     /** A question of the round as the bot sends it: one correct option, no answers inside. */
