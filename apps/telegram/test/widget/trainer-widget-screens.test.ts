@@ -313,7 +313,7 @@ describe("trainer widget screens in a browser", () => {
 
     expect(text).toContain("Серия: 4 дня");
     expect(text).toContain("3 из 5 вопросов");
-    expect(text).toContain("Пройден");
+    expect(text).not.toContain("Пройден");
     expect(await requests(page)).toEqual([]);
   });
 
@@ -338,6 +338,35 @@ describe("trainer widget screens in a browser", () => {
     expect(measured.height).toBeLessThanOrEqual(560);
     expect(await requests(page)).toEqual([]);
   });
+
+  it.each([0, 1])(
+    "gives every home mode the same appearance without a Daily status badge (answered: %s)",
+    async (answered) => {
+      for (const theme of ["light", "dark"] as const) {
+        const page = await openWidget(320, {
+          chatData: JSON.stringify(["h", 1, 5, 5, answered]),
+          theme,
+        });
+        const appearances = [];
+        for (const name of [
+          "Проверить себя",
+          "Вопрос дня",
+          "Тренировка по теме",
+        ])
+          appearances.push(
+            await buttonNamed(page, name).evaluate((button) => {
+              const style = getComputedStyle(button);
+              return [style.backgroundColor, style.borderColor, style.color];
+            }),
+          );
+        expect(appearances[0]).toEqual(appearances[1]);
+        expect(appearances[1]).toEqual(appearances[2]);
+        const text = await page.locator("#w").innerText();
+        expect(text).not.toContain("Новый");
+        expect(text).not.toContain("Пройден");
+      }
+    },
+  );
 
   it("shows the bot's answer for a section that is not open and returns home", async () => {
     const page = await openWidget(320, { chatData: '["h",0,0,5,0]' });
@@ -373,7 +402,7 @@ describe("trainer widget screens in a browser", () => {
     const dark = await openWidget(320, { theme: "dark" });
     const accent = (page: Page) =>
       page
-        .getByRole("button", { name: "Проверить себя" })
+        .locator(".T i")
         .evaluate((button) => getComputedStyle(button).backgroundColor);
 
     expect(await accent(light)).toBe("rgb(199, 70, 30)");
