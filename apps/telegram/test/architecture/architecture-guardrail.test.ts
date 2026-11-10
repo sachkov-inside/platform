@@ -150,6 +150,8 @@ const currentTableOwners = {
   telegram_transport_slots: "outbound",
   telegram_updates: "update-inbox",
   trainer_openings: "trainer",
+  trainer_questions: "trainer",
+  trainer_topics: "trainer",
 } satisfies Record<keyof DatabaseSchema, string>;
 
 it("accepts current table owners and transaction handoff without foreign table access", () => {

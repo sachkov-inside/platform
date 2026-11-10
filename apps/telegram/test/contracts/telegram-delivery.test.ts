@@ -41,8 +41,8 @@ describe("Telegram delivery across the repository transition", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({
       identity:
-        "sha256:4051aa46d4ae3483d5470f70182a9c8fb53cbac6bc665f7a52b13c8fbb76feda",
-      count: 46,
+        "sha256:f6d0c4dfb51f1d4aa9dd907abfb49e3dd1c42e3d8baf5b4bbf25e59acd7cf6fa",
+      count: 47,
       latest: "046-trainer-openings.ts",
     });
   });

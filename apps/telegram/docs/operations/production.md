@@ -689,9 +689,10 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 | `run --rm -T activation-review --list` | очередь разбора неподтверждённых оснований, см. [course-activation.md](course-activation.md#подтверждение-статуса-прежних-участников) |
 | `run --rm -T activation-announcement --preview < /protected/announcement.json` | личный образец владельцу с кнопкой активации, см. [course-activation.md](course-activation.md#кнопка-владельца-в-группе-курса) |
 | `run --rm -T -e TELEGRAM_WEBHOOK_URL=… webhook-registration --preview` | список обновлений webhook |
+| `run --rm -T trainer-bank-import --preview < /protected/trainer-bank.json` | загрузка Банка вопросов Тренажёра, см. [trainer-bank.md](trainer-bank.md) |
 
 Каждая команда вызывается как `"${telegram_compose[@]}" --profile operations …` и не открывает порты.
-`community-restriction` и `activation-review` видят только сеть базы. `activation-announcement` видит базу и egress;
+`community-restriction`, `activation-review` и `trainer-bank-import` видят только сеть базы. `activation-announcement` видит базу и egress;
 `webhook-registration` — только внешнюю сеть.
 
 ### Поиск контактов по имени (`inside.telegram-contact.v2`)

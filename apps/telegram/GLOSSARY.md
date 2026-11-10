@@ -32,24 +32,6 @@ The current ability to deliver bot messages to a BotContact through Telegram. Bl
 changes Contactability without deleting the BotContact, PlatformLink, or community history.
 _Avoid_: Consent, Membership, active subscription
 
-**Trainer** (Тренажёр):
-The bot section where a BotContact checks their knowledge of AI engineering inside one widget
-message of the private chat. The person opens it themselves; it needs no PlatformLink or Product
-Access and the bot never sends reminders about it.
-_Avoid_: Quiz, test, course, Mini App
-
-**Self-check** («Проверить себя»):
-The main Trainer mode: one round of 5 questions from different topics.
-_Avoid_: Quick round, Быстрый раунд, exam
-
-**Daily Question** (Вопрос дня):
-The one Trainer question of a Moscow calendar day, the same for everyone.
-_Avoid_: Daily quiz, reminder, question of the week
-
-**Topic Training** (Тренировка по теме):
-A Trainer round of up to 10 questions from one topic the person chose.
-_Avoid_: Course, lesson, module
-
 **Marketing Preference**:
 A BotContact's current choice about bot marketing: messages are allowed after starting the bot,
 `/stop` turns them off and `/resume` enables future messages without a missed-message backlog.
@@ -120,3 +102,32 @@ _Avoid_: Support ticket, rejection, pending_review
 An owner-configured prior-course group and participant policy used to verify eligibility for course
 activation. It is separate from the community a Product opens and does not itself grant Product Access.
 _Avoid_: Community group, subscription source, Product Access
+
+**Тренажёр** (Trainer):
+The bot section where a BotContact checks their knowledge of AI engineering inside one widget
+message of the private chat. The person opens it themselves; it needs no PlatformLink or Product
+Access and the bot never sends reminders about it.
+_Avoid_: Quiz, test, course, Mini App
+
+**Проверить себя** (Self-check):
+The main Тренажёр mode: one round of 5 questions from different topics.
+_Avoid_: Quick round, Быстрый раунд, exam
+
+**Вопрос дня** (Daily Question):
+The one Тренажёр question of a Moscow calendar day, the same for everyone.
+_Avoid_: Daily quiz, reminder, question of the week
+
+**Тренировка по теме** (Topic Training):
+A Тренажёр round of up to 10 questions from one topic the person chose.
+_Avoid_: Course, lesson, module
+
+**Банк вопросов** (Question Bank):
+The author's whole set of Trainer questions and their topics, loaded into the bot by the owner's
+import. The bot never edits it; a new import replaces what people are shown.
+_Avoid_: Quiz, test, lesson check, question pool
+
+**Вопрос тренажёра** (Trainer Question):
+One question of the Банк вопросов with a permanent identifier, a topic, 2 to 4 options of which one
+or several are correct, an explanation of every option and a general explanation. A question that
+leaves the Bank is withdrawn from display and keeps the answers people gave to it.
+_Avoid_: Lesson question, task, exercise, poll

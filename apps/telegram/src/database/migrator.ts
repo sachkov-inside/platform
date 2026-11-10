@@ -1,3 +1,4 @@
+import { trainerBankMigration } from "./migrations/045-trainer-bank.js";
 import { communityDiscussionHistoryMigration } from "./migrations/044-community-discussion-history.js";
 import { communityDiscussionBudgetMigration } from "./migrations/043-community-discussion-budget.js";
 import { communityTranscriptsMigration } from "./migrations/042-community-transcripts.js";
@@ -56,6 +57,7 @@ import { trainerOpeningsMigration } from "./migrations/046-trainer-openings.js";
 
 const migrations = {
   "046-trainer-openings": trainerOpeningsMigration,
+  "045-trainer-bank": trainerBankMigration,
   "044-community-discussion-history": communityDiscussionHistoryMigration,
   "043-community-discussion-budget": communityDiscussionBudgetMigration,
   "042-community-transcripts": communityTranscriptsMigration,
