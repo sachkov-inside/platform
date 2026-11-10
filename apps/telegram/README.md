@@ -252,7 +252,9 @@ pnpm --filter @inside/telegram test:widget
 The first command rebuilds the generated module and prints the size against the 4 096-byte limit;
 `pnpm check` fails when the module is stale or too large. The second command opens the built widget
 in Playwright's Chromium with a stand-in `TelegramWidget` and checks every screen at 320, 390 and
-430 px. It needs `pnpm exec playwright install chromium` once. The widget browser suite also runs in root
+430 px. Client-document checks also run in WebKit at 320 and 390 px, with and without a doctype,
+and compare positions, sizes, fonts and colours. They need `pnpm exec playwright install chromium webkit`
+once. The widget browser suite also runs in root
 `pnpm check:ui`; Telegram-only `check:full` installs no browser.
 
 For an interactive local review of the actual widget and Trainer with a disposable synthetic Bank,

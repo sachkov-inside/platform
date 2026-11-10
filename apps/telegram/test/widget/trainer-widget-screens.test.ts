@@ -1,4 +1,4 @@
-import { type Browser, type Page, chromium } from "@playwright/test";
+import { type Browser, type Page, chromium, webkit } from "@playwright/test";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -171,19 +171,23 @@ const routes: readonly Route[] = [
 ];
 
 let browser: Browser;
+let webkitBrowser: Browser;
 
 beforeAll(async () => {
   browser = await chromium.launch();
+  webkitBrowser = await webkit.launch();
 });
 afterAll(async () => {
   await browser.close();
+  await webkitBrowser.close();
 });
 
 async function openWidget(
   width: number,
   options: Partial<WidgetPageOptions> = {},
+  engine: Browser = browser,
 ): Promise<Page> {
-  const page = await browser.newPage({
+  const page = await engine.newPage({
     viewport: { width, height: 900 },
     colorScheme: options.theme ?? "light",
   });
@@ -192,6 +196,22 @@ async function openWidget(
   );
   return page;
 }
+
+it("keeps the home screen inside the bubble in a client document without a doctype", async () => {
+  const page = await openWidget(320, { documentMode: "quirks", theme: "dark" });
+  try {
+    expect(await page.evaluate(() => document.compatMode)).toBe("BackCompat");
+    const root = await page.locator("#w").boundingBox();
+    expect(root?.height).toBeLessThanOrEqual(TRAINER_WIDGET_TARGET_HEIGHT_PX);
+    const body = await page.locator("body").boundingBox();
+    expect(body?.height).toBe(root?.height);
+    await expect(buttonNamed(page, "Проверить себя").isVisible()).resolves.toBe(
+      true,
+    );
+  } finally {
+    await page.close();
+  }
+});
 
 /** Taps a button and waits until the widget has drawn the bot's answer to that tap. */
 async function tap(
@@ -227,6 +247,59 @@ async function reach(page: Page, route: Route, text: Filler): Promise<void> {
   for (const [button, answer] of route.steps(text))
     await tap(page, button, answer);
 }
+
+describe.each(["Chromium", "WebKit"] as const)(
+  "client document compatibility in %s",
+  (engineName) => {
+    it.each(routes)(
+      "keeps $name in the same positions with or without a doctype",
+      async (route) => {
+        const engine = engineName === "WebKit" ? webkitBrowser : browser;
+        for (const width of [320, 390]) {
+          for (const theme of ["light", "dark"] as const) {
+            const shapes = [];
+            for (const documentMode of ["standards", "quirks"] as const) {
+              const page = await openWidget(
+                width,
+                { theme, documentMode },
+                engine,
+              );
+              try {
+                await reach(page, route, realisticText);
+                const root = await page.locator("#w").boundingBox();
+                const body = await page.locator("body").boundingBox();
+                expect(root?.height).toBeLessThanOrEqual(
+                  TRAINER_WIDGET_TARGET_HEIGHT_PX,
+                );
+                expect(body?.height).toBe(root?.height);
+                shapes.push(
+                  await page.locator("#w").evaluate((root) =>
+                    [root, ...root.querySelectorAll("*")].map((element) => {
+                      const box = element.getBoundingClientRect();
+                      const style = getComputedStyle(element);
+                      return [
+                        box.x,
+                        box.y,
+                        box.width,
+                        box.height,
+                        style.fontSize,
+                        style.color,
+                        style.backgroundColor,
+                      ];
+                    }),
+                  ),
+                );
+              } finally {
+                await page.close();
+              }
+            }
+            expect(shapes[1]).toEqual(shapes[0]);
+          }
+        }
+      },
+    );
+  },
+);
 
 interface Layout {
   readonly height: number;
@@ -276,18 +349,20 @@ const layout = (page: Page): Promise<Layout> =>
 /** The visible boxes and text sizes that must stay fixed throughout one question. */
 const questionGeometry = (page: Page) =>
   page.evaluate(() =>
-    [...document.querySelectorAll("#w .q i, #w .Q, #w .o, #w .f")].map(
-      (element) => {
-        const box = element.getBoundingClientRect();
-        return [
-          box.x,
-          box.y,
-          box.width,
-          box.height,
-          getComputedStyle(element).fontSize,
-        ];
-      },
-    ),
+    [
+      ...document.querySelectorAll(
+        "#w .steps i, #w .Q, #w .option, #w .feedback",
+      ),
+    ].map((element) => {
+      const box = element.getBoundingClientRect();
+      return [
+        box.x,
+        box.y,
+        box.width,
+        box.height,
+        getComputedStyle(element).fontSize,
+      ];
+    }),
   );
 
 describe("trainer widget screens in a browser", () => {
@@ -425,7 +500,7 @@ describe("trainer widget screens in a browser", () => {
 
   it.each([
     ["light", "rgb(199, 70, 30)", "rgb(255, 239, 220)"],
-    ["dark", "rgb(239, 107, 60)", "rgb(51, 33, 23)"],
+    ["dark", "rgb(199, 70, 30)", "rgb(255, 239, 220)"],
   ] as const)(
     "uses outlined warm cards and crisp offset shadows equally in the %s theme",
     async (theme, accent, surface) => {
@@ -469,7 +544,7 @@ describe("trainer widget screens in a browser", () => {
       await tap(page, "Проверить себя", question(realisticText));
       await tap(page, "Не знаю", explanation(realisticText));
       const correct = await page
-        .locator(".o.G")
+        .locator(".option.G")
         .first()
         .evaluate((option) => {
           const letter = option.querySelector(".y");
@@ -480,7 +555,7 @@ describe("trainer widget screens in a browser", () => {
           };
         });
       const wrong = await page
-        .locator(".o.B")
+        .locator(".option.B")
         .first()
         .evaluate((option) => {
           const letter = option.querySelector(".y");
@@ -526,7 +601,7 @@ describe("trainer widget screens in a browser", () => {
     expect(await page.locator("#w").innerText()).toContain("Серия: 21 день");
   });
 
-  it("uses the Inside accent of the chat's colour scheme", async () => {
+  it("keeps the same Inside accent in either chat colour scheme", async () => {
     const light = await openWidget(320);
     const dark = await openWidget(320, { theme: "dark" });
     const accent = (page: Page) =>
@@ -535,7 +610,7 @@ describe("trainer widget screens in a browser", () => {
         .evaluate((button) => getComputedStyle(button).backgroundColor);
 
     expect(await accent(light)).toBe("rgb(199, 70, 30)");
-    expect(await accent(dark)).toBe("rgb(239, 107, 60)");
+    expect(await accent(dark)).toBe("rgb(199, 70, 30)");
   });
 
   it.each([
@@ -555,7 +630,7 @@ describe("trainer widget screens in a browser", () => {
       expect(await questionGeometry(page)).toEqual(before);
       await tap(page, "Ответить", explanation(text, 0b0011, 0b0001));
       expect(await questionGeometry(page)).toEqual(before);
-      expect(await page.locator(".f").innerText()).toContain("Неверно");
+      expect(await page.locator(".feedback").innerText()).toContain("Неверно");
       await page.close();
     },
   );
@@ -657,7 +732,7 @@ describe("trainer widget screens in a browser", () => {
         0,
       ]);
       const colours = await page.evaluate(() => {
-        const title = document.querySelector(".f .V");
+        const title = document.querySelector(".feedback .V");
         if (!title) throw new Error("The feedback verdict is missing");
         return [
           getComputedStyle(title).color,
@@ -676,9 +751,9 @@ describe("trainer widget screens in a browser", () => {
       await tap(page, "Проверить себя", question(realisticText));
       const paperArea = () =>
         page.evaluate(() => {
-          const panel = document.querySelector(".f");
-          const title = document.querySelector(".f .V");
-          const option = [...document.querySelectorAll(".o")].at(-1);
+          const panel = document.querySelector(".feedback");
+          const title = document.querySelector(".feedback .V");
+          const option = [...document.querySelectorAll(".option")].at(-1);
           if (!panel || !title || !option)
             throw new Error("The question area is missing");
           const style = getComputedStyle(panel);
@@ -1002,14 +1077,14 @@ describe("trainer widget screens in a browser", () => {
     /** The step strip: G a correct answer, B a wrong one, S the current step. */
     const steps = (page: Page): Promise<string[]> =>
       page
-        .locator("#w .q i")
+        .locator("#w .steps i")
         .evaluateAll((marks) =>
           marks.map((mark) => mark.getAttribute("class") ?? ""),
         );
     /** The options on the screen with their mark: G correct, B picked and wrong. */
     const options = (page: Page): Promise<string[]> =>
       page
-        .locator("#w .o")
+        .locator("#w .option")
         .evaluateAll((rows) =>
           rows.map(
             (row) =>
@@ -1113,7 +1188,7 @@ describe("trainer widget screens in a browser", () => {
       expect(text.indexOf("Синтетический вариант 4")).toBeLessThan(
         text.indexOf("Неверно"),
       );
-      expect(await page.locator("button.o").count()).toBe(0);
+      expect(await page.locator("button.option").count()).toBe(0);
       expect(await steps(page)).toEqual(["G", "B", "B", "S", ""]);
       expect(text).not.toMatch(/Где почитать|В вопросе ошибка/);
       expect(await buttons(page)).toEqual(["×", "Дальше"]);

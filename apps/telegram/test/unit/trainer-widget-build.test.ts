@@ -36,6 +36,18 @@ describe("trainer widget build", () => {
     expect(TRAINER_WIDGET_HTML).toBe(html);
   });
 
+  it("does not distinguish CSS classes only by case in native client documents", () => {
+    const css = /<style>(.*?)<\/style>/s.exec(html)?.[1] ?? "";
+    const names = [
+      ...new Set(
+        [...css.matchAll(/\.([A-Za-z_][\w-]*)/g)].map((match) => match[1]),
+      ),
+    ];
+    expect(new Set(names.map((name) => name?.toLowerCase())).size).toBe(
+      names.length,
+    );
+  });
+
   it.each([
     ["color-mix()", /color-mix\(/],
     ["height-relative units", /\d(?:vh|dvh|svh|lvh)\b/],
