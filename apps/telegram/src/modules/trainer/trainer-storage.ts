@@ -89,6 +89,23 @@ export interface TrainerTables {
     started_at: Timestamp;
     /** The Telegram update that started the round: a repeated run finds the same round. */
     update_id: TelegramId;
+    /** The Moscow day of a `daily` round, written as `YYYY-MM-DD`; null in the other modes. */
+    daily_day: ColumnType<
+      Date | null,
+      string | null | undefined,
+      string | null
+    >;
+  };
+  /** The Daily question of each Moscow day, chosen by the first request of that day. */
+  trainer_daily_questions: {
+    bot_identity: string;
+    /** The Moscow day, written as `YYYY-MM-DD`. */
+    day: ColumnType<Date, string, string>;
+    question_id: string;
+    /** The pass over the Bank the choice belongs to: no question repeats within a cycle. */
+    cycle: number;
+    /** When the bot received the first request of the day. */
+    chosen_at: Timestamp;
   };
   /**
    * One row per step of a round, written when the round starts. A step is issued when the

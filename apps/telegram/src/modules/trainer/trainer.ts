@@ -10,6 +10,7 @@ import {
   TELEGRAM_MESSAGES,
   type TelegramMessages,
 } from "../outbound/telegram-messages.js";
+import { TrainerDaily } from "./trainer-daily.js";
 import type { TrainerOpening, TrainerQuery } from "./trainer-requests.js";
 import {
   TrainerRounds,
@@ -51,6 +52,8 @@ const TOO_OFTEN_TEXT = "Слишком часто. Повторите через
 /** The answer names a question this person was not shown, or options the question lacks. */
 const ISSUE_CLOSED_TEXT = "Этот вопрос уже закрыт. Начните новый раунд.";
 const NO_QUESTIONS_TEXT = "Вопросы скоро появятся.";
+const DAILY_WITHDRAWN_TEXT =
+  "Сегодняшний Вопрос дня снят. Новый появится завтра.";
 const ALL_ANSWERED_TEXT =
   "Вы верно ответили на все вопросы. Они вернутся через 30 дней после ответа.";
 
@@ -61,6 +64,7 @@ const ALL_ANSWERED_TEXT =
 @Injectable()
 export class Trainer {
   private readonly rounds: TrainerRounds;
+  private readonly daily: TrainerDaily;
   private readonly topics: TrainerTopics;
 
   constructor(
@@ -72,6 +76,7 @@ export class Trainer {
     >,
   ) {
     this.rounds = new TrainerRounds(database);
+    this.daily = new TrainerDaily(database);
     this.topics = new TrainerTopics(database);
   }
 
@@ -168,14 +173,24 @@ export class Trainer {
           request.optionMask,
           contact.observedAt,
         );
-        return outcome ? explanationScreen(outcome) : ["x", ISSUE_CLOSED_TEXT];
+        return outcome
+          ? explanationScreen(outcome, await this.daily.statLine(outcome))
+          : ["x", ISSUE_CLOSED_TEXT];
       }
       case "next": {
         const step = await this.rounds.next(contact, contact.observedAt);
         return step ? this.step(step) : this.home(contact);
       }
-      case "start_daily":
-        return ["x", SECTION_NOT_OPEN_TEXT];
+      case "start_daily": {
+        const step = await this.daily.open(contact, {
+          updateId: contact.updateId,
+          at: contact.observedAt,
+        });
+        if (step.kind === "review")
+          return questionScreen(step.question, step.pickedMask);
+        if (step.kind === "withdrawn") return ["x", DAILY_WITHDRAWN_TEXT];
+        return this.step(step);
+      }
       case "topics":
         return topicsScreen(await this.topics.list(contact));
       case "start_topic": {
@@ -232,9 +247,10 @@ export class Trainer {
     }
   }
 
-  /** Home-screen numbers of this person: nobody has answered a question yet. */
-  private home(_contact: VerifiedPrivateStart): Promise<TrainerHomeData> {
-    return Promise.resolve(["h", 0, 0, TRAINER_DAILY_GOAL, 0]);
+  /** Home-screen numbers of this person; the Series and the Daily goal are not counted yet. */
+  private async home(contact: VerifiedPrivateStart): Promise<TrainerHomeData> {
+    const dailyDone = await this.daily.answered(contact, contact.observedAt);
+    return ["h", 0, 0, TRAINER_DAILY_GOAL, dailyDone ? 1 : 0];
   }
 
   private reply(queryId: string, data: TrainerWidgetData): Promise<void> {
