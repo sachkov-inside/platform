@@ -38,6 +38,7 @@ import {
 // Every text is synthetic filler of the exact limit length.
 
 type Filler = (length: number, seed?: number) => string;
+const emojiText: Filler = (length) => "😀".repeat(length);
 
 const home: TrainerHomeData = ["h", 365, 5, 5, 0];
 
@@ -560,13 +561,17 @@ describe("trainer widget screens in a browser", () => {
   );
 
   it.each([
-    ["light", 320, 15],
-    ["dark", 320, 23],
-    ["light", 390, 23],
-    ["dark", 430, 23],
+    ["light", 320, 15, "wide", wideText],
+    ["dark", 320, 23, "wide", wideText],
+    ["light", 390, 23, "wide", wideText],
+    ["dark", 430, 23, "wide", wideText],
+    ["light", 320, 15, "emoji", emojiText],
+    ["dark", 320, 23, "emoji", emojiText],
+    ["light", 390, 23, "emoji", emojiText],
+    ["dark", 430, 23, "emoji", emojiText],
   ] as const)(
-    "reserves long feedback for a short question in %s at %i px and %i px text",
-    async (theme, width, textSizePx) => {
+    "reserves long feedback for a short question in %s at %i px and %i px text with %s symbols",
+    async (theme, width, textSizePx, _symbols, text) => {
       const page = await openWidget(width, { theme, textSizePx });
       await tap(page, "Проверить себя", [
         "q",
@@ -584,9 +589,34 @@ describe("trainer widget screens in a browser", () => {
         2,
         1,
         1,
-        wideText(TRAINER_EXPLANATION_MAX_CHARS, 2),
+        text(TRAINER_EXPLANATION_MAX_CHARS, 2),
         "1",
         5,
+        wideText(TRAINER_STAT_LINE_MAX_CHARS, 3),
+      ]);
+      expect(await questionGeometry(page)).toEqual(before);
+      expect((await layout(page)).height).toBeLessThanOrEqual(
+        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+      );
+      await page.close();
+    },
+  );
+
+  it.each(["light", "dark"] as const)(
+    "keeps maximum question geometry with emoji feedback in %s",
+    async (theme) => {
+      const page = await openWidget(320, { theme, textSizePx: 23 });
+      await tap(page, "Проверить себя", question(wideText));
+      const before = await questionGeometry(page);
+      await buttonNamed(page, "А ").click();
+      await tap(page, "Ответить", [
+        "e",
+        0,
+        3,
+        1,
+        emojiText(TRAINER_EXPLANATION_MAX_CHARS),
+        "10100",
+        10,
         wideText(TRAINER_STAT_LINE_MAX_CHARS, 3),
       ]);
       expect(await questionGeometry(page)).toEqual(before);

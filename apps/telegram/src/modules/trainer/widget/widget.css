@@ -56,6 +56,12 @@ body {
   line-height: 1.35;
   font-family: system-ui, sans-serif;
 }
+/* A question reserves its panel within Telegram's height, including wide answer texts. */
+#w[data-screen="q"],
+#w[data-screen="e"] {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
 /* .w: a request to the bot is in flight. */
 .w {
   opacity: 0.5;
@@ -270,10 +276,12 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 .f {
-  min-height: calc(19em - 5px);
+  font-size: min(1em, 13px);
+  line-height: 1.2;
+  min-height: calc(28em - 78px);
   padding: 6px;
   border: 2px solid var(--l);
   border-radius: 8px;

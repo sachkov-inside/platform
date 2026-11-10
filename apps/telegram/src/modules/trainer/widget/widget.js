@@ -231,6 +231,7 @@
 
   const draw = (data) => {
     current = data;
+    root.dataset.screen = data[0];
     root.style.fontSize = "";
     root.innerHTML = screens[data[0]](data);
     // Nothing scrolls inside a widget, so a screen that is too tall gets smaller text.
