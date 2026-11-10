@@ -51,6 +51,7 @@ export class GrammyMessagesAdapter implements TelegramMessages {
         chat_data: message.chatData,
         caption: message.caption,
         allow_queries: true,
+        height: message.height,
       });
       return { kind: "delivered", providerMessageId: String(sent.message_id) };
     } catch (error) {

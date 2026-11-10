@@ -20,7 +20,7 @@ export const TELEGRAM_WIDGET_DATA_MAX_BYTES = 1_024;
 
 /** The bubble clips a widget at this height; nothing scrolls inside it. */
 export const TELEGRAM_WIDGET_MAX_HEIGHT_PX = 600;
-/** The guide's advice for a 320 px wide bubble, and the Trainer's target for every screen. */
+/** Fixed canvas height, also the guide's target for every screen in a 320 px wide bubble. */
 export const TRAINER_WIDGET_TARGET_HEIGHT_PX = 560;
 /** Bubble widths the layout is checked at; 320 is the narrowest phone layout. */
 export const TRAINER_WIDGET_CHECKED_WIDTHS_PX = [320, 390, 430] as const;

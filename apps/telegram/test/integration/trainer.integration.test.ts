@@ -300,6 +300,7 @@ describe("opening the Trainer", () => {
         html: TRAINER_WIDGET_HTML,
         chatData: EMPTY_HOME,
         caption: CAPTION,
+        height: 560,
       },
     ]);
     expect(bot.messages.texts).toEqual([]);
