@@ -71,7 +71,7 @@ export type TrainerExplanationData = readonly [
   total: number,
   stat: string | 0,
 ];
-/** Round result. `weekPlace` 0 means the person is not shown in the Rating. */
+/** Round result. `weekPlace` 0: the Rating of the week does not list the person. */
 export type TrainerResultData = readonly [
   screen: "r",
   title: string,
@@ -96,11 +96,14 @@ export type TrainerProgressData = readonly [
     correctPercent: number,
   ])[],
 ];
-/** Rating: the first 7 rows and the viewer's own row. */
+/**
+ * Rating: the first 7 rows and the viewer's own row. `shown` is the viewer's choice: 1 shown,
+ * 0 not shown, 2 not chosen yet (the widget offers to be shown; the viewer is not shown).
+ */
 export type TrainerRatingData = readonly [
   screen: "l",
   allTime: Flag,
-  shown: Flag,
+  shown: Flag | 2,
   rows: readonly (readonly [
     place: number,
     name: string,

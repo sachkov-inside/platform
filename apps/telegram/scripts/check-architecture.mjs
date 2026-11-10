@@ -113,6 +113,7 @@ const tableOwners = {
   trainer_issues: "modules/trainer",
   trainer_openings: "modules/trainer",
   trainer_questions: "modules/trainer",
+  trainer_rating_consents: "modules/trainer",
   trainer_rounds: "modules/trainer",
   trainer_topics: "modules/trainer",
 };

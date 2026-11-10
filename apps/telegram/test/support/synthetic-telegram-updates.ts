@@ -123,6 +123,9 @@ export function widgetQueryUpdate(
     chatType?: string;
     isBot?: boolean;
     queryType?: string;
+    /** The sender's Telegram name; "Synthetic" with no last name when absent. */
+    firstName?: string;
+    lastName?: string;
   } = {},
 ) {
   return {
@@ -132,7 +135,10 @@ export function widgetQueryUpdate(
       from: {
         id: userId,
         is_bot: options.isBot ?? false,
-        first_name: "Synthetic",
+        first_name: options.firstName ?? "Synthetic",
+        ...(options.lastName === undefined
+          ? {}
+          : { last_name: options.lastName }),
       },
       chat: {
         id: options.chatId ?? userId,

@@ -24,4 +24,8 @@ export async function access(database: any) {
   await database.insertInto("trainer_daily_questions").values({}).execute();
   await database.updateTable("trainer_daily_questions").set({}).execute();
   await database.deleteFrom("trainer_daily_questions").execute();
+  await database.selectFrom("trainer_rating_consents").selectAll().execute();
+  await database.insertInto("trainer_rating_consents").values({}).execute();
+  await database.updateTable("trainer_rating_consents").set({}).execute();
+  await database.deleteFrom("trainer_rating_consents").execute();
 }

@@ -108,7 +108,7 @@ const progress = (text: Filler): TrainerWidgetData => [
       [text(TRAINER_TOPIC_NAME_MAX_CHARS, index), 20, 20, 100] as const,
   ),
 ];
-const rating = (text: Filler, shown: 0 | 1 = 1): TrainerWidgetData => [
+const rating = (text: Filler, shown: 0 | 1 | 2 = 1): TrainerWidgetData => [
   "l",
   0,
   shown,
@@ -158,8 +158,12 @@ const routes: readonly Route[] = [
   { name: "Progress", steps: (text) => [["Прогресс", progress(text)]] },
   { name: "Rating", steps: (text) => [["Рейтинг", rating(text)]] },
   {
-    name: "Rating before consent",
+    name: "Rating with the display off",
     steps: (text) => [["Рейтинг", rating(text, 0)]],
+  },
+  {
+    name: "Rating with the offer of the first opening",
+    steps: (text) => [["Рейтинг", rating(text, 2)]],
   },
   { name: "bot refusal", steps: () => [["Прогресс", failure]] },
   { name: "no answer", steps: () => [["Прогресс"]] },
@@ -490,6 +494,44 @@ describe("trainer widget screens in a browser", () => {
     expect(await page.locator("#w img").count()).toBe(0);
     expect(await page.locator("#w").innerText()).toContain("<img src=x");
     expect(await requests(page)).toEqual(["l0"]);
+  });
+
+  it("offers to be shown on the first opening of the Rating and turns the display on only by the person's tap", async () => {
+    const page = await openWidget(320);
+    const table = [[1, "Анна", 5, 0]] as const;
+
+    await tap(page, "Рейтинг", ["l", 0, 2, table]);
+    const offer = await page.locator("#w").innerText();
+    const switches = await buttonNamed(
+      page,
+      "Показывать меня в рейтинге",
+    ).count();
+    await tap(page, "Всё время", ["l", 1, 2, table]);
+    await tap(page, "Показать меня", ["l", 1, 1, [[1, "Анна", 5, 1]]]);
+    const afterConsent = await page.locator("#w").innerText();
+
+    expect(offer).toContain("Показать вас в рейтинге?");
+    expect(offer).toContain("Другие увидят ваше имя из Telegram");
+    // Before the choice there is an offer with two answers, not a switch.
+    expect(switches).toBe(0);
+    expect(await requests(page)).toEqual(["l0", "l1", "v11"]);
+    expect(afterConsent).not.toContain("Показать вас в рейтинге?");
+    expect(afterConsent).toContain("Показывать меня в рейтинге");
+    expect(afterConsent).toContain("Вкл");
+  });
+
+  it("keeps the display off after «Не сейчас» and leaves a switch to turn it on later", async () => {
+    const page = await openWidget(320);
+
+    await tap(page, "Рейтинг", ["l", 0, 2, []]);
+    await tap(page, "Не сейчас", ["l", 0, 0, []]);
+    const declined = await page.locator("#w").innerText();
+    await tap(page, "Показывать меня в рейтинге", ["l", 0, 1, []]);
+
+    expect(declined).not.toContain("Показать вас в рейтинге?");
+    expect(declined).toContain("Сейчас вас нет в таблицах");
+    expect(declined).toContain("Выкл");
+    expect(await requests(page)).toEqual(["l0", "v00", "v10"]);
   });
 
   it("sends only requests the bot's reader understands", async () => {

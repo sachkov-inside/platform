@@ -18,6 +18,7 @@ import {
   trainerProgress,
   trainerStreakDays,
 } from "./trainer-progress.js";
+import { TrainerRating } from "./trainer-rating.js";
 import type { TrainerOpening, TrainerQuery } from "./trainer-requests.js";
 import {
   TrainerRounds,
@@ -54,7 +55,6 @@ const WIDGET_CAPTION =
   "Тренажёр Inside. Если вместо него пустое сообщение, обновите Telegram.";
 const WIDGET_REJECTED_TEXT =
   "Тренажёр не открылся. Обновите Telegram до последней версии и отправьте /train ещё раз.";
-const SECTION_NOT_OPEN_TEXT = "Этот раздел скоро откроется.";
 const TOO_OFTEN_TEXT = "Слишком часто. Повторите через несколько секунд.";
 /** The answer names a question this person was not shown, or options the question lacks. */
 const ISSUE_CLOSED_TEXT = "Этот вопрос уже закрыт. Начните новый раунд.";
@@ -73,6 +73,7 @@ export class Trainer {
   private readonly rounds: TrainerRounds;
   private readonly daily: TrainerDaily;
   private readonly topics: TrainerTopics;
+  private readonly rating: TrainerRating;
 
   constructor(
     @Inject(DATABASE) private readonly database: Database,
@@ -85,6 +86,7 @@ export class Trainer {
     this.rounds = new TrainerRounds(database);
     this.daily = new TrainerDaily(database);
     this.topics = new TrainerTopics(database);
+    this.rating = new TrainerRating(database);
   }
 
   /**
@@ -96,6 +98,7 @@ export class Trainer {
   async open(opening: TrainerOpening): Promise<void> {
     const { contact } = opening;
     if (!(await this.claim(opening))) return;
+    await this.rating.observe(contact);
 
     const result = await this.messages.sendWidget({
       chatId: contact.privateChatId,
@@ -141,6 +144,8 @@ export class Trainer {
   /** Answers a press inside the widget with the next screen; it never sends a message. */
   async answer(query: TrainerQuery): Promise<void> {
     const request = parseTrainerWidgetRequest(query.data);
+    // The Rating shows the Telegram name of a shown person's last request, whatever it asked.
+    await this.rating.observe(query.contact);
     await this.reply(
       query.queryId,
       request ? await this.respond(query.contact, request) : ["x"],
@@ -223,9 +228,10 @@ export class Trainer {
           await trainerProgress(this.database, contact, contact.observedAt),
         );
       case "rating":
-        return ["x", SECTION_NOT_OPEN_TEXT];
+        return this.rating.screen(contact, request.allTime);
       case "set_rating_shown":
-        return ["x", SECTION_NOT_OPEN_TEXT];
+        await this.rating.choose(contact, request.shown);
+        return this.rating.screen(contact, request.allTime);
       default:
         return unhandled(request, "Trainer widget request");
     }
@@ -251,6 +257,7 @@ export class Trainer {
               contact,
               contact.observedAt,
             ),
+            weekPlace: await this.rating.weekPlace(contact, contact.observedAt),
           },
           topicCode === null ? undefined : await this.topics.name(topicCode),
         );

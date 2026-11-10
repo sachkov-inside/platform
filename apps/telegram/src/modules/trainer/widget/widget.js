@@ -167,6 +167,7 @@
         .join("")}</div>`,
 
     // ["l", allTime, shown, [[place, name, points, isViewer], …]]
+    // shown 2: the person has not chosen yet and gets the offer instead of the switch.
     l: (d) => {
       const tab = d[1] ? 1 : 0;
       return (
@@ -178,15 +179,21 @@
               `<div class="R u${row[3] ? " M" : ""}"><span class=m>${row[0]}</span><span class="F e">${esc(row[1])}</span><b>${row[2]}</b></div>`,
           )
           .join("")}</div>` +
-        card(
-          "v" + (d[2] ? 0 : 1) + tab,
-          "k",
-          "Показывать меня в рейтинге",
-          d[2]
-            ? "Другие видят ваше имя из Telegram"
-            : "Сейчас вас нет в таблицах",
-          d[2] ? "Вкл" : "Выкл",
-        ) +
+        (d[2] > 1
+          ? "<div><b>Показать вас в рейтинге?</b><div class=m>Другие увидят ваше имя из Telegram. Сейчас вас нет в таблицах.</div></div>" +
+            pair(
+              button("v1" + tab, "b P", "Показать меня"),
+              button("v0" + tab, "b", "Не сейчас"),
+            )
+          : card(
+              "v" + (d[2] ? 0 : 1) + tab,
+              "k",
+              "Показывать меня в рейтинге",
+              d[2]
+                ? "Другие видят ваше имя из Telegram"
+                : "Сейчас вас нет в таблицах",
+              d[2] ? "Вкл" : "Выкл",
+            )) +
         "<div class=m>Очки даются за первый верный ответ на вопрос.</div>"
       );
     },

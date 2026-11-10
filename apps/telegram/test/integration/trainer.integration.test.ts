@@ -64,7 +64,6 @@ const CAPTION =
   "Тренажёр Inside. Если вместо него пустое сообщение, обновите Telegram.";
 const UPDATE_TELEGRAM =
   "Тренажёр не открылся. Обновите Telegram до последней версии и отправьте /train ещё раз.";
-const NOT_OPEN_YET = '["x","Этот раздел скоро откроется."]';
 const TOO_OFTEN = '["x","Слишком часто. Повторите через несколько секунд."]';
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -562,17 +561,6 @@ describe("a press inside the widget", () => {
     expect(bot.messages.texts).toEqual([]);
     expect(await plannedTexts()).toEqual([]);
   });
-
-  it.each(["l0", "l1", "v11"])(
-    "answers the request %s with a screen that the section is not open yet",
-    async (data) => {
-      await press(newUser(), data);
-
-      expect(bot.messages.answers.map((answer) => answer.data)).toEqual([
-        NOT_OPEN_YET,
-      ]);
-    },
-  );
 
   it.each(["zzz", "a:1", "h ", "ж"])(
     "answers the unknown request %j with the failure screen",

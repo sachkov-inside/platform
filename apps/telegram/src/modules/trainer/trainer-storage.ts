@@ -136,4 +136,17 @@ export interface TrainerTables {
     /** True when this is the person's first answer to the question in any round. */
     first_answer: boolean | null;
   };
+  /** A person's choice about the Rating. No row: the person has not chosen and is not shown. */
+  trainer_rating_consents: {
+    bot_identity: string;
+    telegram_user_id: TelegramId;
+    shown: boolean;
+    /**
+     * The Telegram name the tables show, as of the person's last request; null exactly when
+     * the person is not shown.
+     */
+    display_name: string | null;
+    /** When the bot received the person's latest choice. */
+    decided_at: Timestamp;
+  };
 }

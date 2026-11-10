@@ -56,8 +56,10 @@ import { authorAdminMigration } from "./migrations/014-author-admin.js";
 import { trainerOpeningsMigration } from "./migrations/046-trainer-openings.js";
 import { trainerRoundsMigration } from "./migrations/047-trainer-rounds.js";
 import { trainerDailyQuestionsMigration } from "./migrations/048-trainer-daily-questions.js";
+import { trainerRatingConsentsMigration } from "./migrations/049-trainer-rating-consents.js";
 
 const migrations = {
+  "049-trainer-rating-consents": trainerRatingConsentsMigration,
   "048-trainer-daily-questions": trainerDailyQuestionsMigration,
   "047-trainer-rounds": trainerRoundsMigration,
   "046-trainer-openings": trainerOpeningsMigration,
