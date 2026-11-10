@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "topics": [
+    { "code": "t1", "name": "Синтетическая тема 1" },
+    { "code": "t2", "name": "Синтетическая тема 2" }
+  ],
+  "questions": [
+    {
+      "id": "t1-0001",
+      "topic": "t1",
+      "format": "single",
+      "text": "Синтетический вопрос 1",
+      "options": [
+        {
+          "text": "Вариант А",
+          "correct": true,
+          "explanation": "Разбор варианта А."
+        },
+        {
+          "text": "Вариант Б",
+          "correct": false,
+          "explanation": "Разбор варианта Б."
+        }
+      ],
+      "explanation": "Общий разбор вопроса 1.",
+      "source": "Синтетический источник",
+      "checkedAt": "2026-11-01"
+    },
+    {
+      "id": "t2-0001",
+      "topic": "t2",
+      "format": "multiple",
+      "text": "Синтетический вопрос 2",
+      "options": [
+        {
+          "text": "Вариант А",
+          "correct": true,
+          "explanation": "Разбор варианта А."
+        },
+        {
+          "text": "Вариант Б",
+          "correct": true,
+          "explanation": "Разбор варианта Б."
+        },
+        {
+          "text": "Вариант В",
+          "correct": false,
+          "explanation": "Разбор варианта В."
+        },
+        {
+          "text": "Вариант Г",
+          "correct": false,
+          "explanation": "Разбор варианта Г."
+        }
+      ],
+      "explanation": "Общий разбор вопроса 2.",
+      "source": "Синтетический источник",
+      "checkedAt": "2026-11-01"
+    }
+  ]
+}
