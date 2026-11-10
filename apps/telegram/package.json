@@ -41,7 +41,7 @@
     "trainer:widget:build": "tsx scripts/trainer-widget/build.ts",
     "trainer:bank:schema": "tsx scripts/trainer-bank/write-schema.ts",
     "test:contracts": "bash ../../scripts/heavy-check.sh vitest run --config vitest.contract.config.ts",
-    "trainer:review": "node ../../scripts/owned-node.mjs node_modules/tsx/dist/cli.mjs scripts/trainer-widget/review.ts"
+    "trainer:review": "node ../../scripts/owned-node.mjs --import tsx scripts/trainer-widget/review.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "4.0.106",

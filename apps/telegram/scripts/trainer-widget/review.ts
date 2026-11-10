@@ -14,6 +14,7 @@ import { Trainer } from "../../src/modules/trainer/trainer.js";
 import { TrainerBank } from "../../src/modules/trainer/trainer-bank.js";
 import { systemClock } from "../../src/shared/clock.js";
 import { syntheticTrainerBank } from "../../test/support/synthetic-trainer-bank.js";
+import { closeReviewServer } from "./review-lifecycle.js";
 import { reviewPage, widgetPage } from "./review-page.js";
 import { permitsReviewPost, reviewDatabaseUrl } from "./review-settings.js";
 
@@ -49,7 +50,7 @@ const stop = new Promise<void>((resolve) => {
   resolveStop = resolve;
 });
 for (const signal of ["SIGINT", "SIGTERM"] as const)
-  process.once(signal, () => {
+  process.on(signal, () => {
     cancellation.abort();
     resolveStop();
   });
@@ -60,7 +61,7 @@ try {
     receipt,
     JSON.stringify({ project, pid: process.pid }, null, 2),
   );
-  console.log(`Preparing disposable PostgreSQL: ${project}`);
+  console.log(`Подготовка отдельной базы PostgreSQL: ${project}`);
   await compose("ps");
   await compose("up", "-d", "--wait", "postgres");
   cancellation.signal.throwIfAborted();
@@ -214,12 +215,13 @@ try {
         response.end(await tap(parsed.data.data));
       })
       .catch((error: unknown) => {
+        if (cancellation.signal.aborted) return;
         console.error(
-          "Review request failed",
+          "Не удалось выполнить запрос просмотра",
           error instanceof Error ? error.message : "unknown",
         );
         if (!response.headersSent) response.writeHead(500);
-        response.end("Review request failed");
+        response.end("Не удалось выполнить запрос просмотра");
       });
   });
   await new Promise<void>((resolve, reject) => {
@@ -228,20 +230,37 @@ try {
   });
   const address = server.address();
   if (address === null || typeof address === "string")
-    throw new Error("Review server has no TCP address");
+    throw new Error("Не удалось открыть локальный адрес просмотра");
   origin = `http://127.0.0.1:${String(address.port)}`;
   await writeFile(
     receipt,
     JSON.stringify({ project, pid: process.pid, url: origin }, null, 2),
   );
-  console.log(`Trainer review: ${origin}`);
-  console.log(`PID: ${String(process.pid)}; PostgreSQL project: ${project}`);
-  console.log("Stop with Ctrl+C; its PostgreSQL volume will be removed.");
+  console.log(`Просмотр Тренажёра: ${origin}`);
+  console.log(`PID: ${String(process.pid)}; проект PostgreSQL: ${project}`);
+  console.log(
+    "Для остановки нажми Ctrl+C. Контейнер и том просмотра будут удалены.",
+  );
   await stop;
 } finally {
-  if (server)
-    await new Promise<void>((resolve) => server?.close(() => resolve()));
-  await database?.destroy();
-  await compose("down", "--volumes");
+  await closeReviewResources();
+  // Failed cleanup keeps the receipt for the documented recovery procedure.
   await rm(receipt, { force: true });
+}
+
+async function closeReviewResources(): Promise<void> {
+  // closeReviewServer closes active HTTP connections synchronously before its first await.
+  // Retire idle pool clients before PostgreSQL stops; stopping PostgreSQL also releases
+  // blocked queries. All cleanup operations run even if one of them rejects.
+  const results = await Promise.allSettled([
+    server ? closeReviewServer(server) : Promise.resolve(),
+    database?.destroy(),
+    compose("down", "--timeout", "1", "--volumes"),
+  ]);
+  for (const result of results) {
+    if (result.status === "rejected")
+      throw new Error("Не удалось завершить очистку просмотра", {
+        cause: result.reason,
+      });
+  }
 }
