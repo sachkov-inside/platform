@@ -49,7 +49,7 @@ export class GrammyMessagesAdapter implements TelegramMessages {
         chat_id: chatId,
         html: message.html,
         chat_data: message.chatData,
-        caption: message.caption,
+        ...(message.caption === undefined ? {} : { caption: message.caption }),
         allow_queries: true,
         height: message.height,
       });

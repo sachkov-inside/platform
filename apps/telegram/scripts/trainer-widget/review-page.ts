@@ -23,11 +23,12 @@ h1{font-size:28px;line-height:1.2;margin:0 0 12px}p{max-width:70ch}.layout{displ
 <li>Открой Рейтинг, включи показ, затем выключи. Твоя строка должна появиться и исчезнуть.</li>
 <li>Переключи тему и ширину 320. Текст и кнопки должны помещаться. Для чистого повторения нажми «Начать новым участником».</li>
 </ol><p class="note">В синтетическом Банке верен вариант А; в каждом третьем вопросе верны А и Б. Это условные тексты для проверки интерфейса.</p>
-<p class="note">Отдельно на телефоне в Telegram проверяются настоящий Bot API, время ответа, старые клиенты, подпись и пересоздание виджета. Этот просмотр не заменяет эти критерии #2002.</p></section></div>
+<p class="note">Отдельно на телефоне в Telegram проверяются настоящий Bot API, время ответа, старые клиенты, время в нижнем углу и пересоздание виджета. Этот просмотр не заменяет эти критерии #2002.</p></section></div>
 <script>
 const frame=document.getElementById('widget'),theme=document.getElementById('theme'),width=document.getElementById('width'),status=document.getElementById('status');
 function display(){frame.width=width.value;frame.style.colorScheme=theme.value;frame.src='/widget?theme='+theme.value;}
 async function reset(){try{const r=await fetch('/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});if(!r.ok)throw new Error('Не удалось создать участника');status.textContent='Новый участник готов. Прогресс начинается с нуля.';display();}catch(e){status.textContent=e.message;}}
+window.addEventListener('message',event=>{if(event.source!==frame.contentWindow||event.origin!==location.origin)return;const height=event.data?.trainerWidgetHeight;if(typeof height==='number'&&Number.isFinite(height))frame.style.height=Math.max(50,Math.min(${String(TRAINER_WIDGET_TARGET_HEIGHT_PX)},height))+'px';});
 theme.onchange=display;width.onchange=display;document.getElementById('reset').onclick=reset;reset();
 </script></html>`;
 
@@ -53,5 +54,5 @@ body{margin:8px 12px;background:${palette[0]};color:${palette[1]};font:15px/1.35
 </style><script>
 window.TelegramWidget={profile:1,colorScheme:${JSON.stringify(theme)},chatData:${JSON.stringify(chatData)},ready(){},onEvent(){},setResizeAnchor(){},
 request:async(data)=>{const r=await fetch('/api/tap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});if(!r.ok)throw new Error('REVIEW_REQUEST_FAILED');return{result:await r.text()};}};
-</script><body>${themedHtml}</body></html>`;
+</script><body>${themedHtml}<script>new ResizeObserver(()=>parent.postMessage({trainerWidgetHeight:document.body.offsetHeight},location.origin)).observe(document.body);</script></body></html>`;
 }

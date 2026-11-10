@@ -10,7 +10,7 @@ import {
 
 import { createDatabase } from "../../src/database/create-database.js";
 import type { Database } from "../../src/database/database.js";
-import { migrateToLatest } from "../../src/database/migrator.js";
+import { migrateDown, migrateToLatest } from "../../src/database/migrator.js";
 import {
   moscowWeekWindow,
   type TrainerTimeWindow,
@@ -88,6 +88,106 @@ function nextPressAfter(seconds: number): void {
 }
 
 describe("Points", () => {
+  it(
+    "credits home, Progress and Rating only after the whole round is answered",
+    async () => {
+      const user = newUser();
+      const { tap } = trainer();
+      await tap(user, "v10");
+      const first = asked(await tap(user, "q"));
+      await tap(user, right(first));
+      expect((await tap(user, "h")).slice(1, 3)).toEqual([0, 0]);
+      const pending = await tap(user, "p");
+      expect(pending.slice(1, 4)).toEqual([0, 0, 0]);
+      expect(await tap(user, "l0")).toEqual(["l", 0, 1, []]);
+      for (let index = 1; index < 5; index += 1) {
+        const question = asked(await tap(user, "n"));
+        await tap(user, right(question));
+      }
+      expect((await tap(user, "h")).slice(1, 3)).toEqual([1, 5]);
+      expect((await tap(user, "p")).slice(1, 4)).toEqual([5, 1, 5]);
+      expect((await tap(user, "l0"))[3]).toHaveLength(1);
+    },
+    LONG_CONVERSATION_MS,
+  );
+
+  it("lets a completed round earn first-answer credit after an abandoned wrong attempt", async () => {
+    const user = newUser();
+    const { tap, playRound } = trainer();
+    await tap(user, wrong(asked(await tap(user, "q"))));
+    const result = await playRound(user);
+    expect(result[5]).toBe(5);
+    expect((await tap(user, "p")).slice(1, 4)).toEqual([5, 1, 5]);
+  });
+
+  it("credits the whole round to its completion day and week, once across retries", async () => {
+    const user = newUser();
+    const { tap } = trainer();
+    nextPressAt("2026-10-11T23:59:40");
+    await tap(user, right(asked(await tap(user, "q"))));
+    nextPressAt("2026-10-12T00:00:01");
+    let last;
+    for (let step = 1; step < 5; step += 1) {
+      last = asked(await tap(user, "n"));
+      await tap(user, right(last));
+    }
+    expect((await tap(user, "h")).slice(1, 3)).toEqual([1, 5]);
+    const person = { botIdentity: "inside", telegramUserId: String(user) };
+    expect(
+      await trainerPointsOf(
+        database,
+        person,
+        moscowWeekWindow(new Date("2026-10-11T12:00:00Z")),
+      ),
+    ).toBe(0);
+    expect(
+      await trainerPointsOf(
+        database,
+        person,
+        moscowWeekWindow(new Date("2026-10-12T12:00:00Z")),
+      ),
+    ).toBe(5);
+    nextPressAt("2026-10-13T09:00:00");
+    if (!last) throw new Error("Round had no last question");
+    await tap(user, right(last));
+    expect((await tap(user, "h")).slice(1, 3)).toEqual([1, 0]);
+    expect((await tap(user, "p")).slice(1, 4)).toEqual([5, 1, 5]);
+  });
+
+  it("upgrades historical rounds without crediting unfinished attempts", async () => {
+    const [finished, pending] = [newUser(), newUser()];
+    await trainer().playRound(finished);
+    await trainer().tap(
+      pending,
+      right(asked(await trainer().tap(pending, "q"))),
+    );
+    // A prior deployment has the same answers but no durable completion field.
+    await migrateDown(database);
+    await migrateToLatest(database);
+    expect((await trainer().tap(finished, "p")).slice(1, 4)).toEqual([5, 1, 5]);
+    expect((await trainer().tap(pending, "p")).slice(1, 4)).toEqual([0, 0, 0]);
+  });
+
+  it("never reopens a completed round after its omitted questions return", async () => {
+    const user = newUser();
+    const { tap } = trainer();
+    const first = asked(await tap(user, "q"));
+    await tap(user, right(first));
+    const late = asked(await tap(user, "n"));
+    const reduced = bankOf([1]);
+    reduced.questions = reduced.questions.filter(
+      (q) => q.id === first.questionId,
+    );
+    reduced.topics = reduced.topics.filter((t) => t.code === first.topicCode);
+    await loadBank(database, reduced);
+    const result = await tap(user, `n${first.issueId}`);
+    expect(result.slice(0, 4)).toEqual(["r", "Проверить себя", 1, 1]);
+    await loadBank(database, bankOf([1]));
+    expect(await tap(user, `n${first.issueId}`)).toEqual(result);
+    expect((await tap(user, right(late)))[0]).toBe("x");
+    expect((await tap(user, "p")).slice(1, 4)).toEqual([1, 1, 1]);
+  });
+
   it("gives a point for a correct first answer within 90 seconds and none for a late, wrong or «Не знаю» answer", async () => {
     const user = newUser();
     const { tap } = trainer();
@@ -108,7 +208,7 @@ describe("Points", () => {
 
     // Verdict: 2 is correct with a point, 1 correct without one, 0 wrong, 3 «Не знаю».
     expect([onTime, late, mistaken, skipped, quick].map((e) => e[1])).toEqual([
-      2, 1, 0, 3, 2,
+      1, 1, 0, 3, 2,
     ]);
     // Three correct answers of five, two of them with a point.
     expect(result.slice(0, 4)).toEqual(["r", "Проверить себя", 3, 5]);
@@ -143,6 +243,7 @@ describe("Points", () => {
       /** The verdict a new person gets for a correct answer this long after the question. */
       const verdictAfter = async (seconds: number) => {
         const user = newUser();
+        if (start === "q") await loadBank(database, bankOf([1], 1));
         const question = asked(await tap(user, start));
         nextPressAfter(seconds);
         const explanation = await tap(user, right(question));
@@ -164,7 +265,12 @@ describe("Points", () => {
       nextPressAt(moscowTime);
       // deterministic-test-allow wall-clock: reads the virtual Date registered by registerFixedClock.
       vi.setSystemTime(Date.now() - 2000);
-      const question = asked(await tap(user, "q"));
+      const question = asked(
+        await tap(
+          user,
+          user === monday && moscowTime.includes("12T") ? "tt2" : "tt1",
+        ),
+      );
       return tap(user, how(question));
     };
     // The week of the fixed instant ends on Sunday 2026-10-11; Monday 00:00 starts the next.
@@ -203,10 +309,10 @@ describe("Points", () => {
   });
 });
 
-/** One answered question: a new round of «Проверить себя» and an answer to its first question. */
+/** Completes the one-question synthetic topic round. */
 async function answerOne(user: number, how = dontKnow): Promise<void> {
   const { tap } = trainer();
-  const explanation = await tap(user, how(asked(await tap(user, "q"))));
+  const explanation = await tap(user, how(asked(await tap(user, "tt1"))));
   expect(explanation[0]).toBe("e");
 }
 
@@ -247,12 +353,12 @@ describe("the Series", () => {
     const { tap } = trainer();
 
     nextPressAt("2026-10-07T23:59:57");
-    const last = asked(await tap(user, "q"));
+    const last = asked(await tap(user, "tt1"));
     nextPressAt("2026-10-07T23:59:59");
     await tap(user, dontKnow(last));
     nextPressAt("2026-10-08T00:00:00");
     const atMidnight = await tap(user, "h");
-    const first = asked(await tap(user, "q"));
+    const first = asked(await tap(user, "tt1"));
     // The round started on the new day: its first answer belongs to that day too.
     await tap(user, dontKnow(first));
     const afterAnswer = await tap(user, "h");
@@ -263,19 +369,19 @@ describe("the Series", () => {
 
   it("is shown with the points in the result of a round", async () => {
     const user = newUser();
-    await answerOne(user);
+    await trainer().playRound(user, dontKnow);
     nextPressAt("2026-10-08T09:00:00");
 
     const result = await trainer().playRound(user);
 
-    // Four questions were left to answer correctly; the Series is two days long.
+    // The completed first round consumes the first credited attempts; the Series is two days long.
     expect(result).toEqual([
       "r",
       "Проверить себя",
       5,
       5,
       "Все ответы верные.",
-      4,
+      0,
       2,
       0,
       0,
@@ -292,7 +398,7 @@ describe("the Daily goal", () => {
       const shown: unknown[] = [];
 
       nextPressAt("2026-10-07T23:00:00");
-      for (const how of [dontKnow, wrong, right, wrong, dontKnow, wrong]) {
+      for (const how of [dontKnow, wrong, dontKnow, wrong, dontKnow, wrong]) {
         await answerOne(user, how);
         shown.push((await tap(user, "h"))[2]);
       }
@@ -314,6 +420,32 @@ describe("the Daily goal", () => {
 });
 
 describe("the Progress screen", () => {
+  it("pages a growing Bank in topics and Progress and clamps old page links", async () => {
+    await loadBank(database, bankOf([1], 64));
+    const user = newUser();
+    const first = await trainer().tap(user, "t");
+    expect(first.slice(2)).toEqual([0, 22]);
+    expect(first[1]).toHaveLength(3);
+    const last = await trainer().tap(user, "t:999");
+    expect(last).toEqual([
+      "t",
+      [["t64", "Синтетическая тема 64", 0, 1]],
+      21,
+      22,
+    ]);
+    const progress = await trainer().tap(user, "p:999");
+    expect(progress).toEqual([
+      "p",
+      0,
+      0,
+      0,
+      [["Синтетическая тема 64", 0, 1, -1]],
+      21,
+      22,
+    ]);
+    expect(Buffer.byteLength(JSON.stringify(first))).toBeLessThanOrEqual(1024);
+  });
+
   it("shows a person who has answered nothing every topic as not started", async () => {
     await loadBank(database, bankOf([1, 2], 3));
 

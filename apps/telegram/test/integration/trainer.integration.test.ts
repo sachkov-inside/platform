@@ -60,8 +60,6 @@ if (!hasText(databaseUrl)) {
 const WEBHOOK_SECRET = "synthetic_secret";
 // The empty home screen: no Series, 0 of 5 for the Daily goal, the Daily question not answered.
 const EMPTY_HOME = '["h",0,0,5,0]';
-const CAPTION =
-  "Тренажёр Inside. Если вместо него пустое сообщение, обновите Telegram.";
 const UPDATE_TELEGRAM =
   "Тренажёр не открылся. Обновите Telegram до последней версии и отправьте /train ещё раз.";
 const TOO_OFTEN = '["x","Слишком часто. Повторите через несколько секунд."]';
@@ -299,8 +297,7 @@ describe("opening the Trainer", () => {
         chatId: String(user),
         html: TRAINER_WIDGET_HTML,
         chatData: EMPTY_HOME,
-        caption: CAPTION,
-        height: 560,
+        height: 0,
       },
     ]);
     expect(bot.messages.texts).toEqual([]);
@@ -813,10 +810,10 @@ describe("«Проверить себя»", () => {
     const afterDontKnow = await tap(user, dontKnow(third));
 
     // Verdict, correct options, picked options, explanation, round steps, round size, no line.
-    // The verdict 2 is a correct answer with a point: the first one, 42 seconds after the question.
+    // The verdict 1 is correct without credited points while the round is unfinished.
     expect(afterRight).toEqual([
       "e",
-      2,
+      1,
       1,
       1,
       "Разбор А. Общий разбор.",
@@ -882,7 +879,7 @@ describe("«Проверить себя»", () => {
 
     expect(exact).toEqual([
       "e",
-      2,
+      1,
       3,
       3,
       "Разбор А. Разбор Б. Общий разбор.",
@@ -957,9 +954,8 @@ describe("«Проверить себя»", () => {
     await tap(user, wrong(second));
     asked(await tap(user, "n"));
 
-    // The person closes the round on the third question and starts another one. The two
-    // answers already count: a Series of one day and 2 of 5 for the Daily goal.
-    expect(await tap(user, "h")).toEqual(["h", 1, 2, 5, 0]);
+    // The person closes the round on the third question. Answers stay stored without credit.
+    expect(await tap(user, "h")).toEqual(["h", 0, 0, 5, 0]);
     const { questions } = await playRound(user);
 
     expect(questions.map((question) => question.marks)).toEqual([
@@ -1008,6 +1004,17 @@ function bankWithTopicOf(code: string, count: number): SyntheticBank {
   return bank;
 }
 
+/** The owner can reach every topic through the bot's pages. */
+async function allTopics(user: number) {
+  const first = await tap(user, "t");
+  const rows = [...z.array(z.unknown()).parse(first[1])];
+  for (let page = 1; page < Number(first[3] ?? 1); page += 1) {
+    const screen = await tap(user, `t:${String(page)}`);
+    rows.push(...z.array(z.unknown()).parse(screen[1]));
+  }
+  return ["t", rows];
+}
+
 describe("«Тренировка по теме»", () => {
   it("lists every topic of the Bank under the Bank's name with 0 answered questions for a new person", async () => {
     const bank = bankWithTopicOf("t2", 12);
@@ -1017,7 +1024,7 @@ describe("«Тренировка по теме»", () => {
     }));
     await loadBank(bank);
 
-    expect(await tap(newUser(), "t")).toEqual([
+    expect(await allTopics(newUser())).toEqual([
       "t",
       [
         ["t1", "Название из Банка 1", 0, 3],
@@ -1054,7 +1061,7 @@ describe("«Тренировка по теме»", () => {
         topicCode,
         (answered.get(topicCode) ?? new Set()).add(questionId),
       );
-    expect(await tap(user, "t")).toEqual([
+    expect(await allTopics(user)).toEqual([
       "t",
       ["t1", "t2", "t3", "t4", "t5", "t6"].map((code, index) => [
         code,
@@ -1067,7 +1074,7 @@ describe("«Тренировка по теме»", () => {
     expect(answered.get("t1")?.size).toBe(3);
     expect(answered.size).toBeGreaterThanOrEqual(5);
     // Another person's answers do not count.
-    expect(await tap(other, "t")).toEqual([
+    expect(await allTopics(other)).toEqual([
       "t",
       ["t1", "t2", "t3", "t4", "t5", "t6"].map((code, index) => [
         code,
@@ -1094,7 +1101,7 @@ describe("«Тренировка по теме»", () => {
     // The next import keeps questions 2 and 4 in topics t1…t5 and drops topic t6.
     await loadBank(bankOf([2, 4]));
 
-    expect(await tap(user, "t")).toEqual([
+    expect(await allTopics(user)).toEqual([
       "t",
       [
         ["t1", "Синтетическая тема 1", 1, 2],
@@ -1212,12 +1219,14 @@ describe("«Тренировка по теме»", () => {
 
       expect(screen).toEqual([
         "t",
-        ["t1", "t2", "t3", "t4", "t5"].map((code, index) => [
+        ["t1", "t2", "t3"].map((code, index) => [
           code,
           `Синтетическая тема ${String(index + 1)}`,
           0,
           3,
         ]),
+        0,
+        2,
       ]);
       const rounds = await database
         .selectFrom("trainer_rounds")
@@ -1361,7 +1370,7 @@ describe("a request the bot does not trust", () => {
     expect(await storedAnswers(user)).toEqual([]);
     expect(await tap(user, right(question))).toEqual([
       "e",
-      2,
+      1,
       1,
       1,
       "Разбор А. Общий разбор.",
@@ -1512,7 +1521,7 @@ describe("a Bank import between answers", () => {
     const third = asked(await tap(user, "n"));
     expect(await tap(user, right(third))).toEqual([
       "e",
-      2,
+      1,
       1,
       1,
       "Разбор А. Исправленный общий разбор.",
@@ -1524,10 +1533,9 @@ describe("a Bank import between answers", () => {
     const asks = later.flatMap((round) =>
       round.questions.map((question) => question.questionId),
     );
-    // Ten asks over the eight questions left: a forgotten answer would bring the first back.
+    // The first round is unfinished: its stored answers do not suppress later questions.
     expect(asks).toHaveLength(10);
-    expect(asks).not.toContain(first.questionId);
-    expect(asks).not.toContain(third.questionId);
+    expect(await storedAnswers(user)).toHaveLength(13);
   });
 
   it("keeps the answers to a question the import withdrew", async () => {
@@ -1567,7 +1575,7 @@ describe("a Bank import between answers", () => {
     const afterSecond = await tap(user, `a${second.issueId}:1`);
 
     // The first question was shown before the import, the second after it.
-    expect(afterFirst.slice(0, 4)).toEqual(["e", 2, 1, 1]);
+    expect(afterFirst.slice(0, 4)).toEqual(["e", 1, 1, 1]);
     expect(afterSecond.slice(0, 4)).toEqual(["e", 0, 2, 1]);
   });
 });

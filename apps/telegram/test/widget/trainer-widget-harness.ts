@@ -13,6 +13,8 @@ export interface WidgetPageOptions {
   readonly theme?: WidgetTheme;
   /** The chat's message text size; it follows the user's text size setting. */
   readonly textSizePx?: number;
+  /** Bottom band covered by Telegram message time when the widget has no caption. */
+  readonly safeAreaBottomPx?: number;
   /** Native clients may embed the fragment in a document without a doctype. */
   readonly documentMode?: "standards" | "quirks";
 }
@@ -43,7 +45,7 @@ export async function trainerWidgetPage(
   const html = await buildTrainerWidgetHtml();
   return `${options.documentMode === "quirks" ? "" : "<!doctype html>"}<html lang="ru"><head><meta charset="utf-8">
 <style>
-:root{${variables};--tg-color-scheme:${theme};--tg-text-font-size:${textSize}px;--tg-text-line-height:1.35}
+:root{${variables};--tg-color-scheme:${theme};--tg-text-font-size:${textSize}px;--tg-content-safe-area-inset-bottom:${String(options.safeAreaBottomPx ?? 0)}px;--tg-text-line-height:1.35}
 body{margin:8px 12px;background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);font:${textSize}px/1.35 system-ui,sans-serif}
 </style>
 <script>
@@ -55,7 +57,7 @@ window.TelegramWidget = {
   isPreview: false, isForward: false, chatType: "private", viewer: { id: 1, first_name: "Synthetic" },
   chatData: ${JSON.stringify(options.chatData)}, publicData: null, wallet: null,
   contentSafeAreaInset: { top: 0, right: 0, bottom: 0, left: 0, cornerLeft: 0, cornerRight: 0 },
-  onEvent(type, handler) { window.widgetEvents[type] = handler; }, offEvent() {}, ready() {}, setResizeAnchor() {},
+  onEvent(type, handler) { window.widgetEvents[type] = handler; }, offEvent() {}, ready() {}, setResizeAnchor(anchor) { window.widgetResizeAnchor = anchor; },
   request(data) {
     const bytes = typeof data === "string" ? new TextEncoder().encode(data).length : 0;
     if (bytes < 1 || bytes > 64) throw new TypeError("request data must be 1-64 bytes");

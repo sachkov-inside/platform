@@ -1,6 +1,7 @@
 import { sql } from "kysely";
 
 import type { Database } from "../../database/database.js";
+import { trainerCompletedAnswers } from "./trainer-completed-answers.js";
 import { moscowDaySql as moscowDay } from "./trainer-days.js";
 
 /** One stored question of the Bank with the answers people gave to it. */
@@ -11,7 +12,7 @@ export interface TrainerQuestionReportLine {
   readonly topicName: string;
   /** True when the question is no longer shown; its answers stay counted. */
   readonly withdrawn: boolean;
-  /** Every answer, repeated ones included; «Не знаю» is an answer and is not correct. */
+  /** Every credited answer, repeated ones included; «Не знаю» is an answer and is not correct. */
   readonly answers: number;
   readonly correct: number;
   /** `correct / answers` rounded to two digits; null when nobody answered. */
@@ -28,7 +29,7 @@ export interface TrainerUsageSourceLine {
   readonly openings: number;
   /** People who opened the Trainer with this label on this day. */
   readonly people: number;
-  /** Those of `people` who answered at least one question on this day. */
+  /** Those of `people` who completed a round on this day. */
   readonly answered: number;
 }
 
@@ -39,7 +40,7 @@ export interface TrainerUsageReportLine {
   readonly openings: number;
   /** People who opened the Trainer on this day. */
   readonly people: number;
-  /** People who answered at least one question on this day, whenever they opened the Trainer. */
+  /** People who completed a round on this day, whenever they opened the Trainer. */
   readonly answered: number;
   /** A person who came with two labels on one day counts under both. */
   readonly sources: readonly TrainerUsageSourceLine[];
@@ -57,10 +58,12 @@ export class TrainerReports {
     const rows = await this.db
       .selectFrom("trainer_questions as question")
       .innerJoin("trainer_topics as topic", "topic.code", "question.topic_code")
-      .leftJoin("trainer_issues as issue", (join) =>
-        join
-          .onRef("issue.question_id", "=", "question.id")
-          .on("issue.answered_at", "is not", null),
+      .leftJoin(
+        trainerCompletedAnswers(this.db).selectAll("issue").as("issue"),
+        (join) =>
+          join
+            .onRef("issue.question_id", "=", "question.id")
+            .on("issue.answered_at", "is not", null),
       )
       .groupBy([
         "question.id",
@@ -105,6 +108,7 @@ export class TrainerReports {
    * alphabetical order and the openings without a label go last.
    */
   async usage(): Promise<TrainerUsageReportLine[]> {
+    const completed = trainerCompletedAnswers(this.db).selectAll("issue");
     const days = await sql<{
       day: string;
       openings: number;
@@ -121,10 +125,9 @@ export class TrainerReports {
       ),
       answered as (
         select
-          ${moscowDay("answered_at")} as day,
+          ${moscowDay("completed_at")} as day,
           count(distinct (bot_identity, telegram_user_id))::int as answered
-        from trainer_issues
-        where answered_at is not null
+        from (${completed}) as issue
         group by 1
       )
       select
@@ -151,11 +154,11 @@ export class TrainerReports {
         count(distinct (opening.bot_identity, opening.telegram_user_id))
           filter (where exists (
             select
-            from trainer_issues as issue
+            from (${completed}) as issue
             where issue.bot_identity = opening.bot_identity
               and issue.telegram_user_id = opening.telegram_user_id
-              and issue.answered_at >= opening.day at time zone 'Europe/Moscow'
-              and issue.answered_at < (opening.day + interval '1 day') at time zone 'Europe/Moscow'
+              and issue.completed_at >= opening.day at time zone 'Europe/Moscow'
+              and issue.completed_at < (opening.day + interval '1 day') at time zone 'Europe/Moscow'
           ))::int as answered
       from (
         select *, ${moscowDay("opened_at")}::timestamp as day

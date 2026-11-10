@@ -1,4 +1,6 @@
 import type { Database } from "../../database/database.js";
+import { trainerCompletedAnswers } from "./trainer-completed-answers.js";
+import { trainerTopicsPage } from "./trainer-pages.js";
 import type { TrainerPerson } from "./trainer-rounds.js";
 import type { TrainerTopicsData } from "./widget/trainer-widget-wire.js";
 
@@ -41,12 +43,17 @@ export class TrainerTopics {
           .filterWhere(
             eb.exists(
               eb
-                .selectFrom("trainer_issues as issue")
-                .select("issue.id")
-                .whereRef("issue.question_id", "=", "question.id")
-                .where("issue.bot_identity", "=", person.botIdentity)
-                .where("issue.telegram_user_id", "=", person.telegramUserId)
-                .where("issue.answered_at", "is not", null),
+                .selectFrom(
+                  trainerCompletedAnswers(
+                    this.database,
+                    person.botIdentity,
+                    person.telegramUserId,
+                  )
+                    .selectAll("issue")
+                    .as("passed"),
+                )
+                .select("passed.id")
+                .whereRef("passed.question_id", "=", "question.id"),
             ),
           )
           .as("answered"),
@@ -74,14 +81,17 @@ export class TrainerTopics {
 /** The topic choice screen. */
 export function topicsScreen(
   topics: readonly TrainerTopicChoice[],
+  requestedPage = 0,
 ): TrainerTopicsData {
-  return [
+  const { rows, page, pages } = trainerTopicsPage(topics, requestedPage);
+  const data: readonly ["t", TrainerTopicsData[1]] = [
     "t",
-    topics.map(({ code, name, answered, total }) => [
+    rows.map(({ code, name, answered, total }) => [
       code,
       name,
       answered,
       total,
     ]),
   ];
+  return pages > 1 ? [...data, page, pages] : data;
 }

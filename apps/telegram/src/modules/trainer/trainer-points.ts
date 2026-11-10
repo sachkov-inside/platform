@@ -1,6 +1,7 @@
 import { sql, type RawBuilder } from "kysely";
 
 import type { Database } from "../../database/database.js";
+import { trainerCompletedAnswers } from "./trainer-completed-answers.js";
 import type { TrainerTimeWindow } from "./trainer-days.js";
 
 // Points of the Trainer. Nothing stores a point: it follows from the stored answer, so the one
@@ -13,15 +14,15 @@ export const TRAINER_POINT_SECONDS = 90;
 type Reader = Pick<Database, "selectFrom">;
 
 /**
- * The rule of a point as a condition on the `trainer_issues` row a query names `issue`: the
- * answer is correct, it is the person's first answer to the question, and the bot received it
+ * The rule of a point on a completed-answer query named `issue`: the answer is correct,
+ * it is the person's first credited answer to the question, and the bot received it
  * within 90 seconds after it showed the question. A repeated answer, «Не знаю» and a late
  * answer give no point.
  */
 export function earnsTrainerPoint(issue: string): RawBuilder<boolean> {
   return sql<boolean>`(
     ${sql.ref(`${issue}.correct`)}
-    and ${sql.ref(`${issue}.first_answer`)}
+    and ${sql.ref(`${issue}.first_completed_answer`)}
     and ${sql.ref(`${issue}.answered_at`)} - ${sql.ref(`${issue}.issued_at`)}
       <= make_interval(secs => ${TRAINER_POINT_SECONDS})
   )`;
@@ -38,8 +39,7 @@ export function trainerPointsByPerson(
   botIdentity: string,
   window: TrainerTimeWindow = {},
 ) {
-  let points = database
-    .selectFrom("trainer_issues as issue")
+  let points = trainerCompletedAnswers(database, botIdentity)
     .select((eb) => [
       "issue.telegram_user_id",
       eb.cast<number>(eb.fn.countAll(), "integer").as("points"),
@@ -48,9 +48,9 @@ export function trainerPointsByPerson(
     .where(earnsTrainerPoint("issue"))
     .groupBy("issue.telegram_user_id");
   if (window.from)
-    points = points.where("issue.answered_at", ">=", window.from);
+    points = points.where("issue.completed_at", ">=", window.from);
   if (window.until)
-    points = points.where("issue.answered_at", "<", window.until);
+    points = points.where("issue.completed_at", "<", window.until);
   return points;
 }
 
@@ -69,10 +69,14 @@ export async function trainerPointsOf(
 /** Points the answers of one round earned. */
 export async function trainerPointsOfRound(
   database: Reader,
+  person: { readonly botIdentity: string; readonly telegramUserId: string },
   roundId: string,
 ): Promise<number> {
-  const { points } = await database
-    .selectFrom("trainer_issues as issue")
+  const { points } = await trainerCompletedAnswers(
+    database,
+    person.botIdentity,
+    person.telegramUserId,
+  )
     .select((eb) => eb.cast<number>(eb.fn.countAll(), "integer").as("points"))
     .where("issue.round_id", "=", roundId)
     .where(earnsTrainerPoint("issue"))

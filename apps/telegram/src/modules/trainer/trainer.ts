@@ -34,7 +34,6 @@ import {
 import type { TrainerOpeningDelivery } from "./trainer-storage.js";
 import { TrainerTopics, topicsScreen } from "./trainer-topics.js";
 import { TRAINER_WIDGET_HTML } from "./widget/trainer-widget-html.generated.js";
-import { TRAINER_WIDGET_TARGET_HEIGHT_PX } from "./widget/trainer-widget-limits.js";
 import {
   encodeTrainerWidgetData,
   parseTrainerWidgetRequest,
@@ -50,10 +49,6 @@ const TRAINER_CHECK_QUESTIONS = 5;
 /** The most questions in a round of «Тренировка по теме». */
 const TRAINER_TOPIC_QUESTIONS = 10;
 
-// The caption keeps the message time off the widget, is the text of the chat list and the
-// notification, and is all a Telegram app without widgets shows (ADR 0004).
-const WIDGET_CAPTION =
-  "Тренажёр Inside. Если вместо него пустое сообщение, обновите Telegram.";
 const WIDGET_REJECTED_TEXT =
   "Тренажёр не открылся. Обновите Telegram до последней версии и отправьте /train ещё раз.";
 const TOO_OFTEN_TEXT = "Слишком часто. Повторите через несколько секунд.";
@@ -105,8 +100,7 @@ export class Trainer {
       chatId: contact.privateChatId,
       html: TRAINER_WIDGET_HTML,
       chatData: encodeTrainerWidgetData(await this.home(contact)),
-      caption: WIDGET_CAPTION,
-      height: TRAINER_WIDGET_TARGET_HEIGHT_PX,
+      height: 0,
     });
     switch (result.kind) {
       case "delivered":
@@ -211,7 +205,7 @@ export class Trainer {
         return this.step(contact, step);
       }
       case "topics":
-        return topicsScreen(await this.topics.list(contact));
+        return topicsScreen(await this.topics.list(contact), request.page);
       case "start_topic": {
         const topics = await this.topics.list(contact);
         // The code is the widget's word. A topic the Bank does not show starts no round: the
@@ -232,6 +226,7 @@ export class Trainer {
       case "progress":
         return progressScreen(
           await trainerProgress(this.database, contact, contact.observedAt),
+          request.page,
         );
       case "rating":
         return this.rating.screen(contact, request.allTime);
@@ -257,7 +252,11 @@ export class Trainer {
         return resultScreen(
           step,
           {
-            points: await trainerPointsOfRound(this.database, step.round.id),
+            points: await trainerPointsOfRound(
+              this.database,
+              contact,
+              step.round.id,
+            ),
             streakDays: await trainerStreakDays(
               this.database,
               contact,

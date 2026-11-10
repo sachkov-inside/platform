@@ -1,11 +1,13 @@
 import { sql } from "kysely";
 
 import type { Database } from "../../database/database.js";
+import { trainerCompletedAnswers } from "./trainer-completed-answers.js";
 import {
   moscowDayNumberSql,
   moscowDayNumber,
   moscowDayWindow,
 } from "./trainer-days.js";
+import { trainerTopicsPage } from "./trainer-pages.js";
 import { trainerPointsOf } from "./trainer-points.js";
 import type { TrainerPerson } from "./trainer-rounds.js";
 import type { TrainerProgressData } from "./widget/trainer-widget-wire.js";
@@ -17,11 +19,7 @@ type Reader = Pick<Database, "selectFrom">;
 
 /** A person's answers, each stored once, in any mode. */
 const answersOf = (database: Reader, person: TrainerPerson) =>
-  database
-    .selectFrom("trainer_issues as issue")
-    .where("issue.bot_identity", "=", person.botIdentity)
-    .where("issue.telegram_user_id", "=", person.telegramUserId)
-    .where("issue.answered_at", "is not", null);
+  trainerCompletedAnswers(database, person.botIdentity, person.telegramUserId);
 
 const count = (
   query: ReturnType<typeof answersOf>,
@@ -31,7 +29,7 @@ const count = (
     .executeTakeFirstOrThrow();
 
 /**
- * The Series at this instant: Moscow days in a row with at least one answer, counted back
+ * The Series at this instant: Moscow days in a row with a completed round, counted back
  * from today, or from yesterday while today has no answer yet. A missed day ends the Series.
  */
 export async function trainerStreakDays(
@@ -40,7 +38,7 @@ export async function trainerStreakDays(
   at: Date,
 ): Promise<number> {
   const today = moscowDayNumber(at);
-  const moscowDayOfAnswer = moscowDayNumberSql("issue.answered_at");
+  const moscowDayOfAnswer = moscowDayNumberSql("issue.completed_at");
   const days = answersOf(database, person)
     .select(moscowDayOfAnswer.as("day"))
     .distinct();
@@ -65,7 +63,7 @@ export async function trainerStreakDays(
   return streak;
 }
 
-/** Answers of the person in the Moscow day of this instant, whatever the verdict or the mode. */
+/** Answers credited to the person in the Moscow day of this instant, whatever the verdict or the mode. */
 export async function trainerAnswersToday(
   database: Reader,
   person: TrainerPerson,
@@ -74,8 +72,8 @@ export async function trainerAnswersToday(
   const { from, until } = moscowDayWindow(at);
   const { answers } = await count(
     answersOf(database, person)
-      .where("issue.answered_at", ">=", from)
-      .where("issue.answered_at", "<", until),
+      .where("issue.completed_at", ">=", from)
+      .where("issue.completed_at", "<", until),
   );
   return answers;
 }
@@ -94,7 +92,7 @@ export interface TrainerTopicProgress {
 export interface TrainerProgress {
   readonly points: number;
   readonly streakDays: number;
-  /** Every answer the person has given, repeated questions included. */
+  /** Every credited answer, repeated questions included. */
   readonly answers: number;
   /** Complete: every topic the Bank shows questions of, in the Bank's order. */
   readonly topics: readonly TrainerTopicProgress[];
@@ -113,13 +111,21 @@ export async function trainerProgress(
         .onRef("question.topic_code", "=", "topic.code")
         .on("question.withdrawn_at", "is", null),
     )
-    // At most one row per question: a person has one first answer to it.
-    .leftJoin("trainer_issues as first", (join) =>
-      join
-        .onRef("first.question_id", "=", "question.id")
-        .on("first.bot_identity", "=", person.botIdentity)
-        .on("first.telegram_user_id", "=", person.telegramUserId)
-        .on("first.first_answer", "=", true),
+    // At most one row per question: a person has one first credited answer to it.
+    .leftJoin(
+      trainerCompletedAnswers(
+        database,
+        person.botIdentity,
+        person.telegramUserId,
+      )
+        .selectAll("issue")
+        .as("first"),
+      (join) =>
+        join
+          .onRef("first.question_id", "=", "question.id")
+          .on("first.bot_identity", "=", person.botIdentity)
+          .on("first.telegram_user_id", "=", person.telegramUserId)
+          .on("first.first_completed_answer", "=", true),
     )
     .select((eb) => [
       "topic.name",
@@ -145,13 +151,20 @@ export async function trainerProgress(
 }
 
 /** The Progress screen. A topic with no answered question is "not started" (-1). */
-export function progressScreen(progress: TrainerProgress): TrainerProgressData {
-  return [
+export function progressScreen(
+  progress: TrainerProgress,
+  requestedPage = 0,
+): TrainerProgressData {
+  const { rows, page, pages } = trainerTopicsPage(
+    progress.topics,
+    requestedPage,
+  );
+  const data: readonly ["p", number, number, number, TrainerProgressData[4]] = [
     "p",
     progress.points,
     progress.streakDays,
     progress.answers,
-    progress.topics.map((topic) => [
+    rows.map((topic) => [
       topic.name,
       topic.passed,
       topic.questions,
@@ -160,4 +173,5 @@ export function progressScreen(progress: TrainerProgress): TrainerProgressData {
         : Math.round((100 * topic.correctFirst) / topic.passed),
     ]),
   ];
+  return pages > 1 ? [...data, page, pages] : data;
 }

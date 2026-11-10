@@ -33,7 +33,7 @@ describe("published Bank file schema", () => {
 
   it("publishes the limits the import applies", () => {
     expect(publishedSchema["x-limits"]).toEqual({
-      topics: 9,
+      topics: 64,
       topicNameCharacters: 40,
       questionTextCharacters: 160,
       optionTextsTogetherCharacters: 240,

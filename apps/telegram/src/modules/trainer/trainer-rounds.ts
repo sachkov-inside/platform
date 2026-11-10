@@ -7,6 +7,7 @@ import {
 } from "./trainer-bank-file.js";
 import { trainerCodeFormat } from "./trainer-identifiers.js";
 import { DAY_SECONDS } from "./trainer-days.js";
+import { trainerCompletedAnswers } from "./trainer-completed-answers.js";
 import { earnsTrainerPoint } from "./trainer-points.js";
 import type { TrainerRoundMode } from "./trainer-storage.js";
 import type { OptionMask, RoundMarks } from "./widget/trainer-widget-wire.js";
@@ -41,6 +42,8 @@ export interface TrainerRound {
   readonly id: string;
   readonly mode: TrainerRoundMode;
   readonly topicCode: string | null;
+  /** Completion is final even when a later import reactivates omitted questions. */
+  readonly completed: boolean;
   /** Steps in the round. */
   readonly size: number;
   /** One digit per answered step, in the order of the steps: "1" correct, "0" wrong. */
@@ -81,7 +84,7 @@ export interface TrainerAnswerOutcome {
   readonly pickedMask: OptionMask;
   readonly correctMask: OptionMask;
   readonly correct: boolean;
-  /** The person's first answer to this question in any round and mode. */
+  /** The person's first credited answer to this question, false while its round is unfinished. */
   readonly firstAnswer: boolean;
   /** The answer earned a point. */
   readonly point: boolean;
@@ -169,81 +172,110 @@ export class TrainerRounds {
     pickedMask: OptionMask,
     at: Date,
   ): Promise<TrainerAnswerOutcome | undefined> {
-    const id = issueNumber(issueId);
-    if (id === undefined) return undefined;
-    const issue = await this.database
-      .selectFrom("trainer_issues")
-      .select(["issued_at", "answered_at", "option_count", "correct_mask"])
-      .where("id", "=", id)
-      .where("bot_identity", "=", person.botIdentity)
-      .where("telegram_user_id", "=", person.telegramUserId)
-      .executeTakeFirst();
-    if (!issue || issue.issued_at === null) return undefined;
-    if (issue.answered_at === null) {
-      if (!fits(pickedMask, issue.option_count, issue.correct_mask))
-        return undefined;
-      // The guard on `answered_at` keeps the first answer when two runs meet here.
-      await this.database
-        .updateTable("trainer_issues as issue")
-        .set({
-          answered_at: at,
-          picked_mask: pickedMask,
-          correct: pickedMask === issue.correct_mask,
-          first_answer: sql<boolean>`not exists (
-            select from trainer_issues as earlier
-            where earlier.bot_identity = issue.bot_identity
-              and earlier.telegram_user_id = issue.telegram_user_id
-              and earlier.question_id = issue.question_id
-              and earlier.answered_at is not null
-          )`,
-        })
+    return this.database.transaction().execute(async (database) => {
+      const id = issueNumber(issueId);
+      if (id === undefined) return undefined;
+      const issue = await database
+        .selectFrom("trainer_issues as issue")
+        .innerJoin("trainer_rounds as round", "round.id", "issue.round_id")
+        .select([
+          "issue.issued_at",
+          "issue.answered_at",
+          "issue.option_count",
+          "issue.correct_mask",
+          "round.completed_at",
+        ])
         .where("issue.id", "=", id)
-        .where("issue.answered_at", "is", null)
-        .execute();
-    }
-
-    const stored = await this.database
-      .selectFrom("trainer_issues as issue")
-      .innerJoin(
-        "trainer_questions as question",
-        "question.id",
-        "issue.question_id",
+        .where("issue.bot_identity", "=", person.botIdentity)
+        .where("issue.telegram_user_id", "=", person.telegramUserId)
+        .forUpdate("round")
+        .executeTakeFirst();
+      if (
+        !issue ||
+        issue.issued_at === null ||
+        (issue.answered_at === null && issue.completed_at !== null)
       )
-      .select([
-        "issue.round_id",
-        "issue.question_id",
-        "issue.issued_at",
-        "issue.answered_at",
-        "issue.picked_mask",
-        "issue.correct_mask",
-        "issue.correct",
-        "issue.first_answer",
-        earnsTrainerPoint("issue").as("point"),
-        "question.options",
-        "question.explanation",
-      ])
-      .where("issue.id", "=", id)
-      .executeTakeFirstOrThrow();
-    if (
-      stored.issued_at === null ||
-      stored.answered_at === null ||
-      stored.picked_mask === null ||
-      stored.correct === null ||
-      stored.first_answer === null
-    )
-      throw new Error(`Trainer issue ${id} has no stored answer`);
-    return {
-      round: await roundOf(this.database, stored.round_id),
-      questionId: stored.question_id,
-      pickedMask: stored.picked_mask,
-      correctMask: stored.correct_mask,
-      correct: stored.correct,
-      firstAnswer: stored.first_answer,
-      point: stored.point,
-      issuedAt: stored.issued_at,
-      answeredAt: stored.answered_at,
-      explanation: trainerAnswerExplanation(stored, stored.picked_mask),
-    };
+        return undefined;
+      if (issue.answered_at === null) {
+        if (!fits(pickedMask, issue.option_count, issue.correct_mask))
+          return undefined;
+        // The guard on `answered_at` keeps the first answer when two runs meet here.
+        await database
+          .updateTable("trainer_issues as issue")
+          .set({
+            answered_at: at,
+            picked_mask: pickedMask,
+            correct: pickedMask === issue.correct_mask,
+            first_answer: sql<boolean>`not exists (
+              select from trainer_issues as earlier
+              where earlier.bot_identity = issue.bot_identity
+                and earlier.telegram_user_id = issue.telegram_user_id
+                and earlier.question_id = issue.question_id
+                and earlier.answered_at is not null
+            )`,
+          })
+          .where("issue.id", "=", id)
+          .where("issue.answered_at", "is", null)
+          .execute();
+      }
+
+      const stored = await database
+        .selectFrom("trainer_issues as issue")
+        .innerJoin(
+          "trainer_questions as question",
+          "question.id",
+          "issue.question_id",
+        )
+        .select([
+          "issue.round_id",
+          "issue.question_id",
+          "issue.issued_at",
+          "issue.answered_at",
+          "issue.picked_mask",
+          "issue.correct_mask",
+          "issue.correct",
+          "issue.first_answer",
+          "question.options",
+          "question.explanation",
+        ])
+        .where("issue.id", "=", id)
+        .executeTakeFirstOrThrow();
+      if (
+        stored.issued_at === null ||
+        stored.answered_at === null ||
+        stored.picked_mask === null ||
+        stored.correct === null ||
+        stored.first_answer === null
+      )
+        throw new Error(`Trainer issue ${id} has no stored answer`);
+      const round = await roundOf(database, stored.round_id);
+      const finished = round.size > 0 && round.marks.length === round.size;
+      if (!round.completed && finished)
+        await completeRound(database, round.id, at);
+      const credited = await trainerCompletedAnswers(
+        database,
+        person.botIdentity,
+        person.telegramUserId,
+      )
+        .select([
+          "issue.first_completed_answer",
+          earnsTrainerPoint("issue").as("point"),
+        ])
+        .where("issue.id", "=", id)
+        .executeTakeFirst();
+      return {
+        round: { ...round, completed: round.completed || finished },
+        questionId: stored.question_id,
+        pickedMask: stored.picked_mask,
+        correctMask: stored.correct_mask,
+        correct: stored.correct,
+        firstAnswer: credited?.first_completed_answer ?? false,
+        point: credited?.point ?? false,
+        issuedAt: stored.issued_at,
+        answeredAt: stored.answered_at,
+        explanation: trainerAnswerExplanation(stored, stored.picked_mask),
+      };
+    });
   }
 
   /**
@@ -255,20 +287,22 @@ export class TrainerRounds {
     at: Date,
     issueId?: string,
   ): Promise<TrainerIssuedQuestion | TrainerRoundResult | undefined> {
-    const id = issueId === undefined ? undefined : issueNumber(issueId);
-    if (issueId !== undefined && id === undefined) return undefined;
-    let query = this.database
-      .selectFrom("trainer_issues")
-      .select("round_id")
-      .where("bot_identity", "=", person.botIdentity)
-      .where("telegram_user_id", "=", person.telegramUserId)
-      .where("answered_at", "is not", null)
-      .orderBy("answered_at", "desc")
-      .orderBy("id", "desc")
-      .limit(1);
-    if (id !== undefined) query = query.where("id", "=", id);
-    const last = await query.executeTakeFirst();
-    return last && showRoundStep(this.database, last.round_id, at);
+    return this.database.transaction().execute(async (database) => {
+      const id = issueId === undefined ? undefined : issueNumber(issueId);
+      if (issueId !== undefined && id === undefined) return undefined;
+      let query = database
+        .selectFrom("trainer_issues")
+        .select("round_id")
+        .where("bot_identity", "=", person.botIdentity)
+        .where("telegram_user_id", "=", person.telegramUserId)
+        .where("answered_at", "is not", null)
+        .orderBy("answered_at", "desc")
+        .orderBy("id", "desc")
+        .limit(1);
+      if (id !== undefined) query = query.where("id", "=", id);
+      const last = await query.executeTakeFirst();
+      return last && showRoundStep(database, last.round_id, at);
+    });
   }
 }
 
@@ -288,6 +322,19 @@ async function chooseQuestions(
   const restsSince = new Date(
     request.at.getTime() - CORRECT_ANSWER_REST_DAYS * DAY_SECONDS * 1000,
   );
+  const history = trainerCompletedAnswers(
+    database,
+    person.botIdentity,
+    person.telegramUserId,
+  )
+    .select([
+      "issue.question_id",
+      sql<boolean>`(array_agg(issue.correct order by issue.completed_at desc, issue.id desc))[1]`.as(
+        "last_correct",
+      ),
+      sql<Date>`max(issue.completed_at)`.as("last_answered_at"),
+    ])
+    .groupBy("issue.question_id");
   const { rows } = await sql<{
     id: string;
     topic_code: string;
@@ -296,18 +343,7 @@ async function chooseQuestions(
   }>`
     select question.id, question.topic_code, question.content_revision, question.options
     from trainer_questions as question
-    left join (
-      select
-        issue.question_id,
-        (array_agg(issue.correct order by issue.answered_at desc, issue.id desc)
-          filter (where issue.answered_at is not null))[1] as last_correct,
-        max(issue.answered_at) as last_answered_at
-      from trainer_issues as issue
-      where issue.bot_identity = ${person.botIdentity}
-        and issue.telegram_user_id = ${person.telegramUserId}
-        and issue.issued_at is not null
-      group by issue.question_id
-    ) as history on history.question_id = question.id
+    left join (${history}) as history on history.question_id = question.id
     where question.withdrawn_at is null
       and (${topic}::text is null or question.topic_code = ${topic})
       and not (
@@ -366,34 +402,47 @@ export async function showRoundStep(
   at: Date,
 ): Promise<TrainerIssuedQuestion | TrainerRoundResult> {
   const round = await roundOf(database, roundId);
-  const step = await database
-    .selectFrom("trainer_issues as issue")
-    .innerJoin(
-      "trainer_questions as question",
-      "question.id",
-      "issue.question_id",
-    )
-    .innerJoin("trainer_topics as topic", "topic.code", "question.topic_code")
-    .select([
-      "issue.id",
-      "issue.question_id",
-      "question.text",
-      "question.options",
-      "question.content_revision",
-      "topic.name as topic_name",
-    ])
-    .where("issue.round_id", "=", roundId)
-    .where("issue.answered_at", "is", null)
-    .where("question.withdrawn_at", "is", null)
-    .orderBy("issue.position")
-    .limit(1)
-    .executeTakeFirst();
-  if (!step)
+  const step = round.completed
+    ? undefined
+    : await database
+        .selectFrom("trainer_issues as issue")
+        .innerJoin(
+          "trainer_questions as question",
+          "question.id",
+          "issue.question_id",
+        )
+        .innerJoin(
+          "trainer_topics as topic",
+          "topic.code",
+          "question.topic_code",
+        )
+        .select([
+          "issue.id",
+          "issue.question_id",
+          "question.text",
+          "question.options",
+          "question.content_revision",
+          "topic.name as topic_name",
+        ])
+        .where("issue.round_id", "=", roundId)
+        .where("issue.answered_at", "is", null)
+        .where("question.withdrawn_at", "is", null)
+        .orderBy("issue.position")
+        .limit(1)
+        .executeTakeFirst();
+  if (!step) {
+    if (!round.completed && round.marks.length > 0)
+      await completeRound(database, round.id, at);
     return {
       kind: "result",
-      round,
+      round: {
+        ...round,
+        size: round.marks.length,
+        completed: round.completed || round.marks.length > 0,
+      },
       correct: round.marks.replaceAll("0", "").length,
     };
+  }
 
   const correctMask = correctMaskOf(step.options);
   // The Bank may have changed the question since the round started: the answer is judged
@@ -421,14 +470,29 @@ export async function showRoundStep(
   };
 }
 
+/** Completion is immutable; a repeated request cannot move its credit to another day. */
+async function completeRound(
+  database: Database,
+  roundId: string,
+  at: Date,
+): Promise<void> {
+  await database
+    .updateTable("trainer_rounds")
+    .set({ completed_at: at })
+    .where("id", "=", roundId)
+    .where("completed_at", "is", null)
+    .execute();
+}
+
 async function roundOf(
   database: Database,
   roundId: string,
 ): Promise<TrainerRound> {
   const round = await database
     .selectFrom("trainer_rounds")
-    .select(["id", "mode", "topic_code"])
+    .select(["id", "mode", "topic_code", "completed_at"])
     .where("id", "=", roundId)
+    .forUpdate()
     .executeTakeFirstOrThrow();
   const answered = await database
     .selectFrom("trainer_issues")
@@ -437,26 +501,30 @@ async function roundOf(
     .where("answered_at", "is not", null)
     .orderBy("position")
     .execute();
-  const effective = await database
-    .selectFrom("trainer_issues as issue")
-    .innerJoin(
-      "trainer_questions as question",
-      "question.id",
-      "issue.question_id",
-    )
-    .select(sql<number>`count(*)::integer`.as("size"))
-    .where("issue.round_id", "=", roundId)
-    .where((eb) =>
-      eb.or([
-        eb("issue.answered_at", "is not", null),
-        eb("question.withdrawn_at", "is", null),
-      ]),
-    )
-    .executeTakeFirstOrThrow();
+  const effective =
+    round.completed_at !== null
+      ? { size: answered.length }
+      : await database
+          .selectFrom("trainer_issues as issue")
+          .innerJoin(
+            "trainer_questions as question",
+            "question.id",
+            "issue.question_id",
+          )
+          .select(sql<number>`count(*)::integer`.as("size"))
+          .where("issue.round_id", "=", roundId)
+          .where((eb) =>
+            eb.or([
+              eb("issue.answered_at", "is not", null),
+              eb("question.withdrawn_at", "is", null),
+            ]),
+          )
+          .executeTakeFirstOrThrow();
   return {
     id: round.id,
     mode: round.mode,
     topicCode: round.topic_code,
+    completed: round.completed_at !== null,
     size: effective.size,
     marks: answered
       .map(({ correct }) => (correct === true ? "1" : "0"))
