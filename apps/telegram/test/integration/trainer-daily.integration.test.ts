@@ -439,8 +439,9 @@ describe("an answer to the Daily question", () => {
 
     // A press that names another person's issue is refused and counts nobody.
     expect(stranger).toEqual(ISSUE_CLOSED);
+    // Verdict 2: a correct first answer in time earns a point in this mode too.
     expect(afterRight).toEqual(
-      explanation(1, 1, "Верно ответили 100% из 1 человека"),
+      explanation(2, 1, "Верно ответили 100% из 1 человека"),
     );
     expect(afterWrong).toEqual(
       explanation(0, 8, "Верно ответили 50% из 2 человек"),
@@ -458,6 +459,7 @@ describe("an answer to the Daily question", () => {
       1,
       0,
     ]);
+    // Verdict 1: correct without a point, the person answered this question before.
     expect(afterAll).toEqual(
       explanation(1, 1, "Верно ответили 50% из 4 человек"),
     );
@@ -476,10 +478,11 @@ describe("an answer to the Daily question", () => {
     const home = await tap(user, "h");
     const today = await openDaily(user);
 
-    expect(explanation.slice(0, 2)).toEqual(["e", 1]);
+    expect(explanation.slice(0, 2)).toEqual(["e", 2]);
     expect(explanation.at(-1)).toBe("Верно ответили 100% из 1 человека");
-    // The answer belongs to yesterday's question; today's is still new.
-    expect(home).toEqual(["h", 0, 0, 5, 0]);
+    // The answer belongs to yesterday's question; today's is still new. The Series and the
+    // Daily goal count the answer on the day it was given.
+    expect(home).toEqual(["h", 1, 1, 5, 0]);
     expect(today.questionId).not.toBe(question.questionId);
     expect(today.reviewMask).toBeUndefined();
   });

@@ -11,6 +11,13 @@ import {
   type TelegramMessages,
 } from "../outbound/telegram-messages.js";
 import { TrainerDaily } from "./trainer-daily.js";
+import { trainerPointsOfRound } from "./trainer-points.js";
+import {
+  progressScreen,
+  trainerAnswersToday,
+  trainerProgress,
+  trainerStreakDays,
+} from "./trainer-progress.js";
 import type { TrainerOpening, TrainerQuery } from "./trainer-requests.js";
 import {
   TrainerRounds,
@@ -34,7 +41,7 @@ import {
   type TrainerWidgetRequest,
 } from "./widget/trainer-widget-wire.js";
 
-/** Answered questions that complete the Daily goal. */
+/** Answers in one Moscow day that complete the Daily goal. The goal only shows; it blocks nothing. */
 const TRAINER_DAILY_GOAL = 5;
 /** Questions in a round of «Проверить себя». */
 const TRAINER_CHECK_QUESTIONS = 5;
@@ -159,6 +166,7 @@ export class Trainer {
         return this.home(contact);
       case "start_check":
         return this.step(
+          contact,
           await this.rounds.start(contact, {
             mode: "check",
             count: TRAINER_CHECK_QUESTIONS,
@@ -179,7 +187,7 @@ export class Trainer {
       }
       case "next": {
         const step = await this.rounds.next(contact, contact.observedAt);
-        return step ? this.step(step) : this.home(contact);
+        return step ? this.step(contact, step) : this.home(contact);
       }
       case "start_daily": {
         const step = await this.daily.open(contact, {
@@ -189,7 +197,7 @@ export class Trainer {
         if (step.kind === "review")
           return questionScreen(step.question, step.pickedMask);
         if (step.kind === "withdrawn") return ["x", DAILY_WITHDRAWN_TEXT];
-        return this.step(step);
+        return this.step(contact, step);
       }
       case "topics":
         return topicsScreen(await this.topics.list(contact));
@@ -200,6 +208,7 @@ export class Trainer {
         if (!topics.some((topic) => topic.code === request.topicCode))
           return topicsScreen(topics);
         return this.step(
+          contact,
           await this.rounds.start(contact, {
             mode: "topic",
             topicCode: request.topicCode,
@@ -210,7 +219,9 @@ export class Trainer {
         );
       }
       case "progress":
-        return ["x", SECTION_NOT_OPEN_TEXT];
+        return progressScreen(
+          await trainerProgress(this.database, contact, contact.observedAt),
+        );
       case "rating":
         return ["x", SECTION_NOT_OPEN_TEXT];
       case "set_rating_shown":
@@ -222,6 +233,7 @@ export class Trainer {
 
   /** The screen of a round step: a question, the result, or why there is nothing to ask. */
   private async step(
+    contact: VerifiedPrivateStart,
     step: TrainerIssuedQuestion | TrainerRoundResult | TrainerNothingToAsk,
   ): Promise<TrainerWidgetData> {
     switch (step.kind) {
@@ -232,6 +244,14 @@ export class Trainer {
         const { topicCode } = step.round;
         return resultScreen(
           step,
+          {
+            points: await trainerPointsOfRound(this.database, step.round.id),
+            streakDays: await trainerStreakDays(
+              this.database,
+              contact,
+              contact.observedAt,
+            ),
+          },
           topicCode === null ? undefined : await this.topics.name(topicCode),
         );
       }
@@ -247,10 +267,24 @@ export class Trainer {
     }
   }
 
-  /** Home-screen numbers of this person; the Series and the Daily goal are not counted yet. */
+  /**
+   * The home screen: the person's Series, today's answers out of the Daily goal and whether
+   * today's Daily question is answered. Answers above the goal are accepted and leave it
+   * complete.
+   */
   private async home(contact: VerifiedPrivateStart): Promise<TrainerHomeData> {
-    const dailyDone = await this.daily.answered(contact, contact.observedAt);
-    return ["h", 0, 0, TRAINER_DAILY_GOAL, dailyDone ? 1 : 0];
+    // The moment of every count is the moment the bot received this request.
+    const at = contact.observedAt;
+    return [
+      "h",
+      await trainerStreakDays(this.database, contact, at),
+      Math.min(
+        await trainerAnswersToday(this.database, contact, at),
+        TRAINER_DAILY_GOAL,
+      ),
+      TRAINER_DAILY_GOAL,
+      (await this.daily.answered(contact, at)) ? 1 : 0,
+    ];
   }
 
   private reply(queryId: string, data: TrainerWidgetData): Promise<void> {

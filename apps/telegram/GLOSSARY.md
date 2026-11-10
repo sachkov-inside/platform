@@ -121,6 +121,22 @@ _Avoid_: Daily quiz, reminder, question of the week
 A Тренажёр round of up to 10 questions from one topic the person chose.
 _Avoid_: Course, lesson, module
 
+**Очки** (Points):
+What a person earns in the Тренажёр: one point for a correct answer that is the person's first
+answer to that question and comes within 90 seconds after the bot showed it. Points open no access
+and change no Product or price.
+_Avoid_: Score, grade, rating, balance, bonus
+
+**Серия** (Streak):
+The number of Moscow calendar days in a row on which a person answered at least one Тренажёр
+question. Today without an answer does not end it yet; a missed day does.
+_Avoid_: Series of messages, sequence, run of correct answers
+
+**Цель дня** (Daily Goal):
+5 answered Тренажёр questions in one Moscow calendar day. It is only shown: it opens and blocks
+nothing.
+_Avoid_: Limit, quota, task, daily question
+
 **Банк вопросов** (Question Bank):
 The author's whole set of Trainer questions and their topics, loaded into the bot by the owner's
 import. The bot never edits it; a new import replaces what people are shown.
