@@ -2,20 +2,37 @@ import unittest
 from verify import verify_release
 
 class TelegramWebhookTests(unittest.TestCase):
-    def test_only_supported_https_registrations_with_healthy_delivery_pass(self):
+    def registration(self, updates=None):
+        required = ['message', 'edited_message', 'chat_member', 'my_chat_member',
+                    'chat_join_request', 'callback_query', 'widget_query']
+        return {'protocol': 'https:', 'host': 'telegram.sachkov.dev', 'port': '',
+                'path': '/webhooks/telegram', 'hasPinnedIp': True, 'pending': 0,
+                'lastError': False, 'allowedUpdates': required if updates is None else updates,
+                'requiredUpdates': required}
+
+    def test_only_supported_https_registrations_with_exact_deployed_updates_pass(self):
         from verify import verify_telegram_webhook
-        current = {'protocol': 'https:', 'host': 'telegram.sachkov.dev', 'port': '',
-                   'path': '/webhooks/telegram', 'hasPinnedIp': True, 'pending': 0,
-                   'lastError': False, 'allowedUpdates': ['message', 'chat_member', 'my_chat_member',
-                                                        'chat_join_request', 'callback_query']}
+        current = self.registration()
         for port in ['', '88']:
             with self.subTest(port=port):
                 self.assertEqual(verify_telegram_webhook({**current, 'port': port})['status'], 'passed')
         for invalid in [{'protocol': 'http:'}, {'host': 'other.invalid'}, {'port': '8443'},
                         {'path': '/other'}, {'hasPinnedIp': False}, {'pending': 1},
-                        {'lastError': True}, {'allowedUpdates': ['message']}]:
+                        {'lastError': True}, {'allowedUpdates': ['message']},
+                        {'allowedUpdates': current['allowedUpdates'] + ['poll']},
+                        {'allowedUpdates': dict.fromkeys(current['allowedUpdates'])},
+                        {'allowedUpdates': None}, {'allowedUpdates': ['message', 1]},
+                        {'allowedUpdates': current['allowedUpdates'] + ['message']},
+                        {'requiredUpdates': []}, {'requiredUpdates': None}]:
             with self.subTest(invalid=invalid):
                 self.assertEqual(verify_telegram_webhook({**current, **invalid})['status'], 'failed')
+
+    def test_older_image_is_checked_against_its_own_contract(self):
+        from verify import verify_telegram_webhook
+        old = ['message', 'edited_message', 'chat_member', 'my_chat_member',
+               'chat_join_request', 'callback_query']
+        self.assertEqual(verify_telegram_webhook({**self.registration(old), 'requiredUpdates': old})['status'], 'passed')
+        self.assertEqual(verify_telegram_webhook(self.registration(old))['status'], 'failed')
 
 class SqlSetupDiagnosticsTests(unittest.TestCase):
     def test_setup_failure_reports_captured_docker_stderr(self):
@@ -216,7 +233,9 @@ class DeployedTelegramProbeTests(unittest.TestCase):
         prelude += "globalThis.fetch=async(url)=>new Response(JSON.stringify(String(url).includes('api.telegram.org') ? {ok:true,result:fixtures[String(url).split('/').at(-1)]} : cohortFixture),{headers:{'content-type':'application/json'}});\n"
         source = TELEGRAM_READ.replace('/app/dist/config/application-config.js', (root / 'apps/telegram/src/config/application-config.ts').as_uri())
         source = source.replace('/app/dist/adapters/platform/http-platform-product-sales-state.adapter.js', (root / 'apps/telegram/src/adapters/platform/http-platform-product-sales-state.adapter.ts').as_uri())
-        return subprocess.run(['node', str(root / 'apps/telegram/node_modules/tsx/dist/cli.mjs'), '--input-type=module', '-'],
+        source = source.replace('/app/dist/modules/webhook/telegram-webhook.js', (root / 'apps/telegram/src/modules/webhook/telegram-webhook.ts').as_uri())
+        return subprocess.run(['node', str(root / 'apps/telegram/node_modules/tsx/dist/cli.mjs'),
+                               '--tsconfig', str(root / 'apps/telegram/tsconfig.json'), '--input-type=module', '-'],
                               input=prelude + source, text=True, capture_output=True, timeout=30)
 
     def test_actual_config_and_probe_accept_logical_identity_with_empty_cohorts(self):
@@ -226,6 +245,8 @@ class DeployedTelegramProbeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         facts = json.loads(result.stdout)
         self.assertEqual(verify_bot_identity(facts)['status'], 'passed')
+        self.assertIn('widget_query', facts['webhook']['requiredUpdates'])
+        self.assertIn('edited_message', facts['webhook']['requiredUpdates'])
         self.assertEqual(verify_cohort_config(facts['cohorts'])['status'], 'not_checked')
         self.assertNotIn('synthetic-token', result.stdout)
 
