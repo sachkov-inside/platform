@@ -64,13 +64,17 @@ function verdictOf(outcome: TrainerAnswerOutcome): TrainerVerdict {
 }
 
 /**
- * The result of a finished round with the points its answers earned and the person's Series,
- * under `title`: the topic's name for a topic round, «Проверить себя» when absent. The week
- * place is not counted yet.
+ * The result of a finished round with the points its answers earned, the person's Series and
+ * their place in the Rating of the week (0 for a person the Rating does not show), under
+ * `title`: the topic's name for a topic round, «Проверить себя» when absent.
  */
 export function resultScreen(
   result: TrainerRoundResult,
-  score: { readonly points: number; readonly streakDays: number },
+  score: {
+    readonly points: number;
+    readonly streakDays: number;
+    readonly weekPlace: number;
+  },
   title: string = CHECK_TITLE,
 ): TrainerResultData {
   const { round, correct } = result;
@@ -82,7 +86,7 @@ export function resultScreen(
     resultComment(correct, round.size),
     score.points,
     score.streakDays,
-    0,
+    score.weekPlace,
     round.mode === "topic" ? 1 : 0,
   ];
 }

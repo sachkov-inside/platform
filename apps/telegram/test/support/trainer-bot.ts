@@ -167,6 +167,7 @@ export async function loadBank(
 export async function clearTrainerData(database: Database): Promise<void> {
   await sql`
     truncate table
+      trainer_rating_consents,
       trainer_issues,
       trainer_rounds,
       trainer_questions,
@@ -196,6 +197,12 @@ export interface TrainerBot {
    * stays under the request limit. Returns the screen the bot answered with.
    */
   readonly tap: (userId: number, data: string) => Promise<TrainerScreen>;
+  /** From now on the person's presses carry this Telegram name; "Synthetic" before that. */
+  readonly rename: (
+    userId: number,
+    firstName: string,
+    lastName?: string,
+  ) => void;
   /** Starts «Проверить себя» and answers every question the way `answer` chooses. */
   readonly playRound: (
     userId: number,
@@ -237,11 +244,14 @@ export async function startTrainerBot(
     expect(response.statusCode).toBe(202);
     await application.get(TelegramUpdateProcessor).processAvailable();
   };
+  const names = new Map<number, { firstName: string; lastName?: string }>();
   const tap = async (userId: number, data: string): Promise<TrainerScreen> => {
     // deterministic-test-allow wall-clock: reads the virtual Date registered by registerFixedClock.
     vi.setSystemTime(Date.now() + 2000);
     const answersBefore = messages.answers.length;
-    await receive(widgetQueryUpdate((nextUpdateId += 1), userId, data));
+    await receive(
+      widgetQueryUpdate((nextUpdateId += 1), userId, data, names.get(userId)),
+    );
     const answer = messages.answers.at(answersBefore);
     if (!answer) throw new Error(`The bot did not answer the press ${data}`);
     return z.array(z.unknown()).parse(JSON.parse(answer.data));
@@ -253,6 +263,12 @@ export async function startTrainerBot(
     say: (userId, text) =>
       receive(privateStartUpdate((nextUpdateId += 1), userId, { text })),
     tap,
+    rename: (userId, firstName, lastName) => {
+      names.set(userId, {
+        firstName,
+        ...(lastName === undefined ? {} : { lastName }),
+      });
+    },
     playRound: async (userId, answer = right) => {
       let step = 0;
       let screen = await tap(userId, "q");

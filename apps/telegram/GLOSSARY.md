@@ -137,6 +137,12 @@ _Avoid_: Series of messages, sequence, run of correct answers
 nothing.
 _Avoid_: Limit, quota, task, daily question
 
+**Рейтинг** (Rating):
+The two Тренажёр tables of Очки: «Неделя» (Monday to Sunday, Moscow time) and «Всё время». A table
+lists only people who turned the display on themselves, under their Telegram name; the display is
+off by default, and turning it off removes the person from both tables at once.
+_Avoid_: Leaderboard, league, tournament, grade, student ranking
+
 **Банк вопросов** (Question Bank):
 The author's whole set of Trainer questions and their topics, loaded into the bot by the owner's
 import. The bot never edits it; a new import replaces what people are shown.
