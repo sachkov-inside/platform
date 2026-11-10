@@ -31,6 +31,7 @@ describe("production operations in the runtime image", () => {
     ["community-restriction", "dist/operations/community-restriction-cli.js"],
     ["activation-review", "dist/operations/activation-review-cli.js"],
     ["trainer-bank-import", "dist/operations/trainer-bank-import-cli.js"],
+    ["trainer-report", "dist/operations/trainer-report-cli.js"],
     [
       "activation-announcement",
       "dist/operations/activation-announcement-cli.js",

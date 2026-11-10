@@ -43,6 +43,14 @@ services:
     profiles: [operations]
     restart: "no"
 
+  # The author's Trainer reports, without names or identifiers: run --rm -T trainer-report --questions
+  trainer-report:
+    <<: *runtime
+    entrypoint: [node, dist/operations/trainer-report-cli.js]
+    networks: [database]
+    profiles: [operations]
+    restart: "no"
+
   # Owner review queue of unconfirmed owner-link grounds: run --rm -T activation-review --list
   activation-review:
     <<: *runtime

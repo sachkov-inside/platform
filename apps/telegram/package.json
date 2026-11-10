@@ -35,6 +35,7 @@
     "owner:activation-review": "tsx src/operations/activation-review-cli.ts",
     "owner:activation-announcement": "tsx src/operations/activation-announcement-cli.ts",
     "owner:trainer-bank-import": "tsx src/operations/trainer-bank-import-cli.ts",
+    "owner:trainer-report": "tsx src/operations/trainer-report-cli.ts",
     "proof:course:browser": "tsx test/local/course-activation-browser.ts",
     "proof:course:existing": "node test/local/course-existing-browser.mjs",
     "trainer:widget:build": "tsx scripts/trainer-widget/build.ts",
