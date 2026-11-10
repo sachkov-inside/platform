@@ -627,6 +627,48 @@ describe("trainer widget screens in a browser", () => {
     },
   );
 
+  it.each([
+    ["light", 0, 2],
+    ["dark", 0, 2],
+    ["light", 2, 1],
+    ["dark", 2, 1],
+  ] as const)(
+    "uses the same readable panel ink in %s for verdict %i",
+    async (theme, verdict, pickedMask) => {
+      const page = await openWidget(320, { theme });
+      await tap(page, "Проверить себя", [
+        "q",
+        "7k",
+        "Тема",
+        "Вопрос?",
+        ["Первый", "Второй"],
+        0,
+        "",
+        5,
+      ]);
+      await tap(page, pickedMask === 1 ? "А Первый" : "Б Второй", [
+        "e",
+        verdict,
+        1,
+        pickedMask,
+        "Синтетический разбор.",
+        verdict === 2 ? "1" : "0",
+        5,
+        0,
+      ]);
+      const colours = await page.evaluate(() => {
+        const title = document.querySelector(".f .V");
+        if (!title) throw new Error("The feedback verdict is missing");
+        return [
+          getComputedStyle(title).color,
+          getComputedStyle(document.body).color,
+        ];
+      });
+      expect(colours[0]).toBe(colours[1]);
+      await page.close();
+    },
+  );
+
   it("sends one answer for a tap on an option of a single-answer question", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", [

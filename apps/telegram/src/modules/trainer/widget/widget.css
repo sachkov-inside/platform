@@ -287,6 +287,9 @@ button {
   border-radius: 8px;
   background: var(--t);
 }
+.f .V {
+  color: var(--v);
+}
 .f .b {
   flex: none;
   margin-top: auto;
