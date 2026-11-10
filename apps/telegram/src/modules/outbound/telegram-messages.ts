@@ -35,6 +35,8 @@ export interface TelegramWidgetMessage {
   readonly chatData: string;
   /** Shown under the widget, and instead of it by an app that cannot show widgets. */
   readonly caption: string;
+  /** Fixed canvas height in logical pixels; Telegram keeps it across state changes. */
+  readonly height: number;
 }
 
 export interface TelegramWidgetAnswer {

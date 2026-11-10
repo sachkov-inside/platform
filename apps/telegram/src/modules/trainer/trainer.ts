@@ -34,6 +34,7 @@ import {
 import type { TrainerOpeningDelivery } from "./trainer-storage.js";
 import { TrainerTopics, topicsScreen } from "./trainer-topics.js";
 import { TRAINER_WIDGET_HTML } from "./widget/trainer-widget-html.generated.js";
+import { TRAINER_WIDGET_TARGET_HEIGHT_PX } from "./widget/trainer-widget-limits.js";
 import {
   encodeTrainerWidgetData,
   parseTrainerWidgetRequest,
@@ -105,6 +106,7 @@ export class Trainer {
       html: TRAINER_WIDGET_HTML,
       chatData: encodeTrainerWidgetData(await this.home(contact)),
       caption: WIDGET_CAPTION,
+      height: TRAINER_WIDGET_TARGET_HEIGHT_PX,
     });
     switch (result.kind) {
       case "delivered":

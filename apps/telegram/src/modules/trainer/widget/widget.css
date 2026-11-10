@@ -1,6 +1,7 @@
 /*
- * Trainer widget: warm paper, orange accents, ink outlines and crisp offset shadows, system font. Class names are one letter because every byte counts against
+ * Trainer widget: warm paper, orange accents, ink outlines and crisp offset shadows, system font. Compact class names keep the widget within
  * the 4 096-byte compressed limit; the build strips these comments.
+ * Names must remain distinct after lowercasing: some clients embed the widget in quirks mode.
  *
  * Only features of widget profile 1 are allowed (https://core.telegram.org/bots/widgets):
  * no color-mix(), no vh, no :has(), no nesting, no scrolling, no named fonts, no text-shadow.
@@ -12,6 +13,10 @@
    --c the state colour of an element. */
 body {
   margin: 0;
+  /* Quirks-mode body blocks otherwise grow to the client's viewport, leaving empty space. */
+  display: inline-block;
+  width: 100%;
+  vertical-align: top;
   /* The band of the message time is 0 while the message has a caption below the widget. */
   padding: 0 0 env(safe-area-inset-bottom);
   --a: #c7461e;
@@ -26,20 +31,6 @@ body {
   --j: #8b3115;
   background: var(--p);
   color: var(--v);
-}
-@media (prefers-color-scheme: dark) {
-  body {
-    --a: #ef6b3c;
-    --d: #e18a4c;
-    --f: #25140d;
-    --t: #59321e;
-    --l: #e18a4c;
-    --s: #332117;
-    --h: #d8ac86;
-    --p: #20150f;
-    --v: #ffead6;
-    --j: #100904;
-  }
 }
 * {
   box-sizing: border-box;
@@ -62,8 +53,8 @@ body {
   padding-top: 3px;
   padding-bottom: 3px;
 }
-/* .w: a request to the bot is in flight. */
-.w {
+/* .waiting: a request to the bot is in flight. */
+.waiting {
   opacity: 0.5;
   pointer-events: none;
 }
@@ -79,7 +70,7 @@ button {
   text-align: left;
 }
 
-/* Helpers: .R row, .F takes the free width, .m muted small text, .C centred block. */
+/* Helpers: .R row, .F takes the free width, .muted muted small text, .C centred block. */
 .R {
   display: flex;
   align-items: center;
@@ -89,7 +80,7 @@ button {
   flex: 1;
   min-width: 0;
 }
-.m {
+.muted {
   color: var(--h);
   font-size: 0.85em;
 }
@@ -108,10 +99,10 @@ button {
   --c: var(--h);
 }
 
-/* Pressable surfaces: .k card, .o option, .b button; .P primary. */
-.k,
-.o,
-.b {
+/* Pressable surfaces: .card card, .option option, .button button; .P primary. */
+.card,
+.option,
+.button {
   border: 2px solid var(--l);
   border-radius: 8px;
   background: var(--s);
@@ -119,28 +110,28 @@ button {
   padding: 7px 10px;
   min-height: 44px;
 }
-.k:active,
-.o:active,
-.b:active {
+.card:active,
+.option:active,
+.button:active {
   transform: translate(3px, 3px);
   box-shadow: 1px 1px 0 var(--j);
 }
-.k {
+.card {
   min-height: 58px;
 }
-.k b,
-.k .m {
+.card b,
+.card .muted {
   display: block;
 }
-.k em,
-.c {
+.card em,
+.chip {
   color: var(--a);
   font-size: 0.85em;
   font-weight: 600;
   font-style: normal;
   white-space: nowrap;
 }
-.b {
+.button {
   flex: 1;
   font-weight: 700;
   text-align: center;
@@ -150,16 +141,16 @@ button {
   border-color: var(--d);
   color: var(--f);
 }
-.P .m {
+.P .muted {
   color: inherit;
 }
-.b:disabled {
+.button:disabled {
   background: var(--s);
   border-color: var(--l);
   color: var(--h);
 }
 
-/* Home: .U title, .c series chip, .T progress track. */
+/* Home: .U title, .chip series chip, .T progress track. */
 /* .a gives every home button the accent bottom edge and the home title its colour. */
 .a {
   border-bottom-color: var(--a);
@@ -171,7 +162,7 @@ button {
   font-size: 1.4em;
   font-weight: 800;
 }
-.c {
+.chip {
   color: var(--v);
   padding: 4px 7px;
   border: 2px solid var(--l);
@@ -187,7 +178,7 @@ button {
 }
 .T,
 .T i,
-.q i {
+.steps i {
   border-radius: 3px;
 }
 .T i {
@@ -196,7 +187,7 @@ button {
   background: var(--a);
 }
 
-/* Round: .x round icon button, .q steps, .n "Не знаю", .Q question text, .y option letter,
+/* Round: .x round icon button, .steps steps, .n "Не знаю", .Q question text, .y option letter,
    .V verdict, .W explanation. */
 .x {
   flex: none;
@@ -208,16 +199,16 @@ button {
   background: var(--s);
   text-align: center;
 }
-.q {
+.steps {
   gap: 4px;
 }
-.q i {
+.steps i {
   flex: 1;
   height: 10px;
   border: 2px solid var(--l);
   background: var(--c, var(--s));
 }
-.q .S {
+.steps .S {
   background: var(--t);
   border: 2px solid var(--v);
 }
@@ -230,7 +221,7 @@ button {
 .Q {
   font-weight: 600;
 }
-.o {
+.option {
   padding: 1px 10px;
   font-size: 0.95em;
 }
@@ -254,7 +245,7 @@ button {
   color: var(--f);
 }
 .B.Z,
-.q .B {
+.steps .B {
   border-style: dashed;
   background: var(--p);
 }
@@ -272,28 +263,28 @@ button {
 
 /* Reserve the same feedback space before the answer, so fitting never shrinks its options. */
 .j,
-.f {
+.feedback {
   display: flex;
   flex-direction: column;
   gap: 4px;
   line-height: 1.15;
 }
-.f {
+.feedback {
   font-size: min(1em, 13px);
   line-height: 1.2;
   min-height: calc(28em - 78px);
   padding: 6px;
   border: 2px solid transparent;
 }
-.f .V {
+.feedback .V {
   color: var(--v);
 }
-.f .b {
+.feedback .button {
   flex: none;
   margin-top: auto;
 }
 
-/* Result and Progress: .I big number, .K figure tile, .r list row. */
+/* Result and Progress: .I big number, .K figure tile, .list list row. */
 .I {
   font-size: 2.9em;
   font-weight: 800;
@@ -308,31 +299,34 @@ button {
   box-shadow: 2px 2px 0 var(--j);
   text-align: center;
 }
-.K b {
+.K b,
+.K .muted {
   display: block;
+}
+.K b {
   font-size: 1.2em;
 }
-.r {
+.list {
   width: 100%;
   min-height: 38px;
   padding: 5px 2px;
   border-bottom: 1px solid var(--l);
 }
-.r .T {
+.list .T {
   flex: 1;
   height: 8px;
   border-width: 1px;
 }
 
-/* Rating: .t tabs, .O chosen tab, .u table row, .M the viewer's row, .e one-line name. */
-.t {
+/* Rating: .tabs tabs, .O chosen tab, .rank table row, .M the viewer's row, .e one-line name. */
+.tabs {
   gap: 0;
   padding: 3px;
   border: 2px solid var(--l);
   border-radius: 6px;
   background: var(--s);
 }
-.t button {
+.tabs button {
   flex: 1;
   padding: 6px;
   border-radius: 3px;
@@ -341,16 +335,16 @@ button {
   font-weight: 600;
   text-align: center;
 }
-.t .O {
+.tabs .O {
   background: var(--a);
   color: var(--f);
 }
-.u {
+.rank {
   min-height: 34px;
   padding: 0 6px;
   border-radius: 8px;
 }
-.u .m {
+.rank .muted {
   width: 22px;
   text-align: right;
 }

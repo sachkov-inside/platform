@@ -13,6 +13,8 @@ export interface WidgetPageOptions {
   readonly theme?: WidgetTheme;
   /** The chat's message text size; it follows the user's text size setting. */
   readonly textSizePx?: number;
+  /** Native clients may embed the fragment in a document without a doctype. */
+  readonly documentMode?: "standards" | "quirks";
 }
 
 const palettes: Record<WidgetTheme, Record<string, string>> = {
@@ -39,7 +41,7 @@ export async function trainerWidgetPage(
     .map(([key, value]) => `--tg-theme-${key}:${value}`)
     .join(";");
   const html = await buildTrainerWidgetHtml();
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8">
+  return `${options.documentMode === "quirks" ? "" : "<!doctype html>"}<html lang="ru"><head><meta charset="utf-8">
 <style>
 :root{${variables};--tg-color-scheme:${theme};--tg-text-font-size:${textSize}px;--tg-text-line-height:1.35}
 body{margin:8px 12px;background:var(--tg-theme-bg-color);color:var(--tg-theme-text-color);font:${textSize}px/1.35 system-ui,sans-serif}

@@ -148,6 +148,7 @@ describe("GrammyMessagesAdapter widgets", () => {
     html: "<div id=w></div>",
     chatData: '["h",0,0,5,0]',
     caption: "Synthetic caption",
+    height: 560,
   };
 
   it("sends a widget that may query the bot and reports the message id", async () => {
@@ -171,6 +172,7 @@ describe("GrammyMessagesAdapter widgets", () => {
         chat_data: '["h",0,0,5,0]',
         caption: "Synthetic caption",
         allow_queries: true,
+        height: 560,
       },
     ]);
   });
