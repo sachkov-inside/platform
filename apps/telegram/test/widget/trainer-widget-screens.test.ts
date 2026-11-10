@@ -640,11 +640,11 @@ describe("trainer widget screens in a browser", () => {
               const orange = [199, 70, 30, 255];
               const paper = [255, 239, 220, 255];
               expect(pixels).toEqual([
-                done ? orange : paper,
-                done ? orange : paper,
+                done > 0 ? orange : paper,
+                done > 0 ? orange : paper,
                 done === 5 ? orange : paper,
                 done === 5 ? orange : paper,
-                done ? orange : paper,
+                done > 0 ? orange : paper,
                 done === 5 ? orange : paper,
               ]);
             } finally {
