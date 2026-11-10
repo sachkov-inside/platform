@@ -599,6 +599,63 @@ describe("trainer widget screens in a browser", () => {
     expect(await requests(page)).toEqual([]);
   });
 
+  it.each(["Chromium", "WebKit"])(
+    "fills the Daily goal up to its inner corners without pale gaps in %s",
+    async (engine) => {
+      for (const width of [320, 430]) {
+        for (const documentMode of ["standards", "quirks"] as const) {
+          for (const done of [0, 1, 5]) {
+            const page = await openWidget(
+              width,
+              { chatData: JSON.stringify(["h", 1, done, 5, 0]), documentMode },
+              engine === "WebKit" ? webkitBrowser : browser,
+            );
+            try {
+              // Read the rendered pixels, not the CSS radius: a rounded fill can leave
+              // pale crescents even when its bounding box reaches both borders.
+              const png = await page.locator(".T").screenshot();
+              const pixels = await page.evaluate(async (base64) => {
+                const image = new Image();
+                image.src = `data:image/png;base64,${base64}`;
+                await image.decode();
+                const canvas = document.createElement("canvas");
+                canvas.width = image.width;
+                canvas.height = image.height;
+                const context = canvas.getContext("2d");
+                if (!context) throw new Error("Cannot read the rendered goal");
+                context.drawImage(image, 0, 0);
+                return (
+                  [
+                    [3, 3],
+                    [3, image.height - 3],
+                    [image.width - 4, 3],
+                    [image.width - 4, image.height - 3],
+                    [Math.floor(image.width / 10), 6],
+                    [Math.floor(image.width / 2), 6],
+                  ] as const
+                ).map(([x, y]) =>
+                  Array.from(context.getImageData(x, y, 1, 1).data),
+                );
+              }, png.toString("base64"));
+              const orange = [199, 70, 30, 255];
+              const paper = [255, 239, 220, 255];
+              expect(pixels).toEqual([
+                done > 0 ? orange : paper,
+                done > 0 ? orange : paper,
+                done === 5 ? orange : paper,
+                done === 5 ? orange : paper,
+                done > 0 ? orange : paper,
+                done === 5 ? orange : paper,
+              ]);
+            } finally {
+              await page.close();
+            }
+          }
+        }
+      }
+    },
+  );
+
   it.each([0, 1])(
     "gives every home mode the same appearance without a Daily status badge (answered: %s)",
     async (answered) => {

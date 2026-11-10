@@ -164,10 +164,10 @@ button {
   overflow: hidden;
 }
 .T,
-.T i,
 .st i {
   border-radius: 3px;
 }
+/* The track clips the fill to its inner corners. A second radius would expose pale gaps. */
 .T i {
   display: block;
   height: 100%;
