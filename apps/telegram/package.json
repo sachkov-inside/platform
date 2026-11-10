@@ -28,6 +28,7 @@
     "start": "node dist/main.js",
     "test": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:widget": "vitest run --config vitest.widget.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "proof:course:provider": "tsx test/local/course-activation-provider.ts",
     "owner:community-restriction": "tsx src/operations/community-restriction-cli.ts",
@@ -35,6 +36,7 @@
     "owner:activation-announcement": "tsx src/operations/activation-announcement-cli.ts",
     "proof:course:browser": "tsx test/local/course-activation-browser.ts",
     "proof:course:existing": "node test/local/course-existing-browser.mjs",
+    "trainer:widget:build": "tsx scripts/trainer-widget/build.ts",
     "test:contracts": "bash ../../scripts/heavy-check.sh vitest run --config vitest.contract.config.ts"
   },
   "dependencies": {
@@ -64,6 +66,7 @@
     "@playwright/test": "1.63.0",
     "@types/node": "26.6.4",
     "@types/pg": "8.23.1",
+    "esbuild": "0.28.2",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "4.1.11"
