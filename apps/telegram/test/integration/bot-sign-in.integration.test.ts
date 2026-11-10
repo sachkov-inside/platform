@@ -48,6 +48,7 @@ import type {
   TelegramMessageEdit,
   TelegramTextMessage,
 } from "../../src/modules/outbound/telegram-messages.js";
+import { Trainer } from "../../src/modules/trainer/trainer.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { TelegramUpdateInbox } from "../../src/modules/update-inbox/telegram-update-inbox.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
@@ -897,6 +898,7 @@ describe("bot sign-in provider", () => {
         new GrammyUpdateAdapter(),
         application.get(LinkProfiles),
         application.get(CommunityMessages),
+        application.get(Trainer),
       );
       expect(await processor.processAvailable()).toBe(2);
       expect(claim.mock.calls[0]?.[0]).toEqual(current);

@@ -52,8 +52,10 @@ import { signInMessageResultMigration } from "./migrations/010-sign-in-message-r
 import { communicationsTemplatesMigration } from "./migrations/010-communications-templates.js";
 
 import { authorAdminMigration } from "./migrations/014-author-admin.js";
+import { trainerOpeningsMigration } from "./migrations/046-trainer-openings.js";
 
 const migrations = {
+  "046-trainer-openings": trainerOpeningsMigration,
   "044-community-discussion-history": communityDiscussionHistoryMigration,
   "043-community-discussion-budget": communityDiscussionBudgetMigration,
   "042-community-transcripts": communityTranscriptsMigration,

@@ -210,6 +210,7 @@ describe("credentialed Telegram proof redaction", () => {
             "chat_member",
             "chat_join_request",
             "callback_query",
+            "widget_query",
           ],
           has_custom_certificate: false,
           pending_update_count: 0,
@@ -231,6 +232,23 @@ describe("credentialed Telegram proof redaction", () => {
         "https://proof.example/telegram",
       ),
     ).toThrow(/allowed_updates/u);
+    // A registration made before the Trainer does not deliver widget presses.
+    expect(() =>
+      validateWebhookInfo(
+        {
+          allowed_updates: [
+            "message",
+            "edited_message",
+            "my_chat_member",
+            "chat_member",
+            "chat_join_request",
+            "callback_query",
+          ],
+          url: "https://proof.example/telegram",
+        },
+        "https://proof.example/telegram",
+      ),
+    ).toThrow(/allowed_updates/u);
     expect(
       validateWebhookInfo(
         {
@@ -241,6 +259,7 @@ describe("credentialed Telegram proof redaction", () => {
             "chat_member",
             "chat_join_request",
             "callback_query",
+            "widget_query",
           ],
           last_error_date: 1_900_000_000,
           last_error_message:

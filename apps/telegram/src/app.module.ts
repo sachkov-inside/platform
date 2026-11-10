@@ -92,6 +92,7 @@ import { CommunicationTracking } from "./modules/communications/communication-tr
 import { Api } from "grammy";
 import { CommunicationSequences } from "./modules/communications/communication-sequences.js";
 import { MarketingEntry } from "./modules/communications/marketing-entry.js";
+import { Trainer } from "./modules/trainer/trainer.js";
 import { SequenceScheduler } from "./modules/communications/sequence-scheduler.js";
 import { COMMUNICATION_TRANSPORT } from "./modules/communications/communication-delivery.js";
 import {
@@ -478,6 +479,7 @@ export class AppModule {
         },
         CommunicationSequences,
         MarketingEntry,
+        Trainer,
         SequenceScheduler,
         MaterialAnnouncements,
         {

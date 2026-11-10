@@ -14,7 +14,7 @@ import { NotificationBroker } from "../adapters/amqp/notification-broker.js";
 import { HttpNotificationAuthorization } from "../adapters/platform/http-notification-authorization.adapter.js";
 import {
   TELEGRAM_MESSAGES,
-  type TelegramMessages,
+  type TelegramTextMessages,
 } from "../modules/outbound/telegram-messages.js";
 import { CLOCK, type Clock } from "../shared/clock.js";
 import { telegramTurnPending } from "../modules/outbound/telegram-transport-slots.js";
@@ -36,7 +36,7 @@ export class NotificationWorker
   constructor(
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
     @Inject(DATABASE) private readonly db: Database,
-    @Inject(TELEGRAM_MESSAGES) private readonly transport: TelegramMessages,
+    @Inject(TELEGRAM_MESSAGES) private readonly transport: TelegramTextMessages,
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 

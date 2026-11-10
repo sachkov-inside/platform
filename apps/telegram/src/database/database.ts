@@ -4,6 +4,7 @@ import type { NativeMessageSource } from "../modules/communications/native-messa
 import type { MaterialAnnouncement } from "@inside/contracts/material-announcements";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import type { TransportTables } from "../modules/outbound/transport-storage.js";
+import type { TrainerTables } from "../modules/trainer/trainer-storage.js";
 import type { IdentityTables } from "../modules/identity-linking/identity-storage.js";
 import type { ActivationTables } from "../modules/course-activation/activation-storage.js";
 import type { TelegramButton } from "../modules/outbound/telegram-messages.js";
@@ -318,6 +319,7 @@ export interface DatabaseSchema
     DiscussionTables,
     ActivationTables,
     TransportTables,
+    TrainerTables,
     IdentityTables,
     NotificationTables,
     CommunityTables,

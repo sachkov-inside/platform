@@ -14,6 +14,7 @@ const required = [
   "my_chat_member",
   "chat_join_request",
   "callback_query",
+  "widget_query",
 ];
 const relayInfo = {
   url: relayUrl,
@@ -30,7 +31,7 @@ const relayInfo = {
 };
 
 describe("webhook registration plan", () => {
-  it("adds edited_message and chat_join_request while keeping the relay port, ip_address and connection limit", () => {
+  it("adds edited_message, chat_join_request and widget_query while keeping the relay port, ip_address and connection limit", () => {
     const plan = planWebhookRegistration(relayInfo, relayUrl, secret);
 
     expect(plan).toEqual({
@@ -47,7 +48,7 @@ describe("webhook registration plan", () => {
         port: "88",
         ipAddressPreserved: true,
         maxConnections: 40,
-        addedUpdates: ["edited_message", "chat_join_request"],
+        addedUpdates: ["edited_message", "chat_join_request", "widget_query"],
         removedUpdates: [],
         pendingUpdateCount: 0,
       },

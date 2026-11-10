@@ -17,7 +17,7 @@ import {
   reserveTelegramSlot,
 } from "../outbound/telegram-transport-slots.js";
 import type {
-  TelegramMessages,
+  TelegramTextMessages,
   TelegramDeliveryResult,
 } from "../outbound/telegram-messages.js";
 import {
@@ -42,7 +42,7 @@ export class NotificationProvider {
     private readonly bot: string,
     private readonly clock: Clock,
     private readonly authorization: NotificationAuthorization,
-    private readonly transport: TelegramMessages,
+    private readonly transport: TelegramTextMessages,
     private readonly quarantineKey: Buffer,
   ) {
     if (quarantineKey.length !== 32)

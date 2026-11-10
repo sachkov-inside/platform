@@ -31,6 +31,8 @@ export const TELEGRAM_WEBHOOK_ALLOWED_UPDATES = [
   "my_chat_member",
   "chat_join_request",
   "callback_query",
+  // A press inside the Trainer widget. Without it Telegram answers the widget with a timeout.
+  "widget_query",
 ] as const;
 
 @Injectable()

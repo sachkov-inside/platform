@@ -32,6 +32,24 @@ The current ability to deliver bot messages to a BotContact through Telegram. Bl
 changes Contactability without deleting the BotContact, PlatformLink, or community history.
 _Avoid_: Consent, Membership, active subscription
 
+**Trainer** (Тренажёр):
+The bot section where a BotContact checks their knowledge of AI engineering inside one widget
+message of the private chat. The person opens it themselves; it needs no PlatformLink or Product
+Access and the bot never sends reminders about it.
+_Avoid_: Quiz, test, course, Mini App
+
+**Self-check** («Проверить себя»):
+The main Trainer mode: one round of 5 questions from different topics.
+_Avoid_: Quick round, Быстрый раунд, exam
+
+**Daily Question** (Вопрос дня):
+The one Trainer question of a Moscow calendar day, the same for everyone.
+_Avoid_: Daily quiz, reminder, question of the week
+
+**Topic Training** (Тренировка по теме):
+A Trainer round of up to 10 questions from one topic the person chose.
+_Avoid_: Course, lesson, module
+
 **Marketing Preference**:
 A BotContact's current choice about bot marketing: messages are allowed after starting the bot,
 `/stop` turns them off and `/resume` enables future messages without a missed-message backlog.
