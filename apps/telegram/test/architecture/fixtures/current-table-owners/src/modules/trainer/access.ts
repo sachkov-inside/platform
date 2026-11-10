@@ -12,4 +12,12 @@ export async function access(database: any) {
   await database.insertInto("trainer_topics").values({}).execute();
   await database.updateTable("trainer_topics").set({}).execute();
   await database.deleteFrom("trainer_topics").execute();
+  await database.selectFrom("trainer_rounds").selectAll().execute();
+  await database.insertInto("trainer_rounds").values({}).execute();
+  await database.updateTable("trainer_rounds").set({}).execute();
+  await database.deleteFrom("trainer_rounds").execute();
+  await database.selectFrom("trainer_issues").selectAll().execute();
+  await database.insertInto("trainer_issues").values({}).execute();
+  await database.updateTable("trainer_issues").set({}).execute();
+  await database.deleteFrom("trainer_issues").execute();
 }

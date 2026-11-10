@@ -70,19 +70,23 @@ function question(text: Filler, reviewMask?: number): TrainerQuestionData {
   return reviewMask === undefined ? data : [...data, reviewMask];
 }
 /** The tallest explanation: two wrong picks and two missed correct options keep all four. */
-function explanation(text: Filler): TrainerExplanationData {
+function explanation(
+  text: Filler,
+  correctMask = 0b0011,
+  pickedMask = 0b1100,
+): TrainerExplanationData {
   return [
     "e",
     0,
-    0b0011,
-    0b1100,
+    correctMask,
+    pickedMask,
     text(TRAINER_EXPLANATION_MAX_CHARS, 2),
     "10100",
     10,
     text(TRAINER_STAT_LINE_MAX_CHARS, 3),
   ];
 }
-const result = (text: Filler): TrainerWidgetData => [
+const result = (text: Filler, topicRound: 0 | 1 = 1): TrainerWidgetData => [
   "r",
   text(TRAINER_RESULT_TITLE_MAX_CHARS),
   10,
@@ -91,7 +95,7 @@ const result = (text: Filler): TrainerWidgetData => [
   10,
   365,
   9_999,
-  1,
+  topicRound,
 ];
 const progress = (text: Filler): TrainerWidgetData => [
   "p",
@@ -140,6 +144,17 @@ const routes: readonly Route[] = [
     ],
   },
   { name: "round result", steps: (text) => [["Проверить себя", result(text)]] },
+  {
+    name: "round result of «Проверить себя»",
+    steps: (text) => [["Проверить себя", result(text, 0)]],
+  },
+  {
+    name: "explanation of a single pick",
+    steps: (text) => [
+      ["Проверить себя", question(text)],
+      ["Не знаю", explanation(text, 0b0001, 0b1000)],
+    ],
+  },
   { name: "Progress", steps: (text) => [["Прогресс", progress(text)]] },
   { name: "Rating", steps: (text) => [["Рейтинг", rating(text)]] },
   {
@@ -523,5 +538,223 @@ describe("trainer widget screens in a browser", () => {
     expect(sent.map((data) => parseTrainerWidgetRequest(data))).not.toContain(
       undefined,
     );
+  });
+
+  describe("in a round of «Проверить себя»", () => {
+    const TOO_OFTEN = "Слишком часто. Повторите через несколько секунд.";
+    /** A question of the round as the bot sends it: one correct option, no answers inside. */
+    const asked = (issueId: string, marks: string): TrainerQuestionData => [
+      "q",
+      issueId,
+      "Синтетическая тема",
+      "Синтетический вопрос",
+      [
+        "Синтетический вариант 1",
+        "Синтетический вариант 2",
+        "Синтетический вариант 3",
+        "Синтетический вариант 4",
+      ],
+      0,
+      marks,
+      5,
+    ];
+    /** The step strip: G a correct answer, B a wrong one, S the current step. */
+    const steps = (page: Page): Promise<string[]> =>
+      page
+        .locator("#w .q i")
+        .evaluateAll((marks) =>
+          marks.map((mark) => mark.getAttribute("class") ?? ""),
+        );
+    /** The options on the screen with their mark: G correct, B picked and wrong. */
+    const options = (page: Page): Promise<string[]> =>
+      page
+        .locator("#w .o")
+        .evaluateAll((rows) =>
+          rows.map(
+            (row) =>
+              `${row.textContent} ${/ ([GB]) /.exec(row.getAttribute("class") ?? "")?.[1] ?? "-"}`,
+          ),
+        );
+    const buttons = (page: Page): Promise<string[]> =>
+      page.getByRole("button").allInnerTexts();
+
+    it("keeps only the picked and the correct options with the explanation after an answer", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", asked("7k", "10"));
+      expect(await steps(page)).toEqual(["G", "B", "S", "", ""]);
+      expect(await options(page)).toHaveLength(4);
+
+      await tap(page, "В Синтетический вариант 3", [
+        "e",
+        0,
+        0b0001,
+        0b0100,
+        "Синтетический разбор",
+        "100",
+        5,
+        0,
+      ]);
+
+      const text = await page.locator("#w").innerText();
+      expect(text).toContain("Неверно");
+      expect(text).toContain("Синтетический разбор");
+      expect(await options(page)).toEqual([
+        "АСинтетический вариант 1 G",
+        "ВСинтетический вариант 3 B",
+      ]);
+      expect(await steps(page)).toEqual(["G", "B", "B", "S", ""]);
+      expect(text).not.toMatch(/Где почитать|В вопросе ошибка/);
+      expect(await buttons(page)).toEqual(["×", "Дальше"]);
+    });
+
+    it("shows a correct answer without a point as «Верно»", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", asked("7k", ""));
+
+      await tap(page, "А Синтетический вариант 1", [
+        "e",
+        1,
+        0b0001,
+        0b0001,
+        "Синтетический разбор",
+        "1",
+        5,
+        0,
+      ]);
+
+      const text = await page.locator("#w").innerText();
+      expect(text).toContain("Верно");
+      expect(text).not.toContain("очко");
+      expect(await options(page)).toEqual(["АСинтетический вариант 1 G"]);
+    });
+
+    it("goes from the last explanation to the result and offers another round or home", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", asked("7k", "1101"));
+      await tap(page, "Не знаю", [
+        "e",
+        3,
+        0b0001,
+        0,
+        "Синтетический разбор",
+        "11010",
+        5,
+        0,
+      ]);
+      expect(await steps(page)).toEqual(["G", "G", "B", "G", "B"]);
+
+      await tap(page, "К итогу", [
+        "r",
+        "Проверить себя",
+        3,
+        5,
+        "Хороший результат. Разборы помогут закрыть пробелы.",
+        0,
+        0,
+        0,
+        0,
+      ]);
+
+      const text = await page.locator("#w").innerText();
+      expect(text).toContain("Проверить себя");
+      expect(text).toContain("3 из 5");
+      expect(await buttons(page)).toEqual([
+        "Ещё раунд",
+        "На главный",
+        "Рейтинг",
+      ]);
+      await tap(page, "Ещё раунд", asked("7q", ""));
+      expect(await steps(page)).toEqual(["S", "", "", "", ""]);
+      await tap(page, "×", home);
+      expect(await requests(page)).toEqual(["q", "a7k:0", "n", "q", "h"]);
+    });
+
+    it("returns home from the result with fresh numbers from the bot", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", [
+        "r",
+        "Проверить себя",
+        5,
+        5,
+        "Все ответы верные.",
+        0,
+        0,
+        0,
+        0,
+      ]);
+
+      await tap(page, "На главный", ["h", 1, 5, 5, 0]);
+
+      expect(await requests(page)).toEqual(["q", "h"]);
+      expect(await page.locator("#w").innerText()).toContain("5 из 5 вопросов");
+    });
+
+    it("shows the request limit text on an answer and repeats the same answer", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", asked("7k", ""));
+
+      await tap(page, "Б Синтетический вариант 2", ["x", TOO_OFTEN]);
+
+      const text = await page.locator("#w").innerText();
+      expect(text).toContain("Не получилось");
+      expect(text).toContain(TOO_OFTEN);
+      expect(await buttons(page)).toEqual(["Повторить", "На главный"]);
+      await tap(page, "Повторить", [
+        "e",
+        0,
+        0b0001,
+        0b0010,
+        "Синтетический разбор",
+        "0",
+        5,
+        0,
+      ]);
+      expect(await requests(page)).toEqual(["q", "a7k:2", "a7k:2"]);
+      expect(await options(page)).toEqual([
+        "АСинтетический вариант 1 G",
+        "БСинтетический вариант 2 B",
+      ]);
+    });
+
+    it("shows a retry state when the next question does not come and asks for it again", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", asked("7k", ""));
+      await tap(page, "Не знаю", [
+        "e",
+        3,
+        0b0001,
+        0,
+        "Синтетический разбор",
+        "0",
+        5,
+        0,
+      ]);
+
+      await tap(page, "Дальше");
+
+      expect(await page.locator("#w").innerText()).toContain(
+        "Бот не ответил. Проверьте связь и повторите.",
+      );
+      await tap(page, "Повторить", asked("7l", "0"));
+      expect(await requests(page)).toEqual(["q", "a7k:0", "n", "n"]);
+      expect(await steps(page)).toEqual(["B", "S", "", "", ""]);
+    });
+
+    it("shows the bot's refusal of a closed question and returns home without a request", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", asked("7k", ""));
+
+      await tap(page, "А Синтетический вариант 1", [
+        "x",
+        "Этот вопрос уже закрыт. Начните новый раунд.",
+      ]);
+
+      expect(await page.locator("#w").innerText()).toContain(
+        "Этот вопрос уже закрыт. Начните новый раунд.",
+      );
+      await page.getByRole("button", { name: "На главный" }).click();
+      expect(await page.locator("#w").innerText()).toContain("Цель на сегодня");
+      expect(await requests(page)).toEqual(["q", "a7k:1"]);
+    });
   });
 });
