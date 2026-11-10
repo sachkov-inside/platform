@@ -246,11 +246,16 @@ def telegram_error_check(status, values):
 
 
 def verify_telegram_webhook(webhook):
-    allowed = ['message', 'chat_member', 'my_chat_member', 'chat_join_request', 'callback_query']
+    # The immutable deployed image owns its subscription, including older releases.
+    required = webhook.get('requiredUpdates')
+    valid_required = (isinstance(required, list) and len(required) > 0 and
+                      all(isinstance(name, str) and name for name in required) and
+                      len(set(required)) == len(required))
     return check('Telegram webhook', webhook['protocol'] == 'https:' and webhook['host'] == 'telegram.sachkov.dev' and
                  webhook['port'] in ['', '88'] and webhook['path'] == '/webhooks/telegram' and
                  webhook['hasPinnedIp'] is True and webhook['pending'] == 0 and
-                 webhook['lastError'] is False and sorted(webhook['allowedUpdates']) == sorted(allowed),
+                 webhook['lastError'] is False and valid_required and
+                 sorted(webhook['allowedUpdates']) == sorted(required),
                  'direct HTTPS or existing relay registration, allowed updates, no pending/errors; never setWebhook')
 
 
@@ -317,6 +322,7 @@ def observe_telegram(seconds):
 
 
 TELEGRAM_READ = r"""
+import {TELEGRAM_WEBHOOK_ALLOWED_UPDATES} from '/app/dist/modules/webhook/telegram-webhook.js';
 import {loadApplicationConfig,botTelegramUserIdFromToken} from '/app/dist/config/application-config.js';
 import {HttpPlatformProductSalesStateAdapter,validProductSalesStatesResponse} from '/app/dist/adapters/platform/http-platform-product-sales-state.adapter.js';
 const env=process.env;
@@ -350,7 +356,7 @@ if(config.communityWelcomeCohort){
 }
 console.log(JSON.stringify({identityMatches:me.is_bot===true && String(me.id)===botTelegramUserIdFromToken(config.botToken),cohorts,webhook:{protocol:url.protocol,host:url.hostname,port:url.port,
  path:url.pathname,hasPinnedIp:!!wh.ip_address,pending:wh.pending_update_count,
- allowedUpdates:wh.allowed_updates,lastError:!!wh.last_error_message},chat:{supergroup:chat.type==='supergroup',
+ allowedUpdates:wh.allowed_updates,requiredUpdates:[...TELEGRAM_WEBHOOK_ALLOWED_UPDATES],lastError:!!wh.last_error_message},chat:{supergroup:chat.type==='supergroup',
  administrator:member.status==='administrator',invite:member.can_invite_users===true,restrict:member.can_restrict_members===true}}));
 """
 
