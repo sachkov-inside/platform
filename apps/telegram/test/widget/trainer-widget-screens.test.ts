@@ -38,6 +38,7 @@ import {
 // Every text is synthetic filler of the exact limit length.
 
 type Filler = (length: number, seed?: number) => string;
+const emojiText: Filler = (length) => "😀".repeat(length);
 
 const home: TrainerHomeData = ["h", 365, 5, 5, 0];
 
@@ -69,7 +70,7 @@ function question(text: Filler, reviewMask?: number): TrainerQuestionData {
   ] as const;
   return reviewMask === undefined ? data : [...data, reviewMask];
 }
-/** The tallest explanation: two wrong picks and two missed correct options keep all four. */
+/** Inline feedback keeps the longest question, all four options, explanation and statistics. */
 function explanation(
   text: Filler,
   correctMask = 0b0011,
@@ -233,6 +234,8 @@ interface Layout {
   readonly fontSize: number;
   /** Elements whose box leaves the bubble sideways. */
   readonly overflowing: string[];
+  /** Hard shadows must remain inside the widget, including its bottom padding. */
+  readonly clippedShadows: string[];
   readonly pageWidth: number;
 }
 const layout = (page: Page): Promise<Layout> =>
@@ -244,6 +247,23 @@ const layout = (page: Page): Promise<Layout> =>
       height: document.body.offsetHeight,
       fontSize: Number.parseFloat(getComputedStyle(root).fontSize),
       pageWidth: document.documentElement.scrollWidth,
+      clippedShadows: [...root.querySelectorAll<HTMLElement>("*")]
+        .filter((element) => {
+          const shadow = getComputedStyle(element).boxShadow;
+          if (shadow === "none") return false;
+          const [x = 0, y = 0, blur = 0, spread = 0] = [
+            ...shadow.matchAll(/(-?[\d.]+)px/g),
+          ].map((match) => Number(match[1]));
+          const box = element.getBoundingClientRect();
+          // Profile 1 permits hard shadows without the heavy-element limit.
+          // Include the full painted extent, which getBoundingClientRect omits.
+          return (
+            box.right + x + blur + spread > width + 0.5 ||
+            box.bottom + y + blur + spread >
+              root.getBoundingClientRect().bottom + 0.5
+          );
+        })
+        .map((element) => element.outerHTML.slice(0, 80)),
       overflowing: [...root.querySelectorAll<HTMLElement>("*")]
         .filter((element) => {
           const box = element.getBoundingClientRect();
@@ -252,6 +272,23 @@ const layout = (page: Page): Promise<Layout> =>
         .map((element) => element.outerHTML.slice(0, 80)),
     };
   });
+
+/** The visible boxes and text sizes that must stay fixed throughout one question. */
+const questionGeometry = (page: Page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll("#w .q i, #w .Q, #w .o, #w .f")].map(
+      (element) => {
+        const box = element.getBoundingClientRect();
+        return [
+          box.x,
+          box.y,
+          box.width,
+          box.height,
+          getComputedStyle(element).fontSize,
+        ];
+      },
+    ),
+  );
 
 describe("trainer widget screens in a browser", () => {
   describe.each(TRAINER_WIDGET_CHECKED_WIDTHS_PX)(
@@ -266,6 +303,7 @@ describe("trainer widget screens in a browser", () => {
           const measured = await layout(page);
 
           expect(measured.overflowing).toEqual([]);
+          expect(measured.clippedShadows).toEqual([]);
           expect(measured.pageWidth).toBe(width);
           expect(measured.fontSize).toBeGreaterThanOrEqual(11);
           expect(measured.fontSize).toBeLessThanOrEqual(15);
@@ -274,6 +312,21 @@ describe("trainer widget screens in a browser", () => {
           );
           expect(TRAINER_WIDGET_TARGET_HEIGHT_PX).toBe(560);
         },
+      );
+    },
+  );
+
+  it.each(routes)(
+    "$name keeps its hard shadows inside a 320 px dark widget",
+    async (route) => {
+      const page = await openWidget(320, { theme: "dark" });
+      await reach(page, route, wideText);
+      const measured = await layout(page);
+      expect(measured.clippedShadows).toEqual([]);
+      expect(measured.overflowing).toEqual([]);
+      expect(measured.fontSize).toBeGreaterThanOrEqual(11);
+      expect(measured.height).toBeLessThanOrEqual(
+        TRAINER_WIDGET_TARGET_HEIGHT_PX,
       );
     },
   );
@@ -291,6 +344,7 @@ describe("trainer widget screens in a browser", () => {
         const measured = await layout(page);
 
         expect(measured.overflowing).toEqual([]);
+        expect(measured.clippedShadows).toEqual([]);
         expect(measured.pageWidth).toBe(320);
         expect(measured.fontSize).toBeGreaterThanOrEqual(11);
         expect(measured.fontSize).toBeLessThanOrEqual(options.textSizePx);
@@ -334,6 +388,7 @@ describe("trainer widget screens in a browser", () => {
     expect(text).toContain("0 из 5 вопросов");
     const measured = await layout(page);
     expect(measured.overflowing).toEqual([]);
+    expect(measured.clippedShadows).toEqual([]);
     expect(measured.pageWidth).toBe(320);
     expect(measured.height).toBeLessThanOrEqual(560);
     expect(await requests(page)).toEqual([]);
@@ -369,11 +424,11 @@ describe("trainer widget screens in a browser", () => {
   );
 
   it.each([
-    ["light", "rgb(199, 70, 30)"],
-    ["dark", "rgb(239, 107, 60)"],
+    ["light", "rgb(199, 70, 30)", "rgb(255, 239, 220)"],
+    ["dark", "rgb(239, 107, 60)", "rgb(51, 33, 23)"],
   ] as const)(
-    "accents the home title and every button's bottom in the %s theme",
-    async (theme, accent) => {
+    "uses outlined warm cards and crisp offset shadows equally in the %s theme",
+    async (theme, accent, surface) => {
       const page = await openWidget(320, { theme });
       const titleColor = await page
         .getByText("Тренажёр", { exact: true })
@@ -393,13 +448,52 @@ describe("trainer widget screens in a browser", () => {
             top: computed.borderTopColor,
             background: computed.backgroundColor,
             text: computed.color,
+            shadow: computed.boxShadow,
+            radius: computed.borderRadius,
           };
         });
         expect(style.bottom).toBe(accent);
         expect(style.top).not.toBe(accent);
-        expect(style.background).toBe("rgba(0, 0, 0, 0)");
+        expect(style.background).toBe(surface);
+        expect(style.radius).toBe("8px");
+        expect(style.shadow).toMatch(/4px 4px 0px 0px$/);
         expect(style.text).not.toBe(accent);
       }
+    },
+  );
+
+  it.each(["light", "dark"] as const)(
+    "distinguishes correct and wrong choices by shape in the %s theme",
+    async (theme) => {
+      const page = await openWidget(320, { theme });
+      await tap(page, "Проверить себя", question(realisticText));
+      await tap(page, "Не знаю", explanation(realisticText));
+      const correct = await page
+        .locator(".o.G")
+        .first()
+        .evaluate((option) => {
+          const letter = option.querySelector(".y");
+          if (!letter) throw new Error("The option letter is missing");
+          return {
+            border: getComputedStyle(option).borderTopStyle,
+            letter: getComputedStyle(letter).backgroundColor,
+          };
+        });
+      const wrong = await page
+        .locator(".o.B")
+        .first()
+        .evaluate((option) => {
+          const letter = option.querySelector(".y");
+          if (!letter) throw new Error("The option letter is missing");
+          return {
+            border: getComputedStyle(option).borderTopStyle,
+            letter: getComputedStyle(letter).backgroundColor,
+          };
+        });
+      expect(correct.border).toBe("solid");
+      expect(wrong.border).toBe("dashed");
+      expect(correct.letter).not.toBe(wrong.letter);
+      expect((await layout(page)).clippedShadows).toEqual([]);
     },
   );
 
@@ -444,6 +538,171 @@ describe("trainer widget screens in a browser", () => {
     expect(await accent(dark)).toBe("rgb(239, 107, 60)");
   });
 
+  it.each([
+    ["light", "usual", realisticText, 15],
+    ["dark", "usual", realisticText, 15],
+    ["light", "wide", wideText, 15],
+    ["dark", "wide", wideText, 15],
+    ["light", "large", realisticText, 23],
+    ["dark", "large", realisticText, 23],
+  ] as const)(
+    "keeps option and footer geometry in the %s theme with %s text",
+    async (theme, _label, text, textSizePx) => {
+      const page = await openWidget(320, { theme, textSizePx });
+      await tap(page, "Проверить себя", question(text));
+      const before = await questionGeometry(page);
+      await buttonNamed(page, "А ").click();
+      expect(await questionGeometry(page)).toEqual(before);
+      await tap(page, "Ответить", explanation(text, 0b0011, 0b0001));
+      expect(await questionGeometry(page)).toEqual(before);
+      expect(await page.locator(".f").innerText()).toContain("Неверно");
+      await page.close();
+    },
+  );
+
+  it.each([
+    ["light", 320, 15, "wide", wideText],
+    ["dark", 320, 23, "wide", wideText],
+    ["light", 390, 23, "wide", wideText],
+    ["dark", 430, 23, "wide", wideText],
+    ["light", 320, 15, "emoji", emojiText],
+    ["dark", 320, 23, "emoji", emojiText],
+    ["light", 390, 23, "emoji", emojiText],
+    ["dark", 430, 23, "emoji", emojiText],
+  ] as const)(
+    "reserves long feedback for a short question in %s at %i px and %i px text with %s symbols",
+    async (theme, width, textSizePx, _symbols, text) => {
+      const page = await openWidget(width, { theme, textSizePx });
+      await tap(page, "Проверить себя", [
+        "q",
+        "7k",
+        "Тема",
+        "Вопрос?",
+        ["Первый", "Второй"],
+        0,
+        "",
+        5,
+      ]);
+      const before = await questionGeometry(page);
+      await tap(page, "А Первый", [
+        "e",
+        2,
+        1,
+        1,
+        text(TRAINER_EXPLANATION_MAX_CHARS, 2),
+        "1",
+        5,
+        wideText(TRAINER_STAT_LINE_MAX_CHARS, 3),
+      ]);
+      expect(await questionGeometry(page)).toEqual(before);
+      expect((await layout(page)).height).toBeLessThanOrEqual(
+        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+      );
+      await page.close();
+    },
+  );
+
+  it.each(["light", "dark"] as const)(
+    "keeps maximum question geometry with emoji feedback in %s",
+    async (theme) => {
+      const page = await openWidget(320, { theme, textSizePx: 23 });
+      await tap(page, "Проверить себя", question(wideText));
+      const before = await questionGeometry(page);
+      await buttonNamed(page, "А ").click();
+      await tap(page, "Ответить", [
+        "e",
+        0,
+        3,
+        1,
+        emojiText(TRAINER_EXPLANATION_MAX_CHARS),
+        "10100",
+        10,
+        wideText(TRAINER_STAT_LINE_MAX_CHARS, 3),
+      ]);
+      expect(await questionGeometry(page)).toEqual(before);
+      expect((await layout(page)).height).toBeLessThanOrEqual(
+        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+      );
+      await page.close();
+    },
+  );
+
+  it.each([
+    ["light", 0, 2],
+    ["dark", 0, 2],
+    ["light", 2, 1],
+    ["dark", 2, 1],
+  ] as const)(
+    "uses the same readable panel ink in %s for verdict %i",
+    async (theme, verdict, pickedMask) => {
+      const page = await openWidget(320, { theme });
+      await tap(page, "Проверить себя", [
+        "q",
+        "7k",
+        "Тема",
+        "Вопрос?",
+        ["Первый", "Второй"],
+        0,
+        "",
+        5,
+      ]);
+      await tap(page, pickedMask === 1 ? "А Первый" : "Б Второй", [
+        "e",
+        verdict,
+        1,
+        pickedMask,
+        "Синтетический разбор.",
+        verdict === 2 ? "1" : "0",
+        5,
+        0,
+      ]);
+      const colours = await page.evaluate(() => {
+        const title = document.querySelector(".f .V");
+        if (!title) throw new Error("The feedback verdict is missing");
+        return [
+          getComputedStyle(title).color,
+          getComputedStyle(document.body).color,
+        ];
+      });
+      expect(colours[0]).toBe(colours[1]);
+      await page.close();
+    },
+  );
+
+  it.each(["light", "dark"] as const)(
+    "keeps the feedback area on the paper with separation in %s",
+    async (theme) => {
+      const page = await openWidget(320, { theme });
+      await tap(page, "Проверить себя", question(realisticText));
+      const paperArea = () =>
+        page.evaluate(() => {
+          const panel = document.querySelector(".f");
+          const title = document.querySelector(".f .V");
+          const option = [...document.querySelectorAll(".o")].at(-1);
+          if (!panel || !title || !option)
+            throw new Error("The question area is missing");
+          const style = getComputedStyle(panel);
+          return {
+            background: style.backgroundColor,
+            border: style.borderTopColor,
+            separation:
+              title.getBoundingClientRect().top -
+              option.getBoundingClientRect().bottom -
+              4,
+          };
+        });
+      for (const result of [
+        await paperArea(),
+        await tap(page, "Не знаю", explanation(realisticText)).then(paperArea),
+      ]) {
+        expect(result.background).toBe("rgba(0, 0, 0, 0)");
+        expect(result.border).toBe("rgba(0, 0, 0, 0)");
+        expect(result.separation).toBeGreaterThanOrEqual(8);
+      }
+      await page.close();
+    },
+  );
+
   it("sends one answer for a tap on an option of a single-answer question", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", [
@@ -457,6 +716,7 @@ describe("trainer widget screens in a browser", () => {
       5,
     ]);
 
+    const before = await questionGeometry(page);
     await tap(page, "Б Синтетический вариант 2", [
       "e",
       2,
@@ -468,11 +728,14 @@ describe("trainer widget screens in a browser", () => {
       0,
     ]);
 
+    expect(await questionGeometry(page)).toEqual(before);
     expect(await requests(page)).toEqual(["q", "a7k:2"]);
     const text = await page.locator("#w").innerText();
     expect(text).toContain("Верно, +1 очко");
     expect(text).toContain("Синтетический разбор 1");
-    expect(text).not.toContain("Синтетический вариант 1");
+    expect(text).toContain("Синтетический вопрос 1");
+    expect(text).toContain("Синтетический вариант 1");
+    expect(text).toContain("Синтетический вариант 2");
     await expect(
       page.getByRole("button", { name: "Дальше" }).isVisible(),
     ).resolves.toBe(true);
@@ -676,6 +939,7 @@ describe("trainer widget screens in a browser", () => {
       }
       const measured = await layout(page);
       expect(measured.overflowing).toEqual([]);
+      expect(measured.clippedShadows).toEqual([]);
       expect(measured.pageWidth).toBe(320);
       expect(measured.fontSize).toBeGreaterThanOrEqual(11);
       expect(measured.fontSize).toBeLessThanOrEqual(15);
@@ -815,7 +1079,7 @@ describe("trainer widget screens in a browser", () => {
       await page.close();
     });
 
-    it("keeps only the picked and the correct options with the explanation after an answer", async () => {
+    it("keeps the question and every option with inline feedback after an answer", async () => {
       const page = await openWidget(320);
       await tap(page, "Проверить себя", asked("7k", "10"));
       expect(await steps(page)).toEqual(["G", "B", "S", "", ""]);
@@ -833,12 +1097,23 @@ describe("trainer widget screens in a browser", () => {
       ]);
 
       const text = await page.locator("#w").innerText();
+      expect(text).toContain("Синтетическая тема");
+      expect(text).toContain("Синтетический вопрос");
       expect(text).toContain("Неверно");
       expect(text).toContain("Синтетический разбор");
       expect(await options(page)).toEqual([
         "АСинтетический вариант 1 G",
+        "БСинтетический вариант 2 -",
         "ВСинтетический вариант 3 B",
+        "ГСинтетический вариант 4 -",
       ]);
+      expect(text.indexOf("Синтетический вопрос")).toBeLessThan(
+        text.indexOf("Синтетический вариант 1"),
+      );
+      expect(text.indexOf("Синтетический вариант 4")).toBeLessThan(
+        text.indexOf("Неверно"),
+      );
+      expect(await page.locator("button.o").count()).toBe(0);
       expect(await steps(page)).toEqual(["G", "B", "B", "S", ""]);
       expect(text).not.toMatch(/Где почитать|В вопросе ошибка/);
       expect(await buttons(page)).toEqual(["×", "Дальше"]);
@@ -862,7 +1137,12 @@ describe("trainer widget screens in a browser", () => {
       const text = await page.locator("#w").innerText();
       expect(text).toContain("Верно");
       expect(text).not.toContain("очко");
-      expect(await options(page)).toEqual(["АСинтетический вариант 1 G"]);
+      expect(await options(page)).toEqual([
+        "АСинтетический вариант 1 G",
+        "БСинтетический вариант 2 -",
+        "ВСинтетический вариант 3 -",
+        "ГСинтетический вариант 4 -",
+      ]);
     });
 
     it("goes from the last explanation to the result and offers another round or home", async () => {
@@ -950,6 +1230,8 @@ describe("trainer widget screens in a browser", () => {
       expect(await options(page)).toEqual([
         "АСинтетический вариант 1 G",
         "БСинтетический вариант 2 B",
+        "ВСинтетический вариант 3 -",
+        "ГСинтетический вариант 4 -",
       ]);
     });
 
