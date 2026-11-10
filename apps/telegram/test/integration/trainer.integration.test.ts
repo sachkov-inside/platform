@@ -563,7 +563,7 @@ describe("a press inside the widget", () => {
     expect(await plannedTexts()).toEqual([]);
   });
 
-  it.each(["d", "t", "tabc", "p", "l0", "l1", "v11"])(
+  it.each(["d", "t", "tabc", "l0", "l1", "v11"])(
     "answers the request %s with a screen that the section is not open yet",
     async (data) => {
       await press(newUser(), data);
@@ -818,9 +818,10 @@ describe("«Проверить себя»", () => {
     const afterDontKnow = await tap(user, dontKnow(third));
 
     // Verdict, correct options, picked options, explanation, round steps, round size, no line.
+    // The verdict 2 is a correct answer with a point: the first one, 42 seconds after the question.
     expect(afterRight).toEqual([
       "e",
-      1,
+      2,
       1,
       1,
       "Разбор А. Общий разбор.",
@@ -886,7 +887,7 @@ describe("«Проверить себя»", () => {
 
     expect(exact).toEqual([
       "e",
-      1,
+      2,
       3,
       3,
       "Разбор А. Разбор Б. Общий разбор.",
@@ -929,15 +930,16 @@ describe("«Проверить себя»", () => {
         step <= correct ? right(question) : dontKnow(question),
       );
 
-      // Title, correct, total, comment; points, Series and week place are not counted yet.
+      // Title, correct, total, comment, then a point for every correct answer and a Series
+      // of one day; the week place is not counted yet.
       expect(result).toEqual([
         "r",
         "Проверить себя",
         correct,
         5,
         comment,
-        0,
-        0,
+        correct,
+        1,
         0,
         0,
       ]);
@@ -946,7 +948,7 @@ describe("«Проверить себя»", () => {
       // A repeated request after a lost answer draws the same result.
       expect(await tap(user, "n")).toEqual(result);
       // «На главный» and «Ещё раунд».
-      expect(await tap(user, "h")).toEqual(JSON.parse(EMPTY_HOME));
+      expect(await tap(user, "h")).toEqual(["h", 1, 5, 5, 0]);
       const again = asked(await tap(user, "q"));
       expect([again.marks, again.total]).toEqual(["", 5]);
     },
@@ -960,8 +962,9 @@ describe("«Проверить себя»", () => {
     await tap(user, wrong(second));
     asked(await tap(user, "n"));
 
-    // The person closes the round on the third question and starts another one.
-    expect(await tap(user, "h")).toEqual(JSON.parse(EMPTY_HOME));
+    // The person closes the round on the third question and starts another one. The two
+    // answers already count: a Series of one day and 2 of 5 for the Daily goal.
+    expect(await tap(user, "h")).toEqual(["h", 1, 2, 5, 0]);
     const { questions } = await playRound(user);
 
     expect(questions.map((question) => question.marks)).toEqual([
@@ -1127,7 +1130,7 @@ describe("a request the bot does not trust", () => {
     expect(await storedAnswers(user)).toEqual([]);
     expect(await tap(user, right(question))).toEqual([
       "e",
-      1,
+      2,
       1,
       1,
       "Разбор А. Общий разбор.",
@@ -1278,7 +1281,7 @@ describe("a Bank import between answers", () => {
     const third = asked(await tap(user, "n"));
     expect(await tap(user, right(third))).toEqual([
       "e",
-      1,
+      2,
       1,
       1,
       "Разбор А. Исправленный общий разбор.",
@@ -1333,7 +1336,7 @@ describe("a Bank import between answers", () => {
     const afterSecond = await tap(user, `a${second.issueId}:1`);
 
     // The first question was shown before the import, the second after it.
-    expect(afterFirst.slice(0, 4)).toEqual(["e", 1, 1, 1]);
+    expect(afterFirst.slice(0, 4)).toEqual(["e", 2, 1, 1]);
     expect(afterSecond.slice(0, 4)).toEqual(["e", 0, 2, 1]);
   });
 });

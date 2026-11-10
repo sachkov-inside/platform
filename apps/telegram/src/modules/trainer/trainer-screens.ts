@@ -48,14 +48,20 @@ export function explanationScreen(
   ];
 }
 
-/** Points are not counted yet, so a correct answer is always "correct without a point". */
 function verdictOf(outcome: TrainerAnswerOutcome): TrainerVerdict {
   if (outcome.pickedMask === 0) return 3;
+  if (outcome.point) return 2;
   return outcome.correct ? 1 : 0;
 }
 
-/** The result of a finished round. Points, the Series and the week place are not counted yet. */
-export function resultScreen(result: TrainerRoundResult): TrainerResultData {
+/**
+ * The result of a finished round with the points its answers earned and the person's Series.
+ * The week place is not counted yet.
+ */
+export function resultScreen(
+  result: TrainerRoundResult,
+  score: { readonly points: number; readonly streakDays: number },
+): TrainerResultData {
   const { round, correct } = result;
   return [
     "r",
@@ -63,8 +69,8 @@ export function resultScreen(result: TrainerRoundResult): TrainerResultData {
     correct,
     round.size,
     resultComment(correct, round.size),
-    0,
-    0,
+    score.points,
+    score.streakDays,
     0,
     round.mode === "topic" ? 1 : 0,
   ];

@@ -5,6 +5,7 @@ import {
   trainerAnswerExplanation,
   type TrainerBankOption,
 } from "./trainer-bank-file.js";
+import { earnsTrainerPoint } from "./trainer-points.js";
 import type { TrainerRoundMode } from "./trainer-storage.js";
 import type { OptionMask, RoundMarks } from "./widget/trainer-widget-wire.js";
 
@@ -80,6 +81,8 @@ export interface TrainerAnswerOutcome {
   readonly correct: boolean;
   /** The person's first answer to this question in any round and mode. */
   readonly firstAnswer: boolean;
+  /** The answer earned a point. */
+  readonly point: boolean;
   readonly issuedAt: Date;
   readonly answeredAt: Date;
   readonly explanation: string;
@@ -213,6 +216,7 @@ export class TrainerRounds {
         "issue.correct_mask",
         "issue.correct",
         "issue.first_answer",
+        earnsTrainerPoint("issue").as("point"),
         "question.options",
         "question.explanation",
       ])
@@ -233,6 +237,7 @@ export class TrainerRounds {
       correctMask: stored.correct_mask,
       correct: stored.correct,
       firstAnswer: stored.first_answer,
+      point: stored.point,
       issuedAt: stored.issued_at,
       answeredAt: stored.answered_at,
       explanation: trainerAnswerExplanation(stored, stored.picked_mask),
