@@ -11,6 +11,7 @@ import {
   canonicalProviderMembershipUpdate,
   privateContactabilityUpdate,
   privateStartUpdate,
+  widgetQueryUpdate,
 } from "../support/synthetic-telegram-updates.js";
 
 const observedAt = new Date("2026-08-30T12:00:00.000Z");
@@ -26,7 +27,134 @@ describe("GrammyUpdateAdapter", () => {
       "my_chat_member",
       "chat_join_request",
       "callback_query",
+      "widget_query",
     ]);
+  });
+
+  describe("Trainer", () => {
+    const contact = {
+      botIdentity: "inside",
+      observedAt,
+      privateChatId: "10001",
+      telegramUserId: "10001",
+      updateId: "95",
+    };
+    const translated = (payload: unknown) =>
+      adapter.translate(
+        "inside",
+        "95",
+        prepareTelegramUpdateForInbox(payload),
+        observedAt,
+      );
+
+    it.each([
+      ["/train", "command"],
+      ["/train@inside_bot", "command"],
+      ["Тренажёр", "menu"],
+    ])("opens the Trainer on a private %s", (text, entry) => {
+      expect(translated(privateStartUpdate(95, 10_001, { text }))).toEqual({
+        kind: "trainer-open",
+        value: { contact, entry },
+      });
+    });
+
+    it.each([
+      ["/start train", undefined],
+      ["/start train_autumn-mail_1", "autumn-mail_1"],
+      ["/start@inside_bot train_x", "x"],
+      // The longest label: a longer payload is as long as a legacy link token.
+      [`/start train_${"L".repeat(36)}`, "L".repeat(36)],
+      // A label outside the link alphabet still opens the Trainer, with no label.
+      ["/start train_осень", undefined],
+    ])("opens the Trainer on the link %s", (text, source) => {
+      expect(translated(privateStartUpdate(95, 10_001, { text }))).toEqual({
+        kind: "trainer-open",
+        value: {
+          contact,
+          entry: "link",
+          ...(source === undefined ? {} : { source }),
+        },
+      });
+    });
+
+    it("stores a Trainer link without its payload", () => {
+      expect(
+        prepareTelegramUpdateForInbox(
+          privateStartUpdate(95, 10_001, { text: "/start train_autumn" }),
+        ),
+      ).toMatchObject({
+        message: { text: "/start", _inside_trainer: { source: "autumn" } },
+      });
+    });
+
+    it("does not trust a Trainer marker sent inside the update", () => {
+      const update = privateStartUpdate(95, 10_001);
+      expect(
+        translated({
+          ...update,
+          message: { ...update.message, _inside_trainer: { source: "forged" } },
+        }),
+      ).toEqual({ kind: "start", value: { contact } });
+    });
+
+    it("keeps a legacy link token that starts with the Trainer prefix", () => {
+      const token = `train_${"a".repeat(40)}`;
+      expect(
+        translated(privateStartUpdate(95, 10_001, { text: `/start ${token}` })),
+      ).toMatchObject({
+        kind: "start",
+        value: { linkToken: { kind: "digest" } },
+      });
+    });
+
+    it.each([
+      ["/train", { chatType: "supergroup" }],
+      ["/train", { chatType: "channel" }],
+      ["/train", { isBot: true }],
+      ["Тренажёр", { chatType: "group" }],
+      ["/start train_autumn", { chatType: "supergroup" }],
+    ])("does not open the Trainer on %s with %o", (text, options) => {
+      expect(
+        translated(privateStartUpdate(95, 10_001, { ...options, text })).kind,
+      ).not.toBe("trainer-open");
+    });
+
+    it("reads a widget press of the private chat as a Trainer query", () => {
+      expect(translated(widgetQueryUpdate(95, 10_001, "h"))).toEqual({
+        kind: "trainer-query",
+        value: {
+          contact: {
+            ...contact,
+            profile: { displayName: "Synthetic", username: null },
+          },
+          queryId: "query-95",
+          data: "h",
+        },
+      });
+    });
+
+    it.each([
+      [
+        "a group chat",
+        widgetQueryUpdate(95, 10_001, "h", {
+          chatType: "supergroup",
+          chatId: -100,
+        }),
+      ],
+      [
+        "another person's chat",
+        widgetQueryUpdate(95, 10_001, "h", { chatId: 10_002 }),
+      ],
+      ["a bot sender", widgetQueryUpdate(95, 10_001, "h", { isBot: true })],
+      [
+        "a wallet request",
+        widgetQueryUpdate(95, 10_001, "h", { queryType: "ton_send" }),
+      ],
+      ["data over 64 bytes", widgetQueryUpdate(95, 10_001, "ж".repeat(33))],
+      ["empty data", widgetQueryUpdate(95, 10_001, "")],
+    ])("ignores a widget query from %s", (_name, update) => {
+      expect(translated(update)).toEqual({ kind: "ignored" });
+    });
   });
 
   it("translates an ordinary private non-bot start to verified IDs", () => {

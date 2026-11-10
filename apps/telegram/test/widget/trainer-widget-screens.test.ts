@@ -294,6 +294,41 @@ describe("trainer widget screens in a browser", () => {
     expect(await requests(page)).toEqual([]);
   });
 
+  it("draws the home screen of a first opening inside a 320 px bubble", async () => {
+    // The chat state the bot sends for a person who has not answered a question yet.
+    const page = await openWidget(320, { chatData: '["h",0,0,5,0]' });
+
+    for (const name of [
+      "Проверить себя",
+      "Вопрос дня",
+      "Тренировка по теме",
+      "Прогресс",
+      "Рейтинг",
+    ])
+      await expect(buttonNamed(page, name).count()).resolves.toBe(1);
+    const text = await page.locator("#w").innerText();
+    expect(text).toContain("Серия: 0 дней");
+    expect(text).toContain("0 из 5 вопросов");
+    const measured = await layout(page);
+    expect(measured.overflowing).toEqual([]);
+    expect(measured.pageWidth).toBe(320);
+    expect(measured.height).toBeLessThanOrEqual(560);
+    expect(await requests(page)).toEqual([]);
+  });
+
+  it("shows the bot's answer for a section that is not open and returns home", async () => {
+    const page = await openWidget(320, { chatData: '["h",0,0,5,0]' });
+
+    await tap(page, "Проверить себя", ["x", "Этот раздел скоро откроется."]);
+
+    expect(await page.locator("#w").innerText()).toContain(
+      "Этот раздел скоро откроется.",
+    );
+    await buttonNamed(page, "На главный").click();
+    await expect(buttonNamed(page, "Вопрос дня").count()).resolves.toBe(1);
+    expect(await requests(page)).toEqual(["q"]);
+  });
+
   it("draws an empty home screen when the message has no readable chat state", async () => {
     const page = await openWidget(320, { chatData: "not json" });
 

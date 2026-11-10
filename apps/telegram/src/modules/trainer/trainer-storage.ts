@@ -4,6 +4,7 @@ import type {
   TrainerBankOption,
   TrainerBankQuestion,
 } from "./trainer-bank-file.js";
+import type { TrainerEntry } from "./trainer-requests.js";
 
 type Timestamp = ColumnType<Date, Date, Date>;
 type OptionalTimestamp = ColumnType<
@@ -11,6 +12,19 @@ type OptionalTimestamp = ColumnType<
   Date | null | undefined,
   Date | null
 >;
+type TelegramId = ColumnType<
+  string,
+  bigint | number | string,
+  bigint | number | string
+>;
+
+/**
+ * The fate of the widget message of one opening. `sending` is written before the call to
+ * Telegram and stays when the process stopped in the middle; `retry` marks a send Telegram
+ * refused for now, so the same request may send again.
+ */
+export type TrainerOpeningDelivery =
+  "sending" | "retry" | "delivered" | "rejected" | "unknown";
 
 export interface TrainerTables {
   /** Topics of the Bank. `position` is the order of the Bank file. */
@@ -41,5 +55,18 @@ export interface TrainerTables {
     updated_at: Timestamp;
     /** Set when an import no longer has the question: it is not shown, its history stays. */
     withdrawn_at: OptionalTimestamp;
+  };
+  /** One row per request to open the Trainer. */
+  trainer_openings: {
+    opening_id: string;
+    bot_identity: string;
+    update_id: TelegramId;
+    telegram_user_id: TelegramId;
+    entry: TrainerEntry;
+    /** The label of the Trainer link; null when the person came without one. */
+    source_code: string | null;
+    opened_at: Timestamp;
+    delivery: TrainerOpeningDelivery;
+    provider_message_id: TelegramId | null;
   };
 }

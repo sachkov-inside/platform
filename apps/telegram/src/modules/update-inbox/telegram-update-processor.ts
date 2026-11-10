@@ -22,6 +22,7 @@ import {
 } from "../bot-sign-in/telegram-callback-answers.js";
 import { IdentityLinking } from "../identity-linking/identity-linking.js";
 import { LinkProfiles } from "../identity-linking/link-profiles.js";
+import { Trainer } from "../trainer/trainer.js";
 import {
   reportCondition,
   reportFailure,
@@ -54,6 +55,8 @@ interface UserRequest {
   readonly telegramUserId: string;
   readonly privateChatId: string;
   readonly callbackQueryId?: string | undefined;
+  /** A press inside a widget: a refusal is answered in the widget, never in the chat. */
+  readonly widgetQueryId?: string | undefined;
 }
 
 @Injectable()
@@ -87,6 +90,8 @@ export class TelegramUpdateProcessor {
     private readonly linkProfiles: Pick<LinkProfiles, "observe">,
     @Inject(CommunityMessages)
     private readonly communityMessages: Pick<CommunityMessages, "capture">,
+    @Inject(Trainer)
+    private readonly trainer: Pick<Trainer, "open" | "answer" | "refuse">,
   ) {
     // Counted by webhook arrival, so a backlog after a processing delay is not refused.
     this.senderLimit = new SenderRateLimit(
@@ -162,6 +167,9 @@ export class TelegramUpdateProcessor {
   ): Promise<void> {
     if (hasText(request.callbackQueryId))
       await this.callbackAnswers.answer(request.callbackQueryId);
+    // A widget waits for an answer to every press, so each refused press gets one.
+    if (hasText(request.widgetQueryId))
+      return this.trainer.refuse(request.widgetQueryId);
     if (admission === "notify")
       await this.replies.enqueue({
         botIdentity: update.botIdentity,
@@ -234,6 +242,12 @@ export class TelegramUpdateProcessor {
       case "template-intake":
         await this.communications.intake(command.value);
         return;
+      case "trainer-open":
+        await this.botContacts.observeStart(command.value.contact, "none");
+        return this.trainer.open(command.value);
+      case "trainer-query":
+        await this.botContacts.observeStart(command.value.contact, "none");
+        return this.trainer.answer(command.value);
       case "ignored":
         return;
       default:
@@ -337,6 +351,8 @@ function senderOf(
       return command.value;
     case "marketing_preference":
     case "start":
+    case "trainer-open":
+    case "trainer-query":
       return command.value.contact;
     case "sign-in-decision":
     case "author-input":
@@ -371,7 +387,13 @@ function userRequest(command: TelegramUpdateCommand): UserRequest | undefined {
         callbackQueryId: command.callbackQueryId,
       };
     case "start":
+    case "trainer-open":
       return contactOf(command.value.contact);
+    case "trainer-query":
+      return {
+        ...contactOf(command.value.contact),
+        widgetQueryId: command.value.queryId,
+      };
     case "community-request":
     case "template-intake":
       return contactOf(command.value);

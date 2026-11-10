@@ -138,6 +138,89 @@ describe("GrammyMessagesAdapter", () => {
   });
 });
 
+describe("GrammyMessagesAdapter widgets", () => {
+  const unusedTextApi = {
+    editMessageText: () => Promise.reject(new Error("Must not edit")),
+    sendMessage: () => Promise.reject(new Error("Must not send a text")),
+  };
+  const widget = {
+    chatId: "4503599627370495",
+    html: "<div id=w></div>",
+    chatData: '["h",0,0,5,0]',
+    caption: "Synthetic caption",
+  };
+
+  it("sends a widget that may query the bot and reports the message id", async () => {
+    const received: unknown[] = [];
+    const adapter = new GrammyMessagesAdapter("synthetic", unusedTextApi, {
+      sendWidget(parameters) {
+        received.push(parameters);
+        return Promise.resolve({ message_id: 77 });
+      },
+      answerWidgetQuery: () => Promise.reject(new Error("Must not answer")),
+    });
+
+    await expect(adapter.sendWidget(widget)).resolves.toEqual({
+      kind: "delivered",
+      providerMessageId: "77",
+    });
+    expect(received).toEqual([
+      {
+        chat_id: 4_503_599_627_370_495,
+        html: "<div id=w></div>",
+        chat_data: '["h",0,0,5,0]',
+        caption: "Synthetic caption",
+        allow_queries: true,
+      },
+    ]);
+  });
+
+  it.each([
+    [grammyError(400), { kind: "api_rejected", providerErrorCode: 400 }],
+    [
+      grammyError(429, 3),
+      { kind: "api_retryable", providerErrorCode: 429, retryAfterSeconds: 3 },
+    ],
+    [new Error("Synthetic transport failure"), { kind: "transport_unknown" }],
+  ])(
+    "classifies a failed widget send like a failed text",
+    async (error, result) => {
+      const adapter = new GrammyMessagesAdapter("synthetic", unusedTextApi, {
+        sendWidget: () => Promise.reject(error),
+        answerWidgetQuery: () => Promise.reject(new Error("Must not answer")),
+      });
+
+      await expect(adapter.sendWidget(widget)).resolves.toEqual(result);
+    },
+  );
+
+  it("answers a widget query with its data", async () => {
+    const received: unknown[] = [];
+    const adapter = new GrammyMessagesAdapter("synthetic", unusedTextApi, {
+      sendWidget: () => Promise.reject(new Error("Must not send")),
+      answerWidgetQuery(parameters) {
+        received.push(parameters);
+        return Promise.resolve(true);
+      },
+    });
+
+    await adapter.answerWidgetQuery({ queryId: "q-1", data: '["x"]' });
+
+    expect(received).toEqual([{ widget_query_id: "q-1", data: '["x"]' }]);
+  });
+
+  it("does not fail the caller when Telegram refuses a late answer", async () => {
+    const adapter = new GrammyMessagesAdapter("synthetic", unusedTextApi, {
+      sendWidget: () => Promise.reject(new Error("Must not send")),
+      answerWidgetQuery: () => Promise.reject(grammyError(400)),
+    });
+
+    await expect(
+      adapter.answerWidgetQuery({ queryId: "q-1", data: '["x"]' }),
+    ).resolves.toBeUndefined();
+  });
+});
+
 function adapterThrowing(error: Error): GrammyMessagesAdapter {
   return new GrammyMessagesAdapter("synthetic", {
     editMessageText() {

@@ -7,14 +7,68 @@ import type {
   TelegramMessages,
   TelegramMessageEdit,
   TelegramTextMessage,
+  TelegramWidgetAnswer,
+  TelegramWidgetMessage,
 } from "../../modules/outbound/telegram-messages.js";
 import { reportFailure } from "../../shared/failure-diagnostics.js";
+import {
+  telegramWidgetApi,
+  type TelegramWidgetApi,
+} from "./telegram-widget-api.js";
+
+type WidgetCalls = Pick<TelegramWidgetApi, "sendWidget" | "answerWidgetQuery">;
+
+// Telegram refuses an answer 15 seconds after the press. A call that has not returned by
+// then cannot succeed, and the update lane of that person should not wait for it longer.
+const WIDGET_ANSWER_TIMEOUT_SECONDS = 5;
 
 export class GrammyMessagesAdapter implements TelegramMessages {
   private readonly api: TelegramApi;
+  private readonly widgets: WidgetCalls;
 
-  constructor(token: string, api?: TelegramApi) {
-    this.api = api ?? new Api(token, { timeoutSeconds: 10 });
+  constructor(token: string, api?: TelegramApi, widgets?: WidgetCalls) {
+    const client = new Api(token, { timeoutSeconds: 10 });
+    this.api = api ?? client;
+    const sending = telegramWidgetApi(client);
+    const answering = telegramWidgetApi(
+      new Api(token, { timeoutSeconds: WIDGET_ANSWER_TIMEOUT_SECONDS }),
+    );
+    this.widgets = widgets ?? {
+      sendWidget: (parameters) => sending.sendWidget(parameters),
+      answerWidgetQuery: (parameters) =>
+        answering.answerWidgetQuery(parameters),
+    };
+  }
+
+  async sendWidget(
+    message: TelegramWidgetMessage,
+  ): Promise<TelegramDeliveryResult> {
+    const chatId = toSafeTelegramNumber(message.chatId);
+    try {
+      const sent = await this.widgets.sendWidget({
+        chat_id: chatId,
+        html: message.html,
+        chat_data: message.chatData,
+        caption: message.caption,
+        allow_queries: true,
+      });
+      return { kind: "delivered", providerMessageId: String(sent.message_id) };
+    } catch (error) {
+      return deliveryFailure(error);
+    }
+  }
+
+  async answerWidgetQuery(answer: TelegramWidgetAnswer): Promise<void> {
+    try {
+      await this.widgets.answerWidgetQuery({
+        widget_query_id: answer.queryId,
+        data: answer.data,
+      });
+    } catch (error) {
+      // The answer is not repeatable: the widget shows its own no-answer state and the
+      // person presses again. The report keeps a refused answer visible to the operator.
+      reportFailure("telegram.widget-answer", error);
+    }
   }
 
   async sendText(
@@ -122,6 +176,12 @@ export class DisabledMessagesAdapter implements TelegramMessages {
   }
   sendText(): Promise<TelegramDeliveryResult> {
     return Promise.reject(new Error("External Telegram delivery is disabled"));
+  }
+  sendWidget(): Promise<TelegramDeliveryResult> {
+    return Promise.reject(new Error("External Telegram delivery is disabled"));
+  }
+  answerWidgetQuery(): Promise<void> {
+    return Promise.resolve();
   }
 }
 

@@ -641,10 +641,12 @@ Telegram вызывает Platform по публичному HTTPS: `course-acti
 
 ## Webhook
 
-Приложение принимает `message`, `chat_member`, `my_chat_member`, `chat_join_request` и
-`callback_query` (источник списка — `TELEGRAM_WEBHOOK_ALLOWED_UPDATES` в
+Приложение принимает `message`, `edited_message`, `chat_member`, `my_chat_member`,
+`chat_join_request`, `callback_query` и `widget_query` (источник списка — `TELEGRAM_WEBHOOK_ALLOWED_UPDATES` в
 `src/modules/webhook/telegram-webhook.ts`). Без `chat_join_request` бот не видит заявку по личной ссылке и не впускает
-покупателя. Регистрация webhook — операция владельца; обычный деплой и рестарт её не выполняют.
+покупателя. Без `widget_query` нажатия в виджете Тренажёра не доходят до бота, и виджет показывает
+ошибку ожидания. Регистрация webhook — операция владельца; обычный деплой и рестарт её не выполняют.
+После выпуска версии с новым типом обновлений владелец запускает `webhook-registration --apply`.
 
 **Текущий production, прямой HTTPS.** Команда `webhook-registration` меняет только список `allowed_updates`.
 Точный URL, `ip_address` рабочего AMS и `max_connections` она читает из `getWebhookInfo` и

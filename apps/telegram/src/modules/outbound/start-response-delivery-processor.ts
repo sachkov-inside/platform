@@ -13,7 +13,7 @@ import {
 } from "../../config/application-config.js";
 import {
   TELEGRAM_MESSAGES,
-  type TelegramMessages,
+  type TelegramTextMessages,
 } from "./telegram-messages.js";
 import { StartResponseDeliveryQueue } from "./start-response-delivery-queue.js";
 
@@ -23,7 +23,7 @@ export class StartResponseDeliveryProcessor {
     @Inject(StartResponseDeliveryQueue)
     private readonly queue: StartResponseDeliveryQueue,
     @Inject(TELEGRAM_MESSAGES)
-    private readonly messages: TelegramMessages,
+    private readonly messages: TelegramTextMessages,
     @Inject(RUNTIME_COUNTERS) private readonly metrics: RuntimeCounters,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
   ) {}
