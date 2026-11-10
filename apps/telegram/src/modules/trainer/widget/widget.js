@@ -265,7 +265,7 @@
     render();
     if (data[0] == "e") {
       const offset = explanationPage * explanationSize;
-      while (document.body.offsetHeight > MAX_HEIGHT && explanationSize > 10) {
+      while (document.body.offsetHeight >= MAX_HEIGHT && explanationSize > 10) {
         explanationSize -= 10;
         explanationPage = Math.floor(offset / explanationSize);
         render();
@@ -275,7 +275,7 @@
         data[0] == "q" ? 160 - root.querySelector(".fb").offsetHeight : 0;
       for (
         let size = parseFloat(getComputedStyle(root).fontSize);
-        document.body.offsetHeight + reserve() > MAX_HEIGHT &&
+        document.body.offsetHeight + reserve() >= MAX_HEIGHT &&
         size > MIN_FONT_SIZE;
       )
         root.style.fontSize = --size + "px";

@@ -429,6 +429,26 @@ describe("trainer widget screens in a browser", () => {
     );
   });
 
+  it("keeps the whole long explanation reachable without extra bot requests", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Проверить себя", question(wideText));
+    const answer = explanation(emojiText);
+    await tap(page, "Не знаю", answer);
+    const sent = await requests(page);
+    const parts: string[] = [];
+    for (let index = 0; index < 30; index += 1) {
+      parts.push((await page.locator(".fb .W").textContent()) ?? "");
+      const next = buttonNamed(page, "→");
+      if ((await next.count()) === 0 || (await next.isDisabled())) break;
+      await next.click();
+    }
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.join("")).toBe(`${answer[4]} ${answer[7]}`);
+    expect(await requests(page)).toEqual(sent);
+    expect((await layout(page)).height).toBeLessThanOrEqual(560);
+    await page.close();
+  });
+
   it("keeps every question label and option at least eleven pixels", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", question(wideText));

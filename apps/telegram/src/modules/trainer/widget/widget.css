@@ -201,9 +201,9 @@ button {
 }
 .n {
   width: 7.8em;
-  min-height: 44px;
+  height: 44px;
+  padding: 0 8px;
   flex: none;
-  color: var(--h);
 }
 .Q {
   font-weight: 600;
