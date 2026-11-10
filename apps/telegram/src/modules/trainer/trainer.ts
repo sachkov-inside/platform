@@ -24,6 +24,7 @@ import {
   resultScreen,
 } from "./trainer-screens.js";
 import type { TrainerOpeningDelivery } from "./trainer-storage.js";
+import { TrainerTopics, topicsScreen } from "./trainer-topics.js";
 import { TRAINER_WIDGET_HTML } from "./widget/trainer-widget-html.generated.js";
 import {
   encodeTrainerWidgetData,
@@ -37,6 +38,8 @@ import {
 const TRAINER_DAILY_GOAL = 5;
 /** Questions in a round of «Проверить себя». */
 const TRAINER_CHECK_QUESTIONS = 5;
+/** The most questions in a round of «Тренировка по теме». */
+const TRAINER_TOPIC_QUESTIONS = 10;
 
 // The caption keeps the message time off the widget, is the text of the chat list and the
 // notification, and is all a Telegram app without widgets shows (ADR 0004).
@@ -62,6 +65,7 @@ const ALL_ANSWERED_TEXT =
 export class Trainer {
   private readonly rounds: TrainerRounds;
   private readonly daily: TrainerDaily;
+  private readonly topics: TrainerTopics;
 
   constructor(
     @Inject(DATABASE) private readonly database: Database,
@@ -73,6 +77,7 @@ export class Trainer {
   ) {
     this.rounds = new TrainerRounds(database);
     this.daily = new TrainerDaily(database);
+    this.topics = new TrainerTopics(database);
   }
 
   /**
@@ -187,9 +192,23 @@ export class Trainer {
         return this.step(step);
       }
       case "topics":
-        return ["x", SECTION_NOT_OPEN_TEXT];
-      case "start_topic":
-        return ["x", SECTION_NOT_OPEN_TEXT];
+        return topicsScreen(await this.topics.list(contact));
+      case "start_topic": {
+        const topics = await this.topics.list(contact);
+        // The code is the widget's word. A topic the Bank does not show starts no round: the
+        // person gets the current list instead.
+        if (!topics.some((topic) => topic.code === request.topicCode))
+          return topicsScreen(topics);
+        return this.step(
+          await this.rounds.start(contact, {
+            mode: "topic",
+            topicCode: request.topicCode,
+            count: TRAINER_TOPIC_QUESTIONS,
+            updateId: contact.updateId,
+            at: contact.observedAt,
+          }),
+        );
+      }
       case "progress":
         return ["x", SECTION_NOT_OPEN_TEXT];
       case "rating":
@@ -202,14 +221,20 @@ export class Trainer {
   }
 
   /** The screen of a round step: a question, the result, or why there is nothing to ask. */
-  private step(
+  private async step(
     step: TrainerIssuedQuestion | TrainerRoundResult | TrainerNothingToAsk,
-  ): TrainerWidgetData {
+  ): Promise<TrainerWidgetData> {
     switch (step.kind) {
       case "question":
         return questionScreen(step);
-      case "result":
-        return resultScreen(step);
+      case "result": {
+        // The result of a topic round is titled with the topic's name from the Bank.
+        const { topicCode } = step.round;
+        return resultScreen(
+          step,
+          topicCode === null ? undefined : await this.topics.name(topicCode),
+        );
+      }
       case "nothing":
         return [
           "x",
