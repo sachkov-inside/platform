@@ -188,7 +188,7 @@ async function openWidget(
   engine: Browser = browser,
 ): Promise<Page> {
   const page = await engine.newPage({
-    viewport: { width, height: 900 },
+    viewport: { width, height: TRAINER_WIDGET_TARGET_HEIGHT_PX },
     colorScheme: options.theme ?? "light",
   });
   await page.setContent(
