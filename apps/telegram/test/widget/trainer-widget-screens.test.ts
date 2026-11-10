@@ -69,7 +69,7 @@ function question(text: Filler, reviewMask?: number): TrainerQuestionData {
   ] as const;
   return reviewMask === undefined ? data : [...data, reviewMask];
 }
-/** The tallest explanation: two wrong picks and two missed correct options keep all four. */
+/** Inline feedback keeps the longest question, all four options, explanation and statistics. */
 function explanation(
   text: Filler,
   correctMask = 0b0011,
@@ -548,7 +548,9 @@ describe("trainer widget screens in a browser", () => {
     const text = await page.locator("#w").innerText();
     expect(text).toContain("Верно, +1 очко");
     expect(text).toContain("Синтетический разбор 1");
-    expect(text).not.toContain("Синтетический вариант 1");
+    expect(text).toContain("Синтетический вопрос 1");
+    expect(text).toContain("Синтетический вариант 1");
+    expect(text).toContain("Синтетический вариант 2");
     await expect(
       page.getByRole("button", { name: "Дальше" }).isVisible(),
     ).resolves.toBe(true);
@@ -892,7 +894,7 @@ describe("trainer widget screens in a browser", () => {
       await page.close();
     });
 
-    it("keeps only the picked and the correct options with the explanation after an answer", async () => {
+    it("keeps the question and every option with inline feedback after an answer", async () => {
       const page = await openWidget(320);
       await tap(page, "Проверить себя", asked("7k", "10"));
       expect(await steps(page)).toEqual(["G", "B", "S", "", ""]);
@@ -910,12 +912,23 @@ describe("trainer widget screens in a browser", () => {
       ]);
 
       const text = await page.locator("#w").innerText();
+      expect(text).toContain("Синтетическая тема");
+      expect(text).toContain("Синтетический вопрос");
       expect(text).toContain("Неверно");
       expect(text).toContain("Синтетический разбор");
       expect(await options(page)).toEqual([
         "АСинтетический вариант 1 G",
+        "БСинтетический вариант 2 -",
         "ВСинтетический вариант 3 B",
+        "ГСинтетический вариант 4 -",
       ]);
+      expect(text.indexOf("Синтетический вопрос")).toBeLessThan(
+        text.indexOf("Синтетический вариант 1"),
+      );
+      expect(text.indexOf("Синтетический вариант 4")).toBeLessThan(
+        text.indexOf("Неверно"),
+      );
+      expect(await page.locator("button.o").count()).toBe(0);
       expect(await steps(page)).toEqual(["G", "B", "B", "S", ""]);
       expect(text).not.toMatch(/Где почитать|В вопросе ошибка/);
       expect(await buttons(page)).toEqual(["×", "Дальше"]);
@@ -939,7 +952,12 @@ describe("trainer widget screens in a browser", () => {
       const text = await page.locator("#w").innerText();
       expect(text).toContain("Верно");
       expect(text).not.toContain("очко");
-      expect(await options(page)).toEqual(["АСинтетический вариант 1 G"]);
+      expect(await options(page)).toEqual([
+        "АСинтетический вариант 1 G",
+        "БСинтетический вариант 2 -",
+        "ВСинтетический вариант 3 -",
+        "ГСинтетический вариант 4 -",
+      ]);
     });
 
     it("goes from the last explanation to the result and offers another round or home", async () => {
@@ -1027,6 +1045,8 @@ describe("trainer widget screens in a browser", () => {
       expect(await options(page)).toEqual([
         "АСинтетический вариант 1 G",
         "БСинтетический вариант 2 B",
+        "ВСинтетический вариант 3 -",
+        "ГСинтетический вариант 4 -",
       ]);
     });
 

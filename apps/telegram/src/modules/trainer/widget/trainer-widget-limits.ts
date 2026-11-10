@@ -27,7 +27,8 @@ export const TRAINER_WIDGET_CHECKED_WIDTHS_PX = [320, 390, 430] as const;
 
 // Text limits. Measured in Chromium with the built widget at a 320 px bubble and the default
 // 15 px text: at these lengths the question screen (four options and «Ответить») and the
-// explanation screen (all four options kept, the statistics line) are not taller than 560 px.
+// answered question (question text, all four options, explanation and statistics) fit 560 px
+// with the widget's font adaptation, never below 11 px.
 // `pnpm --filter @inside/telegram test:widget` repeats the measurement.
 // Lengths are characters as trainerTextLength counts them. The Bank import also checks bytes
 // with trainerQuestionDataBytes and trainerExplanationDataBytes: a length limit alone does

@@ -123,24 +123,28 @@
     },
 
     // ["e", verdict, correctMask, pickedMask, text, marks, total, stat]
-    // Only the correct and the picked options stay: all four do not fit with the explanation.
+    // Keep the question and all options; feedback is added below them after the answer.
     e: (d) =>
       roundHead(d[5], d[6], "", question[9]) +
-      `<b class="V ${d[1] % 3 ? "G" : "B"}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b>` +
+      `<div class=m>${esc(question[2])}</div><div class=Q>${esc(question[3])}</div>` +
       question[4]
         .map((text, index) =>
-          ((d[2] | d[3]) >> index) & 1
-            ? option(index, text, (d[2] >> index) & 1 ? " G Z" : " B Z")
-            : "",
+          option(
+            index,
+            text,
+            (d[2] >> index) & 1 ? " G Z" : (d[3] >> index) & 1 ? " B Z" : "",
+          ),
         )
         .join("") +
+      `<div class=f><b class="V ${d[1] % 3 ? "G" : "B"}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b>` +
       `<div class=W>${esc(d[4])}</div>` +
       (d[7] ? `<div class=m>${esc(d[7])}</div>` : "") +
       button(
         question[9] ? "h" : "n" + question[1],
         "b P",
         d[5].length < d[6] ? "Дальше" : question[9] ? "Готово" : "К итогу",
-      ),
+      ) +
+      "</div>",
 
     // ["r", title, correct, total, comment, points, streak, weekPlace, topicRound]
     r: (d) =>
