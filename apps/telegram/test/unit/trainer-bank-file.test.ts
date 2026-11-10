@@ -53,6 +53,18 @@ describe("Bank file check", () => {
     });
   });
 
+  it("rejects a topics screen above 1024 UTF-8 bytes even inside character limits", () => {
+    const bank = syntheticTrainerBank({ topics: 9, questionsPerTopic: 1 });
+    bank.topics.forEach((topic) => {
+      topic.name = "界".repeat(40);
+    });
+    expect(
+      errorsOf(bank).some(
+        (error) => error.field === "topics" && error.reason.includes("1024"),
+      ),
+    ).toBe(true);
+  });
+
   it("rejects a file that is not a bank", () => {
     expect(errorsOf("not a bank")).toHaveLength(1);
     expect(errorsOf({ version: 2, topics: [], questions: [] })).not.toEqual([]);

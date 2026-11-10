@@ -29,6 +29,9 @@ const LINK_TOKEN_FIELD = "_inside_link_token";
 const SIGN_IN_TOKEN_FIELD = "_inside_sign_in_token";
 const TRAINER_FIELD = "_inside_trainer";
 // `/start train` opens the Trainer; `/start train_<label>` also names the source of the link.
+/** Short command links must not overlap the legacy 43-character link token. */
+const LEGACY_LINK_MIN_LENGTH = 43;
+
 // The whole payload stays under 43 characters, the shortest legacy link token, which leaves
 // 36 characters for the label.
 const TRAINER_LINK = /^train(?:_([\s\S]*))?$/;
@@ -56,7 +59,10 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
     return { ...payload, message };
   }
 
-  if (start.argument.startsWith("a_") && start.argument.length < 43) {
+  if (
+    start.argument.startsWith("a_") &&
+    start.argument.length < LEGACY_LINK_MIN_LENGTH
+  ) {
     return {
       ...payload,
       message: {
@@ -75,7 +81,10 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
     return { ...payload, message: { ...message, text: start.command } };
   }
   // Never reinterpret any legacy auth token, including ones starting with m_.
-  if (start.argument.startsWith("m_") && start.argument.length < 43) {
+  if (
+    start.argument.startsWith("m_") &&
+    start.argument.length < LEGACY_LINK_MIN_LENGTH
+  ) {
     return {
       ...payload,
       message: {
@@ -86,7 +95,7 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
     };
   }
   const trainer = TRAINER_LINK.exec(start.argument);
-  if (trainer && start.argument.length < 43) {
+  if (trainer && start.argument.length < LEGACY_LINK_MIN_LENGTH) {
     const source = trainer[1];
     return {
       ...payload,
@@ -104,7 +113,8 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
   // Legacy linking accepts every base64url payload of 43–64 characters, including this prefix.
   // Reserve a shorter namespace so existing valid link tokens keep their exact meaning.
   const signIn =
-    start.argument.startsWith("signin_") && start.argument.length < 43;
+    start.argument.startsWith("signin_") &&
+    start.argument.length < LEGACY_LINK_MIN_LENGTH;
   const argument = signIn ? start.argument.slice(7) : start.argument;
   const valid = signIn
     ? /^[A-Za-z0-9_-]{35}$/.test(argument)

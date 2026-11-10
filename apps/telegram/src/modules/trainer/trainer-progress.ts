@@ -2,8 +2,7 @@ import { sql } from "kysely";
 
 import type { Database } from "../../database/database.js";
 import {
-  DAY_SECONDS,
-  MOSCOW_OFFSET_SECONDS,
+  moscowDayNumberSql,
   moscowDayNumber,
   moscowDayWindow,
 } from "./trainer-days.js";
@@ -41,9 +40,7 @@ export async function trainerStreakDays(
   at: Date,
 ): Promise<number> {
   const today = moscowDayNumber(at);
-  const moscowDayOfAnswer = sql<number>`floor(
-    (extract(epoch from issue.answered_at) + ${MOSCOW_OFFSET_SECONDS}) / ${DAY_SECONDS}
-  )::integer`;
+  const moscowDayOfAnswer = moscowDayNumberSql("issue.answered_at");
   const days = answersOf(database, person)
     .select(moscowDayOfAnswer.as("day"))
     .distinct();

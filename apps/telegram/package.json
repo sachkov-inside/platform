@@ -28,7 +28,7 @@
     "start": "node dist/main.js",
     "test": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:widget": "vitest run --config vitest.widget.config.ts",
+    "test:widget": "bash ../../scripts/heavy-check.sh vitest run --config vitest.widget.config.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "proof:course:provider": "tsx test/local/course-activation-provider.ts",
     "owner:community-restriction": "tsx src/operations/community-restriction-cli.ts",

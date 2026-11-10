@@ -53,9 +53,9 @@
     `<div class=K><b>${value}</b><span class=m>${label}</span></div>`;
   const pair = (left, right) => `<div class=R>${left}${right}</div>`;
   /** Round steps: answered ones are green or red, the current one has the accent colour. */
-  const roundHead = (marks, total, extra) =>
+  const roundHead = (marks, total, extra, daily) =>
     `<div class=R>${button("h", "x", "×")}${
-      total > 1
+      !daily
         ? `<div class="R F q">${[...Array(total)]
             .map(
               (_, step) =>
@@ -113,7 +113,7 @@
     q: (d) => {
       const review = d[8] != null;
       return (
-        roundHead(d[6], d[7], review ? "" : button("K", "n", "Не знаю")) +
+        roundHead(d[6], d[7], review ? "" : button("K", "n", "Не знаю"), d[9]) +
         `<div class=m>${esc(d[2])}</div><div class=Q>${esc(d[3])}</div>` +
         d[4]
           .map((text, index) =>
@@ -131,7 +131,7 @@
     // ["e", verdict, correctMask, pickedMask, text, marks, total, stat]
     // Only the correct and the picked options stay: all four do not fit with the explanation.
     e: (d) =>
-      roundHead(d[5], d[6], "") +
+      roundHead(d[5], d[6], "", question[9]) +
       `<b class="V ${d[1] % 3 ? "G" : "B"}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b>` +
       question[4]
         .map((text, index) =>
@@ -143,9 +143,9 @@
       `<div class=W>${esc(d[4])}</div>` +
       (d[7] ? `<div class=m>${esc(d[7])}</div>` : "") +
       button(
-        d[6] > 1 ? "n" : "h",
+        question[9] ? "h" : "n" + question[1],
         "b P",
-        d[5].length < d[6] ? "Дальше" : d[6] > 1 ? "К итогу" : "Готово",
+        d[5].length < d[6] ? "Дальше" : question[9] ? "Готово" : "К итогу",
       ),
 
     // ["r", title, correct, total, comment, points, streak, weekPlace, topicRound]
@@ -197,6 +197,10 @@
         "<div class=m>Очки даются за первый верный ответ на вопрос.</div>"
       );
     },
+
+    i: (d) =>
+      `<b class=U>Тренажёр</b><div>${esc(d[1])}</div>` +
+      button("h", "b P", "На главный"),
 
     // ["x", text?]: the bot refused, did not answer in 15 seconds, or sent something unreadable.
     x: (d) =>

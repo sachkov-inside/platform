@@ -26,7 +26,7 @@ import {
 import { TrainerBank } from "../../src/modules/trainer/trainer-bank.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { runTrainerReport } from "../../src/operations/trainer-report-command.js";
-import { systemClock } from "../../src/shared/clock.js";
+import { virtualTestClock } from "../support/fixed-clock.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { required } from "../support/required.js";
@@ -157,7 +157,7 @@ function oneQuestionPerTopic(): SyntheticBank {
 
 /** The owner's import makes the stored Bank follow this synthetic file. */
 async function loadBank(bank: SyntheticBank): Promise<void> {
-  const report = await new TrainerBank(database, systemClock).import(
+  const report = await new TrainerBank(database, virtualTestClock).import(
     bank,
     true,
   );

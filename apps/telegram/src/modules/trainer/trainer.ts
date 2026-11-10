@@ -191,7 +191,11 @@ export class Trainer {
           : ["x", ISSUE_CLOSED_TEXT];
       }
       case "next": {
-        const step = await this.rounds.next(contact, contact.observedAt);
+        const step = await this.rounds.next(
+          contact,
+          contact.observedAt,
+          request.issueId,
+        );
         return step ? this.step(contact, step) : this.home(contact);
       }
       case "start_daily": {
@@ -201,7 +205,7 @@ export class Trainer {
         });
         if (step.kind === "review")
           return questionScreen(step.question, step.pickedMask);
-        if (step.kind === "withdrawn") return ["x", DAILY_WITHDRAWN_TEXT];
+        if (step.kind === "withdrawn") return ["i", DAILY_WITHDRAWN_TEXT];
         return this.step(contact, step);
       }
       case "topics":
@@ -264,7 +268,7 @@ export class Trainer {
       }
       case "nothing":
         return [
-          "x",
+          "i",
           step.reason === "no_questions"
             ? NO_QUESTIONS_TEXT
             : ALL_ANSWERED_TEXT,

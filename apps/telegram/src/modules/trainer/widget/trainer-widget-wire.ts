@@ -1,3 +1,4 @@
+import { TRAINER_CODE_PATTERN } from "../trainer-identifiers.js";
 import {
   TELEGRAM_WIDGET_DATA_MAX_BYTES,
   TELEGRAM_WIDGET_REQUEST_MAX_BYTES,
@@ -39,7 +40,7 @@ export type TrainerTopicsData = readonly [
   ])[],
 ];
 /**
- * A question. `total` is the number of steps in the round; 1 draws «Вопрос дня» instead of
+ * A question. `total` is the number of steps in the round. `daily` draws «Вопрос дня» instead of
  * the steps. `reviewMask` is present only when the person has already answered (a repeated
  * view of the Daily question): the widget shows the picked options and «Показать разбор».
  */
@@ -52,7 +53,8 @@ export type TrainerQuestionData = readonly [
   severalCorrect: Flag,
   marks: RoundMarks,
   total: number,
-  reviewMask?: OptionMask,
+  reviewMask?: OptionMask | null,
+  daily?: Flag,
 ];
 /** 0 wrong, 1 correct without a point, 2 correct with a point, 3 «Не знаю». */
 export type TrainerVerdict = 0 | 1 | 2 | 3;
@@ -122,7 +124,8 @@ export type TrainerWidgetData =
   | TrainerResultData
   | TrainerProgressData
   | TrainerRatingData
-  | TrainerFailureData;
+  | TrainerFailureData
+  | readonly [screen: "i", text: string];
 
 export const utf8ByteLength = (text: string): number =>
   Buffer.byteLength(text, "utf8");
@@ -164,6 +167,7 @@ export function trainerQuestionDataBytes(question: {
     LONGEST_MARKS,
     LONGEST_ROUND,
     EVERY_OPTION,
+    1,
   ];
   return utf8ByteLength(JSON.stringify(data));
 }
@@ -198,7 +202,7 @@ export type TrainerWidgetRequest =
       readonly shown: boolean;
       readonly allTime: boolean;
     }
-  | { readonly kind: "next" }
+  | { readonly kind: "next"; readonly issueId?: string }
   | {
       readonly kind: "answer";
       readonly issueId: string;
@@ -216,8 +220,9 @@ const simpleRequests: Readonly<Record<string, TrainerWidgetRequest>> = {
   l1: { kind: "rating", allTime: true },
 };
 /** Issue ids and topic codes: 1-16 lowercase Latin letters and digits. */
-const answerRequest = /^a([0-9a-z]{1,16}):(\d{1,2})$/;
-const topicRequest = /^t([0-9a-z]{1,16})$/;
+const answerRequest = new RegExp(`^a(${TRAINER_CODE_PATTERN}):([0-9]{1,2})$`);
+const topicRequest = new RegExp(`^t(${TRAINER_CODE_PATTERN})$`);
+const nextRequest = new RegExp(`^n(${TRAINER_CODE_PATTERN})$`);
 const shownRequest = /^v([01])([01])$/;
 
 /**
@@ -231,6 +236,8 @@ export function parseTrainerWidgetRequest(
     return undefined;
   if (Object.hasOwn(simpleRequests, data)) return simpleRequests[data];
 
+  const next = nextRequest.exec(data);
+  if (next?.[1] !== undefined) return { kind: "next", issueId: next[1] };
   const answer = answerRequest.exec(data);
   if (answer?.[1] !== undefined && answer[2] !== undefined) {
     const optionMask = Number(answer[2]);

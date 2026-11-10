@@ -14,7 +14,7 @@ import type { Database } from "../../src/database/database.js";
 import { migrateToLatest } from "../../src/database/migrator.js";
 import { TrainerBank } from "../../src/modules/trainer/trainer-bank.js";
 import { runTrainerBankImport } from "../../src/operations/trainer-bank-import-command.js";
-import { systemClock } from "../../src/shared/clock.js";
+import { virtualTestClock } from "../support/fixed-clock.js";
 import {
   fixedTestInstant,
   registerFixedClock,
@@ -33,7 +33,7 @@ let bank: TrainerBank;
 beforeAll(async () => {
   database = createDatabase(required(process.env["DATABASE_URL"]));
   await migrateToLatest(database);
-  bank = new TrainerBank(database, systemClock);
+  bank = new TrainerBank(database, virtualTestClock);
 });
 beforeEach(async () => {
   await sql`truncate trainer_questions, trainer_topics restart identity cascade`.execute(
@@ -311,7 +311,7 @@ describe("Bank import", () => {
 
 describe("Bank import command", () => {
   const run = (mode: string | undefined, input: string) =>
-    runTrainerBankImport({ mode, input, database, clock: systemClock });
+    runTrainerBankImport({ mode, input, database, clock: virtualTestClock });
 
   it("applies a correct file and prints the report as JSON", async () => {
     const result = await run(

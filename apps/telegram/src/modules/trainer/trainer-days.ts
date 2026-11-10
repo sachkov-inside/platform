@@ -1,3 +1,5 @@
+import { sql } from "kysely";
+
 // Moscow calendar days and weeks of the Trainer. Moscow keeps UTC+3 all year, so every day is
 // 24 hours long and starts at 21:00 UTC.
 
@@ -36,3 +38,19 @@ export function moscowWeekWindow(at: Date) {
   const monday = day - ((((day - A_MONDAY) % 7) + 7) % 7);
   return { from: dayStart(monday), until: dayStart(monday + 7) };
 }
+
+/** Moscow calendar date in the Bank's YYYY-MM-DD representation. */
+export function moscowDay(at: Date): string {
+  return new Date(moscowDayNumber(at) * DAY_SECONDS * 1000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Moscow day number of a persisted timestamp, on the same scale as moscowDayNumber. */
+export const moscowDayNumberSql = (column: string) => sql<number>`floor(
+  (extract(epoch from ${sql.ref(column)}) + ${MOSCOW_OFFSET_SECONDS}) / ${DAY_SECONDS}
+)::integer`;
+
+/** Calendar date of a persisted timestamp in Moscow. */
+export const moscowDaySql = (column: string) =>
+  sql`(date '1970-01-01' + ${moscowDayNumberSql(column)})`;

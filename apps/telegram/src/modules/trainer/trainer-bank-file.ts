@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { trainerCodeSchema, trainerCodeFormat } from "./trainer-identifiers.js";
 
 import {
   TELEGRAM_WIDGET_DATA_MAX_BYTES,
@@ -14,6 +15,7 @@ import {
   trainerExplanationDataBytes,
   trainerQuestionDataBytes,
   trainerTextLength,
+  utf8ByteLength,
   type OptionMask,
 } from "./widget/trainer-widget-wire.js";
 
@@ -25,10 +27,9 @@ const text = z.string().min(1);
 
 const topicSchema = z.strictObject({
   // A widget request carries the topic code: `t<code>`.
-  code: z
-    .string()
-    .regex(/^[0-9a-z]{1,16}$/)
-    .describe("Постоянный код темы. По нему вопросы ссылаются на тему."),
+  code: trainerCodeSchema.describe(
+    "Постоянный код темы. По нему вопросы ссылаются на тему.",
+  ),
   name: text.describe("Название темы, как его видит человек."),
 });
 
@@ -89,6 +90,8 @@ export const TRAINER_BANK_FILE_LIMITS = {
   questionTextCharacters: TRAINER_QUESTION_MAX_CHARS,
   optionTextsTogetherCharacters: TRAINER_OPTIONS_TOTAL_MAX_CHARS,
   answerExplanationCharacters: TRAINER_EXPLANATION_MAX_CHARS,
+  topicsDataBytes: TELEGRAM_WIDGET_DATA_MAX_BYTES,
+  progressDataBytes: TELEGRAM_WIDGET_DATA_MAX_BYTES,
   questionDataBytes: TELEGRAM_WIDGET_DATA_MAX_BYTES,
   answerExplanationDataBytes: TELEGRAM_WIDGET_DATA_MAX_BYTES,
 } as const;
@@ -216,6 +219,45 @@ function topicErrors(bank: TrainerBankFile): TrainerBankFileError[] {
       field: "topics",
       reason: `Тем в файле ${String(bank.topics.length)}, лимит ${String(TRAINER_TOPICS_MAX)}.`,
     });
+  const topicsScreen = [
+    "t",
+    bank.topics.map(({ code, name }) => {
+      const total = bank.questions.filter((q) => q.topic === code).length;
+      return [code, name, total, total];
+    }),
+  ];
+  const bytes = utf8ByteLength(JSON.stringify(topicsScreen));
+  if (bytes > TELEGRAM_WIDGET_DATA_MAX_BYTES)
+    errors.push({
+      field: "topics",
+      reason: over(
+        "Экран тем",
+        "байтов",
+        bytes,
+        TELEGRAM_WIDGET_DATA_MAX_BYTES,
+      ),
+    });
+  const progressScreen = [
+    "p",
+    Number.MAX_SAFE_INTEGER,
+    Number.MAX_SAFE_INTEGER,
+    Number.MAX_SAFE_INTEGER,
+    bank.topics.map(({ code, name }) => {
+      const total = bank.questions.filter((q) => q.topic === code).length;
+      return [name, total, total, 100];
+    }),
+  ];
+  const progressBytes = utf8ByteLength(JSON.stringify(progressScreen));
+  if (progressBytes > TELEGRAM_WIDGET_DATA_MAX_BYTES)
+    errors.push({
+      field: "topics",
+      reason: over(
+        "Экран Прогресса",
+        "байтов",
+        progressBytes,
+        TELEGRAM_WIDGET_DATA_MAX_BYTES,
+      ),
+    });
   const used = new Set(bank.questions.map(({ topic }) => topic));
   const seen = new Set<string>();
   for (const { code, name } of bank.topics) {
@@ -280,7 +322,7 @@ function contentErrors(
   if (topicName === undefined)
     errors.push({
       field: "topic",
-      reason: `Темы с кодом «${/^[0-9a-z]{1,16}$/.test(question.topic) ? question.topic : "…"}» нет в списке тем файла.`,
+      reason: `Темы с кодом «${trainerCodeFormat.test(question.topic) ? question.topic : "…"}» нет в списке тем файла.`,
     });
 
   const texts = [

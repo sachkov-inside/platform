@@ -565,7 +565,7 @@ describe("trainer widget screens in a browser", () => {
       "t",
       "ttopic2",
       "a1a2b3c:0",
-      "n",
+      "n1a2b3c",
       "t",
       "h",
       "d",
@@ -686,6 +686,66 @@ describe("trainer widget screens in a browser", () => {
     const buttons = (page: Page): Promise<string[]> =>
       page.getByRole("button").allInnerTexts();
 
+    it("draws the explicit Daily mode with «Готово» and a neutral message without retry", async () => {
+      const page = await openWidget(320);
+      const daily: [...TrainerQuestionData] = [...asked("7k", "")];
+      daily[7] = 1;
+      daily[8] = null;
+      daily[9] = 1;
+      await tap(page, "Вопрос дня", daily);
+      expect(await page.locator("#w").innerText()).toContain("Вопрос дня");
+      await tap(page, "А Синтетический вариант 1", [
+        "e",
+        2,
+        1,
+        1,
+        "Разбор.",
+        "1",
+        1,
+        "Верно ответили 100% из 1 человека",
+      ]);
+      expect(await buttons(page)).toEqual(["×", "Готово"]);
+      await tap(page, "Готово", home);
+      await tap(page, "Проверить себя", ["i", "Вопросы скоро появятся."]);
+      expect(await buttons(page)).toEqual(["На главный"]);
+      expect(await page.locator("#w").innerText()).not.toContain(
+        "Не получилось",
+      );
+      await page.close();
+    });
+
+    it("finishes a one-question check round through its result, and names its own issue in next", async () => {
+      const page = await openWidget(320);
+      const one: [...TrainerQuestionData] = [...asked("7k", "")];
+      one[7] = 1;
+      await tap(page, "Проверить себя", one);
+      expect(await page.locator("#w").innerText()).not.toContain("Вопрос дня");
+      await tap(page, "А Синтетический вариант 1", [
+        "e",
+        2,
+        1,
+        1,
+        "Разбор.",
+        "1",
+        1,
+        0,
+      ]);
+      expect(await buttons(page)).toEqual(["×", "К итогу"]);
+      await tap(page, "К итогу", [
+        "r",
+        "Проверить себя",
+        1,
+        1,
+        "Все ответы верные.",
+        1,
+        1,
+        0,
+        0,
+      ]);
+      expect((await requests(page)).at(-1)).toBe("n7k");
+      await page.close();
+    });
+
     it("keeps only the picked and the correct options with the explanation after an answer", async () => {
       const page = await openWidget(320);
       await tap(page, "Проверить себя", asked("7k", "10"));
@@ -774,7 +834,7 @@ describe("trainer widget screens in a browser", () => {
       await tap(page, "Ещё раунд", asked("7q", ""));
       expect(await steps(page)).toEqual(["S", "", "", "", ""]);
       await tap(page, "×", home);
-      expect(await requests(page)).toEqual(["q", "a7k:0", "n", "q", "h"]);
+      expect(await requests(page)).toEqual(["q", "a7k:0", "n7k", "q", "h"]);
     });
 
     it("returns home from the result with fresh numbers from the bot", async () => {
@@ -844,7 +904,7 @@ describe("trainer widget screens in a browser", () => {
         "Бот не ответил. Проверьте связь и повторите.",
       );
       await tap(page, "Повторить", asked("7l", "0"));
-      expect(await requests(page)).toEqual(["q", "a7k:0", "n", "n"]);
+      expect(await requests(page)).toEqual(["q", "a7k:0", "n7k", "n7k"]);
       expect(await steps(page)).toEqual(["B", "S", "", "", ""]);
     });
 

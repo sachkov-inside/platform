@@ -34,6 +34,8 @@ export function questionScreen(
     question.round.marks,
     question.round.size,
   ] as const;
+  if (question.round.mode === "daily")
+    return [...screen, reviewMask ?? null, 1];
   return reviewMask === undefined ? screen : [...screen, reviewMask];
 }
 
