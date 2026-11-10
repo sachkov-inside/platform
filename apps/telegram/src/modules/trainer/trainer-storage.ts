@@ -1,4 +1,4 @@
-import type { ColumnType } from "kysely";
+import type { ColumnType, Generated } from "kysely";
 
 import type {
   TrainerBankOption,
@@ -25,6 +25,12 @@ type TelegramId = ColumnType<
  */
 export type TrainerOpeningDelivery =
   "sending" | "retry" | "delivered" | "rejected" | "unknown";
+
+/**
+ * `check` is «Проверить себя», `topic` is Тренировка по теме, `daily` is Вопрос дня (a round
+ * of one question).
+ */
+export type TrainerRoundMode = "check" | "topic" | "daily";
 
 export interface TrainerTables {
   /** Topics of the Bank. `position` is the order of the Bank file. */
@@ -68,5 +74,49 @@ export interface TrainerTables {
     opened_at: Timestamp;
     delivery: TrainerOpeningDelivery;
     provider_message_id: TelegramId | null;
+  };
+  /** One row per started round of any mode; it belongs to a BotContact. */
+  trainer_rounds: {
+    id: Generated<string>;
+    bot_identity: string;
+    telegram_user_id: TelegramId;
+    mode: TrainerRoundMode;
+    /** The chosen topic of a `topic` round; null in the other modes. */
+    topic_code: string | null;
+    /** Steps in the round; fewer than the mode asks for when the Bank had fewer to give. */
+    size: number;
+    /** When the bot received the request that started the round. */
+    started_at: Timestamp;
+    /** The Telegram update that started the round: a repeated run finds the same round. */
+    update_id: TelegramId;
+  };
+  /**
+   * One row per step of a round, written when the round starts. A step is issued when the
+   * person is shown its question and answered when the person answers; both happen once.
+   */
+  trainer_issues: {
+    /** The widget names the issue by this number in base 36. */
+    id: Generated<string>;
+    round_id: string;
+    /** 1 for the first step of the round. */
+    position: number;
+    bot_identity: string;
+    telegram_user_id: TelegramId;
+    question_id: string;
+    /** `content_revision` of the question when the round started. */
+    content_revision: number;
+    /** Options of the question when the round started; an answer is judged against them. */
+    option_count: number;
+    /** Bit `i` is set when option `i` was correct when the round started. */
+    correct_mask: number;
+    /** When the bot received the request that showed the question; null: not shown yet. */
+    issued_at: OptionalTimestamp;
+    /** When the bot received the answer; null: not answered. */
+    answered_at: OptionalTimestamp;
+    /** The picked options; 0 is «Не знаю». */
+    picked_mask: number | null;
+    correct: boolean | null;
+    /** True when this is the person's first answer to the question in any round. */
+    first_answer: boolean | null;
   };
 }

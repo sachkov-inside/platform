@@ -54,8 +54,10 @@ import { communicationsTemplatesMigration } from "./migrations/010-communication
 
 import { authorAdminMigration } from "./migrations/014-author-admin.js";
 import { trainerOpeningsMigration } from "./migrations/046-trainer-openings.js";
+import { trainerRoundsMigration } from "./migrations/047-trainer-rounds.js";
 
 const migrations = {
+  "047-trainer-rounds": trainerRoundsMigration,
   "046-trainer-openings": trainerOpeningsMigration,
   "045-trainer-bank": trainerBankMigration,
   "044-community-discussion-history": communityDiscussionHistoryMigration,

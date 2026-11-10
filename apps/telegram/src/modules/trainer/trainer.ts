@@ -11,6 +11,17 @@ import {
   type TelegramMessages,
 } from "../outbound/telegram-messages.js";
 import type { TrainerOpening, TrainerQuery } from "./trainer-requests.js";
+import {
+  TrainerRounds,
+  type TrainerIssuedQuestion,
+  type TrainerNothingToAsk,
+  type TrainerRoundResult,
+} from "./trainer-rounds.js";
+import {
+  explanationScreen,
+  questionScreen,
+  resultScreen,
+} from "./trainer-screens.js";
 import type { TrainerOpeningDelivery } from "./trainer-storage.js";
 import { TRAINER_WIDGET_HTML } from "./widget/trainer-widget-html.generated.js";
 import {
@@ -23,6 +34,8 @@ import {
 
 /** Answered questions that complete the Daily goal. */
 const TRAINER_DAILY_GOAL = 5;
+/** Questions in a round of «Проверить себя». */
+const TRAINER_CHECK_QUESTIONS = 5;
 
 // The caption keeps the message time off the widget, is the text of the chat list and the
 // notification, and is all a Telegram app without widgets shows (ADR 0004).
@@ -32,6 +45,11 @@ const WIDGET_REJECTED_TEXT =
   "Тренажёр не открылся. Обновите Telegram до последней версии и отправьте /train ещё раз.";
 const SECTION_NOT_OPEN_TEXT = "Этот раздел скоро откроется.";
 const TOO_OFTEN_TEXT = "Слишком часто. Повторите через несколько секунд.";
+/** The answer names a question this person was not shown, or options the question lacks. */
+const ISSUE_CLOSED_TEXT = "Этот вопрос уже закрыт. Начните новый раунд.";
+const NO_QUESTIONS_TEXT = "Вопросы скоро появятся.";
+const ALL_ANSWERED_TEXT =
+  "Вы верно ответили на все вопросы. Они вернутся через 30 дней после ответа.";
 
 /**
  * The Trainer of the private chat. It acts only inside a person's own request: `open` sends
@@ -39,6 +57,8 @@ const TOO_OFTEN_TEXT = "Слишком часто. Повторите через
  */
 @Injectable()
 export class Trainer {
+  private readonly rounds: TrainerRounds;
+
   constructor(
     @Inject(DATABASE) private readonly database: Database,
     @Inject(TELEGRAM_MESSAGES)
@@ -46,7 +66,9 @@ export class Trainer {
       TelegramMessages,
       "sendWidget" | "answerWidgetQuery"
     >,
-  ) {}
+  ) {
+    this.rounds = new TrainerRounds(database);
+  }
 
   /**
    * Records the opening and sends one widget message with the home screen. One request never
@@ -121,21 +143,67 @@ export class Trainer {
     contact: VerifiedPrivateStart,
     request: TrainerWidgetRequest,
   ): Promise<TrainerWidgetData> {
+    // One case per request and no shared branches: each mode replaces its own lines.
     switch (request.kind) {
       case "home":
         return this.home(contact);
       case "start_check":
+        return this.step(
+          await this.rounds.start(contact, {
+            mode: "check",
+            count: TRAINER_CHECK_QUESTIONS,
+            updateId: contact.updateId,
+            at: contact.observedAt,
+          }),
+        );
+      case "answer": {
+        const outcome = await this.rounds.answer(
+          contact,
+          request.issueId,
+          request.optionMask,
+          contact.observedAt,
+        );
+        return outcome ? explanationScreen(outcome) : ["x", ISSUE_CLOSED_TEXT];
+      }
+      case "next": {
+        const step = await this.rounds.next(contact, contact.observedAt);
+        return step ? this.step(step) : this.home(contact);
+      }
       case "start_daily":
+        return ["x", SECTION_NOT_OPEN_TEXT];
       case "topics":
+        return ["x", SECTION_NOT_OPEN_TEXT];
       case "start_topic":
+        return ["x", SECTION_NOT_OPEN_TEXT];
       case "progress":
+        return ["x", SECTION_NOT_OPEN_TEXT];
       case "rating":
+        return ["x", SECTION_NOT_OPEN_TEXT];
       case "set_rating_shown":
-      case "next":
-      case "answer":
         return ["x", SECTION_NOT_OPEN_TEXT];
       default:
         return unhandled(request, "Trainer widget request");
+    }
+  }
+
+  /** The screen of a round step: a question, the result, or why there is nothing to ask. */
+  private step(
+    step: TrainerIssuedQuestion | TrainerRoundResult | TrainerNothingToAsk,
+  ): TrainerWidgetData {
+    switch (step.kind) {
+      case "question":
+        return questionScreen(step);
+      case "result":
+        return resultScreen(step);
+      case "nothing":
+        return [
+          "x",
+          step.reason === "no_questions"
+            ? NO_QUESTIONS_TEXT
+            : ALL_ANSWERED_TEXT,
+        ];
+      default:
+        return unhandled(step, "Trainer round step");
     }
   }
 
