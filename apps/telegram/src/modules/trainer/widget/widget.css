@@ -17,8 +17,6 @@ body {
   display: inline-block;
   width: 100%;
   vertical-align: top;
-  /* Paint the full fixed canvas even when this screen has little content. */
-  min-height: 560px;
   /* The band of the message time is 0 while the message has a caption below the widget. */
   padding: 0 0 env(safe-area-inset-bottom);
   --a: #c7461e;

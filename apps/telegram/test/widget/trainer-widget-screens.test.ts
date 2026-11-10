@@ -204,7 +204,7 @@ it("keeps the home screen inside the bubble in a client document without a docty
     const root = await page.locator("#w").boundingBox();
     expect(root?.height).toBeLessThanOrEqual(TRAINER_WIDGET_TARGET_HEIGHT_PX);
     const body = await page.locator("body").boundingBox();
-    expect(body?.height).toBe(TRAINER_WIDGET_TARGET_HEIGHT_PX);
+    expect(body?.height).toBe(root?.height);
     await expect(buttonNamed(page, "Проверить себя").isVisible()).resolves.toBe(
       true,
     );
@@ -271,7 +271,7 @@ describe.each(["Chromium", "WebKit"] as const)(
                 expect(root?.height).toBeLessThanOrEqual(
                   TRAINER_WIDGET_TARGET_HEIGHT_PX,
                 );
-                expect(body?.height).toBe(TRAINER_WIDGET_TARGET_HEIGHT_PX);
+                expect(body?.height).toBe(root?.height);
                 shapes.push(
                   await page.locator("#w").evaluate((root) =>
                     [root, ...root.querySelectorAll("*")].map((element) => {
