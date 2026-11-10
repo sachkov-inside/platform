@@ -112,3 +112,42 @@ export function canonicalJoinRequestUpdate(
     },
   };
 }
+
+/** A press inside a widget message the bot sent (Bot API 10.4). */
+export function widgetQueryUpdate(
+  updateId: number,
+  userId: number,
+  data: string,
+  options: {
+    chatId?: number;
+    chatType?: string;
+    isBot?: boolean;
+    queryType?: string;
+    /** The sender's Telegram name; "Synthetic" with no last name when absent. */
+    firstName?: string;
+    lastName?: string;
+  } = {},
+) {
+  return {
+    update_id: updateId,
+    widget_query: {
+      id: `query-${String(updateId)}`,
+      from: {
+        id: userId,
+        is_bot: options.isBot ?? false,
+        first_name: options.firstName ?? "Synthetic",
+        ...(options.lastName === undefined
+          ? {}
+          : { last_name: options.lastName }),
+      },
+      chat: {
+        id: options.chatId ?? userId,
+        type: options.chatType ?? "private",
+      },
+      message_id: 4242,
+      chat_instance: "synthetic-chat-instance",
+      type: { type: options.queryType ?? "data" },
+      data,
+    },
+  };
+}

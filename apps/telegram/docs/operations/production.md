@@ -641,10 +641,12 @@ Telegram вызывает Platform по публичному HTTPS: `course-acti
 
 ## Webhook
 
-Приложение принимает `message`, `chat_member`, `my_chat_member`, `chat_join_request` и
-`callback_query` (источник списка — `TELEGRAM_WEBHOOK_ALLOWED_UPDATES` в
+Приложение принимает `message`, `edited_message`, `chat_member`, `my_chat_member`,
+`chat_join_request`, `callback_query` и `widget_query` (источник списка — `TELEGRAM_WEBHOOK_ALLOWED_UPDATES` в
 `src/modules/webhook/telegram-webhook.ts`). Без `chat_join_request` бот не видит заявку по личной ссылке и не впускает
-покупателя. Регистрация webhook — операция владельца; обычный деплой и рестарт её не выполняют.
+покупателя. Без `widget_query` нажатия в виджете Тренажёра не доходят до бота, и виджет показывает
+ошибку ожидания. Регистрация webhook — операция владельца; обычный деплой и рестарт её не выполняют.
+После выпуска версии с новым типом обновлений владелец запускает `webhook-registration --apply`.
 
 **Текущий production, прямой HTTPS.** Команда `webhook-registration` меняет только список `allowed_updates`.
 Точный URL, `ip_address` рабочего AMS и `max_connections` она читает из `getWebhookInfo` и
@@ -687,9 +689,11 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 | `run --rm -T activation-review --list` | очередь разбора неподтверждённых оснований, см. [course-activation.md](course-activation.md#подтверждение-статуса-прежних-участников) |
 | `run --rm -T activation-announcement --preview < /protected/announcement.json` | личный образец владельцу с кнопкой активации, см. [course-activation.md](course-activation.md#кнопка-владельца-в-группе-курса) |
 | `run --rm -T -e TELEGRAM_WEBHOOK_URL=… webhook-registration --preview` | список обновлений webhook |
+| `run --rm -T trainer-bank-import --preview < /protected/trainer-bank.json` | загрузка Банка вопросов Тренажёра, см. [trainer-bank.md](trainer-bank.md) |
+| `run --rm -T trainer-report --questions` | отчёты автора по Тренажёру, см. [trainer-reports.md](trainer-reports.md) |
 
 Каждая команда вызывается как `"${telegram_compose[@]}" --profile operations …` и не открывает порты.
-`community-restriction` и `activation-review` видят только сеть базы. `activation-announcement` видит базу и egress;
+`community-restriction`, `activation-review`, `trainer-bank-import` и `trainer-report` видят только сеть базы. `activation-announcement` видит базу и egress;
 `webhook-registration` — только внешнюю сеть.
 
 ### Поиск контактов по имени (`inside.telegram-contact.v2`)

@@ -171,6 +171,7 @@ function laneOf(payload: unknown): string | null {
           "message",
           "edited_message",
           "callback_query",
+          "widget_query",
           "chat_join_request",
           "my_chat_member",
         ]

@@ -50,3 +50,9 @@ export function useTimeoutClock(
   install(["Date", "setTimeout", "clearTimeout"]);
   return () => install(["Date"]);
 }
+
+/** Domain clock shared with registerFixedClock, including deliberate per-case advances. */
+export const virtualTestClock = {
+  // deterministic-test-allow wall-clock: registerFixedClock owns and restores this virtual Date.
+  now: (): Date => new Date(),
+};

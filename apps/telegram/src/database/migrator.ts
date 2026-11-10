@@ -1,3 +1,4 @@
+import { trainerBankMigration } from "./migrations/045-trainer-bank.js";
 import { communityDiscussionHistoryMigration } from "./migrations/044-community-discussion-history.js";
 import { communityDiscussionBudgetMigration } from "./migrations/043-community-discussion-budget.js";
 import { communityTranscriptsMigration } from "./migrations/042-community-transcripts.js";
@@ -52,8 +53,17 @@ import { signInMessageResultMigration } from "./migrations/010-sign-in-message-r
 import { communicationsTemplatesMigration } from "./migrations/010-communications-templates.js";
 
 import { authorAdminMigration } from "./migrations/014-author-admin.js";
+import { trainerOpeningsMigration } from "./migrations/046-trainer-openings.js";
+import { trainerRoundsMigration } from "./migrations/047-trainer-rounds.js";
+import { trainerDailyQuestionsMigration } from "./migrations/048-trainer-daily-questions.js";
+import { trainerRatingConsentsMigration } from "./migrations/049-trainer-rating-consents.js";
 
 const migrations = {
+  "049-trainer-rating-consents": trainerRatingConsentsMigration,
+  "048-trainer-daily-questions": trainerDailyQuestionsMigration,
+  "047-trainer-rounds": trainerRoundsMigration,
+  "046-trainer-openings": trainerOpeningsMigration,
+  "045-trainer-bank": trainerBankMigration,
   "044-community-discussion-history": communityDiscussionHistoryMigration,
   "043-community-discussion-budget": communityDiscussionBudgetMigration,
   "042-community-transcripts": communityTranscriptsMigration,

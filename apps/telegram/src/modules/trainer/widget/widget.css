@@ -1,0 +1,303 @@
+/*
+ * Trainer widget, style "Смешанный": Telegram theme colours, Inside accent, large buttons with a
+ * thick bottom border, system font. Class names are one letter because every byte counts against
+ * the 4 096-byte compressed limit; the build strips these comments.
+ *
+ * Only features of widget profile 1 are allowed (https://core.telegram.org/bots/widgets):
+ * no color-mix(), no vh, no :has(), no nesting, no scrolling, no named fonts, no text-shadow.
+ * Mute with colour, never with opacity: at most 16 elements may have opacity below 1.
+ */
+
+/* Colours: --a accent, --d its darker border, --f text on the accent, --t accent tint,
+   --l lines, --s second surface, --h hint text, --c the state colour of an element. */
+body {
+  margin: 0;
+  /* The band of the message time is 0 while the message has a caption below the widget. */
+  padding: 0 0 env(safe-area-inset-bottom);
+  --a: #c7461e;
+  --d: #8b3115;
+  --f: #fff;
+  --t: rgba(199, 70, 30, 0.14);
+  --l: rgba(128, 128, 128, 0.3);
+  --s: var(--tg-theme-secondary-bg-color);
+  --h: var(--tg-theme-hint-color);
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    --a: #ef6b3c;
+    --d: #a74b2a;
+    --f: #1b1b1b;
+    --t: rgba(239, 107, 60, 0.16);
+  }
+}
+* {
+  box-sizing: border-box;
+}
+
+/* #w is the only root. Every screen is a column of blocks with one gap.
+   The script lowers its font size when a screen would be taller than 560 px. */
+#w {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  font-size: var(--tg-text-font-size, 15px);
+  line-height: 1.35;
+  font-family: system-ui, sans-serif;
+}
+/* .w: a request to the bot is in flight. */
+.w {
+  opacity: 0.5;
+  pointer-events: none;
+}
+button {
+  display: block;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+/* Helpers: .R row, .F takes the free width, .m muted small text, .C centred block. */
+.R {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.F {
+  flex: 1;
+  min-width: 0;
+}
+.m {
+  color: var(--h);
+  font-size: 0.85em;
+}
+.C {
+  text-align: center;
+}
+
+/* State colours: .S selected or current, .G correct, .B wrong. .Z paints an option with it. */
+.S {
+  --c: var(--a);
+}
+.G {
+  --c: #2e9e5b;
+}
+.B {
+  --c: #d14343;
+}
+
+/* Pressable surfaces: .k card, .o option, .b button; .P primary. */
+.k,
+.o,
+.b {
+  border: 2px solid var(--l);
+  border-bottom-width: 4px;
+  border-radius: 16px;
+  padding: 7px 10px;
+  min-height: 44px;
+}
+.k:active,
+.o:active,
+.b:active {
+  transform: translateY(2px);
+}
+.k {
+  min-height: 58px;
+}
+.k b,
+.k .m {
+  display: block;
+}
+.k em,
+.c {
+  color: var(--a);
+  font-size: 0.85em;
+  font-weight: 600;
+  font-style: normal;
+  white-space: nowrap;
+}
+.b {
+  flex: 1;
+  font-weight: 600;
+  text-align: center;
+}
+.P {
+  background: var(--a);
+  border-color: var(--d);
+  color: var(--f);
+}
+.P .m {
+  color: inherit;
+}
+.b:disabled {
+  background: var(--s);
+  border-color: var(--l);
+  color: var(--h);
+}
+
+/* Home: .U title, .c series chip, .T progress track. */
+/* .a gives every home button the accent bottom edge and the home title its colour. */
+.a {
+  border-bottom-color: var(--a);
+}
+.U.a {
+  color: var(--a);
+}
+.U {
+  font-size: 1.33em;
+  font-weight: 800;
+}
+.c {
+  padding: 4px 9px;
+  border-radius: 99px;
+  background: var(--t);
+}
+.T {
+  height: 12px;
+  background: var(--s);
+  overflow: hidden;
+}
+.T,
+.T i,
+.q i {
+  border-radius: 99px;
+}
+.T i {
+  display: block;
+  height: 100%;
+  background: var(--a);
+}
+
+/* Round: .x round icon button, .q steps, .n "Не знаю", .Q question text, .y option letter,
+   .V verdict, .W explanation. */
+.x {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--s);
+  text-align: center;
+}
+.q {
+  gap: 4px;
+}
+.q i {
+  flex: 1;
+  height: 10px;
+  background: var(--c, var(--s));
+}
+.n {
+  color: var(--h);
+  font-size: 0.87em;
+}
+.Q {
+  font-weight: 600;
+}
+.o {
+  align-items: flex-start;
+  padding: 5px 10px;
+  font-size: 0.95em;
+}
+/* After the answer an option is a div: nothing to tap, so it may be lower than 44 px. */
+div.o {
+  min-height: 0;
+  font-size: 0.9em;
+}
+.y {
+  flex: none;
+  width: 24px;
+  border: 2px solid var(--h);
+  border-radius: 8px;
+  color: var(--h);
+  font-size: 0.8em;
+  font-weight: 700;
+  font-style: normal;
+  text-align: center;
+}
+.Z {
+  border-color: var(--c);
+}
+.Z .y {
+  background: var(--c);
+  border-color: var(--c);
+  color: var(--f);
+}
+.V {
+  color: var(--c);
+  font-size: 1.13em;
+}
+.W {
+  font-size: 0.9em;
+}
+
+/* Result and Progress: .I big number, .K figure tile, .r list row. */
+.I {
+  font-size: 2.9em;
+  font-weight: 800;
+  line-height: 1;
+}
+.K {
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: 16px;
+  background: var(--s);
+  text-align: center;
+}
+.K b {
+  display: block;
+  font-size: 1.2em;
+}
+.r {
+  width: 100%;
+  min-height: 38px;
+  padding: 5px 2px;
+  border-bottom: 1px solid var(--l);
+}
+.r .T {
+  flex: 1;
+  height: 4px;
+}
+
+/* Rating: .t tabs, .O chosen tab, .u table row, .M the viewer's row, .e one-line name. */
+.t {
+  gap: 0;
+  padding: 3px;
+  border-radius: 16px;
+  background: var(--s);
+}
+.t button {
+  flex: 1;
+  padding: 6px;
+  border-radius: 13px;
+  color: var(--h);
+  font-size: 0.9em;
+  font-weight: 600;
+  text-align: center;
+}
+.t .O {
+  background: var(--tg-theme-bg-color);
+  color: inherit;
+}
+.u {
+  min-height: 34px;
+  padding: 0 6px;
+  border-radius: 8px;
+}
+.u .m {
+  width: 22px;
+  text-align: right;
+}
+.M {
+  background: var(--t);
+  font-weight: 700;
+}
+.e {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

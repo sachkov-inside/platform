@@ -102,3 +102,54 @@ _Avoid_: Support ticket, rejection, pending_review
 An owner-configured prior-course group and participant policy used to verify eligibility for course
 activation. It is separate from the community a Product opens and does not itself grant Product Access.
 _Avoid_: Community group, subscription source, Product Access
+
+**Тренажёр** (Trainer):
+The bot section where a BotContact checks their knowledge of AI engineering inside one widget
+message of the private chat. The person opens it themselves; it needs no PlatformLink or Product
+Access and the bot never sends reminders about it.
+_Avoid_: Quiz, test, course, Mini App
+
+**Проверить себя** (Self-check):
+The main Тренажёр mode: one round of 5 questions from different topics.
+_Avoid_: Quick round, Быстрый раунд, exam
+
+**Вопрос дня** (Daily Question):
+The one Тренажёр question of a Moscow calendar day, the same for everyone.
+_Avoid_: Daily quiz, reminder, question of the week
+
+**Тренировка по теме** (Topic Training):
+A Тренажёр round of up to 10 questions from one topic the person chose.
+_Avoid_: Course, lesson, module
+
+**Очки** (Points):
+What a person earns in the Тренажёр: one point for a correct answer that is the person's first
+answer to that question and comes within 90 seconds after the bot showed it. Points open no access
+and change no Product or price.
+_Avoid_: Score, grade, rating, balance, bonus
+
+**Серия** (Streak):
+The number of Moscow calendar days in a row on which a person answered at least one Тренажёр
+question. Today without an answer does not end it yet; a missed day does.
+_Avoid_: Series of messages, sequence, run of correct answers
+
+**Цель дня** (Daily Goal):
+5 answered Тренажёр questions in one Moscow calendar day. It is only shown: it opens and blocks
+nothing.
+_Avoid_: Limit, quota, task, daily question
+
+**Рейтинг** (Rating):
+The two Тренажёр tables of Очки: «Неделя» (Monday to Sunday, Moscow time) and «Всё время». A table
+lists only people who turned the display on themselves, under their Telegram name; the display is
+off by default, and turning it off removes the person from both tables at once.
+_Avoid_: Leaderboard, league, tournament, grade, student ranking
+
+**Банк вопросов** (Question Bank):
+The author's whole set of Trainer questions and their topics, loaded into the bot by the owner's
+import. The bot never edits it; a new import replaces what people are shown.
+_Avoid_: Quiz, test, lesson check, question pool
+
+**Вопрос тренажёра** (Trainer Question):
+One question of the Банк вопросов with a permanent identifier, a topic, 2 to 4 options of which one
+or several are correct, an explanation of every option and a general explanation. A question that
+leaves the Bank is withdrawn from display and keeps the answers people gave to it.
+_Avoid_: Lesson question, task, exercise, poll

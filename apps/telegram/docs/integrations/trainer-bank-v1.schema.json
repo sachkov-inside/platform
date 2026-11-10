@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sachkov-inside/platform/blob/main/apps/telegram/docs/integrations/trainer-bank-v1.schema.json",
+  "title": "Файл Банка вопросов Тренажёра, версия 1",
+  "description": "Схема проверяет форму файла. Лимиты из x-limits и остальные правила импорт проверяет сам, они описаны в trainer-bank-v1.md.",
+  "x-limits": {
+    "topics": 9,
+    "topicNameCharacters": 40,
+    "questionTextCharacters": 160,
+    "optionTextsTogetherCharacters": 240,
+    "answerExplanationCharacters": 200,
+    "topicsDataBytes": 1024,
+    "progressDataBytes": 1024,
+    "questionDataBytes": 1024,
+    "answerExplanationDataBytes": 1024
+  },
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 1
+    },
+    "topics": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9a-z]{1,16}$",
+            "description": "Постоянный код темы. По нему вопросы ссылаются на тему."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Название темы, как его видит человек."
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Темы в том порядке, в котором их видит человек."
+    },
+    "questions": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+            "description": "Постоянный идентификатор вопроса. Не меняется при правке текста и не используется повторно."
+          },
+          "topic": {
+            "type": "string",
+            "description": "Код темы из списка topics."
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "single",
+              "multiple"
+            ],
+            "description": "single: ровно один верный вариант. multiple: не меньше двух верных вариантов."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Текст вопроса."
+          },
+          "options": {
+            "minItems": 2,
+            "maxItems": 4,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Текст варианта."
+                },
+                "correct": {
+                  "type": "boolean",
+                  "description": "Верный ли вариант."
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Разбор варианта. Человек видит его после ответа, если выбрал этот вариант."
+                }
+              },
+              "required": [
+                "text",
+                "correct",
+                "explanation"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Варианты в том порядке, в котором их видит человек."
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Общий разбор. Человек видит его после любого ответа."
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Источник, по которому проверен вопрос. Нужен автору, человеку не показывается."
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "description": "Дата проверки вопроса. Нужна автору, человеку не показывается."
+          }
+        },
+        "required": [
+          "id",
+          "topic",
+          "format",
+          "text",
+          "options",
+          "explanation",
+          "source",
+          "checkedAt"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "version",
+    "topics",
+    "questions"
+  ],
+  "additionalProperties": false
+}

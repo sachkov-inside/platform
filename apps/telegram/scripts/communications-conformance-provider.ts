@@ -13,7 +13,7 @@ import { createDatabase } from "../src/database/create-database.js";
 import { migrateToLatest } from "../src/database/migrator.js";
 import {
   TELEGRAM_MESSAGES,
-  type TelegramMessages,
+  type TelegramTextMessages,
 } from "../src/modules/outbound/telegram-messages.js";
 import { StartResponseDeliveryProcessor } from "../src/modules/outbound/start-response-delivery-processor.js";
 import { CLOCK } from "../src/shared/clock.js";
@@ -82,7 +82,7 @@ let outcome:
   "delivered";
 const sent: CommunicationMessage[] = [];
 const serviceMessages: string[] = [];
-const serviceTransport: TelegramMessages = {
+const serviceTransport: TelegramTextMessages = {
   sendText(message) {
     serviceMessages.push(message.text);
     return Promise.resolve({ kind: "delivered", providerMessageId: "123" });

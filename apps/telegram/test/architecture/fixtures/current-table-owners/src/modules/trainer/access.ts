@@ -1,0 +1,31 @@
+// CLI fixture: literal reads and writes remain with their table owner.
+export async function access(database: any) {
+  await database.selectFrom("trainer_openings").selectAll().execute();
+  await database.insertInto("trainer_openings").values({}).execute();
+  await database.updateTable("trainer_openings").set({}).execute();
+  await database.deleteFrom("trainer_openings").execute();
+  await database.selectFrom("trainer_questions").selectAll().execute();
+  await database.insertInto("trainer_questions").values({}).execute();
+  await database.updateTable("trainer_questions").set({}).execute();
+  await database.deleteFrom("trainer_questions").execute();
+  await database.selectFrom("trainer_topics").selectAll().execute();
+  await database.insertInto("trainer_topics").values({}).execute();
+  await database.updateTable("trainer_topics").set({}).execute();
+  await database.deleteFrom("trainer_topics").execute();
+  await database.selectFrom("trainer_rounds").selectAll().execute();
+  await database.insertInto("trainer_rounds").values({}).execute();
+  await database.updateTable("trainer_rounds").set({}).execute();
+  await database.deleteFrom("trainer_rounds").execute();
+  await database.selectFrom("trainer_issues").selectAll().execute();
+  await database.insertInto("trainer_issues").values({}).execute();
+  await database.updateTable("trainer_issues").set({}).execute();
+  await database.deleteFrom("trainer_issues").execute();
+  await database.selectFrom("trainer_daily_questions").selectAll().execute();
+  await database.insertInto("trainer_daily_questions").values({}).execute();
+  await database.updateTable("trainer_daily_questions").set({}).execute();
+  await database.deleteFrom("trainer_daily_questions").execute();
+  await database.selectFrom("trainer_rating_consents").selectAll().execute();
+  await database.insertInto("trainer_rating_consents").values({}).execute();
+  await database.updateTable("trainer_rating_consents").set({}).execute();
+  await database.deleteFrom("trainer_rating_consents").execute();
+}

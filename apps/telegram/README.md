@@ -238,6 +238,27 @@ back the shared runtime fixture's tables. Timeout cleanup cancels blocked migrat
 closing their pools and removing the owned database. Authoring cases cancel only their tagged fixture
 connections and join pending work before the next case truncates tables.
 
+## Trainer widget
+
+The Trainer runs inside a Telegram HTML widget ([ADR 0004](docs/adr/0004-trainer-html-widget.md)).
+Its source is `src/modules/trainer/widget/widget.css` and `widget.js`; the bot sends the checked-in
+`trainer-widget-html.generated.ts`. After changing the source, from the repository root:
+
+```bash
+pnpm --filter @inside/telegram trainer:widget:build
+pnpm --filter @inside/telegram test:widget
+```
+
+The first command rebuilds the generated module and prints the size against the 4 096-byte limit;
+`pnpm check` fails when the module is stale or too large. The second command opens the built widget
+in Playwright's Chromium with a stand-in `TelegramWidget` and checks every screen at 320, 390 and
+430 px. It needs `pnpm exec playwright install chromium` once. The widget browser suite also runs in root
+`pnpm check:ui`; Telegram-only `check:full` installs no browser.
+
+For an interactive local review of the actual widget and Trainer with a disposable synthetic Bank,
+run `pnpm --filter @inside/telegram trainer:review`. See the
+[acceptance guide](docs/operations/trainer-acceptance.md) for the walkthrough and remaining phone checks.
+
 Build the Telegram production image from the **root** context:
 
 ```bash

@@ -32,8 +32,8 @@ import {
 } from "../../src/modules/bot-sign-in/telegram-callback-answers.js";
 import type {
   TelegramDeliveryResult,
-  TelegramMessages,
   TelegramTextMessage,
+  TelegramTextMessages,
 } from "../../src/modules/outbound/telegram-messages.js";
 import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
 import { StartResponseDeliveryQueue } from "../../src/modules/outbound/start-response-delivery-queue.js";
@@ -822,7 +822,7 @@ async function resetTables(): Promise<void> {
   `.execute(database);
 }
 
-class ControlledMessages implements TelegramMessages {
+class ControlledMessages implements TelegramTextMessages {
   readonly sent: TelegramTextMessage[] = [];
 
   constructor(private readonly results: TelegramDeliveryResult[]) {}

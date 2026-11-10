@@ -11,6 +11,10 @@ import type {
 } from "../communications/author-input.js";
 import type { CommunityJoinRequest } from "../community/community-provider.js";
 import type { DurableMembershipEnvelope } from "../community/membership-event.js";
+import type {
+  TrainerOpening,
+  TrainerQuery,
+} from "../trainer/trainer-requests.js";
 
 /** Everything the application does with one Telegram update; the processor handles each kind. */
 export type TelegramUpdateCommand =
@@ -71,7 +75,9 @@ export type TelegramUpdateCommand =
       readonly value: AuthorInput;
       readonly intake?: TemplateIntake;
     }
-  | { readonly kind: "template-intake"; readonly value: TemplateIntake };
+  | { readonly kind: "template-intake"; readonly value: TemplateIntake }
+  | { readonly kind: "trainer-open"; readonly value: TrainerOpening }
+  | { readonly kind: "trainer-query"; readonly value: TrainerQuery };
 
 /** Reads raw Telegram updates; the transport adapter implements it. */
 export interface TelegramUpdateTranslator {

@@ -9,6 +9,10 @@
   and [accepted specification](docs/specifications/community-and-notifications-v1.md).
 - For author templates, communications API or authorization, read
   [communications integration](docs/integrations/communications-v1.md).
+- For the Trainer's Bank file or its import, read [Bank file contract](docs/integrations/trainer-bank-v1.md)
+  and [import runbook](docs/operations/trainer-bank.md).
+- For the author's Trainer reports on questions and usage, read
+  [reports runbook](docs/operations/trainer-reports.md).
 - For sales funnel events and consent, read [sales funnel integration](docs/integrations/sales-funnel-events-v1.md).
 - For credentialed proof and unresolved setup inputs, read [seed decisions](docs/decisions/seed-decisions.md).
 - For durable documentation changes, read [application documentation routing](docs/agents/documentation-maintenance.md).

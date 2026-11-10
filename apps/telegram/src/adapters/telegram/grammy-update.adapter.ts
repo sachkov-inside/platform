@@ -4,6 +4,7 @@ import type { AccessAction } from "../../modules/course-activation/course-activa
 import { createHash } from "node:crypto";
 
 import type { Update } from "grammy/types";
+import { z } from "zod";
 
 import type {
   TelegramUserProfile,
@@ -13,6 +14,8 @@ import type {
 import type { CommunityJoinRequest } from "../../modules/community/community-provider.js";
 import type { DurableMembershipEnvelope } from "../../modules/community/membership-event.js";
 import type { VerifiedSignInDecision } from "../../modules/bot-sign-in/bot-sign-in.js";
+import type { TrainerQuery } from "../../modules/trainer/trainer-requests.js";
+import { TELEGRAM_WIDGET_REQUEST_MAX_BYTES } from "../../modules/trainer/widget/trainer-widget-limits.js";
 import type {
   TelegramUpdateCommand,
   TelegramUpdateTranslator,
@@ -24,6 +27,15 @@ import { telegramUserProfile } from "./telegram-user-profile.js";
 
 const LINK_TOKEN_FIELD = "_inside_link_token";
 const SIGN_IN_TOKEN_FIELD = "_inside_sign_in_token";
+const TRAINER_FIELD = "_inside_trainer";
+// `/start train` opens the Trainer; `/start train_<label>` also names the source of the link.
+/** Short command links must not overlap the legacy 43-character link token. */
+const LEGACY_LINK_MIN_LENGTH = 43;
+
+// The whole payload stays under 43 characters, the shortest legacy link token, which leaves
+// 36 characters for the label.
+const TRAINER_LINK = /^train(?:_([\s\S]*))?$/;
+const TRAINER_SOURCE = /^[A-Za-z0-9_-]{1,36}$/;
 
 export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
   if (!isRecord(payload) || !isRecord(payload["message"])) {
@@ -36,6 +48,7 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
   delete message["_inside_marketing_source"];
   delete message["_inside_activation"];
   delete message["_inside_invitation"];
+  Reflect.deleteProperty(message, TRAINER_FIELD);
   const text = message["text"];
   if (typeof text !== "string") {
     return { ...payload, message };
@@ -46,7 +59,10 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
     return { ...payload, message };
   }
 
-  if (start.argument.startsWith("a_") && start.argument.length < 43) {
+  if (
+    start.argument.startsWith("a_") &&
+    start.argument.length < LEGACY_LINK_MIN_LENGTH
+  ) {
     return {
       ...payload,
       message: {
@@ -65,7 +81,10 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
     return { ...payload, message: { ...message, text: start.command } };
   }
   // Never reinterpret any legacy auth token, including ones starting with m_.
-  if (start.argument.startsWith("m_") && start.argument.length < 43) {
+  if (
+    start.argument.startsWith("m_") &&
+    start.argument.length < LEGACY_LINK_MIN_LENGTH
+  ) {
     return {
       ...payload,
       message: {
@@ -75,10 +94,27 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
       },
     };
   }
+  const trainer = TRAINER_LINK.exec(start.argument);
+  if (trainer && start.argument.length < LEGACY_LINK_MIN_LENGTH) {
+    const source = trainer[1];
+    return {
+      ...payload,
+      message: {
+        ...message,
+        text: start.command,
+        // A label outside the link alphabet is dropped; the link still opens the Trainer.
+        [TRAINER_FIELD]: {
+          source:
+            source !== undefined && TRAINER_SOURCE.test(source) ? source : null,
+        },
+      },
+    };
+  }
   // Legacy linking accepts every base64url payload of 43–64 characters, including this prefix.
   // Reserve a shorter namespace so existing valid link tokens keep their exact meaning.
   const signIn =
-    start.argument.startsWith("signin_") && start.argument.length < 43;
+    start.argument.startsWith("signin_") &&
+    start.argument.length < LEGACY_LINK_MIN_LENGTH;
   const argument = signIn ? start.argument.slice(7) : start.argument;
   const valid = signIn
     ? /^[A-Za-z0-9_-]{35}$/.test(argument)
@@ -239,8 +275,41 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
         },
       };
     }
+    const trainer = this.privateCommand(
+      /^(\/train(?:@[A-Za-z0-9_]+)?|Тренажёр)$/,
+      botIdentity,
+      updateId,
+      update,
+      observedAt,
+    );
+    if (trainer) {
+      return {
+        kind: "trainer-open",
+        value: {
+          contact: trainer.contact,
+          entry: trainer.match[0].startsWith("/") ? "command" : "menu",
+        },
+      };
+    }
+    const trainerQuery = privateWidgetQuery(
+      botIdentity,
+      updateId,
+      payload["widget_query"],
+      observedAt,
+    );
+    if (trainerQuery) return { kind: "trainer-query", value: trainerQuery };
     const start = this.privateStart(botIdentity, updateId, update, observedAt);
     if (start) {
+      const link = trainerLink(update.message);
+      if (link)
+        return {
+          kind: "trainer-open",
+          value: {
+            contact: start.contact,
+            entry: "link",
+            ...(link.source === null ? {} : { source: link.source }),
+          },
+        };
       return { kind: "start", value: start };
     }
 
@@ -515,6 +584,63 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
       ...senderProfile(from),
     };
   }
+}
+
+const trainerLinkMarker = z.object({ source: z.string().nullable() });
+
+/** The marker the webhook stored instead of a Trainer link's payload. */
+function trainerLink(
+  message: unknown,
+): z.infer<typeof trainerLinkMarker> | undefined {
+  return isRecord(message)
+    ? trainerLinkMarker.safeParse(message[TRAINER_FIELD]).data
+    : undefined;
+}
+
+// grammY 1.46.0 has no `widget_query` in Update (Bot API 10.4), so the field is read as unknown.
+// Only an ordinary data request of the person's own private chat is a Trainer query: wallet
+// requests, groups and inline messages carry other shapes and are ignored.
+const widgetQuery = z.object({
+  id: z.string().min(1).max(128),
+  from: z.object({
+    id: z.number(),
+    is_bot: z.literal(false),
+    first_name: z.unknown().optional(),
+    last_name: z.unknown().optional(),
+    username: z.unknown().optional(),
+  }),
+  chat: z.object({ id: z.number(), type: z.literal("private") }),
+  type: z.object({ type: z.literal("data") }),
+  data: z.string().min(1),
+});
+
+function privateWidgetQuery(
+  botIdentity: string,
+  updateId: string,
+  value: unknown,
+  observedAt: Date,
+): TrainerQuery | undefined {
+  const query = widgetQuery.safeParse(value).data;
+  const telegramUserId = telegramId(query?.from.id);
+  if (
+    !query ||
+    !hasText(telegramUserId) ||
+    telegramUserId !== telegramId(query.chat.id) ||
+    Buffer.byteLength(query.data, "utf8") > TELEGRAM_WIDGET_REQUEST_MAX_BYTES
+  )
+    return undefined;
+  return {
+    contact: {
+      botIdentity,
+      observedAt,
+      privateChatId: telegramUserId,
+      telegramUserId,
+      updateId,
+      ...senderProfile(query.from),
+    },
+    queryId: query.id,
+    data: query.data,
+  };
 }
 
 function parseStart(
