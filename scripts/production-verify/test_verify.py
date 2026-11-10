@@ -20,6 +20,9 @@ class TelegramWebhookTests(unittest.TestCase):
                         {'path': '/other'}, {'hasPinnedIp': False}, {'pending': 1},
                         {'lastError': True}, {'allowedUpdates': ['message']},
                         {'allowedUpdates': current['allowedUpdates'] + ['poll']},
+                        {'allowedUpdates': dict.fromkeys(current['allowedUpdates'])},
+                        {'allowedUpdates': None}, {'allowedUpdates': ['message', 1]},
+                        {'allowedUpdates': current['allowedUpdates'] + ['message']},
                         {'requiredUpdates': []}, {'requiredUpdates': None}]:
             with self.subTest(invalid=invalid):
                 self.assertEqual(verify_telegram_webhook({**current, **invalid})['status'], 'failed')

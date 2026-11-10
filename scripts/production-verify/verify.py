@@ -247,15 +247,18 @@ def telegram_error_check(status, values):
 
 def verify_telegram_webhook(webhook):
     # The immutable deployed image owns its subscription, including older releases.
+    def valid_updates(value):
+        return (isinstance(value, list) and len(value) > 0 and
+                all(isinstance(name, str) and name for name in value) and
+                len(set(value)) == len(value))
+
     required = webhook.get('requiredUpdates')
-    valid_required = (isinstance(required, list) and len(required) > 0 and
-                      all(isinstance(name, str) and name for name in required) and
-                      len(set(required)) == len(required))
+    allowed = webhook.get('allowedUpdates')
     return check('Telegram webhook', webhook['protocol'] == 'https:' and webhook['host'] == 'telegram.sachkov.dev' and
                  webhook['port'] in ['', '88'] and webhook['path'] == '/webhooks/telegram' and
                  webhook['hasPinnedIp'] is True and webhook['pending'] == 0 and
-                 webhook['lastError'] is False and valid_required and
-                 sorted(webhook['allowedUpdates']) == sorted(required),
+                 webhook['lastError'] is False and valid_updates(required) and valid_updates(allowed) and
+                 sorted(allowed) == sorted(required),
                  'direct HTTPS or existing relay registration, allowed updates, no pending/errors; never setWebhook')
 
 
