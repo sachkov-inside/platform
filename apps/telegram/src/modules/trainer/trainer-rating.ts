@@ -162,7 +162,7 @@ export class TrainerRating {
       .select([
         "consent.display_name as name",
         sql<number>`(row_number() over (
-          order by count(*) desc, max(issue.answered_at), issue.telegram_user_id
+          order by count(*) desc, max(issue.completed_at), issue.telegram_user_id
         ))::integer`.as("place"),
       ]);
   }

@@ -36,7 +36,7 @@ describe("trainer widget wire format", () => {
       options: 4,
       explanation: 200,
       topicName: 40,
-      topics: 9,
+      topics: 64,
     });
   });
 

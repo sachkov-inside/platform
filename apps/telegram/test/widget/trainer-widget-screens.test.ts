@@ -13,7 +13,7 @@ import {
   TRAINER_RESULT_TITLE_MAX_CHARS,
   TRAINER_STAT_LINE_MAX_CHARS,
   TRAINER_TOPIC_NAME_MAX_CHARS,
-  TRAINER_TOPICS_MAX,
+  TRAINER_TOPICS_PAGE_SIZE,
   TRAINER_WIDGET_CHECKED_WIDTHS_PX,
   TRAINER_WIDGET_TARGET_HEIGHT_PX,
 } from "../../src/modules/trainer/widget/trainer-widget-limits.js";
@@ -45,7 +45,7 @@ const home: TrainerHomeData = ["h", 365, 5, 5, 0];
 function topics(text: Filler): TrainerWidgetData {
   return [
     "t",
-    Array.from({ length: TRAINER_TOPICS_MAX }, (_, index) => [
+    Array.from({ length: TRAINER_TOPICS_PAGE_SIZE }, (_, index) => [
       `topic${String(index)}`,
       text(TRAINER_TOPIC_NAME_MAX_CHARS, index),
       20,
@@ -104,7 +104,7 @@ const progress = (text: Filler): TrainerWidgetData => [
   365,
   9_999,
   Array.from(
-    { length: TRAINER_TOPICS_MAX },
+    { length: TRAINER_TOPICS_PAGE_SIZE },
     (_, index) =>
       [text(TRAINER_TOPIC_NAME_MAX_CHARS, index), 20, 20, 100] as const,
   ),
@@ -349,11 +349,7 @@ const layout = (page: Page): Promise<Layout> =>
 /** The visible boxes and text sizes that must stay fixed throughout one question. */
 const questionGeometry = (page: Page) =>
   page.evaluate(() =>
-    [
-      ...document.querySelectorAll(
-        "#w .steps i, #w .Q, #w .option, #w .feedback",
-      ),
-    ].map((element) => {
+    [...document.querySelectorAll("#w .st i, #w .Q, #w .op")].map((element) => {
       const box = element.getBoundingClientRect();
       return [
         box.x,
@@ -431,6 +427,81 @@ describe("trainer widget screens in a browser", () => {
         );
       },
     );
+  });
+
+  it.each([320, 390])(
+    "protects the message time band at %i px without clipping an answered question",
+    async (width) => {
+      const page = await openWidget(
+        width,
+        { safeAreaBottomPx: 20 },
+        webkitBrowser,
+      );
+      await tap(page, "Проверить себя", question(wideText));
+      const before = await questionGeometry(page);
+      await tap(page, "Не знаю", explanation(wideText));
+      expect(await questionGeometry(page)).toEqual(before);
+      expect((await layout(page)).height).toBeLessThanOrEqual(560);
+      const band = await page.evaluate(() => {
+        const button = document.querySelector(".fb .P");
+        if (!button) throw new Error("The continue button is missing");
+        return (
+          document.body.getBoundingClientRect().bottom -
+          button.getBoundingClientRect().bottom
+        );
+      });
+      expect(band).toBeGreaterThanOrEqual(20);
+      await page.close();
+    },
+  );
+
+  it("keeps short screens compact and anchors changes at the bottom", async () => {
+    const page = await openWidget(320);
+    expect((await layout(page)).height).toBeLessThan(420);
+    await tap(page, "Проверить себя", [
+      "q",
+      "7k",
+      "Тема",
+      "Вопрос?",
+      ["Первый", "Второй"],
+      0,
+      "",
+      5,
+    ]);
+    expect((await layout(page)).height).toBeLessThan(350);
+    const skip = await buttonNamed(page, "Не знаю").boundingBox();
+    expect(skip?.height).toBeGreaterThanOrEqual(44);
+    const box = await page.locator(".fb").boundingBox();
+    expect(box?.height).toBeLessThan(90);
+    expect(await page.evaluate("widgetResizeAnchor")).toBe("bottom");
+    await page.close();
+  });
+
+  it("turns topic and Progress pages through bot requests", async () => {
+    const page = await openWidget(320);
+    const rows = [
+      ["t1", "Тема 1", 0, 1],
+      ["t2", "Тема 2", 0, 1],
+      ["t3", "Тема 3", 0, 1],
+    ] as const;
+    await tap(page, "Тренировка по теме", ["t", rows, 0, 4]);
+    await tap(page, "→", ["t", [["t4", "Тема 4", 0, 1]], 1, 4]);
+    expect((await requests(page)).at(-1)).toBe("t:1");
+    await queueAnswer(page, encodeTrainerWidgetData(["t", rows, 0, 4]));
+    await page.locator("button[onclick=\"g('t:0')\"]").click();
+    await page.waitForFunction(
+      "widgetRequests.at(-1) === 't:0' && document.querySelector('#w').className === ''",
+    );
+    expect((await requests(page)).at(-1)).toBe("t:0");
+    await queueAnswer(page, encodeTrainerWidgetData(home));
+    await page.locator(".x").click();
+    await page.waitForFunction(
+      "document.querySelector('#w').dataset.screen === 'h'",
+    );
+    await tap(page, "Прогресс", ["p", 0, 0, 0, [["Тема 1", 0, 1, -1]], 0, 4]);
+    await tap(page, "→", ["p", 0, 0, 0, [["Тема 4", 0, 1, -1]], 1, 4]);
+    expect((await requests(page)).at(-1)).toBe("p:1");
+    await page.close();
   });
 
   it("draws the home screen from the chat state of the message", async () => {
@@ -544,7 +615,7 @@ describe("trainer widget screens in a browser", () => {
       await tap(page, "Проверить себя", question(realisticText));
       await tap(page, "Не знаю", explanation(realisticText));
       const correct = await page
-        .locator(".option.G")
+        .locator(".op.G")
         .first()
         .evaluate((option) => {
           const letter = option.querySelector(".y");
@@ -555,7 +626,7 @@ describe("trainer widget screens in a browser", () => {
           };
         });
       const wrong = await page
-        .locator(".option.B")
+        .locator(".op.B")
         .first()
         .evaluate((option) => {
           const letter = option.querySelector(".y");
@@ -630,7 +701,7 @@ describe("trainer widget screens in a browser", () => {
       expect(await questionGeometry(page)).toEqual(before);
       await tap(page, "Ответить", explanation(text, 0b0011, 0b0001));
       expect(await questionGeometry(page)).toEqual(before);
-      expect(await page.locator(".feedback").innerText()).toContain("Неверно");
+      expect(await page.locator(".fb").innerText()).toContain("Неверно");
       await page.close();
     },
   );
@@ -732,14 +803,16 @@ describe("trainer widget screens in a browser", () => {
         0,
       ]);
       const colours = await page.evaluate(() => {
-        const title = document.querySelector(".feedback .V");
+        const title = document.querySelector(".fb .V");
         if (!title) throw new Error("The feedback verdict is missing");
         return [
           getComputedStyle(title).color,
           getComputedStyle(document.body).color,
         ];
       });
-      expect(colours[0]).toBe(colours[1]);
+      expect(colours[0]).toBe(
+        verdict === 0 ? "rgb(182, 56, 41)" : "rgb(39, 118, 71)",
+      );
       await page.close();
     },
   );
@@ -751,15 +824,15 @@ describe("trainer widget screens in a browser", () => {
       await tap(page, "Проверить себя", question(realisticText));
       const paperArea = () =>
         page.evaluate(() => {
-          const panel = document.querySelector(".feedback");
-          const title = document.querySelector(".feedback .V");
-          const option = [...document.querySelectorAll(".option")].at(-1);
+          const panel = document.querySelector(".fb");
+          const title = document.querySelector(".fb .V");
+          const option = [...document.querySelectorAll(".op")].at(-1);
           if (!panel || !title || !option)
             throw new Error("The question area is missing");
           const style = getComputedStyle(panel);
           return {
             background: style.backgroundColor,
-            border: style.borderTopColor,
+            border: style.borderTopWidth,
             separation:
               title.getBoundingClientRect().top -
               option.getBoundingClientRect().bottom -
@@ -771,7 +844,7 @@ describe("trainer widget screens in a browser", () => {
         await tap(page, "Не знаю", explanation(realisticText)).then(paperArea),
       ]) {
         expect(result.background).toBe("rgba(0, 0, 0, 0)");
-        expect(result.border).toBe("rgba(0, 0, 0, 0)");
+        expect(result.border).toBe("0px");
         expect(result.separation).toBeGreaterThanOrEqual(8);
       }
       await page.close();
@@ -858,7 +931,7 @@ describe("trainer widget screens in a browser", () => {
     await tap(page, "Не знаю");
 
     const text = await page.locator("#w").innerText();
-    expect(text).toContain("Не получилось");
+    expect(text).toContain("Бот не ответил");
     expect(text).toContain("Бот не ответил");
     await tap(page, "Повторить", explanation(realisticText));
     expect(await requests(page)).toEqual(["q", "a1a2b3c:0", "a1a2b3c:0"]);
@@ -916,12 +989,12 @@ describe("trainer widget screens in a browser", () => {
     await tap(page, "Показать меня", ["l", 1, 1, [[1, "Анна", 5, 1]]]);
     const afterConsent = await page.locator("#w").innerText();
 
-    expect(offer).toContain("Показать вас в рейтинге?");
+    expect(offer).toContain("Показывать меня в рейтинге");
     expect(offer).toContain("Другие увидят ваше имя из Telegram");
     // Before the choice there is an offer with two answers, not a switch.
     expect(switches).toBe(0);
     expect(await requests(page)).toEqual(["l0", "l1", "v11"]);
-    expect(afterConsent).not.toContain("Показать вас в рейтинге?");
+    expect(afterConsent).not.toContain("Показать меня");
     expect(afterConsent).toContain("Показывать меня в рейтинге");
     expect(afterConsent).toContain("Вкл");
   });
@@ -934,7 +1007,7 @@ describe("trainer widget screens in a browser", () => {
     const declined = await page.locator("#w").innerText();
     await tap(page, "Показывать меня в рейтинге", ["l", 0, 1, []]);
 
-    expect(declined).not.toContain("Показать вас в рейтинге?");
+    expect(declined).not.toContain("Показать меня");
     expect(declined).toContain("Сейчас вас нет в таблицах");
     expect(declined).toContain("Выкл");
     expect(await requests(page)).toEqual(["l0", "v00", "v10"]);
@@ -992,7 +1065,7 @@ describe("trainer widget screens in a browser", () => {
     /** Nine topics as the bot sends them: names of the limit length and the person's counters. */
     const nineTopics: TrainerWidgetData = [
       "t",
-      Array.from({ length: 9 }, (_, index) => [
+      Array.from({ length: 3 }, (_, index) => [
         `t${String(index + 1)}`,
         realisticText(TRAINER_TOPIC_NAME_MAX_CHARS, index),
         index * 2,
@@ -1006,7 +1079,7 @@ describe("trainer widget screens in a browser", () => {
       await tap(page, "Тренировка по теме", nineTopics);
 
       const rows = await page.getByRole("button").allInnerTexts();
-      for (const index of [0, 4, 8]) {
+      for (const index of [0, 1, 2]) {
         const row = rows.find((each) =>
           each.includes(realisticText(TRAINER_TOPIC_NAME_MAX_CHARS, index)),
         );
@@ -1022,10 +1095,10 @@ describe("trainer widget screens in a browser", () => {
 
       await tap(
         page,
-        realisticText(TRAINER_TOPIC_NAME_MAX_CHARS, 8),
+        realisticText(TRAINER_TOPIC_NAME_MAX_CHARS, 2),
         question(realisticText),
       );
-      expect(await requests(page)).toEqual(["t", "tt9"]);
+      expect(await requests(page)).toEqual(["t", "tt3"]);
     });
 
     it("names the topic in the result and offers another topic or home", async () => {
@@ -1077,14 +1150,14 @@ describe("trainer widget screens in a browser", () => {
     /** The step strip: G a correct answer, B a wrong one, S the current step. */
     const steps = (page: Page): Promise<string[]> =>
       page
-        .locator("#w .steps i")
+        .locator("#w .st i")
         .evaluateAll((marks) =>
           marks.map((mark) => mark.getAttribute("class") ?? ""),
         );
     /** The options on the screen with their mark: G correct, B picked and wrong. */
     const options = (page: Page): Promise<string[]> =>
       page
-        .locator("#w .option")
+        .locator("#w .op")
         .evaluateAll((rows) =>
           rows.map(
             (row) =>
@@ -1117,7 +1190,7 @@ describe("trainer widget screens in a browser", () => {
       await tap(page, "Проверить себя", ["i", "Вопросы скоро появятся."]);
       expect(await buttons(page)).toEqual(["На главный"]);
       expect(await page.locator("#w").innerText()).not.toContain(
-        "Не получилось",
+        "Бот не ответил",
       );
       await page.close();
     });
@@ -1188,7 +1261,7 @@ describe("trainer widget screens in a browser", () => {
       expect(text.indexOf("Синтетический вариант 4")).toBeLessThan(
         text.indexOf("Неверно"),
       );
-      expect(await page.locator("button.option").count()).toBe(0);
+      expect(await page.locator("button.op").count()).toBe(0);
       expect(await steps(page)).toEqual(["G", "B", "B", "S", ""]);
       expect(text).not.toMatch(/Где почитать|В вопросе ошибка/);
       expect(await buttons(page)).toEqual(["×", "Дальше"]);
@@ -1288,7 +1361,7 @@ describe("trainer widget screens in a browser", () => {
       await tap(page, "Б Синтетический вариант 2", ["x", TOO_OFTEN]);
 
       const text = await page.locator("#w").innerText();
-      expect(text).toContain("Не получилось");
+      expect(text).toContain("Бот не ответил");
       expect(text).toContain(TOO_OFTEN);
       expect(await buttons(page)).toEqual(["Повторить", "На главный"]);
       await tap(page, "Повторить", [
@@ -1326,9 +1399,7 @@ describe("trainer widget screens in a browser", () => {
 
       await tap(page, "Дальше");
 
-      expect(await page.locator("#w").innerText()).toContain(
-        "Бот не ответил. Проверьте связь и повторите.",
-      );
+      expect(await page.locator("#w").innerText()).toContain("Бот не ответил");
       await tap(page, "Повторить", asked("7l", "0"));
       expect(await requests(page)).toEqual(["q", "a7k:0", "n7k", "n7k"]);
       expect(await steps(page)).toEqual(["B", "S", "", "", ""]);

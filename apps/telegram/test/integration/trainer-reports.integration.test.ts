@@ -216,7 +216,7 @@ async function playRound(user: number, wrongTopic?: string): Promise<void> {
 
 /** Starts «Проверить себя» and answers its first question. */
 async function answerOneQuestion(user: number): Promise<void> {
-  const [kind, issueId] = await tap(user, "q");
+  const [kind, issueId] = await tap(user, "tt1");
   expect(kind).toBe("q");
   expect((await tap(user, `a${String(issueId)}:1`))[0]).toBe("e");
 }
@@ -298,7 +298,7 @@ describe("the questions report", () => {
     });
   });
 
-  it("counts «Не знаю» as a wrong answer and leaves out a question that was shown and not answered", async () => {
+  it("leaves every answer of an unfinished round out of the reports", async () => {
     const user = newUser();
     const [, issueId] = await tap(user, "q");
     await tap(user, `a${String(issueId)}:0`);
@@ -318,7 +318,7 @@ describe("the questions report", () => {
       [0, 0],
       [0, 0],
       [0, 0],
-      [1, 0],
+      [0, 0],
     ]);
   });
 });

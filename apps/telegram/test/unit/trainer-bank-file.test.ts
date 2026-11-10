@@ -53,16 +53,12 @@ describe("Bank file check", () => {
     });
   });
 
-  it("rejects a topics screen above 1024 UTF-8 bytes even inside character limits", () => {
+  it("accepts wide topic names when each page fits the wire budget", () => {
     const bank = syntheticTrainerBank({ topics: 9, questionsPerTopic: 1 });
     bank.topics.forEach((topic) => {
       topic.name = "界".repeat(40);
     });
-    expect(
-      errorsOf(bank).some(
-        (error) => error.field === "topics" && error.reason.includes("1024"),
-      ),
-    ).toBe(true);
+    expect(readTrainerBankFile(bank).status).toBe("valid");
   });
 
   it("rejects a file that is not a bank", () => {
@@ -286,7 +282,7 @@ describe("Bank file check", () => {
   });
 
   it("rejects more topics than one screen shows, a repeated topic code and a long topic name", () => {
-    const tooMany = syntheticTrainerBank({ topics: 10, questionsPerTopic: 1 });
+    const tooMany = syntheticTrainerBank({ topics: 65, questionsPerTopic: 1 });
     const repeated = syntheticTrainerBank({ topics: 2, questionsPerTopic: 1 });
     const [first, second] = repeated.topics;
     if (first && second) second.code = first.code;
@@ -294,7 +290,7 @@ describe("Bank file check", () => {
     if (longName.topics[0]) longName.topics[0].name = "я".repeat(41);
 
     expect(errorsOf(tooMany)).toEqual([
-      { field: "topics", reason: "Тем в файле 10, лимит 9." },
+      { field: "topics", reason: "Тем в файле 65, лимит 64." },
     ]);
     expect(errorsOf(repeated)).toContainEqual({
       topic: "t1",

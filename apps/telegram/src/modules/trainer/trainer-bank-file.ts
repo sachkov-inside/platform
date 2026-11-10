@@ -10,6 +10,7 @@ import {
   TRAINER_QUESTION_MAX_CHARS,
   TRAINER_TOPIC_NAME_MAX_CHARS,
   TRAINER_TOPICS_MAX,
+  TRAINER_TOPICS_PAGE_SIZE,
 } from "./widget/trainer-widget-limits.js";
 import {
   trainerExplanationDataBytes,
@@ -219,45 +220,50 @@ function topicErrors(bank: TrainerBankFile): TrainerBankFileError[] {
       field: "topics",
       reason: `Тем в файле ${String(bank.topics.length)}, лимит ${String(TRAINER_TOPICS_MAX)}.`,
     });
-  const topicsScreen = [
-    "t",
-    bank.topics.map(({ code, name }) => {
-      const total = bank.questions.filter((q) => q.topic === code).length;
-      return [code, name, total, total];
-    }),
-  ];
-  const bytes = utf8ByteLength(JSON.stringify(topicsScreen));
-  if (bytes > TELEGRAM_WIDGET_DATA_MAX_BYTES)
-    errors.push({
-      field: "topics",
-      reason: over(
-        "Экран тем",
-        "байтов",
-        bytes,
-        TELEGRAM_WIDGET_DATA_MAX_BYTES,
-      ),
-    });
-  const progressScreen = [
-    "p",
-    Number.MAX_SAFE_INTEGER,
-    Number.MAX_SAFE_INTEGER,
-    Number.MAX_SAFE_INTEGER,
-    bank.topics.map(({ code, name }) => {
-      const total = bank.questions.filter((q) => q.topic === code).length;
-      return [name, total, total, 100];
-    }),
-  ];
-  const progressBytes = utf8ByteLength(JSON.stringify(progressScreen));
-  if (progressBytes > TELEGRAM_WIDGET_DATA_MAX_BYTES)
-    errors.push({
-      field: "topics",
-      reason: over(
-        "Экран Прогресса",
-        "байтов",
-        progressBytes,
-        TELEGRAM_WIDGET_DATA_MAX_BYTES,
-      ),
-    });
+  for (
+    let start = 0;
+    start < bank.topics.length;
+    start += TRAINER_TOPICS_PAGE_SIZE
+  ) {
+    const topics = bank.topics.slice(start, start + TRAINER_TOPICS_PAGE_SIZE);
+    const pages = Math.ceil(bank.topics.length / TRAINER_TOPICS_PAGE_SIZE);
+    const page = start / TRAINER_TOPICS_PAGE_SIZE;
+    const counts = topics.map(({ code, name }) => ({
+      code,
+      name,
+      total: bank.questions.filter((q) => q.topic === code).length,
+    }));
+    const screens = [
+      [
+        "t",
+        counts.map(({ code, name, total }) => [code, name, total, total]),
+        page,
+        pages,
+      ],
+      [
+        "p",
+        Number.MAX_SAFE_INTEGER,
+        Number.MAX_SAFE_INTEGER,
+        Number.MAX_SAFE_INTEGER,
+        counts.map(({ name, total }) => [name, total, total, 100]),
+        page,
+        pages,
+      ],
+    ];
+    for (const screen of screens) {
+      const bytes = utf8ByteLength(JSON.stringify(screen));
+      if (bytes > TELEGRAM_WIDGET_DATA_MAX_BYTES)
+        errors.push({
+          field: "topics",
+          reason: over(
+            screen[0] === "t" ? "Экран тем" : "Экран Прогресса",
+            "байтов",
+            bytes,
+            TELEGRAM_WIDGET_DATA_MAX_BYTES,
+          ),
+        });
+    }
+  }
   const used = new Set(bank.questions.map(({ topic }) => topic));
   const seen = new Set<string>();
   for (const { code, name } of bank.topics) {

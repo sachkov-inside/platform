@@ -76,17 +76,12 @@ function person(firstName: string, lastName?: string): number {
   return user;
 }
 
-/**
- * The person starts «Проверить себя» and answers its first questions correctly, each for a
- * point; the rest of the round stays unanswered.
- */
+/** Earns points in a completed round; remaining answers are wrong. */
 async function earn(user: number, points: number): Promise<void> {
-  const { tap } = trainer();
-  let screen = await tap(user, "q");
-  for (let step = 1; step <= points; step += 1) {
-    expect((await tap(user, right(asked(screen))))[1]).toBe(2);
-    if (step < points) screen = await tap(user, "n");
-  }
+  const result = await trainer().playRound(user, (question, step) =>
+    step <= points ? right(question) : wrong(question),
+  );
+  expect(result[5]).toBe(points);
 }
 
 /** What the bot keeps about showing people in the Rating. */
@@ -210,7 +205,11 @@ describe("the Rating", () => {
     const sunday = await tap(anna, "l0");
     // Boris gets his question on Sunday and answers at Monday 00:00:00.
     nextPressAt("2026-10-11T23:59:58");
-    await earn(boris, 1);
+    const borisRound = asked(await tap(boris, "q"));
+    nextPressAt("2026-10-12T00:00:00");
+    await tap(boris, right(borisRound));
+    for (let step = 1; step < 5; step += 1)
+      await tap(boris, wrong(asked(await tap(boris, "n"))));
     const monday = await tap(boris, "v10");
     const mondayOfAnna = await tap(anna, "l0");
     const allTime = await tap(anna, "l1");

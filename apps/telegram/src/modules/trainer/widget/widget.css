@@ -18,12 +18,12 @@ body {
   width: 100%;
   vertical-align: top;
   /* The band of the message time is 0 while the message has a caption below the widget. */
-  padding: 0 0 env(safe-area-inset-bottom);
+  padding: 0 0
+    var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom));
   --a: #c7461e;
   --d: #8b3115;
   --f: #fff7ed;
   --t: #ffdfbd;
-  --l: #472719;
   --s: #ffefdc;
   --h: #80513b;
   --p: #fff8ef;
@@ -41,20 +41,14 @@ body {
 #w {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   padding: 12px 16px 16px 12px;
-  font-size: var(--tg-text-font-size, 15px);
-  line-height: 1.35;
-  font-family: system-ui, sans-serif;
+  font:
+    var(--tg-text-font-size, 15px) / 1.35 system-ui,
+    sans-serif;
 }
-/* A question reserves its panel within Telegram's height, including wide answer texts. */
-#w[data-screen="q"],
-#w[data-screen="e"] {
-  padding-top: 3px;
-  padding-bottom: 3px;
-}
-/* .waiting: a request to the bot is in flight. */
-.waiting {
+/* .wt: a request to the bot is in flight. */
+.wt {
   opacity: 0.5;
   pointer-events: none;
 }
@@ -70,7 +64,7 @@ button {
   text-align: left;
 }
 
-/* Helpers: .R row, .F takes the free width, .muted muted small text, .C centred block. */
+/* Helpers: .R row, .F takes the free width, .mu muted small text, .C centred block. */
 .R {
   display: flex;
   align-items: center;
@@ -80,7 +74,7 @@ button {
   flex: 1;
   min-width: 0;
 }
-.muted {
+.mu {
   color: var(--h);
   font-size: 0.85em;
 }
@@ -93,45 +87,43 @@ button {
   --c: var(--a);
 }
 .G {
-  --c: var(--a);
+  --c: #277647;
 }
 .B {
-  --c: var(--h);
+  --c: #b63829;
 }
 
-/* Pressable surfaces: .card card, .option option, .button button; .P primary. */
-.card,
-.option,
-.button {
-  border: 2px solid var(--l);
+/* Pressable surfaces: .cd card, .op option, .bt button; .P primary. */
+.cd,
+.op,
+.bt {
+  border: 2px solid var(--v);
   border-radius: 8px;
   background: var(--s);
   box-shadow: 4px 4px 0 var(--j);
   padding: 7px 10px;
   min-height: 44px;
 }
-.card:active,
-.option:active,
-.button:active {
-  transform: translate(3px, 3px);
-  box-shadow: 1px 1px 0 var(--j);
+.cd:active,
+.op:active,
+.bt:active {
+  transform: translate(2px, 2px);
 }
-.card {
+.cd {
   min-height: 58px;
 }
-.card b,
-.card .muted {
+.cd b,
+.cd .mu {
   display: block;
 }
-.card em,
-.chip {
+.cd em,
+.ch {
   color: var(--a);
   font-size: 0.85em;
   font-weight: 600;
   font-style: normal;
-  white-space: nowrap;
 }
-.button {
+.bt {
   flex: 1;
   font-weight: 700;
   text-align: center;
@@ -141,16 +133,13 @@ button {
   border-color: var(--d);
   color: var(--f);
 }
-.P .muted {
-  color: inherit;
-}
-.button:disabled {
+.bt:disabled {
   background: var(--s);
-  border-color: var(--l);
+  border-color: var(--v);
   color: var(--h);
 }
 
-/* Home: .U title, .chip series chip, .T progress track. */
+/* Home: .U title, .ch series chip, .T progress track. */
 /* .a gives every home button the accent bottom edge and the home title its colour. */
 .a {
   border-bottom-color: var(--a);
@@ -162,23 +151,23 @@ button {
   font-size: 1.4em;
   font-weight: 800;
 }
-.chip {
+.ch {
   color: var(--v);
   padding: 4px 7px;
-  border: 2px solid var(--l);
+  border: 2px solid var(--v);
   border-radius: 4px;
   box-shadow: 2px 2px 0 var(--j);
   background: var(--t);
 }
 .T {
   height: 12px;
-  border: 2px solid var(--l);
+  border: 2px solid var(--v);
   background: var(--s);
   overflow: hidden;
 }
 .T,
 .T i,
-.steps i {
+.st i {
   border-radius: 3px;
 }
 .T i {
@@ -187,33 +176,34 @@ button {
   background: var(--a);
 }
 
-/* Round: .x round icon button, .steps steps, .n "Не знаю", .Q question text, .y option letter,
+/* Round: .x round icon button, .st steps, .n "Не знаю", .Q question text, .y option letter,
    .V verdict, .W explanation. */
 .x {
   flex: none;
-  width: 32px;
-  height: 32px;
-  border: 2px solid var(--l);
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--v);
   border-radius: 6px;
   box-shadow: 2px 2px 0 var(--j);
   background: var(--s);
   text-align: center;
 }
-.steps {
+.st {
   gap: 4px;
 }
-.steps i {
+.st i {
   flex: 1;
   height: 10px;
-  border: 2px solid var(--l);
+  border: 2px solid var(--v);
   background: var(--c, var(--s));
 }
-.steps .S {
+.st .S {
   background: var(--t);
   border: 2px solid var(--v);
 }
 .n {
-  width: 4.5em;
+  width: 7.8em;
+  min-height: 44px;
   flex: none;
   color: var(--h);
   font-size: 0.87em;
@@ -221,8 +211,8 @@ button {
 .Q {
   font-weight: 600;
 }
-.option {
-  padding: 1px 10px;
+.op {
+  padding: 3px 10px;
   font-size: 0.95em;
 }
 .y {
@@ -244,47 +234,29 @@ button {
   border-color: var(--c);
   color: var(--f);
 }
-.B.Z,
-.steps .B {
-  border-style: dashed;
-  background: var(--p);
-}
-.B.Z .y {
-  background: var(--p);
-  color: var(--c);
-}
 .V {
   color: var(--c);
   font-size: 1.13em;
 }
-.W {
-  font-size: 0.9em;
-}
 
 /* Reserve the same feedback space before the answer, so fitting never shrinks its options. */
 .j,
-.feedback {
+.fb {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  line-height: 1.15;
+  gap: 8px;
+  line-height: 1.25;
 }
-.feedback {
+.fb {
   font-size: min(1em, 13px);
-  line-height: 1.2;
-  min-height: calc(28em - 78px);
-  padding: 6px;
-  border: 2px solid transparent;
+  padding: 4px;
 }
-.feedback .V {
-  color: var(--v);
-}
-.feedback .button {
+.fb .bt {
   flex: none;
-  margin-top: auto;
+  margin-top: 4px;
 }
 
-/* Result and Progress: .I big number, .K figure tile, .list list row. */
+/* Result and Progress: .I big number, .K figure tile, .ls list row. */
 .I {
   font-size: 2.9em;
   font-weight: 800;
@@ -293,40 +265,40 @@ button {
 .K {
   flex: 1;
   padding: 8px 4px;
-  border: 2px solid var(--l);
+  border: 2px solid var(--v);
   border-radius: 6px;
   background: var(--s);
   box-shadow: 2px 2px 0 var(--j);
   text-align: center;
 }
 .K b,
-.K .muted {
+.K .mu {
   display: block;
 }
 .K b {
   font-size: 1.2em;
 }
-.list {
+.ls {
   width: 100%;
-  min-height: 38px;
-  padding: 5px 2px;
-  border-bottom: 1px solid var(--l);
+  min-height: 60px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--v);
 }
-.list .T {
+.ls .T {
   flex: 1;
   height: 8px;
   border-width: 1px;
 }
 
-/* Rating: .tabs tabs, .O chosen tab, .rank table row, .M the viewer's row, .e one-line name. */
-.tabs {
+/* Rating: .tb tabs, .O chosen tab, .rk table row, .M the viewer's row, .e one-line name. */
+.tb {
   gap: 0;
   padding: 3px;
-  border: 2px solid var(--l);
+  border: 2px solid var(--v);
   border-radius: 6px;
   background: var(--s);
 }
-.tabs button {
+.tb button {
   flex: 1;
   padding: 6px;
   border-radius: 3px;
@@ -335,16 +307,16 @@ button {
   font-weight: 600;
   text-align: center;
 }
-.tabs .O {
+.tb .O {
   background: var(--a);
   color: var(--f);
 }
-.rank {
+.rk {
   min-height: 34px;
   padding: 0 6px;
   border-radius: 8px;
 }
-.rank .muted {
+.rk .mu {
   width: 22px;
   text-align: right;
 }
@@ -356,4 +328,8 @@ button {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.B.Z {
+  border-style: dashed;
 }

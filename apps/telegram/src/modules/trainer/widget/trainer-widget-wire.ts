@@ -38,6 +38,8 @@ export type TrainerTopicsData = readonly [
     answered: number,
     total: number,
   ])[],
+  page?: number,
+  pages?: number,
 ];
 /**
  * A question. `total` is the number of steps in the round. `daily` draws «Вопрос дня» instead of
@@ -97,6 +99,8 @@ export type TrainerProgressData = readonly [
     total: number,
     correctPercent: number,
   ])[],
+  page?: number,
+  pages?: number,
 ];
 /**
  * Rating: the first 7 rows and the viewer's own row. `shown` is the viewer's choice: 1 shown,
@@ -193,9 +197,9 @@ export type TrainerWidgetRequest =
   | { readonly kind: "home" }
   | { readonly kind: "start_check" }
   | { readonly kind: "start_daily" }
-  | { readonly kind: "topics" }
+  | { readonly kind: "topics"; readonly page?: number }
   | { readonly kind: "start_topic"; readonly topicCode: string }
-  | { readonly kind: "progress" }
+  | { readonly kind: "progress"; readonly page?: number }
   | { readonly kind: "rating"; readonly allTime: boolean }
   | {
       readonly kind: "set_rating_shown";
@@ -236,6 +240,12 @@ export function parseTrainerWidgetRequest(
     return undefined;
   if (Object.hasOwn(simpleRequests, data)) return simpleRequests[data];
 
+  const page = /^([pt]):([0-9]{1,3})$/.exec(data);
+  if (page)
+    return {
+      kind: page[1] === "p" ? "progress" : "topics",
+      page: Number(page[2]),
+    };
   const next = nextRequest.exec(data);
   if (next?.[1] !== undefined) return { kind: "next", issueId: next[1] };
   const answer = answerRequest.exec(data);

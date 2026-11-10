@@ -23,9 +23,14 @@
   let picked;
   let topics;
   let lastRequest;
+  let questionFont;
+  let explanationPage = 0;
+  let explanationSize = 200;
+  if (typeof widget.setResizeAnchor == "function")
+    widget.setResizeAnchor("bottom");
 
   const esc = (text) =>
-    String(text).replace(/[&<>]/g, (char) => `&#${char.charCodeAt(0)};`);
+    text.replace(/[&<>]/g, (char) => `&#${char.charCodeAt(0)};`);
   const days = (count) =>
     ["день", "дня", "дней"][
       count % 100 > 10 && count % 100 < 20
@@ -43,20 +48,29 @@
     button(
       action,
       classes + " R",
-      `<span class=F><b>${title}</b><span class=muted>${hint}</span></span>${mark ? `<em>${mark}</em>` : ""}`,
+      `<span class=F><b>${title}</b><span class=mu>${hint}</span></span>${mark ? `<em>${mark}</em>` : ""}`,
     );
   const header = (title) =>
     `<div class=R>${button("h", "x", "←")}<b class=F>${title}</b></div>`;
   const track = (share) =>
     `<div class=T><i style="width:${share * 100}%"></i></div>`;
   const tile = (value, label) =>
-    `<div class=K><b>${value}</b><span class=muted>${label}</span></div>`;
+    `<div class=K><b>${value}</b><span class=mu>${label}</span></div>`;
   const pair = (left, right) => `<div class=R>${left}${right}</div>`;
+  const pager = (prefix, page = 0, pages = 1, tail = "") =>
+    pages < 2
+      ? tail
+      : pair(
+          button(prefix + (page - 1), "bt", "←", !page),
+          `<span>${page + 1}/${pages}</span>` +
+            button(prefix + (page + 1), "bt", "→", page + 1 == pages) +
+            tail,
+        );
   /** Round steps: answered ones are filled or dashed, the current one has a contrasting outline. */
   const roundHead = (marks, total, extra, daily) =>
     `<div class=R>${button("h", "x", "×")}${
       !daily
-        ? `<div class="R F steps">${[...Array(total)]
+        ? `<div class="R F st">${[...Array(total)]
             .map(
               (_, step) =>
                 `<i class="${marks[step] ? (+marks[step] ? "G" : "B") : step == marks.length ? "S" : ""}"></i>`,
@@ -64,31 +78,44 @@
             .join("")}</div>`
         : "<b class=F>Вопрос дня</b>"
     }${extra}</div>`;
-  /** An option is a button only while it can be tapped: Telegram dims disabled buttons. */
+  /** An op is a bt only while it can be tapped: Telegram dims disabled buttons. */
   const option = (index, text, classes, tappable) => {
     const body = `<i class=y>${"АБВГ"[index]}</i><span class=F>${esc(text)}</span>`;
     return tappable
-      ? button("P" + index, "option R" + classes, body)
-      : `<div class="option R${classes}">${body}</div>`;
+      ? button("P" + index, "op R" + classes, body)
+      : `<div class="op R${classes}">${body}</div>`;
   };
 
   /** One reserved panel for choosing an answer, its verdict and continuing the round. */
   const feedback = (d) => {
     const review = question[8] != null;
+    const parts = d
+      ? d[4].match(new RegExp("[\\s\\S]{1," + explanationSize + "}", "gu")) ||
+        []
+      : [];
     return (
-      `<div class=feedback><b class="V ${d ? (d[1] % 3 ? "G" : "B") : ""}">${d ? ["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]] : review ? "Ответ сохранён" : "Выберите ответ"}</b>` +
-      `<div class=W>${d ? esc(d[4]) : review ? "Посмотрите разбор своего ответа." : question[5] ? "Можно выбрать несколько вариантов." : "Нажмите на вариант ответа."}</div>` +
-      (d && d[7] ? `<div class=muted>${esc(d[7])}</div>` : "") +
+      `<div class=fb><b class="V ${d ? (d[1] === 0 ? "B" : d[1] < 3 ? "G" : "") : ""}">${d ? ["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]] : review ? "Ответ сохранён" : "Выберите ответ"}</b>` +
+      `<div class=W>${d ? esc(parts[explanationPage] || "") : !review && question[5] ? "Выберите все верные варианты." : ""}</div>` +
+      (d && d[7] ? `<div class=mu>${esc(d[7])}</div>` : "") +
       (d
-        ? button(
-            question[9] ? "h" : "n" + question[1],
-            "button P",
-            d[5].length < d[6] ? "Дальше" : question[9] ? "Готово" : "К итогу",
+        ? pager(
+            "E",
+            explanationPage,
+            parts.length,
+            button(
+              question[9] ? "h" : "n" + question[1],
+              "bt P",
+              d[5].length < d[6]
+                ? "Дальше"
+                : question[9]
+                  ? "Готово"
+                  : "К итогу",
+            ),
           )
         : review || question[5]
           ? button(
               "S",
-              "button P",
+              "bt P",
               review ? "Показать разбор" : "Ответить",
               !review && !picked,
             )
@@ -97,29 +124,56 @@
     );
   };
 
+  const questionScreen = (d) => {
+    const answered = d[0] == "e";
+    const q = question;
+    const review = q[8] != null;
+    return (
+      "<div class=j>" +
+      roundHead(
+        answered ? d[5] : q[6],
+        q[7],
+        review
+          ? ""
+          : answered
+            ? "<span class=n></span>"
+            : button("K", "bt n", "Не знаю"),
+        q[9],
+      ) +
+      `<div class=mu>${esc(q[2])}</div><div class=Q>${esc(q[3])}</div>` +
+      q[4]
+        .map((text, i) =>
+          option(
+            i,
+            text,
+            answered
+              ? (d[2] >> i) & 1
+                ? " G Z"
+                : (d[3] >> i) & 1
+                  ? " B Z"
+                  : ""
+              : (picked >> i) & 1
+                ? " S Z"
+                : "",
+            !answered && !review,
+          ),
+        )
+        .join("") +
+      feedback(answered ? d : null) +
+      "</div>"
+    );
+  };
+
   const screens = {
     // ["h", streak, answeredToday, dailyGoal, dailyQuestionDone]
     h: (d) =>
-      `<div class=R><b class="F U a">Тренажёр</b><span class=chip>Серия: ${d[1]} ${days(d[1])}</span></div>` +
-      `<div class="R muted"><span class=F>Цель на сегодня</span>${d[2]} из ${d[3]} вопросов</div>` +
+      `<div class=R><b class="F U a">Тренажёр</b><span class=ch>Серия: ${d[1]} ${days(d[1])}</span></div>` +
+      `<div class="R mu"><span class=F>Цель на сегодня</span>${d[2]} из ${d[3]} вопросов</div>` +
       track(d[2] / d[3]) +
-      card(
-        "q",
-        "card a",
-        "Проверить себя",
-        "5 случайных вопросов, около 2 минут",
-      ) +
-      card("d", "card a", "Вопрос дня", "Один вопрос, общий для всех") +
-      card(
-        "t",
-        "card a",
-        "Тренировка по теме",
-        "10 вопросов по выбранной теме",
-      ) +
-      pair(
-        button("p", "button a", "Прогресс"),
-        button("l0", "button a", "Рейтинг"),
-      ),
+      card("q", "cd a", "Проверить себя", "5 вопросов, около 2 минут") +
+      card("d", "cd a", "Вопрос дня", "Один вопрос, общий для всех") +
+      card("t", "cd a", "Тренировка по теме", "10 вопросов по выбранной теме") +
+      pair(button("p", "bt a", "Прогресс"), button("l0", "bt a", "Рейтинг")),
 
     // ["t", [[code, name, done, total], …]]
     t: (d) => (
@@ -129,73 +183,35 @@
           .map((row, index) =>
             button(
               "T" + index,
-              "R list",
-              `<span class=F>${esc(row[1])}</span><span class=muted>${row[2]} из ${row[3]}</span>`,
+              "R ls",
+              `<span class=F>${esc(row[1])}</span><span class=mu>${row[2]} из ${row[3]}</span>`,
             ),
           )
-          .join("")}</div>`
+          .join("")}</div>` +
+        pager("t:", d[2], d[3])
     ),
 
-    // ["q", id, topic, text, [options], multi, marks, total, reviewMask?]
-    q: (d) => {
-      const review = d[8] != null;
-      return (
-        "<div class=j>" +
-        roundHead(d[6], d[7], review ? "" : button("K", "n", "Не знаю"), d[9]) +
-        `<div class=muted>${esc(d[2])}</div><div class=Q>${esc(d[3])}</div>` +
-        d[4]
-          .map((text, index) =>
-            option(index, text, (picked >> index) & 1 ? " S Z" : "", !review),
-          )
-          .join("") +
-        feedback() +
-        "</div>"
-      );
-    },
-
-    // ["e", verdict, correctMask, pickedMask, text, marks, total, stat]
-    // Keep the question and all options; feedback is added below them after the answer.
-    e: (d) =>
-      "<div class=j>" +
-      roundHead(
-        d[5],
-        d[6],
-        question[8] == null ? "<span class=n></span>" : "",
-        question[9],
-      ) +
-      `<div class=muted>${esc(question[2])}</div><div class=Q>${esc(question[3])}</div>` +
-      question[4]
-        .map((text, index) =>
-          option(
-            index,
-            text,
-            (d[2] >> index) & 1 ? " G Z" : (d[3] >> index) & 1 ? " B Z" : "",
-          ),
-        )
-        .join("") +
-      feedback(d) +
-      "</div>",
+    q: questionScreen,
+    e: questionScreen,
 
     // ["r", title, correct, total, comment, points, streak, weekPlace, topicRound]
     r: (d) =>
-      `<div class=C><div class=muted>${esc(d[1])}</div><div class=I>${d[2]} из ${d[3]}</div><div class=W>${esc(d[4])}</div></div>` +
-      `<div class=R>${tile("+" + d[5], "очки")}${tile(d[6], "серия, дней")}${tile(d[7] || "–", "место за неделю")}</div>` +
-      button(d[8] ? "t" : "q", "button P", d[8] ? "Другая тема" : "Ещё раунд") +
-      pair(
-        button("h", "button", "На главный"),
-        button("l0", "button", "Рейтинг"),
-      ),
+      `<div class=C><div class=mu>${esc(d[1])}</div><div class=I>${d[2]} из ${d[3]}</div><div class=W>${esc(d[4])}</div></div>` +
+      `<div class=R>${tile("+" + d[5], "очки")}${tile(d[6], "серия")}${tile(d[7] || "–", "место за неделю")}</div>` +
+      button(d[8] ? "t" : "q", "bt P", d[8] ? "Другая тема" : "Ещё раунд") +
+      pair(button("h", "bt", "На главный"), button("l0", "bt", "Рейтинг")),
 
     // ["p", points, streak, answered, [[name, done, total, correctPercent], …]]
     p: (d) =>
       header("Прогресс") +
-      `<div class=R>${tile(d[1], "очки")}${tile(d[2], "серия, дней")}${tile(d[3], "вопросов")}</div>` +
+      `<div class=R>${tile(d[1], "очки")}${tile(d[2], "серия")}${tile(d[3], "вопросов")}</div>` +
       `<div>${d[4]
         .map(
           (row) =>
-            `<div class=list><div class="W e">${esc(row[0])}</div><div class=R>${track(row[1] / row[2])}<span class=muted>${row[3] < 0 ? "не начато" : row[3] + "% верных"}</span></div></div>`,
+            `<div class=ls><div class="W e">${esc(row[0])}</div><div class=R>${track(row[1] / row[2])}<span class=mu>${row[3] < 0 ? "не начато" : row[3] + "% верных"}</span></div></div>`,
         )
-        .join("")}</div>`,
+        .join("")}</div>` +
+      pager("p:", d[5], d[6]),
 
     // ["l", allTime, shown, [[place, name, points, isViewer], …]]
     // shown 2: the person has not chosen yet and gets the offer instead of the switch.
@@ -203,60 +219,76 @@
       const tab = d[1] ? 1 : 0;
       return (
         header("Рейтинг") +
-        `<div class="R tabs">${button("l0", tab ? "" : "O", "Неделя")}${button("l1", tab ? "O" : "", "Всё время")}</div>` +
+        `<div class="R tb">${button("l0", tab ? "" : "O", "Неделя")}${button("l1", tab ? "O" : "", "Всё время")}</div>` +
         `<div>${d[3]
           .map(
             (row) =>
-              `<div class="R rank${row[3] ? " M" : ""}"><span class=muted>${row[0]}</span><span class="F e">${esc(row[1])}</span><b>${row[2]}</b></div>`,
+              `<div class="R rank${row[3] ? " M" : ""}"><span class=mu>${row[0]}</span><span class="F e">${esc(row[1])}</span><b>${row[2]}</b></div>`,
           )
           .join("")}</div>` +
         (d[2] > 1
-          ? "<div><b>Показать вас в рейтинге?</b><div class=muted>Другие увидят ваше имя из Telegram. Сейчас вас нет в таблицах.</div></div>" +
+          ? "<div><b>Показывать меня в рейтинге</b><div class=mu>Другие увидят ваше имя из Telegram.</div></div>" +
             pair(
-              button("v1" + tab, "button P", "Показать меня"),
-              button("v0" + tab, "button", "Не сейчас"),
+              button("v1" + tab, "bt P", "Показать меня"),
+              button("v0" + tab, "bt", "Не сейчас"),
             )
           : card(
               "v" + (d[2] ? 0 : 1) + tab,
-              "card",
+              "cd",
               "Показывать меня в рейтинге",
               d[2]
                 ? "Другие видят ваше имя из Telegram"
                 : "Сейчас вас нет в таблицах",
               d[2] ? "Вкл" : "Выкл",
             )) +
-        "<div class=muted>Очки даются за первый верный ответ на вопрос.</div>"
+        "<div class=mu>Очки за верные ответы в завершённых раундах.</div>"
       );
     },
 
     i: (d) =>
       `<b class=U>Тренажёр</b><div>${esc(d[1])}</div>` +
-      button("h", "button P", "На главный"),
+      button("h", "bt P", "На главный"),
 
     // ["x", text?]: the bot refused, did not answer in 15 seconds, or sent something unreadable.
     x: (d) =>
-      `<b class=U>Не получилось</b><div>${esc(d[1] || "Бот не ответил. Проверьте связь и повторите.")}</div>` +
-      button("R", "button P", "Повторить") +
-      button("H", "button", "На главный"),
+      `<b class=U>Бот не ответил</b><div>${esc(d[1] || "")}</div>` +
+      button("R", "bt P", "Повторить") +
+      button("H", "bt", "На главный"),
   };
 
   const draw = (data) => {
     current = data;
     root.dataset.screen = data[0];
-    root.style.fontSize = "";
-    root.innerHTML = screens[data[0]](data);
-    // Nothing scrolls inside a widget, so a screen that is too tall gets smaller text.
-    for (
-      let size = parseFloat(getComputedStyle(root).fontSize);
-      root.offsetHeight > MAX_HEIGHT && size > MIN_FONT_SIZE;
-    )
-      root.style.fontSize = --size + "px";
+    const inQuestion = data[0] == "q" || data[0] == "e";
+    root.style.fontSize = inQuestion && questionFont ? questionFont : "";
+    const render = () => (root.innerHTML = screens[data[0]](data));
+    render();
+    if (data[0] == "e") {
+      while (document.body.offsetHeight > MAX_HEIGHT && explanationSize > 10) {
+        explanationSize -= 10;
+        explanationPage = 0;
+        render();
+      }
+    } else if (!inQuestion || !questionFont) {
+      const reserve = () =>
+        data[0] == "q" ? 160 - root.querySelector(".fb").offsetHeight : 0;
+      for (
+        let size = parseFloat(getComputedStyle(root).fontSize);
+        document.body.offsetHeight + reserve() > MAX_HEIGHT &&
+        size > MIN_FONT_SIZE;
+      )
+        root.style.fontSize = --size + "px";
+      if (inQuestion) questionFont = getComputedStyle(root).fontSize;
+    }
   };
   const show = (data) => {
     try {
       if (data[0] == "h") home = data;
       if (data[0] == "q") {
+        questionFont = data[1] == question?.[1] ? questionFont : "";
         question = data;
+        explanationPage = 0;
+        explanationSize = 200;
         picked = data[8] || 0;
       }
       draw(data);
@@ -276,7 +308,7 @@
   const ask = (data) => {
     let pending;
     lastRequest = data;
-    root.className = "waiting";
+    root.className = "wt";
     try {
       pending = widget.request(data);
     } catch {
@@ -298,7 +330,10 @@
   window.g = (action) => {
     const index = +action.slice(1);
     if (root.className) return;
-    if (action[0] == "P") {
+    if (action[0] == "E") {
+      explanationPage = index;
+      draw(current);
+    } else if (action[0] == "P") {
       if (question[5]) {
         picked ^= 1 << index;
         draw(question);

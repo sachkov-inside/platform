@@ -4,7 +4,7 @@
   "title": "Файл Банка вопросов Тренажёра, версия 1",
   "description": "Схема проверяет форму файла. Лимиты из x-limits и остальные правила импорт проверяет сам, они описаны в trainer-bank-v1.md.",
   "x-limits": {
-    "topics": 9,
+    "topics": 64,
     "topicNameCharacters": 40,
     "questionTextCharacters": 160,
     "optionTextsTogetherCharacters": 240,

@@ -87,6 +87,8 @@ export interface TrainerTables {
     size: number;
     /** When the bot received the request that started the round. */
     started_at: Timestamp;
+    /** Statistical credit is given only after the round is completed. */
+    completed_at: OptionalTimestamp;
     /** The Telegram update that started the round: a repeated run finds the same round. */
     update_id: TelegramId;
     /** The Moscow day of a `daily` round, written as `YYYY-MM-DD`; null in the other modes. */

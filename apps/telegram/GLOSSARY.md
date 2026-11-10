@@ -121,19 +121,24 @@ _Avoid_: Daily quiz, reminder, question of the week
 A Тренажёр round of up to 10 questions from one topic the person chose.
 _Avoid_: Course, lesson, module
 
+**Завершённый раунд** (Completed Round):
+A Тренажёр round in which the person has answered every remaining question. Only its answers count
+in the Тренажёр statistics; their day and week are the day and week the round finished.
+_Avoid_: Opened round, shown question, unfinished attempt
+
 **Очки** (Points):
-What a person earns in the Тренажёр: one point for a correct answer that is the person's first
-answer to that question and comes within 90 seconds after the bot showed it. Points open no access
-and change no Product or price.
+What a person earns after finishing a Тренажёр round: one point for a correct answer that is their
+first answer in a completed round to that question and comes within 90 seconds after it was shown.
+Points open no access and change no Product or price.
 _Avoid_: Score, grade, rating, balance, bonus
 
 **Серия** (Streak):
-The number of Moscow calendar days in a row on which a person answered at least one Тренажёр
-question. Today without an answer does not end it yet; a missed day does.
+The number of Moscow calendar days in a row on which a person finished at least one Тренажёр
+round. Today without a completed round does not end it yet; a missed day does.
 _Avoid_: Series of messages, sequence, run of correct answers
 
 **Цель дня** (Daily Goal):
-5 answered Тренажёр questions in one Moscow calendar day. It is only shown: it opens and blocks
+5 Тренажёр questions credited by completed rounds in one Moscow calendar day. It is only shown: it opens and blocks
 nothing.
 _Avoid_: Limit, quota, task, daily question
 
