@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ПРОТОТИП. Тренажёр в Telegram-боте</title>
+<!--
+  PROTOTYPE, throwaway. Вопрос: как должен выглядеть тренажёр внутри виджета Telegram.
+  Это витрина трёх стилей в обычном браузере, а не настоящий виджет:
+  настоящий HTML виджета должен уложиться в 4096 байт после zlib и не может грузить шрифты.
+  Состояние живёт в памяти, обновление страницы всё сбрасывает.
+-->
+<style>
+*{box-sizing:border-box;margin:0}
+body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#e9e7e2;color:#202124;padding:16px}
+.bar{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center;max-width:980px;margin:0 auto 14px;padding:12px 14px;background:#fff;border-radius:12px}
+.bar b{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#5f5e59;margin-right:6px}
+.seg{display:inline-flex;background:#f3f1ed;border-radius:8px;padding:2px}
+.seg button{border:0;background:none;padding:6px 10px;border-radius:6px;font:inherit;cursor:pointer;color:#202124}
+.seg button[aria-pressed=true]{background:#202124;color:#fff}
+.stage{display:flex;gap:24px;justify-content:center;align-items:flex-start;flex-wrap:wrap;max-width:980px;margin:0 auto}
+.side{width:300px;background:#fff;border-radius:12px;padding:14px;font-size:13px}
+.side h2{font-size:13px;margin-bottom:8px}
+.side dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px}
+.side dt{color:#5f5e59}
+.side .warn{color:#b83a1d;font-weight:600}
+.side p{margin-top:10px;color:#5f5e59}
+
+/* ---- телефон и чат ---- */
+.phone{--chat:#c9d8c5;--tg-bg:#fff;--tg-text:#000;--tg-hint:#707579;--tg-sec:#f1f1f4;--tg-btn:#3390ec;--tg-btn-text:#fff;--tg-line:rgb(0 0 0/9%);--out:#eeffde;
+  width:390px;border-radius:28px;background:var(--chat);padding:12px 8px 16px;box-shadow:0 10px 40px rgb(0 0 0/18%)}
+.phone[data-theme=dark]{--chat:#0f0f0f;--tg-bg:#212121;--tg-text:#fff;--tg-hint:#aaa;--tg-sec:#2c2c2e;--tg-btn:#5ea9f2;--tg-btn-text:#fff;--tg-line:rgb(255 255 255/10%);--out:#766ac8}
+.top{display:flex;align-items:center;gap:10px;padding:4px 8px 12px;color:var(--tg-text)}
+.ava{width:34px;height:34px;border-radius:50%;background:#c7461e;color:#fff;display:grid;place-items:center;font-weight:700}
+.top small{display:block;color:var(--tg-hint);font-size:12px}
+.msg{max-width:60%;margin:0 4px 8px auto;background:var(--out);color:var(--tg-text);padding:6px 10px;border-radius:14px 14px 4px 14px;width:fit-content}
+.bubble{position:relative;margin:0 4px;background:var(--tg-bg);border-radius:16px 16px 16px 4px;overflow:hidden;max-height:600px}
+.time{position:absolute;right:10px;bottom:5px;font-size:11px;color:var(--tg-hint);pointer-events:none}
+
+/* ---- виджет: общая часть ---- */
+.w{--bg:transparent;--fg:var(--tg-text);--hint:var(--tg-hint);--sec:var(--tg-sec);--line:var(--tg-line);--accent:var(--tg-btn);--accent-fg:var(--tg-btn-text);--r:10px;--ok:#2e9e5b;--bad:#d14343;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  background:var(--bg);color:var(--fg);padding:12px 12px 20px;font-size:15px;line-height:1.4}
+.w button{font:inherit;color:inherit;cursor:pointer;text-align:left}
+.h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.h h1{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.chip{font-size:12.5px;font-weight:600;padding:4px 9px;border-radius:99px;background:var(--sec);white-space:nowrap}
+.chip.hot{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.eyebrow{font-size:12px;color:var(--hint);margin-bottom:4px}
+.goal{margin-bottom:12px}
+.goal .gr{display:flex;justify-content:space-between;font-size:13px;color:var(--hint);margin-bottom:5px}
+.track{height:8px;border-radius:99px;background:var(--sec);overflow:hidden}
+.track i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+.cards{display:grid;gap:8px}
+.card{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;width:100%;min-height:58px;padding:10px 12px;border:0;border-radius:var(--r);background:var(--sec)}
+.card strong{font-size:15.5px}
+.card span{grid-column:1;font-size:13px;color:var(--hint)}
+.card em{grid-row:1/3;grid-column:2;font-style:normal;font-size:12.5px;font-weight:600;color:var(--accent)}
+.card.primary{background:var(--accent);color:var(--accent-fg)}
+.card.primary span,.card.primary em{color:inherit;opacity:.85}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.btn{display:block;width:100%;min-height:44px;padding:10px 12px;border:0;border-radius:var(--r);background:var(--sec);font-weight:600;text-align:center!important}
+.btn.primary{background:var(--accent);color:var(--accent-fg)}
+.btn.ghost{background:none;color:var(--hint);font-weight:500;min-height:36px;padding:6px}
+.btn:disabled{opacity:.4;cursor:default}
+.nav{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.skip{border:0;background:none;color:var(--hint)!important;font-size:13px;padding:6px 2px;flex:none}
+.stat a{color:inherit}
+.x{width:32px;height:32px;border:0;border-radius:50%;background:var(--sec);text-align:center!important;font-size:16px;line-height:1;flex:none}
+.steps{display:flex;gap:4px;flex:1}
+.steps i{flex:1;height:6px;border-radius:99px;background:var(--sec)}
+.steps i.ok{background:var(--ok)}.steps i.bad{background:var(--bad)}.steps i.cur{background:var(--accent)}
+.q{font-size:15.5px;font-weight:600;line-height:1.35;margin-bottom:10px}
+.opts{display:grid;gap:6px;margin-bottom:8px}
+.opt{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:start;width:100%;min-height:44px;padding:7px 10px;border:1.5px solid transparent;border-radius:var(--r);background:var(--sec);font-size:14.5px;line-height:1.35}
+.key{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--hint);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--hint)}
+.opt.sel{border-color:var(--accent)}.opt.sel .key{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.opt.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent)}.opt.ok .key{background:var(--ok);border-color:var(--ok);color:#fff}
+.opt.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,transparent)}.opt.bad .key{background:var(--bad);border-color:var(--bad);color:#fff}
+.verdict{font-size:17px;font-weight:700;margin-bottom:8px}
+.verdict.ok{color:var(--ok)}.verdict.bad{color:var(--bad)}
+.why{font-size:13.5px;line-height:1.4;margin-bottom:8px}
+.read{display:block;font-size:13px;color:var(--accent);margin-bottom:8px;text-decoration:none}
+.stat{font-size:12.5px;color:var(--hint);margin-bottom:10px}
+.big{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.center{text-align:center}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.kpi{background:var(--sec);border-radius:var(--r);padding:9px 6px;text-align:center}
+.kpi b{display:block;font-size:18px}.kpi small{font-size:12px;color:var(--hint)}
+.rows{display:grid;gap:2px}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;width:100%;min-height:38px;padding:5px 2px;border:0;background:none;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .name{font-size:14px}
+.row small{font-size:12px;color:var(--hint);white-space:nowrap}
+.row .track{grid-column:1/3;height:4px}
+.tabs{display:flex;background:var(--sec);border-radius:var(--r);padding:3px;margin-bottom:8px}
+.tabs button{flex:1;border:0;background:none;border-radius:calc(var(--r) - 3px);padding:6px;text-align:center!important;font-size:13.5px;font-weight:600;color:var(--hint)}
+.tabs button.on{background:var(--tg-bg);color:var(--fg)}
+.lb{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;min-height:36px;padding:0 6px;border-radius:8px;font-size:14px}
+.lb .n{color:var(--hint);font-size:13px;text-align:right}
+.lb.me{background:color-mix(in srgb,var(--accent) 14%,transparent);font-weight:700}
+.lb b{font-variant-numeric:tabular-nums}
+.toggle{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;margin-top:8px;padding:9px 11px;border:0;border-radius:var(--r);background:var(--sec);font-size:13.5px}
+.sw{width:38px;height:22px;border-radius:99px;background:var(--hint);position:relative;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on{background:var(--ok)}.sw.on::after{left:18px}
+
+/* ---- стиль «Платформа»: белая карточка, тёмный текст, редкий оранжевый, моно для фактов ---- */
+.w[data-style=platform]{--bg:#fff;--fg:#202124;--hint:#5f5e59;--sec:#f3f1ed;--line:rgb(32 33 36/9%);--accent:#c7461e;--accent-fg:#fff;--r:14px}
+.w[data-style=platform] .h h1{font-weight:600;font-size:19px;letter-spacing:-.025em}
+.w[data-style=platform] .eyebrow,.w[data-style=platform] .chip,.w[data-style=platform] .row small,.w[data-style=platform] .kpi small,.w[data-style=platform] .stat{font-family:var(--mono);font-size:11px;letter-spacing:.02em}
+.w[data-style=platform] .card,.w[data-style=platform] .opt{background:#fff;border:1px solid var(--line)}
+.w[data-style=platform] .card.primary{background:#202124;border-color:#202124;color:#fff}
+.w[data-style=platform] .card.primary em{color:#ef6b3c;opacity:1}
+.w[data-style=platform] .btn.primary{background:#202124;color:#fff}
+.w[data-style=platform] .key{border-radius:6px;font-family:var(--mono);border-width:1px}
+.w[data-style=platform] .tabs button.on{background:#fff}
+.w[data-style=platform] .opt.ok,.w[data-style=platform] .opt.bad,.w[data-style=platform] .opt.sel{border-width:1.5px}
+
+/* ---- стиль «Смешанный»: тема Telegram, наш оранжевый, крупные «нажимные» кнопки ---- */
+.w[data-style=mixed]{--accent:#c7461e;--accent-fg:#fff;--r:16px}
+.phone[data-theme=dark] .w[data-style=mixed]{--accent:#ef6b3c;--accent-fg:#1b1b1b}
+.w[data-style=mixed] .card,.w[data-style=mixed] .opt,.w[data-style=mixed] .btn:not(.ghost){background:transparent;border:2px solid var(--line);border-bottom-width:4px}
+.w[data-style=mixed] .card.primary,.w[data-style=mixed] .btn.primary{background:var(--accent);border-color:color-mix(in srgb,var(--accent) 70%,#000)}
+.w[data-style=mixed] .card:active,.w[data-style=mixed] .opt:active,.w[data-style=mixed] .btn:active{transform:translateY(2px);border-bottom-width:2px;margin-bottom:2px}
+.w[data-style=mixed] .h h1{font-size:20px;font-weight:800}
+.w[data-style=mixed] .goal .track{height:12px}
+.w[data-style=mixed] .steps i{height:10px}
+.w[data-style=mixed] .key{border-radius:8px;border-width:2px}
+.w[data-style=mixed] .opt.sel{border-color:var(--accent)}
+.w[data-style=mixed] .opt.ok{border-color:var(--ok)}.w[data-style=mixed] .opt.bad{border-color:var(--bad)}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span><b>Стиль</b><span class="seg" data-group="style">
+    <button data-v="platform">Платформа</button><button data-v="tg">Telegram</button><button data-v="mixed">Смешанный</button></span></span>
+  <span><b>Тема чата</b><span class="seg" data-group="theme">
+    <button data-v="light">Светлая</button><button data-v="dark">Тёмная</button></span></span>
+  <span><b>Ширина</b><span class="seg" data-group="width">
+    <button data-v="320">320</button><button data-v="390">390</button><button data-v="430">430</button></span></span>
+  <span><b>Экран</b><span class="seg" data-group="go">
+    <button data-v="home">Главный</button><button data-v="daily">Вопрос дня</button><button data-v="topics">Темы</button><button data-v="progress">Прогресс</button><button data-v="rating">Рейтинг</button></span></span>
+</div>
+
+<div class="stage">
+  <div class="phone" id="phone" data-theme="light">
+    <div class="top"><div class="ava">I</div><div><b>Inside</b><small>бот</small></div></div>
+    <div class="msg">/train</div>
+    <div class="bubble" id="bubble"><div class="w" id="w" data-style="mixed"></div><span class="time">12:04</span></div>
+  </div>
+  <aside class="side">
+    <h2>Состояние прототипа</h2>
+    <dl id="state"></dl>
+    <p>Высота виджета в Telegram ограничена 600 px, прокрутки внутри нет. Руководство советует держаться до 560 px при ширине 320. Если высота больше, строка выше станет красной.</p>
+    <p>Ссылка запоминает стиль, тему и ширину: её можно отправить как есть.</p>
+  </aside>
+</div>
+
+<script>
+const TOPICS = [
+  ["Контекст и промпты", 14, 20], ["Harness и coding-агенты", 9, 20], ["Инструменты, MCP и skills", 17, 20],
+  ["Свой агент: цикл, сессии, память", 6, 20], ["RAG и поиск", 11, 20], ["Мультиагентные системы", 0, 20],
+  ["Безопасность", 12, 20], ["Evals и наблюдаемость", 4, 20], ["Продакшен: модели и стоимость", 3, 20],
+];
+const Q = [
+ {t:"Контекст и промпты", q:"Агент работает над задачей третий час. Окно контекста заполнено на 70%, но ответы стали заметно хуже. Что происходит вероятнее всего?",
+  o:["Модель исчерпала лимит запросов и отвечает в упрощённом режиме","В контексте накопились устаревшие и противоречивые результаты, и модели труднее выделить важное","Системный промпт вытеснен из окна и больше не действует","Температура растёт с каждым шагом агента"], a:[1],
+  why:"Качество падает задолго до переполнения окна: старые выводы инструментов и отменённые решения мешают модели найти актуальное. Помогает сжатие истории или новая сессия с короткой сводкой.", read:"Урок «Управление контекстом»"},
+ {t:"Инструменты, MCP и skills", q:"Что MCP-сервер может предоставить клиенту? Отметьте все верные варианты.",
+  o:["Инструменты, которые модель может вызвать","Ресурсы: данные для чтения","Готовые промпты","Веса модели"], a:[0,1,2], multi:true,
+  why:"В протоколе три вида возможностей сервера: инструменты, ресурсы и промпты. Модель и её веса остаются на стороне клиента, сервер к ним доступа не имеет.", read:"Спецификация MCP, раздел Server Features"},
+ {t:"Evals и наблюдаемость", q:"Агент решает задачу с вероятностью 60%. Вы запускаете его пять раз подряд. Какая метрика отвечает на вопрос «все пять запусков успешны» и чему она равна?",
+  o:["Pass@5, около 99%","Pass^5, около 8%","Pass^5, около 60%","Pass@5, около 8%"], a:[1],
+  why:"Pass^k требует успеха во всех k попытках: 0,6⁵ ≈ 0,078. Pass@k считает хотя бы один успех: 1 − 0,4⁵ ≈ 0,99. Для надёжности в продакшене важна первая, вторая льстит агенту.", read:"Bojie Li, AI Agents in Depth, глава 7"},
+ {t:"Безопасность", q:"Какое сочетание возможностей делает агента уязвимым к краже данных через prompt injection?",
+  o:["Большое окно контекста, высокая температура и длинный системный промпт","Доступ к приватным данным, чтение недоверенного контента и возможность отправлять данные наружу","Несколько инструментов с похожими названиями","Работа без подтверждения действий человеком"], a:[1],
+  why:"Это «смертельная тройка». Инструкция из недоверенного текста заставляет агента прочитать приватные данные и отправить их наружу. Достаточно убрать любое из трёх звеньев, и атака не проходит.", read:"Урок «Prompt injection и ограничения агента»", pct:[6,71,5,18]},
+ {t:"RAG и поиск", q:"Гибридный поиск объединяет поиск по ключевым словам и векторный. Зачем нужны ключевые слова, если векторы уже находят близкие по смыслу тексты?",
+  o:["Поиск по ключевым словам всегда быстрее","Векторы плохо находят точные строки: идентификаторы, имена функций, коды ошибок","Ключевые слова нужны только для русского языка","Без них нельзя посчитать релевантность"], a:[1],
+  why:"Эмбеддинг передаёт смысл, но размывает редкие точные токены. Запрос «ошибка E4012» или имя функции надёжнее находит поиск по словам, поэтому результаты двух поисков объединяют.", read:"Essential GraphRAG, глава 2"},
+ {t:"Инструменты, MCP и skills", q:"У агента два похожих инструмента, и модель часто вызывает не тот. Что стоит сделать в первую очередь?",
+  o:["Поднять температуру, чтобы модель пробовала оба","Переписать описания: когда нужен каждый инструмент и чем они отличаются","Добавить третий инструмент, который выбирает между ними","Перенести описания инструментов в конец системного промпта"], a:[1],
+  why:"Модель выбирает инструмент по описанию. Если описания не говорят, в каких случаях нужен каждый, выбор превращается в угадывание. Ещё один вариант решения: объединить два инструмента в один с параметром.", read:"Урок «Проектирование инструментов»"},
+];
+const BOARD = {
+  week:[["Аня К.",46],["Денис",41],["mrtn",38],["Вы",31],["Ольга С.",29],["Tim",24],["Рустам",22]],
+  all:[["Денис",612],["Аня К.",580],["Ольга С.",455],["mrtn",431],["Рустам",390],["Tim",377],["Вы",214]],
+};
+const S = {style:"mixed", theme:"light", width:"390", screen:"home", mode:null, list:[], i:0, sel:[], answered:false, marks:[],
+  score:214, streak:4, today:3, goal:5, dailyDone:false, tab:"week", visible:true, topic:null};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const KEYS = "АБВГ";
+const pl = (n, a, b, c) => { const m = n % 100, k = n % 10; return m > 10 && m < 20 ? c : k === 1 ? a : k > 1 && k < 5 ? b : c; };
+
+function start(mode, topic) {
+  S.mode = mode; S.topic = topic || null; S.i = 0; S.sel = []; S.answered = false; S.marks = [];
+  S.list = mode === "daily" ? [3] : topic ? Q.map((q, i) => i).sort((a, b) => (Q[b].t === topic) - (Q[a].t === topic)).slice(0, 5) : [0, 1, 2, 4, 5];
+  S.screen = "question";
+}
+function answer(dontKnow) {
+  const q = Q[S.list[S.i]];
+  const ok = !dontKnow && q.a.length === S.sel.length && q.a.every(x => S.sel.includes(x));
+  S.answered = true; S.last = {ok, dontKnow}; S.marks[S.i] = ok;
+  S.today = Math.min(S.goal, S.today + 1);
+  if (ok) S.score += 1;
+  if (S.mode === "daily") S.dailyDone = true;
+}
+function next() {
+  if (S.i + 1 < S.list.length) { S.i++; S.sel = []; S.answered = false; }
+  else S.screen = "result";
+}
+
+const V = {
+home: () => `
+  <div class="h"><h1>Тренажёр</h1><span class="chip hot">Серия: ${S.streak} ${pl(S.streak,"день","дня","дней")}</span></div>
+  <div class="goal"><div class="gr"><span>Цель на сегодня</span><span>${S.today} из ${S.goal} вопросов</span></div>
+    <div class="track"><i style="width:${S.today / S.goal * 100}%"></i></div></div>
+  <div class="cards">
+    <button class="card ${S.dailyDone ? "" : "primary"}" data-act="daily"><strong>Вопрос дня</strong><span>Один вопрос, общий для всех</span><em>${S.dailyDone ? "Пройден" : "Новый"}</em></button>
+    <button class="card" data-act="quick"><strong>Быстрый раунд</strong><span>5 случайных вопросов, около 2 минут</span></button>
+    <button class="card" data-act="topics"><strong>Тренировка по теме</strong><span>10 вопросов по выбранной теме</span></button>
+  </div>
+  <div class="two"><button class="btn" data-act="progress">Прогресс</button><button class="btn" data-act="rating">Рейтинг</button></div>`,
+
+topics: () => `
+  <div class="nav"><button class="x" data-act="home" aria-label="Назад">←</button><b>Выберите тему</b></div>
+  <div class="rows">${TOPICS.map(([n, d, all], i) => `
+    <button class="row" data-act="topic" data-i="${i}"><span class="name">${esc(n)}</span><small>${d} из ${all}</small></button>`).join("")}</div>`,
+
+question: () => {
+  const q = Q[S.list[S.i]], many = S.list.length > 1;
+  const steps = many ? `<div class="steps">${S.list.map((_, k) => `<i class="${k < S.i || (k === S.i && S.answered) ? (S.marks[k] ? "ok" : "bad") : k === S.i ? "cur" : ""}"></i>`).join("")}</div>` : `<b style="flex:1">Вопрос дня</b>`;
+  const head = `<div class="nav"><button class="x" data-act="home" aria-label="Закрыть">×</button>${steps}${S.answered ? "" : `<button class="skip" data-act="dontknow">Не знаю</button>`}</div>${S.answered ? "" : `<div class="eyebrow">${esc(q.t)}</div>`}`;
+  if (!S.answered) return head + `
+    <div class="q">${esc(q.q)}</div>
+    <div class="opts">${q.o.map((o, k) => `<button class="opt ${S.sel.includes(k) ? "sel" : ""}" data-act="pick" data-i="${k}"><span class="key">${KEYS[k]}</span><span>${esc(o)}</span></button>`).join("")}</div>
+    ${q.multi ? `<button class="btn primary" data-act="submit" ${S.sel.length ? "" : "disabled"}>Ответить</button>` : ""}`;
+  // После ответа невыбранные неверные варианты скрываются, иначе разбор не помещается в 560 px.
+  const show = q.o.map((o, k) => ({o, k})).filter(x => q.a.includes(x.k) || S.sel.includes(x.k));
+  const v = S.last.ok ? ["ok", "Верно, +1 очко"] : S.last.dontKnow ? ["bad", "Разберём"] : ["bad", "Неверно"];
+  return head + `
+    <div class="verdict ${v[0]}">${v[1]}</div>
+    <div class="opts">${show.map(x => `<div class="opt ${q.a.includes(x.k) ? "ok" : "bad"}"><span class="key">${KEYS[x.k]}</span><span>${esc(x.o)}</span></div>`).join("")}</div>
+    <div class="why">${esc(q.why)}</div>
+    <a class="read" href="#" data-act="noop">Где почитать: ${esc(q.read)} →</a>
+    <div class="stat">${S.mode === "daily" && q.pct ? `Верно ответили ${q.pct[q.a[0]]}% из 1 284 человек · ` : ""}<a href="#" data-act="noop">В вопросе ошибка</a></div>
+    <button class="btn primary" data-act="next">${S.i + 1 < S.list.length ? "Дальше" : many ? "К итогу" : "Готово"}</button>`;
+},
+
+result: () => {
+  const ok = S.marks.filter(Boolean).length, n = S.list.length;
+  if (S.mode === "daily") { S.screen = "home"; return V.home(); }
+  return `
+  <div class="center"><div class="eyebrow">${S.topic ? esc(S.topic) : "Быстрый раунд"}</div>
+    <div class="big">${ok} из ${n}</div>
+    <div class="why" style="margin-top:8px">${ok === n ? "Без ошибок." : ok >= n / 2 ? "Хороший раунд. Разборы ошибок остались в чате выше." : "Тема стоит того, чтобы перечитать уроки из разборов."}</div></div>
+  <div class="kpis"><div class="kpi"><b>+${ok}</b><small>очки</small></div><div class="kpi"><b>${S.streak}</b><small>серия, дней</small></div><div class="kpi"><b>4</b><small>место за неделю</small></div></div>
+  <button class="btn primary" data-act="${S.topic ? "topics" : "quick"}">${S.topic ? "Другая тема" : "Ещё раунд"}</button>
+  <div class="two"><button class="btn" data-act="home">На главный</button><button class="btn" data-act="rating">Рейтинг</button></div>`;
+},
+
+progress: () => `
+  <div class="nav"><button class="x" data-act="home" aria-label="Назад">←</button><b>Прогресс</b></div>
+  <div class="kpis" style="margin-top:0"><div class="kpi"><b>${S.score}</b><small>очки</small></div><div class="kpi"><b>${S.streak}</b><small>серия, дней</small></div><div class="kpi"><b>76</b><small>вопросов</small></div></div>
+  <div class="rows">${TOPICS.map(([n, d, all]) => `
+    <div class="row"><span class="name">${esc(n)}</span><small>${d ? Math.round(55 + d * 2) + "% верных" : "не начато"}</small><div class="track"><i style="width:${d / all * 100}%"></i></div></div>`).join("")}</div>`,
+
+rating: () => {
+  const rows = BOARD[S.tab].filter(r => S.visible || r[0] !== "Вы");
+  return `
+  <div class="nav"><button class="x" data-act="home" aria-label="Назад">←</button><b>Рейтинг</b></div>
+  <div class="tabs"><button class="${S.tab === "week" ? "on" : ""}" data-act="tab" data-i="week">Неделя</button><button class="${S.tab === "all" ? "on" : ""}" data-act="tab" data-i="all">Всё время</button></div>
+  ${rows.map((r, k) => `<div class="lb ${r[0] === "Вы" ? "me" : ""}"><span class="n">${k + 1}</span><span>${esc(r[0])}</span><b>${r[1]}</b></div>`).join("")}
+  <button class="toggle" data-act="visible"><span>Показывать меня в рейтинге</span><span class="sw ${S.visible ? "on" : ""}"></span></button>
+  <div class="stat" style="margin:8px 2px 0">Очки даются за первый верный ответ на вопрос.</div>`;
+},
+};
+
+const ACT = {
+  home: () => S.screen = "home", topics: () => S.screen = "topics", progress: () => S.screen = "progress", rating: () => S.screen = "rating",
+  daily: () => start("daily"), quick: () => start("quick"),
+  topic: i => start("topic", TOPICS[i][0]),
+  pick: i => { const q = Q[S.list[S.i]]; i = +i;
+    if (q.multi) S.sel = S.sel.includes(i) ? S.sel.filter(x => x !== i) : [...S.sel, i];
+    else { S.sel = [i]; answer(false); } },
+  submit: () => answer(false), dontknow: () => { S.sel = []; answer(true); }, next,
+  tab: i => S.tab = i, visible: () => S.visible = !S.visible, noop: () => {},
+};
+
+function render() {
+  const w = $("#w"), phone = $("#phone");
+  w.dataset.style = S.style; phone.dataset.theme = S.theme; phone.style.width = (+S.width + 16) + "px";
+  w.innerHTML = V[S.screen]();
+  document.querySelectorAll(".seg").forEach(g => g.querySelectorAll("button").forEach(b =>
+    b.setAttribute("aria-pressed", g.dataset.group === "go" ? String(S.screen === b.dataset.v || (b.dataset.v === "daily" && S.mode === "daily" && S.screen === "question")) : String(S[g.dataset.group] === b.dataset.v))));
+  const h = $("#bubble").scrollHeight, real = w.scrollHeight;
+  $("#state").innerHTML = `<dt>Экран</dt><dd>${S.screen}${S.mode && S.screen === "question" ? " (" + S.mode + ", " + (S.i + 1) + "/" + S.list.length + ")" : ""}</dd>
+    <dt>Высота</dt><dd class="${real > 560 ? "warn" : ""}">${real} px${real > 600 ? ", обрежется" : real > 560 ? ", на пределе" : ""}</dd>
+    <dt>Ширина</dt><dd>${S.width} px</dd><dt>Очки</dt><dd>${S.score}</dd><dt>Сегодня</dt><dd>${S.today} из ${S.goal}</dd><dt>Вопрос дня</dt><dd>${S.dailyDone ? "пройден" : "новый"}</dd>`;
+  history.replaceState(null, "", `?style=${S.style}&theme=${S.theme}&width=${S.width}`);
+}
+
+$("#w").addEventListener("click", e => { const b = e.target.closest("[data-act]"); if (!b) return; e.preventDefault(); ACT[b.dataset.act](b.dataset.i); render(); });
+document.querySelector(".bar").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return;
+  const g = b.parentElement.dataset.group; if (g === "go") ACT[b.dataset.v](); else S[g] = b.dataset.v; render(); });
+const p = new URLSearchParams(location.search);
+for (const k of ["style", "theme", "width"]) if (p.get(k)) S[k] = p.get(k);
+render();
+</script>
+</body>
+</html>
