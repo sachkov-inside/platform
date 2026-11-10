@@ -35,12 +35,11 @@ body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-seri
 .top small{display:block;color:var(--tg-hint);font-size:12px}
 .msg{max-width:60%;margin:0 4px 8px auto;background:var(--out);color:var(--tg-text);padding:6px 10px;border-radius:14px 14px 4px 14px;width:fit-content}
 .bubble{position:relative;margin:0 4px;background:var(--tg-bg);border-radius:16px 16px 16px 4px;overflow:hidden;max-height:600px}
-.time{position:absolute;right:10px;bottom:5px;font-size:11px;color:var(--tg-hint);pointer-events:none}
 
 /* ---- виджет: общая часть ---- */
 .w{--bg:transparent;--fg:var(--tg-text);--hint:var(--tg-hint);--sec:var(--tg-sec);--line:var(--tg-line);--accent:var(--tg-btn);--accent-fg:var(--tg-btn-text);--r:10px;--ok:#2e9e5b;--bad:#d14343;
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  background:var(--bg);color:var(--fg);padding:12px 12px 20px;font-size:15px;line-height:1.4}
+  background:var(--bg);color:var(--fg);padding:12px;font-size:15px;line-height:1.4}
 .w button{font:inherit;color:inherit;cursor:pointer;text-align:left}
 .h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
 .h h1{font-size:18px;font-weight:700;letter-spacing:-.01em}
@@ -65,7 +64,6 @@ body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-seri
 .btn:disabled{opacity:.4;cursor:default}
 .nav{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .skip{border:0;background:none;color:var(--hint)!important;font-size:13px;padding:6px 2px;flex:none}
-.stat a{color:inherit}
 .x{width:32px;height:32px;border:0;border-radius:50%;background:var(--sec);text-align:center!important;font-size:16px;line-height:1;flex:none}
 .steps{display:flex;gap:4px;flex:1}
 .steps i{flex:1;height:6px;border-radius:99px;background:var(--sec)}
@@ -80,7 +78,6 @@ body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-seri
 .verdict{font-size:17px;font-weight:700;margin-bottom:8px}
 .verdict.ok{color:var(--ok)}.verdict.bad{color:var(--bad)}
 .why{font-size:13.5px;line-height:1.4;margin-bottom:8px}
-.read{display:block;font-size:13px;color:var(--accent);margin-bottom:8px;text-decoration:none}
 .stat{font-size:12.5px;color:var(--hint);margin-bottom:10px}
 .big{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
 .center{text-align:center}
@@ -148,7 +145,7 @@ body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-seri
   <div class="phone" id="phone" data-theme="light">
     <div class="top"><div class="ava">I</div><div><b>Inside</b><small>бот</small></div></div>
     <div class="msg">/train</div>
-    <div class="bubble" id="bubble"><div class="w" id="w" data-style="mixed"></div><span class="time">12:04</span></div>
+    <div class="bubble" id="bubble"><div class="w" id="w" data-style="mixed"></div></div>
   </div>
   <aside class="side">
     <h2>Состояние прототипа</h2>
@@ -167,22 +164,22 @@ const TOPICS = [
 const Q = [
  {t:"Контекст и промпты", q:"Агент работает над задачей третий час. Окно контекста заполнено на 70%, но ответы стали заметно хуже. Что происходит вероятнее всего?",
   o:["Модель исчерпала лимит запросов и отвечает в упрощённом режиме","В контексте накопились устаревшие и противоречивые результаты, и модели труднее выделить важное","Системный промпт вытеснен из окна и больше не действует","Температура растёт с каждым шагом агента"], a:[1],
-  why:"Качество падает задолго до переполнения окна: старые выводы инструментов и отменённые решения мешают модели найти актуальное. Помогает сжатие истории или новая сессия с короткой сводкой.", read:"Урок «Управление контекстом»"},
+  why:"Качество падает задолго до переполнения окна: старые выводы инструментов и отменённые решения мешают модели найти актуальное. Помогает сжатие истории или новая сессия с короткой сводкой."},
  {t:"Инструменты, MCP и skills", q:"Что MCP-сервер может предоставить клиенту? Отметьте все верные варианты.",
   o:["Инструменты, которые модель может вызвать","Ресурсы: данные для чтения","Готовые промпты","Веса модели"], a:[0,1,2], multi:true,
-  why:"В протоколе три вида возможностей сервера: инструменты, ресурсы и промпты. Модель и её веса остаются на стороне клиента, сервер к ним доступа не имеет.", read:"Спецификация MCP, раздел Server Features"},
+  why:"В протоколе три вида возможностей сервера: инструменты, ресурсы и промпты. Модель и её веса остаются на стороне клиента, сервер к ним доступа не имеет."},
  {t:"Evals и наблюдаемость", q:"Агент решает задачу с вероятностью 60%. Вы запускаете его пять раз подряд. Какая метрика отвечает на вопрос «все пять запусков успешны» и чему она равна?",
   o:["Pass@5, около 99%","Pass^5, около 8%","Pass^5, около 60%","Pass@5, около 8%"], a:[1],
-  why:"Pass^k требует успеха во всех k попытках: 0,6⁵ ≈ 0,078. Pass@k считает хотя бы один успех: 1 − 0,4⁵ ≈ 0,99. Для надёжности в продакшене важна первая, вторая льстит агенту.", read:"Bojie Li, AI Agents in Depth, глава 7"},
+  why:"Pass^k требует успеха во всех k попытках: 0,6⁵ ≈ 0,078. Pass@k считает хотя бы один успех: 1 − 0,4⁵ ≈ 0,99. Для надёжности в продакшене важна первая, вторая льстит агенту."},
  {t:"Безопасность", q:"Какое сочетание возможностей делает агента уязвимым к краже данных через prompt injection?",
   o:["Большое окно контекста, высокая температура и длинный системный промпт","Доступ к приватным данным, чтение недоверенного контента и возможность отправлять данные наружу","Несколько инструментов с похожими названиями","Работа без подтверждения действий человеком"], a:[1],
-  why:"Это «смертельная тройка». Инструкция из недоверенного текста заставляет агента прочитать приватные данные и отправить их наружу. Достаточно убрать любое из трёх звеньев, и атака не проходит.", read:"Урок «Prompt injection и ограничения агента»", pct:[6,71,5,18]},
+  why:"Это «смертельная тройка». Инструкция из недоверенного текста заставляет агента прочитать приватные данные и отправить их наружу. Достаточно убрать любое из трёх звеньев, и атака не проходит.", pct:[6,71,5,18]},
  {t:"RAG и поиск", q:"Гибридный поиск объединяет поиск по ключевым словам и векторный. Зачем нужны ключевые слова, если векторы уже находят близкие по смыслу тексты?",
   o:["Поиск по ключевым словам всегда быстрее","Векторы плохо находят точные строки: идентификаторы, имена функций, коды ошибок","Ключевые слова нужны только для русского языка","Без них нельзя посчитать релевантность"], a:[1],
-  why:"Эмбеддинг передаёт смысл, но размывает редкие точные токены. Запрос «ошибка E4012» или имя функции надёжнее находит поиск по словам, поэтому результаты двух поисков объединяют.", read:"Essential GraphRAG, глава 2"},
+  why:"Эмбеддинг передаёт смысл, но размывает редкие точные токены. Запрос «ошибка E4012» или имя функции надёжнее находит поиск по словам, поэтому результаты двух поисков объединяют."},
  {t:"Инструменты, MCP и skills", q:"У агента два похожих инструмента, и модель часто вызывает не тот. Что стоит сделать в первую очередь?",
   o:["Поднять температуру, чтобы модель пробовала оба","Переписать описания: когда нужен каждый инструмент и чем они отличаются","Добавить третий инструмент, который выбирает между ними","Перенести описания инструментов в конец системного промпта"], a:[1],
-  why:"Модель выбирает инструмент по описанию. Если описания не говорят, в каких случаях нужен каждый, выбор превращается в угадывание. Ещё один вариант решения: объединить два инструмента в один с параметром.", read:"Урок «Проектирование инструментов»"},
+  why:"Модель выбирает инструмент по описанию. Если описания не говорят, в каких случаях нужен каждый, выбор превращается в угадывание. Ещё один вариант решения: объединить два инструмента в один с параметром."},
 ];
 const BOARD = {
   week:[["Аня К.",46],["Денис",41],["mrtn",38],["Вы",31],["Ольга С.",29],["Tim",24],["Рустам",22]],
@@ -246,8 +243,7 @@ question: () => {
     <div class="verdict ${v[0]}">${v[1]}</div>
     <div class="opts">${show.map(x => `<div class="opt ${q.a.includes(x.k) ? "ok" : "bad"}"><span class="key">${KEYS[x.k]}</span><span>${esc(x.o)}</span></div>`).join("")}</div>
     <div class="why">${esc(q.why)}</div>
-    <a class="read" href="#" data-act="noop">Где почитать: ${esc(q.read)} →</a>
-    <div class="stat">${S.mode === "daily" && q.pct ? `Верно ответили ${q.pct[q.a[0]]}% из 1 284 человек · ` : ""}<a href="#" data-act="noop">В вопросе ошибка</a></div>
+    ${S.mode === "daily" && q.pct ? `<div class="stat">Верно ответили ${q.pct[q.a[0]]}% из 1 284 человек</div>` : ""}
     <button class="btn primary" data-act="next">${S.i + 1 < S.list.length ? "Дальше" : many ? "К итогу" : "Готово"}</button>`;
 },
 
@@ -257,7 +253,7 @@ result: () => {
   return `
   <div class="center"><div class="eyebrow">${S.topic ? esc(S.topic) : "Проверить себя"}</div>
     <div class="big">${ok} из ${n}</div>
-    <div class="why" style="margin-top:8px">${ok === n ? "Без ошибок." : ok >= n / 2 ? "Хороший раунд. Разборы ошибок остались в чате выше." : "Тема стоит того, чтобы перечитать уроки из разборов."}</div></div>
+    <div class="why" style="margin-top:8px">${ok === n ? "Без ошибок." : ok >= n / 2 ? "Хороший раунд." : "Эту область стоит потренировать ещё."}</div></div>
   <div class="kpis"><div class="kpi"><b>+${ok}</b><small>очки</small></div><div class="kpi"><b>${S.streak}</b><small>серия, дней</small></div><div class="kpi"><b>4</b><small>место за неделю</small></div></div>
   <button class="btn primary" data-act="${S.topic ? "topics" : "quick"}">${S.topic ? "Другая тема" : "Ещё раунд"}</button>
   <div class="two"><button class="btn" data-act="home">На главный</button><button class="btn" data-act="rating">Рейтинг</button></div>`;
