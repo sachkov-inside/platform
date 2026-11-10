@@ -368,6 +368,41 @@ describe("trainer widget screens in a browser", () => {
     },
   );
 
+  it.each([
+    ["light", "rgb(199, 70, 30)"],
+    ["dark", "rgb(239, 107, 60)"],
+  ] as const)(
+    "accents the home title and every button's bottom in the %s theme",
+    async (theme, accent) => {
+      const page = await openWidget(320, { theme });
+      const titleColor = await page
+        .getByText("Тренажёр", { exact: true })
+        .evaluate((title) => getComputedStyle(title).color);
+      expect(titleColor).toBe(accent);
+      for (const name of [
+        "Проверить себя",
+        "Вопрос дня",
+        "Тренировка по теме",
+        "Прогресс",
+        "Рейтинг",
+      ]) {
+        const style = await buttonNamed(page, name).evaluate((button) => {
+          const computed = getComputedStyle(button);
+          return {
+            bottom: computed.borderBottomColor,
+            top: computed.borderTopColor,
+            background: computed.backgroundColor,
+            text: computed.color,
+          };
+        });
+        expect(style.bottom).toBe(accent);
+        expect(style.top).not.toBe(accent);
+        expect(style.background).toBe("rgba(0, 0, 0, 0)");
+        expect(style.text).not.toBe(accent);
+      }
+    },
+  );
+
   it("shows the bot's answer for a section that is not open and returns home", async () => {
     const page = await openWidget(320, { chatData: '["h",0,0,5,0]' });
 

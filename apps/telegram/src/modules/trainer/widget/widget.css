@@ -141,6 +141,13 @@ button {
 }
 
 /* Home: .U title, .c series chip, .T progress track. */
+/* .a gives every home button the accent bottom edge and the home title its colour. */
+.a {
+  border-bottom-color: var(--a);
+}
+.U.a {
+  color: var(--a);
+}
 .U {
   font-size: 1.33em;
   font-weight: 800;

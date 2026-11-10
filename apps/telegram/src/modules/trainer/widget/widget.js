@@ -75,13 +75,18 @@
   const screens = {
     // ["h", streak, answeredToday, dailyGoal, dailyQuestionDone]
     h: (d) =>
-      `<div class=R><b class="F U">Тренажёр</b><span class=c>Серия: ${d[1]} ${days(d[1])}</span></div>` +
+      `<div class=R><b class="F U a">Тренажёр</b><span class=c>Серия: ${d[1]} ${days(d[1])}</span></div>` +
       `<div class="R m"><span class=F>Цель на сегодня</span>${d[2]} из ${d[3]} вопросов</div>` +
       track(d[2] / d[3]) +
-      card("q", "k", "Проверить себя", "5 случайных вопросов, около 2 минут") +
-      card("d", "k", "Вопрос дня", "Один вопрос, общий для всех") +
-      card("t", "k", "Тренировка по теме", "10 вопросов по выбранной теме") +
-      pair(button("p", "b", "Прогресс"), button("l0", "b", "Рейтинг")),
+      card(
+        "q",
+        "k a",
+        "Проверить себя",
+        "5 случайных вопросов, около 2 минут",
+      ) +
+      card("d", "k a", "Вопрос дня", "Один вопрос, общий для всех") +
+      card("t", "k a", "Тренировка по теме", "10 вопросов по выбранной теме") +
+      pair(button("p", "b a", "Прогресс"), button("l0", "b a", "Рейтинг")),
 
     // ["t", [[code, name, done, total], …]]
     t: (d) => (
