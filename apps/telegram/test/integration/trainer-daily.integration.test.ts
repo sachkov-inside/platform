@@ -32,7 +32,7 @@ import {
 import { TrainerBank } from "../../src/modules/trainer/trainer-bank.js";
 import { Trainer } from "../../src/modules/trainer/trainer.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
-import { systemClock } from "../../src/shared/clock.js";
+import { virtualTestClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
@@ -56,9 +56,9 @@ if (!hasText(databaseUrl)) {
 const WEBHOOK_SECRET = "synthetic_secret";
 const BOT = "inside";
 const OPTIONS = ["Вариант А", "Вариант Б", "Вариант В", "Вариант Г"];
-const NO_QUESTIONS = ["x", "Вопросы скоро появятся."];
+const NO_QUESTIONS = ["i", "Вопросы скоро появятся."];
 const WITHDRAWN_TODAY = [
-  "x",
+  "i",
   "Сегодняшний Вопрос дня снят. Новый появится завтра.",
 ];
 const ISSUE_CLOSED = ["x", "Этот вопрос уже закрыт. Начните новый раунд."];
@@ -199,7 +199,7 @@ afterAll(async () => {
 
 /** The owner's import makes the stored Bank follow this synthetic file. */
 async function loadBank(bank: SyntheticBank): Promise<void> {
-  const report = await new TrainerBank(database, systemClock).import(
+  const report = await new TrainerBank(database, virtualTestClock).import(
     bank,
     true,
   );
@@ -278,12 +278,14 @@ function daily(screen: Screen): DailyQuestion {
   const severalCorrect = Number(question[1]) % 3 === 0;
   expect(several).toBe(severalCorrect ? 1 : 0);
   // A question not answered yet carries no steps and no picked options.
-  expect(marks === "" ? screen.length : 9).toBe(screen.length);
+  expect(typeof marks).toBe("string");
+  expect(screen).toHaveLength(10);
+  expect(screen[9]).toBe(1);
   return {
     issueId,
     questionId: `q-${String(question[2])}-${String(question[1])}`,
     correctMask: severalCorrect ? 3 : 1,
-    reviewMask,
+    reviewMask: reviewMask ?? undefined,
   };
 }
 
@@ -511,6 +513,7 @@ describe("opening the Daily question again on the same day", () => {
       1,
       // Option «Г», the one the person picked.
       8,
+      1,
     ]);
     expect(answered).toEqual([
       "e",

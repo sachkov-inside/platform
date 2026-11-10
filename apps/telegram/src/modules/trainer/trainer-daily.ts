@@ -1,7 +1,8 @@
 import { sql } from "kysely";
 
 import type { Database } from "../../database/database.js";
-import { MOSCOW_OFFSET_SECONDS } from "./trainer-days.js";
+import { moscowDay } from "./trainer-days.js";
+export { moscowDay } from "./trainer-days.js";
 import {
   correctMaskOf,
   severalBits,
@@ -12,13 +13,6 @@ import {
   type TrainerPerson,
 } from "./trainer-rounds.js";
 import type { OptionMask } from "./widget/trainer-widget-wire.js";
-
-/** The Moscow calendar day of an instant, as `YYYY-MM-DD`. */
-export function moscowDay(at: Date): string {
-  return new Date(at.getTime() + MOSCOW_OFFSET_SECONDS * 1000)
-    .toISOString()
-    .slice(0, 10);
-}
 
 /** The person's own request for the Daily question. */
 export interface TrainerDailyRequest {
@@ -85,6 +79,8 @@ export class TrainerDaily {
       if (roundId === undefined) return { kind: "withdrawn" };
 
       const step = await showRoundStep(tx, roundId, request.at);
+      if (step.kind === "result" && step.round.marks.length === 0)
+        return { kind: "withdrawn" };
       return step.kind === "question" ? step : review(tx, roundId);
     });
   }

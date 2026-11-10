@@ -17,8 +17,6 @@ export const TRAINER_WIDGET_COMPRESSED_BUDGET_BYTES =
 export const TELEGRAM_WIDGET_REQUEST_MAX_BYTES = 64;
 /** `data` of answerWidgetQuery, and `chat_data` of sendWidget: bytes of UTF-8. */
 export const TELEGRAM_WIDGET_DATA_MAX_BYTES = 1_024;
-/** The bot must call answerWidgetQuery within this time; the query id expires with it. */
-export const TELEGRAM_WIDGET_ANSWER_TIMEOUT_SECONDS = 15;
 
 /** The bubble clips a widget at this height; nothing scrolls inside it. */
 export const TELEGRAM_WIDGET_MAX_HEIGHT_PX = 600;

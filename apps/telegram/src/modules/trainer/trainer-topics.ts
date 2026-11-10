@@ -3,7 +3,7 @@ import type { TrainerPerson } from "./trainer-rounds.js";
 import type { TrainerTopicsData } from "./widget/trainer-widget-wire.js";
 
 /** A topic a person can train and how much of it the person has gone through. */
-export interface TrainerTopicProgress {
+export interface TrainerTopicChoice {
   readonly code: string;
   /** The topic's name as the Bank gives it. */
   readonly name: string;
@@ -21,7 +21,7 @@ export class TrainerTopics {
   constructor(private readonly database: Database) {}
 
   /** Every topic the person can choose, in the Bank's order, with the person's counter. */
-  async list(person: TrainerPerson): Promise<TrainerTopicProgress[]> {
+  async list(person: TrainerPerson): Promise<TrainerTopicChoice[]> {
     const rows = await this.database
       .selectFrom("trainer_topics as topic")
       .innerJoin("trainer_questions as question", (join) =>
@@ -73,7 +73,7 @@ export class TrainerTopics {
 
 /** The topic choice screen. */
 export function topicsScreen(
-  topics: readonly TrainerTopicProgress[],
+  topics: readonly TrainerTopicChoice[],
 ): TrainerTopicsData {
   return [
     "t",

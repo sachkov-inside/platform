@@ -34,34 +34,11 @@ export interface AnswerWidgetQueryParameters {
   readonly data?: string;
 }
 
-export interface EditMessageWidgetDataParameters {
-  readonly chat_id: number;
-  readonly message_id: number;
-  /** An empty text clears the state; an omitted field keeps it. */
-  readonly chat_data?: string;
-  readonly public_data?: string;
-}
-
-/** `widget_query` of an Update for a widget the bot sent to a chat. */
-export interface TelegramWidgetQuery {
-  readonly id: string;
-  readonly from: { readonly id: number; readonly first_name: string };
-  readonly chat?: { readonly id: number; readonly type: string };
-  readonly message_id?: number;
-  readonly chat_instance: string;
-  readonly type: { readonly type: string };
-  /** 1-64 bytes, written by the widget: untrusted input. */
-  readonly data: string;
-}
-
 export interface TelegramWidgetApi {
   sendWidget(
     parameters: SendWidgetParameters,
   ): Promise<{ readonly message_id: number }>;
   answerWidgetQuery(parameters: AnswerWidgetQueryParameters): Promise<true>;
-  editMessageWidgetData(
-    parameters: EditMessageWidgetDataParameters,
-  ): Promise<true>;
 }
 
 const sentMessage = z.object({ message_id: z.number().int() });
@@ -90,7 +67,5 @@ export function telegramWidgetApi(api: Pick<Api, "raw">): TelegramWidgetApi {
     },
     answerWidgetQuery: (parameters) =>
       acknowledged("answerWidgetQuery", parameters),
-    editMessageWidgetData: (parameters) =>
-      acknowledged("editMessageWidgetData", parameters),
   };
 }

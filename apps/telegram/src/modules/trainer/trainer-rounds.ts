@@ -5,13 +5,15 @@ import {
   trainerAnswerExplanation,
   type TrainerBankOption,
 } from "./trainer-bank-file.js";
+import { trainerCodeFormat } from "./trainer-identifiers.js";
+import { DAY_SECONDS } from "./trainer-days.js";
 import { earnsTrainerPoint } from "./trainer-points.js";
 import type { TrainerRoundMode } from "./trainer-storage.js";
 import type { OptionMask, RoundMarks } from "./widget/trainer-widget-wire.js";
 
 /** A question the person answered correctly does not come back for this many days. */
 const CORRECT_ANSWER_REST_DAYS = 30;
-const DAY_MS = 24 * 60 * 60 * 1000;
+
 /** The largest issue number PostgreSQL stores (bigint). */
 const LARGEST_ISSUE_NUMBER = 2n ** 63n - 1n;
 
@@ -245,14 +247,17 @@ export class TrainerRounds {
   }
 
   /**
-   * The next step of the round the person answered in last: its next question, or its result
+   * The next step of the named answered issue’s round (legacy `n` uses the last answer): its next question, or its result
    * when every step is answered. `undefined`: the person has not answered anything yet.
    */
   async next(
     person: TrainerPerson,
     at: Date,
+    issueId?: string,
   ): Promise<TrainerIssuedQuestion | TrainerRoundResult | undefined> {
-    const last = await this.database
+    const id = issueId === undefined ? undefined : issueNumber(issueId);
+    if (issueId !== undefined && id === undefined) return undefined;
+    let query = this.database
       .selectFrom("trainer_issues")
       .select("round_id")
       .where("bot_identity", "=", person.botIdentity)
@@ -260,8 +265,9 @@ export class TrainerRounds {
       .where("answered_at", "is not", null)
       .orderBy("answered_at", "desc")
       .orderBy("id", "desc")
-      .limit(1)
-      .executeTakeFirst();
+      .limit(1);
+    if (id !== undefined) query = query.where("id", "=", id);
+    const last = await query.executeTakeFirst();
     return last && showRoundStep(this.database, last.round_id, at);
   }
 }
@@ -280,7 +286,7 @@ async function chooseQuestions(
 ) {
   const topic = request.topicCode ?? null;
   const restsSince = new Date(
-    request.at.getTime() - CORRECT_ANSWER_REST_DAYS * DAY_MS,
+    request.at.getTime() - CORRECT_ANSWER_REST_DAYS * DAY_SECONDS * 1000,
   );
   const { rows } = await sql<{
     id: string;
@@ -378,6 +384,7 @@ export async function showRoundStep(
     ])
     .where("issue.round_id", "=", roundId)
     .where("issue.answered_at", "is", null)
+    .where("question.withdrawn_at", "is", null)
     .orderBy("issue.position")
     .limit(1)
     .executeTakeFirst();
@@ -420,7 +427,7 @@ async function roundOf(
 ): Promise<TrainerRound> {
   const round = await database
     .selectFrom("trainer_rounds")
-    .select(["id", "mode", "topic_code", "size"])
+    .select(["id", "mode", "topic_code"])
     .where("id", "=", roundId)
     .executeTakeFirstOrThrow();
   const answered = await database
@@ -430,11 +437,27 @@ async function roundOf(
     .where("answered_at", "is not", null)
     .orderBy("position")
     .execute();
+  const effective = await database
+    .selectFrom("trainer_issues as issue")
+    .innerJoin(
+      "trainer_questions as question",
+      "question.id",
+      "issue.question_id",
+    )
+    .select(sql<number>`count(*)::integer`.as("size"))
+    .where("issue.round_id", "=", roundId)
+    .where((eb) =>
+      eb.or([
+        eb("issue.answered_at", "is not", null),
+        eb("question.withdrawn_at", "is", null),
+      ]),
+    )
+    .executeTakeFirstOrThrow();
   return {
     id: round.id,
     mode: round.mode,
     topicCode: round.topic_code,
-    size: round.size,
+    size: effective.size,
     marks: answered
       .map(({ correct }) => (correct === true ? "1" : "0"))
       .join(""),
@@ -473,7 +496,7 @@ function fits(
 
 /** The stored number of an issue named by the widget; `undefined` when it cannot be one. */
 function issueNumber(issueId: string): string | undefined {
-  if (!/^[0-9a-z]{1,16}$/.test(issueId)) return undefined;
+  if (!trainerCodeFormat.test(issueId)) return undefined;
   let number = 0n;
   for (const digit of issueId)
     number = number * 36n + BigInt(parseInt(digit, 36));

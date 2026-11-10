@@ -18,7 +18,7 @@ import {
 } from "../../src/modules/outbound/telegram-messages.js";
 import { TrainerBank } from "../../src/modules/trainer/trainer-bank.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
-import { systemClock } from "../../src/shared/clock.js";
+import { virtualTestClock } from "./fixed-clock.js";
 import {
   privateStartUpdate,
   widgetQueryUpdate,
@@ -156,7 +156,7 @@ export async function loadBank(
   database: Database,
   bank: SyntheticBank,
 ): Promise<void> {
-  const report = await new TrainerBank(database, systemClock).import(
+  const report = await new TrainerBank(database, virtualTestClock).import(
     bank,
     true,
   );

@@ -33,7 +33,7 @@ import {
 import { TrainerBank } from "../../src/modules/trainer/trainer-bank.js";
 import { TRAINER_WIDGET_HTML } from "../../src/modules/trainer/widget/trainer-widget-html.generated.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
-import { systemClock } from "../../src/shared/clock.js";
+import { virtualTestClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import {
@@ -188,6 +188,7 @@ async function startBot(marketingEnabled: boolean): Promise<Bot> {
     { logger: false },
   );
   // Registered before init, so afterAll closes an application whose start failed.
+  // deterministic-test-allow shared-mutation: afterAll closes every application registered here.
   started.push(application);
   await application.init();
   await application.getHttpAdapter().getInstance().ready();
@@ -227,7 +228,7 @@ beforeEach(async () => {
 
 /** The owner's import makes the stored Bank follow this synthetic file. */
 async function loadBank(bank: SyntheticBank): Promise<void> {
-  const report = await new TrainerBank(database, systemClock).import(
+  const report = await new TrainerBank(database, virtualTestClock).import(
     bank,
     true,
   );
@@ -1194,7 +1195,7 @@ describe("«Тренировка по теме»", () => {
     expect(again.slice(2).sort()).toEqual(seen.slice(7).sort());
     // Every question of the topic is now answered correctly and rests for 30 days.
     expect(await tap(user, "tt2")).toEqual([
-      "x",
+      "i",
       "Вы верно ответили на все вопросы. Они вернутся через 30 дней после ответа.",
     ]);
   });
@@ -1282,7 +1283,7 @@ describe("the choice of questions", () => {
     );
     // Everything is answered correctly now, so there is nothing to ask.
     expect(await tap(user, "q")).toEqual([
-      "x",
+      "i",
       "Вы верно ответили на все вопросы. Они вернутся через 30 дней после ответа.",
     ]);
   });
@@ -1308,7 +1309,7 @@ describe("the choice of questions", () => {
       database,
     );
 
-    expect(await tap(newUser(), "q")).toEqual(["x", "Вопросы скоро появятся."]);
+    expect(await tap(newUser(), "q")).toEqual(["i", "Вопросы скоро появятся."]);
   });
 });
 

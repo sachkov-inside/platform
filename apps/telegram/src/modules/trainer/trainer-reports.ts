@@ -1,6 +1,7 @@
 import { sql } from "kysely";
 
 import type { Database } from "../../database/database.js";
+import { moscowDaySql as moscowDay } from "./trainer-days.js";
 
 /** One stored question of the Bank with the answers people gave to it. */
 export interface TrainerQuestionReportLine {
@@ -43,10 +44,6 @@ export interface TrainerUsageReportLine {
   /** A person who came with two labels on one day counts under both. */
   readonly sources: readonly TrainerUsageSourceLine[];
 }
-
-/** The Moscow calendar day of a moment stored in this column. */
-const moscowDay = (column: string) =>
-  sql`(${sql.ref(column)} at time zone 'Europe/Moscow')::date`;
 
 /**
  * The author's reports on the Trainer. They count people and never name them: no line carries

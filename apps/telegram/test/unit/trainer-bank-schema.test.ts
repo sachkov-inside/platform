@@ -38,6 +38,8 @@ describe("published Bank file schema", () => {
       questionTextCharacters: 160,
       optionTextsTogetherCharacters: 240,
       answerExplanationCharacters: 200,
+      topicsDataBytes: 1024,
+      progressDataBytes: 1024,
       questionDataBytes: 1024,
       answerExplanationDataBytes: 1024,
     });
