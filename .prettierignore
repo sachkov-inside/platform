@@ -13,6 +13,7 @@ apps/backend/openapi/
 apps/backend/mcp/tool-surface.json
 apps/backend/mcp/learner-tool-surface.json
 apps/backend/src/**/*.generated.ts
+apps/telegram/src/**/*.generated.ts
 apps/web/src/shared/api/backend/generated/
 infra/notifications/local-definitions.json
 

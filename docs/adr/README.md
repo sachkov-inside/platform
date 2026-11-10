@@ -1,6 +1,6 @@
 # Архитектурные решения
 
-В рабочем дереве 37 действующих ADR: 35 Platform и 2 Telegram.
+В рабочем дереве 39 действующих ADR: 35 Platform и 4 Telegram.
 Заменённые решения и дубли удалены; исходные тексты сохраняются в Git.
 Номера оставшихся решений не меняются, удалённые номера не используются повторно.
 
@@ -58,3 +58,5 @@ ADR фиксируют причины выбора и компромиссы; т
 |---|---|
 | [0001](../../apps/telegram/docs/adr/0001-bot-sign-in-without-confirmation-code.md) | Подтверждение входа в боте без сверки кода |
 | [0002](../../apps/telegram/docs/adr/0002-durable-queue-boundary.md) | Граница общей durable-queue и журналов внешнего эффекта |
+| [0003](../../apps/telegram/docs/adr/0003-native-message-copies.md) | Native Telegram copies in the author's private conversation |
+| [0004](../../apps/telegram/docs/adr/0004-trainer-html-widget.md) | Тренажёр живёт в HTML-виджете Telegram, а не в Mini App и не на кнопках |
