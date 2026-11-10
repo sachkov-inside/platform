@@ -102,3 +102,14 @@ _Avoid_: Support ticket, rejection, pending_review
 An owner-configured prior-course group and participant policy used to verify eligibility for course
 activation. It is separate from the community a Product opens and does not itself grant Product Access.
 _Avoid_: Community group, subscription source, Product Access
+
+**Банк вопросов** (Question Bank):
+The author's whole set of Trainer questions and their topics, loaded into the bot by the owner's
+import. The bot never edits it; a new import replaces what people are shown.
+_Avoid_: Quiz, test, lesson check, question pool
+
+**Вопрос тренажёра** (Trainer Question):
+One question of the Банк вопросов with a permanent identifier, a topic, 2 to 4 options of which one
+or several are correct, an explanation of every option and a general explanation. A question that
+leaves the Bank is withdrawn from display and keeps the answers people gave to it.
+_Avoid_: Lesson question, task, exercise, poll
