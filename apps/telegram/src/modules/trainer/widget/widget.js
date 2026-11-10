@@ -52,7 +52,7 @@
   const tile = (value, label) =>
     `<div class=K><b>${value}</b><span class=m>${label}</span></div>`;
   const pair = (left, right) => `<div class=R>${left}${right}</div>`;
-  /** Round steps: answered ones are filled or dashed, the current one has a heavier outline. */
+  /** Round steps: answered ones are filled or dashed, the current one has a contrasting outline. */
   const roundHead = (marks, total, extra, daily) =>
     `<div class=R>${button("h", "x", "×")}${
       !daily
@@ -70,6 +70,31 @@
     return tappable
       ? button("P" + index, "o R" + classes, body)
       : `<div class="o R${classes}">${body}</div>`;
+  };
+
+  /** One reserved panel for choosing an answer, its verdict and continuing the round. */
+  const feedback = (d) => {
+    const review = question[8] != null;
+    return (
+      `<div class=f><b class="V ${d ? (d[1] % 3 ? "G" : "B") : ""}">${d ? ["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]] : review ? "Ответ сохранён" : "Выберите ответ"}</b>` +
+      `<div class=W>${d ? esc(d[4]) : review ? "Посмотрите разбор своего ответа." : question[5] ? "Можно выбрать несколько вариантов." : "Нажмите на вариант ответа."}</div>` +
+      (d && d[7] ? `<div class=m>${esc(d[7])}</div>` : "") +
+      (d
+        ? button(
+            question[9] ? "h" : "n" + question[1],
+            "b P",
+            d[5].length < d[6] ? "Дальше" : question[9] ? "Готово" : "К итогу",
+          )
+        : review || question[5]
+          ? button(
+              "S",
+              "b P",
+              review ? "Показать разбор" : "Ответить",
+              !review && !picked,
+            )
+          : "") +
+      "</div>"
+    );
   };
 
   const screens = {
@@ -107,6 +132,7 @@
     q: (d) => {
       const review = d[8] != null;
       return (
+        "<div class=j>" +
         roundHead(d[6], d[7], review ? "" : button("K", "n", "Не знаю"), d[9]) +
         `<div class=m>${esc(d[2])}</div><div class=Q>${esc(d[3])}</div>` +
         d[4]
@@ -114,18 +140,21 @@
             option(index, text, (picked >> index) & 1 ? " S Z" : "", !review),
           )
           .join("") +
-        (review
-          ? button("S", "b P", "Показать разбор")
-          : d[5]
-            ? button("S", "b P", "Ответить", !picked)
-            : "")
+        feedback() +
+        "</div>"
       );
     },
 
     // ["e", verdict, correctMask, pickedMask, text, marks, total, stat]
     // Keep the question and all options; feedback is added below them after the answer.
     e: (d) =>
-      roundHead(d[5], d[6], "", question[9]) +
+      "<div class=j>" +
+      roundHead(
+        d[5],
+        d[6],
+        question[8] == null ? "<span class=n></span>" : "",
+        question[9],
+      ) +
       `<div class=m>${esc(question[2])}</div><div class=Q>${esc(question[3])}</div>` +
       question[4]
         .map((text, index) =>
@@ -136,14 +165,7 @@
           ),
         )
         .join("") +
-      `<div class=f><b class="V ${d[1] % 3 ? "G" : "B"}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b>` +
-      `<div class=W>${esc(d[4])}</div>` +
-      (d[7] ? `<div class=m>${esc(d[7])}</div>` : "") +
-      button(
-        question[9] ? "h" : "n" + question[1],
-        "b P",
-        d[5].length < d[6] ? "Дальше" : question[9] ? "Готово" : "К итогу",
-      ) +
+      feedback(d) +
       "</div>",
 
     // ["r", title, correct, total, comment, points, streak, weekPlace, topicRound]

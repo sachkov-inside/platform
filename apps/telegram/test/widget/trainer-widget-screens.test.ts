@@ -272,6 +272,23 @@ const layout = (page: Page): Promise<Layout> =>
     };
   });
 
+/** The visible boxes and text sizes that must stay fixed throughout one question. */
+const questionGeometry = (page: Page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll("#w .q i, #w .Q, #w .o, #w .f")].map(
+      (element) => {
+        const box = element.getBoundingClientRect();
+        return [
+          box.x,
+          box.y,
+          box.width,
+          box.height,
+          getComputedStyle(element).fontSize,
+        ];
+      },
+    ),
+  );
+
 describe("trainer widget screens in a browser", () => {
   describe.each(TRAINER_WIDGET_CHECKED_WIDTHS_PX)(
     "in a %i px bubble with texts at the limits",
@@ -520,6 +537,66 @@ describe("trainer widget screens in a browser", () => {
     expect(await accent(dark)).toBe("rgb(239, 107, 60)");
   });
 
+  it.each([
+    ["light", "usual", realisticText, 15],
+    ["dark", "usual", realisticText, 15],
+    ["light", "wide", wideText, 15],
+    ["dark", "wide", wideText, 15],
+    ["light", "large", realisticText, 23],
+    ["dark", "large", realisticText, 23],
+  ] as const)(
+    "keeps option and footer geometry in the %s theme with %s text",
+    async (theme, _label, text, textSizePx) => {
+      const page = await openWidget(320, { theme, textSizePx });
+      await tap(page, "Проверить себя", question(text));
+      const before = await questionGeometry(page);
+      await buttonNamed(page, "А ").click();
+      expect(await questionGeometry(page)).toEqual(before);
+      await tap(page, "Ответить", explanation(text, 0b0011, 0b0001));
+      expect(await questionGeometry(page)).toEqual(before);
+      expect(await page.locator(".f").innerText()).toContain("Неверно");
+      await page.close();
+    },
+  );
+
+  it.each([
+    ["light", 320, 15],
+    ["dark", 320, 23],
+    ["light", 390, 23],
+    ["dark", 430, 23],
+  ] as const)(
+    "reserves long feedback for a short question in %s at %i px and %i px text",
+    async (theme, width, textSizePx) => {
+      const page = await openWidget(width, { theme, textSizePx });
+      await tap(page, "Проверить себя", [
+        "q",
+        "7k",
+        "Тема",
+        "Вопрос?",
+        ["Первый", "Второй"],
+        0,
+        "",
+        5,
+      ]);
+      const before = await questionGeometry(page);
+      await tap(page, "А Первый", [
+        "e",
+        2,
+        1,
+        1,
+        wideText(TRAINER_EXPLANATION_MAX_CHARS, 2),
+        "1",
+        5,
+        wideText(TRAINER_STAT_LINE_MAX_CHARS, 3),
+      ]);
+      expect(await questionGeometry(page)).toEqual(before);
+      expect((await layout(page)).height).toBeLessThanOrEqual(
+        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+      );
+      await page.close();
+    },
+  );
+
   it("sends one answer for a tap on an option of a single-answer question", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", [
@@ -533,6 +610,7 @@ describe("trainer widget screens in a browser", () => {
       5,
     ]);
 
+    const before = await questionGeometry(page);
     await tap(page, "Б Синтетический вариант 2", [
       "e",
       2,
@@ -544,6 +622,7 @@ describe("trainer widget screens in a browser", () => {
       0,
     ]);
 
+    expect(await questionGeometry(page)).toEqual(before);
     expect(await requests(page)).toEqual(["q", "a7k:2"]);
     const text = await page.locator("#w").innerText();
     expect(text).toContain("Верно, +1 очко");
