@@ -52,7 +52,7 @@
   const tile = (value, label) =>
     `<div class=K><b>${value}</b><span class=m>${label}</span></div>`;
   const pair = (left, right) => `<div class=R>${left}${right}</div>`;
-  /** Round steps: answered ones are green or red, the current one has the accent colour. */
+  /** Round steps: answered ones are filled or dashed, the current one has a heavier outline. */
   const roundHead = (marks, total, extra, daily) =>
     `<div class=R>${button("h", "x", "×")}${
       !daily

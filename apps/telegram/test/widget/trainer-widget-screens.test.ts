@@ -233,6 +233,8 @@ interface Layout {
   readonly fontSize: number;
   /** Elements whose box leaves the bubble sideways. */
   readonly overflowing: string[];
+  /** Hard shadows must remain inside the widget, including its bottom padding. */
+  readonly clippedShadows: string[];
   readonly pageWidth: number;
 }
 const layout = (page: Page): Promise<Layout> =>
@@ -244,6 +246,23 @@ const layout = (page: Page): Promise<Layout> =>
       height: document.body.offsetHeight,
       fontSize: Number.parseFloat(getComputedStyle(root).fontSize),
       pageWidth: document.documentElement.scrollWidth,
+      clippedShadows: [...root.querySelectorAll<HTMLElement>("*")]
+        .filter((element) => {
+          const shadow = getComputedStyle(element).boxShadow;
+          if (shadow === "none") return false;
+          const [x = 0, y = 0, blur = 0, spread = 0] = [
+            ...shadow.matchAll(/(-?[\d.]+)px/g),
+          ].map((match) => Number(match[1]));
+          const box = element.getBoundingClientRect();
+          // Profile 1 permits hard shadows without the heavy-element limit.
+          // Include the full painted extent, which getBoundingClientRect omits.
+          return (
+            box.right + x + blur + spread > width + 0.5 ||
+            box.bottom + y + blur + spread >
+              root.getBoundingClientRect().bottom + 0.5
+          );
+        })
+        .map((element) => element.outerHTML.slice(0, 80)),
       overflowing: [...root.querySelectorAll<HTMLElement>("*")]
         .filter((element) => {
           const box = element.getBoundingClientRect();
@@ -266,6 +285,7 @@ describe("trainer widget screens in a browser", () => {
           const measured = await layout(page);
 
           expect(measured.overflowing).toEqual([]);
+          expect(measured.clippedShadows).toEqual([]);
           expect(measured.pageWidth).toBe(width);
           expect(measured.fontSize).toBeGreaterThanOrEqual(11);
           expect(measured.fontSize).toBeLessThanOrEqual(15);
@@ -274,6 +294,21 @@ describe("trainer widget screens in a browser", () => {
           );
           expect(TRAINER_WIDGET_TARGET_HEIGHT_PX).toBe(560);
         },
+      );
+    },
+  );
+
+  it.each(routes)(
+    "$name keeps its hard shadows inside a 320 px dark widget",
+    async (route) => {
+      const page = await openWidget(320, { theme: "dark" });
+      await reach(page, route, wideText);
+      const measured = await layout(page);
+      expect(measured.clippedShadows).toEqual([]);
+      expect(measured.overflowing).toEqual([]);
+      expect(measured.fontSize).toBeGreaterThanOrEqual(11);
+      expect(measured.height).toBeLessThanOrEqual(
+        TRAINER_WIDGET_TARGET_HEIGHT_PX,
       );
     },
   );
@@ -291,6 +326,7 @@ describe("trainer widget screens in a browser", () => {
         const measured = await layout(page);
 
         expect(measured.overflowing).toEqual([]);
+        expect(measured.clippedShadows).toEqual([]);
         expect(measured.pageWidth).toBe(320);
         expect(measured.fontSize).toBeGreaterThanOrEqual(11);
         expect(measured.fontSize).toBeLessThanOrEqual(options.textSizePx);
@@ -334,6 +370,7 @@ describe("trainer widget screens in a browser", () => {
     expect(text).toContain("0 из 5 вопросов");
     const measured = await layout(page);
     expect(measured.overflowing).toEqual([]);
+    expect(measured.clippedShadows).toEqual([]);
     expect(measured.pageWidth).toBe(320);
     expect(measured.height).toBeLessThanOrEqual(560);
     expect(await requests(page)).toEqual([]);
@@ -369,11 +406,11 @@ describe("trainer widget screens in a browser", () => {
   );
 
   it.each([
-    ["light", "rgb(199, 70, 30)"],
-    ["dark", "rgb(239, 107, 60)"],
+    ["light", "rgb(199, 70, 30)", "rgb(255, 239, 220)"],
+    ["dark", "rgb(239, 107, 60)", "rgb(51, 33, 23)"],
   ] as const)(
-    "accents the home title and every button's bottom in the %s theme",
-    async (theme, accent) => {
+    "uses outlined warm cards and crisp offset shadows equally in the %s theme",
+    async (theme, accent, surface) => {
       const page = await openWidget(320, { theme });
       const titleColor = await page
         .getByText("Тренажёр", { exact: true })
@@ -393,13 +430,52 @@ describe("trainer widget screens in a browser", () => {
             top: computed.borderTopColor,
             background: computed.backgroundColor,
             text: computed.color,
+            shadow: computed.boxShadow,
+            radius: computed.borderRadius,
           };
         });
         expect(style.bottom).toBe(accent);
         expect(style.top).not.toBe(accent);
-        expect(style.background).toBe("rgba(0, 0, 0, 0)");
+        expect(style.background).toBe(surface);
+        expect(style.radius).toBe("8px");
+        expect(style.shadow).toMatch(/4px 4px 0px 0px$/);
         expect(style.text).not.toBe(accent);
       }
+    },
+  );
+
+  it.each(["light", "dark"] as const)(
+    "distinguishes correct and wrong choices by shape in the %s theme",
+    async (theme) => {
+      const page = await openWidget(320, { theme });
+      await tap(page, "Проверить себя", question(realisticText));
+      await tap(page, "Не знаю", explanation(realisticText));
+      const correct = await page
+        .locator(".o.G")
+        .first()
+        .evaluate((option) => {
+          const letter = option.querySelector(".y");
+          if (!letter) throw new Error("The option letter is missing");
+          return {
+            border: getComputedStyle(option).borderTopStyle,
+            letter: getComputedStyle(letter).backgroundColor,
+          };
+        });
+      const wrong = await page
+        .locator(".o.B")
+        .first()
+        .evaluate((option) => {
+          const letter = option.querySelector(".y");
+          if (!letter) throw new Error("The option letter is missing");
+          return {
+            border: getComputedStyle(option).borderTopStyle,
+            letter: getComputedStyle(letter).backgroundColor,
+          };
+        });
+      expect(correct.border).toBe("solid");
+      expect(wrong.border).toBe("dashed");
+      expect(correct.letter).not.toBe(wrong.letter);
+      expect((await layout(page)).clippedShadows).toEqual([]);
     },
   );
 
@@ -676,6 +752,7 @@ describe("trainer widget screens in a browser", () => {
       }
       const measured = await layout(page);
       expect(measured.overflowing).toEqual([]);
+      expect(measured.clippedShadows).toEqual([]);
       expect(measured.pageWidth).toBe(320);
       expect(measured.fontSize).toBeGreaterThanOrEqual(11);
       expect(measured.fontSize).toBeLessThanOrEqual(15);
