@@ -30,6 +30,7 @@ import {
   resultScreen,
 } from "./trainer-screens.js";
 import type { TrainerOpeningDelivery } from "./trainer-storage.js";
+import { TrainerTopics, topicsScreen } from "./trainer-topics.js";
 import { TRAINER_WIDGET_HTML } from "./widget/trainer-widget-html.generated.js";
 import {
   encodeTrainerWidgetData,
@@ -43,6 +44,8 @@ import {
 const TRAINER_DAILY_GOAL = 5;
 /** Questions in a round of «Проверить себя». */
 const TRAINER_CHECK_QUESTIONS = 5;
+/** The most questions in a round of «Тренировка по теме». */
+const TRAINER_TOPIC_QUESTIONS = 10;
 
 // The caption keeps the message time off the widget, is the text of the chat list and the
 // notification, and is all a Telegram app without widgets shows (ADR 0004).
@@ -65,6 +68,7 @@ const ALL_ANSWERED_TEXT =
 @Injectable()
 export class Trainer {
   private readonly rounds: TrainerRounds;
+  private readonly topics: TrainerTopics;
 
   constructor(
     @Inject(DATABASE) private readonly database: Database,
@@ -75,6 +79,7 @@ export class Trainer {
     >,
   ) {
     this.rounds = new TrainerRounds(database);
+    this.topics = new TrainerTopics(database);
   }
 
   /**
@@ -180,9 +185,24 @@ export class Trainer {
       case "start_daily":
         return ["x", SECTION_NOT_OPEN_TEXT];
       case "topics":
-        return ["x", SECTION_NOT_OPEN_TEXT];
-      case "start_topic":
-        return ["x", SECTION_NOT_OPEN_TEXT];
+        return topicsScreen(await this.topics.list(contact));
+      case "start_topic": {
+        const topics = await this.topics.list(contact);
+        // The code is the widget's word. A topic the Bank does not show starts no round: the
+        // person gets the current list instead.
+        if (!topics.some((topic) => topic.code === request.topicCode))
+          return topicsScreen(topics);
+        return this.step(
+          contact,
+          await this.rounds.start(contact, {
+            mode: "topic",
+            topicCode: request.topicCode,
+            count: TRAINER_TOPIC_QUESTIONS,
+            updateId: contact.updateId,
+            at: contact.observedAt,
+          }),
+        );
+      }
       case "progress":
         return progressScreen(
           await trainerProgress(this.database, contact, contact.observedAt),
@@ -204,15 +224,22 @@ export class Trainer {
     switch (step.kind) {
       case "question":
         return questionScreen(step);
-      case "result":
-        return resultScreen(step, {
-          points: await trainerPointsOfRound(this.database, step.round.id),
-          streakDays: await trainerStreakDays(
-            this.database,
-            contact,
-            contact.observedAt,
-          ),
-        });
+      case "result": {
+        // The result of a topic round is titled with the topic's name from the Bank.
+        const { topicCode } = step.round;
+        return resultScreen(
+          step,
+          {
+            points: await trainerPointsOfRound(this.database, step.round.id),
+            streakDays: await trainerStreakDays(
+              this.database,
+              contact,
+              contact.observedAt,
+            ),
+          },
+          topicCode === null ? undefined : await this.topics.name(topicCode),
+        );
+      }
       case "nothing":
         return [
           "x",

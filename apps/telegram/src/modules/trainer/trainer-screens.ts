@@ -55,17 +55,19 @@ function verdictOf(outcome: TrainerAnswerOutcome): TrainerVerdict {
 }
 
 /**
- * The result of a finished round with the points its answers earned and the person's Series.
- * The week place is not counted yet.
+ * The result of a finished round with the points its answers earned and the person's Series,
+ * under `title`: the topic's name for a topic round, «Проверить себя» when absent. The week
+ * place is not counted yet.
  */
 export function resultScreen(
   result: TrainerRoundResult,
   score: { readonly points: number; readonly streakDays: number },
+  title: string = CHECK_TITLE,
 ): TrainerResultData {
   const { round, correct } = result;
   return [
     "r",
-    CHECK_TITLE,
+    title,
     correct,
     round.size,
     resultComment(correct, round.size),

@@ -563,7 +563,7 @@ describe("a press inside the widget", () => {
     expect(await plannedTexts()).toEqual([]);
   });
 
-  it.each(["d", "t", "tabc", "l0", "l1", "v11"])(
+  it.each(["d", "l0", "l1", "v11"])(
     "answers the request %s with a screen that the section is not open yet",
     async (data) => {
       await press(newUser(), data);
@@ -720,13 +720,17 @@ const right = (question: AskedQuestion) =>
 const wrong = (question: AskedQuestion) => `a${question.issueId}:8`;
 const dontKnow = (question: AskedQuestion) => `a${question.issueId}:0`;
 
-/** Starts «Проверить себя» and answers every question the way `answer` chooses. */
+/**
+ * Starts a round with the request `start` («Проверить себя» unless given) and answers every
+ * question the way `answer` chooses.
+ */
 async function playRound(
   user: number,
   answer: (question: AskedQuestion, step: number) => string = right,
+  start = "q",
 ): Promise<{ questions: AskedQuestion[]; result: Screen }> {
   const questions: AskedQuestion[] = [];
-  let screen = await tap(user, "q");
+  let screen = await tap(user, start);
   while (screen[0] === "q") {
     const question = asked(screen);
     questions.push(question);
@@ -995,6 +999,242 @@ describe("«Проверить себя»", () => {
   it("returns home on a request for the next step from a person who has answered nothing", async () => {
     expect(await tap(newUser(), "n")).toEqual(JSON.parse(EMPTY_HOME));
   });
+});
+
+/** Six topics of 3 questions; `code` gets the synthetic questions 1…`count` instead. */
+function bankWithTopicOf(code: string, count: number): SyntheticBank {
+  const bank = syntheticTrainerBank({ topics: 6, questionsPerTopic: 3 });
+  bank.questions = [
+    ...bank.questions.filter((question) => question.topic !== code),
+    ...Array.from({ length: count }, (_, index) =>
+      syntheticQuestion(
+        code,
+        index + 1,
+        (index + 1) % 3 === 0 ? "multiple" : "single",
+      ),
+    ),
+  ];
+  return bank;
+}
+
+describe("«Тренировка по теме»", () => {
+  it("lists every topic of the Bank under the Bank's name with 0 answered questions for a new person", async () => {
+    const bank = bankWithTopicOf("t2", 12);
+    bank.topics = bank.topics.map((topic, index) => ({
+      ...topic,
+      name: `Название из Банка ${String(index + 1)}`,
+    }));
+    await loadBank(bank);
+
+    expect(await tap(newUser(), "t")).toEqual([
+      "t",
+      [
+        ["t1", "Название из Банка 1", 0, 3],
+        ["t2", "Название из Банка 2", 0, 12],
+        ["t3", "Название из Банка 3", 0, 3],
+        ["t4", "Название из Банка 4", 0, 3],
+        ["t5", "Название из Банка 5", 0, 3],
+        ["t6", "Название из Банка 6", 0, 3],
+      ],
+    ]);
+    expect(bot.messages.widgets).toEqual([]);
+    expect(bot.messages.texts).toEqual([]);
+  });
+
+  it("counts for each topic the questions this person answered, whatever the answer and the mode", async () => {
+    const user = newUser();
+    const other = newUser();
+    // One question of each of five topics: correct, wrong, «Не знаю», correct, wrong.
+    const check = await playRound(user, (question, step) =>
+      step % 3 === 1
+        ? right(question)
+        : step % 3 === 2
+          ? wrong(question)
+          : dontKnow(question),
+    );
+    const topic = await playRound(user, right, "tt1");
+
+    const answered = new Map<string, Set<string>>();
+    for (const { topicCode, questionId } of [
+      ...check.questions,
+      ...topic.questions,
+    ])
+      answered.set(
+        topicCode,
+        (answered.get(topicCode) ?? new Set()).add(questionId),
+      );
+    expect(await tap(user, "t")).toEqual([
+      "t",
+      ["t1", "t2", "t3", "t4", "t5", "t6"].map((code, index) => [
+        code,
+        `Синтетическая тема ${String(index + 1)}`,
+        answered.get(code)?.size ?? 0,
+        3,
+      ]),
+    ]);
+    // The check round took one question in 5 of 6 topics and the topic round finished t1.
+    expect(answered.get("t1")?.size).toBe(3);
+    expect(answered.size).toBeGreaterThanOrEqual(5);
+    // Another person's answers do not count.
+    expect(await tap(other, "t")).toEqual([
+      "t",
+      ["t1", "t2", "t3", "t4", "t5", "t6"].map((code, index) => [
+        code,
+        `Синтетическая тема ${String(index + 1)}`,
+        0,
+        3,
+      ]),
+    ]);
+  });
+
+  it("does not count a question shown but not answered", async () => {
+    const user = newUser();
+    asked(await tap(user, "tt3"));
+
+    const [, topics] = await tap(user, "t");
+
+    expect(topics).toContainEqual(["t3", "Синтетическая тема 3", 0, 3]);
+  });
+
+  it("counts only questions the Bank still shows and drops a topic the Bank dropped", async () => {
+    const user = newUser();
+    await playRound(user, right, "tt1");
+    await playRound(user, right, "tt6");
+    // The next import keeps questions 2 and 4 in topics t1…t5 and drops topic t6.
+    await loadBank(bankOf([2, 4]));
+
+    expect(await tap(user, "t")).toEqual([
+      "t",
+      [
+        ["t1", "Синтетическая тема 1", 1, 2],
+        ["t2", "Синтетическая тема 2", 0, 2],
+        ["t3", "Синтетическая тема 3", 0, 2],
+        ["t4", "Синтетическая тема 4", 0, 2],
+        ["t5", "Синтетическая тема 5", 0, 2],
+      ],
+    ]);
+  });
+
+  it("asks 10 questions of the chosen topic and names the topic in the result", async () => {
+    const user = newUser();
+    await loadBank(bankWithTopicOf("t2", 12));
+
+    const { questions, result } = await playRound(
+      user,
+      (question, step) => (step <= 7 ? right(question) : wrong(question)),
+      "tt2",
+    );
+
+    expect(questions).toHaveLength(10);
+    expect(new Set(questions.map((question) => question.questionId)).size).toBe(
+      10,
+    );
+    expect(questions.map((question) => question.topicCode)).toEqual(
+      Array.from({ length: 10 }, () => "t2"),
+    );
+    expect(questions.map((question) => question.total)).toEqual(
+      Array.from({ length: 10 }, () => 10),
+    );
+    expect(questions.at(-1)?.marks).toBe("111111100");
+    // The title is the topic, 7 of 10, a point for each of the 7 correct first answers, a
+    // Series of one day, no week place, and the last flag offers «Другая тема».
+    expect(result).toEqual([
+      "r",
+      "Синтетическая тема 2",
+      7,
+      10,
+      "Хороший результат. Разборы помогут закрыть пробелы.",
+      7,
+      1,
+      0,
+      1,
+    ]);
+    expect(await storedAnswers(user)).toHaveLength(10);
+    expect(
+      (await storedAnswers(user)).map(({ mode, topic_code }) => [
+        mode,
+        topic_code,
+      ]),
+    ).toEqual(Array.from({ length: 10 }, () => ["topic", "t2"]));
+    const [, topics] = await tap(user, "t");
+    expect(topics).toContainEqual(["t2", "Синтетическая тема 2", 10, 12]);
+    expect(bot.messages.widgets).toEqual([]);
+    expect(bot.messages.texts).toEqual([]);
+  });
+
+  it("asks a shorter round when the topic has fewer than 10 questions", async () => {
+    const user = newUser();
+
+    const { questions, result } = await playRound(user, right, "tt4");
+
+    expect(questions.map((question) => question.questionId).sort()).toEqual([
+      "q-t4-1",
+      "q-t4-2",
+      "q-t4-3",
+    ]);
+    expect(questions.map((question) => question.total)).toEqual([3, 3, 3]);
+    expect(result).toEqual([
+      "r",
+      "Синтетическая тема 4",
+      3,
+      3,
+      "Все ответы верные.",
+      3,
+      1,
+      0,
+      1,
+    ]);
+  });
+
+  it("asks the unseen questions of the topic first, then the ones answered wrong, and rests the correct ones", async () => {
+    const user = newUser();
+    await loadBank(bankWithTopicOf("t2", 12));
+    // Of the first 10 questions the person answers steps 1…7 correctly and 8…10 wrong.
+    const first = await playRound(
+      user,
+      (question, step) => (step <= 7 ? right(question) : wrong(question)),
+      "tt2",
+    );
+    const seen = first.questions.map((question) => question.questionId);
+
+    const second = await playRound(user, right, "tt2");
+
+    const again = second.questions.map((question) => question.questionId);
+    expect(again).toHaveLength(5);
+    expect(again.slice(0, 2).every((id) => !seen.includes(id))).toBe(true);
+    expect(again.slice(2).sort()).toEqual(seen.slice(7).sort());
+    // Every question of the topic is now answered correctly and rests for 30 days.
+    expect(await tap(user, "tt2")).toEqual([
+      "x",
+      "Вы верно ответили на все вопросы. Они вернутся через 30 дней после ответа.",
+    ]);
+  });
+
+  it.each(["tnone", "tt6"])(
+    "answers the request %s for a topic the Bank does not show with the current topic list and starts no round",
+    async (data) => {
+      const user = newUser();
+      // The import drops topic t6; `none` never was a topic.
+      await loadBank(bankOf([1, 2, 3]));
+
+      const screen = await tap(user, data);
+
+      expect(screen).toEqual([
+        "t",
+        ["t1", "t2", "t3", "t4", "t5"].map((code, index) => [
+          code,
+          `Синтетическая тема ${String(index + 1)}`,
+          0,
+          3,
+        ]),
+      ]);
+      const rounds = await database
+        .selectFrom("trainer_rounds")
+        .select("id")
+        .execute();
+      expect(rounds).toEqual([]);
+    },
+  );
 });
 
 describe("the choice of questions", () => {
