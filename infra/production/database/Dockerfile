@@ -18,7 +18,7 @@ RUN apk add --no-cache \
     lz4-dev=1.10.0-r0 \
     openssl-dev=3.5.9-r0 \
     libssh2-dev=1.11.1-r4 \
-    zlib-dev=1.3.2-r1 \
+    zlib-dev=1.4-r0 \
     zstd-dev=1.5.7-r2
 
 # Bind compilation to the PostgreSQL installed by the pinned base, not Alpine's libpq APK.
@@ -58,7 +58,7 @@ RUN apk add --no-cache \
     libxml2=2.13.9-r1 \
     libcrypto3=3.5.9-r0 \
     libssl3=3.5.9-r0 \
-    zlib=1.3.2-r1 \
+    zlib=1.4-r0 \
     zstd-libs=1.5.7-r2 \
     && install -d -m 755 /etc/pgbackrest/conf.d \
     && install -d -m 750 -o postgres -g postgres /var/log/pgbackrest /var/lib/pgbackrest \
