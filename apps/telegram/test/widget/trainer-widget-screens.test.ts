@@ -669,6 +669,40 @@ describe("trainer widget screens in a browser", () => {
     },
   );
 
+  it.each(["light", "dark"] as const)(
+    "keeps the feedback area on the paper with separation in %s",
+    async (theme) => {
+      const page = await openWidget(320, { theme });
+      await tap(page, "Проверить себя", question(realisticText));
+      const paperArea = () =>
+        page.evaluate(() => {
+          const panel = document.querySelector(".f");
+          const title = document.querySelector(".f .V");
+          const option = [...document.querySelectorAll(".o")].at(-1);
+          if (!panel || !title || !option)
+            throw new Error("The question area is missing");
+          const style = getComputedStyle(panel);
+          return {
+            background: style.backgroundColor,
+            border: style.borderTopColor,
+            separation:
+              title.getBoundingClientRect().top -
+              option.getBoundingClientRect().bottom -
+              4,
+          };
+        });
+      for (const result of [
+        await paperArea(),
+        await tap(page, "Не знаю", explanation(realisticText)).then(paperArea),
+      ]) {
+        expect(result.background).toBe("rgba(0, 0, 0, 0)");
+        expect(result.border).toBe("rgba(0, 0, 0, 0)");
+        expect(result.separation).toBeGreaterThanOrEqual(8);
+      }
+      await page.close();
+    },
+  );
+
   it("sends one answer for a tap on an option of a single-answer question", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", [
