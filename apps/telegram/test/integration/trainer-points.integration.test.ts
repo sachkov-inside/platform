@@ -12,14 +12,13 @@ import { createDatabase } from "../../src/database/create-database.js";
 import type { Database } from "../../src/database/database.js";
 import { migrateToLatest } from "../../src/database/migrator.js";
 import {
-  moscowWeek,
+  moscowWeekWindow,
   type TrainerTimeWindow,
 } from "../../src/modules/trainer/trainer-days.js";
 import {
   trainerPointsByPerson,
   trainerPointsOf,
 } from "../../src/modules/trainer/trainer-points.js";
-import { TrainerRounds } from "../../src/modules/trainer/trainer-rounds.js";
 import { hasText } from "../../src/shared/text.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import {
@@ -133,55 +132,29 @@ describe("Points", () => {
     expect((await tap(user, "p")).slice(0, 2)).toEqual(["p", 0]);
   });
 
-  it("applies one rule in «Проверить себя», Тренировка по теме and Вопрос дня", async () => {
-    const user = newUser();
-    // Six questions with one correct option in every topic.
-    await loadBank(database, bankOf([1, 2, 4, 5, 7, 8]));
-    await trainer().say(user, "/train");
-    const person = { botIdentity: "inside", telegramUserId: String(user) };
-    const rounds = new TrainerRounds(database);
-    const shownAt = new Date(fixedTestInstant());
-    const points: boolean[] = [];
+  it.each([
+    ["«Проверить себя»", "q"],
+    ["Тренировка по теме", "tt1"],
+    ["Вопрос дня", "d"],
+  ])(
+    "gives a point in %s for an answer 90 seconds after the question and none a second later",
+    async (_mode, start) => {
+      const { tap } = trainer();
+      /** The verdict a new person gets for a correct answer this long after the question. */
+      const verdictAfter = async (seconds: number) => {
+        const user = newUser();
+        const question = asked(await tap(user, start));
+        nextPressAfter(seconds);
+        const explanation = await tap(user, right(question));
+        // The person's points are the second number of the Progress screen.
+        return [explanation[1], (await tap(user, "p"))[1]];
+      };
 
-    for (const [index, mode] of (
-      ["check", "topic", "daily"] as const
-    ).entries()) {
-      const question = await rounds.start(person, {
-        mode,
-        ...(mode === "topic" ? { topicCode: `t${String(index + 1)}` } : {}),
-        count: 1,
-        updateId: String(77_000 + index),
-        at: shownAt,
-      });
-      if (question.kind !== "question") throw new Error("No question to ask");
-      const onTime = await rounds.answer(
-        person,
-        question.issueId,
-        1,
-        new Date(shownAt.getTime() + 90_000),
-      );
-      points.push(onTime?.point === true);
-
-      const lateQuestion = await rounds.start(person, {
-        mode,
-        ...(mode === "topic" ? { topicCode: `t${String(index + 1)}` } : {}),
-        count: 1,
-        updateId: String(78_000 + index),
-        at: shownAt,
-      });
-      if (lateQuestion.kind !== "question") throw new Error("No question");
-      const late = await rounds.answer(
-        person,
-        lateQuestion.issueId,
-        1,
-        new Date(shownAt.getTime() + 90_001),
-      );
-      points.push(late?.point === true);
-    }
-
-    expect(points).toEqual([true, false, true, false, true, false]);
-    expect(await trainerPointsOf(database, person)).toBe(3);
-  });
+      // Verdict 2 is correct with a point, verdict 1 is correct without one.
+      expect(await verdictAfter(90)).toEqual([2, 1]);
+      expect(await verdictAfter(91)).toEqual([1, 0]);
+    },
+  );
 
   it("counts a person's points inside a time window and lists only people who have points", async () => {
     const { tap } = trainer();
@@ -199,7 +172,7 @@ describe("Points", () => {
     await answerAt(monday, "2026-10-11T23:59:57");
     await answerAt(monday, "2026-10-12T00:00:00");
     await answerAt(none, "2026-10-12T00:00:10", wrong);
-    const nextWeek = moscowWeek(new Date("2026-10-14T09:00:00Z"));
+    const nextWeek = moscowWeekWindow(new Date("2026-10-14T09:00:00Z"));
 
     const rows = (window?: TrainerTimeWindow) =>
       trainerPointsByPerson(database, "inside", window)
@@ -217,10 +190,16 @@ describe("Points", () => {
     expect(await rows(nextWeek)).toEqual([
       { telegram_user_id: String(monday), points: 1 },
     ]);
-    expect(await rows(moscowWeek(new Date(fixedTestInstant())))).toEqual([
+    expect(await rows(moscowWeekWindow(new Date(fixedTestInstant())))).toEqual([
       { telegram_user_id: String(sunday), points: 1 },
       { telegram_user_id: String(monday), points: 1 },
     ]);
+    const person = { botIdentity: "inside", telegramUserId: String(monday) };
+    expect(await trainerPointsOf(database, person, nextWeek)).toBe(1);
+    expect(await trainerPointsOf(database, person)).toBe(2);
+    expect(
+      await trainerPointsOf(database, { ...person, botIdentity: "other" }),
+    ).toBe(0);
   });
 });
 

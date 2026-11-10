@@ -4,8 +4,8 @@ import type { Database } from "../../database/database.js";
 import {
   DAY_SECONDS,
   MOSCOW_OFFSET_SECONDS,
-  moscowDay,
   moscowDayNumber,
+  moscowDayWindow,
 } from "./trainer-days.js";
 import { trainerPointsOf } from "./trainer-points.js";
 import type { TrainerPerson } from "./trainer-rounds.js";
@@ -74,7 +74,7 @@ export async function trainerAnswersToday(
   person: TrainerPerson,
   at: Date,
 ): Promise<number> {
-  const { from, until } = moscowDay(at);
+  const { from, until } = moscowDayWindow(at);
   const { answers } = await count(
     answersOf(database, person)
       .where("issue.answered_at", ">=", from)

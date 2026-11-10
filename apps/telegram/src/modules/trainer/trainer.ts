@@ -10,6 +10,7 @@ import {
   TELEGRAM_MESSAGES,
   type TelegramMessages,
 } from "../outbound/telegram-messages.js";
+import { TrainerDaily } from "./trainer-daily.js";
 import { trainerPointsOfRound } from "./trainer-points.js";
 import {
   progressScreen,
@@ -58,6 +59,8 @@ const TOO_OFTEN_TEXT = "Слишком часто. Повторите через
 /** The answer names a question this person was not shown, or options the question lacks. */
 const ISSUE_CLOSED_TEXT = "Этот вопрос уже закрыт. Начните новый раунд.";
 const NO_QUESTIONS_TEXT = "Вопросы скоро появятся.";
+const DAILY_WITHDRAWN_TEXT =
+  "Сегодняшний Вопрос дня снят. Новый появится завтра.";
 const ALL_ANSWERED_TEXT =
   "Вы верно ответили на все вопросы. Они вернутся через 30 дней после ответа.";
 
@@ -68,6 +71,7 @@ const ALL_ANSWERED_TEXT =
 @Injectable()
 export class Trainer {
   private readonly rounds: TrainerRounds;
+  private readonly daily: TrainerDaily;
   private readonly topics: TrainerTopics;
 
   constructor(
@@ -79,6 +83,7 @@ export class Trainer {
     >,
   ) {
     this.rounds = new TrainerRounds(database);
+    this.daily = new TrainerDaily(database);
     this.topics = new TrainerTopics(database);
   }
 
@@ -176,14 +181,24 @@ export class Trainer {
           request.optionMask,
           contact.observedAt,
         );
-        return outcome ? explanationScreen(outcome) : ["x", ISSUE_CLOSED_TEXT];
+        return outcome
+          ? explanationScreen(outcome, await this.daily.statLine(outcome))
+          : ["x", ISSUE_CLOSED_TEXT];
       }
       case "next": {
         const step = await this.rounds.next(contact, contact.observedAt);
         return step ? this.step(contact, step) : this.home(contact);
       }
-      case "start_daily":
-        return ["x", SECTION_NOT_OPEN_TEXT];
+      case "start_daily": {
+        const step = await this.daily.open(contact, {
+          updateId: contact.updateId,
+          at: contact.observedAt,
+        });
+        if (step.kind === "review")
+          return questionScreen(step.question, step.pickedMask);
+        if (step.kind === "withdrawn") return ["x", DAILY_WITHDRAWN_TEXT];
+        return this.step(contact, step);
+      }
       case "topics":
         return topicsScreen(await this.topics.list(contact));
       case "start_topic": {
@@ -253,8 +268,9 @@ export class Trainer {
   }
 
   /**
-   * The home screen: the person's Series and today's answers out of the Daily goal. Answers
-   * above the goal are accepted and leave it complete.
+   * The home screen: the person's Series, today's answers out of the Daily goal and whether
+   * today's Daily question is answered. Answers above the goal are accepted and leave it
+   * complete.
    */
   private async home(contact: VerifiedPrivateStart): Promise<TrainerHomeData> {
     // The moment of every count is the moment the bot received this request.
@@ -267,7 +283,7 @@ export class Trainer {
         TRAINER_DAILY_GOAL,
       ),
       TRAINER_DAILY_GOAL,
-      0,
+      (await this.daily.answered(contact, at)) ? 1 : 0,
     ];
   }
 

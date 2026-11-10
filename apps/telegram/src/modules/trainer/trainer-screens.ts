@@ -4,6 +4,7 @@ import type {
   TrainerRoundResult,
 } from "./trainer-rounds.js";
 import type {
+  OptionMask,
   TrainerExplanationData,
   TrainerQuestionData,
   TrainerResultData,
@@ -15,11 +16,15 @@ import type {
 
 const CHECK_TITLE = "Проверить себя";
 
-/** A question screen: the texts and the round steps, never the correct options. */
+/**
+ * A question screen: the texts and the round steps, never the correct options. `reviewMask`
+ * is given for a question the person has answered: the options the person picked.
+ */
 export function questionScreen(
   question: TrainerIssuedQuestion,
+  reviewMask?: OptionMask,
 ): TrainerQuestionData {
-  return [
+  const screen = [
     "q",
     question.issueId,
     question.topicName,
@@ -28,12 +33,17 @@ export function questionScreen(
     question.severalCorrect ? 1 : 0,
     question.round.marks,
     question.round.size,
-  ];
+  ] as const;
+  return reviewMask === undefined ? screen : [...screen, reviewMask];
 }
 
-/** The screen after an answer: the verdict, the correct options and the explanation. */
+/**
+ * The screen after an answer: the verdict, the correct options and the explanation. `stat` is
+ * the ready line under the explanation of a Daily question, 0 for no line.
+ */
 export function explanationScreen(
   outcome: TrainerAnswerOutcome,
+  stat: string | 0 = 0,
 ): TrainerExplanationData {
   return [
     "e",
@@ -43,8 +53,7 @@ export function explanationScreen(
     outcome.explanation,
     outcome.round.marks,
     outcome.round.size,
-    // The ready statistics line belongs to the Daily question.
-    0,
+    stat,
   ];
 }
 

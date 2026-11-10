@@ -24,13 +24,13 @@ const dayStart = (day: number): Date =>
   new Date((day * DAY_SECONDS - MOSCOW_OFFSET_SECONDS) * 1000);
 
 /** The Moscow calendar day of this instant, from midnight to the next midnight. */
-export function moscowDay(at: Date) {
+export function moscowDayWindow(at: Date) {
   const day = moscowDayNumber(at);
   return { from: dayStart(day), until: dayStart(day + 1) };
 }
 
 /** The Moscow week of this instant, from Monday 00:00 to the next Monday 00:00. */
-export function moscowWeek(at: Date) {
+export function moscowWeekWindow(at: Date) {
   const day = moscowDayNumber(at);
   // The remainder is taken twice so that a day before 1970 also finds its Monday.
   const monday = day - ((((day - A_MONDAY) % 7) + 7) % 7);

@@ -113,7 +113,7 @@ export class TrainerRounds {
         .where("bot_identity", "=", person.botIdentity)
         .where("update_id", "=", request.updateId)
         .executeTakeFirst();
-      if (started) return show(tx, started.id, request.at);
+      if (started) return showRoundStep(tx, started.id, request.at);
 
       const questions = await chooseQuestions(tx, person, request);
       if (questions.length === 0)
@@ -151,7 +151,7 @@ export class TrainerRounds {
           })),
         )
         .execute();
-      return show(tx, round.id, request.at);
+      return showRoundStep(tx, round.id, request.at);
     });
   }
 
@@ -262,7 +262,7 @@ export class TrainerRounds {
       .orderBy("id", "desc")
       .limit(1)
       .executeTakeFirst();
-    return last && show(this.database, last.round_id, at);
+    return last && showRoundStep(this.database, last.round_id, at);
   }
 }
 
@@ -354,7 +354,7 @@ async function hasQuestions(
  * The step the round is on: its first unanswered question, shown now, or the result. Showing
  * stamps the issue once and records the question as it is shown.
  */
-async function show(
+export async function showRoundStep(
   database: Database,
   roundId: string,
   at: Date,
@@ -442,14 +442,17 @@ async function roundOf(
 }
 
 /** Bit `i` is set when option `i` is correct. */
-function correctMaskOf(options: readonly TrainerBankOption[]): OptionMask {
+export function correctMaskOf(
+  options: readonly TrainerBankOption[],
+): OptionMask {
   return options.reduce(
     (mask, option, index) => (option.correct ? mask | (1 << index) : mask),
     0,
   );
 }
 
-const severalBits = (mask: OptionMask): boolean => (mask & (mask - 1)) !== 0;
+export const severalBits = (mask: OptionMask): boolean =>
+  (mask & (mask - 1)) !== 0;
 
 /**
  * True when the widget could have sent these options for the question: only existing options,

@@ -563,7 +563,7 @@ describe("a press inside the widget", () => {
     expect(await plannedTexts()).toEqual([]);
   });
 
-  it.each(["d", "l0", "l1", "v11"])(
+  it.each(["l0", "l1", "v11"])(
     "answers the request %s with a screen that the section is not open yet",
     async (data) => {
       await press(newUser(), data);
@@ -625,6 +625,7 @@ describe("without a person's action", () => {
       await say(user, "/start train_autumn-mail", target);
       await press(user, "h", target);
       await press(user, "q", target);
+      await press(user, "d", target);
     }
     await say(optedOut, "/stop", marketingBot);
     await say(optedOut, "/train", marketingBot);
