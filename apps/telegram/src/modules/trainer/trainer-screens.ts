@@ -54,12 +54,18 @@ function verdictOf(outcome: TrainerAnswerOutcome): TrainerVerdict {
   return outcome.correct ? 1 : 0;
 }
 
-/** The result of a finished round. Points, the Series and the week place are not counted yet. */
-export function resultScreen(result: TrainerRoundResult): TrainerResultData {
+/**
+ * The result of a finished round under `title`: the topic's name for a topic round, «Проверить
+ * себя» when absent. Points, the Series and the week place are not counted yet.
+ */
+export function resultScreen(
+  result: TrainerRoundResult,
+  title: string = CHECK_TITLE,
+): TrainerResultData {
   const { round, correct } = result;
   return [
     "r",
-    CHECK_TITLE,
+    title,
     correct,
     round.size,
     resultComment(correct, round.size),
