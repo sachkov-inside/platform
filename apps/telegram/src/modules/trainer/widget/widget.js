@@ -90,13 +90,13 @@
   const feedback = (d) => {
     const review = question[8] != null;
     const parts = d
-      ? d[4].match(new RegExp("[\\s\\S]{1," + explanationSize + "}", "gu")) ||
-        []
+      ? (d[4] + (d[7] ? " " + d[7] : "")).match(
+          new RegExp("[\\s\\S]{1," + explanationSize + "}", "gu"),
+        ) || []
       : [];
     return (
-      `<div class=fb><b class="V ${d ? (d[1] === 0 ? "B" : d[1] < 3 ? "G" : "") : ""}">${d ? ["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]] : review ? "Ответ сохранён" : "Выберите ответ"}</b>` +
-      `<div class=W>${d ? esc(parts[explanationPage] || "") : !review && question[5] ? "Выберите все верные варианты." : ""}</div>` +
-      (d && d[7] ? `<div class=mu>${esc(d[7])}</div>` : "") +
+      `<div class=fb><b class="V ${d ? (d[1] === 0 ? "B" : d[1] < 3 ? "G" : "") : ""}">${d ? ["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]] : review ? "Ответ сохранён" : question[5] ? "Выберите все верные варианты." : "Выберите ответ"}</b>` +
+      (d ? `<div class=W>${esc(parts[explanationPage] || "")}</div>` : "") +
       (d
         ? pager(
             "E",
@@ -223,7 +223,7 @@
         `<div>${d[3]
           .map(
             (row) =>
-              `<div class="R rank${row[3] ? " M" : ""}"><span class=mu>${row[0]}</span><span class="F e">${esc(row[1])}</span><b>${row[2]}</b></div>`,
+              `<div class="R rk${row[3] ? " M" : ""}"><span class=mu>${row[0]}</span><span class="F e">${esc(row[1])}</span><b>${row[2]}</b></div>`,
           )
           .join("")}</div>` +
         (d[2] > 1
@@ -264,9 +264,10 @@
     const render = () => (root.innerHTML = screens[data[0]](data));
     render();
     if (data[0] == "e") {
+      const offset = explanationPage * explanationSize;
       while (document.body.offsetHeight > MAX_HEIGHT && explanationSize > 10) {
         explanationSize -= 10;
-        explanationPage = 0;
+        explanationPage = Math.floor(offset / explanationSize);
         render();
       }
     } else if (!inQuestion || !questionFont) {

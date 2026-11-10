@@ -810,7 +810,7 @@ describe("«Проверить себя»", () => {
     const afterDontKnow = await tap(user, dontKnow(third));
 
     // Verdict, correct options, picked options, explanation, round steps, round size, no line.
-    // The verdict 2 is a correct answer with a point: the first one, 42 seconds after the question.
+    // The verdict 1 is correct without credited points while the round is unfinished.
     expect(afterRight).toEqual([
       "e",
       1,

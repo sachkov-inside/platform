@@ -214,7 +214,7 @@ async function playRound(user: number, wrongTopic?: string): Promise<void> {
   }
 }
 
-/** Starts «Проверить себя» and answers its first question. */
+/** Completes the one-question synthetic topic round. */
 async function answerOneQuestion(user: number): Promise<void> {
   const [kind, issueId] = await tap(user, "tt1");
   expect(kind).toBe("q");

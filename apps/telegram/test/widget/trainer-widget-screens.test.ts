@@ -429,16 +429,55 @@ describe("trainer widget screens in a browser", () => {
     );
   });
 
-  it.each([320, 390])(
-    "protects the message time band at %i px without clipping an answered question",
-    async (width) => {
+  it("keeps every question label and option at least eleven pixels", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Проверить себя", question(wideText));
+    const sizes = await page
+      .locator("#w, #w .mu, #w .op, #w .y, #w .n")
+      .evaluateAll((elements) =>
+        elements.map((element) =>
+          Number.parseFloat(getComputedStyle(element).fontSize),
+        ),
+      );
+    expect(Math.min(...sizes)).toBeGreaterThanOrEqual(11);
+    await page.close();
+  });
+
+  it("keeps Rating rows spaced and aligned after class compression", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Рейтинг", [
+      "l",
+      0,
+      1,
+      [
+        [1, "Анна", 5, 0],
+        [1234567, "Борис", 1, 1],
+      ],
+    ]);
+    const rows = await page.locator(".rk").all();
+    expect(rows).toHaveLength(2);
+    for (const row of rows)
+      expect((await row.boundingBox())?.height).toBeGreaterThanOrEqual(34);
+    expect((await layout(page)).overflowing).toEqual([]);
+    await page.close();
+  });
+
+  it.each([
+    [320, 20],
+    [320, 32],
+    [390, 20],
+    [390, 32],
+  ])(
+    "protects the message time band at %i px with a %i px inset",
+    async (width, inset) => {
       const page = await openWidget(
         width,
-        { safeAreaBottomPx: 20 },
+        { safeAreaBottomPx: inset },
         webkitBrowser,
       );
       await tap(page, "Проверить себя", question(wideText));
       const before = await questionGeometry(page);
+      expect((await layout(page)).height).toBeLessThanOrEqual(560);
       await tap(page, "Не знаю", explanation(wideText));
       expect(await questionGeometry(page)).toEqual(before);
       expect((await layout(page)).height).toBeLessThanOrEqual(560);
@@ -450,7 +489,7 @@ describe("trainer widget screens in a browser", () => {
           button.getBoundingClientRect().bottom
         );
       });
-      expect(band).toBeGreaterThanOrEqual(20);
+      expect(band).toBeGreaterThanOrEqual(inset);
       await page.close();
     },
   );

@@ -89,7 +89,7 @@ function nextPressAfter(seconds: number): void {
 
 describe("Points", () => {
   it(
-    "credits every statistic only after the whole round is answered",
+    "credits home, Progress and Rating only after the whole round is answered",
     async () => {
       const user = newUser();
       const { tap } = trainer();
@@ -166,6 +166,26 @@ describe("Points", () => {
     await migrateToLatest(database);
     expect((await trainer().tap(finished, "p")).slice(1, 4)).toEqual([5, 1, 5]);
     expect((await trainer().tap(pending, "p")).slice(1, 4)).toEqual([0, 0, 0]);
+  });
+
+  it("never reopens a completed round after its omitted questions return", async () => {
+    const user = newUser();
+    const { tap } = trainer();
+    const first = asked(await tap(user, "q"));
+    await tap(user, right(first));
+    const late = asked(await tap(user, "n"));
+    const reduced = bankOf([1]);
+    reduced.questions = reduced.questions.filter(
+      (q) => q.id === first.questionId,
+    );
+    reduced.topics = reduced.topics.filter((t) => t.code === first.topicCode);
+    await loadBank(database, reduced);
+    const result = await tap(user, `n${first.issueId}`);
+    expect(result.slice(0, 4)).toEqual(["r", "Проверить себя", 1, 1]);
+    await loadBank(database, bankOf([1]));
+    expect(await tap(user, `n${first.issueId}`)).toEqual(result);
+    expect((await tap(user, right(late)))[0]).toBe("x");
+    expect((await tap(user, "p")).slice(1, 4)).toEqual([1, 1, 1]);
   });
 
   it("gives a point for a correct first answer within 90 seconds and none for a late, wrong or «Не знаю» answer", async () => {
@@ -289,7 +309,7 @@ describe("Points", () => {
   });
 });
 
-/** One answered question: a new round of «Проверить себя» and an answer to its first question. */
+/** Completes the one-question synthetic topic round. */
 async function answerOne(user: number, how = dontKnow): Promise<void> {
   const { tap } = trainer();
   const explanation = await tap(user, how(asked(await tap(user, "tt1"))));

@@ -42,6 +42,8 @@ export interface TrainerRound {
   readonly id: string;
   readonly mode: TrainerRoundMode;
   readonly topicCode: string | null;
+  /** Completion is final even when a later import reactivates omitted questions. */
+  readonly completed: boolean;
   /** Steps in the round. */
   readonly size: number;
   /** One digit per answered step, in the order of the steps: "1" correct, "0" wrong. */
@@ -174,13 +176,26 @@ export class TrainerRounds {
       const id = issueNumber(issueId);
       if (id === undefined) return undefined;
       const issue = await database
-        .selectFrom("trainer_issues")
-        .select(["issued_at", "answered_at", "option_count", "correct_mask"])
-        .where("id", "=", id)
-        .where("bot_identity", "=", person.botIdentity)
-        .where("telegram_user_id", "=", person.telegramUserId)
+        .selectFrom("trainer_issues as issue")
+        .innerJoin("trainer_rounds as round", "round.id", "issue.round_id")
+        .select([
+          "issue.issued_at",
+          "issue.answered_at",
+          "issue.option_count",
+          "issue.correct_mask",
+          "round.completed_at",
+        ])
+        .where("issue.id", "=", id)
+        .where("issue.bot_identity", "=", person.botIdentity)
+        .where("issue.telegram_user_id", "=", person.telegramUserId)
+        .forUpdate("round")
         .executeTakeFirst();
-      if (!issue || issue.issued_at === null) return undefined;
+      if (
+        !issue ||
+        issue.issued_at === null ||
+        (issue.answered_at === null && issue.completed_at !== null)
+      )
+        return undefined;
       if (issue.answered_at === null) {
         if (!fits(pickedMask, issue.option_count, issue.correct_mask))
           return undefined;
@@ -234,7 +249,8 @@ export class TrainerRounds {
       )
         throw new Error(`Trainer issue ${id} has no stored answer`);
       const round = await roundOf(database, stored.round_id);
-      if (round.size > 0 && round.marks.length === round.size)
+      const finished = round.size > 0 && round.marks.length === round.size;
+      if (!round.completed && finished)
         await completeRound(database, round.id, at);
       const credited = await trainerCompletedAnswers(
         database,
@@ -248,7 +264,7 @@ export class TrainerRounds {
         .where("issue.id", "=", id)
         .executeTakeFirst();
       return {
-        round,
+        round: { ...round, completed: round.completed || finished },
         questionId: stored.question_id,
         pickedMask: stored.picked_mask,
         correctMask: stored.correct_mask,
@@ -271,20 +287,22 @@ export class TrainerRounds {
     at: Date,
     issueId?: string,
   ): Promise<TrainerIssuedQuestion | TrainerRoundResult | undefined> {
-    const id = issueId === undefined ? undefined : issueNumber(issueId);
-    if (issueId !== undefined && id === undefined) return undefined;
-    let query = this.database
-      .selectFrom("trainer_issues")
-      .select("round_id")
-      .where("bot_identity", "=", person.botIdentity)
-      .where("telegram_user_id", "=", person.telegramUserId)
-      .where("answered_at", "is not", null)
-      .orderBy("answered_at", "desc")
-      .orderBy("id", "desc")
-      .limit(1);
-    if (id !== undefined) query = query.where("id", "=", id);
-    const last = await query.executeTakeFirst();
-    return last && showRoundStep(this.database, last.round_id, at);
+    return this.database.transaction().execute(async (database) => {
+      const id = issueId === undefined ? undefined : issueNumber(issueId);
+      if (issueId !== undefined && id === undefined) return undefined;
+      let query = database
+        .selectFrom("trainer_issues")
+        .select("round_id")
+        .where("bot_identity", "=", person.botIdentity)
+        .where("telegram_user_id", "=", person.telegramUserId)
+        .where("answered_at", "is not", null)
+        .orderBy("answered_at", "desc")
+        .orderBy("id", "desc")
+        .limit(1);
+      if (id !== undefined) query = query.where("id", "=", id);
+      const last = await query.executeTakeFirst();
+      return last && showRoundStep(database, last.round_id, at);
+    });
   }
 }
 
@@ -384,34 +402,44 @@ export async function showRoundStep(
   at: Date,
 ): Promise<TrainerIssuedQuestion | TrainerRoundResult> {
   const round = await roundOf(database, roundId);
-  const step = await database
-    .selectFrom("trainer_issues as issue")
-    .innerJoin(
-      "trainer_questions as question",
-      "question.id",
-      "issue.question_id",
-    )
-    .innerJoin("trainer_topics as topic", "topic.code", "question.topic_code")
-    .select([
-      "issue.id",
-      "issue.question_id",
-      "question.text",
-      "question.options",
-      "question.content_revision",
-      "topic.name as topic_name",
-    ])
-    .where("issue.round_id", "=", roundId)
-    .where("issue.answered_at", "is", null)
-    .where("question.withdrawn_at", "is", null)
-    .orderBy("issue.position")
-    .limit(1)
-    .executeTakeFirst();
+  const step = round.completed
+    ? undefined
+    : await database
+        .selectFrom("trainer_issues as issue")
+        .innerJoin(
+          "trainer_questions as question",
+          "question.id",
+          "issue.question_id",
+        )
+        .innerJoin(
+          "trainer_topics as topic",
+          "topic.code",
+          "question.topic_code",
+        )
+        .select([
+          "issue.id",
+          "issue.question_id",
+          "question.text",
+          "question.options",
+          "question.content_revision",
+          "topic.name as topic_name",
+        ])
+        .where("issue.round_id", "=", roundId)
+        .where("issue.answered_at", "is", null)
+        .where("question.withdrawn_at", "is", null)
+        .orderBy("issue.position")
+        .limit(1)
+        .executeTakeFirst();
   if (!step) {
-    if (round.size > 0 && round.marks.length === round.size)
+    if (!round.completed && round.marks.length > 0)
       await completeRound(database, round.id, at);
     return {
       kind: "result",
-      round,
+      round: {
+        ...round,
+        size: round.marks.length,
+        completed: round.completed || round.marks.length > 0,
+      },
       correct: round.marks.replaceAll("0", "").length,
     };
   }
@@ -462,8 +490,9 @@ async function roundOf(
 ): Promise<TrainerRound> {
   const round = await database
     .selectFrom("trainer_rounds")
-    .select(["id", "mode", "topic_code"])
+    .select(["id", "mode", "topic_code", "completed_at"])
     .where("id", "=", roundId)
+    .forUpdate()
     .executeTakeFirstOrThrow();
   const answered = await database
     .selectFrom("trainer_issues")
@@ -472,26 +501,30 @@ async function roundOf(
     .where("answered_at", "is not", null)
     .orderBy("position")
     .execute();
-  const effective = await database
-    .selectFrom("trainer_issues as issue")
-    .innerJoin(
-      "trainer_questions as question",
-      "question.id",
-      "issue.question_id",
-    )
-    .select(sql<number>`count(*)::integer`.as("size"))
-    .where("issue.round_id", "=", roundId)
-    .where((eb) =>
-      eb.or([
-        eb("issue.answered_at", "is not", null),
-        eb("question.withdrawn_at", "is", null),
-      ]),
-    )
-    .executeTakeFirstOrThrow();
+  const effective =
+    round.completed_at !== null
+      ? { size: answered.length }
+      : await database
+          .selectFrom("trainer_issues as issue")
+          .innerJoin(
+            "trainer_questions as question",
+            "question.id",
+            "issue.question_id",
+          )
+          .select(sql<number>`count(*)::integer`.as("size"))
+          .where("issue.round_id", "=", roundId)
+          .where((eb) =>
+            eb.or([
+              eb("issue.answered_at", "is not", null),
+              eb("question.withdrawn_at", "is", null),
+            ]),
+          )
+          .executeTakeFirstOrThrow();
   return {
     id: round.id,
     mode: round.mode,
     topicCode: round.topic_code,
+    completed: round.completed_at !== null,
     size: effective.size,
     marks: answered
       .map(({ correct }) => (correct === true ? "1" : "0"))

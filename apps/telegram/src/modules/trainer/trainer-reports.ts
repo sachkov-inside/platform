@@ -12,7 +12,7 @@ export interface TrainerQuestionReportLine {
   readonly topicName: string;
   /** True when the question is no longer shown; its answers stay counted. */
   readonly withdrawn: boolean;
-  /** Every answer, repeated ones included; «Не знаю» is an answer and is not correct. */
+  /** Every credited answer, repeated ones included; «Не знаю» is an answer and is not correct. */
   readonly answers: number;
   readonly correct: number;
   /** `correct / answers` rounded to two digits; null when nobody answered. */
@@ -29,7 +29,7 @@ export interface TrainerUsageSourceLine {
   readonly openings: number;
   /** People who opened the Trainer with this label on this day. */
   readonly people: number;
-  /** Those of `people` who answered at least one question on this day. */
+  /** Those of `people` who completed a round on this day. */
   readonly answered: number;
 }
 
@@ -40,7 +40,7 @@ export interface TrainerUsageReportLine {
   readonly openings: number;
   /** People who opened the Trainer on this day. */
   readonly people: number;
-  /** People who answered at least one question on this day, whenever they opened the Trainer. */
+  /** People who completed a round on this day, whenever they opened the Trainer. */
   readonly answered: number;
   /** A person who came with two labels on one day counts under both. */
   readonly sources: readonly TrainerUsageSourceLine[];

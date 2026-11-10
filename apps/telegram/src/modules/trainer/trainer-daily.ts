@@ -263,6 +263,7 @@ async function review(
         id: roundId,
         mode: "daily",
         topicCode: null,
+        completed: true,
         size: 1,
         marks: answer.correct ? "1" : "0",
       },

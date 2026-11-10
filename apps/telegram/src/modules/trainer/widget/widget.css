@@ -42,7 +42,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 12px 16px 16px 12px;
+  padding: 12px 16px 12px 12px;
   font:
     var(--tg-text-font-size, 15px) / 1.35 system-ui,
     sans-serif;
@@ -76,7 +76,6 @@ button {
 }
 .mu {
   color: var(--h);
-  font-size: 0.85em;
 }
 .C {
   text-align: center;
@@ -119,7 +118,6 @@ button {
 .cd em,
 .ch {
   color: var(--a);
-  font-size: 0.85em;
   font-weight: 600;
   font-style: normal;
 }
@@ -206,14 +204,13 @@ button {
   min-height: 44px;
   flex: none;
   color: var(--h);
-  font-size: 0.87em;
 }
 .Q {
   font-weight: 600;
 }
 .op {
   padding: 3px 10px;
-  font-size: 0.95em;
+  line-height: 1.2;
 }
 .y {
   flex: none;
@@ -221,7 +218,6 @@ button {
   border: 2px solid var(--h);
   border-radius: 3px;
   color: var(--h);
-  font-size: 0.8em;
   font-weight: 700;
   font-style: normal;
   text-align: center;
@@ -248,12 +244,12 @@ button {
   line-height: 1.25;
 }
 .fb {
+  gap: 6px;
   font-size: min(1em, 13px);
   padding: 4px;
 }
 .fb .bt {
   flex: none;
-  margin-top: 4px;
 }
 
 /* Result and Progress: .I big number, .K figure tile, .ls list row. */
@@ -303,7 +299,6 @@ button {
   padding: 6px;
   border-radius: 3px;
   color: var(--h);
-  font-size: 0.9em;
   font-weight: 600;
   text-align: center;
 }
@@ -317,7 +312,7 @@ button {
   border-radius: 8px;
 }
 .rk .mu {
-  width: 22px;
+  width: 4.5em;
   text-align: right;
 }
 .M {
