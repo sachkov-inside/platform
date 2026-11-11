@@ -563,6 +563,32 @@ describe("trainer widget screens in a browser", () => {
     await page.close();
   });
 
+  it.each([
+    [320, 12, 4],
+    [390, 13, 2],
+  ] as const)(
+    "keeps a question at the text limits readable in a %i px bubble: at least %i px",
+    async (width, smallest, longestExplanationPages) => {
+      const page = await openWidget(width);
+      await tap(page, "Проверить себя", question(realisticText));
+      const asked = await layout(page);
+      // The reserve under the options holds the verdict, two lines of the explanation and
+      // the buttons; the rest of the screen belongs to the question's own text.
+      expect(asked.fontSize).toBeGreaterThanOrEqual(smallest);
+      expect(asked.height).toBeLessThanOrEqual(TRAINER_WIDGET_TARGET_HEIGHT_PX);
+      await tap(page, "Не знаю", explanation(realisticText));
+      expect((await layout(page)).height).toBeLessThanOrEqual(
+        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+      );
+      // The price of the smaller reserve: the longest explanation takes a few pages.
+      const pages = Number(
+        /\/(\d+)/.exec(await page.locator(".fb").innerText())?.[1] ?? 1,
+      );
+      expect(pages).toBeLessThanOrEqual(longestExplanationPages);
+      await page.close();
+    },
+  );
+
   it("draws the home screen from the chat state of the message", async () => {
     const page = await openWidget(320, {
       chatData: JSON.stringify(["h", 4, 3, 5, 1]),

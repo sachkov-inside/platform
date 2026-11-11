@@ -278,8 +278,10 @@
         render();
       }
     } else if (!inQuestion || !questionFont) {
+      // A question leaves 120 px for the verdict, two lines of the explanation and the
+      // buttons: a larger reserve takes the room of a long question's own text.
       const reserve = () =>
-        data[0] == "q" ? 160 - root.querySelector(".fb").offsetHeight : 0;
+        data[0] == "q" ? 120 - root.querySelector(".fb").offsetHeight : 0;
       for (
         let size = parseFloat(getComputedStyle(root).fontSize);
         document.body.offsetHeight + reserve() >= MAX_HEIGHT &&
