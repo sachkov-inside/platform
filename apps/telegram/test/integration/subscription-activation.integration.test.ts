@@ -1047,6 +1047,7 @@ describe("durable activation ingress, identity and continuation", () => {
       messageText:
         "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
       buttons: [
+        { text: "Тренажёр", callbackData: "trainer:open" },
         { text: "Открыть платформу", url: "https://sachkov.dev" },
         {
           text: "Уже есть аккаунт",
