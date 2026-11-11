@@ -509,6 +509,58 @@ describe("trainer widget screens in a browser", () => {
     await page.close();
   });
 
+  it("divides an explanation between its pages evenly: no page holds a lone last word", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Проверить себя", [
+      "q",
+      "7k",
+      "Тема",
+      "Вопрос?",
+      ["Первый", "Второй"],
+      0,
+      "",
+      5,
+    ]);
+    // A few characters more than one page holds.
+    const text = realisticText(205, 2);
+    await tap(page, "А Первый", ["e", 2, 1, 1, text, "1", 5, 0]);
+    const pages: string[] = [];
+    for (let index = 0; index < 30; index += 1) {
+      pages.push((await page.locator(".fb .W").textContent()) ?? "");
+      const next = buttonNamed(page, "→");
+      if ((await next.count()) === 0 || (await next.isDisabled())) break;
+      await next.click();
+    }
+
+    expect(pages.join("")).toBe(text);
+    expect(pages.length).toBeGreaterThan(1);
+    const lengths = pages.map((each) => each.length);
+    // The shortest page holds more than half of what the longest one does.
+    expect(Math.min(...lengths) * 2).toBeGreaterThan(Math.max(...lengths));
+    await page.close();
+  });
+
+  it("shows the like and the dislike larger than the text beside them", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Проверить себя", question(realisticText));
+    await tap(page, "Не знаю", explanation(realisticText));
+    await buttonNamed(page, "Оценить").click();
+
+    const sizes = await page
+      .locator(".fb button")
+      .evaluateAll((buttons) =>
+        buttons.map((button) =>
+          Number.parseFloat(getComputedStyle(button).fontSize),
+        ),
+      );
+    // 👍 and 👎, then the arrow back.
+    expect(sizes).toHaveLength(3);
+    expect(sizes[0]).toBeGreaterThanOrEqual(18);
+    expect(sizes[1]).toBe(sizes[0]);
+    expect(sizes[2]).toBeLessThan(Number(sizes[0]));
+    await page.close();
+  });
+
   it("keeps a line break of an explanation as text and loses nothing after it", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", [

@@ -32,16 +32,11 @@
 
   const esc = (text) =>
     text.replace(/[&<>]/g, (char) => `&#${char.charCodeAt(0)};`);
+  // 5 to 20 «дней»; otherwise the last digit decides: 1 «день», 2 to 4 «дня», the rest «дней».
   const days = (count) =>
-    ["день", "дня", "дней"][
-      count % 100 > 10 && count % 100 < 20
-        ? 2
-        : count % 10 == 1
-          ? 0
-          : count % 10 > 1 && count % 10 < 5
-            ? 1
-            : 2
-    ];
+    ["дней", "день", "дня", "дня", "дня"][
+      count % 100 > 4 && count % 100 < 21 ? 0 : count % 10
+    ] || "дней";
 
   const button = (action, classes, html, disabled) =>
     `<button class="${classes}" onclick="g('${action}')"${disabled ? " disabled" : ""}>${html}</button>`;
@@ -102,7 +97,7 @@
     const review = question[8] != null;
     if (!d)
       return (
-        `<div class=fb><b class=V>${review ? "Ответ сохранён" : question[5] ? "Выберите все верные варианты." : "Выберите ответ"}</b>` +
+        `<div class=fb><b class=V>${review ? "Ответ сохранён" : question[5] ? "Выберите все верные" : "Выберите ответ"}</b>` +
         (review || question[5]
           ? button(
               "S",
@@ -113,12 +108,20 @@
           : "") +
         "</div>"
       );
-    // The text is cut every explanationSize characters. A word that crosses a cut moves to
-    // the next page whole, so a page may be longer by that word; a word longer than a page
-    // is cut. The pages are joined by a character no text has, so line breaks stay text.
+    // The text is cut into as many pages as explanationSize characters a page need, all of
+    // one length: no page holds a lone last word. A word that crosses a cut moves to the next
+    // page whole, so a page may be longer by that word; a word longer than a page is cut.
+    // The pages are joined by a character no text has, so line breaks stay text.
+    const text = d[4] + (d[7] ? " " + d[7] : "");
     const parts = (
-      (d[4] + (d[7] ? " " + d[7] : "")).match(
-        new RegExp(".{1," + explanationSize + "}", "gsu"),
+      text.match(
+        new RegExp(
+          ".{1," +
+            (~~(text.length / (~~((text.length - 1) / explanationSize) + 1)) +
+              1) +
+            "}",
+          "gsu",
+        ),
       ) || []
     )
       .join("\0")
@@ -136,7 +139,7 @@
     const vote = (value) =>
       button(
         "f" + id + ":" + (d[8] == value ? 0 : value),
-        "bt" + (d[8] == value ? " P" : ""),
+        "bt U" + (d[8] == value ? " P" : ""),
         votes[value],
       );
     // A long explanation comes in parts: d[9] is this part, d[10] their number. The arrows
@@ -144,7 +147,7 @@
     const part = d[9] || 0;
     const another = "m" + id + ":";
     const buttons =
-      button("F", "bt" + (d[8] ? " P" : ""), votes[d[8] || 0]) +
+      button("F", "bt" + (d[8] ? " P U" : ""), votes[d[8] || 0]) +
       button(
         question[9] ? "h" : "n" + id,
         "bt P",

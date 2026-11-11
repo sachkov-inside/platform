@@ -144,7 +144,6 @@ button {
   box-shadow: 2px 2px 0 var(--d);
 }
 .ch {
-  color: var(--v);
   padding: 4px 7px;
   border-radius: 4px;
   background: var(--t);
