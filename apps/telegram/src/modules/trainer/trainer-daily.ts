@@ -11,6 +11,7 @@ import {
   type TrainerIssuedQuestion,
   type TrainerNothingToAsk,
   type TrainerPerson,
+  type TrainerQuestionVersionUnavailable,
 } from "./trainer-rounds.js";
 import type { OptionMask } from "./widget/trainer-widget-wire.js";
 
@@ -55,6 +56,7 @@ export class TrainerDaily {
     | TrainerDailyReview
     | TrainerDailyWithdrawn
     | TrainerNothingToAsk
+    | TrainerQuestionVersionUnavailable
   > {
     const day = moscowDay(request.at);
     const questionId = await this.questionOf(
@@ -79,6 +81,7 @@ export class TrainerDaily {
       if (roundId === undefined) return { kind: "withdrawn" };
 
       const step = await showRoundStep(tx, roundId, request.at);
+      if (step.kind === "version_unavailable") return step;
       if (step.kind === "result" && step.round.marks.length === 0)
         return { kind: "withdrawn" };
       return step.kind === "question" ? step : review(tx, roundId);
@@ -230,7 +233,7 @@ async function start(
 async function review(
   database: Database,
   roundId: string,
-): Promise<TrainerDailyReview> {
+): Promise<TrainerDailyReview | TrainerQuestionVersionUnavailable> {
   const answer = await database
     .selectFrom("trainer_issues as issue")
     .innerJoin(
@@ -239,14 +242,19 @@ async function review(
       "issue.question_id",
     )
     .innerJoin("trainer_topics as topic", "topic.code", "question.topic_code")
+    .leftJoin("trainer_question_versions as version", (join) =>
+      join
+        .onRef("version.question_id", "=", "issue.question_id")
+        .onRef("version.content_revision", "=", "issue.content_revision"),
+    )
     .select([
       "issue.id",
       "issue.question_id",
       "issue.picked_mask",
       "issue.correct",
       "issue.correct_mask",
-      "question.text",
-      "question.options",
+      "version.text",
+      "version.options",
       "topic.name as topic_name",
     ])
     .where("issue.round_id", "=", roundId)
@@ -254,6 +262,8 @@ async function review(
     .executeTakeFirstOrThrow();
   if (answer.picked_mask === null || answer.correct === null)
     throw new Error(`Trainer issue ${answer.id} has no stored answer`);
+  if (answer.text === null || answer.options === null)
+    return { kind: "version_unavailable" };
   return {
     kind: "review",
     pickedMask: answer.picked_mask,

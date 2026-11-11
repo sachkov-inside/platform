@@ -76,6 +76,11 @@ export interface TrainerNothingToAsk {
   readonly reason: "no_questions" | "all_answered_correctly";
 }
 
+/** An old issue refers to content overwritten before revisions were retained. */
+export interface TrainerQuestionVersionUnavailable {
+  readonly kind: "version_unavailable";
+}
+
 /** The stored answer to an issue and what the person may now see. */
 export interface TrainerAnswerOutcome {
   readonly round: TrainerRound;
@@ -110,7 +115,12 @@ export class TrainerRounds {
   async start(
     person: TrainerPerson,
     request: TrainerRoundRequest,
-  ): Promise<TrainerIssuedQuestion | TrainerRoundResult | TrainerNothingToAsk> {
+  ): Promise<
+    | TrainerIssuedQuestion
+    | TrainerRoundResult
+    | TrainerNothingToAsk
+    | TrainerQuestionVersionUnavailable
+  > {
     return this.database.transaction().execute(async (tx) => {
       const started = await tx
         .selectFrom("trainer_rounds")
@@ -221,10 +231,10 @@ export class TrainerRounds {
 
       const stored = await database
         .selectFrom("trainer_issues as issue")
-        .innerJoin(
-          "trainer_questions as question",
-          "question.id",
-          "issue.question_id",
+        .leftJoin("trainer_question_versions as version", (join) =>
+          join
+            .onRef("version.question_id", "=", "issue.question_id")
+            .onRef("version.content_revision", "=", "issue.content_revision"),
         )
         .select([
           "issue.round_id",
@@ -235,8 +245,8 @@ export class TrainerRounds {
           "issue.correct_mask",
           "issue.correct",
           "issue.first_answer",
-          "question.options",
-          "question.explanation",
+          "version.options",
+          "version.explanation",
         ])
         .where("issue.id", "=", id)
         .executeTakeFirstOrThrow();
@@ -273,7 +283,13 @@ export class TrainerRounds {
         point: credited?.point ?? false,
         issuedAt: stored.issued_at,
         answeredAt: stored.answered_at,
-        explanation: trainerAnswerExplanation(stored, stored.picked_mask),
+        explanation:
+          stored.options === null || stored.explanation === null
+            ? "Вы ответили на прежнюю редакцию вопроса. Её разбор недоступен."
+            : trainerAnswerExplanation(
+                { options: stored.options, explanation: stored.explanation },
+                stored.picked_mask,
+              ),
       };
     });
   }
@@ -286,7 +302,12 @@ export class TrainerRounds {
     person: TrainerPerson,
     at: Date,
     issueId?: string,
-  ): Promise<TrainerIssuedQuestion | TrainerRoundResult | undefined> {
+  ): Promise<
+    | TrainerIssuedQuestion
+    | TrainerRoundResult
+    | TrainerQuestionVersionUnavailable
+    | undefined
+  > {
     return this.database.transaction().execute(async (database) => {
       const id = issueId === undefined ? undefined : issueNumber(issueId);
       if (issueId !== undefined && id === undefined) return undefined;
@@ -400,7 +421,9 @@ export async function showRoundStep(
   database: Database,
   roundId: string,
   at: Date,
-): Promise<TrainerIssuedQuestion | TrainerRoundResult> {
+): Promise<
+  TrainerIssuedQuestion | TrainerRoundResult | TrainerQuestionVersionUnavailable
+> {
   const round = await roundOf(database, roundId);
   const step = round.completed
     ? undefined
@@ -416,12 +439,21 @@ export async function showRoundStep(
           "topic.code",
           "question.topic_code",
         )
+        .leftJoin("trainer_question_versions as version", (join) =>
+          join.onRef("version.question_id", "=", "issue.question_id").on(
+            "version.content_revision",
+            "=",
+            sql<number>`case
+              when issue.issued_at is null then question.content_revision
+              else issue.content_revision end`,
+          ),
+        )
         .select([
           "issue.id",
           "issue.question_id",
-          "question.text",
-          "question.options",
-          "question.content_revision",
+          "version.text",
+          "version.options",
+          "version.content_revision",
           "topic.name as topic_name",
         ])
         .where("issue.round_id", "=", roundId)
@@ -444,18 +476,25 @@ export async function showRoundStep(
     };
   }
 
-  const correctMask = correctMaskOf(step.options);
-  // The Bank may have changed the question since the round started: the answer is judged
-  // against the options the person sees now.
+  if (
+    step.text === null ||
+    step.options === null ||
+    step.content_revision === null
+  )
+    return { kind: "version_unavailable" };
+  const { text, options, content_revision: revision } = step;
+  const correctMask = correctMaskOf(options);
+  // Only a question not yet displayed follows Bank edits. Existing widgets keep their key.
   await database
     .updateTable("trainer_issues")
     .set((eb) => ({
       issued_at: eb.fn.coalesce("issued_at", eb.val(at)),
-      content_revision: step.content_revision,
-      option_count: step.options.length,
+      content_revision: revision,
+      option_count: options.length,
       correct_mask: correctMask,
     }))
     .where("id", "=", step.id)
+    .where("issued_at", "is", null)
     .where("answered_at", "is", null)
     .execute();
   return {
@@ -464,8 +503,8 @@ export async function showRoundStep(
     issueId: BigInt(step.id).toString(36),
     questionId: step.question_id,
     topicName: step.topic_name,
-    text: step.text,
-    options: step.options.map((option) => option.text),
+    text,
+    options: options.map((option) => option.text),
     severalCorrect: severalBits(correctMask),
   };
 }

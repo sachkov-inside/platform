@@ -26,6 +26,7 @@ import {
   type TrainerIssuedQuestion,
   type TrainerNothingToAsk,
   type TrainerRoundResult,
+  type TrainerQuestionVersionUnavailable,
 } from "./trainer-rounds.js";
 import {
   explanationScreen,
@@ -255,9 +256,18 @@ export class Trainer {
   /** The screen of a round step: a question, the result, or why there is nothing to ask. */
   private async step(
     contact: VerifiedPrivateStart,
-    step: TrainerIssuedQuestion | TrainerRoundResult | TrainerNothingToAsk,
+    step:
+      | TrainerIssuedQuestion
+      | TrainerRoundResult
+      | TrainerNothingToAsk
+      | TrainerQuestionVersionUnavailable,
   ): Promise<TrainerWidgetData> {
     switch (step.kind) {
+      case "version_unavailable":
+        return [
+          "i",
+          "Прежняя редакция вопроса недоступна. Ответы и очки сохранены.",
+        ];
       case "question":
         return questionScreen(step);
       case "result": {
