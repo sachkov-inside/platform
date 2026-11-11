@@ -28,4 +28,12 @@ export async function access(database: any) {
   await database.insertInto("trainer_rating_consents").values({}).execute();
   await database.updateTable("trainer_rating_consents").set({}).execute();
   await database.deleteFrom("trainer_rating_consents").execute();
+  await database.selectFrom("trainer_rating_profiles").selectAll().execute();
+  await database.insertInto("trainer_rating_profiles").values({}).execute();
+  await database.updateTable("trainer_rating_profiles").set({}).execute();
+  await database.deleteFrom("trainer_rating_profiles").execute();
+  await database.selectFrom("trainer_question_reactions").selectAll().execute();
+  await database.insertInto("trainer_question_reactions").values({}).execute();
+  await database.updateTable("trainer_question_reactions").set({}).execute();
+  await database.deleteFrom("trainer_question_reactions").execute();
 }

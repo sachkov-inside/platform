@@ -133,8 +133,11 @@ describe("trainer widget wire format", () => {
     ["p", { kind: "progress" }],
     ["l0", { kind: "rating", allTime: false }],
     ["l1", { kind: "rating", allTime: true }],
-    ["v11", { kind: "set_rating_shown", shown: true, allTime: true }],
-    ["v00", { kind: "set_rating_shown", shown: false, allTime: false }],
+    ["v11", { kind: "rating", allTime: true }],
+    ["v00", { kind: "rating", allTime: false }],
+    ["f7:0", { kind: "reaction", issueId: "7", reaction: 0 }],
+    ["f1a:1", { kind: "reaction", issueId: "1a", reaction: 1 }],
+    ["f1a:2", { kind: "reaction", issueId: "1a", reaction: 2 }],
     ["n", { kind: "next" }],
     ["a1a2b3c:5", { kind: "answer", issueId: "1a2b3c", optionMask: 5 }],
     ["a7:0", { kind: "answer", issueId: "7", optionMask: 0 }],
@@ -153,6 +156,9 @@ describe("trainer widget wire format", () => {
     "tРАГ",
     "l2",
     "v2",
+    "f7:3",
+    "f:1",
+    "fABC:1",
     "h".repeat(65),
   ])("ignores the unknown request %j", (data) => {
     expect(parseTrainerWidgetRequest(data)).toBeUndefined();

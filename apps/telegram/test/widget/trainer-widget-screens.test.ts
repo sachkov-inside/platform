@@ -1091,42 +1091,100 @@ describe("trainer widget screens in a browser", () => {
     expect(await requests(page)).toEqual(["l0"]);
   });
 
-  it("offers to be shown on the first opening of the Rating and turns the display on only by the person's tap", async () => {
+  it.each([0, 1, 2] as const)(
+    "shows only Rating navigation, ignoring retired preference %s",
+    async (legacy) => {
+      const page = await openWidget(320);
+      try {
+        await tap(page, "Рейтинг", ["l", 0, legacy, [[1, "Анна", 5, 1]]]);
+        expect(await page.getByRole("button").allInnerTexts()).toEqual([
+          "←",
+          "Неделя",
+          "Всё время",
+        ]);
+        expect(await page.locator("#w").innerText()).not.toContain(
+          "Показывать меня",
+        );
+        await tap(page, "Всё время", ["l", 1, 1, [[1, "Анна", 5, 1]]]);
+        expect(await requests(page)).toEqual(["l0", "l1"]);
+      } finally {
+        await page.close();
+      }
+    },
+  );
+
+  it("lets the person like, dislike and clear a question without moving its options", async () => {
     const page = await openWidget(320);
-    const table = [[1, "Анна", 5, 0]] as const;
-
-    await tap(page, "Рейтинг", ["l", 0, 2, table]);
-    const offer = await page.locator("#w").innerText();
-    const switches = await buttonNamed(
-      page,
-      "Показывать меня в рейтинге",
-    ).count();
-    await tap(page, "Всё время", ["l", 1, 2, table]);
-    await tap(page, "Показать меня", ["l", 1, 1, [[1, "Анна", 5, 1]]]);
-    const afterConsent = await page.locator("#w").innerText();
-
-    expect(offer).toContain("Показывать меня в рейтинге");
-    expect(offer).toContain("Другие увидят ваше имя из Telegram");
-    // Before the choice there is an offer with two answers, not a switch.
-    expect(switches).toBe(0);
-    expect(await requests(page)).toEqual(["l0", "l1", "v11"]);
-    expect(afterConsent).not.toContain("Показать меня");
-    expect(afterConsent).toContain("Показывать меня в рейтинге");
-    expect(afterConsent).toContain("Вкл");
+    try {
+      await tap(page, "Проверить себя", question(realisticText));
+      expect(await buttonNamed(page, "Оценить").count()).toBe(0);
+      const geometry = await questionGeometry(page);
+      await tap(page, "Не знаю", explanation(realisticText));
+      await buttonNamed(page, "Оценить").click();
+      await tap(page, "Лайк", ["u", "1a2b3c", 1]);
+      expect(await buttonNamed(page, "Лайк").getAttribute("class")).toContain(
+        "P",
+      );
+      expect(await questionGeometry(page)).toEqual(geometry);
+      await buttonNamed(page, "Лайк").click();
+      await tap(page, "Дизлайк", ["u", "1a2b3c", 2]);
+      expect(
+        await buttonNamed(page, "Дизлайк").getAttribute("class"),
+      ).toContain("P");
+      await buttonNamed(page, "Дизлайк").click();
+      await tap(page, "Дизлайк", ["u", "1a2b3c", 0]);
+      expect(await buttonNamed(page, "Оценить").count()).toBe(1);
+      expect((await requests(page)).slice(-3)).toEqual([
+        "f1a2b3c:1",
+        "f1a2b3c:2",
+        "f1a2b3c:0",
+      ]);
+      expect(await questionGeometry(page)).toEqual(geometry);
+    } finally {
+      await page.close();
+    }
   });
 
-  it("keeps the display off after «Не сейчас» and leaves a switch to turn it on later", async () => {
-    const page = await openWidget(320);
-
-    await tap(page, "Рейтинг", ["l", 0, 2, []]);
-    await tap(page, "Не сейчас", ["l", 0, 0, []]);
-    const declined = await page.locator("#w").innerText();
-    await tap(page, "Показывать меня в рейтинге", ["l", 0, 1, []]);
-
-    expect(declined).not.toContain("Показать меня");
-    expect(declined).toContain("Сейчас вас нет в таблицах");
-    expect(declined).toContain("Выкл");
-    expect(await requests(page)).toEqual(["l0", "v00", "v10"]);
+  it("gives topic choices the same complete outlined cards as the home menu", async () => {
+    const page = await openWidget(320, { documentMode: "quirks" });
+    const appearance = (element: HTMLElement | SVGElement) => {
+      const style = getComputedStyle(element);
+      return [
+        style.borderTopWidth,
+        style.borderRightWidth,
+        style.borderBottomWidth,
+        style.borderLeftWidth,
+        style.borderRadius,
+        style.backgroundColor,
+        style.boxShadow,
+      ];
+    };
+    try {
+      const expected = await buttonNamed(page, "Проверить себя").evaluate(
+        appearance,
+      );
+      await tap(page, "Тренировка по теме", topics(realisticText));
+      const choices = page.locator("button").filter({ hasText: "20 из 20" });
+      expect(await choices.count()).toBe(3);
+      for (const choice of await choices.all()) {
+        const actual = await choice.evaluate(appearance);
+        // Home cards have an orange lower edge; all four border widths and the ink shadow match.
+        expect(actual).toEqual(expected);
+      }
+      const boxes = await choices.evaluateAll((elements) =>
+        elements.map((el) => {
+          const rect = el.getBoundingClientRect();
+          return { top: rect.top, bottom: rect.bottom };
+        }),
+      );
+      const [first, second, third] = boxes;
+      if (!first || !second || !third)
+        throw new Error("Expected three topic cards");
+      expect(second.top - first.bottom).toBeGreaterThanOrEqual(8);
+      expect(third.top - second.bottom).toBeGreaterThanOrEqual(8);
+    } finally {
+      await page.close();
+    }
   });
 
   it("sends only requests the bot's reader understands", async () => {
@@ -1148,11 +1206,6 @@ describe("trainer widget screens in a browser", () => {
     await tap(page, "←", home);
     await tap(page, "Рейтинг", rating(realisticText));
     await tap(page, "Всё время", ["l", 1, 1, []]);
-    await tap(
-      page,
-      "Показывать меня в рейтинге Другие видят ваше имя из Telegram Вкл",
-      ["l", 1, 0, []],
-    );
 
     const sent = await requests(page);
 
@@ -1170,7 +1223,6 @@ describe("trainer widget screens in a browser", () => {
       "h",
       "l0",
       "l1",
-      "v01",
     ]);
     expect(sent.map((data) => parseTrainerWidgetRequest(data))).not.toContain(
       undefined,
@@ -1301,7 +1353,7 @@ describe("trainer widget screens in a browser", () => {
         1,
         "Верно ответили 100% из 1 человека",
       ]);
-      expect(await buttons(page)).toEqual(["×", "Готово"]);
+      expect(await buttons(page)).toEqual(["×", "Оценить", "Готово"]);
       await tap(page, "Готово", home);
       await tap(page, "Проверить себя", ["i", "Вопросы скоро появятся."]);
       expect(await buttons(page)).toEqual(["На главный"]);
@@ -1327,7 +1379,7 @@ describe("trainer widget screens in a browser", () => {
         1,
         0,
       ]);
-      expect(await buttons(page)).toEqual(["×", "К итогу"]);
+      expect(await buttons(page)).toEqual(["×", "Оценить", "К итогу"]);
       await tap(page, "К итогу", [
         "r",
         "Проверить себя",
@@ -1380,7 +1432,7 @@ describe("trainer widget screens in a browser", () => {
       expect(await page.locator("button.op").count()).toBe(0);
       expect(await steps(page)).toEqual(["G", "B", "B", "S", ""]);
       expect(text).not.toMatch(/Где почитать|В вопросе ошибка/);
-      expect(await buttons(page)).toEqual(["×", "Дальше"]);
+      expect(await buttons(page)).toEqual(["×", "Оценить", "Дальше"]);
     });
 
     it("shows a correct answer without a point as «Верно»", async () => {

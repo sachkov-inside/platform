@@ -19,6 +19,7 @@ import {
   trainerStreakDays,
 } from "./trainer-progress.js";
 import { TrainerRating } from "./trainer-rating.js";
+import { TrainerReactions } from "./trainer-reactions.js";
 import type { TrainerOpening, TrainerQuery } from "./trainer-requests.js";
 import {
   TrainerRounds,
@@ -70,6 +71,7 @@ export class Trainer {
   private readonly daily: TrainerDaily;
   private readonly topics: TrainerTopics;
   private readonly rating: TrainerRating;
+  private readonly reactions: TrainerReactions;
 
   constructor(
     @Inject(DATABASE) private readonly database: Database,
@@ -83,6 +85,7 @@ export class Trainer {
     this.daily = new TrainerDaily(database);
     this.topics = new TrainerTopics(database);
     this.rating = new TrainerRating(database);
+    this.reactions = new TrainerReactions(database);
   }
 
   /**
@@ -140,7 +143,7 @@ export class Trainer {
   /** Answers a press inside the widget with the next screen; it never sends a message. */
   async answer(query: TrainerQuery): Promise<void> {
     const request = parseTrainerWidgetRequest(query.data);
-    // The Rating shows the Telegram name of a shown person's last request, whatever it asked.
+    // The Rating shows the Telegram name of each person's last request, whatever it asked.
     await this.rating.observe(query.contact);
     await this.reply(
       query.queryId,
@@ -183,7 +186,11 @@ export class Trainer {
           contact.observedAt,
         );
         return outcome
-          ? explanationScreen(outcome, await this.daily.statLine(outcome))
+          ? explanationScreen(
+              outcome,
+              await this.daily.statLine(outcome),
+              await this.reactions.of(contact, outcome.questionId),
+            )
           : ["x", ISSUE_CLOSED_TEXT];
       }
       case "next": {
@@ -230,9 +237,16 @@ export class Trainer {
         );
       case "rating":
         return this.rating.screen(contact, request.allTime);
-      case "set_rating_shown":
-        await this.rating.choose(contact, request.shown);
-        return this.rating.screen(contact, request.allTime);
+      case "reaction": {
+        const reaction = await this.reactions.set(
+          contact,
+          request.issueId,
+          request.reaction,
+        );
+        return reaction === undefined
+          ? ["x", ISSUE_CLOSED_TEXT]
+          : ["u", request.issueId, reaction];
+      }
       default:
         return unhandled(request, "Trainer widget request");
     }

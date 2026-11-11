@@ -154,6 +154,8 @@ const currentTableOwners = {
   trainer_openings: "trainer",
   trainer_questions: "trainer",
   trainer_rating_consents: "trainer",
+  trainer_rating_profiles: "trainer",
+  trainer_question_reactions: "trainer",
   trainer_rounds: "trainer",
   trainer_topics: "trainer",
 } satisfies Record<keyof DatabaseSchema, string>;

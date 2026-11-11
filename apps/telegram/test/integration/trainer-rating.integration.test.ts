@@ -92,81 +92,45 @@ const storedConsents = () =>
     .orderBy("telegram_user_id")
     .execute();
 
-// Rating screen: ["l", allTime, shown, rows]; shown is 2 until the person has chosen, then
-// 1 (shown) or 0 (not shown). A row is [place, name, points, isViewer].
+// Rating screen: ["l", allTime, legacySlot, rows]; the legacy slot is always 1.
+// A row is [place, name, points, isViewer].
 describe("the Rating", () => {
-  it("shows nobody by default: a person with points is in no table and sees the offer to be shown", async () => {
-    const { tap, messages } = trainer();
+  it("includes every person with completed-round points without asking to be shown", async () => {
+    const { tap } = trainer();
     const [anna, boris] = [person("Анна"), person("Борис")];
     await earn(anna, 2);
-
-    const own = [await tap(anna, "l0"), await tap(anna, "l1")];
-    const others = [await tap(boris, "l0"), await tap(boris, "l1")];
-
-    expect(own).toEqual([
-      ["l", 0, 2, []],
-      ["l", 1, 2, []],
-    ]);
-    expect(others).toEqual(own);
-    // Opening the Rating stores no name and sends no message.
-    expect(await storedConsents()).toEqual([]);
-    expect(messages.widgets).toEqual([]);
-    expect(messages.texts).toEqual([]);
+    expect(await tap(anna, "l0")).toEqual(["l", 0, 1, [[1, "Анна", 2, 1]]]);
+    expect(await tap(boris, "l1")).toEqual(["l", 1, 1, [[1, "Анна", 2, 0]]]);
   });
 
-  it("puts a person into both tables when they turn the display on and removes them from both at once when they turn it off", async () => {
+  it("ignores historical opt-outs and old switch requests without rewriting those receipts", async () => {
     const { tap } = trainer();
-    const [anna, boris] = [person("Анна", "Каренина"), person("Борис")];
+    const [anna, boris] = [person("Анна"), person("Борис")];
     await earn(anna, 2);
     await earn(boris, 1);
-
-    const turnedOn = await tap(anna, "v10");
-    const allTime = await tap(anna, "l1");
-    const seenByOther = [await tap(boris, "l0"), await tap(boris, "l1")];
-    const storedWhileShown = await storedConsents();
-    const turnedOff = await tap(anna, "v01");
-    const week = await tap(anna, "l0");
-    const seenByOtherAfter = [await tap(boris, "l0"), await tap(boris, "l1")];
-
-    expect(turnedOn).toEqual(["l", 0, 1, [[1, "Анна Каренина", 2, 1]]]);
-    expect(allTime).toEqual(["l", 1, 1, [[1, "Анна Каренина", 2, 1]]]);
-    // Another person sees the name, not themselves, and still has the offer.
-    expect(seenByOther).toEqual([
-      ["l", 0, 2, [[1, "Анна Каренина", 2, 0]]],
-      ["l", 1, 2, [[1, "Анна Каренина", 2, 0]]],
-    ]);
-    expect(storedWhileShown).toEqual([
-      {
+    await database
+      .insertInto("trainer_rating_consents")
+      .values({
+        bot_identity: "inside",
         telegram_user_id: String(anna),
-        shown: true,
-        display_name: "Анна Каренина",
-      },
-    ]);
-    // The answer to the switch is the table the person was looking at, already without them.
-    expect(turnedOff).toEqual(["l", 1, 0, []]);
-    expect(week).toEqual(["l", 0, 0, []]);
-    expect(seenByOtherAfter).toEqual([
-      ["l", 0, 2, []],
-      ["l", 1, 2, []],
-    ]);
-    // The choice stays, the name does not.
-    expect(await storedConsents()).toEqual([
-      { telegram_user_id: String(anna), shown: false, display_name: null },
-    ]);
-  });
-
-  it("keeps the offer away after «не показывать» and lets the person turn the display on later", async () => {
-    const { tap } = trainer();
-    const anna = person("Анна");
-    await earn(anna, 1);
-
-    const declined = await tap(anna, "v00");
-    const later = await tap(anna, "l0");
-    const turnedOn = await tap(anna, "v11");
-
-    expect(declined).toEqual(["l", 0, 0, []]);
-    expect(later).toEqual(["l", 0, 0, []]);
-    expect(turnedOn).toEqual(["l", 1, 1, [[1, "Анна", 1, 1]]]);
+        shown: false,
+        display_name: null,
+        decided_at: new Date("2026-10-07T09:00:00Z"),
+      })
+      .execute();
+    const before = await storedConsents();
+    for (const request of ["v00", "v10", "v01", "v11"]) {
+      expect(await tap(anna, request)).toEqual([
+        "l",
+        request.endsWith("1") ? 1 : 0,
+        1,
+        [
+          [1, "Анна", 2, 1],
+          [2, "Борис", 1, 0],
+        ],
+      ]);
+    }
+    expect(await storedConsents()).toEqual(before);
   });
 
   it("shows the Telegram name of the person's last request, cut to one line of 24 characters", async () => {
@@ -174,7 +138,6 @@ describe("the Rating", () => {
     const [anna, boris] = [person("Анна"), person("Борис")];
     await earn(anna, 1);
     await earn(boris, 1);
-    await tap(anna, "v10");
 
     // Both change their name in Telegram; any next request brings the new one.
     trainer().rename(anna, "Анна-Мария\nАлександра", "фон Гогенцоллерн");
@@ -183,15 +146,46 @@ describe("the Rating", () => {
     await tap(boris, "h");
     const table = await tap(boris, "l1");
 
-    expect(table).toEqual(["l", 1, 2, [[1, "Анна-Мария Александра фо", 1, 0]]]);
-    // The bot keeps a name only for a person who is shown.
-    expect(await storedConsents()).toEqual([
+    expect(table).toEqual([
+      "l",
+      1,
+      1,
+      [
+        [1, "Анна-Мария Александра фо", 1, 0],
+        [2, "Борис Тайный", 1, 1],
+      ],
+    ]);
+    expect(
+      await database
+        .selectFrom("trainer_rating_profiles")
+        .select(["telegram_user_id", "display_name"])
+        .orderBy("telegram_user_id")
+        .execute(),
+    ).toEqual([
       {
         telegram_user_id: String(anna),
-        shown: true,
         display_name: "Анна-Мария Александра фо",
       },
+      { telegram_user_id: String(boris), display_name: "Борис Тайный" },
     ]);
+  });
+
+  it("keeps a historical participant with no saved name in the table and refreshes the name on their next visit", async () => {
+    const { tap } = trainer();
+    const [anna, viewer] = [person("Анна"), person("Борис")];
+    await earn(anna, 1);
+    await database
+      .deleteFrom("trainer_rating_profiles")
+      .where("telegram_user_id", "=", String(anna))
+      .execute();
+    expect(await tap(viewer, "l0")).toEqual([
+      "l",
+      0,
+      1,
+      [[1, "Без имени", 1, 0]],
+    ]);
+    await tap(anna, "h");
+    expect(await tap(viewer, "l0")).toEqual(["l", 0, 1, [[1, "Анна", 1, 0]]]);
   });
 
   it("counts «Неделя» from Monday 00:00 to Sunday 24:00 of Moscow time and «Всё время» without a border", async () => {
@@ -200,7 +194,6 @@ describe("the Rating", () => {
 
     // The week of the fixed instant ends with Sunday 2026-10-11.
     nextPressAt("2026-10-11T23:50:00");
-    await tap(anna, "v10");
     await earn(anna, 2);
     const sunday = await tap(anna, "l0");
     // Boris gets his question on Sunday and answers at Monday 00:00:00.
@@ -210,7 +203,7 @@ describe("the Rating", () => {
     await tap(boris, right(borisRound));
     for (let step = 1; step < 5; step += 1)
       await tap(boris, wrong(asked(await tap(boris, "n"))));
-    const monday = await tap(boris, "v10");
+    const monday = await tap(boris, "l0");
     const mondayOfAnna = await tap(anna, "l0");
     const allTime = await tap(anna, "l1");
 
@@ -238,12 +231,10 @@ describe("the Rating", () => {
       const people = faces.map((face) => person(face.repeat(30)));
       const shownName = (index: number) => String(faces[index]).repeat(24);
       for (const [index, user] of people.entries()) {
-        await tap(user, "v10");
         // The fifth person earns two points, everyone else one.
         await earn(user, index === 4 ? 2 : 1);
       }
       const silent = person("Без очков");
-      await tap(silent, "v10");
 
       const ofLast = await tap(Number(people[8]), "l0");
       const bytes = Buffer.byteLength(String(messages.answers.at(-1)?.data));
@@ -267,15 +258,15 @@ describe("the Rating", () => {
         1,
         top.map((row) => (row[0] === 2 ? [2, shownName(0), 1, 1] : row)),
       ]);
-      // A shown person without points and a person who is not shown have no row of their own.
+      // People without points have no row of their own.
       expect(ofSilent).toEqual(["l", 0, 1, top]);
-      expect(ofStranger).toEqual(["l", 0, 2, top]);
+      expect(ofStranger).toEqual(["l", 0, 1, top]);
     },
     LONG_CONVERSATION_MS,
   );
 
   it(
-    "shows the place of the week in the result of a round only to a person who is shown",
+    "shows the place of the week to every person who earned points",
     async () => {
       const { tap, playRound } = trainer();
       const [anna, boris, vera] = [
@@ -283,8 +274,6 @@ describe("the Rating", () => {
         person("Борис"),
         person("Вера"),
       ];
-      await tap(anna, "v10");
-      await tap(vera, "v10");
 
       // Anna answers three of five correctly, Boris and Vera all five. Place: eighth item.
       const ofAnna = await playRound(anna, (question, step) =>
@@ -300,16 +289,17 @@ describe("the Rating", () => {
         "r",
       ]);
       expect([ofAnna[5], ofAnna[7]]).toEqual([3, 1]);
-      // Boris has the most points of the week and is not shown: no place for him.
-      expect([ofBoris[5], ofBoris[7]]).toEqual([5, 0]);
-      expect([ofVera[5], ofVera[7]]).toEqual([5, 1]);
+      // Boris earns five first, then Vera ties him; Anna remains below both.
+      expect([ofBoris[5], ofBoris[7]]).toEqual([5, 1]);
+      expect([ofVera[5], ofVera[7]]).toEqual([5, 2]);
       expect(table).toEqual([
         "l",
         0,
         1,
         [
-          [1, "Вера", 5, 0],
-          [2, "Анна", 3, 1],
+          [1, "Борис", 5, 0],
+          [2, "Вера", 5, 0],
+          [3, "Анна", 3, 1],
         ],
       ]);
     },
