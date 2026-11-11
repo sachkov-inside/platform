@@ -3,13 +3,14 @@ import type {
   TrainerIssuedQuestion,
   TrainerRoundResult,
 } from "./trainer-rounds.js";
-import type {
-  OptionMask,
-  TrainerExplanationData,
-  TrainerQuestionData,
-  TrainerResultData,
-  TrainerVerdict,
-  TrainerReaction,
+import {
+  trainerExplanationParts,
+  type OptionMask,
+  type TrainerExplanationData,
+  type TrainerQuestionData,
+  type TrainerResultData,
+  type TrainerVerdict,
+  type TrainerReaction,
 } from "./widget/trainer-widget-wire.js";
 
 // The widget screens of a round, built from what the bot has stored. Nothing here decides a
@@ -35,30 +36,40 @@ export function questionScreen(
     question.round.marks,
     question.round.size,
   ] as const;
-  if (question.round.mode === "daily")
-    return [...screen, reviewMask ?? null, 1];
+  const daily = question.round.mode === "daily" ? 1 : 0;
+  // A question with a context tells the widget to offer the context again.
+  if (question.context !== null)
+    return [...screen, reviewMask ?? null, daily, 1];
+  if (daily === 1) return [...screen, reviewMask ?? null, 1];
   return reviewMask === undefined ? screen : [...screen, reviewMask];
 }
 
 /**
  * The screen after an answer: the verdict, the correct options and the explanation. `stat` is
- * the ready line under the explanation of a Daily question, 0 for no line.
+ * the ready line under the explanation of a Daily question, 0 for no line. An explanation
+ * longer than one answer comes in parts; `part` picks one, and the line stands under the last.
+ * `undefined`: the explanation has no such part.
  */
 export function explanationScreen(
   outcome: TrainerAnswerOutcome,
   stat: string | 0 = 0,
   reaction: TrainerReaction = 0,
-): TrainerExplanationData {
+  part = 0,
+): TrainerExplanationData | undefined {
+  const parts = trainerExplanationParts(outcome.explanation);
+  const text = parts[part];
+  if (text === undefined) return undefined;
   const screen = [
     "e",
     verdictOf(outcome),
     outcome.correctMask,
     outcome.pickedMask,
-    outcome.explanation,
+    text,
     outcome.round.marks,
     outcome.round.size,
-    stat,
+    part === parts.length - 1 ? stat : 0,
   ] as const;
+  if (parts.length > 1) return [...screen, reaction, part, parts.length];
   return reaction === 0 ? screen : [...screen, reaction];
 }
 

@@ -1619,3 +1619,166 @@ describe("a Bank import between answers", () => {
     expect(afterSecond.slice(0, 4)).toEqual(["e", 0, 2, 1]);
   });
 });
+
+describe("a question with a context", () => {
+  const CONTEXT =
+    "Синтетическое условие: команда выпускает агента в две смены.";
+
+  /** One topic with one question whose condition is the context. */
+  async function loadContextBank(): Promise<void> {
+    const bank = syntheticTrainerBank({ topics: 1, questionsPerTopic: 1 });
+    const [question] = bank.questions;
+    if (!question) throw new Error("The synthetic Bank has no question");
+    question.context = CONTEXT;
+    await loadBank(bank);
+  }
+
+  it("shows the context first, the question after it, and the context again on request", async () => {
+    const user = newUser();
+    await loadContextBank();
+
+    const context = await tap(user, "2q");
+    const issueId = String(context[1]);
+    const question = await tap(user, `2o${issueId}`);
+    const again = await tap(user, `2c${issueId}`);
+
+    expect(context).toEqual(["c", issueId, CONTEXT]);
+    // The last flag tells the widget that the question has a context to return to.
+    expect(question).toEqual([
+      "q",
+      issueId,
+      "Синтетическая тема 1",
+      "Синтетический вопрос 1 темы t1",
+      ["Вариант А", "Вариант Б", "Вариант В", "Вариант Г"],
+      0,
+      "",
+      1,
+      null,
+      0,
+      1,
+    ]);
+    expect(again).toEqual(context);
+  });
+
+  it("answers the request for the question of an answered issue with its explanation", async () => {
+    const user = newUser();
+    await loadContextBank();
+    const issueId = String((await tap(user, "2q"))[1]);
+    await tap(user, `2o${issueId}`);
+
+    const explanation = await tap(user, `2a${issueId}:1`);
+
+    // The person reads the context once more after the answer and returns.
+    expect(await tap(user, `2c${issueId}`)).toEqual(["c", issueId, CONTEXT]);
+    expect(await tap(user, `2o${issueId}`)).toEqual(explanation);
+    expect(await storedAnswers(user)).toHaveLength(1);
+  });
+
+  it("refuses the context and the question of an issue the person was not shown", async () => {
+    const user = newUser();
+    const other = newUser();
+    await loadContextBank();
+    const issueId = String((await tap(user, "2q"))[1]);
+
+    for (const request of [`2o${issueId}`, `2c${issueId}`, "2ozz", "2czz"])
+      expect((await tap(other, request))[0]).toBe("x");
+  });
+
+  it("asks a widget sent before contexts to open the Trainer again", async () => {
+    const user = newUser();
+    await loadContextBank();
+
+    const first = await tap(user, "q");
+
+    expect(first).toEqual([
+      "i",
+      "Тренажёр обновился. Отправьте /train, чтобы открыть новую версию.",
+    ]);
+    // The same round opens in a widget that knows contexts.
+    expect((await tap(user, "2q"))[0]).toBe("c");
+  });
+
+  it("keeps the Daily question's review behind its context", async () => {
+    const user = newUser();
+    await loadContextBank();
+
+    const context = await tap(user, "2d");
+    const issueId = String(context[1]);
+    const question = await tap(user, `2o${issueId}`);
+    await tap(user, `2a${issueId}:1`);
+    const reopened = await tap(user, "2d");
+    const review = await tap(user, `2o${issueId}`);
+
+    expect(context).toEqual(["c", issueId, CONTEXT]);
+    expect(question.slice(8)).toEqual([null, 1, 1]);
+    expect(reopened).toEqual(context);
+    // The review carries the stored pick.
+    expect(review.slice(8)).toEqual([1, 1, 1]);
+  });
+});
+
+describe("a question that a widget sent before contexts cannot show", () => {
+  it("serves it to a new widget and asks an old one to open the Trainer again", async () => {
+    const user = newUser();
+    const bank = syntheticTrainerBank({ topics: 1, questionsPerTopic: 1 });
+    const [question] = bank.questions;
+    if (!question) throw new Error("The synthetic Bank has no question");
+    // Longer than the 160 characters the first widget was measured at.
+    question.text = `Синтетический вопрос 1 темы t1${" и ещё слово".repeat(14)}`;
+    await loadBank(bank);
+
+    expect((await tap(user, "q"))[0]).toBe("i");
+    expect((await tap(user, "2q"))[0]).toBe("q");
+  });
+
+  it("serves a short question to a widget sent before contexts as before", async () => {
+    const user = newUser();
+    await loadBank(syntheticTrainerBank({ topics: 1, questionsPerTopic: 1 }));
+
+    expect((await tap(user, "q"))[0]).toBe("q");
+  });
+});
+
+describe("a long explanation", () => {
+  const WORD = "объяснение";
+  /** 62 words: 681 characters, more than one answer of 1 024 bytes carries. */
+  const LONG = Array.from({ length: 62 }, () => WORD).join(" ");
+
+  async function loadLongExplanation(): Promise<string> {
+    const bank = syntheticTrainerBank({ topics: 1, questionsPerTopic: 1 });
+    const [question] = bank.questions;
+    if (!question) throw new Error("The synthetic Bank has no question");
+    question.explanation = LONG;
+    for (const option of question.options) option.explanation = "Разбор.";
+    await loadBank(bank);
+    return `Разбор. ${LONG}`;
+  }
+
+  it("comes in parts that together give the whole explanation", async () => {
+    const user = newUser();
+    const whole = await loadLongExplanation();
+    const question = asked(await tap(user, "2q"));
+
+    const first = await tap(user, right(question).replace(/^/, "2"));
+    const second = await tap(user, `2m${question.issueId}:1`);
+
+    // Verdict, masks, marks and total repeat in every part; the last slots name the part.
+    expect(first.slice(0, 4)).toEqual(second.slice(0, 4));
+    expect(first.slice(2, 4)).toEqual([1, 1]);
+    expect(first.slice(5)).toEqual(["1", 1, 0, 0, 0, 2]);
+    expect(second.slice(5)).toEqual(["1", 1, 0, 0, 1, 2]);
+    expect(`${String(first[4])} ${String(second[4])}`).toBe(whole);
+    expect((await tap(user, `2m${question.issueId}:2`))[0]).toBe("x");
+  });
+
+  it("gives no part and records no answer before the person answers", async () => {
+    const user = newUser();
+    await loadLongExplanation();
+    const question = asked(await tap(user, "2q"));
+
+    expect((await tap(user, `2m${question.issueId}:0`))[0]).toBe("x");
+    expect(await storedAnswers(user)).toEqual([]);
+    // The question still waits for its one answer.
+    expect((await tap(user, `2a${question.issueId}:1`))[0]).toBe("e");
+  });
+});

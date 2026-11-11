@@ -27,8 +27,7 @@
   let judging = false;
   let explanationPage = 0;
   let explanationSize = 200;
-  if (typeof widget.setResizeAnchor == "function")
-    widget.setResizeAnchor("bottom");
+  widget.setResizeAnchor?.("bottom");
 
   const esc = (text) =>
     text.replace(/[&<>]/g, (char) => `&#${char.charCodeAt(0)};`);
@@ -58,17 +57,24 @@
   const tile = (value, label) =>
     `<div class=K><b>${value}</b><span class=mu>${label}</span></div>`;
   const pair = (left, right) => `<div class=R>${left}${right}</div>`;
-  const pager = (prefix, page = 0, pages = 1, tail = "") =>
+  /** Arrows around a counter; an arrow without an action is disabled. */
+  const arrows = (back, label, forward, tail = "") =>
+    pair(
+      button(back, "bt", "←", !back),
+      `<span>${label}</span>` + button(forward, "bt", "→", !forward) + tail,
+    );
+  const pager = (prefix, page = 0, pages = 1) =>
     pages < 2
-      ? tail
-        ? pair(tail, "")
-        : ""
-      : pair(
-          button(prefix + (page - 1), "bt", "←", !page),
-          `<span>${page + 1}/${pages}</span>` +
-            button(prefix + (page + 1), "bt", "→", page + 1 == pages) +
-            tail,
+      ? ""
+      : arrows(
+          page ? prefix + (page - 1) : "",
+          `${page + 1}/${pages}`,
+          page + 1 < pages ? prefix + (page + 1) : "",
         );
+  /** A screen of one text under a title, with its main button. */
+  const note = (title, text, action, label) =>
+    `<b class=U>${title}</b><div>${esc(text)}</div>` +
+    button(action, "bt P", label);
   /** Round steps: answered ones are filled or dashed, the current one has a contrasting outline. */
   const roundHead = (marks, total, extra, daily) =>
     `<div class=R>${button("h", "x", "×")}${
@@ -89,53 +95,14 @@
       : `<div class="op R${classes}">${body}</div>`;
   };
 
+  const votes = ["Оценить", "Лайк", "Дизлайк"];
   /** One reserved panel for choosing an answer, its verdict and continuing the round. */
   const feedback = (d) => {
     const review = question[8] != null;
-    const parts = d
-      ? (d[4] + (d[7] ? " " + d[7] : "")).match(
-          new RegExp("[\\s\\S]{1," + explanationSize + "}", "gu"),
-        ) || []
-      : [];
-    return (
-      `<div class=fb><b class="V ${d ? (d[1] === 0 ? "B" : d[1] < 3 ? "G" : "") : ""}">${d ? ["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]] : review ? "Ответ сохранён" : question[5] ? "Выберите все верные варианты." : "Выберите ответ"}</b>` +
-      (d ? `<div class=W>${esc(parts[explanationPage] || "")}</div>` : "") +
-      (d
-        ? judging
-          ? pair(
-              ...[1, 2]
-                .map((value) =>
-                  button(
-                    "f" + question[1] + ":" + (d[8] == value ? 0 : value),
-                    "bt" + (d[8] == value ? " P" : ""),
-                    value == 1 ? "Лайк" : "Дизлайк",
-                  ),
-                )
-                .map(
-                  (html, index) =>
-                    html + (index ? button("F", "bt", "Назад") : ""),
-                ),
-            )
-          : pager(
-              "E",
-              explanationPage,
-              parts.length,
-              button(
-                "F",
-                "bt" + (d[8] ? " P" : ""),
-                ["Оценить", "Лайк", "Дизлайк"][d[8] || 0],
-              ) +
-                button(
-                  question[9] ? "h" : "n" + question[1],
-                  "bt P",
-                  d[5].length < d[6]
-                    ? "Дальше"
-                    : question[9]
-                      ? "Готово"
-                      : "К итогу",
-                ),
-            )
-        : review || question[5]
+    if (!d)
+      return (
+        `<div class=fb><b class=V>${review ? "Ответ сохранён" : question[5] ? "Выберите все верные варианты." : "Выберите ответ"}</b>` +
+        (review || question[5]
           ? button(
               "S",
               "bt P",
@@ -143,6 +110,47 @@
               !review && !picked,
             )
           : "") +
+        "</div>"
+      );
+    const parts =
+      (d[4] + (d[7] ? " " + d[7] : "")).match(
+        new RegExp("[\\s\\S]{1," + explanationSize + "}", "gu"),
+      ) || [];
+    const id = question[1];
+    const vote = (value) =>
+      button(
+        "f" + id + ":" + (d[8] == value ? 0 : value),
+        "bt" + (d[8] == value ? " P" : ""),
+        votes[value],
+      );
+    // A long explanation comes in parts: d[9] is this part, d[10] their number. The arrows
+    // turn the pages of a part and ask the bot for the part before or after it.
+    const part = d[9] || 0;
+    const turn = (page, other) =>
+      parts[page]
+        ? "E" + page
+        : other >= 0 && other < d[10]
+          ? "m" + id + ":" + other
+          : "";
+    const buttons =
+      button("F", "bt" + (d[8] ? " P" : ""), votes[d[8] || 0]) +
+      button(
+        question[9] ? "h" : "n" + id,
+        "bt P",
+        d[5].length < d[6] ? "Дальше" : question[9] ? "Готово" : "К итогу",
+      );
+    return (
+      `<div class=fb><b class="V ${d[1] === 0 ? "B" : d[1] < 3 ? "G" : ""}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b><div class=W>${esc(parts[explanationPage] || "")}</div>` +
+      (judging
+        ? pair(vote(1), vote(2) + button("F", "bt", "Назад"))
+        : parts[1] || d[10]
+          ? arrows(
+              turn(explanationPage - 1, part - 1),
+              `${explanationPage + 1}/${parts.length}`,
+              turn(explanationPage + 1, part + 1),
+              buttons,
+            )
+          : pair(buttons, "")) +
       "</div>"
     );
   };
@@ -163,7 +171,8 @@
             : button("K", "bt n", "Не знаю"),
         q[9],
       ) +
-      `<div class=mu>${esc(q[2])}</div><div class=Q>${esc(q[3])}</div>` +
+      // q[10]: the question has a context; the person may read it again at any moment.
+      `<div class="R mu"><span class=F>${esc(q[2])}</span>${q[10] ? button("c" + q[1], "ch", "Условие") : ""}</div><div class=Q>${esc(q[3])}</div>` +
       q[4]
         .map((text, i) =>
           option(
@@ -252,20 +261,19 @@
       );
     },
 
-    i: (d) =>
-      `<b class=U>Тренажёр</b><div>${esc(d[1])}</div>` +
-      button("h", "bt P", "На главный"),
+    // ["c", issueId, context]: the situation of a question, read before the question itself.
+    c: (d) => note("Условие", d[2], "o" + d[1], "К вопросу"),
+
+    i: (d) => note("Тренажёр", d[1], "h", "На главный"),
 
     // ["x", text?]: the bot refused, did not answer in 15 seconds, or sent something unreadable.
     x: (d) =>
-      `<b class=U>Бот не ответил</b><div>${esc(d[1] || "")}</div>` +
-      button("R", "bt P", "Повторить") +
+      note("Бот не ответил", d[1] || "", "R", "Повторить") +
       button("H", "bt", "На главный"),
   };
 
   const draw = (data) => {
     current = data;
-    root.dataset.screen = data[0];
     const inQuestion = data[0] == "q" || data[0] == "e";
     root.style.fontSize = inQuestion && questionFont ? questionFont : "";
     const render = () => (root.innerHTML = screens[data[0]](data));
@@ -301,12 +309,17 @@
       }
       if (data[0] == "h") home = data;
       if (data[0] == "q") {
-        questionFont = data[1] == question?.[1] ? questionFont : "";
+        // The same question comes again after its context: the picked options stay.
+        const same = data[1] == question?.[1];
+        questionFont = same ? questionFont : "";
         judging = false;
         question = data;
+        picked = same ? picked : data[8] || 0;
+      }
+      // Each part of an explanation starts from its first page.
+      if (data != current) {
         explanationPage = 0;
         explanationSize = 200;
-        picked = data[8] || 0;
       }
       draw(data);
     } catch {
@@ -327,7 +340,8 @@
     lastRequest = data;
     root.className = "wt";
     try {
-      pending = widget.request(data);
+      // "2" marks a widget that knows contexts and explanation parts.
+      pending = widget.request("2" + data);
     } catch {
       pending = Promise.reject();
     }

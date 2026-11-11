@@ -10,6 +10,8 @@ export interface SyntheticQuestion {
   id: string;
   topic: string;
   format: "single" | "multiple";
+  /** The situation shown on its own screen before the question; absent in most questions. */
+  context?: string;
   text: string;
   options: SyntheticOption[];
   explanation: string;

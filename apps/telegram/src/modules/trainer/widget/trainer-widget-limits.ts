@@ -7,11 +7,12 @@ export const TELEGRAM_WIDGET_HTML_MAX_BYTES = 32_768;
 /** `html` after the server compresses it with zlib at level 9. */
 export const TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES = 4_096;
 /**
- * The build stops here. Telegram counts as Python's zlib does, and the guide warns that the
- * zlib of Node.js "can be a few dozen bytes off either way", so the build keeps that distance.
+ * The build stops here. Telegram counts as Python's zlib does. In every build of this widget
+ * the zlib of Node.js counted 71 to 83 bytes more, so a widget inside the limit by the count
+ * of Node.js is inside it by the server's count with that distance to spare.
  */
 export const TRAINER_WIDGET_COMPRESSED_BUDGET_BYTES =
-  TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES - 64;
+  TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES;
 
 /** `data` of a request from the widget (`widget_query.data`): bytes of UTF-8. */
 export const TELEGRAM_WIDGET_REQUEST_MAX_BYTES = 64;
@@ -25,24 +26,36 @@ export const TRAINER_WIDGET_TARGET_HEIGHT_PX = 560;
 /** Bubble widths the layout is checked at; 320 is the narrowest phone layout. */
 export const TRAINER_WIDGET_CHECKED_WIDTHS_PX = [320, 390, 430] as const;
 
-// Text limits. Measured in Chromium with the built widget at a 320 px bubble and the default
-// 15 px text: at these lengths the question screen (four options and «Ответить») and the
-// answered question (question text, all four options, explanation and statistics) fit 560 px
-// with the widget's font adaptation, never below 11 px.
+// Text limits (owner decision of 2026-11-11). A character limit is a coarse bound: what decides
+// is the 1 024 bytes of each answer, which the Bank import counts with trainerContextDataBytes
+// and trainerQuestionDataBytes, and the screen, which `trainer:widget:fit` measures for every
+// card of a Bank file. Measured in Chromium with the built widget and ordinary Russian text: a
+// question whose answer fits 1 024 bytes fits 560 px at a 320 px bubble with text of 12 px or
+// more, and a context of 500 characters fits its own screen at 15 px.
 // `pnpm --filter @inside/telegram test:widget` repeats the measurement.
-// Lengths are characters as trainerTextLength counts them. The Bank import also checks bytes
-// with trainerQuestionDataBytes and trainerExplanationDataBytes: a length limit alone does
-// not keep three-byte signs inside 1 024 bytes.
+// Lengths are characters as trainerTextLength counts them.
 
-/** Question text. */
-export const TRAINER_QUESTION_MAX_CHARS = 160;
+/** The situation a long question starts from. It has its own screen before the question. */
+export const TRAINER_CONTEXT_MAX_CHARS = 500;
+/** Question text. It may be empty only when the question has a context. */
+export const TRAINER_QUESTION_MAX_CHARS = 200;
 /** A question has 2 to 4 options. */
 export const TRAINER_OPTIONS_MIN = 2;
 export const TRAINER_OPTIONS_MAX = 4;
 /** All option texts of one question together. */
-export const TRAINER_OPTIONS_TOTAL_MAX_CHARS = 240;
-/** The explanation text shown after the answer, whatever parts the bot composes it from. */
-export const TRAINER_EXPLANATION_MAX_CHARS = 200;
+export const TRAINER_OPTIONS_TOTAL_MAX_CHARS = 400;
+/**
+ * The explanation text shown after the answer, whatever parts the bot composes it from. The
+ * bot sends it in parts of one answer each; the widget pages through them.
+ */
+export const TRAINER_EXPLANATION_MAX_CHARS = 700;
+
+// What a widget sent before the limits above can show: it has no context screen and asks for
+// no further part of an explanation, and it was measured at these lengths with the widest
+// letters. The bot gives it only questions inside these limits.
+export const TRAINER_FIRST_WIDGET_QUESTION_MAX_CHARS = 160;
+export const TRAINER_FIRST_WIDGET_OPTIONS_TOTAL_MAX_CHARS = 240;
+export const TRAINER_FIRST_WIDGET_EXPLANATION_MAX_CHARS = 200;
 /** Topic name; it is shown above a question, in the topic list and in Progress. */
 export const TRAINER_TOPIC_NAME_MAX_CHARS = 40;
 /** Topics in the Bank, shown in bounded pages. */

@@ -3,6 +3,7 @@ import { trainerCodeSchema, trainerCodeFormat } from "./trainer-identifiers.js";
 
 import {
   TELEGRAM_WIDGET_DATA_MAX_BYTES,
+  TRAINER_CONTEXT_MAX_CHARS,
   TRAINER_EXPLANATION_MAX_CHARS,
   TRAINER_OPTIONS_MAX,
   TRAINER_OPTIONS_MIN,
@@ -13,7 +14,7 @@ import {
   TRAINER_TOPICS_PAGE_SIZE,
 } from "./widget/trainer-widget-limits.js";
 import {
-  trainerExplanationDataBytes,
+  trainerContextDataBytes,
   trainerQuestionDataBytes,
   trainerTextLength,
   utf8ByteLength,
@@ -55,7 +56,16 @@ const questionSchema = z.strictObject({
     .describe(
       "single: ровно один верный вариант. multiple: не меньше двух верных вариантов.",
     ),
-  text: text.describe("Текст вопроса."),
+  context: text
+    .optional()
+    .describe(
+      "Условие: ситуация, которую человек читает на отдельном экране перед вопросом. Нужно, когда условие длиннее лимита текста вопроса.",
+    ),
+  text: z
+    .string()
+    .describe(
+      "Текст вопроса. Может быть пустым, только если задано условие context.",
+    ),
   options: z
     .array(optionSchema)
     .min(TRAINER_OPTIONS_MIN)
@@ -88,12 +98,15 @@ export const trainerBankFileSchema = z.strictObject({
 export const TRAINER_BANK_FILE_LIMITS = {
   topics: TRAINER_TOPICS_MAX,
   topicNameCharacters: TRAINER_TOPIC_NAME_MAX_CHARS,
+  questionContextCharacters: TRAINER_CONTEXT_MAX_CHARS,
   questionTextCharacters: TRAINER_QUESTION_MAX_CHARS,
   optionTextsTogetherCharacters: TRAINER_OPTIONS_TOTAL_MAX_CHARS,
   answerExplanationCharacters: TRAINER_EXPLANATION_MAX_CHARS,
   topicsDataBytes: TELEGRAM_WIDGET_DATA_MAX_BYTES,
   progressDataBytes: TELEGRAM_WIDGET_DATA_MAX_BYTES,
+  questionContextDataBytes: TELEGRAM_WIDGET_DATA_MAX_BYTES,
   questionDataBytes: TELEGRAM_WIDGET_DATA_MAX_BYTES,
+  // Each part of an explanation is one answer; the bot cuts the parts itself.
   answerExplanationDataBytes: TELEGRAM_WIDGET_DATA_MAX_BYTES,
 } as const;
 
@@ -132,6 +145,24 @@ export function trainerAnswerExplanation(
       .map((option) => option.explanation),
     question.explanation,
   ].join(" ");
+}
+
+/**
+ * Characters of the longest explanation an answer to the question can show: every option of a
+ * question with several correct options, the longest single option otherwise.
+ */
+export function trainerLongestExplanationLength(
+  question: Pick<TrainerBankQuestion, "options" | "explanation">,
+  severalCorrect: boolean,
+): number {
+  const answers = severalCorrect
+    ? [(1 << question.options.length) - 1]
+    : question.options.map((_, index) => 1 << index);
+  return Math.max(
+    ...answers.map((picked) =>
+      trainerTextLength(trainerAnswerExplanation(question, picked)),
+    ),
+  );
 }
 
 /** Checks the whole file. Texts of an accepted bank are trimmed and composed (NFC). */
@@ -195,8 +226,9 @@ function clean(bank: TrainerBankFile): TrainerBankFile {
   return {
     version: bank.version,
     topics: bank.topics.map((topic) => ({ ...topic, name: tidy(topic.name) })),
-    questions: bank.questions.map((question) => ({
+    questions: bank.questions.map(({ context, ...question }) => ({
       ...question,
+      ...(context === undefined ? {} : { context: tidy(context) }),
       text: tidy(question.text),
       options: question.options.map((option) => ({
         ...option,
@@ -332,7 +364,10 @@ function contentErrors(
     });
 
   const texts = [
-    ["text", question.text],
+    // The question's own text may be empty when a context carries the whole condition.
+    ...(question.context === undefined
+      ? ([["text", question.text]] as const)
+      : ([["context", question.context]] as const)),
     ["explanation", question.explanation],
     ["source", question.source],
     ...question.options.flatMap((option, index) => [
@@ -365,6 +400,37 @@ function contentErrors(
         textLength,
         TRAINER_QUESTION_MAX_CHARS,
       ),
+    });
+  const contextLength =
+    question.context === undefined ? 0 : trainerTextLength(question.context);
+  if (contextLength > TRAINER_CONTEXT_MAX_CHARS)
+    errors.push({
+      field: "context",
+      reason: over(
+        "Условие",
+        "знаков",
+        contextLength,
+        TRAINER_CONTEXT_MAX_CHARS,
+      ),
+    });
+  const contextBytes =
+    question.context === undefined
+      ? 0
+      : trainerContextDataBytes(question.context);
+  if (
+    contextLength <= TRAINER_CONTEXT_MAX_CHARS &&
+    contextBytes > TELEGRAM_WIDGET_DATA_MAX_BYTES
+  )
+    errors.push({
+      field: "context",
+      reason:
+        over(
+          "Данные условия для виджета",
+          "байт",
+          contextBytes,
+          TELEGRAM_WIDGET_DATA_MAX_BYTES,
+        ) +
+        " Считается условие в UTF-8; знаки вроде €, → и кавычек занимают больше места.",
     });
   const optionsLength = question.options.reduce(
     (sum, option) => sum + trainerTextLength(option.text),
@@ -400,53 +466,35 @@ function contentErrors(
           questionBytes,
           TELEGRAM_WIDGET_DATA_MAX_BYTES,
         ) +
-        " Считаются название темы, текст вопроса и варианты в UTF-8; знаки вроде €, → и кавычек занимают больше места.",
+        " Считаются название темы, текст вопроса и варианты в UTF-8; знаки вроде €, → и кавычек занимают больше места. Часть текста вопроса можно перенести в условие context.",
     });
 
   return [...errors, ...explanationErrors(question)];
 }
 
-/** At most one error: the first answer whose explanation does not fit. */
+/**
+ * At most one error: the first answer whose explanation is too long. The bot sends an
+ * explanation in parts of one answer each, so its bytes need no check of their own.
+ */
 function explanationErrors(question: TrainerBankQuestion): FieldError[] {
-  const answers = possibleAnswers(question).map((picked) => {
-    const explanation = trainerAnswerExplanation(question, picked);
-    return {
+  const long = possibleAnswers(question)
+    .map((picked) => ({
       label: answerLabel(picked),
-      length: trainerTextLength(explanation),
-      bytes: trainerExplanationDataBytes({ explanation }),
-    };
-  });
-  const long = answers.find(
-    ({ length }) => length > TRAINER_EXPLANATION_MAX_CHARS,
-  );
-  if (long)
-    return [
-      {
-        field: "explanation",
-        reason:
-          over(
-            `Разбор для ответа «${long.label}»`,
-            "знаков",
-            long.length,
-            TRAINER_EXPLANATION_MAX_CHARS,
-          ) + " Считается разбор выбранных вариантов вместе с общим разбором.",
-      },
-    ];
-  const heavy = answers.find(
-    ({ bytes }) => bytes > TELEGRAM_WIDGET_DATA_MAX_BYTES,
-  );
-  return heavy
+      length: trainerTextLength(trainerAnswerExplanation(question, picked)),
+    }))
+    .find(({ length }) => length > TRAINER_EXPLANATION_MAX_CHARS);
+  return long
     ? [
         {
           field: "explanation",
           reason:
             over(
-              `Данные разбора для виджета (ответ «${heavy.label}»)`,
-              "байт",
-              heavy.bytes,
-              TELEGRAM_WIDGET_DATA_MAX_BYTES,
+              `Разбор для ответа «${long.label}»`,
+              "знаков",
+              long.length,
+              TRAINER_EXPLANATION_MAX_CHARS,
             ) +
-            " Считается разбор выбранных вариантов вместе с общим разбором в UTF-8.",
+            " Считается разбор выбранных вариантов вместе с общим разбором.",
         },
       ]
     : [];

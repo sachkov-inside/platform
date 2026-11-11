@@ -6,11 +6,13 @@
   "x-limits": {
     "topics": 64,
     "topicNameCharacters": 40,
-    "questionTextCharacters": 160,
-    "optionTextsTogetherCharacters": 240,
-    "answerExplanationCharacters": 200,
+    "questionContextCharacters": 500,
+    "questionTextCharacters": 200,
+    "optionTextsTogetherCharacters": 400,
+    "answerExplanationCharacters": 700,
     "topicsDataBytes": 1024,
     "progressDataBytes": 1024,
+    "questionContextDataBytes": 1024,
     "questionDataBytes": 1024,
     "answerExplanationDataBytes": 1024
   },
@@ -68,10 +70,14 @@
             ],
             "description": "single: ровно один верный вариант. multiple: не меньше двух верных вариантов."
           },
+          "context": {
+            "description": "Условие: ситуация, которую человек читает на отдельном экране перед вопросом. Нужно, когда условие длиннее лимита текста вопроса.",
+            "type": "string",
+            "minLength": 1
+          },
           "text": {
             "type": "string",
-            "minLength": 1,
-            "description": "Текст вопроса."
+            "description": "Текст вопроса. Может быть пустым, только если задано условие context."
           },
           "options": {
             "minItems": 2,

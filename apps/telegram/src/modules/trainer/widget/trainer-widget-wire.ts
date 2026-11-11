@@ -10,7 +10,9 @@ import {
 // Bot to widget: `chat_data` of sendWidget (always a home screen) and `data` of
 // answerWidgetQuery. Each is a JSON array whose first item names the screen. Arrays instead of
 // objects, one-letter screen names and bit masks keep a question inside 1 024 bytes.
-// Widget to bot: `widget_query.data`, a short ASCII text of at most 64 bytes.
+// Widget to bot: `widget_query.data`, a short ASCII text of at most 64 bytes. A widget that knows
+// the context screen and the parts of an explanation starts every request with "2"; a request
+// without it comes from a message sent before them (isFirstTrainerWidget).
 //
 // The widget's code and data are public. A question never carries which option is correct;
 // the explanation carries it only after the bot has recorded the answer.
@@ -47,6 +49,7 @@ export type TrainerTopicsData = readonly [
  * A question. `total` is the number of steps in the round. `daily` draws «Вопрос дня» instead of
  * the steps. `reviewMask` is present only when the person has already answered (a repeated
  * view of the Daily question): the widget shows the picked options and «Показать разбор».
+ * `context` 1: the question has a context, and the widget offers to read it again.
  */
 export type TrainerQuestionData = readonly [
   screen: "q",
@@ -59,13 +62,25 @@ export type TrainerQuestionData = readonly [
   total: number,
   reviewMask?: OptionMask | null,
   daily?: Flag,
+  context?: Flag,
+];
+/**
+ * The context of a question: the situation the person reads before the question itself. The
+ * widget asks for the question with `o<issueId>` and for this screen again with `c<issueId>`.
+ */
+export type TrainerContextData = readonly [
+  screen: "c",
+  issueId: string,
+  context: string,
 ];
 /** 0 wrong, 1 correct without a point, 2 correct with a point, 3 «Не знаю». */
 export type TrainerVerdict = 0 | 1 | 2 | 3;
 /**
  * The explanation of the question the widget is showing: it reuses that question's option
  * texts and keeps only the correct and the picked ones. `stat` is a ready line under the
- * explanation (the share of correct answers to the Daily question) or 0.
+ * explanation (the share of correct answers to the Daily question) or 0. A long explanation
+ * comes in parts: `part` counts from 0, `parts` is their number, and the widget asks for
+ * another one with `m<issueId>:<part>`. Both are absent when the explanation is one part.
  */
 export type TrainerExplanationData = readonly [
   screen: "e",
@@ -77,6 +92,8 @@ export type TrainerExplanationData = readonly [
   total: number,
   stat: string | 0,
   reaction?: TrainerReaction,
+  part?: number,
+  parts?: number,
 ];
 /** Round result. `weekPlace` 0: the Rating of the week does not list the person. */
 export type TrainerResultData = readonly [
@@ -127,6 +144,7 @@ export type TrainerWidgetData =
   | TrainerHomeData
   | TrainerTopicsData
   | TrainerQuestionData
+  | TrainerContextData
   | TrainerExplanationData
   | TrainerResultData
   | TrainerProgressData
@@ -176,11 +194,18 @@ export function trainerQuestionDataBytes(question: {
     LONGEST_ROUND,
     EVERY_OPTION,
     1,
+    1,
   ];
   return utf8ByteLength(JSON.stringify(data));
 }
 
-/** Bytes of the largest answer that carries this explanation. */
+/** Bytes of the answer that carries this context. */
+export function trainerContextDataBytes(context: string): number {
+  const data: TrainerContextData = ["c", LONGEST_ISSUE_ID, context];
+  return utf8ByteLength(JSON.stringify(data));
+}
+
+/** Bytes of the largest answer that carries this part of an explanation. */
 export function trainerExplanationDataBytes(question: {
   readonly explanation: string;
 }): number {
@@ -194,8 +219,40 @@ export function trainerExplanationDataBytes(question: {
     LONGEST_ROUND,
     "ж".repeat(TRAINER_STAT_LINE_MAX_CHARS),
     2,
+    9,
+    9,
   ];
   return utf8ByteLength(JSON.stringify(data));
+}
+
+/**
+ * The explanation cut into parts that each fit one answer, at spaces where it can. Joined with
+ * spaces, the parts give the explanation back. A text that fits is one part.
+ */
+export function trainerExplanationParts(explanation: string): string[] {
+  const fits = (text: string) =>
+    trainerExplanationDataBytes({ explanation: text }) <=
+    TELEGRAM_WIDGET_DATA_MAX_BYTES;
+  const parts: string[] = [];
+  let part = "";
+  for (const word of explanation.split(" ")) {
+    const longer = part === "" ? word : `${part} ${word}`;
+    if (fits(longer)) {
+      part = longer;
+      continue;
+    }
+    if (part !== "") parts.push(part);
+    // A single word longer than an answer is cut between characters.
+    let rest = Array.from(word);
+    while (!fits(rest.join(""))) {
+      let size = rest.length - 1;
+      while (!fits(rest.slice(0, size).join(""))) size -= 1;
+      parts.push(rest.slice(0, size).join(""));
+      rest = rest.slice(size);
+    }
+    part = rest.join("");
+  }
+  return [...parts, part];
 }
 
 export type TrainerWidgetRequest =
@@ -212,6 +269,15 @@ export type TrainerWidgetRequest =
   | { readonly kind: "progress"; readonly page?: number }
   | { readonly kind: "rating"; readonly allTime: boolean }
   | { readonly kind: "next"; readonly issueId?: string }
+  /** The question of an issue whose context the person has read. */
+  | { readonly kind: "question"; readonly issueId: string }
+  /** The context of an issue, to read it again. */
+  | { readonly kind: "context"; readonly issueId: string }
+  | {
+      readonly kind: "explanation_part";
+      readonly issueId: string;
+      readonly part: number;
+    }
   | {
       readonly kind: "answer";
       readonly issueId: string;
@@ -233,6 +299,14 @@ const answerRequest = new RegExp(`^a(${TRAINER_CODE_PATTERN}):([0-9]{1,2})$`);
 const reactionRequest = new RegExp(`^f(${TRAINER_CODE_PATTERN}):([012])$`);
 const topicRequest = new RegExp(`^t(${TRAINER_CODE_PATTERN})$`);
 const nextRequest = new RegExp(`^n(${TRAINER_CODE_PATTERN})$`);
+const issueRequest = new RegExp(`^([oc])(${TRAINER_CODE_PATTERN})$`);
+const partRequest = new RegExp(`^m(${TRAINER_CODE_PATTERN}):([0-9])$`);
+/** The mark of a widget that knows contexts and explanation parts. */
+const SECOND_WIDGET_MARK = "2";
+
+/** True for a request from a widget message sent before contexts and explanation parts. */
+export const isFirstTrainerWidget = (data: string): boolean =>
+  !data.startsWith(SECOND_WIDGET_MARK);
 const shownRequest = /^v([01])([01])$/;
 
 /**
@@ -240,10 +314,12 @@ const shownRequest = /^v([01])([01])$/;
  * request yields `undefined`, and a known one still has to be checked against the bot's state.
  */
 export function parseTrainerWidgetRequest(
-  data: string,
+  marked: string,
 ): TrainerWidgetRequest | undefined {
-  if (utf8ByteLength(data) > TELEGRAM_WIDGET_REQUEST_MAX_BYTES)
+  if (utf8ByteLength(marked) > TELEGRAM_WIDGET_REQUEST_MAX_BYTES)
     return undefined;
+  // No request starts with a digit, so the mark cannot be read as part of one.
+  const data = isFirstTrainerWidget(marked) ? marked : marked.slice(1);
   if (Object.hasOwn(simpleRequests, data)) return simpleRequests[data];
 
   const page = /^([pt]):([0-9]{1,3})$/.exec(data);
@@ -261,9 +337,23 @@ export function parseTrainerWidgetRequest(
       ? { kind: "answer", issueId: answer[1], optionMask }
       : undefined;
   }
+  const part = partRequest.exec(data);
+  if (part?.[1] !== undefined)
+    return {
+      kind: "explanation_part",
+      issueId: part[1],
+      part: Number(part[2]),
+    };
+  // «Тренировка по теме» is `t<code>`; `o` and `c` name an issue and are read after it fails.
   const topic = topicRequest.exec(data);
   if (topic?.[1] !== undefined)
     return { kind: "start_topic", topicCode: topic[1] };
+  const issue = issueRequest.exec(data);
+  if (issue?.[2] !== undefined)
+    return {
+      kind: issue[1] === "o" ? "question" : "context",
+      issueId: issue[2],
+    };
   const shown = shownRequest.exec(data);
   const reaction = reactionRequest.exec(data);
   if (reaction?.[1] !== undefined)

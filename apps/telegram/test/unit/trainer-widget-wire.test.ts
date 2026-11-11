@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  TRAINER_CONTEXT_MAX_CHARS,
   TRAINER_EXPLANATION_MAX_CHARS,
   TRAINER_OPTIONS_MAX,
   TRAINER_OPTIONS_TOTAL_MAX_CHARS,
@@ -12,8 +13,11 @@ import {
 } from "../../src/modules/trainer/widget/trainer-widget-limits.js";
 import {
   encodeTrainerWidgetData,
+  isFirstTrainerWidget,
   parseTrainerWidgetRequest,
+  trainerContextDataBytes,
   trainerExplanationDataBytes,
+  trainerExplanationParts,
   trainerQuestionDataBytes,
   trainerTextLength,
 } from "../../src/modules/trainer/widget/trainer-widget-wire.js";
@@ -24,6 +28,7 @@ const cyrillic = (length: number): string => "ж".repeat(length);
 describe("trainer widget wire format", () => {
   it("fixes the text limits the Bank import applies", () => {
     expect({
+      context: TRAINER_CONTEXT_MAX_CHARS,
       question: TRAINER_QUESTION_MAX_CHARS,
       optionsTotal: TRAINER_OPTIONS_TOTAL_MAX_CHARS,
       options: TRAINER_OPTIONS_MAX,
@@ -31,16 +36,17 @@ describe("trainer widget wire format", () => {
       topicName: TRAINER_TOPIC_NAME_MAX_CHARS,
       topics: TRAINER_TOPICS_MAX,
     }).toEqual({
-      question: 160,
-      optionsTotal: 240,
+      context: 500,
+      question: 200,
+      optionsTotal: 400,
       options: 4,
-      explanation: 200,
+      explanation: 700,
       topicName: 40,
       topics: 64,
     });
   });
 
-  it("carries a question at every limit in one answer of 1 024 bytes", () => {
+  it("carries the longest question of the first widget in one answer of 1 024 bytes", () => {
     const bytes = trainerQuestionDataBytes({
       topic: cyrillic(40),
       text: cyrillic(160),
@@ -52,11 +58,59 @@ describe("trainer widget wire format", () => {
     expect(bytes).toBeGreaterThan(2 * (40 + 160 + 240));
   });
 
-  it("carries an explanation at its limit in one answer of 1 024 bytes", () => {
-    const bytes = trainerExplanationDataBytes({ explanation: cyrillic(200) });
+  it("does not carry a question at both character limits: its bytes decide", () => {
+    const options = [
+      cyrillic(100),
+      cyrillic(100),
+      cyrillic(100),
+      cyrillic(100),
+    ];
 
-    expect(bytes).toBeLessThanOrEqual(1_024);
-    expect(bytes).toBeGreaterThan(2 * 200);
+    expect(
+      trainerQuestionDataBytes({
+        topic: cyrillic(40),
+        text: cyrillic(200),
+        options,
+      }),
+    ).toBeGreaterThan(1_024);
+    // The whole condition moves to the context, and the options fit with an empty text.
+    expect(
+      trainerQuestionDataBytes({ topic: cyrillic(40), text: "", options }),
+    ).toBeLessThanOrEqual(1_024);
+  });
+
+  it("carries a context at its limit in one answer of 1 024 bytes", () => {
+    const words = Array.from({ length: 50 }, () => cyrillic(9)).join(" ");
+
+    expect(trainerTextLength(words)).toBe(499);
+    expect(trainerContextDataBytes(words)).toBeLessThanOrEqual(1_024);
+    expect(trainerContextDataBytes(cyrillic(500))).toBeGreaterThan(1_024);
+  });
+
+  it("cuts an explanation at its limit into parts of one answer each", () => {
+    const explanation = Array.from({ length: 70 }, () => cyrillic(9)).join(" ");
+    expect(trainerTextLength(explanation)).toBe(699);
+
+    const parts = trainerExplanationParts(explanation);
+
+    expect(parts.length).toBe(2);
+    expect(parts.join(" ")).toBe(explanation);
+    for (const part of parts)
+      expect(
+        trainerExplanationDataBytes({ explanation: part }),
+      ).toBeLessThanOrEqual(1_024);
+    // An explanation of the first widget's limit stays one part.
+    expect(trainerExplanationParts(cyrillic(200))).toEqual([cyrillic(200)]);
+  });
+
+  it("cuts a word longer than one answer between characters", () => {
+    const parts = trainerExplanationParts(cyrillic(700));
+
+    expect(parts.join("")).toBe(cyrillic(700));
+    for (const part of parts)
+      expect(
+        trainerExplanationDataBytes({ explanation: part }),
+      ).toBeLessThanOrEqual(1_024);
   });
 
   it("counts bytes, not characters: three-byte signs can break a question that fits by length", () => {
@@ -141,8 +195,21 @@ describe("trainer widget wire format", () => {
     ["n", { kind: "next" }],
     ["a1a2b3c:5", { kind: "answer", issueId: "1a2b3c", optionMask: 5 }],
     ["a7:0", { kind: "answer", issueId: "7", optionMask: 0 }],
+    ["o7k", { kind: "question", issueId: "7k" }],
+    ["c7k", { kind: "context", issueId: "7k" }],
+    ["m7k:1", { kind: "explanation_part", issueId: "7k", part: 1 }],
+    // The mark of a widget that knows contexts and parts does not change the request.
+    ["2q", { kind: "start_check" }],
+    ["2a7:0", { kind: "answer", issueId: "7", optionMask: 0 }],
+    ["2trag", { kind: "start_topic", topicCode: "rag" }],
   ])("reads the request %s", (data, expected) => {
     expect(parseTrainerWidgetRequest(data)).toEqual(expected);
+  });
+
+  it("tells a widget sent before contexts and explanation parts by its unmarked request", () => {
+    expect(isFirstTrainerWidget("q")).toBe(true);
+    expect(isFirstTrainerWidget("a7:0")).toBe(true);
+    expect(isFirstTrainerWidget("2q")).toBe(false);
   });
 
   it.each([
@@ -159,6 +226,12 @@ describe("trainer widget wire format", () => {
     "f7:3",
     "f:1",
     "fABC:1",
+    "2",
+    "22q",
+    "o",
+    "cABC",
+    "m7k",
+    "m7k:10",
     "h".repeat(65),
   ])("ignores the unknown request %j", (data) => {
     expect(parseTrainerWidgetRequest(data)).toBeUndefined();

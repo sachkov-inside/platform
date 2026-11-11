@@ -85,8 +85,15 @@ try {
   );
   database = createDatabase(reviewDatabaseUrl(stdout, databaseName));
   await migrateToLatest(database);
+  const synthetic = syntheticTrainerBank({ topics: 9, questionsPerTopic: 12 });
+  // Every fourth question starts from a context, so the review shows its own screen.
+  synthetic.questions.forEach((question, index) => {
+    if (index % 4 === 3)
+      question.context =
+        "Синтетическое условие. Команда выпускает условный предмет в две смены, и вторая смена получает его описание от первой. Описание занимает несколько строк, чтобы экран условия показал длинный текст.";
+  });
   const bank = await new TrainerBank(database, systemClock).import(
-    syntheticTrainerBank({ topics: 9, questionsPerTopic: 12 }),
+    synthetic,
     true,
   );
   if (bank.status !== "imported") throw new Error("Synthetic Bank rejected");

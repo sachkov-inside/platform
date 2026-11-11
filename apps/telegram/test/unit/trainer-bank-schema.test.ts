@@ -35,11 +35,13 @@ describe("published Bank file schema", () => {
     expect(publishedSchema["x-limits"]).toEqual({
       topics: 64,
       topicNameCharacters: 40,
-      questionTextCharacters: 160,
-      optionTextsTogetherCharacters: 240,
-      answerExplanationCharacters: 200,
+      questionContextCharacters: 500,
+      questionTextCharacters: 200,
+      optionTextsTogetherCharacters: 400,
+      answerExplanationCharacters: 700,
       topicsDataBytes: 1024,
       progressDataBytes: 1024,
+      questionContextDataBytes: 1024,
       questionDataBytes: 1024,
       answerExplanationDataBytes: 1024,
     });

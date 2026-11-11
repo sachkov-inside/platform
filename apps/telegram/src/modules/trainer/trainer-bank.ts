@@ -82,6 +82,7 @@ export class TrainerBank {
               "id",
               "topic_code",
               "format",
+              "context",
               "text",
               "options",
               "explanation",
@@ -98,6 +99,7 @@ export class TrainerBank {
               id: row.id,
               topic: row.topic_code,
               format: row.format,
+              ...(row.context === null ? {} : { context: row.context }),
               text: row.text,
               options: row.options,
               explanation: row.explanation,
@@ -141,6 +143,7 @@ export class TrainerBank {
               id: question.id,
               topic_code: question.topic,
               format: question.format,
+              context: question.context ?? null,
               text: question.text,
               options: JSON.stringify(question.options),
               explanation: question.explanation,
@@ -154,6 +157,7 @@ export class TrainerBank {
             conflict.column("id").doUpdateSet((eb) => ({
               topic_code: eb.ref("excluded.topic_code"),
               format: eb.ref("excluded.format"),
+              context: eb.ref("excluded.context"),
               text: eb.ref("excluded.text"),
               options: eb.ref("excluded.options"),
               explanation: eb.ref("excluded.explanation"),
@@ -167,8 +171,8 @@ export class TrainerBank {
           .execute();
       // Publish the new revision atomically with the live Bank. Never overwrite history.
       await sql`insert into trainer_question_versions
-        (question_id, content_revision, text, options, explanation)
-        select id, content_revision, text, options, explanation from trainer_questions
+        (question_id, content_revision, context, text, options, explanation)
+        select id, content_revision, context, text, options, explanation from trainer_questions
         on conflict (question_id, content_revision) do nothing`.execute(tx);
       if (returned.length > 0)
         await tx
@@ -222,6 +226,7 @@ export class TrainerBank {
         "id",
         "topic_code",
         "format",
+        "context",
         "text",
         "options",
         "explanation",
@@ -239,6 +244,7 @@ export class TrainerBank {
           id: row.id,
           topic: row.topic_code,
           format: row.format,
+          ...(row.context === null ? {} : { context: row.context }),
           text: row.text,
           options: row.options.map(({ text, correct, explanation }) => ({
             text,
@@ -260,6 +266,7 @@ function contentOf(question: TrainerBankQuestion): string {
   return JSON.stringify([
     question.topic,
     question.format,
+    question.context ?? null,
     question.text,
     question.options.map(({ text, correct, explanation }) => [
       text,

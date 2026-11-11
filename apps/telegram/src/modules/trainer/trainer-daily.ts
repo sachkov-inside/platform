@@ -5,6 +5,7 @@ import { moscowDay } from "./trainer-days.js";
 export { moscowDay } from "./trainer-days.js";
 import {
   correctMaskOf,
+  fitsFirstTrainerWidget,
   severalBits,
   showRoundStep,
   type TrainerAnswerOutcome,
@@ -253,8 +254,10 @@ async function review(
       "issue.picked_mask",
       "issue.correct",
       "issue.correct_mask",
+      "version.context",
       "version.text",
       "version.options",
+      "version.explanation",
       "topic.name as topic_name",
     ])
     .where("issue.round_id", "=", roundId)
@@ -262,8 +265,13 @@ async function review(
     .executeTakeFirstOrThrow();
   if (answer.picked_mask === null || answer.correct === null)
     throw new Error(`Trainer issue ${answer.id} has no stored answer`);
-  if (answer.text === null || answer.options === null)
+  if (
+    answer.text === null ||
+    answer.options === null ||
+    answer.explanation === null
+  )
     return { kind: "version_unavailable" };
+  const severalCorrect = severalBits(answer.correct_mask);
   return {
     kind: "review",
     pickedMask: answer.picked_mask,
@@ -280,9 +288,19 @@ async function review(
       issueId: BigInt(answer.id).toString(36),
       questionId: answer.question_id,
       topicName: answer.topic_name,
+      context: answer.context,
       text: answer.text,
       options: answer.options.map((option) => option.text),
-      severalCorrect: severalBits(answer.correct_mask),
+      severalCorrect,
+      fitsFirstWidget: fitsFirstTrainerWidget(
+        {
+          context: answer.context,
+          text: answer.text,
+          options: answer.options,
+          explanation: answer.explanation,
+        },
+        severalCorrect,
+      ),
     },
   };
 }

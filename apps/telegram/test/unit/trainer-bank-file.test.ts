@@ -160,10 +160,10 @@ describe("Bank file check", () => {
 
   it("rejects a question text longer than the widget limit", () => {
     const fits = bankWith((question) => {
-      question.text = "я".repeat(160);
+      question.text = "я".repeat(200);
     });
     const tooLong = bankWith((question) => {
-      question.text = "я".repeat(161);
+      question.text = "я".repeat(201);
     });
 
     expect(readTrainerBankFile(fits).status).toBe("valid");
@@ -171,7 +171,7 @@ describe("Bank file check", () => {
       {
         question: "q-t1-1",
         field: "text",
-        reason: "Текст вопроса: знаков 161, лимит 160.",
+        reason: "Текст вопроса: знаков 201, лимит 200.",
       },
     ]);
   });
@@ -179,12 +179,12 @@ describe("Bank file check", () => {
   it("rejects options that together are longer than the widget limit", () => {
     const fits = bankWith((question) => {
       question.options.forEach((option) => {
-        option.text = "я".repeat(60);
+        option.text = "z".repeat(100);
       });
     });
     const tooLong = bankWith((question) => {
       question.options.forEach((option, index) => {
-        option.text = "я".repeat(index === 0 ? 61 : 60);
+        option.text = "z".repeat(index === 0 ? 101 : 100);
       });
     });
 
@@ -193,7 +193,7 @@ describe("Bank file check", () => {
       {
         question: "q-t1-1",
         field: "options",
-        reason: "Варианты вместе: знаков 241, лимит 240.",
+        reason: "Варианты вместе: знаков 401, лимит 400.",
       },
     ]);
   });
@@ -202,15 +202,15 @@ describe("Bank file check", () => {
     // The person sees the picked option's explanation, a space, then the general one.
     const fits = bankWith((question) => {
       question.options.forEach((option) => {
-        option.explanation = "я".repeat(99);
+        option.explanation = "я".repeat(349);
       });
-      question.explanation = "я".repeat(100);
+      question.explanation = "я".repeat(350);
     });
     const tooLong = bankWith((question) => {
       question.options.forEach((option, index) => {
-        option.explanation = "я".repeat(index === 3 ? 100 : 99);
+        option.explanation = "я".repeat(index === 3 ? 350 : 349);
       });
-      question.explanation = "я".repeat(100);
+      question.explanation = "я".repeat(350);
     });
 
     expect(readTrainerBankFile(fits).status).toBe("valid");
@@ -219,7 +219,7 @@ describe("Bank file check", () => {
         question: "q-t1-1",
         field: "explanation",
         reason:
-          "Разбор для ответа «вариант 4»: знаков 201, лимит 200. Считается разбор выбранных вариантов вместе с общим разбором.",
+          "Разбор для ответа «вариант 4»: знаков 701, лимит 700. Считается разбор выбранных вариантов вместе с общим разбором.",
       },
     ]);
   });
@@ -230,17 +230,17 @@ describe("Bank file check", () => {
         question.format = "multiple";
         question.options.forEach((option, index) => {
           option.correct = index < 2;
-          option.explanation = "я".repeat(60);
+          option.explanation = "я".repeat(200);
         });
-        question.explanation = "я".repeat(60);
+        question.explanation = "я".repeat(100);
       }),
     );
 
-    // Three picked options: 3 × 60 + 60 + 3 spaces = 243 characters.
+    // Three picked options: 3 × 200 + 100 + 3 spaces = 703 characters.
     expect(errors).toEqual([
       expect.objectContaining({ question: "q-t1-1", field: "explanation" }),
     ]);
-    expect(errors[0]?.reason).toContain("«варианты 1, 2, 3»: знаков 243");
+    expect(errors[0]?.reason).toContain("«варианты 1, 2, 3»: знаков 703");
   });
 
   it("rejects question data over 1 024 bytes even inside the length limits", () => {
@@ -262,22 +262,80 @@ describe("Bank file check", () => {
     );
   });
 
-  it("rejects explanation data over 1 024 bytes even inside the length limit", () => {
+  it("accepts an explanation whose bytes exceed one answer: the bot sends it in parts", () => {
     // A control sign takes one character and six bytes of JSON.
-    const errors = errorsOf(
+    const heavy = bankWith((question) => {
+      question.options.forEach((option) => {
+        option.explanation = "\u0007".repeat(99);
+      });
+      question.explanation = "\u0007".repeat(100);
+    });
+
+    expect(readTrainerBankFile(heavy).status).toBe("valid");
+  });
+
+  it("accepts a question whose condition is a context, with a short or an empty text", () => {
+    const split = bankWith((question) => {
+      question.context = "я".repeat(240);
+      question.text = "Что из этого верно?";
+    });
+    const whole = bankWith((question) => {
+      question.context = "  Синтетическое условие.  ";
+      question.text = "";
+    });
+
+    expect(readTrainerBankFile(split).status).toBe("valid");
+    const read = readTrainerBankFile(whole);
+    expect(read.status === "valid" && read.bank.questions[0]?.context).toBe(
+      "Синтетическое условие.",
+    );
+  });
+
+  it("rejects an empty text without a context, and an empty context", () => {
+    expect(
+      errorsOf(
+        bankWith((question) => {
+          question.text = " ";
+        }),
+      ),
+    ).toEqual([{ question: "q-t1-1", field: "text", reason: "Текст пуст." }]);
+    expect(
+      errorsOf(
+        bankWith((question) => {
+          question.context = " ";
+        }),
+      ),
+    ).toEqual([
+      { question: "q-t1-1", field: "context", reason: "Текст пуст." },
+    ]);
+  });
+
+  it("rejects a context longer than its limit, and one over 1 024 bytes inside it", () => {
+    const fits = bankWith((question) => {
+      question.context = "z".repeat(500);
+    });
+    const tooLong = bankWith((question) => {
+      question.context = "z".repeat(501);
+    });
+    const heavy = errorsOf(
       bankWith((question) => {
-        question.options.forEach((option) => {
-          option.explanation = "\u0007".repeat(99);
-        });
-        question.explanation = "\u0007".repeat(100);
+        question.context = "€".repeat(400);
       }),
     );
 
-    expect(errors).toEqual([
-      expect.objectContaining({ question: "q-t1-1", field: "explanation" }),
+    expect(readTrainerBankFile(fits).status).toBe("valid");
+    expect(errorsOf(tooLong)).toEqual([
+      {
+        question: "q-t1-1",
+        field: "context",
+        reason: "Условие: знаков 501, лимит 500.",
+      },
     ]);
-    expect(errors[0]?.reason).toMatch(
-      /^Данные разбора для виджета \(ответ «вариант 1»\): байт \d+, лимит 1024\./,
+    expect(heavy).toEqual([
+      expect.objectContaining({ question: "q-t1-1", field: "context" }),
+    ]);
+    expect(heavy[0]?.reason).toMatch(
+      /^Данные условия для виджета: байт \d+, лимит 1024\./,
     );
   });
 
@@ -309,7 +367,7 @@ describe("Bank file check", () => {
   it("reports every broken question of the file at once", () => {
     const bank = syntheticTrainerBank({ topics: 1, questionsPerTopic: 3 });
     const [first, , third] = bank.questions;
-    if (first) first.text = "я".repeat(161);
+    if (first) first.text = "я".repeat(201);
     if (third) third.topic = "t9";
 
     expect(errorsOf(bank).map(({ question }) => question)).toEqual([
@@ -322,9 +380,9 @@ describe("Bank file check", () => {
     const report = JSON.stringify(
       errorsOf(
         bankWith((question) => {
-          question.text = "Секретный текст ".repeat(11);
+          question.text = "Секретный текст ".repeat(14);
           question.options.forEach((option) => {
-            option.text = "Секретный вариант ".repeat(4);
+            option.text = "Секретный вариант ".repeat(7);
           });
         }),
       ),
