@@ -492,7 +492,7 @@ describe("trainer widget screens in a browser", () => {
     const whole = `${answer[4]} ${String(answer[7])}`;
     expect(pages.length).toBeGreaterThan(1);
     // Every page was fitted before the first one was shown: no page gets smaller while the
-    // person reads, so the counter keeps its total and no word comes twice.
+    // person turns them, so the counter keeps its total and no word comes twice.
     expect(counters).toEqual(
       pages.map((_, index) => `${String(index + 1)}/${String(pages.length)}`),
     );
