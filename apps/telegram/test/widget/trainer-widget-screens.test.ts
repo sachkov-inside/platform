@@ -551,7 +551,7 @@ describe("trainer widget screens in a browser", () => {
           .locator("button")
           .evaluateAll((tabs) =>
             tabs
-              .filter((tab) => tab.className === "O")
+              .filter((tab) => tab.getAttribute("class") === "O")
               .map((tab) => tab.textContent),
           )
       ).join();
