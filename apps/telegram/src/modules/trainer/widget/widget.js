@@ -45,27 +45,12 @@
 
   const button = (action, classes, html, disabled) =>
     `<button class="${classes}" onclick="g('${action}')"${disabled ? " disabled" : ""}>${html}</button>`;
-  /** A home cell: its name, a hint and the label of its action; " P" marks the main one. */
-  const card = (action, title, hint, label, primary = "") =>
+  const card = (action, classes, title, hint) =>
     button(
       action,
-      "cd R",
-      `<span class=F><b>${title}</b><span class=mu>${hint}</span></span><i class="d${primary}">${label}</i>`,
+      classes + " R",
+      `<span class=F><b>${title}</b><span class=mu>${hint}</span></span>`,
     );
-  /** A bar of tabs; each item is a request and the tab's content. */
-  const tabs = (chosen, items) =>
-    `<div class="R l">${items
-      .map(([action, html]) =>
-        button(action, action == chosen ? "O" : "", html),
-      )
-      .join("")}</div>`;
-  /** The bar under Home, Progress and Rating; it replaces a back button on those screens. */
-  const sections = (chosen) =>
-    tabs(chosen, [
-      ["h", "Тренажёр"],
-      ["p", "Прогресс"],
-      ["l0", "Рейтинг"],
-    ]);
   const header = (title) =>
     `<div class=R>${button("h", "x", "←")}<b class=F>${title}</b></div>`;
   const track = (share) =>
@@ -84,7 +69,7 @@
             button(prefix + (page + 1), "bt", "→", page + 1 == pages) +
             tail,
         );
-  /** Round steps: an answered one takes the colour of its verdict, the current one the accent. */
+  /** Round steps: answered ones are filled or dashed, the current one has a contrasting outline. */
   const roundHead = (marks, total, extra, daily) =>
     `<div class=R>${button("h", "x", "×")}${
       !daily
@@ -205,11 +190,13 @@
   const screens = {
     // ["h", streak, answeredToday, dailyGoal, dailyQuestionDone]
     h: (d) =>
-      `<div class="cd R"><i class=h style="--x:${(d[2] / d[3]) * 100}%"></i><span class=F><b>Цель на сегодня</b><span class=mu>${d[2]} из ${d[3]} вопросов. Серия: ${d[1]} ${days(d[1])}</span></span></div>` +
-      card("q", "Проверить себя", "5 вопросов, около 2 минут", "Начать", " P") +
-      card("d", "Вопрос дня", "Один, общий для всех", "Открыть") +
-      card("t", "Тренировка по теме", "10 вопросов по теме", "Выбрать") +
-      sections("h"),
+      `<div class=R><b class="F U a">Тренажёр</b><span class=ch>Серия: ${d[1]} ${days(d[1])}</span></div>` +
+      `<div class="R mu"><span class=F>Цель на сегодня</span>${d[2]} из ${d[3]} вопросов</div>` +
+      track(d[2] / d[3]) +
+      card("q", "cd a", "Проверить себя", "5 вопросов, около 2 минут") +
+      card("d", "cd a", "Вопрос дня", "Один вопрос, общий для всех") +
+      card("t", "cd a", "Тренировка по теме", "10 вопросов по выбранной теме") +
+      pair(button("p", "bt a", "Прогресс"), button("l0", "bt a", "Рейтинг")),
 
     // ["t", [[code, name, done, total], …]]
     t: (d) => (
@@ -239,38 +226,39 @@
 
     // ["p", points, streak, answered, [[name, done, total, correctPercent], …]]
     p: (d) =>
+      header("Прогресс") +
       `<div class=R>${tile(d[1], "очки")}${tile(d[2], "серия")}${tile(d[3], "вопросов")}</div>` +
-      `<div class=cd>${d[4]
+      `<div>${d[4]
         .map(
           (row) =>
             `<div class=ls><div class="W e">${esc(row[0])}</div><div class=R>${track(row[1] / row[2])}<span class=mu>${row[3] < 0 ? "не начато" : row[3] + "% верных"}</span></div></div>`,
         )
         .join("")}</div>` +
-      pager("p:", d[5], d[6]) +
-      sections("p"),
+      pager("p:", d[5], d[6]),
 
     // ["l", allTime, legacy preference (ignored), [[place, name, points, isViewer], …]]
-    l: (d) =>
-      tabs(d[1] ? "l1" : "l0", [
-        ["l0", "Неделя"],
-        ["l1", "Всё время"],
-      ]) +
-      `<div>${d[3]
-        .map(
-          (row) =>
-            `<div class="R rk${row[3] ? " M" : ""}"><span class=mu>${row[0]}</span><span class="F e">${esc(row[1])}</span><b>${row[2]}</b></div>`,
-        )
-        .join("")}</div>` +
-      "<div class=mu>Очки за верные ответы в завершённых раундах.</div>" +
-      sections("l0"),
+    l: (d) => {
+      const tab = d[1] ? 1 : 0;
+      return (
+        header("Рейтинг") +
+        `<div class="R tb">${button("l0", tab ? "" : "O", "Неделя")}${button("l1", tab ? "O" : "", "Всё время")}</div>` +
+        `<div>${d[3]
+          .map(
+            (row) =>
+              `<div class="R rk${row[3] ? " M" : ""}"><span class=mu>${row[0]}</span><span class="F e">${esc(row[1])}</span><b>${row[2]}</b></div>`,
+          )
+          .join("")}</div>` +
+        "<div class=mu>Очки за верные ответы в завершённых раундах.</div>"
+      );
+    },
 
     i: (d) =>
-      `<b>Тренажёр</b><div>${esc(d[1])}</div>` +
+      `<b class=U>Тренажёр</b><div>${esc(d[1])}</div>` +
       button("h", "bt P", "На главный"),
 
     // ["x", text?]: the bot refused, did not answer in 15 seconds, or sent something unreadable.
     x: (d) =>
-      `<b>Бот не ответил</b><div>${esc(d[1] || "")}</div>` +
+      `<b class=U>Бот не ответил</b><div>${esc(d[1] || "")}</div>` +
       button("R", "bt P", "Повторить") +
       button("H", "bt", "На главный"),
   };
