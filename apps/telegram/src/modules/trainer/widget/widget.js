@@ -113,16 +113,17 @@
           : "") +
         "</div>"
       );
-    // Pages of explanationSize characters. A word that crosses the end of a page moves to
-    // the next one whole; a word longer than a page is cut.
+    // The text is cut every explanationSize characters. A word that crosses a cut moves to
+    // the next page whole, so a page may be longer by that word; a word longer than a page
+    // is cut. The pages are joined by a character no text has, so line breaks stay text.
     const parts = (
       (d[4] + (d[7] ? " " + d[7] : "")).match(
         new RegExp(".{1," + explanationSize + "}", "gsu"),
       ) || []
     )
-      .join("\n")
-      .replace(/( )(\S+)\n(?=\S)/g, "$1\n$2")
-      .split("\n");
+      .join("\0")
+      .replace(/(\s)(\S+)\0(?=\S)/g, "$1\0$2")
+      .split("\0");
     // The page that holds the place the person reads, and the characters before it.
     let page = 0;
     let start = 0;

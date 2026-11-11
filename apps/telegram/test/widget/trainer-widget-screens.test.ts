@@ -489,8 +489,6 @@ describe("trainer widget screens in a browser", () => {
 
     const whole = `${answer[4]} ${String(answer[7])}`;
     expect(pages.length).toBeGreaterThan(1);
-    // Every page but the last ends after a whole word: the space that follows it.
-    for (const text of pages.slice(0, -1)) expect(text).toMatch(/\s$/);
     // No text is lost between pages. A page that had to get smaller starts at or before the
     // end of the page before it, so a few words may repeat, never disappear.
     let read = 0;
@@ -499,13 +497,46 @@ describe("trainer widget screens in a browser", () => {
       const start = whole.indexOf(text, from);
       expect(start).toBeGreaterThanOrEqual(from);
       expect(start).toBeLessThanOrEqual(read);
-      // Words begin a page: the character before it is a space, or it opens the text.
-      expect(start === 0 || whole[start - 1] === " ").toBe(true);
+      // No word is split: a space stands on one side of the place where a page starts.
+      expect(
+        start === 0 || whole[start - 1] === " " || whole[start] === " ",
+      ).toBe(true);
       expect(start + text.length).toBeGreaterThan(read);
       read = start + text.length;
       from = start + 1;
     }
     expect(read).toBe(whole.length);
+    await page.close();
+  });
+
+  it("keeps a line break of an explanation as text and loses nothing after it", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Проверить себя", [
+      "q",
+      "7k",
+      "Тема",
+      "Вопрос?",
+      ["Первый", "Второй"],
+      0,
+      "",
+      5,
+    ]);
+    await tap(page, "А Первый", [
+      "e",
+      2,
+      1,
+      1,
+      "Абзац один.\n\nАбзац два.",
+      "1",
+      5,
+      0,
+    ]);
+
+    // Both paragraphs are on the page, and no arrow leads to an empty one.
+    expect(await page.locator(".fb .W").textContent()).toBe(
+      "Абзац один.\n\nАбзац два.",
+    );
+    await expect(buttonNamed(page, "→").count()).resolves.toBe(0);
     await page.close();
   });
 
