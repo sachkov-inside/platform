@@ -24,7 +24,7 @@ export const trainerQuestionVersionsMigration: Migration = {
       join trainer_questions as question on question.id = version.question_id
       where version.content_revision <> question.content_revision
     ) as retained`.execute(db);
-    if (rows[0]?.retained)
+    if (rows[0]?.retained === true)
       throw new Error("Trainer question history cannot be discarded; restore the pre-migration backup to roll back");
     await sql`drop table trainer_question_versions`.execute(db);
   },
