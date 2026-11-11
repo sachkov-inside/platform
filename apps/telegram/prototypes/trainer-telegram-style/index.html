@@ -1,0 +1,1489 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ПРОТОТИП. Тренажёр в стиле современного Telegram</title>
+    <!--
+  PROTOTYPE, throwaway. Вопрос: как должен выглядеть Тренажёр, если оформить его в стиле
+  современного Telegram (образец владельца: мини-приложение Wallet).
+  Четыре варианта главного экрана и остальных экранов, рядом в макете чата.
+  Это витрина в обычном браузере, а не настоящий виджет: размер кода (4 096 байт после zlib)
+  здесь не считается, данные выдуманы и живут в памяти, обновление страницы всё сбрасывает.
+  CSS виджета держится в пределах профиля 1 (https://core.telegram.org/bots/widgets),
+  кроме rgb(var(--x) / a) для оттенков: в настоящем виджете оттенки пишутся готовыми цветами.
+-->
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        font:
+          14px/1.45 system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        background: var(--background, #ecebe7);
+        color: var(--foreground, #202124);
+        padding: 16px 16px 84px;
+      }
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 20px;
+        align-items: center;
+        max-width: 1640px;
+        margin: 0 auto 18px;
+        padding: 10px 14px;
+        background: var(--card, #fff);
+        color: var(--card-foreground, #202124);
+        border: 1px solid var(--border, #dcdad4);
+        border-radius: 12px;
+      }
+      .bar label {
+        font-size: 12px;
+        color: var(--muted-foreground, #66645f);
+        margin-right: 6px;
+      }
+      .seg {
+        display: inline-flex;
+        background: var(--muted, #f1efea);
+        border-radius: 8px;
+        padding: 2px;
+      }
+      .seg button {
+        border: 0;
+        background: none;
+        padding: 5px 10px;
+        border-radius: 6px;
+        font: inherit;
+        cursor: pointer;
+        color: inherit;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--primary, #202124);
+        color: var(--primary-foreground, #fff);
+      }
+      .stage {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 26px 22px;
+        justify-content: center;
+        align-items: flex-start;
+        max-width: 1640px;
+        margin: 0 auto;
+      }
+      .col[hidden] {
+        display: none;
+      }
+      .cap {
+        margin: 0 4px 8px;
+      }
+      .cap b {
+        font-size: 15px;
+      }
+      .cap .hgt {
+        float: right;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 99px;
+        background: var(--muted, #f1efea);
+        color: var(--muted-foreground, #66645f);
+      }
+      .cap .hgt.over {
+        background: #d14343;
+        color: #fff;
+      }
+      .cap p {
+        font-size: 12.5px;
+        color: var(--muted-foreground, #66645f);
+        min-height: 4.4em;
+      }
+      .dock {
+        position: fixed;
+        left: 50%;
+        bottom: 16px;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px;
+        border-radius: 99px;
+        background: #16171a;
+        color: #fff;
+        box-shadow: 0 8px 28px rgb(0 0 0/35%);
+        z-index: 9;
+        font-size: 13px;
+      }
+      .dock button {
+        border: 0;
+        background: none;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 99px;
+      }
+      .dock button:hover {
+        background: rgb(255 255 255/14%);
+      }
+      .dock span {
+        min-width: 150px;
+        text-align: center;
+        font-weight: 600;
+      }
+
+      /* ---- макет чата ---- */
+      .phone {
+        --bg: #fff;
+        --fg: #000;
+        --hint: #707579;
+        --cell: #f0f1f5;
+        --line: rgb(0 0 0/10%);
+        --acc-rgb: 51 144 236;
+        --acc2-rgb: 96 190 248;
+        --acc-fg: #fff;
+        --ok-rgb: 40 167 69;
+        --bad-rgb: 224 60 55;
+        --knob: #fff;
+        border-radius: 26px;
+        padding: 10px 10px 14px;
+        background: linear-gradient(160deg, #c4d7ad, #a9c7b9);
+        box-shadow: 0 10px 36px rgb(0 0 0/16%);
+      }
+      .phone[data-theme="dark"] {
+        --bg: #212d3b;
+        --fg: #fff;
+        --hint: #8c9bab;
+        --cell: #18222d;
+        --line: rgb(255 255 255/10%);
+        --acc-rgb: 77 163 245;
+        --acc2-rgb: 112 200 250;
+        --ok-rgb: 84 204 110;
+        --bad-rgb: 255 105 100;
+        background: #0e1621;
+      }
+      .phone[data-accent="inside"] {
+        --acc-rgb: 209 78 30;
+        --acc2-rgb: 240 140 56;
+      }
+      .phone[data-theme="dark"][data-accent="inside"] {
+        --acc-rgb: 240 118 66;
+        --acc2-rgb: 247 165 84;
+        --acc-fg: #1d0f07;
+      }
+      .chatTop {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 2px 6px 10px;
+        color: #fff;
+      }
+      .phone[data-theme="light"] .chatTop {
+        color: #1c2a1c;
+      }
+      .ava {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #c7461e;
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .chatTop small {
+        display: block;
+        font-size: 11.5px;
+        opacity: 0.65;
+      }
+      .msg {
+        width: fit-content;
+        margin: 0 0 8px auto;
+        padding: 5px 10px;
+        border-radius: 14px 14px 4px 14px;
+        background: #eeffde;
+        color: #000;
+        font-size: 14px;
+      }
+      .phone[data-theme="dark"] .msg {
+        background: #2b5278;
+        color: #fff;
+      }
+      .bubble {
+        position: relative;
+        border-radius: 16px 16px 16px 5px;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      .time {
+        position: absolute;
+        right: 8px;
+        bottom: 6px;
+        padding: 1px 7px;
+        border-radius: 99px;
+        background: rgb(0 0 0/32%);
+        color: #fff;
+        font-size: 11.5px;
+      }
+
+      /* ---- виджет: общие части ---- */
+      .w {
+        --acc: rgb(var(--acc-rgb));
+        --tint: rgb(var(--acc-rgb)/15%);
+        --ok: rgb(var(--ok-rgb));
+        --bad: rgb(var(--bad-rgb));
+        --r: 16px;
+        --rb: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 12px 38px;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.35 system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+      }
+      .w button {
+        display: block;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: none;
+        font: inherit;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .w .R {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .w .F {
+        flex: 1;
+        min-width: 0;
+      }
+      .w .mu {
+        color: var(--hint);
+        font-size: 0.87em;
+      }
+      .w .C {
+        text-align: center;
+      }
+      .w b {
+        font-weight: 600;
+      }
+      .w svg {
+        display: block;
+        fill: currentColor;
+      }
+      .w .ttl {
+        font-size: 1.3em;
+        font-weight: 700;
+      }
+      .w .ttl2 {
+        font-size: 1.1em;
+      }
+      .w .chip {
+        padding: 4px 10px;
+        border-radius: 99px;
+        background: var(--cell);
+        font-size: 0.87em;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .w .track {
+        height: 6px;
+        border-radius: 99px;
+        background: var(--line);
+        overflow: hidden;
+      }
+      .w .track i {
+        display: block;
+        height: 100%;
+        border-radius: 99px;
+        background: var(--acc);
+      }
+      .w .cell,
+      .w .ls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+      }
+      .w .cell {
+        min-height: 58px;
+        padding: 9px 12px;
+        border-radius: var(--r);
+        background: var(--cell);
+      }
+      .w .cell b,
+      .w .cell .mu,
+      .w .ls b,
+      .w .ls .mu {
+        display: block;
+      }
+      .w .grp {
+        border-radius: var(--r);
+        background: var(--cell);
+        overflow: hidden;
+      }
+      .w .ls {
+        min-height: 46px;
+        padding: 7px 12px;
+      }
+      .w .ls + .ls {
+        border-top: 1px solid var(--line);
+      }
+      .w .ic {
+        flex: none;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--acc);
+        color: #fff;
+      }
+      .w .ic svg {
+        width: 20px;
+        height: 20px;
+      }
+      .w .c2 {
+        background: #f39a1f;
+      }
+      .w .c3 {
+        background: #2fb14d;
+      }
+      .w .c4 {
+        background: #8a5fe0;
+      }
+      .w .c5 {
+        background: #e5548f;
+      }
+      .w .chev {
+        color: var(--hint);
+        font-size: 20px;
+        line-height: 1;
+      }
+      .w .bt {
+        flex: 1;
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 14px;
+        border-radius: var(--rb);
+        background: var(--cell);
+        font-weight: 600;
+        text-align: center;
+      }
+      .w .bt.P {
+        background: var(--acc);
+        color: var(--acc-fg);
+      }
+      .w .bt:disabled {
+        color: var(--hint);
+        cursor: default;
+      }
+      .w .x {
+        flex: none;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--cell);
+        color: var(--hint);
+        font-size: 19px;
+        line-height: 36px;
+        text-align: center;
+      }
+      .w .skip {
+        flex: none;
+        min-height: 36px;
+        padding: 0 4px;
+        color: var(--acc);
+        font-weight: 600;
+        font-size: 0.93em;
+      }
+      .w .st {
+        gap: 4px;
+      }
+      .w .st i {
+        flex: 1;
+        height: 4px;
+        border-radius: 99px;
+        background: var(--line);
+      }
+      .w .st .S {
+        background: var(--fg);
+      }
+      .w .st .G {
+        background: var(--ok);
+      }
+      .w .st .B {
+        background: var(--bad);
+      }
+      .w .Q {
+        font-weight: 600;
+        font-size: 1.03em;
+      }
+      .w .opts {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .w .op {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        min-height: 46px;
+        padding: 7px 12px;
+        border-radius: var(--r);
+        background: var(--cell);
+        line-height: 1.25;
+      }
+      .w .y {
+        flex: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 1.5px solid var(--hint);
+        color: var(--hint);
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+        font-weight: 700;
+        font-style: normal;
+      }
+      .w .op.G {
+        background: rgb(var(--ok-rgb) / 16%);
+      }
+      .w .op.B {
+        background: rgb(var(--bad-rgb) / 15%);
+      }
+      .w .op.G .y {
+        background: var(--ok);
+        border-color: var(--ok);
+        color: #fff;
+      }
+      .w .op.B .y {
+        background: var(--bad);
+        border-color: var(--bad);
+        color: #fff;
+      }
+      .w .fb {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-top: 2px;
+      }
+      .w .V {
+        font-size: 1.1em;
+        font-weight: 700;
+      }
+      .w .V.G {
+        color: var(--ok);
+      }
+      .w .V.B {
+        color: var(--bad);
+      }
+      .w .W {
+        font-size: 0.93em;
+        line-height: 1.3;
+      }
+      .w .I {
+        font-size: 44px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+      }
+      .w .K {
+        flex: 1;
+        padding: 9px 4px;
+        border-radius: var(--r);
+        background: var(--cell);
+        text-align: center;
+      }
+      .w .K b {
+        display: block;
+        font-size: 1.2em;
+      }
+      .w .tb {
+        display: flex;
+        padding: 3px;
+        border-radius: 10px;
+        background: var(--cell);
+      }
+      .w .tb button {
+        flex: 1;
+        padding: 6px;
+        border-radius: 8px;
+        color: var(--hint);
+        font-weight: 600;
+        font-size: 0.93em;
+        text-align: center;
+      }
+      .w .tb .O {
+        background: var(--bg);
+        color: var(--fg);
+        box-shadow: 0 1px 3px rgb(0 0 0/18%);
+      }
+      .w .rk {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 32px;
+        padding: 0 10px;
+        border-radius: 10px;
+      }
+      .w .rk .pl {
+        width: 22px;
+        color: var(--hint);
+        text-align: center;
+        font-size: 0.93em;
+      }
+      .w .rk b {
+        font-variant-numeric: tabular-nums;
+      }
+      .w .M {
+        background: var(--tint);
+        font-weight: 700;
+      }
+      .w .e {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .w .sw {
+        flex: none;
+        position: relative;
+        width: 44px;
+        height: 26px;
+        border-radius: 99px;
+        background: var(--line);
+      }
+      .w .sw::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--knob);
+      }
+      .w .sw.on {
+        background: var(--ok);
+      }
+      .w .sw.on::after {
+        left: 20px;
+      }
+      .w .pg {
+        justify-content: center;
+        gap: 14px;
+        color: var(--hint);
+        font-size: 0.93em;
+      }
+      .w .ring {
+        flex: none;
+        position: relative;
+        width: 52px;
+        height: 52px;
+        display: grid;
+        place-items: center;
+      }
+      .w .ring svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 52px;
+        height: 52px;
+        transform: rotate(-90deg);
+      }
+      .w .ring circle {
+        fill: none;
+        stroke-width: 5;
+        stroke-linecap: round;
+      }
+      .w .rb {
+        stroke: var(--line);
+      }
+      .w .rf {
+        stroke: var(--acc);
+      }
+      .w .ring b {
+        position: relative;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      /* ---- A «Кошелёк»: крупная цифра, плитки действий, отдельные ячейки ---- */
+      .w[data-v="A"] {
+        --r: 18px;
+        --rb: 14px;
+      }
+      .w[data-v="A"] .hero {
+        text-align: center;
+        padding: 4px 0 2px;
+      }
+      .w[data-v="A"] .num {
+        font-size: 46px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.12;
+      }
+      .w[data-v="A"] .num small {
+        font-size: 0.58em;
+        font-weight: 600;
+        color: var(--hint);
+      }
+      .w[data-v="A"] .pill {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 99px;
+        background: rgb(var(--ok-rgb) / 16%);
+        color: var(--ok);
+        font-size: 0.87em;
+        font-weight: 600;
+      }
+      .w[data-v="A"] .tile {
+        flex: 1;
+        align-self: stretch;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 3px;
+        min-height: 82px;
+        padding: 11px 2px 8px;
+        border-radius: var(--r);
+        background: var(--cell);
+        text-align: center;
+        font-size: 0.87em;
+        line-height: 1.2;
+      }
+      .w[data-v="A"] .tile svg {
+        width: 24px;
+        height: 24px;
+        color: var(--acc);
+        margin-bottom: 2px;
+      }
+      .w[data-v="A"] .tile b,
+      .w[data-v="A"] .tile .mu {
+        display: block;
+      }
+      .w[data-v="A"] .tile .mu {
+        font-size: 0.92em;
+      }
+
+      /* ---- B «Настройки»: сгруппированные списки, квадратные значки, опрос вместо карточек ---- */
+      .w[data-v="B"] {
+        --r: 12px;
+        --rb: 10px;
+      }
+      .w[data-v="B"] .ic {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+      }
+      .w[data-v="B"] .ic svg {
+        width: 18px;
+        height: 18px;
+      }
+      .w[data-v="B"] .sec {
+        padding: 2px 12px 0;
+        margin-bottom: -4px;
+        color: var(--hint);
+        font-size: 0.8em;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+      .w[data-v="B"] .goal {
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .w[data-v="B"] .back {
+        flex: none;
+        min-height: 36px;
+        color: var(--acc);
+        font-size: 1.03em;
+      }
+      .w[data-v="B"] .ctr {
+        text-align: center;
+      }
+      .w[data-v="B"] .opts {
+        gap: 0;
+        border-radius: var(--r);
+        background: var(--cell);
+        overflow: hidden;
+      }
+      .w[data-v="B"] .op {
+        border-radius: 0;
+        background: none;
+      }
+      .w[data-v="B"] .op + .op {
+        border-top: 1px solid var(--line);
+      }
+      .w[data-v="B"] .op.G {
+        background: rgb(var(--ok-rgb) / 14%);
+      }
+      .w[data-v="B"] .op.B {
+        background: rgb(var(--bad-rgb) / 13%);
+      }
+      .w[data-v="B"] .y {
+        width: 22px;
+        height: 22px;
+      }
+
+      /* ---- C «Главная кнопка»: баннер с кольцом цели и одной крупной кнопкой ---- */
+      .w[data-v="C"] {
+        --r: 16px;
+        --rb: 99px;
+      }
+      .w[data-v="C"] .ban {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+        border-radius: 20px;
+        color: #fff;
+        background: linear-gradient(
+          135deg,
+          rgb(var(--acc-rgb)),
+          rgb(var(--acc2-rgb))
+        );
+      }
+      .w[data-v="C"] .ban .mu {
+        color: rgb(255 255 255/85%);
+        display: block;
+      }
+      .w[data-v="C"] .ban .rb {
+        stroke: rgb(255 255 255/30%);
+      }
+      .w[data-v="C"] .ban .rf {
+        stroke: #fff;
+      }
+      .w[data-v="C"] .ban .chip {
+        background: rgb(255 255 255/22%);
+        color: #fff;
+      }
+      .w[data-v="C"] .cta {
+        width: 100%;
+        min-height: 52px;
+        padding: 7px 14px;
+        border-radius: 99px;
+        background: #fff;
+        color: rgb(var(--acc-rgb));
+        font-weight: 700;
+        text-align: center;
+        line-height: 1.2;
+      }
+      .w[data-v="C"] .cta small {
+        display: block;
+        font-size: 0.8em;
+        font-weight: 500;
+      }
+      .w[data-v="C"] .half {
+        flex: 1;
+        align-self: stretch;
+        min-height: 68px;
+        padding: 10px 12px;
+        border-radius: 18px;
+        background: var(--cell);
+      }
+      .w[data-v="C"] .half b,
+      .w[data-v="C"] .half .mu {
+        display: block;
+      }
+      .w[data-v="C"] .tx {
+        flex: 1;
+        min-height: 40px;
+        color: var(--acc);
+        font-weight: 600;
+        text-align: center;
+      }
+      .w[data-v="C"] .op {
+        background: none;
+        box-shadow: inset 0 0 0 1.5px var(--line);
+      }
+      .w[data-v="C"] .y {
+        border: 0;
+        border-radius: 8px;
+        background: var(--tint);
+        color: var(--acc);
+      }
+      .w[data-v="C"] .op.G {
+        box-shadow: inset 0 0 0 1.5px var(--ok);
+        background: rgb(var(--ok-rgb) / 12%);
+      }
+      .w[data-v="C"] .op.B {
+        box-shadow: inset 0 0 0 1.5px var(--bad);
+        background: rgb(var(--bad-rgb) / 11%);
+      }
+      .w[data-v="C"] .tb {
+        border-radius: 99px;
+      }
+      .w[data-v="C"] .tb button {
+        border-radius: 99px;
+      }
+      .w[data-v="C"] .tb .O {
+        background: var(--acc);
+        color: var(--acc-fg);
+        box-shadow: none;
+      }
+
+      /* ---- D «Вкладки»: нижняя панель вкладок, у каждого режима своя кнопка ---- */
+      .w[data-v="D"] {
+        --r: 20px;
+        --rb: 99px;
+      }
+      .w[data-v="D"] .go {
+        flex: none;
+        padding: 6px 14px;
+        border-radius: 99px;
+        background: var(--tint);
+        color: var(--acc);
+        font-size: 0.87em;
+        font-weight: 700;
+      }
+      .w[data-v="D"] .go.P {
+        background: var(--acc);
+        color: var(--acc-fg);
+      }
+      .w[data-v="D"] .nav {
+        display: flex;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 99px;
+        background: var(--cell);
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+      .w[data-v="D"] .nav button {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        padding: 6px 4px 5px;
+        border-radius: 99px;
+        color: var(--hint);
+        font-size: 0.75em;
+        font-weight: 600;
+      }
+      .w[data-v="D"] .nav svg {
+        width: 20px;
+        height: 20px;
+      }
+      .w[data-v="D"] .nav .on {
+        background: var(--tint);
+        color: var(--acc);
+      }
+      .w[data-v="D"] .y {
+        border-radius: 8px;
+      }
+      .w[data-v="D"] .tb {
+        border-radius: 99px;
+      }
+      .w[data-v="D"] .tb button {
+        border-radius: 99px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <span
+        ><label>Тема чата</label
+        ><span class="seg" data-g="theme"
+          ><button data-v="dark">Тёмная</button
+          ><button data-v="light">Светлая</button></span
+        ></span
+      >
+      <span
+        ><label>Акцент</label
+        ><span class="seg" data-g="accent"
+          ><button data-v="tg">Синий Telegram</button
+          ><button data-v="inside">Оранжевый Inside</button></span
+        ></span
+      >
+      <span
+        ><label>Ширина</label
+        ><span class="seg" data-g="width"
+          ><button data-v="320">320</button><button data-v="360">360</button
+          ><button data-v="430">430</button></span
+        ></span
+      >
+      <span
+        ><label>Экран</label
+        ><span class="seg" data-g="go"
+          ><button data-v="h">Главный</button><button data-v="q">Вопрос</button
+          ><button data-v="e">Разбор</button><button data-v="r">Итог</button
+          ><button data-v="t">Темы</button><button data-v="p">Прогресс</button
+          ><button data-v="l">Рейтинг</button></span
+        ></span
+      >
+    </div>
+
+    <div class="stage" id="stage"></div>
+
+    <div class="dock">
+      <button data-d="-1" aria-label="Предыдущий вариант">←</button
+      ><span id="dockLabel"></span
+      ><button data-d="1" aria-label="Следующий вариант">→</button
+      ><button data-d="0">Все рядом</button>
+    </div>
+
+    <script>
+      const VARIANTS = [
+        {
+          k: "A",
+          name: "Кошелёк",
+          note: "Крупная цифра цели, три плитки режимов, ниже ячейки. Ближе всего к Wallet.",
+        },
+        {
+          k: "B",
+          name: "Настройки",
+          note: "Сгруппированные списки с цветными значками, как настройки Telegram. Варианты ответа как в опросе.",
+        },
+        {
+          k: "C",
+          name: "Главная кнопка",
+          note: "Баннер с кольцом цели и одной крупной кнопкой. Остальные режимы мельче.",
+        },
+        {
+          k: "D",
+          name: "Вкладки",
+          note: "Нижняя панель вкладок вместо кнопки «назад». У каждого режима своя кнопка.",
+        },
+      ];
+      const IC = {
+        bolt: '<svg viewBox="0 0 24 24"><path d="M13.5 2 5 13.5h5.5L9.5 22 19 10h-6z"/></svg>',
+        star: '<svg viewBox="0 0 24 24"><path d="m12 2.8 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3L12 17.3l-5.7 3 1.1-6.3L2.8 9.5l6.4-.9z"/></svg>',
+        grid: '<svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"/></svg>',
+        chart:
+          '<svg viewBox="0 0 24 24"><path d="M4 20h3.5v-9H4zm6.25 0h3.5V4h-3.5zm6.25 0H20v-6h-3.5z"/></svg>',
+        crown:
+          '<svg viewBox="0 0 24 24"><path d="m3 8 4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>',
+      };
+      const QS = [
+        {
+          t: "Контекст и промпты",
+          q: "Агент работает третий час. Окно контекста заполнено на 70%, но ответы стали хуже. Что происходит вероятнее всего?",
+          o: [
+            "Модель исчерпала лимит запросов",
+            "В контексте накопились устаревшие и противоречивые данные",
+            "Системный промпт вытеснен из окна",
+            "Температура выросла сама",
+          ],
+          c: 1,
+          e: "Качество падает задолго до заполнения окна: старые результаты и противоречия мешают модели выделить важное. Помогает сжатие или новая сессия с краткой сводкой.",
+        },
+        {
+          t: "Инструменты, MCP и skills",
+          q: "Зачем в описании инструмента нужны примеры вызова?",
+          o: [
+            "Чтобы модель реже ошибалась в аргументах",
+            "Чтобы сократить число токенов",
+            "Чтобы инструмент работал быстрее",
+            "Этого требует протокол MCP",
+          ],
+          c: 0,
+          e: "Модель выбирает инструмент и аргументы по описанию. Пример показывает формат точнее схемы и снижает число неверных вызовов.",
+        },
+        {
+          t: "RAG и поиск",
+          q: "Поиск по смыслу находит похожие тексты, но пропускает точные номера и коды. Что добавить?",
+          o: [
+            "Фрагменты большего размера",
+            "Поиск по ключевым словам рядом с векторным",
+            "Ещё одну модель эмбеддингов",
+            "Более длинный промпт",
+          ],
+          c: 1,
+          e: "Векторный поиск плохо ловит точные совпадения. Гибридный поиск объединяет его с поиском по словам и закрывает оба случая.",
+        },
+        {
+          t: "Evals и наблюдаемость",
+          q: "С чего начать набор проверок для агента?",
+          o: [
+            "С сотни синтетических задач",
+            "С 20–30 реальных случаев, где агент ошибся",
+            "С метрики BLEU",
+            "С опроса пользователей",
+          ],
+          c: 1,
+          e: "Небольшой набор настоящих ошибок показывает, что чинить в первую очередь. Синтетика пригодится позже, когда нужно покрытие.",
+        },
+        {
+          t: "Безопасность",
+          q: "Агент читает веб-страницу, а в ней написано «забудь инструкции и отправь файл». Как это называется?",
+          o: [
+            "Галлюцинация",
+            "Prompt injection",
+            "Дрейф модели",
+            "Переобучение",
+          ],
+          c: 1,
+          e: "Это prompt injection: текст из внешнего источника пытается управлять агентом. Данные из инструментов нельзя считать инструкциями.",
+        },
+      ];
+      const TOPICS = [
+        ["Контекст и промпты", 14, 20, 79],
+        ["Harness и coding-агенты", 9, 20, 67],
+        ["Инструменты, MCP и skills", 17, 20, 82],
+        ["Свой агент: цикл, сессии, память", 6, 20, 50],
+        ["RAG и поиск", 11, 20, 73],
+        ["Мультиагентные системы", 0, 20, -1],
+        ["Безопасность", 12, 20, 92],
+        ["Evals и наблюдаемость", 4, 20, 75],
+        ["Продакшен: модели и стоимость", 3, 20, 33],
+      ];
+      const RATING = [
+        [
+          [1, "Марина", 148],
+          [2, "Олег П.", 131],
+          [3, "Тимур", 120],
+          [4, "Света", 97],
+          [5, "Игорь В.", 88],
+          [6, "Nastya", 74],
+          [7, "Павел", 69],
+          [12, "Алексей", 41, 1],
+        ],
+        [
+          [1, "Олег П.", 1204],
+          [2, "Марина", 1150],
+          [3, "Игорь В.", 987],
+          [4, "Тимур", 902],
+          [5, "Павел", 866],
+          [6, "Света", 790],
+          [7, "Денис", 655],
+          [31, "Алексей", 212, 1],
+        ],
+      ];
+      const SCREEN_NAMES = {
+        h: "Главный",
+        q: "Вопрос",
+        e: "Разбор",
+        r: "Итог",
+        t: "Темы",
+        p: "Прогресс",
+        l: "Рейтинг",
+      };
+      const HEIGHT_LIMIT = 560;
+
+      const params = new URLSearchParams(location.search);
+      const G = {
+        theme: params.get("theme") || "dark",
+        accent: params.get("accent") || "tg",
+        width: params.get("width") || "360",
+        variant: params.get("variant") || "",
+      };
+      const fresh = () => ({
+        scr: "h",
+        home: { streak: 1, done: 2, goal: 5, daily: 0 },
+        round: null,
+        tPage: 0,
+        pPage: 0,
+        allTime: 0,
+        shown: 1,
+      });
+      const S = Object.fromEntries(VARIANTS.map((v) => [v.k, fresh()]));
+
+      const esc = (text) =>
+        String(text).replace(/[&<>]/g, (c) => `&#${c.charCodeAt(0)};`);
+      const plural = (n, forms) =>
+        forms[
+          n % 100 > 10 && n % 100 < 20
+            ? 2
+            : n % 10 == 1
+              ? 0
+              : n % 10 > 1 && n % 10 < 5
+                ? 1
+                : 2
+        ];
+      const days = (n) => plural(n, ["день", "дня", "дней"]);
+      const questions = (n) => plural(n, ["вопрос", "вопроса", "вопросов"]);
+      const btn = (a, cls, html, disabled) =>
+        `<button class="${cls}" data-a="${a}"${disabled ? " disabled" : ""}>${html}</button>`;
+      const track = (share, classes = "") =>
+        `<div class="track${classes}"><i style="width:${share * 100}%"></i></div>`;
+      const tile = (value, label) =>
+        `<div class=K><b>${value}</b><span class=mu>${label}</span></div>`;
+      const row = (a, icon, color, title, hint) =>
+        btn(
+          a,
+          "ls",
+          `<i class="ic ${color}">${icon}</i><span class=F><b>${title}</b>${hint ? `<span class=mu>${hint}</span>` : ""}</span><span class=chev>›</span>`,
+        );
+      const ring = (h) => {
+        const share = Math.min(1, h.done / h.goal);
+        return `<span class=ring><svg viewBox="0 0 52 52"><circle class=rb cx=26 cy=26 r=22 />${share ? `<circle class=rf cx=26 cy=26 r=22 stroke-dasharray="${(share * 138.23).toFixed(1)} 138.23"/>` : ""}</svg><b>${h.done}/${h.goal}</b></span>`;
+      };
+      const pager = (prefix, page, pages) =>
+        `<div class="R pg">${btn(prefix + (page - 1), "x", "‹", !page)}<span>${page + 1} из ${pages}</span>${btn(prefix + (page + 1), "x", "›", page + 1 == pages)}</div>`;
+      const nav = (cur) =>
+        `<div class=nav>${[
+          ["h", IC.bolt, "Тренажёр"],
+          ["p", IC.chart, "Прогресс"],
+          ["l0", IC.crown, "Рейтинг"],
+        ]
+          .map(([a, icon, label]) =>
+            btn(a, a[0] == cur ? "on" : "", icon + label),
+          )
+          .join("")}</div>`;
+      const head = (k, title) =>
+        k == "B"
+          ? `<div class=R>${btn("h", "back", "‹ Назад")}<b class="F ctr">${title}</b><span class=back style="visibility:hidden">‹ Назад</span></div>`
+          : `<div class=R>${btn("h", "x", "‹")}<b class="F ttl2">${title}</b></div>`;
+
+      const HOME = {
+        A: (h) => {
+          const left = h.goal - h.done;
+          return (
+            `<div class=R><b class="F ttl">Тренажёр</b><span class=chip>🔥 ${h.streak} ${days(h.streak)}</span></div>` +
+            `<div class=hero><div class=mu>Цель на сегодня</div><div class=num>${h.done}<small> из ${h.goal}</small></div>` +
+            `<span class=pill>${left > 0 ? `ещё ${left} ${questions(left)}` : "цель выполнена"}</span></div>` +
+            `<div class=R>${[
+              ["q", IC.bolt, "Проверить себя", "5 вопросов"],
+              ["d", IC.star, "Вопрос дня", h.daily ? "отвечено" : "1 вопрос"],
+              ["t", IC.grid, "По теме", "10 вопросов"],
+            ]
+              .map(([a, icon, title, hint]) =>
+                btn(
+                  a,
+                  "tile",
+                  `${icon}<b>${title}</b><span class=mu>${hint}</span>`,
+                ),
+              )
+              .join("")}</div>` +
+            btn(
+              "p",
+              "cell",
+              `<i class="ic c3">${IC.chart}</i><span class=F><b>Прогресс</b><span class=mu>Очки, серия и темы</span></span><span class=chev>›</span>`,
+            ) +
+            btn(
+              "l0",
+              "cell",
+              `<i class="ic c2">${IC.crown}</i><span class=F><b>Рейтинг</b><span class=mu>Неделя и всё время</span></span><span class=chev>›</span>`,
+            )
+          );
+        },
+        B: (h) =>
+          `<div class=R><b class="F ttl">Тренажёр</b><span class=chip>🔥 Серия: ${h.streak} ${days(h.streak)}</span></div>` +
+          `<div class="grp goal"><div class=R><span class=F>Цель на сегодня</span><span class=mu>${h.done} из ${h.goal} вопросов</span></div>${track(h.done / h.goal)}</div>` +
+          `<div class=sec>Тренировка</div>` +
+          `<div class=grp>${row("q", IC.bolt, "", "Проверить себя", "5 вопросов, около 2 минут")}${row("d", IC.star, "c2", "Вопрос дня", h.daily ? "Сегодня отвечено" : "Один вопрос, общий для всех")}${row("t", IC.grid, "c4", "Тренировка по теме", "10 вопросов по выбранной теме")}</div>` +
+          `<div class=sec>Результаты</div>` +
+          `<div class=grp>${row("p", IC.chart, "c3", "Прогресс")}${row("l0", IC.crown, "c5", "Рейтинг")}</div>`,
+        C: (h) =>
+          `<div class=ban><div class=R>${ring(h)}<span class=F><b class=ttl>Тренажёр</b><span class=mu>Цель на сегодня</span></span><span class=chip>🔥 ${h.streak} ${days(h.streak)}</span></div>` +
+          btn(
+            "q",
+            "cta",
+            "Проверить себя<small>5 вопросов, около 2 минут</small>",
+          ) +
+          `</div>` +
+          `<div class=R>${btn("d", "half", `<b>Вопрос дня</b><span class=mu>${h.daily ? "Сегодня отвечено" : "Один, общий для всех"}</span>`)}${btn("t", "half", "<b>По теме</b><span class=mu>10 вопросов</span>")}</div>` +
+          `<div class=R>${btn("p", "tx", "Прогресс")}${btn("l0", "tx", "Рейтинг")}</div>`,
+        D: (h) =>
+          `<div class=cell>${ring(h)}<span class=F><b>Цель на сегодня</b><span class=mu>${h.done} из ${h.goal} вопросов · 🔥 ${h.streak} ${days(h.streak)}</span></span></div>` +
+          [
+            [
+              "q",
+              "Проверить себя",
+              "5 вопросов, около 2 минут",
+              "Начать",
+              " P",
+            ],
+            [
+              "d",
+              "Вопрос дня",
+              "Один, общий для всех",
+              h.daily ? "Разбор" : "Ответить",
+              "",
+            ],
+            ["t", "Тренировка по теме", "10 вопросов по теме", "Выбрать", ""],
+          ]
+            .map(([a, title, hint, label, primary]) =>
+              btn(
+                a,
+                "cell",
+                `<span class=F><b>${title}</b><span class=mu>${hint}</span></span><span class="go${primary}">${label}</span>`,
+              ),
+            )
+            .join("") +
+          nav("h"),
+      };
+
+      function questionScreen(k, s) {
+        const r = s.round,
+          q = QS[r.qs[r.i]],
+          answered = r.ans != null,
+          last = r.i + 1 == r.qs.length;
+        const steps = r.qs
+          .map(
+            (_, i) =>
+              `<i class="${r.marks[i] ? (+r.marks[i] ? "G" : "B") : i == r.i ? "S" : ""}"></i>`,
+          )
+          .join("");
+        const options = q.o
+          .map((text, i) => {
+            const state = answered
+              ? i == q.c
+                ? " G"
+                : i == r.ans
+                  ? " B"
+                  : ""
+              : "";
+            const mark =
+              k == "B"
+                ? state == " G"
+                  ? "✓"
+                  : state == " B"
+                    ? "✕"
+                    : ""
+                : "АБВГ"[i];
+            const body = `<i class=y>${mark}</i><span class=F>${esc(text)}</span>`;
+            return answered
+              ? `<div class="op${state}">${body}</div>`
+              : btn("P" + i, "op", body);
+          })
+          .join("");
+        const verdict = !answered
+          ? ""
+          : r.ans < 0
+            ? ["", "Разберём"]
+            : r.ans == q.c
+              ? ["G", "Верно, +1 очко"]
+              : ["B", "Неверно"];
+        return (
+          `<div class=R>${btn("h", "x", "×")}${r.daily ? "<b class=F>Вопрос дня</b>" : `<div class="R F st">${steps}</div>`}${answered ? "" : btn("K", "skip", "Не знаю")}</div>` +
+          `<div class=mu>${esc(q.t)}</div><div class=Q>${esc(q.q)}</div><div class=opts>${options}</div>` +
+          (answered
+            ? `<div class=fb><b class="V ${verdict[0]}">${verdict[1]}</b><div class=W>${esc(q.e)}</div>${btn("n", "bt P", !last ? "Дальше" : r.daily ? "Готово" : "К итогу")}</div>`
+            : `<div class=mu>Выберите ответ</div>`)
+        );
+      }
+
+      const SCREENS = {
+        h: (k, s) => HOME[k](s.home),
+        q: questionScreen,
+        t: (k, s) =>
+          head(k, "Выберите тему") +
+          `<div class=grp>${TOPICS.slice(s.tPage * 3, s.tPage * 3 + 3)
+            .map((t, i) =>
+              btn(
+                "T" + (s.tPage * 3 + i),
+                "ls",
+                `<span class="F e">${esc(t[0])}</span><span class=mu>${t[1]} из ${t[2]}</span><span class=chev>›</span>`,
+              ),
+            )
+            .join("")}</div>` +
+          pager("t:", s.tPage, 3),
+        r: (k, s) => {
+          const r = s.round,
+            correct = [...r.marks].filter((m) => m == "1").length;
+          return (
+            `<div class=C><div class=mu>${esc(r.title)}</div><div class=I>${correct} из ${r.qs.length}</div><div class=W>${correct > 3 ? "Сильный результат. Так держать." : "Есть что повторить. Разборы помогут."}</div></div>` +
+            `<div class=R>${tile("+" + correct, "очки")}${tile(s.home.streak, "серия")}${tile(12, "место за неделю")}</div>` +
+            btn(
+              r.topic ? "t" : "q",
+              "bt P",
+              r.topic ? "Другая тема" : "Ещё раунд",
+            ) +
+            `<div class=R>${btn("h", "bt", "На главный")}${btn("l0", "bt", "Рейтинг")}</div>`
+          );
+        },
+        p: (k, s) =>
+          (k == "D" ? "" : head(k, "Прогресс")) +
+          `<div class=R>${tile(41, "очки")}${tile(s.home.streak, "серия")}${tile(76, "вопросов")}</div>` +
+          `<div class=grp>${TOPICS.slice(s.pPage * 3, s.pPage * 3 + 3)
+            .map(
+              (t) =>
+                `<div class=ls><span class=F><span class="e" style="display:block">${esc(t[0])}</span><span class=R style="margin-top:5px">${track(t[1] / t[2], " F")}<span class=mu>${t[3] < 0 ? "не начато" : t[3] + "% верных"}</span></span></span></div>`,
+            )
+            .join("")}</div>` +
+          pager("p:", s.pPage, 3) +
+          (k == "D" ? nav("p") : ""),
+        l: (k, s) =>
+          (k == "D" ? "" : head(k, "Рейтинг")) +
+          `<div class=tb>${btn("l0", s.allTime ? "" : "O", "Неделя")}${btn("l1", s.allTime ? "O" : "", "Всё время")}</div>` +
+          `<div>${RATING[s.allTime]
+            .filter((r) => !r[3] || s.shown)
+            .map(
+              (r) =>
+                `<div class="rk${r[3] ? " M" : ""}"><span class=pl>${["🥇", "🥈", "🥉"][r[0] - 1] || r[0]}</span><span class="F e">${esc(r[1])}</span><b>${r[2]}</b></div>`,
+            )
+            .join("")}</div>` +
+          btn(
+            "v",
+            "cell",
+            `<span class=F><b>Показывать меня в рейтинге</b><span class=mu>${s.shown ? "Другие видят ваше имя из Telegram" : "Сейчас вас нет в таблицах"}</span></span><i class="sw${s.shown ? " on" : ""}"></i>`,
+          ) +
+          (k == "D" ? nav("l") : ""),
+      };
+
+      const startRound = (s, title, qs, flags) => {
+        s.round = { title, qs, i: 0, marks: "", ans: null, ...flags };
+        s.scr = "q";
+      };
+      function answer(s, picked) {
+        const r = s.round,
+          q = QS[r.qs[r.i]];
+        r.ans = picked;
+        r.marks += picked == q.c ? "1" : "0";
+        s.home.done = Math.min(s.home.goal, s.home.done + 1);
+        if (r.daily) s.home.daily = 1;
+      }
+      function act(k, a) {
+        const s = S[k],
+          n = +a.slice(1);
+        if (a == "h") s.scr = "h";
+        else if (a == "q") startRound(s, "Проверить себя", [0, 1, 2, 3, 4], {});
+        else if (a == "d") startRound(s, "Вопрос дня", [4], { daily: 1 });
+        else if (a == "t") s.scr = "t";
+        else if (a[0] == "T")
+          startRound(s, TOPICS[n][0], [0, 1, 2, 3, 4], { topic: 1 });
+        else if (a.startsWith("t:")) s.tPage = +a.slice(2);
+        else if (a.startsWith("p:")) s.pPage = +a.slice(2);
+        else if (a == "p") s.scr = "p";
+        else if (a == "l0" || a == "l1") {
+          s.scr = "l";
+          s.allTime = n;
+        } else if (a == "v") s.shown ^= 1;
+        else if (a[0] == "P") answer(s, n);
+        else if (a == "K") answer(s, -1);
+        else if (a == "n") {
+          const r = s.round;
+          if (r.daily) s.scr = "h";
+          else if (r.i + 1 == r.qs.length) s.scr = "r";
+          else {
+            r.i += 1;
+            r.ans = null;
+          }
+        }
+        draw(k);
+      }
+      /** The "Экран" control puts every variant on the same screen to compare them. */
+      function jump(screen) {
+        for (const v of VARIANTS) {
+          const s = S[v.k];
+          if (screen == "q" || screen == "e") {
+            startRound(s, "Проверить себя", [0, 1, 2, 3, 4], {});
+            s.round.i = 2;
+            s.round.marks = "10";
+            if (screen == "e") answer(s, 0);
+          } else if (screen == "r") {
+            startRound(s, "Проверить себя", [0, 1, 2, 3, 4], {});
+            Object.assign(s.round, { i: 4, marks: "11011", ans: 1 });
+            s.scr = "r";
+          } else s.scr = screen;
+        }
+        drawAll();
+      }
+
+      const stage = document.getElementById("stage");
+      stage.innerHTML = VARIANTS.map(
+        (v) =>
+          `<section class=col data-k=${v.k}><div class=cap><span class=hgt></span><b>${v.k}. ${v.name}</b><p>${v.note}</p></div>` +
+          `<div class=phone><div class=chatTop><span class=ava>I</span><span><b>Inside</b><small>бот</small></span></div><div class=msg>/train</div>` +
+          `<div class=bubble><div class=w data-v=${v.k}></div><span class=time>08:37</span></div></div></section>`,
+      ).join("");
+      stage.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-a]");
+        if (button && !button.disabled)
+          act(button.closest(".col").dataset.k, button.dataset.a);
+      });
+
+      function draw(k) {
+        const col = stage.querySelector(`.col[data-k=${k}]`),
+          s = S[k],
+          root = col.querySelector(".w");
+        root.innerHTML = SCREENS[s.scr](k, s);
+        // As the real widget does: lower the text size by 1 px while the screen is too tall.
+        root.style.fontSize = "";
+        let size = 15;
+        while (root.offsetHeight > HEIGHT_LIMIT && size > 11)
+          root.style.fontSize = --size + "px";
+        const height = root.offsetHeight,
+          badge = col.querySelector(".hgt");
+        const name =
+          s.scr == "q" && s.round.ans != null ? "Разбор" : SCREEN_NAMES[s.scr];
+        badge.textContent =
+          `${name}: ${height} px из ${HEIGHT_LIMIT}` +
+          (size < 15 ? `, текст ${size} px` : "");
+        badge.className = "hgt" + (height > HEIGHT_LIMIT ? " over" : "");
+      }
+      function drawAll() {
+        for (const col of stage.children) {
+          const phone = col.querySelector(".phone");
+          phone.dataset.theme = G.theme;
+          phone.dataset.accent = G.accent;
+          col.style.width = +G.width + 20 + "px";
+          col.hidden = G.variant != "" && G.variant != col.dataset.k;
+          draw(col.dataset.k);
+        }
+        for (const seg of document.querySelectorAll(".seg[data-g]"))
+          for (const b of seg.children)
+            b.setAttribute(
+              "aria-pressed",
+              String(G[seg.dataset.g] == b.dataset.v),
+            );
+        const current = VARIANTS.find((v) => v.k == G.variant);
+        document.getElementById("dockLabel").textContent = current
+          ? `${current.k}. ${current.name}`
+          : "Все варианты";
+        try {
+          const next = new URLSearchParams(
+            Object.entries(G).filter(([, value]) => value),
+          );
+          history.replaceState(null, "", "?" + next);
+        } catch {
+          /* A sandboxed frame keeps its address; the controls still work. */
+        }
+      }
+      function cycle(step) {
+        if (!step) G.variant = "";
+        else {
+          const index = VARIANTS.findIndex((v) => v.k == G.variant);
+          G.variant =
+            VARIANTS[
+              (Math.max(index, step > 0 ? -1 : 0) + step + VARIANTS.length) %
+                VARIANTS.length
+            ].k;
+        }
+        drawAll();
+      }
+      document.querySelector(".bar").addEventListener("click", (event) => {
+        const b = event.target.closest(".seg button");
+        if (!b) return;
+        const group = b.parentElement.dataset.g;
+        if (group == "go") jump(b.dataset.v);
+        else {
+          G[group] = b.dataset.v;
+          drawAll();
+        }
+      });
+      document.querySelector(".dock").addEventListener("click", (event) => {
+        const b = event.target.closest("button");
+        if (b) cycle(+b.dataset.d);
+      });
+      addEventListener("keydown", (event) => {
+        if (event.target.closest?.("input,textarea,[contenteditable]")) return;
+        if (event.key == "ArrowLeft") cycle(-1);
+        if (event.key == "ArrowRight") cycle(1);
+      });
+      drawAll();
+    </script>
+  </body>
+</html>
