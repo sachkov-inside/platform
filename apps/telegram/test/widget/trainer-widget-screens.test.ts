@@ -474,14 +474,16 @@ describe("trainer widget screens in a browser", () => {
     await page.close();
   });
 
-  it("turns the pages of an explanation between words", async () => {
+  it("turns the pages of an explanation between words, their number settled on the first page", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", question(realisticText));
     const answer = explanation(realisticText);
     await tap(page, "Не знаю", answer);
     const pages: string[] = [];
+    const counters: string[] = [];
     for (let index = 0; index < 30; index += 1) {
       pages.push((await page.locator(".fb .W").textContent()) ?? "");
+      counters.push((await page.locator(".fb span").textContent()) ?? "");
       const next = buttonNamed(page, "→");
       if ((await next.count()) === 0 || (await next.isDisabled())) break;
       await next.click();
@@ -489,27 +491,28 @@ describe("trainer widget screens in a browser", () => {
 
     const whole = `${answer[4]} ${String(answer[7])}`;
     expect(pages.length).toBeGreaterThan(1);
-    // No text is lost between pages. A page that had to get smaller starts at or before the
-    // end of the page before it, so a few words may repeat, never disappear.
-    let read = 0;
-    let from = 0;
+    // Every page was fitted before the first one was shown: no page gets smaller while the
+    // person reads, so the counter keeps its total and no word comes twice.
+    expect(counters).toEqual(
+      pages.map((_, index) => `${String(index + 1)}/${String(pages.length)}`),
+    );
+    expect(pages.join("")).toBe(whole);
+    // No word is split: a space stands on one side of the place where a page starts.
+    let start = 0;
     for (const text of pages) {
-      const start = whole.indexOf(text, from);
-      expect(start).toBeGreaterThanOrEqual(from);
-      expect(start).toBeLessThanOrEqual(read);
-      // No word is split: a space stands on one side of the place where a page starts.
       expect(
         start === 0 || whole[start - 1] === " " || whole[start] === " ",
       ).toBe(true);
-      expect(start + text.length).toBeGreaterThan(read);
-      read = start + text.length;
-      from = start + 1;
+      start += text.length;
     }
-    expect(read).toBe(whole.length);
+    // The arrow back returns the page before the last one.
+    await buttonNamed(page, "←").click();
+    expect(await page.locator(".fb .W").textContent()).toBe(pages.at(-2));
+    expect((await layout(page)).height).toBeLessThanOrEqual(560);
     await page.close();
   });
 
-  it("divides an explanation between its pages evenly: no page holds a lone last word", async () => {
+  it("divides an explanation between its pages evenly: the last page is not a short tail", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", [
       "q",

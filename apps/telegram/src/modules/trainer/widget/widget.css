@@ -124,7 +124,7 @@ button {
   color: var(--h);
 }
 
-/* Home: .U title, .ch series chip, .T progress track. */
+/* Home: .U title, also the size of the 👍 and 👎 of a vote; .ch series chip, .T progress track. */
 /* .a gives every home button the accent bottom edge and the home title its colour. */
 .a {
   border-bottom-color: var(--a);

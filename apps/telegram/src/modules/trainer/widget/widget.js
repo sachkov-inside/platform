@@ -25,8 +25,9 @@
   let lastRequest;
   let questionFont;
   let judging = false;
-  /** Characters of the explanation before the page the person reads. */
-  let explanationOffset = 0;
+  /** The page of the explanation the person reads, its pages and their size in characters. */
+  let page = 0;
+  let parts;
   let explanationSize = 200;
   widget.setResizeAnchor?.("bottom");
 
@@ -109,12 +110,14 @@
         "</div>"
       );
     // The text is cut into as many pages as explanationSize characters a page need, all of
-    // one length: no page holds a lone last word. A word that crosses a cut moves to the next
-    // page whole, so a page may be longer by that word; a word longer than a page is cut.
+    // one length, so the last page is no short tail while a page holds 40 characters or
+    // more. A word that crosses a cut moves to the next page whole, so a page may be longer
+    // by that word; a word longer than a page is cut, and a page before such a word may
+    // hold only the space before it.
     // The pages are joined by a character no text has, so line breaks stay text; a moved
     // word never takes that character along, which would leave an empty page.
     const text = d[4] + (d[7] ? " " + d[7] : "");
-    const parts = (
+    parts = (
       text.match(
         new RegExp(
           ".{1," +
@@ -128,14 +131,6 @@
       .join("\0")
       .replace(/(\s)([^\s\0]+)\0(?=\S)/g, "$1\0$2")
       .split("\0");
-    // The page that holds the place the person reads, and the characters before it.
-    let page = 0;
-    let start = 0;
-    for (
-      ;
-      parts[page + 1] && start + parts[page].length <= explanationOffset;
-      start += parts[page++].length
-    );
     const id = question[1];
     const vote = (value) =>
       button(
@@ -160,14 +155,10 @@
         ? pair(vote(1), vote(2) + button("F", "bt", "←"))
         : parts[1] || d[10]
           ? arrows(
-              page
-                ? "E" + (start - parts[page - 1].length)
-                : part
-                  ? another + (part - 1)
-                  : "",
+              page ? "E" + (page - 1) : part ? another + (part - 1) : "",
               `${page + 1}/${parts.length}`,
               parts[page + 1]
-                ? "E" + (start + parts[page].length)
+                ? "E" + (page + 1)
                 : part + 1 < d[10]
                   ? another + (part + 1)
                   : "",
@@ -302,11 +293,23 @@
     const render = () => (root.innerHTML = screens[data[0]](data));
     render();
     if (data[0] == "e") {
-      // Smaller pages until the screen fits; the page that holds the read place is shown.
-      while (document.body.offsetHeight >= MAX_HEIGHT && explanationSize > 10) {
-        explanationSize -= 10;
+      // Smaller pages until every page fits the screen, not only the one shown: the number
+      // of pages is then settled before the person turns the first one. After a smaller
+      // size the check starts again from the first page.
+      const read = page;
+      for (page = 0; parts[page]; page++) {
         render();
+        while (
+          document.body.offsetHeight >= MAX_HEIGHT &&
+          explanationSize > 10
+        ) {
+          explanationSize -= 10;
+          page = 0;
+          render();
+        }
       }
+      page = read;
+      render();
     } else if (!inQuestion || !questionFont) {
       // A question leaves 120 px for the verdict, two lines of the explanation and the
       // buttons: a larger reserve takes the room of a long question's own text.
@@ -341,7 +344,7 @@
       }
       // Each part of an explanation starts from its first page.
       if (data != current) {
-        explanationOffset = 0;
+        page = 0;
         explanationSize = 200;
       }
       draw(data);
@@ -352,7 +355,7 @@
   const parse = (text) => {
     try {
       const data = JSON.parse(text);
-      // Only an array has pop: a screen is an array.
+      // A screen is an array, and an array has pop; the bot sends no object with that key.
       if (data.pop) return data;
     } catch {
       // Not JSON, or null: the caller falls back to the empty home screen or the retry state.
@@ -389,7 +392,7 @@
       judging = !judging;
       draw(current);
     } else if (action[0] == "E") {
-      explanationOffset = index;
+      page = index;
       draw(current);
     } else if (action[0] == "P") {
       if (question[5]) {

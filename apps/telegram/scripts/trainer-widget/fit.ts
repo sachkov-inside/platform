@@ -65,6 +65,8 @@ export interface TrainerQuestionFit {
   readonly explanationCharacters: number;
   readonly explanationParts: number;
   readonly explanationPages: number;
+  /** The page counter kept its total while the pages of every part were turned. */
+  readonly steadyCounter: boolean;
   readonly fits: boolean;
 }
 
@@ -142,6 +144,7 @@ async function fitOf(
   let pages = 0;
   let tallest = 0;
   let smallest = Number.POSITIVE_INFINITY;
+  let steadyCounter = true;
   const longest = { characters: 0, parts: 0, pages: 0 };
   const answers = trainerPossibleAnswers(question);
   for (const picked of answers) {
@@ -169,6 +172,7 @@ async function fitOf(
       else await tap(page, "→", part);
       // Every page of the part is drawn and measured; the last one keeps its arrow for the
       // next part, or has it disabled.
+      let total: string | undefined;
       for (;;) {
         const drawn = await measure(page);
         turned += 1;
@@ -179,7 +183,12 @@ async function fitOf(
             document.querySelector(".fb span")?.textContent ?? "",
           ),
         );
-        if (counter === null || counter[1] === counter[2]) break;
+        if (counter === null) break;
+        // The widget fits every page before it shows the first: a total that changes
+        // while the person reads means a page was refitted under their eyes.
+        if (total !== undefined && total !== counter[2]) steadyCounter = false;
+        total = counter[2];
+        if (counter[1] === counter[2]) break;
         await page.getByRole("button", { name: /^→/ }).click();
       }
     }
@@ -218,7 +227,9 @@ async function fitOf(
     explanationCharacters: longest.characters,
     explanationParts: longest.parts,
     explanationPages: longest.pages,
+    steadyCounter,
     fits:
+      steadyCounter &&
       tallest <= TRAINER_WIDGET_TARGET_HEIGHT_PX &&
       smallest >= SMALLEST_FONT_PX &&
       screens.every(
