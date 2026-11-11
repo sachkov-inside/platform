@@ -307,8 +307,6 @@ interface Layout {
   readonly fontSize: number;
   /** Elements whose box leaves the bubble sideways. */
   readonly overflowing: string[];
-  /** Hard shadows must remain inside the widget, including its bottom padding. */
-  readonly clippedShadows: string[];
   readonly pageWidth: number;
 }
 const layout = (page: Page): Promise<Layout> =>
@@ -320,23 +318,6 @@ const layout = (page: Page): Promise<Layout> =>
       height: document.body.offsetHeight,
       fontSize: Number.parseFloat(getComputedStyle(root).fontSize),
       pageWidth: document.documentElement.scrollWidth,
-      clippedShadows: [...root.querySelectorAll<HTMLElement>("*")]
-        .filter((element) => {
-          const shadow = getComputedStyle(element).boxShadow;
-          if (shadow === "none") return false;
-          const [x = 0, y = 0, blur = 0, spread = 0] = [
-            ...shadow.matchAll(/(-?[\d.]+)px/g),
-          ].map((match) => Number(match[1]));
-          const box = element.getBoundingClientRect();
-          // Profile 1 permits hard shadows without the heavy-element limit.
-          // Include the full painted extent, which getBoundingClientRect omits.
-          return (
-            box.right + x + blur + spread > width + 0.5 ||
-            box.bottom + y + blur + spread >
-              root.getBoundingClientRect().bottom + 0.5
-          );
-        })
-        .map((element) => element.outerHTML.slice(0, 80)),
       overflowing: [...root.querySelectorAll<HTMLElement>("*")]
         .filter((element) => {
           const box = element.getBoundingClientRect();
@@ -374,7 +355,6 @@ describe("trainer widget screens in a browser", () => {
           const measured = await layout(page);
 
           expect(measured.overflowing).toEqual([]);
-          expect(measured.clippedShadows).toEqual([]);
           expect(measured.pageWidth).toBe(width);
           expect(measured.fontSize).toBeGreaterThanOrEqual(11);
           expect(measured.fontSize).toBeLessThanOrEqual(15);
@@ -388,12 +368,11 @@ describe("trainer widget screens in a browser", () => {
   );
 
   it.each(routes)(
-    "$name keeps its hard shadows inside a 320 px dark widget",
+    "$name fits a 320 px dark widget with the widest letters",
     async (route) => {
       const page = await openWidget(320, { theme: "dark" });
       await reach(page, route, wideText);
       const measured = await layout(page);
-      expect(measured.clippedShadows).toEqual([]);
       expect(measured.overflowing).toEqual([]);
       expect(measured.fontSize).toBeGreaterThanOrEqual(11);
       expect(measured.height).toBeLessThanOrEqual(
@@ -415,7 +394,6 @@ describe("trainer widget screens in a browser", () => {
         const measured = await layout(page);
 
         expect(measured.overflowing).toEqual([]);
-        expect(measured.clippedShadows).toEqual([]);
         expect(measured.pageWidth).toBe(320);
         expect(measured.fontSize).toBeGreaterThanOrEqual(11);
         expect(measured.fontSize).toBeLessThanOrEqual(options.textSizePx);
@@ -563,6 +541,61 @@ describe("trainer widget screens in a browser", () => {
     await page.close();
   });
 
+  it("opens Progress and Rating by tabs and returns home without a back button", async () => {
+    const page = await openWidget(320);
+    const chosen = async () =>
+      (
+        await page
+          .locator(".l")
+          .last()
+          .locator("button")
+          .evaluateAll((tabs) =>
+            tabs
+              .filter((tab) => tab.className === "O")
+              .map((tab) => tab.textContent),
+          )
+      ).join();
+    expect(await chosen()).toBe("Тренажёр");
+
+    await tap(page, "Прогресс", progress(realisticText));
+    expect(await page.getByRole("button").allInnerTexts()).toEqual([
+      "Тренажёр",
+      "Прогресс",
+      "Рейтинг",
+    ]);
+    expect(await chosen()).toBe("Прогресс");
+    for (const tab of await page.getByRole("button").all())
+      expect((await tab.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await tap(page, "Рейтинг", rating(realisticText));
+    expect(await chosen()).toBe("Рейтинг");
+    await tap(page, "Тренажёр", home);
+    expect(await chosen()).toBe("Тренажёр");
+
+    expect(await requests(page)).toEqual(["p", "l0", "h"]);
+    await page.close();
+  });
+
+  it.each([
+    [320, 12],
+    [390, 13],
+  ] as const)(
+    "keeps a question at the text limits readable in a %i px bubble: at least %i px",
+    async (width, smallest) => {
+      const page = await openWidget(width);
+      await tap(page, "Проверить себя", question(realisticText));
+      const asked = await layout(page);
+      // The reserve under the options holds the verdict, two lines of the explanation and
+      // the buttons; the rest of the screen belongs to the question's own text.
+      expect(asked.fontSize).toBeGreaterThanOrEqual(smallest);
+      expect(asked.height).toBeLessThanOrEqual(TRAINER_WIDGET_TARGET_HEIGHT_PX);
+      await tap(page, "Не знаю", explanation(realisticText));
+      expect((await layout(page)).height).toBeLessThanOrEqual(
+        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+      );
+      await page.close();
+    },
+  );
+
   it("draws the home screen from the chat state of the message", async () => {
     const page = await openWidget(320, {
       chatData: JSON.stringify(["h", 4, 3, 5, 1]),
@@ -593,64 +626,121 @@ describe("trainer widget screens in a browser", () => {
     expect(text).toContain("0 из 5 вопросов");
     const measured = await layout(page);
     expect(measured.overflowing).toEqual([]);
-    expect(measured.clippedShadows).toEqual([]);
     expect(measured.pageWidth).toBe(320);
     expect(measured.height).toBeLessThanOrEqual(560);
     expect(await requests(page)).toEqual([]);
   });
 
+  /** Rendered colours of an element at the points `points` picks from its size. */
+  async function renderedPixels(
+    page: Page,
+    selector: string,
+    points: (width: number, height: number) => (readonly [number, number])[],
+  ): Promise<number[][]> {
+    const box = await page.locator(selector).boundingBox();
+    if (!box) throw new Error(`Nothing is drawn for ${selector}`);
+    const png = await page.locator(selector).screenshot();
+    return page.evaluate(
+      async ([base64, picked]) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Cannot read the rendered element");
+        context.drawImage(image, 0, 0);
+        return picked.map(([x, y]) =>
+          Array.from(context.getImageData(x, y, 1, 1).data),
+        );
+      },
+      [png.toString("base64"), points(box.width, box.height)] as const,
+    );
+  }
+  /** The accent of the light theme; a gradient may dither a channel by one. */
+  const isBlue = (pixel: readonly number[] = []): boolean =>
+    [36, 129, 204, 255].every(
+      (channel, index) => Math.abs(channel - (pixel[index] ?? -9)) <= 2,
+    );
+
   it.each(["Chromium", "WebKit"])(
-    "fills the Daily goal up to its inner corners without pale gaps in %s",
+    "fills the ring of the Daily goal by the share done in %s",
     async (engine) => {
-      for (const width of [320, 430]) {
-        for (const documentMode of ["standards", "quirks"] as const) {
-          for (const done of [0, 1, 5]) {
-            const page = await openWidget(
-              width,
-              { chatData: JSON.stringify(["h", 1, done, 5, 0]), documentMode },
-              engine === "WebKit" ? webkitBrowser : browser,
+      for (const documentMode of ["standards", "quirks"] as const) {
+        for (const done of [0, 2, 5]) {
+          const page = await openWidget(
+            320,
+            { chatData: JSON.stringify(["h", 1, done, 5, 0]), documentMode },
+            engine === "WebKit" ? webkitBrowser : browser,
+          );
+          try {
+            // The ring is two gradients, so only the rendered pixels show its fill.
+            // Points on the 44 px ring: a tenth of the way round, three quarters, the centre.
+            const [early, late, centre] = await renderedPixels(
+              page,
+              ".h",
+              () => [
+                [33, 6],
+                [2, 22],
+                [22, 22],
+              ],
             );
-            try {
-              // Read the rendered pixels, not the CSS radius: a rounded fill can leave
-              // pale crescents even when its bounding box reaches both borders.
-              const png = await page.locator(".T").screenshot();
-              const pixels = await page.evaluate(async (base64) => {
-                const image = new Image();
-                image.src = `data:image/png;base64,${base64}`;
-                await image.decode();
-                const canvas = document.createElement("canvas");
-                canvas.width = image.width;
-                canvas.height = image.height;
-                const context = canvas.getContext("2d");
-                if (!context) throw new Error("Cannot read the rendered goal");
-                context.drawImage(image, 0, 0);
-                return (
-                  [
-                    [3, 3],
-                    [3, image.height - 3],
-                    [image.width - 4, 3],
-                    [image.width - 4, image.height - 3],
-                    [Math.floor(image.width / 10), 6],
-                    [Math.floor(image.width / 2), 6],
-                  ] as const
-                ).map(([x, y]) =>
-                  Array.from(context.getImageData(x, y, 1, 1).data),
-                );
-              }, png.toString("base64"));
-              const orange = [199, 70, 30, 255];
-              const paper = [255, 239, 220, 255];
-              expect(pixels).toEqual([
-                done > 0 ? orange : paper,
-                done > 0 ? orange : paper,
-                done === 5 ? orange : paper,
-                done === 5 ? orange : paper,
-                done > 0 ? orange : paper,
-                done === 5 ? orange : paper,
-              ]);
-            } finally {
-              await page.close();
-            }
+            expect(isBlue(early)).toBe(done > 0);
+            expect(isBlue(late)).toBe(done === 5);
+            expect(centre).toEqual([241, 241, 244, 255]);
+          } finally {
+            await page.close();
           }
+        }
+      }
+    },
+  );
+
+  it.each(["Chromium", "WebKit"])(
+    "fills a Progress track up to its rounded ends without pale gaps in %s",
+    async (engine) => {
+      for (const documentMode of ["standards", "quirks"] as const) {
+        const page = await openWidget(
+          320,
+          { documentMode },
+          engine === "WebKit" ? webkitBrowser : browser,
+        );
+        try {
+          await tap(page, "Прогресс", [
+            "p",
+            0,
+            0,
+            0,
+            [
+              ["Синтетическая тема 1", 0, 5, -1],
+              ["Синтетическая тема 2", 1, 5, 50],
+              ["Синтетическая тема 3", 5, 5, 100],
+            ],
+          ]);
+          const filled = [];
+          for (const row of [1, 2, 3]) {
+            // Read the rendered pixels, not the CSS radius: a rounded fill can leave
+            // pale crescents even when its bounding box reaches both ends.
+            const pixels = await renderedPixels(
+              page,
+              `.ls:nth-child(${String(row)}) .T`,
+              (width) => [
+                [2, 3],
+                [Math.floor(width / 10), 3],
+                [Math.floor(width / 2), 3],
+                [Math.floor(width) - 3, 3],
+              ],
+            );
+            filled.push(pixels.map((pixel) => isBlue(pixel)));
+          }
+          expect(filled).toEqual([
+            [false, false, false, false],
+            [true, true, false, false],
+            [true, true, true, true],
+          ]);
+        } finally {
+          await page.close();
         }
       }
     },
@@ -686,41 +776,65 @@ describe("trainer widget screens in a browser", () => {
   );
 
   it.each([
-    ["light", "rgb(199, 70, 30)", "rgb(255, 239, 220)"],
-    ["dark", "rgb(199, 70, 30)", "rgb(255, 239, 220)"],
+    [
+      "light",
+      "rgb(255, 255, 255)",
+      "rgb(241, 241, 244)",
+      "rgb(112, 117, 121)",
+      "rgb(36, 129, 204)",
+    ],
+    [
+      "dark",
+      "rgb(33, 33, 33)",
+      "rgb(44, 44, 46)",
+      "rgb(170, 170, 170)",
+      "rgb(61, 142, 224)",
+    ],
   ] as const)(
-    "uses outlined warm cards and crisp offset shadows equally in the %s theme",
-    async (theme, accent, surface) => {
+    "takes the bubble, the cells and the hints from the %s chat theme, with Telegram blue as the accent",
+    async (theme, bubble, surface, hint, accent) => {
       const page = await openWidget(320, { theme });
-      const titleColor = await page
-        .getByText("Тренажёр", { exact: true })
-        .evaluate((title) => getComputedStyle(title).color);
-      expect(titleColor).toBe(accent);
+      expect(
+        await page.evaluate(
+          () => getComputedStyle(document.body).backgroundColor,
+        ),
+      ).toBe(bubble);
       for (const name of [
         "Проверить себя",
         "Вопрос дня",
         "Тренировка по теме",
-        "Прогресс",
-        "Рейтинг",
       ]) {
         const style = await buttonNamed(page, name).evaluate((button) => {
           const computed = getComputedStyle(button);
           return {
-            bottom: computed.borderBottomColor,
-            top: computed.borderTopColor,
             background: computed.backgroundColor,
-            text: computed.color,
+            outline: computed.borderTopWidth,
             shadow: computed.boxShadow,
             radius: computed.borderRadius,
           };
         });
-        expect(style.bottom).toBe(accent);
-        expect(style.top).not.toBe(accent);
-        expect(style.background).toBe(surface);
-        expect(style.radius).toBe("8px");
-        expect(style.shadow).toMatch(/4px 4px 0px 0px$/);
-        expect(style.text).not.toBe(accent);
+        expect(style).toEqual({
+          background: surface,
+          outline: "0px",
+          shadow: "none",
+          radius: "18px",
+        });
       }
+      const colours = (locator: ReturnType<Page["locator"]>) =>
+        locator.evaluate((element) => {
+          const computed = getComputedStyle(element);
+          return [computed.backgroundColor, computed.color];
+        });
+      // The main action is filled with the accent; the chosen tab and the other actions
+      // carry it as text on a tint; the other tabs are hints.
+      expect(await colours(page.locator(".d.P"))).toEqual([
+        accent,
+        "rgb(255, 255, 255)",
+      ]);
+      expect((await colours(page.locator(".d").nth(1)))[1]).toBe(accent);
+      expect((await colours(buttonNamed(page, "Тренажёр")))[1]).toBe(accent);
+      expect((await colours(buttonNamed(page, "Прогресс")))[1]).toBe(hint);
+      await page.close();
     },
   );
 
@@ -755,7 +869,6 @@ describe("trainer widget screens in a browser", () => {
       expect(correct.border).toBe("solid");
       expect(wrong.border).toBe("dashed");
       expect(correct.letter).not.toBe(wrong.letter);
-      expect((await layout(page)).clippedShadows).toEqual([]);
     },
   );
 
@@ -786,18 +899,6 @@ describe("trainer widget screens in a browser", () => {
     );
 
     expect(await page.locator("#w").innerText()).toContain("Серия: 21 день");
-  });
-
-  it("keeps the same Inside accent in either chat colour scheme", async () => {
-    const light = await openWidget(320);
-    const dark = await openWidget(320, { theme: "dark" });
-    const accent = (page: Page) =>
-      page
-        .locator(".T i")
-        .evaluate((button) => getComputedStyle(button).backgroundColor);
-
-    expect(await accent(light)).toBe("rgb(199, 70, 30)");
-    expect(await accent(dark)).toBe("rgb(199, 70, 30)");
   });
 
   it.each([
@@ -895,7 +996,7 @@ describe("trainer widget screens in a browser", () => {
     ["light", 2, 1],
     ["dark", 2, 1],
   ] as const)(
-    "uses the same readable panel ink in %s for verdict %i",
+    "colours the verdict for the %s theme for verdict %i",
     async (theme, verdict, pickedMask) => {
       const page = await openWidget(320, { theme });
       await tap(page, "Проверить себя", [
@@ -926,15 +1027,17 @@ describe("trainer widget screens in a browser", () => {
           getComputedStyle(document.body).color,
         ];
       });
-      expect(colours[0]).toBe(
-        verdict === 0 ? "rgb(182, 56, 41)" : "rgb(39, 118, 71)",
-      );
+      const [wrong, correct] =
+        theme === "light"
+          ? ["rgb(217, 48, 37)", "rgb(30, 142, 62)"]
+          : ["rgb(255, 107, 97)", "rgb(76, 199, 100)"];
+      expect(colours[0]).toBe(verdict === 0 ? wrong : correct);
       await page.close();
     },
   );
 
   it.each(["light", "dark"] as const)(
-    "keeps the feedback area on the paper with separation in %s",
+    "keeps the feedback area on the bubble with separation in %s",
     async (theme) => {
       const page = await openWidget(320, { theme });
       await tap(page, "Проверить себя", question(realisticText));
@@ -1098,9 +1201,11 @@ describe("trainer widget screens in a browser", () => {
       try {
         await tap(page, "Рейтинг", ["l", 0, legacy, [[1, "Анна", 5, 1]]]);
         expect(await page.getByRole("button").allInnerTexts()).toEqual([
-          "←",
           "Неделя",
           "Всё время",
+          "Тренажёр",
+          "Прогресс",
+          "Рейтинг",
         ]);
         expect(await page.locator("#w").innerText()).not.toContain(
           "Показывать меня",
@@ -1203,7 +1308,7 @@ describe("trainer widget screens in a browser", () => {
     await tap(page, "Показать разбор", explanation(realisticText));
     await tap(page, "×", home);
     await tap(page, "Прогресс", progress(realisticText));
-    await tap(page, "←", home);
+    await tap(page, "Тренажёр", home);
     await tap(page, "Рейтинг", rating(realisticText));
     await tap(page, "Всё время", ["l", 1, 1, []]);
 
@@ -1255,7 +1360,6 @@ describe("trainer widget screens in a browser", () => {
       }
       const measured = await layout(page);
       expect(measured.overflowing).toEqual([]);
-      expect(measured.clippedShadows).toEqual([]);
       expect(measured.pageWidth).toBe(320);
       expect(measured.fontSize).toBeGreaterThanOrEqual(11);
       expect(measured.fontSize).toBeLessThanOrEqual(15);
