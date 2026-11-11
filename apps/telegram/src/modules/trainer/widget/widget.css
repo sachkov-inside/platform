@@ -1,8 +1,6 @@
 /*
- * Trainer widget in the style of the Telegram apps: the bubble, the cells and the text take the
- * chat theme, cells are rounded and have no outline or shadow, the accent is Telegram blue.
- * Compact class names keep the widget within the 4 096-byte compressed limit; the build strips
- * these comments.
+ * Trainer widget: warm paper, orange accents, ink outlines and crisp offset shadows, system font. Compact class names keep the widget within
+ * the 4 096-byte compressed limit; the build strips these comments.
  * Names must remain distinct after lowercasing: some clients embed the widget in quirks mode.
  *
  * Only features of widget profile 1 are allowed (https://core.telegram.org/bots/widgets):
@@ -10,11 +8,9 @@
  * Mute with colour, never with opacity: at most 16 elements may have opacity below 1.
  */
 
-/* Colours: --a accent, both a fill under white text and a text colour, --t accent tint,
-   --g correct, --r wrong, --l empty tracks, steps and the rest of the goal ring, --s cell surface, --h hint text,
-   --p the bubble, --c the state colour of an element. The chat theme supplies --p, --s, --h
-   and the text colour; the accent and the state colours have a light and a dark value of
-   their own. */
+/* Colours: --a accent, --d its darker border, --f text on the accent, --t accent tint,
+   --l lines, --s card surface, --h hint text, --p paper, --v ink, --j shadow,
+   --c the state colour of an element. */
 body {
   margin: 0;
   /* Quirks-mode body blocks otherwise grow to the client's viewport, leaving empty space. */
@@ -24,24 +20,17 @@ body {
   /* The band of the message time is 0 while the message has a caption below the widget. */
   padding: 0 0
     var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom));
-  --a: #2481cc;
-  --t: rgba(36, 129, 204, 0.15);
-  --g: #1e8e3e;
-  --r: #d93025;
-  --l: rgba(128, 128, 128, 0.25);
-  --s: var(--tg-theme-secondary-bg-color);
-  --h: var(--tg-theme-hint-color);
-  --p: var(--tg-theme-bg-color);
+  --a: #c7461e;
+  --d: #8b3115;
+  --f: #fff7ed;
+  --t: #ffdfbd;
+  --s: #ffefdc;
+  --h: #80513b;
+  --p: #fff8ef;
+  --v: #472719;
+  --j: #8b3115;
   background: var(--p);
-  color: var(--tg-theme-text-color);
-}
-/* Telegram resolves this query from the chat theme, not from the system. */
-@media (prefers-color-scheme: dark) {
-  body {
-    --a: #3d8ee0;
-    --g: #4cc764;
-    --r: #ff6b61;
-  }
+  color: var(--v);
 }
 * {
   box-sizing: border-box;
@@ -52,8 +41,8 @@ body {
 #w {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: 12px;
+  padding: 12px 16px 12px 12px;
   font:
     var(--tg-text-font-size, 15px) / 1.35 system-ui,
     sans-serif;
@@ -85,16 +74,11 @@ button {
   flex: 1;
   min-width: 0;
 }
-.mu,
-.d {
-  font-size: max(0.87em, 11px);
-}
-b,
-.mu {
-  display: block;
-}
 .mu {
   color: var(--h);
+}
+.C {
+  text-align: center;
 }
 
 /* State colours: .S selected or current, .G correct, .B wrong. .Z paints an option with it. */
@@ -102,79 +86,85 @@ b,
   --c: var(--a);
 }
 .G {
-  --c: var(--g);
+  --c: #277647;
 }
 .B {
-  --c: var(--r);
+  --c: #b63829;
 }
 
-/* Filled surfaces: .cd cell, .op option, .bt button, .d the label of a cell's action,
-   .K figure tile, .x round button, .l bar of tabs; .P primary. */
+/* Pressable surfaces: .cd card, .op option, .bt button; .P primary. */
 .cd,
 .op,
-.bt,
-.d,
-.K,
-.x,
-.l {
-  border-radius: 18px;
+.bt {
+  border: 2px solid var(--v);
+  border-radius: 8px;
   background: var(--s);
-  padding: 8px 12px;
+  box-shadow: 4px 4px 0 var(--j);
+  padding: 7px 10px;
   min-height: 44px;
+}
+.cd:active,
+.op:active,
+.bt:active {
+  transform: translate(2px, 2px);
 }
 .cd {
   min-height: 58px;
 }
-.bt,
-.d,
-.l,
-.Q {
+.cd b,
+.cd .mu {
+  display: block;
+}
+.ch {
+  color: var(--a);
   font-weight: 600;
-}
-.C,
-.bt,
-.d,
-.l button,
-.K,
-.x,
-.y {
-  text-align: center;
-}
-i {
   font-style: normal;
 }
 .bt {
   flex: 1;
-}
-.d {
-  min-height: 0;
-  padding: 6px 12px;
-}
-.d,
-.l .O {
-  background: var(--t);
-  color: var(--a);
+  font-weight: 700;
+  text-align: center;
 }
 .P {
   background: var(--a);
-  color: #fff;
+  border-color: var(--d);
+  color: var(--f);
 }
 .bt:disabled {
   background: var(--s);
+  border-color: var(--v);
   color: var(--h);
 }
 
-/* Home: .h the ring of the daily goal, filled up to --x; .T progress track. */
-.h {
-  background:
-    radial-gradient(closest-side, var(--s) 76%, transparent 78%),
-    conic-gradient(var(--a) var(--x), var(--l) 0);
+/* Home: .U title, .ch series chip, .T progress track. */
+/* .a gives every home button the accent bottom edge and the home title its colour. */
+.a {
+  border-bottom-color: var(--a);
+}
+.U.a {
+  color: var(--a);
+}
+.U {
+  font-size: 1.4em;
+  font-weight: 800;
+}
+.ch {
+  color: var(--v);
+  padding: 4px 7px;
+  border: 2px solid var(--v);
+  border-radius: 4px;
+  box-shadow: 2px 2px 0 var(--j);
+  background: var(--t);
 }
 .T {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--l);
+  height: 12px;
+  border: 2px solid var(--v);
+  background: var(--s);
   overflow: hidden;
+}
+.T,
+.st i {
+  border-radius: 3px;
 }
 /* The track clips the fill to its inner corners. A second radius would expose pale gaps. */
 .T i {
@@ -183,38 +173,30 @@ i {
   background: var(--a);
 }
 
-/* Tabs: .l a bar of tabs, .O the chosen tab. The text size is fixed: three names must fit
-   a 320 px bubble at the largest text setting. */
-.l {
-  gap: 2px;
-  padding: 4px;
-  border-radius: 26px;
-  font-size: 13px;
-}
-.l button {
-  flex: 1;
-  padding: 14px 6px;
-  border-radius: 22px;
-  color: var(--h);
-}
-
-/* Round: .x round icon button (the goal ring .h shares its 44 px circle), .st steps,
-   .n "Не знаю", .Q question text, .y option letter, .V verdict, .W explanation. */
-.x,
-.h {
+/* Round: .x round icon button, .st steps, .n "Не знаю", .Q question text, .y option letter,
+   .V verdict, .W explanation. */
+.x {
   flex: none;
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border: 2px solid var(--v);
+  border-radius: 6px;
+  box-shadow: 2px 2px 0 var(--j);
+  background: var(--s);
+  text-align: center;
 }
 .st {
   gap: 4px;
 }
 .st i {
   flex: 1;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--c, var(--l));
+  height: 10px;
+  border: 2px solid var(--v);
+  background: var(--c, var(--s));
+}
+.st .S {
+  background: var(--t);
+  border: 2px solid var(--v);
 }
 .n {
   width: 7.8em;
@@ -222,19 +204,22 @@ i {
   padding: 0 8px;
   flex: none;
 }
-/* The transparent outline keeps an option's box the same before and after the answer. */
+.Q {
+  font-weight: 600;
+}
 .op {
   padding: 3px 10px;
-  border: 2px solid transparent;
   line-height: 1.2;
 }
 .y {
   flex: none;
   width: 24px;
   border: 2px solid var(--h);
-  border-radius: 8px;
+  border-radius: 3px;
   color: var(--h);
   font-weight: 700;
+  font-style: normal;
+  text-align: center;
 }
 .Z {
   border-color: var(--c);
@@ -242,7 +227,7 @@ i {
 .Z .y {
   background: var(--c);
   border-color: var(--c);
-  color: var(--p);
+  color: var(--f);
 }
 .V {
   color: var(--c);
@@ -272,23 +257,55 @@ i {
 .K {
   flex: 1;
   padding: 8px 4px;
+  border: 2px solid var(--v);
+  border-radius: 6px;
+  background: var(--s);
+  box-shadow: 2px 2px 0 var(--j);
+  text-align: center;
+}
+.K b,
+.K .mu {
+  display: block;
 }
 .K b {
   font-size: 1.2em;
 }
 .ls {
+  width: 100%;
   min-height: 60px;
   padding: 10px 2px;
+  border-bottom: 1px solid var(--v);
 }
 .ls .T {
   flex: 1;
+  height: 8px;
+  border-width: 1px;
 }
 
-/* Rating: .rk table row, .M the viewer's row, .e one-line name. */
+/* Rating: .tb tabs, .O chosen tab, .rk table row, .M the viewer's row, .e one-line name. */
+.tb {
+  gap: 0;
+  padding: 3px;
+  border: 2px solid var(--v);
+  border-radius: 6px;
+  background: var(--s);
+}
+.tb button {
+  flex: 1;
+  padding: 6px;
+  border-radius: 3px;
+  color: var(--h);
+  font-weight: 600;
+  text-align: center;
+}
+.tb .O {
+  background: var(--a);
+  color: var(--f);
+}
 .rk {
   min-height: 34px;
-  padding: 0 8px;
-  border-radius: 12px;
+  padding: 0 6px;
+  border-radius: 8px;
 }
 .rk .mu {
   width: 4.5em;
@@ -304,7 +321,6 @@ i {
   text-overflow: ellipsis;
 }
 
-/* A wrong choice differs from a correct one by shape as well as by colour. */
 .B.Z {
   border-style: dashed;
 }
