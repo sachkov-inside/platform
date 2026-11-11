@@ -72,7 +72,7 @@ pnpm owner:trainer-bank-import --preview < docs/integrations/trainer-bank-v1.exa
 {
   "status": "rejected",
   "errors": [
-    { "question": "t1-0001", "field": "text", "reason": "Текст вопроса: знаков 161, лимит 160." }
+    { "question": "t1-0001", "field": "text", "reason": "Текст вопроса: знаков 201, лимит 200." }
   ]
 }
 ```

@@ -38,6 +38,8 @@ export interface TrainerTables {
   trainer_question_versions: {
     question_id: string;
     content_revision: number;
+    /** The context: the situation shown before the question; null when it has none. */
+    context: string | null;
     text: string;
     options: ColumnType<TrainerBankOption[], string, never>;
     explanation: string;
@@ -64,6 +66,8 @@ export interface TrainerTables {
     id: string;
     topic_code: string;
     format: TrainerBankQuestion["format"];
+    /** The context: the situation shown before the question; null when it has none. */
+    context: string | null;
     text: string;
     /** jsonb written as JSON text; option order is the order of the Bank file. */
     options: ColumnType<TrainerBankOption[], string, string>;

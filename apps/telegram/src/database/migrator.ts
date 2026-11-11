@@ -61,8 +61,10 @@ import { trainerRoundCompletionMigration } from "./migrations/050-trainer-round-
 import { trainerRatingProfilesMigration } from "./migrations/051-trainer-rating-profiles.js";
 import { trainerQuestionReactionsMigration } from "./migrations/052-trainer-question-reactions.js";
 import { trainerQuestionVersionsMigration } from "./migrations/053-trainer-question-versions.js";
+import { trainerQuestionContextMigration } from "./migrations/054-trainer-question-context.js";
 
 const migrations = {
+  "054-trainer-question-context": trainerQuestionContextMigration,
   "053-trainer-question-versions": trainerQuestionVersionsMigration,
   "052-trainer-question-reactions": trainerQuestionReactionsMigration,
   "051-trainer-rating-profiles": trainerRatingProfilesMigration,

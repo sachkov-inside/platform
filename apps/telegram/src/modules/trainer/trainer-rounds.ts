@@ -3,14 +3,24 @@ import { sql } from "kysely";
 import type { Database } from "../../database/database.js";
 import {
   trainerAnswerExplanation,
+  trainerLongestExplanationLength,
   type TrainerBankOption,
 } from "./trainer-bank-file.js";
 import { trainerCodeFormat } from "./trainer-identifiers.js";
-import { DAY_SECONDS } from "./trainer-days.js";
+import { DAY_SECONDS, moscowDay } from "./trainer-days.js";
 import { trainerCompletedAnswers } from "./trainer-completed-answers.js";
 import { earnsTrainerPoint } from "./trainer-points.js";
 import type { TrainerRoundMode } from "./trainer-storage.js";
-import type { OptionMask, RoundMarks } from "./widget/trainer-widget-wire.js";
+import {
+  TRAINER_FIRST_WIDGET_EXPLANATION_MAX_CHARS,
+  TRAINER_FIRST_WIDGET_OPTIONS_TOTAL_MAX_CHARS,
+  TRAINER_FIRST_WIDGET_QUESTION_MAX_CHARS,
+} from "./widget/trainer-widget-limits.js";
+import {
+  trainerTextLength,
+  type OptionMask,
+  type RoundMarks,
+} from "./widget/trainer-widget-wire.js";
 
 /** A question the person answered correctly does not come back for this many days. */
 const CORRECT_ANSWER_REST_DAYS = 30;
@@ -58,9 +68,16 @@ export interface TrainerIssuedQuestion {
   readonly issueId: string;
   readonly questionId: string;
   readonly topicName: string;
+  /** The situation the person reads on its own screen before the question; null: none. */
+  readonly context: string | null;
   readonly text: string;
   readonly options: readonly string[];
   readonly severalCorrect: boolean;
+  /**
+   * A widget message sent before contexts and explanation parts can show the question and
+   * every explanation of it.
+   */
+  readonly fitsFirstWidget: boolean;
 }
 
 /** Every step of the round is answered. */
@@ -174,12 +191,13 @@ export class TrainerRounds {
    * Records the person's answer to an issued question, once. `undefined` rejects the request:
    * the issue is not this person's, was not shown yet, or the picked options do not fit the
    * question. An issue that already has an answer keeps it: the outcome is the stored answer,
-   * whatever this request picked.
+   * whatever this request picked. Without `pickedMask` nothing is recorded: the outcome is the
+   * stored answer, and `undefined` when there is none.
    */
   async answer(
     person: TrainerPerson,
     issueId: string,
-    pickedMask: OptionMask,
+    pickedMask: OptionMask | undefined,
     at: Date,
   ): Promise<TrainerAnswerOutcome | undefined> {
     return this.database.transaction().execute(async (database) => {
@@ -207,7 +225,10 @@ export class TrainerRounds {
       )
         return undefined;
       if (issue.answered_at === null) {
-        if (!fits(pickedMask, issue.option_count, issue.correct_mask))
+        if (
+          pickedMask === undefined ||
+          !fits(pickedMask, issue.option_count, issue.correct_mask)
+        )
           return undefined;
         // The guard on `answered_at` keeps the first answer when two runs meet here.
         await database
@@ -325,6 +346,88 @@ export class TrainerRounds {
       return last && showRoundStep(database, last.round_id, at);
     });
   }
+
+  /** The stored answer to an issue; `undefined` when the person has not answered it. */
+  storedAnswer(
+    person: TrainerPerson,
+    issueId: string,
+    at: Date,
+  ): Promise<TrainerAnswerOutcome | undefined> {
+    return this.answer(person, issueId, undefined, at);
+  }
+
+  /**
+   * The round of a shown issue. A round of «Проверить себя» or of a topic comes with the step
+   * it is on: the same question again while it waits for its answer. A Daily question comes
+   * with `today`, false for the question of an earlier day: its own mode shows it.
+   * `undefined`: the issue is not this person's or was not shown.
+   */
+  async shown(
+    person: TrainerPerson,
+    issueId: string,
+    at: Date,
+  ): Promise<
+    | { readonly mode: "daily"; readonly today: boolean }
+    | {
+        readonly mode: Exclude<TrainerRoundMode, "daily">;
+        readonly step:
+          | TrainerIssuedQuestion
+          | TrainerRoundResult
+          | TrainerQuestionVersionUnavailable;
+      }
+    | undefined
+  > {
+    return this.database.transaction().execute(async (database) => {
+      const issue = await issueOf(database, person, issueId);
+      if (!issue) return undefined;
+      if (issue.mode === "daily")
+        return { mode: issue.mode, today: issue.daily_day === moscowDay(at) };
+      return {
+        mode: issue.mode,
+        step: await showRoundStep(database, issue.round_id, at),
+      };
+    });
+  }
+
+  /** The context of a shown issue's question; `undefined` when it has none or is not shown. */
+  async contextOf(
+    person: TrainerPerson,
+    issueId: string,
+  ): Promise<string | undefined> {
+    const issue = await issueOf(this.database, person, issueId);
+    return issue?.context ?? undefined;
+  }
+}
+
+/** A shown issue of this person with the context of the revision it was shown in. */
+async function issueOf(
+  database: Database,
+  person: TrainerPerson,
+  issueId: string,
+) {
+  const id = issueNumber(issueId);
+  if (id === undefined) return undefined;
+  return database
+    .selectFrom("trainer_issues as issue")
+    .innerJoin("trainer_rounds as round", "round.id", "issue.round_id")
+    .leftJoin("trainer_question_versions as version", (join) =>
+      join
+        .onRef("version.question_id", "=", "issue.question_id")
+        .onRef("version.content_revision", "=", "issue.content_revision"),
+    )
+    .select([
+      "issue.round_id",
+      "round.mode",
+      sql<string | null>`to_char(round.daily_day, 'YYYY-MM-DD')`.as(
+        "daily_day",
+      ),
+      "version.context",
+    ])
+    .where("issue.id", "=", id)
+    .where("issue.bot_identity", "=", person.botIdentity)
+    .where("issue.telegram_user_id", "=", person.telegramUserId)
+    .where("issue.issued_at", "is not", null)
+    .executeTakeFirst();
 }
 
 /**
@@ -451,8 +554,10 @@ export async function showRoundStep(
         .select([
           "issue.id",
           "issue.question_id",
+          "version.context",
           "version.text",
           "version.options",
+          "version.explanation",
           "version.content_revision",
           "topic.name as topic_name",
         ])
@@ -479,10 +584,11 @@ export async function showRoundStep(
   if (
     step.text === null ||
     step.options === null ||
+    step.explanation === null ||
     step.content_revision === null
   )
     return { kind: "version_unavailable" };
-  const { text, options, content_revision: revision } = step;
+  const { text, options, explanation, content_revision: revision } = step;
   const correctMask = correctMaskOf(options);
   // Only a question not yet displayed follows Bank edits. Existing widgets keep their key.
   await database
@@ -503,10 +609,42 @@ export async function showRoundStep(
     issueId: BigInt(step.id).toString(36),
     questionId: step.question_id,
     topicName: step.topic_name,
+    context: step.context,
     text,
     options: options.map((option) => option.text),
     severalCorrect: severalBits(correctMask),
+    fitsFirstWidget: fitsFirstTrainerWidget(
+      { context: step.context, text, options, explanation },
+      severalBits(correctMask),
+    ),
   };
+}
+
+/**
+ * True when a widget message sent before contexts and explanation parts can show the question
+ * and every explanation of it: no context, and texts inside the limits that widget was
+ * measured at.
+ */
+export function fitsFirstTrainerWidget(
+  question: {
+    readonly context: string | null;
+    readonly text: string;
+    readonly options: TrainerBankOption[];
+    readonly explanation: string;
+  },
+  severalCorrect: boolean,
+): boolean {
+  return (
+    question.context === null &&
+    trainerTextLength(question.text) <=
+      TRAINER_FIRST_WIDGET_QUESTION_MAX_CHARS &&
+    question.options.reduce(
+      (sum, option) => sum + trainerTextLength(option.text),
+      0,
+    ) <= TRAINER_FIRST_WIDGET_OPTIONS_TOTAL_MAX_CHARS &&
+    trainerLongestExplanationLength(question, severalCorrect) <=
+      TRAINER_FIRST_WIDGET_EXPLANATION_MAX_CHARS
+  );
 }
 
 /** Completion is immutable; a repeated request cannot move its credit to another day. */

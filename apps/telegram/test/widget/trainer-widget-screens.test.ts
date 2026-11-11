@@ -4,8 +4,11 @@ import { z } from "zod";
 
 import {
   TELEGRAM_WIDGET_MAX_HEIGHT_PX,
+  TRAINER_CONTEXT_MAX_CHARS,
   TRAINER_EXPLANATION_MAX_CHARS,
-  TRAINER_OPTIONS_TOTAL_MAX_CHARS,
+  TRAINER_FIRST_WIDGET_EXPLANATION_MAX_CHARS,
+  TRAINER_FIRST_WIDGET_OPTIONS_TOTAL_MAX_CHARS,
+  TRAINER_FIRST_WIDGET_QUESTION_MAX_CHARS,
   TRAINER_QUESTION_MAX_CHARS,
   TRAINER_RATING_NAME_MAX_CHARS,
   TRAINER_RATING_ROWS_MAX,
@@ -24,6 +27,7 @@ import {
   type TrainerWidgetData,
   encodeTrainerWidgetData,
   parseTrainerWidgetRequest,
+  trainerExplanationParts,
 } from "../../src/modules/trainer/widget/trainer-widget-wire.js";
 import {
   type WidgetPageOptions,
@@ -53,16 +57,30 @@ function topics(text: Filler): TrainerWidgetData {
     ]),
   ];
 }
-/** The tallest question: the longest texts, four options and the «Ответить» button. */
-function question(text: Filler, reviewMask?: number): TrainerQuestionData {
-  const options = splitLength(TRAINER_OPTIONS_TOTAL_MAX_CHARS, 4).map(
-    (length, index) => text(length, index),
+/**
+ * The tallest question one answer of 1 024 bytes carries: four options and the «Ответить»
+ * button. Ordinary text takes the longest question text with the options that still fit the
+ * answer beside it. Text of the widest letters alone is not real text: it is checked at the
+ * lengths a widget was first measured at, which it fits letter by letter.
+ */
+function question(
+  text: Filler,
+  reviewMask?: number,
+  lengths: readonly [question: number, options: number] = text === realisticText
+    ? [TRAINER_QUESTION_MAX_CHARS, 235]
+    : [
+        TRAINER_FIRST_WIDGET_QUESTION_MAX_CHARS,
+        TRAINER_FIRST_WIDGET_OPTIONS_TOTAL_MAX_CHARS,
+      ],
+): TrainerQuestionData {
+  const options = splitLength(lengths[1], 4).map((length, index) =>
+    text(length, index),
   );
   const data = [
     "q",
     "1a2b3c",
     text(TRAINER_TOPIC_NAME_MAX_CHARS),
-    text(TRAINER_QUESTION_MAX_CHARS),
+    text(lengths[0]),
     options,
     1,
     "1010",
@@ -70,7 +88,10 @@ function question(text: Filler, reviewMask?: number): TrainerQuestionData {
   ] as const;
   return reviewMask === undefined ? data : [...data, reviewMask];
 }
-/** Inline feedback keeps the longest question, all four options, explanation and statistics. */
+/**
+ * Inline feedback keeps the longest question, all four options, explanation and statistics.
+ * The explanation is one part: the longest one a single answer carried before parts.
+ */
 function explanation(
   text: Filler,
   correctMask = 0b0011,
@@ -81,7 +102,7 @@ function explanation(
     0,
     correctMask,
     pickedMask,
-    text(TRAINER_EXPLANATION_MAX_CHARS, 2),
+    text(TRAINER_FIRST_WIDGET_EXPLANATION_MAX_CHARS, 2),
     "10100",
     10,
     text(TRAINER_STAT_LINE_MAX_CHARS, 3),
@@ -240,8 +261,12 @@ const buttonNamed = (page: Page, name: string) =>
     ),
   });
 
+/** What the widget asked the bot, without the mark every request starts with. */
 const requests = async (page: Page): Promise<string[]> =>
-  z.array(z.string()).parse(await page.evaluate("widgetRequests"));
+  z
+    .array(z.string().startsWith("2"))
+    .parse(await page.evaluate("widgetRequests"))
+    .map((request) => request.slice(1));
 
 async function reach(page: Page, route: Route, text: Filler): Promise<void> {
   for (const [button, answer] of route.steps(text))
@@ -549,14 +574,12 @@ describe("trainer widget screens in a browser", () => {
     await queueAnswer(page, encodeTrainerWidgetData(["t", rows, 0, 4]));
     await page.locator("button[onclick=\"g('t:0')\"]").click();
     await page.waitForFunction(
-      "widgetRequests.at(-1) === 't:0' && document.querySelector('#w').className === ''",
+      "widgetRequests.at(-1) === '2t:0' && document.querySelector('#w').className === ''",
     );
     expect((await requests(page)).at(-1)).toBe("t:0");
     await queueAnswer(page, encodeTrainerWidgetData(home));
     await page.locator(".x").click();
-    await page.waitForFunction(
-      "document.querySelector('#w').dataset.screen === 'h'",
-    );
+    await page.waitForFunction("document.querySelector('#w .U.a') !== null");
     await tap(page, "Прогресс", ["p", 0, 0, 0, [["Тема 1", 0, 1, -1]], 0, 4]);
     await tap(page, "→", ["p", 0, 0, 0, [["Тема 4", 0, 1, -1]], 1, 4]);
     expect((await requests(page)).at(-1)).toBe("p:1");
@@ -877,7 +900,7 @@ describe("trainer widget screens in a browser", () => {
         2,
         1,
         1,
-        text(TRAINER_EXPLANATION_MAX_CHARS, 2),
+        text(TRAINER_FIRST_WIDGET_EXPLANATION_MAX_CHARS, 2),
         "1",
         5,
         wideText(TRAINER_STAT_LINE_MAX_CHARS, 3),
@@ -902,7 +925,7 @@ describe("trainer widget screens in a browser", () => {
         0,
         3,
         1,
-        emojiText(TRAINER_EXPLANATION_MAX_CHARS),
+        emojiText(TRAINER_FIRST_WIDGET_EXPLANATION_MAX_CHARS),
         "10100",
         10,
         wideText(TRAINER_STAT_LINE_MAX_CHARS, 3),
@@ -1253,6 +1276,270 @@ describe("trainer widget screens in a browser", () => {
     expect(sent.map((data) => parseTrainerWidgetRequest(data))).not.toContain(
       undefined,
     );
+  });
+
+  describe("a question with a context", () => {
+    const context = realisticText(TRAINER_CONTEXT_MAX_CHARS);
+    /** A question with several correct options whose condition is the context. */
+    const asked: TrainerQuestionData = [
+      "q",
+      "7k",
+      "Синтетическая тема",
+      "Синтетический вопрос?",
+      ["Первый", "Второй", "Третий"],
+      1,
+      "",
+      5,
+      null,
+      0,
+      1,
+    ];
+
+    it.each(TRAINER_WIDGET_CHECKED_WIDTHS_PX)(
+      "shows a context at its limit on its own screen in a %i px bubble, in text of 13 px or more",
+      async (width) => {
+        const page = await openWidget(width);
+        await tap(page, "Проверить себя", ["c", "7k", context]);
+
+        const measured = await layout(page);
+        expect(await page.locator("#w").innerText()).toContain(context);
+        expect(await page.getByRole("button").allInnerTexts()).toEqual([
+          "К вопросу",
+        ]);
+        expect(measured.overflowing).toEqual([]);
+        expect(measured.fontSize).toBeGreaterThanOrEqual(13);
+        expect(measured.height).toBeLessThanOrEqual(
+          TRAINER_WIDGET_TARGET_HEIGHT_PX,
+        );
+        await page.close();
+      },
+    );
+
+    it("asks for the question after the context and for the context again from the question", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", ["c", "7k", context]);
+
+      await tap(page, "К вопросу", asked);
+      expect(await page.locator("#w").innerText()).toContain(
+        "Синтетический вопрос?",
+      );
+      // The way back to the context is a button of the full touch size.
+      expect(
+        (await buttonNamed(page, "Условие").boundingBox())?.height,
+      ).toBeGreaterThanOrEqual(44);
+      await tap(page, "Условие", ["c", "7k", context]);
+
+      expect(await page.locator("#w").innerText()).toContain(context);
+      expect(await requests(page)).toEqual(["q", "o7k", "c7k"]);
+      expect(
+        (await requests(page)).map((data) => parseTrainerWidgetRequest(data)),
+      ).not.toContain(undefined);
+      await page.close();
+    });
+
+    it("keeps the picked options while the person reads the context again", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", ["c", "7k", context]);
+      await tap(page, "К вопросу", asked);
+      await buttonNamed(page, "Б ").click();
+
+      await tap(page, "Условие", ["c", "7k", context]);
+      await tap(page, "К вопросу", asked);
+
+      expect(
+        await page
+          .locator(".op.S")
+          .evaluateAll((picked) => picked.map((option) => option.textContent)),
+      ).toEqual(["БВторой"]);
+      await tap(page, "Ответить", ["e", 0, 1, 2, "Разбор.", "0", 5, 0]);
+      expect((await requests(page)).at(-1)).toBe("a7k:2");
+      await page.close();
+    });
+
+    it("shows the stored pick of a reviewed Daily question after its context is read again", async () => {
+      const page = await openWidget(320);
+      // The person answered «Б» earlier; the review carries that pick.
+      const review: TrainerQuestionData = [
+        "q",
+        "7k",
+        "Синтетическая тема",
+        "Синтетический вопрос?",
+        ["Первый", "Второй", "Третий"],
+        0,
+        "",
+        1,
+        0b010,
+        1,
+        1,
+      ];
+      const pickedOptions = () =>
+        page
+          .locator(".op.S")
+          .evaluateAll((picked) => picked.map((option) => option.textContent));
+      await tap(page, "Вопрос дня", ["c", "7k", context]);
+      await tap(page, "К вопросу", review);
+      expect(await pickedOptions()).toEqual(["БВторой"]);
+
+      await tap(page, "Условие", ["c", "7k", context]);
+      await tap(page, "К вопросу", review);
+
+      expect(await pickedOptions()).toEqual(["БВторой"]);
+      expect(await page.locator("#w").innerText()).toContain("Ответ сохранён");
+      await page.close();
+    });
+
+    it("offers no context for a question without one", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", question(realisticText));
+
+      await expect(buttonNamed(page, "Условие").count()).resolves.toBe(0);
+      await page.close();
+    });
+
+    it("keeps the option geometry of a question with a context after the answer", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", ["c", "7k", context]);
+      await tap(page, "К вопросу", asked);
+      const before = await questionGeometry(page);
+
+      await tap(page, "Не знаю", ["e", 3, 1, 0, "Разбор.", "0", 5, 0]);
+
+      expect(await questionGeometry(page)).toEqual(before);
+      // The context stays one tap away after the answer.
+      await expect(buttonNamed(page, "Условие").count()).resolves.toBe(1);
+      await page.close();
+    });
+
+    it.each([
+      [320, 30, 400],
+      [320, 100, 330],
+      [320, 0, 400],
+      [390, 30, 400],
+      [390, 100, 330],
+    ] as const)(
+      "fits a question of the new limits in a %i px bubble: text %i, options %i characters",
+      async (width, textLength, optionsLength) => {
+        const page = await openWidget(width);
+        const [screen, issueId, topic, text, options, several, marks, total] =
+          question(realisticText, undefined, [textLength, optionsLength]);
+        await tap(page, "Проверить себя", [
+          screen,
+          issueId,
+          topic,
+          text,
+          options,
+          several,
+          marks,
+          total,
+          null,
+          0,
+          1,
+        ]);
+
+        const measured = await layout(page);
+        expect(measured.overflowing).toEqual([]);
+        expect(measured.fontSize).toBeGreaterThanOrEqual(12);
+        expect(measured.height).toBeLessThanOrEqual(
+          TRAINER_WIDGET_TARGET_HEIGHT_PX,
+        );
+        await tap(page, "Не знаю", explanation(realisticText));
+        expect((await layout(page)).height).toBeLessThanOrEqual(
+          TRAINER_WIDGET_TARGET_HEIGHT_PX,
+        );
+        await page.close();
+      },
+    );
+  });
+
+  describe("an explanation in parts", () => {
+    const parts = trainerExplanationParts(
+      realisticText(TRAINER_EXPLANATION_MAX_CHARS),
+    );
+    const part = (index: number): TrainerExplanationData => [
+      "e",
+      0,
+      0b0011,
+      0b1100,
+      parts[index] ?? "",
+      "10100",
+      10,
+      index === parts.length - 1 ? "Верно ответили 50% из 2 человек" : 0,
+      0,
+      index,
+      parts.length,
+    ];
+    /** Turns the pages of the shown part to its end; the texts it showed, in order. */
+    async function readToTheEnd(page: Page): Promise<string> {
+      let text = "";
+      for (let turn = 0; turn < 40; turn += 1) {
+        text += (await page.locator(".fb .W").textContent()) ?? "";
+        const sent = (await requests(page)).length;
+        const next = buttonNamed(page, "→");
+        if (await next.isDisabled()) return text;
+        await next.click();
+        // The last page of a part asks the bot for the next part instead of turning.
+        if ((await requests(page)).length > sent) return text;
+      }
+      throw new Error("The explanation did not end in 40 pages");
+    }
+
+    it("is two parts at the limit of the explanation", () => {
+      expect(parts).toHaveLength(2);
+    });
+
+    it("turns the pages of a part, then asks the bot for the next part and shows it to its end", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", question(realisticText));
+      await tap(page, "Не знаю", part(0));
+      await queueAnswer(page, encodeTrainerWidgetData(part(1)));
+
+      const first = await readToTheEnd(page);
+      await page.waitForFunction(
+        `document.querySelector("#w").className === ""`,
+      );
+      const second = await readToTheEnd(page);
+
+      expect(first).toBe(parts[0]);
+      expect(second).toBe(`${parts[1] ?? ""} Верно ответили 50% из 2 человек`);
+      expect((await requests(page)).slice(-1)).toEqual(["m1a2b3c:1"]);
+      expect(
+        parseTrainerWidgetRequest((await requests(page)).at(-1) ?? ""),
+      ).toEqual({ kind: "explanation_part", issueId: "1a2b3c", part: 1 });
+      expect((await layout(page)).height).toBeLessThanOrEqual(
+        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+      );
+      await page.close();
+    });
+
+    it("returns from the first page of a part to the part before it", async () => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", question(realisticText));
+      await tap(page, "Не знаю", part(1));
+
+      await tap(page, "←", part(0));
+
+      expect((await requests(page)).at(-1)).toBe("m1a2b3c:0");
+      expect(await page.locator(".fb .W").textContent()).toBe(
+        (parts[0] ?? "").slice(
+          0,
+          (await page.locator(".fb .W").textContent())?.length,
+        ),
+      );
+      // The first page of the first part has nothing before it.
+      await expect(buttonNamed(page, "←").isDisabled()).resolves.toBe(true);
+      await page.close();
+    });
+  });
+
+  it("marks every request with the generation of the widget", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Прогресс", progress(realisticText));
+    await tap(page, "←", home);
+
+    expect(
+      z.array(z.string()).parse(await page.evaluate("widgetRequests")),
+    ).toEqual(["2p", "2h"]);
+    await page.close();
   });
 
   describe("in «Тренировка по теме»", () => {

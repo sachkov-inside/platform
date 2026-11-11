@@ -23,6 +23,7 @@ import { TrainerReactions } from "./trainer-reactions.js";
 import type { TrainerOpening, TrainerQuery } from "./trainer-requests.js";
 import {
   TrainerRounds,
+  type TrainerAnswerOutcome,
   type TrainerIssuedQuestion,
   type TrainerNothingToAsk,
   type TrainerRoundResult,
@@ -38,7 +39,9 @@ import { TrainerTopics, topicsScreen } from "./trainer-topics.js";
 import { TRAINER_WIDGET_HTML } from "./widget/trainer-widget-html.generated.js";
 import {
   encodeTrainerWidgetData,
+  isFirstTrainerWidget,
   parseTrainerWidgetRequest,
+  type OptionMask,
   type TrainerHomeData,
   type TrainerWidgetData,
   type TrainerWidgetRequest,
@@ -61,6 +64,17 @@ const DAILY_WITHDRAWN_TEXT =
   "Сегодняшний Вопрос дня снят. Новый появится завтра.";
 const ALL_ANSWERED_TEXT =
   "Вы верно ответили на все вопросы. Они вернутся через 30 дней после ответа.";
+/** A widget message sent before contexts and explanation parts cannot show the question. */
+const WIDGET_UPDATED_TEXT =
+  "Тренажёр обновился. Отправьте /train, чтобы открыть новую версию.";
+
+/** How a question is shown to the widget that asked for it. */
+interface TrainerView {
+  /** The widget message was sent before contexts and explanation parts. */
+  readonly firstWidget: boolean;
+  /** The person has read the context and asks for the question itself. */
+  readonly contextRead: boolean;
+}
 
 /**
  * The Trainer of the private chat. It acts only inside a person's own request: `open` sends
@@ -148,7 +162,12 @@ export class Trainer {
     await this.rating.observe(query.contact);
     await this.reply(
       query.queryId,
-      request ? await this.respond(query.contact, request) : ["x"],
+      request
+        ? await this.respond(query.contact, request, {
+            firstWidget: isFirstTrainerWidget(query.data),
+            contextRead: request.kind === "question",
+          })
+        : ["x"],
     );
   }
 
@@ -164,6 +183,7 @@ export class Trainer {
   private async respond(
     contact: VerifiedPrivateStart,
     request: TrainerWidgetRequest,
+    view: TrainerView,
   ): Promise<TrainerWidgetData> {
     // One case per request and no shared branches: each mode replaces its own lines.
     switch (request.kind) {
@@ -178,6 +198,7 @@ export class Trainer {
             updateId: contact.updateId,
             at: contact.observedAt,
           }),
+          view,
         );
       case "answer": {
         const outcome = await this.rounds.answer(
@@ -186,13 +207,52 @@ export class Trainer {
           request.optionMask,
           contact.observedAt,
         );
-        return outcome
-          ? explanationScreen(
-              outcome,
-              await this.daily.statLine(outcome),
-              await this.reactions.of(contact, outcome.questionId),
-            )
-          : ["x", ISSUE_CLOSED_TEXT];
+        return this.explanation(contact, outcome, 0);
+      }
+      case "explanation_part":
+        // The request records nothing: it reads the stored answer.
+        return this.explanation(
+          contact,
+          await this.rounds.storedAnswer(
+            contact,
+            request.issueId,
+            contact.observedAt,
+          ),
+          request.part,
+        );
+      case "question": {
+        const shown = await this.rounds.shown(
+          contact,
+          request.issueId,
+          contact.observedAt,
+        );
+        if (!shown) return ["x", ISSUE_CLOSED_TEXT];
+        if (shown.mode === "daily") {
+          // Today's Daily question is shown for review once answered; its mode knows that.
+          if (shown.today) return this.dailyQuestion(contact, view);
+        } else if (
+          shown.step.kind === "question" &&
+          shown.step.issueId === request.issueId
+        )
+          return this.step(contact, shown.step, view);
+        // The round has moved on, or the Daily question is of an earlier day. An answered
+        // issue shows its explanation. An issue without an answer left the Bank while the
+        // person read its context: the round goes on, the context of the next question first.
+        const answer = await this.rounds.storedAnswer(
+          contact,
+          request.issueId,
+          contact.observedAt,
+        );
+        if (answer) return this.explanation(contact, answer, 0);
+        return shown.mode === "daily"
+          ? ["x", ISSUE_CLOSED_TEXT]
+          : this.step(contact, shown.step, { ...view, contextRead: false });
+      }
+      case "context": {
+        const context = await this.rounds.contextOf(contact, request.issueId);
+        return context === undefined
+          ? ["x", ISSUE_CLOSED_TEXT]
+          : ["c", request.issueId, context];
       }
       case "next": {
         const step = await this.rounds.next(
@@ -200,18 +260,10 @@ export class Trainer {
           contact.observedAt,
           request.issueId,
         );
-        return step ? this.step(contact, step) : this.home(contact);
+        return step ? this.step(contact, step, view) : this.home(contact);
       }
-      case "start_daily": {
-        const step = await this.daily.open(contact, {
-          updateId: contact.updateId,
-          at: contact.observedAt,
-        });
-        if (step.kind === "review")
-          return questionScreen(step.question, step.pickedMask);
-        if (step.kind === "withdrawn") return ["i", DAILY_WITHDRAWN_TEXT];
-        return this.step(contact, step);
-      }
+      case "start_daily":
+        return this.dailyQuestion(contact, view);
       case "topics":
         return topicsScreen(await this.topics.list(contact), request.page);
       case "start_topic": {
@@ -229,6 +281,7 @@ export class Trainer {
             updateId: contact.updateId,
             at: contact.observedAt,
           }),
+          view,
         );
       }
       case "progress":
@@ -253,6 +306,55 @@ export class Trainer {
     }
   }
 
+  /** Today's Daily question: to answer, or to review when the person has answered it. */
+  private async dailyQuestion(
+    contact: VerifiedPrivateStart,
+    view: TrainerView,
+  ): Promise<TrainerWidgetData> {
+    const step = await this.daily.open(contact, {
+      updateId: contact.updateId,
+      at: contact.observedAt,
+    });
+    if (step.kind === "review")
+      return this.question(step.question, view, step.pickedMask);
+    if (step.kind === "withdrawn") return ["i", DAILY_WITHDRAWN_TEXT];
+    return this.step(contact, step, view);
+  }
+
+  /**
+   * A question as its widget can show it: the context first, the question once the person has
+   * read it. A widget message sent before contexts gets a request to open the Trainer again
+   * when the question does not fit it.
+   */
+  private question(
+    question: TrainerIssuedQuestion,
+    view: TrainerView,
+    reviewMask?: OptionMask,
+  ): TrainerWidgetData {
+    if (view.firstWidget && !question.fitsFirstWidget)
+      return ["i", WIDGET_UPDATED_TEXT];
+    return question.context !== null && !view.contextRead
+      ? ["c", question.issueId, question.context]
+      : questionScreen(question, reviewMask);
+  }
+
+  /** One part of the explanation of a stored answer; a refusal when there is none. */
+  private async explanation(
+    contact: VerifiedPrivateStart,
+    outcome: TrainerAnswerOutcome | undefined,
+    part: number,
+  ): Promise<TrainerWidgetData> {
+    return (
+      (outcome &&
+        explanationScreen(
+          outcome,
+          await this.daily.statLine(outcome),
+          await this.reactions.of(contact, outcome.questionId),
+          part,
+        )) ?? ["x", ISSUE_CLOSED_TEXT]
+    );
+  }
+
   /** The screen of a round step: a question, the result, or why there is nothing to ask. */
   private async step(
     contact: VerifiedPrivateStart,
@@ -261,6 +363,7 @@ export class Trainer {
       | TrainerRoundResult
       | TrainerNothingToAsk
       | TrainerQuestionVersionUnavailable,
+    view: TrainerView,
   ): Promise<TrainerWidgetData> {
     switch (step.kind) {
       case "version_unavailable":
@@ -269,7 +372,7 @@ export class Trainer {
           "Прежняя редакция вопроса недоступна. Ответы и очки сохранены.",
         ];
       case "question":
-        return questionScreen(step);
+        return this.question(step, view);
       case "result": {
         // The result of a topic round is titled with the topic's name from the Bank.
         const { topicCode } = step.round;

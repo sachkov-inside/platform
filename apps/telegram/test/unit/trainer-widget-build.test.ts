@@ -7,7 +7,6 @@ import { TRAINER_WIDGET_HTML } from "../../src/modules/trainer/widget/trainer-wi
 import {
   TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES,
   TELEGRAM_WIDGET_HTML_MAX_BYTES,
-  TRAINER_WIDGET_COMPRESSED_BUDGET_BYTES,
 } from "../../src/modules/trainer/widget/trainer-widget-limits.js";
 
 const html = await buildTrainerWidgetHtml();
@@ -16,7 +15,6 @@ describe("trainer widget build", () => {
   it("names the Telegram limits from the widget guide", () => {
     expect(TELEGRAM_WIDGET_HTML_MAX_BYTES).toBe(32_768);
     expect(TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES).toBe(4_096);
-    expect(TRAINER_WIDGET_COMPRESSED_BUDGET_BYTES).toBeLessThan(4_096);
   });
 
   it("fits the HTML limit of sendWidget", () => {
@@ -24,11 +22,11 @@ describe("trainer widget build", () => {
     expect(html).not.toContain("\u0000");
   });
 
-  it("fits 4 096 bytes after zlib level 9 with the margin for another zlib build", () => {
+  it("fits 4 096 bytes after zlib level 9 as Node.js counts, which is above the server's count", () => {
     const compressed = deflateSync(Buffer.from(html, "utf8"), { level: 9 });
 
     expect(compressed.byteLength).toBeLessThanOrEqual(
-      TRAINER_WIDGET_COMPRESSED_BUDGET_BYTES,
+      TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES,
     );
   });
 

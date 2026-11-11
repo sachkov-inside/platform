@@ -258,6 +258,11 @@ caption, keep question options stable, and verify compact height and topic pagin
 once. The widget browser suite also runs in root
 `pnpm check:ui`; Telegram-only `check:full` installs no browser.
 
+`pnpm --filter @inside/telegram trainer:widget:fit <Bank file>` draws every question of a Bank file
+in the built widget at 320 and 390 px and reports, by question identifier and in numbers only,
+whether its context, question and longest explanation fit; the
+[Bank file contract](docs/integrations/trainer-bank-v1.md) describes the output.
+
 For an interactive local review of the actual widget and Trainer with a disposable synthetic Bank,
 run `pnpm --filter @inside/telegram trainer:review`. See the
 [acceptance guide](docs/operations/trainer-acceptance.md) for the walkthrough and remaining phone checks.

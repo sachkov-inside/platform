@@ -123,7 +123,7 @@ describe("Bank import", () => {
     [
       "a text over the length limit",
       (file: ReturnType<typeof syntheticTrainerBank>) => {
-        if (file.questions[1]) file.questions[1].text = "я".repeat(161);
+        if (file.questions[1]) file.questions[1].text = "я".repeat(201);
       },
     ],
     [
@@ -138,14 +138,9 @@ describe("Bank import", () => {
       },
     ],
     [
-      "explanation data over 1 024 bytes",
+      "context data over 1 024 bytes",
       (file: ReturnType<typeof syntheticTrainerBank>) => {
-        const question = file.questions[1];
-        if (!question) return;
-        question.explanation = "\u0007".repeat(100);
-        question.options.forEach((option) => {
-          option.explanation = "\u0007".repeat(99);
-        });
+        if (file.questions[1]) file.questions[1].context = "€".repeat(400);
       },
     ],
   ])(
@@ -349,7 +344,7 @@ describe("Bank import command", () => {
 
   it("reports the question and the reason of a rejected file with exit code 2 and writes nothing", async () => {
     const file = syntheticTrainerBank({ topics: 1, questionsPerTopic: 2 });
-    if (file.questions[1]) file.questions[1].text = "я".repeat(161);
+    if (file.questions[1]) file.questions[1].text = "я".repeat(201);
 
     const result = await run("--apply", JSON.stringify(file));
 
@@ -360,7 +355,7 @@ describe("Bank import command", () => {
         {
           question: "q-t1-2",
           field: "text",
-          reason: "Текст вопроса: знаков 161, лимит 160.",
+          reason: "Текст вопроса: знаков 201, лимит 200.",
         },
       ],
     });

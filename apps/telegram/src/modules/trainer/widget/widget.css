@@ -8,8 +8,8 @@
  * Mute with colour, never with opacity: at most 16 elements may have opacity below 1.
  */
 
-/* Colours: --a accent, --d its darker border, --f text on the accent, --t accent tint,
-   --l lines, --s card surface, --h hint text, --p paper, --v ink, --j shadow,
+/* Colours: --a accent, --d its darker border and every shadow, --t accent tint, --l lines,
+   --s card surface, --h hint text, --p paper and the text on the accent, --v ink,
    --c the state colour of an element. */
 body {
   margin: 0;
@@ -22,13 +22,11 @@ body {
     var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom));
   --a: #c7461e;
   --d: #8b3115;
-  --f: #fff7ed;
   --t: #ffdfbd;
   --s: #ffefdc;
   --h: #80513b;
   --p: #fff8ef;
   --v: #472719;
-  --j: #8b3115;
   background: var(--p);
   color: var(--v);
 }
@@ -99,7 +97,7 @@ button {
   border: 2px solid var(--v);
   border-radius: 8px;
   background: var(--s);
-  box-shadow: 4px 4px 0 var(--j);
+  box-shadow: 4px 4px 0 var(--d);
   padding: 7px 10px;
   min-height: 44px;
 }
@@ -115,11 +113,6 @@ button {
 .cd .mu {
   display: block;
 }
-.ch {
-  color: var(--a);
-  font-weight: 600;
-  font-style: normal;
-}
 .bt {
   flex: 1;
   font-weight: 700;
@@ -128,7 +121,7 @@ button {
 .P {
   background: var(--a);
   border-color: var(--d);
-  color: var(--f);
+  color: var(--p);
 }
 .bt:disabled {
   background: var(--s);
@@ -148,13 +141,19 @@ button {
   font-size: 1.4em;
   font-weight: 800;
 }
+/* Small outlined blocks: the chip, the round button and the figure tile. */
+.ch,
+.x,
+.K {
+  border: 2px solid var(--v);
+  box-shadow: 2px 2px 0 var(--d);
+}
 .ch {
   color: var(--v);
   padding: 4px 7px;
-  border: 2px solid var(--v);
   border-radius: 4px;
-  box-shadow: 2px 2px 0 var(--j);
   background: var(--t);
+  font-weight: 600;
 }
 .T {
   height: 12px;
@@ -179,9 +178,7 @@ button {
   flex: none;
   width: 44px;
   height: 44px;
-  border: 2px solid var(--v);
   border-radius: 6px;
-  box-shadow: 2px 2px 0 var(--j);
   background: var(--s);
   text-align: center;
 }
@@ -196,7 +193,6 @@ button {
 }
 .st .S {
   background: var(--t);
-  border: 2px solid var(--v);
 }
 .n {
   width: 7.8em;
@@ -227,7 +223,7 @@ button {
 .Z .y {
   background: var(--c);
   border-color: var(--c);
-  color: var(--f);
+  color: var(--p);
 }
 .V {
   color: var(--c);
@@ -257,10 +253,8 @@ button {
 .K {
   flex: 1;
   padding: 8px 4px;
-  border: 2px solid var(--v);
   border-radius: 6px;
   background: var(--s);
-  box-shadow: 2px 2px 0 var(--j);
   text-align: center;
 }
 .K b,
@@ -300,7 +294,7 @@ button {
 }
 .tb .O {
   background: var(--a);
-  color: var(--f);
+  color: var(--p);
 }
 .rk {
   min-height: 34px;

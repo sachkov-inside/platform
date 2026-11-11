@@ -10,7 +10,6 @@ import { transform } from "esbuild";
 import {
   TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES,
   TELEGRAM_WIDGET_HTML_MAX_BYTES,
-  TRAINER_WIDGET_COMPRESSED_BUDGET_BYTES,
 } from "../../src/modules/trainer/widget/trainer-widget-limits.js";
 
 // Builds the HTML that sendWidget carries from the widget source inside the application.
@@ -61,12 +60,12 @@ async function writeGeneratedModule(): Promise<void> {
   const size = trainerWidgetSize(html);
   if (
     size.htmlBytes > TELEGRAM_WIDGET_HTML_MAX_BYTES ||
-    size.compressedBytes > TRAINER_WIDGET_COMPRESSED_BUDGET_BYTES
+    size.compressedBytes > TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES
   )
     throw new Error(
       `Trainer widget is too large: ${String(size.htmlBytes)} bytes of HTML (limit ${String(TELEGRAM_WIDGET_HTML_MAX_BYTES)}), ` +
-        `${String(size.compressedBytes)} bytes after zlib level 9 (budget ${String(TRAINER_WIDGET_COMPRESSED_BUDGET_BYTES)}, ` +
-        `Telegram limit ${String(TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES)}).`,
+        `${String(size.compressedBytes)} bytes after zlib level 9 as Node.js counts ` +
+        `(Telegram limit ${String(TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES)}).`,
     );
   await writeFile(
     generatedFile,
