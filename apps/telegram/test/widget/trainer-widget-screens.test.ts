@@ -561,6 +561,34 @@ describe("trainer widget screens in a browser", () => {
     await page.close();
   });
 
+  it("makes no empty page when a cut falls after a space and the next page is one long word", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Проверить себя", [
+      "q",
+      "7k",
+      "Тема",
+      "Вопрос?",
+      ["Первый", "Второй"],
+      0,
+      "",
+      5,
+    ]);
+    // Three pages of 201 characters: the first ends with a space, the second has none.
+    const text = `${"a".repeat(200)} ${"b".repeat(201)}${"c".repeat(198)}`;
+    await tap(page, "А Первый", ["e", 2, 1, 1, text, "1", 5, 0]);
+    const pages: string[] = [];
+    for (let index = 0; index < 30; index += 1) {
+      pages.push((await page.locator(".fb .W").textContent()) ?? "");
+      const next = buttonNamed(page, "→");
+      if ((await next.count()) === 0 || (await next.isDisabled())) break;
+      await next.click();
+    }
+
+    expect(pages).not.toContain("");
+    expect(pages.join("")).toBe(text);
+    await page.close();
+  });
+
   it("keeps a line break of an explanation as text and loses nothing after it", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", [
@@ -1242,6 +1270,29 @@ describe("trainer widget screens in a browser", () => {
 
     await page.getByRole("button", { name: "Повторить" }).waitFor();
   });
+
+  it.each(['{"0":"h"}', '"hello"', "5", "null", "true"])(
+    "shows the retry state for the answer %s, which is JSON and not a screen",
+    async (answer) => {
+      const page = await openWidget(320);
+      await queueAnswer(page, answer);
+
+      await page.getByRole("button", { name: "Проверить себя" }).click();
+
+      await page.getByRole("button", { name: "Повторить" }).waitFor();
+      await page.close();
+    },
+  );
+
+  it.each(['{"0":"h"}', '"hello"', "5", "null"])(
+    "draws an empty home screen for the chat state %s, which is JSON and not a screen",
+    async (chatData) => {
+      const page = await openWidget(320, { chatData });
+
+      expect(await page.locator("#w").innerText()).toContain("Серия: 0 дней");
+      await page.close();
+    },
+  );
 
   it("shows bot text as text, never as markup", async () => {
     const page = await openWidget(320);

@@ -111,7 +111,8 @@
     // The text is cut into as many pages as explanationSize characters a page need, all of
     // one length: no page holds a lone last word. A word that crosses a cut moves to the next
     // page whole, so a page may be longer by that word; a word longer than a page is cut.
-    // The pages are joined by a character no text has, so line breaks stay text.
+    // The pages are joined by a character no text has, so line breaks stay text; a moved
+    // word never takes that character along, which would leave an empty page.
     const text = d[4] + (d[7] ? " " + d[7] : "");
     const parts = (
       text.match(
@@ -125,7 +126,7 @@
       ) || []
     )
       .join("\0")
-      .replace(/(\s)(\S+)\0(?=\S)/g, "$1\0$2")
+      .replace(/(\s)([^\s\0]+)\0(?=\S)/g, "$1\0$2")
       .split("\0");
     // The page that holds the place the person reads, and the characters before it.
     let page = 0;
@@ -351,9 +352,10 @@
   const parse = (text) => {
     try {
       const data = JSON.parse(text);
-      if (Array.isArray(data)) return data;
+      // Only an array has pop: a screen is an array.
+      if (data.pop) return data;
     } catch {
-      // Not JSON: the caller falls back to the empty home screen or the retry state.
+      // Not JSON, or null: the caller falls back to the empty home screen or the retry state.
     }
   };
 

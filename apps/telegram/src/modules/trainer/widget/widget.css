@@ -147,7 +147,6 @@ button {
   padding: 4px 7px;
   border-radius: 4px;
   background: var(--t);
-  font-weight: 600;
 }
 .T {
   height: 12px;
@@ -194,7 +193,8 @@ button {
   padding: 0 8px;
   flex: none;
 }
-.Q {
+.Q,
+.ch {
   font-weight: 600;
 }
 .op {
