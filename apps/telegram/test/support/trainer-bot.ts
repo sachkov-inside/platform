@@ -168,6 +168,8 @@ export async function clearTrainerData(database: Database): Promise<void> {
   await sql`
     truncate table
       trainer_rating_consents,
+      trainer_rating_profiles,
+      trainer_question_reactions,
       trainer_issues,
       trainer_rounds,
       trainer_questions,

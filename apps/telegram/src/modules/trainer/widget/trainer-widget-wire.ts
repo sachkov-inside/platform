@@ -20,6 +20,8 @@ export type OptionMask = number;
 /** One digit per answered step of the round: "1" correct, "0" wrong. */
 export type RoundMarks = string;
 type Flag = 0 | 1;
+/** 0 no reaction, 1 like, 2 dislike. */
+export type TrainerReaction = 0 | 1 | 2;
 
 /** Home. `chat_data` of the message holds this shape. */
 export type TrainerHomeData = readonly [
@@ -74,6 +76,7 @@ export type TrainerExplanationData = readonly [
   marks: RoundMarks,
   total: number,
   stat: string | 0,
+  reaction?: TrainerReaction,
 ];
 /** Round result. `weekPlace` 0: the Rating of the week does not list the person. */
 export type TrainerResultData = readonly [
@@ -103,13 +106,13 @@ export type TrainerProgressData = readonly [
   pages?: number,
 ];
 /**
- * Rating: the first 7 rows and the viewer's own row. `shown` is the viewer's choice: 1 shown,
- * 0 not shown, 2 not chosen yet (the widget offers to be shown; the viewer is not shown).
+ * Rating: the first 7 rows and the viewer's own row. the third slot is retained for old widgets. New responses always send 1;
+ * the current widget ignores this retired preference.
  */
 export type TrainerRatingData = readonly [
   screen: "l",
   allTime: Flag,
-  shown: Flag | 2,
+  legacyShown: Flag | 2,
   rows: readonly (readonly [
     place: number,
     name: string,
@@ -129,6 +132,7 @@ export type TrainerWidgetData =
   | TrainerProgressData
   | TrainerRatingData
   | TrainerFailureData
+  | readonly [screen: "u", issueId: string, reaction: TrainerReaction]
   | readonly [screen: "i", text: string];
 
 export const utf8ByteLength = (text: string): number =>
@@ -189,11 +193,17 @@ export function trainerExplanationDataBytes(question: {
     LONGEST_MARKS,
     LONGEST_ROUND,
     "ж".repeat(TRAINER_STAT_LINE_MAX_CHARS),
+    2,
   ];
   return utf8ByteLength(JSON.stringify(data));
 }
 
 export type TrainerWidgetRequest =
+  | {
+      readonly kind: "reaction";
+      readonly issueId: string;
+      readonly reaction: TrainerReaction;
+    }
   | { readonly kind: "home" }
   | { readonly kind: "start_check" }
   | { readonly kind: "start_daily" }
@@ -201,11 +211,6 @@ export type TrainerWidgetRequest =
   | { readonly kind: "start_topic"; readonly topicCode: string }
   | { readonly kind: "progress"; readonly page?: number }
   | { readonly kind: "rating"; readonly allTime: boolean }
-  | {
-      readonly kind: "set_rating_shown";
-      readonly shown: boolean;
-      readonly allTime: boolean;
-    }
   | { readonly kind: "next"; readonly issueId?: string }
   | {
       readonly kind: "answer";
@@ -225,6 +230,7 @@ const simpleRequests: Readonly<Record<string, TrainerWidgetRequest>> = {
 };
 /** Issue ids and topic codes: 1-16 lowercase Latin letters and digits. */
 const answerRequest = new RegExp(`^a(${TRAINER_CODE_PATTERN}):([0-9]{1,2})$`);
+const reactionRequest = new RegExp(`^f(${TRAINER_CODE_PATTERN}):([012])$`);
 const topicRequest = new RegExp(`^t(${TRAINER_CODE_PATTERN})$`);
 const nextRequest = new RegExp(`^n(${TRAINER_CODE_PATTERN})$`);
 const shownRequest = /^v([01])([01])$/;
@@ -259,10 +265,17 @@ export function parseTrainerWidgetRequest(
   if (topic?.[1] !== undefined)
     return { kind: "start_topic", topicCode: topic[1] };
   const shown = shownRequest.exec(data);
+  const reaction = reactionRequest.exec(data);
+  if (reaction?.[1] !== undefined)
+    return {
+      kind: "reaction",
+      issueId: reaction[1],
+      reaction: reaction[2] === "1" ? 1 : reaction[2] === "2" ? 2 : 0,
+    };
   if (shown)
     return {
-      kind: "set_rating_shown",
-      shown: shown[1] === "1",
+      // Old widgets may send their retired switch; it now only opens the requested table.
+      kind: "rating",
       allTime: shown[2] === "1",
     };
   return undefined;

@@ -376,6 +376,31 @@ async function pressButton(code: string) {
 }
 
 describe("ordinary /start", () => {
+  it.each([false, true])(
+    "offers the public Trainer without checking course membership (linked: %s)",
+    async (linked) => {
+      const user = linked ? (await linkedPerson()).user : ++nextUser;
+      await send(user);
+      const menus = await db
+        .selectFrom("start_response_deliveries")
+        .select("buttons")
+        .where("bot_identity", "=", bot)
+        .where("telegram_user_id", "=", String(user))
+        .execute();
+      expect(
+        menus.some((menu) =>
+          (menu.buttons ?? []).some(
+            (button) =>
+              button.text === "Тренажёр" &&
+              button.callbackData === "trainer:open",
+          ),
+        ),
+      ).toBe(true);
+      expect(begins).toEqual([]);
+      expect(memberLookups).toEqual([]);
+    },
+  );
+
   it("checks nothing, grants nothing and queues nobody, even for a linked course member", async () => {
     const person = await linkedPerson();
     members.add(`${courseChatId}:${person.user}`);

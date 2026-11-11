@@ -244,7 +244,10 @@ export class TelegramUpdateProcessor {
         return;
       case "trainer-open":
         await this.botContacts.observeStart(command.value.contact, "none");
-        return this.trainer.open(command.value);
+        await this.trainer.open(command.value);
+        if (hasText(command.callbackQueryId))
+          await this.callbackAnswers.answer(command.callbackQueryId);
+        return;
       case "trainer-query":
         await this.botContacts.observeStart(command.value.contact, "none");
         return this.trainer.answer(command.value);
@@ -387,8 +390,12 @@ function userRequest(command: TelegramUpdateCommand): UserRequest | undefined {
         callbackQueryId: command.callbackQueryId,
       };
     case "start":
-    case "trainer-open":
       return contactOf(command.value.contact);
+    case "trainer-open":
+      return {
+        ...contactOf(command.value.contact),
+        callbackQueryId: command.callbackQueryId,
+      };
     case "trainer-query":
       return {
         ...contactOf(command.value.contact),

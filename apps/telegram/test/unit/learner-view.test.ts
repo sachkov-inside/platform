@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   productCard,
+  productList,
   type LearnerProduct,
 } from "../../src/modules/course-activation/learner-view.js";
 
@@ -14,6 +15,17 @@ const product: LearnerProduct = {
 };
 
 describe("learner course navigation", () => {
+  it.each([false, true])(
+    "offers the Trainer with or without products (author: %s)",
+    (author) => {
+      for (const items of [[], [product]])
+        expect(productList(items, author).buttons).toContainEqual({
+          text: "Тренажёр",
+          callbackData: "trainer:open",
+        });
+    },
+  );
+
   it("opens course topic navigation for a confirmed member of its group", () => {
     expect(
       productCard(product, { kind: "member" }, "https://t.me/c/4421726276/1")

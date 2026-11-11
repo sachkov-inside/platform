@@ -76,7 +76,11 @@ export type TelegramUpdateCommand =
       readonly intake?: TemplateIntake;
     }
   | { readonly kind: "template-intake"; readonly value: TemplateIntake }
-  | { readonly kind: "trainer-open"; readonly value: TrainerOpening }
+  | {
+      readonly kind: "trainer-open";
+      readonly value: TrainerOpening;
+      readonly callbackQueryId?: string;
+    }
   | { readonly kind: "trainer-query"; readonly value: TrainerQuery };
 
 /** Reads raw Telegram updates; the transport adapter implements it. */

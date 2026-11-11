@@ -143,10 +143,15 @@ nothing.
 _Avoid_: Limit, quota, task, daily question
 
 **Рейтинг** (Rating):
-The two Тренажёр tables of Очки: «Неделя» (Monday to Sunday, Moscow time) and «Всё время». A table
-lists only people who turned the display on themselves, under their Telegram name; the display is
-off by default, and turning it off removes the person from both tables at once.
+The two Тренажёр tables of Очки: «Неделя» (Monday to Sunday, Moscow time) and «Всё время».
+Every participant with at least one point in the period appears automatically under their latest
+known Telegram name. Participation has no switch.
 _Avoid_: Leaderboard, league, tournament, grade, student ranking
+
+**Оценка вопроса** (Question Reaction):
+A person's current like or dislike of a question, available after their answer. The same opinion
+applies across rounds and modes, can be changed or cleared, and does not change learning credit.
+_Avoid_: Answer verdict, points, grade
 
 **Банк вопросов** (Question Bank):
 The author's whole set of Trainer questions and their topics, loaded into the bot by the owner's

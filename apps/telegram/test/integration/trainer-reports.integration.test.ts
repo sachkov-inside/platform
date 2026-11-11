@@ -247,7 +247,13 @@ describe("the questions report", () => {
 
     const { lines } = await report("--questions");
 
-    const answered = { answers: 3, correct: 3, correctShare: 1 };
+    const answered = {
+      answers: 3,
+      correct: 3,
+      correctShare: 1,
+      likes: 0,
+      dislikes: 0,
+    };
     expect(lines).toEqual([
       {
         question: "q-t1-1",
@@ -257,6 +263,8 @@ describe("the questions report", () => {
         answers: 3,
         correct: 1,
         correctShare: 0.33,
+        likes: 0,
+        dislikes: 0,
       },
       ...[2, 3, 4, 5].map((topic) => ({
         question: `q-t${String(topic)}-1`,
@@ -286,6 +294,8 @@ describe("the questions report", () => {
       answers: 0,
       correct: 0,
       correctShare: null,
+      likes: 0,
+      dislikes: 0,
     });
     expect(lines[5]).toEqual({
       question: "q-t5-1",
@@ -295,6 +305,8 @@ describe("the questions report", () => {
       answers: 1,
       correct: 1,
       correctShare: 1,
+      likes: 0,
+      dislikes: 0,
     });
   });
 

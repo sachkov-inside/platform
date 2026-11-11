@@ -77,6 +77,61 @@ describe("GrammyUpdateAdapter", () => {
       });
     });
 
+    const menuPress = {
+      update_id: 95,
+      callback_query: {
+        id: "trainer-menu-95",
+        data: "trainer:open",
+        from: { id: 10_001, is_bot: false, first_name: "Synthetic" },
+        message: {
+          message_id: 20,
+          chat: { id: 10_001, type: "private" },
+        },
+      },
+    };
+
+    it("opens the Trainer from the common start menu and carries the callback receipt", () => {
+      expect(translated(menuPress)).toMatchObject({
+        kind: "trainer-open",
+        value: { contact, entry: "menu" },
+        callbackQueryId: "trainer-menu-95",
+      });
+    });
+
+    it.each([
+      ["a group", { chat: { id: 10_001, type: "group" } }],
+      ["a channel", { chat: { id: 10_001, type: "channel" } }],
+      ["another person's chat", { chat: { id: 20_002, type: "private" } }],
+    ])("does not open a Trainer menu press from %s", (_name, message) => {
+      expect(
+        translated({
+          ...menuPress,
+          callback_query: {
+            ...menuPress.callback_query,
+            message: { ...menuPress.callback_query.message, ...message },
+          },
+        }).kind,
+      ).not.toBe("trainer-open");
+    });
+
+    it.each([
+      ["a bot", { from: { ...menuPress.callback_query.from, is_bot: true } }],
+      ["an oversized callback id", { id: "a".repeat(129) }],
+      ["an empty callback id", { id: "" }],
+      ["another button", { data: "trainer:other" }],
+      [
+        "an inline message",
+        { message: undefined, inline_message_id: "inline" },
+      ],
+    ])("does not open a Trainer menu press from %s", (_name, query) => {
+      expect(
+        translated({
+          ...menuPress,
+          callback_query: { ...menuPress.callback_query, ...query },
+        }).kind,
+      ).not.toBe("trainer-open");
+    });
+
     it("stores a Trainer link without its payload", () => {
       expect(
         prepareTelegramUpdateForInbox(

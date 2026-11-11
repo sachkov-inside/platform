@@ -24,6 +24,7 @@
   let topics;
   let lastRequest;
   let questionFont;
+  let judging = false;
   let explanationPage = 0;
   let explanationSize = 200;
   if (typeof widget.setResizeAnchor == "function")
@@ -44,11 +45,11 @@
 
   const button = (action, classes, html, disabled) =>
     `<button class="${classes}" onclick="g('${action}')"${disabled ? " disabled" : ""}>${html}</button>`;
-  const card = (action, classes, title, hint, mark) =>
+  const card = (action, classes, title, hint) =>
     button(
       action,
       classes + " R",
-      `<span class=F><b>${title}</b><span class=mu>${hint}</span></span>${mark ? `<em>${mark}</em>` : ""}`,
+      `<span class=F><b>${title}</b><span class=mu>${hint}</span></span>`,
     );
   const header = (title) =>
     `<div class=R>${button("h", "x", "←")}<b class=F>${title}</b></div>`;
@@ -60,6 +61,8 @@
   const pager = (prefix, page = 0, pages = 1, tail = "") =>
     pages < 2
       ? tail
+        ? pair(tail, "")
+        : ""
       : pair(
           button(prefix + (page - 1), "bt", "←", !page),
           `<span>${page + 1}/${pages}</span>` +
@@ -98,20 +101,40 @@
       `<div class=fb><b class="V ${d ? (d[1] === 0 ? "B" : d[1] < 3 ? "G" : "") : ""}">${d ? ["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]] : review ? "Ответ сохранён" : question[5] ? "Выберите все верные варианты." : "Выберите ответ"}</b>` +
       (d ? `<div class=W>${esc(parts[explanationPage] || "")}</div>` : "") +
       (d
-        ? pager(
-            "E",
-            explanationPage,
-            parts.length,
-            button(
-              question[9] ? "h" : "n" + question[1],
-              "bt P",
-              d[5].length < d[6]
-                ? "Дальше"
-                : question[9]
-                  ? "Готово"
-                  : "К итогу",
-            ),
-          )
+        ? judging
+          ? pair(
+              ...[1, 2]
+                .map((value) =>
+                  button(
+                    "f" + question[1] + ":" + (d[8] == value ? 0 : value),
+                    "bt" + (d[8] == value ? " P" : ""),
+                    value == 1 ? "Лайк" : "Дизлайк",
+                  ),
+                )
+                .map(
+                  (html, index) =>
+                    html + (index ? button("F", "bt", "Назад") : ""),
+                ),
+            )
+          : pager(
+              "E",
+              explanationPage,
+              parts.length,
+              button(
+                "F",
+                "bt" + (d[8] ? " P" : ""),
+                ["Оценить", "Лайк", "Дизлайк"][d[8] || 0],
+              ) +
+                button(
+                  question[9] ? "h" : "n" + question[1],
+                  "bt P",
+                  d[5].length < d[6]
+                    ? "Дальше"
+                    : question[9]
+                      ? "Готово"
+                      : "К итогу",
+                ),
+            )
         : review || question[5]
           ? button(
               "S",
@@ -179,11 +202,11 @@
     t: (d) => (
       (topics = d[1]),
       header("Выберите тему") +
-        `<div>${d[1]
+        `<div class=j>${d[1]
           .map((row, index) =>
             button(
               "T" + index,
-              "R ls",
+              "cd R",
               `<span class=F>${esc(row[1])}</span><span class=mu>${row[2]} из ${row[3]}</span>`,
             ),
           )
@@ -213,8 +236,7 @@
         .join("")}</div>` +
       pager("p:", d[5], d[6]),
 
-    // ["l", allTime, shown, [[place, name, points, isViewer], …]]
-    // shown 2: the person has not chosen yet and gets the offer instead of the switch.
+    // ["l", allTime, legacy preference (ignored), [[place, name, points, isViewer], …]]
     l: (d) => {
       const tab = d[1] ? 1 : 0;
       return (
@@ -226,21 +248,6 @@
               `<div class="R rk${row[3] ? " M" : ""}"><span class=mu>${row[0]}</span><span class="F e">${esc(row[1])}</span><b>${row[2]}</b></div>`,
           )
           .join("")}</div>` +
-        (d[2] > 1
-          ? "<div><b>Показывать меня в рейтинге</b><div class=mu>Другие увидят ваше имя из Telegram.</div></div>" +
-            pair(
-              button("v1" + tab, "bt P", "Показать меня"),
-              button("v0" + tab, "bt", "Не сейчас"),
-            )
-          : card(
-              "v" + (d[2] ? 0 : 1) + tab,
-              "cd",
-              "Показывать меня в рейтинге",
-              d[2]
-                ? "Другие видят ваше имя из Telegram"
-                : "Сейчас вас нет в таблицах",
-              d[2] ? "Вкл" : "Выкл",
-            )) +
         "<div class=mu>Очки за верные ответы в завершённых раундах.</div>"
       );
     },
@@ -284,9 +291,16 @@
   };
   const show = (data) => {
     try {
+      if (data[0] == "u") {
+        if (data[1] != question?.[1] || current[0] != "e") return;
+        judging = false;
+        current[8] = data[2];
+        data = current;
+      }
       if (data[0] == "h") home = data;
       if (data[0] == "q") {
         questionFont = data[1] == question?.[1] ? questionFont : "";
+        judging = false;
         question = data;
         explanationPage = 0;
         explanationSize = 200;
@@ -331,7 +345,10 @@
   window.g = (action) => {
     const index = +action.slice(1);
     if (root.className) return;
-    if (action[0] == "E") {
+    if (action == "F") {
+      judging = !judging;
+      draw(current);
+    } else if (action[0] == "E") {
       explanationPage = index;
       draw(current);
     } else if (action[0] == "P") {

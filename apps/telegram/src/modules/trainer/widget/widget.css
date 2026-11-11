@@ -115,7 +115,6 @@ button {
 .cd .mu {
   display: block;
 }
-.cd em,
 .ch {
   color: var(--a);
   font-weight: 600;
@@ -247,9 +246,6 @@ button {
   gap: 6px;
   font-size: min(1em, 13px);
   padding: 4px;
-}
-.fb .bt {
-  flex: none;
 }
 
 /* Result and Progress: .I big number, .K figure tile, .ls list row. */

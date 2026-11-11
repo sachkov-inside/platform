@@ -163,9 +163,70 @@ it.each(["communications-first", "sign-in-first"] as const)(
     const ledger = await sql<{
       count: string;
     }>`select count(*) from kysely_migration`.execute(database);
-    expect(ledger.rows[0]?.count).toBe("51");
+    expect(ledger.rows[0]?.count).toBe("53");
   },
 );
+
+it("preserves Rating choices as history and copies only known names into public profiles", async () => {
+  await migrateTo(database, "050-trainer-round-completion");
+  const now = new Date(fixedTestInstant());
+  for (const user of ["42", "43"])
+    await database
+      .insertInto("bot_contacts")
+      .values({
+        bot_identity: "synthetic",
+        telegram_user_id: user,
+        private_chat_id: user,
+        contactability: "reachable",
+        first_started_at: now,
+        last_started_at: now,
+        updated_at: now,
+      })
+      .execute();
+  await database
+    .insertInto("trainer_rating_consents")
+    .values([
+      {
+        bot_identity: "synthetic",
+        telegram_user_id: "42",
+        shown: true,
+        display_name: "Synthetic",
+        decided_at: now,
+      },
+      {
+        bot_identity: "synthetic",
+        telegram_user_id: "43",
+        shown: false,
+        display_name: null,
+        decided_at: now,
+      },
+    ])
+    .execute();
+  const history = () =>
+    database
+      .selectFrom("trainer_rating_consents")
+      .selectAll()
+      .orderBy("telegram_user_id")
+      .execute();
+  const before = await history();
+  await migrateToLatest(database);
+  expect(
+    await database.selectFrom("trainer_rating_profiles").selectAll().execute(),
+  ).toEqual([
+    {
+      bot_identity: "synthetic",
+      telegram_user_id: "42",
+      display_name: "Synthetic",
+      observed_at: now,
+    },
+  ]);
+  expect(await history()).toEqual(before);
+  await migrateTo(database, "051-trainer-rating-profiles");
+  await migrateDown(database);
+  expect(await history()).toEqual(before);
+  await migrateToLatest(database);
+  expect(await history()).toEqual(before);
+});
 
 it("preserves legacy restriction receipts without inventing an audit during upgrade", async () => {
   await migrateTo(database, "020-community-effect-provenance");

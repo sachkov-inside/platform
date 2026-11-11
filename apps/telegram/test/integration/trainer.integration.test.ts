@@ -31,6 +31,7 @@ import {
   type TelegramWidgetMessage,
 } from "../../src/modules/outbound/telegram-messages.js";
 import { TrainerBank } from "../../src/modules/trainer/trainer-bank.js";
+import { TELEGRAM_CALLBACK_ANSWERS } from "../../src/modules/bot-sign-in/telegram-callback-answers.js";
 import { TRAINER_WIDGET_HTML } from "../../src/modules/trainer/widget/trainer-widget-html.generated.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { virtualTestClock } from "../support/fixed-clock.js";
@@ -152,6 +153,7 @@ interface Bot {
   readonly messages: RecordedMessages;
   /** Messages of the marketing channel: sequences and broadcasts. */
   readonly marketingMessages: unknown[];
+  readonly callbackAnswers: string[];
 }
 
 const database: Database = createDatabase(databaseUrl);
@@ -168,11 +170,19 @@ const newUpdate = () => (nextUpdateId += 1);
 async function startBot(marketingEnabled: boolean): Promise<Bot> {
   const messages = new RecordedMessages();
   const marketingMessages: unknown[] = [];
+  const callbackAnswers: string[] = [];
   const module = await Test.createTestingModule({
     imports: [AppModule.register({ ...config, marketingEnabled })],
   })
     .overrideProvider(TELEGRAM_MESSAGES)
     .useValue(messages)
+    .overrideProvider(TELEGRAM_CALLBACK_ANSWERS)
+    .useValue({
+      answer: (id: string) => {
+        callbackAnswers.push(id);
+        return Promise.resolve();
+      },
+    })
     .overrideProvider(COMMUNICATION_TRANSPORT)
     .useValue({
       send: (message: unknown) => {
@@ -190,7 +200,7 @@ async function startBot(marketingEnabled: boolean): Promise<Bot> {
   started.push(application);
   await application.init();
   await application.getHttpAdapter().getInstance().ready();
-  return { application, messages, marketingMessages };
+  return { application, messages, marketingMessages, callbackAnswers };
 }
 
 beforeAll(async () => {
@@ -220,6 +230,7 @@ beforeEach(async () => {
   for (const each of [bot, marketingBot]) {
     each.messages.reset();
     each.marketingMessages.length = 0;
+    each.callbackAnswers.length = 0;
   }
   await loadBank(syntheticTrainerBank({ topics: 6, questionsPerTopic: 3 }));
 });
@@ -283,6 +294,35 @@ async function plannedTexts(): Promise<string[]> {
 }
 
 describe("opening the Trainer", () => {
+  it("opens the common menu for an unlinked person and acknowledges admitted and throttled presses", async () => {
+    const user = newUser();
+    const ids: string[] = [];
+    for (let press = 0; press < 11; press++) {
+      const updateId = newUpdate();
+      const id = `trainer-menu-${String(updateId)}`;
+      ids.push(id);
+      await receive(
+        {
+          update_id: updateId,
+          callback_query: {
+            id,
+            data: "trainer:open",
+            from: { id: user, is_bot: false, first_name: "Synthetic" },
+            message: { message_id: 1, chat: { id: user, type: "private" } },
+          },
+        },
+        marketingBot,
+      );
+    }
+    expect(marketingBot.messages.widgets).toHaveLength(10);
+    expect(marketingBot.messages.widgets[0]?.chatData).toBe(EMPTY_HOME);
+    expect(marketingBot.callbackAnswers).toEqual(ids);
+    expect(marketingBot.marketingMessages).toEqual([]);
+    expect((await openings()).map((opening) => opening.entry)).toEqual(
+      Array.from({ length: 10 }, () => "menu"),
+    );
+  });
+
   it.each([
     ["the /train command", "/train", "command"],
     ["the «Тренажёр» menu text", "Тренажёр", "menu"],
@@ -923,7 +963,7 @@ describe("«Проверить себя»", () => {
       );
 
       // Title, correct, total, comment, then a point for every correct answer and a Series
-      // of one day; the week place is not counted yet.
+      // of one day and first place in this isolated table.
       expect(result).toEqual([
         "r",
         "Проверить себя",
@@ -932,7 +972,7 @@ describe("«Проверить себя»", () => {
         comment,
         correct,
         1,
-        0,
+        1,
         0,
       ]);
       // The result screen is measured with a comment of at most 60 characters.
@@ -1135,7 +1175,7 @@ describe("«Тренировка по теме»", () => {
     );
     expect(questions.at(-1)?.marks).toBe("111111100");
     // The title is the topic, 7 of 10, a point for each of the 7 correct first answers, a
-    // Series of one day, no week place, and the last flag offers «Другая тема».
+    // Series of one day, first place, and the last flag offers «Другая тема».
     expect(result).toEqual([
       "r",
       "Синтетическая тема 2",
@@ -1144,7 +1184,7 @@ describe("«Тренировка по теме»", () => {
       "Хороший результат. Разборы помогут закрыть пробелы.",
       7,
       1,
-      0,
+      1,
       1,
     ]);
     expect(await storedAnswers(user)).toHaveLength(10);
@@ -1179,7 +1219,7 @@ describe("«Тренировка по теме»", () => {
       "Все ответы верные.",
       3,
       1,
-      0,
+      1,
       1,
     ]);
   });

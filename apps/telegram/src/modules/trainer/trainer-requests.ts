@@ -1,5 +1,11 @@
 import type { VerifiedPrivateStart } from "../../shared/telegram-contact.js";
 
+/** Public entry from the ordinary /start menu, independent of Platform access. */
+export const TRAINER_MENU_BUTTON = {
+  text: "Тренажёр",
+  callbackData: "trainer:open",
+} as const;
+
 /** How the person asked for the Trainer: `/train`, the menu text or a `/start` link. */
 export type TrainerEntry = "command" | "menu" | "link";
 

@@ -17,6 +17,9 @@ export interface TrainerQuestionReportLine {
   readonly correct: number;
   /** `correct / answers` rounded to two digits; null when nobody answered. */
   readonly correctShare: number | null;
+  /** Current question-quality votes, independent of learning credit. */
+  readonly likes: number;
+  readonly dislikes: number;
 }
 
 /** The label the usage report gives to openings that came without a source label. */
@@ -86,6 +89,22 @@ export class TrainerReports {
           .as("correct"),
       ])
       .execute();
+    const reactions = await this.db
+      .selectFrom("trainer_question_reactions")
+      .select((eb) => [
+        "question_id",
+        eb.fn
+          .count<string>("question_id")
+          .filterWhere("reaction", "=", 1)
+          .as("likes"),
+        eb.fn
+          .count<string>("question_id")
+          .filterWhere("reaction", "=", 2)
+          .as("dislikes"),
+      ])
+      .groupBy("question_id")
+      .execute();
+    const byQuestion = new Map(reactions.map((row) => [row.question_id, row]));
     return rows.map((row) => {
       const answers = Number(row.answers);
       const correct = Number(row.correct);
@@ -96,6 +115,8 @@ export class TrainerReports {
         withdrawn: row.withdrawn_at !== null,
         answers,
         correct,
+        likes: Number(byQuestion.get(row.id)?.likes ?? 0),
+        dislikes: Number(byQuestion.get(row.id)?.dislikes ?? 0),
         correctShare:
           answers === 0 ? null : Math.round((correct / answers) * 100) / 100,
       };

@@ -58,8 +58,12 @@ import { trainerRoundsMigration } from "./migrations/047-trainer-rounds.js";
 import { trainerDailyQuestionsMigration } from "./migrations/048-trainer-daily-questions.js";
 import { trainerRatingConsentsMigration } from "./migrations/049-trainer-rating-consents.js";
 import { trainerRoundCompletionMigration } from "./migrations/050-trainer-round-completion.js";
+import { trainerRatingProfilesMigration } from "./migrations/051-trainer-rating-profiles.js";
+import { trainerQuestionReactionsMigration } from "./migrations/052-trainer-question-reactions.js";
 
 const migrations = {
+  "052-trainer-question-reactions": trainerQuestionReactionsMigration,
+  "051-trainer-rating-profiles": trainerRatingProfilesMigration,
   "050-trainer-round-completion": trainerRoundCompletionMigration,
   "049-trainer-rating-consents": trainerRatingConsentsMigration,
   "048-trainer-daily-questions": trainerDailyQuestionsMigration,

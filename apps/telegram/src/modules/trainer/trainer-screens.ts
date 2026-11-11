@@ -9,6 +9,7 @@ import type {
   TrainerQuestionData,
   TrainerResultData,
   TrainerVerdict,
+  TrainerReaction,
 } from "./widget/trainer-widget-wire.js";
 
 // The widget screens of a round, built from what the bot has stored. Nothing here decides a
@@ -46,8 +47,9 @@ export function questionScreen(
 export function explanationScreen(
   outcome: TrainerAnswerOutcome,
   stat: string | 0 = 0,
+  reaction: TrainerReaction = 0,
 ): TrainerExplanationData {
-  return [
+  const screen = [
     "e",
     verdictOf(outcome),
     outcome.correctMask,
@@ -56,7 +58,8 @@ export function explanationScreen(
     outcome.round.marks,
     outcome.round.size,
     stat,
-  ];
+  ] as const;
+  return reaction === 0 ? screen : [...screen, reaction];
 }
 
 function verdictOf(outcome: TrainerAnswerOutcome): TrainerVerdict {

@@ -5,6 +5,7 @@ import type {
   TrainerBankQuestion,
 } from "./trainer-bank-file.js";
 import type { TrainerEntry } from "./trainer-requests.js";
+import type { TrainerReaction } from "./widget/trainer-widget-wire.js";
 
 type Timestamp = ColumnType<Date, Date, Date>;
 type OptionalTimestamp = ColumnType<
@@ -33,6 +34,14 @@ export type TrainerOpeningDelivery =
 export type TrainerRoundMode = "check" | "topic" | "daily";
 
 export interface TrainerTables {
+  trainer_question_reactions: {
+    bot_identity: string;
+    telegram_user_id: TelegramId;
+    question_id: string;
+    /** 0 cleared (kept to reject delayed writes), 1 like, 2 dislike. */
+    reaction: TrainerReaction;
+    observed_at: Timestamp;
+  };
   /** Topics of the Bank. `position` is the order of the Bank file. */
   trainer_topics: {
     code: string;
@@ -138,14 +147,20 @@ export interface TrainerTables {
     /** True when this is the person's first answer to the question in any round. */
     first_answer: boolean | null;
   };
-  /** A person's choice about the Rating. No row: the person has not chosen and is not shown. */
+  /** Current Telegram name observed by the Trainer; absence does not exclude the person. */
+  trainer_rating_profiles: {
+    bot_identity: string;
+    telegram_user_id: TelegramId;
+    display_name: string;
+    observed_at: Timestamp;
+  };
+  /** Historical choices, retained unchanged. They no longer control Rating participation. */
   trainer_rating_consents: {
     bot_identity: string;
     telegram_user_id: TelegramId;
     shown: boolean;
     /**
-     * The Telegram name the tables show, as of the person's last request; null exactly when
-     * the person is not shown.
+     * The name retained with the historical choice, null when that choice was to hide it.
      */
     display_name: string | null;
     /** When the bot received the person's latest choice. */

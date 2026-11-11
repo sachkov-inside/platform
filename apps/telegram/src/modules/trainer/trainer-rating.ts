@@ -13,7 +13,7 @@ import {
 import type { TrainerRatingData } from "./widget/trainer-widget-wire.js";
 
 // The Rating of the Trainer: two tables of Points, «Неделя» and «Всё время». A table lists
-// only people who turned the display on themselves; the display is off until then. Places are
+// includes every person with points. Places are
 // counted from the stored answers at the moment of the request; nothing here stores a place.
 
 /** Rows from the top of a table; the viewer's own row may follow them. */
@@ -42,66 +42,42 @@ export function trainerRatingName(telegramName: string | null | undefined) {
 export class TrainerRating {
   constructor(private readonly database: Database) {}
 
-  /**
-   * Keeps the name of a shown person as Telegram gave it with this request. Nothing is stored
-   * for a person who is not shown, and a request without a name keeps the earlier one.
-   */
+  /** Keeps the latest name supplied by Telegram; missing names preserve the earlier observation. */
   async observe(contact: VerifiedPrivateStart): Promise<void> {
     const telegramName = contact.profile?.displayName;
     if (telegramName === undefined || telegramName === null) return;
-    const name = trainerRatingName(telegramName);
-    await this.database
-      .updateTable("trainer_rating_consents")
-      .set({ display_name: name })
-      .where("bot_identity", "=", contact.botIdentity)
-      .where("telegram_user_id", "=", contact.telegramUserId)
-      .where("shown", "=", true)
-      .where("display_name", "is distinct from", name)
-      .execute();
-  }
-
-  /**
-   * Records the person's own choice. Turning the display off removes the person from both
-   * tables at once and deletes the stored name; the choice itself stays.
-   */
-  async choose(contact: VerifiedPrivateStart, shown: boolean): Promise<void> {
-    const choice = {
-      shown,
-      display_name: shown
-        ? trainerRatingName(contact.profile?.displayName)
-        : null,
-      decided_at: contact.observedAt,
+    const profile = {
+      display_name: trainerRatingName(telegramName),
+      observed_at: contact.observedAt,
     };
     await this.database
-      .insertInto("trainer_rating_consents")
+      .insertInto("trainer_rating_profiles")
       .values({
         bot_identity: contact.botIdentity,
         telegram_user_id: contact.telegramUserId,
-        ...choice,
+        ...profile,
       })
       .onConflict((conflict) =>
         conflict
           .columns(["bot_identity", "telegram_user_id"])
-          .doUpdateSet(choice),
+          .doUpdateSet(profile)
+          .where(
+            "trainer_rating_profiles.observed_at",
+            "<=",
+            contact.observedAt,
+          ),
       )
       .execute();
   }
 
   /**
    * The Rating screen of the week of this request or of all time: the first 7 rows and, for
-   * a shown person with points below them, the person's own row. A person who has not chosen
-   * yet gets the offer to be shown.
+   * a person with points below them, the person's own row.
    */
   async screen(
     contact: VerifiedPrivateStart,
     allTime: boolean,
   ): Promise<TrainerRatingData> {
-    const consent = await this.database
-      .selectFrom("trainer_rating_consents")
-      .select("shown")
-      .where("bot_identity", "=", contact.botIdentity)
-      .where("telegram_user_id", "=", contact.telegramUserId)
-      .executeTakeFirst();
     const rows = await this.database
       .selectFrom(
         this.table(
@@ -121,7 +97,7 @@ export class TrainerRating {
     return [
       "l",
       allTime ? 1 : 0,
-      consent === undefined ? 2 : consent.shown ? 1 : 0,
+      1,
       rows.map((row) => [
         row.place,
         row.name ?? UNNAMED,
@@ -132,8 +108,7 @@ export class TrainerRating {
   }
 
   /**
-   * The person's place in the table of the week of this instant; 0 for a person who is not
-   * shown or has no point this week.
+   * The person's place in the table of the week of this instant; 0 for a person with no point this week.
    */
   async weekPlace(person: TrainerPerson, at: Date): Promise<number> {
     const row = await this.database
@@ -147,20 +122,19 @@ export class TrainerRating {
   }
 
   /**
-   * A whole table: every shown person with a point inside the window, each with a place of
+   * A whole table: every person with a point inside the window, each with a place of
    * their own. More points come first; of equal points, the person who got there earlier.
    */
   private table(botIdentity: string, window: TrainerTimeWindow) {
     return trainerPointsByPerson(this.database, botIdentity, window)
-      .innerJoin("trainer_rating_consents as consent", (join) =>
+      .leftJoin("trainer_rating_profiles as profile", (join) =>
         join
-          .onRef("consent.bot_identity", "=", "issue.bot_identity")
-          .onRef("consent.telegram_user_id", "=", "issue.telegram_user_id"),
+          .onRef("profile.bot_identity", "=", "issue.bot_identity")
+          .onRef("profile.telegram_user_id", "=", "issue.telegram_user_id"),
       )
-      .where("consent.shown", "=", true)
-      .groupBy("consent.display_name")
+      .groupBy("profile.display_name")
       .select([
-        "consent.display_name as name",
+        "profile.display_name as name",
         sql<number>`(row_number() over (
           order by count(*) desc, max(issue.completed_at), issue.telegram_user_id
         ))::integer`.as("place"),

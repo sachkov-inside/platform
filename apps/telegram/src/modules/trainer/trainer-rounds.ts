@@ -563,7 +563,7 @@ function fits(
 }
 
 /** The stored number of an issue named by the widget; `undefined` when it cannot be one. */
-function issueNumber(issueId: string): string | undefined {
+export function issueNumber(issueId: string): string | undefined {
   if (!trainerCodeFormat.test(issueId)) return undefined;
   let number = 0n;
   for (const digit of issueId)

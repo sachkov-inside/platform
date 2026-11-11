@@ -14,7 +14,10 @@ import type {
 import type { CommunityJoinRequest } from "../../modules/community/community-provider.js";
 import type { DurableMembershipEnvelope } from "../../modules/community/membership-event.js";
 import type { VerifiedSignInDecision } from "../../modules/bot-sign-in/bot-sign-in.js";
-import type { TrainerQuery } from "../../modules/trainer/trainer-requests.js";
+import {
+  TRAINER_MENU_BUTTON,
+  type TrainerQuery,
+} from "../../modules/trainer/trainer-requests.js";
 import { TELEGRAM_WIDGET_REQUEST_MAX_BYTES } from "../../modules/trainer/widget/trainer-widget-limits.js";
 import type {
   TelegramUpdateCommand,
@@ -219,33 +222,46 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
       callback && "data" in callback && typeof callback.data === "string"
         ? accessCallbackAction(callback.data)
         : undefined;
+    const trainerMenu =
+      callback !== undefined &&
+      "data" in callback &&
+      callback.data === TRAINER_MENU_BUTTON.callbackData;
     if (
       callback &&
-      callbackAction !== undefined &&
+      (callbackAction !== undefined || trainerMenu) &&
       !callback.from.is_bot &&
       callback.message?.chat.type === "private" &&
       callback.from.id === callback.message.chat.id &&
+      hasText(callback.id) &&
       callback.id.length <= 128
     ) {
       const user = telegramId(callback.from.id);
-      if (hasText(user))
+      if (hasText(user)) {
+        const contact = {
+          botIdentity,
+          updateId,
+          observedAt,
+          telegramUserId: user,
+          privateChatId: user,
+          messageId: String(callback.message.message_id),
+          ...senderProfile(callback.from),
+        };
+        if (callbackAction === undefined)
+          return {
+            kind: "trainer-open",
+            value: { contact, entry: "menu" },
+            callbackQueryId: callback.id,
+          };
         return {
           kind: "access-action",
-          value: {
-            botIdentity,
-            updateId,
-            observedAt,
-            telegramUserId: user,
-            privateChatId: user,
-            messageId: String(callback.message.message_id),
-            ...senderProfile(callback.from),
-          },
+          value: contact,
           action: callbackAction.action,
           ...(callbackAction.code === undefined
             ? {}
             : { activationCode: callbackAction.code }),
           callbackQueryId: callback.id,
         };
+      }
     }
     // The contact asks for their own admission; nobody else selects a recipient.
     const admission = this.privateCommand(
