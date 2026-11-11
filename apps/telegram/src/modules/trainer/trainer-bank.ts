@@ -165,6 +165,11 @@ export class TrainerBank {
             })),
           )
           .execute();
+      // Publish the new revision atomically with the live Bank. Never overwrite history.
+      await sql`insert into trainer_question_versions
+        (question_id, content_revision, text, options, explanation)
+        select id, content_revision, text, options, explanation from trainer_questions
+        on conflict (question_id, content_revision) do nothing`.execute(tx);
       if (returned.length > 0)
         await tx
           .updateTable("trainer_questions")

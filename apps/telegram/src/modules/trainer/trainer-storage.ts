@@ -34,6 +34,14 @@ export type TrainerOpeningDelivery =
 export type TrainerRoundMode = "check" | "topic" | "daily";
 
 export interface TrainerTables {
+  /** Immutable text and options of each stored Bank revision. */
+  trainer_question_versions: {
+    question_id: string;
+    content_revision: number;
+    text: string;
+    options: ColumnType<TrainerBankOption[], string, never>;
+    explanation: string;
+  };
   trainer_question_reactions: {
     bot_identity: string;
     telegram_user_id: TelegramId;
@@ -131,11 +139,11 @@ export interface TrainerTables {
     bot_identity: string;
     telegram_user_id: TelegramId;
     question_id: string;
-    /** `content_revision` of the question when the round started. */
+    /** Frozen at first display; steps not yet displayed follow Bank updates. */
     content_revision: number;
-    /** Options of the question when the round started; an answer is judged against them. */
+    /** Number of options at first display; an answer is judged against them. */
     option_count: number;
-    /** Bit `i` is set when option `i` was correct when the round started. */
+    /** Bit `i` is set when option `i` was correct at first display. */
     correct_mask: number;
     /** When the bot received the request that showed the question; null: not shown yet. */
     issued_at: OptionalTimestamp;

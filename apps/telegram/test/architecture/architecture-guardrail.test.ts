@@ -153,6 +153,7 @@ const currentTableOwners = {
   trainer_issues: "trainer",
   trainer_openings: "trainer",
   trainer_questions: "trainer",
+  trainer_question_versions: "trainer",
   trainer_rating_consents: "trainer",
   trainer_rating_profiles: "trainer",
   trainer_question_reactions: "trainer",

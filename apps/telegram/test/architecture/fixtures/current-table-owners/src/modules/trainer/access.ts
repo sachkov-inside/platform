@@ -5,6 +5,10 @@ export async function access(database: any) {
   await database.updateTable("trainer_openings").set({}).execute();
   await database.deleteFrom("trainer_openings").execute();
   await database.selectFrom("trainer_questions").selectAll().execute();
+  await database.selectFrom("trainer_question_versions").selectAll().execute();
+  await database.insertInto("trainer_question_versions").values({}).execute();
+  await database.updateTable("trainer_question_versions").set({}).execute();
+  await database.deleteFrom("trainer_question_versions").execute();
   await database.insertInto("trainer_questions").values({}).execute();
   await database.updateTable("trainer_questions").set({}).execute();
   await database.deleteFrom("trainer_questions").execute();
