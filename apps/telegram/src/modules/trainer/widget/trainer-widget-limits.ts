@@ -7,7 +7,7 @@ export const TELEGRAM_WIDGET_HTML_MAX_BYTES = 32_768;
 /**
  * `html` after the server compresses it with zlib at level 9. The build stops at this number
  * as the zlib of Node.js counts. Telegram counts as Python's zlib does, and in the builds that
- * ADR 0004 records Node.js counted 71 to 80 bytes more: a widget inside the limit by the
+ * ADR 0004 records Node.js counted 70 to 80 bytes more: a widget inside the limit by the
  * count of Node.js is inside it by the server's count with that distance to spare.
  */
 export const TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES = 4_096;

@@ -25,7 +25,8 @@
   let lastRequest;
   let questionFont;
   let judging = false;
-  let explanationPage = 0;
+  /** Characters of the explanation before the page the person reads. */
+  let explanationOffset = 0;
   let explanationSize = 200;
   widget.setResizeAnchor?.("bottom");
 
@@ -95,7 +96,7 @@
       : `<div class="op R${classes}">${body}</div>`;
   };
 
-  const votes = ["Оценить", "Лайк", "Дизлайк"];
+  const votes = ["Оценить", "👍", "👎"];
   /** One reserved panel for choosing an answer, its verdict and continuing the round. */
   const feedback = (d) => {
     const review = question[8] != null;
@@ -112,10 +113,25 @@
           : "") +
         "</div>"
       );
-    const parts =
+    // The text is cut every explanationSize characters. A word that crosses a cut moves to
+    // the next page whole, so a page may be longer by that word; a word longer than a page
+    // is cut. The pages are joined by a character no text has, so line breaks stay text.
+    const parts = (
       (d[4] + (d[7] ? " " + d[7] : "")).match(
-        new RegExp("[\\s\\S]{1," + explanationSize + "}", "gu"),
-      ) || [];
+        new RegExp(".{1," + explanationSize + "}", "gsu"),
+      ) || []
+    )
+      .join("\0")
+      .replace(/(\s)(\S+)\0(?=\S)/g, "$1\0$2")
+      .split("\0");
+    // The page that holds the place the person reads, and the characters before it.
+    let page = 0;
+    let start = 0;
+    for (
+      ;
+      parts[page + 1] && start + parts[page].length <= explanationOffset;
+      start += parts[page++].length
+    );
     const id = question[1];
     const vote = (value) =>
       button(
@@ -126,12 +142,7 @@
     // A long explanation comes in parts: d[9] is this part, d[10] their number. The arrows
     // turn the pages of a part and ask the bot for the part before or after it.
     const part = d[9] || 0;
-    const turn = (page, other) =>
-      parts[page]
-        ? "E" + page
-        : other >= 0 && other < d[10]
-          ? "m" + id + ":" + other
-          : "";
+    const another = "m" + id + ":";
     const buttons =
       button("F", "bt" + (d[8] ? " P" : ""), votes[d[8] || 0]) +
       button(
@@ -140,14 +151,22 @@
         d[5].length < d[6] ? "Дальше" : question[9] ? "Готово" : "К итогу",
       );
     return (
-      `<div class=fb><b class="V ${d[1] === 0 ? "B" : d[1] < 3 ? "G" : ""}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b><div class=W>${esc(parts[explanationPage] || "")}</div>` +
+      `<div class=fb><b class="V ${!d[1] ? "B" : d[1] < 3 ? "G" : ""}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b><div class=W>${esc(parts[page])}</div>` +
       (judging
-        ? pair(vote(1), vote(2) + button("F", "bt", "Назад"))
+        ? pair(vote(1), vote(2) + button("F", "bt", "←"))
         : parts[1] || d[10]
           ? arrows(
-              turn(explanationPage - 1, part - 1),
-              `${explanationPage + 1}/${parts.length}`,
-              turn(explanationPage + 1, part + 1),
+              page
+                ? "E" + (start - parts[page - 1].length)
+                : part
+                  ? another + (part - 1)
+                  : "",
+              `${page + 1}/${parts.length}`,
+              parts[page + 1]
+                ? "E" + (start + parts[page].length)
+                : part + 1 < d[10]
+                  ? another + (part + 1)
+                  : "",
               buttons,
             )
           : pair(buttons, "")) +
@@ -279,10 +298,9 @@
     const render = () => (root.innerHTML = screens[data[0]](data));
     render();
     if (data[0] == "e") {
-      const offset = explanationPage * explanationSize;
+      // Smaller pages until the screen fits; the page that holds the read place is shown.
       while (document.body.offsetHeight >= MAX_HEIGHT && explanationSize > 10) {
         explanationSize -= 10;
-        explanationPage = Math.floor(offset / explanationSize);
         render();
       }
     } else if (!inQuestion || !questionFont) {
@@ -319,7 +337,7 @@
       }
       // Each part of an explanation starts from its first page.
       if (data != current) {
-        explanationPage = 0;
+        explanationOffset = 0;
         explanationSize = 200;
       }
       draw(data);
@@ -366,7 +384,7 @@
       judging = !judging;
       draw(current);
     } else if (action[0] == "E") {
-      explanationPage = index;
+      explanationOffset = index;
       draw(current);
     } else if (action[0] == "P") {
       if (question[5]) {

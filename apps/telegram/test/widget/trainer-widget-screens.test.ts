@@ -474,6 +474,72 @@ describe("trainer widget screens in a browser", () => {
     await page.close();
   });
 
+  it("turns the pages of an explanation between words", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Проверить себя", question(realisticText));
+    const answer = explanation(realisticText);
+    await tap(page, "Не знаю", answer);
+    const pages: string[] = [];
+    for (let index = 0; index < 30; index += 1) {
+      pages.push((await page.locator(".fb .W").textContent()) ?? "");
+      const next = buttonNamed(page, "→");
+      if ((await next.count()) === 0 || (await next.isDisabled())) break;
+      await next.click();
+    }
+
+    const whole = `${answer[4]} ${String(answer[7])}`;
+    expect(pages.length).toBeGreaterThan(1);
+    // No text is lost between pages. A page that had to get smaller starts at or before the
+    // end of the page before it, so a few words may repeat, never disappear.
+    let read = 0;
+    let from = 0;
+    for (const text of pages) {
+      const start = whole.indexOf(text, from);
+      expect(start).toBeGreaterThanOrEqual(from);
+      expect(start).toBeLessThanOrEqual(read);
+      // No word is split: a space stands on one side of the place where a page starts.
+      expect(
+        start === 0 || whole[start - 1] === " " || whole[start] === " ",
+      ).toBe(true);
+      expect(start + text.length).toBeGreaterThan(read);
+      read = start + text.length;
+      from = start + 1;
+    }
+    expect(read).toBe(whole.length);
+    await page.close();
+  });
+
+  it("keeps a line break of an explanation as text and loses nothing after it", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Проверить себя", [
+      "q",
+      "7k",
+      "Тема",
+      "Вопрос?",
+      ["Первый", "Второй"],
+      0,
+      "",
+      5,
+    ]);
+    await tap(page, "А Первый", [
+      "e",
+      2,
+      1,
+      1,
+      "Абзац один.\n\nАбзац два.",
+      "1",
+      5,
+      0,
+    ]);
+
+    // Both paragraphs are on the page, and no arrow leads to an empty one.
+    expect(await page.locator(".fb .W").textContent()).toBe(
+      "Абзац один.\n\nАбзац два.",
+    );
+    await expect(buttonNamed(page, "→").count()).resolves.toBe(0);
+    await page.close();
+  });
+
   it("keeps every question label and option at least eleven pixels", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", question(wideText));
@@ -1170,18 +1236,18 @@ describe("trainer widget screens in a browser", () => {
       const geometry = await questionGeometry(page);
       await tap(page, "Не знаю", explanation(realisticText));
       await buttonNamed(page, "Оценить").click();
-      await tap(page, "Лайк", ["u", "1a2b3c", 1]);
-      expect(await buttonNamed(page, "Лайк").getAttribute("class")).toContain(
+      await tap(page, "👍", ["u", "1a2b3c", 1]);
+      expect(await buttonNamed(page, "👍").getAttribute("class")).toContain(
         "P",
       );
       expect(await questionGeometry(page)).toEqual(geometry);
-      await buttonNamed(page, "Лайк").click();
-      await tap(page, "Дизлайк", ["u", "1a2b3c", 2]);
-      expect(
-        await buttonNamed(page, "Дизлайк").getAttribute("class"),
-      ).toContain("P");
-      await buttonNamed(page, "Дизлайк").click();
-      await tap(page, "Дизлайк", ["u", "1a2b3c", 0]);
+      await buttonNamed(page, "👍").click();
+      await tap(page, "👎", ["u", "1a2b3c", 2]);
+      expect(await buttonNamed(page, "👎").getAttribute("class")).toContain(
+        "P",
+      );
+      await buttonNamed(page, "👎").click();
+      await tap(page, "👎", ["u", "1a2b3c", 0]);
       expect(await buttonNamed(page, "Оценить").count()).toBe(1);
       expect((await requests(page)).slice(-3)).toEqual([
         "f1a2b3c:1",

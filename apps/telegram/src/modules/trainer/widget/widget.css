@@ -101,11 +101,6 @@ button {
   padding: 7px 10px;
   min-height: 44px;
 }
-.cd:active,
-.op:active,
-.bt:active {
-  transform: translate(2px, 2px);
-}
 .cd {
   min-height: 58px;
 }
