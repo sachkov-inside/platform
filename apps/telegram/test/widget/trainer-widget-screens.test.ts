@@ -576,11 +576,11 @@ describe("trainer widget screens in a browser", () => {
   });
 
   it.each([
-    [320, 12],
-    [390, 13],
+    [320, 12, 4],
+    [390, 13, 2],
   ] as const)(
     "keeps a question at the text limits readable in a %i px bubble: at least %i px",
-    async (width, smallest) => {
+    async (width, smallest, longestExplanationPages) => {
       const page = await openWidget(width);
       await tap(page, "Проверить себя", question(realisticText));
       const asked = await layout(page);
@@ -592,6 +592,11 @@ describe("trainer widget screens in a browser", () => {
       expect((await layout(page)).height).toBeLessThanOrEqual(
         TRAINER_WIDGET_TARGET_HEIGHT_PX,
       );
+      // The price of the smaller reserve: the longest explanation takes a few pages.
+      const pages = Number(
+        /\/(\d+)/.exec(await page.locator(".fb").innerText())?.[1] ?? 1,
+      );
+      expect(pages).toBeLessThanOrEqual(longestExplanationPages);
       await page.close();
     },
   );
@@ -808,14 +813,14 @@ describe("trainer widget screens in a browser", () => {
           const computed = getComputedStyle(button);
           return {
             background: computed.backgroundColor,
-            outline: computed.borderTopWidth,
+            border: computed.borderTopWidth,
             shadow: computed.boxShadow,
             radius: computed.borderRadius,
           };
         });
         expect(style).toEqual({
           background: surface,
-          outline: "0px",
+          border: "0px",
           shadow: "none",
           radius: "18px",
         });
@@ -1041,7 +1046,7 @@ describe("trainer widget screens in a browser", () => {
     async (theme) => {
       const page = await openWidget(320, { theme });
       await tap(page, "Проверить себя", question(realisticText));
-      const paperArea = () =>
+      const feedbackArea = () =>
         page.evaluate(() => {
           const panel = document.querySelector(".fb");
           const title = document.querySelector(".fb .V");
@@ -1059,8 +1064,10 @@ describe("trainer widget screens in a browser", () => {
           };
         });
       for (const result of [
-        await paperArea(),
-        await tap(page, "Не знаю", explanation(realisticText)).then(paperArea),
+        await feedbackArea(),
+        await tap(page, "Не знаю", explanation(realisticText)).then(
+          feedbackArea,
+        ),
       ]) {
         expect(result.background).toBe("rgba(0, 0, 0, 0)");
         expect(result.border).toBe("0px");
@@ -1250,7 +1257,7 @@ describe("trainer widget screens in a browser", () => {
     }
   });
 
-  it("gives topic choices the same complete outlined cards as the home menu", async () => {
+  it("gives topic choices the same cells as the home menu", async () => {
     const page = await openWidget(320, { documentMode: "quirks" });
     const appearance = (element: HTMLElement | SVGElement) => {
       const style = getComputedStyle(element);
@@ -1273,7 +1280,7 @@ describe("trainer widget screens in a browser", () => {
       expect(await choices.count()).toBe(3);
       for (const choice of await choices.all()) {
         const actual = await choice.evaluate(appearance);
-        // Home cards have an orange lower edge; all four border widths and the ink shadow match.
+        // A topic is the same cell as a home mode: no border, the same radius and surface.
         expect(actual).toEqual(expected);
       }
       const boxes = await choices.evaluateAll((elements) =>

@@ -84,7 +84,7 @@
             button(prefix + (page + 1), "bt", "→", page + 1 == pages) +
             tail,
         );
-  /** Round steps: answered ones are filled or dashed, the current one has a contrasting outline. */
+  /** Round steps: an answered one takes the colour of its verdict, the current one the accent. */
   const roundHead = (marks, total, extra, daily) =>
     `<div class=R>${button("h", "x", "×")}${
       !daily
@@ -240,7 +240,7 @@
     // ["p", points, streak, answered, [[name, done, total, correctPercent], …]]
     p: (d) =>
       `<div class=R>${tile(d[1], "очки")}${tile(d[2], "серия")}${tile(d[3], "вопросов")}</div>` +
-      `<div>${d[4]
+      `<div class=cd>${d[4]
         .map(
           (row) =>
             `<div class=ls><div class="W e">${esc(row[0])}</div><div class=R>${track(row[1] / row[2])}<span class=mu>${row[3] < 0 ? "не начато" : row[3] + "% верных"}</span></div></div>`,

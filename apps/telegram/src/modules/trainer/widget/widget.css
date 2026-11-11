@@ -10,10 +10,11 @@
  * Mute with colour, never with opacity: at most 16 elements may have opacity below 1.
  */
 
-/* Colours: --a accent fill under white text, --k accent text, --t accent tint, --g correct,
-   --r wrong, --l lines and empty tracks, --s cell surface, --h hint text, --p the bubble,
-   --c the state colour of an element. The chat theme supplies --p, --s, --h and the text
-   colour; the accent and the state colours have a light and a dark value of their own. */
+/* Colours: --a accent, both a fill under white text and a text colour, --t accent tint,
+   --g correct, --r wrong, --l empty tracks, steps and the rest of the goal ring, --s cell surface, --h hint text,
+   --p the bubble, --c the state colour of an element. The chat theme supplies --p, --s, --h
+   and the text colour; the accent and the state colours have a light and a dark value of
+   their own. */
 body {
   margin: 0;
   /* Quirks-mode body blocks otherwise grow to the client's viewport, leaving empty space. */
@@ -107,8 +108,8 @@ b,
   --c: var(--r);
 }
 
-/* Pressable surfaces: .cd cell, .op option, .bt button; .d the label of a cell's action;
-   .P primary. */
+/* Filled surfaces: .cd cell, .op option, .bt button, .d the label of a cell's action,
+   .K figure tile, .x round button, .l bar of tabs; .P primary. */
 .cd,
 .op,
 .bt,
@@ -197,8 +198,8 @@ i {
   color: var(--h);
 }
 
-/* Round: .x round icon button, .st steps, .n "Не знаю", .Q question text, .y option letter,
-   .V verdict, .W explanation. */
+/* Round: .x round icon button (the goal ring .h shares its 44 px circle), .st steps,
+   .n "Не знаю", .Q question text, .y option letter, .V verdict, .W explanation. */
 .x,
 .h {
   flex: none;
@@ -278,7 +279,6 @@ i {
 .ls {
   min-height: 60px;
   padding: 10px 2px;
-  border-bottom: 1px solid var(--l);
 }
 .ls .T {
   flex: 1;
