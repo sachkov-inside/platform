@@ -1715,6 +1715,58 @@ describe("a question with a context", () => {
     // The review carries the stored pick.
     expect(review.slice(8)).toEqual([1, 1, 1]);
   });
+
+  it("does not open today's Daily question from the context of yesterday's", async () => {
+    const answered = newUser();
+    const silent = newUser();
+    await loadContextBank();
+    const issueId = String((await tap(answered, "2d"))[1]);
+    await tap(answered, `2o${issueId}`);
+    const explanation = await tap(answered, `2a${issueId}:1`);
+    const unanswered = String((await tap(silent, "2d"))[1]);
+
+    // The next Moscow day: the widgets still show yesterday's context.
+    // deterministic-test-allow wall-clock: moves the virtual Date registered by registerFixedClock.
+    vi.setSystemTime(Date.now() + 24 * 60 * 60 * 1000);
+
+    // The answered question returns to its explanation; the other one is closed.
+    expect(await tap(answered, `2o${issueId}`)).toEqual(explanation);
+    expect((await tap(silent, `2o${unanswered}`))[0]).toBe("x");
+    const rounds = await database
+      .selectFrom("trainer_rounds")
+      .select("id")
+      .where("mode", "=", "daily")
+      .execute();
+    expect(rounds).toHaveLength(2);
+  });
+
+  it("goes on with the round when the question left the Bank while its context was read", async () => {
+    const user = newUser();
+    const bank = syntheticTrainerBank({ topics: 2, questionsPerTopic: 1 });
+    for (const question of bank.questions)
+      question.context = `Синтетическое условие вопроса ${question.id}.`;
+    await loadBank(bank);
+    const first = await tap(user, "2q");
+    const shownId = /вопроса (\S+)\.$/.exec(String(first[2]))?.[1];
+
+    // The owner's next file has no such question.
+    const next = syntheticTrainerBank({ topics: 2, questionsPerTopic: 1 });
+    next.questions = next.questions.filter(({ id }) => id !== shownId);
+    next.topics = next.topics.filter(({ code }) =>
+      next.questions.some(({ topic }) => topic === code),
+    );
+    for (const question of next.questions)
+      question.context = `Синтетическое условие вопроса ${question.id}.`;
+    await loadBank(next);
+    const after = await tap(user, `2o${String(first[1])}`);
+
+    // The round shows its next question, the context of that question first.
+    expect(after[0]).toBe("c");
+    expect(after[1]).not.toBe(first[1]);
+    expect(after[2]).toBe(
+      `Синтетическое условие вопроса ${String(next.questions[0]?.id)}.`,
+    );
+  });
 });
 
 describe("a question that a widget sent before contexts cannot show", () => {

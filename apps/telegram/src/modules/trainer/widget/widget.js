@@ -172,7 +172,7 @@
         q[9],
       ) +
       // q[10]: the question has a context; the person may read it again at any moment.
-      `<div class="R mu"><span class=F>${esc(q[2])}</span>${q[10] ? button("c" + q[1], "ch", "Условие") : ""}</div><div class=Q>${esc(q[3])}</div>` +
+      `<div class="R mu"><span class=F>${esc(q[2])}</span>${q[10] ? button("c" + q[1], "bt n", "Условие") : ""}</div><div class=Q>${esc(q[3])}</div>` +
       q[4]
         .map((text, i) =>
           option(
@@ -314,7 +314,8 @@
         questionFont = same ? questionFont : "";
         judging = false;
         question = data;
-        picked = same ? picked : data[8] || 0;
+        // A review carries the stored pick; otherwise the person's own marks stay.
+        picked = data[8] ?? (same ? picked : 0);
       }
       // Each part of an explanation starts from its first page.
       if (data != current) {

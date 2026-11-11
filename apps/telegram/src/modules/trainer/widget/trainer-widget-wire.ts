@@ -177,13 +177,17 @@ const LONGEST_MARKS = "1".repeat(10);
 const LONGEST_ROUND = 10;
 const EVERY_OPTION: OptionMask = 15;
 
-/** Bytes of the largest answer that carries this question, whatever round it is asked in. */
+/**
+ * Bytes of the largest answer that carries this question, whatever round it is asked in.
+ * `context` tells that the question has one: its answer carries the flag for it.
+ */
 export function trainerQuestionDataBytes(question: {
   readonly topic: string;
   readonly text: string;
   readonly options: readonly string[];
+  readonly context?: boolean;
 }): number {
-  const data: TrainerQuestionData = [
+  const round = [
     "q",
     LONGEST_ISSUE_ID,
     question.topic,
@@ -194,8 +198,9 @@ export function trainerQuestionDataBytes(question: {
     LONGEST_ROUND,
     EVERY_OPTION,
     1,
-    1,
-  ];
+  ] as const;
+  const data: TrainerQuestionData =
+    question.context === true ? [...round, 1] : round;
   return utf8ByteLength(JSON.stringify(data));
 }
 
@@ -226,8 +231,9 @@ export function trainerExplanationDataBytes(question: {
 }
 
 /**
- * The explanation cut into parts that each fit one answer, at spaces where it can. Joined with
- * spaces, the parts give the explanation back. A text that fits is one part.
+ * The explanation cut into parts that each fit one answer. A text that fits is one part. A
+ * cut falls on a space, and the space is dropped; only a single word longer than an answer is
+ * cut between its characters.
  */
 export function trainerExplanationParts(explanation: string): string[] {
   const fits = (text: string) =>
@@ -344,7 +350,6 @@ export function parseTrainerWidgetRequest(
       issueId: part[1],
       part: Number(part[2]),
     };
-  // «Тренировка по теме» is `t<code>`; `o` and `c` name an issue and are read after it fails.
   const topic = topicRequest.exec(data);
   if (topic?.[1] !== undefined)
     return { kind: "start_topic", topicCode: topic[1] };

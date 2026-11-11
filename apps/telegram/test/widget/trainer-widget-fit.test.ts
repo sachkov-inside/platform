@@ -1,7 +1,14 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { readTrainerBankFile } from "../../src/modules/trainer/trainer-bank-file.js";
-import { trainerBankFit } from "../../scripts/trainer-widget/fit.js";
+import {
+  trainerBankFit,
+  trainerWidgetFitCommand,
+} from "../../scripts/trainer-widget/fit.js";
 import { syntheticTrainerBank } from "../support/synthetic-trainer-bank.js";
 import { realisticText, wideText } from "./trainer-widget-harness.js";
 
@@ -82,5 +89,49 @@ describe("trainer widget fit of a Bank file", () => {
     );
 
     expect(fits.find(({ widthPx }) => widthPx === 320)?.fits).toBe(false);
+  });
+
+  it("stops on a file that is not JSON without printing a piece of it", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "trainer-fit-"));
+    const lines: string[] = [];
+    try {
+      const file = path.join(directory, "bank.json");
+      await writeFile(file, '{"questions": [{"text": Секретный текст}]}');
+
+      const code = await trainerWidgetFitCommand(file, {
+        report: (line) => lines.push(line),
+        remark: (line) => lines.push(line),
+      });
+
+      expect(code).toBe(2);
+      expect(lines).toEqual(["The Bank file cannot be read as JSON."]);
+    } finally {
+      await rm(directory, { recursive: true });
+    }
+  });
+
+  it("reports the import errors of a rejected file and draws nothing", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "trainer-fit-"));
+    const lines: string[] = [];
+    try {
+      const bank = syntheticTrainerBank({ topics: 1, questionsPerTopic: 1 });
+      const [question] = bank.questions;
+      if (question) question.text = "я".repeat(201);
+      const file = path.join(directory, "bank.json");
+      await writeFile(file, JSON.stringify(bank));
+
+      const code = await trainerWidgetFitCommand(file, {
+        report: (line) => lines.push(line),
+        remark: (line) => lines.push(line),
+      });
+
+      expect(code).toBe(2);
+      expect(lines).toEqual([
+        '{"question":"q-t1-1","field":"text","reason":"Текст вопроса: знаков 201, лимит 200."}',
+        "The Bank file is rejected by the import check: 1 errors.",
+      ]);
+    } finally {
+      await rm(directory, { recursive: true });
+    }
   });
 });

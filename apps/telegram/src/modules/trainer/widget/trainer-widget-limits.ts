@@ -4,15 +4,13 @@
 
 /** `html` of sendWidget: bytes of UTF-8. */
 export const TELEGRAM_WIDGET_HTML_MAX_BYTES = 32_768;
-/** `html` after the server compresses it with zlib at level 9. */
-export const TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES = 4_096;
 /**
- * The build stops here. Telegram counts as Python's zlib does. In every build of this widget
- * the zlib of Node.js counted 71 to 83 bytes more, so a widget inside the limit by the count
- * of Node.js is inside it by the server's count with that distance to spare.
+ * `html` after the server compresses it with zlib at level 9. The build stops at this number
+ * as the zlib of Node.js counts. Telegram counts as Python's zlib does, and in the builds that
+ * ADR 0004 records Node.js counted 71 to 80 bytes more: a widget inside the limit by the
+ * count of Node.js is inside it by the server's count with that distance to spare.
  */
-export const TRAINER_WIDGET_COMPRESSED_BUDGET_BYTES =
-  TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES;
+export const TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES = 4_096;
 
 /** `data` of a request from the widget (`widget_query.data`): bytes of UTF-8. */
 export const TELEGRAM_WIDGET_REQUEST_MAX_BYTES = 64;
@@ -31,7 +29,7 @@ export const TRAINER_WIDGET_CHECKED_WIDTHS_PX = [320, 390, 430] as const;
 // and trainerQuestionDataBytes, and the screen, which `trainer:widget:fit` measures for every
 // card of a Bank file. Measured in Chromium with the built widget and ordinary Russian text: a
 // question whose answer fits 1 024 bytes fits 560 px at a 320 px bubble with text of 12 px or
-// more, and a context of 500 characters fits its own screen at 15 px.
+// more, and a context of 500 characters fits its own screen in text of 13 px or more.
 // `pnpm --filter @inside/telegram test:widget` repeats the measurement.
 // Lengths are characters as trainerTextLength counts them.
 

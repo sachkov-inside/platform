@@ -364,7 +364,7 @@ function contentErrors(
     });
 
   const texts = [
-    // The question's own text may be empty when a context carries the whole condition.
+    // The question's own text may be empty when the question has a context.
     ...(question.context === undefined
       ? ([["text", question.text]] as const)
       : ([["context", question.context]] as const)),
@@ -451,6 +451,7 @@ function contentErrors(
     topic: topicName ?? "ж".repeat(TRAINER_TOPIC_NAME_MAX_CHARS),
     text: question.text,
     options: question.options.map((option) => option.text),
+    context: question.context !== undefined,
   });
   if (
     textLength <= TRAINER_QUESTION_MAX_CHARS &&
@@ -477,7 +478,7 @@ function contentErrors(
  * explanation in parts of one answer each, so its bytes need no check of their own.
  */
 function explanationErrors(question: TrainerBankQuestion): FieldError[] {
-  const long = possibleAnswers(question)
+  const long = trainerPossibleAnswers(question)
     .map((picked) => ({
       label: answerLabel(picked),
       length: trainerTextLength(trainerAnswerExplanation(question, picked)),
@@ -501,7 +502,9 @@ function explanationErrors(question: TrainerBankQuestion): FieldError[] {
 }
 
 /** Every answer the widget can send: one option or none, or any set for `multiple`. */
-function possibleAnswers(question: TrainerBankQuestion): OptionMask[] {
+export function trainerPossibleAnswers(
+  question: Pick<TrainerBankQuestion, "format" | "options">,
+): OptionMask[] {
   const count = question.options.length;
   return question.format === "single"
     ? [0, ...question.options.map((_, index) => 1 << index)]

@@ -210,13 +210,12 @@ export class Trainer {
         return this.explanation(contact, outcome, 0);
       }
       case "explanation_part":
-        // Without picked options the request records nothing: it reads the stored answer.
+        // The request records nothing: it reads the stored answer.
         return this.explanation(
           contact,
-          await this.rounds.answer(
+          await this.rounds.storedAnswer(
             contact,
             request.issueId,
-            undefined,
             contact.observedAt,
           ),
           request.part,
@@ -228,22 +227,26 @@ export class Trainer {
           contact.observedAt,
         );
         if (!shown) return ["x", ISSUE_CLOSED_TEXT];
-        // An answered Daily question is shown for review; only its own mode knows that.
-        if (shown.mode === "daily") return this.dailyQuestion(contact, view);
-        const { step } = shown;
-        if (step.kind === "question" && step.issueId === request.issueId)
-          return this.step(contact, step, view);
-        // The round has moved on: the issue is answered, and its explanation is its screen.
-        return this.explanation(
+        if (shown.mode === "daily") {
+          // Today's Daily question is shown for review once answered; its mode knows that.
+          if (shown.today) return this.dailyQuestion(contact, view);
+        } else if (
+          shown.step.kind === "question" &&
+          shown.step.issueId === request.issueId
+        )
+          return this.step(contact, shown.step, view);
+        // The round has moved on, or the Daily question is of an earlier day. An answered
+        // issue shows its explanation. An issue without an answer left the Bank while the
+        // person read its context: the round goes on, the context of the next question first.
+        const answer = await this.rounds.storedAnswer(
           contact,
-          await this.rounds.answer(
-            contact,
-            request.issueId,
-            undefined,
-            contact.observedAt,
-          ),
-          0,
+          request.issueId,
+          contact.observedAt,
         );
+        if (answer) return this.explanation(contact, answer, 0);
+        return shown.mode === "daily"
+          ? ["x", ISSUE_CLOSED_TEXT]
+          : this.step(contact, shown.step, { ...view, contextRead: false });
       }
       case "context": {
         const context = await this.rounds.contextOf(contact, request.issueId);

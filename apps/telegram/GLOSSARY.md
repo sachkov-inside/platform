@@ -161,5 +161,11 @@ _Avoid_: Quiz, test, lesson check, question pool
 **Вопрос тренажёра** (Trainer Question):
 One question of the Банк вопросов with a permanent identifier, a topic, 2 to 4 options of which one
 or several are correct, an explanation of every option and a general explanation. A question that
-leaves the Bank is withdrawn from display and keeps the answers people gave to it.
+leaves the Bank is withdrawn from display and keeps the answers people gave to it. A question may
+start from an Условие.
 _Avoid_: Lesson question, task, exercise, poll
+
+**Условие** (Question Context):
+The situation a person reads on its own screen before a Вопрос тренажёра: the `context` field of
+the Bank file. The question's own text then asks about that situation and may be empty.
+_Avoid_: Preamble, scenario, case, stem

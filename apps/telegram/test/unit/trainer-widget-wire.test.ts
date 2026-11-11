@@ -79,6 +79,19 @@ describe("trainer widget wire format", () => {
     ).toBeLessThanOrEqual(1_024);
   });
 
+  it("counts the flag of a context only for a question that has one", () => {
+    const question = {
+      topic: cyrillic(40),
+      text: cyrillic(160),
+      options: [cyrillic(60), cyrillic(60), cyrillic(60), cyrillic(60)],
+    };
+
+    // `,1` after the Daily flag: two bytes.
+    expect(trainerQuestionDataBytes({ ...question, context: true })).toBe(
+      trainerQuestionDataBytes(question) + 2,
+    );
+  });
+
   it("carries a context at its limit in one answer of 1 024 bytes", () => {
     const words = Array.from({ length: 50 }, () => cyrillic(9)).join(" ");
 

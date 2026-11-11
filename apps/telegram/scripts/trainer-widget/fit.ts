@@ -8,8 +8,10 @@ import { chromium, type Page } from "@playwright/test";
 import {
   readTrainerBankFile,
   trainerAnswerExplanation,
+  trainerPossibleAnswers,
   type TrainerBankQuestion,
 } from "../../src/modules/trainer/trainer-bank-file.js";
+import { correctMaskOf } from "../../src/modules/trainer/trainer-rounds.js";
 import {
   TRAINER_WIDGET_TARGET_HEIGHT_PX,
   TRAINER_WIDGET_CHECKED_WIDTHS_PX,
@@ -95,13 +97,6 @@ async function tap(
   );
 }
 
-/** Every answer the widget can send: one option or none, or any set for `multiple`. */
-function possibleAnswers(question: TrainerBankQuestion): number[] {
-  return question.format === "single"
-    ? [0, ...question.options.map((_, index) => 1 << index)]
-    : Array.from({ length: 1 << question.options.length }, (_, mask) => mask);
-}
-
 /** Shows the question on a fresh widget; the context first when it has one. */
 async function ask(
   page: Page,
@@ -141,17 +136,14 @@ async function fitOf(
   ] as const;
   const asked: TrainerQuestionData =
     question.context === undefined ? round : [...round, null, 0, 1];
-  const correct = question.options.reduce(
-    (mask, option, index) => (option.correct ? mask | (1 << index) : mask),
-    0,
-  );
+  const correct = correctMaskOf(question.options);
 
   let shown: { context?: Measured; question: Measured } | undefined;
   let pages = 0;
   let tallest = 0;
   let smallest = Number.POSITIVE_INFINITY;
   const longest = { characters: 0, parts: 0, pages: 0 };
-  const answers = possibleAnswers(question);
+  const answers = trainerPossibleAnswers(question);
   for (const picked of answers) {
     shown = await ask(page, html, question, asked);
     const explanation = trainerAnswerExplanation(question, picked);
@@ -216,6 +208,7 @@ async function fitOf(
       topic: topicName,
       text: question.text,
       options,
+      context: question.context !== undefined,
     }),
     ...(shown.context === undefined ? {} : { context: shown.context }),
     question: shown.question,
@@ -271,24 +264,39 @@ export async function trainerBankFit(
   }
 }
 
-async function main(): Promise<number> {
-  const [file] = process.argv.slice(2);
-  if (file === undefined) {
-    process.stderr.write(
-      "Usage: pnpm --filter @inside/telegram trainer:widget:fit <Bank file>\n",
+/** Where the command writes: the report lines and the remarks about the run. */
+export interface TrainerFitOutput {
+  readonly report: (line: string) => void;
+  readonly remark: (line: string) => void;
+}
+
+/**
+ * The command: measures the Bank file at `bankPath` and writes one report line per question
+ * and width. Its exit code: 0 every question fits, 1 some do not, 2 the file is unusable.
+ */
+export async function trainerWidgetFitCommand(
+  bankPath: string | undefined,
+  output: TrainerFitOutput,
+): Promise<number> {
+  if (bankPath === undefined) {
+    output.remark(
+      "Usage: pnpm --filter @inside/telegram trainer:widget:fit <Bank file>",
     );
     return 2;
   }
-  // pnpm runs the script in the package; the path is the caller's.
-  const bankPath = path.resolve(process.env["INIT_CWD"] ?? process.cwd(), file);
-  const read = readTrainerBankFile(
-    JSON.parse(await readFile(bankPath, "utf8")),
-  );
+  let input: unknown;
+  try {
+    input = JSON.parse(await readFile(bankPath, "utf8"));
+  } catch {
+    // The parser's message quotes the file around the error: it is not printed.
+    output.remark("The Bank file cannot be read as JSON.");
+    return 2;
+  }
+  const read = readTrainerBankFile(input);
   if (read.status === "rejected") {
-    for (const error of read.errors)
-      process.stdout.write(`${JSON.stringify(error)}\n`);
-    process.stderr.write(
-      `The Bank file is rejected by the import check: ${String(read.errors.length)} errors.\n`,
+    for (const error of read.errors) output.report(JSON.stringify(error));
+    output.remark(
+      `The Bank file is rejected by the import check: ${String(read.errors.length)} errors.`,
     );
     return 2;
   }
@@ -297,18 +305,30 @@ async function main(): Promise<number> {
     bank.questions,
     new Map(bank.topics.map(({ code, name }) => [code, name])),
   );
-  for (const fit of fits) process.stdout.write(`${JSON.stringify(fit)}\n`);
+  for (const fit of fits) output.report(JSON.stringify(fit));
   const failed = new Set(fits.filter(({ fits }) => !fits).map(({ id }) => id));
   const smallest = Math.min(...fits.map(({ question }) => question.fontPx));
-  process.stderr.write(
+  output.remark(
     `${String(bank.questions.length)} questions at ${WIDTHS_PX.join(" and ")} px: ` +
       `${String(fits.reduce((sum, { answers }) => sum + answers, 0))} answers and ` +
       `${String(fits.reduce((sum, { pages }) => sum + pages, 0))} explanation pages drawn; ` +
-      `${String(failed.size)} questions do not fit ${String(TRAINER_WIDGET_TARGET_HEIGHT_PX)} px; ` +
-      `the smallest question text is ${String(smallest)} px.\n`,
+      `${String(failed.size)} questions do not fit ${String(TRAINER_WIDGET_TARGET_HEIGHT_PX)} px ` +
+      `in text of ${String(SMALLEST_FONT_PX)} px or more; ` +
+      `the smallest question text is ${String(smallest)} px.`,
   );
   return failed.size > 0 ? 1 : 0;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url))
-  process.exitCode = await main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const [file] = process.argv.slice(2);
+  process.exitCode = await trainerWidgetFitCommand(
+    // pnpm runs the script in the package; the path is the caller's.
+    file === undefined
+      ? undefined
+      : path.resolve(process.env["INIT_CWD"] ?? process.cwd(), file),
+    {
+      report: (line) => process.stdout.write(`${line}\n`),
+      remark: (line) => process.stderr.write(`${line}\n`),
+    },
+  );
+}

@@ -7,7 +7,7 @@ import {
   type TrainerBankOption,
 } from "./trainer-bank-file.js";
 import { trainerCodeFormat } from "./trainer-identifiers.js";
-import { DAY_SECONDS } from "./trainer-days.js";
+import { DAY_SECONDS, moscowDay } from "./trainer-days.js";
 import { trainerCompletedAnswers } from "./trainer-completed-answers.js";
 import { earnsTrainerPoint } from "./trainer-points.js";
 import type { TrainerRoundMode } from "./trainer-storage.js";
@@ -347,17 +347,29 @@ export class TrainerRounds {
     });
   }
 
+  /** The stored answer to an issue; `undefined` when the person has not answered it. */
+  storedAnswer(
+    person: TrainerPerson,
+    issueId: string,
+    at: Date,
+  ): Promise<TrainerAnswerOutcome | undefined> {
+    return this.answer(person, issueId, undefined, at);
+  }
+
   /**
-   * The step the round of a shown issue is on, with the round's mode: the same question again
-   * while it waits for its answer. `undefined`: the issue is not this person's or was not shown.
+   * The round of a shown issue. A round of «Проверить себя» or of a topic comes with the step
+   * it is on: the same question again while it waits for its answer. A Daily question comes
+   * with `today`, false for the question of an earlier day: its own mode shows it.
+   * `undefined`: the issue is not this person's or was not shown.
    */
   async shown(
     person: TrainerPerson,
     issueId: string,
     at: Date,
   ): Promise<
+    | { readonly mode: "daily"; readonly today: boolean }
     | {
-        readonly mode: TrainerRoundMode;
+        readonly mode: Exclude<TrainerRoundMode, "daily">;
         readonly step:
           | TrainerIssuedQuestion
           | TrainerRoundResult
@@ -367,12 +379,13 @@ export class TrainerRounds {
   > {
     return this.database.transaction().execute(async (database) => {
       const issue = await issueOf(database, person, issueId);
-      return (
-        issue && {
-          mode: issue.mode,
-          step: await showRoundStep(database, issue.round_id, at),
-        }
-      );
+      if (!issue) return undefined;
+      if (issue.mode === "daily")
+        return { mode: issue.mode, today: issue.daily_day === moscowDay(at) };
+      return {
+        mode: issue.mode,
+        step: await showRoundStep(database, issue.round_id, at),
+      };
     });
   }
 
@@ -402,7 +415,14 @@ async function issueOf(
         .onRef("version.question_id", "=", "issue.question_id")
         .onRef("version.content_revision", "=", "issue.content_revision"),
     )
-    .select(["issue.round_id", "round.mode", "version.context"])
+    .select([
+      "issue.round_id",
+      "round.mode",
+      sql<string | null>`to_char(round.daily_day, 'YYYY-MM-DD')`.as(
+        "daily_day",
+      ),
+      "version.context",
+    ])
     .where("issue.id", "=", id)
     .where("issue.bot_identity", "=", person.botIdentity)
     .where("issue.telegram_user_id", "=", person.telegramUserId)

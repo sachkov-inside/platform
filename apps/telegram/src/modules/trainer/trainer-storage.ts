@@ -38,7 +38,7 @@ export interface TrainerTables {
   trainer_question_versions: {
     question_id: string;
     content_revision: number;
-    /** The situation shown before the question; null when the text is the whole condition. */
+    /** The context: the situation shown before the question; null when it has none. */
     context: string | null;
     text: string;
     options: ColumnType<TrainerBankOption[], string, never>;
@@ -66,7 +66,7 @@ export interface TrainerTables {
     id: string;
     topic_code: string;
     format: TrainerBankQuestion["format"];
-    /** The situation shown before the question; null when the text is the whole condition. */
+    /** The context: the situation shown before the question; null when it has none. */
     context: string | null;
     text: string;
     /** jsonb written as JSON text; option order is the order of the Bank file. */

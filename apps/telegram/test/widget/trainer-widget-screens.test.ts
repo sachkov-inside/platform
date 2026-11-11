@@ -1323,6 +1323,10 @@ describe("trainer widget screens in a browser", () => {
       expect(await page.locator("#w").innerText()).toContain(
         "Синтетический вопрос?",
       );
+      // The way back to the context is a button of the full touch size.
+      expect(
+        (await buttonNamed(page, "Условие").boundingBox())?.height,
+      ).toBeGreaterThanOrEqual(44);
       await tap(page, "Условие", ["c", "7k", context]);
 
       expect(await page.locator("#w").innerText()).toContain(context);
@@ -1349,6 +1353,38 @@ describe("trainer widget screens in a browser", () => {
       ).toEqual(["БВторой"]);
       await tap(page, "Ответить", ["e", 0, 1, 2, "Разбор.", "0", 5, 0]);
       expect((await requests(page)).at(-1)).toBe("a7k:2");
+      await page.close();
+    });
+
+    it("shows the stored pick of a reviewed Daily question after its context is read again", async () => {
+      const page = await openWidget(320);
+      // The person answered «Б» earlier; the review carries that pick.
+      const review: TrainerQuestionData = [
+        "q",
+        "7k",
+        "Синтетическая тема",
+        "Синтетический вопрос?",
+        ["Первый", "Второй", "Третий"],
+        0,
+        "",
+        1,
+        0b010,
+        1,
+        1,
+      ];
+      const pickedOptions = () =>
+        page
+          .locator(".op.S")
+          .evaluateAll((picked) => picked.map((option) => option.textContent));
+      await tap(page, "Вопрос дня", ["c", "7k", context]);
+      await tap(page, "К вопросу", review);
+      expect(await pickedOptions()).toEqual(["БВторой"]);
+
+      await tap(page, "Условие", ["c", "7k", context]);
+      await tap(page, "К вопросу", review);
+
+      expect(await pickedOptions()).toEqual(["БВторой"]);
+      expect(await page.locator("#w").innerText()).toContain("Ответ сохранён");
       await page.close();
     });
 
