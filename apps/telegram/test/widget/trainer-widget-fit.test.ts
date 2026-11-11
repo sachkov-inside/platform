@@ -71,6 +71,7 @@ describe("trainer widget fit of a Bank file", () => {
       expect(fit.pages).toBeGreaterThan(fit.explanationPages * 4);
       expect(fit.answered.heightPx).toBeLessThanOrEqual(560);
       expect(fit.answered.fontPx).toBeGreaterThanOrEqual(11);
+      expect(fit.steadyCounter).toBe(true);
     }
     // The report names the question and carries numbers only.
     expect(JSON.stringify(fits)).not.toMatch(/[а-яё]/i);

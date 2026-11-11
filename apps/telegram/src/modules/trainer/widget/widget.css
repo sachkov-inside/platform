@@ -124,7 +124,7 @@ button {
   color: var(--h);
 }
 
-/* Home: .U title, .ch series chip, .T progress track. */
+/* Home: .U title, also the size of the 👍 and 👎 of a vote; .ch series chip, .T progress track. */
 /* .a gives every home button the accent bottom edge and the home title its colour. */
 .a {
   border-bottom-color: var(--a);
@@ -144,11 +144,9 @@ button {
   box-shadow: 2px 2px 0 var(--d);
 }
 .ch {
-  color: var(--v);
   padding: 4px 7px;
   border-radius: 4px;
   background: var(--t);
-  font-weight: 600;
 }
 .T {
   height: 12px;
@@ -195,7 +193,8 @@ button {
   padding: 0 8px;
   flex: none;
 }
-.Q {
+.Q,
+.ch {
   font-weight: 600;
 }
 .op {

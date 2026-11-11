@@ -25,23 +25,19 @@
   let lastRequest;
   let questionFont;
   let judging = false;
-  /** Characters of the explanation before the page the person reads. */
-  let explanationOffset = 0;
+  /** The page of the explanation the person reads, its pages and their size in characters. */
+  let page = 0;
+  let parts;
   let explanationSize = 200;
   widget.setResizeAnchor?.("bottom");
 
   const esc = (text) =>
     text.replace(/[&<>]/g, (char) => `&#${char.charCodeAt(0)};`);
+  // 5 to 20 «дней»; otherwise the last digit decides: 1 «день», 2 to 4 «дня», the rest «дней».
   const days = (count) =>
-    ["день", "дня", "дней"][
-      count % 100 > 10 && count % 100 < 20
-        ? 2
-        : count % 10 == 1
-          ? 0
-          : count % 10 > 1 && count % 10 < 5
-            ? 1
-            : 2
-    ];
+    ["дней", "день", "дня", "дня", "дня"][
+      count % 100 > 4 && count % 100 < 21 ? 0 : count % 10
+    ] || "дней";
 
   const button = (action, classes, html, disabled) =>
     `<button class="${classes}" onclick="g('${action}')"${disabled ? " disabled" : ""}>${html}</button>`;
@@ -102,7 +98,7 @@
     const review = question[8] != null;
     if (!d)
       return (
-        `<div class=fb><b class=V>${review ? "Ответ сохранён" : question[5] ? "Выберите все верные варианты." : "Выберите ответ"}</b>` +
+        `<div class=fb><b class=V>${review ? "Ответ сохранён" : question[5] ? "Выберите все верные" : "Выберите ответ"}</b>` +
         (review || question[5]
           ? button(
               "S",
@@ -113,30 +109,33 @@
           : "") +
         "</div>"
       );
-    // The text is cut every explanationSize characters. A word that crosses a cut moves to
-    // the next page whole, so a page may be longer by that word; a word longer than a page
-    // is cut. The pages are joined by a character no text has, so line breaks stay text.
-    const parts = (
-      (d[4] + (d[7] ? " " + d[7] : "")).match(
-        new RegExp(".{1," + explanationSize + "}", "gsu"),
+    // The text is cut into as many pages as explanationSize characters a page need, all of
+    // one length, so the last page is no short tail while a page holds 40 characters or
+    // more. A word that crosses a cut moves to the next page whole, so a page may be longer
+    // by that word; a word longer than a page is cut, and a page before such a word may
+    // hold only the space before it.
+    // The pages are joined by a character no text has, so line breaks stay text; a moved
+    // word never takes that character along, which would leave an empty page.
+    const text = d[4] + (d[7] ? " " + d[7] : "");
+    parts = (
+      text.match(
+        new RegExp(
+          ".{1," +
+            (~~(text.length / (~~((text.length - 1) / explanationSize) + 1)) +
+              1) +
+            "}",
+          "gsu",
+        ),
       ) || []
     )
       .join("\0")
-      .replace(/(\s)(\S+)\0(?=\S)/g, "$1\0$2")
+      .replace(/(\s)([^\s\0]+)\0(?=\S)/g, "$1\0$2")
       .split("\0");
-    // The page that holds the place the person reads, and the characters before it.
-    let page = 0;
-    let start = 0;
-    for (
-      ;
-      parts[page + 1] && start + parts[page].length <= explanationOffset;
-      start += parts[page++].length
-    );
     const id = question[1];
     const vote = (value) =>
       button(
         "f" + id + ":" + (d[8] == value ? 0 : value),
-        "bt" + (d[8] == value ? " P" : ""),
+        "bt U" + (d[8] == value ? " P" : ""),
         votes[value],
       );
     // A long explanation comes in parts: d[9] is this part, d[10] their number. The arrows
@@ -144,7 +143,7 @@
     const part = d[9] || 0;
     const another = "m" + id + ":";
     const buttons =
-      button("F", "bt" + (d[8] ? " P" : ""), votes[d[8] || 0]) +
+      button("F", "bt" + (d[8] ? " P U" : ""), votes[d[8] || 0]) +
       button(
         question[9] ? "h" : "n" + id,
         "bt P",
@@ -156,14 +155,10 @@
         ? pair(vote(1), vote(2) + button("F", "bt", "←"))
         : parts[1] || d[10]
           ? arrows(
-              page
-                ? "E" + (start - parts[page - 1].length)
-                : part
-                  ? another + (part - 1)
-                  : "",
+              page ? "E" + (page - 1) : part ? another + (part - 1) : "",
               `${page + 1}/${parts.length}`,
               parts[page + 1]
-                ? "E" + (start + parts[page].length)
+                ? "E" + (page + 1)
                 : part + 1 < d[10]
                   ? another + (part + 1)
                   : "",
@@ -298,11 +293,23 @@
     const render = () => (root.innerHTML = screens[data[0]](data));
     render();
     if (data[0] == "e") {
-      // Smaller pages until the screen fits; the page that holds the read place is shown.
-      while (document.body.offsetHeight >= MAX_HEIGHT && explanationSize > 10) {
-        explanationSize -= 10;
+      // Smaller pages until every page fits the screen, not only the one shown: the number
+      // of pages is then settled before the person turns the first one. After a smaller
+      // size the check starts again from the first page.
+      const read = page;
+      for (page = 0; parts[page]; page++) {
         render();
+        while (
+          document.body.offsetHeight >= MAX_HEIGHT &&
+          explanationSize > 10
+        ) {
+          explanationSize -= 10;
+          page = 0;
+          render();
+        }
       }
+      page = read;
+      render();
     } else if (!inQuestion || !questionFont) {
       // A question leaves 120 px for the verdict, two lines of the explanation and the
       // buttons: a larger reserve takes the room of a long question's own text.
@@ -337,7 +344,7 @@
       }
       // Each part of an explanation starts from its first page.
       if (data != current) {
-        explanationOffset = 0;
+        page = 0;
         explanationSize = 200;
       }
       draw(data);
@@ -348,9 +355,10 @@
   const parse = (text) => {
     try {
       const data = JSON.parse(text);
-      if (Array.isArray(data)) return data;
+      // A screen is an array, and an array has pop; the bot sends no object with that key.
+      if (data.pop) return data;
     } catch {
-      // Not JSON: the caller falls back to the empty home screen or the retry state.
+      // Not JSON, or null: the caller falls back to the empty home screen or the retry state.
     }
   };
 
@@ -384,7 +392,7 @@
       judging = !judging;
       draw(current);
     } else if (action[0] == "E") {
-      explanationOffset = index;
+      page = index;
       draw(current);
     } else if (action[0] == "P") {
       if (question[5]) {
