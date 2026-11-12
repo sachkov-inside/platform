@@ -32,6 +32,7 @@ import {
   type CommunitySetCommand,
 } from "../../src/modules/telegram-membership/index.js";
 import {
+  COMMUNITY_OVERDUE_MS,
   DISPATCH_CONTRACT_VERSION,
   communitySetSchema,
   communityResultSchema,
@@ -1572,7 +1573,12 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       ).toMatchObject({ errorCode: null });
       instant = new Date(instant.getTime() + 61_000);
       provider.updatedAt = new Date(
-        instant.getTime() + 6 * 60_000,
+        instant.getTime() + COMMUNITY_OVERDUE_MS,
+      ).toISOString();
+      expect((await app.sweep()).backlog).toMatchObject({ overdue: 0 });
+      instant = new Date(instant.getTime() + 61_000);
+      provider.updatedAt = new Date(
+        instant.getTime() + COMMUNITY_OVERDUE_MS + 1,
       ).toISOString();
       expect((await app.sweep()).backlog).toMatchObject({ overdue: 1 });
       expect(

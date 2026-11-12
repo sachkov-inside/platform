@@ -35,9 +35,10 @@ function retryDelayMs(attempts: number): number {
 
 /** What the provider actually reported, separate from our own delivery lifecycle. */
 function observationFields(result: CommunityResult, now: Date) {
-  // `now` is read when the sweep starts, so the bot may refresh its observation before it
-  // answers: a slightly negative age is fresh (#2070). Only a gap beyond the overdue window,
-  // past or future, means the observation stopped advancing or carries a wrong clock.
+  // `now` is read before the provider call, so the bot may refresh its observation before it
+  // answers: a slightly negative age is fresh (#2070). An unreadable `updatedAt` or a gap beyond
+  // the overdue window, past or future, means the observation stopped advancing or carries a
+  // wrong clock.
   const providerAge = now.getTime() - new Date(result.updatedAt).getTime();
   return {
     errorCode:
