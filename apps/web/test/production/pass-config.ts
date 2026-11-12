@@ -23,15 +23,16 @@ export const productionTarget = {
  * Product A — единственный опубликованный Product production с закрытыми материалами. Тело проверяется
  * на `bodyMaterialSlug`; картинку даёт `assetMaterialSlug`, основное видео даёт закрытый урок
  * `videoMaterialSlug` с защищённой записью Kinescope, задание — Product Task `taskCode`.
- * Материалы production проход не меняет.
+ * Материалы production проход не меняет. Требования к этим урокам и заданию и порядок их замены
+ * описаны в `docs/runbooks/production-test-identities.md`.
  */
 export const productA = {
   id: "625a0cca-c8ff-4a65-9125-17194dd3b769",
   slug: "ai-engineering",
-  bodyMaterialSlug: "inside-content-aie-ch2-modules",
-  assetMaterialSlug: "inside-content-aie-ch2-modules",
+  bodyMaterialSlug: "inside-content-aie-ch1-pipeline",
+  assetMaterialSlug: "inside-content-aie-ch1-pipeline",
   videoMaterialSlug: "inside-content-aie-ch2-plan-domain",
-  taskCode: "aie-ch2-accounts-design",
+  taskCode: "aie-ch1-running-skeleton",
 } as const;
 
 /**
