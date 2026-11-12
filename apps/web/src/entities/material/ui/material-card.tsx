@@ -567,7 +567,7 @@ const libraryFormatIcons = {
  * Карточка библиотеки (#2022, прототип P5, решение владельца 12.11.2026). Все карточки одинаковые:
  * картинка 16:9 и название. Обложки нет — на месте картинки тёмная карточка с форматом и названием,
  * как картинка превью ссылки, но без логотипа; тогда название под ней не повторяется. На картинке
- * формат, длительность видео и отметка «изучено»; под ней, если его передали, место в программе.
+ * формат, длительность видео и отметка «изучено»; сразу под ней, до названия, место в программе.
  */
 function LibraryMaterialCard({
   annotation,
@@ -654,15 +654,17 @@ function LibraryMaterialCard({
           {duration}
         </span>
       </AccessCover>
+      {/* Место в программе стоит сразу под картинкой у всех карточек (решение владельца 12.11.2026):
+          прижатое к низу растянутой карточки, оно читалось как подпись следующего ряда. */}
+      {annotation === undefined ? null : (
+        <span className="-mb-1 text-xs font-medium text-muted-foreground">
+          {annotation}
+        </span>
+      )}
       {cover === null ? null : (
         <Heading className="line-clamp-2 text-[0.9375rem] leading-5 font-semibold tracking-[-0.01em]">
           {title}
         </Heading>
-      )}
-      {annotation === undefined ? null : (
-        <span className="mt-auto text-xs text-muted-foreground">
-          {annotation}
-        </span>
       )}
     </article>
   );
