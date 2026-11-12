@@ -1,0 +1,1364 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ПРОТОТИП. Раздел «ИИ-модели»: три варианта</title>
+    <!--
+  PROTOTYPE, throwaway. Вопрос: какой экран раздела «ИИ-модели» быстрее всего отвечает на три
+  типичных вопроса человека. Три варианта главного экрана: A «Семейства», B «Таблица по цене»,
+  C «Переключатели сверху». Карточка модели и экран «О данных» общие.
+  Это витрина в обычном браузере, а не настоящий виджет: размер кода (4 096 байт после zlib)
+  здесь не считается. Данные настоящие, из образцового справочника на 12.11.2026; тексты сводок
+  и причин выбора агента это черновики для владельца. Высота виджета ограничена 560 px, шрифт
+  уменьшается по 1 px до 11 px, как в Тренажёре.
+-->
+    <style>
+      .pg {
+        box-sizing: border-box;
+        font:
+          14px/1.45 system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        color: var(--foreground, #202124);
+        background: var(--background, #f6f5f2);
+        padding: 12px;
+      }
+      .pg *,
+      .pg *::before,
+      .pg *::after {
+        box-sizing: border-box;
+      }
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 18px;
+        align-items: center;
+        padding: 8px 12px;
+        margin-bottom: 12px;
+        background: var(--card, #fff);
+        color: var(--card-foreground, #202124);
+        border: 1px solid var(--border, #dcdad4);
+        border-radius: 10px;
+      }
+      .bar .lb {
+        font-size: 12px;
+        color: var(--muted-foreground, #66645f);
+        margin-right: 6px;
+      }
+      .seg {
+        display: inline-flex;
+        background: var(--muted, #f1efea);
+        border-radius: 8px;
+        padding: 2px;
+      }
+      .seg button {
+        border: 0;
+        background: none;
+        color: var(--foreground, #202124);
+        padding: 4px 10px;
+        border-radius: 6px;
+        font: inherit;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--primary, #202124);
+        color: var(--primary-foreground, #fff);
+      }
+      .arrow {
+        border: 1px solid var(--border, #dcdad4);
+        background: var(--card, #fff);
+        color: var(--foreground, #202124);
+        border-radius: 6px;
+        width: 28px;
+        height: 28px;
+        cursor: pointer;
+        font: inherit;
+      }
+      .stage {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-start;
+      }
+      .side {
+        flex: 1 1 260px;
+        min-width: 240px;
+        padding: 12px 14px;
+        background: var(--card, #fff);
+        color: var(--card-foreground, #202124);
+        border: 1px solid var(--border, #dcdad4);
+        border-radius: 10px;
+        font-size: 13px;
+      }
+      .side h3 {
+        font-size: 13px;
+        margin: 0 0 6px;
+      }
+      .side ol {
+        margin: 0 0 10px;
+        padding-left: 18px;
+      }
+      .side .mut {
+        color: var(--muted-foreground, #66645f);
+      }
+      .side .big {
+        font-size: 22px;
+        font-weight: 700;
+      }
+      .side .warn {
+        color: var(--destructive, #b63829);
+        font-weight: 600;
+      }
+      .side button {
+        border: 1px solid var(--border, #dcdad4);
+        background: var(--secondary, #f1efea);
+        color: var(--secondary-foreground, #202124);
+        border-radius: 6px;
+        padding: 4px 10px;
+        font: inherit;
+        cursor: pointer;
+      }
+      .side dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 2px 10px;
+        margin: 8px 0 0;
+      }
+      .side dt {
+        color: var(--muted-foreground, #66645f);
+      }
+      .side dd {
+        margin: 0;
+      }
+
+      /* Чат Telegram вокруг виджета. Цвета чата фиксированные, не токены Orca. */
+      .chat {
+        padding: 16px 14px 18px;
+        border-radius: 14px;
+        background: #cfd8c4;
+      }
+      .chat.dk {
+        background: #0e1621;
+      }
+      .msgw {
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        max-height: 560px;
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+      }
+      .msgw.cut::after {
+        content: "обрезано на 560 px";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 2px 6px;
+        background: #b63829;
+        color: #fff;
+        font: 600 11px system-ui;
+        text-align: center;
+      }
+      .time {
+        position: absolute;
+        right: 8px;
+        bottom: 6px;
+        padding: 1px 6px;
+        border-radius: 8px;
+        background: rgb(0 0 0 / 0.32);
+        color: #fff;
+        font: 11px system-ui;
+        pointer-events: none;
+      }
+
+      /* Виджет: палитра и рисунок Тренажёра (бумага, оранжевый акцент, обводки, тени). */
+      .wg {
+        --a: #c7461e;
+        --d: #8b3115;
+        --t: #ffdfbd;
+        --s: #ffefdc;
+        --h: #80513b;
+        --p: #fff8ef;
+        --v: #472719;
+        --g: #277647;
+        background: var(--p);
+        color: var(--v);
+        padding-bottom: 22px;
+      }
+      .wg #w {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 14px 8px 12px;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        line-height: 1.3;
+      }
+      .wg button {
+        display: block;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: none;
+        font: inherit;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .wg .R {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .wg .F {
+        flex: 1;
+        min-width: 0;
+      }
+      .wg .mu {
+        color: var(--h);
+      }
+      .wg .sm {
+        font-size: 0.8em;
+      }
+      .wg .U {
+        font-size: 1.3em;
+        font-weight: 800;
+        color: var(--a);
+      }
+      .wg .cd,
+      .wg .bt {
+        border: 2px solid var(--v);
+        border-radius: 8px;
+        background: var(--s);
+        box-shadow: 3px 3px 0 var(--d);
+        padding: 6px 9px;
+      }
+      .wg .bt {
+        min-height: 40px;
+        font-weight: 700;
+        text-align: center;
+        width: 100%;
+      }
+      .wg .x {
+        flex: none;
+        width: 36px;
+        height: 36px;
+        border: 2px solid var(--v);
+        border-radius: 6px;
+        background: var(--s);
+        box-shadow: 2px 2px 0 var(--d);
+        text-align: center;
+        font-weight: 800;
+      }
+      .wg .lnk {
+        color: var(--a);
+        font-weight: 600;
+        font-size: 0.85em;
+        white-space: nowrap;
+      }
+      .wg .ch {
+        display: inline-block;
+        border: 2px solid var(--v);
+        border-radius: 5px;
+        background: var(--t);
+        box-shadow: 2px 2px 0 var(--d);
+        padding: 2px 6px 3px;
+        font-weight: 600;
+        font-size: 0.9em;
+      }
+      .wg .ch.on {
+        background: var(--a);
+        border-color: var(--d);
+        color: var(--p);
+      }
+      .wg .tag {
+        display: inline-block;
+        border: 1.5px solid var(--h);
+        border-radius: 4px;
+        padding: 0 5px;
+        font-size: 0.8em;
+        color: var(--h);
+        margin: 0 4px 2px 0;
+      }
+      .wg .dots {
+        display: inline-flex;
+        gap: 2px;
+        vertical-align: middle;
+      }
+      .wg .dots i {
+        width: 7px;
+        height: 7px;
+        border: 1.5px solid var(--v);
+        border-radius: 2px;
+        background: var(--s);
+      }
+      .wg .dots i.f {
+        background: var(--a);
+        border-color: var(--d);
+      }
+      .wg .dots.pr i.f {
+        background: var(--v);
+        border-color: var(--v);
+      }
+      .wg .bar5 {
+        display: flex;
+        gap: 2px;
+        margin-top: 3px;
+      }
+      .wg .bar5 i {
+        flex: 1;
+        height: 4px;
+        border-radius: 1px;
+        background: var(--t);
+      }
+      .wg .bar5 i.f {
+        background: var(--a);
+      }
+      .wg .hr {
+        border-top: 2px solid var(--t);
+      }
+      .wg .fam {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      .wg .fam > b {
+        flex: none;
+        width: 64px;
+        padding-top: 4px;
+        font-size: 0.9em;
+      }
+      .wg .fam .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .wg .lead {
+        display: flex;
+        gap: 6px;
+      }
+      .wg .lead .cd {
+        flex: 1;
+        min-width: 0;
+        padding: 4px 6px;
+      }
+      .wg .lead .cd span {
+        display: block;
+        font-size: 0.72em;
+        color: var(--h);
+      }
+      .wg .lead .cd b {
+        display: block;
+        font-size: 0.85em;
+      }
+      .wg table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82em;
+      }
+      .wg th {
+        font-weight: 700;
+        text-align: center;
+        padding: 0 1px 4px;
+        vertical-align: bottom;
+      }
+      .wg th button {
+        width: 100%;
+        text-align: center;
+        color: var(--a);
+        font-weight: 700;
+        line-height: 1.1;
+      }
+      .wg td {
+        padding: 3px 1px;
+        text-align: center;
+        border-top: 1px solid var(--t);
+      }
+      .wg tr.g1 td {
+        border-top: 2px solid var(--h);
+      }
+      .wg td.nm {
+        text-align: left;
+      }
+      .wg td.nm button {
+        font-weight: 700;
+        width: 100%;
+      }
+      .wg td .no {
+        color: var(--t);
+      }
+      .wg td .ys {
+        color: var(--h);
+      }
+      .wg td b {
+        color: var(--g);
+      }
+      .wg .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 4px 0;
+        border-top: 1px solid var(--t);
+      }
+      .wg .sub {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        padding: 3px 0;
+        border-top: 1px solid var(--t);
+      }
+      .wg .sub .pl {
+        flex: none;
+        width: 7.6em;
+        font-weight: 600;
+      }
+      .wg .est b {
+        color: var(--g);
+      }
+      .wg .grp {
+        font-size: 0.78em;
+        color: var(--h);
+        margin-top: 4px;
+      }
+      .wg .grp b {
+        color: var(--v);
+        font-size: 1.15em;
+      }
+      .wg .tierrow {
+        padding: 4px 0;
+        border-top: 1px solid var(--t);
+      }
+      .wg .tierrow .ms {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 10px;
+        font-size: 0.85em;
+      }
+      .wg .tierrow .ms button {
+        display: inline;
+        color: var(--v);
+        text-decoration: underline;
+        text-decoration-color: var(--t);
+        text-underline-offset: 2px;
+      }
+      .wg .note {
+        border-left: 3px solid var(--a);
+        padding-left: 8px;
+        font-size: 0.85em;
+      }
+    </style>
+  </head>
+  <body style="margin: 0">
+    <div class="pg">
+      <div class="bar">
+        <span
+          ><span class="lb">Вариант</span>
+          <button class="arrow" id="prev" title="Предыдущий (←)">‹</button>
+          <span class="seg" id="vseg"></span>
+          <button class="arrow" id="next" title="Следующий (→)">›</button></span
+        >
+        <span
+          ><span class="lb">Ширина</span><span class="seg" id="wseg"></span
+        ></span>
+        <span
+          ><span class="lb">Чат</span><span class="seg" id="tseg"></span
+        ></span>
+      </div>
+      <div class="stage">
+        <div class="chat" id="chat">
+          <div class="msgw" id="msgw">
+            <div class="wg"><div id="w"></div></div>
+            <span class="time">12:40</span>
+          </div>
+        </div>
+        <div class="side">
+          <h3>Проверь на трёх вопросах</h3>
+          <ol>
+            <li>Какая модель лучше всего для кода?</li>
+            <li>Что мне даст подписка за $20 в месяц?</li>
+            <li>Сколько стоит Opus 5.5 и в каких подписках он есть?</li>
+          </ol>
+          <div class="R" style="display: flex; gap: 12px; align-items: center">
+            <div>
+              <div class="mut">Нажатий с главного экрана</div>
+              <div class="big" id="taps">0</div>
+            </div>
+            <button id="reset">На главный, счёт с нуля</button>
+          </div>
+          <dl>
+            <dt>Вариант</dt>
+            <dd id="s-var"></dd>
+            <dt>Экран</dt>
+            <dd id="s-scr"></dd>
+            <dt>Высота</dt>
+            <dd id="s-h"></dd>
+            <dt>Шрифт</dt>
+            <dd id="s-f"></dd>
+          </dl>
+          <p class="mut" style="margin: 10px 0 0">
+            Данные на 12.11.2026 из образцового справочника. Сводки и причины
+            выбора агента это черновики. Код виджета здесь не ограничен 4 096
+            байтами. Стрелки ← → на клавиатуре переключают варианты.
+          </p>
+        </div>
+      </div>
+    </div>
+    <script>
+      // ---------- Данные: образцовый справочник на 12.11.2026 ----------
+      const FAMS = [
+        ["claude", "Claude"],
+        ["gemini", "Gemini"],
+        ["gpt", "GPT"],
+        ["kimi", "Kimi"],
+        ["grok", "Grok"],
+        ["deepseek", "DeepSeek"],
+        ["glm", "GLM"],
+        ["qwen", "Qwen"],
+        ["minimax", "MiniMax"],
+      ];
+      const SVC = {
+        claude: { n: "Claude", ru: false },
+        chatgpt: { n: "ChatGPT", ru: false },
+        google: { n: "Google", ru: false },
+        x: { n: "X", ru: null },
+        kimi: { n: "Kimi", ru: null },
+        zai: { n: "GLM Coding Plan", ru: null },
+        alibaba: { n: "Alibaba Token Plan", ru: null },
+      };
+      // usd: цена в месяц; tiers: ценовые ступени 1 (до $50), 2 (~$100), 3 ($200+).
+      const P = {
+        "claude-pro": { s: "claude", n: "Pro", usd: 20 },
+        "claude-max": { s: "claude", n: "Max", usd: 100 },
+        "claude-ultra": { s: "claude", n: "Ultra", usd: 200 },
+        "gpt-plus": { s: "chatgpt", n: "Plus", usd: 20 },
+        "gpt-pro100": { s: "chatgpt", n: "Pro", usd: 100 },
+        "gpt-pro200": { s: "chatgpt", n: "Pro", usd: 200 },
+        "gpt-pro500": { s: "chatgpt", n: "Pro", usd: 500 },
+        "g-pro": { s: "google", n: "AI Pro", usd: 19.99 },
+        "g-ultra5": { s: "google", n: "AI Ultra 5x", usd: 99.99 },
+        "g-ultra20": { s: "google", n: "AI Ultra 20x", usd: 199.99 },
+        "g-ag": {
+          s: "google",
+          n: "AI Pro–Ultra",
+          usd: 19.99,
+          usdTo: 199.99,
+          tiers: [1, 2, 3],
+          into: ["g-pro", "g-ultra5", "g-ultra20"],
+        },
+        "x-plus": { s: "x", n: "Plus", usd: 8 },
+        "x-premium": { s: "x", n: "Premium", usd: 30 },
+        "x-super": { s: "x", n: "Super", usd: 100 },
+        "x-ultra": { s: "x", n: "Ultra", usd: 200 },
+        "kimi-plus": { s: "kimi", n: "Plus", usd: 19 },
+        "kimi-pro": { s: "kimi", n: "Pro", usd: 39 },
+        "kimi-max": { s: "kimi", n: "Max", usd: 99 },
+        "kimi-ultra": { s: "kimi", n: "Ultra", usd: 199 },
+        "glm-lite": { s: "zai", n: "Lite", usd: 18 },
+        "glm-pro": { s: "zai", n: "Pro", usd: 80 },
+        "glm-max": { s: "zai", n: "Max", usd: 168 },
+        ali: { s: "alibaba", n: "Lite–Pro", usd: 6, usdTo: 43, tiers: [1] },
+      };
+      const AG = "через Antigravity, лимит без чисел";
+      const NOW = "недельный лимит не опубликован";
+      const ALI = "20–200 тыс. кредитов в месяц";
+      // t: задач в неделю, w: доллары в неделю по ценам API, v: слова компании, n: пометка.
+      const M = [
+        {
+          id: "fable",
+          f: "claude",
+          sh: "Fable 5.2",
+          full: "Claude Fable 5.2",
+          rank: 1,
+          score: 0.304,
+          task: 7.43,
+          api: [8, 40],
+          tags: ["код", "агенты", "поиск и анализ"],
+          sum: "самая сильная, но и самая дорогая",
+          ag: ["Claude Code", "родной агент Anthropic"],
+          alts: "OpenCode по ключу API",
+          subs: [
+            ["claude-pro", { v: "только по акции до 16.11", promo: 1 }],
+            [
+              "claude-max",
+              { v: "в 5 раз больше Pro, Fable до половины лимита" },
+            ],
+            ["claude-ultra", { t: 109, w: 812, n: "на Fable половина лимита" }],
+          ],
+          ch: "В Claude Pro Fable доступна только до 16.11",
+        },
+        {
+          id: "opus",
+          f: "claude",
+          sh: "Opus 5.5",
+          full: "Claude Opus 5.5",
+          rank: 2,
+          score: 0.195,
+          task: 5.47,
+          api: [4, 20],
+          tags: ["код", "агенты", "тексты"],
+          sum: "очень умная для кода и текстов, но дорогая",
+          ag: ["Claude Code", "1-е место в Terminal-Bench 4.1"],
+          alts: "Antigravity, OpenCode",
+          subs: [
+            ["claude-pro", { t: 28.2, w: 154 }],
+            ["claude-max", { v: "в 5 раз больше Pro" }],
+            ["claude-ultra", { t: 296.7, w: 1623 }],
+            ["g-ag", { v: AG }],
+          ],
+        },
+        {
+          id: "sonnet",
+          f: "claude",
+          sh: "Sonnet 5.5",
+          full: "Claude Sonnet 5.5",
+          rank: 4,
+          score: 0.16,
+          task: 3.35,
+          api: [2, 10],
+          tags: ["код", "агенты", "тексты"],
+          sum: "почти как Opus, но дешевле",
+          ag: ["Claude Code", "2-е место в Terminal-Bench 4.1"],
+          alts: "Antigravity, OpenCode",
+          subs: [
+            ["claude-pro", { t: 45.9, w: 154 }],
+            ["claude-max", { v: "в 5 раз больше Pro" }],
+            ["claude-ultra", { t: 483.9, w: 1623 }],
+            ["g-ag", { v: AG }],
+          ],
+        },
+        {
+          id: "carbon",
+          f: "gemini",
+          sh: "4 Carbon",
+          full: "Gemini 4 Carbon",
+          rank: 3,
+          score: 0.17,
+          task: 1.46,
+          api: [2, 10],
+          tags: ["код", "поиск и анализ", "агенты"],
+          sum: "сильная и недорогая, но с 1 декабря дороже",
+          ag: ["Antigravity", "родной агент Google"],
+          alts: "Cline по ключу API",
+          subs: [
+            ["g-ultra5", { v: "в 5 раз больше AI Pro" }],
+            ["g-ultra20", { v: "в 20 раз больше AI Pro" }],
+          ],
+          ch: "С 1.12 API вдвое дороже: $4 / $20",
+        },
+        {
+          id: "argon",
+          f: "gemini",
+          sh: "4 Argon",
+          full: "Gemini 4 Argon",
+          rank: 9,
+          score: 0.107,
+          task: 0.73,
+          api: [2, 10],
+          tags: ["поиск и анализ", "тексты"],
+          sum: "неплохая и дешёвая, есть в подписке за $20",
+          ag: ["Antigravity", "родной агент Google"],
+          alts: "Cline по ключу API",
+          subs: [
+            ["g-pro", { v: "в 4 раза больше Free" }],
+            ["g-ultra5", { v: "в 5 раз больше AI Pro" }],
+            ["g-ultra20", { v: "в 20 раз больше AI Pro" }],
+          ],
+          ch: "С 1.12 API вдвое дороже: $4 / $20",
+        },
+        {
+          id: "astra",
+          f: "gpt",
+          sh: "6 Astra",
+          full: "GPT-6 Astra",
+          rank: 6,
+          score: 0.145,
+          task: 6.1,
+          api: [10, 50],
+          tags: ["код", "поиск и анализ"],
+          sum: "сильная, но дороже и слабее Opus",
+          ag: ["Codex", "родной агент OpenAI"],
+          alts: "OpenCode через ChatGPT или API",
+          subs: [
+            ["gpt-plus", { t: 7.5, w: 46, n: "5–45 сообщений за 5 часов" }],
+            ["gpt-pro100", { v: NOW }],
+            ["gpt-pro200", { t: 95.2, w: 581 }],
+            ["gpt-pro500", { v: NOW }],
+          ],
+        },
+        {
+          id: "sol",
+          f: "gpt",
+          sh: "6.1 Sol",
+          full: "GPT-6.1 Sol",
+          rank: 7,
+          score: 0.125,
+          task: 1.06,
+          api: [2, 10],
+          tags: ["код", "агенты"],
+          sum: "хороша для кода и в пять раз дешевле Opus",
+          ag: ["Codex", "3-е место в Terminal-Bench 4.1"],
+          alts: "OpenCode через ChatGPT или API",
+          subs: [
+            ["gpt-plus", { t: 43.3, w: 46 }],
+            ["gpt-pro100", { v: NOW }],
+            ["gpt-pro200", { t: 547.3, w: 581 }],
+            ["gpt-pro500", { v: NOW }],
+          ],
+        },
+        {
+          id: "kimi",
+          f: "kimi",
+          sh: "K3.1 Pro",
+          full: "Kimi K3.1 Pro",
+          rank: 15,
+          score: 0.049,
+          task: 1.23,
+          api: [2, 10],
+          tags: ["код", "агенты"],
+          sum: "сильнейшая из китайских в списке, дешевле Claude",
+          ag: ["Claude Code", "Moonshot сама тестирует модель в нём"],
+          alts: "Kimi Code CLI, OpenCode",
+          subs: [
+            ["kimi-plus", { v: "лимит за 5 часов, без чисел" }],
+            ["kimi-pro", { t: 2.3, w: 3, n: "мало замеров" }],
+            ["kimi-max", { t: 9, w: 11, n: "замер на 1 аккаунте" }],
+            ["kimi-ultra", { v: "лимит за 5 часов, без чисел" }],
+          ],
+        },
+        {
+          id: "grok",
+          f: "grok",
+          sh: "Grok 4.7",
+          full: "Grok 4.7",
+          rank: 17,
+          score: 0.026,
+          task: 2.79,
+          api: [2, 6],
+          tags: ["код", "поиск и анализ"],
+          sum: "средняя по силе, а задача стоит дорого",
+          ag: ["Grok Build", "родной агент xAI"],
+          alts: "Cursor из той же подписки",
+          subs: [
+            ["x-plus", { v: "базовый недельный пул" }],
+            ["x-premium", { v: "в 4 раза больше Plus" }],
+            ["x-super", { v: "в 15 раз больше Plus" }],
+            ["x-ultra", { v: "в 50 раз больше Plus" }],
+          ],
+        },
+        {
+          id: "dsflash",
+          f: "deepseek",
+          sh: "V4.1 Flash",
+          full: "DeepSeek V4.1 Flash",
+          rank: 22,
+          score: 0.02,
+          task: 0.14,
+          api: [0.3, 1.2],
+          tags: ["дёшево и много", "код"],
+          sum: "очень дешёвая, для простых и массовых задач",
+          ag: ["Codex", "лучший замер с этой моделью"],
+          alts: "Claude Code, DeepSeek Harness",
+          subs: [["ali", { v: ALI }]],
+        },
+        {
+          id: "glm",
+          f: "glm",
+          sh: "GLM-5.3",
+          full: "GLM-5.3",
+          rank: 27,
+          score: 0.0099,
+          task: 1.04,
+          api: [1.4, 4.4],
+          tags: ["код", "агенты"],
+          sum: "недорогая подписка для кода, но слабее лидеров",
+          ag: ["Claude Code", "единственный замер в Terminal-Bench"],
+          alts: "OpenCode, ZCode",
+          subs: [
+            ["glm-lite", { v: "2 000 кредитов за 5 часов" }],
+            ["glm-pro", { v: "12 000 кредитов за 5 часов" }],
+            ["glm-max", { v: "28 000 кредитов за 5 часов" }],
+            ["ali", { v: ALI }],
+          ],
+        },
+        {
+          id: "qwen",
+          f: "qwen",
+          sh: "Qwen3.8-Max",
+          full: "Qwen3.8-Max",
+          rank: 32,
+          score: 0.0011,
+          task: 1.23,
+          api: [2, 6],
+          tags: ["тексты", "поиск и анализ"],
+          sum: "средняя по силе, есть в подписке от $6",
+          ag: ["Claude Code", "единственный агент с замером"],
+          alts: "Qwen Code, OpenCode",
+          subs: [["ali", { v: ALI }]],
+        },
+        {
+          id: "m3",
+          f: "minimax",
+          sh: "M3",
+          full: "MiniMax M3",
+          rank: 52,
+          score: -0.105,
+          task: 0.35,
+          api: [0.3, 1.2],
+          tags: ["дёшево и много", "тексты"],
+          sum: "дешёвая, но слабее остальных в списке",
+          ag: ["Claude Code", "MiniMax советует его первым"],
+          alts: "MiniMax Code, Codex",
+          subs: [],
+        },
+      ];
+      const byId = Object.fromEntries(M.map((m) => [m.id, m]));
+      const FN = Object.fromEntries(FAMS);
+      const TIERS = [
+        [1, "до $50"],
+        [2, "~$100"],
+        [3, "$200+"],
+      ];
+
+      // ---------- Расчёты для показа ----------
+      const power = (m) =>
+        m.score >= 0.18
+          ? 5
+          : m.score >= 0.12
+            ? 4
+            : m.score >= 0.08
+              ? 3
+              : m.score >= 0.02
+                ? 2
+                : 1;
+      const priceLvl = (m) =>
+        m.task >= 5
+          ? 5
+          : m.task >= 2
+            ? 4
+            : m.task >= 1
+              ? 3
+              : m.task >= 0.3
+                ? 2
+                : 1;
+      const money = (n) => {
+        const s = Number.isInteger(n)
+          ? String(n)
+          : n.toFixed(2).replace(".", ",");
+        return "$" + s.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+      };
+      const tasks = (t) =>
+        "≈ " + (t < 100 ? Math.max(1, Math.round(t)) : Math.round(t / 10) * 10);
+      const tiersOf = (p) =>
+        p.tiers || [p.usd <= 50 ? 1 : p.usd <= 150 ? 2 : 3];
+      const planName = (id) => SVC[P[id].s].n + " " + P[id].n;
+      const planPrice = (p) => (p.usdTo ? "от " + money(p.usd) : money(p.usd));
+      const dots = (k, cls) =>
+        '<span class="dots ' +
+        (cls || "") +
+        '">' +
+        [1, 2, 3, 4, 5]
+          .map((i) => '<i class="' + (i <= k ? "f" : "") + '"></i>')
+          .join("") +
+        "</span>";
+      const bar5 = (k) =>
+        '<span class="bar5">' +
+        [1, 2, 3, 4, 5]
+          .map((i) => '<i class="' + (i <= k ? "f" : "") + '"></i>')
+          .join("") +
+        "</span>";
+      const ruFlags = (s) =>
+        SVC[s].ru === false
+          ? "из России: нет · карта РФ: нет"
+          : "из России и карта РФ: нет данных";
+      // Лучшая ячейка ценовой ступени: число задач, «акция», «есть» или прочерк.
+      function tierCell(m, k) {
+        const hits = m.subs.filter(([id]) => tiersOf(P[id]).includes(k));
+        if (!hits.length) return '<span class="no">—</span>';
+        const best = Math.max(...hits.map(([, e]) => e.t || 0));
+        if (best) return "<b>" + tasks(best).replace("≈ ", "") + "</b>";
+        if (hits.every(([, e]) => e.promo))
+          return '<span class="ys">акция</span>';
+        return '<span class="ys">есть</span>';
+      }
+
+      // ---------- Состояние ----------
+      const st = {
+        v: new URLSearchParams(location.search).get("variant") || "A",
+        width: 390,
+        dark: false,
+        scr: "home",
+        model: null,
+        tier: 1,
+        filter: "power",
+        taps: 0,
+      };
+      if (!["A", "B", "C"].includes(st.v)) st.v = "A";
+      const VNAMES = {
+        A: "Семейства",
+        B: "Таблица по цене",
+        C: "Переключатели сверху",
+      };
+
+      // ---------- Экраны ----------
+      const head = (title, back) =>
+        '<div class="R">' +
+        (back ? '<button class="x" data-a="back">‹</button>' : "") +
+        '<div class="F U">' +
+        title +
+        "</div>" +
+        '<button class="lnk" data-a="about">Проверено 12.11 ›</button></div>';
+
+      function homeA() {
+        const leaders = [
+          ["Мощнее всех", "fable"],
+          ["Мощнее всех за $20", "opus"],
+          ["Дешевле всех", "dsflash"],
+        ];
+        let h = head("ИИ-модели");
+        h +=
+          '<div class="lead">' +
+          leaders
+            .map(
+              ([l, id]) =>
+                '<button class="cd" data-a="card" data-m="' +
+                id +
+                '"><span>' +
+                l +
+                "</span><b>" +
+                byId[id].full +
+                "</b></button>",
+            )
+            .join("") +
+          "</div>";
+        for (const [fid, fname] of FAMS) {
+          const ms = M.filter((m) => m.f === fid);
+          h +=
+            '<div class="fam"><b>' +
+            fname +
+            '</b><div class="chips">' +
+            ms
+              .map(
+                (m) =>
+                  '<button class="ch" data-a="card" data-m="' +
+                  m.id +
+                  '">' +
+                  m.sh +
+                  bar5(power(m)) +
+                  "</button>",
+              )
+              .join("") +
+            "</div></div>";
+        }
+        h += '<button class="bt" data-a="tiers">Подписки по цене ›</button>';
+        return h;
+      }
+
+      function homeB() {
+        let h = head("ИИ-модели");
+        h +=
+          '<div class="mu sm">Задач в неделю по подписке, ≈. «есть»: замеров нет. Нажми на модель или цену.</div>';
+        h +=
+          "<table><thead><tr><th></th>" +
+          TIERS.map(
+            ([k, l]) =>
+              '<th><button data-a="tier" data-t="' +
+              k +
+              '">' +
+              l +
+              "</button></th>",
+          ).join("") +
+          "<th>API за<br>задачу</th></tr></thead><tbody>";
+        for (const [fid, fname] of FAMS) {
+          M.filter((m) => m.f === fid).forEach((m, i) => {
+            h +=
+              '<tr class="' +
+              (i === 0 ? "g1" : "") +
+              '"><td class="nm"><button data-a="card" data-m="' +
+              m.id +
+              '">' +
+              (i === 0
+                ? '<span class="mu sm" style="font-weight:400">' +
+                  fname +
+                  " · </span>"
+                : "") +
+              m.sh +
+              "</button></td>" +
+              TIERS.map(([k]) => "<td>" + tierCell(m, k) + "</td>").join("") +
+              "<td>" +
+              money(m.task) +
+              "</td></tr>";
+          });
+        }
+        return h + "</tbody></table>";
+      }
+
+      const FILTERS = [
+        ["power", "Мощные"],
+        ["code", "Для кода"],
+        ["cheap", "Дёшево"],
+        ["20", "До $20"],
+      ];
+      function homeC() {
+        let h = head("ИИ-модели");
+        h +=
+          '<div class="R" style="flex-wrap:wrap;gap:6px">' +
+          FILTERS.map(
+            ([k, l]) =>
+              '<button class="ch ' +
+              (st.filter === k ? "on" : "") +
+              '" data-a="filter" data-k="' +
+              k +
+              '">' +
+              l +
+              "</button>",
+          ).join("") +
+          "</div>";
+        let list = M.slice();
+        let metric;
+        if (st.filter === "power") {
+          list.sort((a, b) => b.score - a.score);
+          metric = (m) =>
+            dots(power(m)) + ' <span class="mu sm">№' + m.rank + "</span>";
+        } else if (st.filter === "code") {
+          list = list
+            .filter((m) => m.tags.includes("код"))
+            .sort((a, b) => b.score - a.score);
+          metric = (m) => '<span class="sm">' + m.ag[0] + "</span>";
+        } else if (st.filter === "cheap") {
+          list.sort((a, b) => a.task - b.task);
+          metric = (m) =>
+            "<b>" + money(m.task) + '</b> <span class="mu sm">задача</span>';
+        } else {
+          const cheap = (m) => m.subs.filter(([id]) => P[id].usd <= 20);
+          list = list
+            .filter((m) => cheap(m).length)
+            .sort((a, b) => b.score - a.score);
+          metric = (m) => {
+            const [id, e] = cheap(m).sort(
+              (a, b) => (b[1].t || 0) - (a[1].t || 0),
+            )[0];
+            return (
+              '<span class="sm">' +
+              planName(id).replace(
+                "Alibaba Token Plan Lite–Pro",
+                "Alibaba от $6",
+              ) +
+              (e.t
+                ? ' <b style="color:var(--g)">' + tasks(e.t) + "</b>"
+                : ' <span class="mu">' +
+                  (e.promo ? "акция" : "есть") +
+                  "</span>") +
+              "</span>"
+            );
+          };
+        }
+        h +=
+          "<div>" +
+          list
+            .map(
+              (m) =>
+                '<button class="row" data-a="card" data-m="' +
+                m.id +
+                '"><span class="F"><b>' +
+                m.full +
+                '</b></span><span style="text-align:right">' +
+                metric(m) +
+                "</span></button>",
+            )
+            .join("") +
+          "</div>";
+        if (st.filter === "20")
+          h +=
+            '<div class="mu sm">Число: задач в неделю, ≈. «есть»: замеров нет.</div>';
+        return h;
+      }
+
+      function card() {
+        const m = byId[st.model];
+        let h =
+          '<div class="R"><button class="x" data-a="back">‹</button><div class="F U" style="color:var(--v)">' +
+          m.full +
+          "</div></div>";
+        h +=
+          '<div class="R sm" style="flex-wrap:wrap;gap:4px 14px"><span>Мощность ' +
+          dots(power(m)) +
+          ' <span class="mu">№' +
+          m.rank +
+          " в Arena</span></span><span>Цена " +
+          dots(priceLvl(m), "pr") +
+          "</span></div>";
+        h +=
+          '<div class="sm">API: ' +
+          money(m.api[0]) +
+          " / " +
+          money(m.api[1]) +
+          " за 1 млн токенов · задача ≈ " +
+          money(m.task) +
+          "</div>";
+        h += "<div><b>«" + m.sum + "»</b></div>";
+        h +=
+          "<div>" +
+          m.tags.map((t) => '<span class="tag">' + t + "</span>").join("") +
+          "</div>";
+        h +=
+          '<div class="cd" style="box-shadow:none;padding:5px 8px"><div class="sm mu">Лучший агент</div><b>' +
+          m.ag[0] +
+          '</b> <span class="sm mu">' +
+          m.ag[1] +
+          '</span><div class="sm mu">Ещё: ' +
+          m.alts +
+          "</div></div>";
+        if (!m.subs.length) {
+          h +=
+            '<div class="grp"><b>Подписки</b></div><div class="sub"><span class="mu">Подписок нет, только API</span></div>';
+        } else {
+          let last = "";
+          for (const [id, e] of m.subs) {
+            const p = P[id];
+            if (p.s !== last) {
+              last = p.s;
+              h +=
+                '<div class="grp"><b>' +
+                SVC[p.s].n +
+                "</b> · " +
+                ruFlags(p.s) +
+                "</div>";
+            }
+            const right = e.t
+              ? '<span class="est"><b>' +
+                tasks(e.t) +
+                ' задач/нед</b> <span class="mu sm">' +
+                money(e.w) +
+                " по API" +
+                (e.n ? ", " + e.n : "") +
+                "</span></span>"
+              : '<span class="mu sm">' +
+                e.v +
+                (e.n ? ", " + e.n : "") +
+                "</span>";
+            h +=
+              '<div class="sub"><span class="pl">' +
+              p.n +
+              " · " +
+              planPrice(p) +
+              '</span><span class="F">' +
+              right +
+              "</span></div>";
+          }
+        }
+        if (m.ch) h += '<div class="note">' + m.ch + "</div>";
+        return h;
+      }
+
+      function tierScreen() {
+        let h = head("Подписки", true);
+        h +=
+          '<div class="R" style="gap:6px">' +
+          TIERS.map(
+            ([k, l]) =>
+              '<button class="ch ' +
+              (st.tier === k ? "on" : "") +
+              '" data-a="tier" data-t="' +
+              k +
+              '">' +
+              l +
+              "</button>",
+          ).join("") +
+          '<span class="mu sm F" style="text-align:right">задач в неделю</span></div>';
+        const rows = Object.entries(P)
+          .filter(([id, p]) => !p.into && tiersOf(p).includes(st.tier))
+          .sort((a, b) => a[1].usd - b[1].usd);
+        for (const [id, p] of rows) {
+          const items = [];
+          for (const m of M)
+            for (const [sid, e] of m.subs) {
+              const via = P[sid].into && P[sid].into.includes(id);
+              if (sid !== id && !via) continue;
+              const val = e.t
+                ? '<b style="color:var(--g)">' + tasks(e.t) + "</b>"
+                : e.promo
+                  ? '<span class="mu">акция</span>'
+                  : via
+                    ? '<span class="mu">через Antigravity</span>'
+                    : "";
+              items.push(
+                '<span><button data-a="card" data-m="' +
+                  m.id +
+                  '">' +
+                  m.full +
+                  "</button> " +
+                  val +
+                  "</span>",
+              );
+            }
+          if (!items.length) continue;
+          h +=
+            '<div class="tierrow"><div class="R"><b class="F">' +
+            planName(id).replace(" Lite–Pro", "") +
+            "</b><b>" +
+            planPrice(p) +
+            '</b></div><div class="ms">' +
+            items.join("") +
+            "</div></div>";
+        }
+        return h;
+      }
+
+      function about() {
+        return (
+          head("О данных", true) +
+          "<div>Проверено 12.11.2026. Раз в день проверка сверяет справочник с источниками.</div>" +
+          '<div class="grp"><b>Источники</b></div>' +
+          '<div class="sub"><span class="F">Мощность и цена задачи: рейтинг агентов Arena, лицензия CC BY 4.0</span></div>' +
+          '<div class="sub"><span class="F">Замеры подписок: Wokey</span></div>' +
+          '<div class="sub"><span class="F">Цены и лимиты: сайты компаний</span></div>' +
+          '<div class="grp"><b>Как считаем задачи</b></div>' +
+          '<div class="sm">Сколько стоит неделя подписки по ценам API, делим на цену одной задачи модели в Arena. Это порядок величины, а не лимит компании.</div>' +
+          '<div class="sm mu">«Нет замеров»: компания не публикует чисел, а независимых замеров нет. Тогда показываем слова самой компании.</div>'
+        );
+      }
+
+      // ---------- Отрисовка и подгонка высоты ----------
+      const W = document.getElementById("w");
+      const msgw = document.getElementById("msgw");
+      function render() {
+        let html;
+        if (st.scr === "card") html = card();
+        else if (st.scr === "tiers") html = tierScreen();
+        else if (st.scr === "about") html = about();
+        else html = st.v === "A" ? homeA() : st.v === "B" ? homeB() : homeC();
+        W.innerHTML = html;
+        msgw.style.width = st.width + "px";
+        document.getElementById("chat").className =
+          "chat" + (st.dark ? " dk" : "");
+        let fs = 15;
+        W.style.fontSize = fs + "px";
+        while (W.parentElement.scrollHeight > 560 && fs > 11) {
+          fs -= 1;
+          W.style.fontSize = fs + "px";
+        }
+        const hgt = W.parentElement.scrollHeight;
+        msgw.classList.toggle("cut", hgt > 560);
+        const names = {
+          home: "главный",
+          card: "карточка " + (st.model ? byId[st.model].full : ""),
+          tiers: "подписки по цене",
+          about: "о данных",
+        };
+        document.getElementById("s-var").textContent =
+          st.v + " «" + VNAMES[st.v] + "»";
+        document.getElementById("s-scr").textContent = names[st.scr];
+        document.getElementById("s-h").innerHTML =
+          hgt > 560
+            ? '<span class="warn">' + hgt + " px, не влезает в 560</span>"
+            : hgt + " px из 560";
+        document.getElementById("s-f").textContent =
+          fs + " px" + (fs < 15 ? " (уменьшен с 15)" : "");
+        document.getElementById("taps").textContent = st.taps;
+        seg(
+          "vseg",
+          ["A", "B", "C"],
+          st.v,
+          (x) => x + " " + VNAMES[x],
+          (x) => {
+            st.v = x;
+            goHome();
+          },
+        );
+        seg(
+          "wseg",
+          [320, 390],
+          st.width,
+          (x) => x + " px",
+          (x) => {
+            st.width = x;
+            render();
+          },
+        );
+        seg(
+          "tseg",
+          [false, true],
+          st.dark,
+          (x) => (x ? "тёмный" : "светлый"),
+          (x) => {
+            st.dark = x;
+            render();
+          },
+        );
+      }
+      function seg(id, vals, cur, label, on) {
+        const el = document.getElementById(id);
+        el.innerHTML = "";
+        for (const v of vals) {
+          const b = document.createElement("button");
+          b.textContent = label(v);
+          b.setAttribute("aria-pressed", String(v === cur));
+          b.onclick = () => on(v);
+          el.appendChild(b);
+        }
+      }
+      const stack = [];
+      function go(scr, patch) {
+        stack.push({ scr: st.scr, model: st.model });
+        st.scr = scr;
+        Object.assign(st, patch || {});
+      }
+      function goHome() {
+        st.scr = "home";
+        st.model = null;
+        st.taps = 0;
+        stack.length = 0;
+        const u = new URL(location.href);
+        u.searchParams.set("variant", st.v);
+        try {
+          history.replaceState(null, "", u);
+        } catch (e) {}
+        render();
+      }
+      W.addEventListener("click", (ev) => {
+        const b = ev.target.closest("button");
+        if (!b) return;
+        st.taps += 1;
+        const a = b.dataset.a;
+        if (a === "card") go("card", { model: b.dataset.m });
+        else if (a === "about") go("about");
+        else if (a === "tiers") go("tiers", { tier: 1 });
+        else if (a === "tier") {
+          if (st.scr === "tiers") st.tier = Number(b.dataset.t);
+          else go("tiers", { tier: Number(b.dataset.t) });
+        } else if (a === "filter") st.filter = b.dataset.k;
+        else if (a === "back") {
+          const prev = stack.pop() || { scr: "home", model: null };
+          st.scr = prev.scr;
+          st.model = prev.model;
+        }
+        render();
+      });
+      document.getElementById("reset").onclick = goHome;
+      const order = ["A", "B", "C"];
+      const step = (d) => {
+        st.v = order[(order.indexOf(st.v) + d + 3) % 3];
+        goHome();
+      };
+      document.getElementById("prev").onclick = () => step(-1);
+      document.getElementById("next").onclick = () => step(1);
+      document.addEventListener("keydown", (e) => {
+        if (
+          e.target.closest &&
+          e.target.closest("input,textarea,[contenteditable]")
+        )
+          return;
+        if (e.key === "ArrowLeft") step(-1);
+        if (e.key === "ArrowRight") step(1);
+      });
+      render();
+    </script>
+  </body>
+</html>
