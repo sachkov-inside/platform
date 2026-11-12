@@ -114,6 +114,9 @@ install -m 644 "$script_dir/Caddyfile" /etc/caddy/Caddyfile
 # rotates every container log, so no container can fill the disk shared with the database.
 install -d -m 755 /etc/docker
 install -m 644 "$script_dir/docker-daemon.json" /etc/docker/daemon.json
+# Without a cap journald keeps up to 4 GB on the disk shared with the database and images.
+install -d -m 755 /etc/systemd/journald.conf.d
+install -m 644 "$script_dir/journald-size.conf" /etc/systemd/journald.conf.d/inside-size.conf
 install -m 755 \
   "$production_dir/database/database-backup" \
   /usr/local/libexec/inside/database-backup
@@ -149,6 +152,7 @@ ufw allow 443/tcp
 ufw allow 443/udp
 ufw --force enable
 
+systemctl restart systemd-journald.service
 systemctl enable docker.service ssh.service caddy.service
 systemctl start docker.service ssh.service
 systemctl restart caddy.service

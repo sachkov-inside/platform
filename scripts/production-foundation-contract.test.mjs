@@ -59,6 +59,11 @@ const hostLogs = {
   },
 };
 
+const hostJournal = {
+  dropIn: read("infra/production/host/journald-size.conf"),
+  provision: read("infra/production/host/provision-host.sh"),
+};
+
 describe("production foundation architecture contract", () => {
   it("pulls Docker Hub images through the public mirror configured by provisioning", () => {
     assert.deepEqual(hostLogs.daemon["registry-mirrors"], [
@@ -94,6 +99,21 @@ describe("production foundation architecture contract", () => {
     assert.throws(
       () => assertContainerLogRotation({ ...hostLogs, composeFiles }),
       /compose\.production\.yaml must keep the host log default/u,
+    );
+  });
+
+  it("caps the systemd journal through the drop-in installed by provisioning", () => {
+    assertJournalCap(hostJournal);
+  });
+
+  it("rejects a journal drop-in that lets the journal grow to the systemd default", () => {
+    assert.throws(
+      () =>
+        assertJournalCap({
+          ...hostJournal,
+          dropIn: hostJournal.dropIn.replace(/^SystemMaxUse=.*\n/mu, ""),
+        }),
+      /cap the systemd journal/u,
     );
   });
 
@@ -228,6 +248,22 @@ function assertContainerLogRotation({ daemon, composeFiles }) {
       `${path} must keep the host log default`,
     );
   }
+}
+
+// Without SystemMaxUse journald keeps up to 10% of the filesystem (4 GB at most) on the disk
+// shared with the database and images; UFW block lines alone fill it at about 15 MB a day.
+/** @param {typeof hostJournal} journal */
+function assertJournalCap({ dropIn, provision }) {
+  assert.match(
+    dropIn,
+    /^\[Journal\]\nSystemMaxUse=500M\n$/u,
+    "cap the systemd journal at 500 MB",
+  );
+  assert.match(
+    provision,
+    /install -m 644 "\$script_dir\/journald-size\.conf" \/etc\/systemd\/journald\.conf\.d\/inside-size\.conf/u,
+    "provisioning must install the journal cap",
+  );
 }
 
 /** @param {typeof foundation} files */

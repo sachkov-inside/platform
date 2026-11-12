@@ -78,6 +78,8 @@ sudo infra/production/host/provision-host.sh
    зеркала на работающем сервере применяется `systemctl reload docker` без перезапуска
    контейнеров; проверка — `docker info --format '{{json .RegistryConfig.Mirrors}}'`. Тот же файл
    ограничивает журналы контейнеров, см. [ротацию журналов](#ротация-журналов-контейнеров).
+8. Устанавливает `journald-size.conf` как `/etc/systemd/journald.conf.d/inside-size.conf` и
+   перезапускает `systemd-journald`, см. [предел журнала systemd](#предел-журнала-systemd).
 
 Скрипт не определяет размер VPS, не создаёт SSH key, DNS, buckets или credentials, не запускает
 PostgreSQL/Logto и не включает backup timers. Эти решения и действия выполняются в #244. После
@@ -133,6 +135,25 @@ Logto и контейнеры Telegram. Поэтому production Compose-фай
 
    В каждой строке ожидаются `"max-size":"20m"` и `"max-file":"5"`. Контейнер без них ещё не
    пересоздан.
+
+## Предел журнала systemd
+
+Без `SystemMaxUse` journald хранит до 10% файловой системы, но не больше 4 ГБ, на том же диске,
+что база и образы. На AMS журнал рос примерно на 15 МБ в день, в основном за счёт строк
+`UFW BLOCK`. `journald-size.conf` ограничивает его 500 МБ; более старые записи journald удаляет сам.
+
+На работающем сервере предел применяется без перерыва в работе приложений:
+
+```bash
+sudo install -d -m 755 /etc/systemd/journald.conf.d
+sudo install -m 644 infra/production/host/journald-size.conf \
+  /etc/systemd/journald.conf.d/inside-size.conf
+sudo systemctl restart systemd-journald
+journalctl -u systemd-journald -n 3 --no-pager
+```
+
+В последней строке journald называет предел: `max 500M`. Откат: удалить drop-in и снова
+перезапустить `systemd-journald`.
 
 ## Очистка старых application images
 

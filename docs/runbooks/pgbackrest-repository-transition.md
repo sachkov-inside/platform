@@ -193,8 +193,12 @@ flock --exclusive --nonblock 9
    содержимого с историческим состоянием, для которого исходный эталон отсутствует. Для старых
    labels использовать repo1/cipher1 и отдельные receipts; отсутствие ожидаемых БД/таблиц
    фиксировать как ограничение и разбирать по истории схемы, не скрывать как успешный restore.
-   Plaintext volumes удаляются в finally; staged ciphertext и recovery materials сохраняются
-   защищённо. Полное сравнение данных при наличии закрытого эталона выполняется отдельно.
+   Plaintext volumes удаляются в finally. Staged ciphertext и cipher env на диске production
+   нужны только на время проверки: bucket остаётся источником backups. После записи receipts
+   убедитесь через `pgbackrest info`, что проверенные labels есть в bucket, затем удалите staged
+   repository и cipher env (`shred -u`). Receipts и протокол операции сохраняются. Локальная
+   копия repo1 после #1627 заняла 5,1 ГБ, это 11% диска AMS. Полное сравнение данных при
+   наличии закрытого эталона выполняется отдельно.
 8. После successful new proof задать `INSIDE_BACKUP_REPOSITORY=2` в policy file, возобновить
    три timers и проверить их расписание. WAL остаётся в обоих repos. Старые backups, metadata,
    WAL и recovery secrets сохраняются. Удаление и прекращение old WAL не входят в пакет.
@@ -212,7 +216,8 @@ flock --exclusive --nonblock 9
 
 Раздельно записать: принятую ревизию/операцию, T0, сохранённые цепочки, new stanza/full/WAL,
 проверенные old/new restores/PITR, cleanup, расходы и ограничения. Блокировки и временные
-ресурсы освободить, сохранить audit/recovery материалы. Непроверенная часть матрицы остаётся
+ресурсы освободить, сохранить audit материалы и receipts; staged копии repository и cipher env
+удалить, как описано в шаге 7. Непроверенная часть матрицы остаётся
 открытой. Историческое качество подключей новая stanza задним числом не доказывает.
 `rngFailureVerified=false` и STOP остаются; никаких экспериментов или альтернативных механизмов
 для остановленного критерия. #1627 и security acceptance не становятся GREEN из-за merge этого пакета.
