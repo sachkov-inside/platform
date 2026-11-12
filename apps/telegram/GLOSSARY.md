@@ -215,6 +215,18 @@ One line on what an ИИ-модель is good for and what it costs in return, s
 но дорогая».
 _Avoid_: Description, review, Справочник
 
+**Метка задачи** (Task Tag):
+One of a fixed set of task kinds that an ИИ-модель suits: код, тексты, поиск и анализ, агенты, дёшево
+и много. The Ежедневная проверка proposes task tags from sources.
+_Avoid_: Badge, Значок автора, category
+
+**Значок автора** (Author Badge):
+The owner's short opinion shown on an ИИ-модель, from a fixed set: «Мой выбор», «Уверенная», «Для
+средних задач», «Дорого», «Невыгодно», «Риск бана». Only the owner sets or removes it; the
+Ежедневная проверка never changes it. «Риск бана» describes a service and reaches the models used
+through it.
+_Avoid_: Tag, Метка задачи, rating, review
+
 **Справочник** (Models Reference):
 The ИИ-модели data that people currently see, with the date it was last checked. It changes only
 when the owner publishes a Черновик справочника.
