@@ -117,6 +117,31 @@ and token-plan-personal-overview (11.11), platform.minimax.io/docs/guides/pricin
 Independent: wokey.ai/kimi-code-limits, morphllm.com/coding-plan (15.10),
 jia.je/kb/en/software/coding_plan.html (11.11).
 
+## OpenCode Go (added later on 2026-11-12)
+
+The first pass missed this plan; the owner pointed to it. OpenCode sells one subscription that
+covers many open-weight models, each with its own monthly allowance in dollars.
+
+| Plan | USD/month | Per-model monthly allowance, Go / Go Plus |
+|---|---|---|
+| Go / Go Plus | 10 / 40 | DeepSeek V4.1 Flash $100 / $200; MiniMax M3 $60 / $180; Gemini 4 Argon $30 / $120 (50% discount through 2026-11-30); GLM-5.3 $15 / $120; Kimi K3.1 Pro $15 / $60; Qwen3.8 Max $15 / $60; Grok 4.7 $15 / $60 |
+
+Go and Go Plus include the same 36 models. "Each model has the following usage limits: 5-hour, 20% of
+the monthly limit; weekly, 50%; and monthly, 100%." Teams is listed without a price. No country list
+or payment methods for the plan itself; inference regions default to Europe and the United States.
+Third-party guides from October report overall caps of $12 per 5 hours, $30 per week and $60 per
+month, which the current docs page does not show.
+
+Converted with the Arena task cost (inference): Go gives about 160 DeepSeek V4.1 Flash tasks a week
+($100 × 12/52 ÷ $0.144), 39 MiniMax M3, 9 Gemini 4 Argon, 3 each of GLM-5.3, Kimi K3.1 Pro and
+Qwen3.8 Max, 1 Grok 4.7.
+
+Sources: opencode.ai/docs/go and opencode.ai/go (read 2026-11-12).
+
+DeepSeek Harness (`dsh`) is DeepSeek's own open-source coding agent, MIT licence, released
+2026-08-13 as a developer preview with breaking changes expected; it also works with other
+providers. Sources are third-party (composio.dev, thenewstack.io, docs.kanaries.net).
+
 ## A "typical task"
 
 No shared definition exists. Usable anchors:
