@@ -24,6 +24,10 @@ import { ContentCoverImage, type ContentCover } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 
+import {
+  readPlaybackPreferences,
+  savePlaybackPreferences,
+} from "../model/playback-preferences.browser";
 import { loadKinescopeIframePlayer } from "../api/kinescope-iframe-api.browser";
 import {
   createMaterialVideoPlaybackSession,
@@ -263,6 +267,29 @@ export function MaterialPrimaryVideo({
         if (!Number.isFinite(metadataDuration) || metadataDuration <= 0) {
           throw new Error("Video duration is unavailable");
         }
+        // Restore before listening so initialization cannot replace saved choices with defaults.
+        const preferences = readPlaybackPreferences();
+        await Promise.allSettled([
+          ...(preferences.volume === undefined
+            ? []
+            : [player.setVolume(preferences.volume)]),
+          ...(preferences.playbackRate === undefined
+            ? []
+            : [player.setPlaybackRate(preferences.playbackRate)]),
+          ...(preferences.muted === undefined
+            ? []
+            : [preferences.muted ? player.mute() : player.unmute()]),
+        ]);
+        if (!isActive()) return;
+        player.on(player.Events.VolumeChange, ({ data: { volume, muted } }) => {
+          if (isActive()) savePlaybackPreferences({ volume, muted });
+        });
+        player.on(
+          player.Events.PlaybackRateChange,
+          ({ data: { playbackRate } }) => {
+            if (isActive()) savePlaybackPreferences({ playbackRate });
+          },
+        );
         const duration = Math.max(1, Math.round(metadataDuration));
         const playbackProgress = resolveVideoPlaybackProgress(
           savedPositionSeconds,
