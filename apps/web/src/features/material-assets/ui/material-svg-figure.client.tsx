@@ -1,6 +1,9 @@
 "use client";
 
-import { checkInlineSvgMarkup } from "@inside/material-blocks/svg-image";
+import {
+  checkInlineSvgMarkup,
+  SVG_CONTENT_TYPE,
+} from "@inside/material-blocks/svg-image";
 import { Maximize2 } from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 
@@ -35,7 +38,8 @@ type FigureState =
  * - The layer around the figure contains layout and paint: even a rule on the figure's root, such
  *   as `position: fixed`, cannot draw outside its frame or cover the page.
  * - The host sets `--fig-play`: `paused` until the figure is visible enough, then `running`.
- *   Each animated rule of a figure reads it through `var(--fig-play, running)`.
+ *   The figure generator's contract has each animated rule read it through
+ *   `var(--fig-play, running)`; no check enforces it, and a figure without it simply plays at once.
  * - The host carries `role="img"` and the ALT as its accessible name.
  *
  * When the bytes cannot be read or do not pass the checks, the figure falls back to `<img>`.
@@ -164,6 +168,19 @@ export function MaterialSvgFigure({
           style={play}
         />
       </div>
+      {figure.kind === "loading" ? (
+        // Without JavaScript the server's HTML still shows the figure as an image.
+        <noscript>
+          {/* oxlint-disable-next-line next/no-img-element -- The protected route needs the viewer's session. */}
+          <img
+            alt={alt}
+            className="absolute inset-0 size-full"
+            height={height}
+            src={src}
+            width={width}
+          />
+        </noscript>
+      ) : null}
       {figure.kind === "inline" && viewerSize !== undefined ? (
         <button
           aria-haspopup="dialog"
@@ -176,7 +193,7 @@ export function MaterialSvgFigure({
           onClick={() => {
             setViewerSrc(
               URL.createObjectURL(
-                new Blob([figure.markup], { type: "image/svg+xml" }),
+                new Blob([figure.markup], { type: SVG_CONTENT_TYPE }),
               ),
             );
           }}
@@ -227,7 +244,7 @@ async function prepareFigure(
 
 /** Parses checked markup as XML: no script runs, and the root must be an SVG element. */
 function parseSvg(markup: string): SVGSVGElement | null {
-  const parsed = new DOMParser().parseFromString(markup, "image/svg+xml");
+  const parsed = new DOMParser().parseFromString(markup, SVG_CONTENT_TYPE);
   const root = parsed.documentElement;
   return parsed.getElementsByTagName("parsererror").length === 0 &&
     root instanceof SVGSVGElement

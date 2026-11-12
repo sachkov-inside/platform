@@ -86,6 +86,7 @@ describe("Asset delivery headers", () => {
         "default-src 'none'; style-src 'unsafe-inline'; sandbox",
       "content-type": "image/svg+xml",
       "x-content-type-options": "nosniff",
+      "x-robots-tag": "noindex, nofollow",
     });
     const preview = await deliver(delivered);
     expect(preview.headers.get("cache-control")).toBe("private, no-store");

@@ -102,6 +102,9 @@ export function MaterialAssetNodeView({
                 {...image}
                 alt={alt}
                 caption={undefined}
+                // The editor canvas keeps `<img>`: an inline figure would repeat the ids of the
+                // same figure in the preview beside it (#2041).
+                format={undefined}
                 displayWidthPercent={100}
                 contentVersion={contentVersion}
                 materialId={materialId}

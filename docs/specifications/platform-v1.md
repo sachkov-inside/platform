@@ -1242,7 +1242,7 @@ owns editor and source-authoring instructions.
    `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`, чтобы
    открытый напрямую SVG сохранял стили. Это public bytes и, с #2041, protected SVG image variant:
    API читает его из protected namespace и отдаёт с адреса сайта (`private`, срок хранения как у
-   края, у preview `no-store`), потому что Reader читает его через `fetch()`, а redirect в
+   края, у preview `no-store`, `X-Robots-Tag: noindex, nofollow`), потому что Reader читает его через `fetch()`, а redirect в
    хранилище вне production-края уходит на чужой origin. Прочие protected bytes через Caddy
    получают политику края `default-src 'none'; sandbox`
    ([production release](../runbooks/production-release.md)). SVG как file (`kind: file`)
@@ -1969,7 +1969,10 @@ wide/tall pair follows the composition rule above; only the selected file is rea
    `<img>`. `prefers-reduced-motion: reduce` is the figure's own rule.
 4. The zoom button opens the existing viewer with the same checked markup through a `blob:` image.
 5. A file that cannot be read or fails the checks, including a #2025 SVG without a figure id, is
-   shown through `<img>` as before. The Task c page and other image surfaces keep `<img>`.
+   shown through `<img>` as before; without JavaScript the server's HTML shows it as an image. The
+   editor canvas, the Task c page and other image surfaces keep `<img>`. Platform does not check
+   that a figure id is unique on the page: the same figure twice resolves its `#id` references to
+   the first copy, which draws the same content.
 
 ## Unified Product buyer journey — #1442–#1444
 

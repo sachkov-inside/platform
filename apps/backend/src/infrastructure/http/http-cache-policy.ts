@@ -151,6 +151,9 @@ function sendAssetDelivery(
   }
   response.header("Content-Type", body.contentType);
   response.header("Content-Security-Policy", ASSET_CONTENT_SECURITY_POLICY);
+  // Protected bytes keep the edge's answer for search engines (`platform.caddy`).
+  if (body.cacheScope === "private-no-store")
+    response.header("X-Robots-Tag", "noindex, nofollow");
   response.header("Content-Length", String(body.contentLength));
   if ("contentDisposition" in body) {
     response.header("Content-Disposition", body.contentDisposition);

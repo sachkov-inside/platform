@@ -6,9 +6,9 @@
  * was checked: comments disappear, CDATA and references are re-escaped.
  *
  * Two sides run this check (#2041). The backend runs it on upload and stores what it returns.
- * Reader runs it again on the bytes it receives, before it puts the markup into the page inside a
- * shadow root: a stored file that does not pass is shown through `<img>` instead, where browsers
- * run no script and load nothing external. Opened directly, the checked file has no script, link
+ * Reader runs it again, with the figure scope rules of `checkInlineSvgMarkup`, on the bytes it
+ * receives before it puts the markup into the page's DOM: a stored file that does not pass is
+ * shown through `<img>` instead, where browsers run no script and load nothing external. Opened directly, the checked file has no script, link
  * or external reference, and the delivery's response policy blocks script and fetches as another
  * barrier where it applies.
  */
