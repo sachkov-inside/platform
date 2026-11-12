@@ -3,9 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ПРОТОТИП. «ИИ-модели»: V2, фильтр «Цена/качество»</title>
+    <title>ПРОТОТИП. «ИИ-модели»: V2, «Лучше взять» у четырёх моделей</title>
     <!--
-  PROTOTYPE, throwaway. Шестая версия от 12.11.2026: только V2; фильтры «Мощные», «Мой выбор»,
+  PROTOTYPE, throwaway. Седьмая версия от 12.11.2026: лидеры отмечены цветной точкой; «Лучше взять»
+  у GLM, Kimi, Gemini 4 Carbon и Gemini 4 Argon. Шестая версия: только V2; фильтры «Мощные», «Мой выбор»,
   «Цена/качество», «Дёшево»; сводка целиком, если страница помещается в 560 px, иначе обрезается.
   Четвёртая версия: владелец выбрал V2; переключатель «Сводка»
   сравнивает обрезку многоточием и перенос на вторую строку. Третья версия: Основа: вариант C1 (переключатели сверху,
@@ -449,9 +450,6 @@
           ><b>V2 «Две строки со сводкой»</b></span
         >
         <span
-          ><span class="lb">Лидеры</span><span class="seg" id="lseg"></span
-        ></span>
-        <span
           ><span class="lb">Ширина</span><span class="seg" id="wseg"></span
         ></span>
         <span
@@ -793,7 +791,12 @@
         glm: [["mid", "хороша в текстах, в коде слабее Sol"]],
       };
       // «Лучше взять»: модель, которую автор советует вместо этой, и почему.
-      const ALT = { glm: ["dsflash", "по цене и качеству"] };
+      const ALT = {
+        glm: [["dsflash"], "по цене и качеству"],
+        kimi: [["sol"], "сильнее и дешевле"],
+        carbon: [["opus", "sol"], "они проверенные"],
+        argon: [["sol", "sonnet"], "они проверенные"],
+      };
       const FAVG = {
         sol: "daily",
         dsflash: "daily",
@@ -1078,13 +1081,19 @@
               "Claude часто блокирует аккаунты в разных странах</div>",
           );
         if (ALT[m.id]) {
-          const [to, why] = ALT[m.id];
-          op.push(
-            '<div class="sm">Лучше взять: <button data-a="card" data-m="' +
+          const [tos, why] = ALT[m.id];
+          const links = tos.map(
+            (to) =>
+              '<button data-a="card" data-m="' +
               to +
               '" style="display:inline;color:var(--a);font-weight:700">' +
               byId[to].full +
-              " ›</button> " +
+              " ›</button>",
+          );
+          op.push(
+            '<div class="sm">Лучше взять: ' +
+              links.join(" или ") +
+              ", " +
               why +
               "</div>",
           );
@@ -1243,16 +1252,6 @@
           (fs < 15 ? " (уменьшен с 15)" : "") +
           (st.clipped ? ", сводки обрезаны" : "");
         document.getElementById("taps").textContent = st.taps;
-        seg(
-          "lseg",
-          ["color", "plus"],
-          st.lead,
-          (x) => (x === "color" ? "цветная точка" : "плюс"),
-          (x) => {
-            st.lead = x;
-            render();
-          },
-        );
         seg(
           "wseg",
           [320, 390],
