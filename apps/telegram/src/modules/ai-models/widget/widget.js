@@ -35,9 +35,10 @@
     text.replace(/[&<>]/g, (char) => `&#${char.charCodeAt(0)};`);
 
   // An action is a request to the bot, "+" before it keeps the screen on view for «‹», or one
-  // of the widget's own: "B" back, "R" the last request again.
+  // of the widget's own: "B" back, "R" the last request again. A disabled button has no action:
+  // Telegram clients may still fire it.
   const button = (action, classes, html, disabled) =>
-    `<button class="${classes}" onclick=g(${actions.push(action) - 1})${disabled ? " disabled" : ""}>${html}</button>`;
+    `<button class="${classes}"${disabled ? " disabled" : ` onclick=g(${actions.push(action) - 1})`}>${html}</button>`;
   const back = () => button("B", "x", "‹");
 
   const badges = {

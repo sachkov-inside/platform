@@ -31,8 +31,8 @@ const NO_REFERENCE_TEXT = "Раздел «ИИ-модели» скоро отк�
 const WIDGET_REJECTED_TEXT =
   "Раздел «ИИ-модели» не открылся. Обновите Telegram до последней версии и отправьте /models ещё раз.";
 /**
- * A request for a page or a model the current Справочник does not have: the message was sent
- * with an earlier Справочник, and a new widget shows the new one.
+ * A request for a model the current Справочник does not have: the message was sent with an
+ * earlier Справочник, and a new widget shows the new one.
  */
 const STALE_TEXT =
   "Список моделей обновился. Отправьте /models, чтобы открыть новый.";

@@ -537,7 +537,7 @@ describe("screens of the widget", () => {
     expect(screen.slice(0, 5)).toEqual(["l", "p", 0, 2, "19.11"]);
   });
 
-  it("says the list was updated for a model or a page the new Справочник no longer has", async () => {
+  it("says the list was updated for a model the new Справочник no longer has, and shows its last page for a page past the end", async () => {
     const changed = syntheticAiModelsReference();
     changed.checkedOn = "2026-11-19";
     changed.models = changed.models.filter(
@@ -548,7 +548,12 @@ describe("screens of the widget", () => {
 
     expect(await running().tap(user, "3mecho")).toEqual(["x", STALE]);
     expect(await running().tap(user, "3secho")).toEqual(["x", STALE]);
-    expect(await running().tap(user, "3lp1")).toEqual(["x", STALE]);
+    expect((await running().tap(user, "3lp1")).slice(0, 4)).toEqual([
+      "l",
+      "p",
+      0,
+      1,
+    ]);
     expect((await running().tap(user, "3mgale")).slice(0, 2)).toEqual([
       "m",
       "gale",
