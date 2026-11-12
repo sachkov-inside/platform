@@ -114,7 +114,7 @@ install -m 644 "$script_dir/Caddyfile" /etc/caddy/Caddyfile
 # rotates every container log, so no container can fill the disk shared with the database.
 install -d -m 755 /etc/docker
 install -m 644 "$script_dir/docker-daemon.json" /etc/docker/daemon.json
-# Without a cap journald keeps up to 4 GB on the disk shared with the database and images.
+# Journal cap: docs/runbooks/production-foundation.md, section on the systemd journal limit.
 install -d -m 755 /etc/systemd/journald.conf.d
 install -m 644 "$script_dir/journald-size.conf" /etc/systemd/journald.conf.d/inside-size.conf
 install -m 755 \

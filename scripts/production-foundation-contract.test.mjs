@@ -48,6 +48,8 @@ function assertDatabaseRelease(files) {
   );
 }
 
+const provisionScript = read("infra/production/host/provision-host.sh");
+
 const hostLogs = {
   daemon: z
     .record(z.string(), z.unknown())
@@ -61,7 +63,7 @@ const hostLogs = {
 
 const hostJournal = {
   dropIn: read("infra/production/host/journald-size.conf"),
-  provision: read("infra/production/host/provision-host.sh"),
+  provision: provisionScript,
 };
 
 describe("production foundation architecture contract", () => {
@@ -70,7 +72,7 @@ describe("production foundation architecture contract", () => {
       "https://mirror.gcr.io",
     ]);
     assert.match(
-      read("infra/production/host/provision-host.sh"),
+      provisionScript,
       /install -m 644 "\$script_dir\/docker-daemon\.json" \/etc\/docker\/daemon\.json/u,
     );
   });
@@ -251,7 +253,7 @@ function assertContainerLogRotation({ daemon, composeFiles }) {
 }
 
 // Without SystemMaxUse journald keeps up to 10% of the filesystem (4 GB at most) on the disk
-// shared with the database and images; UFW block lines alone fill it at about 15 MB a day.
+// shared with the database and images; journald reads the drop-in only after a restart.
 /** @param {typeof hostJournal} journal */
 function assertJournalCap({ dropIn, provision }) {
   assert.match(
@@ -263,6 +265,11 @@ function assertJournalCap({ dropIn, provision }) {
     provision,
     /install -m 644 "\$script_dir\/journald-size\.conf" \/etc\/systemd\/journald\.conf\.d\/inside-size\.conf/u,
     "provisioning must install the journal cap",
+  );
+  assert.match(
+    provision,
+    /^systemctl restart systemd-journald\.service$/mu,
+    "provisioning must restart journald to apply the journal cap",
   );
 }
 

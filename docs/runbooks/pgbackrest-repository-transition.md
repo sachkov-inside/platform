@@ -195,10 +195,12 @@ flock --exclusive --nonblock 9
    фиксировать как ограничение и разбирать по истории схемы, не скрывать как успешный restore.
    Plaintext volumes удаляются в finally. Staged ciphertext и cipher env на диске production
    нужны только на время проверки: bucket остаётся источником backups. После записи receipts
-   убедитесь через `pgbackrest info`, что проверенные labels есть в bucket, затем удалите staged
-   repository и cipher env (`shred -u`). Receipts и протокол операции сохраняются. Локальная
-   копия repo1 после #1627 заняла 5,1 ГБ, это 11% диска AMS. Полное сравнение данных при
-   наличии закрытого эталона выполняется отдельно.
+   убедитесь через `pgbackrest info`, что проверенные labels есть в bucket и оба repo в статусе
+   `ok`, а пароль каждого repo есть в `/etc/inside/foundation/pgbackrest*.env` и в SOPS-копии.
+   Затем удалите staged repository и cipher env (`shred -u`). Receipts и протокол операции
+   сохраняются. После #1627 такие копии repo1 и repo2 оставались на диске три недели и занимали
+   5,2 ГБ из 48 ГБ корневой файловой системы AMS. Полное сравнение данных при наличии закрытого
+   эталона выполняется отдельно.
 8. После successful new proof задать `INSIDE_BACKUP_REPOSITORY=2` в policy file, возобновить
    три timers и проверить их расписание. WAL остаётся в обоих repos. Старые backups, metadata,
    WAL и recovery secrets сохраняются. Удаление и прекращение old WAL не входят в пакет.

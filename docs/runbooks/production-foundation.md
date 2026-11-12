@@ -139,8 +139,9 @@ Logto и контейнеры Telegram. Поэтому production Compose-фай
 ## Предел журнала systemd
 
 Без `SystemMaxUse` journald хранит до 10% файловой системы, но не больше 4 ГБ, на том же диске,
-что база и образы. На AMS журнал рос примерно на 15 МБ в день, в основном за счёт строк
-`UFW BLOCK`. `journald-size.conf` ограничивает его 500 МБ; более старые записи journald удаляет сам.
+что база и образы. На AMS `journalctl --disk-usage` показал 352 МБ за 20.10–12.11.2026, около
+15 МБ в день; больше всего в нём строк `UFW BLOCK`. `journald-size.conf` ограничивает журнал
+500 МБ, более старые записи journald удаляет сам.
 
 На работающем сервере предел применяется без перерыва в работе приложений:
 
@@ -149,11 +150,11 @@ sudo install -d -m 755 /etc/systemd/journald.conf.d
 sudo install -m 644 infra/production/host/journald-size.conf \
   /etc/systemd/journald.conf.d/inside-size.conf
 sudo systemctl restart systemd-journald
-journalctl -u systemd-journald -n 3 --no-pager
+journalctl -u systemd-journald -b -o cat --no-pager | grep 'System Journal'
 ```
 
-В последней строке journald называет предел: `max 500M`. Откат: удалить drop-in и снова
-перезапустить `systemd-journald`.
+В последней найденной строке journald называет предел: `max 500M`. Откат: удалить
+`/etc/systemd/journald.conf.d/inside-size.conf` и снова перезапустить `systemd-journald`.
 
 ## Очистка старых application images
 

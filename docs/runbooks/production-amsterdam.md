@@ -92,8 +92,9 @@ WATCHDOG_TELEGRAM_RELAY_ADDRESS=
 подтверждение доставки тревоги владельцу.
 
 12 ноября 2026 года после выпуска Platform v75 диск был занят на 85% (порог сторожа), во время
-выкладки на 89%. Владелец разрешил очистку. Первый запуск
-[очистки образов](production-foundation.md#очистка-старых-application-images) удалил 77 образов
+выкладки на 89%. Владелец разрешил очистку. План
+[очистки образов](production-foundation.md#очистка-старых-application-images) нашёл на сервере
+все защищённые образы: Platform v76 и v75, Telegram v50 и v48. Первый запуск удалил 77 образов
 старше семи дней и освободил 25,7 ГБ; таймер `inside-image-cleanup.timer` включён. Удалены
 локальная копия repository из [проверки #1627](pgbackrest-repository-transition.md) с cipher env
 (5,2 ГБ), образы Logto до `1.44.0-inside.13` и кэши Docker и apt. Применён
