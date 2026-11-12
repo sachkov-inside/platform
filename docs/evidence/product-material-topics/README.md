@@ -11,4 +11,8 @@
 - `topics-editor-desktop.png`, `topics-editor-phone.png`: `Patterns/Authoring/Product topics` →
   `AssignAndReorder` после сохранения и `Mobile`.
 
+`catalogue-phone.png` снят во всю высоту после сценария истории, со сброшенными фокусом и
+прокруткой; нижняя панель разделов на нём стоит там, где кончалось окно 390 × 844 до растяжения.
+`catalogue-phone-first-screen.png` показывает первый экран телефона как есть.
+
 Живой маршрут на стенде не снимался.
