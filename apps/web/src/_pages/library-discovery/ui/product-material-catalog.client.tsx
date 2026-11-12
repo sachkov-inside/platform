@@ -178,7 +178,9 @@ export function ProductMaterialCatalog({
               Date.parse(entry.material.publishedAt) >= newSince,
           ),
         );
+  // Фильтр вида может опустошить открытую тему: тогда страница снова показывает полки.
   const opened = shelves.find((shelf) => shelf.id === openTopic);
+  const activeTopic = opened?.id ?? null;
   const card = (entry: CatalogEntry, annotation?: string) => (
     <MaterialCard
       accessPending={accessPending}
@@ -236,6 +238,7 @@ export function ProductMaterialCatalog({
               key={option.id}
               onClick={() => {
                 setKind(option.id);
+                setOpenTopic(activeTopic);
               }}
               type="button"
             >
@@ -268,8 +271,8 @@ export function ProductMaterialCatalog({
           role="group"
         >
           <button
-            aria-pressed={openTopic === null}
-            className={chip(openTopic === null)}
+            aria-pressed={activeTopic === null}
+            className={chip(activeTopic === null)}
             onClick={() => {
               setOpenTopic(null);
             }}
@@ -281,11 +284,11 @@ export function ProductMaterialCatalog({
             .filter((shelf) => shelf.id !== OTHER_SHELF_ID)
             .map((shelf) => (
               <button
-                aria-pressed={openTopic === shelf.id}
-                className={chip(openTopic === shelf.id)}
+                aria-pressed={activeTopic === shelf.id}
+                className={chip(activeTopic === shelf.id)}
                 key={shelf.id}
                 onClick={() => {
-                  setOpenTopic(openTopic === shelf.id ? null : shelf.id);
+                  setOpenTopic(activeTopic === shelf.id ? null : shelf.id);
                 }}
                 type="button"
               >
@@ -340,7 +343,12 @@ export function ProductMaterialCatalog({
         ) : (
           <div className="mt-6 grid gap-y-8">
             {fresh.length === 0 ? null : (
-              <ShelfRow card={card} entries={fresh} title="Новое" />
+              <ShelfRow
+                card={card}
+                entries={fresh}
+                returnTarget={false}
+                title="Новое"
+              />
             )}
             {shelves.map((shelf) =>
               topics.length === 0 ? (
@@ -374,11 +382,17 @@ function ShelfRow({
   card,
   entries,
   onOpen,
+  returnTarget = true,
   title,
 }: {
   readonly card: (entry: CatalogEntry) => React.ReactNode;
   readonly entries: readonly CatalogEntry[];
   readonly onOpen?: () => void;
+  /**
+   * Возврат из урока ищет карточку по `data-route-material`. Свежий материал стоит и в «Новом», и на
+   * полке своей темы; целью возврата служит только полка темы.
+   */
+  readonly returnTarget?: boolean;
   readonly title: string;
 }) {
   return (
@@ -403,7 +417,7 @@ function ShelfRow({
         {entries.map((entry) => (
           <li
             className="min-w-0 snap-start"
-            data-route-material={entry.material.slug}
+            data-route-material={returnTarget ? entry.material.slug : undefined}
             key={entry.material.slug}
           >
             {card(entry)}

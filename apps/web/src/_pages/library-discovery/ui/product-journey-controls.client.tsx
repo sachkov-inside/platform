@@ -309,7 +309,8 @@ export function ProductJourneyControls({
       (search.has("page") && requestedPage > 1
         ? visible[(requestedPage - 1) * PRODUCT_BATCH_SIZE]?.slug
         : undefined));
-  // После гидрации каталог добавляет группу «Новое», поэтому карточку возврата находим ещё раз.
+  // После гидрации каталог добавляет полку «Новое» и сдвигает полки ниже, поэтому карточку
+  // возврата находим ещё раз; в «Новом» её копия целью не служит.
   useEffect(() => {
     if (returnSlug === undefined) return;
     routeRef.current

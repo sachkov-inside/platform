@@ -42,6 +42,14 @@ export const productTopicDraftSchema = z
   })
   .strict();
 
+/**
+ * The order version one product panel holds for all its editors: composition, chapter attachments
+ * and topics share it on the backend, so each save starts from the version the previous one left.
+ */
+export interface OrderVersionRef {
+  current: string;
+}
+
 export interface ProductOrderItemPresentation {
   readonly chapterId?: string | null;
   readonly materialId: string;

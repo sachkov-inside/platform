@@ -8,6 +8,7 @@ import {
   PRODUCT_TOPICS_MAX,
   PRODUCT_TOPIC_NAME_MAX,
   PRODUCT_TOPIC_SUMMARY_MAX,
+  type OrderVersionRef,
   type ProductOrderItemPresentation,
   type ProductTopicPresentation,
 } from "../model/presentation";
@@ -41,6 +42,7 @@ export function ProductTopicsEditor({
   items,
   onRefresh,
   orderVersion,
+  orderVersionRef,
   productId,
   topics,
 }: {
@@ -50,11 +52,17 @@ export function ProductTopicsEditor({
     readonly topics: readonly ProductTopicPresentation[];
   } | null>;
   readonly orderVersion: string;
+  /**
+   * Версия состава, общая с другими редакторами панели: темы входят в неё, поэтому после
+   * сохранения тем следующая правка состава идёт от новой версии без перечитывания.
+   */
+  readonly orderVersionRef?: OrderVersionRef;
   readonly productId: string;
   readonly topics: readonly ProductTopicPresentation[];
 }) {
   const headingId = useId();
-  const version = useRef(orderVersion);
+  const ownVersion = useRef(orderVersion);
+  const version = orderVersionRef ?? ownVersion;
   const [saved, setSaved] = useState(() => draftOf(topics));
   const [draft, setDraft] = useState(saved);
   const [search, setSearch] = useState("");
@@ -121,9 +129,6 @@ export function ProductTopicsEditor({
           const next = draftOf(sent);
           setSaved(next);
           setDraft(next);
-          // Темы входят в версию состава: панель перечитывает его, чтобы другие правки шли от
-          // новой версии.
-          void onRefresh();
         },
       },
     );

@@ -2,6 +2,7 @@
 
 import { ChapterAttachmentsEditor } from "./chapter-attachments-editor.client";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { Button } from "@/shared/ui/button";
 import { productOrderQueryOptions } from "../api/read-product-order.browser";
 import { productOrderMaterialSearchQueryOptions } from "../model/product-order-material-search-query";
@@ -19,6 +20,14 @@ export function ProductOrderPanel({
   readonly readOnly?: boolean;
 }) {
   const query = useQuery(productOrderQueryOptions(productId));
+  const loadedVersion =
+    query.data?.kind === "ready" ? query.data.order.orderVersion : null;
+  // Одна версия состава на панель: редакторы состава, вложений глав и тем сохраняют по очереди,
+  // и каждая запись идёт от версии, оставленной предыдущей. Перечитанный состав её обновляет.
+  const orderVersionRef = useRef(loadedVersion ?? "");
+  useEffect(() => {
+    if (loadedVersion !== null) orderVersionRef.current = loadedVersion;
+  }, [loadedVersion]);
   if (query.isPending)
     return (
       <p className="p-6" role="status">
@@ -43,7 +52,7 @@ export function ProductOrderPanel({
   const topics = (
     <ProductTopicsEditor
       items={order.items}
-      key={`topics-${order.orderVersion}`}
+      orderVersionRef={orderVersionRef}
       onRefresh={async () => {
         const refreshed = await query.refetch();
         return refreshed.isError || refreshed.data?.kind !== "ready"
@@ -74,6 +83,7 @@ export function ProductOrderPanel({
             items={order.items}
             productId={productId}
             orderVersion={order.orderVersion}
+            orderVersionRef={orderVersionRef}
             onRefresh={async () => {
               const refreshed = await query.refetch();
               if (refreshed.isError || refreshed.data?.kind !== "ready")
@@ -106,6 +116,7 @@ export function ProductOrderPanel({
           void query.refetch();
         }}
         onSelectPlaylist={() => undefined}
+        orderVersionRef={orderVersionRef}
         presentation={{
           ...order,
           archived,

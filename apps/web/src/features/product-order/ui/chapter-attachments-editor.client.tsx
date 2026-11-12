@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { updateChapterAttachments } from "../api/chapter-attachments.browser";
 import type {
+  OrderVersionRef,
   ProductChapterPresentation,
   ProductOrderItemPresentation,
 } from "../model/presentation";
@@ -15,18 +16,22 @@ export function ChapterAttachmentsEditor({
   items,
   productId,
   orderVersion,
+  orderVersionRef,
   onRefresh,
 }: {
   readonly chapter: ProductChapterPresentation;
   readonly items: readonly ProductOrderItemPresentation[];
   readonly productId: string;
   readonly orderVersion: string;
+  /** Версия состава, общая с другими редакторами панели продукта. */
+  readonly orderVersionRef?: OrderVersionRef;
   readonly onRefresh: () => Promise<{
     readonly orderVersion: string;
     readonly materialIds: readonly string[];
   } | null>;
 }) {
-  const version = useRef(orderVersion);
+  const ownVersion = useRef(orderVersion);
+  const version = orderVersionRef ?? ownVersion;
   const [selected, setSelected] = useState([
     ...(chapter.supplementaryMaterialIds ?? []),
   ]);
