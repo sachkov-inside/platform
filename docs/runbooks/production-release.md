@@ -437,7 +437,10 @@ Incompatible rollback запись допустима, когда
 `expires_at` с `now()` PostgreSQL и выводит только количества.
 
 Telegram проверяет app/state/operation, digest/revision/migrations identity, readiness, опубликованные HTTP-маршруты,
-metrics/logs, текущие webhook и права бота. Числовой Bot ID сверяется с токеном; логическое
+metrics/logs, текущие webhook и права бота. Telegram хранит последнюю ошибку доставки webhook до следующей
+ошибки. Ошибку не позже окончания успешной выкладки (`updatedAt` в `operation.json`, его gateway пишет после
+проверки готовности) проверка пропускает и пишет её время UTC в основании. Более поздняя ошибка, ошибка без даты
+или нечитаемое время выкладки дают отказ. Числовой Bot ID сверяется с токеном; логическое
 `TELEGRAM_BOT_IDENTITY` не считается числовым ID. Синтетические непривязанные чтения `binding` и
 `own-access` проверяют activation с заголовком `x-inside-domain-names: products.v1`.
 Конфигурация читается через `loadApplicationConfig` из фактического окружения контейнера,
