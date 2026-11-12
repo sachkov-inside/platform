@@ -3,9 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ПРОТОТИП. «ИИ-модели»: V2, Opus в двух группах «Мой выбор»</title>
+    <title>ПРОТОТИП. «ИИ-модели»: оценка подписки в долларах или задачах</title>
     <!--
-  PROTOTYPE, throwaway. Девятая версия от 12.11.2026: Opus 5.5 в «Мой выбор» и на каждый день, и для
+  PROTOTYPE, throwaway. Десятая версия от 12.11.2026: карточка вкладками (решение владельца);
+  переключатель «Оценка подписки» сравнивает доллары в месяц по ценам API и задачи в неделю;
+  лучший агент по замерам, без замеров тот, что советует компания; мнение автора отдельно.
+  Девятая версия: Opus 5.5 в «Мой выбор» и на каждый день, и для
   дизайна. Восьмая версия: подписка OpenCode Go у семи моделей (лимит
   в долларах на модель, https://opencode.ai/docs/go), лучший агент DeepSeek это OpenCode, одинаковые
   тарифы одного сервиса свёрнуты в строку. Седьмая версия: лидеры отмечены цветной точкой; «Лучше взять»
@@ -453,7 +456,8 @@
           ><b>V2 «Две строки со сводкой»</b></span
         >
         <span
-          ><span class="lb">Карточка</span><span class="seg" id="cseg"></span
+          ><span class="lb">Оценка подписки</span
+          ><span class="seg" id="eseg"></span
         ></span>
         <span
           ><span class="lb">Ширина</span><span class="seg" id="wseg"></span
@@ -556,7 +560,11 @@
           api: [8, 40],
           tags: ["код", "агенты", "поиск и анализ"],
           sum: "самая сильная, но и самая дорогая",
-          ag: ["Claude Code", "родной агент Anthropic"],
+          ag: [
+            "Claude Code",
+            "родной агент Anthropic, у Fable 5.2 замеров ещё нет",
+            "v",
+          ],
           alts: "OpenCode по ключу API",
           subs: [
             ["claude-pro", { v: "только по акции до 16.11", promo: 1 }],
@@ -564,7 +572,10 @@
               "claude-max",
               { v: "в 5 раз больше Pro, Fable до половины лимита" },
             ],
-            ["claude-ultra", { t: 109, w: 812, n: "на Fable половина лимита" }],
+            [
+              "claude-ultra",
+              { t: 109, w: 812, mo: 3517, n: "на Fable половина лимита" },
+            ],
           ],
           ch: "В Claude Pro Fable доступна только до 16.11",
         },
@@ -577,12 +588,12 @@
           api: [4, 20],
           tags: ["код", "агенты", "тексты"],
           sum: "очень умная для кода и текстов, но дорогая",
-          ag: ["Claude Code", "1-е место в Terminal-Bench 4.1"],
+          ag: ["Claude Code", "1-е место в Terminal-Bench 4.1", "m"],
           alts: "Antigravity, OpenCode",
           subs: [
-            ["claude-pro", { t: 28.2, w: 154 }],
+            ["claude-pro", { t: 28.2, w: 154, mo: 667 }],
             ["claude-max", { v: "в 5 раз больше Pro" }],
-            ["claude-ultra", { t: 296.7, w: 1623 }],
+            ["claude-ultra", { t: 296.7, w: 1623, mo: 7033 }],
             ["g-ag", { v: AG }],
           ],
         },
@@ -595,7 +606,7 @@
           api: [2, 10],
           tags: ["код", "поиск и анализ", "агенты"],
           sum: "сильная и недорогая, но с 1 декабря дороже",
-          ag: ["Antigravity", "родной агент Google"],
+          ag: ["Antigravity", "59,4 в Artificial Analysis, 3-е место", "m"],
           alts: "Cline по ключу API",
           subs: [
             ["g-ultra5", { v: "в 5 раз больше AI Pro" }],
@@ -612,12 +623,12 @@
           api: [2, 10],
           tags: ["код", "агенты", "тексты"],
           sum: "почти как Opus, но дешевле",
-          ag: ["Claude Code", "2-е место в Terminal-Bench 4.1"],
+          ag: ["Claude Code", "2-е место в Terminal-Bench 4.1", "m"],
           alts: "Antigravity, OpenCode",
           subs: [
-            ["claude-pro", { t: 45.9, w: 154 }],
+            ["claude-pro", { t: 45.9, w: 154, mo: 667 }],
             ["claude-max", { v: "в 5 раз больше Pro" }],
-            ["claude-ultra", { t: 483.9, w: 1623 }],
+            ["claude-ultra", { t: 483.9, w: 1623, mo: 7033 }],
             ["g-ag", { v: AG }],
           ],
         },
@@ -630,12 +641,15 @@
           api: [10, 50],
           tags: ["код", "поиск и анализ"],
           sum: "сильная, но дороже и слабее Opus",
-          ag: ["Codex", "родной агент OpenAI"],
+          ag: ["Codex", "60,3% в Terminal-Bench 4.1", "m"],
           alts: "OpenCode через ChatGPT или API",
           subs: [
-            ["gpt-plus", { t: 7.5, w: 46, n: "5–45 сообщений за 5 часов" }],
+            [
+              "gpt-plus",
+              { t: 7.5, w: 46, mo: 199, n: "5–45 сообщений за 5 часов" },
+            ],
             ["gpt-pro100", { v: NOW }],
-            ["gpt-pro200", { t: 95.2, w: 581 }],
+            ["gpt-pro200", { t: 95.2, w: 581, mo: 2518 }],
             ["gpt-pro500", { v: NOW }],
           ],
         },
@@ -648,12 +662,12 @@
           api: [2, 10],
           tags: ["код", "агенты"],
           sum: "хороша для кода и в пять раз дешевле Opus",
-          ag: ["Codex", "3-е место в Terminal-Bench 4.1"],
+          ag: ["Codex", "3-е место в Terminal-Bench 4.1", "m"],
           alts: "OpenCode через ChatGPT или API",
           subs: [
-            ["gpt-plus", { t: 43.3, w: 46 }],
+            ["gpt-plus", { t: 43.3, w: 46, mo: 199 }],
             ["gpt-pro100", { v: NOW }],
-            ["gpt-pro200", { t: 547.3, w: 581 }],
+            ["gpt-pro200", { t: 547.3, w: 581, mo: 2518 }],
             ["gpt-pro500", { v: NOW }],
           ],
         },
@@ -666,17 +680,14 @@
           api: [2, 10],
           tags: ["поиск и анализ", "тексты"],
           sum: "неплохая и дешёвая, есть в подписке за $20",
-          ag: ["Antigravity", "родной агент Google"],
+          ag: ["Antigravity", "53,2 в Artificial Analysis", "m"],
           alts: "Cline по ключу API",
           subs: [
             ["g-pro", { v: "в 4 раза больше Free" }],
             ["g-ultra5", { v: "в 5 раз больше AI Pro" }],
             ["g-ultra20", { v: "в 20 раз больше AI Pro" }],
-            [
-              "oc-go",
-              { t: 9.4, w: 7, n: "лимит $30 в месяц, скидка до 30.11" },
-            ],
-            ["oc-plus", { t: 38, w: 28, n: "лимит $120 в месяц" }],
+            ["oc-go", { t: 9.4, w: 7, mo: 30, oc: 1, n: "скидка до 30.11" }],
+            ["oc-plus", { t: 38, w: 28, mo: 120, oc: 1 }],
           ],
           ch: "С 1.12 API вдвое дороже: $4 / $20",
         },
@@ -689,15 +700,15 @@
           api: [2, 10],
           tags: ["код", "агенты"],
           sum: "сильнейшая из китайских в списке, дешевле Claude",
-          ag: ["Claude Code", "Moonshot сама тестирует модель в нём"],
+          ag: ["Claude Code", "Moonshot сама тестирует модель в нём", "v"],
           alts: "Kimi Code CLI, OpenCode",
           subs: [
             ["kimi-plus", { v: KIMI }],
             ["kimi-pro", { v: KIMI }],
             ["kimi-max", { v: KIMI }],
             ["kimi-ultra", { v: KIMI }],
-            ["oc-go", { t: 2.8, w: 3, n: "лимит $15 в месяц" }],
-            ["oc-plus", { t: 11, w: 14, n: "лимит $60 в месяц" }],
+            ["oc-go", { t: 2.8, w: 3, mo: 15, oc: 1 }],
+            ["oc-plus", { t: 11, w: 14, mo: 60, oc: 1 }],
           ],
         },
         {
@@ -709,15 +720,15 @@
           api: [2, 6],
           tags: ["код", "поиск и анализ"],
           sum: "средняя по силе, а задача стоит дорого",
-          ag: ["Grok Build", "родной агент xAI"],
+          ag: ["Grok Build", "38,8% в Terminal-Bench 4.1", "m"],
           alts: "Cursor из той же подписки",
           subs: [
             ["x-plus", { v: "базовый недельный пул" }],
             ["x-premium", { v: "в 4 раза больше Plus" }],
             ["x-super", { v: "в 15 раз больше Plus" }],
             ["x-ultra", { v: "в 50 раз больше Plus" }],
-            ["oc-go", { t: 1.2, w: 3, n: "лимит $15 в месяц" }],
-            ["oc-plus", { t: 5, w: 14, n: "лимит $60 в месяц" }],
+            ["oc-go", { t: 1.2, w: 3, mo: 15, oc: 1 }],
+            ["oc-plus", { t: 5, w: 14, mo: 60, oc: 1 }],
           ],
         },
         {
@@ -729,11 +740,11 @@
           api: [0.3, 1.2],
           tags: ["дёшево и много", "код"],
           sum: "очень дешёвая, для простых и массовых задач",
-          ag: ["OpenCode", "работает с подпиской OpenCode Go"],
-          alts: "DeepSeek Harness (родной, ранняя версия), Codex, Claude Code. Работает почти в любом агенте",
+          ag: ["Codex", "47,3 в Artificial Analysis, лучший замер", "m"],
+          alts: "OpenCode, DeepSeek Harness (родной, ранняя версия), Claude Code. Работает почти в любом агенте",
           subs: [
-            ["oc-go", { t: 160, w: 23, n: "лимит $100 в месяц" }],
-            ["oc-plus", { t: 320, w: 46, n: "лимит $200 в месяц" }],
+            ["oc-go", { t: 160, w: 23, mo: 100, oc: 1 }],
+            ["oc-plus", { t: 320, w: 46, mo: 200, oc: 1 }],
             ["ali", { v: ALI }],
           ],
         },
@@ -746,14 +757,14 @@
           api: [1.4, 4.4],
           tags: ["код", "тексты"],
           sum: "средняя: хороша в текстах, в коде слабее Sol",
-          ag: ["Claude Code", "единственный замер в Terminal-Bench"],
+          ag: ["Claude Code", "41,2% в Terminal-Bench 4.1", "m"],
           alts: "OpenCode, ZCode",
           subs: [
             ["glm-lite", { v: "2 000 кредитов за 5 часов" }],
             ["glm-pro", { v: "12 000 кредитов за 5 часов" }],
             ["glm-max", { v: "28 000 кредитов за 5 часов" }],
-            ["oc-go", { t: 3.3, w: 3, n: "лимит $15 в месяц" }],
-            ["oc-plus", { t: 27, w: 28, n: "лимит $120 в месяц" }],
+            ["oc-go", { t: 3.3, w: 3, mo: 15, oc: 1 }],
+            ["oc-plus", { t: 27, w: 28, mo: 120, oc: 1 }],
             ["ali", { v: ALI }],
           ],
         },
@@ -766,11 +777,15 @@
           api: [2, 6],
           tags: ["тексты", "поиск и анализ"],
           sum: "средняя по силе, есть в подписке от $6",
-          ag: ["Claude Code", "единственный агент с замером"],
+          ag: [
+            "Claude Code",
+            "27% в Terminal-Bench 4.1, единственный замер",
+            "m",
+          ],
           alts: "Qwen Code, OpenCode",
           subs: [
-            ["oc-go", { t: 2.8, w: 3, n: "лимит $15 в месяц" }],
-            ["oc-plus", { t: 11, w: 14, n: "лимит $60 в месяц" }],
+            ["oc-go", { t: 2.8, w: 3, mo: 15, oc: 1 }],
+            ["oc-plus", { t: 11, w: 14, mo: 60, oc: 1 }],
             ["ali", { v: ALI }],
           ],
         },
@@ -783,11 +798,11 @@
           api: [0.3, 1.2],
           tags: ["дёшево и много", "тексты"],
           sum: "дешёвая, но слабее остальных в списке",
-          ag: ["Claude Code", "MiniMax советует его первым"],
+          ag: ["Claude Code", "MiniMax советует его первым, замеров нет", "v"],
           alts: "MiniMax Code, OpenCode, Codex",
           subs: [
-            ["oc-go", { t: 39, w: 14, n: "лимит $60 в месяц" }],
-            ["oc-plus", { t: 120, w: 42, n: "лимит $180 в месяц" }],
+            ["oc-go", { t: 39, w: 14, mo: 60, oc: 1 }],
+            ["oc-plus", { t: 120, w: 42, mo: 180, oc: 1 }],
           ],
         },
       ];
@@ -815,6 +830,7 @@
         dsflash: [
           ["fav", "дешёвая модель на каждый день"],
           ["mid", "для средних и несерьёзных задач"],
+          ["note", "советую OpenCode с подпиской Go или DeepSeek Harness"],
         ],
         kimi: [
           ["fav", "для дизайна, монтажа и моушн-графики"],
@@ -878,6 +894,27 @@
         ).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
       const tasks = (t) =>
         "≈ " + (t < 100 ? Math.max(1, Math.round(t)) : Math.round(t / 10) * 10);
+      const roundMoney = (n) =>
+        money(
+          n < 100
+            ? Math.round(n)
+            : n < 1000
+              ? Math.round(n / 10) * 10
+              : Math.round(n / 100) * 100,
+        );
+      // «в 33 раза», «в 10 раз», «в 1,5 раза».
+      const times = (x) => {
+        const v = x >= 10 ? Math.round(x) : Math.round(x * 10) / 10;
+        const txt = String(v).replace(".", ",");
+        const d = Math.round(v) === v ? v % 100 : null;
+        const word =
+          d === null
+            ? "раза"
+            : d % 10 >= 2 && d % 10 <= 4 && !(d >= 12 && d <= 14)
+              ? "раза"
+              : "раз";
+        return txt + " " + word;
+      };
       const planName = (id) => SVC[P[id].s].n + " " + P[id].n;
       const planPrice = (p) => (p.from ? "от " : "") + money(p.usd);
       const pdots = (m) => {
@@ -915,6 +952,7 @@
         wrap: true,
         lead: "color",
         cardTabs: true,
+        est: "usd",
         width: 390,
         dark: false,
         scr: "home",
@@ -1109,7 +1147,8 @@
           "</div>";
         h += "<div><b>«" + m.sum + "»</b></div>";
         const op = (OPIN[m.id] || []).map(
-          ([k, t]) => '<div class="sm">' + badge(k) + t + "</div>",
+          ([k, t]) =>
+            '<div class="sm">' + (k === "note" ? "" : badge(k)) + t + "</div>",
         );
         if (banOf(m))
           op.push(
@@ -1145,7 +1184,11 @@
           m.tags.map((t) => '<span class="tag">' + t + "</span>").join("") +
           "</div>";
         h +=
-          '<div class="cd"><div class="sm mu">Лучший агент</div><b>' +
+          '<div class="cd"><div class="sm mu">' +
+          (m.ag[2] === "m"
+            ? "Лучший агент по замерам"
+            : "Агент, который советует компания") +
+          "</div><b>" +
           m.ag[0] +
           '</b> <span class="sm mu">' +
           m.ag[1] +
@@ -1190,15 +1233,26 @@
               ruFlags(p.s) +
               "</div>";
           }
-          const right = e.t
-            ? '<span class="est"><b>' +
-              tasks(e.t) +
-              ' задач/нед</b> <span class="mu sm">' +
-              money(e.w) +
-              " по API" +
-              (e.n ? ", " + e.n : "") +
-              "</span></span>"
-            : '<span class="mu sm">' + e.v + "</span>";
+          const right = !e.t
+            ? '<span class="mu sm">' + e.v + "</span>"
+            : st.est === "usd"
+              ? '<span class="est"><b>' +
+                (e.oc ? "" : "≈\u00a0") +
+                roundMoney(e.mo) +
+                ' в месяц по API</b> <span class="mu sm">в ' +
+                times(e.mo / p.usd) +
+                " больше цены" +
+                (e.oc ? ", лимит OpenCode" : "") +
+                (e.n ? ", " + e.n : "") +
+                "</span></span>"
+              : '<span class="est"><b>' +
+                tasks(e.t) +
+                ' задач/нед</b> <span class="mu sm">' +
+                money(e.w) +
+                " по API" +
+                (e.oc ? ", лимит " + money(e.mo) + " в месяц" : "") +
+                (e.n ? ", " + e.n : "") +
+                "</span></span>";
           h +=
             '<div class="sub"><span class="pl">' +
             p.n +
@@ -1251,7 +1305,7 @@
           '<div class="sub"><span class="F">Цены и лимиты: сайты компаний</span></div>' +
           '<div class="grp"><b>Как читать</b></div>' +
           '<div class="sm">Мощность: место в таблице агентов Arena, каждая точка на 10 мест. Отметка у двух лидеров.</div>' +
-          '<div class="sm">Задачи: неделя подписки по ценам API, делённая на цену одной задачи модели. Это порядок величины, а не лимит. Число есть, только если замерено хотя бы 5 аккаунтов.</div>' +
+          '<div class="sm">Подписка: сколько стоил бы тот же объём работы по ценам API, по независимым замерам или по лимиту OpenCode. Это оценка, а не лимит компании. Число есть, только если замерено хотя бы 5 аккаунтов.</div>' +
           '<div class="sm">Значки и «Мой выбор»: мнение автора.</div>'
         );
       }
@@ -1307,12 +1361,12 @@
           (st.clipped ? ", сводки обрезаны" : "");
         document.getElementById("taps").textContent = st.taps;
         seg(
-          "cseg",
-          [false, true],
-          st.cardTabs,
-          (x) => (x ? "вкладки" : "один экран"),
+          "eseg",
+          ["usd", "tasks"],
+          st.est,
+          (x) => (x === "usd" ? "доллары в месяц" : "задачи в неделю"),
           (x) => {
-            st.cardTabs = x;
+            st.est = x;
             render();
           },
         );
