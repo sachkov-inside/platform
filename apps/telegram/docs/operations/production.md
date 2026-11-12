@@ -376,10 +376,16 @@ Override обязателен: в нём сеть брокера, доверие
 ### Локальный proof перед выпуском
 
 Из корня platform выполните `bash apps/telegram/scripts/production-smoke.sh`.
-Команда строит production image из root context, читает сохранённый legacy `v5` manifest и
-проверяет реальный переход на candidate и обратно на digest `v5` в отдельной базе и Compose project.
-Smoke сохраняет проверку identity первых 31 миграций legacy `v5`.
-Candidate должен записать точный текущий набор миграций. После rollback этот ledger остаётся неизменным.
+Команда строит production image из root context, скачивает manifest и `compose.yaml` последнего
+опубликованного выпуска `telegram-vN` (другой выпуск задаёт `TELEGRAM_SMOKE_PREVIOUS_TAG=telegram-vN`)
+и проверяет реальный переход с его digest на candidate в отдельной базе и Compose project. Как и gateway,
+smoke запускает образ выпуска с его `compose.yaml`, сверив файл с хешем из manifest. Первые миграции
+candidate должны совпасть с identity миграций этого выпуска, а candidate должен записать точный текущий
+набор миграций. Откат smoke выполняет только при той же identity миграций и без `migrate`; после него
+ledger остаётся неизменным. Другие условия отката gateway (записанный `previous` и тот же manifest)
+smoke не моделирует. Если candidate добавляет миграции, gateway откажет в откате, поэтому smoke печатает
+`Rollback to vN is not offered` и завершается после перехода. Если candidate собран из того же коммита,
+что и выпуск, smoke перезапускает тот же код, а не проверяет настоящий откат.
 Проверяются сохранённая synthetic строка, readiness, неавторизованный POST и фактические image IDs. Повтор и rollback не выполняют migration command.
 Если image identity, ledger или synthetic строка не совпадают, smoke явно завершает работу с exit 1.
 Unit regression запускает весь shell script с повреждёнными внешними наблюдениями на Bash 3.2 и Linux;
