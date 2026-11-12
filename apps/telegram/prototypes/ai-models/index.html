@@ -3,11 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ПРОТОТИП. Раздел «ИИ-модели»: три варианта</title>
+    <title>ПРОТОТИП. Раздел «ИИ-модели»: вариант C со значками автора</title>
     <!--
-  PROTOTYPE, throwaway. Вопрос: какой экран раздела «ИИ-модели» быстрее всего отвечает на три
-  типичных вопроса человека. Три варианта главного экрана: A «Семейства», B «Таблица по цене»,
-  C «Переключатели сверху». Карточка модели и экран «О данных» общие.
+  PROTOTYPE, throwaway. Вторая версия. Владелец 12.11.2026 выбрал вариант C «Переключатели сверху»
+  и попросил убрать номера мест и добавить значки со своим мнением. Вопрос: как уместить значки.
+  C1 показывает значки словами, C2 иконками с легендой. Значения значков это черновик по словам
+  владельца.
   Это витрина в обычном браузере, а не настоящий виджет: размер кода (4 096 байт после zlib)
   здесь не считается. Данные настоящие, из образцового справочника на 12.11.2026; тексты сводок
   и причин выбора агента это черновики для владельца. Высота виджета ограничена 560 px, шрифт
@@ -448,6 +449,49 @@
         text-decoration-color: var(--t);
         text-underline-offset: 2px;
       }
+      .wg .bd {
+        display: inline-block;
+        border: 1.5px solid var(--h);
+        border-radius: 4px;
+        padding: 0 4px;
+        margin: 1px 0 1px 4px;
+        font-size: 0.7em;
+        font-weight: 700;
+        color: var(--h);
+        white-space: nowrap;
+        vertical-align: 1px;
+      }
+      .wg .bd.fav {
+        background: var(--a);
+        border-color: var(--d);
+        color: var(--p);
+      }
+      .wg .bd.sure {
+        border-color: var(--g);
+        color: var(--g);
+      }
+      .wg .bd.ban {
+        border-color: #b63829;
+        color: #b63829;
+      }
+      .wg .bd.pricey,
+      .wg .bd.waste {
+        border-color: var(--v);
+        color: var(--v);
+      }
+      .wg .ic {
+        margin-left: 4px;
+        font-size: 0.85em;
+      }
+      .wg .op {
+        border: 2px dashed var(--h);
+        border-radius: 8px;
+        padding: 5px 8px;
+      }
+      .wg .op .bd {
+        margin-left: 0;
+        margin-right: 4px;
+      }
       .wg .note {
         border-left: 3px solid var(--a);
         padding-left: 8px;
@@ -818,6 +862,46 @@
           subs: [],
         },
       ];
+      // Значки автора: черновик по словам владельца от 12.11.2026.
+      const BD = {
+        fav: ["⭐", "Мой выбор"],
+        sure: ["✓", "Уверенная"],
+        mid: ["◐", "Для средних задач"],
+        pricey: ["💸", "Дорого"],
+        waste: ["🔥", "Невыгодно"],
+        ban: ["⚠️", "Риск бана"],
+      };
+      const BAN =
+        "Claude часто блокирует аккаунты в разных странах. Риск: высокий";
+      const OPIN = {
+        fable: [
+          ["waste", "тратит очень много токенов на одну задачу"],
+          ["ban", BAN],
+        ],
+        opus: [["ban", BAN]],
+        sonnet: [["ban", BAN]],
+        sol: [
+          ["fav", "средняя универсальная модель на каждый день"],
+          ["sure", "уверенно доводит задачу до конца (черновик)"],
+        ],
+        dsflash: [
+          ["fav", "дешёвая рабочая модель"],
+          ["mid", "не топ: для средних и несерьёзных задач"],
+        ],
+        kimi: [
+          ["sure", "уверенно доводит задачу до конца (черновик)"],
+          ["pricey", "подписка дорогая для своего объёма"],
+        ],
+      };
+      const badgeText = (k) =>
+        '<span class="bd ' +
+        k +
+        '">' +
+        (k === "fav" ? "⭐ " : "") +
+        BD[k][1] +
+        "</span>";
+      const badgeIcon = (k) =>
+        '<span class="ic" title="' + BD[k][1] + '">' + BD[k][0] + "</span>";
       const byId = Object.fromEntries(M.map((m) => [m.id, m]));
       const FN = Object.fromEntries(FAMS);
       const TIERS = [
@@ -890,7 +974,7 @@
 
       // ---------- Состояние ----------
       const st = {
-        v: new URLSearchParams(location.search).get("variant") || "A",
+        v: new URLSearchParams(location.search).get("variant") || "C1",
         width: 390,
         dark: false,
         scr: "home",
@@ -899,12 +983,8 @@
         filter: "power",
         taps: 0,
       };
-      if (!["A", "B", "C"].includes(st.v)) st.v = "A";
-      const VNAMES = {
-        A: "Семейства",
-        B: "Таблица по цене",
-        C: "Переключатели сверху",
-      };
+      if (!["C1", "C2"].includes(st.v)) st.v = "C1";
+      const VNAMES = { C1: "Значки словами", C2: "Значки иконками" };
 
       // ---------- Экраны ----------
       const head = (title, back) =>
@@ -1001,11 +1081,12 @@
 
       const FILTERS = [
         ["power", "Мощные"],
+        ["fav", "⭐ Мой выбор"],
         ["code", "Для кода"],
         ["cheap", "Дёшево"],
         ["20", "До $20"],
       ];
-      function homeC() {
+      function homeC(style) {
         let h = head("ИИ-модели");
         h +=
           '<div class="R" style="flex-wrap:wrap;gap:6px">' +
@@ -1024,8 +1105,12 @@
         let metric;
         if (st.filter === "power") {
           list.sort((a, b) => b.score - a.score);
-          metric = (m) =>
-            dots(power(m)) + ' <span class="mu sm">№' + m.rank + "</span>";
+          metric = (m) => dots(power(m));
+        } else if (st.filter === "fav") {
+          list = list
+            .filter((m) => (OPIN[m.id] || []).some(([k]) => k === "fav"))
+            .sort((a, b) => b.score - a.score);
+          metric = (m) => dots(power(m));
         } else if (st.filter === "code") {
           list = list
             .filter((m) => m.tags.includes("код"))
@@ -1059,6 +1144,10 @@
             );
           };
         }
+        const marks = (m) =>
+          (OPIN[m.id] || [])
+            .map(([k]) => (style === "C1" ? badgeText(k) : badgeIcon(k)))
+            .join("");
         h +=
           "<div>" +
           list
@@ -1068,12 +1157,21 @@
                 m.id +
                 '"><span class="F"><b>' +
                 m.full +
-                '</b></span><span style="text-align:right">' +
+                "</b>" +
+                marks(m) +
+                '</span><span style="text-align:right;flex:none">' +
                 metric(m) +
                 "</span></button>",
             )
             .join("") +
           "</div>";
+        if (style === "C2")
+          h +=
+            '<div class="mu sm">' +
+            Object.values(BD)
+              .map(([i, t]) => i + " " + t.toLowerCase())
+              .join(" · ") +
+            ". Мнение автора.</div>";
         if (st.filter === "20")
           h +=
             '<div class="mu sm">Число: задач в неделю, ≈. «есть»: замеров нет.</div>';
@@ -1089,9 +1187,7 @@
         h +=
           '<div class="R sm" style="flex-wrap:wrap;gap:4px 14px"><span>Мощность ' +
           dots(power(m)) +
-          ' <span class="mu">№' +
-          m.rank +
-          " в Arena</span></span><span>Цена " +
+          "</span><span>Цена " +
           dots(priceLvl(m), "pr") +
           "</span></div>";
         h +=
@@ -1103,6 +1199,13 @@
           money(m.task) +
           "</div>";
         h += "<div><b>«" + m.sum + "»</b></div>";
+        if (OPIN[m.id])
+          h +=
+            '<div class="op"><div class="sm mu">Мнение автора</div>' +
+            OPIN[m.id]
+              .map(([k, t]) => '<div class="sm">' + badgeText(k) + t + "</div>")
+              .join("") +
+            "</div>";
         h +=
           "<div>" +
           m.tags.map((t) => '<span class="tag">' + t + "</span>").join("") +
@@ -1233,7 +1336,7 @@
         if (st.scr === "card") html = card();
         else if (st.scr === "tiers") html = tierScreen();
         else if (st.scr === "about") html = about();
-        else html = st.v === "A" ? homeA() : st.v === "B" ? homeB() : homeC();
+        else html = homeC(st.v);
         W.innerHTML = html;
         msgw.style.width = st.width + "px";
         document.getElementById("chat").className =
@@ -1264,7 +1367,7 @@
         document.getElementById("taps").textContent = st.taps;
         seg(
           "vseg",
-          ["A", "B", "C"],
+          ["C1", "C2"],
           st.v,
           (x) => x + " " + VNAMES[x],
           (x) => {
@@ -1342,9 +1445,9 @@
         render();
       });
       document.getElementById("reset").onclick = goHome;
-      const order = ["A", "B", "C"];
+      const order = ["C1", "C2"];
       const step = (d) => {
-        st.v = order[(order.indexOf(st.v) + d + 3) % 3];
+        st.v = order[(order.indexOf(st.v) + d + 2) % 2];
         goHome();
       };
       document.getElementById("prev").onclick = () => step(-1);
