@@ -172,24 +172,31 @@ async function fitOf(
       else await tap(page, "→", part);
       // Every page of the part is drawn and measured; the last one keeps its arrow for the
       // next part, or has it disabled.
-      let total: string | undefined;
+      let total: string | null | undefined;
       for (;;) {
         const drawn = await measure(page);
         turned += 1;
         tallest = Math.max(tallest, drawn.heightPx);
         smallest = Math.min(smallest, drawn.fontPx);
-        const counter = await page.evaluate(() =>
-          // The counter «разбор 2/3» stands beside the verdict when the part has pages.
-          /(\d+)\/(\d+)$/.exec(
-            document.querySelector(".fb .R")?.textContent ?? "",
+        // The counter «разбор 2/3» stands beside the verdict when the explanation has
+        // pages or parts. It counts through the parts, so the end of this part is read
+        // from the arrow: it turns a page of the part (`E…`) or asks the bot for the next.
+        const shown = await page.evaluate(() => ({
+          total:
+            /\/(\d+)$/.exec(
+              document.querySelector(".fb .R")?.textContent ?? "",
+            )?.[1] ?? null,
+          turnsPage: [...document.querySelectorAll(".fb button")].some(
+            (button) =>
+              button.textContent === "→" &&
+              (button.getAttribute("onclick") ?? "").startsWith("g('E"),
           ),
-        );
-        if (counter === null) break;
+        }));
         // The widget fits every page before it shows the first: a total that changes
         // while the person reads means a page was refitted under their eyes.
-        if (total !== undefined && total !== counter[2]) steadyCounter = false;
-        total = counter[2];
-        if (counter[1] === counter[2]) break;
+        if (total !== undefined && total !== shown.total) steadyCounter = false;
+        total = shown.total;
+        if (!shown.turnsPage) break;
         await page.getByRole("button", { name: /^→/ }).click();
       }
     }
