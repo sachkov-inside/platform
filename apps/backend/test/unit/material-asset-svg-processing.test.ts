@@ -178,6 +178,31 @@ describe("SVG material image processing", () => {
       "an unknown CSS function",
       svg("<style>.a{background:image-set(a 1x)}</style>"),
     ],
+    [
+      "an external url hidden behind a comment opener in a CSS string",
+      svg(
+        '<style>a{font-family:"/*"} svg{background:url(https://example.com/t)} b{font-family:"*/"}</style>',
+      ),
+    ],
+    [
+      "an @import hidden behind a comment opener in a CSS string",
+      svg(
+        '<style>a{font-family:"/*"}@import url(https://example.com/x);b{x:"*/"}</style>',
+      ),
+    ],
+    [
+      "a @font-face hidden behind a comment opener in a CSS string",
+      svg(
+        '<style>a{font-family:"/*"}@font-face{font-family:q;src:url(https://example.com/f)}b{x:"*/"}</style>',
+      ),
+    ],
+    [
+      "an external url hidden behind a comment opener in a style attribute string",
+      svg(
+        `<rect style='font-family:"/*";cursor:url(https://example.com/c),auto;x:"*/"'/>`,
+      ),
+    ],
+    ["an unterminated CSS string", svg('<style>a{font-family:"x}</style>')],
     ["a DOCTYPE", `<!DOCTYPE svg [<!ENTITY x "y">]>${svg("")}`],
     [
       "a processing instruction",
@@ -197,6 +222,15 @@ describe("SVG material image processing", () => {
       error: { code: "unsafe_svg" },
       ok: false,
     });
+  });
+
+  test("keeps an internal xlink:href under a declared xlink namespace", async () => {
+    const result = await processSvg(
+      svg(
+        '<g xmlns:xlink="http://www.w3.org/1999/xlink"><path id="p" d="M0 0"/><use xlink:href="#p"/></g>',
+      ),
+    );
+    expect(result.ok).toBe(true);
   });
 
   test("keeps internal references to ids in the same file", async () => {
@@ -222,11 +256,28 @@ describe("SVG material image processing", () => {
       "bytes that are not UTF-8",
       Uint8Array.from([0x3c, 0x73, 0x76, 0x67, 0xff]),
     ],
+    ["an xlink prefix without its namespace", svg('<use xlink:href="#a"/>')],
+    ["a raw NUL character", svg("<desc>a\u0000b</desc>")],
+    ["a reference to a control character", svg("<desc>a&#1;b</desc>")],
   ])("refuses %s as image_decode_failed", async (_label, source) => {
     await expect(processSvg(source)).resolves.toEqual({
       error: { code: "image_decode_failed" },
       ok: false,
     });
+  });
+
+  test("refuses an element with thousands of attributes quickly", async () => {
+    const attributes = Array.from(
+      { length: 50_000 },
+      (_, index) => ` a${String(index)}=""`,
+    ).join("");
+    const started = performance.now();
+    // deterministic-test-allow duration-wait: a performance window bounds the checker's work on one adversarial input.
+    await expect(processSvg(svg("", attributes))).resolves.toEqual({
+      error: { code: "unsafe_svg" },
+      ok: false,
+    });
+    expect(performance.now() - started).toBeLessThan(1_000);
   });
 
   test("refuses an SVG over 512 KiB", async () => {

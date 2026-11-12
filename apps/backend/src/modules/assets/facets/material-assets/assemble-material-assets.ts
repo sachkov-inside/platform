@@ -13,6 +13,7 @@ import {
   dependencyFailure,
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
+import { SVG_CONTENT_TYPE } from "./check-svg-image.js";
 import { processMaterialAssetBytes } from "./process-material-asset-bytes.js";
 import type {
   MaterialAssetDelivery,
@@ -703,7 +704,7 @@ function fingerprintUpload(
 
 /** Object keys name the stored format: processing emits WebP rasters and checked SVG files. */
 function imageExtension(contentType: string): "svg" | "webp" {
-  return contentType === "image/svg+xml" ? "svg" : "webp";
+  return contentType === SVG_CONTENT_TYPE ? "svg" : "webp";
 }
 
 function sha256(body: Uint8Array): string {

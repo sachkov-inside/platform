@@ -517,7 +517,7 @@ function uploadErrorMessage(error: unknown): string {
     case "unsupported_image_type":
       return "Формат файла не совпадает с его содержимым";
     case "unsafe_svg":
-      return "SVG содержит скрипт, внешнюю ссылку или другой запрещённый элемент";
+      return "SVG содержит запрещённое: скрипт, внешнюю ссылку, неразрешённый элемент, атрибут или стиль";
     case "unsupported_file_type":
       return "Видео загружается через отдельный видеосценарий";
     case "checksum_mismatch":

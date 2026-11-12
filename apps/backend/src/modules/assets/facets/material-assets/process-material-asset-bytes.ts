@@ -4,15 +4,14 @@ import { extname } from "node:path";
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
 
-import { checkSvgImage, SVG_IMAGE_BYTES } from "./check-svg-image.js";
+import { checkSvgImage, SVG_CONTENT_TYPE } from "./check-svg-image.js";
 
 export const MATERIAL_ASSET_LIMITS = Object.freeze({
   fileBytes: 25 * 1024 * 1024,
   imageBytes: 10 * 1024 * 1024,
   imagePixels: 40_000_000,
-  svgBytes: SVG_IMAGE_BYTES,
+  svgBytes: 512 * 1024,
 });
-const SVG_CONTENT_TYPE = "image/svg+xml";
 
 const IMAGE_CONTENT_TYPES = new Set([
   "image/avif",

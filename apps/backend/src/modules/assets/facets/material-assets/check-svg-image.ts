@@ -6,14 +6,16 @@
  * was checked: comments disappear, CDATA and references are re-escaped.
  *
  * Reader shows the file only through `<img>`, where browsers run no script and load nothing
- * external. The allowlist keeps the file inert even when its address is opened directly.
+ * external. Opened directly, the checked file has no script, link or external reference, and the
+ * delivery's response policy blocks script and fetches as a second barrier where it applies.
  */
 
-export const SVG_IMAGE_BYTES = 512 * 1024;
+export const SVG_CONTENT_TYPE = "image/svg+xml";
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const XLINK_NAMESPACE = "http://www.w3.org/1999/xlink";
 const MAX_ELEMENTS = 20_000;
 const MAX_DEPTH = 64;
+const MAX_ATTRIBUTES = 256;
 const MAX_DIMENSION = 16_384;
 
 const ELEMENTS = new Set([
@@ -211,6 +213,9 @@ const IDENTIFIER = /^[A-Za-z_][\w.:-]*$/u;
 const CLASS_LIST = /^[\w\s-]*$/u;
 const XML_DECLARATION =
   /^<\?xml\s+version\s*=\s*(["'])1\.[0-9]\1(?:\s+encoding\s*=\s*(["'])utf-8\2)?(?:\s+standalone\s*=\s*(["'])(?:yes|no)\3)?\s*\?>/iu;
+/** Characters XML 1.0 allows in a document. */
+const NOT_XML_CHARACTER =
+  /[^\t\n\r\u0020-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/u;
 const LENGTH = /^\s*(\d+(?:\.\d+)?)\s*(?:px)?\s*$/u;
 const NUMBER_LIST = /[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/giu;
 
@@ -247,7 +252,9 @@ export function checkSvgImage(body: Uint8Array): SvgImageCheck {
       // Not a dependency failure: bytes that are not UTF-8 are not an SVG image.
       throw new Refusal("image_decode_failed");
     }
-    const root = parseDocument(source.replace(/^\uFEFF/u, ""));
+    const text = source.replace(/^\uFEFF/u, "");
+    if (NOT_XML_CHARACTER.test(text)) throw new Refusal("image_decode_failed");
+    const root = parseDocument(text);
     const size = layoutSize(root);
     return {
       ok: true,
@@ -329,13 +336,16 @@ function parseDocument(source: string): SvgElement {
     if (name === undefined) throw new Refusal("image_decode_failed");
     position += 1 + name.length;
     const attributes: [string, string][] = [];
+    const attributeNames = new Set<string>();
     for (;;) {
       const attribute = matchAt(ATTRIBUTE, source, position);
       if (attribute === null) break;
       const attributeName = attribute[1] ?? "";
-      if (attributes.some(([existing]) => existing === attributeName)) {
+      if (attributeNames.has(attributeName)) {
         throw new Refusal("image_decode_failed");
       }
+      attributeNames.add(attributeName);
+      if (attributeNames.size > MAX_ATTRIBUTES) throw new Refusal("unsafe_svg");
       attributes.push([
         attributeName,
         decodeReferences(attribute[2] ?? attribute[3] ?? ""),
@@ -363,6 +373,17 @@ function parseDocument(source: string): SvgElement {
     if (elements > MAX_ELEMENTS || stack.length >= MAX_DEPTH)
       throw new Refusal("unsafe_svg");
     checkElement(name, attributes);
+    // A prefix is bound only by a declaration on the element or an ancestor; without it the file
+    // is not well-formed and shows as a broken image.
+    if (
+      attributeNames.has("xlink:href") &&
+      !attributeNames.has("xmlns:xlink") &&
+      !stack.some((ancestor) =>
+        ancestor.attributes.some(([attribute]) => attribute === "xmlns:xlink"),
+      )
+    ) {
+      throw new Refusal("image_decode_failed");
+    }
     const element: SvgElement = { attributes, children: [], name };
     if (parent === undefined) root = element;
     else parent.children.push(element);
@@ -414,11 +435,11 @@ function checkElement(
       if (attribute === "type" && value.trim().toLowerCase() !== "text/css") {
         throw new Refusal("unsafe_svg");
       }
-      if (attribute === "media") checkCss(value, "value");
+      if (attribute === "media") checkCss(value, "inline");
     } else if (TEXT_ATTRIBUTES.has(attribute)) {
       continue;
     } else if (VALUE_ATTRIBUTES.has(attribute)) {
-      checkCss(value, attribute === "style" ? "declarations" : "value");
+      checkCss(value, "inline");
     } else {
       throw new Refusal("unsafe_svg");
     }
@@ -426,24 +447,39 @@ function checkElement(
 }
 
 /**
- * CSS may reach nothing outside the file. A backslash is refused because a CSS escape can spell a
- * forbidden name, an at-rule must be listed, and every function call must be listed, with `url()`
- * limited to a reference to an id in this file.
+ * CSS may reach nothing outside the file. The text is read the way a browser tokenizes it, so a
+ * comment opener inside a string hides nothing. A backslash is refused because a CSS escape can
+ * spell a forbidden name; an unterminated string or comment is refused. Only the listed at-rules,
+ * and none inline, and only the listed functions pass, with `url()` limited to a reference to an
+ * id in this file.
  */
-function checkCss(text: string, kind: "declarations" | "stylesheet" | "value") {
+function checkCss(text: string, kind: "inline" | "stylesheet") {
   if (text.includes("\\")) throw new Refusal("unsafe_svg");
+  // Comments become a space and strings an empty pair of quotes, except a quoted `#id`, which is
+  // kept for `url()`: what remains is the CSS a browser acts on.
   let css = "";
   let position = 0;
   while (position < text.length) {
-    const start = text.indexOf("/*", position);
-    if (start === -1) {
-      css += text.slice(position);
-      break;
+    const character = text[position] ?? "";
+    if (text.startsWith("/*", position)) {
+      const end = text.indexOf("*/", position + 2);
+      if (end === -1) throw new Refusal("unsafe_svg");
+      css += " ";
+      position = end + 2;
+    } else if (character === '"' || character === "'") {
+      const end = text.indexOf(character, position + 1);
+      const content = end === -1 ? "" : text.slice(position + 1, end);
+      if (end === -1 || /[\n\r\f]/u.test(content)) {
+        throw new Refusal("unsafe_svg");
+      }
+      css += FRAGMENT_REFERENCE.test(content)
+        ? `${character}${content}${character}`
+        : '""';
+      position = end + 1;
+    } else {
+      css += character;
+      position += 1;
     }
-    const end = text.indexOf("*/", start + 2);
-    if (end === -1) throw new Refusal("unsafe_svg");
-    css += `${text.slice(position, start)} `;
-    position = end + 2;
   }
   for (const atRule of css.matchAll(/@(-?[A-Za-z_][\w-]*)?/gu)) {
     const ruleName = atRule[1]?.toLowerCase();
@@ -490,9 +526,8 @@ function decodeReferences(text: string): string {
         : Number.parseInt(numeric[1], 16);
     if (
       !Number.isSafeInteger(codePoint) ||
-      codePoint === 0 ||
       codePoint > 0x10ffff ||
-      (codePoint >= 0xd800 && codePoint <= 0xdfff)
+      NOT_XML_CHARACTER.test(String.fromCodePoint(codePoint))
     ) {
       throw new Refusal("image_decode_failed");
     }
@@ -508,8 +543,8 @@ function layoutSize(root: SvgElement): { height: number; width: number } {
     viewBox?.length === 4 && (viewBox[2] ?? 0) > 0 && (viewBox[3] ?? 0) > 0
       ? { height: viewBox[3] ?? 0, width: viewBox[2] ?? 0 }
       : undefined;
-  const width = length(attributeValue(root.attributes, "width"));
-  const height = length(attributeValue(root.attributes, "height"));
+  const width = pixelLength(attributeValue(root.attributes, "width"));
+  const height = pixelLength(attributeValue(root.attributes, "height"));
   let size: { height: number; width: number } | undefined;
   if (width !== undefined && height !== undefined) size = { height, width };
   else if (box !== undefined && width !== undefined)
@@ -528,7 +563,7 @@ function layoutSize(root: SvgElement): { height: number; width: number } {
   return rounded;
 }
 
-function length(value: string | undefined): number | undefined {
+function pixelLength(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
   const parsed = LENGTH.exec(value);
   const number = parsed === null ? Number.NaN : Number(parsed[1]);
