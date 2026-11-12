@@ -197,10 +197,10 @@ It has nothing to do with Inside Products, which are never sold as subscriptions
 _Avoid_: Inside subscription, tariff, Product, Product Access
 
 **Оценка подписки** (Subscription Estimate):
-The approximate amount of work one Подписка сервиса buys in a week with one ИИ-модель, measured in
-typical tasks of that model or in the same usage priced at its API rates. It is an estimate from
-independent measurements, never the vendor's limit.
-_Avoid_: Limit, quota, token allowance, guaranteed usage
+How much work one Подписка сервиса buys in a month, as the same usage priced at API rates and as a
+multiple of the subscription price. It comes from independent measurements of at least five accounts
+or from a limit the vendor states in dollars, and it is never the vendor's own usage limit.
+_Avoid_: Limit, quota, token allowance, tasks per week, guaranteed usage
 
 **Агент** (Agent):
 A program in which a person works with an ИИ-модель on tasks, such as Codex, Claude Code or OpenCode.
