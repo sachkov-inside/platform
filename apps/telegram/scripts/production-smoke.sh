@@ -64,7 +64,7 @@ jq --exit-status --arg version "$previous_version" '
   (.compose.sha256 | test("^sha256:[0-9a-f]{64}$")) and
   (.image | test("^ghcr\\.io/sachkov-inside/inside-telegram@sha256:[0-9a-f]{64}$"))
 ' "$previous_manifest" >/dev/null || refuse 'Previous release manifest is not a Telegram release of this repository'
-compose_sha="$(node --input-type=module -e 'import { createHash } from "node:crypto"; import { readFileSync } from "node:fs"; process.stdout.write(`sha256:${createHash("sha256").update(readFileSync(process.argv[1])).digest("hex")}`);' "$previous/compose.yaml")"
+compose_sha="$(node --input-type=module -e 'import { createHash } from "node:crypto"; import { readFileSync } from "node:fs"; process.stdout.write("sha256:" + createHash("sha256").update(readFileSync(process.argv[1])).digest("hex"));' "$previous/compose.yaml")"
 [[ "$compose_sha" == "$(jq --raw-output .compose.sha256 "$previous_manifest")" ]] || refuse 'Previous compose file mismatch'
 previous_image="$(jq --raw-output .image "$previous_manifest")"
 previous_count="$(jq --raw-output .migrations.count "$previous_manifest")"
