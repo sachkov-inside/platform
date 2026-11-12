@@ -12,6 +12,7 @@ import {
 import { createDatabase } from "../../src/database/create-database.js";
 import type { Database } from "../../src/database/database.js";
 import { migrateToLatest } from "../../src/database/migrator.js";
+import { AiModelsReferences } from "../../src/modules/ai-models/ai-models-reference.js";
 import { runAiModelsReport } from "../../src/operations/ai-models-report-command.js";
 import { hasText } from "../../src/shared/text.js";
 import { closeIfStarted } from "../support/close-if-started.js";
@@ -19,6 +20,7 @@ import {
   registerFixedClock,
   virtualTestClock,
 } from "../support/fixed-clock.js";
+import { syntheticAiModelsReference } from "../support/synthetic-ai-models-reference.js";
 import {
   newUser,
   startTrainerBot,
@@ -71,24 +73,19 @@ function running(): TrainerBot {
 
 const at = (instant: string) => vi.setSystemTime(Date.parse(instant));
 
-/** Stands in for the owner's import, which has a suite of its own. */
+/** The owner's import makes the synthetic Справочник current; it has a suite of its own. */
 async function loadReference(): Promise<void> {
-  await database
-    .insertInto("ai_models_references")
-    .values({
-      revision: 1,
-      checked_on: "2026-10-01",
-      facts: JSON.stringify({ models: [] }),
-      author: JSON.stringify({ groups: [] }),
-      content_sha256: "a".repeat(64),
-      imported_at: virtualTestClock.now(),
-    })
-    .execute();
+  const report = await new AiModelsReferences(
+    database,
+    virtualTestClock,
+  ).import(syntheticAiModelsReference(), true);
+  expect(report.status).toBe("imported");
 }
 
 /**
- * Stands in for the card screens, which record each opened tab «Главное» of a model card.
- * `viewedAt` is the instant of the opening, in UTC.
+ * Writes the row the card screens write for each opened tab «Главное» of a model card, at an
+ * instant of the test's choice: `viewedAt`, in UTC. ai-models.integration.test.ts presses the
+ * cards themselves.
  */
 async function viewCard(
   userId: number,
