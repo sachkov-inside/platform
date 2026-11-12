@@ -3,9 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ПРОТОТИП. «ИИ-модели»: V2, «Лучше взять» у четырёх моделей</title>
+    <title>ПРОТОТИП. «ИИ-модели»: V2 с подпиской OpenCode Go</title>
     <!--
-  PROTOTYPE, throwaway. Седьмая версия от 12.11.2026: лидеры отмечены цветной точкой; «Лучше взять»
+  PROTOTYPE, throwaway. Восьмая версия от 12.11.2026: подписка OpenCode Go у семи моделей (лимит
+  в долларах на модель, https://opencode.ai/docs/go), лучший агент DeepSeek это OpenCode, одинаковые
+  тарифы одного сервиса свёрнуты в строку. Седьмая версия: лидеры отмечены цветной точкой; «Лучше взять»
   у GLM, Kimi, Gemini 4 Carbon и Gemini 4 Argon. Шестая версия: только V2; фильтры «Мощные», «Мой выбор»,
   «Цена/качество», «Дёшево»; сводка целиком, если страница помещается в 560 px, иначе обрезается.
   Четвёртая версия: владелец выбрал V2; переключатель «Сводка»
@@ -450,6 +452,9 @@
           ><b>V2 «Две строки со сводкой»</b></span
         >
         <span
+          ><span class="lb">Карточка</span><span class="seg" id="cseg"></span
+        ></span>
+        <span
           ><span class="lb">Ширина</span><span class="seg" id="wseg"></span
         ></span>
         <span
@@ -506,6 +511,7 @@
         kimi: { n: "Kimi", ru: null },
         zai: { n: "GLM Coding Plan", ru: null },
         alibaba: { n: "Alibaba Token Plan", ru: null },
+        opencode: { n: "OpenCode Go", ru: null },
       };
       const P = {
         "claude-pro": { s: "claude", n: "Pro", usd: 20 },
@@ -531,6 +537,8 @@
         "glm-pro": { s: "zai", n: "Pro", usd: 80 },
         "glm-max": { s: "zai", n: "Max", usd: 168 },
         ali: { s: "alibaba", n: "Lite–Pro", usd: 6, from: 1 },
+        "oc-go": { s: "opencode", n: "Go", usd: 10 },
+        "oc-plus": { s: "opencode", n: "Go Plus", usd: 40 },
       };
       const AG = "через Antigravity, лимит без чисел";
       const NOW = "недельный лимит не опубликован";
@@ -663,6 +671,11 @@
             ["g-pro", { v: "в 4 раза больше Free" }],
             ["g-ultra5", { v: "в 5 раз больше AI Pro" }],
             ["g-ultra20", { v: "в 20 раз больше AI Pro" }],
+            [
+              "oc-go",
+              { t: 9.4, w: 7, n: "лимит $30 в месяц, скидка до 30.11" },
+            ],
+            ["oc-plus", { t: 38, w: 28, n: "лимит $120 в месяц" }],
           ],
           ch: "С 1.12 API вдвое дороже: $4 / $20",
         },
@@ -682,6 +695,8 @@
             ["kimi-pro", { v: KIMI }],
             ["kimi-max", { v: KIMI }],
             ["kimi-ultra", { v: KIMI }],
+            ["oc-go", { t: 2.8, w: 3, n: "лимит $15 в месяц" }],
+            ["oc-plus", { t: 11, w: 14, n: "лимит $60 в месяц" }],
           ],
         },
         {
@@ -700,6 +715,8 @@
             ["x-premium", { v: "в 4 раза больше Plus" }],
             ["x-super", { v: "в 15 раз больше Plus" }],
             ["x-ultra", { v: "в 50 раз больше Plus" }],
+            ["oc-go", { t: 1.2, w: 3, n: "лимит $15 в месяц" }],
+            ["oc-plus", { t: 5, w: 14, n: "лимит $60 в месяц" }],
           ],
         },
         {
@@ -711,9 +728,13 @@
           api: [0.3, 1.2],
           tags: ["дёшево и много", "код"],
           sum: "очень дешёвая, для простых и массовых задач",
-          ag: ["Codex", "лучший замер с этой моделью"],
-          alts: "Claude Code, DeepSeek Harness",
-          subs: [["ali", { v: ALI }]],
+          ag: ["OpenCode", "работает с подпиской OpenCode Go"],
+          alts: "DeepSeek Harness (родной, ранняя версия), Codex, Claude Code. Работает почти в любом агенте",
+          subs: [
+            ["oc-go", { t: 160, w: 23, n: "лимит $100 в месяц" }],
+            ["oc-plus", { t: 320, w: 46, n: "лимит $200 в месяц" }],
+            ["ali", { v: ALI }],
+          ],
         },
         {
           id: "glm",
@@ -730,6 +751,8 @@
             ["glm-lite", { v: "2 000 кредитов за 5 часов" }],
             ["glm-pro", { v: "12 000 кредитов за 5 часов" }],
             ["glm-max", { v: "28 000 кредитов за 5 часов" }],
+            ["oc-go", { t: 3.3, w: 3, n: "лимит $15 в месяц" }],
+            ["oc-plus", { t: 27, w: 28, n: "лимит $120 в месяц" }],
             ["ali", { v: ALI }],
           ],
         },
@@ -744,7 +767,11 @@
           sum: "средняя по силе, есть в подписке от $6",
           ag: ["Claude Code", "единственный агент с замером"],
           alts: "Qwen Code, OpenCode",
-          subs: [["ali", { v: ALI }]],
+          subs: [
+            ["oc-go", { t: 2.8, w: 3, n: "лимит $15 в месяц" }],
+            ["oc-plus", { t: 11, w: 14, n: "лимит $60 в месяц" }],
+            ["ali", { v: ALI }],
+          ],
         },
         {
           id: "m3",
@@ -756,8 +783,11 @@
           tags: ["дёшево и много", "тексты"],
           sum: "дешёвая, но слабее остальных в списке",
           ag: ["Claude Code", "MiniMax советует его первым"],
-          alts: "MiniMax Code, Codex",
-          subs: [],
+          alts: "MiniMax Code, OpenCode, Codex",
+          subs: [
+            ["oc-go", { t: 39, w: 14, n: "лимит $60 в месяц" }],
+            ["oc-plus", { t: 120, w: 42, n: "лимит $180 в месяц" }],
+          ],
         },
       ];
       const byId = Object.fromEntries(M.map((m) => [m.id, m]));
@@ -881,6 +911,7 @@
         v: new URLSearchParams(location.search).get("variant") || "V2",
         wrap: true,
         lead: "color",
+        cardTabs: true,
         width: 390,
         dark: false,
         scr: "home",
@@ -1020,7 +1051,10 @@
               .map((m) => rowHtml(m, metric))
               .join("");
           }
-          body += '<div class="mu sm">Мой выбор: мнение автора.</div>';
+        } else if (st.filter === "value") {
+          body +=
+            '<div class="gh">По независимым замерам, без мнения автора</div>' +
+            list.map((m) => rowHtml(m, metric)).join("");
         } else if (st.v === "V2" && list.length > 7) {
           const pages = Math.ceil(list.length / 7);
           st.page = Math.min(st.page, pages - 1);
@@ -1041,7 +1075,7 @@
         } else body += list.map((m) => rowHtml(m, metric)).join("");
         if (st.filter === "value")
           body +=
-            '<div class="mu sm">Здесь модели, которым нет замены сильнее и дешевле одновременно. Цена: одна задача по API.</div>';
+            '<div class="mu sm">Мощность: рейтинг агентов Arena. Цена: одна задача по API. Здесь модели, которым нет замены сильнее и дешевле одновременно.</div>';
         if (st.filter === "cheap")
           body +=
             '<div class="mu sm">Цена: одна задача по API, от дешёвых к дорогим.</div>';
@@ -1122,7 +1156,22 @@
           return '<div class="grp"><b>Подписки</b></div><div class="sub"><span class="mu">Подписок нет, только API</span></div>';
         let h = "",
           last = "";
+        const rows = [];
         for (const [id, e] of m.subs) {
+          const prev = rows[rows.length - 1];
+          if (
+            prev &&
+            !e.t &&
+            !prev.e.t &&
+            prev.e.v === e.v &&
+            P[prev.id].s === P[id].s
+          ) {
+            prev.to = P[id].n;
+            continue;
+          }
+          rows.push({ id, e });
+        }
+        for (const { id, e, to } of rows) {
           const p = P[id];
           if (p.s !== last) {
             last = p.s;
@@ -1150,7 +1199,9 @@
           h +=
             '<div class="sub"><span class="pl">' +
             p.n +
+            (to ? "–" + to : "") +
             " · " +
+            (to ? "от " : "") +
             planPrice(p) +
             '</span><span class="F">' +
             right +
@@ -1161,7 +1212,7 @@
       function card() {
         const m = byId[st.model];
         let h = cardTop(m);
-        if (st.v === "V3") {
+        if (st.v === "V3" || st.cardTabs) {
           h +=
             '<div class="tabs">' +
             [
@@ -1182,7 +1233,7 @@
             "</div>";
           h += st.tab === "main" ? cardMain(m) : cardSubs(m);
         } else h += cardMain(m) + cardSubs(m);
-        if (m.ch && (st.v !== "V3" || st.tab === "main"))
+        if (m.ch && (!(st.v === "V3" || st.cardTabs) || st.tab === "main"))
           h += '<div class="note">' + m.ch + "</div>";
         return h;
       }
@@ -1232,7 +1283,7 @@
           card:
             "карточка " +
             (st.model ? byId[st.model].full : "") +
-            (st.v === "V3"
+            (st.v === "V3" || st.cardTabs
               ? ", вкладка «" +
                 (st.tab === "main" ? "Главное" : "Подписки") +
                 "»"
@@ -1252,6 +1303,16 @@
           (fs < 15 ? " (уменьшен с 15)" : "") +
           (st.clipped ? ", сводки обрезаны" : "");
         document.getElementById("taps").textContent = st.taps;
+        seg(
+          "cseg",
+          [false, true],
+          st.cardTabs,
+          (x) => (x ? "вкладки" : "один экран"),
+          (x) => {
+            st.cardTabs = x;
+            render();
+          },
+        );
         seg(
           "wseg",
           [320, 390],
