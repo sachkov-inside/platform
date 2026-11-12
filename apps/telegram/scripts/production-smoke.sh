@@ -45,43 +45,48 @@ trap cleanup EXIT
 # identity equals the current one. The latest published release stands in for that previous one.
 previous_tag="${TELEGRAM_SMOKE_PREVIOUS_TAG:-$(
   gh release list --repo sachkov-inside/platform --exclude-drafts --limit 200 --json tagName \
-    --jq '[.[].tagName | select(test("^telegram-v[0-9]+$"))] | max_by(ltrimstr("telegram-v") | tonumber) // empty'
+    --jq '[.[].tagName | select(test("^telegram-v[1-9][0-9]*$"))] | max_by(ltrimstr("telegram-v") | tonumber) // empty'
 )}"
-[[ "$previous_tag" =~ ^telegram-v[0-9]+$ ]] || refuse 'No published Telegram release to start from'
+# Same tag rule as planRelease in apps/telegram/scripts/release-contract.mjs.
+[[ "$previous_tag" =~ ^telegram-v[1-9][0-9]*$ ]] || refuse 'No published Telegram release to start from'
 previous_version="${previous_tag#telegram-}"
+previous="$fixture/previous"
+# The gateway starts every release with the compose file published with it.
 gh release download "$previous_tag" --repo sachkov-inside/platform \
-  --pattern release-manifest.json --dir "$fixture"
+  --pattern release-manifest.json --pattern compose.yaml --dir "$previous"
+previous_manifest="$previous/release-manifest.json"
 jq --exit-status --arg version "$previous_version" '
   .schemaVersion == "inside.telegram.release-manifest.v1" and
   .version == $version and .source.repository == "sachkov-inside/platform" and
   (.source.sha | test("^[0-9a-f]{40}$")) and
   (.migrations.identity | test("^sha256:[0-9a-f]{64}$")) and
   (.migrations.count | type == "number" and . >= 1) and
+  (.compose.sha256 | test("^sha256:[0-9a-f]{64}$")) and
   (.image | test("^ghcr\\.io/sachkov-inside/inside-telegram@sha256:[0-9a-f]{64}$"))
-' "$fixture/release-manifest.json" >/dev/null || refuse 'Previous release manifest is not a Telegram release of this repository'
-previous_image="$(jq --raw-output .image "$fixture/release-manifest.json")"
-previous_count="$(jq --raw-output .migrations.count "$fixture/release-manifest.json")"
-previous_identity="$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")"
-# Released migrations are immutable: the candidate must start with exactly the previous set.
-mkdir "$fixture/previous-migrations"
+' "$previous_manifest" >/dev/null || refuse 'Previous release manifest is not a Telegram release of this repository'
+compose_sha="$(node --input-type=module -e 'import { createHash } from "node:crypto"; import { readFileSync } from "node:fs"; process.stdout.write(`sha256:${createHash("sha256").update(readFileSync(process.argv[1])).digest("hex")}`);' "$previous/compose.yaml")"
+[[ "$compose_sha" == "$(jq --raw-output .compose.sha256 "$previous_manifest")" ]] || refuse 'Previous compose file mismatch'
+previous_image="$(jq --raw-output .image "$previous_manifest")"
+previous_count="$(jq --raw-output .migrations.count "$previous_manifest")"
+previous_identity="$(jq --raw-output .migrations.identity "$previous_manifest")"
+migrations="$repository_root/apps/telegram/src/database/migrations"
 expected_ledger=''
-copied=0
-for file in "$repository_root/apps/telegram/src/database/migrations/"*.ts; do
+for file in "$migrations/"*.ts; do
   name="${file##*/}"
   expected_ledger+="${name%.ts}"$'\n'
-  if (( copied < previous_count )); then cp "$file" "$fixture/previous-migrations/$name"; copied=$((copied + 1)); fi
 done
 expected_ledger="${expected_ledger%$'\n'}"
-identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity "$fixture/previous-migrations" | jq --raw-output .identity)"
+# Released migrations are immutable: the candidate must start with exactly the previous set.
+identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity "$migrations" "$previous_count" | jq --raw-output .identity || true)"
 [[ "$identity" == "$previous_identity" ]] || refuse 'Previous migration identity mismatch'
-candidate_identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity | jq --raw-output .identity)"
+candidate_identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity "$migrations" | jq --raw-output .identity)"
 rollback_allowed=false
 if [[ "$candidate_identity" == "$previous_identity" ]]; then rollback_allowed=true; fi
 docker build --file apps/telegram/infra/production/Dockerfile \
   --build-arg SOURCE_COMMIT="$source_sha" --tag "$candidate" .
 image_built=true
 docker pull "$previous_image"
-[[ "$(docker image inspect "$previous_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$(jq --raw-output .source.sha "$fixture/release-manifest.json")" ]] || refuse 'Previous image source SHA mismatch'
+[[ "$(docker image inspect "$previous_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$(jq --raw-output .source.sha "$previous_manifest")" ]] || refuse 'Previous image source SHA mismatch'
 [[ "$(docker image inspect "$candidate" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$source_sha" ]] || refuse 'Candidate image source SHA mismatch'
 
 # The app has no live provider configuration and no workers; only loopback readiness/auth are called.
@@ -129,8 +134,10 @@ done
 [[ "$ready" == true ]] || refuse 'Smoke database did not become ready'
 
 compose() {
+  local file="$compose_file"
+  if [[ "$active_image" == "$previous_image" ]]; then file="$previous/compose.yaml"; fi
   TELEGRAM_IMAGE="$active_image" docker compose --project-name "$project" \
-    --env-file "$fixture/compose.env" -f "$compose_file" "$@"
+    --env-file "$fixture/compose.env" -f "$file" "$@"
 }
 query() {
   docker exec "$database" psql -X --tuples-only --no-align \

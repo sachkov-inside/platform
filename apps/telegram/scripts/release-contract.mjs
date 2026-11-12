@@ -240,7 +240,11 @@ async function main(arguments_) {
     );
   }
   if (command === "migrations-identity") {
-    return migrationsIdentity(rest[0]);
+    // An optional prefix length names the migrations an earlier release shipped.
+    return migrationsIdentity(
+      rest[0] ?? migrationsDirectory,
+      rest[1] === undefined ? Infinity : Number(rest[1]),
+    );
   }
   if (command === "manifest") {
     return createManifest({
@@ -254,7 +258,7 @@ async function main(arguments_) {
     });
   }
   throw new Error(
-    "usage: release-contract.mjs plan | migrations-identity [dir] | manifest --version vN --source-sha <sha> --image-digest <digest> --compose <file> --caddy <file> --run-id <id> --server-url <url>",
+    "usage: release-contract.mjs plan | migrations-identity [dir [prefix-length]] | manifest --version vN --source-sha <sha> --image-digest <digest> --compose <file> --caddy <file> --run-id <id> --server-url <url>",
   );
 }
 

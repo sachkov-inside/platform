@@ -9,6 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -93,14 +94,19 @@ esac
 const ghAdapter = String.raw`
 set -euo pipefail
 printf '%s\n' "$*" >>"$FIXTURES/gh.log"
-if [[ "$1 $2" == 'release list' ]]; then echo telegram-v50; exit 0; fi
+if [[ "$1 $2" == 'release list' ]]; then
+  if [[ "$SCENARIO" != empty ]]; then echo telegram-v50; fi
+  exit 0
+fi
 [[ "$1 $2 $3" == 'release download telegram-v50' ]] || exit 1
 while [[ "$#" -gt 0 ]]; do
   if [[ "$1" == --dir ]]; then destination="$2"; break; fi
   shift
 done
+mkdir -p "$destination"
+printf '%s' "$PREVIOUS_COMPOSE" >"$destination/compose.yaml"
 cat >"$destination/release-manifest.json" <<JSON
-{"schemaVersion":"inside.telegram.release-manifest.v1","version":"v50","source":{"repository":"$PREVIOUS_REPOSITORY","sha":"$PREVIOUS_SHA"},"migrations":{"identity":"$PREVIOUS_IDENTITY","count":$PREVIOUS_COUNT},"image":"ghcr.io/sachkov-inside/inside-telegram@sha256:1159e5f27ed6f12528ae383f1f379bfdc41780a1b37dafb72d9b35ff34d1b748"}
+{"schemaVersion":"inside.telegram.release-manifest.v1","version":"v50","source":{"repository":"$PREVIOUS_REPOSITORY","sha":"$PREVIOUS_SHA"},"migrations":{"identity":"$PREVIOUS_IDENTITY","count":$PREVIOUS_COUNT},"compose":{"asset":"compose.yaml","sha256":"$PREVIOUS_COMPOSE_SHA"},"image":"ghcr.io/sachkov-inside/inside-telegram@sha256:1159e5f27ed6f12528ae383f1f379bfdc41780a1b37dafb72d9b35ff34d1b748"}
 JSON
 `;
 
@@ -134,7 +140,12 @@ async function previousRelease(scenario: string) {
       ? `sha256:${"0".repeat(64)}`
       : ((await migrationsIdentity(migrations, count)) as { identity: string })
           .identity;
+  const compose = "services: {}\n";
   return {
+    PREVIOUS_COMPOSE: compose,
+    PREVIOUS_COMPOSE_SHA: `sha256:${createHash("sha256")
+      .update(scenario === "compose" ? "changed" : compose)
+      .digest("hex")}`,
     PREVIOUS_COUNT: String(count),
     PREVIOUS_IDENTITY: identity,
     PREVIOUS_REPOSITORY:
@@ -144,7 +155,7 @@ async function previousRelease(scenario: string) {
   };
 }
 
-async function runSmoke(scenario: string) {
+async function runSmoke(scenario: string, extra: Record<string, string> = {}) {
   const previous = await previousRelease(scenario);
   const fixture = mkdtempSync(
     path.join(tmpdir(), "telegram-runtime-contract-"),
@@ -175,6 +186,7 @@ async function runSmoke(scenario: string) {
         SOURCE_SHA: sourceSha,
         PREVIOUS_SHA: previousSha,
         ...previous,
+        ...extra,
       },
       timeout: runtimeProofBudgetMs,
     });
@@ -208,6 +220,12 @@ describe("Telegram production runtime smoke", () => {
         "migrate",
       );
       expect(calls).toContain("container rm --force --volumes");
+      // The previous image runs with the compose file published with it.
+      const migrations = calls
+        .split("\n")
+        .filter((call) => call.endsWith("migrate"));
+      expect(migrations[0]).toContain("/previous/compose.yaml");
+      expect(migrations[1]).not.toContain("/previous/compose.yaml");
     },
     runtimeProofBudgetMs,
   );
@@ -232,8 +250,23 @@ describe("Telegram production runtime smoke", () => {
     runtimeProofBudgetMs,
   );
 
+  it(
+    "starts from an explicitly chosen release without listing releases",
+    async () => {
+      const { result, releases } = await runSmoke("valid", {
+        TELEGRAM_SMOKE_PREVIOUS_TAG: "telegram-v50",
+      });
+      expect(result.status, result.stderr).toBe(0);
+      expect(releases).not.toContain("release list");
+      expect(releases).toContain("release download telegram-v50");
+    },
+    runtimeProofBudgetMs,
+  );
+
   it.each([
+    ["empty", "No published Telegram release to start from"],
     ["manifest", "Previous release manifest is not a Telegram release"],
+    ["compose", "Previous compose file mismatch"],
     ["history", "Previous migration identity mismatch"],
     ["image", "Candidate image source SHA mismatch"],
     ["ledger", "Candidate migration ledger changed"],
@@ -245,8 +278,10 @@ describe("Telegram production runtime smoke", () => {
       expect(result.status, result.stderr).toBe(1);
       expect(result.stderr).toContain(diagnostic);
       expect(result.stdout).not.toContain("passed");
-      // Nothing is built for a refused release; a built candidate is always removed.
-      expect(calls.includes("build ")).toBe(calls.includes("image rm"));
+      // A refused release stops before Docker; a built candidate is always removed.
+      if (["empty", "manifest", "compose", "history"].includes(scenario))
+        expect(calls).toBe("");
+      else expect(calls).toContain("image rm");
     },
   );
 });
