@@ -26,6 +26,22 @@ describe("learner course navigation", () => {
     },
   );
 
+  it.each([false, true])(
+    "offers ИИ-модели right after the Trainer (author: %s)",
+    (author) => {
+      for (const items of [[], [product]]) {
+        const { buttons } = productList(items, author);
+        const trainer = buttons.findIndex(
+          (button) => button.callbackData === "trainer:open",
+        );
+        expect(buttons[trainer + 1]).toEqual({
+          text: "ИИ-модели",
+          callbackData: "ai-models:open",
+        });
+      }
+    },
+  );
+
   it("opens course topic navigation for a confirmed member of its group", () => {
     expect(
       productCard(product, { kind: "member" }, "https://t.me/c/4421726276/1")

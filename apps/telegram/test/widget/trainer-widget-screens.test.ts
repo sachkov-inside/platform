@@ -18,7 +18,7 @@ import {
   TRAINER_TOPIC_NAME_MAX_CHARS,
   TRAINER_TOPICS_PAGE_SIZE,
   TRAINER_WIDGET_CHECKED_WIDTHS_PX,
-  TRAINER_WIDGET_TARGET_HEIGHT_PX,
+  TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
 } from "../../src/modules/trainer/widget/trainer-widget-limits.js";
 import {
   type TrainerExplanationData,
@@ -29,13 +29,13 @@ import {
   parseTrainerWidgetRequest,
   trainerExplanationParts,
 } from "../../src/modules/trainer/widget/trainer-widget-wire.js";
+import { trainerWidgetPage } from "./trainer-widget-harness.js";
 import {
   type WidgetPageOptions,
   realisticText,
   splitLength,
-  trainerWidgetPage,
   wideText,
-} from "./trainer-widget-harness.js";
+} from "./widget-harness.js";
 
 // The built widget in Chromium with a stand-in TelegramWidget. It proves layout and behaviour
 // of the HTML the bot sends; it does not prove how a Telegram app draws it (#2002 does).
@@ -209,7 +209,7 @@ async function openWidget(
   engine: Browser = browser,
 ): Promise<Page> {
   const page = await engine.newPage({
-    viewport: { width, height: TRAINER_WIDGET_TARGET_HEIGHT_PX },
+    viewport: { width, height: TELEGRAM_WIDGET_TARGET_HEIGHT_PX },
     colorScheme: options.theme ?? "light",
   });
   await page.setContent(
@@ -231,7 +231,7 @@ it("keeps the home screen inside the bubble in a client document without a docty
   try {
     expect(await page.evaluate(() => document.compatMode)).toBe("BackCompat");
     const root = await page.locator("#w").boundingBox();
-    expect(root?.height).toBeLessThanOrEqual(TRAINER_WIDGET_TARGET_HEIGHT_PX);
+    expect(root?.height).toBeLessThanOrEqual(TELEGRAM_WIDGET_TARGET_HEIGHT_PX);
     const body = await page.locator("body").boundingBox();
     expect(body?.height).toBe(root?.height);
     await expect(buttonNamed(page, "Проверить себя").isVisible()).resolves.toBe(
@@ -302,7 +302,7 @@ describe.each(["Chromium", "WebKit"] as const)(
                 const root = await page.locator("#w").boundingBox();
                 const body = await page.locator("body").boundingBox();
                 expect(root?.height).toBeLessThanOrEqual(
-                  TRAINER_WIDGET_TARGET_HEIGHT_PX,
+                  TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
                 );
                 expect(body?.height).toBe(root?.height);
                 shapes.push(
@@ -423,9 +423,9 @@ describe("trainer widget screens in a browser", () => {
           expect(measured.fontSize).toBeGreaterThanOrEqual(11);
           expect(measured.fontSize).toBeLessThanOrEqual(15);
           expect(measured.height).toBeLessThanOrEqual(
-            TRAINER_WIDGET_TARGET_HEIGHT_PX,
+            TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
           );
-          expect(TRAINER_WIDGET_TARGET_HEIGHT_PX).toBe(560);
+          expect(TELEGRAM_WIDGET_TARGET_HEIGHT_PX).toBe(560);
         },
       );
     },
@@ -441,7 +441,7 @@ describe("trainer widget screens in a browser", () => {
       expect(measured.overflowing).toEqual([]);
       expect(measured.fontSize).toBeGreaterThanOrEqual(11);
       expect(measured.height).toBeLessThanOrEqual(
-        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+        TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
       );
     },
   );
@@ -464,9 +464,9 @@ describe("trainer widget screens in a browser", () => {
         expect(measured.fontSize).toBeGreaterThanOrEqual(11);
         expect(measured.fontSize).toBeLessThanOrEqual(options.textSizePx);
         expect(measured.height).toBeLessThanOrEqual(
-          TRAINER_WIDGET_TARGET_HEIGHT_PX,
+          TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
         );
-        expect(TRAINER_WIDGET_TARGET_HEIGHT_PX).toBeLessThan(
+        expect(TELEGRAM_WIDGET_TARGET_HEIGHT_PX).toBeLessThan(
           TELEGRAM_WIDGET_MAX_HEIGHT_PX,
         );
       },
@@ -816,10 +816,12 @@ describe("trainer widget screens in a browser", () => {
       // The reserve under the options holds the verdict, two lines of the explanation and
       // the buttons; the rest of the screen belongs to the question's own text.
       expect(asked.fontSize).toBeGreaterThanOrEqual(smallest);
-      expect(asked.height).toBeLessThanOrEqual(TRAINER_WIDGET_TARGET_HEIGHT_PX);
+      expect(asked.height).toBeLessThanOrEqual(
+        TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
+      );
       await tap(page, "Не знаю", explanation(realisticText));
       expect((await layout(page)).height).toBeLessThanOrEqual(
-        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+        TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
       );
       // The price of the smaller reserve: the longest explanation takes a few pages.
       const pages = Number(
@@ -1131,7 +1133,7 @@ describe("trainer widget screens in a browser", () => {
         before.slice(0, (await stepCount(page)) + 2),
       );
       expect((await layout(page)).height).toBeLessThanOrEqual(
-        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+        TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
       );
       await page.close();
     },
@@ -1158,7 +1160,7 @@ describe("trainer widget screens in a browser", () => {
         before.slice(0, (await stepCount(page)) + 3),
       );
       expect((await layout(page)).height).toBeLessThanOrEqual(
-        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+        TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
       );
       await page.close();
     },
@@ -1562,7 +1564,7 @@ describe("trainer widget screens in a browser", () => {
         expect(measured.overflowing).toEqual([]);
         expect(measured.fontSize).toBeGreaterThanOrEqual(13);
         expect(measured.height).toBeLessThanOrEqual(
-          TRAINER_WIDGET_TARGET_HEIGHT_PX,
+          TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
         );
         await page.close();
       },
@@ -1695,11 +1697,11 @@ describe("trainer widget screens in a browser", () => {
         expect(measured.overflowing).toEqual([]);
         expect(measured.fontSize).toBeGreaterThanOrEqual(12);
         expect(measured.height).toBeLessThanOrEqual(
-          TRAINER_WIDGET_TARGET_HEIGHT_PX,
+          TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
         );
         await tap(page, "Не знаю", explanation(realisticText));
         expect((await layout(page)).height).toBeLessThanOrEqual(
-          TRAINER_WIDGET_TARGET_HEIGHT_PX,
+          TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
         );
         await page.close();
       },
@@ -1761,7 +1763,7 @@ describe("trainer widget screens in a browser", () => {
         parseTrainerWidgetRequest((await requests(page)).at(-1) ?? ""),
       ).toEqual({ kind: "explanation_part", issueId: "1a2b3c", part: 1 });
       expect((await layout(page)).height).toBeLessThanOrEqual(
-        TRAINER_WIDGET_TARGET_HEIGHT_PX,
+        TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
       );
       await page.close();
     });

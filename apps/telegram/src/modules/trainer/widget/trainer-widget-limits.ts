@@ -1,28 +1,28 @@
-// Limits of Telegram HTML widgets (Bot API 10.4) and the limits the Trainer derives from them.
-// Source: https://core.telegram.org/bots/widgets, section "Limits".
+// The limits the Trainer derives from the limits of Telegram HTML widgets (Bot API 10.4).
 // docs/adr/0004-trainer-html-widget.md explains the choices.
 
-/** `html` of sendWidget: bytes of UTF-8. */
-export const TELEGRAM_WIDGET_HTML_MAX_BYTES = 32_768;
-/**
- * `html` after the server compresses it with zlib at level 9. The build stops at this number
- * as the zlib of Node.js counts. Telegram counts as Python's zlib does, and in the builds that
- * ADR 0004 records Node.js counted 70 to 80 bytes more: a widget inside the limit by the
- * count of Node.js is inside it by the server's count with that distance to spare.
- */
-export const TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES = 4_096;
+import { TELEGRAM_WIDGET_FIT_WIDTHS_PX } from "../../outbound/telegram-widget-limits.js";
 
-/** `data` of a request from the widget (`widget_query.data`): bytes of UTF-8. */
-export const TELEGRAM_WIDGET_REQUEST_MAX_BYTES = 64;
-/** `data` of answerWidgetQuery, and `chat_data` of sendWidget: bytes of UTF-8. */
-export const TELEGRAM_WIDGET_DATA_MAX_BYTES = 1_024;
+// Telegram's own limits and the checks' measures apply to every widget of the bot; the outbound
+// module owns them.
+export {
+  TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES,
+  TELEGRAM_WIDGET_DATA_MAX_BYTES,
+  TELEGRAM_WIDGET_FIT_WIDTHS_PX,
+  TELEGRAM_WIDGET_HTML_MAX_BYTES,
+  TELEGRAM_WIDGET_MAX_HEIGHT_PX,
+  TELEGRAM_WIDGET_REQUEST_MAX_BYTES,
+  TELEGRAM_WIDGET_SMALLEST_FONT_PX,
+  TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
+  TELEGRAM_WIDGET_TIME_BAND_PX,
+  utf8ByteLength,
+} from "../../outbound/telegram-widget-limits.js";
 
-/** The bubble clips a widget at this height; nothing scrolls inside it. */
-export const TELEGRAM_WIDGET_MAX_HEIGHT_PX = 600;
-/** The guide's target ceiling for every screen in a 320 px wide bubble. */
-export const TRAINER_WIDGET_TARGET_HEIGHT_PX = 560;
-/** Bubble widths the layout is checked at; 320 is the narrowest phone layout. */
-export const TRAINER_WIDGET_CHECKED_WIDTHS_PX = [320, 390, 430] as const;
+/** Bubble widths the screen checks draw at: the widths of the fit commands and 430. */
+export const TRAINER_WIDGET_CHECKED_WIDTHS_PX = [
+  ...TELEGRAM_WIDGET_FIT_WIDTHS_PX,
+  430,
+] as const;
 
 // Text limits (owner decision of 2026-11-11). A character limit is a coarse bound: what decides
 // is the 1 024 bytes of each answer, which the Bank import counts with trainerContextDataBytes

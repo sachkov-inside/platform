@@ -333,4 +333,16 @@ export async function access(database: any) {
   await database.insertInto("trainer_question_reactions").values({}).execute();
   await database.updateTable("trainer_question_reactions").set({}).execute();
   await database.deleteFrom("trainer_question_reactions").execute();
+  await database.selectFrom("ai_models_openings").selectAll().execute();
+  await database.insertInto("ai_models_openings").values({}).execute();
+  await database.updateTable("ai_models_openings").set({}).execute();
+  await database.deleteFrom("ai_models_openings").execute();
+  await database.selectFrom("ai_models_references").selectAll().execute();
+  await database.insertInto("ai_models_references").values({}).execute();
+  await database.updateTable("ai_models_references").set({}).execute();
+  await database.deleteFrom("ai_models_references").execute();
+  await database.selectFrom("ai_models_card_views").selectAll().execute();
+  await database.insertInto("ai_models_card_views").values({}).execute();
+  await database.updateTable("ai_models_card_views").set({}).execute();
+  await database.deleteFrom("ai_models_card_views").execute();
 }

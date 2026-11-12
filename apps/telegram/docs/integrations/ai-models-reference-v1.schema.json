@@ -1,0 +1,494 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sachkov-inside/platform/blob/main/apps/telegram/docs/integrations/ai-models-reference-v1.schema.json",
+  "title": "Файл Справочника раздела «ИИ-модели», версия 1",
+  "description": "Схема проверяет форму файла. Лимиты из x-limits и остальные правила импорт проверяет сам, они описаны в ai-models-reference-v1.md.",
+  "x-limits": {
+    "aboutLineCharacters": 90,
+    "serviceNameCharacters": 24,
+    "planNameCharacters": 20,
+    "modelNameCharacters": 24,
+    "familyCharacters": 16,
+    "summaryCharacters": 50,
+    "agentNameCharacters": 24,
+    "agentReasonCharacters": 50,
+    "alternativesCharacters": 90,
+    "noticeCharacters": 50,
+    "vendorWordingCharacters": 50,
+    "noteCharacters": 30,
+    "favoriteGroupTitleCharacters": 20,
+    "banRiskTextCharacters": 60,
+    "badgeTextCharacters": 60,
+    "adviceCharacters": 60,
+    "betterPickReasonCharacters": 30,
+    "measuredAccountsMin": 5,
+    "widgetDataBytes": 1024,
+    "widgetRequestBytes": 64
+  },
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "inside.ai-models-reference.v1"
+    },
+    "checkedOn": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+      "description": "Дата проверки фактов. Человек видит «Проверено ДД.ММ»."
+    },
+    "about": {
+      "minItems": 1,
+      "maxItems": 6,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Строки экрана «О данных»: источники и как читать оценки."
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,15}$",
+            "description": "Постоянный код сервиса. По нему на сервис ссылаются тарифы."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Название сервиса, как его видит человек."
+          },
+          "fromRussia": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "no",
+              "unknown"
+            ],
+            "description": "Работает ли сервис из России."
+          },
+          "russianCard": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "no",
+              "unknown"
+            ],
+            "description": "Принимает ли сервис российскую карту."
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "fromRussia",
+          "russianCard"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "plans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,15}$",
+            "description": "Постоянный код тарифа. По нему на тариф ссылаются подписки моделей."
+          },
+          "service": {
+            "type": "string",
+            "description": "Код сервиса из списка services."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Название тарифа без названия сервиса, например Pro."
+          },
+          "usdPerMonth": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Цена в долларах в месяц, не больше двух знаков после точки."
+          },
+          "priceFrom": {
+            "type": "boolean",
+            "description": "true: цена показывается как «от $X», у тарифа несколько уровней."
+          }
+        },
+        "required": [
+          "code",
+          "service",
+          "name",
+          "usdPerMonth",
+          "priceFrom"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "models": {
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,15}$",
+            "description": "Постоянный код модели. Виджет просит карточку модели по нему."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Название модели, как его видит человек."
+          },
+          "family": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Семейство модели, например Claude."
+          },
+          "arenaRank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "Место в таблице агентов Arena. У каждой модели своё."
+          },
+          "taskUsd": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Цена одной задачи по API в долларах, по Arena."
+          },
+          "apiUsdPerMillionTokens": {
+            "type": "object",
+            "properties": {
+              "input": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Цена миллиона токенов на вход, в долларах."
+              },
+              "output": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "Цена миллиона токенов на выход, в долларах."
+              }
+            },
+            "required": [
+              "input",
+              "output"
+            ],
+            "additionalProperties": false
+          },
+          "tags": {
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "code",
+                "texts",
+                "research",
+                "agents",
+                "cheap-bulk"
+              ]
+            },
+            "description": "Метки задач: code код, texts тексты, research поиск и анализ, agents агенты, cheap-bulk дёшево и много."
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Сводка модели: для чего она хороша и чем за это платишь."
+          },
+          "agent": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Название Лучшего агента."
+              },
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "measured",
+                  "vendor"
+                ],
+                "description": "measured: выбран по замерам. vendor: его советует компания."
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Короткая причина выбора."
+              }
+            },
+            "required": [
+              "name",
+              "basis",
+              "reason"
+            ],
+            "additionalProperties": false
+          },
+          "alternatives": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Хорошие альтернативные агенты одной строкой."
+          },
+          "subscriptions": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "plan": {
+                  "type": "string",
+                  "description": "Код тарифа из списка plans."
+                },
+                "estimate": {
+                  "description": "Оценка подписки. Ровно одно из estimate и vendorWording.",
+                  "type": "object",
+                  "properties": {
+                    "basis": {
+                      "type": "string",
+                      "enum": [
+                        "measured",
+                        "vendor-dollar-limit"
+                      ],
+                      "description": "measured: независимый замер не меньше 5 аккаунтов. vendor-dollar-limit: компания сама называет лимит в долларах."
+                    },
+                    "apiUsdPerMonth": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "description": "Сколько стоил бы тот же объём работы по ценам API, в долларах в месяц."
+                    },
+                    "accounts": {
+                      "description": "Сколько аккаунтов замерено. Только для measured, не меньше 5.",
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "basis",
+                    "apiUsdPerMonth"
+                  ],
+                  "additionalProperties": false
+                },
+                "vendorWording": {
+                  "description": "Слова компании о лимите, когда оценки нет.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "promo": {
+                  "description": "true: модель есть в тарифе только по акции.",
+                  "type": "boolean"
+                },
+                "note": {
+                  "description": "Короткое пояснение к строке тарифа.",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "plan"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Подписки сервисов с этой моделью, в порядке показа."
+          },
+          "notice": {
+            "description": "Объявленное изменение цены или конец акции, с датой.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "family",
+          "arenaRank",
+          "taskUsd",
+          "apiUsdPerMillionTokens",
+          "tags",
+          "summary",
+          "agent",
+          "alternatives",
+          "subscriptions"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Модели. Порядок не важен: бот сортирует их сам."
+    },
+    "author": {
+      "type": "object",
+      "properties": {
+        "favoriteGroups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]{0,15}$",
+                "description": "Постоянный код группы «Мой выбор»."
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Название группы, как его видит человек."
+              }
+            },
+            "required": [
+              "code",
+              "title"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Группы фильтра «Мой выбор» в порядке показа."
+        },
+        "services": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,15}$",
+            "description": "Код: строчные латинские буквы, цифры и дефис, до 16 знаков."
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "banRisk": {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ],
+                "description": "Уровень значка «Риск бана»: высокий, средний, низкий."
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Пояснение автора к риску."
+              },
+              "models": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Коды моделей, которые получают значок «Риск бана»."
+              }
+            },
+            "required": [
+              "banRisk",
+              "text",
+              "models"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Риск бана по кодам сервисов."
+        },
+        "models": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,15}$",
+            "description": "Код: строчные латинские буквы, цифры и дефис, до 16 знаков."
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "badges": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "badge": {
+                      "type": "string",
+                      "enum": [
+                        "favorite",
+                        "confident",
+                        "mid-tasks",
+                        "pricey",
+                        "wasteful"
+                      ],
+                      "description": "favorite «⭐ Мой выбор», confident «Уверенная», mid-tasks «Для средних задач», pricey «Дорого», wasteful «Невыгодно»."
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Пояснение автора к значку."
+                    },
+                    "groups": {
+                      "description": "Коды групп из favoriteGroups. Только у favorite, и у него обязательно.",
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "badge",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "advice": {
+                "description": "Совет автора текстом.",
+                "type": "string",
+                "minLength": 1
+              },
+              "betterPick": {
+                "description": "«Лучше взять»: модели, которые автор советует вместо этой.",
+                "type": "object",
+                "properties": {
+                  "models": {
+                    "minItems": 1,
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Коды одной или двух других моделей."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Почему лучше взять их."
+                  }
+                },
+                "required": [
+                  "models",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Мнение автора по кодам моделей."
+        }
+      },
+      "required": [
+        "favoriteGroups",
+        "services",
+        "models"
+      ],
+      "additionalProperties": false,
+      "description": "Мнение автора. Бот хранит его отдельно от фактов: будущая Ежедневная проверка меняет только факты."
+    }
+  },
+  "required": [
+    "format",
+    "checkedOn",
+    "about",
+    "services",
+    "plans",
+    "models",
+    "author"
+  ],
+  "additionalProperties": false
+}

@@ -13,6 +13,11 @@
   and [import runbook](docs/operations/trainer-bank.md).
 - For the author's Trainer reports on questions and usage, read
   [reports runbook](docs/operations/trainer-reports.md).
+- For the ИИ-модели Справочник file, its import or the widget answers built from it, read
+  [Справочник file contract](docs/integrations/ai-models-reference-v1.md) and
+  [import runbook](docs/operations/ai-models-reference.md).
+- For the author's ИИ-модели reports on openings and opened model cards, read
+  [ИИ-модели reports runbook](docs/operations/ai-models-reports.md).
 - For sales funnel events and consent, read [sales funnel integration](docs/integrations/sales-funnel-events-v1.md).
 - For credentialed proof and unresolved setup inputs, read [seed decisions](docs/decisions/seed-decisions.md).
 - For durable documentation changes, read [application documentation routing](docs/agents/documentation-maintenance.md).

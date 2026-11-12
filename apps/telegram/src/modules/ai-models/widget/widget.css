@@ -1,0 +1,284 @@
+/*
+ * ИИ-модели widget: the Trainer's warm paper, orange accents, ink outlines and crisp offset
+ * shadows, system font. Compact class names keep the widget within the 4 096-byte compressed
+ * limit; the build strips these comments.
+ * Names must remain distinct after lowercasing: some clients embed the widget in quirks mode.
+ *
+ * Only features of widget profile 1 are allowed (https://core.telegram.org/bots/widgets):
+ * no color-mix(), no vh, no :has(), no nesting, no scrolling, no named fonts, no text-shadow.
+ * Mute with colour, never with opacity: at most 16 elements may have opacity below 1.
+ */
+
+/* Colours: --a accent, --d its darker border and every shadow, --t accent tint and lines,
+   --s card surface, --h hint text, --p paper and the text on the accent, --v ink,
+   --g good, --r risk. */
+body {
+  margin: 0;
+  /* Quirks-mode body blocks otherwise grow to the client's viewport, leaving empty space. */
+  display: inline-block;
+  width: 100%;
+  vertical-align: top;
+  /* The band of the message time: the message has no caption below the widget. */
+  padding: 0 0
+    var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom));
+  --a: #c7461e;
+  --d: #8b3115;
+  --t: #ffdfbd;
+  --s: #ffefdc;
+  --h: #80513b;
+  --p: #fff8ef;
+  --v: #472719;
+  --g: #277647;
+  --r: #b63829;
+  background: var(--p);
+  color: var(--v);
+}
+* {
+  box-sizing: border-box;
+}
+
+/* #w is the only root. Every screen is a column of blocks with one gap.
+   The script lowers its font size when a screen would be taller than 560 px. */
+#w {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 14px 10px 12px;
+  font:
+    var(--tg-text-font-size, 15px) / 1.3 system-ui,
+    sans-serif;
+}
+/* .wt: a request to the bot is in flight. */
+.wt {
+  opacity: 0.5;
+  pointer-events: none;
+}
+button {
+  display: block;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+/* Helpers: .R row, .F takes the free width, .mu muted, .sm small, .U title. */
+.R {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.F {
+  flex: 1;
+  min-width: 0;
+}
+.mu {
+  color: var(--h);
+}
+.sm {
+  font-size: 0.8em;
+}
+.U {
+  font-size: 1.3em;
+  font-weight: 800;
+}
+.R .U {
+  color: var(--a);
+}
+/* .q the name of a model on its card, in ink. */
+.R .q {
+  color: var(--v);
+}
+
+/* .k a link: «Проверено» and the models of «Лучше взять». */
+.k {
+  display: inline;
+  color: var(--a);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Outlined blocks: .x square button, .ch filter or tab chip (.O the chosen one), .bt button. */
+.x,
+.ch,
+.bt {
+  border: 2px solid var(--v);
+  border-radius: 6px;
+  background: var(--s);
+  box-shadow: 2px 2px 0 var(--d);
+  font-weight: 700;
+  text-align: center;
+}
+.x {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  font-weight: 800;
+}
+.x:disabled {
+  border-color: var(--h);
+  color: var(--h);
+}
+.ch {
+  padding: 2px 6px 3px;
+  background: var(--t);
+  font-size: 0.9em;
+}
+.O,
+.P {
+  background: var(--a);
+  border-color: var(--d);
+  color: var(--p);
+}
+.bt {
+  padding: 7px 10px;
+  min-height: 44px;
+  box-shadow: 4px 4px 0 var(--d);
+}
+/* .C the filter chips. */
+.C {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Dots of Мощность (.n filled, .Y the leader's gold) and of the price level (.pr). */
+.D {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  align-items: center;
+}
+.D i {
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--v);
+  border-radius: 2px;
+  background: var(--s);
+}
+.D .n {
+  background: var(--a);
+  border-color: var(--d);
+}
+.D .Y {
+  width: 9px;
+  height: 9px;
+  background: #e3a008;
+  border-color: #8a5a00;
+}
+.pr .n {
+  background: var(--v);
+  border-color: var(--v);
+}
+
+/* A list row: .rw the model, .l2 its badges and summary, .Z the summary cut to one line;
+   .gh a group or the title of «Цена/качество»; .pg the pager. */
+.rw {
+  display: block;
+  width: 100%;
+}
+.rw,
+.pl {
+  padding: 4px 0;
+  border-top: 1px solid var(--t);
+}
+.l2 {
+  display: block;
+  font-size: 0.8em;
+  color: var(--h);
+}
+.Z {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gh {
+  font-size: 0.8em;
+  font-weight: 800;
+  color: var(--a);
+}
+.pg {
+  justify-content: center;
+  gap: 12px;
+}
+
+/* A badge of the author: .bf «Мой выбор», .bc «Уверенная», .bb «Риск бана», .bp and .bw
+   «Дорого» and «Невыгодно». */
+.bd {
+  display: inline-block;
+  border: 1.5px solid var(--h);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin: 1px 4px 1px 0;
+  font-size: 0.85em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.bf {
+  background: var(--a);
+  border-color: var(--d);
+  color: var(--p);
+}
+.bc {
+  border-color: var(--g);
+  color: var(--g);
+}
+.bb {
+  border-color: var(--r);
+  color: var(--r);
+}
+.bp,
+.bw {
+  border-color: var(--v);
+  color: var(--v);
+}
+
+/* The card: .op the author's opinion, .tg a task tag, .cd the agent, .nt a notice;
+   .gp a service, .pl a plan or a line of «О данных», .pn the plan, .es the estimate. */
+.op {
+  border: 2px dashed var(--h);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.tg {
+  display: inline-block;
+  border: 1.5px solid var(--h);
+  border-radius: 4px;
+  padding: 0 5px;
+  margin: 0 4px 2px 0;
+  font-size: 0.8em;
+  color: var(--h);
+}
+.cd {
+  border: 2px solid var(--v);
+  border-radius: 8px;
+  background: var(--s);
+  padding: 5px 8px;
+}
+.nt {
+  border-left: 3px solid var(--a);
+  padding-left: 8px;
+  font-size: 0.85em;
+}
+.gp {
+  font-size: 0.8em;
+  color: var(--h);
+  margin-top: 4px;
+}
+.gp b {
+  color: var(--v);
+  font-size: 1.15em;
+}
+.pl {
+  align-items: baseline;
+}
+.pn {
+  flex: none;
+  width: 7.6em;
+}
+.es {
+  color: var(--g);
+}

@@ -169,3 +169,83 @@ _Avoid_: Lesson question, task, exercise, poll
 The situation a person reads on its own screen before a Вопрос тренажёра: the `context` field of
 the Bank file. The question's own text then asks about that situation and may be empty.
 _Avoid_: Preamble, scenario, case, stem
+
+**ИИ-модели** (AI Models):
+The bot section where a BotContact sees the current popular ИИ-модели, their prices and the Подписки
+сервисов that include them, inside one widget message of the private chat. Anyone who started the
+bot can open it; it needs no PlatformLink or Product Access.
+_Avoid_: Catalogue, model catalogue, Product Catalogue, model rating
+
+**ИИ-модель** (AI Model):
+One specific model version that a company offers, such as Opus 5.5; one entry of the ИИ-модели
+section. A Семейство (Claude) or a tool where people use models (the Codex app) is not an ИИ-модель.
+_Avoid_: Model family, provider, agent, tool
+
+**Семейство** (Model Family):
+The ИИ-модели one company releases under one name, such as Claude, GPT or Gemini. The ИИ-модели
+section groups models by Семейство.
+_Avoid_: Company, provider, model line, ИИ-модель
+
+**Мощность** (Power):
+How capable an ИИ-модель is compared with the others, by one independent public rating. It orders
+models inside a Семейство and Семейства among themselves.
+_Avoid_: Ум, intelligence, Рейтинг, score
+
+**Подписка сервиса** (Service Subscription):
+Another company's paid plan that gives access to ИИ-модели, such as ChatGPT Plus or Claude Max.
+It has nothing to do with Inside Products, which are never sold as subscriptions.
+_Avoid_: Inside subscription, tariff, Product, Product Access
+
+**Оценка подписки** (Subscription Estimate):
+How much work one Подписка сервиса buys in a month, as the same usage priced at API rates and as a
+multiple of the subscription price. It comes from independent measurements of at least five accounts
+or from a limit the vendor states in dollars, and it is never the vendor's own usage limit.
+_Avoid_: Limit, quota, token allowance, tasks per week, guaranteed usage
+
+**Агент** (Agent):
+A program in which a person works with an ИИ-модель on tasks, such as Codex, Claude Code or OpenCode.
+_Avoid_: Daily check, tool, app, ИИ-модель
+
+**Лучший агент** (Best Agent):
+The Агент with the best independent measurement for one ИИ-модель; when no measurement exists, the
+one the model's company recommends. Good alternatives are listed with it, and the owner's own
+preference is shown separately as their opinion.
+_Avoid_: Official app, default agent, owner's pick
+
+**Сводка модели** (Model Summary):
+One line on what an ИИ-модель is good for and what it costs in return, such as «самая умная для кода,
+но дорогая».
+_Avoid_: Description, review, Справочник
+
+**Метка задачи** (Task Tag):
+One of a fixed set of task kinds that an ИИ-модель suits: код, тексты, поиск и анализ, агенты, дёшево
+и много. The Ежедневная проверка proposes task tags from sources.
+_Avoid_: Badge, Значок автора, category
+
+**Значок автора** (Author Badge):
+The owner's short opinion shown on an ИИ-модель, from a fixed set: «Мой выбор», «Уверенная», «Для
+средних задач», «Дорого», «Невыгодно», «Риск бана». Only the owner sets or removes it; the
+Ежедневная проверка never changes it. «Риск бана» describes a service and reaches the models used
+through it.
+_Avoid_: Tag, Метка задачи, rating, review
+
+**Лучше взять** (Better Pick):
+The owner's pointer from one ИИ-модель to one or two others they recommend in its place, with a
+reason, such as GLM-5.3 to DeepSeek V4.1 Flash «по цене и качеству». Like a Значок автора, only the
+owner sets it and the Ежедневная проверка never changes it.
+_Avoid_: Alternative list, similar models, recommendation engine
+
+**Справочник** (Models Reference):
+The ИИ-модели data that people currently see, with the date it was last checked. It changes only
+when the owner publishes a Черновик справочника.
+_Avoid_: Catalogue, snapshot, release, Сводка
+
+**Ежедневная проверка** (Daily Check):
+The automatic comparison of the Справочник with vendor and independent sources once a day. It
+either confirms the Справочник or produces a Черновик справочника.
+_Avoid_: Agent, crawler, import
+
+**Черновик справочника** (Reference Draft):
+The changes a Ежедневная проверка proposes to the Справочник. Only the owner sees it until they
+publish it.
+_Avoid_: Release, update, import, pull request

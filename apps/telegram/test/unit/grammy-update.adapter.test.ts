@@ -212,6 +212,194 @@ describe("GrammyUpdateAdapter", () => {
     });
   });
 
+  describe("ИИ-модели", () => {
+    const contact = {
+      botIdentity: "inside",
+      observedAt,
+      privateChatId: "10001",
+      telegramUserId: "10001",
+      updateId: "96",
+    };
+    const translated = (payload: unknown) =>
+      adapter.translate(
+        "inside",
+        "96",
+        prepareTelegramUpdateForInbox(payload),
+        observedAt,
+      );
+
+    it.each([
+      ["/models", "command"],
+      ["/models@inside_bot", "command"],
+      ["ИИ-модели", "menu"],
+    ])("opens the section on a private %s", (text, entry) => {
+      expect(translated(privateStartUpdate(96, 10_001, { text }))).toEqual({
+        kind: "ai-models-open",
+        value: { contact, entry },
+      });
+    });
+
+    it.each([
+      ["/start models", undefined],
+      ["/start models_autumn-mail_1", "autumn-mail_1"],
+      ["/start@inside_bot models_x", "x"],
+      // The longest label: a longer payload is as long as a legacy link token.
+      [`/start models_${"L".repeat(35)}`, "L".repeat(35)],
+      // A label outside the link alphabet still opens the section, with no label.
+      ["/start models_осень", undefined],
+      ["/start models_", undefined],
+      ["/start models_a b", undefined],
+    ])("opens the section on the link %s", (text, source) => {
+      expect(translated(privateStartUpdate(96, 10_001, { text }))).toEqual({
+        kind: "ai-models-open",
+        value: {
+          contact,
+          entry: "link",
+          ...(source === undefined ? {} : { source }),
+        },
+      });
+    });
+
+    const menuPress = {
+      update_id: 96,
+      callback_query: {
+        id: "ai-models-menu-96",
+        data: "ai-models:open",
+        from: { id: 10_001, is_bot: false, first_name: "Synthetic" },
+        message: {
+          message_id: 20,
+          chat: { id: 10_001, type: "private" },
+        },
+      },
+    };
+
+    it("opens the section from the common start menu and carries the callback receipt", () => {
+      expect(translated(menuPress)).toEqual({
+        kind: "ai-models-open",
+        value: {
+          contact: {
+            ...contact,
+            messageId: "20",
+            profile: { displayName: "Synthetic", username: null },
+          },
+          entry: "menu",
+        },
+        callbackQueryId: "ai-models-menu-96",
+      });
+    });
+
+    it.each([
+      [
+        "a group",
+        { message: { message_id: 20, chat: { id: 10_001, type: "group" } } },
+      ],
+      [
+        "another person's chat",
+        { message: { message_id: 20, chat: { id: 20_002, type: "private" } } },
+      ],
+      ["a bot", { from: { ...menuPress.callback_query.from, is_bot: true } }],
+      ["an oversized callback id", { id: "a".repeat(129) }],
+      ["another button", { data: "ai-models:other" }],
+    ])("does not open the section on a menu press from %s", (_name, query) => {
+      expect(
+        translated({
+          ...menuPress,
+          callback_query: { ...menuPress.callback_query, ...query },
+        }).kind,
+      ).not.toBe("ai-models-open");
+    });
+
+    it("stores a section link without its payload", () => {
+      expect(
+        prepareTelegramUpdateForInbox(
+          privateStartUpdate(96, 10_001, { text: "/start models_autumn" }),
+        ),
+      ).toMatchObject({
+        message: { text: "/start", _inside_ai_models: { source: "autumn" } },
+      });
+    });
+
+    it("does not trust a section marker sent inside the update", () => {
+      const update = privateStartUpdate(96, 10_001);
+      expect(
+        translated({
+          ...update,
+          message: {
+            ...update.message,
+            _inside_ai_models: { source: "forged" },
+          },
+        }),
+      ).toEqual({ kind: "start", value: { contact } });
+    });
+
+    it("keeps a legacy link token that starts with the section prefix", () => {
+      const token = `models_${"a".repeat(36)}`;
+      expect(
+        translated(privateStartUpdate(96, 10_001, { text: `/start ${token}` })),
+      ).toMatchObject({
+        kind: "start",
+        value: { linkToken: { kind: "digest" } },
+      });
+    });
+
+    it.each([
+      ["/models", { chatType: "supergroup" }],
+      ["/models", { chatType: "channel" }],
+      ["/models", { isBot: true }],
+      ["ИИ-модели", { chatType: "group" }],
+      ["/start models_autumn", { chatType: "supergroup" }],
+    ])("does not open the section on %s with %o", (text, options) => {
+      expect(
+        translated(privateStartUpdate(96, 10_001, { ...options, text })).kind,
+      ).not.toBe("ai-models-open");
+    });
+
+    it("reads a widget press marked 3 as a query of the section", () => {
+      expect(translated(widgetQueryUpdate(96, 10_001, "3lp0"))).toEqual({
+        kind: "ai-models-query",
+        value: {
+          contact: {
+            ...contact,
+            profile: { displayName: "Synthetic", username: null },
+          },
+          queryId: "query-96",
+          data: "3lp0",
+        },
+      });
+    });
+
+    it.each([
+      ["an unmarked request of an older Trainer message", "h"],
+      ["a request of the current Trainer widget", "2h"],
+      ["a request with another digit", "4lp0"],
+    ])("leaves %s to the Trainer", (_name, data) => {
+      expect(translated(widgetQueryUpdate(96, 10_001, data)).kind).toBe(
+        "trainer-query",
+      );
+    });
+
+    it.each([
+      [
+        "a group chat",
+        widgetQueryUpdate(96, 10_001, "3lp0", {
+          chatType: "supergroup",
+          chatId: -100,
+        }),
+      ],
+      [
+        "another person's chat",
+        widgetQueryUpdate(96, 10_001, "3lp0", { chatId: 10_002 }),
+      ],
+      ["a bot sender", widgetQueryUpdate(96, 10_001, "3lp0", { isBot: true })],
+      [
+        "data over 64 bytes",
+        widgetQueryUpdate(96, 10_001, `3${"ж".repeat(32)}`),
+      ],
+    ])("ignores a section press from %s", (_name, update) => {
+      expect(translated(update)).toEqual({ kind: "ignored" });
+    });
+  });
+
   it("translates an ordinary private non-bot start to verified IDs", () => {
     const largestDocumentedSafeId = 4_503_599_627_370_495;
     const command = adapter.translate(

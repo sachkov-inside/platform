@@ -119,6 +119,9 @@ const tableOwners = {
   trainer_question_reactions: "modules/trainer",
   trainer_rounds: "modules/trainer",
   trainer_topics: "modules/trainer",
+  ai_models_card_views: "modules/ai-models",
+  ai_models_openings: "modules/ai-models",
+  ai_models_references: "modules/ai-models",
 };
 
 // The author dialog decides every transition from its arguments alone; author-admin.ts runs

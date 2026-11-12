@@ -3,6 +3,7 @@ import {
   TELEGRAM_WIDGET_DATA_MAX_BYTES,
   TELEGRAM_WIDGET_REQUEST_MAX_BYTES,
   TRAINER_STAT_LINE_MAX_CHARS,
+  utf8ByteLength,
 } from "./trainer-widget-limits.js";
 
 // The wire format between the bot and the Trainer widget (widget.js draws it).
@@ -152,9 +153,6 @@ export type TrainerWidgetData =
   | TrainerFailureData
   | readonly [screen: "u", issueId: string, reaction: TrainerReaction]
   | readonly [screen: "i", text: string];
-
-export const utf8ByteLength = (text: string): number =>
-  Buffer.byteLength(text, "utf8");
 
 /** Length in characters as the text limits count it: code points of the composed form. */
 export const trainerTextLength = (text: string): number =>

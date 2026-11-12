@@ -51,6 +51,22 @@ services:
     profiles: [operations]
     restart: "no"
 
+  # The ИИ-модели Справочник file arrives on stdin: run --rm -T ai-models-reference-import --preview < reference.json
+  ai-models-reference-import:
+    <<: *runtime
+    entrypoint: [node, dist/operations/ai-models-reference-import-cli.js]
+    networks: [database]
+    profiles: [operations]
+    restart: "no"
+
+  # The author's ИИ-модели reports, without names or identifiers: run --rm -T ai-models-report --usage
+  ai-models-report:
+    <<: *runtime
+    entrypoint: [node, dist/operations/ai-models-report-cli.js]
+    networks: [database]
+    profiles: [operations]
+    restart: "no"
+
   # Owner review queue of unconfirmed owner-link grounds: run --rm -T activation-review --list
   activation-review:
     <<: *runtime

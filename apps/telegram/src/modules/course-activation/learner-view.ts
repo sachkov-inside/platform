@@ -3,6 +3,7 @@ import type { OwnAccess } from "./activation-contract.js";
 import type { TelegramButton } from "../outbound/telegram-messages.js";
 import type { CommunityAdmission } from "../community/community-provider.js";
 import { TRAINER_MENU_BUTTON } from "../trainer/trainer-requests.js";
+import { AI_MODELS_MENU_BUTTON } from "../ai-models/ai-models-requests.js";
 export type LearnerProduct = NonNullable<OwnAccess["products"]>[number];
 export interface LearnerScreen {
   text: string;
@@ -33,6 +34,7 @@ export function productList(
         callbackData: `access:product:${item.id}`,
       })),
       TRAINER_MENU_BUTTON,
+      AI_MODELS_MENU_BUTTON,
       { text: "На платформу", url: PLATFORM_URL },
       help(),
       ...(author

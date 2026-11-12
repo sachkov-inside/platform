@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
-// Browser checks of the Trainer widget. They need Playwright's Chromium, which the Telegram
+// Browser checks of the bot's widgets (Trainer and ИИ-модели). They need Playwright's Chromium, which the Telegram
 // CI job does not install, so they run by `pnpm --filter @inside/telegram test:widget` and
 // are not part of `check`.
 export default defineConfig({

@@ -1048,6 +1048,7 @@ describe("durable activation ingress, identity and continuation", () => {
         "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
       buttons: [
         { text: "Тренажёр", callbackData: "trainer:open" },
+        { text: "ИИ-модели", callbackData: "ai-models:open" },
         { text: "Открыть платформу", url: "https://sachkov.dev" },
         {
           text: "Уже есть аккаунт",
@@ -1058,6 +1059,29 @@ describe("durable activation ingress, identity and continuation", () => {
     });
     expect(activation.begins).toEqual([]);
     expect(activation.granted.size).toBe(0);
+  });
+
+  it("keeps the Trainer and ИИ-модели in the start menu when Platform cannot answer", async ({
+    activation,
+  }) => {
+    activation.state.bindingUnavailable = true;
+    try {
+      await activation.ingress(70102, "/start");
+    } finally {
+      activation.state.bindingUnavailable = false;
+    }
+    const reply = await activation.app
+      .get(StartResponseDeliveryQueue)
+      .claimNext(activation.clock.now());
+    expect(reply).toMatchObject({
+      messageText: "Не удалось проверить доступ. Попробуйте ещё раз.",
+      buttons: [
+        { text: "Тренажёр", callbackData: "trainer:open" },
+        { text: "ИИ-модели", callbackData: "ai-models:open" },
+        { text: "Повторить", callbackData: "access:own" },
+        { text: "Помощь", callbackData: "access:help" },
+      ],
+    });
   });
 
   it("keeps the same source identity across linking, two links and concurrent workers", async ({

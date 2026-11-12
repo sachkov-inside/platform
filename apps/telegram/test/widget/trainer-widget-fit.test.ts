@@ -10,7 +10,7 @@ import {
   trainerWidgetFitCommand,
 } from "../../scripts/trainer-widget/fit.js";
 import { syntheticTrainerBank } from "../support/synthetic-trainer-bank.js";
-import { realisticText, wideText } from "./trainer-widget-harness.js";
+import { realisticText, wideText } from "./widget-harness.js";
 
 // The command the author runs on the private Bank: it draws each question in the built widget.
 // Every text here is synthetic filler.

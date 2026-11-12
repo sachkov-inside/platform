@@ -18,7 +18,8 @@ const COMMUNITY_MESSAGE_DAYS = 90;
  * delivered sales funnel events use the configured period (30 days by default, #980), counted
  * from delivery. Contact, link, Membership audit,
  * communication and notification history has no period and is kept. So are the Trainer's
- * answers, current Rating names, historical Rating choices and question reactions.
+ * answers, current Rating names, historical Rating choices and question reactions, and every
+ * record of the ИИ-модели section: openings, Справочник revisions and card views.
  */
 export interface RetentionPeriods {
   /** Membership check results with their evidence deliveries. */

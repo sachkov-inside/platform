@@ -13,8 +13,10 @@ import {
 } from "../../src/modules/trainer/trainer-bank-file.js";
 import { correctMaskOf } from "../../src/modules/trainer/trainer-rounds.js";
 import {
-  TRAINER_WIDGET_TARGET_HEIGHT_PX,
-  TRAINER_WIDGET_CHECKED_WIDTHS_PX,
+  TELEGRAM_WIDGET_FIT_WIDTHS_PX,
+  TELEGRAM_WIDGET_SMALLEST_FONT_PX,
+  TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
+  TELEGRAM_WIDGET_TIME_BAND_PX,
 } from "../../src/modules/trainer/widget/trainer-widget-limits.js";
 import {
   trainerContextDataBytes,
@@ -36,10 +38,6 @@ import { trainerWidgetPage } from "../../test/widget/trainer-widget-harness.js";
 // The output names questions by their identifiers and gives numbers only: no text of the
 // Bank is printed. A browser is not a Telegram app: it draws with its own fonts.
 
-/** The smallest text the widget may shrink to. */
-const SMALLEST_FONT_PX = 11;
-/** The narrowest bubble and a common phone; the layout is checked at both. */
-const WIDTHS_PX = TRAINER_WIDGET_CHECKED_WIDTHS_PX.slice(0, 2);
 const ISSUE_ID = "1a2b3c";
 
 interface Measured {
@@ -243,12 +241,12 @@ async function fitOf(
     steadyCounter,
     fits:
       steadyCounter &&
-      tallest <= TRAINER_WIDGET_TARGET_HEIGHT_PX &&
-      smallest >= SMALLEST_FONT_PX &&
+      tallest <= TELEGRAM_WIDGET_TARGET_HEIGHT_PX &&
+      smallest >= TELEGRAM_WIDGET_SMALLEST_FONT_PX &&
       screens.every(
         (screen) =>
-          screen.heightPx <= TRAINER_WIDGET_TARGET_HEIGHT_PX &&
-          screen.fontPx >= SMALLEST_FONT_PX,
+          screen.heightPx <= TELEGRAM_WIDGET_TARGET_HEIGHT_PX &&
+          screen.fontPx >= TELEGRAM_WIDGET_SMALLEST_FONT_PX,
       ),
   };
 }
@@ -260,18 +258,17 @@ export async function trainerBankFit(
   /** The author's command measures with the machine's fonts; checks fix the font (#2026). */
   options: { readonly fixedFont?: boolean } = {},
 ): Promise<TrainerQuestionFit[]> {
-  // The band of the message time under the widget: the tallest one the layout is checked at.
   const html = await trainerWidgetPage({
     chatData: '["h",0,0,5,0]',
-    safeAreaBottomPx: 32,
+    safeAreaBottomPx: TELEGRAM_WIDGET_TIME_BAND_PX,
     ...(options.fixedFont === true ? { fixedFont: true } : {}),
   });
   const browser = await chromium.launch();
   try {
     const fits: TrainerQuestionFit[] = [];
-    for (const widthPx of WIDTHS_PX) {
+    for (const widthPx of TELEGRAM_WIDGET_FIT_WIDTHS_PX) {
       const page = await browser.newPage({
-        viewport: { width: widthPx, height: TRAINER_WIDGET_TARGET_HEIGHT_PX },
+        viewport: { width: widthPx, height: TELEGRAM_WIDGET_TARGET_HEIGHT_PX },
       });
       for (const question of questions)
         fits.push(
@@ -336,11 +333,11 @@ export async function trainerWidgetFitCommand(
   const failed = new Set(fits.filter(({ fits }) => !fits).map(({ id }) => id));
   const smallest = Math.min(...fits.map(({ question }) => question.fontPx));
   output.remark(
-    `${String(bank.questions.length)} questions at ${WIDTHS_PX.join(" and ")} px: ` +
+    `${String(bank.questions.length)} questions at ${TELEGRAM_WIDGET_FIT_WIDTHS_PX.join(" and ")} px: ` +
       `${String(fits.reduce((sum, { answers }) => sum + answers, 0))} answers and ` +
       `${String(fits.reduce((sum, { pages }) => sum + pages, 0))} explanation pages drawn; ` +
-      `${String(failed.size)} questions do not fit ${String(TRAINER_WIDGET_TARGET_HEIGHT_PX)} px ` +
-      `in text of ${String(SMALLEST_FONT_PX)} px or more; ` +
+      `${String(failed.size)} questions do not fit ${String(TELEGRAM_WIDGET_TARGET_HEIGHT_PX)} px ` +
+      `in text of ${String(TELEGRAM_WIDGET_SMALLEST_FONT_PX)} px or more; ` +
       `the smallest question text is ${String(smallest)} px.`,
   );
   return failed.size > 0 ? 1 : 0;

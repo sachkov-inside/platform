@@ -15,6 +15,10 @@ import type {
   TrainerOpening,
   TrainerQuery,
 } from "../trainer/trainer-requests.js";
+import type {
+  AiModelsOpening,
+  AiModelsQuery,
+} from "../ai-models/ai-models-requests.js";
 
 /** Everything the application does with one Telegram update; the processor handles each kind. */
 export type TelegramUpdateCommand =
@@ -81,7 +85,13 @@ export type TelegramUpdateCommand =
       readonly value: TrainerOpening;
       readonly callbackQueryId?: string;
     }
-  | { readonly kind: "trainer-query"; readonly value: TrainerQuery };
+  | { readonly kind: "trainer-query"; readonly value: TrainerQuery }
+  | {
+      readonly kind: "ai-models-open";
+      readonly value: AiModelsOpening;
+      readonly callbackQueryId?: string;
+    }
+  | { readonly kind: "ai-models-query"; readonly value: AiModelsQuery };
 
 /** Reads raw Telegram updates; the transport adapter implements it. */
 export interface TelegramUpdateTranslator {

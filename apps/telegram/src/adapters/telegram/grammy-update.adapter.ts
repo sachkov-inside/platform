@@ -14,11 +14,15 @@ import type {
 import type { CommunityJoinRequest } from "../../modules/community/community-provider.js";
 import type { DurableMembershipEnvelope } from "../../modules/community/membership-event.js";
 import type { VerifiedSignInDecision } from "../../modules/bot-sign-in/bot-sign-in.js";
+import { TRAINER_MENU_BUTTON } from "../../modules/trainer/trainer-requests.js";
 import {
-  TRAINER_MENU_BUTTON,
-  type TrainerQuery,
-} from "../../modules/trainer/trainer-requests.js";
-import { TELEGRAM_WIDGET_REQUEST_MAX_BYTES } from "../../modules/trainer/widget/trainer-widget-limits.js";
+  AI_MODELS_MENU_BUTTON,
+  AI_MODELS_WIDGET_MARK,
+} from "../../modules/ai-models/ai-models-requests.js";
+import {
+  TELEGRAM_WIDGET_REQUEST_MAX_BYTES,
+  utf8ByteLength,
+} from "../../modules/outbound/telegram-widget-limits.js";
 import type {
   TelegramUpdateCommand,
   TelegramUpdateTranslator,
@@ -31,14 +35,27 @@ import { telegramUserProfile } from "./telegram-user-profile.js";
 const LINK_TOKEN_FIELD = "_inside_link_token";
 const SIGN_IN_TOKEN_FIELD = "_inside_sign_in_token";
 const TRAINER_FIELD = "_inside_trainer";
-// `/start train` opens the Trainer; `/start train_<label>` also names the source of the link.
+const AI_MODELS_FIELD = "_inside_ai_models";
 /** Short command links must not overlap the legacy 43-character link token. */
 const LEGACY_LINK_MIN_LENGTH = 43;
 
-// The whole payload stays under 43 characters, the shortest legacy link token, which leaves
-// 36 characters for the label.
-const TRAINER_LINK = /^train(?:_([\s\S]*))?$/;
-const TRAINER_SOURCE = /^[A-Za-z0-9_-]{1,36}$/;
+/**
+ * Sections a `/start` link opens: `/start <prefix>` opens one, `/start <prefix>_<label>` also
+ * names the source of the link. The whole payload stays under 43 characters, the shortest legacy
+ * link token, which leaves 36 characters for a Trainer label and 35 for an ИИ-модели label.
+ */
+const SECTION_LINKS = [
+  {
+    pattern: /^train(?:_([\s\S]*))?$/,
+    source: /^[A-Za-z0-9_-]{1,36}$/,
+    field: TRAINER_FIELD,
+  },
+  {
+    pattern: /^models(?:_([\s\S]*))?$/,
+    source: /^[A-Za-z0-9_-]{1,35}$/,
+    field: AI_MODELS_FIELD,
+  },
+] as const;
 
 export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
   if (!isRecord(payload) || !isRecord(payload["message"])) {
@@ -52,6 +69,7 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
   delete message["_inside_activation"];
   delete message["_inside_invitation"];
   Reflect.deleteProperty(message, TRAINER_FIELD);
+  Reflect.deleteProperty(message, AI_MODELS_FIELD);
   const text = message["text"];
   if (typeof text !== "string") {
     return { ...payload, message };
@@ -97,18 +115,19 @@ export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
       },
     };
   }
-  const trainer = TRAINER_LINK.exec(start.argument);
-  if (trainer && start.argument.length < LEGACY_LINK_MIN_LENGTH) {
-    const source = trainer[1];
+  for (const link of SECTION_LINKS) {
+    const section = link.pattern.exec(start.argument);
+    if (!section || start.argument.length >= LEGACY_LINK_MIN_LENGTH) continue;
+    const source = section[1];
     return {
       ...payload,
       message: {
         ...message,
         text: start.command,
-        // A label outside the link alphabet is dropped; the link still opens the Trainer.
-        [TRAINER_FIELD]: {
+        // A label outside the link alphabet is dropped; the link still opens the section.
+        [link.field]: {
           source:
-            source !== undefined && TRAINER_SOURCE.test(source) ? source : null,
+            source !== undefined && link.source.test(source) ? source : null,
         },
       },
     };
@@ -222,13 +241,13 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
       callback && "data" in callback && typeof callback.data === "string"
         ? accessCallbackAction(callback.data)
         : undefined;
-    const trainerMenu =
-      callback !== undefined &&
-      "data" in callback &&
-      callback.data === TRAINER_MENU_BUTTON.callbackData;
+    const sectionMenu =
+      callback !== undefined && "data" in callback
+        ? sectionMenuOf(callback.data)
+        : undefined;
     if (
       callback &&
-      (callbackAction !== undefined || trainerMenu) &&
+      (callbackAction !== undefined || sectionMenu !== undefined) &&
       !callback.from.is_bot &&
       callback.message?.chat.type === "private" &&
       callback.from.id === callback.message.chat.id &&
@@ -246,21 +265,22 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
           messageId: String(callback.message.message_id),
           ...senderProfile(callback.from),
         };
-        if (callbackAction === undefined)
+        if (callbackAction !== undefined)
           return {
-            kind: "trainer-open",
+            kind: "access-action",
+            value: contact,
+            action: callbackAction.action,
+            ...(callbackAction.code === undefined
+              ? {}
+              : { activationCode: callbackAction.code }),
+            callbackQueryId: callback.id,
+          };
+        if (sectionMenu !== undefined)
+          return {
+            kind: sectionMenu,
             value: { contact, entry: "menu" },
             callbackQueryId: callback.id,
           };
-        return {
-          kind: "access-action",
-          value: contact,
-          action: callbackAction.action,
-          ...(callbackAction.code === undefined
-            ? {}
-            : { activationCode: callbackAction.code }),
-          callbackQueryId: callback.id,
-        };
       }
     }
     // The contact asks for their own admission; nobody else selects a recipient.
@@ -307,23 +327,54 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
         },
       };
     }
-    const trainerQuery = privateWidgetQuery(
+    const aiModels = this.privateCommand(
+      /^(\/models(?:@[A-Za-z0-9_]+)?|ИИ-модели)$/,
+      botIdentity,
+      updateId,
+      update,
+      observedAt,
+    );
+    if (aiModels) {
+      return {
+        kind: "ai-models-open",
+        value: {
+          contact: aiModels.contact,
+          entry: aiModels.match[0].startsWith("/") ? "command" : "menu",
+        },
+      };
+    }
+    const press = privateWidgetQuery(
       botIdentity,
       updateId,
       payload["widget_query"],
       observedAt,
     );
-    if (trainerQuery) return { kind: "trainer-query", value: trainerQuery };
+    if (press)
+      // The mark of ИИ-модели selects its module; every other press stays the Trainer's,
+      // including the unmarked requests of Trainer messages sent before the marks.
+      return press.data.startsWith(AI_MODELS_WIDGET_MARK)
+        ? { kind: "ai-models-query", value: press }
+        : { kind: "trainer-query", value: press };
     const start = this.privateStart(botIdentity, updateId, update, observedAt);
     if (start) {
-      const link = trainerLink(update.message);
-      if (link)
+      const trainer = sectionLink(update.message, TRAINER_FIELD);
+      if (trainer)
         return {
           kind: "trainer-open",
           value: {
             contact: start.contact,
             entry: "link",
-            ...(link.source === null ? {} : { source: link.source }),
+            ...(trainer.source === null ? {} : { source: trainer.source }),
+          },
+        };
+      const models = sectionLink(update.message, AI_MODELS_FIELD);
+      if (models)
+        return {
+          kind: "ai-models-open",
+          value: {
+            contact: start.contact,
+            entry: "link",
+            ...(models.source === null ? {} : { source: models.source }),
           },
         };
       return { kind: "start", value: start };
@@ -602,19 +653,36 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
   }
 }
 
-const trainerLinkMarker = z.object({ source: z.string().nullable() });
+const sectionLinkMarker = z.object({ source: z.string().nullable() });
 
-/** The marker the webhook stored instead of a Trainer link's payload. */
-function trainerLink(
+/** The marker the webhook stored instead of a section link's payload. */
+function sectionLink(
   message: unknown,
-): z.infer<typeof trainerLinkMarker> | undefined {
+  field: (typeof SECTION_LINKS)[number]["field"],
+): z.infer<typeof sectionLinkMarker> | undefined {
   return isRecord(message)
-    ? trainerLinkMarker.safeParse(message[TRAINER_FIELD]).data
+    ? sectionLinkMarker.safeParse(message[field]).data
     : undefined;
 }
 
+/** The section a menu button of the common start menu opens. */
+function sectionMenuOf(
+  data: unknown,
+): "trainer-open" | "ai-models-open" | undefined {
+  if (data === TRAINER_MENU_BUTTON.callbackData) return "trainer-open";
+  if (data === AI_MODELS_MENU_BUTTON.callbackData) return "ai-models-open";
+  return undefined;
+}
+
+/** A press inside a widget of the bot; its data decides which section answers it. */
+interface PrivateWidgetQuery {
+  readonly contact: VerifiedPrivateStart;
+  readonly queryId: string;
+  readonly data: string;
+}
+
 // grammY 1.46.0 has no `widget_query` in Update (Bot API 10.4), so the field is read as unknown.
-// Only an ordinary data request of the person's own private chat is a Trainer query: wallet
+// Only an ordinary data request of the person's own private chat is a widget query: wallet
 // requests, groups and inline messages carry other shapes and are ignored.
 const widgetQuery = z.object({
   id: z.string().min(1).max(128),
@@ -635,14 +703,14 @@ function privateWidgetQuery(
   updateId: string,
   value: unknown,
   observedAt: Date,
-): TrainerQuery | undefined {
+): PrivateWidgetQuery | undefined {
   const query = widgetQuery.safeParse(value).data;
   const telegramUserId = telegramId(query?.from.id);
   if (
     !query ||
     !hasText(telegramUserId) ||
     telegramUserId !== telegramId(query.chat.id) ||
-    Buffer.byteLength(query.data, "utf8") > TELEGRAM_WIDGET_REQUEST_MAX_BYTES
+    utf8ByteLength(query.data) > TELEGRAM_WIDGET_REQUEST_MAX_BYTES
   )
     return undefined;
   return {

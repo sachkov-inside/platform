@@ -644,7 +644,7 @@ Telegram вызывает Platform по публичному HTTPS: `course-acti
 Приложение принимает `message`, `edited_message`, `chat_member`, `my_chat_member`,
 `chat_join_request`, `callback_query` и `widget_query` (источник списка — `TELEGRAM_WEBHOOK_ALLOWED_UPDATES` в
 `src/modules/webhook/telegram-webhook.ts`). Без `chat_join_request` бот не видит заявку по личной ссылке и не впускает
-покупателя. Без `widget_query` нажатия в виджете Тренажёра не доходят до бота, и виджет показывает
+покупателя. Без `widget_query` нажатия в виджетах Тренажёра и «ИИ-модели» не доходят до бота, и виджет показывает
 ошибку ожидания. Регистрация webhook — операция владельца; обычный деплой и рестарт её не выполняют.
 После выпуска версии с новым типом обновлений владелец запускает `webhook-registration --apply`.
 
@@ -691,9 +691,11 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 | `run --rm -T -e TELEGRAM_WEBHOOK_URL=… webhook-registration --preview` | список обновлений webhook |
 | `run --rm -T trainer-bank-import --preview < /protected/trainer-bank.json` | загрузка Банка вопросов Тренажёра, см. [trainer-bank.md](trainer-bank.md) |
 | `run --rm -T trainer-report --questions` | отчёты автора по Тренажёру, см. [trainer-reports.md](trainer-reports.md) |
+| `run --rm -T ai-models-reference-import --preview < /protected/ai-models-reference.json` | загрузка Справочника «ИИ-моделей», см. [ai-models-reference.md](ai-models-reference.md) |
+| `run --rm -T ai-models-report --usage` | отчёты автора по «ИИ-моделям», см. [ai-models-reports.md](ai-models-reports.md) |
 
 Каждая команда вызывается как `"${telegram_compose[@]}" --profile operations …` и не открывает порты.
-`community-restriction`, `activation-review`, `trainer-bank-import` и `trainer-report` видят только сеть базы. `activation-announcement` видит базу и egress;
+`community-restriction`, `activation-review`, `trainer-bank-import`, `trainer-report`, `ai-models-reference-import` и `ai-models-report` видят только сеть базы. `activation-announcement` видит базу и egress;
 `webhook-registration` — только внешнюю сеть.
 
 ### Поиск контактов по имени (`inside.telegram-contact.v2`)

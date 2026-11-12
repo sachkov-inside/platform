@@ -8,6 +8,10 @@ import {
   TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES,
   TELEGRAM_WIDGET_HTML_MAX_BYTES,
 } from "../../src/modules/trainer/widget/trainer-widget-limits.js";
+import {
+  WIDGET_PROFILE_1_FORBIDDEN,
+  widgetClassNames,
+} from "../support/widget-profile.js";
 
 const html = await buildTrainerWidgetHtml();
 
@@ -35,33 +39,16 @@ describe("trainer widget build", () => {
   });
 
   it("does not distinguish CSS classes only by case in native client documents", () => {
-    const css = /<style>(.*?)<\/style>/s.exec(html)?.[1] ?? "";
-    const names = [
-      ...new Set(
-        [...css.matchAll(/\.([A-Za-z_][\w-]*)/g)].map((match) => match[1]),
-      ),
-    ];
-    expect(new Set(names.map((name) => name?.toLowerCase())).size).toBe(
+    const names = widgetClassNames(html);
+    expect(new Set(names.map((name) => name.toLowerCase())).size).toBe(
       names.length,
     );
   });
 
-  it.each([
-    ["color-mix()", /color-mix\(/],
-    ["height-relative units", /\d(?:vh|dvh|svh|lvh)\b/],
-    [":has()", /:has\(/],
-    ["CSS nesting", /&[ .:>]/],
-    ["scrolling", /overflow(?:-[xy])?:(?:auto|scroll)/],
-    ["sticky positioning", /position:sticky/],
-    ["text-shadow", /text-shadow/],
-    ["line-clamp", /line-clamp/],
-    ["focus selectors", /:focus/],
-    ["network calls", /\bfetch\(|XMLHttpRequest|WebSocket/],
-    ["external resources", /(?:src|href)=|url\(|@import|@font-face/],
-    ["form controls", /<(?:input|select|textarea|form|label)\b/],
-    ["dialogs", /\b(?:alert|confirm|prompt)\(/],
-    ["Element.closest", /\.closest\(/],
-  ])("stays inside widget profile 1: no %s", (_name, pattern) => {
-    expect(html).not.toMatch(pattern);
-  });
+  it.each(WIDGET_PROFILE_1_FORBIDDEN)(
+    "stays inside widget profile 1: no %s",
+    (_name, pattern) => {
+      expect(html).not.toMatch(pattern);
+    },
+  );
 });
