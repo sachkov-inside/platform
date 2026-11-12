@@ -245,21 +245,39 @@ def telegram_error_check(status, values):
                  'five counters are zero since start; community_effects_unknown gauge is currently zero')
 
 
-def verify_telegram_webhook(webhook):
+def docker_started_epoch(started_at):
+    """Whole epoch seconds of a Docker `State.StartedAt` value, which is UTC with up to nanoseconds."""
+    if not isinstance(started_at, str) or not started_at.endswith('Z'):
+        return None
+    try:
+        parsed = datetime.datetime.strptime(started_at[:-1].split('.')[0], '%Y-%m-%dT%H:%M:%S')
+    except ValueError:
+        return None
+    return int(parsed.replace(tzinfo=datetime.timezone.utc).timestamp())
+
+
+def verify_telegram_webhook(webhook, app_started_at):
     # The immutable deployed image owns its subscription, including older releases.
     def valid_updates(value):
         return (isinstance(value, list) and len(value) > 0 and
                 all(isinstance(name, str) and name for name in value) and
                 len(set(value)) == len(value))
 
+    # Telegram keeps its last delivery error until a newer one replaces it, so only an error
+    # recorded at or after this app's start counts; an older one belongs to a previous process.
+    started = docker_started_epoch(app_started_at)
+    error_at = webhook.get('lastErrorAt', 'missing')
+    no_new_error = started is not None and (error_at is None or (
+        type(error_at) is int and 0 <= error_at < started))
     required = webhook.get('requiredUpdates')
     allowed = webhook.get('allowedUpdates')
     return check('Telegram webhook', webhook['protocol'] == 'https:' and webhook['host'] == 'telegram.sachkov.dev' and
                  webhook['port'] in ['', '88'] and webhook['path'] == '/webhooks/telegram' and
                  webhook['hasPinnedIp'] is True and webhook['pending'] == 0 and
-                 webhook['lastError'] is False and valid_updates(required) and valid_updates(allowed) and
+                 no_new_error and valid_updates(required) and valid_updates(allowed) and
                  sorted(allowed) == sorted(required),
-                 'direct HTTPS or existing relay registration, allowed updates, no pending/errors; never setWebhook')
+                 'direct HTTPS or existing relay registration, allowed updates, no pending updates, '
+                 'no delivery error since app start; never setWebhook')
 
 
 def telegram_snapshot():
@@ -359,7 +377,7 @@ if(config.communityWelcomeCohort){
 }
 console.log(JSON.stringify({identityMatches:me.is_bot===true && String(me.id)===botTelegramUserIdFromToken(config.botToken),cohorts,webhook:{protocol:url.protocol,host:url.hostname,port:url.port,
  path:url.pathname,hasPinnedIp:!!wh.ip_address,pending:wh.pending_update_count,
- allowedUpdates:wh.allowed_updates,requiredUpdates:[...TELEGRAM_WEBHOOK_ALLOWED_UPDATES],lastError:!!wh.last_error_message},chat:{supergroup:chat.type==='supergroup',
+ allowedUpdates:wh.allowed_updates,requiredUpdates:[...TELEGRAM_WEBHOOK_ALLOWED_UPDATES],lastErrorAt:wh.last_error_date ?? null},chat:{supergroup:chat.type==='supergroup',
  administrator:member.status==='administrator',invite:member.can_invite_users===true,restrict:member.can_restrict_members===true}}));
 """
 
@@ -420,7 +438,7 @@ def verify_telegram(manifest, state, record):
     telegram = json.loads(run(['docker', 'exec', '-i', app['Id'], 'node', '--input-type=module'], data=TELEGRAM_READ, timeout=60))
     record.append(verify_bot_identity(telegram))
     webhook = telegram['webhook']
-    record.append(verify_telegram_webhook(webhook))
+    record.append(verify_telegram_webhook(webhook, app['State']['StartedAt']))
     record.append(check('Telegram bot administration', all(telegram['chat'].values()), 'supergroup administrator with invite/restrict rights'))
     record.append(verify_cohort_config(telegram['cohorts']))
     activation = json.loads(run(['docker', 'exec', '-i', app['Id'], 'node', '--input-type=module'], data=ACTIVATION_READ))

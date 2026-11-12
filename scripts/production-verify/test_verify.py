@@ -2,12 +2,16 @@ import unittest
 from verify import verify_release
 
 class TelegramWebhookTests(unittest.TestCase):
+    # Docker reports StartedAt in UTC with nanoseconds.
+    STARTED = '2026-11-12T16:02:34.639679897Z'
+    STARTED_EPOCH = 1794499354
+
     def registration(self, updates=None):
         required = ['message', 'edited_message', 'chat_member', 'my_chat_member',
                     'chat_join_request', 'callback_query', 'widget_query']
         return {'protocol': 'https:', 'host': 'telegram.sachkov.dev', 'port': '',
                 'path': '/webhooks/telegram', 'hasPinnedIp': True, 'pending': 0,
-                'lastError': False, 'allowedUpdates': required if updates is None else updates,
+                'lastErrorAt': None, 'allowedUpdates': required if updates is None else updates,
                 'requiredUpdates': required}
 
     def test_only_supported_https_registrations_with_exact_deployed_updates_pass(self):
@@ -15,24 +19,40 @@ class TelegramWebhookTests(unittest.TestCase):
         current = self.registration()
         for port in ['', '88']:
             with self.subTest(port=port):
-                self.assertEqual(verify_telegram_webhook({**current, 'port': port})['status'], 'passed')
+                self.assertEqual(verify_telegram_webhook({**current, 'port': port}, self.STARTED)['status'], 'passed')
         for invalid in [{'protocol': 'http:'}, {'host': 'other.invalid'}, {'port': '8443'},
                         {'path': '/other'}, {'hasPinnedIp': False}, {'pending': 1},
-                        {'lastError': True}, {'allowedUpdates': ['message']},
+                        {'lastErrorAt': self.STARTED_EPOCH + 1}, {'allowedUpdates': ['message']},
                         {'allowedUpdates': current['allowedUpdates'] + ['poll']},
                         {'allowedUpdates': dict.fromkeys(current['allowedUpdates'])},
                         {'allowedUpdates': None}, {'allowedUpdates': ['message', 1]},
                         {'allowedUpdates': current['allowedUpdates'] + ['message']},
                         {'requiredUpdates': []}, {'requiredUpdates': None}]:
             with self.subTest(invalid=invalid):
-                self.assertEqual(verify_telegram_webhook({**current, **invalid})['status'], 'failed')
+                self.assertEqual(verify_telegram_webhook({**current, **invalid}, self.STARTED)['status'], 'failed')
 
     def test_older_image_is_checked_against_its_own_contract(self):
         from verify import verify_telegram_webhook
         old = ['message', 'edited_message', 'chat_member', 'my_chat_member',
                'chat_join_request', 'callback_query']
-        self.assertEqual(verify_telegram_webhook({**self.registration(old), 'requiredUpdates': old})['status'], 'passed')
-        self.assertEqual(verify_telegram_webhook(self.registration(old))['status'], 'failed')
+        self.assertEqual(verify_telegram_webhook({**self.registration(old), 'requiredUpdates': old}, self.STARTED)['status'], 'passed')
+        self.assertEqual(verify_telegram_webhook(self.registration(old), self.STARTED)['status'], 'failed')
+
+    def test_only_a_delivery_error_since_app_start_fails(self):
+        # Telegram keeps the last error until a later one replaces it, even after deliveries recover.
+        from verify import verify_telegram_webhook
+        current = self.registration()
+        for at in [None, self.STARTED_EPOCH - 86400, self.STARTED_EPOCH - 1]:
+            with self.subTest(lastErrorAt=at):
+                self.assertEqual(verify_telegram_webhook({**current, 'lastErrorAt': at}, self.STARTED)['status'], 'passed')
+        for at in [self.STARTED_EPOCH, self.STARTED_EPOCH + 300, True, '1794499000', -1, 1.5]:
+            with self.subTest(lastErrorAt=at):
+                self.assertEqual(verify_telegram_webhook({**current, 'lastErrorAt': at}, self.STARTED)['status'], 'failed')
+        for started in ['', 'start', None, '2026-11-12T16:02:34+03:00']:
+            with self.subTest(started=started):
+                self.assertEqual(verify_telegram_webhook(current, started)['status'], 'failed')
+        with self.subTest('a missing error date fails'):
+            self.assertEqual(verify_telegram_webhook({k: v for k, v in current.items() if k != 'lastErrorAt'}, self.STARTED)['status'], 'failed')
 
 class SqlSetupDiagnosticsTests(unittest.TestCase):
     def test_setup_failure_reports_captured_docker_stderr(self):
@@ -247,6 +267,7 @@ class DeployedTelegramProbeTests(unittest.TestCase):
         self.assertEqual(verify_bot_identity(facts)['status'], 'passed')
         self.assertIn('widget_query', facts['webhook']['requiredUpdates'])
         self.assertIn('edited_message', facts['webhook']['requiredUpdates'])
+        self.assertIsNone(facts['webhook']['lastErrorAt'])
         self.assertEqual(verify_cohort_config(facts['cohorts'])['status'], 'not_checked')
         self.assertNotIn('synthetic-token', result.stdout)
 

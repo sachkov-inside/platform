@@ -438,7 +438,10 @@ Incompatible rollback запись допустима, когда
 
 Telegram проверяет app/state/operation, digest/revision/migrations identity, readiness, опубликованные HTTP-маршруты,
 metrics/logs, текущие webhook и права бота. Числовой Bot ID сверяется с токеном; логическое
-`TELEGRAM_BOT_IDENTITY` не считается числовым ID. Синтетические непривязанные чтения `binding` и
+`TELEGRAM_BOT_IDENTITY` не считается числовым ID. Telegram хранит последнюю ошибку доставки
+webhook, пока её не заменит новая, поэтому проверка webhook учитывает только ошибку с
+`last_error_date` не раньше старта текущего контейнера `app`. Более старая ошибка относится к
+прежнему процессу; её видно в `getWebhookInfo`, но проверку она не роняет. Синтетические непривязанные чтения `binding` и
 `own-access` проверяют activation с заголовком `x-inside-domain-names: products.v1`.
 Конфигурация читается через `loadApplicationConfig` из фактического окружения контейнера,
 поэтому пустые значения и комментарии в env-файле не разбираются повторно. Отсутствие cohorts config даёт `not_checked`: приветствие без даты разрешено. Это само по себе
