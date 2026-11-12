@@ -14,6 +14,7 @@ import { createDatabase } from "../../src/database/create-database.js";
 import type { Database } from "../../src/database/database.js";
 import { migrateToLatest } from "../../src/database/migrator.js";
 import { AiModelsReferences } from "../../src/modules/ai-models/ai-models-reference.js";
+import { AI_MODELS_CODE_PATTERN } from "../../src/modules/ai-models/widget/ai-models-widget-request.js";
 import { AI_MODELS_WIDGET_HTML } from "../../src/modules/ai-models/widget/ai-models-widget-html.generated.js";
 import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
@@ -614,5 +615,38 @@ describe("opened model cards", () => {
       await running().tap(user, data);
 
     expect(await views()).toEqual([]);
+  });
+
+  it("stores exactly the model codes the Справочник code format accepts", async () => {
+    const format = new RegExp(`^${AI_MODELS_CODE_PATTERN}$`);
+    const codes = [
+      "a",
+      "atlas-pro",
+      "0123456789abcdef",
+      "0123456789abcdefg",
+      "gpt-5.5",
+      "atlas_pro",
+      "-atlas",
+      "Atlas",
+    ];
+    const stored: string[] = [];
+    for (const code of codes) {
+      const insert = database
+        .insertInto("ai_models_card_views")
+        .values({
+          bot_identity: "inside",
+          telegram_user_id: newUser(),
+          model_code: code,
+          viewed_at: virtualTestClock.now(),
+        })
+        .execute();
+      if (format.test(code)) {
+        await insert;
+        stored.push(code);
+      } else await expect(insert, code).rejects.toThrow("check constraint");
+    }
+
+    expect(stored).toEqual(["a", "atlas-pro", "0123456789abcdef"]);
+    expect((await views()).map(({ model_code }) => model_code)).toEqual(stored);
   });
 });

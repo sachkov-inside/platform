@@ -9,17 +9,24 @@ import {
   readAiModelsReferenceFile,
   type AiModelsReference,
 } from "../../src/modules/ai-models/ai-models-reference-file.js";
+import { formatAiModelsWidgetRequest } from "../../src/modules/ai-models/widget/ai-models-widget-request.js";
 import {
   aiModelsChatData,
   aiModelsRequests,
   aiModelsResponse,
   encodeAiModelsWidgetData,
-  formatAiModelsWidgetRequest,
 } from "../../src/modules/ai-models/widget/ai-models-widget-wire.js";
+import {
+  TELEGRAM_WIDGET_FIT_WIDTHS_PX,
+  TELEGRAM_WIDGET_SMALLEST_FONT_PX,
+  TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
+  TELEGRAM_WIDGET_TIME_BAND_PX,
+  utf8ByteLength,
+} from "../../src/modules/outbound/telegram-widget-limits.js";
 import {
   widgetPage,
   type WidgetPageOptions,
-} from "../../test/widget/trainer-widget-harness.js";
+} from "../../test/widget/widget-harness.js";
 import { buildAiModelsWidgetHtml } from "./build.js";
 
 // Draws every screen of a Справочник file in the built ИИ-модели widget and measures it: every
@@ -30,15 +37,6 @@ import { buildAiModelsWidgetHtml } from "./build.js";
 // The output names screens by their widget requests, which carry model codes, and gives numbers
 // only: no text of the file is printed. A browser is not a Telegram app: it draws with its own
 // fonts.
-
-/** The tallest screen the guide recommends; the bubble clips at 600 px. */
-export const AI_MODELS_WIDGET_TARGET_HEIGHT_PX = 560;
-/** The smallest text the widget may shrink to. */
-export const AI_MODELS_WIDGET_SMALLEST_FONT_PX = 11;
-/** The narrowest bubble and a common phone. */
-export const AI_MODELS_WIDGET_WIDTHS_PX = [320, 390] as const;
-/** The band of the message time under the widget: the tallest one the layout is checked at. */
-const TIME_BAND_PX = 32;
 
 export interface AiModelsScreenFit {
   /** The widget request of the screen, mark included, such as `3lp0` or `3mopus`. */
@@ -63,7 +61,7 @@ export function aiModelsWidgetPage(
 ): Promise<string> {
   return widgetPage(buildAiModelsWidgetHtml(), {
     chatData: encodeAiModelsWidgetData(aiModelsChatData(reference)),
-    safeAreaBottomPx: TIME_BAND_PX,
+    safeAreaBottomPx: TELEGRAM_WIDGET_TIME_BAND_PX,
     ...options,
   });
 }
@@ -138,9 +136,9 @@ export async function aiModelsReferenceFit(
   const browser = options.browser ?? (await chromium.launch());
   try {
     const fits: AiModelsScreenFit[] = [];
-    for (const widthPx of AI_MODELS_WIDGET_WIDTHS_PX) {
+    for (const widthPx of TELEGRAM_WIDGET_FIT_WIDTHS_PX) {
       const page = await browser.newPage({
-        viewport: { width: widthPx, height: AI_MODELS_WIDGET_TARGET_HEIGHT_PX },
+        viewport: { width: widthPx, height: TELEGRAM_WIDGET_TARGET_HEIGHT_PX },
       });
       for (const request of aiModelsRequests(reference)) {
         const data = aiModelsResponse(reference, request);
@@ -157,11 +155,11 @@ export async function aiModelsReferenceFit(
         fits.push({
           request: text,
           widthPx,
-          bytes: Buffer.byteLength(answer, "utf8"),
+          bytes: utf8ByteLength(answer),
           ...drawn,
           fits:
-            drawn.heightPx <= AI_MODELS_WIDGET_TARGET_HEIGHT_PX &&
-            drawn.fontPx >= AI_MODELS_WIDGET_SMALLEST_FONT_PX &&
+            drawn.heightPx <= TELEGRAM_WIDGET_TARGET_HEIGHT_PX &&
+            drawn.fontPx >= TELEGRAM_WIDGET_SMALLEST_FONT_PX &&
             !drawn.overflow,
         });
       }
@@ -212,7 +210,7 @@ export async function aiModelsWidgetFitCommand(
   const fits = await aiModelsReferenceFit(read.reference);
   for (const fit of fits) output.report(JSON.stringify(fit));
   const failed = fits.filter(({ fits }) => !fits).length;
-  for (const widthPx of AI_MODELS_WIDGET_WIDTHS_PX) {
+  for (const widthPx of TELEGRAM_WIDGET_FIT_WIDTHS_PX) {
     const at = fits.filter((fit) => fit.widthPx === widthPx);
     output.remark(
       `${String(widthPx)} px: ${String(at.length)} screens, the tallest ` +
@@ -222,8 +220,8 @@ export async function aiModelsWidgetFitCommand(
     );
   }
   output.remark(
-    `${String(failed)} screens do not fit ${String(AI_MODELS_WIDGET_TARGET_HEIGHT_PX)} px ` +
-      `in text of ${String(AI_MODELS_WIDGET_SMALLEST_FONT_PX)} px or more without overflow.`,
+    `${String(failed)} screens do not fit ${String(TELEGRAM_WIDGET_TARGET_HEIGHT_PX)} px ` +
+      `in text of ${String(TELEGRAM_WIDGET_SMALLEST_FONT_PX)} px or more without overflow.`,
   );
   return failed > 0 ? 1 : 0;
 }

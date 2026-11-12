@@ -12,12 +12,12 @@ import {
   TRAINER_TOPIC_NAME_MAX_CHARS,
   TRAINER_TOPICS_MAX,
   TRAINER_TOPICS_PAGE_SIZE,
+  utf8ByteLength,
 } from "./widget/trainer-widget-limits.js";
 import {
   trainerContextDataBytes,
   trainerQuestionDataBytes,
   trainerTextLength,
-  utf8ByteLength,
   type OptionMask,
 } from "./widget/trainer-widget-wire.js";
 

@@ -5,11 +5,9 @@ import {
   TELEGRAM_WIDGET_DATA_MAX_BYTES,
   TRAINER_RATING_NAME_MAX_CHARS,
   TRAINER_RATING_ROWS_MAX,
-} from "../../src/modules/trainer/widget/trainer-widget-limits.js";
-import {
-  encodeTrainerWidgetData,
   utf8ByteLength,
-} from "../../src/modules/trainer/widget/trainer-widget-wire.js";
+} from "../../src/modules/trainer/widget/trainer-widget-limits.js";
+import { encodeTrainerWidgetData } from "../../src/modules/trainer/widget/trainer-widget-wire.js";
 
 describe("a Telegram name in the Rating", () => {
   it("keeps an ordinary name as it is", () => {

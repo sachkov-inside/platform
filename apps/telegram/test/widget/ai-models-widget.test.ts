@@ -3,8 +3,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
-  AI_MODELS_WIDGET_TARGET_HEIGHT_PX,
-  AI_MODELS_WIDGET_WIDTHS_PX,
   aiModelsReferenceFit,
   aiModelsWidgetPage,
   measureAiModelsScreen,
@@ -14,19 +12,23 @@ import {
   readAiModelsReferenceFile,
   type AiModelsReference,
 } from "../../src/modules/ai-models/ai-models-reference-file.js";
-import { TELEGRAM_WIDGET_DATA_MAX_BYTES } from "../../src/modules/outbound/telegram-widget-limits.js";
+import {
+  TELEGRAM_WIDGET_DATA_MAX_BYTES,
+  TELEGRAM_WIDGET_FIT_WIDTHS_PX,
+  TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
+} from "../../src/modules/outbound/telegram-widget-limits.js";
+import type { AiModelsWidgetRequest } from "../../src/modules/ai-models/widget/ai-models-widget-request.js";
 import {
   aiModelsResponse,
   encodeAiModelsWidgetData,
   type AiModelsWidgetData,
-  type AiModelsWidgetRequest,
 } from "../../src/modules/ai-models/widget/ai-models-widget-wire.js";
 import { syntheticAiModelsReference } from "../support/synthetic-ai-models-reference.js";
 import {
   type WidgetPageOptions,
   type WidgetTheme,
   wideText,
-} from "./trainer-widget-harness.js";
+} from "./widget-harness.js";
 
 // The built ИИ-модели widget in a browser with a stand-in TelegramWidget that answers from a
 // queue: every screen of the synthetic Справочник, the navigation between them and the fit rule.
@@ -74,7 +76,7 @@ async function openWidget(
   engine: Browser = browser,
 ): Promise<Page> {
   const page = await engine.newPage({
-    viewport: { width, height: AI_MODELS_WIDGET_TARGET_HEIGHT_PX },
+    viewport: { width, height: TELEGRAM_WIDGET_TARGET_HEIGHT_PX },
     colorScheme: options.theme ?? "light",
   });
   await page.setContent(
@@ -588,7 +590,7 @@ const limitScreens: readonly (readonly [name: string, data: string])[] = [
         `$10,50 / $100,50 за 1 млн токенов · задача ≈ $10,14`,
         widest(50),
         [
-          ...["f", "c", "m", "p", "w", "bh"].map(
+          ...(["f", "c", "m", "p", "w", "bh"] as const).map(
             (code, index) => [code, widest(length, index)] as const,
           ),
           ["", widest(length, 7)],
@@ -772,9 +774,9 @@ describe("ИИ-модели widget: fitting a screen", () => {
       async (theme) => {
         const engine = engineName === "WebKit" ? webkitBrowser : browser;
         const html = await pageHtml({ theme, documentMode });
-        for (const width of AI_MODELS_WIDGET_WIDTHS_PX) {
+        for (const width of TELEGRAM_WIDGET_FIT_WIDTHS_PX) {
           const page = await engine.newPage({
-            viewport: { width, height: AI_MODELS_WIDGET_TARGET_HEIGHT_PX },
+            viewport: { width, height: TELEGRAM_WIDGET_TARGET_HEIGHT_PX },
           });
           try {
             for (const [name, data] of limitScreens) {

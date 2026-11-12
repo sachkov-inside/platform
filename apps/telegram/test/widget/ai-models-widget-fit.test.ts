@@ -10,7 +10,7 @@ import {
   syntheticAiModelsReference,
   type SyntheticAiModelsReference,
 } from "../support/synthetic-ai-models-reference.js";
-import { wideText } from "./trainer-widget-harness.js";
+import { wideText } from "./widget-harness.js";
 
 // The command the owner runs on the real Справочник before the import: it draws every screen of
 // the file in the built widget. Every text here is synthetic.

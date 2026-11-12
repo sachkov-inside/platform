@@ -10,6 +10,7 @@ import {
   TELEGRAM_MESSAGES,
   type TelegramMessages,
 } from "../outbound/telegram-messages.js";
+import { TELEGRAM_WIDGET_TOO_OFTEN_TEXT } from "../outbound/telegram-widget-limits.js";
 import { TrainerDaily } from "./trainer-daily.js";
 import { trainerPointsOfRound } from "./trainer-points.js";
 import {
@@ -56,7 +57,6 @@ const TRAINER_TOPIC_QUESTIONS = 10;
 
 const WIDGET_REJECTED_TEXT =
   "Тренажёр не открылся. Обновите Telegram до последней версии и отправьте /train ещё раз.";
-const TOO_OFTEN_TEXT = "Слишком часто. Повторите через несколько секунд.";
 /** The answer names a question this person was not shown, or options the question lacks. */
 const ISSUE_CLOSED_TEXT = "Этот вопрос уже закрыт. Начните новый раунд.";
 const NO_QUESTIONS_TEXT = "Вопросы скоро появятся.";
@@ -173,7 +173,7 @@ export class Trainer {
 
   /** The answer to a press over the per-user request limit. */
   async refuse(queryId: string): Promise<void> {
-    await this.reply(queryId, ["x", TOO_OFTEN_TEXT]);
+    await this.reply(queryId, ["x", TELEGRAM_WIDGET_TOO_OFTEN_TEXT]);
   }
 
   /**

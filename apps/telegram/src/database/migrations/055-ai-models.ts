@@ -37,12 +37,14 @@ export const aiModelsMigration: Migration = {
       imported_at timestamptz not null
     )`.execute(db);
 
-    // One row per opened tab «Главное» of a model card.
+    // One row per opened tab «Главное» of a model card. `model_code` follows
+    // AI_MODELS_CODE_PATTERN (modules/ai-models/widget/ai-models-widget-request.ts), which owns
+    // the format; the check repeats it because a migration stays as it was released.
     await sql`create table ai_models_card_views (
       id bigint generated always as identity primary key,
       bot_identity text not null,
       telegram_user_id bigint not null,
-      model_code text not null check (model_code ~ '^[0-9a-z][0-9a-z._-]{0,61}$'),
+      model_code text not null check (model_code ~ '^[a-z0-9][a-z0-9-]{0,15}$'),
       viewed_at timestamptz not null
     )`.execute(db);
     await sql`create index ai_models_card_views_by_day

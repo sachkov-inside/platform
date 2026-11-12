@@ -3,14 +3,16 @@ import { z } from "zod";
 import {
   TELEGRAM_WIDGET_DATA_MAX_BYTES,
   TELEGRAM_WIDGET_REQUEST_MAX_BYTES,
+  utf8ByteLength,
 } from "../outbound/telegram-widget-limits.js";
 import {
   AI_MODELS_CODE_PATTERN,
+  formatAiModelsWidgetRequest,
+  type AiModelsWidgetRequest,
+} from "./widget/ai-models-widget-request.js";
+import {
   aiModelsRequests,
   aiModelsResponse,
-  formatAiModelsWidgetRequest,
-  utf8ByteLength,
-  type AiModelsWidgetRequest,
 } from "./widget/ai-models-widget-wire.js";
 
 // The Справочник file is the contract between the owner's research and this bot.

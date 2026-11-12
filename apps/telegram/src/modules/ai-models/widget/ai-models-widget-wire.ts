@@ -1,28 +1,46 @@
 import {
   TELEGRAM_WIDGET_DATA_MAX_BYTES,
-  TELEGRAM_WIDGET_REQUEST_MAX_BYTES,
+  utf8ByteLength,
 } from "../../outbound/telegram-widget-limits.js";
 import type {
   AiModelsModel,
-  AiModelsPlan,
   AiModelsReference,
-  AiModelsSubscription,
 } from "../ai-models-reference-file.js";
-import { AI_MODELS_WIDGET_MARK } from "../ai-models-requests.js";
+import {
+  aiModelsByRank,
+  aiModelsByTaskPrice,
+  aiModelsCheapestPlan,
+  aiModelsEstimate,
+  aiModelsFullDate,
+  aiModelsMultiple,
+  aiModelsPlanLines,
+  aiModelsPower,
+  aiModelsPriceLevel,
+  aiModelsShortDate,
+  aiModelsUsd,
+  aiModelsValueModels,
+  isAiModelsLeader,
+  type AiModelsPlanLine,
+} from "./ai-models-widget-display.js";
+import {
+  AI_MODELS_FILTERS,
+  type AiModelsFilter,
+  type AiModelsWidgetRequest,
+} from "./ai-models-widget-request.js";
 
 // The wire format between the bot and the ИИ-модели widget (widget.js draws it).
 //
 // Bot to widget: `chat_data` of sendWidget and `data` of answerWidgetQuery. Each is a JSON array
 // whose first item names the screen, at most 1 024 bytes of UTF-8.
-// Widget to bot: `widget_query.data`, a short ASCII text of at most 64 bytes that starts with
-// the mark "3" (AI_MODELS_WIDGET_MARK); the update adapter routes it here by that mark.
+// Widget to bot: `widget_query.data`, the requests that ai-models-widget-request.ts reads.
 // The widget's code and data are public.
 //
 // Who writes what. The bot computes every rule and formats every value: money with a comma and
-// spaces in thousands, «≈», multiples with «раз» or «раза», dates, plan names with prices. Fixed
-// sets travel as one-letter codes, and the widget holds their labels. The widget also holds the
-// fixed words that would repeat on every row or every page and cost 30 to 300 bytes of each
-// answer (spec #2034 lists them among the bot's texts):
+// spaces in thousands, «≈», multiples with «раз» or «раза», dates, plan names with prices.
+// ai-models-widget-display.ts owns the rules and the formats of money, multiples and dates; this
+// file writes them into screens. Fixed sets travel as one-letter codes, and the widget holds
+// their labels. The widget also holds the fixed words that would repeat on every row or every
+// page and cost 30 to 300 bytes of each answer (spec #2034 lists them among the bot's texts):
 // - «Цена/качество»: the header «По независимым замерам, без мнения автора» and the footer
 //   «Мощность: рейтинг агентов Arena. Цена: одна задача по API. Здесь модели, которым нет замены
 //   сильнее и дешевле одновременно.»;
@@ -44,8 +62,39 @@ import { AI_MODELS_WIDGET_MARK } from "../ai-models-requests.js";
 //   the vendor states in dollars (spec #2034 marks it «лимит OpenCode»), v the vendor's words.
 // - filter: p «Мощные», f «⭐ Мой выбор», v «Цена/качество», c «Дёшево».
 
+const BADGE_CODES = {
+  favorite: "f",
+  confident: "c",
+  "mid-tasks": "m",
+  pricey: "p",
+  wasteful: "w",
+} as const;
+/** A badge of the author's opinion. */
+type BadgeCode = (typeof BADGE_CODES)[keyof typeof BADGE_CODES];
+/** The badges in their order; "b" is «Риск бана», which the services' ban risks give. */
+const BADGE_ORDER: readonly (BadgeCode | "b")[] = [
+  "f",
+  "c",
+  "m",
+  "p",
+  "w",
+  "b",
+];
+const RISK_CODES = { high: "h", medium: "m", low: "l" } as const;
+type RiskCode = (typeof RISK_CODES)[keyof typeof RISK_CODES];
+const RUSSIA_CODES = { yes: "y", no: "n", unknown: "u" } as const;
+type RussiaCode = (typeof RUSSIA_CODES)[keyof typeof RUSSIA_CODES];
+const TAG_WORDS = {
+  code: "код",
+  texts: "тексты",
+  research: "поиск и анализ",
+  agents: "агенты",
+  "cheap-bulk": "дёшево и много",
+} as const;
+/** Models on a page of the list; group titles do not count. */
+const PAGE_MODELS = 7;
+
 type Flag = 0 | 1;
-export type AiModelsFilter = "p" | "f" | "v" | "c";
 
 /**
  * A model in a list: `code|name|power|leader|badges|price|plan|summary`.
@@ -79,7 +128,10 @@ export type AiModelsListData = readonly [
  * A line of «Мнение автора»: a badge code and the author's text. Ban risk carries its level,
  * "bh", "bm" or "bl"; the advice has no badge, "". Badges come in the badge order, the advice last.
  */
-export type AiModelsOpinionLine = readonly [badge: string, text: string];
+export type AiModelsOpinionLine = readonly [
+  badge: BadgeCode | `b${RiskCode}` | "",
+  text: string,
+];
 
 /** The head shared by both tabs of a card. `priceLevel` 1 to 5 by the task price. */
 type CardHead = readonly [
@@ -140,8 +192,8 @@ export type AiModelsPlanRow = string;
 /** A service with the model's plans in the model's order. `banRisk` is empty without a risk. */
 export type AiModelsServiceGroup = readonly [
   name: string,
-  banRisk: "" | "h" | "m" | "l",
-  russia: string,
+  banRisk: "" | RiskCode,
+  russia: `${RussiaCode}${RussiaCode}`,
   plans: readonly AiModelsPlanRow[],
 ];
 /** Tab «Подписки». No groups: the model is sold only through the API. */
@@ -173,9 +225,6 @@ export type AiModelsScreenData =
 
 export type AiModelsWidgetData = AiModelsScreenData | AiModelsFailureData;
 
-export const utf8ByteLength = (text: string): number =>
-  Buffer.byteLength(text, "utf8");
-
 export function encodeAiModelsWidgetData(data: AiModelsWidgetData): string {
   const text = JSON.stringify(data);
   const bytes = utf8ByteLength(text);
@@ -186,83 +235,13 @@ export function encodeAiModelsWidgetData(data: AiModelsWidgetData): string {
   return text;
 }
 
-/**
- * Codes of services, plans, models and favorite groups in the Справочник; the requests for a
- * card carry a model code.
- */
-export const AI_MODELS_CODE_PATTERN = "[a-z0-9][a-z0-9-]{0,15}";
-
-// Requests ------------------------------------------------------------------------------------
-
-export type AiModelsWidgetRequest =
-  | {
-      readonly kind: "list";
-      readonly filter: AiModelsFilter;
-      readonly page: number;
-    }
-  /** Tab «Главное» of a card. */
-  | { readonly kind: "card"; readonly model: string }
-  /** Tab «Подписки» of a card. */
-  | { readonly kind: "subscriptions"; readonly model: string }
-  | { readonly kind: "about" };
-
-const FILTERS: readonly AiModelsFilter[] = ["p", "f", "v", "c"];
-const listRequest = /^l([pfvc])([0-9]{1,2})$/;
-const cardRequest = new RegExp(`^([ms])(${AI_MODELS_CODE_PATTERN})$`);
-
-/**
- * Reads `widget_query.data`, mark included. The text comes from a public widget: an unknown or
- * malformed request yields `undefined`, and a known one still has to match the Справочник.
- */
-export function parseAiModelsWidgetRequest(
-  marked: string,
-): AiModelsWidgetRequest | undefined {
-  if (
-    !marked.startsWith(AI_MODELS_WIDGET_MARK) ||
-    utf8ByteLength(marked) > TELEGRAM_WIDGET_REQUEST_MAX_BYTES
-  )
-    return undefined;
-  const data = marked.slice(AI_MODELS_WIDGET_MARK.length);
-  if (data === "a") return { kind: "about" };
-  const list = listRequest.exec(data);
-  const filter = FILTERS.find((known) => known === list?.[1]);
-  if (filter !== undefined)
-    return { kind: "list", filter, page: Number(list?.[2]) };
-  const card = cardRequest.exec(data);
-  if (card?.[2] !== undefined)
-    return {
-      kind: card[1] === "m" ? "card" : "subscriptions",
-      model: card[2],
-    };
-  return undefined;
-}
-
-/** The text the widget sends for the request, mark included. */
-export function formatAiModelsWidgetRequest(
-  request: AiModelsWidgetRequest,
-): string {
-  const data = (() => {
-    switch (request.kind) {
-      case "list":
-        return `l${request.filter}${String(request.page)}`;
-      case "card":
-        return `m${request.model}`;
-      case "subscriptions":
-        return `s${request.model}`;
-      case "about":
-        return "a";
-    }
-  })();
-  return AI_MODELS_WIDGET_MARK + data;
-}
-
 /** Every request the widget can send for this Справочник: every page, card tab and «О данных». */
 export function aiModelsRequests(
   reference: AiModelsReference,
 ): AiModelsWidgetRequest[] {
-  const models = byRank(reference.models);
+  const models = aiModelsByRank(reference.models);
   return [
-    ...FILTERS.flatMap((filter) =>
+    ...AI_MODELS_FILTERS.flatMap((filter) =>
       Array.from(
         { length: listPages(reference, filter).length },
         (_, page): AiModelsWidgetRequest => ({ kind: "list", filter, page }),
@@ -297,7 +276,7 @@ export function aiModelsResponse(
       return model && subscriptionsData(reference, model);
     }
     case "about":
-      return ["a", fullDate(reference.checkedOn), reference.about];
+      return ["a", aiModelsFullDate(reference.checkedOn), reference.about];
   }
 }
 
@@ -310,100 +289,13 @@ export function aiModelsChatData(
   return data;
 }
 
-// Display rules -------------------------------------------------------------------------------
-
-/** Dots of Мощность: ten places of the Arena table per dot, five for the first ten. */
-export function aiModelsPower(arenaRank: number): number {
-  if (arenaRank <= 10) return 5;
-  if (arenaRank <= 20) return 4;
-  if (arenaRank <= 30) return 3;
-  if (arenaRank <= 40) return 2;
-  return 1;
-}
-
-/** The two leaders of the Arena table get a coloured last dot. */
-const leader = (model: AiModelsModel): Flag => (model.arenaRank <= 2 ? 1 : 0);
-
-/** Price level 1 to 5 by the price of one task through the API. */
-export function aiModelsPriceLevel(taskUsd: number): number {
-  if (taskUsd >= 5) return 5;
-  if (taskUsd >= 2) return 4;
-  if (taskUsd >= 1) return 3;
-  if (taskUsd >= 0.3) return 2;
-  return 1;
-}
-
-const NBSP = "\u00a0";
-
-/** "$20", "$19,99", "$0,30", "$1 234,50": whole dollars without cents, otherwise two digits. */
-export function aiModelsUsd(usd: number): string {
-  const [whole = "", cents] = (
-    Number.isInteger(usd) ? String(usd) : usd.toFixed(2)
-  ).split(".");
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
-  return `$${grouped}${cents === undefined ? "" : `,${cents}`}`;
-}
-
-/** An estimate in round money: whole dollars below $100, tens below $1 000, hundreds above. */
-export function aiModelsEstimateUsd(usd: number): string {
-  const step = usd < 100 ? 1 : usd < 1000 ? 10 : 100;
-  const rounded = Math.round(usd / step) * step;
-  // $99,6 rounds to $100, which is written like the other round hundreds.
-  return aiModelsUsd(rounded);
-}
-
-/**
- * How many times the estimate exceeds the price, with «раз» or «раза»: whole from 10, with one
- * decimal below it. Empty when it is not above the price after rounding.
- */
-export function aiModelsMultiple(ratio: number): string {
-  const value = ratio >= 10 ? Math.round(ratio) : Math.round(ratio * 10) / 10;
-  if (value <= 1) return "";
-  if (!Number.isInteger(value))
-    return `${String(value).replace(".", ",")} раза`;
-  const lastTwo = value % 100;
-  const last = value % 10;
-  const few = last >= 2 && last <= 4 && !(lastTwo >= 12 && lastTwo <= 14);
-  return `${String(value)} ${few ? "раза" : "раз"}`;
-}
-
-const shortDate = (isoDate: string): string => {
-  const [, month, day] = isoDate.split("-");
-  return `${day ?? ""}.${month ?? ""}`;
-};
-const fullDate = (isoDate: string): string => {
-  const [year, month, day] = isoDate.split("-");
-  return `${day ?? ""}.${month ?? ""}.${year ?? ""}`;
-};
-
-const BADGE_CODES = {
-  favorite: "f",
-  confident: "c",
-  "mid-tasks": "m",
-  pricey: "p",
-  wasteful: "w",
-} as const;
-const BADGE_ORDER = ["f", "c", "m", "p", "w", "b"];
-const RISK_CODES = { high: "h", medium: "m", low: "l" } as const;
-const RUSSIA_CODES = { yes: "y", no: "n", unknown: "u" } as const;
-const TAG_WORDS = {
-  code: "код",
-  texts: "тексты",
-  research: "поиск и анализ",
-  agents: "агенты",
-  "cheap-bulk": "дёшево и много",
-} as const;
-export const AI_MODELS_PAGE_MODELS = 7;
-
-const byRank = (models: readonly AiModelsModel[]): AiModelsModel[] =>
-  [...models].sort((a, b) => a.arenaRank - b.arenaRank);
-const byTaskPrice = (models: readonly AiModelsModel[]): AiModelsModel[] =>
-  [...models].sort((a, b) =>
-    a.taskUsd === b.taskUsd ? a.arenaRank - b.arenaRank : a.taskUsd - b.taskUsd,
-  );
+// Screens -------------------------------------------------------------------------------------
 
 const findModel = (reference: AiModelsReference, code: string) =>
   reference.models.find((model) => model.code === code);
+
+const leader = (model: AiModelsModel): Flag =>
+  isAiModelsLeader(model) ? 1 : 0;
 
 /** Services whose ban risk the author gives to the model, in the order of the file's services. */
 function banRisks(reference: AiModelsReference, model: AiModelsModel) {
@@ -417,41 +309,14 @@ function banRisks(reference: AiModelsReference, model: AiModelsModel) {
 function badgeCodes(
   reference: AiModelsReference,
   model: AiModelsModel,
-): string[] {
-  const codes = new Set<string>(
+): (BadgeCode | "b")[] {
+  const codes = new Set<BadgeCode | "b">(
     (reference.author.models[model.code]?.badges ?? []).map(
       ({ badge }) => BADGE_CODES[badge],
     ),
   );
   if (banRisks(reference, model).length > 0) codes.add("b");
   return BADGE_ORDER.filter((code) => codes.has(code));
-}
-
-/** The cheapest plan with the model that is not a promo; undefined when the model is API only. */
-function cheapestPlan(
-  reference: AiModelsReference,
-  model: AiModelsModel,
-): number | undefined {
-  const prices = model.subscriptions
-    .filter(({ promo }) => promo !== true)
-    .flatMap(({ plan }) => {
-      const found = reference.plans.find(({ code }) => code === plan);
-      return found ? [found.usdPerMonth] : [];
-    });
-  return prices.length > 0 ? Math.min(...prices) : undefined;
-}
-
-/** Models without another model that is both higher in Arena and cheaper per task. */
-function valueModels(reference: AiModelsReference): AiModelsModel[] {
-  return byTaskPrice(
-    reference.models.filter(
-      (model) =>
-        !reference.models.some(
-          (other) =>
-            other.arenaRank < model.arenaRank && other.taskUsd < model.taskUsd,
-        ),
-    ),
-  );
 }
 
 /** A model row and the group it is shown in, for the filter «Мой выбор». */
@@ -466,14 +331,14 @@ function listed(
 ): Listed[] {
   switch (filter) {
     case "p":
-      return byRank(reference.models).map((model) => ({ model }));
+      return aiModelsByRank(reference.models).map((model) => ({ model }));
     case "v":
-      return valueModels(reference).map((model) => ({ model }));
+      return aiModelsValueModels(reference).map((model) => ({ model }));
     case "c":
-      return byTaskPrice(reference.models).map((model) => ({ model }));
+      return aiModelsByTaskPrice(reference.models).map((model) => ({ model }));
     case "f":
       return reference.author.favoriteGroups.flatMap(({ code, title }) =>
-        byRank(reference.models)
+        aiModelsByRank(reference.models)
           .filter((model) =>
             (reference.author.models[model.code]?.badges ?? []).some(
               ({ badge, groups }) =>
@@ -492,8 +357,8 @@ function listPages(
 ): Listed[][] {
   const all = listed(reference, filter);
   const pages: Listed[][] = [];
-  for (let start = 0; start < all.length; start += AI_MODELS_PAGE_MODELS)
-    pages.push(all.slice(start, start + AI_MODELS_PAGE_MODELS));
+  for (let start = 0; start < all.length; start += PAGE_MODELS)
+    pages.push(all.slice(start, start + PAGE_MODELS));
   return pages.length > 0 ? pages : [[]];
 }
 
@@ -517,7 +382,7 @@ function listData(
     filter,
     page,
     pages.length,
-    shortDate(reference.checkedOn),
+    aiModelsShortDate(reference.checkedOn),
     rows,
   ];
 }
@@ -532,7 +397,8 @@ function listRow(
   );
   const price =
     filter === "v" || filter === "c" ? aiModelsUsd(model.taskUsd) : "";
-  const cheapest = filter === "c" ? cheapestPlan(reference, model) : undefined;
+  const cheapest =
+    filter === "c" ? aiModelsCheapestPlan(reference, model) : undefined;
   return [
     model.code,
     model.name,
@@ -561,7 +427,7 @@ function cardData(
 ): AiModelsCardData {
   const opinion = reference.author.models[model.code];
   const badges = (opinion?.badges ?? [])
-    .map(({ badge, text }): AiModelsOpinionLine => [BADGE_CODES[badge], text])
+    .map(({ badge, text }) => [BADGE_CODES[badge], text] as const)
     .sort(([a], [b]) => BADGE_ORDER.indexOf(a) - BADGE_ORDER.indexOf(b));
   const bans = banRisks(reference, model).map(
     ({ banRisk, text }): AiModelsOpinionLine => [
@@ -606,53 +472,32 @@ function betterPick(
     : [pick.reason, ...first, ...second];
 }
 
-/** A plan row before neighbours fold: the plans it covers and its subscription. */
-interface PlanLine {
-  readonly plans: AiModelsPlan[];
-  readonly subscription: AiModelsSubscription;
-}
-
-/** Neighbouring plans fold when only their names and prices differ: the same vendor words. */
-const folds = (line: PlanLine, next: AiModelsSubscription): boolean =>
-  line.subscription.vendorWording !== undefined &&
-  line.subscription.vendorWording === next.vendorWording &&
-  line.subscription.note === next.note &&
-  (line.subscription.promo ?? false) === (next.promo ?? false);
-
 function subscriptionsData(
   reference: AiModelsReference,
   model: AiModelsModel,
 ): AiModelsSubscriptionsData {
-  const groups = new Map<string, PlanLine[]>();
-  for (const subscription of model.subscriptions) {
-    const plan = reference.plans.find(({ code }) => code === subscription.plan);
-    if (plan === undefined) continue;
-    const lines = groups.get(plan.service) ?? [];
-    groups.set(plan.service, lines);
-    const last = lines.at(-1);
-    if (last !== undefined && folds(last, subscription)) last.plans.push(plan);
-    else lines.push({ plans: [plan], subscription });
-  }
   return [
     "s",
     ...cardHead(model),
-    [...groups].flatMap(([code, lines]): AiModelsServiceGroup[] => {
-      const service = reference.services.find((found) => found.code === code);
-      if (service === undefined) return [];
-      const risk = reference.author.services[code];
-      return [
-        [
-          service.name,
-          risk === undefined ? "" : RISK_CODES[risk.banRisk],
-          RUSSIA_CODES[service.fromRussia] + RUSSIA_CODES[service.russianCard],
-          lines.map(planRow),
-        ],
-      ];
-    }),
+    [...aiModelsPlanLines(reference, model)].flatMap(
+      ([code, lines]): AiModelsServiceGroup[] => {
+        const service = reference.services.find((found) => found.code === code);
+        if (service === undefined) return [];
+        const risk = reference.author.services[code];
+        return [
+          [
+            service.name,
+            risk === undefined ? "" : RISK_CODES[risk.banRisk],
+            `${RUSSIA_CODES[service.fromRussia]}${RUSSIA_CODES[service.russianCard]}`,
+            lines.map(planRow),
+          ],
+        ];
+      },
+    ),
   ];
 }
 
-function planRow({ plans, subscription }: PlanLine): AiModelsPlanRow {
+function planRow({ plans, subscription }: AiModelsPlanLine): AiModelsPlanRow {
   const [first] = plans;
   const last = plans.at(-1);
   if (first === undefined || last === undefined)
@@ -663,17 +508,10 @@ function planRow({ plans, subscription }: PlanLine): AiModelsPlanRow {
   const from = folded || first.priceFrom ? "от " : "";
   const label = `${name} · ${from}${aiModelsUsd(price)}`;
   const { estimate } = subscription;
-  const basis =
-    estimate === undefined ? "v" : estimate.basis === "measured" ? "m" : "o";
-  const estimateText =
-    estimate === undefined
-      ? ""
-      : (basis === "m" ? `≈${NBSP}` : "") +
-        aiModelsEstimateUsd(estimate.apiUsdPerMonth);
   return [
     label,
-    basis,
-    estimateText,
+    estimate === undefined ? "v" : estimate.basis === "measured" ? "m" : "o",
+    estimate === undefined ? "" : aiModelsEstimate(estimate),
     estimate === undefined
       ? ""
       : aiModelsMultiple(estimate.apiUsdPerMonth / first.usdPerMonth),

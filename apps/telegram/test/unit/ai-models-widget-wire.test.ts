@@ -5,17 +5,21 @@ import {
   type AiModelsReference,
 } from "../../src/modules/ai-models/ai-models-reference-file.js";
 import {
-  aiModelsChatData,
+  aiModelsEstimateUsd,
   aiModelsMultiple,
   aiModelsPower,
   aiModelsPriceLevel,
-  aiModelsRequests,
-  aiModelsResponse,
-  aiModelsEstimateUsd,
   aiModelsUsd,
+} from "../../src/modules/ai-models/widget/ai-models-widget-display.js";
+import {
   formatAiModelsWidgetRequest,
   parseAiModelsWidgetRequest,
   type AiModelsWidgetRequest,
+} from "../../src/modules/ai-models/widget/ai-models-widget-request.js";
+import {
+  aiModelsChatData,
+  aiModelsRequests,
+  aiModelsResponse,
 } from "../../src/modules/ai-models/widget/ai-models-widget-wire.js";
 import { syntheticAiModelsReference } from "../support/synthetic-ai-models-reference.js";
 

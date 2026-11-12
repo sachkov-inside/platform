@@ -11,6 +11,7 @@ import {
   TELEGRAM_MESSAGES,
   type TelegramMessages,
 } from "../outbound/telegram-messages.js";
+import { TELEGRAM_WIDGET_TOO_OFTEN_TEXT } from "../outbound/telegram-widget-limits.js";
 import {
   AiModelsReferences,
   type StoredAiModelsReference,
@@ -18,19 +19,17 @@ import {
 import type { AiModelsOpening, AiModelsQuery } from "./ai-models-requests.js";
 import type { AiModelsOpeningDelivery } from "./ai-models-storage.js";
 import { AI_MODELS_WIDGET_HTML } from "./widget/ai-models-widget-html.generated.js";
+import { parseAiModelsWidgetRequest } from "./widget/ai-models-widget-request.js";
 import {
   aiModelsChatData,
   aiModelsResponse,
   encodeAiModelsWidgetData,
-  parseAiModelsWidgetRequest,
   type AiModelsWidgetData,
 } from "./widget/ai-models-widget-wire.js";
 
 const NO_REFERENCE_TEXT = "Раздел «ИИ-модели» скоро откроется.";
 const WIDGET_REJECTED_TEXT =
   "Раздел «ИИ-модели» не открылся. Обновите Telegram до последней версии и отправьте /models ещё раз.";
-/** The Trainer's wording, so both widgets refuse a press over the limit alike. */
-const TOO_OFTEN_TEXT = "Слишком часто. Повторите через несколько секунд.";
 /**
  * A request for a page or a model the current Справочник does not have: the message was sent
  * with an earlier Справочник, and a new widget shows the new one.
@@ -118,13 +117,14 @@ export class AiModels {
     if (!request) return this.reply(query.queryId, ["x"]);
     const stored = await this.references.current();
     const screen = stored && aiModelsResponse(stored.reference, request);
-    if (screen?.[0] === "m") await this.recordCardView(query, screen[1]);
+    if (screen !== undefined && request.kind === "card")
+      await this.recordCardView(query, request.model);
     await this.reply(query.queryId, screen ?? failure(stored));
   }
 
   /** The answer to a press over the per-user request limit. */
   async refuse(queryId: string): Promise<void> {
-    await this.reply(queryId, ["x", TOO_OFTEN_TEXT]);
+    await this.reply(queryId, ["x", TELEGRAM_WIDGET_TOO_OFTEN_TEXT]);
   }
 
   private reply(queryId: string, data: AiModelsWidgetData): Promise<void> {

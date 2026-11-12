@@ -19,7 +19,10 @@ import {
   AI_MODELS_MENU_BUTTON,
   AI_MODELS_WIDGET_MARK,
 } from "../../modules/ai-models/ai-models-requests.js";
-import { TELEGRAM_WIDGET_REQUEST_MAX_BYTES } from "../../modules/outbound/telegram-widget-limits.js";
+import {
+  TELEGRAM_WIDGET_REQUEST_MAX_BYTES,
+  utf8ByteLength,
+} from "../../modules/outbound/telegram-widget-limits.js";
 import type {
   TelegramUpdateCommand,
   TelegramUpdateTranslator,
@@ -707,7 +710,7 @@ function privateWidgetQuery(
     !query ||
     !hasText(telegramUserId) ||
     telegramUserId !== telegramId(query.chat.id) ||
-    Buffer.byteLength(query.data, "utf8") > TELEGRAM_WIDGET_REQUEST_MAX_BYTES
+    utf8ByteLength(query.data) > TELEGRAM_WIDGET_REQUEST_MAX_BYTES
   )
     return undefined;
   return {

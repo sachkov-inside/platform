@@ -1,19 +1,28 @@
 // The limits the Trainer derives from the limits of Telegram HTML widgets (Bot API 10.4).
 // docs/adr/0004-trainer-html-widget.md explains the choices.
 
-// Telegram's own limits apply to every widget of the bot; the outbound module owns them.
+import { TELEGRAM_WIDGET_FIT_WIDTHS_PX } from "../../outbound/telegram-widget-limits.js";
+
+// Telegram's own limits and the checks' measures apply to every widget of the bot; the outbound
+// module owns them.
 export {
   TELEGRAM_WIDGET_COMPRESSED_MAX_BYTES,
   TELEGRAM_WIDGET_DATA_MAX_BYTES,
+  TELEGRAM_WIDGET_FIT_WIDTHS_PX,
   TELEGRAM_WIDGET_HTML_MAX_BYTES,
   TELEGRAM_WIDGET_MAX_HEIGHT_PX,
   TELEGRAM_WIDGET_REQUEST_MAX_BYTES,
+  TELEGRAM_WIDGET_SMALLEST_FONT_PX,
+  TELEGRAM_WIDGET_TARGET_HEIGHT_PX,
+  TELEGRAM_WIDGET_TIME_BAND_PX,
+  utf8ByteLength,
 } from "../../outbound/telegram-widget-limits.js";
 
-/** The guide's target ceiling for every screen in a 320 px wide bubble. */
-export const TRAINER_WIDGET_TARGET_HEIGHT_PX = 560;
-/** Bubble widths the layout is checked at; 320 is the narrowest phone layout. */
-export const TRAINER_WIDGET_CHECKED_WIDTHS_PX = [320, 390, 430] as const;
+/** Bubble widths the screen checks draw at: the widths of the fit commands and 430. */
+export const TRAINER_WIDGET_CHECKED_WIDTHS_PX = [
+  ...TELEGRAM_WIDGET_FIT_WIDTHS_PX,
+  430,
+] as const;
 
 // Text limits (owner decision of 2026-11-11). A character limit is a coarse bound: what decides
 // is the 1 024 bytes of each answer, which the Bank import counts with trainerContextDataBytes
