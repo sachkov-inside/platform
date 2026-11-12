@@ -15,7 +15,6 @@
   const root = document.getElementById("w");
   /** Tallest screen the guide recommends at a 320 px bubble; the bubble clips at 600 px. */
   const MAX_HEIGHT = 560;
-  const MIN_FONT_SIZE = 11;
 
   let home;
   let current;
@@ -24,11 +23,11 @@
   let topics;
   let lastRequest;
   let questionFont;
-  let judging = false;
+  let judging;
   /** The page of the explanation the person reads, its pages and their size in characters. */
-  let page = 0;
+  let page;
   let parts;
-  let explanationSize = 200;
+  let explanationSize;
   widget.setResizeAnchor?.("bottom");
 
   const esc = (text) =>
@@ -149,14 +148,16 @@
         "bt P",
         d[5].length < d[6] ? "Дальше" : question[9] ? "Готово" : "К итогу",
       );
+    // The counter stands beside the verdict, above the text it counts the pages of.
+    const many = parts[1] || d[10];
     return (
-      `<div class=fb><b class="V ${!d[1] ? "B" : d[1] < 3 ? "G" : ""}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b><div class=W>${esc(parts[page])}</div>` +
+      `<div class=fb><div class=R><b class="V ${!d[1] ? "B" : d[1] < 3 ? "G" : ""}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b>${many ? `разбор ${page + 1}/${parts.length}` : ""}</div><div class=W>${esc(parts[page])}</div>` +
       (judging
         ? pair(vote(1), vote(2) + button("F", "bt", "←"))
-        : parts[1] || d[10]
+        : many
           ? arrows(
               page ? "E" + (page - 1) : part ? another + (part - 1) : "",
-              `${page + 1}/${parts.length}`,
+              "",
               parts[page + 1]
                 ? "E" + (page + 1)
                 : part + 1 < d[10]
@@ -178,31 +179,29 @@
       roundHead(
         answered ? d[5] : q[6],
         q[7],
-        review
-          ? ""
-          : answered
-            ? "<span class=n></span>"
-            : button("K", "bt n", "Не знаю"),
+        review || answered ? "" : button("K", "bt n", "Не знаю"),
         q[9],
       ) +
       // q[10]: the question has a context; the person may read it again at any moment.
       `<div class="R mu"><span class=F>${esc(q[2])}</span>${q[10] ? button("c" + q[1], "bt n", "Условие") : ""}</div><div class=Q>${esc(q[3])}</div>` +
+      // After the answer only the correct and the picked options stay: the room of the
+      // other wrong ones goes to the explanation.
       q[4]
         .map((text, i) =>
-          option(
-            i,
-            text,
-            answered
-              ? (d[2] >> i) & 1
-                ? " G Z"
-                : (d[3] >> i) & 1
-                  ? " B Z"
-                  : ""
-              : (picked >> i) & 1
-                ? " S Z"
-                : "",
-            !answered && !review,
-          ),
+          answered && !(((d[2] | d[3]) >> i) & 1)
+            ? ""
+            : option(
+                i,
+                text,
+                answered
+                  ? (d[2] >> i) & 1
+                    ? " G Z"
+                    : " B Z"
+                  : (picked >> i) & 1
+                    ? " S Z"
+                    : "",
+                !answered && !review,
+              ),
         )
         .join("") +
       feedback(answered ? d : null) +
@@ -317,8 +316,7 @@
         data[0] == "q" ? 120 - root.querySelector(".fb").offsetHeight : 0;
       for (
         let size = parseFloat(getComputedStyle(root).fontSize);
-        document.body.offsetHeight + reserve() >= MAX_HEIGHT &&
-        size > MIN_FONT_SIZE;
+        document.body.offsetHeight + reserve() >= MAX_HEIGHT && size > 11;
       )
         root.style.fontSize = --size + "px";
       if (inQuestion) questionFont = getComputedStyle(root).fontSize;
@@ -345,7 +343,7 @@
       // Each part of an explanation starts from its first page.
       if (data != current) {
         page = 0;
-        explanationSize = 200;
+        explanationSize = 500;
       }
       draw(data);
     } catch {

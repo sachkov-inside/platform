@@ -66,7 +66,8 @@ describe("trainer widget fit of a Bank file", () => {
       // One option's explanation, a space and the general one: 691 characters in two parts.
       expect(fit.explanationCharacters).toBe(691);
       expect(fit.explanationParts).toBe(2);
-      expect(fit.explanationPages).toBeGreaterThan(2);
+      // Each part fits one page: after the answer the other wrong options leave the screen.
+      expect(fit.explanationPages).toBe(2);
       // Every page of every answer is drawn: more pages than the longest answer alone has.
       expect(fit.pages).toBeGreaterThan(fit.explanationPages * 4);
       expect(fit.answered.heightPx).toBeLessThanOrEqual(560);
@@ -78,12 +79,15 @@ describe("trainer widget fit of a Bank file", () => {
   });
 
   it("reports a question the import accepts and the screen does not fit", async () => {
-    // Text of the widest letters alone passes the byte check and overflows a 320 px bubble.
+    // Text of the widest letters alone passes the byte check and overflows a 320 px bubble
+    // when every option stays after the answer: all four are correct or picked.
     const fits = await fitOf(
       accepted((question) => {
+        question.format = "multiple";
         question.text = wideText(200);
         question.options.forEach((option, index) => {
           option.text = wideText(58, index);
+          option.correct = index < 2;
         });
         question.explanation = wideText(600);
       }),

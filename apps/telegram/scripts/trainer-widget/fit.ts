@@ -179,8 +179,9 @@ async function fitOf(
         tallest = Math.max(tallest, drawn.heightPx);
         smallest = Math.min(smallest, drawn.fontPx);
         const counter = await page.evaluate(() =>
-          /^(\d+)\/(\d+)$/.exec(
-            document.querySelector(".fb span")?.textContent ?? "",
+          // The counter «разбор 2/3» stands beside the verdict when the part has pages.
+          /(\d+)\/(\d+)$/.exec(
+            document.querySelector(".fb .R")?.textContent ?? "",
           ),
         );
         if (counter === null) break;
