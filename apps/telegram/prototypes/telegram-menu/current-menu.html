@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бот Sachkov Inside: меню и экраны сейчас (12.11.2026)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 20px 48px;
+    background: var(--background, #fff); color: var(--foreground, #171717);
+    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  h2 { font-size: 17px; margin: 36px 0 4px; padding-top: 8px; border-top: 1px solid var(--border, #e5e5e5); }
+  h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted-foreground, #737373); font-weight: 600; }
+  p { margin: 6px 0; max-width: 860px; }
+  .lead { color: var(--muted-foreground, #737373); max-width: 860px; }
+  code { font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size: 12px;
+         background: var(--muted, #f5f5f5); padding: 1px 4px; border-radius: 4px; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 4px; }
+  nav a { text-decoration: none; font-size: 13px; padding: 4px 10px; border-radius: 999px;
+          border: 1px solid var(--border, #e5e5e5); color: var(--foreground, #171717);
+          background: var(--card, #fff); }
+  nav a:hover { background: var(--accent, #f5f5f5); color: var(--accent-foreground, #171717); }
+  table { border-collapse: collapse; margin: 8px 0; font-size: 13px; max-width: 1000px; }
+  th, td { border: 1px solid var(--border, #e5e5e5); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--muted, #f5f5f5); font-weight: 600; }
+  .note { border-left: 3px solid var(--chart-4, #f59e0b); padding: 6px 10px; margin: 10px 0;
+          background: var(--muted, #f5f5f5); max-width: 860px; border-radius: 0 6px 6px 0; }
+  .grid { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+
+  /* One screen: caption + Telegram mock. Telegram colours are a fixed palette scoped to .tg */
+  .screen { width: 340px; }
+  .cap { font-size: 12px; margin-bottom: 6px; }
+  .cap b { font-size: 13px; display: block; }
+  .cap .who { color: var(--muted-foreground, #737373); }
+  .src { font-size: 11px; color: var(--muted-foreground, #737373); margin-top: 6px; word-break: break-all; }
+  .src i { font-style: normal; color: var(--foreground, #171717); }
+  .tg { background: #c9d8b4; background-image: radial-gradient(circle at 20% 20%, #d7e3c0 0, transparent 40%),
+        radial-gradient(circle at 80% 70%, #bfd1a6 0, transparent 45%);
+        border-radius: 14px; padding: 12px 10px; color: #000; color-scheme: light; }
+  .bubble { background: #fff; border-radius: 12px 12px 12px 4px; padding: 7px 10px 6px; white-space: pre-wrap;
+            font-size: 14px; line-height: 1.38; box-shadow: 0 1px 1px rgba(0,0,0,.12); position: relative; }
+  .bubble .time { float: right; font-size: 11px; color: #8a9a8a; margin: 6px 0 0 8px; }
+  .user { margin-left: auto; width: fit-content; max-width: 80%; background: #e1fec6;
+          border-radius: 12px 12px 4px 12px; padding: 6px 10px; margin-bottom: 8px; font-size: 14px;
+          box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+  .kb { margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+  .btn { background: rgba(0, 0, 0, .22); color: #fff; border-radius: 8px; padding: 8px 10px;
+         text-align: center; font-size: 13.5px; font-weight: 500; position: relative; }
+  .btn.url::after { content: "↗"; position: absolute; right: 6px; top: 2px; font-size: 10px; opacity: .9; }
+  .btn.new { outline: 2px dashed #fff; }
+  .silent { font-style: italic; color: #4b5a3f; text-align: center; padding: 10px; font-size: 13px; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 999px; margin: 2px 4px 0 0;
+         background: var(--secondary, #f5f5f5); color: var(--secondary-foreground, #171717);
+         border: 1px solid var(--border, #e5e5e5); }
+  .tag.warn { border-color: var(--chart-4, #f59e0b); }
+  .tag.off { border-color: var(--destructive, #dc2626); }
+
+  /* Widget mocks: palette of the widget, independent of the chat theme */
+  .widget { background: #fff; border-radius: 12px; padding: 12px; font-size: 13px; color: #1c1c1e;
+            box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+  .widget .wt { font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: baseline; }
+  .widget .wt span { font-weight: 400; font-size: 12px; color: #6b7280; }
+  .widget .bar { height: 6px; background: #e5e7eb; border-radius: 3px; margin: 4px 0 10px; }
+  .widget .bar i { display: block; height: 100%; width: 40%; background: #34c759; border-radius: 3px; }
+  .widget .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; }
+  .widget .card b { display: block; }
+  .widget .card small { color: #6b7280; }
+  .widget .row2 { display: flex; gap: 6px; }
+  .widget .row2 div { flex: 1; text-align: center; border: 1px solid #e5e7eb; border-radius: 10px; padding: 7px; font-weight: 600; }
+  .widget .chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+  .widget .chips span { border: 1px solid #d1d5db; border-radius: 999px; padding: 2px 8px; font-size: 12px; }
+  .widget .chips span.on { background: #1c1c1e; color: #fff; border-color: #1c1c1e; }
+  .widget .m { padding: 5px 0; border-bottom: 1px solid #f0f0f0; }
+  .widget .m b { margin-right: 6px; }
+  .widget .m small { display: block; color: #6b7280; }
+  .dots { letter-spacing: 1px; font-size: 11px; color: #1c1c1e; }
+  .dots .g { color: #d4a017; }
+  .dots .e { color: #d1d5db; }
+  .pager { text-align: center; color: #6b7280; margin-top: 6px; }
+
+  /* Command menu mock */
+  .cmdmenu { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .cmdmenu div { padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+  .cmdmenu div span { color: #8a8a8a; margin-left: 8px; }
+  .inputbar { margin-top: 8px; background: #fff; border-radius: 20px; padding: 7px 10px; display: flex; gap: 8px;
+              align-items: center; color: #9a9a9a; font-size: 14px; }
+  .inputbar .menu { background: #3390ec; color: #fff; border-radius: 14px; padding: 3px 10px; font-weight: 600; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<h1>Бот Sachkov Inside: меню и экраны сейчас</h1>
+<p class="lead">Состояние на 12.11.2026, версия <code>telegram-v50</code> (вышел раздел «ИИ-модели»). Тексты и кнопки взяты из кода
+<code>apps/telegram/src</code>, ничего не придумано. Под каждым экраном указан файл, откуда он взят.
+Каждая кнопка в боте стоит на своей строке. Кнопка со стрелкой ↗ открывает ссылку, остальные меняют это же сообщение.
+Продукт «AI Engineering» и группа SachkovLearn взяты из примера в спецификации <code>learner-journeys-v1.md</code>.</p>
+
+<nav>
+  <a href="#map">Кто что видит</a>
+  <a href="#commands">Меню команд</a>
+  <a href="#guest">Новый посетитель</a>
+  <a href="#noproduct">Без продукта</a>
+  <a href="#learner">Участник курса</a>
+  <a href="#group">Вступление в группу</a>
+  <a href="#help">Помощь</a>
+  <a href="#activation">Активация курса</a>
+  <a href="#errors">Ошибки</a>
+  <a href="#admin">Владелец и админ</a>
+  <a href="#trainer">Тренажёр</a>
+  <a href="#models">ИИ-модели</a>
+  <a href="#other">Прочее</a>
+  <a href="#findings">Что бросается в глаза</a>
+</nav>
+
+<h2 id="map">Кто что видит после /start</h2>
+<p>Обычный <code>/start</code>, кнопка «Мои продукты», команда <code>/access</code> и текст «Мои доступы» ведут на один и тот же главный экран.
+Разница одна: <code>/start</code> присылает новое сообщение, а кнопка меняет текущее.</p>
+<table>
+  <tr><th>Кто</th><th>Главный экран</th><th>Кнопки сверху вниз</th></tr>
+  <tr><td>Новый посетитель, Telegram не привязан к аккаунту</td><td>«Inside»</td><td>Тренажёр, ИИ-модели, Открыть платформу ↗, Уже есть аккаунт ↗, Помощь</td></tr>
+  <tr><td>Привязан, продуктов нет</td><td>«Мои продукты», пусто</td><td>Тренажёр, ИИ-модели, На платформу ↗, Помощь</td></tr>
+  <tr><td>Участник курса (есть Product Access)</td><td>«Мои продукты»</td><td>по кнопке на продукт, Тренажёр, ИИ-модели, На платформу ↗, Помощь</td></tr>
+  <tr><td>Владелец или админ (право <code>communications:manage</code> или <code>platform:admin</code>)</td><td>«Мои продукты»</td><td>как у участника, плюс «Управление» внизу</td></tr>
+  <tr><td>Платформа не ответила</td><td>«Не удалось проверить доступ»</td><td>Тренажёр, ИИ-модели, Повторить, Помощь</td></tr>
+</table>
+
+<h2 id="commands">Меню команд Telegram</h2>
+<p>Это список, который Telegram показывает по кнопке «Меню» рядом с полем ввода. Сейчас в нём одна команда <code>/models</code> для личных чатов:
+владелец поставил её 12.11 через <code>setMyCommands</code>. Код бота список команд не задаёт: вызова <code>setMyCommands</code> в репозитории нет,
+поэтому описание команды здесь не показано.</p>
+<div class="grid">
+  <div class="screen">
+    <div class="cap"><b>Что видит человек сейчас</b><span class="who">личный чат с ботом, кнопка «Меню»</span></div>
+    <div class="tg">
+      <div class="cmdmenu"><div>/models <span>(описание задано вне репозитория)</span></div></div>
+      <div class="inputbar"><span class="menu">≡ Меню</span><span>Сообщение</span></div>
+    </div>
+    <div class="src">Источник: задача владельца от 12.11. В коде: <i>нет</i>. Бриф: <i>apps/telegram/docs/product/telegram-application-brief.md:160, :303</i></div>
+  </div>
+  <div class="screen" style="width:520px">
+    <div class="cap"><b>Какие команды бот понимает, но в меню их нет</b></div>
+    <table>
+      <tr><th>Команда</th><th>Что делает</th></tr>
+      <tr><td><code>/start</code></td><td>главный экран (см. выше)</td></tr>
+      <tr><td><code>/train</code></td><td>открывает Тренажёр</td></tr>
+      <tr><td><code>/access</code></td><td>главный экран, как <code>/start</code></td></tr>
+      <tr><td><code>/help</code></td><td>экран «Помощь»</td></tr>
+      <tr><td><code>/platform</code></td><td>«Войдите на платформу и подключите Telegram…»</td></tr>
+      <tr><td><code>/retry</code></td><td>повторная проверка активации; если проверять нечего, бот молчит</td></tr>
+      <tr><td><code>/community</code></td><td>вступление в группу; у привязанных сейчас всегда ошибка (см. «Что бросается в глаза»)</td></tr>
+      <tr><td><code>/stop</code>, <code>/resume</code></td><td>выключить и включить рассылки</td></tr>
+      <tr><td><code>/admin</code>, <code>/template</code>, <code>/cancel</code>, <code>/done</code></td><td>для автора: админка рассылок и заготовки</td></tr>
+    </table>
+    <div class="src">Источник: <i>adapters/telegram/grammy-update.adapter.ts:218-345</i>, <i>modules/communications/author-admin.ts</i></div>
+  </div>
+</div>
+
+<div id="screens"></div>
+
+<h2 id="findings">Что бросается в глаза</h2>
+<p>Это наблюдения по коду, а не решения. Пригодятся на шаге 2.</p>
+<table>
+  <tr><th>#</th><th>Что</th><th>Где</th></tr>
+  <tr><td>1</td><td>Главный экран один на всех. Тренажёр и «ИИ-модели» стоят рядом с продуктами, а про курс без аккаунта бот говорит только «На платформе доступны продукты».
+    Отдельного места «узнать про курс» нет.</td><td><code>learner-view.ts:24</code>, <code>course-activation.ts:322</code></td></tr>
+  <tr><td>2</td><td>Вход в админку («Управление») стоит последней кнопкой в списке продуктов. Внутри только рассылки и последовательности.
+    Отчёты Тренажёра и «ИИ-моделей» есть только как команды в терминале, в боте их нет.</td><td><code>learner-view.ts:40</code>, <code>operations/*-report-cli.ts</code></td></tr>
+  <tr><td>3</td><td><code>/community</code>, текст «Вступить в сообщество» и кнопка без продукта у привязанного человека всегда заканчиваются экраном «Не удалось проверить доступ».
+    При этом приветствие сообщества и сообщение о возврате в группу советуют отправить <code>/community</code>.</td><td><code>course-activation.ts:373-382</code></td></tr>
+  <tr><td>4</td><td>В production бот молчит на <code>/start m_…</code> (рассылки выключены), на старые ссылки привязки и на любую нераспознанную ссылку.</td><td><code>telegram-update-processor.ts:281-329</code></td></tr>
+  <tr><td>5</td><td>Кнопки «Мои доступы», «Нужна помощь», «Повторить проверку» больше нигде не показываются, но бот всё ещё понимает их как текст.</td><td><code>grammy-update.adapter.ts:218</code></td></tr>
+  <tr><td>6</td><td>Кнопка экрана A4 в коде называется «Проверить ещё раз», в спецификации «Проверить снова».</td><td><code>activation-view.ts:70</code></td></tr>
+  <tr><td>7</td><td><code>/cancel</code> от любого человека получает ответ «Режим заготовки закрыт.»</td><td><code>communications.ts:265</code></td></tr>
+</table>
+
+<script>
+// Screens. t: message text (verbatim from code), b: buttons, u: true for a link button.
+const U = true;
+const SECTIONS = [
+  { id: "guest", title: "Новый посетитель без аккаунта",
+    lead: "Telegram не привязан к аккаунту платформы. Тренажёр и «ИИ-модели» открываются без привязки.",
+    screens: [
+      { name: "B1. Обычный /start", who: "нет привязки", user: "/start",
+        t: "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
+        b: [["Тренажёр"], ["ИИ-модели"], ["Открыть платформу", U], ["Уже есть аккаунт", U], ["Помощь"]],
+        src: "modules/course-activation/course-activation.ts:322-337" },
+      { name: "/platform или «Открыть платформу» текстом", who: "нет привязки",  user: "/platform",
+        t: "Войдите на платформу и подключите Telegram, чтобы видеть свои продукты.",
+        b: [["Продолжить на платформе", U], ["Помощь"]],
+        src: "modules/course-activation/activation-view.ts:77-95" },
+    ] },
+  { id: "noproduct", title: "Привязан, продукта нет",
+    screens: [
+      { name: "B3. «Мои продукты», пусто", who: "привязан, Product Access нет", user: "/start",
+        t: "Мои продукты\n\nПока нет доступных продуктов. Посмотрите продукты на платформе. Если у вас есть ссылка для получения доступа, откройте её.",
+        b: [["Тренажёр"], ["ИИ-модели"], ["На платформу", U], ["Помощь"]],
+        src: "modules/course-activation/learner-view.ts:22-44" },
+    ] },
+  { id: "learner", title: "Участник курса (есть Product Access)",
+    lead: "Карточка продукта собирает две строки: про материалы и про группу. Кнопки «С чего начать» и «Навигация по группе» есть только у AI Engineering.",
+    screens: [
+      { name: "B2. «Мои продукты»", who: "есть продукт", user: "/start",
+        t: "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.",
+        b: [["AI Engineering"], ["Тренажёр"], ["ИИ-модели"], ["На платформу", U], ["Помощь"]],
+        src: "modules/course-activation/learner-view.ts:22-44" },
+      { name: "B4. Карточка: можно вступить в группу", who: "материалы и группа доступны, не в группе", user: "кнопка «AI Engineering»",
+        t: "AI Engineering\n\nМатериалы доступны. Вы можете вступить в группу курса.",
+        b: [["С чего начать", U], ["Открыть курс", U], ["Вступить в группу"], ["Помощь"], ["Назад к продуктам"]],
+        src: "modules/course-activation/learner-view.ts:62-107" },
+      { name: "B5. Карточка: уже в группе", who: "человек в группе",
+        t: "AI Engineering\n\nМатериалы доступны. Вы уже в группе курса.",
+        b: [["С чего начать", U], ["Открыть курс", U], ["Открыть группу", U], ["Навигация по группе", U], ["Помощь"], ["Назад к продуктам"]],
+        src: "modules/course-activation/learner-view.ts:62-130" },
+      { name: "B6. Карточка: вступление ограничено", who: "модератор ограничил вступление",
+        t: "AI Engineering\n\nМатериалы доступны. Вступление в группу ограничено.",
+        b: [["С чего начать", U], ["Открыть курс", U], ["Помощь"], ["Назад к продуктам"]],
+        src: "modules/course-activation/learner-view.ts:62-107" },
+      { name: "B6. Карточка: платформа не ответила", who: "права не проверились",
+        t: "AI Engineering\n\nНе удалось проверить доступ к материалам. Не удалось проверить доступ к группе.",
+        b: [["Помощь"], ["Назад к продуктам"]],
+        src: "modules/course-activation/learner-view.ts:62-107" },
+      { name: "B6. Карточка: доступ завершён или отозван", who: "в коде есть; при бессрочном доступе бывает редко",
+        t: "AI Engineering\n\nДоступ к материалам завершён. Доступ к группе завершён.",
+        b: [["Помощь"], ["Назад к продуктам"]],
+        note: "Вместо «завершён» бывает «отозван».",
+        src: "modules/course-activation/learner-view.ts:62-107" },
+    ] },
+  { id: "group", title: "Вступление в группу",
+    lead: "Человек нажал «Вступить в группу» на карточке продукта. Сначала бот пишет «Проверяем доступ к группе…», потом меняет это сообщение на результат. Через 10 секунд без ответа показывает ошибку.",
+    screens: [
+      { name: "C1. Проверка", user: "кнопка «Вступить в группу»", t: "Проверяем доступ к группе…", b: [],
+        src: "modules/course-activation/course-activation.ts:196-201" },
+      { name: "C2. Ссылка готова",
+        t: "AI Engineering\n\nМожно вступить в группу курса.",
+        b: [["Вступить в группу", U], ["С чего начать", U], ["Открыть курс", U], ["Назад к продукту"]],
+        src: "modules/course-activation/course-activation.ts:400-428" },
+      { name: "Уже в группе",
+        t: "AI Engineering\n\nВы уже в группе курса.",
+        b: [["Открыть группу", U], ["Навигация по группе", U], ["С чего начать", U], ["Открыть курс", U], ["Назад к продукту"]],
+        src: "modules/course-activation/course-activation.ts:400-428" },
+      { name: "C3. Ограничение модератора",
+        t: "AI Engineering\n\nВступление в группу ограничено. Напишите в поддержку, чтобы уточнить причину.",
+        b: [["Написать в поддержку", U], ["С чего начать", U], ["Открыть курс", U], ["Назад к продукту"]],
+        src: "modules/course-activation/course-activation.ts:400-428" },
+      { name: "Группа готовится или права нет",
+        t: "Не удалось проверить доступ. Попробуйте ещё раз.",
+        b: [["Повторить"], ["Помощь"], ["С чего начать", U], ["Открыть курс", U], ["Назад к продукту"]],
+        src: "modules/course-activation/course-activation.ts:413-428" },
+      { name: "Приветствие сообщества", who: "приходит само один раз, когда у аккаунта появилось право на сообщество",
+        t: "Добро пожаловать! Доступ к сообществу открыт.\n\nНачни с кнопки «Мои продукты»: выбери свой курс, открой материалы и посмотри, с чего начать обучение. Уроки находятся на платформе, а вопросы и обсуждения в группе.\n\nВступить в группу можно по личной ссылке ниже. Она действует несколько минут. Если не успеешь, запроси новую ссылку командой /community.\n\nЕсли нужна помощь с доступом, напиши в поддержку.\nhttps://t.me/+…",
+        b: [["Мои продукты"], ["Вступить в группу", U], ["Нужна помощь", U]],
+        note: "Текст по умолчанию; его можно заменить переменной TELEGRAM_COMMUNITY_WELCOME_TEXT.",
+        src: "modules/community/community-welcome.ts:24-33, community-provider.ts:1527-1557" },
+    ] },
+  { id: "help", title: "Помощь",
+    lead: "Открывается кнопкой «Помощь» с любого экрана или командой /help. Из карточки продукта помощь помнит продукт: внизу «Назад к продукту», в H3 первая кнопка «Открыть продукт».",
+    screens: [
+      { name: "H1. Меню помощи", user: "кнопка «Помощь»",
+        t: "Помощь\n\nВыберите, с чем нужна помощь.",
+        b: [["Не вижу продукт"], ["Не могу вступить в группу"], ["Не могу войти"], ["Написать в поддержку", U], ["Назад"]],
+        src: "modules/course-activation/learner-view.ts:181-204" },
+      { name: "H2. Не вижу продукт",
+        t: "Проверьте, что вошли в аккаунт, в котором получали доступ, и подключили к нему Telegram. Если у вас есть ссылка для получения доступа, откройте её в боте.",
+        b: [["Открыть аккаунт", U], ["Написать в поддержку", U], ["Назад"]],
+        src: "modules/course-activation/learner-view.ts:157-161" },
+      { name: "H3. Не могу вступить в группу",
+        t: "Откройте продукт в боте и нажмите кнопку входа в группу. Если бот сообщает об ограничении, напишите в поддержку.",
+        b: [["Мои продукты"], ["Написать в поддержку", U], ["Назад"]],
+        src: "modules/course-activation/learner-view.ts:162-166" },
+      { name: "H4. Не могу войти",
+        t: "Начните вход на платформе ещё раз. Если раньше входили по почте, используйте ту же почту. Подтвердите вход в том же браузере, где начали его.",
+        b: [["Войти на платформу", U], ["Написать в поддержку", U], ["Назад"]],
+        src: "modules/course-activation/learner-view.ts:167-180" },
+    ] },
+  { id: "activation", title: "Активация курса",
+    lead: "Прежний участник курса открывает ссылку владельца вида t.me/<бот>?start=a_<код> (например, кнопку в группе курса). Бот проверяет участие в группе-источнике, потом платформа выдаёт доступ. Сообщение о проверке потом меняется на результат.",
+    screens: [
+      { name: "A1. Проверка участия", user: "/start a_код",
+        t: "AI Engineering\n\nПроверяем участие в SachkovLearn…", b: [],
+        src: "modules/course-activation/course-activation.ts:690-704" },
+      { name: "A2. Участие подтверждено, нужен аккаунт", who: "Telegram не привязан",
+        t: "AI Engineering\n\nУчастие в SachkovLearn подтверждено. Продолжите на платформе, чтобы получить доступ к курсу.",
+        b: [["Продолжить на платформе", U], ["Помощь"]],
+        src: "modules/course-activation/course-activation.ts:770-795" },
+      { name: "A3. Доступ выдан", who: "привязан, платформа подтвердила",
+        t: "AI Engineering\n\nКурс доступен. Открывайте материалы и присоединяйтесь к группе курса.",
+        b: [["С чего начать", U], ["Открыть курс", U], ["Вступить в группу"], ["Помощь"], ["Назад к продуктам"]],
+        note: "Если человек уже в группе: «Курс доступен. Вы уже в группе курса.» и кнопки группы.",
+        src: "modules/course-activation/course-activation.ts:884-893" },
+      { name: "A4. Участие не подтверждено",
+        t: "Доступ по этой ссылке предназначен для участников SachkovLearn. Не удалось подтвердить ваше участие. Проверьте, что открыли бота тем аккаунтом, которым пользуетесь в группе.",
+        b: [["Проверить ещё раз"], ["Помощь"]],
+        src: "modules/course-activation/activation-view.ts:135-142, 24-76" },
+      { name: "Передано владельцу на разбор",
+        t: "Доступ пока не подтверждён.\n\nЗапрос передан автору курса.",
+        b: [["Проверить ещё раз"], ["Помощь"]],
+        src: "modules/course-activation/activation-view.ts:131-134, course-activation.ts:1021" },
+      { name: "Основание не подтверждено",
+        t: "Доступ пока не подтверждён.\n\nЕсли вы учились на курсе, но вас нет в его группе, напишите автору.",
+        b: [["Проверить ещё раз"], ["Помощь"]],
+        src: "modules/course-activation/activation-view.ts:103-120" },
+      { name: "E2. Ссылка не работает", who: "правило на паузе, не найдено или активация выключена",
+        t: "Получение доступа по этой ссылке сейчас недоступно.",
+        b: [["Помощь"], ["Мои продукты"]],
+        note: "Без привязки вместо «Мои продукты» стоит «На платформу» ↗.",
+        src: "modules/course-activation/course-activation.ts:118-126, 908-919" },
+      { name: "Условия изменились",
+        t: "Условия доступа обновились. Нажмите «Проверить ещё раз».",
+        b: [["Проверить ещё раз"], ["Помощь"]],
+        src: "modules/course-activation/activation-view.ts:114-115" },
+      { name: "Конфликт аккаунтов",
+        t: "Не удалось связать Telegram с аккаунтом. Напишите автору курса.",
+        b: [["Помощь"]],
+        src: "modules/course-activation/activation-view.ts:110-111" },
+      { name: "Платформа не ответила",
+        t: "Не удалось проверить доступ.\n\nПопробуйте ещё раз чуть позже.",
+        b: [["Проверить ещё раз"], ["Помощь"]],
+        src: "modules/course-activation/activation-view.ts:117-120, 143-144" },
+    ] },
+  { id: "errors", title: "Ошибки",
+    screens: [
+      { name: "E1. Главный экран не загрузился", who: "платформа не ответила на /start", user: "/start",
+        t: "Не удалось проверить доступ. Попробуйте ещё раз.",
+        b: [["Тренажёр"], ["ИИ-модели"], ["Повторить"], ["Помощь"]],
+        src: "modules/course-activation/course-activation.ts:432-455" },
+      { name: "E1. Действие не уложилось в 10 секунд", who: "проверка или вступление в группу",
+        t: "Не удалось проверить доступ. Попробуйте ещё раз.",
+        b: [["Повторить"], ["Помощь"]],
+        src: "modules/course-activation/course-activation.ts:170-190" },
+      { name: "/community у привязанного человека", user: "/community",
+        t: "Не удалось проверить доступ. Попробуйте ещё раз.",
+        b: [["Повторить"], ["Помощь"]],
+        note: "Сейчас так заканчивается всегда, см. «Что бросается в глаза», пункт 3.",
+        src: "modules/course-activation/course-activation.ts:373-382" },
+      { name: "Аккаунт привязан к другому Telegram",
+        t: "Связь аккаунта требует проверки владельца.", b: [],
+        src: "modules/course-activation/course-activation.ts:350" },
+      { name: "Слишком много запросов", who: "больше 10 действий за 10 секунд",
+        t: "Слишком много запросов подряд. Подождите несколько секунд и повторите.", b: [],
+        src: "modules/update-inbox/telegram-update-processor.ts:51-52" },
+      { name: "Бот молчит", who: "в production", user: "/start m_youtube",
+        silent: "Ответа нет. Так же бот молчит на старую ссылку привязки, на любую нераспознанную ссылку и на /retry, когда проверять нечего.",
+        src: "modules/update-inbox/telegram-update-processor.ts:281-329" },
+    ] },
+  { id: "admin", title: "Владелец и админ",
+    lead: "Кнопку «Управление» видит человек, чей аккаунт имеет право communications:manage или platform:admin. Бот спрашивает платформу при каждом открытии. Внутри только рассылки и последовательности сообщений; кнопки внутри меняются с каждым меню.",
+    screens: [
+      { name: "B2 с «Управлением»", who: "владелец или админ", user: "/start",
+        t: "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.",
+        b: [["AI Engineering"], ["Тренажёр"], ["ИИ-модели"], ["На платформу", U], ["Помощь"], ["Управление"]],
+        src: "modules/course-activation/learner-view.ts:40-42" },
+      { name: "Админка", user: "кнопка «Управление»",
+        t: "Админка коммуникаций",
+        b: [["Рассылки"], ["Последовательности"], ["Статистика"]],
+        note: "По /admin текст длиннее: «Админка коммуникаций. Текст и медиа готовьте здесь, в Telegram.»",
+        src: "modules/communications/author-admin.ts:355-359, author-transition.ts:286-292" },
+      { name: "Рассылки", user: "кнопка «Рассылки»",
+        t: "Рассылки",
+        b: [["Создать рассылку"], ["Сохранённые посты"], ["Ноябрьский эфир · Черновик"], ["В меню"]],
+        note: "Строка «Ноябрьский эфир» показывает формат «название · состояние», название придумано для примера.",
+        src: "modules/communications/author-transition.ts:219-235" },
+      { name: "Последовательности", user: "кнопка «Последовательности»",
+        t: "Последовательности · черновики сохраняются при каждом действии",
+        b: [["Создать последовательность"], ["Новая последовательность · Черновик"], ["В меню"]],
+        src: "modules/communications/author-sequences.ts:1046-1066" },
+      { name: "Статистика", user: "кнопка «Статистика»",
+        t: "Статистика сообщений\nОтправлено: 0\nОжидает: 0\nПропущено: 0\nОшибки: 0\nНеизвестный результат: 0",
+        b: [["Рассылки"], ["Последовательности"], ["Статистика"]],
+        src: "modules/communications/author-transition.ts:157" },
+      { name: "Нет прав", who: "не автор или Telegram не привязан", user: "/admin",
+        t: "Нет доступа к админке. Свяжите Telegram с аккаунтом, которому разрешено управление рассылками.", b: [],
+        src: "modules/communications/author-admin.ts:211-212" },
+      { name: "Меню устарело", who: "нажата кнопка старого меню",
+        t: "Это меню уже устарело. Незавершённое сообщение сохранено, если вы начали его создание.",
+        b: [["Рассылки"], ["Последовательности"], ["Статистика"]],
+        src: "modules/communications/author-transition.ts:136-140" },
+    ] },
+  { id: "trainer", title: "Тренажёр",
+    lead: "Открыт любому, кто запустил бота; аккаунт и продукт не нужны. Входы: кнопка «Тренажёр» на главном экране, /train, сообщение «Тренажёр», ссылка ?start=train или ?start=train_<метка>. Бот присылает одно сообщение-виджет, дальше всё происходит внутри него: Проверить себя, Вопрос дня, Тренировка по теме, Прогресс, Рейтинг.",
+    screens: [
+      { name: "Главный экран виджета", user: "кнопка «Тренажёр»", widget: "trainer",
+        note: "Серия и цель дня показаны для примера.",
+        src: "modules/trainer/widget/widget.js:218-225" },
+      { name: "Telegram не принял виджет", who: "старая версия Telegram",
+        t: "Тренажёр не открылся. Обновите Telegram до последней версии и отправьте /train ещё раз.", b: [],
+        src: "modules/trainer/trainer.ts:58-59" },
+    ] },
+  { id: "models", title: "ИИ-модели",
+    lead: "Вышел сегодня. Открыт любому, кто запустил бота. Входы: кнопка «ИИ-модели» сразу после «Тренажёра», /models, сообщение «ИИ-модели», ссылка ?start=models или ?start=models_<метка>. Сообщение-виджет сразу открывается на фильтре «Мощные». Модели ниже взяты из примера Справочника, а не из настоящего файла.",
+    screens: [
+      { name: "Список моделей", user: "кнопка «ИИ-модели»", widget: "models",
+        src: "modules/ai-models/widget/widget.js:81-124, docs/integrations/ai-models-reference-v1.example.json" },
+      { name: "Справочник не загружен",
+        t: "Раздел «ИИ-модели» скоро откроется.", b: [],
+        src: "modules/ai-models/ai-models.ts:30" },
+      { name: "Telegram не принял виджет",
+        t: "Раздел «ИИ-модели» не открылся. Обновите Telegram до последней версии и отправьте /models ещё раз.", b: [],
+        src: "modules/ai-models/ai-models.ts:31-32" },
+    ] },
+  { id: "other", title: "Прочее",
+    lead: "Сообщения, которые не входят в меню, но человек их видит.",
+    screens: [
+      { name: "/stop", user: "/stop",
+        t: "Сообщения выключены. Чтобы включить их снова, отправьте /resume.", b: [],
+        src: "modules/communications/marketing-entry.ts:98" },
+      { name: "/resume", user: "/resume",
+        t: "Сообщения включены. Пропущенные сообщения не придут.", b: [],
+        src: "modules/communications/marketing-entry.ts:97" },
+      { name: "Новый открытый материал", who: "рассылка о материале",
+        t: "Новый открытый материал\n\n<Название>\n\n<Описание>\n\nhttps://sachkov.dev/materials/…",
+        b: [["Открыть материал", U]],
+        src: "modules/communications/material-announcements.ts:27-35" },
+      { name: "Вход на сайт через бота", who: "в production выключено", user: "/start signin_…",
+        t: "Вы входите в Sachkov Inside?",
+        b: [["Подтвердить вход"], ["Отменить"]],
+        note: "После нажатия: «Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.» или «Вход отменён.»",
+        off: true,
+        src: "modules/bot-sign-in/bot-sign-in.ts:161, start-response-delivery-processor.ts:66-78" },
+    ] },
+];
+
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function widget(kind) {
+  if (kind === "trainer") return `<div class="widget">
+    <div class="wt">Тренажёр <span>Серия: 3 дня</span></div>
+    <div style="margin-top:8px;display:flex;justify-content:space-between"><span>Цель на сегодня</span><span>2 из 5 вопросов</span></div>
+    <div class="bar"><i></i></div>
+    <div class="card"><b>Проверить себя</b><small>5 вопросов, около 2 минут</small></div>
+    <div class="card"><b>Вопрос дня</b><small>Один вопрос, общий для всех</small></div>
+    <div class="card"><b>Тренировка по теме</b><small>10 вопросов по выбранной теме</small></div>
+    <div class="row2"><div>Прогресс</div><div>Рейтинг</div></div></div>`;
+  const rows = [["Atlas 3 Pro", 5, 1, "самая сильная в примере, но дорогая"], ["Boreal 2", 5, 2, "сильная и недорогая"],
+    ["Atlas 3 Mini", 5, 0, "почти как Pro, но дешевле"], ["Gale 4", 5, 0, "неплохая и дешёвая"],
+    ["Cirrus 7", 4, 0, "средняя по силе, есть в подписке от $6"], ["Delta 1", 3, 0, "очень дешёвая, для простых задач"],
+    ["Echo 5 Flash", 2, 0, "дешёвая, только по API"]];
+  const dots = (n, gold) => `<span class="dots">${"●".repeat(gold ? n - 1 : n)}${gold ? '<span class="g">●</span>' : ""}<span class="e">${"●".repeat(5 - n)}</span></span>`;
+  return `<div class="widget">
+    <div class="wt">ИИ-модели <span>Проверено 12.11 ›</span></div>
+    <div class="chips"><span class="on">Мощные</span><span>⭐ Мой выбор</span><span>Цена/качество</span><span>Дёшево</span></div>
+    ${rows.map(([n, p, g, s]) => `<div class="m"><b>${n}</b>${dots(p, g)}<small>${s}</small></div>`).join("")}
+    <div class="pager">‹ 1 из 2 ›</div></div>`;
+}
+
+function screen(s) {
+  const cap = `<div class="cap"><b>${esc(s.name)}</b>${s.who ? `<span class="who">${esc(s.who)}</span>` : ""}
+    ${s.off ? '<span class="tag off">выключено в production</span>' : ""}</div>`;
+  let body = "";
+  if (s.user) body += `<div class="user">${esc(s.user)}</div>`;
+  if (s.silent) body += `<div class="silent">${esc(s.silent)}</div>`;
+  else if (s.widget) body += widget(s.widget);
+  else {
+    body += `<div class="bubble">${esc(s.t)}<span class="time">12:00</span></div>`;
+    if (s.b.length) body += `<div class="kb">${s.b.map(([t, u]) => `<div class="btn${u ? " url" : ""}">${esc(t)}</div>`).join("")}</div>`;
+  }
+  const note = s.note ? `<div class="src" style="color:var(--foreground,#171717)">${esc(s.note)}</div>` : "";
+  return `<div class="screen">${cap}<div class="tg">${body}</div>${note}<div class="src">Код: <i>${esc(s.src)}</i></div></div>`;
+}
+
+document.getElementById("screens").innerHTML = SECTIONS.map(sec =>
+  `<h2 id="${sec.id}">${esc(sec.title)}</h2>${sec.lead ? `<p class="lead">${esc(sec.lead)}</p>` : ""}
+   <div class="grid">${sec.screens.map(screen).join("")}</div>`).join("");
+</script>
+</body>
+</html>
