@@ -767,7 +767,10 @@ export function ProgrammeDialog({
       >
         <div className={styles["grabber"]} aria-hidden="true" />
         <div className={styles["dialogHead"]}>
-          <h2>Программа</h2>
+          {/* Start at the title so opening the sheet does not highlight Close. */}
+          <h2 className={styles["dialogTitle"]} tabIndex={-1} autoFocus>
+            Программа
+          </h2>
           <button
             type="button"
             aria-label="Закрыть программу"

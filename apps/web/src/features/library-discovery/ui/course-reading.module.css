@@ -535,6 +535,9 @@ button.step {
   font-size: 1.125rem;
   font-weight: 600;
 }
+.dialogTitle:focus {
+  outline: none;
+}
 .dialogCourseLink {
   grid-column: 1 / -1;
   display: flex;

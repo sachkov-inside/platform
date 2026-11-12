@@ -399,6 +399,18 @@ export const PhoneProgramme: Story = {
       name: "Программа: AI Engineering",
     });
     await expect(dialog).toBeVisible();
+    const heading = within(dialog).getByRole("heading", {
+      name: "Программа",
+    });
+    const close = within(dialog).getByRole("button", {
+      name: "Закрыть программу",
+    });
+    await expect(heading).toHaveFocus();
+    await expect(getComputedStyle(heading).outlineStyle).toBe("none");
+    await expect(close.matches(":focus-visible")).toBe(false);
+    await userEvent.tab();
+    await expect(close).toHaveFocus();
+    await expect(close.matches(":focus-visible")).toBe(true);
     await expect(
       within(dialog).getByRole("link", { name: "К прохождению курса" }),
     ).toHaveAttribute("href", "/products/ai-engineering/programme");
