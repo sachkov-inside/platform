@@ -59,6 +59,8 @@ const productTables = [
   "product_chapters",
   "product_chapter_supplementary_materials",
   "product_programme_placements",
+  "product_topic_materials",
+  "product_topics",
   "product_material_removals",
   "published_material_product_memberships",
   "products",

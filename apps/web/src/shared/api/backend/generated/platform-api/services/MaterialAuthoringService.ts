@@ -2416,6 +2416,12 @@ export class MaterialAuthoringService {
       materialId: any;
       stepGroup: string | null;
     }>;
+    topics: Array<{
+      id: string;
+      materialIds: Array<string>;
+      name: string;
+      summary: string;
+    }>;
   }> {
     return this.httpRequest.request({
       method: 'GET',
@@ -2461,6 +2467,39 @@ export class MaterialAuthoringService {
     return this.httpRequest.request({
       method: 'PUT',
       url: '/authoring/products/{productId}/order',
+      path: {
+        'productId': productId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Replace the Product topics and their Materials without changing the catalogue or programme
+   * @returns any
+   * @throws ApiError
+   */
+  public updateAuthoringProductTopics({
+    productId,
+    requestBody,
+  }: {
+    productId: string,
+    requestBody: {
+      expectedOrderVersion: string;
+      topics: Array<{
+        id: any;
+        materialIds: Array<any>;
+        name: string;
+        summary: string;
+      }>;
+    },
+  }): CancelablePromise<{
+    orderVersion: string;
+    productId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/products/{productId}/topics',
       path: {
         'productId': productId,
       },

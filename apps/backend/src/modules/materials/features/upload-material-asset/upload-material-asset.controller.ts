@@ -142,6 +142,7 @@ export class UploadMaterialAssetController {
         "image_decode_failed",
         "invalid_upload",
         "mime_mismatch",
+        "unsafe_svg",
         "unsupported_file_type",
         "unsupported_image_type",
       ]),
@@ -284,6 +285,12 @@ function throwAssetUploadError(
         422,
         error.code,
         "Uploaded bytes are not an accepted Material asset",
+      );
+    case "unsafe_svg":
+      throw problemException(
+        422,
+        error.code,
+        "SVG uses an element, attribute or style outside the allowed list",
       );
   }
 }

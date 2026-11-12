@@ -427,8 +427,32 @@ describe("delegated Material authoring over MCP", () => {
         ok: true,
         value: {
           items: [{ materialId, ordinal: 1, stepGroup: "MCP instruction" }],
+          topics: [],
         },
       },
+    });
+    const programmed = successfulValue(
+      await callTool("product_load_composition", { productId: playlist["id"] }),
+    );
+    const productTopic = {
+      id: "77000000-0000-4000-8000-000000000002",
+      name: "MCP topic",
+      summary: "Grouped through MCP.",
+      materialIds: [materialId],
+    };
+    expect(
+      await callTool("product_set_topics", {
+        productId: playlist["id"],
+        expectedOrderVersion: programmed["orderVersion"],
+        topics: [productTopic],
+      }),
+    ).toMatchObject({ structuredContent: { ok: true } });
+    expect(
+      await callTool("product_load_composition", {
+        productId: playlist["id"],
+      }),
+    ).toMatchObject({
+      structuredContent: { ok: true, value: { topics: [productTopic] } },
     });
 
     const introduction = {

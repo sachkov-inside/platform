@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="475" viewBox="0 0 720 475" fill="none" role="img" aria-labelledby="t d">
+<title id="t">Короткая заметка и запись для следующего агента</title>
+<desc id="d">Заметка «у нас была проблема N+1» понятна только участникам беседы. Запись в CODING_STANDARDS.md называет ситуацию, когда правило применяется, подход, что делать вместо, и причину.</desc>
+<defs><style>
+.eb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px;letter-spacing:1.1px}
+.t{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;font-weight:500}
+.s{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:12.5px}
+.d{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px}
+.m{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12px}
+.mb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12.5px}
+.ms{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px}
+.mt{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;font-weight:500}
+.p{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11.5px;font-weight:500}
+.b{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11px;font-weight:600}
+.big{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:22px;font-weight:500;letter-spacing:-0.3px}
+@keyframes a-fade{from{opacity:0}}
+@keyframes a-rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes a-pop{from{opacity:0;transform:scale(.6)}}
+@keyframes a-draw{from{stroke-dashoffset:1}}
+@keyframes a-grow{from{transform:scaleY(0)}}
+@keyframes a-dim{to{opacity:.45}}
+.a-fade{animation:a-fade .4s ease-out both}
+.a-rise{animation:a-rise .5s cubic-bezier(.2,.8,.2,1) both}
+.a-pop{transform-box:fill-box;transform-origin:50% 50%;animation:a-pop .3s cubic-bezier(.2,.8,.2,1) both}
+.a-draw{stroke-dasharray:1;animation:a-draw .4s ease-out both}
+.a-grow{transform-box:fill-box;transform-origin:50% 0;animation:a-grow .5s cubic-bezier(.3,.8,.3,1) both}
+.a-dim{animation:a-dim .6s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.a-fade,.a-rise,.a-pop,.a-draw,.a-grow{animation:none}.a-dim{animation:none;opacity:.45}}
+</style></defs>
+<rect width="720" height="475" rx="20" fill="#F1EEE7"/>
+<g class="a-fade" style="animation-delay:0.00s"><text x="28" y="40" class="eb" fill="#67625A">КОРОТКАЯ ЗАМЕТКА</text></g>
+<g class="a-rise" style="animation-delay:0.10s"><rect x="28" y="56" width="664" height="48" rx="10" fill="#E4DFD4"/><text x="44" y="85" class="mb" fill="#1F1E1C">у нас была проблема N+1</text><text x="676" y="85" class="s" fill="#67625A" text-anchor="end">понятно, пока жив разговор</text></g>
+<g class="a-fade" style="animation-delay:0.50s"><text x="28" y="148" class="eb" fill="#67625A">ЗАПИСЬ ДЛЯ СЛЕДУЮЩЕГО АГЕНТА</text></g>
+<g class="a-rise" style="animation-delay:0.60s"><rect x="28" y="164" width="430" height="212" rx="12" fill="#FBFAF7" stroke="#C15F3C" stroke-width="1.5"/><path d="M28 200 H458" stroke="#D9D3C7"/><circle cx="46" cy="182.0" r="3.5" fill="#E4DFD4"/><circle cx="59" cy="182.0" r="3.5" fill="#E4DFD4"/><circle cx="72" cy="182.0" r="3.5" fill="#E4DFD4"/><text x="88" y="186.5" class="m" fill="#67625A">CODING_STANDARDS.md</text></g>
+<g class="a-fade" style="animation-delay:0.80s"><text x="48" y="228" class="mb" fill="#1F1E1C">При загрузке связанных данных для списка избегай</text></g>
+<g class="a-fade" style="animation-delay:0.88s"><text x="48" y="253" class="mb" fill="#1F1E1C">отдельного запроса к базе на каждую строку,</text></g>
+<g class="a-fade" style="animation-delay:0.96s"><text x="48" y="278" class="mb" fill="#1F1E1C">если эти данные можно получить вместе.</text></g>
+<g class="a-fade" style="animation-delay:1.04s"><text x="48" y="303" class="mb" fill="#1F1E1C">Используй совместную или пакетную загрузку.</text></g>
+<g class="a-fade" style="animation-delay:1.12s"><text x="48" y="328" class="mb" fill="#1F1E1C">Иначе число обращений к базе растёт</text></g>
+<g class="a-fade" style="animation-delay:1.20s"><text x="48" y="353" class="mb" fill="#1F1E1C">вместе с числом строк.</text></g>
+<path d="M476 212 h6 V283 h-6" fill="none" stroke="#C15F3C" stroke-width="1.5" pathLength="1" class="a-draw" style="animation-delay:1.50s;animation-duration:.3s"/>
+<g class="a-fade" style="animation-delay:1.70s"><text x="494" y="252.5" class="t" fill="#A44A2A">Ситуация</text><text x="569.2" y="252.5" class="s" fill="#67625A">когда применять</text></g>
+<path d="M476 287 h6 V308 h-6" fill="none" stroke="#C15F3C" stroke-width="1.5" pathLength="1" class="a-draw" style="animation-delay:1.85s;animation-duration:.3s"/>
+<g class="a-fade" style="animation-delay:2.05s"><text x="494" y="302.5" class="t" fill="#A44A2A">Подход</text><text x="552.4" y="302.5" class="s" fill="#67625A">что делать</text></g>
+<path d="M476 312 h6 V358 h-6" fill="none" stroke="#C15F3C" stroke-width="1.5" pathLength="1" class="a-draw" style="animation-delay:2.20s;animation-duration:.3s"/>
+<g class="a-fade" style="animation-delay:2.40s"><text x="494" y="340" class="t" fill="#A44A2A">Причина</text><text x="560.8" y="340" class="s" fill="#67625A">почему так</text></g>
+<g class="a-fade" style="animation-delay:2.70s"><path d="M28 406 H692" stroke="#CFC8BB" stroke-width="1"/><text x="28" y="432" class="ms" fill="#8E887D">Правило не запрещает любой запрос внутри цикла. Оно называет ситуацию, где данные можно получить</text><text x="28" y="449" class="ms" fill="#8E887D">вместе, и объясняет, почему отдельные запросы не подходят.</text></g>
+</svg>

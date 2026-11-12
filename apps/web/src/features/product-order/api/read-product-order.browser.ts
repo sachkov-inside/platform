@@ -28,6 +28,16 @@ const schema = z.discriminatedUnion("kind", [
           }),
         )
         .default([]),
+      topics: z
+        .array(
+          z.object({
+            id: z.uuid(),
+            materialIds: z.array(z.uuid()),
+            name: z.string(),
+            summary: z.string(),
+          }),
+        )
+        .default([]),
       items: z.array(
         z.object({
           chapterId: z.uuid().nullable().default(null),

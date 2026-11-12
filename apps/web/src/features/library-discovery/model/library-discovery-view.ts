@@ -56,6 +56,17 @@ export interface ProductChapter {
   readonly tasks?: readonly ProductChapterTask[];
 }
 
+/**
+ * Тема курса: авторская полка каталога «Материалы» одного продукта. Материал стоит не больше чем
+ * в одной теме своего продукта; порядок материалов внутри темы считает страница.
+ */
+export interface CatalogueTopic {
+  readonly id: string;
+  readonly materialIds: readonly string[];
+  readonly name: string;
+  readonly summary: string;
+}
+
 export interface DiscoveryTopic {
   readonly cover?: ContentCover | null | undefined;
   readonly id: string;
@@ -75,6 +86,8 @@ export type LibraryDiscoveryResult<
 > =
   | {
       readonly programmePlacements?: readonly ProgrammePlacement[] | undefined;
+      /** Темы курса в авторском порядке; у страниц, кроме продукта, их нет. */
+      readonly catalogueTopics?: readonly CatalogueTopic[] | undefined;
       readonly chapters: readonly ProductChapter[];
       readonly discoveryKind: DiscoveryKind;
       readonly hasNext: boolean;
@@ -86,6 +99,8 @@ export type LibraryDiscoveryResult<
     }
   | {
       readonly programmePlacements?: readonly ProgrammePlacement[] | undefined;
+      /** Темы курса в авторском порядке; у страниц, кроме продукта, их нет. */
+      readonly catalogueTopics?: readonly CatalogueTopic[] | undefined;
       readonly chapters: readonly ProductChapter[];
       readonly discoveryKind: DiscoveryKind;
       readonly kind: "empty";

@@ -3,6 +3,10 @@ import {
   statement as saleNoticesStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0119-sale-notices.js";
 import {
+  name as productTopicsName,
+  statement as productTopicsStatement,
+} from "../modules/products/infrastructure/postgres/migrations/0120-product-topics.js";
+import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0118-automatic-cancel-refund.js";
@@ -773,6 +777,7 @@ export const platformMigrations = [
     statement: automaticCancelRefundStatement,
   },
   { name: saleNoticesName, statement: saleNoticesStatement },
+  { name: productTopicsName, statement: productTopicsStatement },
 ] as const;
 
 export function migrateToLatest(

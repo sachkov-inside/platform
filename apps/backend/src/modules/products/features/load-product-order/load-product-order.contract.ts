@@ -23,6 +23,15 @@ export interface ProductOrderMaterialDto {
   readonly title: string | null;
 }
 
+/** A Product topic groups catalogue Materials for the reader; it is not the global Topic. */
+export interface ProductTopicDto {
+  readonly id: string;
+  /** Catalogue Materials of the topic, in catalogue order. */
+  readonly materialIds: readonly string[];
+  readonly name: string;
+  readonly summary: string;
+}
+
 export interface ProductOrderDto {
   readonly programmePlacements: readonly ProductProgrammePlacement[];
   readonly archived: boolean;
@@ -31,6 +40,7 @@ export interface ProductOrderDto {
   readonly name: string;
   readonly orderVersion: string;
   readonly productId: string;
+  readonly topics: readonly ProductTopicDto[];
 }
 
 export interface LoadProductOrderQuery {

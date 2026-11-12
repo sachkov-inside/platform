@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="435" viewBox="0 0 720 435" fill="none" role="img" aria-labelledby="t d">
+<title id="t">Что видно из кода и что нужно записать</title>
+<desc id="d">Модуль-образец показывает агенту, как сделано: владельцы загружаются вместе со списком. Почему выбран этот способ и применять ли его в других списках, код не говорит. Это знание идёт в CODING_STANDARDS.md вместе со ссылкой на образец.</desc>
+<defs><style>
+.eb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px;letter-spacing:1.1px}
+.t{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;font-weight:500}
+.s{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:12.5px}
+.d{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px}
+.m{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12px}
+.mb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12.5px}
+.ms{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px}
+.mt{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;font-weight:500}
+.p{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11.5px;font-weight:500}
+.b{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11px;font-weight:600}
+.big{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:22px;font-weight:500;letter-spacing:-0.3px}
+@keyframes a-fade{from{opacity:0}}
+@keyframes a-rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes a-pop{from{opacity:0;transform:scale(.6)}}
+@keyframes a-draw{from{stroke-dashoffset:1}}
+@keyframes a-grow{from{transform:scaleY(0)}}
+@keyframes a-dim{to{opacity:.45}}
+.a-fade{animation:a-fade .4s ease-out both}
+.a-rise{animation:a-rise .5s cubic-bezier(.2,.8,.2,1) both}
+.a-pop{transform-box:fill-box;transform-origin:50% 50%;animation:a-pop .3s cubic-bezier(.2,.8,.2,1) both}
+.a-draw{stroke-dasharray:1;animation:a-draw .4s ease-out both}
+.a-grow{transform-box:fill-box;transform-origin:50% 0;animation:a-grow .5s cubic-bezier(.3,.8,.3,1) both}
+.a-dim{animation:a-dim .6s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.a-fade,.a-rise,.a-pop,.a-draw,.a-grow{animation:none}.a-dim{animation:none;opacity:.45}}
+</style></defs>
+<rect width="720" height="435" rx="20" fill="#F1EEE7"/>
+<g class="a-fade" style="animation-delay:0.00s"><text x="28" y="40" class="eb" fill="#67625A">ЧТО ВИДНО ИЗ КОДА</text><text x="28" y="61" class="d" fill="#67625A">Код показывает, как сделано. Почему так и нужно ли так дальше, он не говорит.</text></g>
+<g class="a-rise" style="animation-delay:0.10s"><rect x="28" y="95" width="300" height="224" rx="12" fill="#FBFAF7" stroke="#D9D3C7"/><path d="M28 129 H328" stroke="#D9D3C7"/><text x="42" y="117" class="m" fill="#67625A">apps/api/src/projects/</text></g>
+<g class="a-fade" style="animation-delay:0.30s"><rect x="46" y="145" width="150" height="7" rx="3.5" fill="#E4DFD4" opacity="1"/></g>
+<g class="a-fade" style="animation-delay:0.35s"><rect x="62" y="163" width="210" height="7" rx="3.5" fill="#E4DFD4" opacity="1"/></g>
+<g class="a-fade" style="animation-delay:0.40s"><rect x="62" y="181" width="120" height="7" rx="3.5" fill="#E4DFD4" opacity="1"/></g>
+<g class="a-fade" style="animation-delay:0.45s"><rect x="46" y="199" width="60" height="7" rx="3.5" fill="#E4DFD4" opacity="1"/></g>
+<g class="a-fade" style="animation-delay:0.50s"><rect x="46" y="217" width="170" height="7" rx="3.5" fill="#C15F3C" opacity="1"/></g>
+<g class="a-fade" style="animation-delay:0.55s"><rect x="62" y="235" width="230" height="7" rx="3.5" fill="#C15F3C" opacity="1"/></g>
+<g class="a-fade" style="animation-delay:0.60s"><rect x="78" y="253" width="140" height="7" rx="3.5" fill="#E4DFD4" opacity="1"/></g>
+<g class="a-fade" style="animation-delay:0.65s"><rect x="62" y="271" width="90" height="7" rx="3.5" fill="#E4DFD4" opacity="1"/></g>
+<g class="a-fade" style="animation-delay:0.70s"><rect x="46" y="289" width="40" height="7" rx="3.5" fill="#E4DFD4" opacity="1"/></g>
+<g class="a-fade" style="animation-delay:0.90s"><text x="314" y="211" class="ms" fill="#A44A2A" text-anchor="end">владельцы загружаются вместе</text></g>
+<g class="a-fade" style="animation-delay:1.00s"><text x="28" y="341" class="s" fill="#67625A">Агент изучает код сам и может взять его как образец.</text></g>
+<g class="a-rise" style="animation-delay:1.20s"><rect x="372" y="95" width="320" height="67" rx="10" fill="none" stroke="#A39D92" stroke-width="1" stroke-dasharray="5 4"/><text x="384" y="116" class="t" fill="#67625A">Почему так, а не запрос на каждую</text><text x="384" y="133" class="t" fill="#67625A">строку?</text><text x="384" y="148" class="s" fill="#8E887D">в коде ответа нет</text></g>
+<g class="a-rise" style="animation-delay:1.35s"><rect x="372" y="174" width="320" height="67" rx="10" fill="none" stroke="#A39D92" stroke-width="1" stroke-dasharray="5 4"/><text x="384" y="195" class="t" fill="#67625A">Это правило для всех списков?</text><text x="384" y="210" class="s" fill="#8E887D">в коде ответа нет</text></g>
+<g class="a-fade" style="animation-delay:1.10s"><path d="M328 229.5 L344 229.5 Q350 229.5 350 223.5 L350 134.5 Q350 128.5 356 128.5 L365 128.5" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-dasharray="4 3" stroke-linejoin="round"/><path d="M372 128.5 L365 132.5 L365 124.5 Z" fill="#A39D92"/></g>
+<g class="a-fade" style="animation-delay:1.20s"><path d="M328 229.5 L344 229.5 Q350 229.5 350 223.5 L350 213.5 Q350 207.5 356 207.5 L365 207.5" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-dasharray="4 3" stroke-linejoin="round"/><path d="M372 207.5 L365 211.5 L365 203.5 Z" fill="#A39D92"/></g>
+<path d="M532 253 L532 268" fill="none" stroke="#C15F3C" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.60s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.70s;animation-duration:0.10s"><path d="M532 275 L528 268 L536 268 Z" fill="#C15F3C"/></g>
+<g class="a-rise" style="animation-delay:1.75s"><rect x="372" y="275" width="320" height="65" rx="10" fill="#F7E5DA" stroke="#C15F3C" stroke-width="1.5"/><text x="384" y="296" class="mt" fill="#1F1E1C">CODING_STANDARDS.md</text><text x="384" y="311" class="s" fill="#A44A2A">правило: ситуация, подход, причина и</text><text x="384" y="326" class="s" fill="#A44A2A">ссылка на модуль-образец</text></g>
+<g class="a-fade" style="animation-delay:2.10s"><path d="M28 383 H692" stroke="#CFC8BB" stroke-width="1"/><text x="28" y="409" class="ms" fill="#8E887D">Модуль не нужно пересказывать в инструкциях. В записи достаточно правила и ссылки на образец.</text></g>
+</svg>

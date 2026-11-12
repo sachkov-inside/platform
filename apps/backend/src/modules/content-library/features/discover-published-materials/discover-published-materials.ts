@@ -116,6 +116,16 @@ export async function discoverPublishedMaterials(
           ...(page.value.programmePlacements === undefined
             ? {}
             : { programmePlacements: page.value.programmePlacements }),
+          ...(page.value.catalogueTopics === undefined
+            ? {}
+            : {
+                catalogueTopics: page.value.catalogueTopics.map((topic) => ({
+                  id: topic.id,
+                  name: topic.name,
+                  summary: topic.summary,
+                  materialIds: topic.materialIds,
+                })),
+              }),
           chapters: page.value.chapters.map((chapter) => ({
             id: chapter.id,
             materialIds: chapter.materialIds,

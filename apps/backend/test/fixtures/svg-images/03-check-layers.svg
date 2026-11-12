@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="642" viewBox="0 0 720 642" fill="none" role="img" aria-labelledby="t d">
+<title id="t">Слои защиты от ошибок</title>
+<desc id="d">Три слоя защиты. До задачи проектирование с агентом согласует поведение, бизнес-логику, предметную область и решения. При реализации компилятор, линтер и тесты проверяют механические правила и поведение по задаче. После реализации ревью сверяет код с CODING_STANDARDS.md. Неэффективное решение появляется при реализации и проходит тесты, потому что поведение верное. Ревью ловит его, если правило записано, иначе оно может дойти до тебя.</desc>
+<defs><style>
+.eb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px;letter-spacing:1.1px}
+.t{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;font-weight:500}
+.s{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:12.5px}
+.d{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px}
+.m{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12px}
+.mb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12.5px}
+.ms{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px}
+.mt{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;font-weight:500}
+.p{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11.5px;font-weight:500}
+.b{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11px;font-weight:600}
+.big{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:22px;font-weight:500;letter-spacing:-0.3px}
+@keyframes a-fade{from{opacity:0}}
+@keyframes a-rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes a-pop{from{opacity:0;transform:scale(.6)}}
+@keyframes a-draw{from{stroke-dashoffset:1}}
+@keyframes a-grow{from{transform:scaleY(0)}}
+@keyframes a-dim{to{opacity:.45}}
+.a-fade{animation:a-fade .4s ease-out both}
+.a-rise{animation:a-rise .5s cubic-bezier(.2,.8,.2,1) both}
+.a-pop{transform-box:fill-box;transform-origin:50% 50%;animation:a-pop .3s cubic-bezier(.2,.8,.2,1) both}
+.a-draw{stroke-dasharray:1;animation:a-draw .4s ease-out both}
+.a-grow{transform-box:fill-box;transform-origin:50% 0;animation:a-grow .5s cubic-bezier(.3,.8,.3,1) both}
+.a-dim{animation:a-dim .6s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.a-fade,.a-rise,.a-pop,.a-draw,.a-grow{animation:none}.a-dim{animation:none;opacity:.45}}
+</style></defs>
+<rect width="720" height="642" rx="20" fill="#F1EEE7"/>
+<g class="a-fade" style="animation-delay:0.00s"><text x="28" y="40" class="eb" fill="#67625A">СЛОИ ЗАЩИТЫ</text><text x="28" y="61" class="d" fill="#67625A">Каждый слой отвечает за свой вид ошибок. Неудачный выбор реализации может пройти тесты.</text></g>
+<g class="a-rise" style="animation-delay:0.10s"><rect x="28" y="95" width="664" height="92" rx="12" fill="#FBFAF7" stroke="#D9D3C7"/><text x="44" y="119" class="eb" fill="#8E887D">ДО ЗАДАЧИ</text><text x="44" y="141" class="t" fill="#1F1E1C">Проектирование</text><text x="44" y="159" class="s" fill="#67625A">обсуждаем с агентом до</text><text x="44" y="174" class="s" fill="#67625A">кода</text></g>
+<g class="a-pop" style="animation-delay:0.25s"><rect x="236" y="113" width="79.96" height="24" rx="12" fill="#E4DFD4"/><text x="275.98" y="129" class="p" fill="#67625A" text-anchor="middle">поведение</text></g>
+<g class="a-pop" style="animation-delay:0.30s"><rect x="323.96" y="113" width="105.72" height="24" rx="12" fill="#E4DFD4"/><text x="376.82" y="129" class="p" fill="#67625A" text-anchor="middle">бизнес-логика</text></g>
+<g class="a-pop" style="animation-delay:0.35s"><rect x="236" y="145" width="137.92" height="24" rx="12" fill="#E4DFD4"/><text x="304.96" y="161" class="p" fill="#67625A" text-anchor="middle">предметная область</text></g>
+<g class="a-pop" style="animation-delay:0.40s"><rect x="381.92" y="145" width="67.08" height="24" rx="12" fill="#E4DFD4"/><text x="415.46" y="161" class="p" fill="#67625A" text-anchor="middle">решения</text></g>
+<g class="a-rise" style="animation-delay:0.35s"><rect x="28" y="253" width="664" height="92" rx="12" fill="#FBFAF7" stroke="#D9D3C7"/><text x="44" y="277" class="eb" fill="#8E887D">ПРИ РЕАЛИЗАЦИИ</text><text x="44" y="299" class="t" fill="#1F1E1C">Механические проверки</text><text x="44" y="317" class="s" fill="#67625A">компилятор, линтер, тесты</text></g>
+<g class="a-pop" style="animation-delay:0.50s"><rect x="236" y="271" width="47.76" height="24" rx="12" fill="#E4DFD4"/><text x="259.88" y="287" class="p" fill="#67625A" text-anchor="middle">типы</text></g>
+<g class="a-pop" style="animation-delay:0.55s"><rect x="291.76" y="271" width="163.68" height="24" rx="12" fill="#E4DFD4"/><text x="373.6" y="287" class="p" fill="#67625A" text-anchor="middle">импорты между модулями</text></g>
+<g class="a-pop" style="animation-delay:0.60s"><rect x="236" y="303" width="144.36" height="24" rx="12" fill="#E4DFD4"/><text x="308.18" y="319" class="p" fill="#67625A" text-anchor="middle">поведение по задаче</text></g>
+<g class="a-rise" style="animation-delay:0.60s"><rect x="28" y="411" width="664" height="92" rx="12" fill="#FBFAF7" stroke="#D9D3C7"/><text x="44" y="435" class="eb" fill="#8E887D">ПОСЛЕ РЕАЛИЗАЦИИ</text><text x="44" y="457" class="t" fill="#1F1E1C">Ревью</text><text x="44" y="475" class="s" fill="#67625A">сверяет код с</text><text x="44" y="490" class="s" fill="#67625A">CODING_STANDARDS.md</text></g>
+<g class="a-pop" style="animation-delay:0.75s"><rect x="236" y="445" width="125.04" height="24" rx="12" fill="#E4DFD4"/><text x="298.52" y="461" class="p" fill="#67625A" text-anchor="middle">качество решения</text></g>
+<g class="a-pop" style="animation-delay:0.80s"><rect x="369.04" y="445" width="112.16" height="24" rx="12" fill="#E4DFD4"/><text x="425.12" y="461" class="p" fill="#67625A" text-anchor="middle">стандарты кода</text></g>
+<path d="M104 187 L104 246" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.85s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:0.95s;animation-duration:0.10s"><path d="M104 253 L100 246 L108 246 Z" fill="#A39D92"/></g>
+<g class="a-fade" style="animation-delay:0.95s"><text x="116" y="224" class="ms" fill="#67625A">тесты по согласованному поведению</text></g>
+<g class="a-fade" style="animation-delay:1.30s"><text x="522" y="211" class="t" fill="#A44A2A">Неэффективное</text><text x="522" y="228" class="t" fill="#A44A2A">решение</text><text x="522" y="244" class="ms" fill="#67625A">при реализации</text></g>
+<g class="a-pop" style="animation-delay:1.30s"><circle cx="504" cy="220.0" r="5" fill="#C15F3C"/></g>
+<path d="M504 226.0 V450.0" stroke="#C15F3C" stroke-width="1.2" stroke-dasharray="3 3" class="a-grow" style="animation-delay:1.45s;animation-duration:.9s"/>
+<g class="a-pop" style="animation-delay:1.75s"><ellipse cx="504" cy="299.0" rx="15" ry="5" fill="#FBFAF7" stroke="#A39D92"/></g>
+<g class="a-fade" style="animation-delay:1.85s"><text x="528" y="303" class="ms" fill="#67625A">тесты проходят</text></g>
+<g class="a-pop" style="animation-delay:2.30s"><circle cx="504" cy="457.0" r="6" fill="#C15F3C" stroke="#FBFAF7" stroke-width="2"/></g>
+<g class="a-fade" style="animation-delay:2.40s"><text x="528" y="453" class="ms" fill="#A44A2A">ловит, если правило</text><text x="528" y="468" class="ms" fill="#A44A2A">записано</text></g>
+<g class="a-fade" style="animation-delay:2.70s"><path d="M504 509 V529" stroke="#A39D92" stroke-width="1.2" stroke-dasharray="3 3"/><text x="524" y="533" class="ms" fill="#8E887D">иначе может дойти до тебя</text></g>
+<g class="a-fade" style="animation-delay:2.90s"><path d="M28 573 H692" stroke="#CFC8BB" stroke-width="1"/><text x="28" y="599" class="ms" fill="#8E887D">Проектирование предотвращает ошибки в поведении и решениях, проверки и ревью их находят. Неудачный</text><text x="28" y="616" class="ms" fill="#8E887D">выбор реализации тесты не замечают, если поведение верное.</text></g>
+</svg>

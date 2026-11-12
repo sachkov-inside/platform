@@ -1,5 +1,6 @@
 import { assembleReadHistoricalSourceMaterialReceipt } from "../../features/read-historical-source-receipt/read-historical-source-receipt.js";
 import { assembleUpdateChapterAttachments } from "../../features/update-chapter-attachments/update-chapter-attachments.js";
+import { assembleUpdateProductTopics } from "../../features/update-product-topics/update-product-topics.js";
 import { assembleReadHistoricalPracticeReceipt } from "../../features/import-source-practice/import-source-practice.js";
 import {
   assembleReserveSourceProduct,
@@ -69,6 +70,7 @@ export function assembleMaterialAuthoring(
     previewMaterial: assemblePreviewMaterial(dependencies),
     reorderProduct: assembleReorderProduct(dependencies),
     updateChapterAttachments: assembleUpdateChapterAttachments(dependencies),
+    updateProductTopics: assembleUpdateProductTopics(dependencies),
     saveMaterial,
     setContentCollectionArchive:
       assembleSetContentCollectionArchive(dependencies),

@@ -2,6 +2,7 @@ export type {
   LibraryDiscoveryKind,
   LibraryDiscoveryReference,
   LibraryDiscoveryResult,
+  CatalogueTopic,
   DiscoveryTopic,
   ProductAccess,
   ProductChapter,

@@ -82,6 +82,23 @@ describe("Material asset HTTP controllers", () => {
       422,
       "unsupported_file_type",
     );
+
+    const unsafeSvgController = new UploadMaterialAssetController({
+      upload: vi.fn<MaterialAssetAuthoring["upload"]>().mockResolvedValue({
+        error: { code: "unsafe_svg" },
+        ok: false,
+      }),
+    });
+    await expectHttpProblem(
+      unsafeSvgController.upload(
+        account,
+        materialId,
+        "request-4",
+        multipartRequest(),
+      ),
+      422,
+      "unsafe_svg",
+    );
   });
 
   test("requires an exact current content version and preview boolean before delivery", async () => {

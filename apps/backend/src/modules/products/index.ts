@@ -116,6 +116,14 @@ export type {
 } from "./features/import-source-product/import-source-product.contract.js";
 export { chapterAttachmentsBodySchema } from "./features/update-chapter-attachments/update-chapter-attachments.js";
 export type { UpdateChapterAttachmentsOperation } from "./features/update-chapter-attachments/update-chapter-attachments.js";
+export { productTopicsBodySchema } from "./features/update-product-topics/update-product-topics.js";
+export type { UpdateProductTopicsOperation } from "./features/update-product-topics/update-product-topics.js";
+export {
+  PRODUCT_TOPIC_NAME_MAX,
+  PRODUCT_TOPIC_SUMMARY_MAX,
+  PRODUCT_TOPIC_MATERIALS_MAX,
+  productTopicDraftsSchema,
+} from "./shared/product-topics.js";
 export { PRODUCT_INTRODUCTION_FIELD_MAX } from "./facets/product-authoring/content-collection.contract.js";
 export type {
   ContentCollectionKind,

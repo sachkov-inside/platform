@@ -564,9 +564,10 @@ const libraryFormatIcons = {
 } as const;
 
 /**
- * Карточка библиотеки (прототип A2, принят владельцем 29.10.2026, #1832): обложка 16:9 или узор
- * формата, на обложке формат, длительность видео и отметка «изучено»; под ней название, описание
- * и, если его передали, место в программе. Карточки одного ряда одной высоты.
+ * Карточка библиотеки (#2022, прототип P5, решение владельца 12.11.2026). Все карточки одинаковые:
+ * картинка 16:9 и название. Обложки нет — на месте картинки тёмная карточка с форматом и названием,
+ * как картинка превью ссылки, но без логотипа; тогда название под ней не повторяется. На картинке
+ * формат, длительность видео и отметка «изучено»; под ней, если его передали, место в программе.
  */
 function LibraryMaterialCard({
   annotation,
@@ -588,22 +589,52 @@ function LibraryMaterialCard({
       : "material";
   const FormatIcon = libraryFormatIcons[kind];
   const duration = video ? materialDuration(material) : undefined;
+  const cover = material.cover ?? null;
+  const title = (
+    <IntentPrefetchLink
+      className="no-underline hover:text-action after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-ring"
+      href={readerHref}
+    >
+      {material.title}
+    </IntentPrefetchLink>
+  );
   return (
     <article
-      className="group/library relative flex h-full min-w-0 flex-col gap-2.5"
+      className="group/library relative flex h-full min-w-0 flex-col gap-2"
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="library"
     >
       <AccessCover material={material}>
-        <ContentCoverImage
-          alt=""
-          className="aspect-video w-full rounded-2xl"
-          cover={material.cover ?? null}
-          fallbackKind={kind}
-          fallbackSeed={material.slug}
-          sizes="(min-width: 640px) 24rem, 100vw"
-        />
+        {cover === null ? (
+          // Контейнер стоит на обёртке: единицы cqw внутри считаются от ширины самой карточки.
+          <span className="block w-full overflow-hidden rounded-2xl [container-type:inline-size]">
+            <span
+              className="relative flex aspect-video w-full flex-col justify-center gap-[2.5cqw] bg-cover-ink px-[6cqw] py-[8cqw] text-white"
+              data-library-title-card
+            >
+              <span className="text-[clamp(0.625rem,2.6cqw,0.75rem)] font-semibold tracking-[0.08em] uppercase opacity-75">
+                {materialTaxonomyLabel(material.format)}
+              </span>
+              <Heading className="line-clamp-3 text-[clamp(0.9375rem,6.2cqw,1.5rem)] leading-[1.16] font-medium tracking-[-0.01em] [&_a:hover]:text-white [&_a:hover]:underline">
+                {title}
+              </Heading>
+              <span
+                aria-hidden="true"
+                className="absolute bottom-[6cqw] left-[6cqw] h-0.5 w-[10cqw] bg-accent"
+              />
+            </span>
+          </span>
+        ) : (
+          <ContentCoverImage
+            alt=""
+            className="aspect-video w-full rounded-2xl"
+            cover={cover}
+            fallbackKind={kind}
+            fallbackSeed={material.slug}
+            sizes="(min-width: 640px) 24rem, 100vw"
+          />
+        )}
         {material.materialId === undefined ? null : (
           <LibraryReadMark
             format={material.format}
@@ -623,19 +654,11 @@ function LibraryMaterialCard({
           {duration}
         </span>
       </AccessCover>
-      <Heading className="mt-0.5 line-clamp-2 text-base leading-6 font-semibold tracking-[-0.02em]">
-        <IntentPrefetchLink
-          className="no-underline hover:text-action after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-ring"
-          href={readerHref}
-        >
-          {material.title}
-        </IntentPrefetchLink>
-      </Heading>
-      {material.summary.length > 0 ? (
-        <p className="line-clamp-2 text-sm leading-5 text-body-muted">
-          {material.summary}
-        </p>
-      ) : null}
+      {cover === null ? null : (
+        <Heading className="line-clamp-2 text-[0.9375rem] leading-5 font-semibold tracking-[-0.01em]">
+          {title}
+        </Heading>
+      )}
       {annotation === undefined ? null : (
         <span className="mt-auto text-xs text-muted-foreground">
           {annotation}

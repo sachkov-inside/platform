@@ -19,6 +19,16 @@ import {
 } from "./storage-edge-delivery.js";
 
 const CACHE_POLICY_METADATA = Symbol("http-cache-policy");
+/**
+ * Bytes this API returns itself (public immutable delivery) never run as a page of the site when
+ * their address is opened directly: no script, no network fetch, no form. Inline styles stay, so
+ * a checked SVG keeps its look and animation (#2025). Protected bytes do not pass here: the
+ * production edge sets its own stricter policy (`infra/production/runtime/platform.caddy`), and a
+ * plain redirect leaves the headers to object storage. Chromium, WebKit and Firefox apply no
+ * response policy to an SVG shown through `<img>`, so neither policy affects Reader.
+ */
+export const ASSET_CONTENT_SECURITY_POLICY =
+  "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 export const PRIVATE_NO_STORE_HEADERS = {
   "cache-control": "private, no-store",
 } as const;
@@ -138,6 +148,7 @@ function sendAssetDelivery(
     return undefined;
   }
   response.header("Content-Type", body.contentType);
+  response.header("Content-Security-Policy", ASSET_CONTENT_SECURITY_POLICY);
   response.header("Content-Length", String(body.contentLength));
   if (body.contentDisposition !== undefined) {
     response.header("Content-Disposition", body.contentDisposition);

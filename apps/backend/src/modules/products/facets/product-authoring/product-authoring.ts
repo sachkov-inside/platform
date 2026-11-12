@@ -9,6 +9,7 @@ import { assembleSearchAuthoringProducts } from "../../features/search-authoring
 import { assembleLoadProductOrder } from "../../features/load-product-order/load-product-order.js";
 import { assembleReorderProduct } from "../../features/reorder-product/reorder-product.js";
 import { assembleUpdateChapterAttachments } from "../../features/update-chapter-attachments/update-chapter-attachments.js";
+import { assembleUpdateProductTopics } from "../../features/update-product-topics/update-product-topics.js";
 import { assembleReserveSourceProduct } from "../../features/import-source-product/import-source-product.js";
 import { assembleValidateSourceProduct } from "../../features/import-source-product/import-source-product.js";
 import { assembleUpdateSourceProduct } from "../../features/import-source-product/import-source-product.js";
@@ -29,6 +30,7 @@ export function assembleProductAuthoring(
     loadProductOrder: assembleLoadProductOrder(dependencies),
     reorderProduct: assembleReorderProduct(dependencies),
     updateChapterAttachments: assembleUpdateChapterAttachments(dependencies),
+    updateProductTopics: assembleUpdateProductTopics(dependencies),
     reserveSourceProduct: assembleReserveSourceProduct(dependencies),
     validateSourceProduct: assembleValidateSourceProduct(dependencies),
     updateSourceProduct: assembleUpdateSourceProduct(dependencies),

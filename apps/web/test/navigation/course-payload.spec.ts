@@ -42,17 +42,16 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
     .getByRole("button", { name: /^Материалы/u })
     .click();
   const catalogue = page.getByRole("region", { name: "Материалы курса" });
-  await expect(catalogue.getByRole("listitem")).toHaveCount(12);
-  // Первым идёт заголовок группы, а первая карточка порции показывает самый новый материал.
-  await expect(catalogue.getByRole("heading", { level: 4 }).first()).toHaveText(
-    "Материал 120",
-  );
+  // Без тем курса весь состав стоит одним списком (#2022).
+  await expect(
+    catalogue.getByRole("heading", { level: 3, name: "Все материалы" }),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
-  await testInfo.attach("catalogue-first-batch.png", {
+  await testInfo.attach("catalogue.png", {
     body: await screenshotWholePage(page),
     contentType: "image/png",
   });
@@ -67,13 +66,11 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
   await expect(
     catalogue.getByRole("heading", { name: "Материал 1", exact: true }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Вне программы", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Тексты", exact: true }).click();
   await expect(
     catalogue.getByRole("heading", { name: "Материал 1", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Из программы", exact: true }).click();
+  await page.getByRole("button", { name: "Всё", exact: true }).click();
   await expect(
     catalogue.getByRole("heading", { name: "Материал 1", exact: true }),
   ).toBeVisible();

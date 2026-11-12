@@ -347,7 +347,7 @@ Entry points вызывают одни application use cases и не созда�
 | `Materials` | `MaterialAuthoring` создаёт и full-state-save-ит current Material; reader возвращает published current state | content/metadata, publication/access state, content version, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать bounded Home, единый catalog, search и Topic/Product navigation | current published projections, ranking, filtered facets и bounded Product previews |
 | [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и single `authorize` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
-| `Products` | управлять Product, каталогом, программой, главами и attachments | Product identity, publication/archive, placements и composition versions |
+| `Products` | управлять Product, каталогом, программой, главами, attachments и темами курса | Product identity, publication/archive, placements, Product topics и composition versions |
 | `AccountRights` | выдать, отозвать или явно восстановить lifetime Product Access | одно право Account/Product, основания и журнал действий |
 | `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
@@ -381,6 +381,7 @@ entities и invariants v1:
 | `ProductMembership` | уникальная пара Product/Material в каталоге; не задаёт порядок программы |
 | `ProgrammePlacement` | стабильное место каталожного Material в программе Product; один Material может повторяться; chapter и nullable stepGroup принадлежат placement |
 | `ChapterAttachment` | упорядоченная ссылка главы на каталожный Material вне обязательной программы |
+| `ProductTopic` | принадлежит ровно одному Product; стабильный идентификатор, name, короткое описание и ordinal; группирует каталожные Materials, каждый Material входит не больше чем в одну тему своего Product; не глобальный `Topic` ([Product topics](#product-topics)) |
 | `ProductChapter` | принадлежит ровно одному Product; стабильный идентификатор, name, авторское описание и ordinal внутри Product; владеет непрерывным участком основного маршрута и не хранит копии материалов |
 | `ContentCover` | принадлежит ровно одному Material, Topic или Product; current cover не переиспользуется между owners; только normalized public WebP renditions, original/key/checksum не входят в read contract |
 | `MaterialAsset` | принадлежит ровно одному Material; current MaterialBody ссылается на 0..N immutable ready MaterialAssets; `pending | processing | ready | failed` |
@@ -670,7 +671,40 @@ Account без права получают «не найдено». `ContentAcce
 и видео материалов, которые входят только в архивные продукты. Ответы держателю не попадают
 в общий кеш. Web после гостевого «не найдено» читает продукт и программу в личной части запроса ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)).
 
+### Product topics
 
+Тема курса (Product Topic) группирует материалы каталога одного Product для читателя (#2022).
+Это не глобальный `Topic` из словаря и не глава программы: тема не меняет каталог, программу,
+нумерацию, прогресс и исходники. У Product упорядоченный список тем. Тема имеет стабильный
+идентификатор, который задаёт автор, как у главы. `name` после `trim()` занимает 1–120 UTF-16 code
+units, `summary` после `trim()` до 300; пустая строка означает отсутствие описания. Материал
+каталога входит не больше чем в одну тему своего Product; материал без темы допустим, пустая тема
+тоже. Порядок материалов внутри темы не хранится: чтение отдаёт их в порядке каталога.
+
+`updateProductTopics` / REST `PUT /authoring/products/:productId/topics`
+(`updateAuthoringProductTopics`) / MCP `product_set_topics` принимают
+`{ expectedOrderVersion, topics: [{ id, name, summary, materialIds }] }` и атомарно, под
+блокировкой Product, заменяют весь список тем и их материалы. Тема, которой нет в списке,
+удаляется, а её материалы остаются в каталоге без темы. Ограничения: не больше 50 тем, уникальные
+`id`, не больше 1000 `materialIds` во всех темах вместе; нарушение формы даёт `invalid_content`.
+Материал вне каталога даёт `invalid_reference` с кодом `product_topic_material_not_in_product`,
+повтор материала в той же или другой теме даёт `product_topic_material_claimed` (путь
+`/topics/<n>/materialIds/<m>`), идентификатор темы другого Product даёт `product_topic_claimed`
+(`/topics/<n>/id`). Ответ совпадает с ответом attachments: `{ productId, orderVersion }`.
+Как и attachments, операция доступна для импортированного и архивного Product.
+
+Optimistic `orderVersion` покрывает и темы, поэтому правка тем делает устаревшей параллельную
+запись состава (`stale_product_order`), и наоборот. Product без тем сохраняет прежнее значение
+версии. `loadProductOrder`, REST `GET /authoring/products/:productId/order` и MCP
+`product_load_composition` возвращают `topics: [{ id, name, summary, materialIds }]` в порядке
+автора. Запись состава (`reorderProduct`, импорт, Material Save) сохраняет привязку материалов,
+которые остались в каталоге; материал, покинувший каталог, теряет привязку вместе с membership.
+
+Страница продукта `GET /library/products/:slug` (`readPublishedProduct`) возвращает
+`catalogueTopics: [{ id, name, summary, materialIds }]`: все темы в порядке автора, включая
+пустые, а в `materialIds` только опубликованные материалы темы в порядке каталога. Поле не
+называется `topics`, потому что `topics` той же страницы перечисляет глобальные Topics. Страницы
+Topic и связанных материалов поле не получают.
 
 ### Страница руководства
 
@@ -1196,6 +1230,18 @@ owns editor and source-authoring instructions.
 3. Image finalize безопасно decode-ит AVIF/JPEG/PNG/WebP с bounded pixels, применяет orientation,
    удаляет EXIF, хранит normalized original только protected и создаёт public/protected WebP
    variants до 480/960/1600 px. File bytes сохраняются immutable в public и protected namespace.
+   SVG image (#2025) не растеризуется: upload с типом `image/svg+xml` до 512 KiB проходит строгую
+   проверку по разрешённому списку элементов, атрибутов и CSS (без script, `foreignObject`,
+   `image`, `a`, `on*`, внешних `href`, `@import`, `@font-face` и `url()` кроме `#id`) и
+   отклоняется кодом `unsafe_svg` (нарушение XML, нет `xmlns` или размера: `image_decode_failed`,
+   больше 512 KiB: `image_too_large`); сохраняется заново сериализованное проверенное дерево как
+   один variant шириной из `width`/`height` или `viewBox`. Reader показывает его только через
+   `<img>`, где браузеры не применяют CSP ответа. Public bytes, которые отдаёт сам API, идут с
+   `nosniff` и `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`,
+   чтобы открытый напрямую SVG сохранял стили; protected bytes через Caddy получают политику края
+   `default-src 'none'; sandbox` ([production release](../runbooks/production-release.md)), и
+   открытый напрямую SVG там показывается без стилей. SVG как file (`kind: file`) по-прежнему
+   `executable_content`.
 4. Publish допускает только ready MaterialAssets exact owning Material. Replacement создаёт новый
    Asset; body reference остаётся stable opaque `assetId`, а referenced Asset сохраняется. Save под
    Material advisory lock и в своей транзакции переводит только newly removed ready Assets из
@@ -1719,7 +1765,9 @@ checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 The authoring package accepts envelope `schemaVersion: 1 | 2 | 3`. Before asset uploads or other writes,
 `loadPackage` checks its version and every `requiredFeatures` entry. Current v3 packages require `canonical-product-source-v2`; v1/v2 envelopes remain historical input. Supported features are
 `material-task-v1`, `task-c-v2`, `quiz-v1`, `quiz-multiple-v1`, `github-anchors-v1`, `image-variants-v1`,
-`collapsible-callouts-v1`, `bounded-content-v1` and `canonical-product-source-v2`; unknown features are refused by name.
+`collapsible-callouts-v1`, `bounded-content-v1`, `svg-images-v1` and `canonical-product-source-v2`; unknown features are refused by name.
+With `svg-images-v1` in the receiver's `packageFeatures`, the client uploads an `image/svg+xml` Material image unchanged;
+a receiver without it gets a PNG rendered from the SVG.
 
 Import contract (#1672). `GET /authoring/import/materials/environment` returns the runtime `mode` and
 `contract: { version, packageFeatures }`, owned by

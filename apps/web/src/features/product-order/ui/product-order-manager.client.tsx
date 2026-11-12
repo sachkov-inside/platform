@@ -44,6 +44,7 @@ import type {
   ProductChapterPresentation,
   ReorderProductResult,
   ProductOrderItemPresentation,
+  OrderVersionRef,
   ProductOrderPresentation,
 } from "../model/presentation";
 
@@ -66,6 +67,7 @@ export function ProductOrderManager({
   onBack,
   onRefresh,
   onSelectPlaylist,
+  orderVersionRef,
   presentation,
 }: {
   readonly embedded?: boolean;
@@ -74,12 +76,15 @@ export function ProductOrderManager({
   readonly onBack: () => void;
   readonly onRefresh: () => void;
   readonly onSelectPlaylist: (productId: string) => void;
+  /** Версия состава, общая с другими редакторами панели продукта. */
+  readonly orderVersionRef?: OrderVersionRef;
   readonly presentation: ProductOrderPresentation;
 }) {
   const [editingProgramme, setEditingProgramme] = useState(false);
   const [chapters, setChapters] = useState(presentation.chapters);
   const [items, setItems] = useState(presentation.items);
-  const version = useRef(presentation.orderVersion);
+  const ownVersion = useRef(presentation.orderVersion);
+  const version = orderVersionRef ?? ownVersion;
   const programme = useRef(presentation.programmePlacements ?? []);
   const mutation = useMutation({ mutationFn: reorderProduct });
   const attempted = useRef<Parameters<typeof reorderProduct>[0] | null>(null);
