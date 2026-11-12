@@ -263,7 +263,8 @@ select state, diagnostic_code, count(*) from sales_funnel_event_outbox group by 
 
 Обычный выпуск идёт без ручных команд на сервере: `main` → версия `vN` → production → проверки →
 при необходимости откат. Каждый запуск `telegram-release.yml` и `telegram-deploy.yml` — действие владельца или
-координатора с его разрешением. Путь повторяет Platform; у Telegram один процесс `app` и одноразовый
+координатора с его разрешением. Агент перед запуском берёт
+[блокировку production](../../../../docs/agents/production-lock.md). Путь повторяет Platform; у Telegram один процесс `app` и одноразовый
 `migrate`.
 
 ### 1. Выпуск версии

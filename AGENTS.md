@@ -20,6 +20,8 @@ specification runs `implement-spec`. [PIPELINE.md](.agents/skills/PIPELINE.md) r
 - Branches, worktrees, pull requests, blockers and handoff: [delivery](docs/agents/delivery.md).
 - Merge permission, sensitive zones and owner acceptance: [ship](docs/agents/ship.md).
   PR body: [pr](docs/agents/pr.md).
+- Release, deployment, rollback or a write on the production server: take the
+  [production lock](docs/agents/production-lock.md) first.
 - Several sessions or workers: [coordinated execution](docs/agents/coordinated-execution.md).
 - Issues, specifications, sub-issues, blocking or Wayfinder: [issue tracker](docs/agents/issue-tracker.md).
   Readiness labels: [triage labels](docs/agents/triage-labels.md).

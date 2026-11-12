@@ -14,7 +14,8 @@ A label is context, not an assignment; resolve owner decisions before `ready-for
 
 Every triaged issue has exactly one role from this table; a specification or version has none once
 it has sub-issues. `ready-for-human` is only for work a human does. The `wayfinder` skill adds its
-own `wayfinder:*` labels. There are no category labels (`bug`, `enhancement`): `triage` sets only
+own `wayfinder:*` labels; `production-lock` marks the [production lock](production-lock.md) and
+carries no role. There are no category labels (`bug`, `enhancement`): `triage` sets only
 the role from this table.
 
 These rules replace parts of the pipeline skills:
