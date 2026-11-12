@@ -1,0 +1,926 @@
+{
+  "format": "inside.ai-models-reference.v1",
+  "checkedOn": "2026-11-12",
+  "about": [
+    "Мощность и цена задачи: рейтинг агентов Arena, лицензия CC BY 4.0",
+    "Мощность: место в таблице агентов Arena, каждая точка на 10 мест",
+    "Замеры подписок: Wokey. Лимиты OpenCode Go: сайт OpenCode",
+    "Цены и лимиты: сайты компаний",
+    "Подписка: сколько стоил бы тот же объём по ценам API. Оценка, а не лимит",
+    "Значки, «Мой выбор» и «Лучше взять»: мнение автора"
+  ],
+  "services": [
+    {
+      "code": "claude",
+      "name": "Claude",
+      "fromRussia": "no",
+      "russianCard": "no"
+    },
+    {
+      "code": "chatgpt",
+      "name": "ChatGPT",
+      "fromRussia": "no",
+      "russianCard": "no"
+    },
+    {
+      "code": "google",
+      "name": "Google",
+      "fromRussia": "no",
+      "russianCard": "no"
+    },
+    {
+      "code": "x",
+      "name": "X",
+      "fromRussia": "unknown",
+      "russianCard": "unknown"
+    },
+    {
+      "code": "kimi",
+      "name": "Kimi",
+      "fromRussia": "unknown",
+      "russianCard": "unknown"
+    },
+    {
+      "code": "zai",
+      "name": "GLM Coding Plan",
+      "fromRussia": "unknown",
+      "russianCard": "unknown"
+    },
+    {
+      "code": "alibaba",
+      "name": "Alibaba Token Plan",
+      "fromRussia": "unknown",
+      "russianCard": "unknown"
+    },
+    {
+      "code": "opencode",
+      "name": "OpenCode Go",
+      "fromRussia": "unknown",
+      "russianCard": "unknown"
+    }
+  ],
+  "plans": [
+    {
+      "code": "claude-pro",
+      "service": "claude",
+      "name": "Pro",
+      "usdPerMonth": 20,
+      "priceFrom": false
+    },
+    {
+      "code": "claude-max",
+      "service": "claude",
+      "name": "Max",
+      "usdPerMonth": 100,
+      "priceFrom": false
+    },
+    {
+      "code": "claude-ultra",
+      "service": "claude",
+      "name": "Ultra",
+      "usdPerMonth": 200,
+      "priceFrom": false
+    },
+    {
+      "code": "gpt-plus",
+      "service": "chatgpt",
+      "name": "Plus",
+      "usdPerMonth": 20,
+      "priceFrom": false
+    },
+    {
+      "code": "gpt-pro100",
+      "service": "chatgpt",
+      "name": "Pro",
+      "usdPerMonth": 100,
+      "priceFrom": false
+    },
+    {
+      "code": "gpt-pro200",
+      "service": "chatgpt",
+      "name": "Pro",
+      "usdPerMonth": 200,
+      "priceFrom": false
+    },
+    {
+      "code": "gpt-pro500",
+      "service": "chatgpt",
+      "name": "Pro",
+      "usdPerMonth": 500,
+      "priceFrom": false
+    },
+    {
+      "code": "g-pro",
+      "service": "google",
+      "name": "AI Pro",
+      "usdPerMonth": 19.99,
+      "priceFrom": false
+    },
+    {
+      "code": "g-ultra5",
+      "service": "google",
+      "name": "AI Ultra 5x",
+      "usdPerMonth": 99.99,
+      "priceFrom": false
+    },
+    {
+      "code": "g-ultra20",
+      "service": "google",
+      "name": "AI Ultra 20x",
+      "usdPerMonth": 199.99,
+      "priceFrom": false
+    },
+    {
+      "code": "x-plus",
+      "service": "x",
+      "name": "Plus",
+      "usdPerMonth": 8,
+      "priceFrom": false
+    },
+    {
+      "code": "x-premium",
+      "service": "x",
+      "name": "Premium",
+      "usdPerMonth": 30,
+      "priceFrom": false
+    },
+    {
+      "code": "x-super",
+      "service": "x",
+      "name": "Super",
+      "usdPerMonth": 100,
+      "priceFrom": false
+    },
+    {
+      "code": "x-ultra",
+      "service": "x",
+      "name": "Ultra",
+      "usdPerMonth": 200,
+      "priceFrom": false
+    },
+    {
+      "code": "kimi-plus",
+      "service": "kimi",
+      "name": "Plus",
+      "usdPerMonth": 19,
+      "priceFrom": false
+    },
+    {
+      "code": "kimi-pro",
+      "service": "kimi",
+      "name": "Pro",
+      "usdPerMonth": 39,
+      "priceFrom": false
+    },
+    {
+      "code": "kimi-max",
+      "service": "kimi",
+      "name": "Max",
+      "usdPerMonth": 99,
+      "priceFrom": false
+    },
+    {
+      "code": "kimi-ultra",
+      "service": "kimi",
+      "name": "Ultra",
+      "usdPerMonth": 199,
+      "priceFrom": false
+    },
+    {
+      "code": "glm-lite",
+      "service": "zai",
+      "name": "Lite",
+      "usdPerMonth": 18,
+      "priceFrom": false
+    },
+    {
+      "code": "glm-pro",
+      "service": "zai",
+      "name": "Pro",
+      "usdPerMonth": 80,
+      "priceFrom": false
+    },
+    {
+      "code": "glm-max",
+      "service": "zai",
+      "name": "Max",
+      "usdPerMonth": 168,
+      "priceFrom": false
+    },
+    {
+      "code": "ali",
+      "service": "alibaba",
+      "name": "Lite–Pro",
+      "usdPerMonth": 6,
+      "priceFrom": true
+    },
+    {
+      "code": "oc-go",
+      "service": "opencode",
+      "name": "Go",
+      "usdPerMonth": 10,
+      "priceFrom": false
+    },
+    {
+      "code": "oc-plus",
+      "service": "opencode",
+      "name": "Go Plus",
+      "usdPerMonth": 40,
+      "priceFrom": false
+    }
+  ],
+  "models": [
+    {
+      "code": "fable",
+      "name": "Claude Fable 5.2",
+      "family": "Claude",
+      "arenaRank": 1,
+      "taskUsd": 7.43,
+      "apiUsdPerMillionTokens": {
+        "input": 8,
+        "output": 40
+      },
+      "tags": ["code", "agents", "research"],
+      "summary": "самая сильная, но и самая дорогая",
+      "agent": {
+        "name": "Claude Code",
+        "basis": "vendor",
+        "reason": "родной агент Anthropic, замеров Fable 5.2 нет"
+      },
+      "alternatives": "OpenCode по ключу API",
+      "subscriptions": [
+        {
+          "plan": "claude-pro",
+          "vendorWording": "только по акции до 16.11",
+          "promo": true
+        },
+        {
+          "plan": "claude-max",
+          "vendorWording": "в 5 раз больше Pro, Fable до половины лимита"
+        },
+        {
+          "plan": "claude-ultra",
+          "estimate": {
+            "basis": "measured",
+            "apiUsdPerMonth": 3517,
+            "accounts": 21
+          },
+          "note": "на Fable половина лимита"
+        }
+      ],
+      "notice": "В Claude Pro Fable доступна только до 16.11"
+    },
+    {
+      "code": "opus",
+      "name": "Claude Opus 5.5",
+      "family": "Claude",
+      "arenaRank": 2,
+      "taskUsd": 5.47,
+      "apiUsdPerMillionTokens": {
+        "input": 4,
+        "output": 20
+      },
+      "tags": ["code", "agents", "texts"],
+      "summary": "очень умная для кода и текстов, но дорогая",
+      "agent": {
+        "name": "Claude Code",
+        "basis": "measured",
+        "reason": "1-е место в Terminal-Bench 4.1"
+      },
+      "alternatives": "Antigravity, OpenCode",
+      "subscriptions": [
+        {
+          "plan": "claude-pro",
+          "estimate": {
+            "basis": "measured",
+            "apiUsdPerMonth": 667,
+            "accounts": 296
+          }
+        },
+        {
+          "plan": "claude-max",
+          "vendorWording": "в 5 раз больше Pro"
+        },
+        {
+          "plan": "claude-ultra",
+          "estimate": {
+            "basis": "measured",
+            "apiUsdPerMonth": 7033,
+            "accounts": 21
+          }
+        },
+        {
+          "plan": "g-pro",
+          "vendorWording": "через Antigravity, лимит без чисел"
+        },
+        {
+          "plan": "g-ultra5",
+          "vendorWording": "через Antigravity, лимит без чисел"
+        },
+        {
+          "plan": "g-ultra20",
+          "vendorWording": "через Antigravity, лимит без чисел"
+        }
+      ]
+    },
+    {
+      "code": "carbon",
+      "name": "Gemini 4 Carbon",
+      "family": "Gemini",
+      "arenaRank": 3,
+      "taskUsd": 1.46,
+      "apiUsdPerMillionTokens": {
+        "input": 2,
+        "output": 10
+      },
+      "tags": ["code", "research", "agents"],
+      "summary": "сильная и недорогая, но с 1 декабря дороже",
+      "agent": {
+        "name": "Antigravity",
+        "basis": "measured",
+        "reason": "59,4 в Artificial Analysis, 3-е место"
+      },
+      "alternatives": "Cline по ключу API",
+      "subscriptions": [
+        {
+          "plan": "g-ultra5",
+          "vendorWording": "в 5 раз больше AI Pro"
+        },
+        {
+          "plan": "g-ultra20",
+          "vendorWording": "в 20 раз больше AI Pro"
+        }
+      ],
+      "notice": "С 1.12 API вдвое дороже: $4 / $20"
+    },
+    {
+      "code": "sonnet",
+      "name": "Claude Sonnet 5.5",
+      "family": "Claude",
+      "arenaRank": 4,
+      "taskUsd": 3.35,
+      "apiUsdPerMillionTokens": {
+        "input": 2,
+        "output": 10
+      },
+      "tags": ["code", "agents", "texts"],
+      "summary": "почти как Opus, но дешевле",
+      "agent": {
+        "name": "Claude Code",
+        "basis": "measured",
+        "reason": "2-е место в Terminal-Bench 4.1"
+      },
+      "alternatives": "Antigravity, OpenCode",
+      "subscriptions": [
+        {
+          "plan": "claude-pro",
+          "estimate": {
+            "basis": "measured",
+            "apiUsdPerMonth": 667,
+            "accounts": 296
+          }
+        },
+        {
+          "plan": "claude-max",
+          "vendorWording": "в 5 раз больше Pro"
+        },
+        {
+          "plan": "claude-ultra",
+          "estimate": {
+            "basis": "measured",
+            "apiUsdPerMonth": 7033,
+            "accounts": 21
+          }
+        },
+        {
+          "plan": "g-pro",
+          "vendorWording": "через Antigravity, лимит без чисел"
+        },
+        {
+          "plan": "g-ultra5",
+          "vendorWording": "через Antigravity, лимит без чисел"
+        },
+        {
+          "plan": "g-ultra20",
+          "vendorWording": "через Antigravity, лимит без чисел"
+        }
+      ]
+    },
+    {
+      "code": "astra",
+      "name": "GPT-6 Astra",
+      "family": "GPT",
+      "arenaRank": 6,
+      "taskUsd": 6.1,
+      "apiUsdPerMillionTokens": {
+        "input": 10,
+        "output": 50
+      },
+      "tags": ["code", "research"],
+      "summary": "сильная, но дороже и слабее Opus",
+      "agent": {
+        "name": "Codex",
+        "basis": "measured",
+        "reason": "60,3% в Terminal-Bench 4.1"
+      },
+      "alternatives": "OpenCode через ChatGPT или API",
+      "subscriptions": [
+        {
+          "plan": "gpt-plus",
+          "estimate": {
+            "basis": "measured",
+            "apiUsdPerMonth": 199,
+            "accounts": 6
+          },
+          "note": "5–45 сообщений за 5 часов"
+        },
+        {
+          "plan": "gpt-pro100",
+          "vendorWording": "недельный лимит не опубликован"
+        },
+        {
+          "plan": "gpt-pro200",
+          "estimate": {
+            "basis": "measured",
+            "apiUsdPerMonth": 2518,
+            "accounts": 7
+          }
+        },
+        {
+          "plan": "gpt-pro500",
+          "vendorWording": "недельный лимит не опубликован"
+        }
+      ]
+    },
+    {
+      "code": "sol",
+      "name": "GPT-6.1 Sol",
+      "family": "GPT",
+      "arenaRank": 7,
+      "taskUsd": 1.06,
+      "apiUsdPerMillionTokens": {
+        "input": 2,
+        "output": 10
+      },
+      "tags": ["code", "agents"],
+      "summary": "хороша для кода и в пять раз дешевле Opus",
+      "agent": {
+        "name": "Codex",
+        "basis": "measured",
+        "reason": "3-е место в Terminal-Bench 4.1"
+      },
+      "alternatives": "OpenCode через ChatGPT или API",
+      "subscriptions": [
+        {
+          "plan": "gpt-plus",
+          "estimate": {
+            "basis": "measured",
+            "apiUsdPerMonth": 199,
+            "accounts": 6
+          }
+        },
+        {
+          "plan": "gpt-pro100",
+          "vendorWording": "недельный лимит не опубликован"
+        },
+        {
+          "plan": "gpt-pro200",
+          "estimate": {
+            "basis": "measured",
+            "apiUsdPerMonth": 2518,
+            "accounts": 7
+          }
+        },
+        {
+          "plan": "gpt-pro500",
+          "vendorWording": "недельный лимит не опубликован"
+        }
+      ]
+    },
+    {
+      "code": "argon",
+      "name": "Gemini 4 Argon",
+      "family": "Gemini",
+      "arenaRank": 9,
+      "taskUsd": 0.73,
+      "apiUsdPerMillionTokens": {
+        "input": 2,
+        "output": 10
+      },
+      "tags": ["research", "texts"],
+      "summary": "неплохая и дешёвая, есть в подписке за $20",
+      "agent": {
+        "name": "Antigravity",
+        "basis": "measured",
+        "reason": "53,2 в Artificial Analysis"
+      },
+      "alternatives": "Cline по ключу API",
+      "subscriptions": [
+        {
+          "plan": "g-pro",
+          "vendorWording": "в 4 раза больше Free"
+        },
+        {
+          "plan": "g-ultra5",
+          "vendorWording": "в 5 раз больше AI Pro"
+        },
+        {
+          "plan": "g-ultra20",
+          "vendorWording": "в 20 раз больше AI Pro"
+        },
+        {
+          "plan": "oc-go",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 30
+          },
+          "note": "скидка до 30.11"
+        },
+        {
+          "plan": "oc-plus",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 120
+          }
+        }
+      ],
+      "notice": "С 1.12 API вдвое дороже: $4 / $20"
+    },
+    {
+      "code": "kimi",
+      "name": "Kimi K3.1 Pro",
+      "family": "Kimi",
+      "arenaRank": 15,
+      "taskUsd": 1.23,
+      "apiUsdPerMillionTokens": {
+        "input": 2,
+        "output": 10
+      },
+      "tags": ["code", "agents"],
+      "summary": "сильнейшая из китайских в списке, дешевле Claude",
+      "agent": {
+        "name": "Claude Code",
+        "basis": "vendor",
+        "reason": "Moonshot сама тестирует модель в нём"
+      },
+      "alternatives": "Kimi Code CLI, OpenCode",
+      "subscriptions": [
+        {
+          "plan": "kimi-plus",
+          "vendorWording": "лимит за 5 часов, без чисел"
+        },
+        {
+          "plan": "kimi-pro",
+          "vendorWording": "лимит за 5 часов, без чисел"
+        },
+        {
+          "plan": "kimi-max",
+          "vendorWording": "лимит за 5 часов, без чисел"
+        },
+        {
+          "plan": "kimi-ultra",
+          "vendorWording": "лимит за 5 часов, без чисел"
+        },
+        {
+          "plan": "oc-go",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 15
+          }
+        },
+        {
+          "plan": "oc-plus",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 60
+          }
+        }
+      ]
+    },
+    {
+      "code": "grok",
+      "name": "Grok 4.7",
+      "family": "Grok",
+      "arenaRank": 17,
+      "taskUsd": 2.79,
+      "apiUsdPerMillionTokens": {
+        "input": 2,
+        "output": 6
+      },
+      "tags": ["code", "research"],
+      "summary": "средняя по силе, а задача стоит дорого",
+      "agent": {
+        "name": "Grok Build",
+        "basis": "measured",
+        "reason": "38,8% в Terminal-Bench 4.1"
+      },
+      "alternatives": "Cursor из той же подписки",
+      "subscriptions": [
+        {
+          "plan": "x-plus",
+          "vendorWording": "базовый недельный пул"
+        },
+        {
+          "plan": "x-premium",
+          "vendorWording": "в 4 раза больше Plus"
+        },
+        {
+          "plan": "x-super",
+          "vendorWording": "в 15 раз больше Plus"
+        },
+        {
+          "plan": "x-ultra",
+          "vendorWording": "в 50 раз больше Plus"
+        },
+        {
+          "plan": "oc-go",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 15
+          }
+        },
+        {
+          "plan": "oc-plus",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 60
+          }
+        }
+      ]
+    },
+    {
+      "code": "dsflash",
+      "name": "DeepSeek V4.1 Flash",
+      "family": "DeepSeek",
+      "arenaRank": 22,
+      "taskUsd": 0.14,
+      "apiUsdPerMillionTokens": {
+        "input": 0.3,
+        "output": 1.2
+      },
+      "tags": ["cheap-bulk", "code"],
+      "summary": "очень дешёвая, для простых и массовых задач",
+      "agent": {
+        "name": "Codex",
+        "basis": "measured",
+        "reason": "47,3 в Artificial Analysis, лучший замер"
+      },
+      "alternatives": "OpenCode, DeepSeek Harness, Claude Code. Работает почти в любом агенте",
+      "subscriptions": [
+        {
+          "plan": "oc-go",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 100
+          }
+        },
+        {
+          "plan": "oc-plus",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 200
+          }
+        },
+        {
+          "plan": "ali",
+          "vendorWording": "20–200 тыс. кредитов в месяц"
+        }
+      ]
+    },
+    {
+      "code": "glm",
+      "name": "GLM-5.3",
+      "family": "GLM",
+      "arenaRank": 27,
+      "taskUsd": 1.04,
+      "apiUsdPerMillionTokens": {
+        "input": 1.4,
+        "output": 4.4
+      },
+      "tags": ["code", "texts"],
+      "summary": "средняя: хороша в текстах, в коде слабее Sol",
+      "agent": {
+        "name": "Claude Code",
+        "basis": "measured",
+        "reason": "41,2% в Terminal-Bench 4.1"
+      },
+      "alternatives": "OpenCode, ZCode",
+      "subscriptions": [
+        {
+          "plan": "glm-lite",
+          "vendorWording": "2 000 кредитов за 5 часов"
+        },
+        {
+          "plan": "glm-pro",
+          "vendorWording": "12 000 кредитов за 5 часов"
+        },
+        {
+          "plan": "glm-max",
+          "vendorWording": "28 000 кредитов за 5 часов"
+        },
+        {
+          "plan": "oc-go",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 15
+          }
+        },
+        {
+          "plan": "oc-plus",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 120
+          }
+        },
+        {
+          "plan": "ali",
+          "vendorWording": "20–200 тыс. кредитов в месяц"
+        }
+      ]
+    },
+    {
+      "code": "qwen",
+      "name": "Qwen3.8-Max",
+      "family": "Qwen",
+      "arenaRank": 32,
+      "taskUsd": 1.23,
+      "apiUsdPerMillionTokens": {
+        "input": 2,
+        "output": 6
+      },
+      "tags": ["texts", "research"],
+      "summary": "средняя по силе, есть в подписке от $6",
+      "agent": {
+        "name": "Claude Code",
+        "basis": "measured",
+        "reason": "27% в Terminal-Bench 4.1, единственный замер"
+      },
+      "alternatives": "Qwen Code, OpenCode",
+      "subscriptions": [
+        {
+          "plan": "oc-go",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 15
+          }
+        },
+        {
+          "plan": "oc-plus",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 60
+          }
+        },
+        {
+          "plan": "ali",
+          "vendorWording": "20–200 тыс. кредитов в месяц"
+        }
+      ]
+    },
+    {
+      "code": "m3",
+      "name": "MiniMax M3",
+      "family": "MiniMax",
+      "arenaRank": 52,
+      "taskUsd": 0.35,
+      "apiUsdPerMillionTokens": {
+        "input": 0.3,
+        "output": 1.2
+      },
+      "tags": ["cheap-bulk", "texts"],
+      "summary": "дешёвая, но слабее остальных в списке",
+      "agent": {
+        "name": "Claude Code",
+        "basis": "vendor",
+        "reason": "MiniMax советует его первым, замеров нет"
+      },
+      "alternatives": "MiniMax Code, OpenCode, Codex",
+      "subscriptions": [
+        {
+          "plan": "oc-go",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 60
+          }
+        },
+        {
+          "plan": "oc-plus",
+          "estimate": {
+            "basis": "vendor-dollar-limit",
+            "apiUsdPerMonth": 180
+          }
+        }
+      ]
+    }
+  ],
+  "author": {
+    "favoriteGroups": [
+      {
+        "code": "daily",
+        "title": "На каждый день"
+      },
+      {
+        "code": "design",
+        "title": "Дизайн и моушн"
+      }
+    ],
+    "services": {
+      "claude": {
+        "banRisk": "high",
+        "text": "Claude часто блокирует аккаунты в разных странах",
+        "models": ["fable", "opus", "sonnet"]
+      }
+    },
+    "models": {
+      "fable": {
+        "badges": [
+          {
+            "badge": "wasteful",
+            "text": "тратит очень много токенов на одну задачу"
+          }
+        ]
+      },
+      "opus": {
+        "badges": [
+          {
+            "badge": "favorite",
+            "text": "на каждый день, а ещё для дизайна, монтажа и моушн-графики",
+            "groups": ["daily", "design"]
+          }
+        ]
+      },
+      "sol": {
+        "badges": [
+          {
+            "badge": "favorite",
+            "text": "средняя универсальная модель на каждый день",
+            "groups": ["daily"]
+          },
+          {
+            "badge": "confident",
+            "text": "доводит задачу до конца"
+          }
+        ]
+      },
+      "dsflash": {
+        "badges": [
+          {
+            "badge": "favorite",
+            "text": "дешёвая модель на каждый день",
+            "groups": ["daily"]
+          },
+          {
+            "badge": "mid-tasks",
+            "text": "для средних и несерьёзных задач"
+          }
+        ],
+        "advice": "советую OpenCode с подпиской Go или DeepSeek Harness"
+      },
+      "kimi": {
+        "badges": [
+          {
+            "badge": "favorite",
+            "text": "для дизайна, монтажа и моушн-графики",
+            "groups": ["design"]
+          },
+          {
+            "badge": "confident",
+            "text": "доводит задачу до конца"
+          },
+          {
+            "badge": "pricey",
+            "text": "подписка дорогая для своего объёма"
+          }
+        ],
+        "betterPick": {
+          "models": ["sol"],
+          "reason": "сильнее и дешевле"
+        }
+      },
+      "glm": {
+        "badges": [
+          {
+            "badge": "mid-tasks",
+            "text": "хороша в текстах, в коде слабее Sol"
+          }
+        ],
+        "betterPick": {
+          "models": ["dsflash"],
+          "reason": "по цене и качеству"
+        }
+      },
+      "carbon": {
+        "betterPick": {
+          "models": ["opus", "sol"],
+          "reason": "они проверенные"
+        }
+      },
+      "argon": {
+        "betterPick": {
+          "models": ["sol", "sonnet"],
+          "reason": "они проверенные"
+        }
+      }
+    }
+  }
+}
