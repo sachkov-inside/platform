@@ -28,8 +28,8 @@ export const productionTarget = {
 export const productA = {
   id: "625a0cca-c8ff-4a65-9125-17194dd3b769",
   slug: "ai-engineering",
-  bodyMaterialSlug: "inside-content-aie-ch2-modules",
-  assetMaterialSlug: "inside-content-aie-ch2-modules",
+  bodyMaterialSlug: "inside-content-aie-ch1-foundation-practice",
+  assetMaterialSlug: "inside-content-aie-ch1-foundation-practice",
   videoMaterialSlug: "inside-content-aie-ch2-plan-domain",
   taskCode: "aie-ch2-accounts-design",
 } as const;

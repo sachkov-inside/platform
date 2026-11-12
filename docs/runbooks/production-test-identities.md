@@ -24,7 +24,8 @@ Telegram у тестовых Accounts не используется. Тесто�
 | `billing-only` | право `billing:manage` | trusted owner bootstrap |
 
 Product A («AI Engineering», `ai-engineering`): его id и уроки прохода названы в
-`apps/web/test/production/pass-config.ts`: закрытый урок `aie-ch2-modules` для тела и картинки,
+`apps/web/test/production/pass-config.ts`: закрытый урок `aie-ch1-foundation-practice` для тела и картинки (до 12.11.2026 `aie-ch2-modules`:
+его сняли с публикации, и проход не смог прочитать тело),
 закрытый урок `aie-ch2-plan-domain` и бесплатный урок `aie-ch1-agent-choice` для основного видео,
 Product Task `aie-ch2-accounts-design` для задания. Эти fixtures принадлежат принятой программе
 #1356; её source Content — `2f04e11848b9cc281d67a7b34e51dd83b7370418`, production manifest —
