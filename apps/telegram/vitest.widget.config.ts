@@ -1,9 +1,8 @@
 import { defineConfig } from "vitest/config";
 
-// Browser checks of the Trainer widget. They need Playwright's Chromium and WebKit, which the
-// Telegram CI job does not install, so they run by `pnpm --filter @inside/telegram test:widget`
-// inside `pnpm check:ui`, the «UI components» CI job. On Linux the harness pins the default
-// font through `test/widget/fonts.conf` (#2026).
+// Browser checks of the Trainer widget. They need Playwright's Chromium, which the Telegram
+// CI job does not install, so they run by `pnpm --filter @inside/telegram test:widget` and
+// are not part of `check`.
 export default defineConfig({
   test: {
     maxWorkers: 1,

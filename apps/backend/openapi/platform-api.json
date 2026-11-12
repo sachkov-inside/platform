@@ -57918,6 +57918,7 @@
                         "image_decode_failed",
                         "invalid_upload",
                         "mime_mismatch",
+                        "unsafe_svg",
                         "unsupported_file_type",
                         "unsupported_image_type"
                       ],

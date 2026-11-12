@@ -4,10 +4,13 @@ import { extname } from "node:path";
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
 
+import { checkSvgImage, SVG_CONTENT_TYPE } from "./check-svg-image.js";
+
 export const MATERIAL_ASSET_LIMITS = Object.freeze({
   fileBytes: 25 * 1024 * 1024,
   imageBytes: 10 * 1024 * 1024,
   imagePixels: 40_000_000,
+  svgBytes: 512 * 1024,
 });
 
 const IMAGE_CONTENT_TYPES = new Set([
@@ -119,6 +122,7 @@ export type MaterialAssetProcessingError = Readonly<{
     | "image_too_large"
     | "mime_mismatch"
     | "size_mismatch"
+    | "unsafe_svg"
     | "unsupported_file_type"
     | "unsupported_image_type";
 }>;
@@ -179,8 +183,11 @@ export async function processMaterialAssetBytes(input: {
     return failure("checksum_mismatch");
   }
 
-  const detected = await fileTypeFromBuffer(input.body);
   const declaredContentType = normalizeContentType(input.declaredContentType);
+  if (input.kind === "image" && declaredContentType === SVG_CONTENT_TYPE) {
+    return processSvgImage(input.body, checksumSha256);
+  }
+  const detected = await fileTypeFromBuffer(input.body);
   if (input.kind === "image") {
     if (detected === undefined || !IMAGE_CONTENT_TYPES.has(detected.mime)) {
       return failure("unsupported_image_type");
@@ -249,6 +256,36 @@ function inferTextContentType(
     // Not a dependency failure: bytes that are not UTF-8 text are served as binary.
     return "application/octet-stream";
   }
+}
+
+/**
+ * An SVG image keeps its vector form and its animation (#2025): it is stored as the checked file
+ * and has one variant, at its own layout width, so Reader requests it like any other image.
+ */
+function processSvgImage(
+  body: Uint8Array,
+  checksumSha256: string,
+): ProcessMaterialAssetBytesResult {
+  if (body.byteLength > MATERIAL_ASSET_LIMITS.svgBytes) {
+    return failure("image_too_large");
+  }
+  const checked = checkSvgImage(body);
+  if (!checked.ok) return failure(checked.error.code);
+  const { height, width } = checked.value;
+  const file = { body: checked.value.body, contentType: SVG_CONTENT_TYPE };
+  return {
+    ok: true,
+    value: {
+      checksumSha256,
+      contentType: SVG_CONTENT_TYPE,
+      height,
+      kind: "image",
+      original: file,
+      size: body.byteLength,
+      variants: [{ ...file, height, width }],
+      width,
+    },
+  };
 }
 
 async function processImage(

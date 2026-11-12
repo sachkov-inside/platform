@@ -8,6 +8,7 @@ export function copyBackendResponse(response: Response): Response {
     "cache-control",
     "content-disposition",
     "content-length",
+    "content-security-policy",
     "content-type",
     "location",
     "x-content-type-options",

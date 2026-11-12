@@ -37,6 +37,7 @@ const fitOf = (bank: ReturnType<typeof accepted>) =>
   trainerBankFit(
     bank.questions,
     new Map(bank.topics.map(({ code, name }) => [code, name])),
+    { fixedFont: true },
   );
 
 describe("trainer widget fit of a Bank file", () => {

@@ -35,7 +35,6 @@ import {
   splitLength,
   trainerWidgetPage,
   wideText,
-  widgetBrowserLaunchOptions,
 } from "./trainer-widget-harness.js";
 
 // The built widget in Chromium with a stand-in TelegramWidget. It proves layout and behaviour
@@ -196,8 +195,8 @@ let browser: Browser;
 let webkitBrowser: Browser;
 
 beforeAll(async () => {
-  browser = await chromium.launch(widgetBrowserLaunchOptions());
-  webkitBrowser = await webkit.launch(widgetBrowserLaunchOptions());
+  browser = await chromium.launch();
+  webkitBrowser = await webkit.launch();
 });
 afterAll(async () => {
   await browser.close();
@@ -214,8 +213,16 @@ async function openWidget(
     colorScheme: options.theme ?? "light",
   });
   await page.setContent(
-    await trainerWidgetPage({ chatData: JSON.stringify(home), ...options }),
+    await trainerWidgetPage({
+      chatData: JSON.stringify(home),
+      fixedFont: true,
+      ...options,
+    }),
   );
+  // The widget fits its text when its script runs: the fixed font must be ready by then.
+  await expect(
+    page.evaluate(() => Reflect.get(window, "fixedFontLoaded") === true),
+  ).resolves.toBe(true);
   return page;
 }
 

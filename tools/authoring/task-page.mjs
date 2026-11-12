@@ -96,8 +96,16 @@ export function preflightTaskPages(pkg) {
  * @param {import('./journal.mjs').JournalContext} context
  * @param {import('./local-boundaries.mjs').LocalRequest} request
  * @param {Map<string,string>} links
+ * @param {readonly string[]} receiverFeatures `packageFeatures` from the receiver's contract
  * @returns {Promise<PageImport>} */
-export async function importTaskPage(pkg, task, context, request, links) {
+export async function importTaskPage(
+  pkg,
+  task,
+  context,
+  request,
+  links,
+  receiverFeatures,
+) {
   const page = task.page;
   if (page === undefined)
     throw new Error(`${task.sourceId}: missing Task page`);
@@ -179,7 +187,7 @@ export async function importTaskPage(pkg, task, context, request, links) {
       throw new Error("Package asset changed during synchronization");
     const upload =
       reference.kind === "image"
-        ? await imageUpload(bytes, asset)
+        ? await imageUpload(bytes, asset, receiverFeatures)
         : { bytes, asset };
     const key = `task-page-asset:${reserved.materialId}:${reference.kind}:${upload.asset.sha256}`;
     let receipt = parseReceipt(

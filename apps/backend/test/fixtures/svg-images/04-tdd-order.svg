@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="470" viewBox="0 0 720 470" fill="none" role="img" aria-labelledby="t d">
+<title id="t">Тест до реализации и после</title>
+<desc id="d">Если тест пишется после неверной реализации, он повторяет её логику и проходит, закрепляя ошибку. В TDD тест пишется по согласованному поведению, сначала падает, затем агент пишет реализацию и повторяет запуск, пока тест не пройдёт.</desc>
+<defs><style>
+.eb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px;letter-spacing:1.1px}
+.t{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;font-weight:500}
+.s{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:12.5px}
+.d{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px}
+.m{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12px}
+.mb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12.5px}
+.ms{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px}
+.mt{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;font-weight:500}
+.p{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11.5px;font-weight:500}
+.b{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11px;font-weight:600}
+.big{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:22px;font-weight:500;letter-spacing:-0.3px}
+@keyframes a-fade{from{opacity:0}}
+@keyframes a-rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes a-pop{from{opacity:0;transform:scale(.6)}}
+@keyframes a-draw{from{stroke-dashoffset:1}}
+@keyframes a-grow{from{transform:scaleY(0)}}
+@keyframes a-dim{to{opacity:.45}}
+.a-fade{animation:a-fade .4s ease-out both}
+.a-rise{animation:a-rise .5s cubic-bezier(.2,.8,.2,1) both}
+.a-pop{transform-box:fill-box;transform-origin:50% 50%;animation:a-pop .3s cubic-bezier(.2,.8,.2,1) both}
+.a-draw{stroke-dasharray:1;animation:a-draw .4s ease-out both}
+.a-grow{transform-box:fill-box;transform-origin:50% 0;animation:a-grow .5s cubic-bezier(.3,.8,.3,1) both}
+.a-dim{animation:a-dim .6s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.a-fade,.a-rise,.a-pop,.a-draw,.a-grow{animation:none}.a-dim{animation:none;opacity:.45}}
+</style></defs>
+<rect width="720" height="470" rx="20" fill="#F1EEE7"/>
+<g class="a-fade" style="animation-delay:0.00s"><text x="28" y="40" class="eb" fill="#67625A">ТЕСТ ПОСЛЕ РЕАЛИЗАЦИИ</text><text x="28" y="61" class="d" fill="#67625A">Тест повторяет логику готового кода, поэтому проходит вместе с ошибкой.</text></g>
+<g class="a-rise" style="animation-delay:0.15s"><rect x="28" y="95" width="204" height="50" rx="10" fill="#E4DFD4" stroke="none" stroke-width="1"/><text x="40" y="116" class="t" fill="#1F1E1C">Агент пишет решение</text><text x="40" y="131" class="s" fill="#67625A">с ошибкой в логике</text></g>
+<path d="M232 120 L251 120" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.25s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:0.35s;animation-duration:0.10s"><path d="M258 120 L251 124 L251 116 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:0.30s"><rect x="258" y="95" width="204" height="50" rx="10" fill="#E4DFD4" stroke="none" stroke-width="1"/><text x="270" y="116" class="t" fill="#1F1E1C">Тест под готовый код</text><text x="270" y="131" class="s" fill="#67625A">проверяет ту же логику</text></g>
+<path d="M462 120 L481 120" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.40s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:0.50s;animation-duration:0.10s"><path d="M488 120 L481 124 L481 116 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:0.45s"><rect x="488" y="95" width="204" height="50" rx="10" fill="#E4DFD4" stroke="none" stroke-width="1"/><text x="500" y="116" class="t" fill="#1F1E1C">Тест проходит</text><text x="500" y="131" class="s" fill="#67625A">ошибка закреплена тестом</text></g>
+<g class="a-pop" style="animation-delay:0.75s"><rect x="608.48" y="84" width="71.52" height="22" rx="11" fill="#E4DFD4" stroke="#A39D92"/><text x="644.24" y="99" class="p" fill="#67625A" text-anchor="middle">проходит</text></g>
+<path d="M28 175 H692" stroke="#CFC8BB" stroke-width="1" pathLength="1" class="a-draw" style="animation-delay:.9s;animation-duration:.3s"/>
+<g class="a-fade" style="animation-delay:1.00s"><text x="28" y="211" class="eb" fill="#67625A">TDD В IMPLEMENT</text><text x="28" y="232" class="d" fill="#67625A">Тест пишется по поведению, о котором договорились в задаче, ещё до кода.</text></g>
+<g class="a-rise" style="animation-delay:1.15s"><rect x="28" y="266" width="148" height="65" rx="10" fill="#FBFAF7" stroke="#C15F3C" stroke-width="1"/><text x="40" y="287" class="t" fill="#1F1E1C">Задача</text><text x="40" y="302" class="s" fill="#67625A">согласованное</text><text x="40" y="317" class="s" fill="#67625A">поведение</text></g>
+<path d="M176 298.5 L193 298.5" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.25s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.35s;animation-duration:0.10s"><path d="M200 298.5 L193 302.5 L193 294.5 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:1.33s"><rect x="200" y="266" width="148" height="65" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="212" y="287" class="t" fill="#1F1E1C">Тест</text><text x="212" y="302" class="s" fill="#67625A">падает, кода ещё</text><text x="212" y="317" class="s" fill="#67625A">нет</text></g>
+<path d="M348 298.5 L365 298.5" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.43s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.53s;animation-duration:0.10s"><path d="M372 298.5 L365 302.5 L365 294.5 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:1.51s"><rect x="372" y="266" width="148" height="65" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="384" y="287" class="t" fill="#1F1E1C">Реализация</text><text x="384" y="302" class="s" fill="#67625A">агент пишет код</text></g>
+<path d="M520 298.5 L537 298.5" fill="none" stroke="#C15F3C" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.61s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.71s;animation-duration:0.10s"><path d="M544 298.5 L537 302.5 L537 294.5 Z" fill="#C15F3C"/></g>
+<g class="a-rise" style="animation-delay:1.69s"><rect x="544" y="266" width="148" height="65" rx="10" fill="#F7E5DA" stroke="#C15F3C" stroke-width="1.5"/><text x="556" y="287" class="t" fill="#1F1E1C">Тест проходит</text><text x="556" y="302" class="s" fill="#A44A2A">поведение как в</text><text x="556" y="317" class="s" fill="#A44A2A">задаче</text></g>
+<g class="a-pop" style="animation-delay:1.50s"><rect x="277.36" y="255" width="58.64" height="22" rx="11" fill="#E4DFD4" stroke="#A39D92"/><text x="306.68" y="270" class="p" fill="#67625A" text-anchor="middle">падает</text></g>
+<g class="a-pop" style="animation-delay:1.95s"><rect x="608.48" y="255" width="71.52" height="22" rx="11" fill="#F7E5DA" stroke="#C15F3C"/><text x="644.24" y="270" class="p" fill="#A44A2A" text-anchor="middle">проходит</text></g>
+<path d="M446 331 L446 351 Q446 357 440 357 L280 357 Q274 357 274 351 L274 338" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:2.10s;animation-duration:0.36s"/>
+<g class="a-fade" style="animation-delay:2.41s;animation-duration:0.10s"><path d="M274 331 L278 338 L270 338 Z" fill="#A39D92"/></g>
+<g class="a-fade" style="animation-delay:2.30s"><text x="360" y="375" class="ms" fill="#67625A" text-anchor="middle">запуск снова, пока не пройдёт</text></g>
+<g class="a-fade" style="animation-delay:2.50s"><path d="M28 401 H692" stroke="#CFC8BB" stroke-width="1"/><text x="28" y="427" class="ms" fill="#8E887D">В пайплайне курса скилл implement вызывает tdd: сначала тест для согласованного поведения, затем</text><text x="28" y="444" class="ms" fill="#8E887D">реализация.</text></g>
+</svg>
