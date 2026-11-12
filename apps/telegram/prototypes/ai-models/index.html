@@ -3,9 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ПРОТОТИП. «ИИ-модели»: V2 с пометкой «Лучше взять»</title>
+    <title>ПРОТОТИП. «ИИ-модели»: V2, фильтр «Цена/качество»</title>
     <!--
-  PROTOTYPE, throwaway. Четвёртая версия от 12.11.2026: владелец выбрал V2; переключатель «Сводка»
+  PROTOTYPE, throwaway. Шестая версия от 12.11.2026: только V2; фильтры «Мощные», «Мой выбор»,
+  «Цена/качество», «Дёшево»; сводка целиком, если страница помещается в 560 px, иначе обрезается.
+  Четвёртая версия: владелец выбрал V2; переключатель «Сводка»
   сравнивает обрезку многоточием и перенос на вторую строку. Третья версия: Основа: вариант C1 (переключатели сверху,
   значки автора словами). Решения владельца: шкала мощности по месту в таблице агентов Arena
   (по 10 мест на точку), у двух лидеров отметка; «Мой выбор» с назначением; «Риск бана» у сервиса;
@@ -443,16 +445,11 @@
     <div class="pg">
       <div class="bar">
         <span
-          ><span class="lb">Вариант</span>
-          <button class="arrow" id="prev" title="Предыдущий (←)">‹</button>
-          <span class="seg" id="vseg"></span>
-          <button class="arrow" id="next" title="Следующий (→)">›</button></span
+          ><span class="lb">Вариант</span
+          ><b>V2 «Две строки со сводкой»</b></span
         >
         <span
           ><span class="lb">Лидеры</span><span class="seg" id="lseg"></span
-        ></span>
-        <span
-          ><span class="lb">Сводка в V2</span><span class="seg" id="sseg"></span
         ></span>
         <span
           ><span class="lb">Ширина</span><span class="seg" id="wseg"></span
@@ -890,7 +887,7 @@
         tab: "main",
         taps: 0,
       };
-      if (!["V1", "V2", "V3"].includes(st.v)) st.v = "V1";
+      st.v = "V2";
       const VNAMES = {
         V1: "Одна строка",
         V2: "Две строки со сводкой",
@@ -901,10 +898,20 @@
       const FILTERS = [
         ["power", "Мощные"],
         ["fav", "⭐ Мой выбор"],
-        ["code", "Для кода"],
+        ["value", "Цена/качество"],
         ["cheap", "Дёшево"],
-        ["20", "До $20"],
       ];
+      // «Цена/качество»: модели, у которых нет замены одновременно сильнее (выше в Arena) и дешевле (задача по API).
+      const VALUE = M.filter(
+        (m) => !M.some((o) => o !== m && o.rank < m.rank && o.task < m.task),
+      );
+      // Самая дешёвая подписка с моделью без акций, или «только API».
+      const cheapestSub = (m) => {
+        const ps = m.subs.filter(([, e]) => !e.promo).map(([id]) => P[id]);
+        if (!ps.length) return "только API";
+        const p = ps.sort((a, b) => a.usd - b.usd)[0];
+        return "подписка от " + money(p.usd);
+      };
       const head = (title, back) =>
         '<div class="R">' +
         (back ? '<button class="x" data-a="back">‹</button>' : "") +
@@ -916,13 +923,13 @@
         let list = M.slice(),
           metric = (m) => pdots(m);
         if (filter === "fav") list = list.filter((m) => FAVG[m.id]);
-        else if (filter === "code") {
-          list = list.filter((m) => m.tags.includes("код"));
-          metric = (m) => '<span class="sm">' + m.ag[0] + "</span>";
+        else if (filter === "value") {
+          list = VALUE.slice().sort((a, b) => a.task - b.task);
+          metric = (m) => pdots(m) + ' <b class="sm">' + money(m.task) + "</b>";
         } else if (filter === "cheap") {
           list.sort((a, b) => a.task - b.task);
           metric = (m) =>
-            "<b>" + money(m.task) + '</b> <span class="mu sm">задача</span>';
+            "<b>" + money(m.task) + '</b><span class="mu sm"> задача</span>';
         } else if (filter === "20") {
           const cheap = (m) => m.subs.filter(([id]) => P[id].usd <= 20);
           list = list.filter((m) => cheap(m).length);
@@ -968,6 +975,7 @@
             '</span></span><div class="l2">' +
             bds +
             (bds ? " " : "") +
+            (st.filter === "cheap" ? "<b>" + cheapestSub(m) + "</b> · " : "") +
             m.sum +
             "</div></button>"
           );
@@ -1028,9 +1036,12 @@
             (st.page === pages - 1 ? " disabled" : "") +
             ">›</button></div>";
         } else body += list.map((m) => rowHtml(m, metric)).join("");
-        if (st.filter === "20")
+        if (st.filter === "value")
           body +=
-            '<div class="mu sm">Число: задач в неделю, ≈. «есть»: замеров нет.</div>';
+            '<div class="mu sm">Здесь модели, которым нет замены сильнее и дешевле одновременно. Цена: одна задача по API.</div>';
+        if (st.filter === "cheap")
+          body +=
+            '<div class="mu sm">Цена: одна задача по API, от дешёвых к дорогим.</div>';
         return h + "<div>" + body + "</div>";
       }
 
@@ -1194,6 +1205,10 @@
           "chat" + (st.dark ? " dk" : "");
         let fs = 15;
         W.style.fontSize = fs + "px";
+        if (W.parentElement.scrollHeight > 560)
+          W.parentElement.classList.remove("wrap");
+        st.clipped =
+          !W.parentElement.classList.contains("wrap") && st.scr === "home";
         while (W.parentElement.scrollHeight > 560 && fs > 11) {
           fs -= 1;
           W.style.fontSize = fs + "px";
@@ -1223,18 +1238,11 @@
             ? '<span class="warn">' + hgt + " px, не влезает в 560</span>"
             : hgt + " px из 560";
         document.getElementById("s-f").textContent =
-          fs + " px" + (fs < 15 ? " (уменьшен с 15)" : "");
+          fs +
+          " px" +
+          (fs < 15 ? " (уменьшен с 15)" : "") +
+          (st.clipped ? ", сводки обрезаны" : "");
         document.getElementById("taps").textContent = st.taps;
-        seg(
-          "vseg",
-          ["V1", "V2", "V3"],
-          st.v,
-          (x) => x + " " + VNAMES[x],
-          (x) => {
-            st.v = x;
-            goHome();
-          },
-        );
         seg(
           "lseg",
           ["color", "plus"],
@@ -1242,16 +1250,6 @@
           (x) => (x === "color" ? "цветная точка" : "плюс"),
           (x) => {
             st.lead = x;
-            render();
-          },
-        );
-        seg(
-          "sseg",
-          [false, true],
-          st.wrap,
-          (x) => (x ? "переносить" : "обрезать"),
-          (x) => {
-            st.wrap = x;
             render();
           },
         );
@@ -1328,22 +1326,6 @@
         render();
       });
       document.getElementById("reset").onclick = goHome;
-      const order = ["V1", "V2", "V3"];
-      const step = (d) => {
-        st.v = order[(order.indexOf(st.v) + d + 3) % 3];
-        goHome();
-      };
-      document.getElementById("prev").onclick = () => step(-1);
-      document.getElementById("next").onclick = () => step(1);
-      document.addEventListener("keydown", (e) => {
-        if (
-          e.target.closest &&
-          e.target.closest("input,textarea,[contenteditable]")
-        )
-          return;
-        if (e.key === "ArrowLeft") step(-1);
-        if (e.key === "ArrowRight") step(1);
-      });
       render();
     </script>
   </body>
