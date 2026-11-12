@@ -48,7 +48,8 @@ scope described below and do not invoke this profile.
 What the transfer applies:
 
 - Material text, images, links, access, topic, feed choice and product membership. Editorial SVG
-  diagrams are rasterized to PNG for the image upload boundary; the source package keeps its SVG. Paid Materials
+  diagrams, including a wide/tall SVG pair in `imageVariants` (#2041), upload unchanged to a receiver
+  with `svg-images-v1` and are rasterized to PNG only for an older receiver. Paid Materials
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
 - Material covers through `PUT /authoring/import/content-covers/material/:id`, and the product
