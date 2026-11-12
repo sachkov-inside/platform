@@ -14,8 +14,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
-// @ts-expect-error The release contract is an untyped JavaScript module.
-import { migrationsIdentity } from "../../scripts/release-contract.mjs";
+import { z } from "zod";
 
 const root = path.resolve("../..");
 const smoke = path.join(root, "apps/telegram/scripts/production-smoke.sh");
@@ -132,14 +131,28 @@ const gitAdapter = String.raw`
 printf '%s\n' "$SOURCE_SHA"
 `;
 
-async function previousRelease(scenario: string) {
+// The published release's identity comes from the same owner the smoke and gateway use.
+function prefixIdentity(count: number): string {
+  const result = runOwnedCommandSync(
+    process.execPath,
+    [
+      path.join(root, "apps/telegram/scripts/release-contract.mjs"),
+      "migrations-identity",
+      migrations,
+      String(count),
+    ],
+    { encoding: "utf8" },
+  );
+  expect(result.status, result.stderr).toBe(0);
+  return z.object({ identity: z.string() }).parse(JSON.parse(result.stdout))
+    .identity;
+}
+
+function previousRelease(scenario: string) {
   // A forward release adds two migrations after the published one.
   const count = scenario === "forward" ? migrationCount - 2 : migrationCount;
   const identity =
-    scenario === "history"
-      ? `sha256:${"0".repeat(64)}`
-      : ((await migrationsIdentity(migrations, count)) as { identity: string })
-          .identity;
+    scenario === "history" ? `sha256:${"0".repeat(64)}` : prefixIdentity(count);
   const compose = "services: {}\n";
   return {
     PREVIOUS_COMPOSE: compose,
@@ -155,8 +168,8 @@ async function previousRelease(scenario: string) {
   };
 }
 
-async function runSmoke(scenario: string, extra: Record<string, string> = {}) {
-  const previous = await previousRelease(scenario);
+function runSmoke(scenario: string, extra: Record<string, string> = {}) {
+  const previous = previousRelease(scenario);
   const fixture = mkdtempSync(
     path.join(tmpdir(), "telegram-runtime-contract-"),
   );
@@ -206,8 +219,8 @@ async function runSmoke(scenario: string, extra: Record<string, string> = {}) {
 describe("Telegram production runtime smoke", () => {
   it(
     "rolls back to the latest published release when the gateway allows it, with no rollback migration",
-    async () => {
-      const { result, calls, releases } = await runSmoke("valid");
+    () => {
+      const { result, calls, releases } = runSmoke("valid");
       expect(result.status, result.stderr).toBe(0);
       expect(releases).toContain("release download telegram-v50");
       expect(result.stdout).toContain(
@@ -232,8 +245,8 @@ describe("Telegram production runtime smoke", () => {
 
   it(
     "proves the forward transition and skips the rollback the gateway refuses for new migrations",
-    async () => {
-      const { result, calls } = await runSmoke("forward");
+    () => {
+      const { result, calls } = runSmoke("forward");
       expect(result.status, result.stderr).toBe(0);
       expect(result.stdout).toContain(
         "Rollback to v50 is not offered: migration sets differ",
@@ -252,8 +265,8 @@ describe("Telegram production runtime smoke", () => {
 
   it(
     "starts from an explicitly chosen release without listing releases",
-    async () => {
-      const { result, releases } = await runSmoke("valid", {
+    () => {
+      const { result, releases } = runSmoke("valid", {
         TELEGRAM_SMOKE_PREVIOUS_TAG: "telegram-v50",
       });
       expect(result.status, result.stderr).toBe(0);
@@ -273,8 +286,8 @@ describe("Telegram production runtime smoke", () => {
     ["sentinel", "Candidate sentinel changed"],
   ])(
     "rejects altered %s observations with a fatal diagnostic",
-    async (scenario, diagnostic) => {
-      const { result, calls } = await runSmoke(scenario);
+    (scenario, diagnostic) => {
+      const { result, calls } = runSmoke(scenario);
       expect(result.status, result.stderr).toBe(1);
       expect(result.stderr).toContain(diagnostic);
       expect(result.stdout).not.toContain("passed");
