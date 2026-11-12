@@ -1,16 +1,20 @@
-# Inside and Platform
+# sachkov.dev and Platform
 
-Platform sells access to Inside Products and shows free Materials to everyone in the Public Feed.
+Platform sells access to sachkov.dev Products and shows free Materials to everyone in the Public Feed.
 The [current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
-between editorial originals and published application state. This glossary owns the shared Inside terms and their Platform refinements.
+between editorial originals and published application state. This glossary owns the shared sachkov.dev terms and their Platform refinements.
 [Telegram application terms](apps/telegram/GLOSSARY.md) owns only the bot-specific language.
 [The shared brief](docs/product/README.md) owns overall product scope;
 [the access model](docs/product/access-model.md) owns Product acquisition and access conditions.
 
 ## Language
 
+**sachkov.dev**:
+The name of the whole project: its site, bot, Products and community. People see only this name.
+_Avoid_: Inside, Sachkov Inside
+
 **Material**:
-A durable, independently discoverable unit of Inside content with one current mutable body,
+A durable, independently discoverable unit of sachkov.dev content with one current mutable body,
 metadata, access class and publication state. A Material is either free or closed; a closed
 Material belongs to at least one Product. In Russian product language: «Материал».
 _Avoid_: Post, publication, публикация
@@ -99,7 +103,7 @@ There is no closed Material outside Products.
 _Avoid_: Membership, paywall flag
 
 **Product**:
-A standalone Inside learning programme with an authored sequence of reusable Materials and the only
+A standalone sachkov.dev learning programme with an authored sequence of reusable Materials and the only
 thing Platform sells access to. In Russian product language: «Продукт»; the showcase names an
 individual Product by its kind, such as «курс». An archived Product is withdrawn from the showcase
 and sale: holders keep reading its programme and Materials, and others get «not found».
@@ -520,9 +524,9 @@ that manages sales. It is distinct from the message and its delivery.
 _Avoid_: Notification, Delivery, email, reminder job
 
 **Prior Participants**:
-People who took part in the previous Inside course and are verified by the bot through the prior
-course group. Each receives lifetime access to the course Product. A new Inside-driven
-join does not add a participant.
+People who took part in the previous course and are verified by the bot through the prior
+course group. Each receives lifetime access to the course Product. A new join through
+sachkov.dev does not add a participant.
 _Avoid_: Current chat roster, all new members, Cohort
 
 ## Notifications
@@ -573,13 +577,13 @@ _Avoid_: UTM, campaign, attribution model, referrer
 ## Assistant
 
 **Assistant**:
-Platform's built-in conversational helper that answers only from published Inside Materials,
+Platform's built-in conversational helper that answers only from published sachkov.dev Materials,
 Prepared Answers and the person's own Platform data, and refers people to the community or the author.
 In Russian product language: «Помощник».
 _Avoid_: Learner agent, AI mentor, chatbot, агент, помощник курса
 
 **Prepared Answer**:
-An author-written answer to a recurring question about one Product or about Inside as a whole.
+An author-written answer to a recurring question about one Product or about sachkov.dev as a whole.
 A Product answer reaches only people with Product Access to that Product. In Russian product
 language: «Готовый ответ».
 _Avoid_: FAQ Material, canned reply, Template
@@ -597,7 +601,7 @@ person starts over; the Assistant sees earlier Episodes only as a short recap.
 In Russian product language: «эпизод».
 _Avoid_: Session, topic, thread
 
-## Shared Inside terms
+## Shared sachkov.dev terms
 
 **Support**:
 The author's help with a Product promised for a stated term, independent of lifetime Product Access.

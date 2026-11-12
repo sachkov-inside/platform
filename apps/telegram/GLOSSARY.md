@@ -1,6 +1,6 @@
 # Telegram application terms
 
-[Root GLOSSARY](../../GLOSSARY.md) owns all shared Inside meanings, including Product,
+[Root GLOSSARY](../../GLOSSARY.md) owns all shared sachkov.dev meanings, including Product,
 TelegramIdentity, Product Access and MembershipObservation,
 Notification Delivery, CommunityEntitlement and AdmissionRestriction.
 This glossary owns only the Telegram application's local terms.
@@ -8,7 +8,7 @@ This glossary owns only the Telegram application's local terms.
 ## Language
 
 **BotContact**:
-A Telegram person who has started the Sachkov Inside bot and can receive bot messages while
+A Telegram person who has started the sachkov.dev bot and can receive bot messages while
 Telegram permits delivery. A BotContact may exist without an Account link or Product Access.
 _Avoid_: Subscriber, member, lead
 
@@ -193,8 +193,8 @@ _Avoid_: Ум, intelligence, Рейтинг, score
 
 **Подписка сервиса** (Service Subscription):
 Another company's paid plan that gives access to ИИ-модели, such as ChatGPT Plus or Claude Max.
-It has nothing to do with Inside Products, which are never sold as subscriptions.
-_Avoid_: Inside subscription, tariff, Product, Product Access
+It has nothing to do with sachkov.dev Products, which are never sold as subscriptions.
+_Avoid_: sachkov.dev subscription, tariff, Product, Product Access
 
 **Оценка подписки** (Subscription Estimate):
 How much work one Подписка сервиса buys in a month, as the same usage priced at API rates and as a

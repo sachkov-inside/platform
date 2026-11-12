@@ -1,7 +1,7 @@
 # Domain docs
 
 - Platform product scope: [`docs/product/platform-mvp-brief.md`](../product/platform-mvp-brief.md).
-- Shared Inside product scope: [the Inside brief](../product/README.md). Legal editions and their
+- Shared sachkov.dev product scope: [the sachkov.dev brief](../product/README.md). Legal editions and their
   status: [the legal index](../legal/README.md).
 - Terms: [the glossary map](../../GLOSSARY-MAP.md) names each glossary and what it owns.
 - State ownership, Module extraction or cross-context interaction: read the
