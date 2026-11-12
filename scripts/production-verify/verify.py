@@ -264,10 +264,11 @@ def verify_telegram_webhook(webhook, app_started_at):
                 len(set(value)) == len(value))
 
     # Telegram keeps its last delivery error until a newer one replaces it, so only an error
-    # recorded at or after this app's start counts; an older one belongs to a previous process.
+    # recorded since this container started counts. Both are whole seconds: an error in the
+    # start second counts as new.
     started = docker_started_epoch(app_started_at)
-    error_at = webhook.get('lastErrorAt', 'missing')
-    no_new_error = started is not None and (error_at is None or (
+    error_at = webhook.get('lastErrorAt')
+    no_new_error = started is not None and 'lastErrorAt' in webhook and (error_at is None or (
         type(error_at) is int and 0 <= error_at < started))
     required = webhook.get('requiredUpdates')
     allowed = webhook.get('allowedUpdates')

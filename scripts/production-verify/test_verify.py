@@ -2,7 +2,7 @@ import unittest
 from verify import verify_release
 
 class TelegramWebhookTests(unittest.TestCase):
-    # Docker reports StartedAt in UTC with nanoseconds.
+    # Docker reports StartedAt in UTC with nanoseconds; STARTED_EPOCH is its whole second.
     STARTED = '2026-11-12T16:02:34.639679897Z'
     STARTED_EPOCH = 1794499354
 
@@ -39,7 +39,6 @@ class TelegramWebhookTests(unittest.TestCase):
         self.assertEqual(verify_telegram_webhook(self.registration(old), self.STARTED)['status'], 'failed')
 
     def test_only_a_delivery_error_since_app_start_fails(self):
-        # Telegram keeps the last error until a later one replaces it, even after deliveries recover.
         from verify import verify_telegram_webhook
         current = self.registration()
         for at in [None, self.STARTED_EPOCH - 86400, self.STARTED_EPOCH - 1]:
@@ -48,6 +47,7 @@ class TelegramWebhookTests(unittest.TestCase):
         for at in [self.STARTED_EPOCH, self.STARTED_EPOCH + 300, True, '1794499000', -1, 1.5]:
             with self.subTest(lastErrorAt=at):
                 self.assertEqual(verify_telegram_webhook({**current, 'lastErrorAt': at}, self.STARTED)['status'], 'failed')
+        self.assertEqual(verify_telegram_webhook(current, '2026-11-12T16:02:34Z')['status'], 'passed')
         for started in ['', 'start', None, '2026-11-12T16:02:34+03:00']:
             with self.subTest(started=started):
                 self.assertEqual(verify_telegram_webhook(current, started)['status'], 'failed')
