@@ -13,6 +13,12 @@ const chapterSchema = z.object({
   summary: z.string(),
   ordinal: z.number().int(),
 });
+const catalogueTopicSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  summary: z.string(),
+  materialIds: z.array(z.uuid()),
+});
 const placementSchema = z.object({
   materialId: z.uuid(),
   sourceId: z.string().nullable(),
@@ -45,6 +51,8 @@ const compositionSchema = z.object({
   page: z.unknown(),
   coverId: z.uuid().nullable(),
   chapters: z.array(chapterSchema),
+  /** Product topics in author order; Materials are published catalogue members in catalogue order. */
+  catalogueTopics: z.array(catalogueTopicSchema),
   placements: z.array(placementSchema),
 });
 export type ProductComposition = z.infer<typeof compositionSchema> & {
@@ -67,6 +75,7 @@ export interface ProductMaterialFacts {
 const MAX_PRODUCT_CHAPTERS = 200;
 const MAX_PRODUCT_PROGRAMME_PLACEMENTS = 20_000;
 const MAX_CHAPTER_ATTACHMENTS = 200;
+const MAX_PRODUCT_TOPICS = 50;
 const snapshotSchema = compositionSchema
   .omit({ placements: true, programmePlacements: true })
   .extend({
@@ -128,7 +137,16 @@ export class ProductCompositions {
         ) order by chapter.ordinal,chapter.id) from (
           select id,name,summary,ordinal from products.product_chapters where product_id=product.id
           order by ordinal,id limit ${MAX_PRODUCT_CHAPTERS + 1}
-        ) chapter),'[]'::jsonb) as chapters
+        ) chapter),'[]'::jsonb) as chapters,
+        coalesce((select jsonb_agg(jsonb_build_object(
+          'id',topic.id,'name',topic.name,'summary',topic.summary,
+          'materialIds',coalesce((select jsonb_agg(assignment.material_id order by assignment.material_id)
+            from products.product_topic_materials assignment
+            where assignment.topic_id=topic.id and assignment.product_id=product.id),'[]'::jsonb)
+        ) order by topic.ordinal,topic.id) from (
+          select id,name,summary,ordinal from products.product_topics where product_id=product.id
+          order by ordinal,id limit ${MAX_PRODUCT_TOPICS + 1}
+        ) topic),'[]'::jsonb) as "catalogueTopics"
       from products.products product where ${condition}
       order by product.name,product.id limit ${limit}
     `),
@@ -140,6 +158,7 @@ export class ProductCompositions {
           product.programmePlacements.length >
             MAX_PRODUCT_PROGRAMME_PLACEMENTS ||
           product.chapters.length > MAX_PRODUCT_CHAPTERS ||
+          product.catalogueTopics.length > MAX_PRODUCT_TOPICS ||
           product.chapters.some(
             (chapter) =>
               chapter.supplementaryMaterialIds.length > MAX_CHAPTER_ATTACHMENTS,
@@ -187,9 +206,22 @@ export class ProductCompositions {
             ? left.materialId.localeCompare(right.materialId)
             : ordinal;
         });
+      const catalogueIndex = new Map(
+        placements.map(({ materialId }, index) => [materialId, index]),
+      );
       const row = compositionSchema.parse({
         ...product,
         placements,
+        catalogueTopics: product.catalogueTopics.map((topic) => ({
+          ...topic,
+          materialIds: topic.materialIds
+            .filter((materialId) => facts.get(materialId)?.published === true)
+            .sort(
+              (left, right) =>
+                (catalogueIndex.get(left) ?? 0) -
+                (catalogueIndex.get(right) ?? 0),
+            ),
+        })),
         programmePlacements: product.programmePlacements.map((placement) => ({
           ...placement,
           published: facts.get(placement.materialId)?.published === true,

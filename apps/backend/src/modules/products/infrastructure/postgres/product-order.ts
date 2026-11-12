@@ -11,6 +11,10 @@ interface ProductMembership {
   readonly ordinal: number;
 }
 import type { ProductChapterEntry } from "../../shared/product-order-version.js";
+import {
+  inCatalogueOrder,
+  type ProductTopicEntry,
+} from "../../shared/product-topics.js";
 type MaterialId = string;
 import type { ProductMaterials } from "../../ports/product-materials.js";
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
@@ -39,6 +43,8 @@ export interface ProductOrderSnapshot {
   }[];
   readonly name: string;
   readonly productId: string;
+  /** Product topics in author order; each lists its catalogue Materials in catalogue order. */
+  readonly topics: readonly ProductTopicEntry[];
 }
 
 export async function loadProductOrderSnapshot(
@@ -80,6 +86,18 @@ export async function loadProductOrderSnapshot(
   const supplements = await prisma.productChapterSupplementaryMaterial.findMany(
     { where: { productId: productId }, orderBy: { ordinal: "asc" } },
   );
+  const items = memberships
+    .slice()
+    .sort((left, right) =>
+      left.ordinal !== right.ordinal
+        ? left.ordinal - right.ordinal
+        : left.materialId.localeCompare(right.materialId),
+    );
+  const topics = await loadProductTopics(
+    prisma,
+    productId,
+    items.map(({ materialId }) => materialId),
+  );
   return {
     programmePlacements,
     archived: product.archivedAt !== null,
@@ -91,34 +109,53 @@ export async function loadProductOrderSnapshot(
         ? chapter
         : { ...chapter, supplementaryMaterialIds: ids };
     }),
-    items: memberships
-      .slice()
-      .sort((left, right) =>
-        left.ordinal !== right.ordinal
-          ? left.ordinal - right.ordinal
-          : left.materialId.localeCompare(right.materialId),
-      )
-      .map(({ chapterId, materialId, ordinal, stepGroup }) => {
-        const material = materialById.get(materialId);
-        if (material === undefined) {
-          throw new TypeError(
-            "Product membership references a missing Material",
-          );
-        }
-        return {
-          chapterId,
-          materialId,
-          ordinal,
-          stepGroup,
-          publicationState: publicationStateSchema.parse(
-            material.publicationState,
-          ),
-          title: material.title,
-        };
-      }),
+    items: items.map(({ chapterId, materialId, ordinal, stepGroup }) => {
+      const material = materialById.get(materialId);
+      if (material === undefined) {
+        throw new TypeError("Product membership references a missing Material");
+      }
+      return {
+        chapterId,
+        materialId,
+        ordinal,
+        stepGroup,
+        publicationState: publicationStateSchema.parse(
+          material.publicationState,
+        ),
+        title: material.title,
+      };
+    }),
     name: product.name,
     productId: product.id,
+    topics,
   };
+}
+
+async function loadProductTopics(
+  prisma: ProductsPrisma,
+  productId: string,
+  catalogue: readonly string[],
+): Promise<readonly ProductTopicEntry[]> {
+  const [topics, assignments] = await Promise.all([
+    prisma.productTopic.findMany({
+      where: { productId },
+      orderBy: [{ ordinal: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, summary: true },
+    }),
+    prisma.productTopicMaterial.findMany({
+      where: { productId },
+      select: { topicId: true, materialId: true },
+    }),
+  ]);
+  return topics.map((topic) => ({
+    ...topic,
+    materialIds: inCatalogueOrder(
+      assignments
+        .filter((entry) => entry.topicId === topic.id)
+        .map((entry) => entry.materialId),
+      catalogue,
+    ),
+  }));
 }
 
 export async function appendSelectedProductMemberships(
@@ -212,6 +249,7 @@ export async function replaceProductComposition(
     productId,
     orderedMaterialIds,
     programmePlacements,
+    topics,
   }: {
     readonly chapterAssignments: Readonly<Record<string, string>>;
     readonly chapters: readonly ProductChapterEntry[];
@@ -219,6 +257,8 @@ export async function replaceProductComposition(
     readonly orderedMaterialIds: readonly string[];
     readonly stepGroups: Readonly<Record<string, string>>;
     readonly programmePlacements: readonly ProductProgrammePlacement[];
+    /** Retained Product topics; their Materials must belong to `orderedMaterialIds`. */
+    readonly topics: readonly ProductTopicEntry[];
   },
 ): Promise<void> {
   const previousMemberships = await transaction.productMembership.findMany({
@@ -265,6 +305,8 @@ export async function replaceProductComposition(
     await transaction.productChapterSupplementaryMaterial.createMany({
       data: supplements,
     });
+  // Deleting memberships above cascades to topic assignments; topics themselves stay.
+  await replaceProductTopicMaterials(transaction, productId, topics);
 
   await transaction.publishedMaterialProductMembership.deleteMany({
     where: { productId: productId },
@@ -332,4 +374,22 @@ async function replaceProductChapters(
       });
     }
   }
+}
+
+/** Topic assignments reference catalogue memberships, so they follow every catalogue rewrite. */
+export async function replaceProductTopicMaterials(
+  transaction: ProductsPrismaTransaction,
+  productId: string,
+  topics: readonly ProductTopicEntry[],
+): Promise<void> {
+  await transaction.productTopicMaterial.deleteMany({ where: { productId } });
+  const assignments = topics.flatMap((topic) =>
+    topic.materialIds.map((materialId) => ({
+      productId,
+      topicId: topic.id,
+      materialId,
+    })),
+  );
+  if (assignments.length > 0)
+    await transaction.productTopicMaterial.createMany({ data: assignments });
 }

@@ -697,6 +697,12 @@ export class ContentLibraryService {
   }: {
     slug: string,
   }): CancelablePromise<{
+    catalogueTopics?: Array<{
+      id: string;
+      materialIds: Array<string>;
+      name: string;
+      summary: string;
+    }>;
     chapters: Array<{
       id: string;
       materialIds: Array<string>;
@@ -901,6 +907,12 @@ export class ContentLibraryService {
   }: {
     slug: string,
   }): CancelablePromise<{
+    catalogueTopics: Array<{
+      id: string;
+      materialIds: Array<string>;
+      name: string;
+      summary: string;
+    }>;
     chapters: Array<{
       id: string;
       materialIds: Array<string>;
@@ -1136,6 +1148,12 @@ export class ContentLibraryService {
   }: {
     slug: string,
   }): CancelablePromise<{
+    catalogueTopics?: Array<{
+      id: string;
+      materialIds: Array<string>;
+      name: string;
+      summary: string;
+    }>;
     chapters: Array<{
       id: string;
       materialIds: Array<string>;

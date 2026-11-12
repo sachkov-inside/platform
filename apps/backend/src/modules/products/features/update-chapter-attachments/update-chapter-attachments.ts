@@ -92,6 +92,7 @@ export function assembleUpdateChapterAttachments(
           snapshot.items,
           snapshot.chapters,
           snapshot.programmePlacements,
+          snapshot.topics,
         );
         const chapters = snapshot.chapters.map((chapter) =>
           chapter.id === command.chapterId
@@ -102,6 +103,7 @@ export function assembleUpdateChapterAttachments(
           snapshot.items,
           chapters,
           snapshot.programmePlacements,
+          snapshot.topics,
         );
         if (next === currentOrderVersion)
           return { productId: command.productId, orderVersion: next };

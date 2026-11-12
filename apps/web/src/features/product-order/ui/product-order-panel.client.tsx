@@ -7,6 +7,7 @@ import { productOrderQueryOptions } from "../api/read-product-order.browser";
 import { productOrderMaterialSearchQueryOptions } from "../model/product-order-material-search-query";
 import { ProductOrderManager } from "./product-order-manager.client";
 import { ProductOrderReadOnly } from "./product-order-read-only";
+import { ProductTopicsEditor } from "./product-topics-editor.client";
 export function ProductOrderPanel({
   productId,
   archived,
@@ -39,6 +40,24 @@ export function ProductOrderPanel({
       </div>
     );
   const order = query.data.order;
+  const topics = (
+    <ProductTopicsEditor
+      items={order.items}
+      key={`topics-${order.orderVersion}`}
+      onRefresh={async () => {
+        const refreshed = await query.refetch();
+        return refreshed.isError || refreshed.data?.kind !== "ready"
+          ? null
+          : {
+              orderVersion: refreshed.data.order.orderVersion,
+              topics: refreshed.data.order.topics,
+            };
+      }}
+      orderVersion={order.orderVersion}
+      productId={productId}
+      topics={order.topics}
+    />
+  );
   if (readOnly)
     return (
       <div className="grid gap-6">
@@ -71,23 +90,29 @@ export function ProductOrderPanel({
             }}
           />
         ))}
+        {topics}
       </div>
     );
   return (
-    <ProductOrderManager
-      key={order.orderVersion}
-      embedded
-      createMaterialSearchQueryOptions={productOrderMaterialSearchQueryOptions}
-      onBack={() => undefined}
-      onRefresh={() => {
-        void query.refetch();
-      }}
-      onSelectPlaylist={() => undefined}
-      presentation={{
-        ...order,
-        archived,
-        options: [{ label: order.name, value: order.productId }],
-      }}
-    />
+    <div className="grid gap-6">
+      <ProductOrderManager
+        key={order.orderVersion}
+        embedded
+        createMaterialSearchQueryOptions={
+          productOrderMaterialSearchQueryOptions
+        }
+        onBack={() => undefined}
+        onRefresh={() => {
+          void query.refetch();
+        }}
+        onSelectPlaylist={() => undefined}
+        presentation={{
+          ...order,
+          archived,
+          options: [{ label: order.name, value: order.productId }],
+        }}
+      />
+      {topics}
+    </div>
   );
 }

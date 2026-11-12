@@ -338,6 +338,32 @@ model ProductChapterSupplementaryMaterial {
   @@schema("products")
 }
 
+model ProductTopic {
+  id        String   @id(map: "product_topics_primary") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  name      String
+  summary   String   @default("")
+  ordinal   Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@unique([id, productId], map: "product_topics_identity_unique")
+  @@unique([productId, ordinal], map: "product_topics_ordinal_unique")
+  @@map("product_topics")
+  @@schema("products")
+}
+
+model ProductTopicMaterial {
+  productId  String @map("product_id") @db.Uuid
+  topicId    String @map("topic_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+
+  @@id([productId, materialId], map: "product_topic_materials_primary")
+  @@index([topicId], map: "product_topic_materials_topic_idx")
+  @@map("product_topic_materials")
+  @@schema("products")
+}
+
 model HomeProductPin {
   id       Int     @id
   productId String? @map("product_id") @db.Uuid

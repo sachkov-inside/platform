@@ -23,6 +23,14 @@ export interface PublishedMaterialDiscoveryPageDto {
     readonly chapterId: string | null;
     readonly stepGroup: string | null;
   }[];
+  /** Product topics of a Product page in author order; absent for every other discovery kind. */
+  readonly catalogueTopics?: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly summary: string;
+    /** Published catalogue Materials of the topic, in catalogue order. */
+    readonly materialIds: readonly string[];
+  }[];
   /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;

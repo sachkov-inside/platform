@@ -1,5 +1,6 @@
 import type { ReadHistoricalSourceMaterialReceipt } from "../../features/read-historical-source-receipt/read-historical-source-receipt.js";
 import type { UpdateChapterAttachmentsOperation } from "../../features/update-chapter-attachments/update-chapter-attachments.js";
+import type { UpdateProductTopicsOperation } from "../../features/update-product-topics/update-product-topics.js";
 import type { ReadHistoricalPracticeReceiptOperation } from "../../features/import-source-practice/import-source-practice.contract.js";
 import type {
   ReserveSourceProductOperation,
@@ -36,6 +37,7 @@ import type { UpdateContentCollectionOperation } from "../../features/update-con
 export interface MaterialAuthoring {
   readonly readHistoricalSourceMaterialReceipt: ReadHistoricalSourceMaterialReceipt;
   readonly updateChapterAttachments: UpdateChapterAttachmentsOperation;
+  readonly updateProductTopics: UpdateProductTopicsOperation;
   readonly readHistoricalPracticeReceipt: ReadHistoricalPracticeReceiptOperation;
   readonly reserveSourceProduct: ReserveSourceProductOperation;
   readonly validateSourceProduct: ValidateSourceProductOperation;

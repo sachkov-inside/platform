@@ -51,10 +51,17 @@ export function assembleLoadProductOrder(
           name: snapshot.name,
           programmePlacements: snapshot.programmePlacements,
           productId: snapshot.productId,
+          topics: snapshot.topics.map(({ id, name, summary, materialIds }) => ({
+            id,
+            name,
+            summary,
+            materialIds,
+          })),
           orderVersion: productOrderVersion(
             snapshot.items,
             snapshot.chapters,
             snapshot.programmePlacements,
+            snapshot.topics,
           ),
         },
       };

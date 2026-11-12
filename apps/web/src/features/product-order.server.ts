@@ -8,3 +8,4 @@ export {
 
 export { handleProductOrderRequest } from "./product-order/api/product-order-route.server";
 export { handleChapterAttachmentsRequest } from "./product-order/api/chapter-attachments.server";
+export { handleProductTopicsRequest } from "./product-order/api/product-topics.server";

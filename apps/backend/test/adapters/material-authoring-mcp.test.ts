@@ -39,6 +39,7 @@ describe("Material authoring MCP adapter", () => {
       "product_load_composition",
       "product_save_composition",
       "product_set_chapter_attachments",
+      "product_set_topics",
     ]);
     expect(
       tools.find(({ name }) => name === "material_save")?.annotations,
@@ -85,6 +86,37 @@ describe("Material authoring MCP adapter", () => {
     expect(commands).toEqual([{ actor: accountId, productId }]);
     expect(saveCommands).toEqual([]);
     expect(canonical).toMatchObject({
+      isError: true,
+      structuredContent: { ok: false, error: { code: "forbidden" } },
+    });
+  });
+
+  test("Product topics delegate the Account and the complete topic list", async () => {
+    const commands: unknown[] = [];
+    ({ client, server } = await connect(
+      stubMaterialAuthoring({
+        updateProductTopics: (command) => {
+          commands.push(command);
+          return Promise.resolve(forbiddenAuthoringResult);
+        },
+      }),
+    ));
+    const productId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const topic = {
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      name: "Основы",
+      summary: "",
+      materialIds: ["dddddddd-dddd-4ddd-8ddd-dddddddddddd"],
+    };
+    const expectedOrderVersion = "a".repeat(64);
+    const result = await client.callTool({
+      name: "product_set_topics",
+      arguments: { productId, expectedOrderVersion, topics: [topic] },
+    });
+    expect(commands).toEqual([
+      { actor: accountId, productId, expectedOrderVersion, topics: [topic] },
+    ]);
+    expect(result).toMatchObject({
       isError: true,
       structuredContent: { ok: false, error: { code: "forbidden" } },
     });
