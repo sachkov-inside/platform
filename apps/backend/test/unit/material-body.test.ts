@@ -9,6 +9,7 @@ import {
 } from "@inside/material-blocks";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 
+import { hydrateMaterialAssets } from "../../src/modules/materials/domain/material-body/hydrate-material-assets.js";
 import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
 import {
   fullRepresentativeDocument,
@@ -1322,4 +1323,120 @@ test("image variants survive the editor schema and retain every referenced asset
   expect(
     extraction.value.resources.map((resource) => resource.assetId),
   ).toEqual(Object.values(imageVariants));
+});
+
+test("a wide/tall SVG pair names each asset in two keys and reaches Reader marked as SVG (#2041)", () => {
+  const wide = "92000000-0000-4000-8000-000000000021";
+  const tall = "92000000-0000-4000-8000-000000000022";
+  const imageVariants = {
+    wideLight: wide,
+    wideDark: wide,
+    tallLight: tall,
+    tallDark: tall,
+  };
+  const accepted = materialBodyOperations.accept({
+    schemaVersion: 1,
+    doc: {
+      type: "doc",
+      content: [
+        {
+          type: "assetImage",
+          attrs: {
+            nodeId: testNodeId(1),
+            assetId: wide,
+            alt: "Схема",
+            sourceSrc: "assets/scene-wide.svg",
+            imageVariants,
+          },
+        },
+      ],
+    },
+  });
+  expect(accepted.ok).toBe(true);
+  if (!accepted.ok) throw new Error("Rejected an SVG pair");
+  const extraction = materialBodyOperations.extract(accepted.value);
+  if (!extraction.ok) throw new Error("No extraction");
+  expect(
+    extraction.value.resources.map((resource) => resource.assetId),
+  ).toEqual([wide, tall]);
+  const rendered = materialBodyOperations.render(accepted.value);
+  if (!rendered.ok) throw new Error("Not rendered");
+
+  const hydrated = hydrateMaterialAssets(rendered.value, [
+    {
+      assetId: wide,
+      format: "svg",
+      height: 360,
+      kind: "image",
+      variants: [{ height: 360, width: 720 }],
+      width: 720,
+    },
+    {
+      assetId: tall,
+      format: "svg",
+      height: 640,
+      kind: "image",
+      variants: [{ height: 640, width: 360 }],
+      width: 360,
+    },
+  ]);
+
+  const wideImage = {
+    assetId: wide,
+    format: "svg",
+    height: 360,
+    variants: [{ height: 360, width: 720 }],
+    width: 720,
+  };
+  const tallImage = {
+    assetId: tall,
+    format: "svg",
+    height: 640,
+    variants: [{ height: 640, width: 360 }],
+    width: 360,
+  };
+  expect(hydrated.blocks).toEqual([
+    {
+      alt: "Схема",
+      kind: "image",
+      sourceSrc: "assets/scene-wide.svg",
+      ...wideImage,
+      imageVariants: {
+        wideLight: wideImage,
+        wideDark: wideImage,
+        tallLight: tallImage,
+        tallDark: tallImage,
+      },
+    },
+  ]);
+  expect(renderedMaterialBodySchema.safeParse(hydrated).success).toBe(true);
+});
+
+test("a raster image keeps no format after hydration (#2041)", () => {
+  const assetId = "92000000-0000-4000-8000-000000000031";
+  const accepted = materialBodyOperations.accept({
+    schemaVersion: 1,
+    doc: {
+      type: "doc",
+      content: [
+        {
+          type: "assetImage",
+          attrs: { nodeId: testNodeId(1), assetId, alt: "Фото" },
+        },
+      ],
+    },
+  });
+  if (!accepted.ok) throw new Error("Rejected an image");
+  const rendered = materialBodyOperations.render(accepted.value);
+  if (!rendered.ok) throw new Error("Not rendered");
+  const [block] = hydrateMaterialAssets(rendered.value, [
+    {
+      assetId,
+      height: 600,
+      kind: "image",
+      variants: [{ height: 300, width: 480 }],
+      width: 960,
+    },
+  ]).blocks;
+  expect(block).not.toHaveProperty("format");
 });

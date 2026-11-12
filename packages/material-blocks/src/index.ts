@@ -70,6 +70,7 @@ export {
 export type {
   ImageVariants,
   ImageAssetPresentation,
+  ImageFormat,
 } from "./rendered-block.js";
 
 export {

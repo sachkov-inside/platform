@@ -22,9 +22,11 @@ const imageVariantIdsSchema = z
     tallDark: assetIdSchema,
   })
   .strict();
+const imageFormatSchema = z.literal("svg");
 const imagePresentationSchema = z
   .object({
     assetId: assetIdSchema,
+    format: imageFormatSchema.optional(),
     height: z.number().int().positive().optional(),
     width: z.number().int().positive().optional(),
     variants: z
@@ -180,6 +182,7 @@ export const assetImageBlock: MaterialBlockDefinition =
           assetId: assetIdSchema,
           caption: z.string().optional(),
           displayWidthPercent: displayWidthPercentSchema.optional(),
+          format: imageFormatSchema.optional(),
           height: z.number().int().positive().optional(),
           kind: z.literal("image"),
           sourceSrc: z.string().optional(),

@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { SVG_CONTENT_TYPE } from "@inside/material-blocks/svg-image";
+
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Subject, ContentAccess } from "../../../content-access/index.js";
@@ -9,6 +11,7 @@ import {
   attachmentDisposition,
   PROTECTED_BYTES_KEEP_SECONDS,
   readPublicObject,
+  readStoredObject,
   signedDeliveryTtlSeconds,
 } from "../../shared/protected-delivery.js";
 import type { MaterialContent } from "../../facets/material-content/material-content.js";
@@ -22,6 +25,15 @@ export type DeliveredMaterialAsset =
       contentDisposition?: string;
       contentLength: number;
       contentType: string;
+      kind: "bytes";
+    }>
+  | Readonly<{
+      body: Uint8Array;
+      cacheScope: "private-no-store";
+      contentLength: number;
+      contentType: string;
+      /** The same bound as `keepSeconds` of a redirect. */
+      keepSeconds?: number;
       kind: "bytes";
     }>
   | Readonly<{
@@ -145,6 +157,36 @@ export function assembleMaterialAssetDelivery(dependencies: {
         validUntil,
       );
       if (ttlSeconds === null) return notFound();
+      const keepSeconds = input.preview
+        ? null
+        : signedDeliveryTtlSeconds(PROTECTED_BYTES_KEEP_SECONDS, validUntil);
+      // Reader reads an SVG image with `fetch()` to put its markup into the page (#2041). A redirect
+      // to storage is cross-origin outside the production edge, so the API returns the bytes from
+      // the site's own address; a checked SVG is at most 512 KiB.
+      if (asset.kind === "image" && asset.contentType === SVG_CONTENT_TYPE) {
+        const stored = await readStoredObject(
+          dependencies.objectStorage,
+          "protected",
+          {
+            contentType: asset.contentType,
+            key: asset.object.protectedKey,
+            size: asset.size,
+          },
+        );
+        if (stored.kind === "mismatch") return notFound();
+        if (stored.kind === "unavailable") return dependencyUnavailable();
+        return {
+          ok: true,
+          value: {
+            body: stored.object.body,
+            cacheScope: "private-no-store",
+            contentLength: stored.object.contentLength,
+            contentType: stored.object.contentType,
+            ...(keepSeconds === null ? {} : { keepSeconds }),
+            kind: "bytes",
+          },
+        };
+      }
       let location: string;
       try {
         location = await dependencies.objectStorage.signGet({
@@ -161,9 +203,6 @@ export function assembleMaterialAssetDelivery(dependencies: {
           dependencyUnavailable(),
         );
       }
-      const keepSeconds = input.preview
-        ? null
-        : signedDeliveryTtlSeconds(PROTECTED_BYTES_KEEP_SECONDS, validUntil);
       return {
         ok: true,
         value: {

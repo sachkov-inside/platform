@@ -118,9 +118,10 @@ export class DeliverMaterialAssetController {
     schema: { type: "integer", minimum: 1 },
   })
   @ApiQuery({ name: "preview", required: false, schema: { type: "boolean" } })
-  @ApiProduces("image/webp")
+  @ApiProduces("image/webp", "image/svg+xml")
   @ApiOkResponse({
-    description: "Public immutable image bytes",
+    description:
+      "Public immutable image bytes, or the bytes of a protected SVG image variant",
     schema: { type: "string", format: "binary" },
   })
   @ApiFoundResponse({

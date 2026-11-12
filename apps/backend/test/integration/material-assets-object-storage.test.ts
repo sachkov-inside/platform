@@ -210,6 +210,22 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     expect(new TextDecoder().decode(stored?.body)).toMatch(
       /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="720" height="475"/u,
     );
+    // Reader puts only an image marked as SVG into the page (#2041).
+    await expect(
+      assets.loadPresentations(materialId, [uploaded.value.assetId]),
+    ).resolves.toEqual({
+      ok: true,
+      value: [
+        {
+          assetId: uploaded.value.assetId,
+          format: "svg",
+          height: 475,
+          kind: "image",
+          variants: [{ height: 475, width: 720 }],
+          width: 720,
+        },
+      ],
+    });
 
     await expect(
       assets.cleanupOrphans({

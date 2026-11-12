@@ -83,6 +83,8 @@ export interface MaterialAssetDelivery {
 export type MaterialAssetPresentation =
   | Readonly<{
       assetId: string;
+      /** Present only for a checked SVG, which Reader puts into the page (#2041). */
+      format?: "svg";
       height: number;
       kind: "image";
       variants: readonly { readonly height: number; readonly width: number }[];

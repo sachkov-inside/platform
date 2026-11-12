@@ -441,6 +441,82 @@ test("v2 imports all four diagram assets once and preserves their relation on re
   assert.deepEqual(valueAt(api.materials, sourceId).body, saved);
 });
 
+test("v2 imports a wide/tall SVG pair named in two keys each as two SVG uploads (#2041)", async (t) => {
+  const setup = await fixture(t);
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = ["image-variants-v1"];
+  setup.manifest.selection.taskIds = [];
+  const row = itemAt(setup.manifest.materials, 0);
+  row.markdown = "![Схема](scene-wide.svg)";
+  row.images = { "scene-wide.svg": "scene-wide" };
+  row.imageVariants = {
+    "scene-wide.svg": {
+      wideLight: "scene-wide",
+      wideDark: "scene-wide",
+      tallLight: "scene-tall",
+      tallDark: "scene-tall",
+    },
+  };
+  const { checksum } = await import("./package.mjs");
+  for (const [sourceId, width] of /** @type {const} */ ([
+    ["scene-wide", 720],
+    ["scene-tall", 360],
+  ])) {
+    const bytes = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" id="fig-scene-${sourceId.slice(6)}" width="${String(width)}" height="200" viewBox="0 0 ${String(width)} 200"><text x="10" y="20">Схема</text></svg>`,
+    );
+    const path = `${sourceId}.svg`;
+    await writeFile(join(setup.directory, path), bytes);
+    setup.manifest.assets.push({
+      sourceId,
+      path,
+      sha256: checksum(bytes),
+      mimeType: "image/svg+xml",
+    });
+  }
+  await setup.write();
+  const api = applicationApi();
+  await setup.sync(api);
+
+  const uploads = api.calls.filter((call) => call.path.endsWith("/assets"));
+  assert.deepEqual(
+    uploads.map((call) => {
+      assert.ok(call.body instanceof FormData);
+      const file = call.body.get("file");
+      assert.ok(file instanceof Blob);
+      return file.type;
+    }),
+    ["image/svg+xml", "image/svg+xml"],
+  );
+  const saved = valueAt(api.materials, sourceId).body;
+  assert.deepEqual(
+    /** @type {any} */ (saved).doc.content[0].attrs.imageVariants,
+    {
+      wideLight: "92000000-0000-4000-8000-000000000001",
+      wideDark: "92000000-0000-4000-8000-000000000001",
+      tallLight: "92000000-0000-4000-8000-000000000002",
+      tallDark: "92000000-0000-4000-8000-000000000002",
+    },
+  );
+
+  // A set that mixes an SVG with a PNG stops before its first request.
+  const png = Buffer.from("not decoded before the type check");
+  await writeFile(join(setup.directory, "scene-dark.png"), png);
+  setup.manifest.assets.push({
+    sourceId: "scene-dark",
+    path: "scene-dark.png",
+    sha256: checksum(png),
+    mimeType: "image/png",
+  });
+  const variants = row.imageVariants["scene-wide.svg"];
+  assert.ok(variants);
+  variants.wideDark = "scene-dark";
+  await setup.write();
+  const mixed = applicationApi();
+  await assert.rejects(setup.sync(mixed), /all PNG or all SVG/u);
+  assert.equal(mixed.calls.length, 0);
+});
+
 test("v2 quiz survives preview, apply and repeated sync without rendering raw answer keys", async (t) => {
   const setup = await fixture(t);
   setup.manifest.schemaVersion = 2;
