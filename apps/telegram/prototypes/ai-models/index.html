@@ -3,16 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ПРОТОТИП. Раздел «ИИ-модели»: вариант C со значками автора</title>
+    <title>ПРОТОТИП. «ИИ-модели»: три варианта на основе C1</title>
     <!--
-  PROTOTYPE, throwaway. Вторая версия. Владелец 12.11.2026 выбрал вариант C «Переключатели сверху»
-  и попросил убрать номера мест и добавить значки со своим мнением. Вопрос: как уместить значки.
-  C1 показывает значки словами, C2 иконками с легендой. Значения значков это черновик по словам
-  владельца.
-  Это витрина в обычном браузере, а не настоящий виджет: размер кода (4 096 байт после zlib)
-  здесь не считается. Данные настоящие, из образцового справочника на 12.11.2026; тексты сводок
-  и причин выбора агента это черновики для владельца. Высота виджета ограничена 560 px, шрифт
-  уменьшается по 1 px до 11 px, как в Тренажёре.
+  PROTOTYPE, throwaway. Третья версия от 12.11.2026. Основа: вариант C1 (переключатели сверху,
+  значки автора словами). Решения владельца: шкала мощности по месту в таблице агентов Arena
+  (по 10 мест на точку), у двух лидеров отметка; «Мой выбор» с назначением; «Риск бана» у сервиса;
+  оценка подписки только при 5 и больше замеренных аккаунтах; GLM «для средних задач».
+  Вопрос: как уложить это в экран. V1 «Одна строка», V2 «Две строки со сводкой»,
+  V3 «Карточка вкладками». Код виджета здесь не ограничен 4 096 байтами.
 -->
     <style>
       .pg {
@@ -136,7 +134,7 @@
         margin: 0;
       }
 
-      /* Чат Telegram вокруг виджета. Цвета чата фиксированные, не токены Orca. */
+      /* Чат Telegram вокруг виджета: фиксированные цвета макета. */
       .chat {
         padding: 16px 14px 18px;
         border-radius: 14px;
@@ -176,7 +174,7 @@
         pointer-events: none;
       }
 
-      /* Виджет: палитра и рисунок Тренажёра (бумага, оранжевый акцент, обводки, тени). */
+      /* Виджет: палитра и рисунок Тренажёра. */
       .wg {
         --a: #c7461e;
         --d: #8b3115;
@@ -186,6 +184,9 @@
         --p: #fff8ef;
         --v: #472719;
         --g: #277647;
+        --r: #b63829;
+        --gold: #e3a008;
+        --golddk: #8a5a00;
         background: var(--p);
         color: var(--v);
         padding-bottom: 22px;
@@ -193,7 +194,7 @@
       .wg #w {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 9px;
         padding: 12px 14px 8px 12px;
         font-family:
           system-ui,
@@ -232,20 +233,6 @@
         font-weight: 800;
         color: var(--a);
       }
-      .wg .cd,
-      .wg .bt {
-        border: 2px solid var(--v);
-        border-radius: 8px;
-        background: var(--s);
-        box-shadow: 3px 3px 0 var(--d);
-        padding: 6px 9px;
-      }
-      .wg .bt {
-        min-height: 40px;
-        font-weight: 700;
-        text-align: center;
-        width: 100%;
-      }
       .wg .x {
         flex: none;
         width: 36px;
@@ -278,6 +265,11 @@
         border-color: var(--d);
         color: var(--p);
       }
+      .wg .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
       .wg .tag {
         display: inline-block;
         border: 1.5px solid var(--h);
@@ -290,7 +282,9 @@
       .wg .dots {
         display: inline-flex;
         gap: 2px;
+        align-items: center;
         vertical-align: middle;
+        white-space: nowrap;
       }
       .wg .dots i {
         width: 7px;
@@ -303,102 +297,22 @@
         background: var(--a);
         border-color: var(--d);
       }
+      .wg .dots i.x {
+        background: var(--gold);
+        border-color: var(--golddk);
+        width: 9px;
+        height: 9px;
+      }
+      .wg .dots .pl {
+        font-weight: 900;
+        color: var(--a);
+        margin-left: 1px;
+        font-size: 0.95em;
+        line-height: 1;
+      }
       .wg .dots.pr i.f {
         background: var(--v);
         border-color: var(--v);
-      }
-      .wg .bar5 {
-        display: flex;
-        gap: 2px;
-        margin-top: 3px;
-      }
-      .wg .bar5 i {
-        flex: 1;
-        height: 4px;
-        border-radius: 1px;
-        background: var(--t);
-      }
-      .wg .bar5 i.f {
-        background: var(--a);
-      }
-      .wg .hr {
-        border-top: 2px solid var(--t);
-      }
-      .wg .fam {
-        display: flex;
-        gap: 8px;
-        align-items: flex-start;
-      }
-      .wg .fam > b {
-        flex: none;
-        width: 64px;
-        padding-top: 4px;
-        font-size: 0.9em;
-      }
-      .wg .fam .chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      .wg .lead {
-        display: flex;
-        gap: 6px;
-      }
-      .wg .lead .cd {
-        flex: 1;
-        min-width: 0;
-        padding: 4px 6px;
-      }
-      .wg .lead .cd span {
-        display: block;
-        font-size: 0.72em;
-        color: var(--h);
-      }
-      .wg .lead .cd b {
-        display: block;
-        font-size: 0.85em;
-      }
-      .wg table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.82em;
-      }
-      .wg th {
-        font-weight: 700;
-        text-align: center;
-        padding: 0 1px 4px;
-        vertical-align: bottom;
-      }
-      .wg th button {
-        width: 100%;
-        text-align: center;
-        color: var(--a);
-        font-weight: 700;
-        line-height: 1.1;
-      }
-      .wg td {
-        padding: 3px 1px;
-        text-align: center;
-        border-top: 1px solid var(--t);
-      }
-      .wg tr.g1 td {
-        border-top: 2px solid var(--h);
-      }
-      .wg td.nm {
-        text-align: left;
-      }
-      .wg td.nm button {
-        font-weight: 700;
-        width: 100%;
-      }
-      .wg td .no {
-        color: var(--t);
-      }
-      .wg td .ys {
-        color: var(--h);
-      }
-      .wg td b {
-        color: var(--g);
       }
       .wg .row {
         display: flex;
@@ -407,6 +321,74 @@
         width: 100%;
         padding: 4px 0;
         border-top: 1px solid var(--t);
+      }
+      .wg .row2 {
+        display: block;
+        width: 100%;
+        padding: 4px 0;
+        border-top: 1px solid var(--t);
+      }
+      .wg .row2 .l2 {
+        font-size: 0.8em;
+        color: var(--h);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 1px;
+      }
+      .wg .row2 .l2 .bd:first-child {
+        margin-left: 0;
+      }
+      .wg .gh {
+        font-size: 0.8em;
+        font-weight: 800;
+        color: var(--a);
+        margin-top: 2px;
+      }
+      .wg .bd {
+        display: inline-block;
+        border: 1.5px solid var(--h);
+        border-radius: 4px;
+        padding: 0 4px;
+        margin: 1px 0 1px 4px;
+        font-size: 0.7em;
+        font-weight: 700;
+        color: var(--h);
+        white-space: nowrap;
+        vertical-align: 1px;
+      }
+      .wg .bd.fav {
+        background: var(--a);
+        border-color: var(--d);
+        color: var(--p);
+      }
+      .wg .bd.sure {
+        border-color: var(--g);
+        color: var(--g);
+      }
+      .wg .bd.ban {
+        border-color: var(--r);
+        color: var(--r);
+      }
+      .wg .bd.pricey,
+      .wg .bd.waste {
+        border-color: var(--v);
+        color: var(--v);
+      }
+      .wg .op {
+        border: 2px dashed var(--h);
+        border-radius: 8px;
+        padding: 5px 8px;
+      }
+      .wg .op .bd {
+        margin-left: 0;
+        margin-right: 4px;
+      }
+      .wg .cd {
+        border: 2px solid var(--v);
+        border-radius: 8px;
+        background: var(--s);
+        padding: 5px 8px;
       }
       .wg .sub {
         display: flex;
@@ -432,70 +414,23 @@
         color: var(--v);
         font-size: 1.15em;
       }
-      .wg .tierrow {
-        padding: 4px 0;
-        border-top: 1px solid var(--t);
-      }
-      .wg .tierrow .ms {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 2px 10px;
-        font-size: 0.85em;
-      }
-      .wg .tierrow .ms button {
-        display: inline;
-        color: var(--v);
-        text-decoration: underline;
-        text-decoration-color: var(--t);
-        text-underline-offset: 2px;
-      }
-      .wg .bd {
-        display: inline-block;
-        border: 1.5px solid var(--h);
-        border-radius: 4px;
-        padding: 0 4px;
-        margin: 1px 0 1px 4px;
-        font-size: 0.7em;
-        font-weight: 700;
-        color: var(--h);
-        white-space: nowrap;
-        vertical-align: 1px;
-      }
-      .wg .bd.fav {
-        background: var(--a);
-        border-color: var(--d);
-        color: var(--p);
-      }
-      .wg .bd.sure {
-        border-color: var(--g);
-        color: var(--g);
-      }
-      .wg .bd.ban {
-        border-color: #b63829;
-        color: #b63829;
-      }
-      .wg .bd.pricey,
-      .wg .bd.waste {
-        border-color: var(--v);
-        color: var(--v);
-      }
-      .wg .ic {
-        margin-left: 4px;
-        font-size: 0.85em;
-      }
-      .wg .op {
-        border: 2px dashed var(--h);
-        border-radius: 8px;
-        padding: 5px 8px;
-      }
-      .wg .op .bd {
+      .wg .grp .bd {
         margin-left: 0;
-        margin-right: 4px;
       }
       .wg .note {
         border-left: 3px solid var(--a);
         padding-left: 8px;
         font-size: 0.85em;
+      }
+      .wg .pager {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      }
+      .wg .tabs {
+        display: flex;
+        gap: 6px;
       }
     </style>
   </head>
@@ -508,6 +443,9 @@
           <span class="seg" id="vseg"></span>
           <button class="arrow" id="next" title="Следующий (→)">›</button></span
         >
+        <span
+          ><span class="lb">Лидеры</span><span class="seg" id="lseg"></span
+        ></span>
         <span
           ><span class="lb">Ширина</span><span class="seg" id="wseg"></span
         ></span>
@@ -529,7 +467,7 @@
             <li>Что мне даст подписка за $20 в месяц?</li>
             <li>Сколько стоит Opus 5.5 и в каких подписках он есть?</li>
           </ol>
-          <div class="R" style="display: flex; gap: 12px; align-items: center">
+          <div style="display: flex; gap: 12px; align-items: center">
             <div>
               <div class="mut">Нажатий с главного экрана</div>
               <div class="big" id="taps">0</div>
@@ -547,28 +485,18 @@
             <dd id="s-f"></dd>
           </dl>
           <p class="mut" style="margin: 10px 0 0">
-            Данные на 12.11.2026 из образцового справочника. Сводки и причины
-            выбора агента это черновики. Код виджета здесь не ограничен 4 096
-            байтами. Стрелки ← → на клавиатуре переключают варианты.
+            Данные на 12.11.2026 из образцового справочника. Значки автора
+            расставлены по твоим словам, сводки и причины выбора агента пока
+            черновики. Мощность: место в таблице агентов Arena, по 10 мест на
+            точку; отметка у первых двух мест. Стрелки ← → переключают варианты.
           </p>
         </div>
       </div>
     </div>
     <script>
-      // ---------- Данные: образцовый справочник на 12.11.2026 ----------
-      const FAMS = [
-        ["claude", "Claude"],
-        ["gemini", "Gemini"],
-        ["gpt", "GPT"],
-        ["kimi", "Kimi"],
-        ["grok", "Grok"],
-        ["deepseek", "DeepSeek"],
-        ["glm", "GLM"],
-        ["qwen", "Qwen"],
-        ["minimax", "MiniMax"],
-      ];
+      // ---------- Данные ----------
       const SVC = {
-        claude: { n: "Claude", ru: false },
+        claude: { n: "Claude", ru: false, ban: "высокий" },
         chatgpt: { n: "ChatGPT", ru: false },
         google: { n: "Google", ru: false },
         x: { n: "X", ru: null },
@@ -576,7 +504,6 @@
         zai: { n: "GLM Coding Plan", ru: null },
         alibaba: { n: "Alibaba Token Plan", ru: null },
       };
-      // usd: цена в месяц; tiers: ценовые ступени 1 (до $50), 2 (~$100), 3 ($200+).
       const P = {
         "claude-pro": { s: "claude", n: "Pro", usd: 20 },
         "claude-max": { s: "claude", n: "Max", usd: 100 },
@@ -588,14 +515,7 @@
         "g-pro": { s: "google", n: "AI Pro", usd: 19.99 },
         "g-ultra5": { s: "google", n: "AI Ultra 5x", usd: 99.99 },
         "g-ultra20": { s: "google", n: "AI Ultra 20x", usd: 199.99 },
-        "g-ag": {
-          s: "google",
-          n: "AI Pro–Ultra",
-          usd: 19.99,
-          usdTo: 199.99,
-          tiers: [1, 2, 3],
-          into: ["g-pro", "g-ultra5", "g-ultra20"],
-        },
+        "g-ag": { s: "google", n: "AI Pro–Ultra", usd: 19.99, from: 1 },
         "x-plus": { s: "x", n: "Plus", usd: 8 },
         "x-premium": { s: "x", n: "Premium", usd: 30 },
         "x-super": { s: "x", n: "Super", usd: 100 },
@@ -607,20 +527,19 @@
         "glm-lite": { s: "zai", n: "Lite", usd: 18 },
         "glm-pro": { s: "zai", n: "Pro", usd: 80 },
         "glm-max": { s: "zai", n: "Max", usd: 168 },
-        ali: { s: "alibaba", n: "Lite–Pro", usd: 6, usdTo: 43, tiers: [1] },
+        ali: { s: "alibaba", n: "Lite–Pro", usd: 6, from: 1 },
       };
       const AG = "через Antigravity, лимит без чисел";
       const NOW = "недельный лимит не опубликован";
+      const KIMI = "лимит за 5 часов, без чисел";
       const ALI = "20–200 тыс. кредитов в месяц";
-      // t: задач в неделю, w: доллары в неделю по ценам API, v: слова компании, n: пометка.
+      // t: задач в неделю (только при 5+ замеренных аккаунтах), w: доллары в неделю по ценам API, v: слова компании.
       const M = [
         {
           id: "fable",
           f: "claude",
-          sh: "Fable 5.2",
           full: "Claude Fable 5.2",
           rank: 1,
-          score: 0.304,
           task: 7.43,
           api: [8, 40],
           tags: ["код", "агенты", "поиск и анализ"],
@@ -640,10 +559,8 @@
         {
           id: "opus",
           f: "claude",
-          sh: "Opus 5.5",
           full: "Claude Opus 5.5",
           rank: 2,
-          score: 0.195,
           task: 5.47,
           api: [4, 20],
           tags: ["код", "агенты", "тексты"],
@@ -658,12 +575,27 @@
           ],
         },
         {
+          id: "carbon",
+          f: "gemini",
+          full: "Gemini 4 Carbon",
+          rank: 3,
+          task: 1.46,
+          api: [2, 10],
+          tags: ["код", "поиск и анализ", "агенты"],
+          sum: "сильная и недорогая, но с 1 декабря дороже",
+          ag: ["Antigravity", "родной агент Google"],
+          alts: "Cline по ключу API",
+          subs: [
+            ["g-ultra5", { v: "в 5 раз больше AI Pro" }],
+            ["g-ultra20", { v: "в 20 раз больше AI Pro" }],
+          ],
+          ch: "С 1.12 API вдвое дороже: $4 / $20",
+        },
+        {
           id: "sonnet",
           f: "claude",
-          sh: "Sonnet 5.5",
           full: "Claude Sonnet 5.5",
           rank: 4,
-          score: 0.16,
           task: 3.35,
           api: [2, 10],
           tags: ["код", "агенты", "тексты"],
@@ -678,51 +610,10 @@
           ],
         },
         {
-          id: "carbon",
-          f: "gemini",
-          sh: "4 Carbon",
-          full: "Gemini 4 Carbon",
-          rank: 3,
-          score: 0.17,
-          task: 1.46,
-          api: [2, 10],
-          tags: ["код", "поиск и анализ", "агенты"],
-          sum: "сильная и недорогая, но с 1 декабря дороже",
-          ag: ["Antigravity", "родной агент Google"],
-          alts: "Cline по ключу API",
-          subs: [
-            ["g-ultra5", { v: "в 5 раз больше AI Pro" }],
-            ["g-ultra20", { v: "в 20 раз больше AI Pro" }],
-          ],
-          ch: "С 1.12 API вдвое дороже: $4 / $20",
-        },
-        {
-          id: "argon",
-          f: "gemini",
-          sh: "4 Argon",
-          full: "Gemini 4 Argon",
-          rank: 9,
-          score: 0.107,
-          task: 0.73,
-          api: [2, 10],
-          tags: ["поиск и анализ", "тексты"],
-          sum: "неплохая и дешёвая, есть в подписке за $20",
-          ag: ["Antigravity", "родной агент Google"],
-          alts: "Cline по ключу API",
-          subs: [
-            ["g-pro", { v: "в 4 раза больше Free" }],
-            ["g-ultra5", { v: "в 5 раз больше AI Pro" }],
-            ["g-ultra20", { v: "в 20 раз больше AI Pro" }],
-          ],
-          ch: "С 1.12 API вдвое дороже: $4 / $20",
-        },
-        {
           id: "astra",
           f: "gpt",
-          sh: "6 Astra",
           full: "GPT-6 Astra",
           rank: 6,
-          score: 0.145,
           task: 6.1,
           api: [10, 50],
           tags: ["код", "поиск и анализ"],
@@ -739,10 +630,8 @@
         {
           id: "sol",
           f: "gpt",
-          sh: "6.1 Sol",
           full: "GPT-6.1 Sol",
           rank: 7,
-          score: 0.125,
           task: 1.06,
           api: [2, 10],
           tags: ["код", "агенты"],
@@ -757,12 +646,28 @@
           ],
         },
         {
+          id: "argon",
+          f: "gemini",
+          full: "Gemini 4 Argon",
+          rank: 9,
+          task: 0.73,
+          api: [2, 10],
+          tags: ["поиск и анализ", "тексты"],
+          sum: "неплохая и дешёвая, есть в подписке за $20",
+          ag: ["Antigravity", "родной агент Google"],
+          alts: "Cline по ключу API",
+          subs: [
+            ["g-pro", { v: "в 4 раза больше Free" }],
+            ["g-ultra5", { v: "в 5 раз больше AI Pro" }],
+            ["g-ultra20", { v: "в 20 раз больше AI Pro" }],
+          ],
+          ch: "С 1.12 API вдвое дороже: $4 / $20",
+        },
+        {
           id: "kimi",
           f: "kimi",
-          sh: "K3.1 Pro",
           full: "Kimi K3.1 Pro",
           rank: 15,
-          score: 0.049,
           task: 1.23,
           api: [2, 10],
           tags: ["код", "агенты"],
@@ -770,19 +675,17 @@
           ag: ["Claude Code", "Moonshot сама тестирует модель в нём"],
           alts: "Kimi Code CLI, OpenCode",
           subs: [
-            ["kimi-plus", { v: "лимит за 5 часов, без чисел" }],
-            ["kimi-pro", { t: 2.3, w: 3, n: "мало замеров" }],
-            ["kimi-max", { t: 9, w: 11, n: "замер на 1 аккаунте" }],
-            ["kimi-ultra", { v: "лимит за 5 часов, без чисел" }],
+            ["kimi-plus", { v: KIMI }],
+            ["kimi-pro", { v: KIMI }],
+            ["kimi-max", { v: KIMI }],
+            ["kimi-ultra", { v: KIMI }],
           ],
         },
         {
           id: "grok",
           f: "grok",
-          sh: "Grok 4.7",
           full: "Grok 4.7",
           rank: 17,
-          score: 0.026,
           task: 2.79,
           api: [2, 6],
           tags: ["код", "поиск и анализ"],
@@ -799,10 +702,8 @@
         {
           id: "dsflash",
           f: "deepseek",
-          sh: "V4.1 Flash",
           full: "DeepSeek V4.1 Flash",
           rank: 22,
-          score: 0.02,
           task: 0.14,
           api: [0.3, 1.2],
           tags: ["дёшево и много", "код"],
@@ -814,14 +715,12 @@
         {
           id: "glm",
           f: "glm",
-          sh: "GLM-5.3",
           full: "GLM-5.3",
           rank: 27,
-          score: 0.0099,
           task: 1.04,
           api: [1.4, 4.4],
-          tags: ["код", "агенты"],
-          sum: "недорогая подписка для кода, но слабее лидеров",
+          tags: ["код", "тексты"],
+          sum: "средняя: хороша в текстах, в коде слабее Sol",
           ag: ["Claude Code", "единственный замер в Terminal-Bench"],
           alts: "OpenCode, ZCode",
           subs: [
@@ -834,10 +733,8 @@
         {
           id: "qwen",
           f: "qwen",
-          sh: "Qwen3.8-Max",
           full: "Qwen3.8-Max",
           rank: 32,
-          score: 0.0011,
           task: 1.23,
           api: [2, 6],
           tags: ["тексты", "поиск и анализ"],
@@ -849,10 +746,8 @@
         {
           id: "m3",
           f: "minimax",
-          sh: "M3",
           full: "MiniMax M3",
           rank: 52,
-          score: -0.105,
           task: 0.35,
           api: [0.3, 1.2],
           tags: ["дёшево и много", "тексты"],
@@ -862,65 +757,66 @@
           subs: [],
         },
       ];
-      // Значки автора: черновик по словам владельца от 12.11.2026.
+      const byId = Object.fromEntries(M.map((m) => [m.id, m]));
+
+      // Значки автора: решения владельца от 12.11.2026, пояснения пока черновые.
       const BD = {
-        fav: ["⭐", "Мой выбор"],
-        sure: ["✓", "Уверенная"],
-        mid: ["◐", "Для средних задач"],
-        pricey: ["💸", "Дорого"],
-        waste: ["🔥", "Невыгодно"],
-        ban: ["⚠️", "Риск бана"],
+        fav: "⭐ Мой выбор",
+        sure: "Уверенная",
+        mid: "Для средних задач",
+        pricey: "Дорого",
+        waste: "Невыгодно",
+        ban: "Риск бана",
       };
-      const BAN =
-        "Claude часто блокирует аккаунты в разных странах. Риск: высокий";
+      const ORDER = ["fav", "sure", "mid", "pricey", "waste", "ban"];
       const OPIN = {
-        fable: [
-          ["waste", "тратит очень много токенов на одну задачу"],
-          ["ban", BAN],
-        ],
-        opus: [["ban", BAN]],
-        sonnet: [["ban", BAN]],
+        fable: [["waste", "тратит очень много токенов на одну задачу"]],
+        opus: [["fav", "для дизайна, монтажа и моушн-графики"]],
         sol: [
           ["fav", "средняя универсальная модель на каждый день"],
-          ["sure", "уверенно доводит задачу до конца (черновик)"],
+          ["sure", "доводит задачу до конца"],
         ],
         dsflash: [
-          ["fav", "дешёвая рабочая модель"],
-          ["mid", "не топ: для средних и несерьёзных задач"],
+          ["fav", "дешёвая модель на каждый день"],
+          ["mid", "для средних и несерьёзных задач"],
         ],
         kimi: [
-          ["sure", "уверенно доводит задачу до конца (черновик)"],
+          ["fav", "для дизайна, монтажа и моушн-графики"],
+          ["sure", "доводит задачу до конца"],
           ["pricey", "подписка дорогая для своего объёма"],
         ],
+        glm: [["mid", "хороша в текстах, в коде слабее Sol"]],
       };
-      const badgeText = (k) =>
-        '<span class="bd ' +
-        k +
-        '">' +
-        (k === "fav" ? "⭐ " : "") +
-        BD[k][1] +
-        "</span>";
-      const badgeIcon = (k) =>
-        '<span class="ic" title="' + BD[k][1] + '">' + BD[k][0] + "</span>";
-      const byId = Object.fromEntries(M.map((m) => [m.id, m]));
-      const FN = Object.fromEntries(FAMS);
-      const TIERS = [
-        [1, "до $50"],
-        [2, "~$100"],
-        [3, "$200+"],
+      const FAVG = {
+        sol: "daily",
+        dsflash: "daily",
+        opus: "design",
+        kimi: "design",
+      };
+      const GROUPS = [
+        ["daily", "На каждый день"],
+        ["design", "Дизайн и моушн"],
       ];
+      // «Риск бана» ставится сервису; модель получает его, если её лучший агент работает через этот сервис.
+      const banOf = (m) => (m.f === "claude" ? SVC.claude.ban : null);
+      const badges = (m) => {
+        const ks = (OPIN[m.id] || []).map(([k]) => k);
+        if (banOf(m)) ks.push("ban");
+        return ORDER.filter((k) => ks.includes(k));
+      };
 
-      // ---------- Расчёты для показа ----------
+      // ---------- Расчёты ----------
       const power = (m) =>
-        m.score >= 0.18
+        m.rank <= 10
           ? 5
-          : m.score >= 0.12
+          : m.rank <= 20
             ? 4
-            : m.score >= 0.08
+            : m.rank <= 30
               ? 3
-              : m.score >= 0.02
+              : m.rank <= 40
                 ? 2
                 : 1;
+      const leader = (m) => m.rank <= 2;
       const priceLvl = (m) =>
         m.task >= 5
           ? 5
@@ -931,154 +827,66 @@
               : m.task >= 0.3
                 ? 2
                 : 1;
-      const money = (n) => {
-        const s = Number.isInteger(n)
+      const money = (n) =>
+        "$" +
+        (Number.isInteger(n)
           ? String(n)
-          : n.toFixed(2).replace(".", ",");
-        return "$" + s.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-      };
+          : n.toFixed(2).replace(".", ",")
+        ).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
       const tasks = (t) =>
         "≈ " + (t < 100 ? Math.max(1, Math.round(t)) : Math.round(t / 10) * 10);
-      const tiersOf = (p) =>
-        p.tiers || [p.usd <= 50 ? 1 : p.usd <= 150 ? 2 : 3];
       const planName = (id) => SVC[P[id].s].n + " " + P[id].n;
-      const planPrice = (p) => (p.usdTo ? "от " + money(p.usd) : money(p.usd));
-      const dots = (k, cls) =>
-        '<span class="dots ' +
-        (cls || "") +
-        '">' +
+      const planPrice = (p) => (p.from ? "от " : "") + money(p.usd);
+      const pdots = (m) => {
+        const k = power(m),
+          lead = leader(m);
+        let h = '<span class="dots">';
+        for (let i = 1; i <= 5; i++)
+          h +=
+            '<i class="' +
+            (i <= k
+              ? lead && i === 5 && st.lead === "color"
+                ? "x"
+                : "f"
+              : "") +
+            '"></i>';
+        if (lead && st.lead === "plus") h += '<b class="pl">+</b>';
+        return h + "</span>";
+      };
+      const cdots = (m) =>
+        '<span class="dots pr">' +
         [1, 2, 3, 4, 5]
-          .map((i) => '<i class="' + (i <= k ? "f" : "") + '"></i>')
+          .map((i) => '<i class="' + (i <= priceLvl(m) ? "f" : "") + '"></i>')
           .join("") +
         "</span>";
-      const bar5 = (k) =>
-        '<span class="bar5">' +
-        [1, 2, 3, 4, 5]
-          .map((i) => '<i class="' + (i <= k ? "f" : "") + '"></i>')
-          .join("") +
-        "</span>";
+      const badge = (k, extra) =>
+        '<span class="bd ' + k + '">' + BD[k] + (extra || "") + "</span>";
       const ruFlags = (s) =>
         SVC[s].ru === false
           ? "из России: нет · карта РФ: нет"
           : "из России и карта РФ: нет данных";
-      // Лучшая ячейка ценовой ступени: число задач, «акция», «есть» или прочерк.
-      function tierCell(m, k) {
-        const hits = m.subs.filter(([id]) => tiersOf(P[id]).includes(k));
-        if (!hits.length) return '<span class="no">—</span>';
-        const best = Math.max(...hits.map(([, e]) => e.t || 0));
-        if (best) return "<b>" + tasks(best).replace("≈ ", "") + "</b>";
-        if (hits.every(([, e]) => e.promo))
-          return '<span class="ys">акция</span>';
-        return '<span class="ys">есть</span>';
-      }
 
       // ---------- Состояние ----------
       const st = {
-        v: new URLSearchParams(location.search).get("variant") || "C1",
+        v: new URLSearchParams(location.search).get("variant") || "V1",
+        lead: "color",
         width: 390,
         dark: false,
         scr: "home",
         model: null,
-        tier: 1,
         filter: "power",
+        page: 0,
+        tab: "main",
         taps: 0,
       };
-      if (!["C1", "C2"].includes(st.v)) st.v = "C1";
-      const VNAMES = { C1: "Значки словами", C2: "Значки иконками" };
+      if (!["V1", "V2", "V3"].includes(st.v)) st.v = "V1";
+      const VNAMES = {
+        V1: "Одна строка",
+        V2: "Две строки со сводкой",
+        V3: "Карточка вкладками",
+      };
 
-      // ---------- Экраны ----------
-      const head = (title, back) =>
-        '<div class="R">' +
-        (back ? '<button class="x" data-a="back">‹</button>' : "") +
-        '<div class="F U">' +
-        title +
-        "</div>" +
-        '<button class="lnk" data-a="about">Проверено 12.11 ›</button></div>';
-
-      function homeA() {
-        const leaders = [
-          ["Мощнее всех", "fable"],
-          ["Мощнее всех за $20", "opus"],
-          ["Дешевле всех", "dsflash"],
-        ];
-        let h = head("ИИ-модели");
-        h +=
-          '<div class="lead">' +
-          leaders
-            .map(
-              ([l, id]) =>
-                '<button class="cd" data-a="card" data-m="' +
-                id +
-                '"><span>' +
-                l +
-                "</span><b>" +
-                byId[id].full +
-                "</b></button>",
-            )
-            .join("") +
-          "</div>";
-        for (const [fid, fname] of FAMS) {
-          const ms = M.filter((m) => m.f === fid);
-          h +=
-            '<div class="fam"><b>' +
-            fname +
-            '</b><div class="chips">' +
-            ms
-              .map(
-                (m) =>
-                  '<button class="ch" data-a="card" data-m="' +
-                  m.id +
-                  '">' +
-                  m.sh +
-                  bar5(power(m)) +
-                  "</button>",
-              )
-              .join("") +
-            "</div></div>";
-        }
-        h += '<button class="bt" data-a="tiers">Подписки по цене ›</button>';
-        return h;
-      }
-
-      function homeB() {
-        let h = head("ИИ-модели");
-        h +=
-          '<div class="mu sm">Задач в неделю по подписке, ≈. «есть»: замеров нет. Нажми на модель или цену.</div>';
-        h +=
-          "<table><thead><tr><th></th>" +
-          TIERS.map(
-            ([k, l]) =>
-              '<th><button data-a="tier" data-t="' +
-              k +
-              '">' +
-              l +
-              "</button></th>",
-          ).join("") +
-          "<th>API за<br>задачу</th></tr></thead><tbody>";
-        for (const [fid, fname] of FAMS) {
-          M.filter((m) => m.f === fid).forEach((m, i) => {
-            h +=
-              '<tr class="' +
-              (i === 0 ? "g1" : "") +
-              '"><td class="nm"><button data-a="card" data-m="' +
-              m.id +
-              '">' +
-              (i === 0
-                ? '<span class="mu sm" style="font-weight:400">' +
-                  fname +
-                  " · </span>"
-                : "") +
-              m.sh +
-              "</button></td>" +
-              TIERS.map(([k]) => "<td>" + tierCell(m, k) + "</td>").join("") +
-              "<td>" +
-              money(m.task) +
-              "</td></tr>";
-          });
-        }
-        return h + "</tbody></table>";
-      }
-
+      // ---------- Главный экран ----------
       const FILTERS = [
         ["power", "Мощные"],
         ["fav", "⭐ Мой выбор"],
@@ -1086,10 +894,89 @@
         ["cheap", "Дёшево"],
         ["20", "До $20"],
       ];
-      function homeC(style) {
+      const head = (title, back) =>
+        '<div class="R">' +
+        (back ? '<button class="x" data-a="back">‹</button>' : "") +
+        '<div class="F U">' +
+        title +
+        '</div><button class="lnk" data-a="about">Проверено 12.11 ›</button></div>';
+
+      function listFor(filter) {
+        let list = M.slice(),
+          metric = (m) => pdots(m);
+        if (filter === "fav") list = list.filter((m) => FAVG[m.id]);
+        else if (filter === "code") {
+          list = list.filter((m) => m.tags.includes("код"));
+          metric = (m) => '<span class="sm">' + m.ag[0] + "</span>";
+        } else if (filter === "cheap") {
+          list.sort((a, b) => a.task - b.task);
+          metric = (m) =>
+            "<b>" + money(m.task) + '</b> <span class="mu sm">задача</span>';
+        } else if (filter === "20") {
+          const cheap = (m) => m.subs.filter(([id]) => P[id].usd <= 20);
+          list = list.filter((m) => cheap(m).length);
+          metric = (m) => {
+            const [id, e] = cheap(m).sort(
+              (a, b) => (b[1].t || 0) - (a[1].t || 0),
+            )[0];
+            const nm =
+              id === "ali"
+                ? "Alibaba от $6"
+                : id === "g-ag"
+                  ? "Google AI Pro"
+                  : planName(id);
+            return (
+              '<span class="sm">' +
+              nm +
+              (e.t
+                ? ' <b style="color:var(--g)">' + tasks(e.t) + "</b>"
+                : ' <span class="mu">' +
+                  (e.promo ? "акция" : "есть") +
+                  "</span>") +
+              "</span>"
+            );
+          };
+        }
+        return { list, metric };
+      }
+
+      function rowHtml(m, metric) {
+        const bds = badges(m)
+          .filter((k) => !(k === "fav" && st.filter === "fav"))
+          .map((k) => badge(k))
+          .join("");
+        if (st.v === "V2")
+          return (
+            '<button class="row2" data-a="card" data-m="' +
+            m.id +
+            '"><span class="R"><b class="F">' +
+            m.full +
+            "</b>" +
+            '<span style="flex:none">' +
+            metric(m) +
+            '</span></span><div class="l2">' +
+            bds +
+            (bds ? " " : "") +
+            m.sum +
+            "</div></button>"
+          );
+        return (
+          '<button class="row" data-a="card" data-m="' +
+          m.id +
+          '"><span class="F"><b>' +
+          m.full +
+          "</b>" +
+          bds +
+          '</span><span style="flex:none;text-align:right">' +
+          metric(m) +
+          "</span></button>"
+        );
+      }
+
+      function home() {
         let h = head("ИИ-модели");
         h +=
-          '<div class="R" style="flex-wrap:wrap;gap:6px">' +
+          '<div class="chips">' +
           FILTERS.map(
             ([k, l]) =>
               '<button class="ch ' +
@@ -1101,96 +988,56 @@
               "</button>",
           ).join("") +
           "</div>";
-        let list = M.slice();
-        let metric;
-        if (st.filter === "power") {
-          list.sort((a, b) => b.score - a.score);
-          metric = (m) => dots(power(m));
-        } else if (st.filter === "fav") {
-          list = list
-            .filter((m) => (OPIN[m.id] || []).some(([k]) => k === "fav"))
-            .sort((a, b) => b.score - a.score);
-          metric = (m) => dots(power(m));
-        } else if (st.filter === "code") {
-          list = list
-            .filter((m) => m.tags.includes("код"))
-            .sort((a, b) => b.score - a.score);
-          metric = (m) => '<span class="sm">' + m.ag[0] + "</span>";
-        } else if (st.filter === "cheap") {
-          list.sort((a, b) => a.task - b.task);
-          metric = (m) =>
-            "<b>" + money(m.task) + '</b> <span class="mu sm">задача</span>';
-        } else {
-          const cheap = (m) => m.subs.filter(([id]) => P[id].usd <= 20);
-          list = list
-            .filter((m) => cheap(m).length)
-            .sort((a, b) => b.score - a.score);
-          metric = (m) => {
-            const [id, e] = cheap(m).sort(
-              (a, b) => (b[1].t || 0) - (a[1].t || 0),
-            )[0];
-            return (
-              '<span class="sm">' +
-              planName(id).replace(
-                "Alibaba Token Plan Lite–Pro",
-                "Alibaba от $6",
-              ) +
-              (e.t
-                ? ' <b style="color:var(--g)">' + tasks(e.t) + "</b>"
-                : ' <span class="mu">' +
-                  (e.promo ? "акция" : "есть") +
-                  "</span>") +
-              "</span>"
-            );
-          };
-        }
-        const marks = (m) =>
-          (OPIN[m.id] || [])
-            .map(([k]) => (style === "C1" ? badgeText(k) : badgeIcon(k)))
+        const { list, metric } = listFor(st.filter);
+        let body = "";
+        if (st.filter === "fav") {
+          for (const [g, gl] of GROUPS) {
+            body += '<div class="gh">' + gl + "</div>";
+            body += list
+              .filter((m) => FAVG[m.id] === g)
+              .map((m) => rowHtml(m, metric))
+              .join("");
+          }
+          body += '<div class="mu sm">Мой выбор: мнение автора.</div>';
+        } else if (st.v === "V2" && list.length > 7) {
+          const pages = Math.ceil(list.length / 7);
+          st.page = Math.min(st.page, pages - 1);
+          body += list
+            .slice(st.page * 7, st.page * 7 + 7)
+            .map((m) => rowHtml(m, metric))
             .join("");
-        h +=
-          "<div>" +
-          list
-            .map(
-              (m) =>
-                '<button class="row" data-a="card" data-m="' +
-                m.id +
-                '"><span class="F"><b>' +
-                m.full +
-                "</b>" +
-                marks(m) +
-                '</span><span style="text-align:right;flex:none">' +
-                metric(m) +
-                "</span></button>",
-            )
-            .join("") +
-          "</div>";
-        if (style === "C2")
-          h +=
-            '<div class="mu sm">' +
-            Object.values(BD)
-              .map(([i, t]) => i + " " + t.toLowerCase())
-              .join(" · ") +
-            ". Мнение автора.</div>";
+          body +=
+            '<div class="pager"><button class="x" data-a="page" data-d="-1"' +
+            (st.page === 0 ? " disabled" : "") +
+            '>‹</button><span class="mu sm">' +
+            (st.page + 1) +
+            " из " +
+            pages +
+            '</span><button class="x" data-a="page" data-d="1"' +
+            (st.page === pages - 1 ? " disabled" : "") +
+            ">›</button></div>";
+        } else body += list.map((m) => rowHtml(m, metric)).join("");
         if (st.filter === "20")
-          h +=
+          body +=
             '<div class="mu sm">Число: задач в неделю, ≈. «есть»: замеров нет.</div>';
-        return h;
+        return h + "<div>" + body + "</div>";
       }
 
-      function card() {
-        const m = byId[st.model];
-        let h =
+      // ---------- Карточка ----------
+      function cardTop(m) {
+        return (
           '<div class="R"><button class="x" data-a="back">‹</button><div class="F U" style="color:var(--v)">' +
           m.full +
-          "</div></div>";
-        h +=
+          "</div></div>" +
           '<div class="R sm" style="flex-wrap:wrap;gap:4px 14px"><span>Мощность ' +
-          dots(power(m)) +
+          pdots(m) +
           "</span><span>Цена " +
-          dots(priceLvl(m), "pr") +
-          "</span></div>";
-        h +=
+          cdots(m) +
+          "</span></div>"
+        );
+      }
+      function cardMain(m) {
+        let h =
           '<div class="sm">API: ' +
           money(m.api[0]) +
           " / " +
@@ -1199,118 +1046,101 @@
           money(m.task) +
           "</div>";
         h += "<div><b>«" + m.sum + "»</b></div>";
-        if (OPIN[m.id])
+        const op = (OPIN[m.id] || []).map(
+          ([k, t]) => '<div class="sm">' + badge(k) + t + "</div>",
+        );
+        if (banOf(m))
+          op.push(
+            '<div class="sm">' +
+              badge("ban", ": " + banOf(m)) +
+              "Claude часто блокирует аккаунты в разных странах</div>",
+          );
+        if (op.length)
           h +=
             '<div class="op"><div class="sm mu">Мнение автора</div>' +
-            OPIN[m.id]
-              .map(([k, t]) => '<div class="sm">' + badgeText(k) + t + "</div>")
-              .join("") +
+            op.join("") +
             "</div>";
         h +=
           "<div>" +
           m.tags.map((t) => '<span class="tag">' + t + "</span>").join("") +
           "</div>";
         h +=
-          '<div class="cd" style="box-shadow:none;padding:5px 8px"><div class="sm mu">Лучший агент</div><b>' +
+          '<div class="cd"><div class="sm mu">Лучший агент</div><b>' +
           m.ag[0] +
           '</b> <span class="sm mu">' +
           m.ag[1] +
           '</span><div class="sm mu">Ещё: ' +
           m.alts +
           "</div></div>";
-        if (!m.subs.length) {
-          h +=
-            '<div class="grp"><b>Подписки</b></div><div class="sub"><span class="mu">Подписок нет, только API</span></div>';
-        } else {
-          let last = "";
-          for (const [id, e] of m.subs) {
-            const p = P[id];
-            if (p.s !== last) {
-              last = p.s;
-              h +=
-                '<div class="grp"><b>' +
-                SVC[p.s].n +
-                "</b> · " +
-                ruFlags(p.s) +
-                "</div>";
-            }
-            const right = e.t
-              ? '<span class="est"><b>' +
-                tasks(e.t) +
-                ' задач/нед</b> <span class="mu sm">' +
-                money(e.w) +
-                " по API" +
-                (e.n ? ", " + e.n : "") +
-                "</span></span>"
-              : '<span class="mu sm">' +
-                e.v +
-                (e.n ? ", " + e.n : "") +
-                "</span>";
-            h +=
-              '<div class="sub"><span class="pl">' +
-              p.n +
-              " · " +
-              planPrice(p) +
-              '</span><span class="F">' +
-              right +
-              "</span></div>";
-          }
-        }
-        if (m.ch) h += '<div class="note">' + m.ch + "</div>";
         return h;
       }
-
-      function tierScreen() {
-        let h = head("Подписки", true);
-        h +=
-          '<div class="R" style="gap:6px">' +
-          TIERS.map(
-            ([k, l]) =>
-              '<button class="ch ' +
-              (st.tier === k ? "on" : "") +
-              '" data-a="tier" data-t="' +
-              k +
-              '">' +
-              l +
-              "</button>",
-          ).join("") +
-          '<span class="mu sm F" style="text-align:right">задач в неделю</span></div>';
-        const rows = Object.entries(P)
-          .filter(([id, p]) => !p.into && tiersOf(p).includes(st.tier))
-          .sort((a, b) => a[1].usd - b[1].usd);
-        for (const [id, p] of rows) {
-          const items = [];
-          for (const m of M)
-            for (const [sid, e] of m.subs) {
-              const via = P[sid].into && P[sid].into.includes(id);
-              if (sid !== id && !via) continue;
-              const val = e.t
-                ? '<b style="color:var(--g)">' + tasks(e.t) + "</b>"
-                : e.promo
-                  ? '<span class="mu">акция</span>'
-                  : via
-                    ? '<span class="mu">через Antigravity</span>'
-                    : "";
-              items.push(
-                '<span><button data-a="card" data-m="' +
-                  m.id +
-                  '">' +
-                  m.full +
-                  "</button> " +
-                  val +
-                  "</span>",
-              );
-            }
-          if (!items.length) continue;
+      function cardSubs(m) {
+        if (!m.subs.length)
+          return '<div class="grp"><b>Подписки</b></div><div class="sub"><span class="mu">Подписок нет, только API</span></div>';
+        let h = "",
+          last = "";
+        for (const [id, e] of m.subs) {
+          const p = P[id];
+          if (p.s !== last) {
+            last = p.s;
+            const ban = SVC[p.s].ban
+              ? badge("ban", ": " + SVC[p.s].ban) + " "
+              : "";
+            h +=
+              '<div class="grp"><b>' +
+              SVC[p.s].n +
+              "</b> " +
+              ban +
+              "· " +
+              ruFlags(p.s) +
+              "</div>";
+          }
+          const right = e.t
+            ? '<span class="est"><b>' +
+              tasks(e.t) +
+              ' задач/нед</b> <span class="mu sm">' +
+              money(e.w) +
+              " по API" +
+              (e.n ? ", " + e.n : "") +
+              "</span></span>"
+            : '<span class="mu sm">' + e.v + "</span>";
           h +=
-            '<div class="tierrow"><div class="R"><b class="F">' +
-            planName(id).replace(" Lite–Pro", "") +
-            "</b><b>" +
+            '<div class="sub"><span class="pl">' +
+            p.n +
+            " · " +
             planPrice(p) +
-            '</b></div><div class="ms">' +
-            items.join("") +
-            "</div></div>";
+            '</span><span class="F">' +
+            right +
+            "</span></div>";
         }
+        return h;
+      }
+      function card() {
+        const m = byId[st.model];
+        let h = cardTop(m);
+        if (st.v === "V3") {
+          h +=
+            '<div class="tabs">' +
+            [
+              ["main", "Главное"],
+              ["subs", "Подписки"],
+            ]
+              .map(
+                ([k, l]) =>
+                  '<button class="ch ' +
+                  (st.tab === k ? "on" : "") +
+                  '" data-a="tab" data-k="' +
+                  k +
+                  '">' +
+                  l +
+                  "</button>",
+              )
+              .join("") +
+            "</div>";
+          h += st.tab === "main" ? cardMain(m) : cardSubs(m);
+        } else h += cardMain(m) + cardSubs(m);
+        if (m.ch && (st.v !== "V3" || st.tab === "main"))
+          h += '<div class="note">' + m.ch + "</div>";
         return h;
       }
 
@@ -1322,22 +1152,19 @@
           '<div class="sub"><span class="F">Мощность и цена задачи: рейтинг агентов Arena, лицензия CC BY 4.0</span></div>' +
           '<div class="sub"><span class="F">Замеры подписок: Wokey</span></div>' +
           '<div class="sub"><span class="F">Цены и лимиты: сайты компаний</span></div>' +
-          '<div class="grp"><b>Как считаем задачи</b></div>' +
-          '<div class="sm">Сколько стоит неделя подписки по ценам API, делим на цену одной задачи модели в Arena. Это порядок величины, а не лимит компании.</div>' +
-          '<div class="sm mu">«Нет замеров»: компания не публикует чисел, а независимых замеров нет. Тогда показываем слова самой компании.</div>'
+          '<div class="grp"><b>Как читать</b></div>' +
+          '<div class="sm">Мощность: место в таблице агентов Arena, каждая точка на 10 мест. Отметка у двух лидеров.</div>' +
+          '<div class="sm">Задачи: неделя подписки по ценам API, делённая на цену одной задачи модели. Это порядок величины, а не лимит. Число есть, только если замерено хотя бы 5 аккаунтов.</div>' +
+          '<div class="sm">Значки и «Мой выбор»: мнение автора.</div>'
         );
       }
 
-      // ---------- Отрисовка и подгонка высоты ----------
-      const W = document.getElementById("w");
-      const msgw = document.getElementById("msgw");
+      // ---------- Отрисовка ----------
+      const W = document.getElementById("w"),
+        msgw = document.getElementById("msgw");
       function render() {
-        let html;
-        if (st.scr === "card") html = card();
-        else if (st.scr === "tiers") html = tierScreen();
-        else if (st.scr === "about") html = about();
-        else html = homeC(st.v);
-        W.innerHTML = html;
+        W.innerHTML =
+          st.scr === "card" ? card() : st.scr === "about" ? about() : home();
         msgw.style.width = st.width + "px";
         document.getElementById("chat").className =
           "chat" + (st.dark ? " dk" : "");
@@ -1350,9 +1177,18 @@
         const hgt = W.parentElement.scrollHeight;
         msgw.classList.toggle("cut", hgt > 560);
         const names = {
-          home: "главный",
-          card: "карточка " + (st.model ? byId[st.model].full : ""),
-          tiers: "подписки по цене",
+          home:
+            "главный, фильтр «" +
+            FILTERS.find(([k]) => k === st.filter)[1] +
+            "»",
+          card:
+            "карточка " +
+            (st.model ? byId[st.model].full : "") +
+            (st.v === "V3"
+              ? ", вкладка «" +
+                (st.tab === "main" ? "Главное" : "Подписки") +
+                "»"
+              : ""),
           about: "о данных",
         };
         document.getElementById("s-var").textContent =
@@ -1367,12 +1203,22 @@
         document.getElementById("taps").textContent = st.taps;
         seg(
           "vseg",
-          ["C1", "C2"],
+          ["V1", "V2", "V3"],
           st.v,
           (x) => x + " " + VNAMES[x],
           (x) => {
             st.v = x;
             goHome();
+          },
+        );
+        seg(
+          "lseg",
+          ["color", "plus"],
+          st.lead,
+          (x) => (x === "color" ? "цветная точка" : "плюс"),
+          (x) => {
+            st.lead = x;
+            render();
           },
         );
         seg(
@@ -1408,35 +1254,38 @@
         }
       }
       const stack = [];
-      function go(scr, patch) {
-        stack.push({ scr: st.scr, model: st.model });
-        st.scr = scr;
-        Object.assign(st, patch || {});
-      }
       function goHome() {
-        st.scr = "home";
-        st.model = null;
-        st.taps = 0;
+        Object.assign(st, {
+          scr: "home",
+          model: null,
+          taps: 0,
+          page: 0,
+          tab: "main",
+        });
         stack.length = 0;
-        const u = new URL(location.href);
-        u.searchParams.set("variant", st.v);
         try {
+          const u = new URL(location.href);
+          u.searchParams.set("variant", st.v);
           history.replaceState(null, "", u);
         } catch (e) {}
         render();
       }
       W.addEventListener("click", (ev) => {
         const b = ev.target.closest("button");
-        if (!b) return;
+        if (!b || b.disabled) return;
         st.taps += 1;
         const a = b.dataset.a;
-        if (a === "card") go("card", { model: b.dataset.m });
-        else if (a === "about") go("about");
-        else if (a === "tiers") go("tiers", { tier: 1 });
-        else if (a === "tier") {
-          if (st.scr === "tiers") st.tier = Number(b.dataset.t);
-          else go("tiers", { tier: Number(b.dataset.t) });
-        } else if (a === "filter") st.filter = b.dataset.k;
+        if (a === "card") {
+          stack.push({ scr: st.scr, model: st.model });
+          Object.assign(st, { scr: "card", model: b.dataset.m, tab: "main" });
+        } else if (a === "about") {
+          stack.push({ scr: st.scr, model: st.model });
+          st.scr = "about";
+        } else if (a === "filter") {
+          st.filter = b.dataset.k;
+          st.page = 0;
+        } else if (a === "page") st.page += Number(b.dataset.d);
+        else if (a === "tab") st.tab = b.dataset.k;
         else if (a === "back") {
           const prev = stack.pop() || { scr: "home", model: null };
           st.scr = prev.scr;
@@ -1445,9 +1294,9 @@
         render();
       });
       document.getElementById("reset").onclick = goHome;
-      const order = ["C1", "C2"];
+      const order = ["V1", "V2", "V3"];
       const step = (d) => {
-        st.v = order[(order.indexOf(st.v) + d + 2) % 2];
+        st.v = order[(order.indexOf(st.v) + d + 3) % 3];
         goHome();
       };
       document.getElementById("prev").onclick = () => step(-1);
