@@ -371,7 +371,10 @@ const layout = (page: Page): Promise<Layout> =>
     };
   });
 
-/** The visible boxes and text sizes that must stay fixed throughout one question. */
+// The boxes and text sizes of the steps, the question text and the drawn options, in that
+// order. They stay fixed while the person picks. After an answer only the correct and the
+// picked options stay: the steps, the text and the options above the first removed one keep
+// their place, which the tests compare with the start of the list taken before the answer.
 const questionGeometry = (page: Page) =>
   page.evaluate(() =>
     [...document.querySelectorAll("#w .st i, #w .Q, #w .op")].map((element) => {
@@ -385,6 +388,14 @@ const questionGeometry = (page: Page) =>
       ];
     }),
   );
+
+/** The steps of a round: none in the Daily question, which has a title in their place. */
+const stepCount = (page: Page) => page.locator("#w .st i").count();
+/** «2/3» of the counter «разбор 2/3» beside the verdict; empty when the explanation is one page. */
+const pageCounter = async (page: Page) =>
+  /разбор (\d+\/\d+)$/.exec(
+    (await page.locator(".fb .R").first().textContent()) ?? "",
+  )?.[1] ?? "";
 
 describe("trainer widget screens in a browser", () => {
   describe.each(TRAINER_WIDGET_CHECKED_WIDTHS_PX)(
@@ -483,7 +494,7 @@ describe("trainer widget screens in a browser", () => {
     const counters: string[] = [];
     for (let index = 0; index < 30; index += 1) {
       pages.push((await page.locator(".fb .W").textContent()) ?? "");
-      counters.push((await page.locator(".fb span").textContent()) ?? "");
+      counters.push(await pageCounter(page));
       const next = buttonNamed(page, "→");
       if ((await next.count()) === 0 || (await next.isDisabled())) break;
       await next.click();
@@ -493,6 +504,7 @@ describe("trainer widget screens in a browser", () => {
     expect(pages.length).toBeGreaterThan(1);
     // Every page was fitted before the first one was shown: no page gets smaller while the
     // person turns them, so the counter keeps its total and no word comes twice.
+    // The counter stands beside the verdict and names what the arrows turn.
     expect(counters).toEqual(
       pages.map((_, index) => `${String(index + 1)}/${String(pages.length)}`),
     );
@@ -512,6 +524,55 @@ describe("trainer widget screens in a browser", () => {
     await page.close();
   });
 
+  it("names the pages of an explanation beside the verdict, and only when there are several", async () => {
+    const page = await openWidget(320);
+    await tap(page, "Проверить себя", question(realisticText));
+    // Every option is correct or picked, so all four stay and the explanation has pages.
+    await tap(page, "Не знаю", explanation(realisticText));
+    expect(await page.locator(".fb .R").first().textContent()).toMatch(
+      /^Неверноразбор 1\/[2-9]$/,
+    );
+    await buttonNamed(page, "→").click();
+    expect(await pageCounter(page)).toMatch(/^2\/[2-9]$/);
+    await page.close();
+
+    const short = await openWidget(320);
+    await tap(short, "Проверить себя", question(realisticText));
+    await tap(short, "Не знаю", ["e", 3, 1, 0, "Короткий разбор.", "0", 5, 0]);
+    expect(await short.locator(".fb").innerText()).not.toContain("разбор 1");
+    expect(await buttonNamed(short, "→").count()).toBe(0);
+    await short.close();
+  });
+
+  it("gives the room of the options that left the screen to the explanation", async () => {
+    const text = realisticText(450, 2);
+    const pagesOf = async (correctMask: number, pickedMask: number) => {
+      const page = await openWidget(320);
+      await tap(page, "Проверить себя", question(realisticText));
+      await tap(page, "Не знаю", [
+        "e",
+        0,
+        correctMask,
+        pickedMask,
+        text,
+        "0",
+        5,
+        0,
+      ]);
+      const total = Number((await pageCounter(page)).split("/")[1] ?? 1);
+      expect((await layout(page)).height).toBeLessThanOrEqual(560);
+      await page.close();
+      return total;
+    };
+
+    // All four options stay when each is correct or picked; after «Не знаю» only the
+    // correct one stays, and the same explanation needs fewer pages.
+    const withEveryOption = await pagesOf(0b0011, 0b1100);
+    const withOneOption = await pagesOf(0b0001, 0);
+    expect(withEveryOption).toBeGreaterThan(1);
+    expect(withOneOption).toBeLessThan(withEveryOption);
+  });
+
   it("divides an explanation between its pages evenly: the last page is not a short tail", async () => {
     const page = await openWidget(320);
     await tap(page, "Проверить себя", [
@@ -524,8 +585,8 @@ describe("trainer widget screens in a browser", () => {
       "",
       5,
     ]);
-    // A few characters more than one page holds.
-    const text = realisticText(205, 2);
+    // A few characters more than the largest page holds.
+    const text = realisticText(520, 2);
     await tap(page, "А Первый", ["e", 2, 1, 1, text, "1", 5, 0]);
     const pages: string[] = [];
     for (let index = 0; index < 30; index += 1) {
@@ -1006,7 +1067,7 @@ describe("trainer widget screens in a browser", () => {
     ["light", "large", realisticText, 23],
     ["dark", "large", realisticText, 23],
   ] as const)(
-    "keeps option and footer geometry in the %s theme with %s text",
+    "keeps the question text and the marked options in place in the %s theme with %s text",
     async (theme, _label, text, textSizePx) => {
       const page = await openWidget(320, { theme, textSizePx });
       await tap(page, "Проверить себя", question(text));
@@ -1014,7 +1075,11 @@ describe("trainer widget screens in a browser", () => {
       await buttonNamed(page, "А ").click();
       expect(await questionGeometry(page)).toEqual(before);
       await tap(page, "Ответить", explanation(text, 0b0011, 0b0001));
-      expect(await questionGeometry(page)).toEqual(before);
+      // The steps, the text and the two marked options stay where they were; the other two
+      // options are gone.
+      expect(await questionGeometry(page)).toEqual(
+        before.slice(0, (await stepCount(page)) + 3),
+      );
       expect(await page.locator(".fb").innerText()).toContain("Неверно");
       await page.close();
     },
@@ -1054,7 +1119,9 @@ describe("trainer widget screens in a browser", () => {
         5,
         wideText(TRAINER_STAT_LINE_MAX_CHARS, 3),
       ]);
-      expect(await questionGeometry(page)).toEqual(before);
+      expect(await questionGeometry(page)).toEqual(
+        before.slice(0, (await stepCount(page)) + 2),
+      );
       expect((await layout(page)).height).toBeLessThanOrEqual(
         TRAINER_WIDGET_TARGET_HEIGHT_PX,
       );
@@ -1079,7 +1146,9 @@ describe("trainer widget screens in a browser", () => {
         10,
         wideText(TRAINER_STAT_LINE_MAX_CHARS, 3),
       ]);
-      expect(await questionGeometry(page)).toEqual(before);
+      expect(await questionGeometry(page)).toEqual(
+        before.slice(0, (await stepCount(page)) + 3),
+      );
       expect((await layout(page)).height).toBeLessThanOrEqual(
         TRAINER_WIDGET_TARGET_HEIGHT_PX,
       );
@@ -1190,13 +1259,17 @@ describe("trainer widget screens in a browser", () => {
       0,
     ]);
 
-    expect(await questionGeometry(page)).toEqual(before);
+    // The steps and the text keep their place; the picked correct option is the only one left.
+    const steps = await stepCount(page);
+    const after = await questionGeometry(page);
+    expect(after).toHaveLength(steps + 2);
+    expect(after.slice(0, steps + 1)).toEqual(before.slice(0, steps + 1));
     expect(await requests(page)).toEqual(["q", "a7k:2"]);
     const text = await page.locator("#w").innerText();
     expect(text).toContain("Верно, +1 очко");
     expect(text).toContain("Синтетический разбор 1");
     expect(text).toContain("Синтетический вопрос 1");
-    expect(text).toContain("Синтетический вариант 1");
+    expect(text).not.toContain("Синтетический вариант 1");
     expect(text).toContain("Синтетический вариант 2");
     await expect(
       page.getByRole("button", { name: "Дальше" }).isVisible(),
@@ -1568,7 +1641,7 @@ describe("trainer widget screens in a browser", () => {
       await page.close();
     });
 
-    it("keeps the option geometry of a question with a context after the answer", async () => {
+    it("keeps the text and the correct option of a question with a context after the answer", async () => {
       const page = await openWidget(320);
       await tap(page, "Проверить себя", ["c", "7k", context]);
       await tap(page, "К вопросу", asked);
@@ -1576,7 +1649,9 @@ describe("trainer widget screens in a browser", () => {
 
       await tap(page, "Не знаю", ["e", 3, 1, 0, "Разбор.", "0", 5, 0]);
 
-      expect(await questionGeometry(page)).toEqual(before);
+      expect(await questionGeometry(page)).toEqual(
+        before.slice(0, (await stepCount(page)) + 2),
+      );
       // The context stays one tap away after the answer.
       await expect(buttonNamed(page, "Условие").count()).resolves.toBe(1);
       await page.close();
@@ -1680,6 +1755,30 @@ describe("trainer widget screens in a browser", () => {
       expect((await layout(page)).height).toBeLessThanOrEqual(
         TRAINER_WIDGET_TARGET_HEIGHT_PX,
       );
+      await page.close();
+    });
+
+    it("counts the pages of every part in one counter beside the verdict", async () => {
+      const page = await openWidget(320);
+      // A short question: after the answer each part of the explanation fits one page.
+      await tap(page, "Проверить себя", [
+        "q",
+        "1a2b3c",
+        "Тема",
+        "Вопрос?",
+        ["Первый", "Второй"],
+        0,
+        "",
+        5,
+      ]);
+      await tap(page, "А Первый", part(0));
+      expect(await pageCounter(page)).toBe("1/2");
+
+      await tap(page, "→", part(1));
+
+      // The second part is the second page of two, not the first page of one.
+      expect(await pageCounter(page)).toBe("2/2");
+      await expect(buttonNamed(page, "→").isDisabled()).resolves.toBe(true);
       await page.close();
     });
 
@@ -1880,7 +1979,7 @@ describe("trainer widget screens in a browser", () => {
       await page.close();
     });
 
-    it("keeps the question and every option with inline feedback after an answer", async () => {
+    it("keeps the question with the correct and the picked options after an answer", async () => {
       const page = await openWidget(320);
       await tap(page, "Проверить себя", asked("7k", "10"));
       expect(await steps(page)).toEqual(["G", "B", "S", "", ""]);
@@ -1902,16 +2001,15 @@ describe("trainer widget screens in a browser", () => {
       expect(text).toContain("Синтетический вопрос");
       expect(text).toContain("Неверно");
       expect(text).toContain("Синтетический разбор");
+      // The other wrong options leave the screen: their room goes to the explanation.
       expect(await options(page)).toEqual([
         "АСинтетический вариант 1 G",
-        "БСинтетический вариант 2 -",
         "ВСинтетический вариант 3 B",
-        "ГСинтетический вариант 4 -",
       ]);
       expect(text.indexOf("Синтетический вопрос")).toBeLessThan(
         text.indexOf("Синтетический вариант 1"),
       );
-      expect(text.indexOf("Синтетический вариант 4")).toBeLessThan(
+      expect(text.indexOf("Синтетический вариант 3")).toBeLessThan(
         text.indexOf("Неверно"),
       );
       expect(await page.locator("button.op").count()).toBe(0);
@@ -1938,12 +2036,7 @@ describe("trainer widget screens in a browser", () => {
       const text = await page.locator("#w").innerText();
       expect(text).toContain("Верно");
       expect(text).not.toContain("очко");
-      expect(await options(page)).toEqual([
-        "АСинтетический вариант 1 G",
-        "БСинтетический вариант 2 -",
-        "ВСинтетический вариант 3 -",
-        "ГСинтетический вариант 4 -",
-      ]);
+      expect(await options(page)).toEqual(["АСинтетический вариант 1 G"]);
     });
 
     it("goes from the last explanation to the result and offers another round or home", async () => {
@@ -2031,8 +2124,6 @@ describe("trainer widget screens in a browser", () => {
       expect(await options(page)).toEqual([
         "АСинтетический вариант 1 G",
         "БСинтетический вариант 2 B",
-        "ВСинтетический вариант 3 -",
-        "ГСинтетический вариант 4 -",
       ]);
     });
 

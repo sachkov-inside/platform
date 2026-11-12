@@ -13,9 +13,6 @@
 {
   const widget = window.TelegramWidget;
   const root = document.getElementById("w");
-  /** Tallest screen the guide recommends at a 320 px bubble; the bubble clips at 600 px. */
-  const MAX_HEIGHT = 560;
-  const MIN_FONT_SIZE = 11;
 
   let home;
   let current;
@@ -24,11 +21,11 @@
   let topics;
   let lastRequest;
   let questionFont;
-  let judging = false;
+  let judging;
   /** The page of the explanation the person reads, its pages and their size in characters. */
-  let page = 0;
+  let page;
   let parts;
-  let explanationSize = 200;
+  let explanationSize;
   widget.setResizeAnchor?.("bottom");
 
   const esc = (text) =>
@@ -54,7 +51,7 @@
   const tile = (value, label) =>
     `<div class=K><b>${value}</b><span class=mu>${label}</span></div>`;
   const pair = (left, right) => `<div class=R>${left}${right}</div>`;
-  /** Arrows around a counter; an arrow without an action is disabled. */
+  /** Arrows around a label, which may be empty; an arrow without an action is disabled. */
   const arrows = (back, label, forward, tail = "") =>
     pair(
       button(back, "bt", "←", !back),
@@ -149,14 +146,18 @@
         "bt P",
         d[5].length < d[6] ? "Дальше" : question[9] ? "Готово" : "К итогу",
       );
+    // The counter stands beside the verdict, above the text it counts the pages of. It
+    // counts through the parts as if every other part were one page (~-n is n - 1): after
+    // the answer a part usually fits one page, and the pages of other parts are not known.
+    const paged = parts[1] || d[10];
     return (
-      `<div class=fb><b class="V ${!d[1] ? "B" : d[1] < 3 ? "G" : ""}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b><div class=W>${esc(parts[page])}</div>` +
+      `<div class=fb><div class=R><b class="V ${!d[1] ? "B" : d[1] < 3 ? "G" : ""}">${["Неверно", "Верно", "Верно, +1 очко", "Разберём"][d[1]]}</b>${paged ? `разбор ${part + page + 1}/${parts.length + ~-(d[10] || 1)}` : ""}</div><div class=W>${esc(parts[page])}</div>` +
       (judging
         ? pair(vote(1), vote(2) + button("F", "bt", "←"))
-        : parts[1] || d[10]
+        : paged
           ? arrows(
               page ? "E" + (page - 1) : part ? another + (part - 1) : "",
-              `${page + 1}/${parts.length}`,
+              "",
               parts[page + 1]
                 ? "E" + (page + 1)
                 : part + 1 < d[10]
@@ -187,22 +188,24 @@
       ) +
       // q[10]: the question has a context; the person may read it again at any moment.
       `<div class="R mu"><span class=F>${esc(q[2])}</span>${q[10] ? button("c" + q[1], "bt n", "Условие") : ""}</div><div class=Q>${esc(q[3])}</div>` +
+      // After the answer only the correct and the picked options stay: the room of the
+      // other wrong ones goes to the explanation.
       q[4]
         .map((text, i) =>
-          option(
-            i,
-            text,
-            answered
-              ? (d[2] >> i) & 1
-                ? " G Z"
-                : (d[3] >> i) & 1
-                  ? " B Z"
-                  : ""
-              : (picked >> i) & 1
-                ? " S Z"
-                : "",
-            !answered && !review,
-          ),
+          answered && !(((d[2] | d[3]) >> i) & 1)
+            ? ""
+            : option(
+                i,
+                text,
+                answered
+                  ? (d[2] >> i) & 1
+                    ? " G Z"
+                    : " B Z"
+                  : (picked >> i) & 1
+                    ? " S Z"
+                    : "",
+                !answered && !review,
+              ),
         )
         .join("") +
       feedback(answered ? d : null) +
@@ -260,20 +263,16 @@
       pager("p:", d[5], d[6]),
 
     // ["l", allTime, legacy preference (ignored), [[place, name, points, isViewer], …]]
-    l: (d) => {
-      const tab = d[1] ? 1 : 0;
-      return (
-        header("Рейтинг") +
-        `<div class="R tb">${button("l0", tab ? "" : "O", "Неделя")}${button("l1", tab ? "O" : "", "Всё время")}</div>` +
-        `<div>${d[3]
-          .map(
-            (row) =>
-              `<div class="R rk${row[3] ? " M" : ""}"><span class=mu>${row[0]}</span><span class="F e">${esc(row[1])}</span><b>${row[2]}</b></div>`,
-          )
-          .join("")}</div>` +
-        "<div class=mu>Очки за верные ответы в завершённых раундах.</div>"
-      );
-    },
+    l: (d) =>
+      header("Рейтинг") +
+      `<div class="R tb">${button("l0", d[1] ? "" : "O", "Неделя")}${button("l1", d[1] ? "O" : "", "Всё время")}</div>` +
+      `<div>${d[3]
+        .map(
+          (row) =>
+            `<div class="R rk${row[3] ? " M" : ""}"><span class=mu>${row[0]}</span><span class="F e">${esc(row[1])}</span><b>${row[2]}</b></div>`,
+        )
+        .join("")}</div>` +
+      "<div class=mu>Очки за верные ответы в завершённых раундах.</div>",
 
     // ["c", issueId, context]: the situation of a question, read before the question itself.
     c: (d) => note("Условие", d[2], "o" + d[1], "К вопросу"),
@@ -293,16 +292,16 @@
     const render = () => (root.innerHTML = screens[data[0]](data));
     render();
     if (data[0] == "e") {
+      // 560 px is the tallest screen the guide recommends at a 320 px bubble; the bubble
+      // clips at 600 px. The number stands in place: a named constant costs bytes the
+      // widget does not have.
       // Smaller pages until every page fits the screen, not only the one shown: the number
       // of pages is then settled before the person turns the first one. After a smaller
       // size the check starts again from the first page.
       const read = page;
       for (page = 0; parts[page]; page++) {
         render();
-        while (
-          document.body.offsetHeight >= MAX_HEIGHT &&
-          explanationSize > 10
-        ) {
+        while (document.body.offsetHeight >= 560 && explanationSize > 10) {
           explanationSize -= 10;
           page = 0;
           render();
@@ -312,13 +311,13 @@
       render();
     } else if (!inQuestion || !questionFont) {
       // A question leaves 120 px for the verdict, two lines of the explanation and the
-      // buttons: a larger reserve takes the room of a long question's own text.
+      // buttons: a larger reserve takes the room of a long question's own text. The text
+      // is never smaller than 11 px.
       const reserve = () =>
         data[0] == "q" ? 120 - root.querySelector(".fb").offsetHeight : 0;
       for (
         let size = parseFloat(getComputedStyle(root).fontSize);
-        document.body.offsetHeight + reserve() >= MAX_HEIGHT &&
-        size > MIN_FONT_SIZE;
+        document.body.offsetHeight + reserve() >= 560 && size > 11;
       )
         root.style.fontSize = --size + "px";
       if (inQuestion) questionFont = getComputedStyle(root).fontSize;
@@ -345,7 +344,7 @@
       // Each part of an explanation starts from its first page.
       if (data != current) {
         page = 0;
-        explanationSize = 200;
+        explanationSize = 500;
       }
       draw(data);
     } catch {
@@ -409,7 +408,7 @@
 
   const start = () => {
     const data = parse(widget.chatData);
-    home = data && data[0] == "h" ? data : ["h", 0, 0, 5, 0];
+    home = data?.[0] == "h" ? data : ["h", 0, 0, 5, 0];
     if (!current || current[0] == "h") show(home);
   };
   widget.onEvent("chatDataChanged", start);
