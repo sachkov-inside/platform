@@ -3,9 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ПРОТОТИП. «ИИ-модели»: V2 с подпиской OpenCode Go</title>
+    <title>ПРОТОТИП. «ИИ-модели»: V2, Opus в двух группах «Мой выбор»</title>
     <!--
-  PROTOTYPE, throwaway. Восьмая версия от 12.11.2026: подписка OpenCode Go у семи моделей (лимит
+  PROTOTYPE, throwaway. Девятая версия от 12.11.2026: Opus 5.5 в «Мой выбор» и на каждый день, и для
+  дизайна. Восьмая версия: подписка OpenCode Go у семи моделей (лимит
   в долларах на модель, https://opencode.ai/docs/go), лучший агент DeepSeek это OpenCode, одинаковые
   тарифы одного сервиса свёрнуты в строку. Седьмая версия: лидеры отмечены цветной точкой; «Лучше взять»
   у GLM, Kimi, Gemini 4 Carbon и Gemini 4 Argon. Шестая версия: только V2; фильтры «Мощные», «Мой выбор»,
@@ -804,7 +805,9 @@
       const ORDER = ["fav", "sure", "mid", "pricey", "waste", "ban"];
       const OPIN = {
         fable: [["waste", "тратит очень много токенов на одну задачу"]],
-        opus: [["fav", "для дизайна, монтажа и моушн-графики"]],
+        opus: [
+          ["fav", "на каждый день, а ещё для дизайна, монтажа и моушн-графики"],
+        ],
         sol: [
           ["fav", "средняя универсальная модель на каждый день"],
           ["sure", "доводит задачу до конца"],
@@ -828,10 +831,10 @@
         argon: [["sol", "sonnet"], "они проверенные"],
       };
       const FAVG = {
-        sol: "daily",
-        dsflash: "daily",
-        opus: "design",
-        kimi: "design",
+        sol: ["daily"],
+        dsflash: ["daily"],
+        opus: ["daily", "design"],
+        kimi: ["design"],
       };
       const GROUPS = [
         ["daily", "На каждый день"],
@@ -1047,7 +1050,7 @@
           for (const [g, gl] of GROUPS) {
             body += '<div class="gh">' + gl + "</div>";
             body += list
-              .filter((m) => FAVG[m.id] === g)
+              .filter((m) => (FAVG[m.id] || []).includes(g))
               .map((m) => rowHtml(m, metric))
               .join("");
           }
