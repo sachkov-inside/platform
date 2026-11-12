@@ -19,6 +19,13 @@ import {
 } from "./storage-edge-delivery.js";
 
 const CACHE_POLICY_METADATA = Symbol("http-cache-policy");
+/**
+ * Delivered bytes never run as a page of the site, even when their address is opened directly:
+ * no script, no network fetch, no form. Inline styles stay so a checked SVG keeps its look and
+ * animation (#2025). Browsers apply no response policy to an SVG shown through `<img>`.
+ */
+export const ASSET_CONTENT_SECURITY_POLICY =
+  "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 export const PRIVATE_NO_STORE_HEADERS = {
   "cache-control": "private, no-store",
 } as const;
@@ -138,6 +145,7 @@ function sendAssetDelivery(
     return undefined;
   }
   response.header("Content-Type", body.contentType);
+  response.header("Content-Security-Policy", ASSET_CONTENT_SECURITY_POLICY);
   response.header("Content-Length", String(body.contentLength));
   if (body.contentDisposition !== undefined) {
     response.header("Content-Disposition", body.contentDisposition);

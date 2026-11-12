@@ -2,6 +2,7 @@ import { transactionHandle } from "../../src/infrastructure/prisma/transaction-h
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { createHash, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import sharp from "sharp";
@@ -151,6 +152,73 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
         materialId,
       }),
     ).resolves.toEqual({ ok: true, value: null });
+    await expect(storage.read("public", publicKey)).resolves.toBeNull();
+  });
+
+  test("stores an SVG image as its checked file with one variant at its own width", async () => {
+    const assets = assembleMaterialAssets({
+      objectStorage: storage,
+      prisma: database.prisma,
+    });
+    const body = readFileSync(
+      new URL("../fixtures/svg-images/06-durable-record.svg", import.meta.url),
+    );
+    const materialId = randomUUID();
+    const uploaded = await assets.upload({
+      actor: randomUUID(),
+      body,
+      declaredContentType: "image/svg+xml",
+      declaredSize: body.byteLength,
+      expectedChecksumSha256: createHash("sha256").update(body).digest("hex"),
+      filename: "06-durable-record.svg",
+      idempotencyKey: "integration-svg-upload",
+      kind: "image",
+      materialId,
+    });
+    expect(uploaded).toMatchObject({
+      ok: true,
+      value: {
+        contentType: "image/svg+xml",
+        height: 475,
+        kind: "image",
+        state: "ready",
+        variants: [{ height: 475, width: 720 }],
+        width: 720,
+      },
+    });
+    if (!uploaded.ok) throw new Error(uploaded.error.code);
+
+    const delivery = await assets.loadDelivery({
+      assetId: uploaded.value.assetId,
+      materialId,
+      variantWidth: 720,
+    });
+    if (!delivery.ok || delivery.value === null) {
+      throw new Error("missing SVG variant");
+    }
+    expect(delivery.value).toMatchObject({
+      contentType: "image/svg+xml",
+      kind: "image",
+    });
+    expect(delivery.value.object.protectedKey).toMatch(/\/image-720\.svg$/u);
+    const publicKey = delivery.value.object.publicKey;
+    if (publicKey === null) throw new Error("missing public SVG key");
+    expect(publicKey).toMatch(/\/public-image-720\.svg$/u);
+    const stored = await storage.read("public", publicKey);
+    expect(stored?.contentType).toBe("image/svg+xml");
+    expect(stored?.contentLength).toBe(delivery.value.size);
+    expect(new TextDecoder().decode(stored?.body)).toMatch(
+      /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="720" height="475"/u,
+    );
+
+    await expect(
+      assets.cleanupOrphans({
+        graceMs: 60 * 60 * 1_000,
+        isReferenced: () => Promise.resolve(false),
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
+        now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
+      }),
+    ).resolves.toEqual({ ok: true, value: { cleaned: 1, retained: 0 } });
     await expect(storage.read("public", publicKey)).resolves.toBeNull();
   });
 

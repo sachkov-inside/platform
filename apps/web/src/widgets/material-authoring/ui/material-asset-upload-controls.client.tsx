@@ -318,7 +318,7 @@ export function MaterialAssetUploadButtons({
         Файл
       </Button>
       <input
-        accept="image/avif,image/jpeg,image/png,image/webp"
+        accept="image/avif,image/jpeg,image/png,image/svg+xml,image/webp"
         aria-label="Выбрать изображения"
         className="sr-only"
         disabled={disabled}
@@ -516,6 +516,8 @@ function uploadErrorMessage(error: unknown): string {
     case "mime_mismatch":
     case "unsupported_image_type":
       return "Формат файла не совпадает с его содержимым";
+    case "unsafe_svg":
+      return "SVG содержит скрипт, внешнюю ссылку или другой запрещённый элемент";
     case "unsupported_file_type":
       return "Видео загружается через отдельный видеосценарий";
     case "checksum_mismatch":

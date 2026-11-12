@@ -18,5 +18,7 @@ export const authoringImportContract = {
     "image-variants-v1",
     "collapsible-callouts-v1",
     "bounded-content-v1",
+    // A Material image may be an SVG: the receiver checks it and stores it as SVG (#2025).
+    "svg-images-v1",
   ],
 } as const;
