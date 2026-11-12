@@ -11,6 +11,7 @@ declare global {
         event: "time" | "pause" | "ended" | "error",
         currentTime?: number,
       ): void;
+      preferences(volume: number, playbackRate: number): void;
       players(): number;
     };
   }
@@ -25,11 +26,17 @@ const titles = {
   paused: "while paused keeps the new player paused",
   "back-paused": "a paused video stays paused after navigating away and back",
   "back-ended": "a finished video stays paused after navigating away and back",
+  "back-settings": "keeps volume and speed after navigating away and back",
+  "reload-settings": "keeps volume and speed after a full reload",
+  "recovery-settings": "keeps volume and speed after player recovery",
   "back-playing":
     "a playing video waits for Play after navigating away and back",
 } as const;
 
 for (const outcome of [
+  "back-settings",
+  "reload-settings",
+  "recovery-settings",
   "recovers",
   "fails-again",
   "paused",
@@ -70,6 +77,12 @@ for (const outcome of [
           for (const handler of handlers.get(event) ?? [])
             handler({ data: { currentTime } });
         },
+        preferences: (volume, playbackRate) => {
+          for (const handler of handlers.get("volume") ?? [])
+            handler({ data: { volume, muted: false } });
+          for (const handler of handlers.get("rate") ?? [])
+            handler({ data: { playbackRate } });
+        },
         players: () => players,
       };
       Object.defineProperty(window, "Kinescope", {
@@ -82,10 +95,14 @@ for (const outcome of [
               handlers = own;
               const iframe = document.createElement("iframe");
               iframe.src = options.url;
+              iframe.dataset["volume"] = "1";
+              iframe.dataset["rate"] = "1";
               iframe.dataset["player"] = String(players);
               mount.append(iframe);
               return Promise.resolve({
                 Events: {
+                  VolumeChange: "volume",
+                  PlaybackRateChange: "rate",
                   Ended: "ended",
                   Error: "error",
                   Pause: "pause",
@@ -99,6 +116,16 @@ for (const outcome of [
                 },
                 off: (event: string, handler: (event: unknown) => void) => {
                   own.get(event)?.delete(handler);
+                },
+                mute: () => Promise.resolve(),
+                unmute: () => Promise.resolve(),
+                setVolume: (volume: number) => {
+                  iframe.dataset["volume"] = String(volume);
+                  return Promise.resolve();
+                },
+                setPlaybackRate: (rate: number) => {
+                  iframe.dataset["rate"] = String(rate);
+                  return Promise.resolve();
                 },
                 getDuration: () => Promise.resolve(600),
                 seekTo: (seconds: number) => {
@@ -131,7 +158,28 @@ for (const outcome of [
       .getByRole("button", { name: "Смотреть видео: Fragment video" })
       .click();
     await expect(iframe).toHaveAttribute("data-playing", "true");
+    const settings = outcome.endsWith("-settings");
+    if (settings) {
+      await page.evaluate(() => {
+        window.__playerProbe.preferences(0.35, 1.75);
+      });
+      if (outcome === "reload-settings") {
+        await page.reload();
+        await expect(iframe).toHaveAttribute("data-position", "37");
+      } else if (outcome === "recovery-settings") {
+        await page.evaluate(() => {
+          window.__playerProbe.emit("error");
+        });
+        await expect(iframe).toHaveAttribute("data-player", "2");
+      }
+      if (outcome !== "back-settings") {
+        await expect(iframe).toHaveAttribute("data-volume", "0.35");
+        await expect(iframe).toHaveAttribute("data-rate", "1.75");
+        return;
+      }
+    }
     if (
+      outcome === "back-settings" ||
       outcome === "back-paused" ||
       outcome === "back-ended" ||
       outcome === "back-playing"
@@ -158,6 +206,10 @@ for (const outcome of [
       await page.getByRole("link", { name: "4:21 Later chapter" }).click();
       await expect(iframe).toHaveAttribute("data-position", "261");
       await expect(iframe).not.toHaveAttribute("data-playing");
+      if (settings) {
+        await expect(iframe).toHaveAttribute("data-volume", "0.35");
+        await expect(iframe).toHaveAttribute("data-rate", "1.75");
+      }
       return;
     }
     await page.evaluate((pause) => {
