@@ -45,6 +45,7 @@ import {
   normalizeSourceIds,
   pendingOperations,
   publicationConflict,
+  keepsUnpublished,
   publicationPolicy,
   publishOption,
   targetPublication,
@@ -77,7 +78,9 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {boolean} [notifyTelegram]
  * @property {boolean} [inFeed]
  * @property {string | null} video
- * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
+ * @property {"new" | "changed" | "restore" | "unchanged" | "kept" | "conflict"} change `kept`: the
+ *   target holds the Material unpublished and the release keeps it private, so apply writes nothing to it
+ * @property {"unpublished"} [publicationKept] The target publication a `kept` Material stays in
  * @property {boolean} [coverChange]
  * @property {boolean} [videoChange]
  * @property {VideoUpload[]} [videoUploads] Recordings `authoring:video` uploaded for this Material
@@ -333,7 +336,23 @@ export async function previewRelease(
       continue;
     }
     const current = await request(`/authoring/materials/${entry.materialId}`);
+    // The version pins the kept state too: a body edit or a publication after review is drift.
     expected[key] = current.contentVersion;
+    const currentPublication = targetPublication(
+      current.publicationState,
+      entry,
+    );
+    // An unpublished Material stays as the target holds it unless the release publishes it. The
+    // journal version and the Content commit are not compared: both guard an overwrite, and apply
+    // writes nothing to a kept Material. The target version pinned above catches drift instead.
+    if (keepsUnpublished(currentPublication, item.publication)) {
+      materials.push({
+        ...item,
+        change: "kept",
+        publicationKept: "unpublished",
+      });
+      continue;
+    }
     // A named provider record that was never attached here makes the Material change on apply.
     const uploaded = parseReceipt(
       sourceVideoReceiptSchema,
@@ -358,10 +377,6 @@ export async function previewRelease(
       publicationState: item.publication,
       currentMembership: current.metadata["productMemberships"],
     });
-    const currentPublication = targetPublication(
-      current.publicationState,
-      entry,
-    );
     const publicationConflictFound = publicationConflict(
       row,
       currentPublication,
@@ -695,7 +710,7 @@ export async function previewRelease(
   if (
     manifest.selection.contentOnly &&
     [...materials, ...taskPreview.tasks].some(
-      (row) => !["changed", "unchanged"].includes(row.change),
+      (row) => !["changed", "unchanged", "kept"].includes(row.change),
     )
   )
     throw new Error(
@@ -743,10 +758,12 @@ export async function previewRelease(
   };
   const preview = { ...plan, fingerprint: checksum(canonical(plan)) };
   const summary = Object.fromEntries(
-    ["new", "changed", "restore", "unchanged", "conflict"].map((change) => [
-      change,
-      materials.filter((item) => item.change === change).length,
-    ]),
+    ["new", "changed", "restore", "unchanged", "kept", "conflict"].map(
+      (change) => [
+        change,
+        materials.filter((item) => item.change === change).length,
+      ],
+    ),
   );
   const directory = join(resolve(stateDirectory), "previews");
   await mkdir(directory, { recursive: true });
@@ -1085,7 +1102,7 @@ if (
       accessToken: sessionFor(reviewed.target),
     });
     process.stdout.write(
-      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, products: report.products, tasks: report.tasks ?? [] }, null, 2)}\n`,
+      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, kept: "kept" in report ? (report.kept ?? 0) : 0, archived: report.archived, products: report.products, tasks: report.tasks ?? [] }, null, 2)}\n`,
     );
   } else {
     throw new Error(

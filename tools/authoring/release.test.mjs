@@ -150,6 +150,7 @@ test("preview reads only and apply releases exactly the reviewed package", async
     changed: 0,
     restore: 0,
     unchanged: 0,
+    kept: 0,
     conflict: 0,
   });
   assert.deepEqual(server.writes, []);

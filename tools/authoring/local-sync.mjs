@@ -80,7 +80,8 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {string} packageId
  * @property {number} applied
  * @property {number} unchanged
- * @property {{ sourceId: string; title: string; url: string; publicationState: DesiredPublication }[]} materials
+ * @property {number} [kept] Unpublished Materials the import left exactly as the target holds them
+ * @property {{ sourceId: string; title: string; url: string; publicationState: DesiredPublication | "unpublished" }[]} materials
  * @property {{
  *   title: string;
  *   url: string;
@@ -261,8 +262,21 @@ export const targetPublication = (reported, entry) =>
   reported ?? recordedPublication(entry ?? {});
 
 /**
+ * A Material the target holds unpublished stays exactly as it is when the import keeps it private:
+ * no publication change, no body or metadata write. It remains a Product member by its target id.
+ * Only an explicit publication approval changes it.
+ *
+ * @param {PublicationState} current
+ * @param {DesiredPublication} desired
+ */
+export const keepsUnpublished = (current, desired) =>
+  desired === "draft" && current === "unpublished";
+
+/**
  * A private import never takes back or replaces what readers already see. Platform itself never
- * moves a published or unpublished Material back to draft.
+ * moves a published or unpublished Material back to draft, so a published target needs an explicit
+ * publication approval or must leave the import. An unpublished target is kept as it is instead
+ * (`keepsUnpublished`), not a conflict.
  *
  * @param {ManifestMaterial} row
  * @param {PublicationState} current
@@ -270,7 +284,7 @@ export const targetPublication = (reported, entry) =>
  * @returns {{ code: "target_not_draft"; message: string } | undefined}
  */
 export function publicationConflict(row, current, desired) {
-  return desired === "draft" && current !== "draft"
+  return desired === "draft" && current === "published"
     ? {
         code: "target_not_draft",
         message: `${row.sourcePath}: the Material is already ${current} in Platform; a private import neither unpublishes it nor replaces its public body. Approve its publication explicitly or leave it out of this import`,
@@ -927,6 +941,7 @@ export async function syncLocal(
       packageId: pkg.id,
       applied: 0,
       unchanged: 0,
+      kept: 0,
       materials: [],
       products: [],
       archived: [],
@@ -1094,6 +1109,9 @@ export async function syncLocal(
      * >}
      */
     const currentMaterials = new Map();
+    // Unpublished Materials this private import keeps exactly as the target holds them.
+    /** @type {Set<string>} */
+    const keptUnpublished = new Set();
     /** @type {Map<string, string>} */
     const links = taskLinks(pkg.manifest);
     if (pkg.manifest.selection.contentOnly)
@@ -1136,12 +1154,15 @@ export async function syncLocal(
         throw new Error(
           "Source reservation did not allocate a stable local URL",
         );
+      const currentPublication = targetPublication(
+        "publicationState" in current ? current.publicationState : undefined,
+        previous,
+      );
+      if (keepsUnpublished(currentPublication, publicationOf(row)))
+        keptUnpublished.add(row.sourceId);
       const conflict = publicationConflict(
         row,
-        targetPublication(
-          "publicationState" in current ? current.publicationState : undefined,
-          previous,
-        ),
+        currentPublication,
         publicationOf(row),
       );
       if (conflict) throw new Error(conflict.message);
@@ -1498,10 +1519,11 @@ export async function syncLocal(
     // and private reservations exist so far.
     for (const row of rows.values()) {
       if (
-        journal.materials[sourceId(row.sourceId)]?.revision ===
+        keptUnpublished.has(row.sourceId) ||
+        (journal.materials[sourceId(row.sourceId)]?.revision ===
           source(row).revision &&
-        journal.materials[sourceId(row.sourceId)]?.defaultAccess ===
-          defaultAccess
+          journal.materials[sourceId(row.sourceId)]?.defaultAccess ===
+            defaultAccess)
       )
         continue;
       try {
@@ -1593,6 +1615,25 @@ export async function syncLocal(
     };
 
     for (const row of rows.values()) {
+      // A kept Material gets no video, body, metadata or cover write; the composition still names it.
+      // It skips the journal version check below: that check guards an overwrite, and nothing is
+      // written here.
+      if (keptUnpublished.has(row.sourceId)) {
+        report.kept = (report.kept ?? 0) + 1;
+        report.materials.push({
+          sourceId: row.sourceId,
+          title: row.title,
+          url: `${reader}${links.get(row.sourceId)}`,
+          publicationState: "unpublished",
+        });
+        report.notices.push({
+          code: "material_kept_unpublished",
+          path: row.sourcePath,
+          message:
+            "Материал снят с публикации в Platform; перенос оставил его как есть. Чтобы вернуть его читателям, одобрите публикацию через --publish",
+        });
+        continue;
+      }
       const key = sourceId(row.sourceId);
       let current = valueAt(currentMaterials, row.sourceId);
       const revision = source(row).revision;
@@ -2160,6 +2201,6 @@ if (
     publish: publishOption(values),
   });
   process.stdout.write(
-    `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, products: report.products, archived: report.archived, archiveProposals: report.archiveProposals, tasks: report.tasks ?? [], notices: report.notices }, null, 2)}\n`,
+    `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, kept: report.kept ?? 0, products: report.products, archived: report.archived, archiveProposals: report.archiveProposals, tasks: report.tasks ?? [], notices: report.notices }, null, 2)}\n`,
   );
 }

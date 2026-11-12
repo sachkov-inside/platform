@@ -1072,6 +1072,7 @@ test("release preview reports video, composition and artifact changes that the s
     changed: 0,
     restore: 0,
     unchanged: 3,
+    kept: 0,
     conflict: 0,
   });
   assert.deepEqual(itemAt(clean.preview.products, 0), {
@@ -1662,6 +1663,193 @@ test("preview shows each publication and apply follows only the reviewed approva
   await assert.rejects(
     applyRelease(privatePreview.path, setup.state, { request: api.request }),
     /contains conflicts/u,
+  );
+});
+
+/**
+ * A private import of three drafts, then another session unpublishes `old` on the target.
+ *
+ * @param {import("node:test").TestContext} t
+ */
+async function unpublishedByAnotherSession(t) {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api, { publish: [] });
+  const old = valueAt(api.materials, "inside-content:old");
+  // The publication write bumps the version; this journal never saw it.
+  old.publicationState = "unpublished";
+  old.contentVersion++;
+  // The package edits both texts; only the lesson may change.
+  itemAt(setup.manifest.materials, 0).markdown = "Новая редакция урока";
+  itemAt(setup.manifest.materials, 2).markdown = "Новая редакция старого";
+  await setup.write();
+  return { setup, api, old };
+}
+
+test("a private release keeps an unpublished Material as the target holds it and keeps it in the Product", async (t) => {
+  const { setup, api, old } = await unpublishedByAnotherSession(t);
+  const origin = resolveLocalTarget("editor");
+  const before = structuredClone(old);
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    origin,
+    request: api.request,
+  });
+  const kept = reviewed.preview.materials.find(
+    (item) => item.sourceId === "old",
+  );
+  assert.equal(kept?.change, "kept");
+  assert.equal(kept?.["publicationKept"], "unpublished");
+  assert.equal(kept?.["conflictReason"], undefined);
+  assert.equal(kept?.["publicationChange"], undefined);
+  assert.equal(kept?.["contentReplacement"], undefined);
+  assert.equal(reviewed.summary["kept"], 1);
+  assert.equal(reviewed.summary["conflict"], 0);
+  assert.equal(
+    reviewed.preview.expected["inside-content:old"],
+    before.contentVersion,
+  );
+
+  const calls = api.calls.length;
+  await applyRelease(reviewed.path, setup.state, { request: api.request });
+  const writes = api.calls.slice(calls).filter((call) => call.method !== "GET");
+  assert.deepEqual(
+    writes.filter((call) => JSON.stringify(call).includes(old.materialId)),
+    // Only the composition names the kept Material, by its existing target id.
+    writes.filter(
+      (call) => call.path === "/authoring/import/products/composition",
+    ),
+  );
+  assert.deepEqual(
+    applies(api)
+      .slice(-1)
+      .map(
+        (call) =>
+          z
+            .object({ source: z.object({ id: z.string() }) })
+            .passthrough()
+            .parse(call.body).source.id,
+      ),
+    ["inside-content:lesson"],
+  );
+  assert.deepEqual(valueAt(api.materials, "inside-content:old"), before);
+  assert.deepEqual(
+    api.product.members,
+    ["lesson", "video", "old"].map(
+      (id) => valueAt(api.materials, `inside-content:${id}`).materialId,
+    ),
+  );
+
+  // The sync shares the rule: no write, and the report names what it kept.
+  itemAt(setup.manifest.materials, 0).markdown = "Третья редакция урока";
+  await setup.write();
+  const report = await run(setup, api, { publish: [] });
+  assert.deepEqual(valueAt(api.materials, "inside-content:old"), before);
+  assert.equal(report.kept, 1);
+  assert.equal(report.applied, 1);
+  assert.equal(report.unchanged, 1);
+  assert.equal(
+    report.materials.find((item) => item.sourceId === "old")?.publicationState,
+    "unpublished",
+  );
+  assert.ok(
+    report.notices.some(
+      (notice) =>
+        notice.code === "material_kept_unpublished" && notice.path === "old.md",
+    ),
+  );
+});
+
+test("drift on a kept Material after the preview stops apply before any write", async (t) => {
+  /** @type {Record<string, (material: FakeMaterial) => void>} */
+  const drifts = {
+    republished: (material) => {
+      material.publicationState = "published";
+      material.contentVersion++;
+    },
+    "body edited": (material) => {
+      material.contentVersion++;
+    },
+  };
+  for (const [name, drift] of Object.entries(drifts)) {
+    const { setup, api, old } = await unpublishedByAnotherSession(t);
+    const reviewed = await previewRelease(setup.packagePath, setup.state, {
+      origin: resolveLocalTarget("editor"),
+      request: api.request,
+    });
+    drift(old);
+    const calls = api.calls.length;
+    await assert.rejects(
+      applyRelease(reviewed.path, setup.state, { request: api.request }),
+      /environment changed after the preview/u,
+      name,
+    );
+    assert.deepEqual(
+      api.calls
+        .slice(calls)
+        .filter(
+          (call) => call.method !== "GET" && !call.path.endsWith("/validate"),
+        ),
+      [],
+      name,
+    );
+  }
+});
+
+test("an explicit approval publishes an unpublished Material; a published one still needs it", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  const origin = resolveLocalTarget("editor");
+  await run(setup, api);
+  // The original leaves, is unpublished on request, then returns to the package.
+  const rows = setup.manifest.materials;
+  setup.manifest.materials = rows.filter((row) => row.sourceId !== "old");
+  setup.manifest.selection.materialIds = ["lesson", "video"];
+  itemAt(setup.manifest.products, 0).materialIds = ["lesson", "video"];
+  await setup.write();
+  await run(setup, api, { archive: ["old"] });
+  setup.manifest.materials = rows;
+  setup.manifest.selection.materialIds = ["lesson", "video", "old"];
+  itemAt(setup.manifest.products, 0).materialIds = ["lesson", "video", "old"];
+  await setup.write();
+
+  const withoutVideo = await previewRelease(setup.packagePath, setup.state, {
+    origin,
+    request: api.request,
+    publish: ["lesson", "old"],
+  });
+  const video = withoutVideo.preview.materials.find(
+    (item) => item.sourceId === "video",
+  );
+  assert.equal(video?.change, "conflict");
+  assert.equal(video?.["conflictReason"], "target_not_draft");
+
+  const keeping = await previewRelease(setup.packagePath, setup.state, {
+    origin,
+    request: api.request,
+    publish: ["lesson", "video"],
+  });
+  assert.equal(
+    keeping.preview.materials.find((item) => item.sourceId === "old")?.change,
+    "kept",
+  );
+
+  const publishing = await previewRelease(setup.packagePath, setup.state, {
+    origin,
+    request: api.request,
+    publish: ["lesson", "video", "old"],
+  });
+  const old = publishing.preview.materials.find(
+    (item) => item.sourceId === "old",
+  );
+  assert.deepEqual(old?.["publicationChange"], {
+    from: "unpublished",
+    to: "published",
+  });
+  assert.equal(publishing.summary["conflict"], 0);
+  await applyRelease(publishing.path, setup.state, { request: api.request });
+  assert.equal(
+    valueAt(api.materials, "inside-content:old").publicationState,
+    "published",
   );
 });
 
