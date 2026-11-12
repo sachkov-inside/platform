@@ -207,8 +207,10 @@ A program in which a person works with an ИИ-модель on tasks, such as Co
 _Avoid_: Daily check, tool, app, ИИ-модель
 
 **Лучший агент** (Best Agent):
-The Агент that the ИИ-модели section recommends for working with one ИИ-модель, with a stated reason.
-_Avoid_: Official app, default agent
+The Агент with the best independent measurement for one ИИ-модель; when no measurement exists, the
+one the model's company recommends. Good alternatives are listed with it, and the owner's own
+preference is shown separately as their opinion.
+_Avoid_: Official app, default agent, owner's pick
 
 **Сводка модели** (Model Summary):
 One line on what an ИИ-модель is good for and what it costs in return, such as «самая умная для кода,
