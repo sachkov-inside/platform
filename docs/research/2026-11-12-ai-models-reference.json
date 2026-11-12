@@ -1,0 +1,3245 @@
+{
+  "checked_at": "2026-11-12",
+  "method": {
+    "estimate_formula": "tasks_per_week = weekly_value_usd / arena.cost_per_task_p50_usd; weekly_value_usd is the plan's measured weekly value at API prices from independent measurements in the research note; monthly figures are converted with 12/52",
+    "estimate_caveat": "Wokey and Arena count cache differently, so tasks per week is an order of magnitude only",
+    "arena_variant_rule": "for each model the Arena row with the highest score; every one of the 13 models has a single row in the file",
+    "api_price_units": "USD per 1M tokens; cache_read is the cache hit rate",
+    "subscription_scope": "paid individual plans that include the model as of 2026-11-12; free plans, team or business plans (ChatGPT Business, Claude Team), legacy plans closed to new buyers (SuperGrok, Gemini Code Assist Standard/Enterprise) and third-party IDE plans (Cursor, GitHub Copilot) are left out",
+    "russia_flags": "true / false / null; based only on official country lists, payment pages and reputable reporting",
+    "texts_for_owner_review": "best_agent reasons, tags and summary_ru are drafts for the owner"
+  },
+  "sources": {
+    "research-note": {
+      "url": "docs/research/2026-11-12-ai-model-subscriptions.md",
+      "title": "AI model subscriptions, limits and prices, 2026-11-12 (inside-platform repository, ai-models-section worktree)",
+      "date": "2026-11-12",
+      "kind": "internal"
+    },
+    "arena-agent": {
+      "url": "https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset",
+      "title": "Arena leaderboard dataset, config agent, split latest",
+      "date": "2026-11-11",
+      "kind": "independent",
+      "licence": "CC BY 4.0",
+      "note": "fields rank, score, cost_per_task_p50; cache treatment not stated"
+    },
+    "anthropic-models": {
+      "url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "title": "Models overview (Claude API docs)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "anthropic-pricing": {
+      "url": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "title": "Pricing (Claude API docs)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "claude-pricing": {
+      "url": "https://claude.com/pricing",
+      "title": "Claude plans and pricing",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "anthropic-max": {
+      "url": "https://support.claude.com/en/articles/11049741",
+      "title": "What is the Max plan?",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "page says updated over a week ago"
+    },
+    "anthropic-ultra": {
+      "url": "https://support.claude.com/en/articles/17728952",
+      "title": "What is the Ultra plan?",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "page says updated this week"
+    },
+    "anthropic-fable-plans": {
+      "url": "https://support.claude.com/en/articles/15424964",
+      "title": "Claude Fable models on your plan",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "page says updated this week"
+    },
+    "anthropic-fable-launch": {
+      "url": "https://support.claude.com/en/articles/17506494-claude-fable-5-2-launch-offers",
+      "title": "Claude Fable 5.2 launch offers",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "Fable 5.2 launched 2026-11-09"
+    },
+    "wokey-claude": {
+      "url": "https://wokey.ai/claude-usage-limits",
+      "title": "Claude usage limits measured (Wokey)",
+      "date": "2026-11-09",
+      "kind": "independent",
+      "note": "commercial API gateway; remeasured every Monday"
+    },
+    "danubelabs": {
+      "url": "https://danubelabs.net",
+      "title": "Danube Labs, Claude Max usage write-up",
+      "date": "2026-10-04",
+      "kind": "anecdote",
+      "note": "cited from the research note, not re-read"
+    },
+    "finopsllm": {
+      "url": "https://finopsllm.com",
+      "title": "FinOps LLM, subscription value write-ups",
+      "date": "2026-10-10",
+      "kind": "anecdote",
+      "note": "cited from the research note, not re-read"
+    },
+    "openai-api-pricing": {
+      "url": "https://developers.openai.com/api/docs/pricing",
+      "title": "OpenAI API pricing",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "openai-codex-pricing": {
+      "url": "https://learn.chatgpt.com/docs/pricing",
+      "title": "Codex pricing and usage limits",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "wokey-codex": {
+      "url": "https://wokey.ai/codex-usage-limits",
+      "title": "Codex usage limits measured (Wokey)",
+      "date": "2026-11-09",
+      "kind": "independent"
+    },
+    "emsi": {
+      "url": "https://emsi.me",
+      "title": "emsi.me, ChatGPT Pro usage post",
+      "date": "2026-11-03",
+      "kind": "anecdote",
+      "note": "cited from the research note, not re-read"
+    },
+    "gemini-api-pricing": {
+      "url": "https://aistudio.google.com/docs/pricing",
+      "title": "Gemini API pricing",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "gemini-subscriptions": {
+      "url": "https://gemini.google/us/subscriptions",
+      "title": "Google AI plans (US)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "antigravity-models": {
+      "url": "https://antigravity.google/docs/models/",
+      "title": "Antigravity: Choose a model",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "antigravity-plans": {
+      "url": "https://antigravity.google/blog/changes-to-antigravity-plans/",
+      "title": "Changes to Antigravity plans",
+      "date": "2026-05-19",
+      "kind": "official"
+    },
+    "jules-limits": {
+      "url": "https://jules.google/docs/usage-limits",
+      "title": "Jules usage limits",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "xai-x-sub-pricing": {
+      "url": "https://docs.x.ai/x-subscription/pricing",
+      "title": "The X Subscription pricing",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "xai-x-sub-overview": {
+      "url": "https://docs.x.ai/x-subscription/overview",
+      "title": "The X Subscription overview",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "xai-x-sub-news": {
+      "url": "https://x.ai/news/x-subscription",
+      "title": "Introducing The X Subscription",
+      "date": "2026-10-12",
+      "kind": "official"
+    },
+    "xai-grok-faq": {
+      "url": "https://docs.x.ai/grok/faq",
+      "title": "Grok FAQ",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "xai-api-pricing": {
+      "url": "https://docs.x.ai/developers/pricing",
+      "title": "xAI API pricing",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "kimi-membership": {
+      "url": "https://www.kimi.com/en/help/membership/membership-pricing",
+      "title": "Kimi membership pricing (China plans, CNY)",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "price capture dated 2026-10-19"
+    },
+    "kimi-usd-trackers": {
+      "url": "https://www.usagepricing.com/blueprint/activity/moonshot-ai-2026-09-28-kimi-plus-pro-max-ultra-plans",
+      "title": "Kimi Plus/Pro/Max/Ultra plans (price tracker)",
+      "date": "2026-09-28",
+      "kind": "secondary"
+    },
+    "kimi-api-pricing": {
+      "url": "https://platform.kimi.ai/docs/pricing/chat",
+      "title": "Kimi API chat model pricing",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "table rendered by JavaScript; read from page source"
+    },
+    "wokey-kimi": {
+      "url": "https://wokey.ai/kimi-code-limits",
+      "title": "Kimi Code limits measured (Wokey)",
+      "date": "2026-11-09",
+      "kind": "independent"
+    },
+    "zai-devpack": {
+      "url": "https://docs.z.ai/devpack/overview",
+      "title": "GLM Coding Plan overview",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "zai-pricing": {
+      "url": "https://docs.z.ai/guides/overview/pricing",
+      "title": "Z.ai API pricing",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "zai-glm53-guide": {
+      "url": "https://docs.z.ai/guides/llm/glm-5.3",
+      "title": "GLM-5.3 guide (API model name glm-5.3)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "morph-coding-plan": {
+      "url": "https://morphllm.com/coding-plan",
+      "title": "Morph: coding plans compared",
+      "date": "2026-10-15",
+      "kind": "secondary"
+    },
+    "jia-coding-plan": {
+      "url": "https://jia.je/kb/en/software/coding_plan.html",
+      "title": "Coding plan notes (jia.je)",
+      "date": "2026-11-11",
+      "kind": "secondary"
+    },
+    "deepseek-pricing": {
+      "url": "https://api-docs.deepseek.com/quick_start/pricing",
+      "title": "DeepSeek API pricing",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "alibaba-token-plan": {
+      "url": "https://www.alibabacloud.com/help/en/model-studio/token-plan-personal-overview",
+      "title": "Token Plan Personal Edition overview",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "alibaba-coding-plan": {
+      "url": "https://www.alibabacloud.com/help/en/model-studio/coding-plan",
+      "title": "Coding Plan",
+      "date": "2026-11-04",
+      "kind": "official"
+    },
+    "alibaba-qwen38max": {
+      "url": "https://www.alibabacloud.com/help/en/model-studio/qwen3-8-max",
+      "title": "qwen3.8-max model info",
+      "date": "2026-11-05",
+      "kind": "official"
+    },
+    "minimax-paygo": {
+      "url": "https://platform.minimax.io/docs/guides/pricing-paygo",
+      "title": "MiniMax pay-as-you-go pricing",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "minimax-token-plan": {
+      "url": "https://platform.minimax.io/docs/guides/pricing-token-plan",
+      "title": "MiniMax Token Plan (M Plan) Go / Explore / Build",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "venturebeat-m3": {
+      "url": "https://venturebeat.com/technology/minimax-m3-debuts-eclipsing-gpt-5-5-and-gemini-3-1-pro-on-key-benchmark-performance-for-just-5-10-of-the-cost",
+      "title": "MiniMax M3 debuts (VentureBeat)",
+      "date": null,
+      "kind": "secondary",
+      "note": "seen in search results only; publication date not read"
+    },
+    "anthropic-supported-countries": {
+      "url": "https://www.anthropic.com/supported-countries",
+      "title": "Supported Regions Policy (Anthropic)",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "effective 2026-11-12"
+    },
+    "anthropic-card-declined": {
+      "url": "https://support.claude.com/en/articles/9402418-why-was-my-card-declined",
+      "title": "Why was my card declined? (Claude)",
+      "date": "2026-07-10",
+      "kind": "official"
+    },
+    "openai-supported-countries": {
+      "url": "https://developers.openai.com/api/docs/supported-countries",
+      "title": "Supported countries and territories (OpenAI API)",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "API list; the ChatGPT list returned 403"
+    },
+    "openai-russia-report": {
+      "url": "https://openai.com/index/disrupting-malicious-uses-of-ai-influence-campaign-russia/",
+      "title": "OpenAI report on a Russian influence campaign",
+      "date": "2026-08-25",
+      "kind": "official",
+      "note": "read via search snippet only, page returned 403"
+    },
+    "register-2024": {
+      "url": "https://www.theregister.com/2024/06/25/openai_unsupported_countries/",
+      "title": "OpenAI unsupported countries (The Register)",
+      "date": "2024-06-25",
+      "kind": "secondary"
+    },
+    "openai-card-declined": {
+      "url": "https://help.openai.com/en/articles/7232916-why-was-my-credit-card-declined",
+      "title": "Why was my credit card declined? (OpenAI)",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "read via search snippet only, page returned 403"
+    },
+    "google-ai-pro-countries": {
+      "url": "https://support.google.com/googleone/answer/16476811?hl=en",
+      "title": "Get a Google AI Pro membership (country list)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "google-ai-ultra-countries": {
+      "url": "https://support.google.com/googleone/answer/16476748?hl=en",
+      "title": "Get a Google AI Ultra membership (country list)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "google-play-russia-billing": {
+      "url": "https://support.google.com/googleplay/android-developer/answer/11950272?hl=en",
+      "title": "Changes to Google Play's billing system for users in Russia and Belarus",
+      "date": "2022-03-10",
+      "kind": "official"
+    },
+    "rbc-2022-google": {
+      "url": "https://www.rbc.ru/technology_and_media/10/03/2022/622999fa9a79473c11c101e0",
+      "title": "RBC on Google Play billing pause in Russia",
+      "date": "2022-03-10",
+      "kind": "secondary"
+    },
+    "visa-2022": {
+      "url": "https://usa.visa.com/about-visa/newsroom/press-releases.releaseId.18871.html",
+      "title": "Visa Suspends All Russia Operations",
+      "date": "2022-03-05",
+      "kind": "official",
+      "note": "general background, not vendor-specific"
+    },
+    "kimi-user-agreement": {
+      "url": "https://www.kimi.com/user/agreement/modeluse?version=v2",
+      "title": "Kimi user agreement",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "effective 2026-11-12"
+    },
+    "kimi-payment": {
+      "url": "https://www.kimi.com/en/help/membership/membership-payment-issues",
+      "title": "Kimi membership payment issues",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "zai-terms": {
+      "url": "https://docs.z.ai/legal-agreement/terms-of-use",
+      "title": "Z.ai Terms of Use",
+      "date": "2026-04-14",
+      "kind": "official"
+    },
+    "zai-faq": {
+      "url": "https://docs.z.ai/devpack/faq",
+      "title": "GLM Coding Plan FAQ",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "alibaba-payment": {
+      "url": "https://www.alibabacloud.com/help/en/user-center/instruction-of-payment-management/",
+      "title": "Alibaba Cloud payment management",
+      "date": "2026-10-15",
+      "kind": "official"
+    },
+    "minimax-terms": {
+      "url": "https://www.minimax.io/terms-of-service-v2.html",
+      "title": "MiniMax Terms of Service",
+      "date": "2026-04-15",
+      "kind": "official"
+    },
+    "minimax-payment-policy": {
+      "url": "https://code.minimax.io/doc/en/payment-policy.html",
+      "title": "MiniMax Subscription Service Terms",
+      "date": "2025-09-12",
+      "kind": "official"
+    },
+    "tbench-4.1": {
+      "url": "https://www.tbench.ai/leaderboard/terminal-bench/4.1",
+      "title": "Terminal-Bench 4.1 leaderboard",
+      "date": "2026-11-11",
+      "kind": "independent",
+      "note": "data licence not stated; rows read from page source"
+    },
+    "aa-coding-agents": {
+      "url": "https://artificialanalysis.ai/agents/coding-agents",
+      "title": "AI Coding Agent Benchmarks & Leaderboard (Artificial Analysis, Coding Agent Index v2.0)",
+      "date": "2026-11-12",
+      "kind": "independent",
+      "licence": "free data: internal use only with attribution"
+    },
+    "claude-code-legal": {
+      "url": "https://code.claude.com/docs/en/legal-and-compliance",
+      "title": "Legal and compliance (Claude Code docs)",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "says Claude subscriptions may not be used in third-party tools"
+    },
+    "anthropic-fable-news": {
+      "url": "https://www.anthropic.com/news/claude-fable-and-mythos-5-2",
+      "title": "Claude Fable 5.2 and Mythos 5.2",
+      "date": "2026-11-09",
+      "kind": "official"
+    },
+    "antigravity-faq": {
+      "url": "https://antigravity.google/docs/faq",
+      "title": "Antigravity FAQ",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "Google does not allow the subscription in third-party tools"
+    },
+    "opencode-providers": {
+      "url": "https://opencode.ai/docs/providers/",
+      "title": "Providers (OpenCode docs)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "cline-gemini": {
+      "url": "https://docs.cline.bot/provider-config/google-gemini",
+      "title": "Google Gemini (Cline docs)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "grok-build": {
+      "url": "https://docs.x.ai/build/overview",
+      "title": "Grok Build overview",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "cursor-x-sub": {
+      "url": "https://forum.cursor.com/t/introducing-the-x-subscription/174450",
+      "title": "Introducing The X Subscription (Cursor forum)",
+      "date": "2026-10-12",
+      "kind": "official"
+    },
+    "kimi-code-docs": {
+      "url": "https://www.kimi.com/code/docs/en/",
+      "title": "Kimi Code overview",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "kimi-k31-blog": {
+      "url": "https://kimi.com/blog/kimi-k3-1-pro",
+      "title": "Introducing Kimi K3.1 Pro",
+      "date": "2026-10-23",
+      "kind": "official",
+      "note": "results self-reported by Moonshot"
+    },
+    "deepseek-codex": {
+      "url": "https://api-docs.deepseek.com/quick_start/agent_integrations/codex",
+      "title": "Integrate with Codex (DeepSeek docs)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "deepseek-claude-code": {
+      "url": "https://api-docs.deepseek.com/quick_start/agent_integrations/claude_code",
+      "title": "Integrate with Claude Code (DeepSeek docs)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "deepseek-docs": {
+      "url": "https://api-docs.deepseek.com/",
+      "title": "Your First API Call (DeepSeek docs)",
+      "date": "2026-11-12",
+      "kind": "official",
+      "note": "mentions DeepSeek Harness developer preview"
+    },
+    "aliyun-token-plan-overview": {
+      "url": "https://help.aliyun.com/en/model-studio/token-plan-overview",
+      "title": "Token Plan overview (Alibaba Cloud China site)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "aliyun-token-plan-personal": {
+      "url": "https://help.aliyun.com/en/model-studio/token-plan-personal-overview",
+      "title": "Token Plan Personal overview (Alibaba Cloud China site, Beijing region)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "aliyun-opencode-token-plan": {
+      "url": "https://help.aliyun.com/zh/model-studio/opencode-token-plan",
+      "title": "OpenCode with Token Plan (Alibaba Cloud)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "qwen-code-auth": {
+      "url": "https://qwenlm.github.io/qwen-code-docs/en/users/configuration/auth/",
+      "title": "Qwen Code authentication",
+      "date": "2026-11-09",
+      "kind": "official"
+    },
+    "minimax-mplan-intro": {
+      "url": "https://platform.minimax.io/docs/m-plan/intro",
+      "title": "M Plan introduction (MiniMax)",
+      "date": "2026-11-12",
+      "kind": "official"
+    },
+    "minimax-m3-page": {
+      "url": "https://www.minimax.io/models/text/m3",
+      "title": "MiniMax M3 model page",
+      "date": "2026-11-12",
+      "kind": "official"
+    }
+  },
+  "conflicts": [
+    {
+      "id": "minimax-m3-no-plan",
+      "what": "MiniMax M Plan lists only M3.1 Flash as the text model on Go, Explore and Build; the research note implies Explore and Build include M3",
+      "sources": ["minimax-token-plan", "minimax-mplan-intro", "research-note"]
+    },
+    {
+      "id": "token-plan-third-party",
+      "what": "Research note says DeepSeek has no subscription, but Alibaba's Token Plan (same note) includes deepseek-v4.1-flash and glm-5.3; they are listed as subscriptions here",
+      "sources": ["alibaba-token-plan", "research-note"]
+    },
+    {
+      "id": "claude-in-antigravity",
+      "what": "Antigravity offers Claude Opus 5.5 and Sonnet 5.5 on paid Google AI Pro and Ultra; the research note does not mention this",
+      "sources": ["antigravity-models"]
+    },
+    {
+      "id": "fable-limit-wording",
+      "what": "Claude pricing page: Fable \"included, up to half your weekly limit\" on Max; help center: \"a separate weekly limit for Fable\"",
+      "sources": ["claude-pricing", "anthropic-max", "anthropic-fable-plans"]
+    },
+    {
+      "id": "astra-on-plus",
+      "what": "Codex Plus feature list names only GPT-6.1 Sol and GPT-6 Luna, while the Plus usage table gives GPT-6 Astra 5–45 messages per 5 hours",
+      "sources": ["openai-codex-pricing"]
+    },
+    {
+      "id": "gemini-page-badges",
+      "what": "On gemini.google the line \"Includes Gemini 4 Argon\" sits after the AI Plus text and reads as the AI Pro card's badge; Antigravity's model table confirms AI Plus has no Argon",
+      "sources": ["gemini-subscriptions", "antigravity-models"]
+    },
+    {
+      "id": "minimax-m3-discount",
+      "what": "Official page calls the M3 price \"Permanent 50% off\" (from 0.60 / 0.12 / 2.40); VentureBeat described it as a limited-week launch rate",
+      "sources": ["minimax-paygo", "venturebeat-m3"]
+    },
+    {
+      "id": "qwen-price-scope",
+      "what": "Qwen3.8-Max costs 2 / 0.25 / 6 in the International scope but 1.65 / 0.206 / 4.951 in the Global scope; the research note gave 2 / 6 without cache",
+      "sources": ["alibaba-qwen38max"]
+    },
+    {
+      "id": "token-plan-editions",
+      "what": "International Token Plan runs only in Singapore; the China-site Personal edition runs in Beijing; tool lists differ between the overview and the Personal page",
+      "sources": [
+        "alibaba-token-plan",
+        "aliyun-token-plan-personal",
+        "aliyun-token-plan-overview"
+      ]
+    },
+    {
+      "id": "kimi-usd",
+      "what": "Kimi plan prices in USD come only from price trackers; the official page shows CNY. Kimi API USD prices are official on platform.kimi.ai (the note said secondary only)",
+      "sources": ["kimi-membership", "kimi-usd-trackers", "kimi-api-pricing"]
+    },
+    {
+      "id": "kimi-measurement",
+      "what": "Wokey's Kimi Max value is one account and ranges $14–85 per month by scenario; $48 (coding session, 93% cache) is used",
+      "sources": ["wokey-kimi"]
+    },
+    {
+      "id": "codex-pro500",
+      "what": "Wokey cites a SemiAnalysis estimate of ≈$6,955/month for Pro $500 with GPT-6 Astra only; not in the research note, not used",
+      "sources": ["wokey-codex"]
+    }
+  ],
+  "russia_by_service": {
+    "anthropic": {
+      "name": "Anthropic (Claude plans)",
+      "opens_officially": {
+        "value": false,
+        "sources": ["anthropic-supported-countries"],
+        "note": "Supported Regions Policy lists the only countries where Claude is offered; Russia is not listed"
+      },
+      "russian_card": {
+        "value": false,
+        "sources": ["anthropic-card-declined", "anthropic-supported-countries"],
+        "note": "The card must be eligible for processing by its billing location, tied to the same country list"
+      }
+    },
+    "openai": {
+      "name": "OpenAI (ChatGPT plans with Codex)",
+      "opens_officially": {
+        "value": false,
+        "sources": [
+          "openai-supported-countries",
+          "openai-russia-report",
+          "register-2024"
+        ],
+        "note": "Russia is absent from the supported-countries list (API list; the ChatGPT list returned 403); OpenAI states it does not allow access from Russia (search snippet)"
+      },
+      "russian_card": {
+        "value": false,
+        "sources": ["openai-card-declined"],
+        "note": "\"Your payment card must be issued by a bank located in one of those supported regions\" (read via search snippet, page returned 403)"
+      }
+    },
+    "google": {
+      "name": "Google AI plans",
+      "opens_officially": {
+        "value": false,
+        "sources": ["google-ai-pro-countries", "google-ai-ultra-countries"],
+        "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+      },
+      "russian_card": {
+        "value": false,
+        "sources": ["google-play-russia-billing", "rbc-2022-google"],
+        "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+      }
+    },
+    "xai": {
+      "name": "xAI (The X Subscription)",
+      "opens_officially": {
+        "value": null,
+        "sources": ["xai-x-sub-news", "xai-grok-faq"],
+        "note": "The X Subscription is announced as available \"to everyone globally\"; no country list found"
+      },
+      "russian_card": {
+        "value": null,
+        "sources": ["visa-2022"],
+        "note": "No xAI payment-methods page found; only the general fact that Russian-issued Visa cards do not work outside Russia"
+      }
+    },
+    "kimi": {
+      "name": "Moonshot (Kimi membership)",
+      "opens_officially": {
+        "value": null,
+        "sources": ["kimi-user-agreement"],
+        "note": "kimi.com terms cover mainland-China users and send others to kimi.ai; sanctions clause names no countries"
+      },
+      "russian_card": {
+        "value": null,
+        "sources": ["kimi-payment"],
+        "note": "Kimi payment pages name only WeChat Pay, Alipay and Apple ID; no card or issuing-country rule"
+      }
+    },
+    "zai": {
+      "name": "Z.ai (GLM Coding Plan)",
+      "opens_officially": {
+        "value": null,
+        "sources": ["zai-terms"],
+        "note": "No supported-country list; terms exclude only Iran, North Korea, Cuba, Crimea, Donetsk and Zaporizhzhia, so Russia is not excluded"
+      },
+      "russian_card": {
+        "value": null,
+        "sources": ["zai-faq", "visa-2022"],
+        "note": "FAQ mentions \"bank card or PayPal\" with no issuing-country rule"
+      }
+    },
+    "alibaba": {
+      "name": "Alibaba Cloud Model Studio",
+      "opens_officially": {
+        "value": null,
+        "sources": ["alibaba-payment", "alibaba-token-plan"],
+        "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+      },
+      "russian_card": {
+        "value": null,
+        "sources": ["alibaba-payment", "visa-2022"],
+        "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+      }
+    },
+    "minimax": {
+      "name": "MiniMax",
+      "opens_officially": {
+        "value": null,
+        "sources": ["minimax-terms"],
+        "note": "Terms mention geographic availability but give no list"
+      },
+      "russian_card": {
+        "value": null,
+        "sources": ["minimax-payment-policy"],
+        "note": "Subscription terms refer to generic payment services; no payment methods named"
+      }
+    }
+  },
+  "families": [
+    {
+      "id": "claude",
+      "name": "Claude",
+      "company": "Anthropic",
+      "models": [
+        {
+          "id": "claude-fable-5-2",
+          "name": "Fable 5.2",
+          "full_name": "Claude Fable 5.2",
+          "family": "Claude",
+          "company": "Anthropic",
+          "api_id": "claude-fable-5-2",
+          "api_id_source": "anthropic-models",
+          "arena": {
+            "rank": 1,
+            "score": 0.3035,
+            "variant": "Claude Fable 5.2 (Max)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 7.4318,
+            "sessions": 4731,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 8,
+            "cache_read": 0.2,
+            "output": 40,
+            "conditions": "Claude API, global routing; 1M context at standard price; batch −50%; US-only inference ×1.1",
+            "changes": [
+              {
+                "date": "2026-11-16",
+                "what": "Claude Pro launch offer for Fable 5.2 ends (subscription, not API price)",
+                "source": "anthropic-fable-launch"
+              }
+            ],
+            "source": "anthropic-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "Claude",
+              "plan": "Pro",
+              "usd_per_month": 20,
+              "price_note": "$17/month billed yearly",
+              "price_sources": ["claude-pricing"],
+              "access": "promotion until 2026-11-16, then paid per use with usage credits",
+              "vendor_limits": "Fable is not in Pro limits; launch offer: all Fable models included for one week, up to 50% of weekly limits, plus one Fable limit reset, through 2026-11-16 23:59 PT; then Fable runs on usage credits",
+              "vendor_limits_sources": [
+                "anthropic-fable-launch",
+                "anthropic-fable-plans"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "promotion only until 2026-11-16; afterwards Fable is not part of Pro limits",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": ["anthropic-supported-countries"],
+                  "note": "Supported Regions Policy lists the only countries where Claude is offered; Russia is not listed"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": [
+                    "anthropic-card-declined",
+                    "anthropic-supported-countries"
+                  ],
+                  "note": "The card must be eligible for processing by its billing location, tied to the same country list"
+                },
+                "service_id": "anthropic"
+              }
+            },
+            {
+              "service": "Claude",
+              "plan": "Max",
+              "usd_per_month": 100,
+              "price_note": null,
+              "price_sources": ["claude-pricing"],
+              "access": "included",
+              "vendor_limits": "\"5x Pro usage\" every 5 hours and every week; Fable \"included, up to half your weekly limit\"",
+              "vendor_limits_sources": [
+                "claude-pricing",
+                "anthropic-fable-plans"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements: Wokey has only 2 accounts; two single-user anecdotes ($420/week and ≥$1,217/week, Aug–Oct) predate the 2026-10-30 plan change",
+              "notes": "Anecdotes: Danube Labs $420/week (2026-09-21..10-04), FinOps LLM ≥$1,217/week (Aug–Sep)",
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": ["anthropic-supported-countries"],
+                  "note": "Supported Regions Policy lists the only countries where Claude is offered; Russia is not listed"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": [
+                    "anthropic-card-declined",
+                    "anthropic-supported-countries"
+                  ],
+                  "note": "The card must be eligible for processing by its billing location, tied to the same country list"
+                },
+                "service_id": "anthropic"
+              },
+              "notes_sources": ["danubelabs", "finopsllm"]
+            },
+            {
+              "service": "Claude",
+              "plan": "Ultra",
+              "usd_per_month": 200,
+              "price_note": null,
+              "price_sources": ["claude-pricing", "anthropic-ultra"],
+              "access": "included",
+              "vendor_limits": "No five-hour limit for verified accounts; \"10 times the Pro plan's usage every week\"; separate weekly Fable limit, Fable up to 50% of weekly limits",
+              "vendor_limits_sources": [
+                "anthropic-ultra",
+                "claude-pricing",
+                "anthropic-fable-plans"
+              ],
+              "estimate": {
+                "weekly_value_usd": 812,
+                "tasks_per_week": 109.2,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Claude Ultra ≈ $1,623/week at API prices (≈10.5x Pro), 2026-11-02..09; Fable capped at 50% of weekly limits, so half of it ($811.5) is used",
+                "sample": "21 accounts",
+                "confidence": "medium",
+                "sources": ["wokey-claude"]
+              },
+              "estimate_null_reason": null,
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": ["anthropic-supported-countries"],
+                  "note": "Supported Regions Policy lists the only countries where Claude is offered; Russia is not listed"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": [
+                    "anthropic-card-declined",
+                    "anthropic-supported-countries"
+                  ],
+                  "note": "The card must be eligible for processing by its billing location, tied to the same country list"
+                },
+                "service_id": "anthropic"
+              }
+            }
+          ],
+          "best_agent": {
+            "name": "Claude Code",
+            "reason": "Anthropic's own agent; Fable 5.2 has no independent run yet, and the previous Fable 5.1 scored 57.6% on Terminal-Bench 4.1 in Claude Code.",
+            "reason_sources": ["tbench-4.1", "anthropic-fable-news"],
+            "paid_with": {
+              "subscriptions": [
+                "Claude Max",
+                "Claude Ultra",
+                "Claude Pro (until 2026-11-16, then usage credits)"
+              ],
+              "api_key": true,
+              "note": "Max and Ultra: Fable up to 50% of weekly limits",
+              "sources": [
+                "claude-pricing",
+                "anthropic-fable-plans",
+                "anthropic-fable-launch"
+              ]
+            },
+            "alternatives": [
+              {
+                "name": "OpenCode",
+                "reason": "Open agent that works with any Claude model through the API.",
+                "reason_sources": ["opencode-providers"],
+                "paid_with": {
+                  "subscriptions": [],
+                  "api_key": true,
+                  "note": "Anthropic does not allow Claude subscriptions in third-party tools",
+                  "sources": ["claude-code-legal"]
+                }
+              }
+            ]
+          },
+          "tags": ["code", "agents", "research"],
+          "summary_ru": "самая сильная, но и самая дорогая"
+        },
+        {
+          "id": "claude-opus-5-5",
+          "name": "Opus 5.5",
+          "full_name": "Claude Opus 5.5",
+          "family": "Claude",
+          "company": "Anthropic",
+          "api_id": "claude-opus-5-5",
+          "api_id_source": "anthropic-models",
+          "arena": {
+            "rank": 2,
+            "score": 0.1952,
+            "variant": "Claude Opus 5.5 (Max)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 5.4696,
+            "sessions": 14549,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 4,
+            "cache_read": 0.2,
+            "output": 20,
+            "conditions": "Claude API, global routing; 1M context at standard price; batch −50%; US-only inference ×1.1",
+            "changes": [],
+            "source": "anthropic-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "Claude",
+              "plan": "Pro",
+              "usd_per_month": 20,
+              "price_note": "$17/month billed yearly",
+              "price_sources": ["claude-pricing"],
+              "access": "included",
+              "vendor_limits": "5-hour window and weekly limit, no number (\"More usage than Free\")",
+              "vendor_limits_sources": ["claude-pricing"],
+              "estimate": {
+                "weekly_value_usd": 154,
+                "tasks_per_week": 28.2,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Claude Pro ≈ $154/week at API prices (range $148–160), 2026-11-02..09, ≈92% cache reads; plan value spread across models, all spent on this model",
+                "sample": "296 accounts",
+                "confidence": "medium",
+                "sources": ["wokey-claude"]
+              },
+              "estimate_null_reason": null,
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": ["anthropic-supported-countries"],
+                  "note": "Supported Regions Policy lists the only countries where Claude is offered; Russia is not listed"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": [
+                    "anthropic-card-declined",
+                    "anthropic-supported-countries"
+                  ],
+                  "note": "The card must be eligible for processing by its billing location, tied to the same country list"
+                },
+                "service_id": "anthropic"
+              }
+            },
+            {
+              "service": "Claude",
+              "plan": "Max",
+              "usd_per_month": 100,
+              "price_note": null,
+              "price_sources": ["claude-pricing"],
+              "access": "included",
+              "vendor_limits": "\"5x Pro usage\" every 5 hours and every week",
+              "vendor_limits_sources": ["claude-pricing", "anthropic-max"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements: Wokey has only 2 accounts; two single-user anecdotes ($420/week and ≥$1,217/week, Aug–Oct) predate the 2026-10-30 plan change",
+              "notes": "Anecdotes: Danube Labs $420/week (2026-09-21..10-04), FinOps LLM ≥$1,217/week (Aug–Sep)",
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": ["anthropic-supported-countries"],
+                  "note": "Supported Regions Policy lists the only countries where Claude is offered; Russia is not listed"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": [
+                    "anthropic-card-declined",
+                    "anthropic-supported-countries"
+                  ],
+                  "note": "The card must be eligible for processing by its billing location, tied to the same country list"
+                },
+                "service_id": "anthropic"
+              },
+              "notes_sources": ["danubelabs", "finopsllm"]
+            },
+            {
+              "service": "Claude",
+              "plan": "Ultra",
+              "usd_per_month": 200,
+              "price_note": null,
+              "price_sources": ["claude-pricing", "anthropic-ultra"],
+              "access": "included",
+              "vendor_limits": "No five-hour limit for verified accounts; \"10 times the Pro plan's usage every week\"",
+              "vendor_limits_sources": ["anthropic-ultra", "claude-pricing"],
+              "estimate": {
+                "weekly_value_usd": 1623,
+                "tasks_per_week": 296.7,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Claude Ultra ≈ $1,623/week at API prices (range $1,292–1,657), 2026-11-02..09",
+                "sample": "21 accounts",
+                "confidence": "medium",
+                "sources": ["wokey-claude"]
+              },
+              "estimate_null_reason": null,
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": ["anthropic-supported-countries"],
+                  "note": "Supported Regions Policy lists the only countries where Claude is offered; Russia is not listed"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": [
+                    "anthropic-card-declined",
+                    "anthropic-supported-countries"
+                  ],
+                  "note": "The card must be eligible for processing by its billing location, tied to the same country list"
+                },
+                "service_id": "anthropic"
+              }
+            },
+            {
+              "service": "Google AI (Antigravity)",
+              "plan": "Google AI Pro",
+              "usd_per_month": 19.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included in Google Antigravity only, not in the Gemini app",
+              "vendor_limits": "Claude models in Antigravity \"Available on Google AI Pro for non-trial subscriptions only\"; non-Gemini models have \"a separate fixed rate limit\", no number",
+              "vendor_limits_sources": [
+                "antigravity-models",
+                "antigravity-plans"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            },
+            {
+              "service": "Google AI (Antigravity)",
+              "plan": "Google AI Ultra 5x",
+              "usd_per_month": 99.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included in Google Antigravity only, not in the Gemini app",
+              "vendor_limits": "Claude models in Antigravity on a separate fixed rate limit for non-Gemini models, no number",
+              "vendor_limits_sources": [
+                "antigravity-models",
+                "antigravity-plans"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            },
+            {
+              "service": "Google AI (Antigravity)",
+              "plan": "Google AI Ultra 20x",
+              "usd_per_month": 199.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included in Google Antigravity only, not in the Gemini app",
+              "vendor_limits": "Claude models in Antigravity on a separate fixed rate limit for non-Gemini models, no number",
+              "vendor_limits_sources": [
+                "antigravity-models",
+                "antigravity-plans"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            }
+          ],
+          "best_agent": {
+            "name": "Claude Code",
+            "reason": "First place on Terminal-Bench 4.1: 65.8% with Opus 5.5 in Claude Code (2026-09-22).",
+            "reason_sources": ["tbench-4.1"],
+            "paid_with": {
+              "subscriptions": ["Claude Pro", "Claude Max", "Claude Ultra"],
+              "api_key": true,
+              "note": null,
+              "sources": ["claude-pricing"]
+            },
+            "alternatives": [
+              {
+                "name": "Antigravity",
+                "reason": "Google's agent offers Opus 5.5 on paid AI Pro and Ultra plans.",
+                "reason_sources": ["antigravity-models"],
+                "paid_with": {
+                  "subscriptions": [
+                    "Google AI Pro (not trial)",
+                    "Google AI Ultra 5x",
+                    "Google AI Ultra 20x"
+                  ],
+                  "api_key": false,
+                  "note": "separate fixed rate limit for non-Gemini models",
+                  "sources": ["antigravity-models", "antigravity-plans"]
+                }
+              },
+              {
+                "name": "OpenCode",
+                "reason": "Open agent that works with any Claude model through the API.",
+                "reason_sources": ["opencode-providers"],
+                "paid_with": {
+                  "subscriptions": [],
+                  "api_key": true,
+                  "note": "Anthropic does not allow Claude subscriptions in third-party tools",
+                  "sources": ["claude-code-legal"]
+                }
+              }
+            ]
+          },
+          "tags": ["code", "agents", "texts"],
+          "summary_ru": "очень умная для кода и текстов, но дорогая"
+        },
+        {
+          "id": "claude-sonnet-5-5",
+          "name": "Sonnet 5.5",
+          "full_name": "Claude Sonnet 5.5",
+          "family": "Claude",
+          "company": "Anthropic",
+          "api_id": "claude-sonnet-5-5",
+          "api_id_source": "anthropic-models",
+          "arena": {
+            "rank": 4,
+            "score": 0.1595,
+            "variant": "Claude Sonnet 5.5 (Max)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 3.3538,
+            "sessions": 8750,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 2,
+            "cache_read": 0.1,
+            "output": 10,
+            "conditions": "Claude API, global routing; 1M context at standard price; batch −50%; US-only inference ×1.1",
+            "changes": [],
+            "source": "anthropic-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "Claude",
+              "plan": "Pro",
+              "usd_per_month": 20,
+              "price_note": "$17/month billed yearly",
+              "price_sources": ["claude-pricing"],
+              "access": "included",
+              "vendor_limits": "5-hour window and weekly limit, no number (\"More usage than Free\")",
+              "vendor_limits_sources": ["claude-pricing"],
+              "estimate": {
+                "weekly_value_usd": 154,
+                "tasks_per_week": 45.9,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Claude Pro ≈ $154/week at API prices (range $148–160), 2026-11-02..09, ≈92% cache reads; plan value spread across models, all spent on this model",
+                "sample": "296 accounts",
+                "confidence": "medium",
+                "sources": ["wokey-claude"]
+              },
+              "estimate_null_reason": null,
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": ["anthropic-supported-countries"],
+                  "note": "Supported Regions Policy lists the only countries where Claude is offered; Russia is not listed"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": [
+                    "anthropic-card-declined",
+                    "anthropic-supported-countries"
+                  ],
+                  "note": "The card must be eligible for processing by its billing location, tied to the same country list"
+                },
+                "service_id": "anthropic"
+              }
+            },
+            {
+              "service": "Claude",
+              "plan": "Max",
+              "usd_per_month": 100,
+              "price_note": null,
+              "price_sources": ["claude-pricing"],
+              "access": "included",
+              "vendor_limits": "\"5x Pro usage\" every 5 hours and every week",
+              "vendor_limits_sources": ["claude-pricing", "anthropic-max"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements: Wokey has only 2 accounts; two single-user anecdotes ($420/week and ≥$1,217/week, Aug–Oct) predate the 2026-10-30 plan change",
+              "notes": "Anecdotes: Danube Labs $420/week (2026-09-21..10-04), FinOps LLM ≥$1,217/week (Aug–Sep)",
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": ["anthropic-supported-countries"],
+                  "note": "Supported Regions Policy lists the only countries where Claude is offered; Russia is not listed"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": [
+                    "anthropic-card-declined",
+                    "anthropic-supported-countries"
+                  ],
+                  "note": "The card must be eligible for processing by its billing location, tied to the same country list"
+                },
+                "service_id": "anthropic"
+              },
+              "notes_sources": ["danubelabs", "finopsllm"]
+            },
+            {
+              "service": "Claude",
+              "plan": "Ultra",
+              "usd_per_month": 200,
+              "price_note": null,
+              "price_sources": ["claude-pricing", "anthropic-ultra"],
+              "access": "included",
+              "vendor_limits": "No five-hour limit for verified accounts; \"10 times the Pro plan's usage every week\"",
+              "vendor_limits_sources": ["anthropic-ultra", "claude-pricing"],
+              "estimate": {
+                "weekly_value_usd": 1623,
+                "tasks_per_week": 483.9,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Claude Ultra ≈ $1,623/week at API prices (range $1,292–1,657), 2026-11-02..09",
+                "sample": "21 accounts",
+                "confidence": "medium",
+                "sources": ["wokey-claude"]
+              },
+              "estimate_null_reason": null,
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": ["anthropic-supported-countries"],
+                  "note": "Supported Regions Policy lists the only countries where Claude is offered; Russia is not listed"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": [
+                    "anthropic-card-declined",
+                    "anthropic-supported-countries"
+                  ],
+                  "note": "The card must be eligible for processing by its billing location, tied to the same country list"
+                },
+                "service_id": "anthropic"
+              }
+            },
+            {
+              "service": "Google AI (Antigravity)",
+              "plan": "Google AI Pro",
+              "usd_per_month": 19.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included in Google Antigravity only, not in the Gemini app",
+              "vendor_limits": "Claude models in Antigravity \"Available on Google AI Pro for non-trial subscriptions only\"; non-Gemini models have \"a separate fixed rate limit\", no number",
+              "vendor_limits_sources": [
+                "antigravity-models",
+                "antigravity-plans"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            },
+            {
+              "service": "Google AI (Antigravity)",
+              "plan": "Google AI Ultra 5x",
+              "usd_per_month": 99.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included in Google Antigravity only, not in the Gemini app",
+              "vendor_limits": "Claude models in Antigravity on a separate fixed rate limit for non-Gemini models, no number",
+              "vendor_limits_sources": [
+                "antigravity-models",
+                "antigravity-plans"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            },
+            {
+              "service": "Google AI (Antigravity)",
+              "plan": "Google AI Ultra 20x",
+              "usd_per_month": 199.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included in Google Antigravity only, not in the Gemini app",
+              "vendor_limits": "Claude models in Antigravity on a separate fixed rate limit for non-Gemini models, no number",
+              "vendor_limits_sources": [
+                "antigravity-models",
+                "antigravity-plans"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            }
+          ],
+          "best_agent": {
+            "name": "Claude Code",
+            "reason": "Second place on Terminal-Bench 4.1: 63.9% with Sonnet 5.5 in Claude Code (2026-09-28).",
+            "reason_sources": ["tbench-4.1"],
+            "paid_with": {
+              "subscriptions": ["Claude Pro", "Claude Max", "Claude Ultra"],
+              "api_key": true,
+              "note": null,
+              "sources": ["claude-pricing"]
+            },
+            "alternatives": [
+              {
+                "name": "Antigravity",
+                "reason": "Google's agent offers Sonnet 5.5 on paid AI Pro and Ultra plans.",
+                "reason_sources": ["antigravity-models"],
+                "paid_with": {
+                  "subscriptions": [
+                    "Google AI Pro (not trial)",
+                    "Google AI Ultra 5x",
+                    "Google AI Ultra 20x"
+                  ],
+                  "api_key": false,
+                  "note": "separate fixed rate limit for non-Gemini models",
+                  "sources": ["antigravity-models", "antigravity-plans"]
+                }
+              },
+              {
+                "name": "OpenCode",
+                "reason": "Open agent that works with any Claude model through the API.",
+                "reason_sources": ["opencode-providers"],
+                "paid_with": {
+                  "subscriptions": [],
+                  "api_key": true,
+                  "note": "Anthropic does not allow Claude subscriptions in third-party tools",
+                  "sources": ["claude-code-legal"]
+                }
+              }
+            ]
+          },
+          "tags": ["code", "agents", "texts"],
+          "summary_ru": "почти как Opus, но дешевле"
+        }
+      ]
+    },
+    {
+      "id": "gpt",
+      "name": "GPT",
+      "company": "OpenAI",
+      "models": [
+        {
+          "id": "gpt-6-astra",
+          "name": "GPT-6 Astra",
+          "full_name": "GPT-6 Astra",
+          "family": "GPT",
+          "company": "OpenAI",
+          "api_id": "gpt-6-astra",
+          "api_id_source": "openai-api-pricing",
+          "arena": {
+            "rank": 6,
+            "score": 0.1454,
+            "variant": "GPT-6 Astra (Max)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 6.1006,
+            "sessions": 15653,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 10,
+            "cache_read": 1,
+            "output": 50,
+            "conditions": "Standard tier, prompt up to 272K tokens; above 272K input ×2, output ×1.5",
+            "changes": [],
+            "source": "openai-api-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "ChatGPT (Codex)",
+              "plan": "Plus",
+              "usd_per_month": 20,
+              "price_note": null,
+              "price_sources": ["openai-codex-pricing"],
+              "access": "included",
+              "vendor_limits": "Codex local messages per 5 hours: GPT-6 Astra 5–45; cloud tasks share the quota; \"Weekly limits may also apply\", no number",
+              "vendor_limits_sources": ["openai-codex-pricing"],
+              "estimate": {
+                "weekly_value_usd": 46,
+                "tasks_per_week": 7.5,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Codex on Plus ≈ $46/week at API prices (range $8.3–65), 2026-11-02..09, 82% cache reads",
+                "sample": "6 accounts",
+                "confidence": "low",
+                "sources": ["wokey-codex"],
+                "alternative": {
+                  "weekly_value_usd": 67,
+                  "tasks_per_week": 11.0,
+                  "basis": "FinOps LLM median $67/week, Aug–Oct, sample size not given",
+                  "sources": ["finopsllm"]
+                }
+              },
+              "estimate_null_reason": null,
+              "notes": "Plus feature list names only GPT-6.1 Sol and GPT-6 Luna; Astra appears in the Plus usage-limit table",
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "openai-supported-countries",
+                    "openai-russia-report",
+                    "register-2024"
+                  ],
+                  "note": "Russia is absent from the supported-countries list (API list; the ChatGPT list returned 403); OpenAI states it does not allow access from Russia (search snippet)"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["openai-card-declined"],
+                  "note": "\"Your payment card must be issued by a bank located in one of those supported regions\" (read via search snippet, page returned 403)"
+                },
+                "service_id": "openai"
+              }
+            },
+            {
+              "service": "ChatGPT (Codex)",
+              "plan": "Pro $100",
+              "usd_per_month": 100,
+              "price_note": null,
+              "price_sources": ["openai-codex-pricing"],
+              "access": "included",
+              "vendor_limits": "\"Pro plans currently have no five-hour limit\"; weekly limit not published",
+              "vendor_limits_sources": ["openai-codex-pricing"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": "\"5x Plus\" appears only in secondary sources; Wokey has 0 accounts",
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "openai-supported-countries",
+                    "openai-russia-report",
+                    "register-2024"
+                  ],
+                  "note": "Russia is absent from the supported-countries list (API list; the ChatGPT list returned 403); OpenAI states it does not allow access from Russia (search snippet)"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["openai-card-declined"],
+                  "note": "\"Your payment card must be issued by a bank located in one of those supported regions\" (read via search snippet, page returned 403)"
+                },
+                "service_id": "openai"
+              }
+            },
+            {
+              "service": "ChatGPT (Codex)",
+              "plan": "Pro $200",
+              "usd_per_month": 200,
+              "price_note": null,
+              "price_sources": ["openai-codex-pricing"],
+              "access": "included",
+              "vendor_limits": "\"Pro plans currently have no five-hour limit\"; weekly limit not published",
+              "vendor_limits_sources": ["openai-codex-pricing"],
+              "estimate": {
+                "weekly_value_usd": 581,
+                "tasks_per_week": 95.2,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Codex on Pro $200 ≈ $581/week at API prices (range $565–696), 2026-10-26..11-02, spans a limit change, 97% cache reads",
+                "sample": "7 accounts",
+                "confidence": "low",
+                "sources": ["wokey-codex"],
+                "anecdote": {
+                  "weekly_value_usd": 1271,
+                  "basis": "emsi.me, one user, 2026-11-03",
+                  "sources": ["emsi"]
+                }
+              },
+              "estimate_null_reason": null,
+              "notes": "\"20x Plus\" appears only in secondary sources",
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "openai-supported-countries",
+                    "openai-russia-report",
+                    "register-2024"
+                  ],
+                  "note": "Russia is absent from the supported-countries list (API list; the ChatGPT list returned 403); OpenAI states it does not allow access from Russia (search snippet)"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["openai-card-declined"],
+                  "note": "\"Your payment card must be issued by a bank located in one of those supported regions\" (read via search snippet, page returned 403)"
+                },
+                "service_id": "openai"
+              }
+            },
+            {
+              "service": "ChatGPT (Codex)",
+              "plan": "Pro $500",
+              "usd_per_month": 500,
+              "price_note": null,
+              "price_sources": ["openai-codex-pricing"],
+              "access": "included",
+              "vendor_limits": "\"Pro plans currently have no five-hour limit\"; Ultrafast mode; weekly limit not published",
+              "vendor_limits_sources": ["openai-codex-pricing"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": "\"25x Plus\" appears only in secondary sources. Wokey cites a SemiAnalysis estimate of ≈$6,955/month for GPT-6 Astra only; not in the research note and not used",
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "openai-supported-countries",
+                    "openai-russia-report",
+                    "register-2024"
+                  ],
+                  "note": "Russia is absent from the supported-countries list (API list; the ChatGPT list returned 403); OpenAI states it does not allow access from Russia (search snippet)"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["openai-card-declined"],
+                  "note": "\"Your payment card must be issued by a bank located in one of those supported regions\" (read via search snippet, page returned 403)"
+                },
+                "service_id": "openai"
+              }
+            }
+          ],
+          "best_agent": {
+            "name": "Codex",
+            "reason": "OpenAI's own agent: 60.3% on Terminal-Bench 4.1 with GPT-6 Astra (2026-09-03).",
+            "reason_sources": ["tbench-4.1"],
+            "paid_with": {
+              "subscriptions": [
+                "ChatGPT Plus",
+                "ChatGPT Pro $100",
+                "ChatGPT Pro $200",
+                "ChatGPT Pro $500"
+              ],
+              "api_key": true,
+              "note": "Plus: 5–45 local messages per 5 hours",
+              "sources": ["openai-codex-pricing"]
+            },
+            "alternatives": [
+              {
+                "name": "OpenCode",
+                "reason": "Lets you sign in with a ChatGPT Plus or Pro account.",
+                "reason_sources": ["opencode-providers"],
+                "paid_with": {
+                  "subscriptions": ["ChatGPT Plus", "ChatGPT Pro"],
+                  "api_key": true,
+                  "note": null,
+                  "sources": ["opencode-providers"]
+                }
+              }
+            ]
+          },
+          "tags": ["code", "research"],
+          "summary_ru": "сильная, но дороже и слабее Opus"
+        },
+        {
+          "id": "gpt-6.1-sol",
+          "name": "GPT-6.1 Sol",
+          "full_name": "GPT-6.1 Sol",
+          "family": "GPT",
+          "company": "OpenAI",
+          "api_id": "gpt-6.1-sol",
+          "api_id_source": "openai-api-pricing",
+          "arena": {
+            "rank": 7,
+            "score": 0.1246,
+            "variant": "GPT-6.1 Sol (Max)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 1.0615,
+            "sessions": 30738,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 2,
+            "cache_read": 0.1,
+            "output": 10,
+            "conditions": "Standard tier, prompt up to 272K tokens; above 272K input ×2, output ×1.5",
+            "changes": [],
+            "source": "openai-api-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "ChatGPT (Codex)",
+              "plan": "Plus",
+              "usd_per_month": 20,
+              "price_note": null,
+              "price_sources": ["openai-codex-pricing"],
+              "access": "included",
+              "vendor_limits": "Codex local messages per 5 hours: GPT-6.1 Sol 15–160; cloud tasks share the quota; \"Weekly limits may also apply\", no number",
+              "vendor_limits_sources": ["openai-codex-pricing"],
+              "estimate": {
+                "weekly_value_usd": 46,
+                "tasks_per_week": 43.3,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Codex on Plus ≈ $46/week at API prices (range $8.3–65), 2026-11-02..09, 82% cache reads",
+                "sample": "6 accounts",
+                "confidence": "low",
+                "sources": ["wokey-codex"],
+                "alternative": {
+                  "weekly_value_usd": 67,
+                  "tasks_per_week": 63.1,
+                  "basis": "FinOps LLM median $67/week, Aug–Oct, sample size not given",
+                  "sources": ["finopsllm"]
+                }
+              },
+              "estimate_null_reason": null,
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "openai-supported-countries",
+                    "openai-russia-report",
+                    "register-2024"
+                  ],
+                  "note": "Russia is absent from the supported-countries list (API list; the ChatGPT list returned 403); OpenAI states it does not allow access from Russia (search snippet)"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["openai-card-declined"],
+                  "note": "\"Your payment card must be issued by a bank located in one of those supported regions\" (read via search snippet, page returned 403)"
+                },
+                "service_id": "openai"
+              }
+            },
+            {
+              "service": "ChatGPT (Codex)",
+              "plan": "Pro $100",
+              "usd_per_month": 100,
+              "price_note": null,
+              "price_sources": ["openai-codex-pricing"],
+              "access": "included",
+              "vendor_limits": "\"Pro plans currently have no five-hour limit\"; weekly limit not published",
+              "vendor_limits_sources": ["openai-codex-pricing"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": "\"5x Plus\" appears only in secondary sources; Wokey has 0 accounts",
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "openai-supported-countries",
+                    "openai-russia-report",
+                    "register-2024"
+                  ],
+                  "note": "Russia is absent from the supported-countries list (API list; the ChatGPT list returned 403); OpenAI states it does not allow access from Russia (search snippet)"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["openai-card-declined"],
+                  "note": "\"Your payment card must be issued by a bank located in one of those supported regions\" (read via search snippet, page returned 403)"
+                },
+                "service_id": "openai"
+              }
+            },
+            {
+              "service": "ChatGPT (Codex)",
+              "plan": "Pro $200",
+              "usd_per_month": 200,
+              "price_note": null,
+              "price_sources": ["openai-codex-pricing"],
+              "access": "included",
+              "vendor_limits": "\"Pro plans currently have no five-hour limit\"; weekly limit not published",
+              "vendor_limits_sources": ["openai-codex-pricing"],
+              "estimate": {
+                "weekly_value_usd": 581,
+                "tasks_per_week": 547.3,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Codex on Pro $200 ≈ $581/week at API prices (range $565–696), 2026-10-26..11-02, spans a limit change, 97% cache reads",
+                "sample": "7 accounts",
+                "confidence": "low",
+                "sources": ["wokey-codex"],
+                "anecdote": {
+                  "weekly_value_usd": 1271,
+                  "basis": "emsi.me, one user, 2026-11-03",
+                  "sources": ["emsi"]
+                }
+              },
+              "estimate_null_reason": null,
+              "notes": "\"20x Plus\" appears only in secondary sources",
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "openai-supported-countries",
+                    "openai-russia-report",
+                    "register-2024"
+                  ],
+                  "note": "Russia is absent from the supported-countries list (API list; the ChatGPT list returned 403); OpenAI states it does not allow access from Russia (search snippet)"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["openai-card-declined"],
+                  "note": "\"Your payment card must be issued by a bank located in one of those supported regions\" (read via search snippet, page returned 403)"
+                },
+                "service_id": "openai"
+              }
+            },
+            {
+              "service": "ChatGPT (Codex)",
+              "plan": "Pro $500",
+              "usd_per_month": 500,
+              "price_note": null,
+              "price_sources": ["openai-codex-pricing"],
+              "access": "included",
+              "vendor_limits": "\"Pro plans currently have no five-hour limit\"; Ultrafast mode; weekly limit not published",
+              "vendor_limits_sources": ["openai-codex-pricing"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": "\"25x Plus\" appears only in secondary sources. Wokey cites a SemiAnalysis estimate of ≈$6,955/month for GPT-6 Astra only; not in the research note and not used",
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "openai-supported-countries",
+                    "openai-russia-report",
+                    "register-2024"
+                  ],
+                  "note": "Russia is absent from the supported-countries list (API list; the ChatGPT list returned 403); OpenAI states it does not allow access from Russia (search snippet)"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["openai-card-declined"],
+                  "note": "\"Your payment card must be issued by a bank located in one of those supported regions\" (read via search snippet, page returned 403)"
+                },
+                "service_id": "openai"
+              }
+            }
+          ],
+          "best_agent": {
+            "name": "Codex",
+            "reason": "OpenAI's own agent: 60.9% on Terminal-Bench 4.1 with GPT-6.1 Sol (2026-09-29), third overall.",
+            "reason_sources": ["tbench-4.1"],
+            "paid_with": {
+              "subscriptions": [
+                "ChatGPT Plus",
+                "ChatGPT Pro $100",
+                "ChatGPT Pro $200",
+                "ChatGPT Pro $500"
+              ],
+              "api_key": true,
+              "note": "Plus: 15–160 local messages per 5 hours",
+              "sources": ["openai-codex-pricing"]
+            },
+            "alternatives": [
+              {
+                "name": "OpenCode",
+                "reason": "Lets you sign in with a ChatGPT Plus or Pro account.",
+                "reason_sources": ["opencode-providers"],
+                "paid_with": {
+                  "subscriptions": ["ChatGPT Plus", "ChatGPT Pro"],
+                  "api_key": true,
+                  "note": null,
+                  "sources": ["opencode-providers"]
+                }
+              }
+            ]
+          },
+          "tags": ["code", "agents"],
+          "summary_ru": "хороша для кода и в пять раз дешевле Opus"
+        }
+      ]
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini",
+      "company": "Google",
+      "models": [
+        {
+          "id": "gemini-4-carbon",
+          "name": "Gemini 4 Carbon",
+          "full_name": "Gemini 4 Carbon",
+          "family": "Gemini",
+          "company": "Google",
+          "api_id": "gemini-4-carbon",
+          "api_id_source": "gemini-api-pricing",
+          "arena": {
+            "rank": 3,
+            "score": 0.1698,
+            "variant": "Gemini 4 Carbon (High)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 1.4621,
+            "sessions": 60568,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 2,
+            "cache_read": 0.1,
+            "output": 10,
+            "conditions": "Standard tier, paid only (no free tier); implicit caching only",
+            "changes": [
+              {
+                "date": "2026-12-01",
+                "what": "price doubles to 4 / 0.20 / 20",
+                "source": "gemini-api-pricing"
+              }
+            ],
+            "source": "gemini-api-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "Google AI",
+              "plan": "AI Ultra 5x",
+              "usd_per_month": 99.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included",
+              "vendor_limits": "\"5x higher usage limits vs. AI Pro\"; Antigravity \"5X worth of tokens compared to the $20/month Pro plan\"; Jules 300 tasks per 24 hours",
+              "vendor_limits_sources": [
+                "gemini-subscriptions",
+                "antigravity-plans",
+                "jules-limits"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            },
+            {
+              "service": "Google AI",
+              "plan": "AI Ultra 20x",
+              "usd_per_month": 199.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included",
+              "vendor_limits": "\"20x higher usage limits vs. AI Pro\"; Antigravity 20X tokens of Pro; Jules 300 tasks per 24 hours",
+              "vendor_limits_sources": [
+                "gemini-subscriptions",
+                "antigravity-plans",
+                "jules-limits"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            }
+          ],
+          "best_agent": {
+            "name": "Antigravity",
+            "reason": "Google's own agent; Artificial Analysis scores it 59.4 with Gemini 4 Carbon, third among all agent and model pairs.",
+            "reason_sources": ["aa-coding-agents", "antigravity-models"],
+            "paid_with": {
+              "subscriptions": ["Google AI Ultra 5x", "Google AI Ultra 20x"],
+              "api_key": false,
+              "note": "app and Antigravity CLI; not on AI Pro",
+              "sources": ["antigravity-models"]
+            },
+            "alternatives": [
+              {
+                "name": "Cline",
+                "reason": "Works with Gemini models through an AI Studio API key.",
+                "reason_sources": ["cline-gemini"],
+                "paid_with": {
+                  "subscriptions": [],
+                  "api_key": true,
+                  "note": "Google does not allow the subscription in third-party tools",
+                  "sources": ["antigravity-faq"]
+                }
+              }
+            ]
+          },
+          "tags": ["code", "research", "agents"],
+          "summary_ru": "сильная и недорогая, но с 1 декабря дороже"
+        },
+        {
+          "id": "gemini-4-argon",
+          "name": "Gemini 4 Argon",
+          "full_name": "Gemini 4 Argon",
+          "family": "Gemini",
+          "company": "Google",
+          "api_id": "gemini-4-argon",
+          "api_id_source": "gemini-api-pricing",
+          "arena": {
+            "rank": 9,
+            "score": 0.1074,
+            "variant": "Gemini 4 Argon (High)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 0.7328,
+            "sessions": 53962,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 2,
+            "cache_read": 0.1,
+            "output": 10,
+            "conditions": "Standard tier, paid only (no free tier); implicit caching only",
+            "changes": [
+              {
+                "date": "2026-12-01",
+                "what": "price doubles to 4 / 0.20 / 20",
+                "source": "gemini-api-pricing"
+              }
+            ],
+            "source": "gemini-api-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "Google AI",
+              "plan": "AI Pro",
+              "usd_per_month": 19.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included",
+              "vendor_limits": "\"4x higher usage access than Free\"; limit refreshes every 5 hours up to a weekly limit, no numbers; Antigravity \"Entry rate limits\"; Jules 100 tasks per 24 hours",
+              "vendor_limits_sources": ["gemini-subscriptions", "jules-limits"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            },
+            {
+              "service": "Google AI",
+              "plan": "AI Ultra 5x",
+              "usd_per_month": 99.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included",
+              "vendor_limits": "\"5x higher usage limits vs. AI Pro\"; Antigravity \"5X worth of tokens compared to the $20/month Pro plan\"; Jules 300 tasks per 24 hours",
+              "vendor_limits_sources": [
+                "gemini-subscriptions",
+                "antigravity-plans",
+                "jules-limits"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            },
+            {
+              "service": "Google AI",
+              "plan": "AI Ultra 20x",
+              "usd_per_month": 199.99,
+              "price_note": null,
+              "price_sources": ["gemini-subscriptions"],
+              "access": "included",
+              "vendor_limits": "\"20x higher usage limits vs. AI Pro\"; Antigravity 20X tokens of Pro; Jules 300 tasks per 24 hours",
+              "vendor_limits_sources": [
+                "gemini-subscriptions",
+                "antigravity-plans",
+                "jules-limits"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": false,
+                  "sources": [
+                    "google-ai-pro-countries",
+                    "google-ai-ultra-countries"
+                  ],
+                  "note": "Russia is absent from the Google AI Pro and AI Ultra country lists, and from the Gemini app and Google One lists"
+                },
+                "russian_card": {
+                  "value": false,
+                  "sources": ["google-play-russia-billing", "rbc-2022-google"],
+                  "note": "Google paused Google Play billing for users in Russia on 2022-03-10; Google One availability follows the Google Play country"
+                },
+                "service_id": "google"
+              }
+            }
+          ],
+          "best_agent": {
+            "name": "Antigravity",
+            "reason": "Google's own agent; Artificial Analysis scores it 53.2 with Gemini 4 Argon.",
+            "reason_sources": ["aa-coding-agents", "antigravity-models"],
+            "paid_with": {
+              "subscriptions": [
+                "Google AI Pro (not trial)",
+                "Google AI Ultra 5x",
+                "Google AI Ultra 20x"
+              ],
+              "api_key": false,
+              "note": "app and Antigravity CLI",
+              "sources": ["antigravity-models"]
+            },
+            "alternatives": [
+              {
+                "name": "Cline",
+                "reason": "Works with Gemini models through an AI Studio API key.",
+                "reason_sources": ["cline-gemini"],
+                "paid_with": {
+                  "subscriptions": [],
+                  "api_key": true,
+                  "note": "Google does not allow the subscription in third-party tools",
+                  "sources": ["antigravity-faq"]
+                }
+              }
+            ]
+          },
+          "tags": ["research", "texts"],
+          "summary_ru": "неплохая и дешёвая, есть в подписке за $20"
+        }
+      ]
+    },
+    {
+      "id": "grok",
+      "name": "Grok",
+      "company": "xAI",
+      "models": [
+        {
+          "id": "grok-4.7",
+          "name": "Grok 4.7",
+          "full_name": "Grok 4.7",
+          "family": "Grok",
+          "company": "xAI",
+          "api_id": "grok-4.7",
+          "api_id_source": "xai-api-pricing",
+          "arena": {
+            "rank": 17,
+            "score": 0.0256,
+            "variant": "Grok 4.7 (xHigh)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 2.7899,
+            "sessions": 18939,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 2,
+            "cache_read": 0.5,
+            "output": 6,
+            "conditions": "prompt below 200K tokens; at 200K or more all tokens 4 / 1 / 12",
+            "changes": [],
+            "source": "xai-api-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "The X Subscription",
+              "plan": "Plus",
+              "usd_per_month": 8,
+              "price_note": "$80/year billed yearly; tax may be added",
+              "price_sources": ["xai-x-sub-pricing"],
+              "access": "included",
+              "vendor_limits": "Included usage \"Base\"; one weekly pool of Grok model usage shared by Grok and Cursor",
+              "vendor_limits_sources": [
+                "xai-x-sub-pricing",
+                "xai-x-sub-overview"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["xai-x-sub-news", "xai-grok-faq"],
+                  "note": "The X Subscription is announced as available \"to everyone globally\"; no country list found"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["visa-2022"],
+                  "note": "No xAI payment-methods page found; only the general fact that Russian-issued Visa cards do not work outside Russia"
+                },
+                "service_id": "xai"
+              }
+            },
+            {
+              "service": "The X Subscription",
+              "plan": "Premium",
+              "usd_per_month": 30,
+              "price_note": "$300/year billed yearly; tax may be added",
+              "price_sources": ["xai-x-sub-pricing"],
+              "access": "included",
+              "vendor_limits": "Included usage \"4x\" (of Plus); one weekly pool of Grok model usage shared by Grok and Cursor",
+              "vendor_limits_sources": [
+                "xai-x-sub-pricing",
+                "xai-x-sub-overview"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["xai-x-sub-news", "xai-grok-faq"],
+                  "note": "The X Subscription is announced as available \"to everyone globally\"; no country list found"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["visa-2022"],
+                  "note": "No xAI payment-methods page found; only the general fact that Russian-issued Visa cards do not work outside Russia"
+                },
+                "service_id": "xai"
+              }
+            },
+            {
+              "service": "The X Subscription",
+              "plan": "Super",
+              "usd_per_month": 100,
+              "price_note": "$1,000/year billed yearly; tax may be added",
+              "price_sources": ["xai-x-sub-pricing"],
+              "access": "included",
+              "vendor_limits": "Included usage \"15x\"; one weekly pool of Grok model usage shared by Grok and Cursor",
+              "vendor_limits_sources": [
+                "xai-x-sub-pricing",
+                "xai-x-sub-overview"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["xai-x-sub-news", "xai-grok-faq"],
+                  "note": "The X Subscription is announced as available \"to everyone globally\"; no country list found"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["visa-2022"],
+                  "note": "No xAI payment-methods page found; only the general fact that Russian-issued Visa cards do not work outside Russia"
+                },
+                "service_id": "xai"
+              }
+            },
+            {
+              "service": "The X Subscription",
+              "plan": "Ultra",
+              "usd_per_month": 200,
+              "price_note": "$2,000/year billed yearly; tax may be added",
+              "price_sources": ["xai-x-sub-pricing"],
+              "access": "included",
+              "vendor_limits": "Included usage \"50x\"; one weekly pool of Grok model usage shared by Grok and Cursor",
+              "vendor_limits_sources": [
+                "xai-x-sub-pricing",
+                "xai-x-sub-overview"
+              ],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["xai-x-sub-news", "xai-grok-faq"],
+                  "note": "The X Subscription is announced as available \"to everyone globally\"; no country list found"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["visa-2022"],
+                  "note": "No xAI payment-methods page found; only the general fact that Russian-issued Visa cards do not work outside Russia"
+                },
+                "service_id": "xai"
+              }
+            }
+          ],
+          "notes": "Existing SuperGrok plans continue for current owners but are not sold to new customers since 2026-10-12",
+          "best_agent": {
+            "name": "Grok Build",
+            "reason": "xAI's own agent: 38.8% on Terminal-Bench 4.1 with Grok 4.7 (2026-09-21).",
+            "reason_sources": ["tbench-4.1", "grok-build"],
+            "paid_with": {
+              "subscriptions": [
+                "X Subscription Plus",
+                "Premium",
+                "Super",
+                "Ultra"
+              ],
+              "api_key": true,
+              "note": "sign in through the browser or use XAI_API_KEY",
+              "sources": ["grok-build", "xai-x-sub-pricing"]
+            },
+            "alternatives": [
+              {
+                "name": "Cursor",
+                "reason": "Grok models in Cursor draw on the same weekly pool of The X Subscription.",
+                "reason_sources": ["xai-x-sub-overview", "cursor-x-sub"],
+                "paid_with": {
+                  "subscriptions": [
+                    "X Subscription Plus",
+                    "Premium",
+                    "Super",
+                    "Ultra"
+                  ],
+                  "api_key": true,
+                  "note": "other vendors' models in Cursor are paid separately",
+                  "sources": ["xai-x-sub-overview"]
+                }
+              }
+            ]
+          },
+          "tags": ["code", "research"],
+          "summary_ru": "средняя по силе, а задача стоит дорого",
+          "notes_sources": ["xai-x-sub-news"]
+        }
+      ]
+    },
+    {
+      "id": "kimi",
+      "name": "Kimi",
+      "company": "Moonshot AI",
+      "models": [
+        {
+          "id": "kimi-k3.1-pro",
+          "name": "K3.1 Pro",
+          "full_name": "Kimi K3.1 Pro",
+          "family": "Kimi",
+          "company": "Moonshot AI",
+          "api_id": "kimi-k3.1-pro",
+          "api_id_source": "kimi-api-pricing",
+          "arena": {
+            "rank": 15,
+            "score": 0.049,
+            "variant": "Kimi K3.1 Pro (Max)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 1.2301,
+            "sessions": 22408,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 2,
+            "cache_read": 0.2,
+            "output": 10,
+            "conditions": "standard endpoint; cache writes billed separately ($2 for 5 min, $4 for 1 h); batch 60% of standard; highspeed variant 4 / 0.20 / 20",
+            "changes": [],
+            "source": "kimi-api-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "Kimi",
+              "plan": "Plus",
+              "usd_per_month": 19,
+              "price_note": "official price ¥99/month (China plans page); $19 from price trackers",
+              "price_sources": ["kimi-membership", "kimi-usd-trackers"],
+              "access": "included",
+              "vendor_limits": "rolling 5-hour usage limit, no weekly limit; membership features share a monthly credit pool; no numbers; \"Kimi Code and Agent Swarm\"",
+              "vendor_limits_sources": ["kimi-membership"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["kimi-user-agreement"],
+                  "note": "kimi.com terms cover mainland-China users and send others to kimi.ai; sanctions clause names no countries"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["kimi-payment"],
+                  "note": "Kimi payment pages name only WeChat Pay, Alipay and Apple ID; no card or issuing-country rule"
+                },
+                "service_id": "kimi"
+              }
+            },
+            {
+              "service": "Kimi",
+              "plan": "Pro",
+              "usd_per_month": 39,
+              "price_note": "official price ¥199/month; $39 from price trackers",
+              "price_sources": ["kimi-membership", "kimi-usd-trackers"],
+              "access": "included",
+              "vendor_limits": "rolling 5-hour usage limit, no weekly limit; membership features share a monthly credit pool; no numbers; \"More credits\"",
+              "vendor_limits_sources": ["kimi-membership"],
+              "estimate": {
+                "weekly_value_usd": 3,
+                "tasks_per_week": 2.3,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Pro window 0.27x Max; Max window ≈ $3.8 at API prices for a coding session with 93% cache; ≈12.1 windows per month; converted to a week as month × 12/52",
+                "sample": "11 accounts (Max reference: 1 account), 2026-11-02..09",
+                "confidence": "low",
+                "sources": ["wokey-kimi"]
+              },
+              "estimate_null_reason": null,
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["kimi-user-agreement"],
+                  "note": "kimi.com terms cover mainland-China users and send others to kimi.ai; sanctions clause names no countries"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["kimi-payment"],
+                  "note": "Kimi payment pages name only WeChat Pay, Alipay and Apple ID; no card or issuing-country rule"
+                },
+                "service_id": "kimi"
+              }
+            },
+            {
+              "service": "Kimi",
+              "plan": "Max",
+              "usd_per_month": 99,
+              "price_note": "official price ¥699/month; $99 from price trackers",
+              "price_sources": ["kimi-membership", "kimi-usd-trackers"],
+              "access": "included",
+              "vendor_limits": "rolling 5-hour usage limit, no weekly limit; membership features share a monthly credit pool; no numbers; \"More credits and higher Agent task concurrency\"",
+              "vendor_limits_sources": ["kimi-membership"],
+              "estimate": {
+                "weekly_value_usd": 11,
+                "tasks_per_week": 9.0,
+                "tasks_null_reason": null,
+                "basis": "Wokey: Max ≈ $48/month at API prices for coding sessions with 93% cache (range $14–85 by scenario), ≈12.5 windows per month; converted to a week as month × 12/52",
+                "sample": "1 account, 2026-11-02..09",
+                "confidence": "low",
+                "sources": ["wokey-kimi"]
+              },
+              "estimate_null_reason": null,
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["kimi-user-agreement"],
+                  "note": "kimi.com terms cover mainland-China users and send others to kimi.ai; sanctions clause names no countries"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["kimi-payment"],
+                  "note": "Kimi payment pages name only WeChat Pay, Alipay and Apple ID; no card or issuing-country rule"
+                },
+                "service_id": "kimi"
+              }
+            },
+            {
+              "service": "Kimi",
+              "plan": "Ultra",
+              "usd_per_month": 199,
+              "price_note": "official price ¥1,399/month; $199 from price trackers",
+              "price_sources": ["kimi-membership", "kimi-usd-trackers"],
+              "access": "included",
+              "vendor_limits": "rolling 5-hour usage limit, no weekly limit; membership features share a monthly credit pool; no numbers; \"Includes 28x Agent credits, twice the credits of Max\"",
+              "vendor_limits_sources": ["kimi-membership"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": "Wokey infers Ultra ≈ 2x Max from Kimi's wording; not measured",
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["kimi-user-agreement"],
+                  "note": "kimi.com terms cover mainland-China users and send others to kimi.ai; sanctions clause names no countries"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["kimi-payment"],
+                  "note": "Kimi payment pages name only WeChat Pay, Alipay and Apple ID; no card or issuing-country rule"
+                },
+                "service_id": "kimi"
+              }
+            }
+          ],
+          "best_agent": {
+            "name": "Claude Code",
+            "reason": "Moonshot ran all K3.1 Pro coding tests in Claude Code (65.7% on Terminal-Bench 4.0, self-reported); no independent run exists.",
+            "reason_sources": ["kimi-k31-blog"],
+            "paid_with": {
+              "subscriptions": [
+                "Kimi Plus",
+                "Kimi Pro",
+                "Kimi Max",
+                "Kimi Ultra"
+              ],
+              "api_key": true,
+              "note": "membership gives a Kimi Code API key for Claude Code",
+              "sources": ["kimi-code-docs"]
+            },
+            "alternatives": [
+              {
+                "name": "Kimi Code CLI",
+                "reason": "Moonshot's own agent; sign in with the membership.",
+                "reason_sources": ["kimi-code-docs"],
+                "paid_with": {
+                  "subscriptions": [
+                    "Kimi Plus",
+                    "Kimi Pro",
+                    "Kimi Max",
+                    "Kimi Ultra"
+                  ],
+                  "api_key": true,
+                  "note": null,
+                  "sources": ["kimi-code-docs"]
+                }
+              },
+              {
+                "name": "OpenCode",
+                "reason": "Kimi publishes a guide; works with the same membership key.",
+                "reason_sources": ["kimi-code-docs"],
+                "paid_with": {
+                  "subscriptions": [
+                    "Kimi Plus",
+                    "Kimi Pro",
+                    "Kimi Max",
+                    "Kimi Ultra"
+                  ],
+                  "api_key": true,
+                  "note": null,
+                  "sources": ["kimi-code-docs"]
+                }
+              }
+            ]
+          },
+          "tags": ["code", "agents"],
+          "summary_ru": "сильнейшая из китайских в списке, дешевле Claude"
+        }
+      ]
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "company": "DeepSeek",
+      "models": [
+        {
+          "id": "deepseek-flash",
+          "name": "V4.1 Flash",
+          "full_name": "DeepSeek V4.1 Flash",
+          "family": "DeepSeek",
+          "company": "DeepSeek",
+          "api_id": "deepseek-flash",
+          "api_id_source": "deepseek-pricing",
+          "arena": {
+            "rank": 22,
+            "score": 0.02,
+            "variant": "DeepSeek-V4.1-Flash-20261017 (Max)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 0.1441,
+            "sessions": 84892,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 0.3,
+            "cache_read": 0.006,
+            "output": 1.2,
+            "conditions": "peak hours (01:00–04:00 and 06:00–10:00 UTC, Mon–Fri); all other hours 50% off: 0.15 / 0.003 / 0.60",
+            "changes": [],
+            "source": "deepseek-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Lite",
+              "usd_per_month": 6,
+              "price_note": "$3 for new users until 2026-11-30 23:59 UTC+8",
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "20,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            },
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Essential",
+              "usd_per_month": 10,
+              "price_note": "$5 for new users until 2026-11-30 23:59 UTC+8",
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "45,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            },
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Standard",
+              "usd_per_month": 18,
+              "price_note": null,
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "80,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            },
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Pro",
+              "usd_per_month": 43,
+              "price_note": null,
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "200,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            }
+          ],
+          "notes": "DeepSeek sells no subscription of its own; the model is in Alibaba's Token Plan as deepseek-v4.1-flash",
+          "best_agent": {
+            "name": "Codex",
+            "reason": "Highest measured score with this model (Artificial Analysis 47.3, on the older 0910 snapshot), and DeepSeek publishes a Codex guide for deepseek-flash.",
+            "reason_sources": ["aa-coding-agents", "deepseek-codex"],
+            "paid_with": {
+              "subscriptions": [],
+              "api_key": true,
+              "note": "DeepSeek API key",
+              "sources": ["deepseek-codex"]
+            },
+            "alternatives": [
+              {
+                "name": "Claude Code",
+                "reason": "DeepSeek publishes its own Claude Code guide; Opus-tier requests switch to V4 Pro at its price.",
+                "reason_sources": ["deepseek-claude-code"],
+                "paid_with": {
+                  "subscriptions": ["Alibaba Token Plan"],
+                  "api_key": true,
+                  "note": "Token Plan lists Claude Code among its tools",
+                  "sources": ["deepseek-claude-code", "alibaba-token-plan"]
+                }
+              },
+              {
+                "name": "DeepSeek Harness",
+                "reason": "DeepSeek's own agent scores 46.3 on the current 1017 snapshot, but it is a developer preview.",
+                "reason_sources": ["aa-coding-agents", "deepseek-docs"],
+                "paid_with": {
+                  "subscriptions": [],
+                  "api_key": true,
+                  "note": null,
+                  "sources": ["deepseek-docs"]
+                }
+              }
+            ]
+          },
+          "tags": ["cheap-bulk", "code"],
+          "summary_ru": "очень дешёвая, для простых и массовых задач",
+          "notes_sources": ["alibaba-token-plan"]
+        }
+      ]
+    },
+    {
+      "id": "glm",
+      "name": "GLM",
+      "company": "Z.ai (Zhipu AI)",
+      "models": [
+        {
+          "id": "glm-5.3",
+          "name": "GLM-5.3",
+          "full_name": "GLM-5.3",
+          "family": "GLM",
+          "company": "Z.ai (Zhipu AI)",
+          "api_id": "glm-5.3",
+          "api_id_source": "zai-glm53-guide",
+          "arena": {
+            "rank": 27,
+            "score": 0.0099,
+            "variant": "GLM-5.3 (Max)",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 1.0365,
+            "sessions": 95460,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 1.4,
+            "cache_read": 0.26,
+            "output": 4.4,
+            "conditions": "Z.ai API; cached input storage \"Limited-time Free\" (no end date given)",
+            "changes": [],
+            "source": "zai-pricing"
+          },
+          "subscriptions": [
+            {
+              "service": "Z.ai GLM Coding Plan",
+              "plan": "Lite",
+              "usd_per_month": 18,
+              "price_note": "officially only \"Starting at just 18 USD per month\"",
+              "price_sources": [
+                "zai-devpack",
+                "morph-coding-plan",
+                "jia-coding-plan"
+              ],
+              "access": "included",
+              "vendor_limits": "2,000 credits per 5 hours, 10,000 per week; credits = (input×6.9 + cached input×1.7 + output×24) / 10,000 for GLM-5.3; 50% off outside peak hours (Mon–Fri 14:00–18:00 UTC+8); Z.ai estimates 48–97M GLM-5.3 tokens per week at 95% cache",
+              "vendor_limits_sources": ["zai-devpack"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": "Morph recomputes Z.ai's own estimate as ≈$65–133/month at API prices; this is vendor-derived, not a measurement",
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["zai-terms"],
+                  "note": "No supported-country list; terms exclude only Iran, North Korea, Cuba, Crimea, Donetsk and Zaporizhzhia, so Russia is not excluded"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["zai-faq", "visa-2022"],
+                  "note": "FAQ mentions \"bank card or PayPal\" with no issuing-country rule"
+                },
+                "service_id": "zai"
+              }
+            },
+            {
+              "service": "Z.ai GLM Coding Plan",
+              "plan": "Pro",
+              "usd_per_month": 80,
+              "price_note": "price from secondary sources only; official page says \"Starting at just 18 USD per month\"",
+              "price_sources": [
+                "zai-devpack",
+                "morph-coding-plan",
+                "jia-coding-plan"
+              ],
+              "access": "included",
+              "vendor_limits": "12,000 credits per 5 hours, 60,000 per week; credits = (input×6.9 + cached input×1.7 + output×24) / 10,000 for GLM-5.3; 50% off outside peak hours (Mon–Fri 14:00–18:00 UTC+8)",
+              "vendor_limits_sources": ["zai-devpack"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["zai-terms"],
+                  "note": "No supported-country list; terms exclude only Iran, North Korea, Cuba, Crimea, Donetsk and Zaporizhzhia, so Russia is not excluded"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["zai-faq", "visa-2022"],
+                  "note": "FAQ mentions \"bank card or PayPal\" with no issuing-country rule"
+                },
+                "service_id": "zai"
+              }
+            },
+            {
+              "service": "Z.ai GLM Coding Plan",
+              "plan": "Max",
+              "usd_per_month": 168,
+              "price_note": "price from secondary sources only; official page says \"Starting at just 18 USD per month\"",
+              "price_sources": [
+                "zai-devpack",
+                "morph-coding-plan",
+                "jia-coding-plan"
+              ],
+              "access": "included",
+              "vendor_limits": "28,000 credits per 5 hours, 140,000 per week; credits = (input×6.9 + cached input×1.7 + output×24) / 10,000 for GLM-5.3; 50% off outside peak hours (Mon–Fri 14:00–18:00 UTC+8)",
+              "vendor_limits_sources": ["zai-devpack"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["zai-terms"],
+                  "note": "No supported-country list; terms exclude only Iran, North Korea, Cuba, Crimea, Donetsk and Zaporizhzhia, so Russia is not excluded"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["zai-faq", "visa-2022"],
+                  "note": "FAQ mentions \"bank card or PayPal\" with no issuing-country rule"
+                },
+                "service_id": "zai"
+              }
+            },
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Lite",
+              "usd_per_month": 6,
+              "price_note": "$3 for new users until 2026-11-30 23:59 UTC+8",
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "20,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            },
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Essential",
+              "usd_per_month": 10,
+              "price_note": "$5 for new users until 2026-11-30 23:59 UTC+8",
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "45,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            },
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Standard",
+              "usd_per_month": 18,
+              "price_note": null,
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "80,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            },
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Pro",
+              "usd_per_month": 43,
+              "price_note": null,
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "200,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            }
+          ],
+          "best_agent": {
+            "name": "Claude Code",
+            "reason": "The only GLM-5.3 run on Terminal-Bench 4.1: 41.2% in Claude Code (2026-08-14); Z.ai lists Claude Code for its Coding Plan.",
+            "reason_sources": ["tbench-4.1", "zai-devpack"],
+            "paid_with": {
+              "subscriptions": [
+                "GLM Coding Plan Lite",
+                "Pro",
+                "Max",
+                "Alibaba Token Plan"
+              ],
+              "api_key": true,
+              "note": null,
+              "sources": ["zai-devpack", "alibaba-token-plan"]
+            },
+            "alternatives": [
+              {
+                "name": "OpenCode",
+                "reason": "Artificial Analysis scores it 48.9 with GLM-5.3.",
+                "reason_sources": ["aa-coding-agents"],
+                "paid_with": {
+                  "subscriptions": ["GLM Coding Plan"],
+                  "api_key": true,
+                  "note": null,
+                  "sources": ["zai-devpack"]
+                }
+              },
+              {
+                "name": "ZCode",
+                "reason": "Z.ai's own agent.",
+                "reason_sources": ["zai-devpack"],
+                "paid_with": {
+                  "subscriptions": ["GLM Coding Plan"],
+                  "api_key": true,
+                  "note": null,
+                  "sources": ["zai-devpack"]
+                }
+              }
+            ]
+          },
+          "tags": ["code", "agents"],
+          "summary_ru": "недорогая подписка для кода, но слабее лидеров"
+        }
+      ]
+    },
+    {
+      "id": "qwen",
+      "name": "Qwen",
+      "company": "Alibaba",
+      "models": [
+        {
+          "id": "qwen3.8-max",
+          "name": "Qwen3.8-Max",
+          "full_name": "Qwen3.8-Max",
+          "family": "Qwen",
+          "company": "Alibaba (Qwen)",
+          "api_id": "qwen3.8-max",
+          "api_id_source": "alibaba-qwen38max",
+          "arena": {
+            "rank": 32,
+            "score": 0.0011,
+            "variant": "Qwen3.8-Max",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 1.2263,
+            "sessions": 80992,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 2,
+            "cache_read": 0.25,
+            "output": 6,
+            "conditions": "International scope (Singapore); cache read is the implicit cache rate, explicit cache read $0.17, explicit cache creation $2.50; Global scope is cheaper: 1.65 / 0.206 / 4.951; page excludes limited-time promotions",
+            "changes": [],
+            "source": "alibaba-qwen38max"
+          },
+          "subscriptions": [
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Lite",
+              "usd_per_month": 6,
+              "price_note": "$3 for new users until 2026-11-30 23:59 UTC+8",
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "20,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            },
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Essential",
+              "usd_per_month": 10,
+              "price_note": "$5 for new users until 2026-11-30 23:59 UTC+8",
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "45,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            },
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Standard",
+              "usd_per_month": 18,
+              "price_note": null,
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "80,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            },
+            {
+              "service": "Alibaba Cloud Model Studio Token Plan",
+              "plan": "Pro",
+              "usd_per_month": 43,
+              "price_note": null,
+              "price_sources": ["alibaba-token-plan"],
+              "access": "included",
+              "vendor_limits": "200,000 credits per month; credits per request depend on model, tokens, thinking mode and tool calls (no per-token rate published); interactive use in coding and agent tools only; Singapore region only",
+              "vendor_limits_sources": ["alibaba-token-plan"],
+              "estimate": null,
+              "estimate_null_reason": "no independent measurements",
+              "notes": null,
+              "russia": {
+                "opens_officially": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "alibaba-token-plan"],
+                  "note": "No country list; Token Plan runs only in the Singapore region; jurisdictions not covered go to the Singapore entity"
+                },
+                "russian_card": {
+                  "value": null,
+                  "sources": ["alibaba-payment", "visa-2022"],
+                  "note": "Visa, Mastercard, Amex, UnionPay and JCB accepted; only cards issued in mainland China are excluded; Russia is not mentioned"
+                },
+                "service_id": "alibaba"
+              }
+            }
+          ],
+          "notes": "Not in the Alibaba Coding Plan ($50 Pro: qwen3.7-plus, qwen3.6-plus, kimi-k2.5, glm-5, MiniMax-M2.5); \"Models not listed above are not supported\"",
+          "best_agent": {
+            "name": "Claude Code",
+            "reason": "The only agent measured with this model: 27.0% on Terminal-Bench 4.1 (0902 snapshot), 39.2 at Artificial Analysis; the Token Plan lists it.",
+            "reason_sources": [
+              "tbench-4.1",
+              "aa-coding-agents",
+              "alibaba-token-plan"
+            ],
+            "paid_with": {
+              "subscriptions": ["Alibaba Token Plan"],
+              "api_key": true,
+              "note": "Model Studio API key",
+              "sources": ["alibaba-token-plan"]
+            },
+            "alternatives": [
+              {
+                "name": "Qwen Code",
+                "reason": "Alibaba's own agent.",
+                "reason_sources": ["qwen-code-auth"],
+                "paid_with": {
+                  "subscriptions": ["Alibaba Token Plan"],
+                  "api_key": true,
+                  "note": null,
+                  "sources": ["qwen-code-auth", "alibaba-token-plan"]
+                }
+              },
+              {
+                "name": "OpenCode",
+                "reason": "Alibaba publishes a guide for OpenCode with the Token Plan.",
+                "reason_sources": ["aliyun-opencode-token-plan"],
+                "paid_with": {
+                  "subscriptions": ["Alibaba Token Plan"],
+                  "api_key": true,
+                  "note": "guide is on the China site",
+                  "sources": ["aliyun-opencode-token-plan"]
+                }
+              }
+            ]
+          },
+          "tags": ["texts", "research"],
+          "summary_ru": "средняя по силе, есть в подписке от $6",
+          "notes_sources": ["alibaba-coding-plan"]
+        }
+      ]
+    },
+    {
+      "id": "minimax",
+      "name": "MiniMax",
+      "company": "MiniMax",
+      "models": [
+        {
+          "id": "MiniMax-M3",
+          "name": "M3",
+          "full_name": "MiniMax M3",
+          "family": "MiniMax",
+          "company": "MiniMax",
+          "api_id": "MiniMax-M3",
+          "api_id_source": "minimax-paygo",
+          "arena": {
+            "rank": 52,
+            "score": -0.1046,
+            "variant": "MiniMax-M3",
+            "variants_in_file": 1,
+            "cost_per_task_p50_usd": 0.3534,
+            "sessions": 44401,
+            "published": "2026-11-11",
+            "source": "arena-agent"
+          },
+          "api_price_usd_per_1m": {
+            "input": 0.3,
+            "cache_read": 0.06,
+            "output": 1.2,
+            "conditions": "up to 512K input tokens; above 512K 0.60 / 0.12 / 2.40; shown as \"Permanent 50% off\" from list 0.60 / 0.12 / 2.40",
+            "changes": [],
+            "source": "minimax-paygo",
+            "conflict": "VentureBeat reported the $0.30 / $1.20 launch rate as a limited-week discount from $0.60 / $2.40; the official page now calls the 50% off permanent"
+          },
+          "subscriptions": [],
+          "notes": "No subscription includes MiniMax M3 as of 2026-11-12: the MiniMax M Plan (Go / Explore / Build) lists only M3.1 Flash as its text model on all three tiers, and Alibaba's plans do not list MiniMax-M3. The model is available through the API only.",
+          "best_agent": {
+            "name": "Claude Code",
+            "reason": "MiniMax lists Claude Code first on the M3 page; no measured results with this model exist.",
+            "reason_sources": ["minimax-m3-page"],
+            "paid_with": {
+              "subscriptions": [],
+              "api_key": true,
+              "note": "pay-as-you-go API key",
+              "sources": ["minimax-paygo"]
+            },
+            "alternatives": [
+              {
+                "name": "MiniMax Code",
+                "reason": "MiniMax's own agent, marked recommended.",
+                "reason_sources": ["minimax-token-plan"],
+                "paid_with": {
+                  "subscriptions": [],
+                  "api_key": true,
+                  "note": "M Plan sign-in gives M3.1 Flash, not M3",
+                  "sources": ["minimax-mplan-intro", "minimax-token-plan"]
+                }
+              },
+              {
+                "name": "Codex",
+                "reason": "Listed on the M3 page.",
+                "reason_sources": ["minimax-m3-page"],
+                "paid_with": {
+                  "subscriptions": [],
+                  "api_key": true,
+                  "note": null,
+                  "sources": ["minimax-m3-page"]
+                }
+              }
+            ]
+          },
+          "tags": ["cheap-bulk", "texts"],
+          "summary_ru": "дешёвая, но слабее остальных в списке",
+          "notes_sources": [
+            "minimax-token-plan",
+            "alibaba-token-plan",
+            "alibaba-coding-plan"
+          ]
+        }
+      ]
+    }
+  ]
+}
