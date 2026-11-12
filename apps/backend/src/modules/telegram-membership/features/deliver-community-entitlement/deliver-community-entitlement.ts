@@ -35,13 +35,16 @@ function retryDelayMs(attempts: number): number {
 
 /** What the provider actually reported, separate from our own delivery lifecycle. */
 function observationFields(result: CommunityResult, now: Date) {
+  // `now` is read before the provider call, so the bot may refresh its observation before it
+  // answers: a slightly negative age is fresh (#2070). An unreadable `updatedAt` or a gap beyond
+  // the overdue window, past or future, means the observation stopped advancing or carries a
+  // wrong clock.
   const providerAge = now.getTime() - new Date(result.updatedAt).getTime();
   return {
     errorCode:
       result.status === "waiting_for_join" &&
       (!Number.isFinite(providerAge) ||
-        providerAge < 0 ||
-        providerAge > COMMUNITY_OVERDUE_MS)
+        Math.abs(providerAge) > COMMUNITY_OVERDUE_MS)
         ? "stale_observation"
         : null,
     observedMembership: result.observedMembership,
