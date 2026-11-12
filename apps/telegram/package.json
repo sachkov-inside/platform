@@ -37,6 +37,7 @@
     "owner:trainer-bank-import": "tsx src/operations/trainer-bank-import-cli.ts",
     "owner:trainer-report": "tsx src/operations/trainer-report-cli.ts",
     "owner:ai-models-reference-import": "tsx src/operations/ai-models-reference-import-cli.ts",
+    "owner:ai-models-report": "tsx src/operations/ai-models-report-cli.ts",
     "proof:course:browser": "tsx test/local/course-activation-browser.ts",
     "proof:course:existing": "node test/local/course-existing-browser.mjs",
     "trainer:widget:build": "tsx scripts/trainer-widget/build.ts",

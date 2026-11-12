@@ -36,6 +36,7 @@ describe("production operations in the runtime image", () => {
       "ai-models-reference-import",
       "dist/operations/ai-models-reference-import-cli.js",
     ],
+    ["ai-models-report", "dist/operations/ai-models-report-cli.js"],
     [
       "activation-announcement",
       "dist/operations/activation-announcement-cli.js",
