@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { sql } from "kysely";
 import { beforeAll, beforeEach, afterAll, expect, it } from "vitest";
@@ -31,31 +30,81 @@ afterAll(async () => {
 });
 
 /** Real CLI and pipe. The timer bounds a stuck child; finally joins its exit even on failure. */
-async function runCli(mode: string, input: Buffer, interrupt = false) {
+async function runCli(
+  mode: string,
+  input: Buffer,
+  interrupt: false | "input" | "database" | "database-error" = false,
+) {
+  // deterministic-test-allow process-cleanup: runCli owns a detached process group, kills on timeout/failure and joins close in finally.
   const child = spawn(
     process.execPath,
-    ["--import", "tsx", "src/operations/trainer-bank-import-cli.ts", mode],
+    [
+      "--import",
+      "tsx",
+      "--import",
+      "./test/support/trainer-bank-cli-read-probe.ts",
+      "src/operations/trainer-bank-import-cli.ts",
+      mode,
+    ],
     {
-      env: { ...process.env, PGAPPNAME: "trainer-bank-import-cli-test" },
-      stdio: ["pipe", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        PGAPPNAME: "trainer-bank-import-cli-test",
+        ...(interrupt === "database-error"
+          ? { PGOPTIONS: "-c default_transaction_read_only=on" }
+          : {}),
+      },
+      stdio: ["pipe", "pipe", "pipe", "ipc"],
       detached: true,
     },
   );
-  const closed = once(child, "close");
+  const closed = new Promise<[number | null, NodeJS.Signals | null]>(
+    (resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", (code, signal) => resolve([code, signal]));
+    },
+  );
   let stdout = "";
   let stderr = "";
-  child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
-    stdout += chunk;
-  });
-  child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
-    stderr += chunk;
-  });
+  required(child.stdout)
+    .setEncoding("utf8")
+    .on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+  required(child.stderr)
+    .setEncoding("utf8")
+    .on("data", (chunk: string) => {
+      stderr += chunk;
+    });
   // EPIPE is expected when the old synchronous reader exits before the writer finishes.
-  child.stdin.on("error", () => undefined);
+  required(child.stdin).on("error", () => undefined);
   const kill = () => {
-    if (child.exitCode === null && child.signalCode === null && child.pid)
+    if (child.pid === undefined) return;
+    try {
       process.kill(-child.pid, "SIGKILL");
+    } catch (error) {
+      if (!(
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "ESRCH"
+      ))
+        throw error;
+    }
   };
+  let readBytes = 0;
+  let readBarrier: (() => void) | undefined;
+  child.on("message", (message: unknown) => {
+    if (
+      typeof message === "object" &&
+      message !== null &&
+      "readBytes" in message &&
+      typeof message.readBytes === "number"
+    ) {
+      readBytes += message.readBytes;
+      readBarrier?.();
+    }
+  });
+  // deterministic-test-allow duration-wait: bound failure of the real CLI process; finally clears the timer.
   const timeout = setTimeout(kill, processBudgetMs);
   try {
     // Feed one byte at a time through the first Cyrillic character, then delayed large chunks.
@@ -66,18 +115,45 @@ async function runCli(mode: string, input: Buffer, interrupt = false) {
       chunks.push(input.subarray(offset, offset + 8192));
     for (const [index, chunk] of chunks.entries()) {
       if (child.exitCode !== null || child.signalCode !== null) break;
-      child.stdin.write(chunk);
+      required(child.stdin).write(chunk);
+      if (index === 0 && split > 0) {
+        await Promise.race([
+          new Promise<void>((resolve) => {
+            readBarrier = () => {
+              if (readBytes >= split) resolve();
+            };
+            readBarrier();
+          }),
+          closed.then(() => undefined),
+        ]);
+      }
       // deterministic-test-allow duration-wait: model a slow pipe producer at the CLI boundary (#2010).
-      await delay(index < 2 ? 500 : 10);
+      await delay(10);
     }
-    if (interrupt) child.kill("SIGTERM");
-    else child.stdin.end();
+    if (interrupt === "input") child.kill("SIGTERM");
+    else {
+      required(child.stdin).end();
+      if (interrupt === "database") {
+        while (child.exitCode === null && child.signalCode === null) {
+          const waiting =
+            await sql`select 1 from pg_stat_activity where application_name = 'trainer-bank-import-cli-test' and wait_event_type = 'Lock'`.execute(
+              database,
+            );
+          if (waiting.rows.length > 0) {
+            child.kill("SIGTERM");
+            break;
+          }
+          // deterministic-test-allow duration-wait: poll the child's observed database lock wait, bounded by processBudgetMs.
+          await delay(10);
+        }
+      }
+    }
     const [code, signal] = await closed;
     return { code, signal, stdout, stderr };
   } finally {
     clearTimeout(timeout);
     kill();
-    child.stdin.destroy();
+    required(child.stdin).destroy();
     await closed;
   }
 }
@@ -136,14 +212,53 @@ it("terminates an incomplete import without leaving writes or database sessions"
         syntheticTrainerBank({ topics: 5, questionsPerTopic: 300 }),
       ),
     ),
-    true,
+    "input",
   );
   expect(result.signal).toBe("SIGTERM");
   expect(await bank.topics()).toEqual([]);
-  const sessions = await sql<{
-    count: string;
-  }>`select count(*) from pg_stat_activity where datname = current_database() and application_name = 'trainer-bank-import-cli-test'`.execute(
-    database,
-  );
-  expect(sessions.rows[0]?.count).toBe("0");
+  await expectClosedSessions();
 }, 30_000);
+
+it("interrupts an import with an open database connection and releases it without writes", async () => {
+  await database.transaction().execute(async (transaction) => {
+    await sql`lock table trainer_topics in access exclusive mode`.execute(
+      transaction,
+    );
+    const result = await runCli(
+      "--apply",
+      Buffer.from(JSON.stringify(syntheticTrainerBank())),
+      "database",
+    );
+    expect(result.signal).toBe("SIGTERM");
+  });
+  expect(await bank.topics()).toEqual([]);
+  await expectClosedSessions();
+}, 30_000);
+
+it("closes an open connection after a database write error and leaves the Bank unchanged", async () => {
+  const result = await runCli(
+    "--apply",
+    Buffer.from(JSON.stringify(syntheticTrainerBank())),
+    "database-error",
+  );
+  expect(result.code).toBe(1);
+  expect(result.stderr).toBe("Bank import failed; nothing was changed.\n");
+  expect(await bank.topics()).toEqual([]);
+  await expectClosedSessions();
+}, 30_000);
+
+async function expectClosedSessions() {
+  const deadline = performance.now() + 5_000;
+  for (;;) {
+    const sessions = await sql<{
+      count: string;
+    }>`select count(*) from pg_stat_activity where application_name = 'trainer-bank-import-cli-test'`.execute(
+      database,
+    );
+    if (sessions.rows[0]?.count === "0") return;
+    if (performance.now() >= deadline)
+      throw new Error("CLI database session did not close");
+    // deterministic-test-allow duration-wait: observe PostgreSQL removing the closed child's backend, bounded by a monotonic deadline.
+    await delay(10);
+  }
+}
