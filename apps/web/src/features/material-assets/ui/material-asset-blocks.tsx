@@ -1,5 +1,6 @@
 import type {
   ImageAssetPresentation,
+  ImageFormat,
   ImageVariants,
 } from "@inside/material-blocks";
 import {
@@ -15,6 +16,7 @@ export function MaterialAssetImage({
   caption,
   contentVersion,
   displayWidthPercent = 100,
+  format,
   height,
   imageVariants,
   materialId,
@@ -28,6 +30,8 @@ export function MaterialAssetImage({
   readonly caption?: string | undefined;
   readonly contentVersion: number;
   readonly displayWidthPercent?: number | undefined;
+  /** `"svg"` marks a checked SVG, which Reader puts into the page (#2041). */
+  readonly format?: ImageFormat | undefined;
   readonly height?: number | undefined;
   readonly imageVariants?: ImageVariants<ImageAssetPresentation> | undefined;
   readonly materialId: string;
@@ -62,6 +66,7 @@ export function MaterialAssetImage({
     const url = (variantWidth: number) =>
       `/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(asset.assetId)}/images/${String(variantWidth)}?${query.toString()}`;
     return {
+      format: asset.format,
       height: asset.height,
       width: asset.width,
       src: url(largest.width),
@@ -73,6 +78,7 @@ export function MaterialAssetImage({
   };
   const image = source({
     assetId,
+    format,
     height,
     width,
     variants: responsiveVariants,

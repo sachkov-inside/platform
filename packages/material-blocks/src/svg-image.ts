@@ -252,17 +252,189 @@ class Refusal extends Error {
  * decodes bytes: a file that is not UTF-8 is not an SVG image.
  */
 export function checkSvgMarkup(source: string): SvgMarkupCheck {
+  return checkMarkup(source, false);
+}
+
+/**
+ * The stricter check before Reader puts an SVG into the page as markup (#2041). The markup shares
+ * the page's DOM and stylesheets, so on top of `checkSvgMarkup` it must keep to its own figure:
+ *
+ * - the root has an `id` of the form `fig-<name>`, and every other `id` and every `#id` reference
+ *   starts with that root id;
+ * - every selector of its stylesheets starts with an id selector of the figure, and the root id
+ *   is not followed by a sibling combinator, so a rule reaches no element outside the figure;
+ * - a style rule nests no other rule;
+ * - a keyframes name starts with `a-` (the shared figure names) or with the root id, so no figure
+ *   replaces an animation of the page.
+ *
+ * A file that passes only `checkSvgMarkup` is still shown, through `<img>`.
+ */
+export function checkInlineSvgMarkup(source: string): SvgMarkupCheck {
+  return checkMarkup(source, true);
+}
+
+function checkMarkup(source: string, inline: boolean): SvgMarkupCheck {
   try {
     const text = source.replace(/^\uFEFF/u, "");
     if (NOT_XML_CHARACTER.test(text)) throw new Refusal("image_decode_failed");
     const root = parseDocument(text);
     const size = layoutSize(root);
+    if (inline) checkFigureScope(root);
     return { ok: true, value: { markup: serialize(root), ...size } };
   } catch (error) {
     if (error instanceof Refusal)
       return { error: { code: error.code }, ok: false };
     throw error;
   }
+}
+
+const FIGURE_ID = /^fig-[A-Za-z0-9_-]+$/u;
+const FIGURE_KEYFRAMES = /^a-[A-Za-z0-9_-]+$/u;
+
+function checkFigureScope(root: SvgElement) {
+  const rootId = attributeValue(root.attributes, "id");
+  if (rootId === undefined || !FIGURE_ID.test(rootId))
+    throw new Refusal("unsafe_svg");
+  const owned = (id: string) => id === rootId || id.startsWith(`${rootId}-`);
+  const visit = (element: SvgElement) => {
+    for (const [attribute, value] of element.attributes) {
+      if (attribute === "id" && !owned(value)) throw new Refusal("unsafe_svg");
+      if (
+        (attribute === "href" || attribute === "xlink:href") &&
+        !owned(value.trim().slice(1))
+      )
+        throw new Refusal("unsafe_svg");
+      if (attribute === "aria-labelledby" || attribute === "aria-describedby")
+        for (const id of value.trim().split(/\s+/u))
+          if (id.length > 0 && !owned(id)) throw new Refusal("unsafe_svg");
+      for (const reference of value.matchAll(/url\(\s*["']?#([^"')\s]+)/giu))
+        if (!owned(reference[1] ?? "")) throw new Refusal("unsafe_svg");
+    }
+    for (const child of element.children)
+      if (typeof child !== "string") visit(child);
+  };
+  visit(root);
+  for (const style of descendants(root, "style")) {
+    const css = readableCss(
+      style.children
+        .filter((child): child is string => typeof child === "string")
+        .join(""),
+    );
+    for (const reference of css.matchAll(/url\(\s*["']?#([^"')\s]+)/giu))
+      if (!owned(reference[1] ?? "")) throw new Refusal("unsafe_svg");
+    checkFigureRules(css, 0, false, owned);
+  }
+}
+
+/**
+ * Reads the rules from `position` to the end of the text or to the `}` that closes the current
+ * group, and returns the position after it. `@media` and `@supports` hold rules; a `@keyframes`
+ * block holds keyframe selectors, which reach no element.
+ */
+function checkFigureRules(
+  css: string,
+  position: number,
+  nested: boolean,
+  owned: (id: string) => boolean,
+): number {
+  let index = position;
+  for (;;) {
+    while (index < css.length && /[\s;]/u.test(css[index] ?? "")) index += 1;
+    if (index >= css.length) {
+      if (nested) throw new Refusal("unsafe_svg");
+      return index;
+    }
+    if (css[index] === "}") {
+      if (!nested) throw new Refusal("unsafe_svg");
+      return index + 1;
+    }
+    const open = preludeEnd(css, index);
+    const prelude = css.slice(index, open).trim();
+    index = open + 1;
+    if (prelude.startsWith("@")) {
+      const [keyword = "", ...rest] = prelude.slice(1).split(/\s+/u);
+      const name = keyword.toLowerCase();
+      if (name === "keyframes" || name === "-webkit-keyframes") {
+        const keyframes = rest.join(" ").trim();
+        if (!FIGURE_KEYFRAMES.test(keyframes) && !owned(keyframes))
+          throw new Refusal("unsafe_svg");
+        index = blockEnd(css, index);
+      } else if (name === "media" || name === "supports") {
+        index = checkFigureRules(css, index, true, owned);
+      } else throw new Refusal("unsafe_svg");
+      continue;
+    }
+    for (const selector of splitSelectors(prelude))
+      checkFigureSelector(selector, owned);
+    const close = css.indexOf("}", index);
+    if (close === -1 || css.slice(index, close).includes("{"))
+      throw new Refusal("unsafe_svg");
+    index = close + 1;
+  }
+}
+
+/** The position of the `{` that opens the block of the prelude starting at `position`. */
+function preludeEnd(css: string, position: number): number {
+  let depth = 0;
+  for (let index = position; index < css.length; index += 1) {
+    const character = css[index];
+    if (character === "(" || character === "[") depth += 1;
+    else if (character === ")" || character === "]") depth -= 1;
+    else if (depth === 0 && character === "{") return index;
+    else if (depth === 0 && (character === "}" || character === ";"))
+      throw new Refusal("unsafe_svg");
+  }
+  throw new Refusal("unsafe_svg");
+}
+
+/** The position after the `}` that closes the block opened just before `position`. */
+function blockEnd(css: string, position: number): number {
+  let depth = 1;
+  for (let index = position; index < css.length; index += 1) {
+    if (css[index] === "{") depth += 1;
+    else if (css[index] === "}") {
+      depth -= 1;
+      if (depth === 0) return index + 1;
+    }
+  }
+  throw new Refusal("unsafe_svg");
+}
+
+function splitSelectors(prelude: string): string[] {
+  const selectors: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < prelude.length; index += 1) {
+    const character = prelude[index];
+    if (character === "(" || character === "[") depth += 1;
+    else if (character === ")" || character === "]") depth -= 1;
+    else if (depth === 0 && character === ",") {
+      selectors.push(prelude.slice(start, index));
+      start = index + 1;
+    }
+  }
+  selectors.push(prelude.slice(start));
+  return selectors.map((selector) => selector.trim());
+}
+
+/**
+ * A selector starts with an id selector of the figure, and no sibling combinator follows its
+ * first compound: `+` and `~` after the root would reach elements outside the figure.
+ */
+function checkFigureSelector(selector: string, owned: (id: string) => boolean) {
+  const id = /^#([A-Za-z0-9_-]+)/u.exec(selector)?.[1];
+  if (id === undefined || !owned(id)) throw new Refusal("unsafe_svg");
+  // The rest of the first compound: classes, attributes and pseudo-classes of that element.
+  let index = 1 + id.length;
+  let depth = 0;
+  for (; index < selector.length; index += 1) {
+    const character = selector[index] ?? "";
+    if (character === "(" || character === "[") depth += 1;
+    else if (character === ")" || character === "]") depth -= 1;
+    else if (depth === 0 && /[\s>+~]/u.test(character)) break;
+  }
+  const combinator = selector.slice(index).trimStart()[0];
+  if (combinator === "+" || combinator === "~") throw new Refusal("unsafe_svg");
 }
 
 function parseDocument(source: string): SvgElement {
@@ -449,9 +621,36 @@ function checkElement(
  * id in this file.
  */
 function checkCss(text: string, kind: "inline" | "stylesheet") {
+  const css = readableCss(text);
+  for (const atRule of css.matchAll(/@(-?[A-Za-z_][\w-]*)?/gu)) {
+    const ruleName = atRule[1]?.toLowerCase();
+    if (
+      kind !== "stylesheet" ||
+      ruleName === undefined ||
+      !CSS_AT_RULES.has(ruleName)
+    ) {
+      throw new Refusal("unsafe_svg");
+    }
+  }
+  for (const call of css.matchAll(/(-?[A-Za-z_][\w-]*)\(/gu)) {
+    const functionName = call[1]?.toLowerCase() ?? "";
+    if (!CSS_FUNCTIONS.has(functionName)) throw new Refusal("unsafe_svg");
+    if (functionName === "url") {
+      const argument = /^url\(\s*(["']?)(#[A-Za-z_][\w.:-]*)\1\s*\)/iu.exec(
+        css.slice(call.index),
+      );
+      if (argument === null) throw new Refusal("unsafe_svg");
+    }
+  }
+}
+
+/**
+ * The CSS a browser acts on: comments become a space and strings an empty pair of quotes, except
+ * a quoted `#id`, which is kept for `url()`. A backslash is refused because a CSS escape can spell
+ * a forbidden name; an unterminated string or comment is refused.
+ */
+function readableCss(text: string): string {
   if (text.includes("\\")) throw new Refusal("unsafe_svg");
-  // Comments become a space and strings an empty pair of quotes, except a quoted `#id`, which is
-  // kept for `url()`: what remains is the CSS a browser acts on.
   let css = "";
   let position = 0;
   while (position < text.length) {
@@ -476,26 +675,7 @@ function checkCss(text: string, kind: "inline" | "stylesheet") {
       position += 1;
     }
   }
-  for (const atRule of css.matchAll(/@(-?[A-Za-z_][\w-]*)?/gu)) {
-    const ruleName = atRule[1]?.toLowerCase();
-    if (
-      kind !== "stylesheet" ||
-      ruleName === undefined ||
-      !CSS_AT_RULES.has(ruleName)
-    ) {
-      throw new Refusal("unsafe_svg");
-    }
-  }
-  for (const call of css.matchAll(/(-?[A-Za-z_][\w-]*)\(/gu)) {
-    const functionName = call[1]?.toLowerCase() ?? "";
-    if (!CSS_FUNCTIONS.has(functionName)) throw new Refusal("unsafe_svg");
-    if (functionName === "url") {
-      const argument = /^url\(\s*(["']?)(#[A-Za-z_][\w.:-]*)\1\s*\)/iu.exec(
-        css.slice(call.index),
-      );
-      if (argument === null) throw new Refusal("unsafe_svg");
-    }
-  }
+  return css;
 }
 
 function decodeReferences(text: string): string {

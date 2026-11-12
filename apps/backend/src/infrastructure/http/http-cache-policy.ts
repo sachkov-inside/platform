@@ -152,7 +152,7 @@ function sendAssetDelivery(
   response.header("Content-Type", body.contentType);
   response.header("Content-Security-Policy", ASSET_CONTENT_SECURITY_POLICY);
   response.header("Content-Length", String(body.contentLength));
-  if ("contentDisposition" in body && body.contentDisposition !== undefined) {
+  if ("contentDisposition" in body) {
     response.header("Content-Disposition", body.contentDisposition);
   }
   return Buffer.from(body.body);

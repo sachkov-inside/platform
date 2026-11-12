@@ -22,6 +22,16 @@ import {
   variantDiagram,
   expectVariantDiagram,
 } from "@/storybook/image-variants";
+import {
+  expectSvgFigure,
+  expectSvgFigureIsolation,
+  expectSvgFigureWaitsForReader,
+  expectUnsafeSvgFigureFallsBack,
+  hostileSvgFigure,
+  svgFigurePair,
+  unsafeSvgFigure,
+  unscopedSvgFigure,
+} from "@/storybook/svg-figures";
 import type { ComponentProps, ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
@@ -1783,6 +1793,68 @@ export const ImageVariantsMobile: Story = {
   ...ImageVariants,
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, true),
+};
+
+export const SvgFigure: Story = {
+  args: { body: [svgFigurePair], material: { ...material, cover: null } },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => expectSvgFigure(canvasElement, false),
+};
+export const SvgFigureMobile: Story = {
+  ...SvgFigure,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => expectSvgFigure(canvasElement, true),
+};
+export const SvgFigureBelowFold: Story = {
+  args: {
+    body: [
+      ...Array.from({ length: 24 }, (_, index) => ({
+        kind: "paragraph" as const,
+        content: [
+          {
+            kind: "text" as const,
+            marks: [],
+            text: `Абзац ${String(index + 1)} перед картинкой: читатель ещё не дошёл до неё.`,
+          },
+        ],
+      })),
+      svgFigurePair,
+    ],
+    material: { ...material, cover: null },
+  },
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) =>
+    expectSvgFigureWaitsForReader(canvasElement),
+};
+export const SvgFigureIsolation: Story = {
+  args: {
+    body: [
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", marks: [], text: "Текст страницы" }],
+      },
+      hostileSvgFigure,
+    ],
+    material: { ...material, cover: null },
+  },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => expectSvgFigureIsolation(canvasElement),
+};
+export const SvgFigureUnsafeFallback: Story = {
+  args: {
+    body: [
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", marks: [], text: "Текст страницы" }],
+      },
+      unscopedSvgFigure,
+      unsafeSvgFigure,
+    ],
+    material: { ...material, cover: null },
+  },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) =>
+    expectUnsafeSvgFigureFallsBack(canvasElement),
 };
 
 export const CollapsibleAdvice: Story = {

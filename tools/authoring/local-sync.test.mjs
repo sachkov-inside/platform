@@ -488,16 +488,22 @@ test("v2 imports a wide/tall SVG pair named in two keys each as two SVG uploads 
     }),
     ["image/svg+xml", "image/svg+xml"],
   );
-  const saved = valueAt(api.materials, sourceId).body;
-  assert.deepEqual(
-    /** @type {any} */ (saved).doc.content[0].attrs.imageVariants,
-    {
-      wideLight: "92000000-0000-4000-8000-000000000001",
-      wideDark: "92000000-0000-4000-8000-000000000001",
-      tallLight: "92000000-0000-4000-8000-000000000002",
-      tallDark: "92000000-0000-4000-8000-000000000002",
+  assert.partialDeepStrictEqual(valueAt(api.materials, sourceId).body, {
+    doc: {
+      content: [
+        {
+          attrs: {
+            imageVariants: {
+              wideLight: "92000000-0000-4000-8000-000000000001",
+              wideDark: "92000000-0000-4000-8000-000000000001",
+              tallLight: "92000000-0000-4000-8000-000000000002",
+              tallDark: "92000000-0000-4000-8000-000000000002",
+            },
+          },
+        },
+      ],
     },
-  );
+  });
 
   // A set that mixes an SVG with a PNG stops before its first request.
   const png = Buffer.from("not decoded before the type check");

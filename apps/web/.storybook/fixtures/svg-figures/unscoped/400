@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200"><style>
+p{color:rgb(255,0,0)}
+:host{position:fixed !important;inset:0 !important;z-index:9999 !important}
+svg{position:fixed !important;inset:0 !important;width:100vw !important;height:100vh !important}
+</style><rect width="400" height="200" fill="#fde68a"/><text x="200" y="110" text-anchor="middle" font-size="24">Чужие правила</text></svg>

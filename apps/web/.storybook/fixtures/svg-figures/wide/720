@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="fig-agent-loop-wide" width="720" height="240" viewBox="0 0 720 240" role="img" aria-labelledby="fig-agent-loop-wide-title"><title id="fig-agent-loop-wide-title">Цикл агента: запрос, проверка, результат</title><style>
+#fig-agent-loop-wide .box{fill:#eef2ff;stroke:#4f46e5;stroke-width:2}
+#fig-agent-loop-wide .label{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:20px;fill:#1e1b4b;text-anchor:middle}
+#fig-agent-loop-wide .arrow{stroke:#4f46e5;stroke-width:3;fill:none;stroke-dasharray:1;stroke-dashoffset:1}
+#fig-agent-loop-wide .step{opacity:0;animation:a-fade 600ms ease-out forwards;animation-play-state:var(--fig-play, running)}
+#fig-agent-loop-wide .step-2{animation-delay:400ms}
+#fig-agent-loop-wide .step-3{animation-delay:800ms}
+#fig-agent-loop-wide .arrow{animation:a-draw 500ms ease-out 300ms forwards;animation-play-state:var(--fig-play, running)}
+@keyframes a-fade{from{opacity:0}to{opacity:1}}
+@keyframes a-draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){#fig-agent-loop-wide .step,#fig-agent-loop-wide .arrow{animation:none;opacity:1;stroke-dashoffset:0}}
+</style><g class="step step-1"><rect class="box" x="20" y="80" width="180" height="80" rx="12"/><text class="label" x="110" y="127">Запрос</text></g><path class="arrow" pathLength="1" d="M200 120H260"/><g class="step step-2"><rect class="box" x="270" y="80" width="180" height="80" rx="12"/><text class="label" x="360" y="127">Проверка</text></g><path class="arrow" pathLength="1" d="M450 120H510"/><g class="step step-3"><rect class="box" x="520" y="80" width="180" height="80" rx="12"/><text class="label" x="610" y="127">Результат</text></g></svg>

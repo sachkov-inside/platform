@@ -1,14 +1,17 @@
 "use client";
 
-import type { ImageVariants } from "@inside/material-blocks";
+import type { ImageFormat, ImageVariants } from "@inside/material-blocks";
 import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 
 import styles from "./material-responsive-image.module.css";
 
 import { MaterialImageDelivery } from "./material-image-delivery.client";
+import { MaterialSvgFigure } from "./material-svg-figure.client";
 import type { ViewerSize } from "../model/image-viewer-view";
 
 export interface MaterialImageSource {
+  /** `"svg"`: the figure's markup goes into the page instead of an `<img>` (#2041). */
+  readonly format?: ImageFormat | undefined;
   readonly height: number;
   readonly width: number;
   readonly src: string;
@@ -19,7 +22,11 @@ export interface MaterialImageSource {
 /** At narrower article widths, the tall composition keeps diagram labels readable. */
 const WIDE_IMAGE_COLUMN_PX = 560;
 
-/** Reuses the accepted image delivery and viewer for the column's current composition and theme. */
+/**
+ * Reuses the accepted image delivery and viewer for the column's current composition and theme.
+ * An SVG composition goes into the page as markup; a wide/tall SVG pair names one file in both
+ * theme keys, so only the column width changes it.
+ */
 export function MaterialResponsiveImage({
   alt,
   caption,
@@ -105,13 +112,29 @@ export function MaterialResponsiveImage({
           imageVariants === undefined ? undefined : styles["composition"]
         }
       >
-        {selected === undefined ? null : (
-          <MaterialImageDelivery
+        {selected === undefined ? null : selected.format === "svg" ? (
+          <MaterialSvgFigure
             key={selected.src}
-            {...selected}
             alt={alt}
             caption={caption}
+            height={selected.height}
             preview={preview}
+            src={selected.src}
+            srcSet={selected.srcSet}
+            viewerSize={selected.viewerSize}
+            width={selected.width}
+          />
+        ) : (
+          <MaterialImageDelivery
+            key={selected.src}
+            alt={alt}
+            caption={caption}
+            height={selected.height}
+            preview={preview}
+            src={selected.src}
+            srcSet={selected.srcSet}
+            viewerSize={selected.viewerSize}
+            width={selected.width}
           />
         )}
       </div>
