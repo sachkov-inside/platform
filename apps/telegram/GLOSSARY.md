@@ -227,6 +227,12 @@ The owner's short opinion shown on an ИИ-модель, from a fixed set: «М�
 through it.
 _Avoid_: Tag, Метка задачи, rating, review
 
+**Лучше взять** (Better Pick):
+The owner's pointer from one ИИ-модель to one or two others they recommend in its place, with a
+reason, such as GLM-5.3 to DeepSeek V4.1 Flash «по цене и качеству». Like a Значок автора, only the
+owner sets it and the Ежедневная проверка never changes it.
+_Avoid_: Alternative list, similar models, recommendation engine
+
 **Справочник** (Models Reference):
 The ИИ-модели data that people currently see, with the date it was last checked. It changes only
 when the owner publishes a Черновик справочника.
