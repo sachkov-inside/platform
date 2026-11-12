@@ -4,7 +4,6 @@ import {
   LayoutGrid,
   List,
   RefreshCw,
-  Search,
   Flag,
   type LucideIcon,
 } from "lucide-react";
@@ -18,26 +17,23 @@ import {
   type ReactNode,
 } from "react";
 
-import {
-  MaterialCard,
-  ProductContinuationProvider,
-  type MaterialPreview,
-} from "@/entities/material";
+import { ProductContinuationProvider } from "@/entities/material";
 import {
   formatMaterialCount,
   CourseNavigationBar,
+  type CatalogueTopic,
   CourseNavigationItem,
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { resetShellScroll } from "@/shared/lib/shell-scroll";
-import { MOSCOW_TIME_ZONE } from "@/shared/lib/moscow-format";
 import { cn } from "@/shared/lib/utils";
-import {
-  catalogReaderReturnHref,
-  readProductPage,
-} from "@/shared/routing/material-reader";
+import { readProductPage } from "@/shared/routing/material-reader";
 
 import { PRODUCT_BATCH_SIZE } from "./product-batch";
+import {
+  ProductMaterialCatalog,
+  type CatalogEntry,
+} from "./product-material-catalog.client";
 import { useProductOnboardingPresentation } from "./product-programme-onboarding.client";
 import { useProductLearning } from "./product-learning.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
@@ -72,21 +68,6 @@ export interface JourneyRun {
   readonly rows: readonly JourneyRow[];
 }
 
-/** Данные каталога: карточку рисует браузер только в открытом разделе и видимой порции. */
-export interface CatalogEntry {
-  readonly material: MaterialPreview;
-  readonly inProgramme: boolean;
-  /** First programme placement; null outside chapters, including a Product without chapters. */
-  readonly place: CatalogPlace | null;
-}
-
-/** Where a catalogue Material sits in the programme: chapter order and lesson within the chapter. */
-export interface CatalogPlace {
-  readonly chapter: number;
-  readonly chapterName: string;
-  readonly lesson: number;
-}
-
 export type JourneyPart =
   | {
       readonly id: "onboarding";
@@ -107,6 +88,7 @@ export type JourneyPart =
   | {
       readonly accessPending: boolean;
       readonly entries: readonly CatalogEntry[];
+      readonly topics: readonly CatalogueTopic[];
       readonly id: "supplementary";
       readonly kind: "catalog";
       readonly label: string;
@@ -377,11 +359,11 @@ export function ProductJourneyControls({
         {part?.kind === "onboarding" ? (
           part.panel
         ) : part?.kind === "catalog" ? (
-          <MaterialCatalog
+          <ProductMaterialCatalog
             accessPending={part.accessPending}
             currentHref={currentHref}
             entries={part.entries}
-            restoredSlug={selection.explicit ? null : requestedMaterial}
+            topics={part.topics}
           />
         ) : (
           <>
@@ -551,343 +533,6 @@ function partCount(part: JourneyPart): number {
     : part.kind === "materials"
       ? partRows(part).length
       : part.entries.length;
-}
-
-/** Заголовок раздела: на странице видно, что открыты «Материалы». */
-function PartHeading({ title }: { readonly title: string }) {
-  return (
-    <h2 className="text-lg font-semibold tracking-[-0.02em] sm:text-xl">
-      {title}
-    </h2>
-  );
-}
-
-const catalogFormats = [
-  { slug: "", label: "Все" },
-  { slug: "video", label: "Видео" },
-  { slug: "guide", label: "Гайды" },
-  { slug: "note", label: "Заметки" },
-] as const;
-const catalogScopes = [
-  { id: "all", label: "Все" },
-  { id: "programme", label: "Из программы" },
-  { id: "extra", label: "Вне программы" },
-] as const;
-type CatalogScope = (typeof catalogScopes)[number]["id"];
-type CatalogOrder = "new" | "programme";
-
-/** Свежими считаются материалы последней недели: они собраны в группу «Новое» над месяцами. */
-const NEW_MATERIAL_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
-const HOUR_MS = 60 * 60 * 1000;
-/**
- * Граница «Нового» — внешнее значение часов. Сервер и гидрация его не читают и показывают только
- * месяцы; браузер после гидрации берёт границу, округлённую до часа, чтобы снимок был стабилен.
- */
-function readNewMaterialCutoff(): number {
-  return Math.floor(Date.now() / HOUR_MS) * HOUR_MS - NEW_MATERIAL_PERIOD_MS;
-}
-const readServerNewMaterialCutoff = () => null;
-const catalogMonth = new Intl.DateTimeFormat("ru-RU", {
-  month: "long",
-  year: "numeric",
-  timeZone: MOSCOW_TIME_ZONE,
-});
-
-interface CatalogGroup {
-  readonly id: string;
-  readonly title: string;
-  readonly entries: readonly CatalogEntry[];
-}
-
-function orderCatalog(
-  entries: readonly CatalogEntry[],
-  order: CatalogOrder,
-): CatalogEntry[] {
-  if (order === "new")
-    return [...entries].sort((left, right) =>
-      (right.material.publishedAt ?? "").localeCompare(
-        left.material.publishedAt ?? "",
-      ),
-    );
-  // Программа продукта без глав идёт своим порядком, затем главы, а материалы вне программы в
-  // конце, сначала новые.
-  const position = new Map(entries.map((entry, index) => [entry, index]));
-  const sections = ["programme", "chapters", "extra"] as const;
-  const sectionOf = (entry: CatalogEntry) =>
-    entry.place !== null
-      ? "chapters"
-      : entry.inProgramme
-        ? "programme"
-        : "extra";
-  const section = (entry: CatalogEntry) => sections.indexOf(sectionOf(entry));
-  return [...entries].sort((left, right) => {
-    const differences = [
-      section(left) - section(right),
-      (left.place?.chapter ?? 0) - (right.place?.chapter ?? 0),
-      (left.place?.lesson ?? 0) - (right.place?.lesson ?? 0),
-      sectionOf(left) === "extra"
-        ? (right.material.publishedAt ?? "").localeCompare(
-            left.material.publishedAt ?? "",
-          )
-        : (position.get(left) ?? 0) - (position.get(right) ?? 0),
-    ];
-    return differences.find((difference) => difference !== 0) ?? 0;
-  });
-}
-
-function groupCatalog(
-  entries: readonly CatalogEntry[],
-  order: CatalogOrder,
-  newSince: number | null,
-): CatalogGroup[] {
-  const groups = new Map<string, { title: string; entries: CatalogEntry[] }>();
-  for (const entry of entries) {
-    const publishedAt = entry.material.publishedAt;
-    const [id, title] =
-      order === "programme"
-        ? entry.place !== null
-          ? [
-              `chapter-${String(entry.place.chapter)}`,
-              `${chapterLabel(entry.place)}. ${entry.place.chapterName}`,
-            ]
-          : entry.inProgramme
-            ? ["programme", "Программа"]
-            : ["extra", "Вне программы"]
-        : publishedAt === undefined
-          ? ["undated", "Без даты"]
-          : newSince !== null && Date.parse(publishedAt) >= newSince
-            ? ["new", "Новое"]
-            : monthGroup(publishedAt);
-    const group = groups.get(id) ?? { title, entries: [] };
-    group.entries.push(entry);
-    groups.set(id, group);
-  }
-  return [...groups].map(([id, group]) => ({ id, ...group }));
-}
-
-function chapterLabel(place: CatalogPlace): string {
-  return `Глава ${String(place.chapter)}`;
-}
-
-function monthGroup(publishedAt: string): [string, string] {
-  const month = catalogMonth.format(new Date(publishedAt));
-  return [
-    `month-${month}`,
-    month.charAt(0).toLocaleUpperCase("ru") + month.slice(1),
-  ];
-}
-
-/**
- * Каталог материалов продукта: поиск по названию и описанию, фильтр формата и источника. Раскладка
- * повторяет ровную сетку библиотеки (прототип A2, принят владельцем 29.10.2026, #1832): свежие
- * материалы в группе «Новое», дальше месяцы, а по выбору читателя главы программы. Программа
- * остаётся строгим порядком глав в своём разделе.
- */
-function MaterialCatalog({
-  accessPending,
-  currentHref,
-  entries,
-  restoredSlug,
-}: {
-  readonly accessPending: boolean;
-  readonly currentHref: Route;
-  readonly entries: readonly CatalogEntry[];
-  readonly restoredSlug: string | null;
-}) {
-  const [query, setQuery] = useState("");
-  const [format, setFormat] = useState("");
-  const [scope, setScope] = useState<CatalogScope>("all");
-  const [order, setOrder] = useState<CatalogOrder>("new");
-  const newSince = useSyncExternalStore(
-    subscribeToHydration,
-    readNewMaterialCutoff,
-    readServerNewMaterialCutoff,
-  );
-  const needle = query.trim().toLocaleLowerCase("ru");
-  const formats = catalogFormats.filter(
-    (option) =>
-      option.slug === "" ||
-      entries.some((entry) => entry.material.formatSlug === option.slug),
-  );
-  const shown = orderCatalog(
-    entries.filter(
-      (entry) =>
-        (needle === "" ||
-          `${entry.material.title} ${entry.material.summary}`
-            .toLocaleLowerCase("ru")
-            .includes(needle)) &&
-        (format === "" || entry.material.formatSlug === format) &&
-        (scope === "all" || (scope === "programme") === entry.inProgramme),
-    ),
-    order,
-  );
-  const restoredIndex = shown.findIndex(
-    (entry) => entry.material.slug === restoredSlug,
-  );
-  const initialCount = Math.max(
-    PRODUCT_BATCH_SIZE,
-    Math.ceil((restoredIndex + 1) / PRODUCT_BATCH_SIZE) * PRODUCT_BATCH_SIZE,
-  );
-  const source = JSON.stringify([needle, format, scope, order, restoredSlug]);
-  const [reveal, setReveal] = useState({ source, count: initialCount });
-  if (reveal.source !== source) setReveal({ source, count: initialCount });
-  const count = Math.min(
-    shown.length,
-    Math.max(
-      initialCount,
-      reveal.source === source ? reveal.count : initialCount,
-    ),
-  );
-  const groups = groupCatalog(shown.slice(0, count), order, newSince);
-  const chip = (active: boolean) =>
-    cn(
-      "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-9 sm:px-3.5 sm:text-sm",
-      active
-        ? "bg-primary text-primary-foreground"
-        : "bg-muted text-muted-foreground hover:text-foreground",
-    );
-  return (
-    <div data-material-catalog>
-      <PartHeading title="Материалы" />
-      {/* Поиск и фильтры компактные (стандарт шкалы 09.10.2026): поле 40 px, текст ввода 16 px,
-          чтобы iPhone не увеличивал страницу, подсказка мельче. */}
-      <label className="mt-3 flex min-h-10 items-center gap-2 rounded-xl bg-muted px-3 sm:mt-4 sm:min-h-11 sm:gap-2.5 sm:px-3.5">
-        <Search
-          aria-hidden="true"
-          className="size-4 shrink-0 text-muted-foreground"
-        />
-        <span className="sr-only">Поиск по материалам курса</span>
-        <input
-          className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-sm placeholder:text-muted-foreground sm:placeholder:text-base"
-          onChange={(event) => {
-            setQuery(event.currentTarget.value);
-          }}
-          placeholder="Найти материал"
-          type="search"
-          value={query}
-        />
-      </label>
-      {/* Фильтры — один ряд: на узком экране он прокручивается вбок, а не растёт вниз. */}
-      <div className="public-horizontal-rail -mx-4 mt-2.5 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:mt-3 sm:flex-wrap sm:overflow-visible sm:px-0">
-        <div
-          aria-label="Формат материала"
-          className="flex shrink-0 gap-1.5"
-          role="group"
-        >
-          {formats.map((option) => (
-            <button
-              aria-pressed={format === option.slug}
-              className={chip(format === option.slug)}
-              key={option.slug}
-              onClick={() => {
-                setFormat(option.slug);
-              }}
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-        <span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
-        <div
-          aria-label="Откуда материал"
-          className="flex shrink-0 gap-1.5"
-          role="group"
-        >
-          {catalogScopes.slice(1).map((option) => (
-            <button
-              aria-pressed={scope === option.id}
-              className={chip(scope === option.id)}
-              key={option.id}
-              onClick={() => {
-                setScope(scope === option.id ? "all" : option.id);
-              }}
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-3 sm:mt-4">
-        <p
-          aria-live="polite"
-          className="text-xs text-muted-foreground sm:text-sm"
-        >
-          {shown.length === entries.length
-            ? formatMaterialCount(entries.length)
-            : `Найдено: ${formatMaterialCount(shown.length)}`}
-        </p>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground sm:text-sm">
-          <span>Порядок</span>
-          <select
-            className="h-11 min-h-11 rounded-lg bg-muted px-2 text-base font-semibold text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:h-auto sm:min-h-8 sm:text-sm"
-            onChange={(event) => {
-              setOrder(
-                event.currentTarget.value === "programme" ? "programme" : "new",
-              );
-            }}
-            value={order}
-          >
-            <option value="new">Сначала новые</option>
-            <option value="programme">По программе</option>
-          </select>
-        </label>
-      </div>
-      {shown.length === 0 ? (
-        <p className="py-10 text-sm leading-6 text-muted-foreground">
-          {entries.length === 0
-            ? "Здесь появятся материалы курса."
-            : "Ничего не нашлось. Попробуй другой запрос или сними фильтры."}
-        </p>
-      ) : (
-        <div aria-label="Материалы курса" role="region">
-          {groups.map((group) => (
-            <section className="mt-7 first:mt-4" key={group.id}>
-              <h3 className="mb-3 text-sm font-semibold">{group.title}</h3>
-              <ul className="grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-2">
-                {group.entries.map((entry) => (
-                  <li
-                    className="min-w-0"
-                    data-route-material={entry.material.slug}
-                    key={entry.material.slug}
-                  >
-                    <MaterialCard
-                      accessPending={accessPending}
-                      headingLevel="h4"
-                      material={entry.material}
-                      readerContext={{ referenceView: true }}
-                      returnHref={catalogReaderReturnHref(
-                        currentHref,
-                        entry.material.slug,
-                      )}
-                      {...(entry.place === null
-                        ? {}
-                        : {
-                            rowAnnotation: `${chapterLabel(entry.place)} · урок ${String(entry.place.lesson)}`,
-                          })}
-                      variant="library"
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      )}
-      {count < shown.length ? (
-        <Button
-          className="mt-5 min-h-11"
-          onClick={() => {
-            setReveal({ source, count: count + PRODUCT_BATCH_SIZE });
-          }}
-          variant="outline"
-        >
-          Показать ещё материалы
-        </Button>
-      ) : null}
-    </div>
-  );
 }
 
 const partIcons: Readonly<Record<JourneyPart["id"], LucideIcon>> = {

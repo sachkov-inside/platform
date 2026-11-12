@@ -167,6 +167,12 @@ _Avoid_: Product introduction, landing copy in code, presentation chosen by addr
 An optional named group in a Product's main path, without owning copies of Materials.
 _Avoid_: Video chapter, Material, separately purchased Product
 
+**Product Topic**:
+A named shelf of one Product's Material catalogue, ordered by the author. A Material of the Product
+Catalogue belongs to at most one Product Topic of that Product, independent of chapters and of its
+global Topic. In Russian product language: «Тема курса».
+_Avoid_: Topic, Product Chapter, collection, playlist
+
 **Product Introduction**:
 The author's own answer, on the Product, to what a reader will be able to do, who the Product is
 written for, what they need beforehand and what it leaves outside. It is separate from access
