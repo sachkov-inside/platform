@@ -37,6 +37,7 @@ interface в #243, для будущей одноразовой настройк
 | `infra/production/host/install-caddy.sh` | Официальный amd64 пакет Caddy с закреплёнными версией и SHA-256 |
 | `infra/production/host/inside-deploy` | Root-owned gateway для двух допустимых forced SSH commands |
 | `infra/production/host/configure-deploy-key.sh` | Идемпотентная установка одного ограниченного deployment key |
+| `infra/production/host/journald-size.conf` | Предел журнала systemd 500 МБ |
 | `config/production/foundation/*.env.example` | Шаблоны конфигурации и секретов без реальных значений |
 | `infra/production/database/` | Долгоживущий PostgreSQL 18 + pgBackRest, backup timers и restore entrypoint |
 | `infra/production/logto/` | Отдельный долгоживущий Logto stack |
@@ -78,6 +79,9 @@ sudo infra/production/host/provision-host.sh
    зеркала на работающем сервере применяется `systemctl reload docker` без перезапуска
    контейнеров; проверка — `docker info --format '{{json .RegistryConfig.Mirrors}}'`. Тот же файл
    ограничивает журналы контейнеров, см. [ротацию журналов](#ротация-журналов-контейнеров).
+8. Устанавливает `/etc/systemd/journald.conf.d/inside-size.conf` из `journald-size.conf` и
+   перезапускает `systemd-journald`: журнал systemd занимает не больше 500 МБ, см.
+   [предел журнала systemd](#предел-журнала-systemd).
 
 Скрипт не определяет размер VPS, не создаёт SSH key, DNS, buckets или credentials, не запускает
 PostgreSQL/Logto и не включает backup timers. Эти решения и действия выполняются в #244. После
@@ -134,6 +138,25 @@ Logto и контейнеры Telegram. Поэтому production Compose-фай
    В каждой строке ожидаются `"max-size":"20m"` и `"max-file":"5"`. Контейнер без них ещё не
    пересоздан.
 
+## Предел журнала systemd
+
+Без настройки journald хранит до 10% диска, но не больше 4 ГБ, на том же диске, что и база.
+`journald-size.conf` ограничивает журнал 500 МБ (`SystemMaxUse=500M`); старые записи удаляются
+первыми. На production предел поставлен вручную 12.11.2026 при очистке диска, тем же файлом.
+
+На работающем сервере без повторной подготовки:
+
+```bash
+sudo install -d -m 755 /etc/systemd/journald.conf.d
+sudo install -m 644 infra/production/host/journald-size.conf /etc/systemd/journald.conf.d/inside-size.conf
+sudo systemctl restart systemd-journald.service
+systemd-analyze cat-config systemd/journald.conf | grep '^SystemMaxUse='
+journalctl --disk-usage
+```
+
+Перезапуск journald не останавливает приложения и контейнеры: журналы контейнеров пишет Docker в
+свои файлы.
+
 ## Очистка старых application images
 
 `infra/production/host/inside-image-cleanup.py` управляет только immutable references образов
@@ -175,6 +198,8 @@ sudo journalctl -u inside-image-cleanup.service --no-pager
 sudo systemctl list-timers inside-image-cleanup.timer
 df -h /
 ```
+
+На production timer включён 12.11.2026: первый запуск удалил 77 образов и освободил 25,7 ГБ.
 
 Перезапуск приложения, Docker и сервера не нужен; планового перерыва в работе нет. Timer запускает
 очистку ежедневно в 04:30–05:00 UTC; `Persistent=true` восполняет пропущенный запуск. Неактивные

@@ -59,6 +59,11 @@ const hostLogs = {
   },
 };
 
+const hostJournal = {
+  dropIn: read("infra/production/host/journald-size.conf"),
+  provisioning: read("infra/production/host/provision-host.sh"),
+};
+
 describe("production foundation architecture contract", () => {
   it("pulls Docker Hub images through the public mirror configured by provisioning", () => {
     assert.deepEqual(hostLogs.daemon["registry-mirrors"], [
@@ -67,6 +72,29 @@ describe("production foundation architecture contract", () => {
     assert.match(
       read("infra/production/host/provision-host.sh"),
       /install -m 644 "\$script_dir\/docker-daemon\.json" \/etc\/docker\/daemon\.json/u,
+    );
+  });
+
+  it("caps the systemd journal through a drop-in installed by provisioning", () => {
+    assertJournalCap(hostJournal);
+  });
+
+  it("rejects a journal drop-in without the size limit", () => {
+    assert.throws(
+      () => assertJournalCap({ ...hostJournal, dropIn: "[Journal]\n" }),
+      /journal drop-in must cap the systemd journal/u,
+    );
+  });
+
+  it("rejects provisioning that installs the journal cap without applying it", () => {
+    const provisioning = hostJournal.provisioning.replace(
+      "systemctl restart systemd-journald.service\n",
+      "",
+    );
+
+    assert.throws(
+      () => assertJournalCap({ ...hostJournal, provisioning }),
+      /provisioning must install and apply the journal cap/u,
     );
   });
 
@@ -206,6 +234,21 @@ describe("production foundation architecture contract", () => {
     );
   });
 });
+
+// The journal shares the disk with the database; provisioning installs and applies the cap.
+/** @param {typeof hostJournal} journal */
+function assertJournalCap({ dropIn, provisioning }) {
+  assert.equal(
+    dropIn,
+    "[Journal]\nSystemMaxUse=500M\n",
+    "journal drop-in must cap the systemd journal",
+  );
+  assert.match(
+    provisioning,
+    /install -d -m 755 \/etc\/systemd\/journald\.conf\.d\ninstall -m 644 "\$script_dir\/journald-size\.conf" \/etc\/systemd\/journald\.conf\.d\/inside-size\.conf\n(?:.*\n)*?systemctl restart systemd-journald\.service\n/u,
+    "provisioning must install and apply the journal cap",
+  );
+}
 
 // Docker fixes the log options when it creates a container, so one host default covers Platform,
 // foundation and Telegram containers alike; a service-level `logging` would silently opt out.
