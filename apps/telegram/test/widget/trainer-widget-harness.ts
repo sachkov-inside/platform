@@ -1,9 +1,28 @@
+import { fileURLToPath } from "node:url";
+
 import { buildTrainerWidgetHtml } from "../../scripts/trainer-widget/build.js";
 
 // A stand-in for the Telegram app around the widget, after the guide's "A first look in a
 // browser": the chat palette as CSS variables, the app's default text style, and a
 // TelegramWidget object whose request() answers from a queue the test fills.
 // A browser is not a Telegram app: it enforces no widget limit and draws with its own fonts.
+
+/**
+ * Launch options for the browsers of the widget checks. On Linux the default sans font is pinned
+ * through `fonts.conf` beside this file (#2026): the layout checks measure one font everywhere
+ * instead of whatever the machine has installed.
+ */
+export function widgetBrowserLaunchOptions(): {
+  readonly env?: Record<string, string | undefined>;
+} {
+  if (process.platform !== "linux") return {};
+  return {
+    env: {
+      ...process.env,
+      FONTCONFIG_FILE: fileURLToPath(new URL("fonts.conf", import.meta.url)),
+    },
+  };
+}
 
 export type WidgetTheme = "light" | "dark";
 

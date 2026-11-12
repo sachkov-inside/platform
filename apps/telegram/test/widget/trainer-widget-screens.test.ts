@@ -35,6 +35,7 @@ import {
   splitLength,
   trainerWidgetPage,
   wideText,
+  widgetBrowserLaunchOptions,
 } from "./trainer-widget-harness.js";
 
 // The built widget in Chromium with a stand-in TelegramWidget. It proves layout and behaviour
@@ -195,8 +196,8 @@ let browser: Browser;
 let webkitBrowser: Browser;
 
 beforeAll(async () => {
-  browser = await chromium.launch();
-  webkitBrowser = await webkit.launch();
+  browser = await chromium.launch(widgetBrowserLaunchOptions());
+  webkitBrowser = await webkit.launch(widgetBrowserLaunchOptions());
 });
 afterAll(async () => {
   await browser.close();
