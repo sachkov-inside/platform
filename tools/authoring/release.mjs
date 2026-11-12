@@ -45,7 +45,7 @@ import {
   normalizeSourceIds,
   pendingOperations,
   publicationConflict,
-  publicationKept,
+  keepsUnpublished,
   publicationPolicy,
   publishOption,
   targetPublication,
@@ -342,8 +342,10 @@ export async function previewRelease(
       current.publicationState,
       entry,
     );
-    // An unpublished Material stays as the target holds it unless the release publishes it.
-    if (publicationKept(currentPublication, item.publication)) {
+    // An unpublished Material stays as the target holds it unless the release publishes it. The
+    // journal version and the Content commit are not compared: both guard an overwrite, and apply
+    // writes nothing to a kept Material. The target version pinned above catches drift instead.
+    if (keepsUnpublished(currentPublication, item.publication)) {
       materials.push({
         ...item,
         change: "kept",
@@ -1100,7 +1102,7 @@ if (
       accessToken: sessionFor(reviewed.target),
     });
     process.stdout.write(
-      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, products: report.products, tasks: report.tasks ?? [] }, null, 2)}\n`,
+      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, kept: "kept" in report ? (report.kept ?? 0) : 0, archived: report.archived, products: report.products, tasks: report.tasks ?? [] }, null, 2)}\n`,
     );
   } else {
     throw new Error(

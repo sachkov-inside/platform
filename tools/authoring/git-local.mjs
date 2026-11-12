@@ -173,6 +173,7 @@ if (
         packageId: report.packageId,
         applied: report.applied,
         unchanged: report.unchanged,
+        kept: report.kept ?? 0,
         products: report.products,
         archived: report.archived,
         archiveProposals: report.archiveProposals,

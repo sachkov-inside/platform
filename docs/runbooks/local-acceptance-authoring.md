@@ -87,7 +87,8 @@ one is already published: it neither takes a public Material back nor replaces i
 (Platform itself never returns a Material to draft). A Material the target holds unpublished is kept
 exactly as it is: no publication, body, metadata, video or cover write, while the Product composition
 still lists it by its target id. The report names it with `publicationState: "unpublished"` and the
-notice `material_kept_unpublished`; `--publish SOURCE_ID` publishes it. An interrupted transfer that was
+notice `material_kept_unpublished`, and the report's `kept` counts it; `--publish SOURCE_ID`
+publishes it. An interrupted transfer that was
 publishing a Material resumes only when the next run carries the same approval. A Product artifact declared only by private drafts
 waits for a published owner, a practice of a private lesson is imported unpublished, and a published
 body that links a private draft is reported as `link_to_draft`. A private draft that leaves the
@@ -123,7 +124,9 @@ shows its `publication`, a `publicationChange` from draft to published, or the c
 `target_not_draft` for a private import of a published Material. A Material the target holds
 unpublished and the release does not publish shows `change: "kept"` with
 `publicationKept: "unpublished"`; it is no conflict, `summary.kept` counts it, and its target version
-is part of the fingerprint, so a body edit or a publication after the preview stops `apply`. The approval is part of the preview,
+is part of the fingerprint, so a body edit or a publication after the preview stops `apply` before
+its first new write. One exception: such a Material missing from this state directory's journal
+shows as `new` (with `coverChange` when it has a cover), while `apply` still leaves it alone. The approval is part of the preview,
 so `apply` publishes exactly what was reviewed. A Material missing from this state directory's
 journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
 checks its real state before any write.

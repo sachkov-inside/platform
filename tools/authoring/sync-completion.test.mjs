@@ -1744,6 +1744,9 @@ test("a private release keeps an unpublished Material as the target holds it and
   await setup.write();
   const report = await run(setup, api, { publish: [] });
   assert.deepEqual(valueAt(api.materials, "inside-content:old"), before);
+  assert.equal(report.kept, 1);
+  assert.equal(report.applied, 1);
+  assert.equal(report.unchanged, 1);
   assert.equal(
     report.materials.find((item) => item.sourceId === "old")?.publicationState,
     "unpublished",
