@@ -42,8 +42,9 @@ Take it before any server `operation.lock` a runbook asks for. Read-only work ru
    - the owner's permission: quote and time;
    - the plan: workflows, server steps and their order;
    - the expected downtime and the rollback.
-4. Repeat the Issue list. With two open locks, the lower number holds production; the other session
-   closes its own lock with a link to the holder and waits.
+4. Wait 30 seconds, then repeat the Issue list: a new Issue reaches the label list only after a few
+   seconds. With two open locks, the lower number holds production; the other session closes its
+   own lock with a link to the holder and waits.
 
 ## Announce
 
