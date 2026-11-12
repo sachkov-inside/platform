@@ -263,6 +263,11 @@ in the built widget at 320 and 390 px and reports, by question identifier and in
 whether its context, question and longest explanation fit; the
 [Bank file contract](docs/integrations/trainer-bank-v1.md) describes the output.
 
+The ИИ-модели widget follows the same rules. Its source is `src/modules/ai-models/widget/widget.css`
+and `widget.js`; `pnpm --filter @inside/telegram ai-models:widget:build` rebuilds
+`ai-models-widget-html.generated.ts` and prints its size. `pnpm check` fails when that module is
+stale or too large, and `test:widget` opens it in Chromium too.
+
 For an interactive local review of the actual widget and Trainer with a disposable synthetic Bank,
 run `pnpm --filter @inside/telegram trainer:review`. See the
 [acceptance guide](docs/operations/trainer-acceptance.md) for the walkthrough and remaining phone checks.

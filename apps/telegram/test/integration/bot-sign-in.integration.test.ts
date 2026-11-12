@@ -49,6 +49,7 @@ import type {
   TelegramTextMessage,
 } from "../../src/modules/outbound/telegram-messages.js";
 import { Trainer } from "../../src/modules/trainer/trainer.js";
+import { AiModels } from "../../src/modules/ai-models/ai-models.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { TelegramUpdateInbox } from "../../src/modules/update-inbox/telegram-update-inbox.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
@@ -899,6 +900,7 @@ describe("bot sign-in provider", () => {
         application.get(LinkProfiles),
         application.get(CommunityMessages),
         application.get(Trainer),
+        application.get(AiModels),
       );
       expect(await processor.processAvailable()).toBe(2);
       expect(claim.mock.calls[0]?.[0]).toEqual(current);

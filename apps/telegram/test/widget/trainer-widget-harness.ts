@@ -64,6 +64,8 @@ export interface WidgetPageOptions {
   readonly documentMode?: "standards" | "quirks";
   /** Draw with the fixed test font instead of the machine's fonts (#2026). */
   readonly fixedFont?: boolean;
+  /** Answers queued before the widget's script runs, for the requests it makes at start. */
+  readonly answers?: readonly string[];
 }
 
 const palettes: Record<WidgetTheme, Record<string, string>> = {
@@ -81,7 +83,13 @@ const palettes: Record<WidgetTheme, Record<string, string>> = {
   },
 };
 
-export async function trainerWidgetPage(
+export function trainerWidgetPage(options: WidgetPageOptions): Promise<string> {
+  return widgetPage(buildTrainerWidgetHtml(), options);
+}
+
+/** A page with the built HTML of any widget of the bot inside the stand-in Telegram app. */
+export async function widgetPage(
+  widgetHtml: Promise<string>,
   options: WidgetPageOptions,
 ): Promise<string> {
   const theme = options.theme ?? "light";
@@ -90,7 +98,7 @@ export async function trainerWidgetPage(
     .map(([key, value]) => `--tg-theme-${key}:${value}`)
     .join(";");
   const [html, fonts] = await Promise.all([
-    buildTrainerWidgetHtml(),
+    widgetHtml,
     options.fixedFont === true ? fixedFontLoader() : "",
   ]);
   return `${options.documentMode === "quirks" ? "" : "<!doctype html>"}<html lang="ru"><head><meta charset="utf-8">
@@ -102,7 +110,7 @@ ${options.fixedFont === true ? `body,#w,#w *{font-family:${JSON.stringify(FIXED_
 <script>
 ${fonts}
 window.widgetRequests = [];
-window.widgetAnswers = [];
+window.widgetAnswers = ${JSON.stringify(options.answers ?? [])};
 window.widgetEvents = {};
 window.TelegramWidget = {
   profile: 1, isProfileAtLeast: (n) => n <= 1, colorScheme: ${JSON.stringify(theme)}, themeParams: {}, isActive: true,

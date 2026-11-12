@@ -377,7 +377,7 @@ async function pressButton(code: string) {
 
 describe("ordinary /start", () => {
   it.each([false, true])(
-    "offers the public Trainer without checking course membership (linked: %s)",
+    "offers the public Trainer and ИИ-модели without checking course membership (linked: %s)",
     async (linked) => {
       const user = linked ? (await linkedPerson()).user : ++nextUser;
       await send(user);
@@ -393,6 +393,15 @@ describe("ordinary /start", () => {
             (button) =>
               button.text === "Тренажёр" &&
               button.callbackData === "trainer:open",
+          ),
+        ),
+      ).toBe(true);
+      expect(
+        menus.some((menu) =>
+          (menu.buttons ?? []).some(
+            (button) =>
+              button.text === "ИИ-модели" &&
+              button.callbackData === "ai-models:open",
           ),
         ),
       ).toBe(true);

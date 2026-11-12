@@ -16,6 +16,7 @@ import {
   type TelegramWidgetAnswer,
   type TelegramWidgetMessage,
 } from "../../src/modules/outbound/telegram-messages.js";
+import { TELEGRAM_CALLBACK_ANSWERS } from "../../src/modules/bot-sign-in/telegram-callback-answers.js";
 import { TrainerBank } from "../../src/modules/trainer/trainer-bank.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { virtualTestClock } from "./fixed-clock.js";
@@ -29,9 +30,9 @@ import {
   type SyntheticBank,
 } from "./synthetic-trainer-bank.js";
 
-// The whole bot with the Trainer for a test file of its own: synthetic Telegram updates go in
-// through the webhook, and the test reads what the bot handed to Telegram. The file that uses
-// it registers the fixed clock and owns the database connection.
+// The whole bot with the Trainer and ИИ-модели for a test file of its own: synthetic Telegram
+// updates go in through the webhook, and the test reads what the bot handed to Telegram. The
+// file that uses it registers the fixed clock and owns the database connection.
 
 const WEBHOOK_SECRET = "synthetic_secret";
 
@@ -73,13 +74,21 @@ class RecordedMessages implements TelegramMessages {
   readonly widgets: TelegramWidgetMessage[] = [];
   readonly answers: TelegramWidgetAnswer[] = [];
   readonly texts: TelegramTextMessage[] = [];
+  /** Results of the next widget sends; a send beyond the list is delivered. */
+  readonly widgetResults: (TelegramDeliveryResult | Error)[] = [];
+  /** Presses of inline buttons the bot acknowledged, by callback query id. */
+  readonly callbackAnswers: string[] = [];
 
   sendWidget(message: TelegramWidgetMessage): Promise<TelegramDeliveryResult> {
     this.widgets.push(message);
-    return Promise.resolve({
-      kind: "delivered",
-      providerMessageId: String(7000 + this.widgets.length),
-    });
+    const result = this.widgetResults.shift();
+    if (result instanceof Error) return Promise.reject(result);
+    return Promise.resolve(
+      result ?? {
+        kind: "delivered",
+        providerMessageId: String(7000 + this.widgets.length),
+      },
+    );
   }
 
   answerWidgetQuery(answer: TelegramWidgetAnswer): Promise<void> {
@@ -103,6 +112,8 @@ class RecordedMessages implements TelegramMessages {
     this.widgets.length = 0;
     this.answers.length = 0;
     this.texts.length = 0;
+    this.widgetResults.length = 0;
+    this.callbackAnswers.length = 0;
   }
 }
 
@@ -188,10 +199,14 @@ export async function clearTrainerData(database: Database): Promise<void> {
 let nextUserId = 1_999_000;
 let nextUpdateId = 1_999_000_000;
 export const newUser = () => (nextUserId += 1);
+/** A Telegram update id no other update of the test run has. */
+export const newUpdateId = () => (nextUpdateId += 1);
 
 export interface TrainerBot {
   readonly application: NestFastifyApplication;
   readonly messages: RecordedMessages;
+  /** Telegram delivers this update; the bot stores it and one worker pass handles it. */
+  readonly receive: (payload: unknown) => Promise<void>;
   /** The person sends a text to the bot. */
   readonly say: (userId: number, text: string) => Promise<void>;
   /**
@@ -221,6 +236,13 @@ export async function startTrainerBot(
   })
     .overrideProvider(TELEGRAM_MESSAGES)
     .useValue(messages)
+    .overrideProvider(TELEGRAM_CALLBACK_ANSWERS)
+    .useValue({
+      answer: (id: string) => {
+        messages.callbackAnswers.push(id);
+        return Promise.resolve();
+      },
+    })
     .compile();
   const application = module.createNestApplication<NestFastifyApplication>(
     new FastifyAdapter(),
@@ -252,7 +274,7 @@ export async function startTrainerBot(
     vi.setSystemTime(Date.now() + 2000);
     const answersBefore = messages.answers.length;
     await receive(
-      widgetQueryUpdate((nextUpdateId += 1), userId, data, names.get(userId)),
+      widgetQueryUpdate(newUpdateId(), userId, data, names.get(userId)),
     );
     const answer = messages.answers.at(answersBefore);
     if (!answer) throw new Error(`The bot did not answer the press ${data}`);
@@ -262,8 +284,9 @@ export async function startTrainerBot(
   return {
     application,
     messages,
+    receive,
     say: (userId, text) =>
-      receive(privateStartUpdate((nextUpdateId += 1), userId, { text })),
+      receive(privateStartUpdate(newUpdateId(), userId, { text })),
     tap,
     rename: (userId, firstName, lastName) => {
       names.set(userId, {

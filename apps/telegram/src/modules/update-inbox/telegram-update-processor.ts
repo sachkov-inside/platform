@@ -23,6 +23,7 @@ import {
 import { IdentityLinking } from "../identity-linking/identity-linking.js";
 import { LinkProfiles } from "../identity-linking/link-profiles.js";
 import { Trainer } from "../trainer/trainer.js";
+import { AiModels } from "../ai-models/ai-models.js";
 import {
   reportCondition,
   reportFailure,
@@ -55,8 +56,14 @@ interface UserRequest {
   readonly telegramUserId: string;
   readonly privateChatId: string;
   readonly callbackQueryId?: string | undefined;
-  /** A press inside a widget: a refusal is answered in the widget, never in the chat. */
-  readonly widgetQueryId?: string | undefined;
+  /** A press inside a widget: a refusal is answered in that widget, never in the chat. */
+  readonly widgetQuery?: WidgetQuery | undefined;
+}
+
+/** A press inside a widget and the section whose widget sent it. */
+interface WidgetQuery {
+  readonly id: string;
+  readonly section: "trainer" | "ai-models";
 }
 
 @Injectable()
@@ -92,6 +99,8 @@ export class TelegramUpdateProcessor {
     private readonly communityMessages: Pick<CommunityMessages, "capture">,
     @Inject(Trainer)
     private readonly trainer: Pick<Trainer, "open" | "answer" | "refuse">,
+    @Inject(AiModels)
+    private readonly aiModels: Pick<AiModels, "open" | "answer" | "refuse">,
   ) {
     // Counted by webhook arrival, so a backlog after a processing delay is not refused.
     this.senderLimit = new SenderRateLimit(
@@ -168,8 +177,10 @@ export class TelegramUpdateProcessor {
     if (hasText(request.callbackQueryId))
       await this.callbackAnswers.answer(request.callbackQueryId);
     // A widget waits for an answer to every press, so each refused press gets one.
-    if (hasText(request.widgetQueryId))
-      return this.trainer.refuse(request.widgetQueryId);
+    if (request.widgetQuery)
+      return request.widgetQuery.section === "ai-models"
+        ? this.aiModels.refuse(request.widgetQuery.id)
+        : this.trainer.refuse(request.widgetQuery.id);
     if (admission === "notify")
       await this.replies.enqueue({
         botIdentity: update.botIdentity,
@@ -251,6 +262,15 @@ export class TelegramUpdateProcessor {
       case "trainer-query":
         await this.botContacts.observeStart(command.value.contact, "none");
         return this.trainer.answer(command.value);
+      case "ai-models-open":
+        await this.botContacts.observeStart(command.value.contact, "none");
+        await this.aiModels.open(command.value);
+        if (hasText(command.callbackQueryId))
+          await this.callbackAnswers.answer(command.callbackQueryId);
+        return;
+      case "ai-models-query":
+        await this.botContacts.observeStart(command.value.contact, "none");
+        return this.aiModels.answer(command.value);
       case "ignored":
         return;
       default:
@@ -356,6 +376,8 @@ function senderOf(
     case "start":
     case "trainer-open":
     case "trainer-query":
+    case "ai-models-open":
+    case "ai-models-query":
       return command.value.contact;
     case "sign-in-decision":
     case "author-input":
@@ -392,6 +414,7 @@ function userRequest(command: TelegramUpdateCommand): UserRequest | undefined {
     case "start":
       return contactOf(command.value.contact);
     case "trainer-open":
+    case "ai-models-open":
       return {
         ...contactOf(command.value.contact),
         callbackQueryId: command.callbackQueryId,
@@ -399,7 +422,12 @@ function userRequest(command: TelegramUpdateCommand): UserRequest | undefined {
     case "trainer-query":
       return {
         ...contactOf(command.value.contact),
-        widgetQueryId: command.value.queryId,
+        widgetQuery: { id: command.value.queryId, section: "trainer" },
+      };
+    case "ai-models-query":
+      return {
+        ...contactOf(command.value.contact),
+        widgetQuery: { id: command.value.queryId, section: "ai-models" },
       };
     case "community-request":
     case "template-intake":

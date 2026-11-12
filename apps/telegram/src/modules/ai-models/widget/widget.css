@@ -1,0 +1,88 @@
+/*
+ * ИИ-модели widget: the Trainer's warm paper, orange accents, ink outlines and crisp offset
+ * shadows, system font. Compact class names keep the widget within the 4 096-byte compressed
+ * limit; the build strips these comments.
+ * Names must remain distinct after lowercasing: some clients embed the widget in quirks mode.
+ *
+ * Only features of widget profile 1 are allowed (https://core.telegram.org/bots/widgets):
+ * no color-mix(), no vh, no :has(), no nesting, no scrolling, no named fonts, no text-shadow.
+ * Mute with colour, never with opacity: at most 16 elements may have opacity below 1.
+ */
+
+/* Colours: --a accent, --d its darker border and every shadow, --s card surface, --h hint text,
+   --p paper and the text on the accent, --v ink. */
+body {
+  margin: 0;
+  /* Quirks-mode body blocks otherwise grow to the client's viewport, leaving empty space. */
+  display: inline-block;
+  width: 100%;
+  vertical-align: top;
+  /* The band of the message time: the message has no caption below the widget. */
+  padding: 0 0
+    var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom));
+  --a: #c7461e;
+  --d: #8b3115;
+  --s: #ffefdc;
+  --h: #80513b;
+  --p: #fff8ef;
+  --v: #472719;
+  background: var(--p);
+  color: var(--v);
+}
+* {
+  box-sizing: border-box;
+}
+
+/* #w is the only root. Every screen is a column of blocks with one gap. */
+#w {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px 12px 12px;
+  font:
+    var(--tg-text-font-size, 15px) / 1.35 system-ui,
+    sans-serif;
+}
+/* .wt: a request to the bot is in flight. */
+.wt {
+  opacity: 0.5;
+  pointer-events: none;
+}
+button {
+  display: block;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+/* .U title, .mu muted text. */
+.U {
+  font-size: 1.4em;
+  font-weight: 800;
+  color: var(--a);
+}
+.mu {
+  color: var(--h);
+}
+
+/* .bt button; .P primary. */
+.bt {
+  border: 2px solid var(--v);
+  border-radius: 8px;
+  background: var(--s);
+  box-shadow: 4px 4px 0 var(--d);
+  padding: 7px 10px;
+  min-height: 44px;
+  font-weight: 700;
+  text-align: center;
+}
+.P {
+  background: var(--a);
+  border-color: var(--d);
+  color: var(--p);
+}

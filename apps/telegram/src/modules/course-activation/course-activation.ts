@@ -1,5 +1,6 @@
 import { StartResponseDeliveryProcessor } from "../outbound/start-response-delivery-processor.js";
 import { TRAINER_MENU_BUTTON } from "../trainer/trainer-requests.js";
+import { AI_MODELS_MENU_BUTTON } from "../ai-models/ai-models-requests.js";
 import {
   productList,
   productCard,
@@ -326,6 +327,7 @@ export class CourseActivation {
         ),
         buttons: [
           TRAINER_MENU_BUTTON,
+          AI_MODELS_MENU_BUTTON,
           { text: "Открыть платформу", url: "https://sachkov.dev" },
           {
             text: "Уже есть аккаунт",
@@ -436,7 +438,9 @@ export class CourseActivation {
     return {
       text: "Не удалось проверить доступ. Попробуйте ещё раз.",
       buttons: [
-        ...(action === "own" ? [TRAINER_MENU_BUTTON] : []),
+        ...(action === "own"
+          ? [TRAINER_MENU_BUTTON, AI_MODELS_MENU_BUTTON]
+          : []),
         { text: "Повторить", callbackData: retry },
         {
           text: "Помощь",

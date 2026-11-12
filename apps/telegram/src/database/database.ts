@@ -8,6 +8,7 @@ import type { IdentityTables } from "../modules/identity-linking/identity-storag
 import type { ActivationTables } from "../modules/course-activation/activation-storage.js";
 import type { TelegramButton } from "../modules/outbound/telegram-messages.js";
 import type { TrainerTables } from "../modules/trainer/trainer-storage.js";
+import type { AiModelsTables } from "../modules/ai-models/ai-models-storage.js";
 import type { SalesFunnelTables } from "../modules/sales-funnel/sales-funnel-storage.js";
 import type { CommunityTables } from "../modules/community/community-storage.js";
 import type { NotificationTables } from "../modules/notifications/notification-storage.js";
@@ -323,7 +324,8 @@ export interface DatabaseSchema
     NotificationTables,
     CommunityTables,
     SalesFunnelTables,
-    TrainerTables {
+    TrainerTables,
+    AiModelsTables {
   communication_native_copies: {
     archive_id: string;
     bot_identity: string;

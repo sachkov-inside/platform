@@ -159,6 +159,9 @@ const currentTableOwners = {
   trainer_question_reactions: "trainer",
   trainer_rounds: "trainer",
   trainer_topics: "trainer",
+  ai_models_card_views: "ai-models",
+  ai_models_openings: "ai-models",
+  ai_models_references: "ai-models",
 } satisfies Record<keyof DatabaseSchema, string>;
 
 it("accepts current table owners and transaction handoff without foreign table access", () => {
