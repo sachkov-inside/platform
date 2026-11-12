@@ -721,7 +721,10 @@ export async function syncLocal(
     throw new Error("A Product shell release never archives Materials");
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
-  assertReceiverContract(environment, pkg.manifest);
+  const { packageFeatures: receiverFeatures } = assertReceiverContract(
+    environment,
+    pkg.manifest,
+  );
   const preservedLegacyTasks = await assertLegacyTaskTargets(pkg, send);
   const publicationOfKey = publicationPolicy(pkg.manifest, publish);
   /** @param {Pick<ManifestMaterial, "sourceId">} row */
@@ -1540,7 +1543,11 @@ export async function syncLocal(
         const images = new Map();
         for (const assetId of materialImageAssetIds(row)) {
           const asset = valueAt(assets, assetId);
-          const upload = await imageUpload(await readAsset(asset), asset);
+          const upload = await imageUpload(
+            await readAsset(asset),
+            asset,
+            receiverFeatures,
+          );
           const imageKey = `image:${current.materialId}:${upload.asset.sha256}`;
           let uploaded = parseReceipt(
             assetReceiptSchema,
@@ -1879,7 +1886,8 @@ export async function syncLocal(
       report.tasks = await syncSourceTasks(pkg.manifest, context, request, {
         preservedLegacyTasks,
         productIdOf: (id) => valueAt(products, id).id,
-        pageOf: (task) => importTaskPage(pkg, task, context, request, links),
+        pageOf: (task) =>
+          importTaskPage(pkg, task, context, request, links, receiverFeatures),
         selected: (key) => publicationOfKey(key) === "published",
       });
 

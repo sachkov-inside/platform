@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="401" viewBox="0 0 720 401" fill="none" role="img" aria-labelledby="t d">
+<title id="t">Инструкция и права агента</title>
+<desc id="d">Инструкция в скилле ship объясняет агенту, что PR сливает человек, но технически не мешает слиянию. Если у агента нет права сливать в main, слияние недоступно, и PR ждёт решения человека.</desc>
+<defs><style>
+.eb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px;letter-spacing:1.1px}
+.t{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;font-weight:500}
+.s{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:12.5px}
+.d{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px}
+.m{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12px}
+.mb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12.5px}
+.ms{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px}
+.mt{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;font-weight:500}
+.p{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11.5px;font-weight:500}
+.b{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11px;font-weight:600}
+.big{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:22px;font-weight:500;letter-spacing:-0.3px}
+@keyframes a-fade{from{opacity:0}}
+@keyframes a-rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes a-pop{from{opacity:0;transform:scale(.6)}}
+@keyframes a-draw{from{stroke-dashoffset:1}}
+@keyframes a-grow{from{transform:scaleY(0)}}
+@keyframes a-dim{to{opacity:.45}}
+.a-fade{animation:a-fade .4s ease-out both}
+.a-rise{animation:a-rise .5s cubic-bezier(.2,.8,.2,1) both}
+.a-pop{transform-box:fill-box;transform-origin:50% 50%;animation:a-pop .3s cubic-bezier(.2,.8,.2,1) both}
+.a-draw{stroke-dasharray:1;animation:a-draw .4s ease-out both}
+.a-grow{transform-box:fill-box;transform-origin:50% 0;animation:a-grow .5s cubic-bezier(.3,.8,.3,1) both}
+.a-dim{animation:a-dim .6s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.a-fade,.a-rise,.a-pop,.a-draw,.a-grow{animation:none}.a-dim{animation:none;opacity:.45}}
+</style></defs>
+<rect width="720" height="401" rx="20" fill="#F1EEE7"/>
+<g class="a-fade" style="animation-delay:0.00s"><text x="28" y="40" class="eb" fill="#67625A">ИНСТРУКЦИЯ И ПРАВА</text><text x="28" y="61" class="d" fill="#67625A">Текст объясняет агенту порядок работы, но технически действие не запрещает.</text></g>
+<g class="a-fade" style="animation-delay:0.10s"><text x="28" y="95" class="ms" fill="#67625A">ТОЛЬКО ИНСТРУКЦИЯ</text></g>
+<g class="a-fade" style="animation-delay:0.20s"><text x="368" y="95" class="ms" fill="#67625A">ИНСТРУКЦИЯ И ПРАВА</text></g>
+<g class="a-rise" style="animation-delay:0.20s"><rect x="28" y="109" width="324.0" height="50" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="40" y="130" class="mt" fill="#1F1E1C">.agents/skills/ship/SKILL.md</text><text x="40" y="145" class="s" fill="#67625A">«PR в main сливает человек»</text></g>
+<g class="a-rise" style="animation-delay:0.30s"><rect x="368.0" y="109" width="324.0" height="50" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="380" y="130" class="mt" fill="#1F1E1C">.agents/skills/ship/SKILL.md</text><text x="380" y="145" class="s" fill="#67625A">«PR в main сливает человек»</text></g>
+<g class="a-rise" style="animation-delay:0.60s"><rect x="368.0" y="189" width="324.0" height="50" rx="10" fill="#F7E5DA" stroke="#C15F3C" stroke-width="1.5"/><text x="380" y="210" class="t" fill="#1F1E1C">Права агента</text><text x="380" y="225" class="s" fill="#A44A2A">нет права сливать в main</text></g>
+<g class="a-rise" style="animation-delay:0.60s"><rect x="28" y="189" width="324.0" height="50" rx="10" fill="#E4DFD4" stroke="none" stroke-width="1"/><text x="40" y="210" class="t" fill="#1F1E1C">Агент пропустил шаг</text><text x="40" y="225" class="s" fill="#67625A">или понял его не так</text></g>
+<path d="M190 159 L190 182" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.50s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:0.60s;animation-duration:0.10s"><path d="M190 189 L186 182 L194 182 Z" fill="#A39D92"/></g>
+<path d="M530 159 L530 182" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.50s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:0.60s;animation-duration:0.10s"><path d="M530 189 L526 182 L534 182 Z" fill="#A39D92"/></g>
+<path d="M190 239 L190 262" fill="none" stroke="#67625A" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.00s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.10s;animation-duration:0.10s"><path d="M190 269 L186 262 L194 262 Z" fill="#67625A"/></g>
+<g class="a-rise" style="animation-delay:1.20s"><rect x="28" y="269" width="324.0" height="50" rx="10" fill="#E4DFD4" stroke="none" stroke-width="1"/><text x="40" y="290" class="t" fill="#1F1E1C">PR слит без решения</text><text x="40" y="305" class="s" fill="#67625A">инструкция не остановила</text></g>
+<path d="M530.0 239 V253" stroke="#C15F3C" stroke-width="1.25" pathLength="1" class="a-draw" style="animation-delay:1.0s;animation-duration:.2s"/>
+<g class="a-pop" style="animation-delay:1.20s"><rect x="496.0" y="253" width="68" height="4" rx="2" fill="#C15F3C"/></g>
+<g class="a-rise" style="animation-delay:1.40s"><rect x="368.0" y="269" width="324.0" height="50" rx="10" fill="#F7E5DA" stroke="#C15F3C" stroke-width="1.5"/><text x="380" y="290" class="t" fill="#1F1E1C">Слияние недоступно</text><text x="380" y="305" class="s" fill="#A44A2A">PR ждёт решения человека</text></g>
+<g class="a-fade" style="animation-delay:1.80s"><path d="M28 349 H692" stroke="#CFC8BB" stroke-width="1"/><text x="28" y="375" class="ms" fill="#8E887D">Порядок работы уточняем в скилле или в docs/workflow.md. Полномочия агента проверяем отдельно.</text></g>
+</svg>

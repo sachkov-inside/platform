@@ -27,6 +27,7 @@ export type UploadMaterialAssetError =
         | "image_too_large"
         | "mime_mismatch"
         | "size_mismatch"
+        | "unsafe_svg"
         | "unsupported_file_type"
         | "unsupported_image_type";
     }

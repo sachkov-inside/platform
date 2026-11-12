@@ -1196,6 +1196,18 @@ owns editor and source-authoring instructions.
 3. Image finalize безопасно decode-ит AVIF/JPEG/PNG/WebP с bounded pixels, применяет orientation,
    удаляет EXIF, хранит normalized original только protected и создаёт public/protected WebP
    variants до 480/960/1600 px. File bytes сохраняются immutable в public и protected namespace.
+   SVG image (#2025) не растеризуется: upload с типом `image/svg+xml` до 512 KiB проходит строгую
+   проверку по разрешённому списку элементов, атрибутов и CSS (без script, `foreignObject`,
+   `image`, `a`, `on*`, внешних `href`, `@import`, `@font-face` и `url()` кроме `#id`) и
+   отклоняется кодом `unsafe_svg` (нарушение XML, нет `xmlns` или размера: `image_decode_failed`,
+   больше 512 KiB: `image_too_large`); сохраняется заново сериализованное проверенное дерево как
+   один variant шириной из `width`/`height` или `viewBox`. Reader показывает его только через
+   `<img>`, где браузеры не применяют CSP ответа. Public bytes, которые отдаёт сам API, идут с
+   `nosniff` и `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`,
+   чтобы открытый напрямую SVG сохранял стили; protected bytes через Caddy получают политику края
+   `default-src 'none'; sandbox` ([production release](../runbooks/production-release.md)), и
+   открытый напрямую SVG там показывается без стилей. SVG как file (`kind: file`) по-прежнему
+   `executable_content`.
 4. Publish допускает только ready MaterialAssets exact owning Material. Replacement создаёт новый
    Asset; body reference остаётся stable opaque `assetId`, а referenced Asset сохраняется. Save под
    Material advisory lock и в своей транзакции переводит только newly removed ready Assets из
@@ -1719,7 +1731,9 @@ checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 The authoring package accepts envelope `schemaVersion: 1 | 2 | 3`. Before asset uploads or other writes,
 `loadPackage` checks its version and every `requiredFeatures` entry. Current v3 packages require `canonical-product-source-v2`; v1/v2 envelopes remain historical input. Supported features are
 `material-task-v1`, `task-c-v2`, `quiz-v1`, `quiz-multiple-v1`, `github-anchors-v1`, `image-variants-v1`,
-`collapsible-callouts-v1`, `bounded-content-v1` and `canonical-product-source-v2`; unknown features are refused by name.
+`collapsible-callouts-v1`, `bounded-content-v1`, `svg-images-v1` and `canonical-product-source-v2`; unknown features are refused by name.
+With `svg-images-v1` in the receiver's `packageFeatures`, the client uploads an `image/svg+xml` Material image unchanged;
+a receiver without it gets a PNG rendered from the SVG.
 
 Import contract (#1672). `GET /authoring/import/materials/environment` returns the runtime `mode` and
 `contract: { version, packageFeatures }`, owned by

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="508" viewBox="0 0 720 508" fill="none" role="img" aria-labelledby="t d">
+<title id="t">Сначала ищем то, что уже записано</title>
+<desc id="d">После замечания агент ищет договорённость в CODING_STANDARDS.md, DOMAIN.md, docs/adr и скиллах. Если она есть, выясняем причину пропуска: неясная формулировка или указатель, по которому агент не открыл файл. Если её нет, сохраняем в подходящее место. Новая копия правила пропуск не исправляет.</desc>
+<defs><style>
+.eb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px;letter-spacing:1.1px}
+.t{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;font-weight:500}
+.s{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:12.5px}
+.d{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px}
+.m{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12px}
+.mb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12.5px}
+.ms{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px}
+.mt{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;font-weight:500}
+.p{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11.5px;font-weight:500}
+.b{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11px;font-weight:600}
+.big{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:22px;font-weight:500;letter-spacing:-0.3px}
+@keyframes a-fade{from{opacity:0}}
+@keyframes a-rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes a-pop{from{opacity:0;transform:scale(.6)}}
+@keyframes a-draw{from{stroke-dashoffset:1}}
+@keyframes a-grow{from{transform:scaleY(0)}}
+@keyframes a-dim{to{opacity:.45}}
+.a-fade{animation:a-fade .4s ease-out both}
+.a-rise{animation:a-rise .5s cubic-bezier(.2,.8,.2,1) both}
+.a-pop{transform-box:fill-box;transform-origin:50% 50%;animation:a-pop .3s cubic-bezier(.2,.8,.2,1) both}
+.a-draw{stroke-dasharray:1;animation:a-draw .4s ease-out both}
+.a-grow{transform-box:fill-box;transform-origin:50% 0;animation:a-grow .5s cubic-bezier(.3,.8,.3,1) both}
+.a-dim{animation:a-dim .6s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.a-fade,.a-rise,.a-pop,.a-draw,.a-grow{animation:none}.a-dim{animation:none;opacity:.45}}
+</style></defs>
+<rect width="720" height="508" rx="20" fill="#F1EEE7"/>
+<g class="a-fade" style="animation-delay:0.00s"><text x="28" y="40" class="eb" fill="#67625A">СНАЧАЛА ИЩЕМ, ЧТО УЖЕ ЗАПИСАНО</text><text x="28" y="61" class="d" fill="#67625A">Новая запись нужна, только если договорённости ещё нет в проекте.</text></g>
+<g class="a-rise" style="animation-delay:0.15s"><rect x="28" y="95" width="204" height="80" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="40" y="116" class="t" fill="#1F1E1C">Замечание</text><text x="40" y="131" class="s" fill="#67625A">после ревью, обсуждения</text><text x="40" y="146" class="s" fill="#67625A">или разбора сессии</text></g>
+<path d="M232 135 L251 135" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.25s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:0.35s;animation-duration:0.10s"><path d="M258 135 L251 139 L251 131 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:0.35s"><rect x="258" y="95" width="204" height="80" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="270" y="116" class="t" fill="#1F1E1C">Агент ищет в harness</text><text x="270" y="131" class="s" fill="#67625A">CODING_STANDARDS.md,</text><text x="270" y="146" class="s" fill="#67625A">DOMAIN.md, docs/adr/,</text><text x="270" y="161" class="s" fill="#67625A">скиллы</text></g>
+<path d="M462 135 L481 135" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.45s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:0.55s;animation-duration:0.10s"><path d="M488 135 L481 139 L481 131 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:0.55s"><rect x="488" y="95" width="204" height="80" rx="10" fill="#E4DFD4" stroke="none" stroke-width="1"/><text x="500" y="116" class="t" fill="#1F1E1C">Договорённость уже</text><text x="500" y="133" class="t" fill="#1F1E1C">есть?</text></g>
+<g class="a-rise" style="animation-delay:0.95s"><rect x="258" y="227" width="204" height="82" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="270" y="248" class="t" fill="#1F1E1C">Почему агент её</text><text x="270" y="265" class="t" fill="#1F1E1C">пропустил?</text><text x="270" y="280" class="s" fill="#67625A">разбираем вместе с</text><text x="270" y="295" class="s" fill="#67625A">агентом</text></g>
+<g class="a-rise" style="animation-delay:0.95s"><rect x="488" y="227" width="204" height="82" rx="10" fill="#F7E5DA" stroke="#C15F3C" stroke-width="1.5"/><text x="500" y="248" class="t" fill="#1F1E1C">Сохраняем в</text><text x="500" y="265" class="t" fill="#1F1E1C">подходящее место</text><text x="500" y="280" class="s" fill="#A44A2A">задача, стандарты, домен,</text><text x="500" y="295" class="s" fill="#A44A2A">ADR или скилл</text></g>
+<path d="M590 175 L590 220" fill="none" stroke="#C15F3C" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.80s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:0.90s;animation-duration:0.10s"><path d="M590 227 L586 220 L594 220 Z" fill="#C15F3C"/></g>
+<g class="a-fade" style="animation-delay:0.85s"><text x="598" y="205" class="ms" fill="#A44A2A">нет</text></g>
+<path d="M518 175 L518 191 Q518 197 512 197 L366 197 Q360 197 360 203 L360 220" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.80s;animation-duration:0.34s"/>
+<g class="a-fade" style="animation-delay:1.09s;animation-duration:0.10s"><path d="M360 227 L356 220 L364 220 Z" fill="#A39D92"/></g>
+<g class="a-fade" style="animation-delay:0.85s"><text x="368" y="215" class="ms" fill="#67625A">есть</text></g>
+<g class="a-rise" style="animation-delay:1.40s"><rect x="28" y="361" width="204" height="65" rx="10" fill="#FBFAF7" stroke="#C15F3C" stroke-width="1"/><text x="40" y="382" class="t" fill="#1F1E1C">Неясная формулировка</text><text x="40" y="397" class="s" fill="#67625A">уточняем текст записи</text></g>
+<g class="a-rise" style="animation-delay:1.50s"><rect x="258" y="361" width="204" height="65" rx="10" fill="#FBFAF7" stroke="#C15F3C" stroke-width="1"/><text x="270" y="382" class="t" fill="#1F1E1C">Агент не открыл файл</text><text x="270" y="397" class="s" fill="#67625A">уточняем указатель в</text><text x="270" y="412" class="s" fill="#67625A">AGENTS.md</text></g>
+<g class="a-rise" style="animation-delay:1.70s"><rect x="488" y="361" width="204" height="65" rx="10" fill="none" stroke="#A39D92" stroke-width="1" stroke-dasharray="5 4"/><text x="500" y="382" class="t" fill="#67625A">Новая копия правила</text><text x="500" y="397" class="s" fill="#8E887D">пропуск не исправляет</text><path d="M666 373 l12 12 M678 373 l-12 12" stroke="#8E887D" stroke-width="1.5" stroke-linecap="round"/></g>
+<path d="M330 309 L330 327 Q330 333 324 333 L136 333 Q130 333 130 339 L130 354" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.25s;animation-duration:0.41s"/>
+<g class="a-fade" style="animation-delay:1.60s;animation-duration:0.10s"><path d="M130 361 L126 354 L134 354 Z" fill="#A39D92"/></g>
+<path d="M360 309 L360 354" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.30s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.40s;animation-duration:0.10s"><path d="M360 361 L356 354 L364 354 Z" fill="#A39D92"/></g>
+<g class="a-fade" style="animation-delay:1.90s"><path d="M28 456 H692" stroke="#CFC8BB" stroke-width="1"/><text x="28" y="482" class="ms" fill="#8E887D">Проверить исправление можно в новой сессии: агент должен найти запись сам, без подсказки из чата.</text></g>
+</svg>

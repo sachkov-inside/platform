@@ -142,6 +142,33 @@ describe("Material assets BFF", () => {
     );
   });
 
+  it("keeps the API's type and inert-content headers on public SVG bytes (#2025)", async () => {
+    const policy = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+    fakes.requestDelivery.mockResolvedValue(
+      new Response('<svg xmlns="http://www.w3.org/2000/svg"/>', {
+        status: 200,
+        headers: {
+          "cache-control": "public, max-age=31536000, immutable",
+          "content-security-policy": policy,
+          "content-type": "image/svg+xml",
+          "x-content-type-options": "nosniff",
+        },
+      }),
+    );
+
+    const response = await proxyMaterialAssetDelivery(
+      new Request(
+        "https://inside.example.test/api/materials/m/assets/a/images/720?contentVersion=7",
+      ),
+      { assetId, materialId, variantWidth: "720" },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/svg+xml");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("content-security-policy")).toBe(policy);
+  });
+
   it("passes Caddy's edge mark to the API and returns its internal answer (#1766)", async () => {
     fakes.requestDelivery.mockResolvedValue(
       new Response(null, {

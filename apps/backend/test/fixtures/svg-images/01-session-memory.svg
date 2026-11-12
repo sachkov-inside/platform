@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="764" viewBox="0 0 720 764" fill="none" role="img" aria-labelledby="t d">
+<title id="t">Замечание в чате и запись в проекте</title>
+<desc id="d">Без записи замечание остаётся в чате первой сессии, и вторая сессия повторяет ошибку. С записью в CODING_STANDARDS.md вторая сессия читает правило и загружает данные вместе.</desc>
+<defs><style>
+.eb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px;letter-spacing:1.1px}
+.t{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:14px;font-weight:500}
+.s{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:12.5px}
+.d{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:13px}
+.m{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12px}
+.mb{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:12.5px}
+.ms{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:11px}
+.mt{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;font-size:13px;font-weight:500}
+.p{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11.5px;font-weight:500}
+.b{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:11px;font-weight:600}
+.big{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:22px;font-weight:500;letter-spacing:-0.3px}
+@keyframes a-fade{from{opacity:0}}
+@keyframes a-rise{from{opacity:0;transform:translateY(8px)}}
+@keyframes a-pop{from{opacity:0;transform:scale(.6)}}
+@keyframes a-draw{from{stroke-dashoffset:1}}
+@keyframes a-grow{from{transform:scaleY(0)}}
+@keyframes a-dim{to{opacity:.45}}
+.a-fade{animation:a-fade .4s ease-out both}
+.a-rise{animation:a-rise .5s cubic-bezier(.2,.8,.2,1) both}
+.a-pop{transform-box:fill-box;transform-origin:50% 50%;animation:a-pop .3s cubic-bezier(.2,.8,.2,1) both}
+.a-draw{stroke-dasharray:1;animation:a-draw .4s ease-out both}
+.a-grow{transform-box:fill-box;transform-origin:50% 0;animation:a-grow .5s cubic-bezier(.3,.8,.3,1) both}
+.a-dim{animation:a-dim .6s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.a-fade,.a-rise,.a-pop,.a-draw,.a-grow{animation:none}.a-dim{animation:none;opacity:.45}}
+</style></defs>
+<rect width="720" height="764" rx="20" fill="#F1EEE7"/>
+<g class="a-fade" style="animation-delay:0.00s"><text x="28" y="40" class="eb" fill="#67625A">БЕЗ ЗАПИСИ</text><text x="28" y="61" class="d" fill="#67625A">Замечание живёт только в чате сессии и пропадает вместе с ним.</text></g>
+<g class="a-fade" style="animation-delay:0.10s"><text x="28" y="95" class="ms" fill="#8E887D">СЕССИЯ 1</text></g>
+<g class="a-rise" style="animation-delay:0.15s"><rect x="28" y="107" width="148" height="82" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="40" y="128" class="t" fill="#1F1E1C">Агент пишет</text><text x="40" y="145" class="t" fill="#1F1E1C">список</text><text x="40" y="160" class="s" fill="#67625A">запрос владельца</text><text x="40" y="175" class="s" fill="#67625A">на каждую строку</text></g>
+<path d="M176 148 L193 148" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.25s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:0.35s;animation-duration:0.10s"><path d="M200 148 L193 152 L193 144 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:0.27s"><rect x="200" y="107" width="148" height="82" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="212" y="128" class="t" fill="#1F1E1C">Ты пишешь</text><text x="212" y="145" class="t" fill="#1F1E1C">замечание</text><text x="212" y="160" class="s" fill="#67625A">в чате этой</text><text x="212" y="175" class="s" fill="#67625A">сессии</text></g>
+<path d="M348 148 L365 148" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.37s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:0.47s;animation-duration:0.10s"><path d="M372 148 L365 152 L365 144 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:0.39s"><rect x="372" y="107" width="148" height="82" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="384" y="128" class="t" fill="#1F1E1C">Агент</text><text x="384" y="145" class="t" fill="#1F1E1C">исправляет</text><text x="384" y="160" class="s" fill="#67625A">только этот</text><text x="384" y="175" class="s" fill="#67625A">список</text></g>
+<g class="a-fade" style="animation-delay:0.49s"><path d="M520 148 L537 148" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-dasharray="4 3" stroke-linejoin="round"/><path d="M544 148 L537 152 L537 144 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:0.51s"><rect x="544" y="107" width="148" height="82" rx="10" fill="none" stroke="#A39D92" stroke-width="1" stroke-dasharray="5 4"/><text x="556" y="128" class="t" fill="#67625A">Сессия закрыта</text><text x="556" y="143" class="s" fill="#8E887D">чат больше никто</text><text x="556" y="158" class="s" fill="#8E887D">не читает</text></g>
+<g class="a-fade" style="animation-delay:0.70s"><text x="28" y="217" class="ms" fill="#8E887D">СЕССИЯ 2</text></g>
+<g class="a-rise" style="animation-delay:0.80s"><rect x="28" y="229" width="148" height="82" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="40" y="250" class="t" fill="#1F1E1C">Новая задача</text><text x="40" y="265" class="s" fill="#67625A">другой список</text></g>
+<path d="M176 270 L193 270" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:0.90s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.00s;animation-duration:0.10s"><path d="M200 270 L193 274 L193 266 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:0.92s"><rect x="200" y="229" width="148" height="82" rx="10" fill="none" stroke="#A39D92" stroke-width="1" stroke-dasharray="5 4"/><text x="212" y="250" class="t" fill="#67625A">Замечания нет</text><text x="212" y="265" class="s" fill="#8E887D">агент его не</text><text x="212" y="280" class="s" fill="#8E887D">видел</text></g>
+<path d="M348 270 L365 270" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.02s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.12s;animation-duration:0.10s"><path d="M372 270 L365 274 L365 266 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:1.04s"><rect x="372" y="229" width="148" height="82" rx="10" fill="#E4DFD4" stroke="none" stroke-width="1"/><text x="384" y="250" class="t" fill="#1F1E1C">Та же ошибка</text><text x="384" y="265" class="s" fill="#67625A">снова запрос на</text><text x="384" y="280" class="s" fill="#67625A">каждую строку</text></g>
+<path d="M520 270 L537 270" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.14s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.24s;animation-duration:0.10s"><path d="M544 270 L537 274 L537 266 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:1.16s"><rect x="544" y="229" width="148" height="82" rx="10" fill="#E4DFD4" stroke="none" stroke-width="1"/><text x="556" y="250" class="t" fill="#1F1E1C">Объясняешь</text><text x="556" y="267" class="t" fill="#1F1E1C">заново</text><text x="556" y="282" class="s" fill="#67625A">и так в каждой</text><text x="556" y="297" class="s" fill="#67625A">сессии</text></g>
+<path d="M28 341 H692" stroke="#CFC8BB" stroke-width="1" pathLength="1" class="a-draw" style="animation-delay:1.3s;animation-duration:.3s"/>
+<g class="a-fade" style="animation-delay:1.40s"><text x="28" y="377" class="eb" fill="#67625A">С ЗАПИСЬЮ В ПРОЕКТЕ</text><text x="28" y="398" class="d" fill="#67625A">Договорённость попадает в файл, который читает следующая сессия.</text></g>
+<g class="a-fade" style="animation-delay:1.50s"><text x="28" y="432" class="ms" fill="#8E887D">СЕССИЯ 1</text></g>
+<g class="a-rise" style="animation-delay:1.55s"><rect x="28" y="444" width="148" height="82" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="40" y="465" class="t" fill="#1F1E1C">Ты пишешь</text><text x="40" y="482" class="t" fill="#1F1E1C">замечание</text><text x="40" y="497" class="s" fill="#67625A">в чате этой</text><text x="40" y="512" class="s" fill="#67625A">сессии</text></g>
+<path d="M176 485 L193 485" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.65s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.75s;animation-duration:0.10s"><path d="M200 485 L193 489 L193 481 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:1.67s"><rect x="200" y="444" width="148" height="82" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="212" y="465" class="t" fill="#1F1E1C">Агент</text><text x="212" y="482" class="t" fill="#1F1E1C">исправляет</text><text x="212" y="497" class="s" fill="#67625A">этот список</text></g>
+<path d="M348 485 L365 485" fill="none" stroke="#C15F3C" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:1.77s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:1.87s;animation-duration:0.10s"><path d="M372 485 L365 489 L365 481 Z" fill="#C15F3C"/></g>
+<g class="a-rise" style="animation-delay:1.79s"><rect x="372" y="444" width="320" height="82" rx="10" fill="#F7E5DA" stroke="#C15F3C" stroke-width="1.5"/><text x="384" y="465" class="mt" fill="#1F1E1C">CODING_STANDARDS.md</text><text x="384" y="480" class="s" fill="#A44A2A">+ правило о загрузке связанных данных</text><text x="384" y="495" class="s" fill="#A44A2A">списка</text></g>
+<g class="a-fade" style="animation-delay:2.00s"><text x="28" y="554" class="ms" fill="#8E887D">СЕССИЯ 2</text></g>
+<g class="a-rise" style="animation-delay:2.25s"><rect x="28" y="566" width="148" height="99" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="40" y="587" class="t" fill="#1F1E1C">Новая задача</text><text x="40" y="602" class="s" fill="#67625A">другой список</text></g>
+<path d="M176 615.5 L193 615.5" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:2.35s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:2.45s;animation-duration:0.10s"><path d="M200 615.5 L193 619.5 L193 611.5 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:2.37s"><rect x="200" y="566" width="148" height="99" rx="10" fill="#FBFAF7" stroke="#C15F3C" stroke-width="1"/><text x="212" y="587" class="t" fill="#1F1E1C">Агент читает</text><text x="212" y="604" class="t" fill="#1F1E1C">правило</text><text x="212" y="619" class="s" fill="#67625A">при реализации и</text><text x="212" y="634" class="s" fill="#67625A">ревью</text></g>
+<path d="M348 615.5 L365 615.5" fill="none" stroke="#C15F3C" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:2.47s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:2.57s;animation-duration:0.10s"><path d="M372 615.5 L365 619.5 L365 611.5 Z" fill="#C15F3C"/></g>
+<g class="a-rise" style="animation-delay:2.49s"><rect x="372" y="566" width="148" height="99" rx="10" fill="#F7E5DA" stroke="#C15F3C" stroke-width="1.5"/><text x="384" y="587" class="t" fill="#1F1E1C">Данные</text><text x="384" y="604" class="t" fill="#1F1E1C">загружаются</text><text x="384" y="621" class="t" fill="#1F1E1C">вместе</text><text x="384" y="636" class="s" fill="#A44A2A">без запроса на</text><text x="384" y="651" class="s" fill="#A44A2A">каждую строку</text></g>
+<path d="M520 615.5 L537 615.5" fill="none" stroke="#A39D92" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:2.59s;animation-duration:0.12s"/>
+<g class="a-fade" style="animation-delay:2.69s;animation-duration:0.10s"><path d="M544 615.5 L537 619.5 L537 611.5 Z" fill="#A39D92"/></g>
+<g class="a-rise" style="animation-delay:2.61s"><rect x="544" y="566" width="148" height="99" rx="10" fill="#FBFAF7" stroke="#D9D3C7" stroke-width="1"/><text x="556" y="587" class="t" fill="#1F1E1C">Замечание не</text><text x="556" y="604" class="t" fill="#1F1E1C">нужно</text><text x="556" y="619" class="s" fill="#67625A">правило уже в</text><text x="556" y="634" class="s" fill="#67625A">проекте</text></g>
+<path d="M412 526 L412 534 Q412 540 406 540 L280 540 Q274 540 274 546 L274 559" fill="none" stroke="#C15F3C" stroke-width="1.25" stroke-linejoin="round" pathLength="1" class="a-draw" style="animation-delay:2.15s;animation-duration:0.28s"/>
+<g class="a-fade" style="animation-delay:2.39s;animation-duration:0.10s"><path d="M274 566 L270 559 L278 559 Z" fill="#C15F3C"/></g>
+<g class="a-fade" style="animation-delay:2.80s"><path d="M28 695 H692" stroke="#CFC8BB" stroke-width="1"/><text x="28" y="721" class="ms" fill="#8E887D">В курсе автоматическая память агента выключена. Опыт хранится в файлах проекта, их читает каждая</text><text x="28" y="738" class="ms" fill="#8E887D">новая сессия.</text></g>
+</svg>
