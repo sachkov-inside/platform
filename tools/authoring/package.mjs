@@ -721,12 +721,19 @@ export async function loadPackage(path) {
           throw new Error(
             `${material.sourcePath}: source image is outside its variant set: ${src}`,
           );
+        if (Object.values(variants).some((id) => !assets.has(id)))
+          throw new Error(`${material.sourcePath}: missing variant asset`);
+        // One SVG may stand in two keys: a wide/tall SVG pair has no theme variants (#2041).
+        const types = new Set(
+          Object.values(variants).map((id) => assets.get(id)?.mimeType),
+        );
         if (
-          Object.values(variants).some(
-            (id) => assets.get(id)?.mimeType !== "image/png",
-          )
+          types.size !== 1 ||
+          (!types.has("image/png") && !types.has("image/svg+xml"))
         )
-          throw new Error(`${material.sourcePath}: missing PNG variant asset`);
+          throw new Error(
+            `${material.sourcePath}: variant assets must be all PNG or all SVG`,
+          );
       }
     }
     const refs = [

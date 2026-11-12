@@ -4,7 +4,9 @@ import { extname } from "node:path";
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
 
-import { checkSvgImage, SVG_CONTENT_TYPE } from "./check-svg-image.js";
+import { SVG_CONTENT_TYPE } from "@inside/material-blocks/svg-image";
+
+import { checkSvgImage } from "./check-svg-image.js";
 
 export const MATERIAL_ASSET_LIMITS = Object.freeze({
   fileBytes: 25 * 1024 * 1024,

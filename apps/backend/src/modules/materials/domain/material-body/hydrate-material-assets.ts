@@ -29,6 +29,9 @@ function hydrateBlock(
       return presentation?.kind === "image"
         ? {
             assetId: image.assetId,
+            ...(presentation.format === undefined
+              ? {}
+              : { format: presentation.format }),
             height: presentation.height,
             width: presentation.width,
             variants: presentation.variants,
@@ -52,6 +55,7 @@ function hydrateBlock(
     return asset?.kind === "image"
       ? {
           ...withVariants,
+          ...(asset.format === undefined ? {} : { format: asset.format }),
           height: asset.height,
           variants: asset.variants,
           width: asset.width,

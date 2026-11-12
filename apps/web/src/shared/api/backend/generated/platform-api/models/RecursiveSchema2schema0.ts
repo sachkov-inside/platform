@@ -99,10 +99,12 @@ export type RecursiveSchema2schema0 = ({
   assetId: string;
   caption?: string;
   displayWidthPercent?: number;
+  format?: 'svg';
   height?: number;
   imageVariants?: {
     tallDark: {
       assetId: string;
+      format?: 'svg';
       height?: number;
       variants?: Array<{
         height: number;
@@ -112,6 +114,7 @@ export type RecursiveSchema2schema0 = ({
     };
     tallLight: {
       assetId: string;
+      format?: 'svg';
       height?: number;
       variants?: Array<{
         height: number;
@@ -121,6 +124,7 @@ export type RecursiveSchema2schema0 = ({
     };
     wideDark: {
       assetId: string;
+      format?: 'svg';
       height?: number;
       variants?: Array<{
         height: number;
@@ -130,6 +134,7 @@ export type RecursiveSchema2schema0 = ({
     };
     wideLight: {
       assetId: string;
+      format?: 'svg';
       height?: number;
       variants?: Array<{
         height: number;

@@ -320,6 +320,111 @@ describe("Material asset delivery", () => {
     }
   });
 
+  test("returns a protected SVG image variant as bytes from the site address, kept no longer than access (#2041)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-01T12:00:00.000Z"));
+    try {
+      const svg = new TextEncoder().encode(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360"/>',
+      );
+      const read = vi.fn<ObjectStorage["read"]>().mockResolvedValue({
+        body: svg,
+        checksumSha256: "a".repeat(64),
+        contentLength: svg.byteLength,
+        contentType: "image/svg+xml",
+      });
+      const signGet = vi.fn<ObjectStorage["signGet"]>();
+      const deliveryWith = (
+        decision: Awaited<ReturnType<ContentAccess["authorize"]>>,
+        objectStorage = storage({ read, signGet }),
+      ) =>
+        assembleMaterialAssetDelivery({
+          assets: assetsFor({
+            contentType: "image/svg+xml",
+            filename: "figure-wide.svg",
+            kind: "image",
+            object: { protectedKey: "protected/figure.svg", publicKey: null },
+            size: svg.byteLength,
+          }),
+          contentAccess: accessDecision(decision),
+          materialContent: currentReference(),
+          objectStorage,
+          signedGetTtlSeconds: 60,
+        });
+      const decided = {
+        checkedContentVersion: contentVersion,
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
+        decisionId: "allow",
+        effect: "allow",
+        policyVersion: "content-access-v1",
+      } as const;
+      const input = {
+        assetId,
+        contentVersion,
+        materialId,
+        subject: { kind: "anonymous" } as const,
+        variantWidth: 720,
+      };
+      const bytes = {
+        body: svg,
+        cacheScope: "private-no-store",
+        contentLength: svg.byteLength,
+        contentType: "image/svg+xml",
+        kind: "bytes",
+      } as const;
+
+      await expect(
+        deliveryWith({
+          ...decided,
+          reason: "active_membership",
+          validUntil: "2026-09-01T14:00:00.000Z",
+        }).deliver({ ...input, preview: false }),
+      ).resolves.toEqual({
+        ok: true,
+        value: { ...bytes, keepSeconds: 7_199 },
+      });
+      await expect(
+        deliveryWith({ ...decided, reason: "materials_manager" }).deliver({
+          ...input,
+          preview: true,
+        }),
+      ).resolves.toEqual({ ok: true, value: bytes });
+      expect(read).toHaveBeenCalledWith("protected", "protected/figure.svg");
+      expect(signGet).not.toHaveBeenCalled();
+
+      // A stored object that no longer matches its record is not served.
+      await expect(
+        deliveryWith(
+          { ...decided, reason: "materials_manager" },
+          storage({
+            read: vi.fn<ObjectStorage["read"]>().mockResolvedValue({
+              body: svg,
+              checksumSha256: "a".repeat(64),
+              contentLength: svg.byteLength,
+              contentType: "text/html",
+            }),
+          }),
+        ).deliver({ ...input, preview: false }),
+      ).resolves.toEqual({
+        error: { code: "dependency_unavailable" },
+        ok: false,
+      });
+      await expect(
+        deliveryWith(
+          { ...decided, reason: "materials_manager" },
+          storage({
+            read: vi.fn().mockRejectedValue(new Error("S3 unavailable")),
+          }),
+        ).deliver({ ...input, preview: false }),
+      ).resolves.toEqual({
+        error: { code: "dependency_unavailable" },
+        ok: false,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test("maps object storage read and signing outages to dependency unavailable", async () => {
     const values = {
       contentType: "application/pdf",

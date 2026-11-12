@@ -260,6 +260,7 @@ function PreviewBlock({
           caption={block.caption}
           displayWidthPercent={block.displayWidthPercent}
           contentVersion={contentVersion}
+          format={block.format}
           height={block.height}
           materialId={materialId}
           preview

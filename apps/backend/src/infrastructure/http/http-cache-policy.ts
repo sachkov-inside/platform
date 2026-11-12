@@ -20,12 +20,13 @@ import {
 
 const CACHE_POLICY_METADATA = Symbol("http-cache-policy");
 /**
- * Bytes this API returns itself (public immutable delivery) never run as a page of the site when
- * their address is opened directly: no script, no network fetch, no form. Inline styles stay, so
- * a checked SVG keeps its look and animation (#2025). Protected bytes do not pass here: the
- * production edge sets its own stricter policy (`infra/production/runtime/platform.caddy`), and a
- * plain redirect leaves the headers to object storage. Chromium, WebKit and Firefox apply no
- * response policy to an SVG shown through `<img>`, so neither policy affects Reader.
+ * Bytes this API returns itself never run as a page of the site when their address is opened
+ * directly: no script, no network fetch, no form. Inline styles stay, so a checked SVG keeps its
+ * look and animation (#2025). The API returns public immutable bytes and protected SVG image
+ * variants (#2041). Other protected bytes do not pass here: the production edge sets its own
+ * stricter policy (`infra/production/runtime/platform.caddy`), and a plain redirect leaves the
+ * headers to object storage. Chromium, WebKit and Firefox apply no response policy to an SVG shown
+ * through `<img>` or read with `fetch()`, so neither policy affects Reader.
  */
 export const ASSET_CONTENT_SECURITY_POLICY =
   "default-src 'none'; style-src 'unsafe-inline'; sandbox";
@@ -123,23 +124,24 @@ function sendAssetDelivery(
       "Asset delivery controller returned an invalid response",
     );
   }
+  // Only the reader's browser may keep protected bytes, and only for the delivery's own bound.
+  const keptPrivately =
+    body.cacheScope === "private-no-store" && body.keepSeconds !== undefined
+      ? `private, max-age=${String(body.keepSeconds)}, immutable`
+      : cacheControlByPolicy["private-no-store"];
   response.header(
     "Cache-Control",
     body.cacheScope === "public-immutable"
       ? "public, max-age=31536000, immutable"
-      : cacheControlByPolicy["private-no-store"],
+      : body.kind === "bytes"
+        ? keptPrivately
+        : cacheControlByPolicy["private-no-store"],
   );
   response.header("X-Content-Type-Options", "nosniff");
   if (body.kind === "redirect" && viaStorageEdge) {
     response.status(204);
     response.header(STORAGE_EDGE_LOCATION_HEADER, body.location);
-    // Only the reader's browser may keep the bytes, and only for the delivery's own bound.
-    response.header(
-      STORAGE_EDGE_CACHE_CONTROL_HEADER,
-      body.keepSeconds === undefined
-        ? cacheControlByPolicy["private-no-store"]
-        : `private, max-age=${String(body.keepSeconds)}, immutable`,
-    );
+    response.header(STORAGE_EDGE_CACHE_CONTROL_HEADER, keptPrivately);
     return undefined;
   }
   if (body.kind === "redirect") {
@@ -149,8 +151,11 @@ function sendAssetDelivery(
   }
   response.header("Content-Type", body.contentType);
   response.header("Content-Security-Policy", ASSET_CONTENT_SECURITY_POLICY);
+  // Protected bytes keep the edge's answer for search engines (`platform.caddy`).
+  if (body.cacheScope === "private-no-store")
+    response.header("X-Robots-Tag", "noindex, nofollow");
   response.header("Content-Length", String(body.contentLength));
-  if (body.contentDisposition !== undefined) {
+  if ("contentDisposition" in body) {
     response.header("Content-Disposition", body.contentDisposition);
   }
   return Buffer.from(body.body);
@@ -166,6 +171,14 @@ function isAssetDelivery(value: unknown): value is
       kind: "bytes";
     }>
   | Readonly<{
+      body: Uint8Array;
+      cacheScope: "private-no-store";
+      contentLength: number;
+      contentType: string;
+      keepSeconds?: number;
+      kind: "bytes";
+    }>
+  | Readonly<{
       cacheScope: "private-no-store";
       kind: "redirect";
       location: string;
@@ -173,23 +186,28 @@ function isAssetDelivery(value: unknown): value is
     }> {
   if (typeof value !== "object" || value === null || !("kind" in value))
     return false;
+  const keepSecondsValid =
+    !("keepSeconds" in value) ||
+    value.keepSeconds === undefined ||
+    (typeof value.keepSeconds === "number" &&
+      Number.isInteger(value.keepSeconds) &&
+      value.keepSeconds >= 1);
   if (value.kind === "redirect") {
     return (
       "cacheScope" in value &&
       value.cacheScope === "private-no-store" &&
       "location" in value &&
       typeof value.location === "string" &&
-      (!("keepSeconds" in value) ||
-        value.keepSeconds === undefined ||
-        (typeof value.keepSeconds === "number" &&
-          Number.isInteger(value.keepSeconds) &&
-          value.keepSeconds >= 1))
+      keepSecondsValid
     );
   }
   return (
     value.kind === "bytes" &&
     "cacheScope" in value &&
-    value.cacheScope === "public-immutable" &&
+    ((value.cacheScope === "public-immutable" && !("keepSeconds" in value)) ||
+      (value.cacheScope === "private-no-store" &&
+        !("contentDisposition" in value) &&
+        keepSecondsValid)) &&
     "body" in value &&
     value.body instanceof Uint8Array &&
     "contentLength" in value &&

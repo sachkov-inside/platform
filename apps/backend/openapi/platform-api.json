@@ -655,6 +655,12 @@
                 "minimum": 25,
                 "type": "integer"
               },
+              "format": {
+                "enum": [
+                  "svg"
+                ],
+                "type": "string"
+              },
               "height": {
                 "exclusiveMinimum": true,
                 "maximum": 9007199254740991,
@@ -670,6 +676,12 @@
                       "assetId": {
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
                         "type": "string"
                       },
                       "height": {
@@ -723,6 +735,12 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
+                        "type": "string"
+                      },
                       "height": {
                         "exclusiveMinimum": true,
                         "maximum": 9007199254740991,
@@ -774,6 +792,12 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
+                        "type": "string"
+                      },
                       "height": {
                         "exclusiveMinimum": true,
                         "maximum": 9007199254740991,
@@ -823,6 +847,12 @@
                       "assetId": {
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
                         "type": "string"
                       },
                       "height": {
@@ -1870,6 +1900,12 @@
                 "minimum": 25,
                 "type": "integer"
               },
+              "format": {
+                "enum": [
+                  "svg"
+                ],
+                "type": "string"
+              },
               "height": {
                 "exclusiveMinimum": true,
                 "maximum": 9007199254740991,
@@ -1885,6 +1921,12 @@
                       "assetId": {
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
                         "type": "string"
                       },
                       "height": {
@@ -1938,6 +1980,12 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
+                        "type": "string"
+                      },
                       "height": {
                         "exclusiveMinimum": true,
                         "maximum": 9007199254740991,
@@ -1989,6 +2037,12 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
+                        "type": "string"
+                      },
                       "height": {
                         "exclusiveMinimum": true,
                         "maximum": 9007199254740991,
@@ -2038,6 +2092,12 @@
                       "assetId": {
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
                         "type": "string"
                       },
                       "height": {
@@ -3085,6 +3145,12 @@
                 "minimum": 25,
                 "type": "integer"
               },
+              "format": {
+                "enum": [
+                  "svg"
+                ],
+                "type": "string"
+              },
               "height": {
                 "exclusiveMinimum": true,
                 "maximum": 9007199254740991,
@@ -3100,6 +3166,12 @@
                       "assetId": {
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
                         "type": "string"
                       },
                       "height": {
@@ -3153,6 +3225,12 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
+                        "type": "string"
+                      },
                       "height": {
                         "exclusiveMinimum": true,
                         "maximum": 9007199254740991,
@@ -3204,6 +3282,12 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
+                        "type": "string"
+                      },
                       "height": {
                         "exclusiveMinimum": true,
                         "maximum": 9007199254740991,
@@ -3253,6 +3337,12 @@
                       "assetId": {
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
                         "type": "string"
                       },
                       "height": {
@@ -4300,6 +4390,12 @@
                 "minimum": 25,
                 "type": "integer"
               },
+              "format": {
+                "enum": [
+                  "svg"
+                ],
+                "type": "string"
+              },
               "height": {
                 "exclusiveMinimum": true,
                 "maximum": 9007199254740991,
@@ -4315,6 +4411,12 @@
                       "assetId": {
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
                         "type": "string"
                       },
                       "height": {
@@ -4368,6 +4470,12 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
+                        "type": "string"
+                      },
                       "height": {
                         "exclusiveMinimum": true,
                         "maximum": 9007199254740991,
@@ -4419,6 +4527,12 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
+                        "type": "string"
+                      },
                       "height": {
                         "exclusiveMinimum": true,
                         "maximum": 9007199254740991,
@@ -4468,6 +4582,12 @@
                       "assetId": {
                         "format": "uuid",
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "format": {
+                        "enum": [
+                          "svg"
+                        ],
                         "type": "string"
                       },
                       "height": {
@@ -140600,6 +140720,12 @@
         "responses": {
           "200": {
             "content": {
+              "image/svg+xml": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
               "image/webp": {
                 "schema": {
                   "format": "binary",
@@ -140607,7 +140733,7 @@
                 }
               }
             },
-            "description": "Public immutable image bytes"
+            "description": "Public immutable image bytes, or the bytes of a protected SVG image variant"
           },
           "204": {
             "description": "Protected object for the site edge: only with the edge request marker",

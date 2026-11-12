@@ -1235,13 +1235,18 @@ owns editor and source-authoring instructions.
    `image`, `a`, `on*`, внешних `href`, `@import`, `@font-face` и `url()` кроме `#id`) и
    отклоняется кодом `unsafe_svg` (нарушение XML, нет `xmlns` или размера: `image_decode_failed`,
    больше 512 KiB: `image_too_large`); сохраняется заново сериализованное проверенное дерево как
-   один variant шириной из `width`/`height` или `viewBox`. Reader показывает его только через
-   `<img>`, где браузеры не применяют CSP ответа. Public bytes, которые отдаёт сам API, идут с
-   `nosniff` и `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`,
-   чтобы открытый напрямую SVG сохранял стили; protected bytes через Caddy получают политику края
-   `default-src 'none'; sandbox` ([production release](../runbooks/production-release.md)), и
-   открытый напрямую SVG там показывается без стилей. SVG как file (`kind: file`) по-прежнему
-   `executable_content`.
+   один variant шириной из `width`/`height` или `viewBox`. Проверку владеет
+   `@inside/material-blocks/svg-image`: backend применяет её при upload, Reader повторяет перед
+   встраиванием (#2041). Картинка с SVG получает в отрисованном теле `format: "svg"`. Bytes,
+   которые отдаёт сам API, идут с `nosniff` и
+   `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`, чтобы
+   открытый напрямую SVG сохранял стили. Это public bytes и, с #2041, protected SVG image variant:
+   API читает его из protected namespace и отдаёт с адреса сайта (`private`, срок хранения как у
+   края, у preview `no-store`, `X-Robots-Tag: noindex, nofollow`), потому что Reader читает его через `fetch()`, а redirect в
+   хранилище вне production-края уходит на чужой origin. Прочие protected bytes через Caddy
+   получают политику края `default-src 'none'; sandbox`
+   ([production release](../runbooks/production-release.md)). SVG как file (`kind: file`)
+   по-прежнему `executable_content`.
 4. Publish допускает только ready MaterialAssets exact owning Material. Replacement создаёт новый
    Asset; body reference остаётся stable opaque `assetId`, а referenced Asset сохраняется. Save под
    Material advisory lock и в своей транзакции переводит только newly removed ready Assets из
@@ -1925,10 +1930,12 @@ Production visual acceptance is recorded separately on #1351.
 #### Static course image variants (#1195)
 
 Package v2 `materials[].imageVariants` and `tasks[].page.imageVariants` map the original Markdown
-image source to four PNG assets: `wideLight`, `wideDark`, `tallLight`, `tallDark`. The package requires
-`image-variants-v1`. Before any uploads or writes, load rejects incomplete sets, unknown sources,
-missing PNG asset records and an original image outside its set; package asset checks still verify
-all bytes and checksums. Image blocks keep `sourceSrc`, the four uploaded asset IDs, ALT and caption.
+image source to four assets: `wideLight`, `wideDark`, `tallLight`, `tallDark`. The package requires
+`image-variants-v1`. The four assets are all PNG, or all SVG (#2041); one asset may stand in several
+keys, and a wide/tall SVG pair names the wide file in `wideLight` and `wideDark` and the tall file in
+`tallLight` and `tallDark`. Before any uploads or writes, load rejects incomplete sets, unknown
+sources, missing asset records, a set that mixes PNG and SVG and an original image outside its set;
+package asset checks still verify all bytes and checksums. Each distinct asset uploads once. Image blocks keep `sourceSrc`, the four uploaded asset IDs, ALT and caption.
 All four assets remain referenced for access checks and cleanup; editor saves and repeated imports
 preserve their relation. Ordinary single-asset images retain their delivery path.
 
@@ -1938,6 +1945,34 @@ They choose light or dark from the effective column theme and react to width and
 changes. The public application shell currently fixes the light theme; this capability does not add
 a theme switch. The viewer opens the selected composition. `scene.js` and `DURATION` have no
 execution path in this feature; the importer consumes static image assets only.
+
+#### SVG figures in the Reader page (#2041)
+
+A Material image marked `format: "svg"` becomes part of the Reader page, as on claude.dev: its text
+is real text, selectable and found by page search, and its ALT is the figure's accessible name. A
+wide/tall pair follows the composition rule above; only the selected file is read.
+
+1. Reader reads the selected variant with `fetch()` from its usual protected address and runs
+   `checkInlineSvgMarkup`: the upload allowlist plus the figure scope rules. The root `<svg>` has
+   `id="fig-<name>"`; every other `id` and every `#id` reference starts with it; every selector
+   starts with an id selector of the figure and the root is not followed by `+` or `~`; a style rule
+   nests no rule; a keyframes name starts with `a-` or with the root id.
+2. The checked markup is parsed as XML and placed in the page's DOM, not a shadow root: WebKit's
+   find in page does not search shadow trees. The selector rules keep figure CSS off the page; the
+   figure's id rules outweigh page element and class rules, and inherited properties, custom ones
+   included, still reach it. The layer around the figure has `contain: strict` and
+   `overflow: hidden`, so a rule on the figure's root, such as `position: fixed`, cannot draw
+   outside its frame.
+3. The figure's host sets `--fig-play: paused` until a quarter of the figure, or a quarter of the
+   screen height for a taller figure, is visible, then `running`. A figure's animated rules use
+   `animation-play-state: var(--fig-play, running)`, so the same file animates at once inside
+   `<img>`. `prefers-reduced-motion: reduce` is the figure's own rule.
+4. The zoom button opens the existing viewer with the same checked markup through a `blob:` image.
+5. A file that cannot be read or fails the checks, including a #2025 SVG without a figure id, is
+   shown through `<img>` as before; without JavaScript the server's HTML shows it as an image. The
+   editor canvas, the Task c page and other image surfaces keep `<img>`. Platform does not check
+   that a figure id is unique on the page: the same figure twice resolves its `#id` references to
+   the first copy, which draws the same content.
 
 ## Unified Product buyer journey — #1442–#1444
 

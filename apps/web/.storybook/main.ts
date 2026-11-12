@@ -9,6 +9,10 @@ const config: StorybookConfig = {
       from: `./fixtures/image-variants/${name}`,
       to: `/api/materials/02000000-0000-4000-8000-000000000010/assets/${name}.png/images`,
     })),
+    ...["wide", "tall", "hostile", "unscoped", "unsafe"].map((name) => ({
+      from: `./fixtures/svg-figures/${name}`,
+      to: `/api/materials/02000000-0000-4000-8000-000000000010/assets/figure-${name}.svg/images`,
+    })),
     {
       from: "./fixtures/image-variants",
       to: "/api/products/synthetic-course/tasks/synthetic-c-task/assets",

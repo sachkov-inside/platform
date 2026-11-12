@@ -44,7 +44,7 @@ export class MaterialAssetsService {
   }
   /**
    * Read a responsive image through current Material access
-   * @returns binary Public immutable image bytes
+   * @returns binary Public immutable image bytes, or the bytes of a protected SVG image variant
    * @throws ApiError
    */
   public readMaterialAssetImage({

@@ -1,4 +1,8 @@
-import type { ObjectStorage, StoredObject } from "../object-storage/index.js";
+import type {
+  ObjectStorage,
+  ObjectStorageNamespace,
+  StoredObject,
+} from "../object-storage/index.js";
 import { dependencyFailure } from "../observability/index.js";
 
 /**
@@ -51,17 +55,26 @@ export type PublicObjectRead =
  * content type the owning record promises, so a replaced or half-written
  * object is reported instead of served.
  */
-export async function readPublicObject(
+export function readPublicObject(
   objectStorage: Pick<ObjectStorage, "read">,
+  expected: Readonly<{ contentType: string; key: string | null; size: number }>,
+): Promise<PublicObjectRead> {
+  return readStoredObject(objectStorage, "public", expected);
+}
+
+/** Reads one object of a namespace under the same checks as `readPublicObject`. */
+export async function readStoredObject(
+  objectStorage: Pick<ObjectStorage, "read">,
+  namespace: ObjectStorageNamespace,
   expected: Readonly<{ contentType: string; key: string | null; size: number }>,
 ): Promise<PublicObjectRead> {
   if (expected.key === null) return { kind: "mismatch" };
   let stored: StoredObject | null;
   try {
-    stored = await objectStorage.read("public", expected.key);
+    stored = await objectStorage.read(namespace, expected.key);
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "readPublicObject" },
+      { module: "materials", operation: "readStoredObject" },
       error,
       { kind: "unavailable" },
     );

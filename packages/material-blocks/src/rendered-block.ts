@@ -34,8 +34,15 @@ export interface ImageVariants<T> {
   readonly tallDark: T;
 }
 
+/**
+ * `format: "svg"` marks an image whose file is a checked SVG (#2041): Reader puts its markup into
+ * the page instead of an `<img>`. A raster image has no `format`.
+ */
+export type ImageFormat = "svg";
+
 export interface ImageAssetPresentation {
   readonly assetId: string;
+  readonly format?: ImageFormat | undefined;
   readonly height?: number | undefined;
   readonly width?: number | undefined;
   readonly variants?:
@@ -155,6 +162,7 @@ export type RenderedBlock =
       readonly assetId: string;
       readonly caption?: string | undefined;
       readonly displayWidthPercent?: number | undefined;
+      readonly format?: ImageFormat | undefined;
       readonly height?: number | undefined;
       readonly kind: "image";
       readonly sourceSrc?: string | undefined;

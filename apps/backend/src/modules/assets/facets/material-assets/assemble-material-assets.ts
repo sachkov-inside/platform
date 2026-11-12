@@ -13,7 +13,7 @@ import {
   dependencyFailure,
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
-import { SVG_CONTENT_TYPE } from "./check-svg-image.js";
+import { SVG_CONTENT_TYPE } from "@inside/material-blocks/svg-image";
 import { processMaterialAssetBytes } from "./process-material-asset-bytes.js";
 import type {
   MaterialAssetDelivery,
@@ -884,6 +884,9 @@ function presentationRows(
       return [
         {
           assetId: asset.id,
+          ...(asset.actualContentType === SVG_CONTENT_TYPE
+            ? { format: "svg" as const }
+            : {}),
           height: asset.height,
           kind: "image",
           variants: asset.materialAssetVariants

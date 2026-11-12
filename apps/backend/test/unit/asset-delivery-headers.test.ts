@@ -64,4 +64,34 @@ describe("Asset delivery headers", () => {
       "x-content-type-options": "nosniff",
     });
   });
+
+  test("protected SVG bytes stay private and kept only for the delivery's bound (#2041)", async () => {
+    const svg = new TextEncoder().encode(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>',
+    );
+    const delivered = {
+      body: svg,
+      cacheScope: "private-no-store",
+      contentLength: svg.byteLength,
+      contentType: "image/svg+xml",
+      kind: "bytes",
+    };
+
+    const kept = await deliver({ ...delivered, keepSeconds: 7_199 });
+    expect(kept.status).toBe(200);
+    expect(kept.sent).toEqual(Buffer.from(svg));
+    expect(Object.fromEntries(kept.headers)).toMatchObject({
+      "cache-control": "private, max-age=7199, immutable",
+      "content-security-policy":
+        "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+      "content-type": "image/svg+xml",
+      "x-content-type-options": "nosniff",
+      "x-robots-tag": "noindex, nofollow",
+    });
+    const preview = await deliver(delivered);
+    expect(preview.headers.get("cache-control")).toBe("private, no-store");
+    await expect(
+      deliver({ ...delivered, contentDisposition: "attachment" }),
+    ).rejects.toThrow(TypeError);
+  });
 });
