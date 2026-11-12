@@ -1,6 +1,5 @@
 import { hasText } from "../shared/text.js";
 import "../config/load-environment.js";
-import { readFileSync } from "node:fs";
 import { createDatabase } from "../database/create-database.js";
 import { systemClock } from "../shared/clock.js";
 import {
@@ -14,9 +13,12 @@ if (!hasText(process.env["DATABASE_URL"]) || process.stdin.isTTY) {
 } else {
   const database = createDatabase(process.env["DATABASE_URL"]);
   try {
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
     const outcome = await runTrainerBankImport({
       mode: process.argv[2],
-      input: readFileSync(0, "utf8"),
+      // Decode once: a pipe chunk may end in the middle of a UTF-8 character.
+      input: Buffer.concat(chunks).toString("utf8"),
       database,
       clock: systemClock,
     });
