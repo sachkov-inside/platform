@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 
 import { DATABASE, type Database } from "../../database/database.js";
+import { CLOCK, type Clock } from "../../shared/clock.js";
 import type { VerifiedPrivateStart } from "../../shared/telegram-contact.js";
 import { unhandled } from "../../shared/unhandled.js";
 import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
@@ -10,12 +11,18 @@ import {
   TELEGRAM_MESSAGES,
   type TelegramMessages,
 } from "../outbound/telegram-messages.js";
+import {
+  AiModelsReferences,
+  type StoredAiModelsReference,
+} from "./ai-models-reference.js";
 import type { AiModelsOpening, AiModelsQuery } from "./ai-models-requests.js";
 import type { AiModelsOpeningDelivery } from "./ai-models-storage.js";
 import { AI_MODELS_WIDGET_HTML } from "./widget/ai-models-widget-html.generated.js";
 import {
-  AI_MODELS_FIRST_PAGE,
+  aiModelsChatData,
+  aiModelsResponse,
   encodeAiModelsWidgetData,
+  parseAiModelsWidgetRequest,
   type AiModelsWidgetData,
 } from "./widget/ai-models-widget-wire.js";
 
@@ -24,8 +31,12 @@ const WIDGET_REJECTED_TEXT =
   "Раздел «ИИ-модели» не открылся. Обновите Telegram до последней версии и отправьте /models ещё раз.";
 /** The Trainer's wording, so both widgets refuse a press over the limit alike. */
 const TOO_OFTEN_TEXT = "Слишком часто. Повторите через несколько секунд.";
-/** Every request gets this answer until the screens of the section exist. */
-const COMING_SOON_TEXT = "Скоро здесь будет список моделей";
+/**
+ * A request for a page or a model the current Справочник does not have: the message was sent
+ * with an earlier Справочник, and a new widget shows the new one.
+ */
+const STALE_TEXT =
+  "Список моделей обновился. Отправьте /models, чтобы открыть новый.";
 
 /**
  * The ИИ-модели section of the private chat. It acts only inside a person's own request: `open`
@@ -34,6 +45,8 @@ const COMING_SOON_TEXT = "Скоро здесь будет список моде
  */
 @Injectable()
 export class AiModels {
+  private readonly references: AiModelsReferences;
+
   constructor(
     @Inject(DATABASE) private readonly database: Database,
     @Inject(TELEGRAM_MESSAGES)
@@ -41,23 +54,28 @@ export class AiModels {
       TelegramMessages,
       "sendWidget" | "answerWidgetQuery"
     >,
-  ) {}
+    @Inject(CLOCK) clock: Clock,
+  ) {
+    this.references = new AiModelsReferences(database, clock);
+  }
 
   /**
-   * Records the opening and sends one widget message. One request never yields a second
-   * widget: a repeated run of the same update sends again only after Telegram refused the
-   * earlier send for now. Without a Справочник one text says the section opens soon; if
-   * Telegram rejects the widget, one text asks the person to update Telegram.
+   * Records the opening and sends one widget message with the first page of «Мощные» as its
+   * chat state. One request never yields a second widget: a repeated run of the same update
+   * sends again only after Telegram refused the earlier send for now. Without a Справочник one
+   * text says the section opens soon; if Telegram rejects the widget, one text asks the person
+   * to update Telegram.
    */
   async open(opening: AiModelsOpening): Promise<void> {
     const { contact } = opening;
-    if (!(await this.referenceLoaded())) return this.answerNoReference(opening);
+    const stored = await this.references.current();
+    if (!stored) return this.answerNoReference(opening);
     if (!(await this.claim(opening))) return;
 
     const result = await this.messages.sendWidget({
       chatId: contact.privateChatId,
       html: AI_MODELS_WIDGET_HTML,
-      chatData: encodeAiModelsWidgetData(AI_MODELS_FIRST_PAGE),
+      chatData: encodeAiModelsWidgetData(aiModelsChatData(stored.reference)),
       height: 0,
     });
     switch (result.kind) {
@@ -91,9 +109,17 @@ export class AiModels {
     }
   }
 
-  /** Answers a press inside the widget; it never sends a message. */
+  /**
+   * Answers a press inside the widget with a screen of the current Справочник; it never sends a
+   * message. Every answered tab «Главное» is recorded as an opened card.
+   */
   async answer(query: AiModelsQuery): Promise<void> {
-    await this.reply(query.queryId, ["x", COMING_SOON_TEXT]);
+    const request = parseAiModelsWidgetRequest(query.data);
+    if (!request) return this.reply(query.queryId, ["x"]);
+    const stored = await this.references.current();
+    const screen = stored && aiModelsResponse(stored.reference, request);
+    if (screen?.[0] === "m") await this.recordCardView(query, screen[1]);
+    await this.reply(query.queryId, screen ?? failure(stored));
   }
 
   /** The answer to a press over the per-user request limit. */
@@ -108,13 +134,19 @@ export class AiModels {
     });
   }
 
-  private async referenceLoaded(): Promise<boolean> {
-    const reference = await this.database
-      .selectFrom("ai_models_references")
-      .select("revision")
-      .limit(1)
-      .executeTakeFirst();
-    return reference !== undefined;
+  private async recordCardView(
+    { contact }: AiModelsQuery,
+    model: string,
+  ): Promise<void> {
+    await this.database
+      .insertInto("ai_models_card_views")
+      .values({
+        bot_identity: contact.botIdentity,
+        telegram_user_id: contact.telegramUserId,
+        model_code: model,
+        viewed_at: contact.observedAt,
+      })
+      .execute();
   }
 
   /** The opening and its one text commit together; a repeated update adds neither. */
@@ -186,6 +218,13 @@ export class AiModels {
       .where("update_id", "=", contact.updateId)
       .execute();
   }
+}
+
+/** The answer to a request the current Справочник cannot answer, or to any before the first import. */
+function failure(
+  stored: StoredAiModelsReference | undefined,
+): AiModelsWidgetData {
+  return ["x", stored ? STALE_TEXT : NO_REFERENCE_TEXT];
 }
 
 /** The private chat of the person whose update the reply answers. */

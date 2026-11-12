@@ -133,7 +133,8 @@ export type AiModelsCardData = readonly [
  * - `multiple` "33 раза": the widget writes «в 33 раза больше цены»; empty for v and when the
  *   estimate is not above the price;
  * - `wording` the vendor's words for v, else empty; `note` the file's note or empty;
- * - `promo` "1" when the model is in the plan only by a promo, else empty.
+ * - `promo` "1" when the model is in the plan only by a promo, else empty. The widget draws no
+ *   mark for it: as in the prototype, the vendor's words or the note name the promo.
  */
 export type AiModelsPlanRow = string;
 /** A service with the model's plans in the model's order. `banRisk` is empty without a risk. */
@@ -164,25 +165,13 @@ export type AiModelsAboutData = readonly [
 export type AiModelsFailureData =
   readonly [screen: "x"] | readonly [screen: "x", text: string];
 
-/**
- * `chat_data` of a message sent before #2037 wires the screens: the first page of «Мощные»
- * without its rows. The widget asks the bot for that page with the request `3lp0`.
- */
-export type AiModelsFirstPageData = readonly [
-  screen: "l",
-  filter: "p",
-  page: 0,
-];
-export const AI_MODELS_FIRST_PAGE: AiModelsFirstPageData = ["l", "p", 0];
-
 export type AiModelsScreenData =
   | AiModelsListData
   | AiModelsCardData
   | AiModelsSubscriptionsData
   | AiModelsAboutData;
 
-export type AiModelsWidgetData =
-  AiModelsScreenData | AiModelsFirstPageData | AiModelsFailureData;
+export type AiModelsWidgetData = AiModelsScreenData | AiModelsFailureData;
 
 export const utf8ByteLength = (text: string): number =>
   Buffer.byteLength(text, "utf8");

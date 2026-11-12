@@ -263,11 +263,6 @@ in the built widget at 320 and 390 px and reports, by question identifier and in
 whether its context, question and longest explanation fit; the
 [Bank file contract](docs/integrations/trainer-bank-v1.md) describes the output.
 
-The ИИ-модели widget follows the same rules. Its source is `src/modules/ai-models/widget/widget.css`
-and `widget.js`; `pnpm --filter @inside/telegram ai-models:widget:build` rebuilds
-`ai-models-widget-html.generated.ts` and prints its size. `pnpm check` fails when that module is
-stale or too large, and `test:widget` opens it in Chromium too.
-
 For an interactive local review of the actual widget and Trainer with a disposable synthetic Bank,
 run `pnpm --filter @inside/telegram trainer:review`. See the
 [acceptance guide](docs/operations/trainer-acceptance.md) for the walkthrough and remaining phone checks.
@@ -289,6 +284,34 @@ all other applied migrations must remain an ordered prefix. The shared migrator 
 lock for up, down and targeted commands. Rollback follows actual application order. PostgreSQL
 regressions cover both historical deployment orders, preserve existing data during backfill and
 reject a missing dependent sign-in migration. Do not rename applied keys or edit the ledger.
+
+## ИИ-модели widget
+
+The ИИ-модели section has a widget of its own under the same rules
+([ADR 0004](docs/adr/0004-trainer-html-widget.md)). Its source is
+`src/modules/ai-models/widget/widget.css` and `widget.js`; the bot sends the checked-in
+`ai-models-widget-html.generated.ts`. The widget only lays out the bot's answers; their shapes and
+the fixed words the widget adds are documented in `ai-models-widget-wire.ts`. After changing the
+source, from the repository root:
+
+```bash
+pnpm --filter @inside/telegram ai-models:widget:build
+pnpm --filter @inside/telegram test:widget
+```
+
+The first command rebuilds the generated module and prints its size against the 4 096-byte limit,
+as Node.js and as Python zlib count it; `pnpm check` fails when the module is stale or too large.
+`test:widget` opens the built widget with a stand-in `TelegramWidget` and draws every screen of the
+synthetic Справочник at 320 and 390 px in both themes, in Chromium with and without a doctype and
+in WebKit without one: no screen is taller than 560 px, overflows sideways or has text below
+11 px. It also checks screens whose texts fill the 1 024-byte answer, the navigation (filters,
+pages, card tabs, «Лучше взять», «‹», «О данных») and the retry state.
+
+`pnpm --filter @inside/telegram ai-models:widget:fit <Справочник file>` draws every screen of a
+Справочник file in the built widget at 320 and 390 px and reports, by widget request and in numbers
+only, its height, text size and whether its summaries are cut; the
+[import runbook](docs/operations/ai-models-reference.md#проверка-экранов-перед-загрузкой) describes
+the output. Run it on the real file before importing it.
 
 ## Application boundary
 
