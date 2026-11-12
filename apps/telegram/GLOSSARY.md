@@ -169,3 +169,53 @@ _Avoid_: Lesson question, task, exercise, poll
 The situation a person reads on its own screen before a Вопрос тренажёра: the `context` field of
 the Bank file. The question's own text then asks about that situation and may be empty.
 _Avoid_: Preamble, scenario, case, stem
+
+**ИИ-модели** (AI Models):
+The bot section where a BotContact sees the current popular ИИ-модели, their prices and the Подписки
+сервисов that include them, inside one widget message of the private chat. Anyone who started the
+bot can open it; it needs no PlatformLink or Product Access.
+_Avoid_: Catalogue, model catalogue, Product Catalogue, model rating
+
+**ИИ-модель** (AI Model):
+One specific model version that a company offers, such as Opus 5.5; one entry of the ИИ-модели
+section. A model family (Claude) or a tool where people use models (the Codex app) is not an ИИ-модель.
+_Avoid_: Model family, provider, agent, tool
+
+**Подписка сервиса** (Service Subscription):
+Another company's paid plan that gives access to ИИ-модели, such as ChatGPT Plus or Claude Max.
+It has nothing to do with Inside Products, which are never sold as subscriptions.
+_Avoid_: Inside subscription, tariff, Product, Product Access
+
+**Оценка подписки** (Subscription Estimate):
+The approximate amount of work one Подписка сервиса buys in a week with one ИИ-модель, measured in
+typical tasks of that model or in the same usage priced at its API rates. It is an estimate from
+independent measurements, never the vendor's limit.
+_Avoid_: Limit, quota, token allowance, guaranteed usage
+
+**Агент** (Agent):
+A program in which a person works with an ИИ-модель on tasks, such as Codex, Claude Code or OpenCode.
+_Avoid_: Daily check, tool, app, ИИ-модель
+
+**Лучший агент** (Best Agent):
+The Агент that the ИИ-модели section recommends for working with one ИИ-модель, with a stated reason.
+_Avoid_: Official app, default agent
+
+**Сводка модели** (Model Summary):
+One line on what an ИИ-модель is good for and what it costs in return, such as «самая умная для кода,
+но дорогая».
+_Avoid_: Description, review, Справочник
+
+**Справочник** (Models Reference):
+The ИИ-модели data that people currently see, with the date it was last checked. It changes only
+when the owner publishes a Черновик справочника.
+_Avoid_: Catalogue, snapshot, release, Сводка
+
+**Ежедневная проверка** (Daily Check):
+The automatic comparison of the Справочник with vendor and independent sources once a day. It
+either confirms the Справочник or produces a Черновик справочника.
+_Avoid_: Agent, crawler, import
+
+**Черновик справочника** (Reference Draft):
+The changes a Ежедневная проверка proposes to the Справочник. Only the owner sees it until they
+publish it.
+_Avoid_: Release, update, import, pull request
