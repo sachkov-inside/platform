@@ -245,38 +245,47 @@ def telegram_error_check(status, values):
                  'five counters are zero since start; community_effects_unknown gauge is currently zero')
 
 
-def container_started_epoch(started_at):
-    """Docker reports nanoseconds; whole seconds match Telegram's last_error_date."""
+def utc_epoch_seconds(value):
+    """Whole UTC seconds of a gateway or Docker time such as 2026-11-12T16:02:41Z.
+
+    Docker writes nine fractional digits, which datetime.fromisoformat rejects before Python 3.11.
+    """
     import re
-    match = re.fullmatch(r'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?Z', started_at or '')
+    match = re.fullmatch(r'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?Z', value if isinstance(value, str) else '')
     if match is None:
         return None
-    start = datetime.datetime.fromisoformat(match.group(1)).replace(tzinfo=datetime.timezone.utc)
-    return int(start.timestamp())
+    moment = datetime.datetime.fromisoformat(match.group(1)).replace(tzinfo=datetime.timezone.utc)
+    return int(moment.timestamp())
 
 
-def verify_telegram_webhook(webhook, app_started_at):
+def verify_telegram_webhook(webhook, deployed_at):
+    """deployed_at is when the successful deploy operation finished, after its readiness checks."""
     # The immutable deployed image owns its subscription, including older releases.
     def valid_updates(value):
         return (isinstance(value, list) and len(value) > 0 and
                 all(isinstance(name, str) and name for name in value) and
                 len(set(value)) == len(value))
 
-    # Telegram keeps the last delivery error until a newer one, so a 502 during an earlier restart
-    # outlives recovery. Only an error from the running container fails; an older one stays visible.
+    # Telegram keeps the last delivery error until a newer one, so a 502 while the app restarted
+    # outlives recovery. An error up to the end of the deploy operation, its restart window
+    # included, is reported in the reason; a later, undated or unplaceable error fails.
     error_at = webhook.get('lastErrorAt')
-    started = container_started_epoch(app_started_at)
-    stale_error = (type(error_at) is int and started is not None and error_at < started)
-    reason = 'direct HTTPS or existing relay registration, allowed updates, no pending/errors; never setWebhook'
-    if stale_error:
+    deployed = utc_epoch_seconds(deployed_at)
+    recovered = type(error_at) is int and deployed is not None and error_at <= deployed
+    reason = ('direct HTTPS or existing relay registration, allowed updates, no pending updates, '
+              'no delivery error after the deploy operation; never setWebhook')
+    if type(error_at) is int:
         reason += '; last delivery error at ' + datetime.datetime.fromtimestamp(
-            error_at, datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ') + ' is before app start'
+            error_at, datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ') + (
+            ' is not after the deploy operation' if recovered else ' is after the deploy operation or unplaceable')
+    elif error_at is not None:
+        reason += '; last delivery error has no date'
     required = webhook.get('requiredUpdates')
     allowed = webhook.get('allowedUpdates')
     return check('Telegram webhook', webhook['protocol'] == 'https:' and webhook['host'] == 'telegram.sachkov.dev' and
                  webhook['port'] in ['', '88'] and webhook['path'] == '/webhooks/telegram' and
                  webhook['hasPinnedIp'] is True and webhook['pending'] == 0 and
-                 (error_at is None or stale_error) and valid_updates(required) and valid_updates(allowed) and
+                 (error_at is None or recovered) and valid_updates(required) and valid_updates(allowed) and
                  sorted(allowed) == sorted(required),
                  reason)
 
@@ -439,7 +448,7 @@ def verify_telegram(manifest, state, record):
     telegram = json.loads(run(['docker', 'exec', '-i', app['Id'], 'node', '--input-type=module'], data=TELEGRAM_READ, timeout=60))
     record.append(verify_bot_identity(telegram))
     webhook = telegram['webhook']
-    record.append(verify_telegram_webhook(webhook, app['State']['StartedAt']))
+    record.append(verify_telegram_webhook(webhook, operation.get('updatedAt')))
     record.append(check('Telegram bot administration', all(telegram['chat'].values()), 'supergroup administrator with invite/restrict rights'))
     record.append(verify_cohort_config(telegram['cohorts']))
     activation = json.loads(run(['docker', 'exec', '-i', app['Id'], 'node', '--input-type=module'], data=ACTIVATION_READ))

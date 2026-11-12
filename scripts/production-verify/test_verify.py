@@ -1,9 +1,9 @@
 import unittest
 from verify import verify_release
 
-# Docker reports container start with nanoseconds.
-STARTED_AT = '2026-11-12T16:02:39.123456789Z'
-STARTED_EPOCH = 1794499359
+# The gateway writes operation.json updatedAt after the deploy's readiness and route checks.
+DEPLOYED_AT = '2026-11-12T16:02:39Z'
+DEPLOYED_EPOCH = 1794499359
 
 
 class TelegramWebhookTests(unittest.TestCase):
@@ -20,10 +20,10 @@ class TelegramWebhookTests(unittest.TestCase):
         current = self.registration()
         for port in ['', '88']:
             with self.subTest(port=port):
-                self.assertEqual(verify_telegram_webhook({**current, 'port': port}, STARTED_AT)['status'], 'passed')
+                self.assertEqual(verify_telegram_webhook({**current, 'port': port}, DEPLOYED_AT)['status'], 'passed')
         for invalid in [{'protocol': 'http:'}, {'host': 'other.invalid'}, {'port': '8443'},
                         {'path': '/other'}, {'hasPinnedIp': False}, {'pending': 1},
-                        {'lastErrorAt': STARTED_EPOCH}, {'lastErrorAt': STARTED_EPOCH + 60},
+                        {'lastErrorAt': DEPLOYED_EPOCH + 1}, {'lastErrorAt': DEPLOYED_EPOCH + 3600},
                         {'lastErrorAt': 'recent'}, {'allowedUpdates': ['message']},
                         {'allowedUpdates': current['allowedUpdates'] + ['poll']},
                         {'allowedUpdates': dict.fromkeys(current['allowedUpdates'])},
@@ -31,30 +31,35 @@ class TelegramWebhookTests(unittest.TestCase):
                         {'allowedUpdates': current['allowedUpdates'] + ['message']},
                         {'requiredUpdates': []}, {'requiredUpdates': None}]:
             with self.subTest(invalid=invalid):
-                self.assertEqual(verify_telegram_webhook({**current, **invalid}, STARTED_AT)['status'], 'failed')
+                self.assertEqual(verify_telegram_webhook({**current, **invalid}, DEPLOYED_AT)['status'], 'failed')
 
-    def test_delivery_error_before_app_start_is_reported_without_failing(self):
+    def test_delivery_error_up_to_the_deploy_operation_is_reported_without_failing(self):
         from verify import verify_telegram_webhook
         # Telegram keeps the last delivery error until a newer one; a restart 502 stays for days.
-        result = verify_telegram_webhook({**self.registration(), 'lastErrorAt': STARTED_EPOCH - 86400}, STARTED_AT)
-        self.assertEqual(result['status'], 'passed')
-        self.assertIn('2026-11-11T16:02:39Z', result['reason'])
-        self.assertIn('before app start', result['reason'])
+        for error_at, shown in [(DEPLOYED_EPOCH - 86400, '2026-11-11T16:02:39Z'),
+                                (DEPLOYED_EPOCH - 5, '2026-11-12T16:02:34Z'),
+                                (DEPLOYED_EPOCH, '2026-11-12T16:02:39Z')]:
+            with self.subTest(error_at=error_at):
+                result = verify_telegram_webhook({**self.registration(), 'lastErrorAt': error_at}, DEPLOYED_AT)
+                self.assertEqual(result['status'], 'passed')
+                self.assertIn('last delivery error at ' + shown + ' is not after the deploy operation', result['reason'])
 
-    def test_delivery_error_without_a_readable_app_start_fails(self):
+    def test_delivery_error_without_a_readable_deploy_time_fails(self):
         from verify import verify_telegram_webhook
-        stale = {**self.registration(), 'lastErrorAt': STARTED_EPOCH - 86400}
-        for started_at in [None, '', 'not-a-date']:
-            with self.subTest(started_at=started_at):
-                self.assertEqual(verify_telegram_webhook(stale, started_at)['status'], 'failed')
+        stale = {**self.registration(), 'lastErrorAt': DEPLOYED_EPOCH - 86400}
+        for deployed_at in [None, '', 'not-a-date', '2026-11-12T16:02:39+00:00']:
+            with self.subTest(deployed_at=deployed_at):
+                self.assertEqual(verify_telegram_webhook(stale, deployed_at)['status'], 'failed')
         self.assertEqual(verify_telegram_webhook(self.registration(), None)['status'], 'passed')
+        # Docker-style nanoseconds parse to the same second.
+        self.assertEqual(verify_telegram_webhook(stale, '2026-11-12T16:02:39.123456789Z')['status'], 'passed')
 
     def test_older_image_is_checked_against_its_own_contract(self):
         from verify import verify_telegram_webhook
         old = ['message', 'edited_message', 'chat_member', 'my_chat_member',
                'chat_join_request', 'callback_query']
-        self.assertEqual(verify_telegram_webhook({**self.registration(old), 'requiredUpdates': old}, STARTED_AT)['status'], 'passed')
-        self.assertEqual(verify_telegram_webhook(self.registration(old), STARTED_AT)['status'], 'failed')
+        self.assertEqual(verify_telegram_webhook({**self.registration(old), 'requiredUpdates': old}, DEPLOYED_AT)['status'], 'passed')
+        self.assertEqual(verify_telegram_webhook(self.registration(old), DEPLOYED_AT)['status'], 'failed')
 
 class SqlSetupDiagnosticsTests(unittest.TestCase):
     def test_setup_failure_reports_captured_docker_stderr(self):
@@ -231,7 +236,7 @@ class RepairStateTests(unittest.TestCase):
 
 
 class DeployedTelegramProbeTests(unittest.TestCase):
-    def probe(self, extra=None, bot_id=12345, cohort_body=None):
+    def probe(self, extra=None, bot_id=12345, cohort_body=None, webhook_error=None):
         import json
         import pathlib
         import subprocess
@@ -249,6 +254,7 @@ class DeployedTelegramProbeTests(unittest.TestCase):
                     'ip_address': '127.0.0.1', 'pending_update_count': 0, 'allowed_updates': []},
                     'getChat': {'type': 'supergroup'}, 'getChatMember': {'status': 'administrator', 'can_invite_users': True,
                     'can_restrict_members': True}}
+        fixtures['getWebhookInfo'].update(webhook_error or {})
         prelude = 'process.env=' + json.dumps(env) + ';\nconst fixtures=' + json.dumps(fixtures) + ';\n'
         prelude += 'const cohortFixture=' + json.dumps(cohort_body or {'items': [], 'nextCursor': None}) + ';\n'
         # Mock only the fetch boundary; the deployed probe and owning adapter run unchanged.
@@ -272,6 +278,18 @@ class DeployedTelegramProbeTests(unittest.TestCase):
         self.assertIsNone(facts['webhook']['lastErrorAt'])
         self.assertEqual(verify_cohort_config(facts['cohorts'])['status'], 'not_checked')
         self.assertNotIn('synthetic-token', result.stdout)
+
+    def test_probe_reports_the_last_delivery_error_time_without_its_text(self):
+        import json
+        settings = {'PLATFORM_PRODUCT_SALES_STATES_URL': '', 'PLATFORM_PRODUCT_SALES_PRODUCT_ID': ''}
+        for error, expected in [({'last_error_date': DEPLOYED_EPOCH, 'last_error_message': 'Wrong response: 502 Bad Gateway'},
+                                 DEPLOYED_EPOCH),
+                                ({'last_error_message': 'Wrong response: 502 Bad Gateway'}, 'unknown')]:
+            with self.subTest(error=error):
+                result = self.probe(settings, webhook_error=error)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)['webhook']['lastErrorAt'], expected)
+                self.assertNotIn('Bad Gateway', result.stdout)
 
     def test_probe_rejects_numeric_id_that_does_not_match_token(self):
         import json
