@@ -3,9 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ПРОТОТИП. «ИИ-модели»: три варианта на основе C1</title>
+    <title>ПРОТОТИП. «ИИ-модели»: V2, сводка в строку или с переносом</title>
     <!--
-  PROTOTYPE, throwaway. Третья версия от 12.11.2026. Основа: вариант C1 (переключатели сверху,
+  PROTOTYPE, throwaway. Четвёртая версия от 12.11.2026: владелец выбрал V2; переключатель «Сводка»
+  сравнивает обрезку многоточием и перенос на вторую строку. Третья версия: Основа: вариант C1 (переключатели сверху,
   значки автора словами). Решения владельца: шкала мощности по месту в таблице агентов Arena
   (по 10 мест на точку), у двух лидеров отметка; «Мой выбор» с назначением; «Риск бана» у сервиса;
   оценка подписки только при 5 и больше замеренных аккаунтах; GLM «для средних задач».
@@ -339,6 +340,10 @@
       .wg .row2 .l2 .bd:first-child {
         margin-left: 0;
       }
+      .wg.wrap .row2 .l2 {
+        white-space: normal;
+        overflow: visible;
+      }
       .wg .gh {
         font-size: 0.8em;
         font-weight: 800;
@@ -445,6 +450,9 @@
         >
         <span
           ><span class="lb">Лидеры</span><span class="seg" id="lseg"></span
+        ></span>
+        <span
+          ><span class="lb">Сводка в V2</span><span class="seg" id="sseg"></span
         ></span>
         <span
           ><span class="lb">Ширина</span><span class="seg" id="wseg"></span
@@ -868,7 +876,8 @@
 
       // ---------- Состояние ----------
       const st = {
-        v: new URLSearchParams(location.search).get("variant") || "V1",
+        v: new URLSearchParams(location.search).get("variant") || "V2",
+        wrap: true,
         lead: "color",
         width: 390,
         dark: false,
@@ -1163,6 +1172,7 @@
       const W = document.getElementById("w"),
         msgw = document.getElementById("msgw");
       function render() {
+        W.parentElement.classList.toggle("wrap", st.wrap);
         W.innerHTML =
           st.scr === "card" ? card() : st.scr === "about" ? about() : home();
         msgw.style.width = st.width + "px";
@@ -1218,6 +1228,16 @@
           (x) => (x === "color" ? "цветная точка" : "плюс"),
           (x) => {
             st.lead = x;
+            render();
+          },
+        );
+        seg(
+          "sseg",
+          [false, true],
+          st.wrap,
+          (x) => (x ? "переносить" : "обрезать"),
+          (x) => {
+            st.wrap = x;
             render();
           },
         );
