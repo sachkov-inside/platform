@@ -110,7 +110,8 @@ export class AiModels {
 
   /**
    * Answers a press inside the widget with a screen of the current Справочник; it never sends a
-   * message. Every answered tab «Главное» is recorded as an opened card.
+   * message. An answered tab «Главное» is recorded as a card view, at most one per person, model
+   * and Moscow day.
    */
   async answer(query: AiModelsQuery): Promise<void> {
     const request = parseAiModelsWidgetRequest(query.data);
@@ -134,6 +135,10 @@ export class AiModels {
     });
   }
 
+  /**
+   * The database derives the Moscow day from the moment the bot received the press, so a
+   * repeated press on the same day, a retried update included, adds nothing.
+   */
   private async recordCardView(
     { contact }: AiModelsQuery,
     model: string,
@@ -146,6 +151,16 @@ export class AiModels {
         model_code: model,
         viewed_at: contact.observedAt,
       })
+      .onConflict((conflict) =>
+        conflict
+          .columns([
+            "bot_identity",
+            "telegram_user_id",
+            "model_code",
+            "viewed_on",
+          ])
+          .doNothing(),
+      )
       .execute();
   }
 

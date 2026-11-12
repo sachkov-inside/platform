@@ -3,7 +3,10 @@ import { AiModelsReports } from "../modules/ai-models/ai-models-reports.js";
 import type { Clock } from "../shared/clock.js";
 
 export interface AiModelsReportRun {
-  /** `--usage`: openings and people per Moscow day. `--cards`: opened cards per model. */
+  /**
+   * `--usage`: openings and people per Moscow day. `--cards`: card views per model, one per
+   * person and Moscow day.
+   */
   readonly mode: string | undefined;
   readonly database: Database;
   readonly clock: Clock;

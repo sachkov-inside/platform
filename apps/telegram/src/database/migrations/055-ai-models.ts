@@ -37,7 +37,9 @@ export const aiModelsMigration: Migration = {
       imported_at timestamptz not null
     )`.execute(db);
 
-    // One row per opened tab «Главное» of a model card. `model_code` follows
+    // One row per person, model and Moscow day on which the person opened the tab «Главное» of
+    // the model's card; `viewed_at` is the first open of that day. A repeated open on the same
+    // day adds no row, so presses cannot grow the table. `model_code` follows
     // AI_MODELS_CODE_PATTERN (modules/ai-models/widget/ai-models-widget-request.ts), which owns
     // the format; the check repeats it because a migration stays as it was released.
     await sql`create table ai_models_card_views (
@@ -45,10 +47,11 @@ export const aiModelsMigration: Migration = {
       bot_identity text not null,
       telegram_user_id bigint not null,
       model_code text not null check (model_code ~ '^[a-z0-9][a-z0-9-]{0,15}$'),
-      viewed_at timestamptz not null
+      viewed_at timestamptz not null,
+      viewed_on date not null
+        generated always as ((viewed_at at time zone 'Europe/Moscow')::date) stored,
+      unique (bot_identity, telegram_user_id, model_code, viewed_on)
     )`.execute(db);
-    await sql`create index ai_models_card_views_by_day
-      on ai_models_card_views (bot_identity, viewed_at)`.execute(db);
   },
   async down(db: Kysely<unknown>) {
     await sql`drop table ai_models_card_views`.execute(db);

@@ -25,19 +25,22 @@ export interface AiModelsUsageReportLine {
   readonly sources: readonly AiModelsUsageSourceLine[];
 }
 
-/** Opens of one model card. */
+/** Views of one model card. */
 export interface AiModelsCardViews {
-  /** Opens of the tab «Главное», repeated opens by one person included. */
+  /**
+   * Person-days with an opened tab «Главное»: a repeated open by the same person on the same
+   * Moscow day does not count again.
+   */
   readonly views: number;
   /** People who opened the card. */
   readonly people: number;
 }
 
-/** One model whose card somebody opened, with its opens over all time and over the last week. */
+/** One model whose card somebody opened, with its views over all time and over the last week. */
 export interface AiModelsCardsReportLine extends AiModelsCardViews {
   /** The model's code in the Справочник. */
   readonly model: string;
-  /** Opens on the last seven Moscow days, today included. */
+  /** Views on the last seven Moscow days, today included. */
   readonly last7Days: AiModelsCardViews;
 }
 
@@ -97,7 +100,8 @@ export class AiModelsReports {
 
   /**
    * Every model whose card somebody opened, a model no longer in the Справочник included. The
-   * most opened card goes first; equal opens go by people, then by model code.
+   * most viewed card goes first; equal views go by people, then by model code. A stored view is
+   * already one person on one Moscow day, so each row counts once.
    */
   async cards(now: Date): Promise<AiModelsCardsReportLine[]> {
     const rows = await sql<{
@@ -110,10 +114,8 @@ export class AiModelsReports {
       with card_view as (
         select
           *,
-          viewed_at >= (
-            date_trunc('day', ${now}::timestamptz at time zone 'Europe/Moscow')
-              - interval '6 days'
-          ) at time zone 'Europe/Moscow' as this_week
+          viewed_on >= (${now}::timestamptz at time zone 'Europe/Moscow')::date - 6
+            as this_week
         from ai_models_card_views
       )
       select

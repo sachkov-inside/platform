@@ -83,9 +83,9 @@ async function loadReference(): Promise<void> {
 }
 
 /**
- * Writes the row the card screens write for each opened tab «Главное» of a model card, at an
- * instant of the test's choice: `viewedAt`, in UTC. ai-models.integration.test.ts presses the
- * cards themselves.
+ * Writes what the card screens write for an opened tab «Главное» of a model card, at an instant
+ * of the test's choice: `viewedAt`, in UTC. Like them, it adds nothing when the person already
+ * viewed the card on that Moscow day. ai-models.integration.test.ts presses the cards themselves.
  */
 async function viewCard(
   userId: number,
@@ -100,6 +100,16 @@ async function viewCard(
       model_code: modelCode,
       viewed_at: new Date(viewedAt),
     })
+    .onConflict((conflict) =>
+      conflict
+        .columns([
+          "bot_identity",
+          "telegram_user_id",
+          "model_code",
+          "viewed_on",
+        ])
+        .doNothing(),
+    )
     .execute();
 }
 
@@ -202,14 +212,14 @@ describe("the usage report", () => {
 });
 
 describe("the cards report", () => {
-  it("counts opened cards and people per model, most opened first", async () => {
+  it("counts card views and people per model, most viewed first", async () => {
     const [first, second, third] = [newUser(), newUser(), newUser()];
     await viewCard(first, "gpt-5", "2026-10-07T08:00:00Z");
     await viewCard(first, "gpt-5", "2026-10-06T08:00:00Z");
     await viewCard(second, "gpt-5", "2026-10-02T08:00:00Z");
-    // Equal opens: the card more people opened goes first.
+    // Equal views: the card more people viewed goes first.
     await viewCard(third, "claude-opus", "2026-10-05T08:00:00Z");
-    await viewCard(third, "claude-opus", "2026-10-05T08:00:05Z");
+    await viewCard(third, "claude-opus", "2026-10-04T08:00:00Z");
     await viewCard(first, "kimi-k2", "2026-10-03T08:00:00Z");
     await viewCard(second, "kimi-k2", "2026-10-04T08:00:00Z");
     await viewCard(third, "deepseek-v3", "2026-10-01T08:00:00Z");
@@ -240,6 +250,33 @@ describe("the cards report", () => {
         views: 1,
         people: 1,
         last7Days: { views: 1, people: 1 },
+      },
+    ]);
+  });
+
+  it("counts a person's opens of one card once per Moscow day", async () => {
+    await loadReference();
+    const [user, other] = [newUser(), newUser()];
+    // The fixed test instant is 12:00 of 7 October in Moscow.
+    await running().tap(user, "3matlas-pro");
+    await running().tap(user, "3matlas-pro");
+    await running().tap(other, "3matlas-pro");
+    // A tap comes 2 seconds after the clock: 23:59:52 of 7 October in Moscow.
+    at("2026-10-07T20:59:50Z");
+    await running().tap(user, "3matlas-pro");
+    // 00:00:02 of 8 October in Moscow: a new day counts again.
+    at("2026-10-07T21:00:00Z");
+    await running().tap(user, "3matlas-pro");
+    await running().tap(user, "3matlas-pro");
+
+    const { lines } = await report("--cards");
+
+    expect(lines).toEqual([
+      {
+        model: "atlas-pro",
+        views: 3,
+        people: 2,
+        last7Days: { views: 3, people: 2 },
       },
     ]);
   });

@@ -48,12 +48,18 @@ export interface AiModelsTables {
     content_sha256: string;
     imported_at: Timestamp;
   };
-  /** One row per opened tab «Главное» of a model card; it belongs to a BotContact. */
+  /**
+   * One row per BotContact, model and Moscow day with an opened tab «Главное» of the model's
+   * card; a repeated open on the same day adds no row.
+   */
   ai_models_card_views: {
     id: Generated<string>;
     bot_identity: string;
     telegram_user_id: TelegramId;
     model_code: string;
+    /** The first open of the day. */
     viewed_at: Timestamp;
+    /** The Moscow calendar day of `viewed_at`; the database computes it. */
+    viewed_on: ColumnType<Date, never, never>;
   };
 }

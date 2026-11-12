@@ -570,41 +570,54 @@ describe("opened model cards", () => {
   const views = () =>
     database
       .selectFrom("ai_models_card_views")
-      .select(["bot_identity", "telegram_user_id", "model_code", "viewed_at"])
+      .select([
+        "bot_identity",
+        "telegram_user_id",
+        "model_code",
+        "viewed_at",
+        sql<string>`to_char(viewed_on, 'YYYY-MM-DD')`.as("viewed_on"),
+      ])
       .orderBy("id")
       .execute();
 
-  it("records every opening of the tab «Главное» for the person who opened it", async () => {
+  it("records one view per person, model and Moscow day of the tab «Главное»", async () => {
     const user = newUser();
     const other = newUser();
 
+    // The fixed test instant is 12:00 of 7 October in Moscow.
     await running().tap(user, "3matlas-pro");
     const first = virtualTestClock.now();
     await running().tap(user, "3satlas-pro");
     await running().tap(user, "3matlas-pro");
+    await running().tap(other, "3matlas-pro");
     const second = virtualTestClock.now();
-    await running().tap(other, "3mdelta");
+    await running().tap(user, "3mdelta");
     const third = virtualTestClock.now();
+    // A tap comes 2 seconds after the clock: 23:59:52 of 7 October in Moscow.
+    vi.setSystemTime(Date.parse("2026-10-07T20:59:50Z"));
+    await running().tap(user, "3matlas-pro");
+    // 00:00:02 of 8 October in Moscow.
+    vi.setSystemTime(Date.parse("2026-10-07T21:00:00Z"));
+    await running().tap(user, "3matlas-pro");
+    const fourth = virtualTestClock.now();
 
+    const view = (
+      telegramUser: number,
+      model: string,
+      viewedAt: Date,
+      viewedOn: string,
+    ) => ({
+      bot_identity: "inside",
+      telegram_user_id: String(telegramUser),
+      model_code: model,
+      viewed_at: viewedAt,
+      viewed_on: viewedOn,
+    });
     expect(await views()).toEqual([
-      {
-        bot_identity: "inside",
-        telegram_user_id: String(user),
-        model_code: "atlas-pro",
-        viewed_at: first,
-      },
-      {
-        bot_identity: "inside",
-        telegram_user_id: String(user),
-        model_code: "atlas-pro",
-        viewed_at: second,
-      },
-      {
-        bot_identity: "inside",
-        telegram_user_id: String(other),
-        model_code: "delta",
-        viewed_at: third,
-      },
+      view(user, "atlas-pro", first, "2026-10-07"),
+      view(other, "atlas-pro", second, "2026-10-07"),
+      view(user, "delta", third, "2026-10-07"),
+      view(user, "atlas-pro", fourth, "2026-10-08"),
     ]);
   });
 
