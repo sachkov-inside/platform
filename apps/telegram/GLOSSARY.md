@@ -178,8 +178,18 @@ _Avoid_: Catalogue, model catalogue, Product Catalogue, model rating
 
 **ИИ-модель** (AI Model):
 One specific model version that a company offers, such as Opus 5.5; one entry of the ИИ-модели
-section. A model family (Claude) or a tool where people use models (the Codex app) is not an ИИ-модель.
+section. A Семейство (Claude) or a tool where people use models (the Codex app) is not an ИИ-модель.
 _Avoid_: Model family, provider, agent, tool
+
+**Семейство** (Model Family):
+The ИИ-модели one company releases under one name, such as Claude, GPT or Gemini. The ИИ-модели
+section groups models by Семейство.
+_Avoid_: Company, provider, model line, ИИ-модель
+
+**Мощность** (Power):
+How capable an ИИ-модель is compared with the others, by one independent public rating. It orders
+models inside a Семейство and Семейства among themselves.
+_Avoid_: Ум, intelligence, Рейтинг, score
 
 **Подписка сервиса** (Service Subscription):
 Another company's paid plan that gives access to ИИ-модели, such as ChatGPT Plus or Claude Max.
