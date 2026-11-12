@@ -125,6 +125,16 @@ const productChapterHttpSchema = z
   })
   .strict();
 
+/** A Product topic groups catalogue Materials; it is not the global Topic of `topics`. */
+const productCatalogueTopicHttpSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string(),
+    summary: z.string(),
+    materialIds: z.array(z.uuid()),
+  })
+  .strict();
+
 export const publishedDiscoveryPageHttpSchema = z
   .object({
     programmePlacements: z
@@ -139,6 +149,7 @@ export const publishedDiscoveryPageHttpSchema = z
           .strict(),
       )
       .optional(),
+    catalogueTopics: z.array(productCatalogueTopicHttpSchema).optional(),
     chapters: z.array(productChapterHttpSchema),
     hasNext: z.boolean(),
     items: z.array(publishedCatalogItemHttpSchema),
@@ -152,6 +163,9 @@ export const publishedDiscoveryPageHttpSchema = z
 export const publishedTopicPageHttpSchema =
   publishedDiscoveryPageHttpSchema.extend({ kind: z.literal("topic") });
 export const publishedProductPageHttpSchema =
-  publishedDiscoveryPageHttpSchema.extend({ kind: z.literal("product") });
+  publishedDiscoveryPageHttpSchema.extend({
+    kind: z.literal("product"),
+    catalogueTopics: z.array(productCatalogueTopicHttpSchema),
+  });
 export const relatedPublishedMaterialsHttpSchema =
   publishedDiscoveryPageHttpSchema.extend({ kind: z.literal("related") });

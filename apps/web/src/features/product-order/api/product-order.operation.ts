@@ -3,6 +3,7 @@ import { defineMutationOperation } from "@/shared/api/mutation-operation";
 import { homePinResultSchema, setHomePinInputSchema } from "../model/home-pin";
 import {
   chapterAttachmentsInputSchema,
+  productTopicsInputSchema,
   reorderProductInputSchema,
   reorderProductResultSchema,
   type ReorderProductResult,
@@ -37,6 +38,20 @@ export const updateChapterAttachmentsOperation = defineMutationOperation({
       : failure.status === 401
         ? { kind: "unauthorized" }
         : { kind: "error", reference: "chapter-attachments-unavailable" },
+});
+
+/** Saves every topic of a Product and the Materials placed in them (#2022). */
+export const updateProductTopicsOperation = defineMutationOperation({
+  input: productTopicsInputSchema,
+  method: "PUT",
+  path: "/api/authoring/products/topics",
+  result: reorderProductResultSchema,
+  transportFailure: (failure): ReorderProductResult =>
+    failure.kind === "contract"
+      ? { kind: "error", reference: "product-topics-response" }
+      : failure.status === 401
+        ? { kind: "unauthorized" }
+        : { kind: "error", reference: "product-topics-unavailable" },
 });
 
 /** Pins a Product to Home or clears the pin at the version the author saw. */

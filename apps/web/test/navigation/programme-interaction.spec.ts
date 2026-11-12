@@ -70,7 +70,7 @@ test("the first available programme switch opens the catalogue across delayed hy
       page
         .getByRole("region", { name: "Материалы курса" })
         .getByRole("listitem"),
-    ).toHaveCount(12);
+    ).toHaveCount(120);
   } finally {
     releaseScripts?.();
     await page.unrouteAll({ behavior: "wait" });
@@ -103,7 +103,7 @@ test("a selected catalogue survives delivery of optional onboarding without repl
     await expect(materials).toBeEnabled();
     await materials.click();
     const catalogue = page.getByRole("region", { name: "Материалы курса" });
-    await expect(catalogue.getByRole("listitem")).toHaveCount(12);
+    await expect(catalogue.getByRole("listitem")).toHaveCount(120);
     await surface.evaluate((node) => {
       node.setAttribute("data-retained-programme", "true");
     });
@@ -124,7 +124,7 @@ test("a selected catalogue survives delivery of optional onboarding without repl
     ).toBeVisible();
     await expect(surface).toHaveAttribute("data-retained-programme", "true");
     await expect(materials).toHaveAttribute("aria-current", "true");
-    await expect(catalogue.getByRole("listitem")).toHaveCount(12);
+    await expect(catalogue.getByRole("listitem")).toHaveCount(120);
     const reads = z
       .object({ reads: z.array(z.object({ path: z.string() })) })
       .parse(
@@ -217,7 +217,7 @@ test("a selected catalogue survives optional onboarding that arrives after a ret
       page
         .getByRole("region", { name: "Материалы курса" })
         .getByRole("listitem"),
-    ).toHaveCount(12);
+    ).toHaveCount(13);
   } finally {
     await request.post(`${backend}/__reader-optional-hold?held=false`);
   }
@@ -310,7 +310,7 @@ test("programme tabs and composition survive an accepted background refresh afte
       page
         .getByRole("region", { name: "Материалы курса" })
         .getByRole("listitem"),
-    ).toHaveCount(12);
+    ).toHaveCount(13);
     await programme.click();
     const rows = page.locator("[data-product-ordinal]:visible");
     await scrollProgrammeBoundaryIntoView(page, 12);
@@ -331,7 +331,7 @@ test("programme tabs and composition survive an accepted background refresh afte
       page
         .getByRole("region", { name: "Материалы курса" })
         .getByRole("listitem"),
-    ).toHaveCount(12);
+    ).toHaveCount(13);
     await programme.click();
     await scrollProgrammeBoundaryIntoView(page, 12);
     await expect(programme).toHaveAttribute("aria-current", "true");

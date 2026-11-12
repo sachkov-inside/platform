@@ -297,8 +297,10 @@ the [Series contract](../../docs/specifications/platform-v1.md#series-step-seque
 representative states in the production Library discovery stories. Earlier card experiments do
 not define a second layout or terminology.
 
-Feed cards on Home and in a Product’s Material catalog show a cover only when one is assigned.
-Without a cover, the title and public summary lead. For locked or unavailable Materials, the public
+Feed cards on Home show a cover only when one is assigned. Without a cover, the title and public
+summary lead. Cards in a Product’s Material catalog (#2022) are uniform: a 16:9 picture and the
+title, no summary. Without a cover the picture is a charcoal title card with the format and the
+title, like the link preview card without its logo, and the title is not repeated below it. For locked or unavailable Materials, the public
 summary is blurred beneath the access badge; protected lesson bodies are never used as teasers.
 Available Materials keep their summary readable. The Home feed itself holds only Materials open to
 everyone ([ADR 0043](../../docs/adr/0043-feed-holds-explicitly-placed-materials.md)), so its cards are

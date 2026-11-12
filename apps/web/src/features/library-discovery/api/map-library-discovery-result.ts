@@ -76,6 +76,14 @@ const productChapterSchema = z
     tasks: z.array(productChapterTaskSchema).default([]),
   })
   .strict();
+const catalogueTopicSchema = z
+  .object({
+    id: z.uuid(),
+    materialIds: z.array(z.uuid()),
+    name: z.string(),
+    summary: z.string(),
+  })
+  .strict();
 const discoveryNotFoundSchema = z
   .object({
     code: z.literal("discovery_not_found"),
@@ -114,6 +122,8 @@ export function mapLibraryDiscoveryResult<
 
   const responseSchema = z
     .object({
+      // Темы курса приходят только со страницей продукта (#2022).
+      catalogueTopics: z.array(catalogueTopicSchema).optional(),
       chapters: z.array(productChapterSchema).default([]),
       programmePlacements: z
         .array(
@@ -165,6 +175,7 @@ export function mapLibraryDiscoveryResult<
   if (parsed.data.items.length === 0 && discoveryKind !== "topic") {
     return {
       programmePlacements: parsed.data.programmePlacements,
+      catalogueTopics: parsed.data.catalogueTopics,
       chapters: parsed.data.chapters,
       discoveryKind,
       kind: "empty",
@@ -175,6 +186,7 @@ export function mapLibraryDiscoveryResult<
   }
   return {
     programmePlacements: parsed.data.programmePlacements,
+    catalogueTopics: parsed.data.catalogueTopics,
     chapters: parsed.data.chapters,
     discoveryKind,
     hasNext: parsed.data.hasNext,

@@ -50,6 +50,14 @@ describe("Product order web adapters", () => {
         name: "Создание Platform Inside",
         orderVersion,
         productId,
+        topics: [
+          {
+            id: chapterId,
+            materialIds: [secondId],
+            name: "Ревью",
+            summary: "",
+          },
+        ],
       },
       ok: true,
       response: Response.json({}),
@@ -85,6 +93,14 @@ describe("Product order web adapters", () => {
         name: "Создание Platform Inside",
         orderVersion,
         productId,
+        topics: [
+          {
+            id: chapterId,
+            materialIds: [secondId],
+            name: "Ревью",
+            summary: "",
+          },
+        ],
       },
     });
   });

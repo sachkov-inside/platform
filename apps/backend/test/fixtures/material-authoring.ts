@@ -37,6 +37,7 @@ export function stubMaterialAuthoring(
     reorderProduct: () => Promise.resolve(forbiddenAuthoringResult),
     searchMaterials: () => Promise.resolve(forbiddenAuthoringResult),
     updateChapterAttachments: () => Promise.resolve(forbiddenAuthoringResult),
+    updateProductTopics: () => Promise.resolve(forbiddenAuthoringResult),
     saveMaterial: () => Promise.resolve(forbiddenAuthoringResult),
     setContentCollectionArchive: () =>
       Promise.resolve(forbiddenAuthoringResult),

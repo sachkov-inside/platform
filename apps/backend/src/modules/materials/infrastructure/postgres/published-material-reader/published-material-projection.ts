@@ -59,6 +59,13 @@ export interface PublishedMaterialDiscoveryPage {
     readonly chapterId: string | null;
     readonly stepGroup: string | null;
   }[];
+  /** Product topics of a Product page in author order; absent for every other discovery kind. */
+  readonly catalogueTopics?: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly summary: string;
+    readonly materialIds: readonly string[];
+  }[];
   /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;
@@ -1030,6 +1037,14 @@ function projectionQueries(
           materialId,
           chapterId,
           stepGroup,
+        }),
+      ),
+      catalogueTopics: reference.catalogueTopics.map(
+        ({ id, name, summary, materialIds }) => ({
+          id,
+          name,
+          summary,
+          materialIds,
         }),
       ),
       chapters: productCompositionChapters(reference).map(

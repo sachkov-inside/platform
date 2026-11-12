@@ -37,6 +37,7 @@ import {
 } from "../../shared/product-order-version.js";
 import { mapPostgresReadError } from "../../../../infrastructure/content-authoring/postgres-error-mapping.js";
 import { productStepGroupsSchema } from "../../shared/product-step-groups.js";
+import { inCatalogueOrder } from "../../shared/product-topics.js";
 import {
   heldProductRemovals,
   recordProductRemovals,
@@ -212,15 +213,22 @@ export function assembleReorderProduct(
             stepGroup: primary?.stepGroup ?? null,
           };
         });
+        // Product topics keep their Materials that stay in the catalogue.
+        const nextTopics = snapshot.topics.map((topic) => ({
+          ...topic,
+          materialIds: inCatalogueOrder(topic.materialIds, catalogueOrder),
+        }));
         const currentOrderVersion = productOrderVersion(
           snapshot.items,
           snapshot.chapters,
           snapshot.programmePlacements,
+          snapshot.topics,
         );
         const nextOrderVersion = productOrderVersion(
           nextEntries,
           nextChapters,
           nextProgramme,
+          nextTopics,
         );
         if (currentOrderVersion === nextOrderVersion) {
           return {
@@ -356,6 +364,7 @@ export function assembleReorderProduct(
           orderedMaterialIds: command.orderedMaterialIds,
           stepGroups: nextGroups,
           programmePlacements: nextProgramme,
+          topics: nextTopics,
         });
         await recordProductRemovals(transaction, {
           actor: command.actor,

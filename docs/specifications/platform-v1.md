@@ -347,7 +347,7 @@ Entry points вызывают одни application use cases и не созда�
 | `Materials` | `MaterialAuthoring` создаёт и full-state-save-ит current Material; reader возвращает published current state | content/metadata, publication/access state, content version, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать bounded Home, единый catalog, search и Topic/Product navigation | current published projections, ranking, filtered facets и bounded Product previews |
 | [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и single `authorize` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
-| `Products` | управлять Product, каталогом, программой, главами и attachments | Product identity, publication/archive, placements и composition versions |
+| `Products` | управлять Product, каталогом, программой, главами, attachments и темами курса | Product identity, publication/archive, placements, Product topics и composition versions |
 | `AccountRights` | выдать, отозвать или явно восстановить lifetime Product Access | одно право Account/Product, основания и журнал действий |
 | `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
@@ -381,6 +381,7 @@ entities и invariants v1:
 | `ProductMembership` | уникальная пара Product/Material в каталоге; не задаёт порядок программы |
 | `ProgrammePlacement` | стабильное место каталожного Material в программе Product; один Material может повторяться; chapter и nullable stepGroup принадлежат placement |
 | `ChapterAttachment` | упорядоченная ссылка главы на каталожный Material вне обязательной программы |
+| `ProductTopic` | принадлежит ровно одному Product; стабильный идентификатор, name, короткое описание и ordinal; группирует каталожные Materials, каждый Material входит не больше чем в одну тему своего Product; не глобальный `Topic` ([Product topics](#product-topics)) |
 | `ProductChapter` | принадлежит ровно одному Product; стабильный идентификатор, name, авторское описание и ordinal внутри Product; владеет непрерывным участком основного маршрута и не хранит копии материалов |
 | `ContentCover` | принадлежит ровно одному Material, Topic или Product; current cover не переиспользуется между owners; только normalized public WebP renditions, original/key/checksum не входят в read contract |
 | `MaterialAsset` | принадлежит ровно одному Material; current MaterialBody ссылается на 0..N immutable ready MaterialAssets; `pending | processing | ready | failed` |
@@ -670,7 +671,40 @@ Account без права получают «не найдено». `ContentAcce
 и видео материалов, которые входят только в архивные продукты. Ответы держателю не попадают
 в общий кеш. Web после гостевого «не найдено» читает продукт и программу в личной части запроса ([ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md)).
 
+### Product topics
 
+Тема курса (Product Topic) группирует материалы каталога одного Product для читателя (#2022).
+Это не глобальный `Topic` из словаря и не глава программы: тема не меняет каталог, программу,
+нумерацию, прогресс и исходники. У Product упорядоченный список тем. Тема имеет стабильный
+идентификатор, который задаёт автор, как у главы. `name` после `trim()` занимает 1–120 UTF-16 code
+units, `summary` после `trim()` до 300; пустая строка означает отсутствие описания. Материал
+каталога входит не больше чем в одну тему своего Product; материал без темы допустим, пустая тема
+тоже. Порядок материалов внутри темы не хранится: чтение отдаёт их в порядке каталога.
+
+`updateProductTopics` / REST `PUT /authoring/products/:productId/topics`
+(`updateAuthoringProductTopics`) / MCP `product_set_topics` принимают
+`{ expectedOrderVersion, topics: [{ id, name, summary, materialIds }] }` и атомарно, под
+блокировкой Product, заменяют весь список тем и их материалы. Тема, которой нет в списке,
+удаляется, а её материалы остаются в каталоге без темы. Ограничения: не больше 50 тем, уникальные
+`id`, не больше 1000 `materialIds` во всех темах вместе; нарушение формы даёт `invalid_content`.
+Материал вне каталога даёт `invalid_reference` с кодом `product_topic_material_not_in_product`,
+повтор материала в той же или другой теме даёт `product_topic_material_claimed` (путь
+`/topics/<n>/materialIds/<m>`), идентификатор темы другого Product даёт `product_topic_claimed`
+(`/topics/<n>/id`). Ответ совпадает с ответом attachments: `{ productId, orderVersion }`.
+Как и attachments, операция доступна для импортированного и архивного Product.
+
+Optimistic `orderVersion` покрывает и темы, поэтому правка тем делает устаревшей параллельную
+запись состава (`stale_product_order`), и наоборот. Product без тем сохраняет прежнее значение
+версии. `loadProductOrder`, REST `GET /authoring/products/:productId/order` и MCP
+`product_load_composition` возвращают `topics: [{ id, name, summary, materialIds }]` в порядке
+автора. Запись состава (`reorderProduct`, импорт, Material Save) сохраняет привязку материалов,
+которые остались в каталоге; материал, покинувший каталог, теряет привязку вместе с membership.
+
+Страница продукта `GET /library/products/:slug` (`readPublishedProduct`) возвращает
+`catalogueTopics: [{ id, name, summary, materialIds }]`: все темы в порядке автора, включая
+пустые, а в `materialIds` только опубликованные материалы темы в порядке каталога. Поле не
+называется `topics`, потому что `topics` той же страницы перечисляет глобальные Topics. Страницы
+Topic и связанных материалов поле не получают.
 
 ### Страница руководства
 

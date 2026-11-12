@@ -471,3 +471,36 @@ export function requestChapterAttachments(
     { accessToken },
   );
 }
+
+/** Saves every Product Topic of a Product and the Materials placed in them (#2022). */
+export function requestProductTopics(
+  input: {
+    readonly productId: string;
+    readonly expectedOrderVersion: string;
+    readonly topics: readonly {
+      readonly id: string;
+      readonly name: string;
+      readonly summary: string;
+      readonly materialIds: readonly string[];
+    }[];
+  },
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MaterialAuthoringService(request).updateAuthoringProductTopics({
+        productId: input.productId,
+        requestBody: {
+          expectedOrderVersion: input.expectedOrderVersion,
+          topics: input.topics.map((topic) => ({
+            id: topic.id,
+            name: topic.name,
+            summary: topic.summary,
+            materialIds: [...topic.materialIds],
+          })),
+        },
+      }),
+    200,
+    { accessToken },
+  );
+}

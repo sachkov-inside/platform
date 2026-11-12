@@ -16,6 +16,11 @@ import {
   productProgrammePlacementsSchema,
 } from "../../shared/product-chapters.js";
 import { productStepGroupsSchema } from "../../shared/product-step-groups.js";
+import {
+  PRODUCT_TOPIC_MATERIALS_MAX,
+  PRODUCT_TOPIC_NAME_MAX,
+  PRODUCT_TOPIC_SUMMARY_MAX,
+} from "../../shared/product-topics.js";
 import { PRODUCT_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
 import { productPageSchema } from "../../domain/product-page.js";
 import { MATERIAL_DETACHED_VIDEOS_MAX } from "../../features/save-material/save-material.contract.js";
@@ -135,6 +140,15 @@ export const productChapterSchema = z
     summary: z.string().max(PRODUCT_CHAPTER_SUMMARY_MAX),
   })
   .strict();
+/** A Product topic groups catalogue Materials for the reader; it is not the global Topic. */
+export const productTopicSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string().min(1).max(PRODUCT_TOPIC_NAME_MAX),
+    summary: z.string().max(PRODUCT_TOPIC_SUMMARY_MAX),
+    materialIds: z.array(z.uuid()).max(PRODUCT_TOPIC_MATERIALS_MAX),
+  })
+  .strict();
 export const productOrderSchema = z
   .object({
     archived: z.boolean(),
@@ -155,6 +169,7 @@ export const productOrderSchema = z
     name: z.string().min(1),
     orderVersion: productOrderVersionSchema,
     productId: z.uuid(),
+    topics: z.array(productTopicSchema),
   })
   .strict();
 export const reorderProductBodySchema = z

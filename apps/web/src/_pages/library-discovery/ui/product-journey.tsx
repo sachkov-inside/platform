@@ -23,11 +23,11 @@ import { ChapterReadingProgress } from "./chapter-reading-progress.client";
 import { PRODUCT_BATCH_SIZE } from "./product-batch";
 import {
   ProductJourneyControls,
-  type CatalogPlace,
   type JourneyPart,
   type JourneyRun,
   type ProductOnboardingPanel,
 } from "./product-journey-controls.client";
+import type { CatalogPlace } from "./product-material-catalog.client";
 
 type ProductResult = Extract<
   PublishedProductResult,
@@ -58,6 +58,12 @@ export function ProductJourney({
   const items = result.kind === "ready" ? result.items : [];
   const chapterOf = chapterLookup(result.chapters);
   const places = programmePlaces(result, items);
+  const catalogueTopics = result.catalogueTopics ?? [];
+  const topicOf = new Map(
+    catalogueTopics.flatMap((topic) =>
+      topic.materialIds.map((materialId) => [materialId, topic.id] as const),
+    ),
+  );
   const programmeItems =
     result.programmePlacements === undefined
       ? items
@@ -127,11 +133,15 @@ export function ProductJourney({
       }),
     ),
     {
-      // Материалы — каталог всех материалов продукта карточками: поиск, фильтры, новые сверху
-      // (решение владельца 09.10.2026). Программа остаётся строгим порядком глав.
+      // Материалы — каталог всех материалов продукта полками тем курса (#2022, решение владельца
+      // 12.11.2026). Программа остаётся строгим порядком глав.
       accessPending,
       entries: items.map((material) => ({
         material,
+        topicId:
+          material.materialId === undefined
+            ? null
+            : (topicOf.get(material.materialId) ?? null),
         place:
           material.materialId === undefined
             ? null
@@ -146,6 +156,7 @@ export function ProductJourney({
       id: "supplementary",
       kind: "catalog",
       label: "Материалы",
+      topics: catalogueTopics,
     },
   ];
 

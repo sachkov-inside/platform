@@ -2,11 +2,13 @@
 
 import { ChapterAttachmentsEditor } from "./chapter-attachments-editor.client";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { Button } from "@/shared/ui/button";
 import { productOrderQueryOptions } from "../api/read-product-order.browser";
 import { productOrderMaterialSearchQueryOptions } from "../model/product-order-material-search-query";
 import { ProductOrderManager } from "./product-order-manager.client";
 import { ProductOrderReadOnly } from "./product-order-read-only";
+import { ProductTopicsEditor } from "./product-topics-editor.client";
 export function ProductOrderPanel({
   productId,
   archived,
@@ -18,6 +20,14 @@ export function ProductOrderPanel({
   readonly readOnly?: boolean;
 }) {
   const query = useQuery(productOrderQueryOptions(productId));
+  const loadedVersion =
+    query.data?.kind === "ready" ? query.data.order.orderVersion : null;
+  // Одна версия состава на панель: редакторы состава, вложений глав и тем сохраняют по очереди,
+  // и каждая запись идёт от версии, оставленной предыдущей. Перечитанный состав её обновляет.
+  const orderVersionRef = useRef(loadedVersion ?? "");
+  useEffect(() => {
+    if (loadedVersion !== null) orderVersionRef.current = loadedVersion;
+  }, [loadedVersion]);
   if (query.isPending)
     return (
       <p className="p-6" role="status">
@@ -39,6 +49,24 @@ export function ProductOrderPanel({
       </div>
     );
   const order = query.data.order;
+  const topics = (
+    <ProductTopicsEditor
+      items={order.items}
+      orderVersionRef={orderVersionRef}
+      onRefresh={async () => {
+        const refreshed = await query.refetch();
+        return refreshed.isError || refreshed.data?.kind !== "ready"
+          ? null
+          : {
+              orderVersion: refreshed.data.order.orderVersion,
+              topics: refreshed.data.order.topics,
+            };
+      }}
+      orderVersion={order.orderVersion}
+      productId={productId}
+      topics={order.topics}
+    />
+  );
   if (readOnly)
     return (
       <div className="grid gap-6">
@@ -55,6 +83,7 @@ export function ProductOrderPanel({
             items={order.items}
             productId={productId}
             orderVersion={order.orderVersion}
+            orderVersionRef={orderVersionRef}
             onRefresh={async () => {
               const refreshed = await query.refetch();
               if (refreshed.isError || refreshed.data?.kind !== "ready")
@@ -71,23 +100,30 @@ export function ProductOrderPanel({
             }}
           />
         ))}
+        {topics}
       </div>
     );
   return (
-    <ProductOrderManager
-      key={order.orderVersion}
-      embedded
-      createMaterialSearchQueryOptions={productOrderMaterialSearchQueryOptions}
-      onBack={() => undefined}
-      onRefresh={() => {
-        void query.refetch();
-      }}
-      onSelectPlaylist={() => undefined}
-      presentation={{
-        ...order,
-        archived,
-        options: [{ label: order.name, value: order.productId }],
-      }}
-    />
+    <div className="grid gap-6">
+      <ProductOrderManager
+        key={order.orderVersion}
+        embedded
+        createMaterialSearchQueryOptions={
+          productOrderMaterialSearchQueryOptions
+        }
+        onBack={() => undefined}
+        onRefresh={() => {
+          void query.refetch();
+        }}
+        onSelectPlaylist={() => undefined}
+        orderVersionRef={orderVersionRef}
+        presentation={{
+          ...order,
+          archived,
+          options: [{ label: order.name, value: order.productId }],
+        }}
+      />
+      {topics}
+    </div>
   );
 }

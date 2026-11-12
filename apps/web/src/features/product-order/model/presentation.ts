@@ -22,6 +22,34 @@ export const productChapterDraftSchema = z
   })
   .strict();
 
+export interface ProductTopicPresentation {
+  readonly id: string;
+  readonly materialIds: readonly string[];
+  readonly name: string;
+  readonly summary: string;
+}
+
+/** Web-side copy of the Product Topic limits the Nest contract enforces (#2022). */
+export const PRODUCT_TOPIC_NAME_MAX = 120;
+export const PRODUCT_TOPIC_SUMMARY_MAX = 300;
+export const PRODUCT_TOPICS_MAX = 50;
+export const productTopicDraftSchema = z
+  .object({
+    id: z.uuid(),
+    materialIds: z.array(z.uuid()).max(1000).readonly(),
+    name: z.string().trim().min(1).max(PRODUCT_TOPIC_NAME_MAX),
+    summary: z.string().trim().max(PRODUCT_TOPIC_SUMMARY_MAX),
+  })
+  .strict();
+
+/**
+ * The order version one product panel holds for all its editors: composition, chapter attachments
+ * and topics share it on the backend, so each save starts from the version the previous one left.
+ */
+export interface OrderVersionRef {
+  current: string;
+}
+
 export interface ProductOrderItemPresentation {
   readonly chapterId?: string | null;
   readonly materialId: string;
@@ -51,6 +79,8 @@ export interface ProductOrderPresentation {
   readonly archived: boolean;
   readonly chapters: readonly ProductChapterPresentation[];
   readonly items: readonly ProductOrderItemPresentation[];
+  /** Темы курса для полок каталога; старый ответ без них — тем нет. */
+  readonly topics?: readonly ProductTopicPresentation[] | undefined;
   readonly name: string;
   readonly options: readonly {
     readonly archived?: boolean;
@@ -150,6 +180,13 @@ export const chapterAttachmentsInputSchema = z.object({
   expectedOrderVersion: orderVersionSchema,
   materialIds: z.array(z.uuid()).max(200).readonly(),
   productId: z.uuid(),
+});
+
+/** The JSON body of a Product Topics save: every topic of the Product in author order. */
+export const productTopicsInputSchema = z.object({
+  expectedOrderVersion: orderVersionSchema,
+  productId: z.uuid(),
+  topics: z.array(productTopicDraftSchema).max(PRODUCT_TOPICS_MAX).readonly(),
 });
 
 export type ReorderProductResult = z.infer<typeof reorderProductResultSchema>;

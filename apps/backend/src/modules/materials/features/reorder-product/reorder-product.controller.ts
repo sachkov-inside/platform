@@ -1,4 +1,5 @@
 import { chapterAttachmentsBodySchema } from "../update-chapter-attachments/update-chapter-attachments.js";
+import { productTopicsBodySchema } from "../update-product-topics/update-product-topics.js";
 import { Body, Controller, Inject, Param, Put } from "@nestjs/common";
 import {
   ApiBody,
@@ -81,6 +82,31 @@ export class ReorderProductController {
       actor: account.accountId,
       productId,
       chapterId,
+      ...body,
+    });
+    if (!result.ok) throwMaterialAuthoringError(result.error);
+    return result.value;
+  }
+
+  @Put("products/:productId/topics")
+  @ApiOperation({
+    operationId: "updateAuthoringProductTopics",
+    summary:
+      "Replace the Product topics and their Materials without changing the catalogue or programme",
+  })
+  @ApiParam({ name: "productId", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: toOpenApiSchema(productTopicsBodySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(reorderProductReceiptSchema) })
+  @ApiMaterialAuthoringErrors(400, 401, 403, 404, 409, 422, 500, 503)
+  async topics(
+    @CurrentAccount() account: AuthenticatedAccount,
+    @Param("productId") productId: string,
+    @Body() input: unknown,
+  ) {
+    const body = parseMaterialAuthoringBody(productTopicsBodySchema, input);
+    const result = await this.authoring.updateProductTopics({
+      actor: account.accountId,
+      productId,
       ...body,
     });
     if (!result.ok) throwMaterialAuthoringError(result.error);

@@ -47,6 +47,19 @@ const schema = z
         })
         .strict(),
     ),
+    // Темы курса (#2022); ответ без них читается как продукт без тем.
+    topics: z
+      .array(
+        z
+          .object({
+            id: z.uuid(),
+            materialIds: z.array(z.uuid()),
+            name: z.string().min(1),
+            summary: z.string(),
+          })
+          .strict(),
+      )
+      .default([]),
     name: z.string().min(1),
     orderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
     productId: z.uuid(),
@@ -112,6 +125,7 @@ export async function getProductOrder(
         publicationState: item.publicationState,
         title: item.title ?? "Без названия",
       })),
+      topics: parsed.data.topics,
       name: parsed.data.name,
       orderVersion: parsed.data.orderVersion,
       productId: parsed.data.productId,

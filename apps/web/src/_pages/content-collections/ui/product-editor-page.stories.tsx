@@ -136,6 +136,7 @@ function Fixture({
         orderVersion: "a".repeat(64),
         chapters: chaptered ? chapters : [],
         items: selectedItems,
+        topics: [],
         programmePlacements: selectedItems.map((item, index) => ({
           id: `97000000-0000-4000-8000-00000000003${String(index + 1)}`,
           materialId: item.materialId,

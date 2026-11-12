@@ -6,6 +6,7 @@ import {
   productProgrammePlacementsSchema,
 } from "../../shared/product-chapters.js";
 import { productStepGroupsSchema } from "../../shared/product-step-groups.js";
+import { productTopicDraftsSchema } from "../../shared/product-topics.js";
 import { PRODUCT_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
 
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
@@ -320,7 +321,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Load Product composition",
       description:
-        "Load the complete ordered Product and the searchable pool of Materials with its optimistic order version.",
+        "Load the complete ordered Product and the searchable pool of Materials with its optimistic order version. topics lists the Product topics in author order with their catalogue Materials; they are not the global Topic dictionary.",
       inputSchema: z.object({ productId: collectionIdSchema }).strict(),
       annotations: {
         readOnlyHint: true,
@@ -409,6 +410,34 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     (input) =>
       toToolResult(
         dependencies.authoring.updateChapterAttachments({
+          ...input,
+          actor: dependencies.accountId,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "product_set_topics",
+    {
+      title: "Set Product topics",
+      description:
+        "Replace the complete ordered list of Product topics using the latest order version. A Product topic groups Product catalogue Materials for the reader and is not the global Topic dictionary. Send every topic with a stable id, name, summary and materialIds; an omitted topic is deleted and its Materials stay in the catalogue without a topic. Each Material belongs to at most one topic. Material order inside a topic is not stored. Does not change the catalogue, programme, source originals, or progress. Available for imported and archived Products.",
+      inputSchema: z
+        .object({
+          productId: collectionIdSchema,
+          expectedOrderVersion: productOrderVersionSchema,
+          topics: productTopicDraftsSchema,
+        })
+        .strict(),
+      annotations: {
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input) =>
+      toToolResult(
+        dependencies.authoring.updateProductTopics({
           ...input,
           actor: dependencies.accountId,
         }),
