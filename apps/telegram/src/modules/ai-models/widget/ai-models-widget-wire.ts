@@ -294,13 +294,24 @@ export function aiModelsChatData(
 const findModel = (reference: AiModelsReference, code: string) =>
   reference.models.find((model) => model.code === code);
 
+/**
+ * The entry of the author's section under a code of the file. Only the file's own keys count: a
+ * service or a model coded `constructor` without an entry gets nothing, not the built-in property.
+ */
+function own<Entry>(
+  section: Readonly<Record<string, Entry>>,
+  code: string,
+): Entry | undefined {
+  return Object.hasOwn(section, code) ? section[code] : undefined;
+}
+
 const leader = (model: AiModelsModel): Flag =>
   isAiModelsLeader(model) ? 1 : 0;
 
 /** Services whose ban risk the author gives to the model, in the order of the file's services. */
 function banRisks(reference: AiModelsReference, model: AiModelsModel) {
   return reference.services.flatMap(({ code }) => {
-    const risk = reference.author.services[code];
+    const risk = own(reference.author.services, code);
     return risk?.models.includes(model.code) === true ? [risk] : [];
   });
 }
@@ -311,7 +322,7 @@ function badgeCodes(
   model: AiModelsModel,
 ): (BadgeCode | "b")[] {
   const codes = new Set<BadgeCode | "b">(
-    (reference.author.models[model.code]?.badges ?? []).map(
+    (own(reference.author.models, model.code)?.badges ?? []).map(
       ({ badge }) => BADGE_CODES[badge],
     ),
   );
@@ -340,7 +351,7 @@ function listed(
       return reference.author.favoriteGroups.flatMap(({ code, title }) =>
         aiModelsByRank(reference.models)
           .filter((model) =>
-            (reference.author.models[model.code]?.badges ?? []).some(
+            (own(reference.author.models, model.code)?.badges ?? []).some(
               ({ badge, groups }) =>
                 badge === "favorite" && groups?.includes(code) === true,
             ),
@@ -425,7 +436,7 @@ function cardData(
   reference: AiModelsReference,
   model: AiModelsModel,
 ): AiModelsCardData {
-  const opinion = reference.author.models[model.code];
+  const opinion = own(reference.author.models, model.code);
   const badges = (opinion?.badges ?? [])
     .map(({ badge, text }) => [BADGE_CODES[badge], text] as const)
     .sort(([a], [b]) => BADGE_ORDER.indexOf(a) - BADGE_ORDER.indexOf(b));
@@ -460,7 +471,7 @@ function betterPick(
   reference: AiModelsReference,
   model: AiModelsModel,
 ): AiModelsCardData[9] {
-  const pick = reference.author.models[model.code]?.betterPick;
+  const pick = own(reference.author.models, model.code)?.betterPick;
   if (pick === undefined) return [];
   const [first, second] = pick.models.map((code) => {
     const picked = findModel(reference, code);
@@ -483,7 +494,7 @@ function subscriptionsData(
       ([code, lines]): AiModelsServiceGroup[] => {
         const service = reference.services.find((found) => found.code === code);
         if (service === undefined) return [];
-        const risk = reference.author.services[code];
+        const risk = own(reference.author.services, code);
         return [
           [
             service.name,

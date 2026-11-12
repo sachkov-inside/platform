@@ -4,6 +4,7 @@ import {
   readAiModelsReferenceFile,
   type AiModelsReferenceError,
 } from "../../src/modules/ai-models/ai-models-reference-file.js";
+import { aiModelsResponse } from "../../src/modules/ai-models/widget/ai-models-widget-wire.js";
 import { syntheticAiModelsReference } from "../support/synthetic-ai-models-reference.js";
 
 /** The errors of a file the check must reject. */
@@ -752,5 +753,47 @@ describe("Справочник file answers to the widget", () => {
     expect(errors[0]?.reason).toMatch(
       /^Экран «О данных»: байт \d{4}, лимит 1024\. Сократите строки about\.$/,
     );
+  });
+});
+
+describe("Справочник file codes that name built-in properties of an object", () => {
+  /** The synthetic file with the service «gate» and the model «echo» renamed; neither has an opinion of the author. */
+  function renamed(code: string): File {
+    const file = syntheticAiModelsReference();
+    for (const service of file.services)
+      if (service.code === "gate") service.code = code;
+    for (const plan of file.plans)
+      if (plan.service === "gate") plan.service = code;
+    model(file, 6).code = code;
+    return file;
+  }
+
+  it("accepts a service and a model coded constructor that the author says nothing about", () => {
+    const result = readAiModelsReferenceFile(renamed("constructor"));
+
+    expect(result.status).toBe("valid");
+    if (result.status !== "valid") return;
+    const { reference } = result;
+    expect(
+      aiModelsResponse(reference, { kind: "card", model: "constructor" })?.[8],
+    ).toEqual([]);
+    expect(
+      aiModelsResponse(reference, { kind: "subscriptions", model: "delta" }),
+    ).toMatchObject([
+      "s",
+      "delta",
+      "Delta 1",
+      3,
+      0,
+      1,
+      [["Multigate", "", "uu", expect.any(Array)]],
+    ]);
+  });
+
+  it("rejects a service and a model coded toString like any other code with a capital letter", () => {
+    expect(places(rejection(renamed("toString")))).toEqual([
+      { service: "№3", field: "code" },
+      { model: "№7", field: "code" },
+    ]);
   });
 });
