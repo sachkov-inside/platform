@@ -26,12 +26,16 @@ describe("Inline SVG figure check (#2041)", () => {
         "var(--fig-play, running)",
       );
     }
+    // `hostile` targets only its own root: its frame, not the check, keeps it in place.
+    expect(checkInlineSvgMarkup(fixture("hostile/400"))).toMatchObject({
+      ok: true,
+    });
   });
 
   test("a figure that passes the upload check but not the scope rules stays an image", () => {
-    const hostile = fixture("hostile/400");
-    expect(checkSvgMarkup(hostile)).toMatchObject({ ok: true });
-    expect(checkInlineSvgMarkup(hostile)).toEqual({
+    const unscoped = fixture("unscoped/400");
+    expect(checkSvgMarkup(unscoped)).toMatchObject({ ok: true });
+    expect(checkInlineSvgMarkup(unscoped)).toEqual({
       error: { code: "unsafe_svg" },
       ok: false,
     });
