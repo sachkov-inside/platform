@@ -4,6 +4,11 @@
 одного файла JSON. Формат файла описан в [контракте Справочника](../integrations/ai-models-reference-v1.md).
 Загрузка настоящего Справочника в production требует разрешения владельца.
 
+Текущий Справочник хранится в репозитории: `apps/telegram/content/ai-models-reference.json`.
+Обновляет его скилл `ai-models-refresh`: агент собирает свежие факты, показывает владельцу черновик
+со списком изменений и после его согласия сливает файл и загружает его в production. Тест
+`test/unit/ai-models-reference-current.test.ts` проверяет этот файл так же, как импорт.
+
 ## Что делает команда
 
 1. Читает файл со стандартного ввода.
@@ -22,7 +27,7 @@
 файла в production нарисуйте каждый его экран во встроенном Chromium, из корня репозитория:
 
 ```bash
-pnpm --filter @inside/telegram ai-models:widget:fit /protected/ai-models-reference.json
+pnpm --filter @inside/telegram ai-models:widget:fit content/ai-models-reference.json
 ```
 
 Команда рисует собранный виджет при ширине 320 и 390 px: каждую страницу каждого фильтра, обе
@@ -43,11 +48,13 @@ pnpm --filter @inside/telegram ai-models:widget:fit /protected/ai-models-referen
 ## Запуск в production
 
 Переменная `telegram_compose` задаётся как в разделе
-[operations-команд](production.md#operations-команды). Файл Справочника лежит на сервере вне Git.
+[operations-команд](production.md#operations-команды). Перед загрузкой скопируйте слитый файл из
+репозитория на сервер в отдельный каталог: `/var/lib/inside/ai-models-reference-<ГГГГММДД>-<первые 12 знаков sha256>/ai-models-reference.json`.
+Ниже `$reference` означает путь к этому файлу.
 
 ```bash
-"${telegram_compose[@]}" --profile operations run --rm -T ai-models-reference-import --preview < /protected/ai-models-reference.json
-"${telegram_compose[@]}" --profile operations run --rm -T ai-models-reference-import --apply < /protected/ai-models-reference.json
+"${telegram_compose[@]}" --profile operations run --rm -T ai-models-reference-import --preview < "$reference"
+"${telegram_compose[@]}" --profile operations run --rm -T ai-models-reference-import --apply < "$reference"
 ```
 
 Сначала выполните `--preview` и прочитайте отчёт. Затем выполните `--apply` с тем же файлом.

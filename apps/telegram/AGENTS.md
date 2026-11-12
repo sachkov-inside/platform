@@ -15,7 +15,8 @@
   [reports runbook](docs/operations/trainer-reports.md).
 - For the ИИ-модели Справочник file, its import or the widget answers built from it, read
   [Справочник file contract](docs/integrations/ai-models-reference-v1.md) and
-  [import runbook](docs/operations/ai-models-reference.md).
+  [import runbook](docs/operations/ai-models-reference.md). The current Справочник is
+  `content/ai-models-reference.json`; refresh it with the `ai-models-refresh` skill.
 - For the author's ИИ-модели reports on openings and opened model cards, read
   [ИИ-модели reports runbook](docs/operations/ai-models-reports.md).
 - For sales funnel events and consent, read [sales funnel integration](docs/integrations/sales-funnel-events-v1.md).
