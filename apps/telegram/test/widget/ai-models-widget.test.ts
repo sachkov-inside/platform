@@ -535,7 +535,7 @@ describe("ИИ-модели widget: errors", () => {
   });
 });
 
-/** Screens wider than the bot can send: each text grows until the answer reaches 1 024 bytes. */
+/** Screens as full as the bot can send: each text grows until the answer reaches 1 024 bytes. */
 function largest(
   build: (length: number) => AiModelsWidgetData,
   maximum: number,
@@ -660,12 +660,25 @@ describe("ИИ-модели widget: fitting a screen", () => {
   });
 
   it("cuts the summaries with an ellipsis first, and only then lowers the text", async () => {
+    // Short names and long summaries: the page fits once each summary takes one line.
+    const crowded = encodeAiModelsWidgetData([
+      "l",
+      "c",
+      0,
+      2,
+      "12.11",
+      Array.from(
+        { length: 7 },
+        (_, row) =>
+          `m${String(row)}|Model ${String(row)}|4|0|fcb|$1,14|$10|${widest(50, row)}`,
+      ),
+    ]);
     const page = await openWidget(320);
     try {
-      const [, crowded] = limitScreens[3] ?? [];
       await showAiModelsScreen(page, await pageHtml(), crowded);
       const cut = await measureAiModelsScreen(page);
       expect(cut.clipped).toBe(true);
+      expect(cut.fontPx).toBe(15);
       expect(cut.heightPx).toBeLessThanOrEqual(560);
 
       // A larger text size of the app: the cut page is still too tall, so the text gets smaller.
