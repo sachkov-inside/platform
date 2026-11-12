@@ -144,13 +144,13 @@ Logto и контейнеры Telegram. Поэтому production Compose-фай
 `journald-size.conf` ограничивает журнал 500 МБ (`SystemMaxUse=500M`); старые записи удаляются
 первыми. На production предел поставлен вручную 12.11.2026 при очистке диска, тем же файлом.
 
-На работающем сервере без повторного provisioning:
+На работающем сервере без повторной подготовки:
 
 ```bash
 sudo install -d -m 755 /etc/systemd/journald.conf.d
 sudo install -m 644 infra/production/host/journald-size.conf /etc/systemd/journald.conf.d/inside-size.conf
 sudo systemctl restart systemd-journald.service
-systemd-analyze cat-config systemd/journald.conf | grep SystemMaxUse
+systemd-analyze cat-config systemd/journald.conf | grep '^SystemMaxUse='
 journalctl --disk-usage
 ```
 
