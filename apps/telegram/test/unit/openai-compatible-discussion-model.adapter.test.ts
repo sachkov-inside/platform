@@ -26,7 +26,7 @@ const input: GroupInput = {
       sentAt: "2026-10-07T09:00:00Z",
       kind: "text",
       text: "Как выбрать инструмент?",
-      discussionId: null,
+      savedDiscussionId: null,
     },
   ],
   discussions: [
@@ -173,7 +173,7 @@ describe("OpenAI compatible grouping HTTP contract", () => {
     expect(instructions).toContain("hasNewInformation=false");
     expect(instructions).toContain("I do not know");
     expect(instructions).toContain(
-      "A message with discussionId already belongs to that saved discussion",
+      "A message with savedDiscussionId already belongs to that saved discussion",
     );
     expect(JSON.parse(requiredUser(request.messages))).toEqual(input);
   });

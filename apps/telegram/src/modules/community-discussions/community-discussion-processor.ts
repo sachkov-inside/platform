@@ -31,7 +31,8 @@ const LEASE_MS = 180_000;
 const PROVIDER_TIMEOUT_MS = 120_000;
 // Twenty sequential five-second author callbacks fit within the three-minute lease.
 const AUTHOR_PAGE = 20;
-// A 124-message call on production missed the provider timeout in about half of its attempts.
+// On 12.11.2026 production retried one 124-message batch for 6.5 hours: 28 of its 57 failed runs
+// were 120-second provider timeouts (#2052). Smaller calls are meant to keep a response within it.
 const MESSAGE_BATCH = 50;
 const RECENT_DAYS = 7;
 const CONTEXT_LIMIT = 200;
@@ -496,7 +497,7 @@ export class CommunityDiscussionProcessor {
                 ? "[Кружок без расшифровки]"
                 : message.text),
           // An edited source stays in its own discussion even when it replies to another one.
-          discussionId:
+          savedDiscussionId:
             savedDiscussion(message.message_id) ??
             savedDiscussion(message.reply_to_message_id) ??
             null,
@@ -546,13 +547,13 @@ export class CommunityDiscussionProcessor {
       for (const id of discussion.messageIds) {
         if (!knownMessages.has(id) || assigned.has(id))
           throw new DiscussionProcessingFailure("invalid_message_assignment");
-        const saved = input.messages.find(
+        const savedDiscussionId = input.messages.find(
           (message) => message.messageId === id,
-        )?.discussionId;
+        )?.savedDiscussionId;
         if (
-          saved !== null &&
-          saved !== undefined &&
-          saved !== discussion.discussionId
+          savedDiscussionId !== null &&
+          savedDiscussionId !== undefined &&
+          savedDiscussionId !== discussion.discussionId
         )
           throw new DiscussionProcessingFailure("invalid_membership_change");
         assigned.add(id);
@@ -654,14 +655,12 @@ export class CommunityDiscussionProcessor {
             .executeTakeFirst();
           if (!existing)
             throw new DiscussionProcessingFailure("discussion_disappeared");
-          const editedSource = input.discussions.some(
-            (previous) =>
-              previous.discussionId === id &&
-              previous.sources.some((source) =>
-                discussion.messageIds.includes(source.messageId),
-              ),
-          );
-          if (discussion.hasNewInformation || editedSource) {
+          if (
+            discussion.hasNewInformation ||
+            discussion.messageIds.some((messageId) =>
+              isSavedSource(input, id, messageId),
+            )
+          ) {
             await tx
               .updateTable("community_discussions")
               .set({
@@ -733,10 +732,10 @@ function keepSavedMemberships(
   input: GroupInput,
   output: GroupingOutput,
 ): GroupingOutput {
-  const savedOf = new Map(
+  const savedDiscussionOf = new Map(
     input.messages.flatMap((message) =>
-      message.discussionId !== null
-        ? [[message.messageId, message.discussionId] as const]
+      message.savedDiscussionId !== null
+        ? [[message.messageId, message.savedDiscussionId] as const]
         : [],
     ),
   );
@@ -744,25 +743,27 @@ function keepSavedMemberships(
     .map((discussion) => ({
       ...discussion,
       messageIds: discussion.messageIds.filter((id) => {
-        const saved = savedOf.get(id);
-        return saved === undefined || saved === discussion.discussionId;
+        const savedDiscussionId = savedDiscussionOf.get(id);
+        return (
+          savedDiscussionId === undefined ||
+          savedDiscussionId === discussion.discussionId
+        );
       }),
     }))
     .filter((discussion) => discussion.messageIds.length > 0);
-  const assigned = new Set(
+  const kept = new Set(
     discussions.flatMap((discussion) => discussion.messageIds),
   );
-  const placed = new Set(
+  const placedByModel = new Set(
     output.discussions.flatMap((discussion) => discussion.messageIds),
   );
-  for (const [id, discussionId] of savedOf) {
-    const editedSource = input.discussions.some(
-      (discussion) =>
-        discussion.discussionId === discussionId &&
-        discussion.sources.some((source) => source.messageId === id),
-    );
+  for (const [id, discussionId] of savedDiscussionOf) {
     // A reply the model left out is acknowledged chatter; an edited source must stay a source.
-    if (assigned.has(id) || (!placed.has(id) && !editedSource)) continue;
+    if (
+      kept.has(id) ||
+      (!placedByModel.has(id) && !isSavedSource(input, discussionId, id))
+    )
+      continue;
     const target = discussions.find(
       (discussion) => discussion.discussionId === discussionId,
     );
@@ -770,21 +771,33 @@ function keepSavedMemberships(
       target.messageIds.push(id);
       continue;
     }
-    const saved = input.discussions.find(
+    const savedDiscussion = input.discussions.find(
       (discussion) => discussion.discussionId === discussionId,
     );
-    if (!saved) continue;
+    if (!savedDiscussion) continue;
     discussions.push({
       discussionId,
       messageIds: [id],
-      question: saved.question,
-      answers: saved.answers,
-      conclusion: saved.conclusion,
+      question: savedDiscussion.question,
+      answers: savedDiscussion.answers,
+      conclusion: savedDiscussion.conclusion,
       answered: false,
       hasNewInformation: false,
     });
   }
   return { discussions };
+}
+
+function isSavedSource(
+  input: GroupInput,
+  discussionId: string,
+  messageId: string,
+): boolean {
+  return input.discussions.some(
+    (discussion) =>
+      discussion.discussionId === discussionId &&
+      discussion.sources.some((source) => source.messageId === messageId),
+  );
 }
 
 class DiscussionProcessingFailure extends Error {

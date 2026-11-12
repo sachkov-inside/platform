@@ -52,7 +52,7 @@ Unavailable roles remain null. If any pending role in the finite snapshot stays 
 The run reports failure and retries after five minutes without acknowledging related answers as chatter.
 AuthorMode, Telegram administrator status and usernames never establish authorship.
 
-One run captures a finite upper message ID. Each model call receives at most 50 pending messages, so one response fits the timeout.
+One run captures a finite upper message ID. Each model call receives at most 50 pending messages to keep one response within the timeout.
 Context contains discussions of every status updated in the last seven days, plus discussions referenced by edits or direct replies.
 It also contains up to 40 ranked historical candidates from full-text search over durable questions, across every date and status.
 The search uses Russian text normalization and the first 1000 characters of each pending message/transcript.

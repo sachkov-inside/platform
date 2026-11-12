@@ -51,7 +51,7 @@ export class OpenAICompatibleDiscussionModelAdapter implements CommunityDiscussi
         "Shared keywords or a broad topic alone do not establish a match. If uncertain, keep distinct questions separate. " +
         "Return only IDs of new messages from messages. Use discussionId=null for a new discussion. Each message belongs to at most one discussion. " +
         "For example, historical source 1 and incoming message 10 must produce messageIds=[10], never [1,10]. A source ID that is absent from messages must not be copied into messageIds. " +
-        "A message with discussionId already belongs to that saved discussion: it is an edit of its source or a reply to its source. Return such a message only in that discussion. " +
+        "A message with savedDiscussionId already belongs to that saved discussion: it is an edit of its source or a reply to its source. Return such a message only in the discussion with that discussionId. " +
         "Return every edited source message in its discussion with hasNewInformation=true. " +
         "Summarize only supplied facts in Russian: what was asked, what was answered, and what remains unresolved. " +
         "In answers use separate headings 'Ответ автора:' and 'Ответы участников:'; explicitly state when a section has no substantive answer. " +
