@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бот Sachkov Inside: новое меню (прототип, 12.11.2026)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 20px 48px;
+    background: var(--background, #fff); color: var(--foreground, #171717);
+    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+    font-size: 14px; line-height: 1.45;
+  }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  h2 { font-size: 17px; margin: 36px 0 4px; padding-top: 8px; border-top: 1px solid var(--border, #e5e5e5); }
+  h3 { font-size: 14px; margin: 18px 0 8px; color: var(--muted-foreground, #737373); font-weight: 600; }
+  p { margin: 6px 0; max-width: 860px; }
+  .lead { color: var(--muted-foreground, #737373); max-width: 860px; }
+  code { font-family: var(--font-mono, ui-monospace, Menlo, monospace); font-size: 12px;
+         background: var(--muted, #f5f5f5); padding: 1px 4px; border-radius: 4px; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 4px; }
+  nav a { text-decoration: none; font-size: 13px; padding: 4px 10px; border-radius: 999px;
+          border: 1px solid var(--border, #e5e5e5); color: var(--foreground, #171717);
+          background: var(--card, #fff); }
+  nav a:hover { background: var(--accent, #f5f5f5); color: var(--accent-foreground, #171717); }
+  table { border-collapse: collapse; margin: 8px 0; font-size: 13px; max-width: 1000px; }
+  th, td { border: 1px solid var(--border, #e5e5e5); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--muted, #f5f5f5); font-weight: 600; }
+  .note { border-left: 3px solid var(--chart-4, #f59e0b); padding: 6px 10px; margin: 10px 0;
+          background: var(--muted, #f5f5f5); max-width: 860px; border-radius: 0 6px 6px 0; }
+  .grid { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+
+  /* One screen: caption + Telegram mock. Telegram colours are a fixed palette scoped to .tg */
+  .screen { width: 340px; }
+  .cap { font-size: 12px; margin-bottom: 6px; }
+  .cap b { font-size: 13px; display: block; }
+  .cap .who { color: var(--muted-foreground, #737373); }
+  .src { font-size: 11px; color: var(--muted-foreground, #737373); margin-top: 6px; word-break: break-all; }
+  .src i { font-style: normal; color: var(--foreground, #171717); }
+  .tg { background: #c9d8b4; background-image: radial-gradient(circle at 20% 20%, #d7e3c0 0, transparent 40%),
+        radial-gradient(circle at 80% 70%, #bfd1a6 0, transparent 45%);
+        border-radius: 14px; padding: 12px 10px; color: #000; color-scheme: light; }
+  .bubble { background: #fff; border-radius: 12px 12px 12px 4px; padding: 7px 10px 6px; white-space: pre-wrap;
+            font-size: 14px; line-height: 1.38; box-shadow: 0 1px 1px rgba(0,0,0,.12); position: relative; }
+  .bubble .time { float: right; font-size: 11px; color: #8a9a8a; margin: 6px 0 0 8px; }
+  .user { margin-left: auto; width: fit-content; max-width: 80%; background: #e1fec6;
+          border-radius: 12px 12px 4px 12px; padding: 6px 10px; margin-bottom: 8px; font-size: 14px;
+          box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+  .kb { margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+  .btn { background: rgba(0, 0, 0, .22); color: #fff; border-radius: 8px; padding: 8px 10px;
+         text-align: center; font-size: 13.5px; font-weight: 500; position: relative; }
+  .btn.url::after { content: "↗"; position: absolute; right: 6px; top: 2px; font-size: 10px; opacity: .9; }
+  .btn.new { outline: 2px dashed #fff; }
+  .silent { font-style: italic; color: #4b5a3f; text-align: center; padding: 10px; font-size: 13px; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 999px; margin: 2px 4px 0 0;
+         background: var(--secondary, #f5f5f5); color: var(--secondary-foreground, #171717);
+         border: 1px solid var(--border, #e5e5e5); }
+  .tag.warn { border-color: var(--chart-4, #f59e0b); }
+  .tag.off { border-color: var(--destructive, #dc2626); }
+
+  /* Widget mocks: palette of the widget, independent of the chat theme */
+  .widget { background: #fff; border-radius: 12px; padding: 12px; font-size: 13px; color: #1c1c1e;
+            box-shadow: 0 1px 1px rgba(0,0,0,.12); }
+  .widget .wt { font-weight: 700; font-size: 16px; display: flex; justify-content: space-between; align-items: baseline; }
+  .widget .wt span { font-weight: 400; font-size: 12px; color: #6b7280; }
+  .widget .bar { height: 6px; background: #e5e7eb; border-radius: 3px; margin: 4px 0 10px; }
+  .widget .bar i { display: block; height: 100%; width: 40%; background: #34c759; border-radius: 3px; }
+  .widget .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; }
+  .widget .card b { display: block; }
+  .widget .card small { color: #6b7280; }
+  .widget .row2 { display: flex; gap: 6px; }
+  .widget .row2 div { flex: 1; text-align: center; border: 1px solid #e5e7eb; border-radius: 10px; padding: 7px; font-weight: 600; }
+  .widget .chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+  .widget .chips span { border: 1px solid #d1d5db; border-radius: 999px; padding: 2px 8px; font-size: 12px; }
+  .widget .chips span.on { background: #1c1c1e; color: #fff; border-color: #1c1c1e; }
+  .widget .m { padding: 5px 0; border-bottom: 1px solid #f0f0f0; }
+  .widget .m b { margin-right: 6px; }
+  .widget .m small { display: block; color: #6b7280; }
+  .dots { letter-spacing: 1px; font-size: 11px; color: #1c1c1e; }
+  .dots .g { color: #d4a017; }
+  .dots .e { color: #d1d5db; }
+  .pager { text-align: center; color: #6b7280; margin-top: 6px; }
+
+  /* Command menu mock */
+  .cmdmenu { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .cmdmenu div { padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+  .cmdmenu div span { color: #8a8a8a; margin-left: 8px; }
+  .inputbar { margin-top: 8px; background: #fff; border-radius: 20px; padding: 7px 10px; display: flex; gap: 8px;
+              align-items: center; color: #9a9a9a; font-size: 14px; }
+  .inputbar .menu { background: #3390ec; color: #fff; border-radius: 14px; padding: 3px 10px; font-weight: 600; font-size: 13px; }
+
+  .pair { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
+  .arrow { align-self: center; font-size: 22px; color: var(--muted-foreground, #737373); }
+  .was { opacity: .55; }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-foreground, #737373); margin-bottom: 4px; }
+
+</style>
+</head>
+<body>
+<h1>Бот Sachkov Inside: новое меню</h1>
+<p class="lead">Прототип по решениям владельца от 12.11.2026. Слева, бледно, нынешний экран, справа новый.
+Кнопки с пунктирной рамкой новые. Кнопка со стрелкой ↗ открывает ссылку. Тексты, которых в боте ещё нет, помечены «новый текст».
+Нынешние экраны целиком: <code>current-menu.html</code> в этой же папке.</p>
+
+<nav>
+  <a href="#decisions">Решения</a>
+  <a href="#guest">Новый посетитель</a>
+  <a href="#noproduct">Без продукта</a>
+  <a href="#learner">Участник курса</a>
+  <a href="#admin">Владелец и админ</a>
+  <a href="#same">Что не меняется</a>
+  <a href="#commands">Меню команд</a>
+  <a href="#open">Что ещё решить</a>
+</nav>
+
+<h2 id="decisions">Решения владельца</h2>
+<table>
+  <tr><th>#</th><th>Решение</th></tr>
+  <tr><td>1</td><td>Первый экран бота становится Главным меню с кнопками разделов. Список продуктов уходит в раздел «Мои продукты».</td></tr>
+  <tr><td>2</td><td>Человек видит только свои разделы: «Мои продукты», если есть продукт; «Курс AI Engineering», если курса нет; «Управление», если он автор.</td></tr>
+  <tr><td>3</td><td>«Курс AI Engineering» пока просто ссылка на страницу курса <code>https://sachkov.dev/products/ai-engineering</code>, отдельного экрана в боте нет.</td></tr>
+  <tr><td>4</td><td>Кнопки «Тренажёр» и «ИИ-модели» сразу открывают виджет, как сейчас.</td></tr>
+  <tr><td>5</td><td>Меню команд: <code>/start</code>, <code>/train</code>, <code>/models</code>, <code>/help</code>; в чате владельца ещё <code>/admin</code>. Список задаёт код бота при выпуске.</td></tr>
+  <tr><td>6</td><td>Для админа в этой переделке меняется только вход: «Управление» стоит в Главном меню. Отчёты Тренажёра и «ИИ-моделей» в боте будут отдельной задачей.</td></tr>
+  <tr><td>7</td><td>Ошибка с <code>/community</code> идёт отдельной задачей <a href="https://github.com/sachkov-inside/platform/issues/2066">#2066</a>.</td></tr>
+</table>
+
+<div id="screens"></div>
+
+<h2 id="commands">Меню команд</h2>
+<div class="grid">
+  <div class="screen"><div class="label">Сейчас</div>
+    <div class="tg"><div class="cmdmenu"><div>/models</div></div><div class="inputbar"><span class="menu">≡ Меню</span><span>Сообщение</span></div></div></div>
+  <div class="screen"><div class="label">Стало, у всех</div>
+    <div class="tg"><div class="cmdmenu">
+      <div>/start <span>Главное меню</span></div><div>/train <span>Тренажёр</span></div>
+      <div>/models <span>ИИ-модели</span></div><div>/help <span>Помощь</span></div></div>
+      <div class="inputbar"><span class="menu">≡ Меню</span><span>Сообщение</span></div></div>
+    <div class="src">Описания команд: новый текст.</div></div>
+  <div class="screen"><div class="label">Стало, в чате владельца</div>
+    <div class="tg"><div class="cmdmenu">
+      <div>/start <span>Главное меню</span></div><div>/train <span>Тренажёр</span></div>
+      <div>/models <span>ИИ-модели</span></div><div>/help <span>Помощь</span></div>
+      <div>/admin <span>Управление рассылками</span></div></div>
+      <div class="inputbar"><span class="menu">≡ Меню</span><span>Сообщение</span></div></div>
+    <div class="src">Telegram показывает отдельный список команд в конкретном чате.</div></div>
+</div>
+
+<h2 id="open">Что ещё решить</h2>
+<table>
+  <tr><th>#</th><th>Вопрос</th><th>Что в прототипе</th></tr>
+  <tr><td>1</td><td>Текст Главного меню для человека с привязанным аккаунтом.</td><td>«Inside» и строка «Выберите раздел.»</td></tr>
+  <tr><td>2</td><td>Нужна ли без аккаунта кнопка «Открыть платформу», если есть «Курс AI Engineering».</td><td>Убрана: курс ведёт на ту же платформу.</td></tr>
+  <tr><td>3</td><td>Скрывать «Курс AI Engineering» у того, у кого есть именно этот курс, или у того, у кого есть любой продукт.</td><td>Скрыта, если есть AI Engineering.</td></tr>
+  <tr><td>4</td><td>Описания команд в меню команд.</td><td>Как на картинке выше.</td></tr>
+  <tr><td>5</td><td>Кому показывать <code>/admin</code> в меню команд: только тебе или всем авторам.</td><td>Только в твоём чате.</td></tr>
+</table>
+
+<script>
+const U = true, N = "new";
+const SECTIONS = [
+  { id: "guest", title: "Новый посетитель без аккаунта",
+    lead: "«Курс AI Engineering» встаёт первой кнопкой и заменяет «Открыть платформу».",
+    pairs: [[
+      { name: "Сейчас: /start", t: "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
+        b: [["Тренажёр"], ["ИИ-модели"], ["Открыть платформу", U], ["Уже есть аккаунт", U], ["Помощь"]] },
+      { name: "Стало: Главное меню", t: "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
+        b: [["Курс AI Engineering", U, N], ["Тренажёр"], ["ИИ-модели"], ["Уже есть аккаунт", U], ["Помощь"]],
+        note: "Текст прежний. «Курс AI Engineering» ведёт на sachkov.dev/products/ai-engineering." },
+    ]] },
+  { id: "noproduct", title: "Привязан, продукта нет",
+    lead: "Пустой список «Мои продукты» больше не показывается. Подсказку про ссылку доступа человек найдёт в «Помощь» → «Не вижу продукт».",
+    pairs: [[
+      { name: "Сейчас: /start", t: "Мои продукты\n\nПока нет доступных продуктов. Посмотрите продукты на платформе. Если у вас есть ссылка для получения доступа, откройте её.",
+        b: [["Тренажёр"], ["ИИ-модели"], ["На платформу", U], ["Помощь"]] },
+      { name: "Стало: Главное меню", t: "Inside\n\nВыберите раздел.", fresh: true,
+        b: [["Курс AI Engineering", U, N], ["Тренажёр"], ["ИИ-модели"], ["Помощь"]] },
+    ]] },
+  { id: "learner", title: "Участник курса (есть Product Access)",
+    lead: "Продукты переезжают в раздел «Мои продукты». Карточка продукта и вступление в группу не меняются.",
+    pairs: [[
+      { name: "Сейчас: /start", t: "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.",
+        b: [["AI Engineering"], ["Тренажёр"], ["ИИ-модели"], ["На платформу", U], ["Помощь"]] },
+      { name: "Стало: Главное меню", t: "Inside\n\nВыберите раздел.", fresh: true,
+        b: [["Мои продукты", false, N], ["Тренажёр"], ["ИИ-модели"], ["Помощь"]] },
+      { name: "Стало: раздел «Мои продукты»", user: "кнопка «Мои продукты»", t: "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.",
+        b: [["AI Engineering"], ["На платформу", U], ["Помощь"], ["Назад", false, N]],
+        note: "«Назад» возвращает в Главное меню." },
+    ]] },
+  { id: "admin", title: "Владелец и админ",
+    lead: "«Управление» переезжает из списка продуктов в Главное меню. Внутри всё как сейчас: рассылки, последовательности, статистика.",
+    pairs: [[
+      { name: "Сейчас: /start", t: "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.",
+        b: [["AI Engineering"], ["Тренажёр"], ["ИИ-модели"], ["На платформу", U], ["Помощь"], ["Управление"]] },
+      { name: "Стало: Главное меню, автор с курсом", t: "Inside\n\nВыберите раздел.", fresh: true,
+        b: [["Мои продукты", false, N], ["Тренажёр"], ["ИИ-модели"], ["Помощь"], ["Управление"]] },
+      { name: "Стало: Главное меню, автор без курса", t: "Inside\n\nВыберите раздел.", fresh: true,
+        b: [["Курс AI Engineering", U, N], ["Тренажёр"], ["ИИ-модели"], ["Помощь"], ["Управление"]] },
+    ]] },
+  { id: "same", title: "Что не меняется, кроме кнопки «Назад»",
+    lead: "Активация курса, карточка продукта, вступление в группу, Тренажёр и «ИИ-модели» остаются как сейчас. Меняется, куда ведёт «Назад» из «Помощи».",
+    pairs: [[
+      { name: "Помощь без продукта", user: "кнопка «Помощь» в Главном меню", t: "Помощь\n\nВыберите, с чем нужна помощь.",
+        b: [["Не вижу продукт"], ["Не могу вступить в группу"], ["Не могу войти"], ["Написать в поддержку", U], ["Назад", false, N]],
+        note: "Сейчас «Назад» открывает список продуктов, станет открывать Главное меню." },
+      { name: "Платформа не ответила", user: "/start", t: "Не удалось проверить доступ. Попробуйте ещё раз.",
+        b: [["Тренажёр"], ["ИИ-модели"], ["Повторить"], ["Помощь"]],
+        note: "Как сейчас: без ответа платформы бот не знает, какие разделы показать, и оставляет те, что работают без неё." },
+    ]] },
+];
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function mock(s, was) {
+  let body = s.user ? `<div class="user">${esc(s.user)}</div>` : `<div class="user">/start</div>`;
+  body += `<div class="bubble">${esc(s.t)}<span class="time">12:00</span></div>`;
+  body += `<div class="kb">${s.b.map(([t, u, n]) => `<div class="btn${u ? " url" : ""}${n && !was ? " new" : ""}">${esc(t)}</div>`).join("")}</div>`;
+  const fresh = s.fresh ? '<span class="tag warn">новый текст</span>' : "";
+  return `<div class="screen${was ? " was" : ""}"><div class="cap"><b>${esc(s.name)}</b>${fresh}</div><div class="tg">${body}</div>${s.note ? `<div class="src" style="color:var(--foreground,#171717)">${esc(s.note)}</div>` : ""}</div>`;
+}
+document.getElementById("screens").innerHTML = SECTIONS.map(sec =>
+  `<h2 id="${sec.id}">${esc(sec.title)}</h2><p class="lead">${esc(sec.lead)}</p>` +
+  sec.pairs.map(p => `<div class="pair">${p.map((s, i) => (i ? '<div class="arrow">→</div>' : "") + mock(s, i === 0 && s.name.startsWith("Сейчас"))).join("")}</div>`).join("")).join("");
+</script>
+</body>
+</html>
