@@ -1,6 +1,8 @@
 import { runOwnedCommandSync } from "../support/owned-command.js";
 import {
   chmodSync,
+  existsSync,
+  readdirSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,10 +13,14 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
+// @ts-expect-error The release contract is an untyped JavaScript module.
+import { migrationsIdentity } from "../../scripts/release-contract.mjs";
 
 const root = path.resolve("../..");
 const smoke = path.join(root, "apps/telegram/scripts/production-smoke.sh");
-const legacySha = "10dfbee3c9dd39d2dacdc39f8c7926ecd4498820";
+const previousSha = "b".repeat(40);
+const migrations = path.join(root, "apps/telegram/src/database/migrations");
+const migrationCount = readdirSync(migrations).length;
 const sourceSha = "a".repeat(40);
 // The complete external-command cycle measured 6.69s under full-suite/Docker load.
 // This deadline bounds a stuck script; individual corruption cases keep Vitest's default budget.
@@ -38,7 +44,7 @@ case "$1" in
       if [[ "$format" == *revision* ]]; then
         if [[ "$3" == "$candidate" ]]; then
           if [[ "$SCENARIO" == image ]]; then printf '%040d\n' 0; else printf '%s\n' "$SOURCE_SHA"; fi
-        else printf '%s\n' "$LEGACY_SHA"; fi
+        else printf '%s\n' "$PREVIOUS_SHA"; fi
       elif [[ "$3" == "$candidate" ]]; then echo candidate-image-id
       else echo legacy-image-id; fi
     fi ;;
@@ -63,11 +69,14 @@ case "$1" in
       read -r active <"$FIXTURES/active"
       for query in "$@"; do :; done
       case "$query" in
-        'select count(*) from kysely_migration') if [[ -f "$FIXTURES/upgraded" ]]; then echo 33; else echo 31; fi ;;
+        'select count(*) from kysely_migration')
+          if [[ -f "$FIXTURES/upgraded" ]]; then ls "$REPOSITORY_ROOT/apps/telegram/src/database/migrations" | wc -l | tr -d ' '
+          else echo "$PREVIOUS_COUNT"; fi ;;
         'select name from kysely_migration order by name')
+          applied=0
           for file in "$REPOSITORY_ROOT/apps/telegram/src/database/migrations/"*.ts; do
-            name="$(basename "$file")"
-            if [[ -f "$FIXTURES/upgraded" || "$name" < 031- ]]; then printf '%s\n' "$(basename "$file" .ts)"; fi
+            if [[ -f "$FIXTURES/upgraded" || "$applied" -lt "$PREVIOUS_COUNT" ]]; then printf '%s\n' "$(basename "$file" .ts)"; fi
+            applied=$((applied + 1))
           done
           if [[ "$SCENARIO" == ledger && "$active" == "$candidate" ]]; then echo unexpected-migration; fi ;;
         'select value from delivery_smoke_sentinel')
@@ -83,13 +92,15 @@ esac
 
 const ghAdapter = String.raw`
 set -euo pipefail
-[[ "$1 $2 $3" == 'release download v5' ]] || exit 1
+printf '%s\n' "$*" >>"$FIXTURES/gh.log"
+if [[ "$1 $2" == 'release list' ]]; then echo telegram-v50; exit 0; fi
+[[ "$1 $2 $3" == 'release download telegram-v50' ]] || exit 1
 while [[ "$#" -gt 0 ]]; do
   if [[ "$1" == --dir ]]; then destination="$2"; break; fi
   shift
 done
 cat >"$destination/release-manifest.json" <<JSON
-{"schemaVersion":"inside.telegram.release-manifest.v1","version":"v5","source":{"repository":"sachkov-inside/inside-telegram","sha":"$LEGACY_SHA"},"migrations":{"identity":"sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d","count":31},"image":"ghcr.io/sachkov-inside/inside-telegram@sha256:1159e5f27ed6f12528ae383f1f379bfdc41780a1b37dafb72d9b35ff34d1b748"}
+{"schemaVersion":"inside.telegram.release-manifest.v1","version":"v50","source":{"repository":"$PREVIOUS_REPOSITORY","sha":"$PREVIOUS_SHA"},"migrations":{"identity":"$PREVIOUS_IDENTITY","count":$PREVIOUS_COUNT},"image":"ghcr.io/sachkov-inside/inside-telegram@sha256:1159e5f27ed6f12528ae383f1f379bfdc41780a1b37dafb72d9b35ff34d1b748"}
 JSON
 `;
 
@@ -115,7 +126,26 @@ const gitAdapter = String.raw`
 printf '%s\n' "$SOURCE_SHA"
 `;
 
-function runSmoke(scenario: string) {
+async function previousRelease(scenario: string) {
+  // A forward release adds two migrations after the published one.
+  const count = scenario === "forward" ? migrationCount - 2 : migrationCount;
+  const identity =
+    scenario === "history"
+      ? `sha256:${"0".repeat(64)}`
+      : ((await migrationsIdentity(migrations, count)) as { identity: string })
+          .identity;
+  return {
+    PREVIOUS_COUNT: String(count),
+    PREVIOUS_IDENTITY: identity,
+    PREVIOUS_REPOSITORY:
+      scenario === "manifest"
+        ? "sachkov-inside/inside-telegram"
+        : "sachkov-inside/platform",
+  };
+}
+
+async function runSmoke(scenario: string) {
+  const previous = await previousRelease(scenario);
   const fixture = mkdtempSync(
     path.join(tmpdir(), "telegram-runtime-contract-"),
   );
@@ -143,13 +173,18 @@ function runSmoke(scenario: string) {
         REPOSITORY_ROOT: root,
         SCENARIO: scenario,
         SOURCE_SHA: sourceSha,
-        LEGACY_SHA: legacySha,
+        PREVIOUS_SHA: previousSha,
+        ...previous,
       },
       timeout: runtimeProofBudgetMs,
     });
     return {
       result,
-      calls: readFileSync(path.join(fixture, "docker.log"), "utf8"),
+      // A refused manifest stops the smoke before any Docker call.
+      calls: existsSync(path.join(fixture, "docker.log"))
+        ? readFileSync(path.join(fixture, "docker.log"), "utf8")
+        : "",
+      releases: readFileSync(path.join(fixture, "gh.log"), "utf8"),
     };
   } finally {
     rmSync(fixture, { recursive: true, force: true });
@@ -158,12 +193,13 @@ function runSmoke(scenario: string) {
 
 describe("Telegram production runtime smoke", () => {
   it(
-    "accepts the complete transition and rollback, with no rollback migration",
-    () => {
-      const { result, calls } = runSmoke("valid");
+    "rolls back to the latest published release when the gateway allows it, with no rollback migration",
+    async () => {
+      const { result, calls, releases } = await runSmoke("valid");
       expect(result.status, result.stderr).toBe(0);
+      expect(releases).toContain("release download telegram-v50");
       expect(result.stdout).toContain(
-        "Telegram runtime transition and rollback passed",
+        "Telegram runtime transition and rollback to v50 passed",
       );
       expect(
         calls.split("\n").filter((call) => call.endsWith("migrate")),
@@ -176,20 +212,41 @@ describe("Telegram production runtime smoke", () => {
     runtimeProofBudgetMs,
   );
 
+  it(
+    "proves the forward transition and skips the rollback the gateway refuses for new migrations",
+    async () => {
+      const { result, calls } = await runSmoke("forward");
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain(
+        "Rollback to v50 is not offered: migration sets differ",
+      );
+      expect(result.stdout).toContain(
+        "Telegram runtime transition from v50 passed",
+      );
+      expect(result.stdout).not.toContain("rollback to v50 passed");
+      expect(
+        calls.split("\n").filter((call) => call.endsWith("stop app")),
+      ).toHaveLength(1);
+      expect(calls).toContain("image rm");
+    },
+    runtimeProofBudgetMs,
+  );
+
   it.each([
+    ["manifest", "Previous release manifest is not a Telegram release"],
+    ["history", "Previous migration identity mismatch"],
     ["image", "Candidate image source SHA mismatch"],
     ["ledger", "Candidate migration ledger changed"],
     ["sentinel", "Candidate sentinel changed"],
   ])(
     "rejects altered %s observations with a fatal diagnostic",
-    (scenario, diagnostic) => {
-      const { result, calls } = runSmoke(scenario);
+    async (scenario, diagnostic) => {
+      const { result, calls } = await runSmoke(scenario);
       expect(result.status, result.stderr).toBe(1);
       expect(result.stderr).toContain(diagnostic);
-      expect(result.stdout).not.toContain(
-        "Telegram runtime transition and rollback passed",
-      );
-      expect(calls).toContain("image rm");
+      expect(result.stdout).not.toContain("passed");
+      // Nothing is built for a refused release; a built candidate is always removed.
+      expect(calls.includes("build ")).toBe(calls.includes("image rm"));
     },
   );
 });

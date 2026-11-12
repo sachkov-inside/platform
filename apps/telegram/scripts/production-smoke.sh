@@ -41,34 +41,47 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Public legacy assets are retained; this proof consumes the verified v5 image without retagging it.
-gh release download v5 --repo sachkov-inside/inside-telegram \
+# The gateway rolls back only to the recorded previous release, and only when its migration
+# identity equals the current one. The latest published release stands in for that previous one.
+previous_tag="${TELEGRAM_SMOKE_PREVIOUS_TAG:-$(
+  gh release list --repo sachkov-inside/platform --exclude-drafts --limit 200 --json tagName \
+    --jq '[.[].tagName | select(test("^telegram-v[0-9]+$"))] | max_by(ltrimstr("telegram-v") | tonumber) // empty'
+)}"
+[[ "$previous_tag" =~ ^telegram-v[0-9]+$ ]] || refuse 'No published Telegram release to start from'
+previous_version="${previous_tag#telegram-}"
+gh release download "$previous_tag" --repo sachkov-inside/platform \
   --pattern release-manifest.json --dir "$fixture"
-jq --exit-status '
+jq --exit-status --arg version "$previous_version" '
   .schemaVersion == "inside.telegram.release-manifest.v1" and
-  .version == "v5" and .source.repository == "sachkov-inside/inside-telegram" and
-  .source.sha == "10dfbee3c9dd39d2dacdc39f8c7926ecd4498820" and
-  .migrations.identity == "sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d" and
-  .migrations.count == 31 and
+  .version == $version and .source.repository == "sachkov-inside/platform" and
+  (.source.sha | test("^[0-9a-f]{40}$")) and
+  (.migrations.identity | test("^sha256:[0-9a-f]{64}$")) and
+  (.migrations.count | type == "number" and . >= 1) and
   (.image | test("^ghcr\\.io/sachkov-inside/inside-telegram@sha256:[0-9a-f]{64}$"))
-' "$fixture/release-manifest.json" >/dev/null
-legacy_image="$(jq --raw-output .image "$fixture/release-manifest.json")"
-# Preserve the immutable v5 prefix while allowing explicitly checked additive migrations.
-mkdir "$fixture/legacy-migrations"
-expected_ledger="$(
-  for file in "$repository_root/apps/telegram/src/database/migrations/"*.ts; do
-    name="${file##*/}"
-    printf '%s\n' "${name%.ts}"
-    if [[ "$name" < 031- ]]; then cp "$file" "$fixture/legacy-migrations/$name"; fi
-  done
-)"
-identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity "$fixture/legacy-migrations" | jq --raw-output .identity)"
-[[ "$identity" == "$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")" ]] || refuse 'Legacy migration identity mismatch'
+' "$fixture/release-manifest.json" >/dev/null || refuse 'Previous release manifest is not a Telegram release of this repository'
+previous_image="$(jq --raw-output .image "$fixture/release-manifest.json")"
+previous_count="$(jq --raw-output .migrations.count "$fixture/release-manifest.json")"
+previous_identity="$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")"
+# Released migrations are immutable: the candidate must start with exactly the previous set.
+mkdir "$fixture/previous-migrations"
+expected_ledger=''
+copied=0
+for file in "$repository_root/apps/telegram/src/database/migrations/"*.ts; do
+  name="${file##*/}"
+  expected_ledger+="${name%.ts}"$'\n'
+  if (( copied < previous_count )); then cp "$file" "$fixture/previous-migrations/$name"; copied=$((copied + 1)); fi
+done
+expected_ledger="${expected_ledger%$'\n'}"
+identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity "$fixture/previous-migrations" | jq --raw-output .identity)"
+[[ "$identity" == "$previous_identity" ]] || refuse 'Previous migration identity mismatch'
+candidate_identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity | jq --raw-output .identity)"
+rollback_allowed=false
+if [[ "$candidate_identity" == "$previous_identity" ]]; then rollback_allowed=true; fi
 docker build --file apps/telegram/infra/production/Dockerfile \
   --build-arg SOURCE_COMMIT="$source_sha" --tag "$candidate" .
 image_built=true
-docker pull "$legacy_image"
-[[ "$(docker image inspect "$legacy_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$(jq --raw-output .source.sha "$fixture/release-manifest.json")" ]] || refuse 'Legacy image source SHA mismatch'
+docker pull "$previous_image"
+[[ "$(docker image inspect "$previous_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$(jq --raw-output .source.sha "$fixture/release-manifest.json")" ]] || refuse 'Previous image source SHA mismatch'
 [[ "$(docker image inspect "$candidate" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$source_sha" ]] || refuse 'Candidate image source SHA mismatch'
 
 # The app has no live provider configuration and no workers; only loopback readiness/auth are called.
@@ -142,15 +155,14 @@ assert_ready() {
   [[ "$actual_id" == "$expected_id" ]] || refuse 'Running image ID mismatch'
 }
 
-active_image="$legacy_image"
+active_image="$previous_image"
 compose --profile operations run --rm --interactive=false migrate
 compose up --detach --no-build --wait app
 assert_ready
-[[ "$(query 'select count(*) from kysely_migration')" == 31 ]] || refuse 'Legacy migration count mismatch'
+[[ "$(query 'select count(*) from kysely_migration')" == "$previous_count" ]] || refuse 'Previous migration count mismatch'
 # PostgreSQL dollar-quoted text must not expand in the shell.
 # shellcheck disable=SC2016
 query 'create table delivery_smoke_sentinel (value text primary key); insert into delivery_smoke_sentinel values ($$preserved$$)' >/dev/null
-
 
 started="$(date +%s)"
 compose stop app
@@ -165,12 +177,17 @@ echo "Candidate restart/readiness: $(( $(date +%s) - started )) seconds"
 # Repeated start and rollback never execute the migration command.
 compose up --detach --no-build --wait app
 assert_ready
+if [[ "$rollback_allowed" != true ]]; then
+  echo "Rollback to $previous_version is not offered: migration sets differ, the gateway refuses it and the path is repair forward."
+  echo "Telegram runtime transition from $previous_version passed: candidate migrations applied, sentinel preserved, exact image IDs and loopback readiness/auth verified."
+  exit 0
+fi
 started="$(date +%s)"
 compose stop app
-active_image="$legacy_image"
+active_image="$previous_image"
 compose up --detach --no-build --wait app
 assert_ready
 [[ "$(query 'select name from kysely_migration order by name')" == "$ledger_candidate" ]] || refuse 'Rollback migration ledger changed'
 [[ "$(query 'select value from delivery_smoke_sentinel')" == preserved ]] || refuse 'Rollback sentinel changed'
-echo "Legacy rollback/readiness: $(( $(date +%s) - started )) seconds"
-echo "Telegram runtime transition and rollback passed: candidate migrations retained on rollback, sentinel preserved, exact image IDs and loopback readiness/auth verified."
+echo "Rollback to $previous_version/readiness: $(( $(date +%s) - started )) seconds"
+echo "Telegram runtime transition and rollback to $previous_version passed: same migration set, no rollback migration, sentinel preserved, exact image IDs and loopback readiness/auth verified."
