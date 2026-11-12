@@ -380,6 +380,9 @@ function checkFigureRules(
  * unmatched bracket could hide a page rule from it (security review of #2041).
  */
 function checkBrackets(css: string) {
+  // Outside strings, figure CSS is ASCII: JavaScript's `\s` and `trim()` count characters such as
+  // U+00A0 as space, while CSS reads them as part of a name.
+  if (/[^\x20-\x7E\t\n\r\f]/u.test(css)) throw new Refusal("unsafe_svg");
   const closing: Record<string, string> = { "(": ")", "[": "]", "{": "}" };
   const open: string[] = [];
   for (const character of css) {

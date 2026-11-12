@@ -99,6 +99,10 @@ describe("Inline SVG figure check (#2041)", () => {
       "#fig-loop-wide [ ) ] {} body{display:none} [ ( ] {}",
     ],
     ["an unclosed (", "#fig-loop-wide ( {} body{display:none}"],
+    [
+      "a no-break space read as a name by CSS",
+      "#fig-loop-wide\u00A0x ~ p{color:red}",
+    ],
     ["a mismatched ( ]", "#fig-loop-wide ( ] {} body{display:none} [ ) {}"],
     [
       "a } inside a declaration's parentheses",
