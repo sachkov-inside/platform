@@ -207,7 +207,9 @@
   const draw = (data) => {
     const render = () => {
       actions = [];
-      root.innerHTML = screens[(view = data)[0]](data);
+      // Only a screen listed above: "constructor" or "toString" names no screen.
+      if (!Object.hasOwn(screens, (view = data)[0])) throw 0;
+      root.innerHTML = screens[data[0]](data);
     };
     root.style.fontSize = clip = "";
     try {

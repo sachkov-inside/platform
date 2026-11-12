@@ -472,6 +472,9 @@ describe("ИИ-модели widget: errors", () => {
     ["no answer in time", undefined],
     ["an answer it cannot read", "{}"],
     ["a screen it does not know", '["q",1]'],
+    ["a screen named constructor, a built-in property", '["constructor",1]'],
+    ["a screen named toString, a built-in method", '["toString"]'],
+    ["a screen named __proto__", '["__proto__"]'],
     ["a screen with missing parts", '["m","atlas-pro"]'],
   ])("offers to repeat the request after %s", async (_name, data) => {
     await withWidget(async (page) => {
