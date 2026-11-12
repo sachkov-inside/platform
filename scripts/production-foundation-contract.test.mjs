@@ -70,6 +70,17 @@ describe("production foundation architecture contract", () => {
     );
   });
 
+  it("caps the systemd journal through a drop-in installed by provisioning", () => {
+    assert.equal(
+      read("infra/production/host/journald-size.conf"),
+      "[Journal]\nSystemMaxUse=500M\n",
+    );
+    assert.match(
+      read("infra/production/host/provision-host.sh"),
+      /install -m 644 "\$script_dir\/journald-size\.conf" \/etc\/systemd\/journald\.conf\.d\/inside-size\.conf\n(?:.*\n)*?systemctl restart systemd-journald\.service\n/u,
+    );
+  });
+
   it("caps the log of every production container through the host Docker default", () => {
     assertContainerLogRotation(hostLogs);
   });
