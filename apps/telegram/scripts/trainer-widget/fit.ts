@@ -107,6 +107,11 @@ async function ask(
   asked: TrainerQuestionData,
 ): Promise<{ context?: Measured; question: Measured }> {
   await page.setContent(html);
+  // A page with the fixed test font records whether it was ready when the widget fitted its text.
+  if (
+    await page.evaluate(() => Reflect.get(window, "fixedFontLoaded") === false)
+  )
+    throw new Error("The fixed font was not ready before the widget");
   if (question.context === undefined) {
     await tap(page, "Проверить себя", asked);
     return { question: await measure(page) };
@@ -252,11 +257,14 @@ async function fitOf(
 export async function trainerBankFit(
   questions: readonly TrainerBankQuestion[],
   topicNames: ReadonlyMap<string, string>,
+  /** The author's command measures with the machine's fonts; checks fix the font (#2026). */
+  options: { readonly fixedFont?: boolean } = {},
 ): Promise<TrainerQuestionFit[]> {
   // The band of the message time under the widget: the tallest one the layout is checked at.
   const html = await trainerWidgetPage({
     chatData: '["h",0,0,5,0]',
     safeAreaBottomPx: 32,
+    ...(options.fixedFont === true ? { fixedFont: true } : {}),
   });
   const browser = await chromium.launch();
   try {
