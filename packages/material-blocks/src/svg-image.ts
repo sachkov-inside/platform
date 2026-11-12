@@ -322,6 +322,7 @@ function checkFigureScope(root: SvgElement) {
     );
     for (const reference of css.matchAll(/url\(\s*["']?#([^"')\s]+)/giu))
       if (!owned(reference[1] ?? "")) throw new Refusal("unsafe_svg");
+    checkBrackets(css);
     checkFigureRules(css, 0, false, owned);
   }
 }
@@ -371,6 +372,24 @@ function checkFigureRules(
       throw new Refusal("unsafe_svg");
     index = close + 1;
   }
+}
+
+/**
+ * Every `(`, `[` and `{` closes with its own kind, in order. A browser drops a rule broken by a
+ * stray bracket and applies the next one; the rule reader below assumes well-nested blocks, so an
+ * unmatched bracket could hide a page rule from it (security review of #2041).
+ */
+function checkBrackets(css: string) {
+  const closing: Record<string, string> = { "(": ")", "[": "]", "{": "}" };
+  const open: string[] = [];
+  for (const character of css) {
+    const close = closing[character];
+    if (close !== undefined) open.push(close);
+    else if (character === ")" || character === "]" || character === "}") {
+      if (open.pop() !== character) throw new Refusal("unsafe_svg");
+    }
+  }
+  if (open.length > 0) throw new Refusal("unsafe_svg");
 }
 
 /** The position of the `{` that opens the block of the prelude starting at `position`. */

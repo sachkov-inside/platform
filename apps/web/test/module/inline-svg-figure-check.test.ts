@@ -88,6 +88,22 @@ describe("Inline SVG figure check (#2041)", () => {
       "a reference outside the figure",
       "#fig-loop-wide g{fill:url(#page-gradient)}",
     ],
+    // Security review of #2041: an unmatched bracket hid a page rule from the scope rules, while
+    // the browser drops only the broken rule and applies the next one to the page.
+    [
+      "a stray ) that hides a page rule",
+      '#fig-loop-wide ) {} body::before{content:"x";position:fixed} ( {}',
+    ],
+    [
+      "a [ ) ] that hides a page rule",
+      "#fig-loop-wide [ ) ] {} body{display:none} [ ( ] {}",
+    ],
+    ["an unclosed (", "#fig-loop-wide ( {} body{display:none}"],
+    ["a mismatched ( ]", "#fig-loop-wide ( ] {} body{display:none} [ ) {}"],
+    [
+      "a } inside a declaration's parentheses",
+      "#fig-loop-wide{x:( } ) } body{display:none}",
+    ],
   ])("refuses %s", (_name, style) => {
     // The upload check accepts the file: only the scope rules keep it out of the page.
     expect(checkSvgMarkup(figure(style))).toMatchObject({ ok: true });
