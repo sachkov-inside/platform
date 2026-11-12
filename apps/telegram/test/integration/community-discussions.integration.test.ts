@@ -304,7 +304,10 @@ describe("community discussion processing", () => {
     expect(
       await application().get(CommunityDiscussionProcessor).processDue(),
     ).toMatchObject({ status: "completed", messages: 200 });
-    expect(inputs.at(-1)?.messages).toHaveLength(200);
+    // Each provider call receives at most 50 pending messages.
+    expect(inputs.slice(1).map((input) => input.messages.length)).toEqual([
+      50, 50, 50, 50,
+    ]);
   });
   it("preserves saved summaries and marks when upgrading existing discussions", async () => {
     await capture("10", "Как выбрать инструмент?");
@@ -1621,6 +1624,189 @@ describe("community discussion processing", () => {
       ).toMatchObject({ status: "completed", messages: 1 });
     },
   );
+
+  it("keeps an edited source in its saved discussion when the model omits it", async () => {
+    await capture("10", "Как выбрать инструмент?");
+    await capture("11", "Сначала определите задачу.");
+    await application().get(CommunityDiscussionProcessor).processDue();
+    const saved = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    );
+    const editedAt = new Date(now.getTime() + 86_400_000);
+    vi.setSystemTime(editedAt);
+    await application().get(CommunityMessages).capture({
+      botIdentity: "inside",
+      chatId: "-1000000000000",
+      updateId: "20",
+      messageId: "10",
+      threadId: "7",
+      replyToMessageId: null,
+      sentAt: now,
+      editedAt,
+      senderTelegramUserId: "42",
+      kind: "text",
+      text: "Как выбрать инструмент для агента?",
+      fileId: null,
+    });
+    await capture("13", "Где взять ключ?", "44", editedAt);
+    // The provider drops the edited source, as production responses did in #2052.
+    result.discussions = [
+      {
+        discussionId: null,
+        messageIds: ["13"],
+        question: "Где взять ключ?",
+        answers: "",
+        conclusion: "",
+        answered: false,
+        hasNewInformation: true,
+      },
+    ];
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 2 });
+    expect(
+      inputs.at(-1)?.messages.map(({ messageId, savedDiscussionId }) => ({
+        messageId,
+        savedDiscussionId,
+      })),
+    ).toEqual([
+      { messageId: "10", savedDiscussionId: saved.discussionId },
+      { messageId: "13", savedDiscussionId: null },
+    ]);
+    const items = (await api("discussions.list", { limit: 10 })).json().items;
+    expect(items).toHaveLength(2);
+    expect(
+      (
+        await api("discussions.read", { discussionId: saved.discussionId })
+      ).json().discussion,
+    ).toMatchObject({
+      question: saved.question,
+      messages: [
+        { messageId: "10", text: "Как выбрать инструмент для агента?" },
+        { messageId: "11" },
+      ],
+    });
+  });
+
+  it("returns a reply to a saved source to its discussion when the model starts another one", async () => {
+    result.discussions[0] = {
+      ...required(result.discussions[0]),
+      messageIds: ["10"],
+      answers: "",
+      conclusion: "",
+      answered: false,
+    };
+    await capture("10", "Как выбрать инструмент?");
+    await application().get(CommunityDiscussionProcessor).processDue();
+    const saved = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    );
+    const nextDay = new Date(now.getTime() + 86_400_000);
+    vi.setSystemTime(nextDay);
+    await capture("11", "Сначала определите задачу.", "43", nextDay);
+    await capture("14", "Спасибо, понял.", "44", nextDay);
+    result.discussions = [
+      {
+        discussionId: null,
+        messageIds: ["11", "14"],
+        question: "Что делать сначала?",
+        answers: "Определить задачу.",
+        conclusion: "",
+        answered: true,
+        hasNewInformation: true,
+      },
+    ];
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 2 });
+    expect(
+      inputs.at(-1)?.messages.map((message) => message.savedDiscussionId),
+    ).toEqual([saved.discussionId, null]);
+    const items = (await api("discussions.list", { limit: 10 })).json().items;
+    expect(items).toHaveLength(2);
+    expect(
+      (await api("discussions.read", { discussionId: saved.discussionId }))
+        .json()
+        .discussion.messages.map((message) => message.messageId),
+    ).toEqual(["10", "11"]);
+  });
+
+  it("keeps an edited source that replies to another discussion in its own discussion", async () => {
+    const first = new Date(now.getTime() + 60_000);
+    result.discussions = [
+      {
+        discussionId: null,
+        messageIds: ["10"],
+        question: "Как выбрать инструмент?",
+        answers: "",
+        conclusion: "",
+        answered: false,
+        hasNewInformation: true,
+      },
+      {
+        discussionId: null,
+        messageIds: ["11"],
+        question: "Где взять ключ?",
+        answers: "",
+        conclusion: "",
+        answered: false,
+        hasNewInformation: true,
+      },
+    ];
+    await capture("10", "Как выбрать инструмент?");
+    // Fixture capture makes message 11 a reply to message 10.
+    await capture("11", "Где взять ключ?", "44", first);
+    await application().get(CommunityDiscussionProcessor).processDue();
+    const byQuestion = new Map(
+      (await api("discussions.list", { limit: 10 }))
+        .json()
+        .items.map((item) => [item.question, item.discussionId]),
+    );
+    const tool = required(byQuestion.get("Как выбрать инструмент?"));
+    const key = required(byQuestion.get("Где взять ключ?"));
+    const editedAt = new Date(now.getTime() + 86_400_000);
+    vi.setSystemTime(editedAt);
+    await application().get(CommunityMessages).capture({
+      botIdentity: "inside",
+      chatId: "-1000000000000",
+      updateId: "21",
+      messageId: "11",
+      threadId: "7",
+      replyToMessageId: "10",
+      sentAt: first,
+      editedAt,
+      senderTelegramUserId: "44",
+      kind: "text",
+      text: "Где взять ключ API?",
+      fileId: null,
+    });
+    // The provider moves the edit into the discussion it replies to.
+    result.discussions = [
+      {
+        discussionId: tool,
+        messageIds: ["11"],
+        question: "Как выбрать инструмент?",
+        answers: "",
+        conclusion: "",
+        answered: false,
+        hasNewInformation: true,
+      },
+    ];
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 1 });
+    expect(inputs.at(-1)?.messages[0]?.savedDiscussionId).toBe(key);
+    expect(
+      (await api("discussions.read", { discussionId: key }))
+        .json()
+        .discussion.messages.map((message) => message.messageId),
+    ).toEqual(["11"]);
+    expect(
+      (await api("discussions.read", { discussionId: tool }))
+        .json()
+        .discussion.messages.map((message) => message.messageId),
+    ).toEqual(["10"]);
+  });
 
   it("acknowledges chatter without creating a discussion", async () => {
     await capture("10", "Всем хорошего дня!");
