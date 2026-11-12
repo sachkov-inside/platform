@@ -156,6 +156,19 @@ const productOrderSchema = orderSchema.extend({
       })
       .passthrough(),
   ),
+  // A receiver before course topics (#2022) does not report them.
+  topics: z
+    .array(
+      z
+        .object({
+          id: z.uuid(),
+          name: z.string(),
+          summary: z.string(),
+          materialIds: z.array(z.uuid()),
+        })
+        .passthrough(),
+    )
+    .optional(),
 });
 export const assetReceiptSchema = z.object({ assetId: z.uuid() }).passthrough();
 const historicalApplyBodySchema = z
@@ -381,7 +394,7 @@ const localResponseSchemas = {
  *   ? "materialReceipt"
  *   : P extends "/authoring/import/products/reserve" | "/authoring/import/products/update"
  *   ? "product"
- *   : P extends "/authoring/import/products/composition"
+ *   : P extends "/authoring/import/products/composition" | `/authoring/products/${string}/topics`
  *   ? "order"
  *   : P extends "/authoring/home-pin"
  *   ? "homePin"
@@ -503,6 +516,7 @@ export function localResponseKind(path) {
         return "artifact";
       if (/^\/authoring\/products\/[^/]+\/order$/u.test(path))
         return "productOrder";
+      if (/^\/authoring\/products\/[^/]+\/topics$/u.test(path)) return "order";
       throw new Error(`Unsupported local response boundary: ${path}`);
   }
 }

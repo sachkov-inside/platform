@@ -4,6 +4,12 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { authoringImportContract } from "../../apps/backend/src/modules/materials/domain/authoring-import-contract.ts";
+import {
+  PRODUCT_TOPIC_MATERIALS_MAX,
+  PRODUCT_TOPIC_NAME_MAX,
+  PRODUCT_TOPIC_SUMMARY_MAX,
+  PRODUCT_TOPICS_MAX,
+} from "../../apps/backend/src/modules/products/shared/product-topics.ts";
 import { z } from "zod";
 import { readerBlocksSchema } from "@inside/material-blocks";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
@@ -272,6 +278,35 @@ export const manifestSchema = z
           ),
           materialIds: z.array(identifier),
           supplementaryMaterialIds: z.array(identifier),
+          // Course topics (#2022) arrived after chapters. An absent list leaves the target's topics
+          // alone; a present one, even empty, is the complete desired list. The receiver stores
+          // text trimmed, so the limits apply to trimmed text and the bytes stay as authored.
+          topics: z
+            .array(
+              z
+                .object({
+                  sourceId: identifier,
+                  title: z
+                    .string()
+                    .refine(
+                      (value) =>
+                        value.trim().length >= 1 &&
+                        value.trim().length <= PRODUCT_TOPIC_NAME_MAX,
+                      `Topic title must have 1-${String(PRODUCT_TOPIC_NAME_MAX)} characters after trim`,
+                    ),
+                  summary: z
+                    .string()
+                    .refine(
+                      (value) =>
+                        value.trim().length <= PRODUCT_TOPIC_SUMMARY_MAX,
+                      `Topic summary must have at most ${String(PRODUCT_TOPIC_SUMMARY_MAX)} characters after trim`,
+                    ),
+                  materialIds: z.array(identifier),
+                })
+                .strict(),
+            )
+            .max(PRODUCT_TOPICS_MAX)
+            .optional(),
         })
         .strict(),
     ),
@@ -397,6 +432,12 @@ function checkSelectionScope(manifest) {
     throw new Error(
       "A Product shell release carries no chapter subset, Material, asset, practice or task",
     );
+  // Topics group Materials the package names; a shell names none, and an empty list would clear
+  // the target's topics, so topics travel with the Product composition release.
+  if (product.topics !== undefined)
+    throw new Error(
+      "A Product shell release carries no topics; topics travel with the Product's Materials",
+    );
   if (
     !product.complete ||
     product.materialIds.length ||
@@ -409,6 +450,59 @@ function checkSelectionScope(manifest) {
   )
     throw new Error(
       "A Product shell release carries the complete chapter list without Material placement",
+    );
+}
+
+/** The feature a package declares when a Product carries its course topics. */
+export const PRODUCT_TOPICS_FEATURE = "product-topics-v1";
+
+/**
+ * Course topics name Materials of their own Product, each Material in at most one topic, within the
+ * receiver's limits. A receiver without the feature refuses the package in the handshake.
+ *
+ * @param {Manifest} manifest
+ * @param {ManifestProduct} product
+ */
+function checkProductTopics(manifest, product) {
+  const topics = product.topics;
+  if (topics === undefined) return;
+  if (
+    manifest.schemaVersion < 2 ||
+    !manifest.requiredFeatures?.includes(PRODUCT_TOPICS_FEATURE)
+  )
+    throw new Error(
+      `Product topics require package v2 and ${PRODUCT_TOPICS_FEATURE}`,
+    );
+  unique(
+    topics.map((topic) => topic.sourceId),
+    `${product.sourceId} topic identity`,
+  );
+  const members = new Set([
+    ...product.materialIds,
+    ...product.supplementaryMaterialIds,
+  ]);
+  /** @type {Set<string>} */
+  const claimed = new Set();
+  for (const topic of topics) {
+    if (new Set(topic.materialIds).size !== topic.materialIds.length)
+      throw new Error(
+        `${product.sourceId}: topic ${topic.sourceId} names a Material twice`,
+      );
+    for (const id of topic.materialIds) {
+      if (!members.has(id))
+        throw new Error(
+          `${product.sourceId}: topic ${topic.sourceId} names a Material outside the Product: ${id}`,
+        );
+      if (claimed.has(id))
+        throw new Error(
+          `${product.sourceId}: Material ${id} belongs to more than one topic`,
+        );
+      claimed.add(id);
+    }
+  }
+  if (claimed.size > PRODUCT_TOPIC_MATERIALS_MAX)
+    throw new Error(
+      `${product.sourceId}: topics assign more than ${String(PRODUCT_TOPIC_MATERIALS_MAX)} Materials`,
     );
 }
 
@@ -642,6 +736,11 @@ export async function loadPackage(path) {
       "contentOnly requires bounded-content-v1 and its explicit selection",
     );
   if (bounded !== undefined) {
+    // A bounded update leaves every Product alone, so topics it carried would silently stay unsent.
+    if (manifest.products.some((product) => product.topics !== undefined))
+      throw new Error(
+        "Bounded content never changes Product topics; release them with the Product",
+      );
     if (
       isProductShell(manifest) ||
       (manifest.practiceDefinitions ?? []).length ||
@@ -781,6 +880,7 @@ export async function loadPackage(path) {
           "Chapter supplementary Materials must belong to the Product",
         );
     }
+    checkProductTopics(manifest, product);
     if (
       product.chapters.length &&
       canonical([

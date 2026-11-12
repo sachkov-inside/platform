@@ -24,7 +24,8 @@ Platform #803 владеет этим контрактом; exporter Engineering
 - `selection.chapterIds`, `selection.materialIds`, `materials`, `assets` пусты;
   `practiceDefinitions` отсутствует или пуст;
 - у Product `complete: true`, полный список `chapters` в нужном порядке;
-- `product.materialIds`, `product.supplementaryMaterialIds` и `materialIds` каждой главы пусты.
+- `product.materialIds`, `product.supplementaryMaterialIds` и `materialIds` каждой главы пусты;
+- поля `topics` у Product нет: темы курса переносит релиз состава Product.
 
 Остальные поля Product (`slug`, `presentation`, `page`, `title`, `summary`) имеют прежний смысл
 [ADR 0026](../../adr/0026-guide-page-from-source-data.md). Идентичность главы по-прежнему выводится

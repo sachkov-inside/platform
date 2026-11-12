@@ -20,5 +20,8 @@ export const authoringImportContract = {
     "bounded-content-v1",
     // A Material image may be an SVG: the receiver checks it and stores it as SVG (#2025).
     "svg-images-v1",
+    // A Product may carry its course topics; the client writes them through
+    // PUT /authoring/products/:productId/topics (#2022).
+    "product-topics-v1",
   ],
 } as const;

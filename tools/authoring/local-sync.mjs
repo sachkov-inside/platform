@@ -106,6 +106,8 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {import("./target.mjs").AccessToken | undefined} [accessToken] The owner's session for a trusted target.
  * @property {string[]} [reviewedTaskAccess] Explicit Task access from the reviewed release only.
  * @property {string[]} [reviewedProductRemovals] Scoped Product removal choices from the reviewed release.
+ * @property {Record<string, string>} [reviewedTopics] The target topic state a reviewed release
+ *   verified, by Product source key; apply stops when the target's topics differ from it.
  * @property {boolean} [reviewed] Set only by an exact release apply; a trusted target requires it.
  * @property {boolean} [reconcileOnly] Complete the journal's unfinished writes with their original
  *   idempotency keys and stop; allowed on a trusted target because it sends nothing new.
@@ -483,6 +485,82 @@ export function productChapters(manifest, product) {
 }
 
 /**
+ * The course topics a package asks for, as `PUT /authoring/products/:productId/topics` takes them.
+ * A topic ID is derived from the Product and topic source keys like a chapter ID; the `topic` part
+ * keeps it apart from every chapter ID, and the Product key keeps it unique across Products.
+ *
+ * @param {Manifest} manifest
+ * @param {string} productSourceId
+ * @param {NonNullable<ManifestProduct["topics"]>} topics
+ * @param {(sourceId: string) => string} materialId The target ID of a package Material
+ */
+export function productTopics(manifest, productSourceId, topics, materialId) {
+  return topics.map((topic) => ({
+    id: sourceUuid(
+      `${sourceKey(manifest, productSourceId)}:topic:${topic.sourceId}`,
+    ),
+    // The receiver stores topic text trimmed, as it does chapter text.
+    name: topic.title.trim(),
+    summary: topic.summary.trim(),
+    materialIds: topic.materialIds.map(materialId),
+  }));
+}
+
+/**
+ * How the desired topics differ from the target's: topics added or removed, a changed topic order,
+ * and kept topics whose text or Materials differ. The target lists a topic's Materials in catalogue
+ * order, so Materials compare as sets.
+ *
+ * @param {{ id: string; name: string; summary: string; materialIds: string[] }[]} desired
+ * @param {{ id: string; name: string; summary: string; materialIds: string[] }[]} current
+ */
+export function topicChanges(desired, current) {
+  const desiredIds = desired.map((topic) => topic.id);
+  const currentIds = current.map((topic) => topic.id);
+  /** @param {{ name: string; summary: string; materialIds: string[] }} topic */
+  const content = (topic) =>
+    canonical({
+      name: topic.name,
+      summary: topic.summary,
+      materialIds: [...topic.materialIds].sort(),
+    });
+  const stored = new Map(current.map((topic) => [topic.id, content(topic)]));
+  const changed = desired.filter(
+    (topic) => stored.has(topic.id) && stored.get(topic.id) !== content(topic),
+  ).length;
+  const listChanged = canonical(desiredIds) !== canonical(currentIds);
+  return {
+    changed,
+    listChanged,
+    added: desiredIds.filter((id) => !currentIds.includes(id)).length,
+    removed: currentIds.filter((id) => !desiredIds.includes(id)).length,
+    differ: changed > 0 || listChanged,
+  };
+}
+
+/**
+ * The target's topics as a release preview verifies them before apply. Material writes run between
+ * the preview and the topics write and change the order version, so the version cannot stand for
+ * the topics; this state can. It counts only the Materials the release keeps in the Product,
+ * because a Material leaving the Product leaves its topic with it.
+ *
+ * @param {{ id: string; name: string; summary: string; materialIds: string[] }[]} topics
+ * @param {ReadonlySet<string>} kept Target IDs of the Materials the Product keeps
+ */
+export function topicState(topics, kept) {
+  return checksum(
+    canonical(
+      topics.map((topic) => ({
+        id: topic.id,
+        name: topic.name,
+        summary: topic.summary,
+        materialIds: topic.materialIds.filter((id) => kept.has(id)).sort(),
+      })),
+    ),
+  );
+}
+
+/**
  * The composition a Product shell release sends: the package's chapter list over the Materials the
  * target already holds, each in its current chapter. Platform requires every chapter's Materials to
  * form one uninterrupted run, so each chapter, in chapter order, lists its Materials by their first
@@ -672,6 +750,7 @@ export async function syncLocal(
     reviewed = false,
     reviewedTaskAccess = [],
     reviewedProductRemovals = [],
+    reviewedTopics = {},
     reconcileOnly = false,
     sourceCommit,
     contextLinks,
@@ -1738,7 +1817,18 @@ export async function syncLocal(
                   };
                 });
               });
-        await applyComposition({
+        // The composition write locks the order it read; the topics the preview verified must be
+        // the ones it reads, so an edit made after the review stops the release here.
+        const reviewedTopicState = reviewedTopics[sourceId(product.sourceId)];
+        if (
+          reviewedTopicState !== undefined &&
+          topicState(order.topics ?? [], new Set(orderedMaterialIds)) !==
+            reviewedTopicState
+        )
+          throw new Error(
+            "The Product topics changed after the preview; preview again before releasing",
+          );
+        const composed = await applyComposition({
           programmePlacements,
           sourceId: sourceId(product.sourceId),
           productId: current.id,
@@ -1750,6 +1840,13 @@ export async function syncLocal(
           chapters,
           chapterAssignments,
         });
+        await syncTopics(
+          product,
+          current,
+          order.topics ?? [],
+          parseLocalResponse("/authoring/import/products/composition", composed)
+            .orderVersion,
+        );
         await syncArtifacts(product, current);
         report.products.push({
           title: product.title,
@@ -1768,6 +1865,40 @@ export async function syncLocal(
           cause: error,
         });
       }
+    }
+
+    /**
+     * Course topics follow the composition, where chapter attachments are written: they group the
+     * Product's catalogue Materials, which exist only after that write. A package without topics
+     * leaves the target's topics alone. The topics are compared with those read before the
+     * composition; a composition keeps the topic of every Material it keeps, and the package names
+     * only kept Materials, so equal topics stay equal. The write expects the version the
+     * composition returned: a topics edit after the composition read answers stale_product_order
+     * and stops the release, and an edit before that read stopped it at the reviewed topic state.
+     * The write replaces the whole list and the receiver accepts an already reached state, so a
+     * repeated release needs no journal entry.
+     *
+     * @param {ManifestProduct} product
+     * @param {StoredProduct} current
+     * @param {{ id: string; name: string; summary: string; materialIds: string[] }[]} stored The topics the composition read
+     * @param {string} orderVersion The order version the composition returned
+     */
+    async function syncTopics(product, current, stored, orderVersion) {
+      const { topics } = product;
+      if (topics === undefined) return;
+      const desired = productTopics(
+        pkg.manifest,
+        product.sourceId,
+        topics,
+        (id) => valueAt(currentMaterials, id).materialId,
+      );
+      if (!topicChanges(desired, stored).differ) return;
+      await request(
+        `/authoring/products/${current.id}/topics`,
+        { expectedOrderVersion: orderVersion, topics: desired },
+        undefined,
+        { method: "PUT" },
+      );
     }
 
     /**

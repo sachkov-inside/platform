@@ -198,6 +198,7 @@ test("the import environment names the runtime mode and the accepted import cont
         "collapsible-callouts-v1",
         "bounded-content-v1",
         "svg-images-v1",
+        "product-topics-v1",
       ],
     },
   });

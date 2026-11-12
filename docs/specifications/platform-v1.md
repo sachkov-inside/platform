@@ -706,6 +706,15 @@ Optimistic `orderVersion` покрывает и темы, поэтому пра�
 называется `topics`, потому что `topics` той же страницы перечисляет глобальные Topics. Страницы
 Topic и связанных материалов поле не получают.
 
+Темы курса приходят и из Content Studio вместе с релизом (`product-topics-v1`). Product пакета
+может нести `topics: [{ sourceId, title, summary, materialIds }]` с source IDs материалов своего
+Product. Без поля релиз темы цели не трогает; список, даже пустой, задаёт все темы. Идентификатор
+темы выводится из `sourceNamespace`, Product и `sourceId` темы с частью `topic`, поэтому он не
+совпадает с идентификатором главы. Предпросмотр показывает `topicListChange` и `topicChanges`
+и запоминает темы цели; apply останавливается, если перед записью состава темы уже другие. После
+записи состава apply вызывает `PUT /authoring/products/:productId/topics` с `orderVersion` из её
+ответа, только если темы отличаются. Оболочка `product-shell` и пакет `contentOnly` тем не несут.
+
 ### Страница руководства
 
 Страница продукта строится из данных Product, а не из кода (решение владельца 17.09.2026,
@@ -1770,7 +1779,7 @@ checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 The authoring package accepts envelope `schemaVersion: 1 | 2 | 3`. Before asset uploads or other writes,
 `loadPackage` checks its version and every `requiredFeatures` entry. Current v3 packages require `canonical-product-source-v2`; v1/v2 envelopes remain historical input. Supported features are
 `material-task-v1`, `task-c-v2`, `quiz-v1`, `quiz-multiple-v1`, `github-anchors-v1`, `image-variants-v1`,
-`collapsible-callouts-v1`, `bounded-content-v1`, `svg-images-v1` and `canonical-product-source-v2`; unknown features are refused by name.
+`collapsible-callouts-v1`, `bounded-content-v1`, `svg-images-v1`, `product-topics-v1` and `canonical-product-source-v2`; unknown features are refused by name.
 With `svg-images-v1` in the receiver's `packageFeatures`, the client uploads an `image/svg+xml` Material image unchanged;
 a receiver without it gets a PNG rendered from the SVG.
 

@@ -363,6 +363,13 @@ const refusals = [
     /carries no chapter subset/u,
   ],
   [
+    "a shell that carries course topics, even an empty list",
+    (manifest) => {
+      itemAt(manifest.products, 0).topics = [];
+    },
+    /carries no topics/u,
+  ],
+  [
     "a shell for another Product",
     (manifest) => {
       manifest.selection.productId = "other";

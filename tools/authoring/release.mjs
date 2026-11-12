@@ -39,6 +39,9 @@ import {
   productDetails,
   productDetailsMatch,
   productShellComposition,
+  productTopics,
+  topicChanges,
+  topicState,
   normalizeSourceIds,
   pendingOperations,
   publicationConflict,
@@ -106,6 +109,8 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {number} [removed]
  * @property {boolean} [reorderedOrRegrouped]
  * @property {{ added: number; removed: number }} [chapterListChange]
+ * @property {{ added: number; removed: number }} [topicListChange] Course topics added or removed, or a changed topic order
+ * @property {number} [topicChanges] Kept course topics whose name, summary or Materials change
  */
 
 /**
@@ -498,6 +503,9 @@ export async function previewRelease(
               chapterListChange: { added: product.chapters.length, removed: 0 },
             }
           : {}),
+        ...(product.topics?.length
+          ? { topicListChange: { added: product.topics.length, removed: 0 } }
+          : {}),
       });
       continue;
     }
@@ -582,6 +590,25 @@ export async function previewRelease(
         );
       },
     ).length;
+    // A package without topics leaves the target's topics alone; Materials new to the target differ.
+    const topics =
+      product.topics === undefined
+        ? undefined
+        : topicChanges(
+            productTopics(
+              manifest,
+              product.sourceId,
+              product.topics,
+              (id) => ids.get(id) ?? `new:${id}`,
+            ),
+            order.topics ?? [],
+          );
+    // Apply checks the target's topics against this state before it writes the composition.
+    if (product.topics !== undefined)
+      expected[`${sourceKey(manifest, product.sourceId)}:topics`] = topicState(
+        order.topics ?? [],
+        new Set(desiredOrder),
+      );
     const chapterTextChanges = desiredChapters.filter(
       (chapter) =>
         currentChapterText.has(chapter.id) &&
@@ -625,7 +652,8 @@ export async function previewRelease(
         !chaptersChanged &&
         chapterTextChanges === 0 &&
         chapterSupplementaryChanges === 0 &&
-        !programmeChange
+        !programmeChange &&
+        !topics?.differ
           ? detailsChange
             ? "details"
             : "unchanged"
@@ -640,6 +668,12 @@ export async function previewRelease(
       ...(slugChange ? { slugChange } : {}),
       ...(presentationChange ? { presentationChange } : {}),
       ...(chaptersChanged ? { chapterListChange } : {}),
+      ...(topics?.listChanged
+        ? {
+            topicListChange: { added: topics.added, removed: topics.removed },
+          }
+        : {}),
+      ...(topics?.changed ? { topicChanges: topics.changed } : {}),
       added: desiredOrder.filter((id) => !currentOrder.includes(id)).length,
       removed: currentOrder.filter((id) => !desiredOrder.includes(id)).length,
       reorderedOrRegrouped:
@@ -852,6 +886,13 @@ export async function applyRelease(
     reviewed: true,
     reviewedTaskAccess: taskAccess,
     reviewedProductRemovals: confirmedProductRemovals,
+    reviewedTopics: Object.fromEntries(
+      pkg.manifest.products.flatMap((product) => {
+        const key = sourceKey(pkg.manifest, product.sourceId);
+        const state = current.preview.expected[`${key}:topics`];
+        return typeof state === "string" ? [[key, state]] : [];
+      }),
+    ),
     sourceCommit: preview.sourceCommit,
     contextLinks,
   });

@@ -425,3 +425,149 @@ test("an uncertain Series composition stays pending and stops a current transfer
   });
   assert.deepEqual(saved.materials, {});
 });
+
+/**
+ * A v3 package of one Product with two Materials and the given course topics (#2022).
+ *
+ * @param {unknown} topics `undefined` omits the field
+ * @param {string[]} [features]
+ */
+function topicFixture(
+  topics,
+  features = ["canonical-product-source-v2", "product-topics-v1"],
+) {
+  const value = fixture();
+  const [one] = value.materials;
+  assert.ok(one);
+  value.requiredFeatures = features;
+
+  value.materials.push({ ...one, sourceId: "two", sourcePath: "two.md" });
+  /** @type {Record<string, unknown>} */
+  const product = {
+    sourceId: "course",
+    title: "Course",
+    summary: "",
+    complete: true,
+    chapters: [],
+    materialIds: ["one"],
+    supplementaryMaterialIds: ["two"],
+  };
+  if (topics !== undefined) product["topics"] = topics;
+  const selection = {
+    ...value.selection,
+    productId: "course",
+    materialIds: ["one", "two"],
+  };
+  return { ...value, selection, products: [product] };
+}
+
+/** @param {string} sourceId @param {string[]} materialIds @param {string} [title] */
+const topic = (sourceId, materialIds, title = `  ${sourceId}  `) => ({
+  sourceId,
+  title,
+  summary: "",
+  materialIds,
+});
+
+/**
+ * @param {import("node:test").TestContext} t
+ * @param {unknown} value
+ */
+async function loadTopicPackage(t, value) {
+  const directory = await mkdtemp(join(tmpdir(), "authoring-topics-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const path = join(directory, "package.json");
+  await writeFile(path, canonical(value));
+  return loadPackage(path);
+}
+
+test("a Product carries course topics over its main and supplementary Materials", async (t) => {
+  const value = topicFixture([
+    topic("basics", ["two", "one"]),
+    topic("empty", []),
+  ]);
+  const pkg = await loadTopicPackage(t, value);
+  assert.deepEqual(
+    pkg.manifest.products[0]?.topics,
+    value.products[0]?.["topics"],
+  );
+});
+
+test("a package without topics stays valid and names none", async (t) => {
+  const pkg = await loadTopicPackage(t, topicFixture(undefined));
+  assert.equal(Object.hasOwn(pkg.manifest.products[0] ?? {}, "topics"), false);
+});
+
+for (const [description, value, message] of /** @type {const} */ ([
+  [
+    "a repeated topic source ID",
+    topicFixture([topic("basics", ["one"]), topic("basics", ["two"])]),
+    /Duplicate course topic identity/u,
+  ],
+  [
+    "a Material outside the Product",
+    topicFixture([topic("basics", ["three"])]),
+    /outside the Product: three/u,
+  ],
+  [
+    "a Material in two topics",
+    topicFixture([topic("basics", ["one"]), topic("advanced", ["one"])]),
+    /Material one belongs to more than one topic/u,
+  ],
+  [
+    "a Material repeated inside one topic",
+    topicFixture([topic("basics", ["one", "one"])]),
+    /topic basics names a Material twice/u,
+  ],
+  [
+    "topics in a bounded content update",
+    {
+      ...topicFixture(
+        [topic("basics", ["one"])],
+        [
+          "canonical-product-source-v2",
+          "product-topics-v1",
+          "bounded-content-v1",
+        ],
+      ),
+      selection: {
+        ...topicFixture(undefined).selection,
+        contentOnly: { materialIds: ["one"], taskIds: [], artifactIds: [] },
+      },
+    },
+    /Bounded content never changes Product topics/u,
+  ],
+  [
+    "a title that is empty after trim",
+    topicFixture([topic("basics", ["one"], "   ")]),
+    /Topic title/u,
+  ],
+  [
+    "a title longer than 120 characters",
+    topicFixture([topic("basics", ["one"], "x".repeat(121))]),
+    /Topic title/u,
+  ],
+  [
+    "a summary longer than 300 characters after trim",
+    topicFixture([
+      { ...topic("basics", ["one"]), summary: ` ${"x".repeat(301)} ` },
+    ]),
+    /Topic summary/u,
+  ],
+  [
+    "more than 50 topics",
+    topicFixture(
+      Array.from({ length: 51 }, (_, index) => topic(`t${String(index)}`, [])),
+    ),
+    /too_big|Too big/u,
+  ],
+  [
+    "topics without product-topics-v1",
+    topicFixture([topic("basics", ["one"])], ["canonical-product-source-v2"]),
+    /Product topics require package v2 and product-topics-v1/u,
+  ],
+])) {
+  test(`package loading refuses ${description}`, async (t) => {
+    await assert.rejects(loadTopicPackage(t, value), message);
+  });
+}

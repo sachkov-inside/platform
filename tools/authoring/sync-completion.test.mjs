@@ -23,6 +23,7 @@ import {
   valueAt,
 } from "./test-support.mjs";
 import { z } from "zod";
+import { sourceUuid } from "./markdown.mjs";
 
 /** @param {number} n */
 const uuid = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
@@ -194,6 +195,8 @@ async function fixture(t) {
  * @property {unknown} page
  * @property {boolean} pageRejected
  * @property {string[]} [members]
+ * @property {FakeTopic[]} [topics] Course topics; a receiver before #2022 reports none
+ * @typedef {{ id: string; name: string; summary: string; materialIds: string[] }} FakeTopic
  */
 
 // Bodies the double reads; the sync under test builds them, so a missing field fails the test.
@@ -217,6 +220,29 @@ const homePinBodySchema = z
 const compositionBodySchema = z
   .object({ orderedMaterialIds: z.array(z.string()) })
   .passthrough();
+const topicsBodySchema = z
+  .object({
+    expectedOrderVersion: z.string(),
+    topics: z.array(
+      z
+        .object({
+          id: z.uuid(),
+          name: z.string(),
+          summary: z.string(),
+          materialIds: z.array(z.uuid()),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+/** A receiver with topics hashes the catalogue and the topics; an older one keeps fixed versions.
+ * @param {FakeProduct} product */
+const fakeOrderVersion = (product) =>
+  product.topics === undefined
+    ? "a".repeat(64)
+    : checksum(
+        canonical({ members: product.members ?? [], topics: product.topics }),
+      );
 const attachBodySchema = z
   .object({ providerVideoId: z.string() })
   .passthrough();
@@ -331,16 +357,41 @@ function applicationApi() {
       }
       if (path === `/authoring/products/${productId}/order`)
         return {
-          orderVersion: "a".repeat(64),
+          orderVersion: fakeOrderVersion(product),
           items: (product.members ?? []).map((materialId) => ({
             materialId,
             chapterId: null,
           })),
           chapters: [],
+          ...(product.topics === undefined
+            ? {}
+            : { topics: structuredClone(product.topics) }),
         };
+      if (path === `/authoring/products/${productId}/topics`) {
+        assert.equal(options.method, "PUT");
+        const command = topicsBodySchema.parse(body);
+        if (command.expectedOrderVersion !== fakeOrderVersion(product))
+          throw Object.assign(new Error("stale_product_order"), {
+            status: 409,
+          });
+        const members = product.members ?? [];
+        // The receiver stores trimmed text and lists Materials in catalogue order.
+        product.topics = command.topics.map((topic) => ({
+          id: topic.id,
+          name: topic.name.trim(),
+          summary: topic.summary.trim(),
+          materialIds: members.filter((id) => topic.materialIds.includes(id)),
+        }));
+        return { productId, orderVersion: fakeOrderVersion(product) };
+      }
       if (path === "/authoring/import/products/composition") {
         product.members = compositionBodySchema.parse(body).orderedMaterialIds;
-        return { orderVersion: "b".repeat(64) };
+        return {
+          orderVersion:
+            product.topics === undefined
+              ? "b".repeat(64)
+              : fakeOrderVersion(product),
+        };
       }
       if (path === "/authoring/import/materials/reserve") {
         const { source } = reservationBodySchema.parse(body);
@@ -2100,5 +2151,225 @@ test("keeps old packages valid and reapplies a changed filename without changed 
   assert.equal(
     valueAt(api.artifacts, "inside-content:checklist").filename,
     "customer-brief.md",
+  );
+});
+
+/**
+ * Moves the fixture to package v2 with the course topics feature (#2022).
+ *
+ * @param {Awaited<ReturnType<typeof fixture>>} setup
+ * @param {NonNullable<import("./package.mjs").ManifestProduct["topics"]>} topics
+ */
+async function writeTopics(setup, topics) {
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = ["product-topics-v1"];
+  setup.manifest.selection.taskIds = [];
+  itemAt(setup.manifest.products, 0).topics = topics;
+  await setup.write();
+}
+
+test("course topics travel with the Product: absent topics stay untouched, present ones are reviewed and written once", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  const manual = {
+    id: uuid(950),
+    name: "Ручная",
+    summary: "",
+    materialIds: [],
+  };
+  api.product.topics = [manual];
+  const origin = "http://127.0.0.1:4396";
+  const topicWrites = () =>
+    api.calls.filter((call) => call.path.endsWith("/topics"));
+
+  // A package from an older exporter names no topics: the target keeps its own.
+  await run(setup, api);
+  assert.deepEqual(topicWrites(), []);
+  const untouched = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const before = itemAt(untouched.preview.products, 0);
+  assert.equal(before.change, "unchanged");
+  assert.equal(before.topicListChange, undefined);
+  assert.equal(before.topicChanges, undefined);
+
+  await writeTopics(setup, [
+    {
+      sourceId: "basics",
+      title: " Основы ",
+      summary: "Кратко ",
+      materialIds: ["video", "lesson"],
+    },
+    { sourceId: "extra", title: "Ещё", summary: "", materialIds: [] },
+  ]);
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const listed = itemAt(reviewed.preview.products, 0);
+  assert.equal(listed.change, "composition");
+  assert.deepEqual(listed.topicListChange, { added: 2, removed: 1 });
+  assert.equal(listed.topicChanges, undefined);
+
+  await applyRelease(reviewed.path, setup.state, { request: api.request });
+  // The topics write expects the version the composition returned.
+  const expectedOrderVersion = checksum(
+    canonical({ members: api.product.members, topics: [manual] }),
+  );
+  const material = (/** @type {string} */ id) =>
+    valueAt(api.materials, `inside-content:${id}`).materialId;
+  const topicId = (/** @type {string} */ id) =>
+    sourceUuid(`inside-content:product:topic:${id}`);
+  assert.deepEqual(
+    topicWrites().map(({ method, body }) => ({ method, body })),
+    [
+      {
+        method: "PUT",
+        body: {
+          expectedOrderVersion,
+          topics: [
+            {
+              id: topicId("basics"),
+              name: "Основы",
+              summary: "Кратко",
+              materialIds: [material("video"), material("lesson")],
+            },
+            {
+              id: topicId("extra"),
+              name: "Ещё",
+              summary: "",
+              materialIds: [],
+            },
+          ],
+        },
+      },
+    ],
+  );
+  // A topic ID never repeats the chapter ID of the same source key.
+  assert.notEqual(
+    topicId("basics"),
+    sourceUuid("inside-content:product:chapter:basics"),
+  );
+
+  const settled = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const after = itemAt(settled.preview.products, 0);
+  assert.equal(after.change, "unchanged");
+  assert.equal(after.topicListChange, undefined);
+  assert.equal(after.topicChanges, undefined);
+  await run(setup, api);
+  assert.equal(topicWrites().length, 1);
+
+  // A renamed topic or a moved Material is a change of a kept topic.
+  const [basics] = itemAt(setup.manifest.products, 0).topics ?? [];
+  assert.ok(basics);
+  basics.materialIds = ["lesson"];
+  await setup.write();
+  const moved = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const changed = itemAt(moved.preview.products, 0);
+  assert.equal(changed.change, "composition");
+  assert.equal(changed.topicListChange, undefined);
+  assert.equal(changed.topicChanges, 1);
+});
+
+test("an empty topic list clears the target's topics, and a stale order stops the write", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await writeTopics(setup, []);
+  await run(setup, api);
+  // A receiver that reports no topics yet holds none, so an empty list writes nothing.
+  assert.equal(api.count(/\/topics$/u), 0);
+
+  api.product.topics = [
+    { id: uuid(951), name: "Ручная", summary: "", materialIds: [] },
+  ];
+  const origin = "http://127.0.0.1:4396";
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  assert.deepEqual(itemAt(reviewed.preview.products, 0).topicListChange, {
+    added: 0,
+    removed: 1,
+  });
+  await applyRelease(reviewed.path, setup.state, { request: api.request });
+  assert.deepEqual(api.product.topics, []);
+
+  // Another writer changes the topics between the order read and the write.
+  await writeTopics(setup, [
+    { sourceId: "basics", title: "Основы", summary: "", materialIds: [] },
+  ]);
+  const request = api.request;
+  /** @type {LocalTransport} */
+  const racing = async (path, body, key, options) => {
+    if (path.endsWith("/topics"))
+      api.product.topics = [
+        { id: uuid(952), name: "Чужая", summary: "", materialIds: [] },
+      ];
+    return request(path, body, key, options);
+  };
+  await assert.rejects(
+    run(setup, { request: racing }),
+    /Product product: stale_product_order/u,
+  );
+});
+
+test("a topics edit after the reviewed preview stops apply before the composition write", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  api.product.topics = [];
+  await run(setup, api);
+  await writeTopics(setup, [
+    { sourceId: "basics", title: "Основы", summary: "", materialIds: [] },
+  ]);
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin: "http://127.0.0.1:4396",
+    request: api.request,
+  });
+  const request = api.request;
+  let edited = false;
+  let editedAt = 0;
+  /** @type {LocalTransport} */
+  const editing = async (path, body, key, options) => {
+    // The first Product reservation comes after apply has checked the preview again.
+    if (path === "/authoring/import/products/reserve" && !edited) {
+      edited = true;
+      editedAt = api.calls.length;
+      api.product.topics = [
+        { id: uuid(953), name: "Админ", summary: "", materialIds: [] },
+      ];
+    }
+    return request(path, body, key, options);
+  };
+  await assert.rejects(
+    applyRelease(reviewed.path, setup.state, { request: editing }),
+    /Product product: The Product topics changed after the preview/u,
+  );
+  assert.ok(edited);
+  assert.deepEqual(
+    api.calls
+      .slice(editedAt)
+      .filter(
+        (call) =>
+          call.path.endsWith("/topics") ||
+          call.path === "/authoring/import/products/composition",
+      ),
+    [],
+  );
+  assert.deepEqual(
+    api.product.topics.map((topic) => topic.name),
+    ["Админ"],
   );
 });
