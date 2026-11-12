@@ -1534,6 +1534,57 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     }
   });
 
+  test("an observation made after the sweep began is fresh; one far in the future is stale", async () => {
+    const isolated = await createMigratedTestDatabase();
+    try {
+      let instant = new Date(start);
+      const { localAccounts, localGrants, localLinks, enroll } =
+        await streamFixture(isolated, () => instant);
+      const { accountId } = await enroll("observation-after-sweep-start");
+      const provider = new ProviderDouble();
+      const app = new CommunityEntitlements({
+        accounts: localAccounts,
+        botStartUrl: "https://t.me/inside_test_bot",
+        clock: () => instant,
+        grants: localGrants,
+        links: localLinks,
+        prisma: isolated.prisma,
+        provider,
+      });
+      await app.sweep();
+      const row =
+        await isolated.prisma.telegramCommunityOperation.findFirstOrThrow({
+          where: { accountId },
+        });
+      provider.observe(row.operationId, "waiting_for_join", "not_member");
+      instant = new Date(new Date(start).getTime() + 6 * 60_000);
+      // Production 2026-11-12 (#2070): the bot refreshed its observation 4 ms after the sweep
+      // read its clock and before the status answer.
+      provider.updatedAt = new Date(instant.getTime() + 4).toISOString();
+      expect((await app.sweep()).backlog).toMatchObject({
+        unapplied: 1,
+        overdue: 0,
+      });
+      expect(
+        await isolated.prisma.telegramCommunityOperation.findUnique({
+          where: { operationId: row.operationId },
+        }),
+      ).toMatchObject({ errorCode: null });
+      instant = new Date(instant.getTime() + 61_000);
+      provider.updatedAt = new Date(
+        instant.getTime() + 6 * 60_000,
+      ).toISOString();
+      expect((await app.sweep()).backlog).toMatchObject({ overdue: 1 });
+      expect(
+        await isolated.prisma.telegramCommunityOperation.findUnique({
+          where: { operationId: row.operationId },
+        }),
+      ).toMatchObject({ errorCode: "stale_observation" });
+    } finally {
+      await isolated.dispose();
+    }
+  });
+
   test("an unknown provider outcome stays unapplied and visible to the operator", async () => {
     now = new Date(start);
     const account = await member();
