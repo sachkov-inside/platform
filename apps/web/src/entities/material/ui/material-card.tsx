@@ -657,12 +657,12 @@ function LibraryMaterialCard({
       {/* Место в программе стоит сразу под картинкой у всех карточек (решение владельца 12.11.2026):
           прижатое к низу растянутой карточки, оно читалось как подпись следующего ряда. */}
       {annotation === undefined ? null : (
-        <span className="-mb-1 text-xs font-medium text-muted-foreground">
+        <span className="-mb-1 px-1.5 text-xs font-medium text-muted-foreground">
           {annotation}
         </span>
       )}
       {cover === null ? null : (
-        <Heading className="line-clamp-2 text-[0.9375rem] leading-5 font-semibold tracking-[-0.01em]">
+        <Heading className="line-clamp-2 px-1.5 text-[0.9375rem] leading-5 font-semibold tracking-[-0.01em]">
           {title}
         </Heading>
       )}
