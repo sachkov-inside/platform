@@ -52,7 +52,7 @@ Unavailable roles remain null. If any pending role in the finite snapshot stays 
 The run reports failure and retries after five minutes without acknowledging related answers as chatter.
 AuthorMode, Telegram administrator status and usernames never establish authorship.
 
-One run captures a finite upper message ID. Each model call receives at most 200 pending messages.
+One run captures a finite upper message ID. Each model call receives at most 50 pending messages, so one response fits the timeout.
 Context contains discussions of every status updated in the last seven days, plus discussions referenced by edits or direct replies.
 It also contains up to 40 ranked historical candidates from full-text search over durable questions, across every date and status.
 The search uses Russian text normalization and the first 1000 characters of each pending message/transcript.
@@ -61,7 +61,8 @@ uncertain or merely related questions remain separate. Limits remain 200 discuss
 Each existing discussion includes its source message IDs, topics, reply IDs and original message times.
 Exceeding a context limit fails explicitly and leaves the batch pending. Redacted diagnostics name that limit.
 
-The model receives message text, time, topic, reply IDs and anonymous roles only.
+The model receives message text, time, topic, reply IDs and anonymous roles only. An edit of a source or a direct reply to a source
+also carries the ID of the saved discussion it belongs to; an edited source keeps its own discussion even when it replies to another.
 Participant profile names and Telegram user IDs never enter the model request.
 The prompt requires summaries to use these anonymous roles and excludes personal names.
 Message content itself can contain personal data; model instructions cannot guarantee deidentification of arbitrary quoted text.
@@ -70,7 +71,9 @@ A local HTTP adapter contract verifies the actual AI SDK request. Production mod
 The module validates structured output and checks known message IDs, eligible discussion IDs and unique membership.
 The AI SDK request also constrains output message IDs to an enum of incoming IDs. Historical source IDs remain context,
 not new membership; server-side validation remains authoritative even if a provider ignores its requested schema.
-An edit or reply assigned to an existing discussion cannot be moved to a new discussion by the model.
+An edit or reply assigned to an existing discussion cannot be moved to a new discussion by the model. If the model places such a
+message elsewhere or omits an edited source, the module returns it to its saved discussion instead of failing the batch;
+the added entry keeps the saved summaries. A reply the model omits is acknowledged like chatter.
 Only a saved result acknowledges a batch; non-question chatter is acknowledged without discussion membership.
 A concurrent edit invalidates the batch snapshot and leaves it retryable.
 A later edit clears its processing mark and updates its existing discussion on the next run.

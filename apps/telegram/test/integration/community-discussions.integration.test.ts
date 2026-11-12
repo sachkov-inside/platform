@@ -304,7 +304,10 @@ describe("community discussion processing", () => {
     expect(
       await application().get(CommunityDiscussionProcessor).processDue(),
     ).toMatchObject({ status: "completed", messages: 200 });
-    expect(inputs.at(-1)?.messages).toHaveLength(200);
+    // Smaller provider calls keep each grouping response within its timeout.
+    expect(inputs.slice(1).map((input) => input.messages.length)).toEqual([
+      50, 50, 50, 50,
+    ]);
   });
   it("preserves saved summaries and marks when upgrading existing discussions", async () => {
     await capture("10", "Как выбрать инструмент?");
@@ -1621,6 +1624,121 @@ describe("community discussion processing", () => {
       ).toMatchObject({ status: "completed", messages: 1 });
     },
   );
+
+  it("keeps an edited source in its saved discussion when the model omits it", async () => {
+    await capture("10", "Как выбрать инструмент?");
+    await capture("11", "Сначала определите задачу.");
+    await application().get(CommunityDiscussionProcessor).processDue();
+    const saved = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    );
+    const editedAt = new Date(now.getTime() + 86_400_000);
+    vi.setSystemTime(editedAt);
+    await application().get(CommunityMessages).capture({
+      botIdentity: "inside",
+      chatId: "-1000000000000",
+      updateId: "20",
+      messageId: "10",
+      threadId: "7",
+      replyToMessageId: null,
+      sentAt: now,
+      editedAt,
+      senderTelegramUserId: "42",
+      kind: "text",
+      text: "Как выбрать инструмент для агента?",
+      fileId: null,
+    });
+    await capture("13", "Где взять ключ?", "44", editedAt);
+    // The provider follows the old instruction and drops the edited source.
+    result.discussions = [
+      {
+        discussionId: null,
+        messageIds: ["13"],
+        question: "Где взять ключ?",
+        answers: "",
+        conclusion: "",
+        answered: false,
+        hasNewInformation: true,
+      },
+    ];
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 2 });
+    expect(
+      inputs.at(-1)?.messages.map(({ messageId, discussionId }) => ({
+        messageId,
+        discussionId,
+      })),
+    ).toEqual([
+      { messageId: "10", discussionId: saved.discussionId },
+      { messageId: "13", discussionId: null },
+    ]);
+    const items = (await api("discussions.list", { limit: 10 })).json().items;
+    expect(items).toHaveLength(2);
+    expect(
+      (
+        await api("discussions.read", { discussionId: saved.discussionId })
+      ).json().discussion,
+    ).toMatchObject({
+      question: saved.question,
+      messages: [
+        { messageId: "10", text: "Как выбрать инструмент для агента?" },
+        { messageId: "11" },
+      ],
+    });
+  });
+
+  it("returns a reply to a saved source to its discussion when the model starts another one", async () => {
+    result.discussions[0] = {
+      ...required(result.discussions[0]),
+      messageIds: ["10"],
+      answers: "",
+      conclusion: "",
+      answered: false,
+    };
+    await capture("10", "Как выбрать инструмент?");
+    await application().get(CommunityDiscussionProcessor).processDue();
+    const saved = required(
+      (await api("discussions.list", { limit: 10 })).json().items[0],
+    );
+    vi.setSystemTime(now.getTime() + 86_400_000);
+    await capture(
+      "11",
+      "Сначала определите задачу.",
+      "43",
+      new Date(now.getTime() + 86_400_000),
+    );
+    await capture(
+      "14",
+      "Спасибо, понял.",
+      "44",
+      new Date(now.getTime() + 86_400_000),
+    );
+    result.discussions = [
+      {
+        discussionId: null,
+        messageIds: ["11", "14"],
+        question: "Что делать сначала?",
+        answers: "Определить задачу.",
+        conclusion: "",
+        answered: true,
+        hasNewInformation: true,
+      },
+    ];
+    expect(
+      await application().get(CommunityDiscussionProcessor).processDue(),
+    ).toMatchObject({ status: "completed", messages: 2 });
+    expect(
+      inputs.at(-1)?.messages.map((message) => message.discussionId),
+    ).toEqual([saved.discussionId, null]);
+    const items = (await api("discussions.list", { limit: 10 })).json().items;
+    expect(items).toHaveLength(2);
+    expect(
+      (await api("discussions.read", { discussionId: saved.discussionId }))
+        .json()
+        .discussion.messages.map((message) => message.messageId),
+    ).toEqual(["10", "11"]);
+  });
 
   it("acknowledges chatter without creating a discussion", async () => {
     await capture("10", "Всем хорошего дня!");

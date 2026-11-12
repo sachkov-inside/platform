@@ -30,6 +30,8 @@ export interface ModelMessage {
   readonly role: string;
   readonly kind: string;
   readonly text: string;
+  /** Saved discussion this message already belongs to: an edited source or a reply to a source. */
+  readonly discussionId: string | null;
 }
 export interface GroupInput {
   readonly messages: readonly ModelMessage[];
