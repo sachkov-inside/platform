@@ -140,6 +140,7 @@ describe("widget requests", () => {
     ["3lf0", { kind: "list", filter: "f", page: 0 }],
     ["3lv12", { kind: "list", filter: "v", page: 12 }],
     ["3lc1", { kind: "list", filter: "c", page: 1 }],
+    ["3lp-1", { kind: "list", filter: "p", page: -1 }],
     ["3matlas-pro", { kind: "card", model: "atlas-pro" }],
     ["3sdelta", { kind: "subscriptions", model: "delta" }],
     ["3a", { kind: "about" }],
@@ -154,6 +155,8 @@ describe("widget requests", () => {
     "3lx0",
     "3lp",
     "3lp123",
+    "3lp-2",
+    "3lp-0",
     "3m",
     "3mAtlas",
     "3a1",
@@ -226,10 +229,26 @@ describe("list of models", () => {
         "halo|Halo 1 Lite|1|0||||дешёвая, но слабее остальных",
       ],
     ]);
-    expect(
-      aiModelsResponse(data, { kind: "list", filter: "p", page: 2 }),
-    ).toBeUndefined();
   });
+
+  // Arrows of messages sent before 12.11.2026 still fire on Telegram clients that ignore
+  // `disabled`, asking for one page past either end.
+  it.each([
+    [2, 1],
+    [9, 1],
+    [-1, 0],
+  ])(
+    "answers a page %i past the ends with the nearest page %i",
+    (asked, shown) => {
+      const data = reference();
+
+      expect(
+        aiModelsResponse(data, { kind: "list", filter: "p", page: asked }),
+      ).toEqual(
+        aiModelsResponse(data, { kind: "list", filter: "p", page: shown }),
+      );
+    },
+  );
 
   it("sends the first page of «Мощные» as the chat state of a new message", () => {
     const data = reference();

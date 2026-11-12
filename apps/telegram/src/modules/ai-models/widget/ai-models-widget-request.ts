@@ -7,7 +7,9 @@ import { AI_MODELS_WIDGET_MARK } from "../ai-models-requests.js";
 // The requests of the ИИ-модели widget: `widget_query.data`, a short ASCII text of at most
 // 64 bytes that starts with the mark "3" (AI_MODELS_WIDGET_MARK); the update adapter routes it
 // to the ИИ-модели module by that mark. After the mark comes one request:
-// - `l<filter><page>` a page of the list, the page counting from 0, such as `lp0`;
+// - `l<filter><page>` a page of the list, the page counting from 0, such as `lp0`; `-1` and pages
+//   past the end come from the closed arrows of messages sent before 12.11.2026, which Telegram
+//   clients still fire, and get the nearest page;
 // - `m<code>` the tab «Главное» of a model card, `s<code>` its tab «Подписки»;
 // - `a` «О данных».
 // The widget's code is public, so the bot reads every request as untrusted text.
@@ -41,7 +43,7 @@ export type AiModelsWidgetRequest =
   | { readonly kind: "subscriptions"; readonly model: string }
   | { readonly kind: "about" };
 
-const listRequest = /^l([pfvc])([0-9]{1,2})$/;
+const listRequest = /^l([pfvc])(-1|[0-9]{1,2})$/;
 const cardRequest = new RegExp(`^([ms])(${AI_MODELS_CODE_PATTERN})$`);
 
 /**

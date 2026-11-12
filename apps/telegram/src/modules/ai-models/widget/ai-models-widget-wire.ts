@@ -379,7 +379,9 @@ function listData(
   page: number,
 ): AiModelsListData | undefined {
   const pages = listPages(reference, filter);
-  const models = pages[page];
+  // A page past either end gets the nearest one (see the request grammar).
+  const shown = Math.min(Math.max(page, 0), pages.length - 1);
+  const models = pages[shown];
   if (models === undefined) return undefined;
   const rows: (AiModelsListRow | AiModelsGroupRow)[] = [];
   let group: string | undefined;
@@ -391,7 +393,7 @@ function listData(
   return [
     "l",
     filter,
-    page,
+    shown,
     pages.length,
     aiModelsShortDate(reference.checkedOn),
     rows,

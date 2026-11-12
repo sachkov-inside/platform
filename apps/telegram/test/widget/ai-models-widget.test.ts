@@ -210,6 +210,8 @@ describe("ИИ-модели widget: the list", () => {
       const back = page.getByRole("button", { name: "‹" });
       const forward = page.getByRole("button", { name: "›", exact: true });
       await expect(back.isDisabled()).resolves.toBe(true);
+      // Telegram clients may ignore `disabled`: a closed arrow carries no action at all.
+      await expect(back.getAttribute("onclick")).resolves.toBeNull();
 
       await tap(page, "›", list("p", 1));
 
@@ -217,6 +219,7 @@ describe("ИИ-модели widget: the list", () => {
       expect(await rows(page)).toEqual(["Fjord 2 Max", "Halo 1 Lite"]);
       expect(await text(page)).toContain("2 из 2");
       await expect(forward.isDisabled()).resolves.toBe(true);
+      await expect(forward.getAttribute("onclick")).resolves.toBeNull();
 
       await tap(page, "‹", list("p"));
       expect(await requests(page)).toEqual(["lp1", "lp0"]);
