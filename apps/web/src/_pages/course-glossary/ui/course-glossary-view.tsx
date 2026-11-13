@@ -92,7 +92,10 @@ export function CourseGlossaryLoading() {
     >
       <div className={`h-11 w-32 rounded-lg bg-muted ${pulse}`} />
       <div className={`mt-2 h-5 w-40 rounded-md bg-muted/80 ${pulse}`} />
-      <div className={`mt-2 h-8 w-56 rounded-lg bg-muted ${pulse}`} />
+      {/* Высота строки заголовка: `1.2em` от того же размера шрифта, что у `h1` словаря. */}
+      <div
+        className={`mt-1 h-[1.2em] w-56 rounded-lg bg-muted text-[1.375rem] sm:text-2xl md:text-[1.75rem] ${pulse}`}
+      />
       <div className="mt-6 grid gap-4">
         {[0, 1, 2, 3].map((row) => (
           <div className={`h-36 rounded-2xl bg-muted/65 ${pulse}`} key={row} />
