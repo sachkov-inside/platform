@@ -64,6 +64,7 @@ export {
   type ExerciseAnswerState,
 } from "./model/exercise-answers.client";
 
+export { lessonParts } from "./model/lesson-parts";
 export {
   LessonSteps,
   type LessonStepsProgress,

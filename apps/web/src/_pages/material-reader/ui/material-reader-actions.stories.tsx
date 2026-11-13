@@ -106,7 +106,7 @@ const meta = {
           kind: "ready",
           states: requested.map((id) =>
             id === materialId
-              ? { ...readingState(), updateNote }
+              ? { ...readingState(), updateNote, openedParts: null }
               : {
                   materialId: id,
                   isRead: false,

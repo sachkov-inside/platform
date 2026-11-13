@@ -89,7 +89,7 @@ const meta = {
       .nullable()
       .parse(parameters["serverParts"] ?? null);
     window.localStorage.removeItem(guestOpenedPartsKey(materialId));
-    const guestParts = parameters["guestParts"];
+    const guestParts: unknown = parameters["guestParts"];
     if (typeof guestParts === "number")
       window.localStorage.setItem(
         guestOpenedPartsKey(materialId),
@@ -187,11 +187,13 @@ export const GuestOpensNextPart: Story = {
     await expect(
       canvas.getByText("Проверка начинается с наблюдаемого поведения."),
     ).toBeVisible();
-    const reply = canvasElement.querySelector("[data-lesson-reply]");
+    const reply = canvasElement.querySelector<HTMLElement>(
+      "[data-lesson-reply]",
+    );
     if (reply === null) throw new Error("The reply is missing");
-    await expect(within(reply as HTMLElement).getByText("Вы")).toBeVisible();
+    await expect(within(reply).getByText("Вы")).toBeVisible();
     await expect(
-      within(reply as HTMLElement).getByText("А как проверить результат?"),
+      within(reply).getByText("А как проверить результат?"),
     ).toBeVisible();
     await expect(
       canvas.queryByRole("button", { name: "А как проверить результат?" }),
