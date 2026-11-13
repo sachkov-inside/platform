@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
@@ -56,6 +57,10 @@ esac
   }
 }
 
+/**
+ * @param {number} number
+ * @param {Record<string, unknown>} [extra]
+ */
 const lock = (number, extra = {}) => ({
   number,
   state: "open",
