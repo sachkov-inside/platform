@@ -2355,7 +2355,6 @@ export const SharedProgrammeKeepsSelection: Story = {
   render: () => <SharedProgrammeSelectionFixture />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await openPart(canvasElement, /^Материалы/u);
     await openPart(canvasElement, /^Программа/u);
     await userEvent.click(
       canvas.getByRole("button", { name: "Догрузить личные данные" }),

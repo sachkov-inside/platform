@@ -317,7 +317,6 @@ export function ProductJourneyControls({
   }, [returnSlug, hydrated]);
 
   function selectPart(id: JourneyPart["id"]) {
-    if (id === part?.id) return;
     setSelection(id);
   }
   /** Выбор раздела из нижней панели: раздел открывается с начала, как новая вкладка приложения. */
