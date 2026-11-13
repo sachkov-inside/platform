@@ -11,9 +11,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import Link from "next/link";
+
 import {
   glossaryDefinitionParagraphs,
-  type GlossaryTerm,
+  type GlossaryTermReading,
 } from "../../model/glossary-term";
 
 /** Отступ подсказки от края окна: на телефоне 360 px она не выходит за экран. */
@@ -25,6 +27,9 @@ const HOVER_CLOSE_DELAY_MS = 150;
 
 type Openness = "closed" | "hover" | "pinned";
 
+const moreClassName =
+  "mt-2 min-h-11 font-medium text-accent underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring";
+
 interface BubblePosition {
   readonly left: number;
   readonly top: number;
@@ -33,15 +38,16 @@ interface BubblePosition {
 
 /**
  * Первое упоминание термина в уроке: пунктирное подчёркивание, по наведению курсора и по нажатию
- * на телефоне короткое определение и «Подробнее» с полным определением. Подсказка висит поверх
- * текста и не сдвигает его.
+ * на телефоне короткое определение и «Подробнее». Внутри курса «Подробнее» ведёт к термину на
+ * странице словаря курса, вне курса раскрывает полное определение на месте. Подсказка висит
+ * поверх текста и не сдвигает его.
  */
 export function GlossaryTermMention({
   children,
   term,
 }: {
   readonly children: ReactNode;
-  readonly term: GlossaryTerm;
+  readonly term: GlossaryTermReading;
 }) {
   const bubbleId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -200,17 +206,27 @@ export function GlossaryTermMention({
                   )}
                 </div>
               ) : null}
-              <button
-                aria-expanded={expanded}
-                className="mt-2 min-h-11 font-medium text-accent underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-                onClick={() => {
-                  setOpenness("pinned");
-                  setExpanded((current) => !current);
-                }}
-                type="button"
-              >
-                {expanded ? "Свернуть" : "Подробнее"}
-              </button>
+              {term.moreHref === undefined ? (
+                <button
+                  aria-expanded={expanded}
+                  className={moreClassName}
+                  onClick={() => {
+                    setOpenness("pinned");
+                    setExpanded((current) => !current);
+                  }}
+                  type="button"
+                >
+                  {expanded ? "Свернуть" : "Подробнее"}
+                </button>
+              ) : (
+                <Link
+                  className={`${moreClassName} inline-flex items-center`}
+                  data-glossary-more={term.id}
+                  href={term.moreHref}
+                >
+                  Подробнее
+                </Link>
+              )}
             </div>,
             document.body,
           )

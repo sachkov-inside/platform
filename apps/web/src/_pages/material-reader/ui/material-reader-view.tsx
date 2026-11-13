@@ -36,6 +36,7 @@ import {
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import { materialPath, topicPath } from "@/shared/routing/public-page-path";
+import { courseGlossaryHref } from "@/shared/routing/subscription-route";
 
 import { agentChoiceComparison } from "../model/agent-choice-comparison";
 import { projectHarnessIllustrations } from "@/features/project-harness";
@@ -55,6 +56,13 @@ export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
   /** Термины словаря, на которые ссылается тело; без них упоминание читается обычным текстом. */
   readonly glossaryTerms?: readonly GlossaryTerm[];
+  /**
+   * Курс, внутри которого открыт урок: «Подробнее» в подсказке термина ведёт на его словарь.
+   * Вне курса подсказка раскрывает полное определение на месте.
+   */
+  readonly courseGlossarySlug?: string | undefined;
+  /** Колода «Термины урока» в конце урока (#2127). */
+  readonly termDeck?: ReactNode;
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
   readonly returnTarget?: MaterialReaderReturnTarget;
@@ -78,6 +86,8 @@ export function MaterialReaderView({
   renderLink,
   body,
   glossaryTerms = [],
+  courseGlossarySlug,
+  termDeck,
   material,
   primaryVideo,
   returnTarget = homeMaterialReaderReturnTarget,
@@ -206,7 +216,12 @@ export function MaterialReaderView({
                 )
               }
               renderLink={renderLink}
-              glossary={glossaryTermsById(glossaryTerms)}
+              glossary={glossaryTermsById(
+                glossaryTerms,
+                courseGlossarySlug === undefined
+                  ? undefined
+                  : (termId) => courseGlossaryHref(courseGlossarySlug, termId),
+              )}
               blocks={body}
               contentVersion={material.contentVersion}
               materialId={material.materialId}
@@ -214,6 +229,7 @@ export function MaterialReaderView({
               path={[]}
             />
           </article>
+          {termDeck}
           {practiceActions}
           {submissionWorkspace}
           {deferredPracticeActions === undefined ? null : (

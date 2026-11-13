@@ -70,6 +70,7 @@ describe("Material Reader server adapter", () => {
           kind: "available",
           cacheScope: "public",
           glossaryTerms: [],
+          lessonTerms: [],
           projection: publishedProjection,
           body: renderedBody,
           primaryVideo: {
@@ -87,6 +88,7 @@ describe("Material Reader server adapter", () => {
     ).resolves.toEqual({
       kind: "available",
       glossaryTerms: [],
+      lessonTerms: [],
       material: {
         materialId: "72000000-0000-4000-8000-000000000020",
         contentVersion: 3,
@@ -244,6 +246,7 @@ describe("Material Reader server adapter", () => {
           kind: "available",
           cacheScope: "public",
           glossaryTerms: [],
+          lessonTerms: [],
           projection: publishedProjection,
           body: { schemaVersion: 1, blocks: [{ kind: "paragraph" }] },
           primaryVideo: null,

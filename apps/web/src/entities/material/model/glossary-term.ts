@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import { z } from "zod";
 
 /**
@@ -14,13 +15,27 @@ export const glossaryTermSchema = z.object({
 
 export type GlossaryTerm = z.infer<typeof glossaryTermSchema>;
 
+/**
+ * Термин в теле урока. `moreHref` ведёт «Подробнее» подсказки к термину на странице словаря курса;
+ * без него подсказка раскрывает полное определение на месте.
+ */
+export interface GlossaryTermReading extends GlossaryTerm {
+  readonly moreHref?: Route | undefined;
+}
+
 /** Термины урока по идентификатору: тело ссылается на них `term:<id>` и карточкой определения. */
-export type GlossaryTerms = ReadonlyMap<string, GlossaryTerm>;
+export type GlossaryTerms = ReadonlyMap<string, GlossaryTermReading>;
 
 export function glossaryTermsById(
   terms: readonly GlossaryTerm[],
+  moreHref?: (termId: string) => Route,
 ): GlossaryTerms {
-  return new Map(terms.map((term) => [term.id, term]));
+  return new Map(
+    terms.map((term) => [
+      term.id,
+      moreHref === undefined ? term : { ...term, moreHref: moreHref(term.id) },
+    ]),
+  );
 }
 
 /** Полное определение хранится простым текстом; пустая строка разделяет абзацы. */

@@ -49,6 +49,7 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
     projection: projectionSchema,
     body: renderedMaterialBodySchema,
     glossaryTerms: z.array(glossaryTermSchema),
+    lessonTerms: z.array(glossaryTermSchema),
     videoChapters: z
       .array(
         z
@@ -181,6 +182,7 @@ async function readPublishedMaterial(
             material,
             body: parsed.data.body.blocks,
             glossaryTerms: parsed.data.glossaryTerms,
+            lessonTerms: parsed.data.lessonTerms,
             primaryVideo:
               parsed.data.primaryVideo === null
                 ? null

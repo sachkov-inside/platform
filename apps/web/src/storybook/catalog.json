@@ -219,6 +219,11 @@
       "reason": ""
     },
     {
+      "route": "/products/[slug]/glossary",
+      "stories": ["_pages/course-glossary/ui/course-glossary-view.stories.tsx"],
+      "reason": ""
+    },
+    {
       "route": "/products/[slug]/programme",
       "stories": [
         "_pages/library-discovery/ui/product-journey.stories.tsx",
