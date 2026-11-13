@@ -77,6 +77,82 @@ test("the first available programme switch opens the catalogue across delayed hy
   }
 });
 
+test("a tab selected in the shared programme survives the main personal response (#1896)", async ({
+  page,
+  context,
+  request,
+  baseURL,
+}, info) => {
+  if (baseURL === undefined) throw new Error("Web origin required");
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const slug = `reader-state-refresh${info.project.name === "mobile-chromium" ? "-mobile" : ""}`;
+  await signInAsReader(context, baseURL, backend, slug);
+  try {
+    const response = await page.goto(
+      `/products/${slug}/programme?at=performance-lesson-13&atPlacement=17100000-0000-4000-9000-000000000013&page=2`,
+    );
+    await response?.finished();
+    const rows = page.locator("[data-product-ordinal]:visible");
+    await expect(rows.nth(12)).toBeInViewport();
+    await rows.nth(12).getByRole("heading").getByRole("link").click();
+    await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+    await request.post(
+      `${backend}/__reader-programme-hold?held=true&slug=${slug}`,
+    );
+    await request.post(
+      `${backend}/__reader-optional-hold?held=false&target=community-link`,
+    );
+    await page.goBack();
+    const pending = page.locator("[data-product-access-pending]:visible");
+    await expect(pending.first()).toBeVisible();
+    await expect
+      .poll(
+        async () =>
+          z
+            .object({ blocked: z.number() })
+            .parse(
+              await (
+                await request.get(`${backend}/__reader-programme-hold`)
+              ).json(),
+            ).blocked,
+      )
+      .toBe(1);
+    const tabs = page.getByRole("navigation", { name: "Разделы продукта" });
+    const materials = tabs.getByRole("button", { name: /^Материалы/u });
+    await expect(materials).toBeEnabled();
+    await page
+      .locator(`[data-product-programme="${slug}"]:visible`)
+      .evaluate((node) => {
+        node.setAttribute("data-shared-programme", "true");
+      });
+    await materials.click();
+    await expect(materials).toHaveAttribute("aria-current", "true");
+    const selectedUrl = page.url();
+    await request.post(`${backend}/__reader-programme-hold?held=false`);
+    await expect(pending).toHaveCount(0);
+    await expect(
+      tabs.getByRole("button", { name: "Онбординг", exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("[data-shared-programme]:visible")).toHaveCount(
+      0,
+    );
+    await expect(materials).toHaveAttribute("aria-current", "true");
+    await expect(
+      page
+        .getByRole("region", { name: "Материалы курса" })
+        .getByRole("listitem"),
+    ).toHaveCount(13);
+    expect(page.url()).toBe(selectedUrl);
+    await info.attach("programme-after-personal-delivery.png", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  } finally {
+    await request.post(`${backend}/__reader-programme-hold?held=false`);
+    await request.post(`${backend}/__reader-optional-hold?held=false`);
+  }
+});
+
 test("a selected catalogue survives delivery of optional onboarding without replacing the programme", async ({
   page,
   context,

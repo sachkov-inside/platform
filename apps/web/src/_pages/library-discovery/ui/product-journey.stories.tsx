@@ -19,7 +19,8 @@ import { productOnlyOffer } from "@/storybook/billing.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
 import { Button } from "@/shared/ui/button";
-import { ProductProgrammeView } from "./product-programme-view";
+import { PendingProduct, ProductProgrammeView } from "./product-programme-view";
+import { ProductProgrammeSelectionProvider } from "./product-programme-selection.client";
 import {
   ProductLearningProvider,
   ProductLearningSource,
@@ -2297,4 +2298,88 @@ export const SplitChapter: Story = {
 export const SplitChapterMobile: Story = {
   ...SplitChapter,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+/** The fixture changes only the delivery boundary; both branches render the production programme. */
+function SharedProgrammeSelectionFixture() {
+  const [delivered, setDelivered] = useState(false);
+  const [otherProduct, setOtherProduct] = useState(false);
+  const current = otherProduct
+    ? {
+        ...result,
+        reference: {
+          ...result.reference,
+          slug: "another-course",
+          name: "Другой курс",
+        },
+      }
+    : result;
+  return (
+    <>
+      <div className="flex gap-2">
+        <Button
+          onClick={() => {
+            setDelivered(true);
+          }}
+        >
+          Догрузить личные данные
+        </Button>
+        <Button
+          onClick={() => {
+            setOtherProduct(true);
+          }}
+        >
+          Открыть другой курс
+        </Button>
+      </div>
+      <ProductProgrammeSelectionProvider key={current.reference.slug}>
+        {delivered ? (
+          <ProductProgrammeView
+            result={current}
+            onboarding={{
+              incomplete: true,
+              panel: <p>Подключите Telegram к курсу.</p>,
+            }}
+          />
+        ) : (
+          <PendingProduct
+            result={current}
+            artifacts={{ kind: "ready", artifacts: [] }}
+          />
+        )}
+      </ProductProgrammeSelectionProvider>
+    </>
+  );
+}
+export const SharedProgrammeKeepsSelection: Story = {
+  render: () => <SharedProgrammeSelectionFixture />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await openPart(canvasElement, /^Материалы/u);
+    await openPart(canvasElement, /^Программа/u);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Догрузить личные данные" }),
+    );
+    await waitFor(async () => {
+      await expect(partButton(canvasElement, /^Онбординг/u)).toBeVisible();
+    });
+    await expect(partButton(canvasElement, /^Программа/u)).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть другой курс" }),
+    );
+    await expect(
+      canvas.getByRole("heading", { name: "Другой курс" }),
+    ).toBeVisible();
+    await expect(partButton(canvasElement, /^Онбординг/u)).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+  },
+};
+export const SharedProgrammeKeepsSelectionMobile: Story = {
+  ...SharedProgrammeKeepsSelection,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };

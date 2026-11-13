@@ -32,6 +32,7 @@ import {
 } from "./cohort-call.server";
 import { PersonalProduct as PersonalProductView } from "./personal-product.server";
 import { PendingProduct } from "./product-programme-view";
+import { ProductProgrammeSelectionProvider } from "./product-programme-selection.client";
 import {
   ProductLandingLoading,
   ProductProgrammeLoading,
@@ -158,9 +159,11 @@ export async function ProductProgrammePage({
   const result = await readPublicProduct(slug);
   if (result.kind === "not-found") {
     return (
-      <Suspense fallback={<ProductProgrammeLoading />}>
-        <PersonalProgramme slug={slug} />
-      </Suspense>
+      <ProductProgrammeSelectionProvider key={slug}>
+        <Suspense fallback={<ProductProgrammeLoading />}>
+          <PersonalProgramme slug={slug} />
+        </Suspense>
+      </ProductProgrammeSelectionProvider>
     );
   }
   if (result.kind === "unavailable") {
@@ -168,15 +171,17 @@ export async function ProductProgrammePage({
   }
   const artifacts = await publicArtifactsOf(result);
   return (
-    <Suspense
-      fallback={<PendingProduct artifacts={artifacts} result={result} />}
-    >
-      <PersonalProgramme
-        sharedArtifacts={artifacts}
-        sharedResult={result}
-        slug={slug}
-      />
-    </Suspense>
+    <ProductProgrammeSelectionProvider key={slug}>
+      <Suspense
+        fallback={<PendingProduct artifacts={artifacts} result={result} />}
+      >
+        <PersonalProgramme
+          sharedArtifacts={artifacts}
+          sharedResult={result}
+          slug={slug}
+        />
+      </Suspense>
+    </ProductProgrammeSelectionProvider>
   );
 }
 

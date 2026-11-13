@@ -765,6 +765,9 @@ Formats remain in the product catalogue; legacy Home format parameters are clear
 no invisible format filter restricts the feed. Selecting a topic again, or «Все», clears it.
 
 The course landing links to the dedicated programme without repeating its chapter overview.
+The shared programme remains interactive while its personal data loads. A section explicitly chosen
+in that interval survives personal delivery and takes precedence over arriving onboarding. The choice
+belongs to the current Product; opening another Product uses its own URL or default section (#1896).
 The programme uses actual Product chapters; fixtures never supply production copy. Published
 chapters show their lesson list and a native «Темы и практика» disclosure; the reading counter
 sits at the right of that disclosure row. Future chapters start collapsed. Their preparation
