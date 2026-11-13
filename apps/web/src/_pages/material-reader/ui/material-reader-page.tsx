@@ -32,6 +32,7 @@ import {
   VisibleMaterialOpen,
 } from "@/features/reading-progress";
 import { SavedBookmarkAction } from "@/features/bookmarks";
+import { SavedLessonRating } from "@/features/lesson-rating";
 import { SavedLessonTermDeck } from "@/features/lesson-term-deck";
 import {
   LessonExerciseAttempts,
@@ -562,6 +563,9 @@ async function ResolvedMaterialReader({
                 : courseGlossaryHref(courseGlossarySlug)
             }
           />
+        }
+        lessonRating={
+          <SavedLessonRating materialId={result.material.materialId} />
         }
         exerciseScope={(lesson) => (
           <LessonExerciseAttempts
