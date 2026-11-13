@@ -176,9 +176,11 @@ button {
 
 /* A list row: .rw the model, .l2 its badges and summary, .Z the summary cut to one line;
    .gh a group or the title of «Цена/качество»; .pg the pager. */
+/* Square corners: iOS rounds buttons, which tapers the ends of the line above a row. */
 .rw {
   display: block;
   width: 100%;
+  border-radius: 0;
 }
 .rw,
 .pl {

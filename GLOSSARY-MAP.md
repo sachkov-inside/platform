@@ -2,7 +2,7 @@
 
 ## Contexts
 
-- [Inside and Platform](./GLOSSARY.md): shared Inside terms and their Platform refinements.
+- [sachkov.dev and Platform](./GLOSSARY.md): shared sachkov.dev terms and their Platform refinements.
 - [Telegram application](./apps/telegram/GLOSSARY.md): terms local to the Telegram bot.
 
 ## Relationships
