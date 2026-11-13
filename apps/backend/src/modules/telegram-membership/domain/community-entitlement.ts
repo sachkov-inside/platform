@@ -36,6 +36,8 @@ export const COMMUNITY_RECONCILIATION_INTERVAL_MS = 60_000;
 export const COMMUNITY_OVERDUE_MS = 5 * 60_000;
 export const COMMUNITY_REQUEST_TIMEOUT_MS = 5_000;
 export const COMMUNITY_MAXIMUM_BODY_BYTES = 16 * 1024;
+/** Provider results that end the delivery; every other accepted result is unapplied work. */
+export const COMMUNITY_SETTLED_RESULTS = ["applied", "superseded", "failed"];
 /** Backoff for a delivery that never reached a durable acceptance. */
 export const COMMUNITY_RETRY_DELAYS_MS = [1_000, 5_000, 30_000] as const;
 /** The community capability a paid, manual or legacy grant can carry. */
