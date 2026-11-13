@@ -142,7 +142,7 @@ const fullRoadmap: Roadmap = {
       [
         "Тесты, которым можно верить",
         "Проверка в живом приложении",
-        "Свидетельства в PR",
+        "Proof of work: свидетельства работы в PR",
         "Независимое ревью",
         "Фидбэк агенту",
         "Evals",
@@ -741,7 +741,9 @@ export const Expanded: Story = {
     );
     if (next === null) throw new Error("Missing planned chapter topics");
     await userEvent.click(next);
-    await expect(canvas.getByText("Свидетельства в PR")).toBeVisible();
+    await expect(
+      canvas.getByText("Proof of work: свидетельства работы в PR"),
+    ).toBeVisible();
   },
 };
 export const ExpandedMobile: Story = {
