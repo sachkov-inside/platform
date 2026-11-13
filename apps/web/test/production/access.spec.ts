@@ -655,10 +655,35 @@ test("production access observes every live cell in one isolated scenario", asyn
     };
   }
 
+  /** Адрес первой картинки урока: `src` у `<img>` или запрос, которым SVG забрала свои байты. */
+  async function protectedImageAddress(
+    page: Page,
+  ): Promise<string | undefined> {
+    const block = page.locator("[data-reader-block='image']").first();
+    const image = block.locator("img:visible");
+    const figure = block.locator("[data-svg-figure='inline']");
+    await expect(image.or(figure).first()).toBeVisible();
+    if (await image.first().isVisible())
+      return (await image.first().getAttribute("src")) ?? undefined;
+    const requests = await page.evaluate(() =>
+      performance
+        .getEntriesByType("resource")
+        .map(({ name }) => name)
+        .filter((name) =>
+          /\/api\/materials\/[^/]+\/assets\/[^/]+\/images\//u.test(
+            new URL(name).pathname,
+          ),
+        ),
+    );
+    return requests[0];
+  }
+
   /**
    * Закрытая картинка: с v52 Caddy отдаёт её байты с sachkov.dev с `Cache-Control: private` (#1766).
    * Перенаправление в хранилище значит, что перехват не сработал, и проход краснеет. Отказ: 404.
-   * Адрес картинки даёт страница урока у ученика A, ровно как его запрашивает Reader.
+   * Адрес картинки даёт страница урока у ученика A, ровно как его запрашивает Reader: у растровой
+   * картинки это `src` тега `<img>`, а проверенную SVG Reader вставляет в страницу (#2041) и берёт
+   * её байты запросом по тому же защищённому адресу (#2113).
    */
   async function observeAsset(
     browser: Browser,
@@ -668,11 +693,9 @@ test("production access observes every live cell in one isolated scenario", asyn
     if (actor === "learner-product-a") {
       const { page } = await openMaterial(context, productA.assetMaterialSlug);
       try {
-        const image = page.locator("[data-reader-block='image'] img").first();
-        await expect(image).toBeVisible();
-        const source = await image.getAttribute("src");
+        const source = await protectedImageAddress(page);
         learnerA.assetPath =
-          source === null
+          source === undefined
             ? undefined
             : new URL(source, productionTarget.web).href;
       } finally {
