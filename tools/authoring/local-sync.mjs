@@ -4,7 +4,11 @@ import {
   assertLegacyTaskTargets,
 } from "./legacy-task-targets.mjs";
 import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
-import { contentMaterials, contentTasks } from "./package.mjs";
+import {
+  contentMaterials,
+  contentTasks,
+  GLOSSARY_FEATURE,
+} from "./package.mjs";
 import { z } from "zod";
 import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { materialImageAssetIds } from "./package.mjs";
@@ -95,6 +99,8 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {string} [homePinned]
  * @property {"product-shell"} [scope]
  * @property {import("./task-import.mjs").TaskChange[]} [tasks]
+ * @property {{ created: number; updated: number; removed: number; unchanged: number }} [glossary]
+ *   What the package Glossary changed in the receiver's Glossary; absent when the package has none
  * @typedef {object} SyncOptions
  * @property {string} [origin]
  * @property {import("./target.mjs").LocalTransport | undefined} [request]
@@ -496,6 +502,43 @@ export function productChapters(manifest, product) {
     name: chapter.title.trim(),
     summary: chapter.summary.trim(),
   }));
+}
+
+/**
+ * The counts a Glossary replacement answered with.
+ *
+ * @param {import("./local-boundaries.mjs").LocalResponse<"/authoring/glossary">} response
+ */
+function glossaryChange(response) {
+  if ("terms" in response)
+    throw new Error("The receiver did not report its Glossary replacement");
+  return response;
+}
+
+/**
+ * The Glossary a package asks for, as `PUT /authoring/glossary` takes it: text trimmed as the
+ * receiver stores it, terms in identifier order, and the introducing Material named by its source
+ * key, the same key its Material import carries.
+ *
+ * @param {Pick<Manifest, "sourceNamespace">} manifest
+ * @param {NonNullable<Manifest["glossary"]>} glossary
+ */
+export function glossaryTerms(manifest, glossary) {
+  return [...glossary.terms]
+    .sort((left, right) =>
+      left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+    )
+    .map((term) => ({
+      id: term.id,
+      title: term.title.trim(),
+      englishTitle: term.englishTitle?.trim() ?? null,
+      shortDefinition: term.shortDefinition.trim(),
+      fullDefinition: term.fullDefinition.trim(),
+      introducedInSourceId:
+        term.introducedInMaterialId === null
+          ? null
+          : sourceKey(manifest, term.introducedInMaterialId),
+    }));
 }
 
 /**
@@ -1214,6 +1257,21 @@ export async function syncLocal(
         readerBlocks: row.readerBlocks,
         sourceId: sourceId(row.sourceId),
         sourcePath: row.sourcePath,
+        term: (id) => {
+          if (!pkg.manifest.requiredFeatures?.includes(GLOSSARY_FEATURE))
+            throw new Error(
+              `${row.sourcePath}: a term mention requires ${GLOSSARY_FEATURE}`,
+            );
+          // A package without a Glossary leaves the receiver's as it is, so only a carried
+          // Glossary can prove a mention resolves; the reader shows an unknown term as plain text.
+          if (
+            pkg.manifest.glossary !== undefined &&
+            !pkg.manifest.glossary.terms.some((term) => term.id === id)
+          )
+            throw new Error(
+              `${row.sourcePath}: term is not in the package Glossary: ${id}`,
+            );
+        },
         link: (href) => {
           if (href.startsWith("artifact:")) {
             const reference = /^artifact:([a-z0-9]+(?:-[a-z0-9]+)*)$/u.exec(
@@ -1556,6 +1614,35 @@ export async function syncLocal(
           path: row.sourcePath,
           message: `Опубликованный материал ссылается на приватные черновики (${drafts.join(", ")}); читатели откроют ссылку только после их публикации`,
         });
+    }
+
+    // Every document passed validation, including its term mentions, so the Glossary goes first:
+    // a Material published below finds its terms. The write replaces the whole Glossary and is
+    // idempotent, so it needs no journal; an equal Glossary is not written again.
+    if (pkg.manifest.glossary !== undefined) {
+      const desiredGlossary = glossaryTerms(
+        pkg.manifest,
+        pkg.manifest.glossary,
+      );
+      const stored = await request("/authoring/glossary");
+      if (!("terms" in stored))
+        throw new Error("The receiver did not list its Glossary");
+      report.glossary =
+        canonical(stored.terms) === canonical(desiredGlossary)
+          ? {
+              created: 0,
+              updated: 0,
+              removed: 0,
+              unchanged: desiredGlossary.length,
+            }
+          : glossaryChange(
+              await request(
+                "/authoring/glossary",
+                { terms: desiredGlossary },
+                undefined,
+                { method: "PUT" },
+              ),
+            );
     }
 
     /**

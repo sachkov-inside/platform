@@ -23,5 +23,9 @@ export const authoringImportContract = {
     // A Product may carry its course topics; the client writes them through
     // PUT /authoring/products/:productId/topics (#2022).
     "product-topics-v1",
+    // A package may carry the Glossary and Materials may mention its terms as `term:<id>` and
+    // show a `> [!definition] term:<id>` card; the client writes it through
+    // PUT /authoring/glossary (#2126).
+    "glossary-v1",
   ],
 } as const;

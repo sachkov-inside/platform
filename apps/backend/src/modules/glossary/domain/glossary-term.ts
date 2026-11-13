@@ -3,11 +3,13 @@ import { z } from "zod";
 
 import { authoringSourceIdSchema } from "../../../infrastructure/content-authoring/authoring-source.js";
 
-export const GLOSSARY_TERM_TITLE_MAX = 120;
-export const GLOSSARY_SHORT_DEFINITION_MAX = 300;
-export const GLOSSARY_FULL_DEFINITION_MAX = 4000;
-/** One write replaces the whole Glossary, so the bound covers every term at once. */
-export const GLOSSARY_TERMS_MAX = 2000;
+import {
+  GLOSSARY_FULL_DEFINITION_MAX,
+  GLOSSARY_SHORT_DEFINITION_MAX,
+  GLOSSARY_TERM_TITLE_MAX,
+} from "./glossary-limits.js";
+
+export { GLOSSARY_TERMS_MAX } from "./glossary-limits.js";
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 

@@ -332,6 +332,31 @@ const taskValidationSchema = z
   })
   .strict();
 
+/** One stored Glossary Term, as `GET /authoring/glossary` lists it and the client writes it. */
+export const receiverGlossaryTermSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    englishTitle: z.string().nullable(),
+    shortDefinition: z.string(),
+    fullDefinition: z.string(),
+    introducedInSourceId: z.string().nullable(),
+  })
+  .strict();
+const glossaryCount = z.number().int().nonnegative();
+/** `GET /authoring/glossary` lists the Glossary; `PUT` on the same path counts what it changed. */
+const glossaryResponseSchema = z.union([
+  z.object({ terms: z.array(receiverGlossaryTermSchema) }).strict(),
+  z
+    .object({
+      created: glossaryCount,
+      updated: glossaryCount,
+      removed: glossaryCount,
+      unchanged: glossaryCount,
+    })
+    .strict(),
+]);
+
 const localResponseSchemas = {
   practiceReceipt: practiceReceiptSchema,
   practiceValidation: practiceValidationSchema,
@@ -357,6 +382,7 @@ const localResponseSchemas = {
   productArtifacts: productArtifactsSchema,
   artifact: artifactSchema,
   productOrder: productOrderSchema,
+  glossary: glossaryResponseSchema,
 };
 
 /**
@@ -418,6 +444,8 @@ const localResponseSchemas = {
  *   ? "artifact"
  *   : P extends `/authoring/products/${string}/order`
  *   ? "productOrder"
+ *   : P extends "/authoring/glossary"
+ *   ? "glossary"
  *   : never} LocalResponseKindOf
  */
 
@@ -481,6 +509,8 @@ export function localResponseKind(path) {
       return "order";
     case "/authoring/home-pin":
       return "homePin";
+    case "/authoring/glossary":
+      return "glossary";
     default:
       if (
         /^\/authoring\/import\/materials\/state\?namespace=[^&]+$/u.test(path)

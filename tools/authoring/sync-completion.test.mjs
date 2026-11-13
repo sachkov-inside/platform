@@ -235,6 +235,22 @@ const topicsBodySchema = z
     ),
   })
   .strict();
+const glossaryBodySchema = z
+  .object({
+    terms: z.array(
+      z
+        .object({
+          id: z.string(),
+          title: z.string(),
+          englishTitle: z.string().nullable(),
+          shortDefinition: z.string(),
+          fullDefinition: z.string(),
+          introducedInSourceId: z.string().nullable(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
 /** A receiver with topics hashes the catalogue and the topics; an older one keeps fixed versions.
  * @param {FakeProduct} product */
 const fakeOrderVersion = (product) =>
@@ -288,6 +304,8 @@ function applicationApi() {
     artifacts,
     product,
     pin: { productId: uuid(901), version: 3 },
+    /** @type {z.infer<typeof glossaryBodySchema>["terms"]} */
+    glossary: [],
     /** @type {string | undefined} */
     rejectValidation: undefined,
     /** @param {RegExp} pattern */
@@ -307,6 +325,29 @@ function applicationApi() {
       });
       if (path === "/authoring/import/materials/environment")
         return currentEnvironment("development");
+      if (path === "/authoring/glossary") {
+        if (options.method !== "PUT")
+          return { terms: structuredClone(api.glossary) };
+        const terms = glossaryBodySchema.parse(body).terms;
+        const stored = new Map(
+          api.glossary.map((term) => [term.id, canonical(term)]),
+        );
+        const counts = {
+          created: terms.filter((term) => !stored.has(term.id)).length,
+          updated: terms.filter(
+            (term) =>
+              stored.has(term.id) && stored.get(term.id) !== canonical(term),
+          ).length,
+          removed: api.glossary.filter(
+            (term) => !terms.some((next) => next.id === term.id),
+          ).length,
+          unchanged: terms.filter(
+            (term) => stored.get(term.id) === canonical(term),
+          ).length,
+        };
+        api.glossary = structuredClone(terms);
+        return counts;
+      }
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/import/materials/validate")
         return { valid: true };
@@ -2774,5 +2815,133 @@ test("a topics edit after the reviewed preview stops apply before the compositio
   assert.deepEqual(
     api.product.topics.map((topic) => topic.name),
     ["Админ"],
+  );
+});
+
+/**
+ * Moves the fixture to package v2 with a Glossary (#2126) and mentions its term in the lesson.
+ *
+ * @param {Awaited<ReturnType<typeof fixture>>} setup
+ * @param {NonNullable<import("./package.mjs").Manifest["glossary"]>} glossary
+ */
+async function writeGlossary(setup, glossary) {
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = ["glossary-v1"];
+  setup.manifest.selection.taskIds = [];
+  setup.manifest.glossary = glossary;
+  itemAt(setup.manifest.materials, 0).markdown =
+    "Граница [ограниченного контекста](term:bounded-context).\n\n> [!definition] term:bounded-context";
+  await setup.write();
+}
+
+const boundedContextTerm = {
+  id: "bounded-context",
+  title: " Ограниченный контекст ",
+  englishTitle: "Bounded context",
+  shortDefinition: "Граница одного смысла слов модели.",
+  fullDefinition: "Часть системы со своей моделью.\n\nИ своим языком.",
+  introducedInMaterialId: "lesson",
+};
+
+test("a package Glossary replaces the receiver's Glossary once and replays as a no-op", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  const glossaryCalls = () =>
+    api.calls.filter((call) => call.path === "/authoring/glossary");
+
+  // A package without a Glossary leaves the receiver's Glossary alone.
+  await run(setup, api);
+  assert.deepEqual(glossaryCalls(), []);
+
+  await writeGlossary(setup, {
+    terms: [
+      boundedContextTerm,
+      {
+        id: "aggregate",
+        title: "Агрегат",
+        englishTitle: null,
+        shortDefinition: "Группа объектов.",
+        fullDefinition: "Граница согласованности.",
+        introducedInMaterialId: null,
+      },
+    ],
+  });
+  const report = await run(setup, api);
+  assert.deepEqual(report.glossary, {
+    created: 2,
+    updated: 0,
+    removed: 0,
+    unchanged: 0,
+  });
+  assert.deepEqual(
+    glossaryCalls().map(({ method, body }) => ({ method, body })),
+    [
+      { method: "GET", body: undefined },
+      {
+        method: "PUT",
+        body: {
+          terms: [
+            {
+              id: "aggregate",
+              title: "Агрегат",
+              englishTitle: null,
+              shortDefinition: "Группа объектов.",
+              fullDefinition: "Граница согласованности.",
+              introducedInSourceId: null,
+            },
+            {
+              id: "bounded-context",
+              title: "Ограниченный контекст",
+              englishTitle: "Bounded context",
+              shortDefinition: "Граница одного смысла слов модели.",
+              fullDefinition:
+                "Часть системы со своей моделью.\n\nИ своим языком.",
+              introducedInSourceId: "inside-content:lesson",
+            },
+          ],
+        },
+      },
+    ],
+  );
+  const lessonWrite = JSON.stringify(
+    api.calls.filter(
+      (call) =>
+        call.path === "/authoring/import/materials/apply" &&
+        JSON.stringify(call.body).includes("inside-content:lesson"),
+    ),
+  );
+  assert.match(lessonWrite, /"href":"term:bounded-context"/u);
+  assert.match(lessonWrite, /"termId":"bounded-context"/u);
+
+  const replay = await run(setup, api);
+  assert.deepEqual(replay.glossary, {
+    created: 0,
+    updated: 0,
+    removed: 0,
+    unchanged: 2,
+  });
+  assert.equal(
+    glossaryCalls().filter((call) => call.method === "PUT").length,
+    1,
+  );
+});
+
+test("a term the package Glossary does not define stops the sync before the Glossary or any Material is written", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await writeGlossary(setup, {
+    terms: [{ ...boundedContextTerm, id: "aggregate" }],
+  });
+  await assert.rejects(
+    run(setup, api),
+    /lesson\.md: term is not in the package Glossary: bounded-context/u,
+  );
+  assert.deepEqual(
+    api.calls.filter(
+      (call) =>
+        call.path === "/authoring/glossary" ||
+        call.path === "/authoring/import/materials/apply",
+    ),
+    [],
   );
 });

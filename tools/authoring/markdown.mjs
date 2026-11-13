@@ -3,6 +3,9 @@ import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 import {
   addressableMaterialBlockTypes,
   calloutToneLabels,
+  glossaryTermIdOf,
+  glossaryTermIdSchema,
+  isGlossaryTermHref,
   readerBlocksSchema,
   renderedBlockSchema,
   renderMaterialBlocks,
@@ -185,13 +188,14 @@ export function sourceUuid(value) {
  *   sourceId: string;
  *   readerBlocks?: readonly import("@inside/material-blocks").ContentReaderBlock[] | undefined;
  *   link: (href: string) => string;
+ *   term?: ((id: string) => void) | undefined;
  *   image: (src: string) => string;
  *   imageVariants?: (src: string) => { sourceSrc: string; imageVariants: import("@inside/material-blocks").ImageVariants<string> } | undefined;
  * }} source
  */
 export function convertMarkdown(
   markdown,
-  { sourcePath, sourceId, link, image, imageVariants, readerBlocks },
+  { sourcePath, sourceId, link, term, image, imageVariants, readerBlocks },
 ) {
   /**
    * @param {Token} token
@@ -209,6 +213,18 @@ export function convertMarkdown(
     const value = token.attrGet(name);
     if (typeof value !== "string") fail(token, `missing ${name}`);
     return value;
+  };
+  /**
+   * A `term:<id>` mention stays as written: the reader resolves it against the Glossary.
+   *
+   * @param {string} href
+   * @param {Token} token
+   */
+  const termHref = (href, token) => {
+    const id = glossaryTermIdOf(href);
+    if (id === undefined) fail(token, `invalid term identifier: ${href}`);
+    term?.(id);
+    return href;
   };
   /**
    * @param {Token[] | null} tokens
@@ -243,12 +259,17 @@ export function convertMarkdown(
         });
       } else if (token.type === "hardbreak") nodes.push({ type: "hardBreak" });
       else if (markType !== undefined) marks.push({ type: markType });
-      else if (token.type === "link_open")
+      else if (token.type === "link_open") {
+        const href = attribute(token, "href");
         marks.push({
           type: "link",
-          attrs: { href: link(attribute(token, "href")) },
+          attrs: {
+            href: isGlossaryTermHref(href)
+              ? termHref(href, parent)
+              : link(href),
+          },
         });
-      else if (
+      } else if (
         ["strong_close", "em_close", "s_close", "link_close"].includes(
           token.type,
         )
@@ -343,6 +364,23 @@ export function convertMarkdown(
       else if (token.type === "inside_callout") {
         const meta = calloutMeta(token);
         const content = blocks(parser.parse(meta.content, {})).content;
+        const cardTerm =
+          meta.kind === "definition" && meta.title?.startsWith("term:")
+            ? meta.title.slice("term:".length)
+            : undefined;
+        if (cardTerm !== undefined) {
+          // `> [!definition] term:<id>`: the Glossary owns the card's text (glossary-v1).
+          if (!glossaryTermIdSchema.safeParse(cardTerm).success)
+            fail(token, `invalid term identifier: ${cardTerm}`);
+          term?.(cardTerm);
+          if (content.length || meta.collapse !== null)
+            fail(
+              token,
+              "a definition card takes its text from the Glossary; leave the card empty",
+            );
+          append({ type: "termDefinition", attrs: { termId: cardTerm } });
+          continue;
+        }
         if (!content.length) fail(token, "empty callout");
         if (["variant-example", "variant-own"].includes(meta.kind)) {
           const mode = meta.kind.slice("variant-".length);
