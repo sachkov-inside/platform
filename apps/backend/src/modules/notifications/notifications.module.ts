@@ -37,6 +37,7 @@ import {
   NotificationOperationsController,
 } from "./features/read-deliveries/notifications.controller.js";
 import { NotificationDispatchController } from "./features/authorize-dispatch/notification-dispatch.controller.js";
+import { assembleBillingNoticeSource } from "./assemble-billing-notice-source.js";
 import { assembleNotificationRecipients } from "./assemble-notification-recipients.js";
 
 @Module({
@@ -91,7 +92,8 @@ import { assembleNotificationRecipients } from "./assemble-notification-recipien
               resolve: (event) =>
                 (
                   ({
-                    "billing.notice-ready": () => notices.resolveNotice(event),
+                    "billing.notice-ready": () =>
+                      assembleBillingNoticeSource(notices, telegram)(event),
                     "material.published": () =>
                       announcements.resolveAnnouncement(event),
                   }) satisfies Record<

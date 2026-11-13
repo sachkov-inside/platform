@@ -10,13 +10,13 @@
       "sha256": "b84afbb76d2a52bbfaf3c455c2919a5d61613f3d6650970ea4631485672b06a1"
     },
     "fixtures.json": {
-      "sha256": "3996e0eae1e0987a0283198aba50a3009aba04ed9358cb594a776c71edfb6229"
+      "sha256": "a2264d6afd41992600a5a15528bef6493612a773b244bff141e2bfaa050d5e01"
     },
     "scenarios.json": {
       "sha256": "cf8afccf5c4c3f6584500844b86cb814d539243d40e25a8c07a663295692a8f2"
     },
     "protocol.md": {
-      "sha256": "3b48fb39ac1b8e63df110d884c891d2338a70000d88faaf647de977a6e6c9489"
+      "sha256": "4847109a93a1ff043ce7c0f9ca22271c4c4d74a9127fea83760332cd64c09308"
     },
     "sources/notifications-v1.txt": {
       "sha256": "fcab3264751974c85db52fff5aca829890aa6e08c2f658bddd31c319cfd8c76e",

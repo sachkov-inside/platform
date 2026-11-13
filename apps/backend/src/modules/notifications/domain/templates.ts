@@ -1,5 +1,6 @@
 import type {
   NotificationSource,
+  SaleBuyer,
   SaleFacts,
 } from "../ports/notification-sources.js";
 const subjects = {
@@ -30,6 +31,21 @@ function promotionLine(promotion: SaleFacts["promotion"]): string[] {
     : [
         `Промокод: ${oneLine(promotion.code)} (скидка ${String(promotion.percent)}%)`,
       ];
+}
+/** Telegram показывает `@username` ссылкой на профиль; чужой символ превращает его в простой текст. */
+const telegramUsername = /^[A-Za-z0-9_]{4,32}$/u;
+function buyerLine(buyer: SaleBuyer): string {
+  if (buyer.state === "not_linked") return "Покупатель: Telegram не привязан";
+  if (buyer.state === "unavailable")
+    return "Покупатель: Telegram привязан, профиль не прочитан";
+  const name =
+    buyer.displayName === null ? "" : oneLine(buyer.displayName).slice(0, 129);
+  const username =
+    buyer.username !== null && telegramUsername.test(buyer.username)
+      ? `@${buyer.username}`
+      : null;
+  if (name === "") return `Покупатель: ${username ?? "Telegram без имени"}`;
+  return `Покупатель: ${name}, ${username ?? "без username"}`;
 }
 /** Петля не выходит наружу, поэтому стенд читается по http; любой другой узел обязан быть под TLS. */
 function readerLinkAllowed(base: URL): boolean {
@@ -75,11 +91,11 @@ export function renderNotification(
     throw new Error("notification_title_invalid");
   if (source.content.kind === "sale_recorded") {
     const sale = source.sale;
-    if (sale === undefined || source.amountMinor === undefined)
+    if (sale?.buyer === undefined || source.amountMinor === undefined)
       throw new Error("notification_sale_invalid");
     return {
       templateRef: `inside.${source.content.kind}`,
-      templateRevision: 1,
+      templateRevision: 2,
       subject,
       text: [
         subject,
@@ -88,6 +104,7 @@ export function renderNotification(
         `Сумма: ${(source.amountMinor / 100).toFixed(2)} ₽`,
         ...promotionLine(sale.promotion),
         `Время: ${moscowTime.format(new Date(source.event.occurredAt))} по Москве`,
+        buyerLine(sale.buyer),
         "",
         url.href,
       ].join("\n"),
