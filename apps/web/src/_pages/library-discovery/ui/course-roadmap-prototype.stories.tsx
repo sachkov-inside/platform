@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ChevronDown, Hammer } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { expect, userEvent, within } from "storybook/test";
 
@@ -37,8 +37,7 @@ interface UpcomingLesson {
   readonly state: "writing" | "soon";
 }
 
-/** `practice`: the chapter tries its mechanics on a real project; the badge «Практика» says so. */
-type RoadmapChapter = { readonly practice?: boolean } & (
+type RoadmapChapter =
   | {
       readonly kind: "done";
       readonly name: string;
@@ -54,8 +53,7 @@ type RoadmapChapter = { readonly practice?: boolean } & (
       readonly name: string;
       readonly outcome: string;
       readonly topics: readonly string[];
-    }
-);
+    };
 
 interface Roadmap {
   readonly updated: string;
@@ -66,7 +64,6 @@ interface Roadmap {
 
 const firstChapter: RoadmapChapter = {
   kind: "done",
-  practice: true,
   name: "Подготовка проекта и первый цикл разработки с агентом",
   lessons: [
     { title: "Как устроен курс" },
@@ -102,7 +99,6 @@ const secondChapter: RoadmapChapter = {
 };
 const designChapter: RoadmapChapter = {
   kind: "writing",
-  practice: true,
   name: "Проектирование до кода: предметная область, DDD и границы модулей",
   lessons: [
     { title: "Проектирование до кода: что решить до первой задачи" },
@@ -133,7 +129,6 @@ const planned = (
   topics: readonly string[],
 ): RoadmapChapter => ({
   kind: "planned",
-  practice: true,
   name,
   outcome,
   topics,
@@ -205,7 +200,6 @@ const allDoneRoadmap: Roadmap = {
       ? chapter
       : {
           kind: "done",
-          practice: chapter.practice,
           name: chapter.name,
           lessons:
             chapter.kind === "writing"
@@ -291,7 +285,6 @@ const badgeTone = {
   writing:
     "bg-[color-mix(in_oklch,var(--accent)_12%,var(--background))] text-action",
   planned: "bg-secondary text-muted-foreground",
-  practice: "border border-border text-foreground/80",
 } as const;
 
 function StatusBadge({
@@ -317,8 +310,6 @@ function StatusBadge({
             aria-hidden="true"
             className="size-1.5 rounded-full bg-accent"
           />
-        ) : tone === "practice" ? (
-          <Hammer aria-hidden="true" className="size-3" />
         ) : null}
         {children}
       </span>
@@ -502,12 +493,6 @@ function ChapterDisclosure({
   );
 }
 
-function PracticeBadge({ chapter }: { readonly chapter: RoadmapChapter }) {
-  return chapter.practice === true ? (
-    <StatusBadge tone="practice">Практика</StatusBadge>
-  ) : null;
-}
-
 function DoneChapter({ entry }: { readonly entry: NumberedChapter }) {
   const lessons = entry.lessons.flatMap((lesson) =>
     lesson.kind === "ready" ? [lesson] : [],
@@ -515,7 +500,6 @@ function DoneChapter({ entry }: { readonly entry: NumberedChapter }) {
   const read = lessons.filter(({ material: item }) => item.isRead).length;
   return (
     <ChapterDisclosure
-      badge={<PracticeBadge chapter={entry.chapter} />}
       kind="done"
       line={`Изучено ${String(read)} из ${String(lessons.length)}`}
       title={entry.chapter.name}
@@ -541,12 +525,7 @@ function WritingChapter({ entry }: { readonly entry: NumberedChapter }) {
   const ready = entry.lessons.filter((lesson) => lesson.kind === "ready");
   return (
     <ChapterDisclosure
-      badge={
-        <>
-          <StatusBadge tone="writing">Пишется</StatusBadge>
-          <PracticeBadge chapter={entry.chapter} />
-        </>
-      }
+      badge={<StatusBadge tone="writing">Пишется</StatusBadge>}
       kind="writing"
       line={`Готово ${String(ready.length)} из ${plural(entry.lessons.length, "урока", "уроков", "уроков")}`}
       open
@@ -584,12 +563,7 @@ function PlannedChapter({
 }) {
   return (
     <ChapterDisclosure
-      badge={
-        <>
-          <StatusBadge tone="planned">В планах</StatusBadge>
-          <PracticeBadge chapter={chapter} />
-        </>
-      }
+      badge={<StatusBadge tone="planned">В планах</StatusBadge>}
       kind="planned"
       line={chapter.outcome}
       title={chapter.name}
