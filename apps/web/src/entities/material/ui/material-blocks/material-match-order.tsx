@@ -11,12 +11,14 @@ interface Item {
  * Answers and explanations stay out of the page until the reader can answer.
  */
 export function MaterialMatch({
+  id,
   heading,
   context,
   question,
   rows,
   choices,
 }: {
+  readonly id: string;
   readonly heading: string;
   readonly context?: ReactNode;
   readonly question: ReactNode;
@@ -25,6 +27,7 @@ export function MaterialMatch({
 }) {
   return (
     <MaterialExerciseFrame
+      exerciseId={id}
       kind="match"
       heading={heading}
       context={context}
@@ -101,6 +104,7 @@ export function MaterialOrder({
 }) {
   return (
     <MaterialExerciseFrame
+      exerciseId={id}
       kind="order"
       heading={heading}
       context={context}

@@ -33,6 +33,10 @@ import {
 } from "@/features/reading-progress";
 import { SavedBookmarkAction } from "@/features/bookmarks";
 import { SavedLessonTermDeck } from "@/features/lesson-term-deck";
+import {
+  LessonExerciseAttempts,
+  lessonExercises,
+} from "@/features/exercise-attempts";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
@@ -559,6 +563,15 @@ async function ResolvedMaterialReader({
             }
           />
         }
+        exerciseScope={(lesson) => (
+          <LessonExerciseAttempts
+            materialId={result.material.materialId}
+            exercises={lessonExercises(result.body)}
+            signInHref="/account"
+          >
+            {lesson}
+          </LessonExerciseAttempts>
+        )}
         material={result.material}
         primaryVideo={result.primaryVideo}
         returnTarget={returnTarget}

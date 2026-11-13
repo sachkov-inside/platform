@@ -69,6 +69,7 @@ export function MaterialLessonBlock({
       const rich = (blocks: readonly RenderedBlock[]) =>
         rendering.renderBlocks(blocks, branch++);
       const common = {
+        id: block.id,
         heading: exerciseHeading(rendering.exerciseNumber?.(block.id)),
         ...(block.context === undefined
           ? {}
@@ -93,7 +94,6 @@ export function MaterialLessonBlock({
         return (
           <MaterialOrder
             {...common}
-            id={block.id}
             steps={block.steps.map((step) => ({
               id: step.id,
               content: rich(step.content),
@@ -104,7 +104,6 @@ export function MaterialLessonBlock({
         <MaterialQuiz
           key={block.id}
           {...common}
-          id={block.id}
           selectionMode={block.selectionMode}
           options={block.options.map((option) => ({
             id: option.id,

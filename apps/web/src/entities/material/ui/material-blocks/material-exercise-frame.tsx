@@ -11,22 +11,37 @@ export function exerciseHeading(
     : `Упражнение ${String(position.number)} из ${String(position.total)}`;
 }
 
-/** Shared frame of every Lesson Exercise: heading, the situation and the question. */
+/** Address of an exercise inside its lesson: the end-of-lesson summary links to it. */
+export function exerciseAnchor(exerciseId: string): string {
+  return `exercise-${exerciseId}`;
+}
+
+/**
+ * Shared frame of every Lesson Exercise: heading, the situation and the question. `updated`
+ * marks a past answer to an older version; `note` is the answer source's line under it.
+ */
 export function MaterialExerciseFrame({
+  exerciseId,
   heading,
   context,
   question,
   kind,
+  updated = false,
+  note,
   children,
 }: {
+  readonly exerciseId: string;
   readonly heading: string;
   readonly context?: ReactNode;
   readonly question: ReactNode;
   readonly kind: "quiz" | "match" | "order";
+  readonly updated?: boolean;
+  readonly note?: ReactNode;
   readonly children: ReactNode;
 }) {
   return (
     <section
+      id={exerciseAnchor(exerciseId)}
       aria-label={heading}
       data-material-exercise={kind}
       {...(kind === "quiz" ? { "data-material-quiz": "" } : {})}
@@ -49,7 +64,21 @@ export function MaterialExerciseFrame({
       <div className="mt-3" data-exercise-question>
         {question}
       </div>
+      {updated ? (
+        <p
+          className="mt-3 rounded-lg bg-muted px-3 py-2 text-sm"
+          data-exercise-updated
+          role="status"
+        >
+          Упражнение обновлено, ответь ещё раз
+        </p>
+      ) : null}
       {children}
+      {note === undefined ? null : (
+        <div className="mt-3 text-sm text-muted-foreground" data-exercise-note>
+          {note}
+        </div>
+      )}
     </section>
   );
 }
