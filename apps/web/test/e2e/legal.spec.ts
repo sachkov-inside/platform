@@ -32,8 +32,13 @@ test("юридический раздел перечисляет действу�
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Документы Sachkov Dev",
+    "Документы sachkov.dev",
   );
+  await expect(
+    page.getByText(
+      /называют проект «Sachkov Inside» или\s+«Sachkov Dev»\. Это тот же проект, что и sachkov\.dev\./u,
+    ),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: /Условия использования Inside/u }),
   ).toBeVisible();
@@ -237,12 +242,12 @@ test("футер скрыт на карте и ведёт к документа�
 }) => {
   await page.goto("/map");
   await expect(
-    page.getByRole("navigation", { name: "Документы Sachkov Dev" }),
+    page.getByRole("navigation", { name: "Документы sachkov.dev" }),
   ).toHaveCount(0);
   await page.goto("/legal");
 
   const footer = page.getByRole("navigation", {
-    name: "Документы Sachkov Dev",
+    name: "Документы sachkov.dev",
   });
   await expect(
     footer.getByRole("link", { name: "Политика данных" }),

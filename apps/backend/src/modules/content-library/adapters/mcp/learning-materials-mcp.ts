@@ -33,7 +33,11 @@ export function assembleLearnerMcpServer(
     accountId: checkedAccountId(dependencies.accountId),
   };
   const server = new McpServer(
-    { name: "inside-platform-learning", version: "1.0.0" },
+    {
+      name: "inside-platform-learning",
+      title: "sachkov.dev learning materials",
+      version: "1.0.0",
+    },
     {
       instructions:
         "Read published learning materials under the participant's existing access. " +

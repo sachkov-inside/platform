@@ -23,7 +23,7 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Карта Sachkov Dev" }),
+      page.getByRole("heading", { level: 1, name: "Карта sachkov.dev" }),
     ).toBeVisible();
     await expect(
       page.getByRole("region", { name: "Связи появятся постепенно" }),

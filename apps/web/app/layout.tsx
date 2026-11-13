@@ -7,10 +7,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Главная · Sachkov Dev",
-    template: "%s · Sachkov Dev",
+    default: "Главная · sachkov.dev",
+    template: "%s · sachkov.dev",
   },
-  description: "Материалы, темы и продукты Sachkov Dev",
+  description: "Материалы, темы и продукты sachkov.dev",
 };
 
 export default function RootLayout({

@@ -218,15 +218,15 @@ function MobileTopNavigation({
             home === undefined ? undefined : currentAria(currentPath, home.href)
           }
           aria-label="Главная"
-          className="flex shrink-0 items-baseline gap-[0.23em] rounded-md text-lg font-extrabold leading-none tracking-[-0.05em] no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+          className="flex shrink-0 items-baseline rounded-md text-lg font-extrabold leading-none tracking-[-0.05em] no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           href={home?.href ?? "/"}
           scroll={onNavigate === undefined}
           {...(navigate === undefined || home === undefined
             ? {}
             : { onNavigate: navigate(home.href) })}
         >
-          <span>Sachkov</span>
-          <span className="text-action">Dev</span>
+          <span>sachkov</span>
+          <span className="text-action">.dev</span>
         </Link>
         <nav aria-label="Мобильная навигация" className="ml-auto">
           <ul className="flex flex-wrap items-center gap-1">

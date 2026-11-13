@@ -86,7 +86,7 @@ export const GuestDesktop: Story = {
     const canvas = within(canvasElement);
     const header = canvas.getByRole("banner");
     await expect(
-      within(header).getByRole("link", { name: "Sachkov Dev" }),
+      within(header).getByRole("link", { name: "sachkov.dev" }),
     ).toBeVisible();
     await expect(
       within(header).getByRole("button", { name: "Войти через Telegram" }),

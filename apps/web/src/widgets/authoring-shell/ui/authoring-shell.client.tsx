@@ -110,7 +110,7 @@ export function AuthoringShell({
               s.
             </span>
             <span>
-              Sachkov Dev
+              sachkov.dev
               <span className="authoring-brand-caption">Админка</span>
             </span>
           </Link>

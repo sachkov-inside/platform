@@ -66,7 +66,7 @@ test("practical Task Reader offers the current agent request only to an authoriz
     .click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toBe(
-    "Проверь моё задание fullstack-practice-closed через учебный MCP Sachkov Dev и помоги его сдать.",
+    "Проверь моё задание fullstack-practice-closed через учебный MCP sachkov.dev и помоги его сдать.",
   );
   expect(copied).not.toContain("FULLSTACK_PRIVATE_PRACTICE_BODY");
   expect(copied).not.toContain("learning_practice_read");

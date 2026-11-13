@@ -11,7 +11,7 @@ import { StatusPanel } from "@/shared/ui/status-panel";
 export function PageNotFound() {
   return (
     <>
-      <title>Страница не найдена · Sachkov Dev</title>
+      <title>Страница не найдена · sachkov.dev</title>
       <StatusPanel
         action={
           <Button asChild size="lg">

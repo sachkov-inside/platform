@@ -50,7 +50,7 @@ export function renderTelegramSignInContent(view: InsideTelegramView): string {
   const busy = waiting || status === 'loading' || status === 'approved';
   const link = waiting ? telegramBotLinks(view.deepLink) : undefined;
   const deepLink = link?.web.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;') ?? '';
-  return `<div class="inside-telegram-brand" aria-label="Sachkov Dev">sachkov<span>dev</span></div>
+  return `<div class="inside-telegram-brand" aria-label="sachkov.dev">sachkov<span>.dev</span></div>
     <div class="inside-telegram-content">
       <div class="inside-telegram-symbol" aria-hidden="true">
         <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="m21 3-7.1 18-4-7-7-4L21 3Zm0 0L9.9 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -68,7 +68,7 @@ export const telegramSignInStyles = `${telegramSignInTheme}
 .inside-telegram{margin:0;min-height:100svh;padding:32px 20px;display:grid;place-items:center;background:var(--background);color:var(--foreground);font:16px/1.5 'Inside Manrope',system-ui,sans-serif;color-scheme:light}
 .inside-telegram main{width:100%;max-width:540px;min-height:480px;padding:36px 48px 48px;border:1px solid var(--border);border-radius:16px;background:var(--card);box-shadow:var(--elevation-card)}
 .inside-telegram-brand{font-size:18px;font-weight:500;letter-spacing:-.7px;line-height:28px}
-.inside-telegram-brand span{font-weight:800;margin-left:4px}
+.inside-telegram-brand span{font-weight:800}
 .inside-telegram-content{padding-top:52px;text-align:center}
 .inside-telegram-symbol{display:grid;place-items:center;width:64px;height:64px;margin:0 auto 24px;border-radius:20px;background:#2aabee;color:#fff}
 .inside-telegram h1{margin:0;font:700 26px/1.3 'Inside Manrope',system-ui,sans-serif;letter-spacing:-.8px}
@@ -88,7 +88,7 @@ export const telegramSignInStyles = `${telegramSignInTheme}
 `;
 
 export function renderTelegramSignInPage(view: InsideTelegramView): string {
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Вход через Telegram · Sachkov Dev</title><style>${telegramSignInStyles}</style></head><body class="inside-telegram"><main>${renderTelegramSignInContent(view)}</main></body></html>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Вход через Telegram · sachkov.dev</title><style>${telegramSignInStyles}</style></head><body class="inside-telegram"><main>${renderTelegramSignInContent(view)}</main></body></html>`;
 }
 
 export const telegramSignInPage = renderTelegramSignInPage({ status: 'loading' }).replace('</body>', '<script src="/api/inside-telegram/script"></script></body>');

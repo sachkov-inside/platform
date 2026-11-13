@@ -60,7 +60,7 @@ describe("Карточка публичной ссылки", () => {
       description: "Обещание материала одной строкой.",
       locale: "ru_RU",
       publishedTime: "2026-08-25T05:00:00.000Z",
-      siteName: "Sachkov Dev",
+      siteName: "sachkov.dev",
       title: "Как устроен Inside",
       type: "article",
       url: "/materials/kak-ustroen-inside",
@@ -81,7 +81,7 @@ describe("Карточка публичной ссылки", () => {
     const preview = productLinkPreview(product);
 
     expect(preview.canonicalPath).toBe("/products/platform-inside");
-    expect(preview.title).toBe("Создание Platform Inside — продукт");
+    expect(preview.title).toBe("Создание Platform Inside (продукт)");
     expect(preview.image.url).toBe("/products/platform-inside/social-card");
   });
 
@@ -91,12 +91,12 @@ describe("Карточка публичной ссылки", () => {
     expect(metadata.title).toBe("Главная");
     expect(metadata.alternates?.canonical).toBe("/");
     expect(metadata.openGraph).toMatchObject({
-      title: "Sachkov Dev",
+      title: "sachkov.dev",
       type: "website",
       url: "/",
     });
     expect(metadata.openGraph?.images).toEqual([
-      { alt: "Sachkov Dev", height: 630, url: "/social-card", width: 1200 },
+      { alt: "sachkov.dev", height: 630, url: "/social-card", width: 1200 },
     ]);
   });
 
@@ -113,7 +113,7 @@ describe("Карточка публичной ссылки", () => {
 describe("Содержимое сгенерированной карточки", () => {
   it("называет вид страницы одним словом и в заголовке, и на карточке", () => {
     expect(productLinkPreview(product).title).toBe(
-      "Создание Platform Inside — продукт",
+      "Создание Platform Inside (продукт)",
     );
     expect(productSocialCard(product)).toEqual({
       eyebrow: "Продукт",

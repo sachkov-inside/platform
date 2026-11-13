@@ -23,7 +23,7 @@ export function LegalSectionPage({
     <>
       <header className="max-w-3xl">
         <h1 className="text-balance text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
-          Документы Sachkov Dev
+          Документы sachkov.dev
         </h1>
         <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
           Условия, оферты, обработка данных и реквизиты продавца. Каждый

@@ -1,4 +1,4 @@
-# Sachkov Dev Platform web
+# sachkov.dev Platform web
 
 <!-- impeccable:product-schema 1 -->
 

@@ -5,7 +5,7 @@ import { HOME_PATH, socialCardPath } from "@/shared/routing/public-page-path";
 import { SOCIAL_CARD_SIZE } from "./social-card-content";
 
 /** Название площадки в карточке ссылки и в заголовке вкладки. */
-export const SITE_NAME = "Sachkov Dev";
+export const SITE_NAME = "sachkov.dev";
 
 /** Обещание площадки одной строкой: название на карточке главной. */
 export const SITE_TAGLINE = "Материалы, темы и продукты";

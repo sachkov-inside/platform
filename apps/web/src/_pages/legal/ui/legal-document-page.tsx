@@ -34,7 +34,7 @@ export function LegalDocumentPage({
           className="text-muted-foreground underline underline-offset-2"
           href={LEGAL_PATH}
         >
-          Документы Sachkov Dev
+          Документы sachkov.dev
         </Link>
       </nav>
       <LegalBrandNote />

@@ -56,6 +56,6 @@ function collectionLinkPreview(
       socialCardPath(canonicalPath),
     ),
     indexable: true,
-    title: `${reference.name} — ${kind.label.toLocaleLowerCase("ru")}`,
+    title: `${reference.name} (${kind.label.toLocaleLowerCase("ru")})`,
   };
 }

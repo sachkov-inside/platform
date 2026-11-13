@@ -62,7 +62,7 @@ const test = base.extend<{
   },
 });
 
-const title = "Первый бесплатный урок · Sachkov Dev";
+const title = "Первый бесплатный урок · sachkov.dev";
 
 for (const state of ["access-pending", "progress-loading"] as const) {
   test(`programme readiness rejects ${state} links`, async ({ page }) => {
@@ -126,7 +126,7 @@ for (const state of ["wrong-title", "missing-title", "pending-open"] as const) {
       settledDocument(
         state === "missing-title"
           ? ""
-          : `<title>${state === "wrong-title" ? "Другой материал · Sachkov Dev" : title}</title>`,
+          : `<title>${state === "wrong-title" ? "Другой материал · sachkov.dev" : title}</title>`,
         "",
         state === "pending-open" ? "pending" : "saved",
       ),
@@ -214,7 +214,7 @@ test("Reader audit uses the identity of the existing programme after session set
   ).toBeInViewport();
   await expectReaderReadyForAudit(
     page,
-    "Первый заголовок читателя · Sachkov Dev",
+    "Первый заголовок читателя · sachkov.dev",
   );
   const committedCount = await page
     .locator('[data-material-reader-state="available"]:visible')
@@ -358,8 +358,8 @@ test("Reader open refresh settles cold metadata and preserves an existing HEAD t
     const path = `/materials/${slug}`;
     const expected =
       ordinal === 1
-        ? "Первый заголовок читателя · Sachkov Dev"
-        : "Второй заголовок читателя · Sachkov Dev";
+        ? "Первый заголовок читателя · sachkov.dev"
+        : "Второй заголовок читателя · sachkov.dev";
     let openSaved = false;
     const openHeld = Promise.withResolvers<undefined>();
     const releaseOpen = Promise.withResolvers<undefined>();
