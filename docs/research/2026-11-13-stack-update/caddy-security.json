@@ -67,7 +67,6 @@
       "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-97054"
     }
   ],
-  "activeProductionConfigurationReadAt": "2026-11-13T19:02:00Z",
   "activeProductionConfiguration": {
     "handlers": [
       "copy_response_headers",
@@ -81,5 +80,6 @@
     "apps": ["http"],
     "riskKeysPresent": [],
     "adminListen": "127.0.0.1:2019"
-  }
+  },
+  "activeProductionConfigurationReadDate": "2026-11-13"
 }
