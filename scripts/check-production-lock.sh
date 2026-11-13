@@ -10,15 +10,17 @@ if [[ ! "$lock" =~ ^[1-9][0-9]*$ ]]; then
   exit 1
 fi
 
-issue="$(gh api "repos/$GITHUB_REPOSITORY/issues/$lock")"
-if ! jq -e '.pull_request == null and .state == "open" and any(.labels[]?; .name == "production-lock")' \
-  >/dev/null <<<"$issue"; then
-  echo "::error::#$lock is not an open Issue with label production-lock; open the lock first (docs/agents/production-lock.md)." >&2
+holder="$(gh api "repos/$GITHUB_REPOSITORY/issues?labels=production-lock&state=open&per_page=100" |
+  jq -r '[.[] | select(.pull_request == null) | .number] | min // empty')"
+held_by="${holder:+ Production is held by #$holder.}"
+
+if ! issue="$(gh api "repos/$GITHUB_REPOSITORY/issues/$lock" 2>/dev/null)" ||
+  ! jq -e '.pull_request == null and .state == "open" and any(.labels[]?; .name == "production-lock")' \
+    >/dev/null <<<"$issue"; then
+  echo "::error::#$lock is not an open Issue with label production-lock; open the lock first (docs/agents/production-lock.md).$held_by" >&2
   exit 1
 fi
 
-holder="$(gh api "repos/$GITHUB_REPOSITORY/issues?labels=production-lock&state=open&per_page=100" |
-  jq -r '[.[] | select(.pull_request == null) | .number] | min // empty')"
 if [[ "$holder" != "$lock" ]]; then
   echo "::error::production is held by #${holder:-unknown}; wait for it to close or ask the owner." >&2
   exit 1

@@ -51,8 +51,10 @@ Take it before any server `operation.lock` a runbook asks for. Read-only work ru
 
 Pass the lock number in the `lock` field of every run of the four workflows. Their first job,
 [production-lock.yml](../../.github/workflows/production-lock.yml), refuses the run unless that Issue
-is open, labelled `production-lock` and the lowest-numbered open lock. Comment on the lock with the
-URL of each workflow run as you start it. Before each maintenance
+is open, labelled `production-lock` and the lowest-numbered open lock, checked when the run leaves
+the queue. Keep the lock open until every queued run has finished. Platform and Telegram deployments
+share one queue that keeps order but not success, so queue a deployment that depends on another only
+after that one has succeeded. Comment on the lock with the URL of each workflow run as you start it. Before each maintenance
 window, name the expected downtime to the owner (release step 4) and record it in the lock. Record
 each failure and change of plan in the lock as it happens.
 

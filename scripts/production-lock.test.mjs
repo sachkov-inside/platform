@@ -31,6 +31,7 @@ function check(lock, answers) {
       join(root, "gh"),
       `#!/usr/bin/env bash
 case "$2" in
+  repos/sachkov-inside/platform/issues/404) echo '{"message":"Not Found"}'; exit 1 ;;
   repos/sachkov-inside/platform/issues/*) cat "${root}/issue.json" ;;
   "repos/sachkov-inside/platform/issues?labels=production-lock&state=open&per_page=100") cat "${root}/open.json" ;;
   *) echo "unexpected gh $*" >&2; exit 2 ;;
@@ -98,6 +99,30 @@ describe("production lock check before a release or deployment run", () => {
         /#2140 is not an open Issue with label production-lock/u,
       );
     }
+  });
+
+  it("names the holder when the run names a lock that is not open", () => {
+    const result = check("2140", {
+      issue: lock(2140, { state: "closed" }),
+      open: [lock(2139)],
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.output, /Production is held by #2139/u);
+  });
+
+  it("refuses a number that is no Issue with a readable reason", () => {
+    const result = check("404", { open: [lock(2139)] });
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.output,
+      /::error::#404 is not an open Issue with label production-lock/u,
+    );
+  });
+
+  it("refuses when no lock is open at all", () => {
+    const result = check("2140", { issue: lock(2140), open: [] });
+    assert.notEqual(result.status, 0);
+    assert.match(result.output, /production is held by #unknown/u);
   });
 
   it("refuses a later lock while an earlier one still holds production", () => {
