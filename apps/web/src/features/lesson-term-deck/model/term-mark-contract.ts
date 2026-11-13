@@ -1,3 +1,4 @@
+import { glossaryTermIdSchema } from "@inside/material-blocks";
 import { z } from "zod";
 
 /** «Знаю» или «повторить»: личная отметка читателя на карточке колоды. */
@@ -6,7 +7,7 @@ export type TermMarkValue = z.infer<typeof termMarkValueSchema>;
 
 export const termMarkSchema = z
   .object({
-    termId: z.string().min(1).max(120),
+    termId: glossaryTermIdSchema,
     mark: termMarkValueSchema,
     markedAt: z.iso.datetime(),
   })
@@ -37,10 +38,7 @@ export const termMarkResultSchema = z.discriminatedUnion("kind", [
 
 export const termMarkCommandSchema = z
   .object({
-    termId: z
-      .string()
-      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
-      .max(120),
+    termId: glossaryTermIdSchema,
     mark: termMarkValueSchema,
   })
   .strict();

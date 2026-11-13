@@ -121,3 +121,17 @@ it("reads the deck's marks and reports a failed backend as unavailable", async (
   );
   expect(await failed.json()).toEqual({ kind: "unavailable" });
 });
+
+it("refuses a backend mark whose term id is not a Glossary Term id", async () => {
+  fakes.marks.mockResolvedValueOnce({
+    ok: true,
+    body: { marks: [{ ...mark, termId: "Bounded Context" }] },
+    response: new Response(),
+  });
+  const response = await handleTermMarks(
+    request("/api/glossary/marks/states", "POST", {
+      termIds: ["bounded-context"],
+    }),
+  );
+  expect(await response.json()).toEqual({ kind: "unavailable" });
+});
