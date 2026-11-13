@@ -99,7 +99,7 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 | `unit` | Three isolated `unit-checks` parts run `pnpm check:unit:tooling`, `pnpm check:unit:modules` and `pnpm check:contracts`. Together these execute the complete local `pnpm check:unit` sequence |
 | `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
 | `web-e2e` | Two isolated `web-e2e-browser` profiles run `pnpm check:web-e2e --project=<profile>`. Each builds once, checks prerendered/standalone output, then runs its complete e2e and navigation profile on that build. Local execution without arguments retains both profiles |
-| `telegram` | `pnpm --filter @inside/telegram check:full` с изолированными PostgreSQL 18.4 и RabbitMQ, synthetic non-guest user |
+| `telegram` | `pnpm --filter @inside/telegram check:full` с изолированными PostgreSQL 18.7 и RabbitMQ, synthetic non-guest user |
 | `integration` | Three isolated `integration-checks` parts: production SQL and restore cleanup contracts plus `pnpm test:integration:parallel`; `pnpm smoke:enrollments`; `pnpm smoke:buyer-journey`. Each owns its data and processes. Failed parts upload their own browser results and `next dev` log |
 | `integration-serial` | `pnpm test:integration:serial`: RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |

@@ -51,6 +51,8 @@ jobs:
           git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
             pnpm-lock.yaml package.json pnpm-workspace.yaml \
             infra/production/database scripts/foundation-recovery-proof.py \
+            compose.production.yaml infra/production/host/inside-broker-preflight \
+            scripts/broker-upgrade-proof.py scripts/test_broker_upgrade_proof.py \
             scripts/heavy-check/processes.py \
             scripts/test_foundation_recovery_proof.py scripts/test_foundation_recovery_lifecycle_docker.py \
             scripts/foundation-repository-transition.py scripts/backup-repository-inventory.py \
@@ -178,4 +180,54 @@ jobs:
             ${{ runner.temp }}/foundation-legacy-recovery.json
             ${{ runner.temp }}/foundation-previous-recovery.json
             ${{ runner.temp }}/foundation-transition.json
+          if-no-files-found: ignore
+
+  broker-upgrade:
+    needs: plan
+    if: ${{ needs.plan.outputs.required == 'true' }}
+    name: Native broker data upgrade (${{ matrix.architecture }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            architecture: amd64
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          persist-credentials: false
+      - name: Check resource ownership and failure cases
+        run: python3 -B scripts/test_broker_upgrade_proof.py
+      - name: Build the real application AMQP client
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
+        run: |
+          docker build --file apps/backend/Dockerfile --target backend-production \
+            --build-arg INSIDE_RELEASE_VERSION=v1 --build-arg INSIDE_SOURCE_SHA="$SOURCE_SHA" \
+            --tag inside-broker-proof-client:ci .
+      - name: Prove persistent messages survive the supported 4.2 to 4.4 upgrade
+        run: |
+          python3 -B scripts/broker-upgrade-proof.py \
+            --client-image inside-broker-proof-client:ci \
+            --state-directory "$RUNNER_TEMP/broker-proof" \
+            --receipt "$RUNNER_TEMP/broker-upgrade.json"
+      - name: Clean only owned broker proof resources
+        if: ${{ always() }}
+        run: |
+          if test -f "$RUNNER_TEMP/broker-proof/resources.json"; then
+            python3 -B scripts/broker-upgrade-proof.py --cleanup-only \
+              --state-directory "$RUNNER_TEMP/broker-proof"
+          fi
+      - name: Retain broker upgrade verdict
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: broker-upgrade-${{ matrix.architecture }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/broker-upgrade.json
           if-no-files-found: ignore

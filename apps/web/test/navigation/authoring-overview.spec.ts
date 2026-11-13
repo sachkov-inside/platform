@@ -178,7 +178,7 @@ test("attention rows open already filtered lists and an unchecked source is neve
   await page.goBack();
   await expect(page).toHaveURL(/\/authoring$/u);
   await attention
-    .getByRole("link", { name: "Сбой доступа к группе Telegram: 1 человек" })
+    .getByRole("link", { name: "Сбой доступа к группе Telegram 1" })
     .click();
   await expect(page).toHaveURL("/authoring/people?telegram=community_failed");
   await expect(

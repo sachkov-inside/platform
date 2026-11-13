@@ -1,0 +1,11 @@
+--- a/packages/core/src/saml-application/SamlApplication/xml-format.test.ts
++++ b/packages/core/src/saml-application/SamlApplication/xml-format.test.ts
+@@ -61,7 +61,7 @@
+     await expect(parse(createRequestXml(extensions), log)).rejects.toMatchError(
+       new RequestError('application.saml.invalid_saml_request')
+     );
+-    expect(log.payload.samlRequestError).toEqual({ category: 'xml_format', line: 1, ...error });
++    expect(log.payload.samlRequestError).toEqual({ category: 'xml_format', line: 1, ...error, code: '******' });
+   });
+ 
+   const prefix = 'a'.repeat(250);

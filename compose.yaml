@@ -298,7 +298,7 @@ services:
       [
         "sh",
         "-c",
-        "npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm run alteration deploy 1.46.0 && npm start",
+        "node packages/cli/bin/logto.js db seed --swe --disable-admin-pwned-password-check && node packages/cli/bin/logto.js db alt deploy 1.46.0 && cd packages/core && NODE_ENV=production exec node .",
       ]
     env_file:
       - ./config/compose/local/logto.env

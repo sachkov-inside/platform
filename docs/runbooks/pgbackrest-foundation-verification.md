@@ -1,7 +1,7 @@
 # Проверка кандидата pgBackRest foundation
 
-Подготовка [#1579](https://github.com/sachkov-inside/platform/issues/1579) сохраняет
-PostgreSQL 18.4 и использует официальный distribution pgBackRest 2.59.3.
+Кандидат #2117 обновляет PostgreSQL до 18.7 и официальный distribution pgBackRest до 2.60.0.
+Он сохраняет проверки из [#1579](https://github.com/sachkov-inside/platform/issues/1579).
 Версии и происхождение задаёт [versions.json](../../infra/production/database/versions.json).
 Политика production backup, ключи, stanza и действующие repository этой проверкой не меняются.
 
@@ -22,6 +22,8 @@ self-hosted runner, нелокальном Docker endpoint или daemon с чу
   точке подтверждает наличие транзакций до неё и отсутствие транзакций после неё.
 - Обычную совместимость чтения копии pgBackRest 2.57.0. Legacy writer собирается отдельно
   из замороженного source `9a17509d802f8fa165b5988962f20ae18155fd73`, не из production image.
+- Чтение копий текущего production writer 18.4/2.59.3 новым restore 18.7/2.60.0.
+  Предыдущий writer собирается из замороженного source `e514406f9ec774b6ede2524b9638480617c44a24`.
 - Контрольное сравнение ключей на одном неизменном repository: правильный ключ читает
   `backup.info` полностью через `repo-get`, неверный даёт CryptoError либо другие plaintext
   bytes, затем restore обязан отказать именно на decipher/metadata validation. Внешний
@@ -59,7 +61,7 @@ daemon не считается отсутствием ресурсов. Шаг `
 ## Результаты и ограничения
 
 Artifact `foundation-recovery-<architecture>-<attempt>` содержит квитанции обычного
-encrypted recovery и legacy compatibility. Проверять нужно source SHA, image ID, архитектуру,
+encrypted recovery, legacy compatibility и previous-source compatibility. Проверять нужно source SHA, image ID, архитектуру,
 фактические результаты шагов workflow и успешную очистку. Одна квитанция без успешного
 задания не доказывает весь набор проверок. Отсутствующая квитанция не считается успехом.
 

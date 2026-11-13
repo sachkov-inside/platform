@@ -11,7 +11,9 @@ RUN tar -xzf /tmp/gosu-source.tar.gz --strip-components=1 -C /source \
 
 FROM postgres-base AS gosu-update
 COPY --from=gosu-build /out/gosu /usr/local/bin/gosu
-RUN gosu --version | grep '^1.20 ' \
+RUN gosu --version > /tmp/gosu-version \
+    && grep '^1.20 ' /tmp/gosu-version \
+    && rm /tmp/gosu-version \
     && test "$(gosu postgres id -u)" = "$(id -u postgres)" \
     && ! gosu inside-invalid-user true
 

@@ -6,7 +6,7 @@ What the repository Compose stack runs and how its images and configuration are 
 
 The default stack contains:
 
-- PostgreSQL 18.4 with a persistent named volume;
+- PostgreSQL 18.7 with a persistent named volume;
 - RustFS with separate public-delivery, protected and quarantine buckets; its S3-compatible API is
   on <http://127.0.0.1:9000> and console is on <http://127.0.0.1:9001>. Services reach it as
   `object-storage:9000`, while `OBJECT_STORAGE_SIGNED_GET_ENDPOINT` signs protected browser links for

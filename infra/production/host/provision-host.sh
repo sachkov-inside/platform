@@ -39,7 +39,8 @@ if [[ ! -f "$managed_marker" ]]; then
     /etc/sudoers.d/inside-deploy \
     /usr/local/libexec/inside/configure-deploy-key \
     /usr/local/libexec/inside/database-backup \
-    /usr/local/libexec/inside/inside-deploy; do
+    /usr/local/libexec/inside/inside-deploy \
+    /usr/local/libexec/inside/inside-broker-preflight; do
     if [[ -e "$managed_file" || -L "$managed_file" ]]; then
       echo "Refusing to overwrite unmanaged file: $managed_file" >&2
       exit 1
@@ -123,6 +124,9 @@ install -m 755 \
 install -m 755 \
   "$script_dir/configure-deploy-key.sh" \
   /usr/local/libexec/inside/configure-deploy-key
+install -m 755 \
+  "$script_dir/inside-broker-preflight" \
+  /usr/local/libexec/inside/inside-broker-preflight
 install -m 755 \
   "$script_dir/inside-deploy" \
   /usr/local/libexec/inside/inside-deploy

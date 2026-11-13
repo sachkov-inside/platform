@@ -20,6 +20,63 @@ import { z } from "zod";
 import { writeTrustedReleaseEvidence } from "../github-release-evidence.test-support.mjs";
 
 describe("production deployment state machine", () => {
+  for (const liveImage of ["older-broker", "newer-broker"]) {
+    it(`refuses a broker image change from ${liveImage} before maintenance`, () => {
+      const fixture = createHostFixture();
+      try {
+        const rejected = runGateway(fixture, "deploy", "v1", 701, {
+          INSIDE_DEPLOY_TEST_LIVE_BROKER_IMAGE: liveImage,
+        });
+        assert.notEqual(rejected.status, 0);
+        assert.match(
+          rejected.stderr,
+          /Broker image change requires a separate foundation upgrade/u,
+        );
+        assert.doesNotMatch(
+          readExternalLog(fixture),
+          /caddy reload|docker pull| up --detach| stop --timeout/u,
+        );
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
+
+  it("refuses an existing broker volume without its live image identity", () => {
+    const fixture = createHostFixture();
+    try {
+      const rejected = runGateway(fixture, "deploy", "v1", 702, {
+        INSIDE_DEPLOY_TEST_BROKER_ABSENT: "true",
+        INSIDE_DEPLOY_TEST_BROKER_VOLUME_EXISTS: "true",
+      });
+      assert.notEqual(rejected.status, 0);
+      assert.match(
+        rejected.stderr,
+        /Existing broker data has no verified container image/u,
+      );
+      assert.doesNotMatch(
+        readExternalLog(fixture),
+        /caddy reload|docker pull| up --detach/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("allows a new empty broker and the exact existing broker image", () => {
+    for (const absent of ["true", "false"]) {
+      const fixture = createHostFixture();
+      try {
+        const result = runGateway(fixture, "deploy", "v1", 703, {
+          INSIDE_DEPLOY_TEST_BROKER_ABSENT: absent,
+        });
+        assert.equal(result.status, 0, result.stderr);
+      } finally {
+        fixture.cleanup();
+      }
+    }
+  });
+
   it("installs the watchdog from the release image and keeps the release when the image has none", () => {
     const fixture = createHostFixture();
     try {
@@ -1956,6 +2013,20 @@ function createHostFixture({ compatible = true, legacyV1 = false } = {}) {
     );
   }
 
+  mkdirSync(resolve(root, "usr/local/libexec/inside"), { recursive: true });
+  copyFileSync(
+    "infra/production/host/inside-broker-preflight",
+    resolve(root, "usr/local/libexec/inside/inside-broker-preflight"),
+  );
+  chmodSync(
+    resolve(root, "usr/local/libexec/inside/inside-broker-preflight"),
+    0o755,
+  );
+  writeFileSync(
+    resolve(root, "etc/inside/runtime/compose.env"),
+    "PLATFORM_COMPOSE_PROJECT=inside-platform-production\n",
+  );
+
   writeExecutable(
     resolve(bin, "flock"),
     "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
@@ -1982,8 +2053,18 @@ elif [[ "$1" == cp ]]; then
   # A release image built before #245 has no watchdog to copy.
   [[ "\${INSIDE_DEPLOY_TEST_IMAGE_WITHOUT_WATCHDOG:-}" == true ]] && exit 1
   cp "$INSIDE_DEPLOY_TEST_WATCHDOG_SOURCE"/inside-watchdog* "$3"
-elif [[ "$*" == *"config --format json"* ]]; then
-  printf '{"networks":{"database":{"name":"inside-platform-database-test"}},"services":{"api":{"ports":[{"host_ip":"127.0.0.1","target":3001,"published":"13001","protocol":"tcp"}]},"web":{"ports":[{"host_ip":"127.0.0.1","target":3000,"published":"13000","protocol":"tcp"}]}}}\n'
+elif [[ "$*" == *"config "* && "$*" == *"--format json"* ]]; then
+  printf '{"volumes":{"broker-data":{"name":"inside-platform-production_broker-data"}},"networks":{"database":{"name":"inside-platform-database-test"}},"services":{"rabbitmq":{"image":"test-broker@sha256:4444444444444444444444444444444444444444444444444444444444444444","volumes":[{"type":"volume","source":"broker-data","target":"/var/lib/rabbitmq"}]},"api":{"ports":[{"host_ip":"127.0.0.1","target":3001,"published":"13001","protocol":"tcp"}]},"web":{"ports":[{"host_ip":"127.0.0.1","target":3000,"published":"13000","protocol":"tcp"}]}}}\n'
+elif [[ "$1" == ps && "$*" == *"label=com.docker.compose.service=rabbitmq"* ]]; then
+  if [[ "\${INSIDE_DEPLOY_TEST_BROKER_ABSENT:-false}" != true ]]; then
+    if [[ "$*" == *--no-trunc* ]]; then printf '%s\\n' '${"b".repeat(64)}'; else printf '%s\\n' '${"b".repeat(12)}'; fi
+  fi
+elif [[ "$1" == inspect && "$3" == '{{.Config.Image}}' ]]; then
+  printf '%s\\n' "\${INSIDE_DEPLOY_TEST_LIVE_BROKER_IMAGE:-test-broker@sha256:4444444444444444444444444444444444444444444444444444444444444444}"
+elif [[ "$1" == inspect && "$3" == '{{json .Mounts}}' ]]; then
+  printf '[{"Type":"volume","Name":"inside-platform-production_broker-data","Destination":"/var/lib/rabbitmq"}]\\n'
+elif [[ "$1 $2" == 'volume ls' ]]; then
+  if [[ "\${INSIDE_DEPLOY_TEST_BROKER_VOLUME_EXISTS:-false}" == true ]]; then printf 'inside-platform-production_broker-data\\n'; fi
 elif [[ "$*" == *"config --services"* ]]; then
   # A release published before the broker declares only the original seven processes.
   if [[ -n "\${INSIDE_DEPLOY_TEST_LEGACY_RELEASE:-}" && "$*" == *"/releases/\${INSIDE_DEPLOY_TEST_LEGACY_RELEASE}/"* ]]; then

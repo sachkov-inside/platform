@@ -61,7 +61,7 @@ revision `d179bf9d2d51104236a342b90c2841df66e4ba5b`. PostgreSQL, Mailpit, `@logt
 also exact-versioned; the tooling test rejects floating image references.
 
 Logto 1.42 and later refuse to start on a database without the alterations of their version. Every
-Compose start therefore runs `npm run alteration deploy <version>` after the seed: on an empty
+Compose start therefore runs `node packages/cli/bin/logto.js db alt deploy <version>` after the seed: on an empty
 database the seed is already current, on an existing one the alterations bring it to the pinned
 version. The tooling test keeps the target equal to `versions.json`.
 

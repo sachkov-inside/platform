@@ -1,0 +1,38 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "urn:uuid:81356762-8fec-4e58-bd08-15755a79962c",
+  "author": "Inside Platform independent security review",
+  "role": "Document Creator",
+  "timestamp": "2026-11-13T17:59:11Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4738",
+        "aliases": ["GHSA-hp6p-5qh5-w9fj"]
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/rabbitmq@sha256%3Aa4328c48117c7f82167ae3a247250bbd5853fde574dfe30b3f62aa3ebfe75832?arch=amd64&repository_url=docker.io%2Flibrary",
+          "identifiers": {
+            "purl": "pkg:oci/rabbitmq@sha256%3Aa4328c48117c7f82167ae3a247250bbd5853fde574dfe30b3f62aa3ebfe75832?arch=amd64&repository_url=docker.io%2Flibrary"
+          },
+          "hashes": {
+            "sha-256": "a4328c48117c7f82167ae3a247250bbd5853fde574dfe30b3f62aa3ebfe75832"
+          },
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/zlib@1.3.2-r1?arch=x86_64&distro=3.24.4",
+              "identifiers": {
+                "purl": "pkg:apk/alpine/zlib@1.3.2-r1?arch=x86_64&distro=3.24.4"
+              }
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "Applies only to the zlib APK in linux/amd64 manifest sha256:a4328c48117c7f82167ae3a247250bbd5853fde574dfe30b3f62aa3ebfe75832, selected by RabbitMQ 4.4.0-alpine index sha256:7b77c3d3a996c7fcca1ca8bf53ce1557ff43c13b8ca2c132df6031781b209ef2. CVE-2026-4738 affects contrib/infback9/inftree9.c. Alpine source commit 0afa2da0e8c8051c6f8f64a7a388e5a259904245 builds standard shared libz without that contrib code. Installed APK files contain only libz.so.1 and libz.so.1.3.2. Extracted libz SHA-256 ecc8b9dfc45eb7fa29b410ffaca6257873890de53b80fe91735737b49067c5f2 matches the APK file checksum; its exported symbols contain inflateBack but no inflateBack9 family or inflate_table9. Package version remains 1.3.2-r1; no package update or custom image was applied. See rabbitmq-zlib-evidence.json and rabbitmq-zlib-symbols.txt for retained evidence."
+    }
+  ]
+}

@@ -22,12 +22,12 @@ services:
     command:
       - sh
       - -c
-      - npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm run alteration deploy 1.46.0
+      - node packages/cli/bin/logto.js db seed --swe --disable-admin-pwned-password-check && node packages/cli/bin/logto.js db alt deploy 1.46.0
     restart: "no"
 
   logto:
     <<: *logto-runtime
-    command: ["npm", "start"]
+    command: ["sh", "-c", "cd packages/core && NODE_ENV=production exec node ."]
     depends_on:
       logto-migrations:
         condition: service_completed_successfully

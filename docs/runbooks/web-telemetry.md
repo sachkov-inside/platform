@@ -87,7 +87,7 @@ the migration that creates its view.
 
 ## Verification and delivery
 
-`pnpm telemetry:measure` owns an isolated PostgreSQL 18.4 container limited to two CPUs and 1 GiB.
+`pnpm telemetry:measure` owns an isolated PostgreSQL 18.7 container limited to two CPUs and 1 GiB.
 The image uses the canonical immutable ECR digest. The command verifies the effective Docker CPU
 and memory limits and includes the actual checkout SHA, image ID and Node version in its raw JSON.
 It remains a manual diagnostic command. Accepted CI/CD decision #1430 removes its automated

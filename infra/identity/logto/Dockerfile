@@ -72,6 +72,10 @@ RUN apk add --no-cache --virtual .inside-patch-tools patch \
   && cd packages/core && npm run check && ./node_modules/.bin/tsup
 
 # Keep the refreshed upstream dependency graph reproducible, including private router fixes.
+COPY security/upstream-tests.patch /tmp/inside-security-tests.patch
+RUN apk add --no-cache --virtual .inside-test-patch-tools patch \
+  && patch --fuzz=0 -p1 < /tmp/inside-security-tests.patch \
+  && apk del .inside-test-patch-tools
 COPY security/manifest-overlay.json security/apply-manifest-overlay.mjs security/router-security.mjs security/zod-security.mjs security/deepmerge-security.mjs /etc/logto/inside-security/
 COPY security/patches /etc/logto/inside-security-patches
 COPY security/pnpm-lock.yaml security/pnpm-workspace.yaml /etc/logto/
@@ -102,3 +106,11 @@ RUN npm install --global pnpm@10.34.9 \
 
 # The CLI and server run compiled JavaScript. esbuild is needed only above during compilation.
 RUN rm -rf node_modules/.pnpm/@esbuild+*/node_modules/@esbuild/*/bin
+
+# The runtime invokes the compiled CLI and core directly. Package managers and their build caches
+# are not needed for migrations, connector loading or serving the prebuilt browser applications.
+RUN rm -rf /root/.local/share/pnpm /root/.cache /root/.npm \
+  /usr/local/lib/node_modules/pnpm /usr/local/lib/node_modules/npm \
+  /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/npm /usr/local/bin/npx
+ENTRYPOINT []
+CMD ["sh", "-c", "cd /etc/logto/packages/core && NODE_ENV=production exec node ."]

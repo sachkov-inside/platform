@@ -39,3 +39,16 @@ covers the workspace patch. Each regression first failed against the unpatched r
 After rebuilding the canonical image, run the account-email protocol/browser proof and the
 foundation/native recovery jobs required by the repository. A successful dependency build or audit
 alone is insufficient evidence for release or deployment.
+
+The upstream XML-format tests expect unredacted parser error codes, while Logto's logger masks
+fields named `code`. The same four assertions fail in the unrefreshed 1.46.0 candidate.
+`upstream-tests.patch` expects that existing redaction, retaining exact rejection, category, line,
+column and diagnostic-message assertions for malformed XML. It changes test expectations only.
+
+The final runtime removes global npm/pnpm, their download stores and build caches. `buildNpm` in
+`versions.json` describes build tooling only. Project seed/alteration commands invoke the checked-in
+Logto CLI through Node; the server runs `node .` from `packages/core`. Adding connectors at runtime
+with `logto connector add` is not supported by this immutable image: connectors must be built into
+the reviewed image. The account-email protocol proof exercises the real seed, alteration and
+server startup commands after this cleanup. The final scan retains two Router version findings:
+the reviewed navigation backport and the unused manual SSR/hydration path described above.
