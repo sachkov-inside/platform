@@ -582,6 +582,24 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(a.chat.count("create_invite")).toBe(0);
   });
 
+  it("opens Мои продукты on /community when no course has an available group", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70118, "/start");
+    await a.link(70118);
+    const product = required(a.state.products[0]);
+    a.state.products = [{ ...product, community: { state: "expired" } }];
+    await a.ingress(70118, "/community");
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.sent.at(-1)?.buttons?.[0]).toEqual({
+      text: "AI Engineering",
+      callbackData: `access:product:${product.id}`,
+    });
+    expect(a.chat.count("create_invite")).toBe(0);
+  });
+
   it("measures prepared normal admission from accepted bot action to usable delivered result", async ({
     activation: a,
   }) => {

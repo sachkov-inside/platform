@@ -181,7 +181,9 @@ export class CourseActivation {
             text: "Повторить",
             callbackData: hasText(onlyCode)
               ? `access:${action}:${onlyCode}`
-              : "access:own",
+              : action === "community"
+                ? "access:community"
+                : "access:own",
           },
           {
             text: "Помощь",
@@ -372,21 +374,17 @@ export class CourseActivation {
     }
     const products = access.value.products ?? [];
     // /community names no course: the only course with a group is meant, otherwise the person picks.
-    const withGroup = products.filter(
-      (item) => item.community.state === "available",
-    );
-    if (
-      action === "community" &&
-      !hasText(onlyCode) &&
-      withGroup.length !== 1
-    ) {
+    const unnamedCommunity = action === "community" && !hasText(onlyCode);
+    const withGroup = unnamedCommunity
+      ? products.filter((item) => item.community.state === "available")
+      : [];
+    if (unnamedCommunity && withGroup.length !== 1) {
       await this.screen(contact, productList(products));
       return;
     }
-    const product =
-      action === "community" && !hasText(onlyCode)
-        ? withGroup[0]
-        : products.find((item) => item.id === onlyCode);
+    const product = unnamedCommunity
+      ? withGroup[0]
+      : products.find((item) => item.id === onlyCode);
     if (!product) {
       await this.screen(contact, {
         text: "Не удалось проверить доступ. Попробуйте ещё раз.",
