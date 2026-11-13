@@ -245,7 +245,10 @@ export const ProseLinkWithInlineCode: Story = {
     const link = canvas.getByRole("link", {
       name: "короткий AGENTS.md с указателями",
     });
-    await expect(link.querySelector("code")).toHaveTextContent("AGENTS.md");
+    const code = link.querySelector("code");
+    await expect(code).toHaveTextContent("AGENTS.md");
+    // Side padding would let the chip background cover the link underline.
+    await expect(code).toHaveStyle({ paddingLeft: "0px", paddingRight: "0px" });
     await userEvent.tab();
     await expect(link).toHaveFocus();
     await userEvent.tab();

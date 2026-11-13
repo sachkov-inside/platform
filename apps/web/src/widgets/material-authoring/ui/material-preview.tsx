@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 import {
   MaterialAssetFile,
   MaterialAssetImage,
@@ -14,7 +12,6 @@ import {
 import type {
   MaterialPreviewBlock,
   MaterialPreviewPresentation,
-  MaterialPreviewText,
   MaterialPreviewVideo,
 } from "../model/presentation";
 
@@ -132,9 +129,13 @@ function PreviewBlock({
 }) {
   switch (block.kind) {
     case "paragraph":
-      return <p className="min-h-7">{renderInline(block.content)}</p>;
+      return (
+        <p className="min-h-7">
+          <MaterialInline content={block.content} />
+        </p>
+      );
     case "heading": {
-      const content = renderInline(block.content);
+      const content = <MaterialInline content={block.content} />;
       if (block.level === 2) {
         return (
           <h2 className="pt-6 text-2xl font-semibold tracking-[-0.025em]">
@@ -243,7 +244,7 @@ function PreviewBlock({
                 ))}
               </div>
             ),
-            renderInline: (content) => renderInline(content),
+            renderInline: (content) => <MaterialInline content={content} />,
           }}
         />
       );
@@ -339,8 +340,4 @@ function PreviewTable({
       </table>
     </div>
   );
-}
-
-function renderInline(content: readonly MaterialPreviewText[]): ReactNode {
-  return <MaterialInline content={content} />;
 }

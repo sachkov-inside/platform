@@ -1,12 +1,13 @@
 import { Fragment, type ReactNode } from "react";
 
+import { cn } from "@/shared/lib/utils";
 import { proseLinkClassName } from "@/shared/ui/prose-link";
 import { ProseAnchor } from "@/shared/ui/prose-anchor.client";
 
 import type { RenderedMark, RenderedText } from "../../material.model";
 
 /** A surface may replace a document link; undefined keeps the ordinary prose anchor. */
-export type MaterialInlineLink = (
+type MaterialInlineLink = (
   href: string,
   children: ReactNode,
 ) => ReactNode | undefined;
@@ -59,11 +60,11 @@ export function MaterialInline({
     if (run.kind === "text")
       return (
         <Fragment key={index}>
-          {applyMarks(run.text.text, run.text.marks)}
+          {applyMarks(run.text.text, run.text.marks, false)}
         </Fragment>
       );
     const children = run.content.map((text, part) => (
-      <Fragment key={part}>{applyMarks(text.text, text.marks)}</Fragment>
+      <Fragment key={part}>{applyMarks(text.text, text.marks, true)}</Fragment>
     ));
     const custom = link?.(run.href, children);
     return custom === undefined ? (
@@ -76,15 +77,27 @@ export function MaterialInline({
   });
 }
 
-/** The first mark wraps the others, as in the stored document. */
-function applyMarks(text: string, marks: readonly RenderedMark[]): ReactNode {
+/**
+ * The first mark wraps the others, as in the stored document. Inside a link, code drops its side
+ * padding: the chip background would otherwise cover the link underline next to the code.
+ */
+function applyMarks(
+  text: string,
+  marks: readonly RenderedMark[],
+  linked: boolean,
+): ReactNode {
   return marks.reduceRight<ReactNode>((child, mark) => {
     switch (mark.kind) {
       case "bold":
         return <strong>{child}</strong>;
       case "code":
         return (
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.9em]">
+          <code
+            className={cn(
+              "rounded bg-muted py-0.5 font-mono text-[0.9em]",
+              !linked && "px-1.5",
+            )}
+          >
             {child}
           </code>
         );
