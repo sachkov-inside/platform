@@ -1821,24 +1821,20 @@ export class MaterialAuthoringService {
         firstAnsweredAt: string;
         firstTryCorrect: number;
         firstTryDontKnow: number;
-        mostFrequentWrongAnswer: {
-          answer: ({
-            kind: 'options';
-            optionIds: Array<string>;
-          } | {
-            kind: 'matches';
-            matches: Array<{
-              choiceId: string;
-              rowId: string;
-            }>;
-          } | {
-            kind: 'sequence';
-            stepIds: Array<string>;
-          } | {
-            kind: 'dontKnow';
-          });
+        mostFrequentMistake: ({
           count: number;
-        } | null;
+          kind: 'options';
+          optionIds: Array<string>;
+        } | {
+          choiceId: string;
+          count: number;
+          kind: 'pair';
+          rowId: string;
+        } | {
+          count: number;
+          kind: 'step';
+          stepId: string;
+        }) | null;
         respondents: number;
       }>;
     }>;

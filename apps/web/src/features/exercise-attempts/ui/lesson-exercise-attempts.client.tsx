@@ -5,8 +5,11 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -18,11 +21,13 @@ import {
   type ExerciseAnswerRecord,
   type ExerciseAnswerState,
 } from "@/entities/material";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
 import {
   exerciseAttemptsQueryOptions,
   recordExerciseAttempt,
 } from "../api/exercise-attempts.browser";
+import { exerciseAttemptChanges } from "../model/exercise-attempt-events";
 import {
   guestAnswersKey,
   guestExerciseAnswers,
@@ -56,6 +61,9 @@ function readStoredGuestAnswers(materialId: string): string | null {
 }
 
 const LessonAnswersContext = createContext<LessonAnswers | null>(null);
+const LessonSummaryContext = createContext<ReturnType<
+  typeof lessonExerciseSummary
+> | null>(null);
 
 /** The answer source of a lesson: one hook for every exercise, fed by the scope below. */
 function useLessonExerciseAnswer(exerciseId: string): ExerciseAnswerState {
@@ -68,9 +76,9 @@ function useLessonExerciseAnswer(exerciseId: string): ExerciseAnswerState {
 /**
  * Exercise Attempts of one open lesson. A signed-in reader's answers are checked and recorded by
  * the server and come back when the lesson opens again; a guest's stay in this browser, with an
- * offer to sign in under each exercise, and are not moved to the Account after sign-in. The
- * summary «Упражнения: N из M решены» closes the wrapped content. Attempts change neither
- * «Изучено» nor course progress.
+ * offer to sign in under each exercise, and are not moved to the Account after sign-in.
+ * `SavedLessonExerciseSummary` inside the wrapped content shows «Упражнения: N из M решены».
+ * Attempts change neither «Изучено» nor course progress.
  */
 export function LessonExerciseAttempts({
   materialId,
@@ -95,6 +103,14 @@ export function LessonExerciseAttempts({
     materialId,
   });
   const saved = useQuery(options);
+  const changes = useMemo(
+    () =>
+      reader === "account" && accountId !== null
+        ? exerciseAttemptChanges(accountId)
+        : null,
+    [accountId, reader],
+  );
+  useAnnouncedRefresh(changes, ["exercise-attempts", accountId]);
   // The server render and hydration show no guest answers; browser storage is read after them.
   const guestRaw = useSyncExternalStore(
     subscribeStorage,
@@ -109,6 +125,8 @@ export function LessonExerciseAttempts({
   // «Ответить ещё раз» hides the shown answer; the recorded attempt stays.
   const [cleared, setCleared] = useState<ReadonlySet<string>>(new Set());
   const [unsaved, setUnsaved] = useState<ReadonlySet<string>>(new Set());
+  // Answers given before the shell knew the reader; they are saved once it does.
+  const waiting = useRef(new Map<string, StoredExerciseAnswer>());
 
   const record = useMutation({
     mutationKey: ["exercise-attempts", accountId, materialId, "record"],
@@ -137,11 +155,29 @@ export function LessonExerciseAttempts({
           attempt,
         ],
       }));
+      changes?.announce();
     },
     onError: (_error, input) => {
       setUnsaved((previous) => new Set(previous).add(input.exerciseId));
     },
   });
+
+  const { mutate } = record;
+  /** Keeps a checked answer where this reader's answers live. */
+  const persist = useCallback(
+    (exerciseId: string, stored: StoredExerciseAnswer) => {
+      if (reader === "guest")
+        guestExerciseAnswers(localStorage, materialId).save(exerciseId, stored);
+      else mutate({ materialId, exerciseId, answer: stored.answer });
+    },
+    [materialId, mutate, reader],
+  );
+  useEffect(() => {
+    if (reader === "pending") return;
+    const held = [...waiting.current];
+    waiting.current.clear();
+    for (const [exerciseId, stored] of held) persist(exerciseId, stored);
+  }, [persist, reader]);
 
   const base: ReadonlyMap<string, StoredExerciseAnswer> =
     reader === "guest"
@@ -203,13 +239,8 @@ export function LessonExerciseAttempts({
           next.delete(exerciseId);
           return next;
         });
-        if (reader === "guest")
-          guestExerciseAnswers(localStorage, materialId).save(
-            exerciseId,
-            stored,
-          );
-        else if (reader === "account")
-          record.mutate({ materialId, exerciseId, answer: checked.answer });
+        if (reader === "pending") waiting.current.set(exerciseId, stored);
+        else persist(exerciseId, stored);
       },
       retry: () => {
         setCleared((previous) => new Set(previous).add(exerciseId));
@@ -219,10 +250,17 @@ export function LessonExerciseAttempts({
 
   return (
     <LessonAnswersContext value={source}>
-      <ExerciseAnswersProvider source={useLessonExerciseAnswer}>
-        {children}
-        <LessonExerciseSummary {...lessonExerciseSummary(exercises, answers)} />
-      </ExerciseAnswersProvider>
+      <LessonSummaryContext value={lessonExerciseSummary(exercises, answers)}>
+        <ExerciseAnswersProvider source={useLessonExerciseAnswer}>
+          {children}
+        </ExerciseAnswersProvider>
+      </LessonSummaryContext>
     </LessonAnswersContext>
   );
+}
+
+/** «Упражнения: N из M решены» of the lesson around it; nothing outside `LessonExerciseAttempts`. */
+export function SavedLessonExerciseSummary() {
+  const summary = useContext(LessonSummaryContext);
+  return summary === null ? null : <LessonExerciseSummary {...summary} />;
 }

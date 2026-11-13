@@ -35,6 +35,7 @@ import { SavedLessonRating } from "@/features/lesson-rating";
 import { SavedLessonTermDeck } from "@/features/lesson-term-deck";
 import {
   LessonExerciseAttempts,
+  SavedLessonExerciseSummary,
   lessonExercises,
 } from "@/features/exercise-attempts";
 import { notFound } from "next/navigation";
@@ -549,6 +550,7 @@ async function ResolvedMaterialReader({
             }
           />
         }
+        exerciseSummary={<SavedLessonExerciseSummary />}
         lessonRating={
           <SavedLessonRating materialId={result.material.materialId} />
         }

@@ -147,8 +147,9 @@ const statistics = {
           respondents: 4,
           firstTryCorrect: 1,
           firstTryDontKnow: 1,
-          mostFrequentWrongAnswer: {
-            answer: { kind: "options", optionIds: ["embed"] },
+          mostFrequentMistake: {
+            kind: "options",
+            optionIds: ["embed"],
             count: 2,
           },
         },

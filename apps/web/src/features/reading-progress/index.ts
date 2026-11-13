@@ -13,7 +13,10 @@ export {
   guestOpenedPartsKey,
   useLessonOpenedParts,
 } from "./ui/use-lesson-opened-parts.client";
-export { readingProgressChanges } from "./model/reading-progress-events";
+export {
+  lessonOpenedPartsChanges,
+  readingProgressChanges,
+} from "./model/reading-progress-events";
 
 export {
   productContinuationQueryKey,

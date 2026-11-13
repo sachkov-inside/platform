@@ -1,9 +1,7 @@
-import {
-  exerciseFingerprint,
-  type ExerciseAnswer,
-} from "@inside/material-blocks";
+import { exerciseFingerprint } from "@inside/material-blocks";
 import { describe, expect, it } from "vitest";
 
+import type { ExerciseStatistics } from "@/features/lesson-statistics/model/lesson-statistics-contract";
 import {
   documentExercises,
   lessonStatisticsView,
@@ -79,14 +77,14 @@ const version = (input: {
   readonly at: string;
   readonly respondents: number;
   readonly correct: number;
-  readonly wrong?: { readonly answer: ExerciseAnswer; readonly count: number };
+  readonly wrong?: ExerciseStatistics["versions"][number]["mostFrequentMistake"];
 }) => ({
   fingerprint: input.fingerprint,
   firstAnsweredAt: input.at,
   respondents: input.respondents,
   firstTryCorrect: input.correct,
   firstTryDontKnow: 0,
-  mostFrequentWrongAnswer: input.wrong ?? null,
+  mostFrequentMistake: input.wrong ?? null,
 });
 
 describe("lesson statistics view", () => {
@@ -98,7 +96,7 @@ describe("lesson statistics view", () => {
     ]);
   });
 
-  it("numbers exercises as in the lesson, puts the current version first and names wrong answers by their text", () => {
+  it("numbers exercises as in the lesson, puts the current version first and names mistakes by their text", () => {
     const exercises = documentExercises(document);
     const [quizExercise, matchExercise, orderExercise] = exercises;
     if (
@@ -118,14 +116,9 @@ describe("lesson statistics view", () => {
             respondents: 3,
             correct: 1,
             wrong: {
-              answer: {
-                kind: "matches",
-                matches: [
-                  { rowId: "api", choiceId: "store-choice" },
-                  { rowId: "domain", choiceId: "domain-choice" },
-                  { rowId: "store", choiceId: "api-choice" },
-                ],
-              },
+              kind: "pair",
+              rowId: "api",
+              choiceId: "store-choice",
               count: 2,
             },
           }),
@@ -152,10 +145,7 @@ describe("lesson statistics view", () => {
             at: "2026-11-01T09:00:00.000Z",
             respondents: 1,
             correct: 0,
-            wrong: {
-              answer: { kind: "sequence", stepIds: ["code", "spec", "ship"] },
-              count: 1,
-            },
+            wrong: { kind: "step", stepId: "code", count: 1 },
           }),
         ],
       },
@@ -168,20 +158,14 @@ describe("lesson statistics view", () => {
             at: "2026-10-01T09:00:00.000Z",
             respondents: 4,
             correct: 1,
-            wrong: {
-              answer: { kind: "options", optionIds: ["gone"] },
-              count: 3,
-            },
+            wrong: { kind: "options", optionIds: ["gone"], count: 3 },
           }),
           version({
             fingerprint: exerciseFingerprint(quizExercise),
             at: "2026-11-01T09:00:00.000Z",
             respondents: 3,
             correct: 2,
-            wrong: {
-              answer: { kind: "options", optionIds: ["embed"] },
-              count: 1,
-            },
+            wrong: { kind: "options", optionIds: ["embed"], count: 1 },
           }),
         ],
       },
@@ -200,7 +184,11 @@ describe("lesson statistics view", () => {
             respondents: 3,
             firstTryCorrectPercent: 67,
             firstTryDontKnow: 0,
-            mostFrequentWrong: { text: "Эмбеддинги", count: 1 },
+            mostFrequentWrong: {
+              label: "Частый неверный ответ",
+              text: "Эмбеддинги",
+              count: 1,
+            },
           },
           {
             fingerprint: "00000000000000aa",
@@ -210,7 +198,11 @@ describe("lesson statistics view", () => {
             firstTryCorrectPercent: 25,
             firstTryDontKnow: 0,
             // An option of an old version is no longer in the lesson: its id stands for it.
-            mostFrequentWrong: { text: "gone", count: 3 },
+            mostFrequentWrong: {
+              label: "Частый неверный ответ",
+              text: "gone",
+              count: 3,
+            },
           },
         ],
       },
@@ -227,7 +219,8 @@ describe("lesson statistics view", () => {
             firstTryCorrectPercent: 33,
             firstTryDontKnow: 0,
             mostFrequentWrong: {
-              text: "Строка api → Слой store; Строка domain → Слой domain; Строка store → Слой api",
+              label: "Частая неверная пара",
+              text: "Строка api → Слой store",
               count: 2,
             },
           },
@@ -246,7 +239,8 @@ describe("lesson statistics view", () => {
             firstTryCorrectPercent: 0,
             firstTryDontKnow: 0,
             mostFrequentWrong: {
-              text: "Шаг code → Шаг spec → Шаг ship",
+              label: "Чаще всего не на своём месте",
+              text: "Шаг code",
               count: 1,
             },
           },

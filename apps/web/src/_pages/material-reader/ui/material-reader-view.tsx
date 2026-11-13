@@ -67,13 +67,18 @@ export interface MaterialReaderViewProps {
   /** Колода «Термины урока» в конце урока (#2127). */
   readonly termDeck?: ReactNode;
   /**
+   * «Упражнения: N из M решены» после колоды (#2121). Читает ответы из `exerciseScope`, поэтому
+   * стоит внутри него; как и колода, ждёт, пока откроется последняя часть урока.
+   */
+  readonly exerciseSummary?: ReactNode;
+  /**
    * «Как вам урок?» в конце урока (#2124). Как и колода, ждёт, пока откроется последняя часть
    * урока.
    */
   readonly lessonRating?: ReactNode;
   /**
-   * Wraps the lesson text and its end: Exercise Attempts restore answers inside it and close it
-   * with «Упражнения: N из M решены» (#2121). Without it exercises keep answers on the page only.
+   * Wraps the lesson text and its end: Exercise Attempts restore answers inside it, and
+   * `exerciseSummary` reads them there (#2121). Without it exercises keep answers on the page only.
    */
   readonly exerciseScope?: (lesson: ReactNode) => ReactNode;
   readonly material: MaterialReaderMetadata;
@@ -101,6 +106,7 @@ export function MaterialReaderView({
   glossaryTerms = [],
   courseGlossarySlug,
   termDeck,
+  exerciseSummary,
   lessonRating,
   exerciseScope = (lesson) => lesson,
   material,
@@ -250,6 +256,9 @@ export function MaterialReaderView({
               </article>
               {termDeck === undefined ? null : (
                 <LessonStepsTail>{termDeck}</LessonStepsTail>
+              )}
+              {exerciseSummary === undefined ? null : (
+                <LessonStepsTail>{exerciseSummary}</LessonStepsTail>
               )}
               {lessonRating === undefined ? null : (
                 <LessonStepsTail>{lessonRating}</LessonStepsTail>

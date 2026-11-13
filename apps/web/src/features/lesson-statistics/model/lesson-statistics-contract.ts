@@ -1,5 +1,5 @@
 import {
-  exerciseAnswerSchema,
+  exerciseFingerprintSchema,
   exerciseIdSchema,
   exerciseKinds,
 } from "@inside/material-blocks";
@@ -8,17 +8,40 @@ import { z } from "zod";
 /** First-try statistics of one exercise version, as the backend reports them (#2124). */
 export const exerciseVersionStatisticsSchema = z
   .object({
-    fingerprint: z.string().regex(/^[0-9a-f]{16}$/u),
+    fingerprint: exerciseFingerprintSchema,
     firstAnsweredAt: z.iso.datetime(),
     respondents: z.number().int().positive(),
     firstTryCorrect: z.number().int().nonnegative(),
     firstTryDontKnow: z.number().int().nonnegative(),
-    mostFrequentWrongAnswer: z
-      .object({
-        answer: exerciseAnswerSchema,
-        count: z.number().int().positive(),
-      })
-      .strict()
+    /**
+     * What readers got wrong first most often: a quiz's wrong option set, a match's wrong
+     * row → choice pair, or an order's step out of place.
+     */
+    mostFrequentMistake: z
+      .discriminatedUnion("kind", [
+        z
+          .object({
+            kind: z.literal("options"),
+            optionIds: z.array(exerciseIdSchema).min(1),
+            count: z.number().int().positive(),
+          })
+          .strict(),
+        z
+          .object({
+            kind: z.literal("pair"),
+            rowId: exerciseIdSchema,
+            choiceId: exerciseIdSchema,
+            count: z.number().int().positive(),
+          })
+          .strict(),
+        z
+          .object({
+            kind: z.literal("step"),
+            stepId: exerciseIdSchema,
+            count: z.number().int().positive(),
+          })
+          .strict(),
+      ])
       .nullable(),
   })
   .strict();
