@@ -8,6 +8,11 @@ The account shows Products, their access and payment history. Telegram connectio
 without repeated setup confirmations. The header fallback is a neutral user icon on white.
 
 
+## Вступление в группу через бота
+
+Правила выбора продукта для `/community` и обработки отсутствующего или неоднозначного доступа
+определяет [сценарий вступления](../../apps/telegram/docs/operations/course-activation.md#подтверждение-статуса-прежних-участников).
+
 ## Публичное название сайта
 
 С 19.10.2026 по решению владельца публичное название сайта — «Сачков Дев»

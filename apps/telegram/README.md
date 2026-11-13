@@ -137,7 +137,9 @@ Linking/sign-in preserve identity and correlation and create no Product Access a
   absence of a transfer; a disputed identity is left to an operator.
 - The stored link is bound to its own revision and identity, and is handed out only by `/community`
   in the intended contact's own private chat, and only while community effects are enabled. Handing
-  it over is not membership, and the command never starts work of its own.
+  it over is not membership. With Course Activation enabled, the command follows the
+  [Product selection and checked admission rules](docs/operations/course-activation.md#подтверждение-статуса-прежних-участников);
+  otherwise reconciliation prepares missing links.
 - Reconciliation re-checks known desired states at least once a minute; an unusable bot or an
   unreachable Telegram becomes `unknown` instead of hiding behind an earlier `applied`.
 - `TELEGRAM_COMMUNITY_MODE=disabled` is the safe default. See
