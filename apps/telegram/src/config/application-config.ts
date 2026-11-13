@@ -39,6 +39,8 @@ export interface CommunityTexts {
   readonly readmission: string;
   /** Sent with the first link after an Account's first community right. */
   readonly welcome: string;
+  /** Sent with a day-long personal link while a person with a right has not joined (#2086). */
+  readonly joinReminder: string;
 }
 
 /** How many private-chat requests one user may make within a sliding window. */
@@ -289,10 +291,15 @@ export function loadApplicationConfig(
       "Сейчас у вас нет действующего права на участие в сообществе.",
     readmission:
       presentText(environment["TELEGRAM_COMMUNITY_READMISSION_TEXT"]?.trim()) ??
-      "Ваше участие в сообществе Inside продолжается. Вернуться можно по личной ссылке, она действует несколько минут. Если не успеете, отправьте /community.",
+      "Ваше участие в сообществе продолжается. Вернуться можно по личной ссылке, она действует несколько минут. Если не успеете, отправьте /community.",
     welcome:
       presentText(environment["TELEGRAM_COMMUNITY_WELCOME_TEXT"]?.trim()) ??
       "Добро пожаловать! Доступ к сообществу открыт.\n\nНачни с кнопки «Мои продукты»: выбери свой курс, открой материалы и посмотри, с чего начать обучение. Уроки находятся на платформе, а вопросы и обсуждения в группе.\n\nВступить в группу можно по личной ссылке ниже. Она действует несколько минут. Если не успеешь, запроси новую ссылку командой /community.\n\nЕсли нужна помощь с доступом, напиши в поддержку.",
+    joinReminder:
+      presentText(
+        environment["TELEGRAM_COMMUNITY_JOIN_REMINDER_TEXT"]?.trim(),
+      ) ??
+      "Ты ещё не вступил в группу Inside. Там вопросы, обсуждения и ответы автора.\n\nВступить можно по личной ссылке ниже, она действует сутки. Если не успеешь, отправь /community, и бот пришлёт новую.",
   });
   const communityIntegrationSecret =
     presentText(environment["PLATFORM_COMMUNITY_INTEGRATION_SECRET"]?.trim()) ??

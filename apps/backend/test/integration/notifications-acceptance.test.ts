@@ -44,7 +44,10 @@ import {
   materialId as checkedMaterialId,
   type MaterialId,
 } from "../../src/modules/materials/index.js";
-import { Notifications } from "../../src/modules/notifications/index.js";
+import {
+  Notifications,
+  assembleBillingNoticeSource,
+} from "../../src/modules/notifications/index.js";
 import { resultSchema } from "../../src/modules/notifications/domain/notification-wire.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -249,7 +252,7 @@ describe("приёмка обоих источников Notifications (реал
           sources: {
             resolve: (event) =>
               event.eventType === "billing.notice-ready"
-                ? notices.resolveNotice(event)
+                ? assembleBillingNoticeSource(notices, links)(event)
                 : announcements.resolveAnnouncement(event),
             canRead: async (account, sourceRef) => {
               const decision = await contentAccess.authorize({

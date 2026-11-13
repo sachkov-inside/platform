@@ -1340,6 +1340,7 @@ describe("handing the link over in the private chat", () => {
       unavailable: "Synthetic community unavailable",
       readmission: "Synthetic community readmission",
       welcome: "Synthetic community welcome",
+      joinReminder: "Synthetic join reminder",
     },
     membershipCheckRetentionDays: 90,
     salesFunnelEventRetentionDays: 30,

@@ -57,6 +57,7 @@ const config = (databaseUrl: string): ApplicationConfig => ({
     unavailable: "Synthetic community unavailable",
     readmission: "Synthetic community readmission",
     welcome: "Synthetic community welcome",
+    joinReminder: "Synthetic join reminder",
   },
   membershipMode: "disabled",
   membershipCheckRetentionDays: 90,

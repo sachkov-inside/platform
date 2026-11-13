@@ -91,7 +91,7 @@ IP берётся из действующей конфигурации productio
    `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN`, `TELEGRAM_TRACKING_ORIGIN` на `https://sachkov.dev`;
    в `api.env` и `notifications-worker.env` заменить `NOTIFICATIONS_PLATFORM_ORIGIN`.
    В `/etc/inside/telegram/application.env` заменить публичный
-   `TELEGRAM_SIGN_IN_RETURN_URL` на `https://sachkov.dev/` для кнопки «Открыть Inside» после входа.
+   `TELEGRAM_SIGN_IN_RETURN_URL` на `https://sachkov.dev/` для кнопки «Открыть sachkov.dev» после входа.
    Если настроена другая публичная страница, сохранить её путь при замене origin.
    Адрес не содержит OAuth code/state или токенов; query и fragment эта настройка не принимает.
    Применение к Telegram и проверка новой кнопки описаны в

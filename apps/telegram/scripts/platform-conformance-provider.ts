@@ -69,6 +69,7 @@ const config: ApplicationConfig = {
     unavailable: "Synthetic unavailable",
     readmission: "Synthetic readmission",
     welcome: "Synthetic welcome",
+    joinReminder: "Synthetic join reminder",
   },
   databaseUrl,
   deliveryMode: "disabled",

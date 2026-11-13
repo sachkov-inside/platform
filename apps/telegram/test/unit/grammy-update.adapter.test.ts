@@ -502,6 +502,30 @@ describe("GrammyUpdateAdapter", () => {
     );
   });
 
+  it("opens the Главное меню from its own button", () => {
+    expect(
+      adapter.translate(
+        "inside",
+        "12",
+        {
+          update_id: 12,
+          callback_query: {
+            id: "callback-12",
+            data: "access:menu",
+            from: { id: 42, is_bot: false },
+            message: { message_id: 5, chat: { id: 42, type: "private" } },
+          },
+        },
+        observedAt,
+      ),
+    ).toMatchObject({
+      kind: "access-action",
+      action: "menu",
+      callbackQueryId: "callback-12",
+      value: { telegramUserId: "42", messageId: "5" },
+    });
+  });
+
   it("replaces a valid link bearer with its digest before durable storage", () => {
     const rawToken = "abcdefghijklmnopqrstuvwxyzABCDEFGH012345678";
     const prepared = prepareTelegramUpdateForInbox(

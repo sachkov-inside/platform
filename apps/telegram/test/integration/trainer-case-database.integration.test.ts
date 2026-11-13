@@ -210,6 +210,21 @@ it("restores the latest schema when a revision case is cancelled between downgra
     resume();
     await expect(operation).rejects.toBeDefined();
     await fixture.finish();
+    // A cancelled downgrade must also restore migrations newer than the Trainer schema.
+    expect(
+      (
+        await sql<{ column_name: string }>`select column_name
+          from information_schema.columns
+          where table_schema = 'public' and table_name = 'community_desired_states'
+            and column_name like 'join_reminder%'
+          order by column_name`.execute(database)
+      ).rows.map((row) => row.column_name),
+    ).toEqual([
+      "join_reminder_due_at",
+      "join_reminder_last_at",
+      "join_reminder_requested_at",
+      "join_reminders_sent",
+    ]);
 
     required(file.questions[0]).options.reverse();
     required(file.questions[0]).explanation = "Новая редакция разбора.";

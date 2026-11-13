@@ -158,7 +158,7 @@ export class BotSignIn {
         botIdentity: contact.botIdentity,
         telegramUserId: contact.telegramUserId,
         privateChatId: contact.privateChatId,
-        messageText: "Вы входите в Sachkov Inside?",
+        messageText: "Вы входите на sachkov.dev?",
         sourceKey: `sign-in:${request.request_ref}`,
         triggerUpdateId: contact.updateId,
         signInRequestRef: request.request_ref,
