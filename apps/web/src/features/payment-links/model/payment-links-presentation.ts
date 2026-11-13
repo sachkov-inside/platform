@@ -42,9 +42,9 @@ export function paymentLinkClosed(link: PaymentLink): boolean {
   );
 }
 
-/** Ссылку можно отозвать, пока по ней не началась оплата и она действует. */
+/** До начала оплаты можно отозвать и действующую ссылку, и ссылку с закрытой продажей. */
 export function canRevokePaymentLink(link: PaymentLink): boolean {
-  return link.state === "active";
+  return link.state === "active" || link.state === "changed";
 }
 
 type FailureMessages = Partial<Record<BillingFailureCode, string>>;
