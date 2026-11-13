@@ -32,6 +32,7 @@ async function stand(
     readonly removalsEnabled?: boolean;
     readonly readmission?: boolean;
     readonly welcome?: boolean;
+    readonly joinReminder?: boolean;
     readonly productsMenuEnabled?: boolean;
     readonly welcomeDetails?: CommunityWelcomeDetailsSource;
   } = {},
@@ -114,6 +115,19 @@ async function stand(
         : {}),
       ...(options.welcomeDetails
         ? { welcomeDetails: options.welcomeDetails }
+        : {}),
+      ...(isTruthy(options.joinReminder)
+        ? {
+            joinReminder: {
+              replies: new StartResponseDeliveryQueue(
+                db,
+                settleBlockedDelivery,
+                undefined,
+                signInReplyEligibility,
+              ),
+              text: "Synthetic reminder",
+            },
+          }
         : {}),
     });
   let revision = 0;
@@ -1125,5 +1139,119 @@ describe("community v2 welcome after the first right", () => {
     expect(s.chat.count("create_invite")).toBe(1);
     expect(await messages(s)).toEqual([{ chat: s.user, ...welcome }]);
     expect((await s.row()).readmission_requested_at).toBeNull();
+  });
+});
+
+describe("community v2 reminders to join the group", () => {
+  type Stand = Awaited<ReturnType<typeof stand>>;
+  const reminders = async (s: Stand) =>
+    (
+      await db
+        .selectFrom("start_response_deliveries")
+        .select(["message_text", "source_key"])
+        .where("bot_identity", "=", s.bot)
+        .where("source_key", "like", "community-join-reminder:%")
+        .orderBy("source_key")
+        .execute()
+    ).map((row) => row.message_text);
+  const at = (s: Stand, instant: string) => {
+    s.clock.value = new Date(instant);
+  };
+  async function sweep(s: Stand) {
+    await s.provider().requestDueJoinReminders();
+    await s.provider().reconcileDueStates();
+    await s.provider().processDueEffects();
+    await s.provider().processDueEffects();
+  }
+  const lastInvite = (s: Stand) =>
+    s.chat.calls.filter((call) => call.method === "create_invite").at(-1);
+
+  it("reminds after one day, two days, then every three days with a day-long link, until the person joins", async () => {
+    const s = await stand({ welcome: true, joinReminder: true });
+    await s.set();
+    await sweep(s);
+    expect((await s.row()).join_reminder_due_at).toEqual(
+      new Date("2026-10-08T09:00:00Z"),
+    );
+    expect(await reminders(s)).toEqual([]);
+
+    at(s, "2026-10-08T09:00:00Z");
+    await sweep(s);
+    expect(await reminders(s)).toEqual([
+      "Synthetic reminder\nhttps://t.me/+synthetic",
+    ]);
+    // The reminder's link outlives a reading later in the day; the bot approves only this person.
+    expect(lastInvite(s)).toEqual({
+      method: "create_invite",
+      expiresAt: new Date("2026-10-09T09:00:00Z"),
+    });
+    expect(await s.row()).toMatchObject({
+      join_reminders_sent: 1,
+      join_reminder_requested_at: null,
+      join_reminder_due_at: new Date("2026-10-10T09:00:00Z"),
+    });
+    const queued = await new StartResponseDeliveryQueue(
+      db,
+      settleBlockedDelivery,
+    ).claimNext(
+      s.clock.now(),
+      false,
+      `community-join-reminder:${s.bot}:${s.binding.accountRef}:1`,
+    );
+    expect(queued?.buttons).toEqual([
+      { text: "Вступить в группу", url: "https://t.me/+synthetic" },
+    ]);
+
+    // Nothing more inside the day-long link.
+    at(s, "2026-10-08T20:00:00Z");
+    await sweep(s);
+    expect(await reminders(s)).toHaveLength(1);
+
+    at(s, "2026-10-10T09:00:00Z");
+    await sweep(s);
+    expect(await reminders(s)).toHaveLength(2);
+    expect((await s.row()).join_reminder_due_at).toEqual(
+      new Date("2026-10-13T09:00:00Z"),
+    );
+
+    at(s, "2026-10-13T09:00:00Z");
+    await sweep(s);
+    expect(await reminders(s)).toHaveLength(3);
+    expect((await s.row()).join_reminder_due_at).toEqual(
+      new Date("2026-10-16T09:00:00Z"),
+    );
+
+    s.chat.membership = "member";
+    at(s, "2026-10-16T09:00:00Z");
+    await sweep(s);
+    await sweep(s);
+    expect(await reminders(s)).toHaveLength(3);
+    expect((await s.row()).join_reminder_due_at).toBeNull();
+  });
+
+  it("stops reminding when the right ends", async () => {
+    const s = await stand({ welcome: true, joinReminder: true });
+    await s.set();
+    await sweep(s);
+    await s.set({ kind: "denied" });
+    at(s, "2026-10-08T09:00:00Z");
+    await sweep(s);
+    expect(await reminders(s)).toEqual([]);
+    expect((await s.row()).join_reminder_due_at).toBeNull();
+  });
+
+  it("stops reminding a moderator-restricted person", async () => {
+    const s = await stand({ welcome: true, joinReminder: true });
+    await s.set();
+    await sweep(s);
+    await db
+      .updateTable("community_desired_states")
+      .set({ admission_restriction: "moderation" })
+      .where("bot_identity", "=", s.bot)
+      .execute();
+    at(s, "2026-10-08T09:00:00Z");
+    await sweep(s);
+    expect(await reminders(s)).toEqual([]);
+    expect((await s.row()).join_reminder_due_at).toBeNull();
   });
 });

@@ -76,6 +76,17 @@ const ATTEMPT_BUDGET = 5;
 const PERMIT_WINDOW_MILLISECONDS = 5000;
 const ATTEMPT_LEASE_MILLISECONDS = 60_000;
 const INVITE_WINDOW_MILLISECONDS = 600_000;
+/** A reminder may be read hours later; the bot still approves only the person it was made for. */
+const JOIN_REMINDER_LINK_MILLISECONDS = 86_400_000;
+/** Reminders go at noon in Moscow: 09:00 UTC. */
+const JOIN_REMINDER_HOUR_UTC = 9;
+/** Owner decision 2026-11-13 (#2086): after one day, then two days, then every three days. */
+function nextJoinReminderAt(now: Date, sent: number): Date {
+  const days = sent === 0 ? 1 : sent === 1 ? 2 : 3;
+  const due = new Date(now.getTime() + days * 86_400_000);
+  due.setUTCHours(JOIN_REMINDER_HOUR_UTC, 0, 0, 0);
+  return due;
+}
 const CAPABILITY_CACHE_MILLISECONDS = 5000;
 
 export interface CommunityJoinRequest {
@@ -115,6 +126,8 @@ export interface CommunityProviderOptions {
   readonly removalsEnabled?: boolean;
   readonly botTelegramUserId?: string | undefined;
   readonly readmission?: CommunityPrivateNotice;
+  /** Sent with a day-long personal link to a person with a right who has not joined (#2086). */
+  readonly joinReminder?: CommunityPrivateNotice;
   /** Sent privately with the first link after an Account's first community right. */
   readonly welcome?: CommunityPrivateNotice & {
     readonly productsMenuEnabled?: boolean;
@@ -1280,9 +1293,16 @@ export class CommunityProvider {
     }
   }
 
-  /** At most ten minutes and never past a finite right; a lifetime stays short too. */
+  /**
+   * At most ten minutes and never past a finite right; a lifetime stays short too. A requested
+   * join reminder gets a day, since it is read later; approval still binds the link to the person.
+   */
   private inviteExpiry(desired: DesiredRow): Date {
-    const bound = this.clock.now().getTime() + INVITE_WINDOW_MILLISECONDS;
+    const bound =
+      this.clock.now().getTime() +
+      (isTruthy(desired.join_reminder_requested_at)
+        ? JOIN_REMINDER_LINK_MILLISECONDS
+        : INVITE_WINDOW_MILLISECONDS);
     const validUntil = desired.valid_until?.getTime();
     return new Date(isTruthy(validUntil) ? Math.min(bound, validUntil) : bound);
   }
@@ -1396,7 +1416,7 @@ export class CommunityProvider {
             welcomeDetails,
             now,
           ))
-        )
+        ) {
           await this.offerReadmission(
             tx,
             desired,
@@ -1404,6 +1424,8 @@ export class CommunityProvider {
             outcome.inviteLink,
             now,
           );
+          await this.offerJoinReminder(tx, desired, outcome.inviteLink, now);
+        }
         return;
       }
       if (outcome.kind === "unknown") {
@@ -1557,11 +1579,108 @@ export class CommunityProvider {
       );
     await tx
       .updateTable("community_desired_states")
-      .set({ welcome_state: "offered", readmission_requested_at: null })
+      .set({
+        welcome_state: "offered",
+        readmission_requested_at: null,
+        ...(this.options.joinReminder
+          ? { join_reminder_due_at: nextJoinReminderAt(now, 0) }
+          : {}),
+      })
       .where("bot_identity", "=", this.bot)
       .where("account_ref", "=", desired.account_ref)
       .execute();
     return true;
+  }
+
+  /**
+   * Marks due reminders as requested (#2086). The next link created for the person then lives a
+   * day and goes with the reminder; a person who joined, lost the right or is restricted by a
+   * moderator gets no more reminders.
+   */
+  async requestDueJoinReminders(limit = 25): Promise<number> {
+    if (!this.options.joinReminder) return 0;
+    const now = this.clock.now();
+    const due = await this.db
+      .selectFrom("community_desired_states")
+      .select("account_ref")
+      .where("bot_identity", "=", this.bot)
+      .where("join_reminder_due_at", "<=", now)
+      .where("join_reminder_requested_at", "is", null)
+      .orderBy("join_reminder_due_at")
+      .limit(limit)
+      .execute();
+    for (const { account_ref } of due)
+      await this.db.transaction().execute(async (tx) => {
+        await lockAccount(tx, this.bot, account_ref);
+        const desired = await desiredFor(tx, this.bot, account_ref);
+        const current = this.clock.now();
+        if (
+          desired.join_reminder_due_at === null ||
+          desired.join_reminder_due_at > current ||
+          desired.join_reminder_requested_at !== null
+        )
+          return;
+        const remind =
+          accessAllows(desired.access, current) &&
+          desired.admission_restriction === "none" &&
+          desired.observed_membership !== "member";
+        await tx
+          .updateTable("community_desired_states")
+          .set(
+            remind
+              ? {
+                  join_reminder_requested_at: current,
+                  join_reminder_due_at: null,
+                }
+              : { join_reminder_due_at: null },
+          )
+          .where("bot_identity", "=", this.bot)
+          .where("account_ref", "=", account_ref)
+          .execute();
+      });
+    return due.length;
+  }
+
+  /** Sends the requested reminder with the day-long link just created, then schedules the next. */
+  private async offerJoinReminder(
+    tx: Tx,
+    desired: DesiredRow,
+    inviteLink: string,
+    now: Date,
+  ): Promise<void> {
+    const reminder = this.options.joinReminder;
+    if (!reminder || desired.join_reminder_requested_at === null) return;
+    const contact = await this.reachableContact(tx, desired);
+    const sent = desired.join_reminders_sent + 1;
+    if (contact)
+      await reminder.replies.enqueue(
+        {
+          botIdentity: this.bot,
+          telegramUserId: contact.telegramUserId,
+          privateChatId: contact.privateChatId,
+          messageText: `${reminder.text}\n${inviteLink}`,
+          buttons: [{ text: "Вступить в группу", url: inviteLink }],
+          sourceKey: `community-join-reminder:${this.bot}:${desired.account_ref}:${String(sent)}`,
+          now,
+        },
+        tx,
+      );
+    // A person the bot cannot reach (blocked or never started) gets no further reminders.
+    await tx
+      .updateTable("community_desired_states")
+      .set(
+        contact
+          ? {
+              join_reminder_requested_at: null,
+              join_reminders_sent: sent,
+              join_reminder_last_at: now,
+              join_reminder_due_at: nextJoinReminderAt(now, sent),
+            }
+          : { join_reminder_requested_at: null, join_reminder_due_at: null },
+      )
+      .where("bot_identity", "=", this.bot)
+      .where("account_ref", "=", desired.account_ref)
+      .execute();
   }
 
   private async reachableContact(
@@ -1671,6 +1790,18 @@ export class CommunityProvider {
         await tx
           .updateTable("community_desired_states")
           .set({ welcome_state: "offered" })
+          .where("bot_identity", "=", this.bot)
+          .where("account_ref", "=", current.account_ref)
+          .execute();
+      // A person in the chat needs no reminder to join it.
+      if (
+        observed === "member" &&
+        (isTruthy(current.join_reminder_due_at) ||
+          isTruthy(current.join_reminder_requested_at))
+      )
+        await tx
+          .updateTable("community_desired_states")
+          .set({ join_reminder_due_at: null, join_reminder_requested_at: null })
           .where("bot_identity", "=", this.bot)
           .where("account_ref", "=", current.account_ref)
           .execute();

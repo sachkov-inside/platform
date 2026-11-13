@@ -402,6 +402,10 @@ export class AppModule {
                   replies,
                   text: applicationConfig.communityTexts.readmission,
                 },
+                joinReminder: {
+                  replies,
+                  text: applicationConfig.communityTexts.joinReminder,
+                },
                 welcome: {
                   replies,
                   text: applicationConfig.communityTexts.welcome,

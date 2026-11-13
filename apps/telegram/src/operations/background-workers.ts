@@ -166,6 +166,7 @@ export class BackgroundWorkers
 
     if (this.config.communityMode === "live") {
       add("community", BACKGROUND, async () => {
+        await this.community.requestDueJoinReminders();
         const effects = await this.community.processDueEffects();
         const states = await this.community.reconcileDueStates();
         this.metrics.recordCommunity(await this.community.snapshot());
