@@ -1,5 +1,11 @@
-import { isValidElement, type ComponentProps, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import {
+  createElement,
+  isValidElement,
+  type ComponentProps,
+  type ReactElement,
+} from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
 
 import { ProductJourney } from "@/_pages/library-discovery/ui/product-journey";
 import type { ProductJourneyControls } from "@/_pages/library-discovery/ui/product-journey-controls.client";
@@ -7,6 +13,12 @@ import type { ProductChapterTask } from "@/entities/product-task";
 import type { ProductChapter } from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
+
+vi.mock("next/navigation", async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 function task(
   code: string,
@@ -109,17 +121,38 @@ describe("Product programme elements handed to the client", () => {
   });
 
   it("keys placement cards when a chapter is split and a Material repeats", () => {
-    const props = journeyProps({
+    const result = {
       ...productJourneyCorpus(),
       chapters,
       programmePlacements: [
-        placement("placement-1", "material-1", "chapter-1"),
-        placement("placement-2", "material-2", "chapter-1"),
-        placement("placement-3", "material-1", "chapter-1"),
-        placement("placement-4", "material-5", "chapter-3"),
-        placement("placement-5", "material-3", "chapter-1"),
+        placement(
+          "10000000-0000-4000-8000-000000000001",
+          "material-1",
+          "chapter-1",
+        ),
+        placement(
+          "10000000-0000-4000-8000-000000000002",
+          "material-2",
+          "chapter-1",
+        ),
+        placement(
+          "10000000-0000-4000-8000-000000000003",
+          "material-1",
+          "chapter-1",
+        ),
+        placement(
+          "10000000-0000-4000-8000-000000000004",
+          "material-5",
+          "chapter-3",
+        ),
+        placement(
+          "10000000-0000-4000-8000-000000000005",
+          "material-3",
+          "chapter-1",
+        ),
       ],
-    });
+    };
+    const props = journeyProps(result);
     const runs = props.parts.flatMap((part) =>
       part.kind === "materials" ? part.runs : [],
     );
@@ -131,11 +164,67 @@ describe("Product programme elements handed to the client", () => {
       "chapter-4",
     ]);
     expect(runs.map((run) => run.rows.map((row) => row.id))).toEqual([
-      ["placement-1", "placement-2", "placement-3"],
+      [
+        "10000000-0000-4000-8000-000000000001",
+        "10000000-0000-4000-8000-000000000002",
+        "10000000-0000-4000-8000-000000000003",
+      ],
       [],
-      ["placement-4"],
-      ["placement-5"],
+      ["10000000-0000-4000-8000-000000000004"],
+      ["10000000-0000-4000-8000-000000000005"],
       [],
+    ]);
+    expect(runs.map((run) => run.leading !== undefined)).toEqual([
+      true,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(ProductJourney, {
+        currentHref: productProgrammeHref("platform-inside"),
+        result,
+      }),
+    );
+    const sections = [...html.matchAll(/<section([^>]*)>/gu)]
+      .map((match) => match[1] ?? "")
+      .filter((attributes) => attributes.includes('class="programme-chapter"'));
+    expect(sections).toHaveLength(5);
+    const ids = sections.map(
+      (attributes) => / id="([^"]+)"/u.exec(attributes)?.[1],
+    );
+    expect(ids.every((id) => id !== undefined)).toBe(true);
+    expect(new Set(ids).size).toBe(5);
+    expect(
+      sections.map(
+        (attributes) => /aria-labelledby="([^"]+)"/u.exec(attributes)?.[1],
+      ),
+    ).toEqual([
+      "chapter-chapter-1",
+      "chapter-chapter-2",
+      "chapter-chapter-3",
+      "chapter-chapter-1",
+      "chapter-chapter-4",
+    ]);
+    for (const chapter of chapters) {
+      expect(
+        html.match(new RegExp(`id="chapter-${chapter.id}"`, "gu")),
+      ).toHaveLength(1);
+    }
+    expect(
+      html.match(/aria-label="Дополнительные материалы главы /gu),
+    ).toHaveLength(3);
+    expect(
+      [...html.matchAll(/data-programme-placement="([^"]+)"/gu)].map(
+        (match) => match[1],
+      ),
+    ).toEqual([
+      "10000000-0000-4000-8000-000000000001",
+      "10000000-0000-4000-8000-000000000002",
+      "10000000-0000-4000-8000-000000000003",
+      "10000000-0000-4000-8000-000000000004",
+      "10000000-0000-4000-8000-000000000005",
     ]);
     for (const run of runs) {
       const cardKeys = run.rows.map((row) =>

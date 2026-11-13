@@ -89,6 +89,9 @@
   border-radius: 999px;
   background: var(--accent);
 }
+.programme-chapter[data-chapter-state="continuation"]::before {
+  content: none;
+}
 .programme-chapter[data-chapter-state="preparing"]::before {
   border-color: color-mix(in srgb, var(--foreground) 28%, transparent);
   background: var(--background);

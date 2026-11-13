@@ -399,8 +399,12 @@ export function ProductJourneyControls({
                     0,
                     Math.max(0, count - run.offset),
                   );
+                  const sectionId = `${run.chapter === null ? "open" : `chapter-${run.chapter.id}`}-run-${String(run.offset)}`;
                   return (
                     <section
+                      id={sectionId}
+                      // A continuation keeps its chapter name without repeating its landmark.
+                      role={run.chapter?.header === null ? "group" : undefined}
                       aria-labelledby={
                         run.chapter === null
                           ? undefined
@@ -412,11 +416,13 @@ export function ProductJourneyControls({
                       data-chapter-state={
                         run.chapter === null
                           ? undefined
-                          : run.rows.length === 0
-                            ? "preparing"
-                            : "open"
+                          : run.chapter.header === null
+                            ? "continuation"
+                            : run.rows.length === 0
+                              ? "preparing"
+                              : "open"
                       }
-                      key={run.chapter?.id ?? `open-${String(run.offset)}`}
+                      key={sectionId}
                     >
                       {run.chapter?.header ?? null}
                       {run.leading ?? null}
