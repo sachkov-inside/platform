@@ -50,6 +50,7 @@ import { resolveReaderReturnTarget } from "../model/reader-return-target";
 import { readReaderProduct } from "../api/read-reader-product.server";
 import { readPublicProduct } from "@/features/library-discovery.server";
 import type { PublishedProductResult } from "@/features/library-discovery";
+import { readCourseGlossaryTerms } from "../api/read-course-glossary-terms.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { readWebRuntimeConfig } from "@/shared/config/index.server";
 import {
@@ -434,6 +435,15 @@ async function ResolvedMaterialReader({
   // Подсказка термина и колода ведут в словарь курса, только когда урок открыт внутри курса.
   const courseGlossarySlug =
     productContext === null ? undefined : purchaseProductSlug;
+  // «Подробнее» ведёт только к термину, который словарь курса показывает читателю.
+  const courseGlossaryTerms =
+    courseGlossarySlug === undefined || result.glossaryTerms.length === 0
+      ? undefined
+      : await readCourseGlossaryTerms(courseGlossarySlug, accessToken);
+  const courseGlossary =
+    courseGlossarySlug === undefined || courseGlossaryTerms?.kind !== "ready"
+      ? undefined
+      : { slug: courseGlossarySlug, termIds: courseGlossaryTerms.termIds };
   const purchaseCall =
     result.material.access === "free" &&
     purchaseProductSlug !== undefined &&
@@ -539,7 +549,7 @@ async function ResolvedMaterialReader({
         }
         body={result.body}
         glossaryTerms={result.glossaryTerms}
-        courseGlossarySlug={courseGlossarySlug}
+        courseGlossary={courseGlossary}
         termDeck={
           <SavedLessonTermDeck
             terms={result.lessonTerms}

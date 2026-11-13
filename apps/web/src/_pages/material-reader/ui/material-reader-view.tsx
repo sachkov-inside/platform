@@ -38,9 +38,12 @@ import {
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import { materialPath, topicPath } from "@/shared/routing/public-page-path";
-import { courseGlossaryHref } from "@/shared/routing/subscription-route";
 
 import { agentChoiceComparison } from "../model/agent-choice-comparison";
+import {
+  courseGlossaryMoreHref,
+  type ReaderCourseGlossary,
+} from "../model/course-glossary-more-href";
 import { projectHarnessIllustrations } from "@/features/project-harness";
 
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
@@ -60,10 +63,10 @@ export interface MaterialReaderViewProps {
   /** Термины словаря, на которые ссылается тело; без них упоминание читается обычным текстом. */
   readonly glossaryTerms?: readonly GlossaryTerm[];
   /**
-   * Курс, внутри которого открыт урок: «Подробнее» в подсказке термина ведёт на его словарь.
-   * Вне курса подсказка раскрывает полное определение на месте.
+   * Словарь курса, внутри которого открыт урок: «Подробнее» в подсказке ведёт к термину, который
+   * словарь показывает читателю. Остальные термины и все термины вне курса раскрываются на месте.
    */
-  readonly courseGlossarySlug?: string | undefined;
+  readonly courseGlossary?: ReaderCourseGlossary | undefined;
   /** Колода «Термины урока» в конце урока (#2127). */
   readonly termDeck?: ReactNode;
   /**
@@ -104,7 +107,7 @@ export function MaterialReaderView({
   renderLink,
   body,
   glossaryTerms = [],
-  courseGlossarySlug,
+  courseGlossary,
   termDeck,
   exerciseSummary,
   lessonRating,
@@ -242,10 +245,7 @@ export function MaterialReaderView({
                   renderLink={renderLink}
                   glossary={glossaryTermsById(
                     glossaryTerms,
-                    courseGlossarySlug === undefined
-                      ? undefined
-                      : (termId) =>
-                          courseGlossaryHref(courseGlossarySlug, termId),
+                    courseGlossaryMoreHref(courseGlossary),
                   )}
                   blocks={body}
                   contentVersion={material.contentVersion}
