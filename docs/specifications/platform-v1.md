@@ -324,6 +324,29 @@ Account по каждому упражнению урока. Reader восста
 (`inside.exercise-answers.v1:<materialId>`), под упражнением предложение войти; после входа они
 на аккаунт не переносятся. Попытки не дают доступа, не меняют «Изучено», прогресс курса и
 Product Task.
+
+Статистика упражнений для автора (#2124): `GET /authoring/materials/{materialId}/exercise-statistics`
+(`readExerciseStatistics`, право `materials:manage`, иначе `forbidden` 403) отдаёт каждое
+упражнение урока, на которое отвечали, с версиями по отпечатку от старой к новой. Для версии
+считаются только первые попытки (`firstForVersion`): `respondents` (сколько Account ответили),
+`firstTryCorrect`, `firstTryDontKnow` и `mostFrequentWrongAnswer`, самый частый неверный ответ
+целиком с числом таких ответов. Ответы, которые значат одно и то же, считаются одним: выбранные
+варианты квиза и пары «Сопоставь» сравниваются как множество, порядок «Расставь по порядку»
+сравнивается как есть. При равенстве выигрывает меньший канонический текст ответа. Упражнение,
+убранное из урока, сохраняет статистику. Вкладка «Статистика» редактора урока нумерует упражнения
+и подписывает пункты ответа по открытому документу, отмечает версию, совпадающую с ним, как
+текущую и показывает остальные как прежние.
+
+Оценка урока (Lesson Rating, #2124) хранится модулем `LessonRatings` в таблице
+`lesson_ratings.ratings`: одна текущая оценка `like` или `dislike` на Account и Material.
+`PUT /lesson-ratings/materials/{materialId}` (`rateLesson`) принимает только `{ rating }` и
+требует доступа к уроку, как чтение (`access_denied` 403, снятый или неизвестный урок
+`material_not_found` 404); новая оценка заменяет прежнюю. `DELETE` того же адреса
+(`clearLessonRating`) снимает оценку, `GET` (`readLessonRating`) отдаёт свою оценку или `null`.
+`GET /authoring/materials/{materialId}/ratings` (`countLessonRatings`, право `materials:manage`)
+отдаёт `{ likes, dislikes }`. Reader показывает «Как вам урок?» в конце урока, после последней
+открытой части; повторное нажатие выбранной оценки снимает её, гостю предложено войти. Оценка не
+даёт доступа и не меняет чтение, прогресс и Product Task.
 Поиск извлекает из упражнения только условие и вопрос. Учебный MCP возвращает упражнение целиком,
 включая варианты, ключ, объяснения и ссылки, при обычной проверке доступа к body.
 
@@ -394,7 +417,8 @@ Entry points вызывают одни application use cases и не созда�
 | `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
 | `ReadingActivity` | установить manual read/unread, пакетно читать состояния и private recent opens, сохранить открытые части пошагового урока | Account-to-Material state и atomic transition history; не content access/analytics |
-| `ExerciseAttempts` | проверить ответ на упражнение и записать попытку, прочитать последние попытки Account в уроке | Exercise Attempts: ответ, результат, отпечаток версии и первая попытка на версии; не доступ и не прогресс |
+| `ExerciseAttempts` | проверить ответ на упражнение и записать попытку, прочитать последние попытки Account в уроке, посчитать для автора статистику первых попыток по версиям | Exercise Attempts: ответ, результат, отпечаток версии и первая попытка на версии; не доступ и не прогресс |
+| `LessonRatings` | поставить, изменить, снять и прочитать оценку урока Account, посчитать лайки и дизлайки для автора | Lesson Ratings: текущий лайк или дизлайк Account на Material; не доступ и не прогресс |
 | `Glossary` | записать термины пакета по идентификатору, найти термины по идентификаторам и по вводящему уроку, хранить отметки читателя ([Словарь](#словарь)) | Glossary Terms: идентификатор, названия, короткое и полное определение, source ID вводящего урока; отметки «знаю» и «повторить» Account |
 
 Transaction semantics принадлежат единому

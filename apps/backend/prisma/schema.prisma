@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos", "glossary", "exercise_attempts"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos", "glossary", "exercise_attempts", "lesson_ratings"]
 }
 
 model Account {
@@ -828,6 +828,19 @@ model ExerciseAttempt {
   @@index([accountId, materialId, exerciseId, sequence(sort: Desc)], map: "exercise_attempts_latest")
   @@map("attempts")
   @@schema("exercise_attempts")
+}
+
+/// Lesson Ratings (#2124): one current like or dislike per Account and Material.
+model LessonRating {
+  accountId  String   @map("account_id") @db.Uuid
+  materialId String   @map("material_id") @db.Uuid
+  rating     String
+  ratedAt    DateTime @map("rated_at") @db.Timestamptz
+
+  @@id([accountId, materialId], map: "lesson_ratings_primary")
+  @@index([materialId, rating], map: "lesson_ratings_by_material")
+  @@map("ratings")
+  @@schema("lesson_ratings")
 }
 
 model BookmarkedMaterial {

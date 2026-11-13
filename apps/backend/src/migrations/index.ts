@@ -35,6 +35,10 @@ import {
   statement as lessonOpenedPartsStatement,
 } from "../modules/reading-activity/infrastructure/postgres/migrations/0127-lesson-opened-parts.js";
 import {
+  name as lessonRatingsName,
+  statement as lessonRatingsStatement,
+} from "../modules/lesson-ratings/infrastructure/postgres/migrations/0128-lesson-ratings.js";
+import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0118-automatic-cancel-refund.js";
@@ -819,6 +823,7 @@ export const platformMigrations = [
   { name: glossaryTermMarksName, statement: glossaryTermMarksStatement },
   { name: exerciseAttemptsName, statement: exerciseAttemptsStatement },
   { name: lessonOpenedPartsName, statement: lessonOpenedPartsStatement },
+  { name: lessonRatingsName, statement: lessonRatingsStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -147,6 +147,13 @@ export type ExerciseAttemptsPrisma = Pick<
 export type ExerciseAttemptsPrismaClient = ExerciseAttemptsPrisma &
   TransactionClient<ExerciseAttemptsPrisma>;
 
+export type LessonRatingsPrisma = Pick<
+  PlatformPrisma,
+  "$executeRaw" | "$queryRaw" | "lessonRating"
+>;
+export type LessonRatingsPrismaClient = LessonRatingsPrisma &
+  TransactionClient<LessonRatingsPrisma>;
+
 export type SalesFunnelPrisma = Pick<
   PlatformPrisma,
   | "$queryRaw"

@@ -1804,6 +1804,54 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Read first-try statistics of every answered exercise version of a Material. Requires materials:manage
+   * @returns any
+   * @throws ApiError
+   */
+  public readExerciseStatistics({
+    materialId,
+  }: {
+    materialId: string,
+  }): CancelablePromise<{
+    exercises: Array<{
+      exerciseId: string;
+      kind: 'quiz' | 'match' | 'order';
+      versions: Array<{
+        fingerprint: string;
+        firstAnsweredAt: string;
+        firstTryCorrect: number;
+        firstTryDontKnow: number;
+        mostFrequentWrongAnswer: {
+          answer: ({
+            kind: 'options';
+            optionIds: Array<string>;
+          } | {
+            kind: 'matches';
+            matches: Array<{
+              choiceId: string;
+              rowId: string;
+            }>;
+          } | {
+            kind: 'sequence';
+            stepIds: Array<string>;
+          } | {
+            kind: 'dontKnow';
+          });
+          count: number;
+        } | null;
+        respondents: number;
+      }>;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/materials/{materialId}/exercise-statistics',
+      path: {
+        'materialId': materialId,
+      },
+    });
+  }
+  /**
    * Render the current saved Material
    * @returns any
    * @throws ApiError
@@ -1878,6 +1926,27 @@ export class MaterialAuthoringService {
       },
       body: requestBody,
       mediaType: 'application/json',
+    });
+  }
+  /**
+   * Count the current likes and dislikes of a lesson. Requires materials:manage
+   * @returns any
+   * @throws ApiError
+   */
+  public countLessonRatings({
+    materialId,
+  }: {
+    materialId: string,
+  }): CancelablePromise<{
+    dislikes: number;
+    likes: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/materials/{materialId}/ratings',
+      path: {
+        'materialId': materialId,
+      },
     });
   }
   /**

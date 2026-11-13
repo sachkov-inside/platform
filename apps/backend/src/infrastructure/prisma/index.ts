@@ -18,6 +18,8 @@ export {
   type BookmarksPrismaClient,
   type ExerciseAttemptsPrisma,
   type ExerciseAttemptsPrismaClient,
+  type LessonRatingsPrisma,
+  type LessonRatingsPrismaClient,
   type GlossaryPrisma,
   type GlossaryPrismaClient,
   type AccountsPrisma,

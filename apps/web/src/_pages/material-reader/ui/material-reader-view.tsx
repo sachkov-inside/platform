@@ -67,6 +67,11 @@ export interface MaterialReaderViewProps {
   /** Колода «Термины урока» в конце урока (#2127). */
   readonly termDeck?: ReactNode;
   /**
+   * «Как вам урок?» в конце урока (#2124). Как и колода, ждёт, пока откроется последняя часть
+   * урока.
+   */
+  readonly lessonRating?: ReactNode;
+  /**
    * Wraps the lesson text and its end: Exercise Attempts restore answers inside it and close it
    * with «Упражнения: N из M решены» (#2121). Without it exercises keep answers on the page only.
    */
@@ -96,6 +101,7 @@ export function MaterialReaderView({
   glossaryTerms = [],
   courseGlossarySlug,
   termDeck,
+  lessonRating,
   exerciseScope = (lesson) => lesson,
   material,
   primaryVideo,
@@ -244,6 +250,9 @@ export function MaterialReaderView({
               </article>
               {termDeck === undefined ? null : (
                 <LessonStepsTail>{termDeck}</LessonStepsTail>
+              )}
+              {lessonRating === undefined ? null : (
+                <LessonStepsTail>{lessonRating}</LessonStepsTail>
               )}
             </ReaderLessonSteps>,
           )}
