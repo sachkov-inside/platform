@@ -352,6 +352,7 @@ Entry points вызывают одни application use cases и не созда�
 | `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
 | `ReadingActivity` | установить manual read/unread, пакетно читать состояния и private recent opens | Account-to-Material state и atomic transition history; не content access/analytics |
+| `Glossary` | заменить словарь целиком из пакета и найти термины по идентификаторам ([Словарь](#словарь)) | Glossary Terms: идентификатор, названия, короткое и полное определение, source ID вводящего урока |
 
 Transaction semantics принадлежат единому
 [write atomicity contract](#validation-results-and-write-atomicity), а verification seams —
@@ -714,6 +715,42 @@ Product. Без поля релиз темы цели не трогает; сп�
 и запоминает темы цели; apply останавливается, если перед записью состава темы уже другие. После
 записи состава apply вызывает `PUT /authoring/products/:productId/topics` с `orderVersion` из её
 ответа, только если темы отличаются. Оболочка `product-shell` и пакет `contentOnly` тем не несут.
+
+### Словарь
+
+Словарь (Glossary) хранит термины курсов в модуле `Glossary`, отдельно от материалов (#2126,
+спецификация [«Интерактивные уроки v1»](interactive-lessons-v1.md)). Термин имеет постоянный
+`id` (slug `^[a-z0-9]+(-[a-z0-9]+)*$`, до 120 символов), `title` и необязательный `englishTitle`
+(1–120 после `trim()`), `shortDefinition` (1–300), `fullDefinition` (1–4000, простой текст,
+пустая строка разделяет абзацы) и `introducedInSourceId`: source ID урока, который вводит термин,
+`<sourceNamespace>:<sourceId>`, или `null`. Словарь один на платформу: идентификатор термина
+уникален во всех курсах.
+
+Тело урока ссылается на термин двумя способами. Упоминание: ссылка с `href` `term:<id>`; приём тела
+проверяет только форму идентификатора. Карточка: блок `termDefinition` с атрибутом `termId`
+(отображение `term_definition`), текста в теле у неё нет. Поиск видит текст упоминания и не видит
+карточку. Чтение опубликованного урока (`readPublishedMaterial`) оставляет ссылку `term:` только у
+первого упоминания каждого термина в порядке документа, остальные отдаёт обычным текстом, и
+возвращает `glossaryTerms: [{ id, title, englishTitle, shortDefinition, fullDefinition }]` для
+терминов, которые тело упоминает или показывает карточкой. Определения читаются из словаря вместе
+с телом, поэтому исправленное определение видно во всех уроках без перепубликации. Термина нет в
+словаре: Web показывает упоминание обычным текстом и не рисует карточку.
+
+REST `GET /authoring/glossary` (`listAuthoringGlossaryTerms`) отдаёт весь словарь,
+`PUT /authoring/glossary` (`replaceAuthoringGlossary`) принимает `{ terms }` и атомарно заменяет
+словарь целиком: термин вне списка удаляется. Ответ `{ created, updated, removed, unchanged }`.
+Оба доступны Account с `materials:manage`. Повтор `id` или нарушение формы дают
+`invalid_glossary` (422).
+
+Словарь приходит из Content Studio с возможностью `glossary-v1`. Пакет может нести
+`glossary: { terms: [{ id, title, englishTitle, shortDefinition, fullDefinition,
+introducedInMaterialId }] }`, где `introducedInMaterialId` это source ID материала или `null`.
+Без поля релиз словарь цели не трогает; список, даже пустой, задаёт весь словарь. Markdown
+оставляет `[текст](term:<id>)` ссылкой `term:<id>` и превращает пустую врезку
+`> [!definition] term:<id>` в `termDefinition`; врезка с текстом или неверным идентификатором
+отклоняется. Упоминание требует `glossary-v1`, а при словаре в пакете каждое упоминание должно
+быть в нём. После проверки всех тел перенос сравнивает словарь цели с желаемым и вызывает
+`PUT /authoring/glossary`, только если они различаются; отчёт переноса содержит `glossary`.
 
 ### Страница руководства
 
@@ -1784,7 +1821,7 @@ checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 The authoring package accepts envelope `schemaVersion: 1 | 2 | 3`. Before asset uploads or other writes,
 `loadPackage` checks its version and every `requiredFeatures` entry. Current v3 packages require `canonical-product-source-v2`; v1/v2 envelopes remain historical input. Supported features are
 `material-task-v1`, `task-c-v2`, `quiz-v1`, `quiz-multiple-v1`, `github-anchors-v1`, `image-variants-v1`,
-`collapsible-callouts-v1`, `bounded-content-v1`, `svg-images-v1`, `product-topics-v1` and `canonical-product-source-v2`; unknown features are refused by name.
+`collapsible-callouts-v1`, `bounded-content-v1`, `svg-images-v1`, `product-topics-v1`, `glossary-v1` and `canonical-product-source-v2`; unknown features are refused by name.
 With `svg-images-v1` in the receiver's `packageFeatures`, the client uploads an `image/svg+xml` Material image unchanged;
 a receiver without it gets a PNG rendered from the SVG.
 
