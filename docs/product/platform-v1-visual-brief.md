@@ -56,7 +56,7 @@ decisions.
 
 Подтверждено owner:
 
-- Platform остаётся узнаваемо связанной с прежним landing sachkov.dev, но не копирует его
+- Platform остаётся узнаваемо связанной с текущим Sachkov Inside landing, но не копирует его
   marketing composition.
 - Базовое ощущение — light, calm, modern, rounded и uncluttered.
 - Контент и работа пользователя важнее chrome; reading surface не превращается в набор карточек.
@@ -126,7 +126,7 @@ production baseline, но не final visual selection и не требовани
 References ниже дают отдельные disciplines. Ни один source не копируется целиком и не получает
 authority над product truth.
 
-### [Former sachkov.dev landing](https://sachkov.dev/) · [source](https://github.com/sachkov-inside/inside-landing)
+### [Current Sachkov Inside landing](https://sachkov.dev/) · [source](https://github.com/sachkov-inside/inside-landing)
 
 **Role:** existing brand family.
 

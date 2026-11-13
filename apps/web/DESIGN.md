@@ -121,7 +121,7 @@ Production modules and their stories own the executable presentation. Token valu
 
 **Creative North Star: "Soft Technical Workshop"**
 
-sachkov.dev Platform: спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.
+sachkov.dev Platform выглядит как спокойная светлая инженерная мастерская. Тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.
 
 Это документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; current Preview теперь имеет bounded desktop и narrow-mobile evidence. Владелец отклонил пользовательский version rail: `contentVersion` остаётся только внутренним concurrency token.
 

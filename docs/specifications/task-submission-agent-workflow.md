@@ -18,7 +18,7 @@ Platform stores agent statements; neither their presence nor their outcome const
 
 ## Context ownership
 
-Content owns the authored task and its versioned requirements. Platform imports them through the existing task publication path.
+Content Studio owns the authored task and its versioned requirements. Platform imports them through the existing task publication path.
 The public task page presents the assignment and learner-facing explanations.
 Each task definition may additionally contain `reviewGuidance`: bounded author-written context for the learner's agent.
 It describes task-specific evidence, relevant scenarios, acceptable alternatives and points that require attention.

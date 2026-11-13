@@ -489,9 +489,9 @@ export const Unpublished: Story = {
   },
 };
 
-/** Материал из Content: редактор показывает его только для чтения и называет источник. */
+/** Материал из Content Studio: редактор показывает его только для чтения и называет источник. */
 export const SyncedFromInsideContent: Story = {
-  name: "Материал из Content",
+  name: "Материал из Content Studio",
   args: {
     initialPresentation: {
       ...materialAuthoringPresentation,

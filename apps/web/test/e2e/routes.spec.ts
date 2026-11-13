@@ -80,7 +80,7 @@ for (const destination of destinations) {
       destination.heading,
     );
     await expect(page).toHaveTitle(
-      new RegExp(`^${destination.label} · sachkov.dev$`, "u"),
+      new RegExp(`^${destination.label} · sachkov\\.dev$`, "u"),
     );
 
     const navigation = getPrimaryNavigation(page, testInfo.project.name);
