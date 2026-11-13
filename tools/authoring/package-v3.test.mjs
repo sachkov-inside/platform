@@ -571,3 +571,57 @@ for (const [description, value, message] of /** @type {const} */ ([
     await assert.rejects(loadTopicPackage(t, value), message);
   });
 }
+
+/** @param {string} sourceId */
+const glossaryTerm = (sourceId) => ({
+  sourceId,
+  title: "Термин",
+  englishTitle: null,
+  shortDefinition: "Коротко.",
+  fullDefinition: "Полностью.",
+  introducedInMaterialId: "one",
+});
+
+/**
+ * @param {unknown} glossaryTerms
+ * @param {string[]} [features]
+ */
+const glossaryFixture = (
+  glossaryTerms,
+  features = ["canonical-product-source-v2", "glossary-v1"],
+) => ({ ...fixture(), requiredFeatures: features, glossaryTerms });
+
+test("a package carries Glossary Terms in the content-studio#88 shape (glossary-v1)", async (t) => {
+  const terms = [glossaryTerm("aggregate"), glossaryTerm("bounded-context")];
+  const pkg = await loadTopicPackage(t, glossaryFixture(terms));
+  assert.deepEqual(pkg.manifest.glossaryTerms, terms);
+});
+
+for (const [description, value, message] of /** @type {const} */ ([
+  [
+    "Glossary Terms without glossary-v1",
+    glossaryFixture([], ["canonical-product-source-v2"]),
+    /Glossary Terms require package v2 and glossary-v1/u,
+  ],
+  [
+    "a repeated term identifier",
+    glossaryFixture([glossaryTerm("a"), glossaryTerm("a")]),
+    /Glossary Term identity/u,
+  ],
+  [
+    "a term identifier that is not a slug",
+    glossaryFixture([glossaryTerm("Bounded Context")]),
+    /Invalid string/u,
+  ],
+  [
+    "a short definition longer than 300 characters",
+    glossaryFixture([
+      { ...glossaryTerm("a"), shortDefinition: "x".repeat(301) },
+    ]),
+    /Short definition/u,
+  ],
+])) {
+  test(`package loading refuses ${description}`, async (t) => {
+    await assert.rejects(loadTopicPackage(t, value), message);
+  });
+}

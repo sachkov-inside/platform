@@ -53,6 +53,7 @@ describe("guest Material read kept in the shared cache", () => {
     const fetchBackend = backendAnswers({
       kind: "available",
       cacheScope: "public",
+      glossaryTerms: [],
       projection: { ...projection, access: "free" },
       body,
       primaryVideo: null,
@@ -85,6 +86,7 @@ describe("guest Material read kept in the shared cache", () => {
     backendAnswers({
       kind: "available",
       cacheScope: "private-no-store",
+      glossaryTerms: [],
       projection,
       body,
       primaryVideo: null,

@@ -188,4 +188,7 @@ export type RecursiveSchema0schema0 = ({
   }>;
   description?: string;
   kind: 'video';
+} | {
+  kind: 'term_definition';
+  termId: string;
 });

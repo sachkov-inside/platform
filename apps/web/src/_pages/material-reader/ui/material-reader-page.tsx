@@ -540,6 +540,7 @@ async function ResolvedMaterialReader({
           <MaterialUpdateNotice materialId={result.material.materialId} />
         }
         body={result.body}
+        glossaryTerms={result.glossaryTerms}
         material={result.material}
         primaryVideo={result.primaryVideo}
         returnTarget={returnTarget}

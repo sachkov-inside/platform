@@ -26,5 +26,9 @@ export const authoringImportContract = {
     // A lesson apply may carry `updateNote: { id, whatChanged }`, a substantial update readers
     // who studied the lesson earlier are told about (#2125).
     "material-update-note-v1",
+    // A package may carry the Glossary and Materials may mention its terms as `term:<id>` and
+    // show a `> [!definition] term:<id>` card; the client writes it through
+    // PUT /authoring/glossary (#2126).
+    "glossary-v1",
   ],
 } as const;

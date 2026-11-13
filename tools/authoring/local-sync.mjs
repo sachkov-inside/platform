@@ -4,7 +4,11 @@ import {
   assertLegacyTaskTargets,
 } from "./legacy-task-targets.mjs";
 import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
-import { contentMaterials, contentTasks } from "./package.mjs";
+import {
+  contentMaterials,
+  contentTasks,
+  GLOSSARY_FEATURE,
+} from "./package.mjs";
 import { z } from "zod";
 import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { materialImageAssetIds } from "./package.mjs";
@@ -95,6 +99,8 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {string} [homePinned]
  * @property {"product-shell"} [scope]
  * @property {import("./task-import.mjs").TaskChange[]} [tasks]
+ * @property {{ created: number; updated: number; unchanged: number }} [glossary]
+ *   What the package's Glossary Terms changed in the receiver's Glossary; absent when it has none
  * @typedef {object} SyncOptions
  * @property {string} [origin]
  * @property {import("./target.mjs").LocalTransport | undefined} [request]
@@ -496,6 +502,36 @@ export function productChapters(manifest, product) {
     name: chapter.title.trim(),
     summary: chapter.summary.trim(),
   }));
+}
+
+/**
+ * The Glossary Terms a package carries, as `PUT /authoring/glossary/terms` takes them: text
+ * trimmed as the receiver stores it, terms in identifier order, and the introducing Material named
+ * by its source key, the same key its Material import carries.
+ *
+ * @param {Pick<Manifest, "sourceNamespace">} manifest
+ * @param {NonNullable<Manifest["glossaryTerms"]>} terms
+ */
+export function glossaryTerms(manifest, terms) {
+  return [...terms]
+    .sort((left, right) =>
+      left.sourceId < right.sourceId
+        ? -1
+        : left.sourceId > right.sourceId
+          ? 1
+          : 0,
+    )
+    .map((term) => ({
+      id: term.sourceId,
+      title: term.title.trim(),
+      englishTitle: term.englishTitle?.trim() ?? null,
+      shortDefinition: term.shortDefinition.trim(),
+      fullDefinition: term.fullDefinition.trim(),
+      introducedInSourceId:
+        term.introducedInMaterialId === null
+          ? null
+          : sourceKey(manifest, term.introducedInMaterialId),
+    }));
 }
 
 /**
@@ -1214,6 +1250,22 @@ export async function syncLocal(
         readerBlocks: row.readerBlocks,
         sourceId: sourceId(row.sourceId),
         sourcePath: row.sourcePath,
+        term: (id) => {
+          if (!pkg.manifest.requiredFeatures?.includes(GLOSSARY_FEATURE))
+            throw new Error(
+              `${row.sourcePath}: a term mention requires ${GLOSSARY_FEATURE}`,
+            );
+          // Content carries every term its Materials mention (content-studio#88), so a missing
+          // one is an export defect, not a term the receiver may already hold.
+          if (
+            !(pkg.manifest.glossaryTerms ?? []).some(
+              (term) => term.sourceId === id,
+            )
+          )
+            throw new Error(
+              `${row.sourcePath}: term is not in the package Glossary: ${id}`,
+            );
+        },
         link: (href) => {
           if (href.startsWith("artifact:")) {
             const reference = /^artifact:([a-z0-9]+(?:-[a-z0-9]+)*)$/u.exec(
@@ -1556,6 +1608,36 @@ export async function syncLocal(
           path: row.sourcePath,
           message: `Опубликованный материал ссылается на приватные черновики (${drafts.join(", ")}); читатели откроют ссылку только после их публикации`,
         });
+    }
+
+    // Every document passed validation, including its term mentions, so the terms go first: a
+    // Material published below finds them. The write sets each sent term by its identifier and is
+    // idempotent, so it needs no journal; only terms that differ from the receiver's are sent.
+    if (pkg.manifest.glossaryTerms !== undefined) {
+      const carried = glossaryTerms(pkg.manifest, pkg.manifest.glossaryTerms);
+      const stored = new Map(
+        (await request("/authoring/glossary")).terms.map((term) => [
+          term.id,
+          canonical(term),
+        ]),
+      );
+      const changed = carried.filter(
+        (term) => stored.get(term.id) !== canonical(term),
+      );
+      const written =
+        changed.length === 0
+          ? { created: 0, updated: 0, unchanged: 0 }
+          : await request(
+              "/authoring/glossary/terms",
+              { terms: changed },
+              undefined,
+              { method: "PUT" },
+            );
+      report.glossary = {
+        created: written.created,
+        updated: written.updated,
+        unchanged: carried.length - written.created - written.updated,
+      };
     }
 
     /**

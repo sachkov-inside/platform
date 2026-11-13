@@ -107,6 +107,7 @@ describe("Learning material reference batches", () => {
               kind: "available",
               cacheScope: "public",
               body,
+              glossaryTerms: [],
               primaryVideo: null,
               projection: {
                 materialId: "72000000-0000-4000-8000-000000000001",

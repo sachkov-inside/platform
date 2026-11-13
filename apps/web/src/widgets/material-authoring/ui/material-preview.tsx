@@ -8,8 +8,10 @@ import {
 import { MaterialPrimaryVideo } from "@/features/material-video";
 import {
   materialTaxonomyLabel,
+  MaterialCallout,
   MaterialLessonBlock,
 } from "@/entities/material";
+import { isGlossaryTermHref } from "@inside/material-blocks";
 
 import type {
   MaterialPreviewBlock,
@@ -251,6 +253,15 @@ function PreviewBlock({
       return (
         <PreviewVideo materialId={materialId} video={video} block={block} />
       );
+    case "term_definition":
+      // The preview has no Glossary: it names the card the reader fills from the Glossary.
+      return (
+        <MaterialCallout tone="definition" title={`Термин ${block.termId}`}>
+          <p className="mt-2 text-muted-foreground">
+            Полное определение придёт из словаря.
+          </p>
+        </MaterialCallout>
+      );
     case "image":
       return (
         <MaterialAssetImage
@@ -371,6 +382,17 @@ function applyMarks(
       case "strike":
         return <s key={markKey}>{node}</s>;
       case "link":
+        // A term mention is resolved by the reader against the Glossary; it is not an address.
+        if (isGlossaryTermHref(mark.href))
+          return (
+            <span
+              className="underline decoration-dotted underline-offset-4"
+              key={markKey}
+              title={mark.href}
+            >
+              {node}
+            </span>
+          );
         return (
           <ProseAnchor
             className="underline decoration-accent underline-offset-4"

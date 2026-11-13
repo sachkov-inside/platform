@@ -21,6 +21,8 @@ export function convertMarkdown(
       | readonly import("@inside/material-blocks").ContentReaderBlock[]
       | undefined;
     link: (href: string) => string;
+    /** Called with each Glossary Term the Markdown mentions or shows as a definition card. */
+    term?: ((id: string) => void) | undefined;
     image: (src: string) => string;
     imageVariants?: (src: string) => ImageVariantResolution | undefined;
   },

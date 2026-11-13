@@ -1,5 +1,6 @@
 import type {
   ContentCover,
+  GlossaryTerm,
   RenderedBlock,
   RenderedMark,
   RenderedText,
@@ -52,6 +53,8 @@ export type MaterialReaderResult =
       readonly kind: "available";
       readonly material: MaterialReaderMetadata;
       readonly body: readonly ReaderBlock[];
+      /** Термины словаря, которые упоминает тело; определения читаются вместе с ним. */
+      readonly glossaryTerms: readonly GlossaryTerm[];
       readonly primaryVideo: PrimaryVideoPresentation | null;
     }
   | {

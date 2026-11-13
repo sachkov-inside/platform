@@ -13,6 +13,11 @@ import {
   MaterialBodyView,
   MaterialShareButton,
 } from "@/entities/material";
+import {
+  glossaryTermsById,
+  type GlossaryTerm,
+  type GlossaryTerms,
+} from "@/entities/material.model";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
@@ -48,6 +53,8 @@ import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 export interface MaterialReaderViewProps {
   readonly renderLink?: MaterialBodyRendering["link"];
   readonly body: readonly ReaderBlock[];
+  /** Термины словаря, на которые ссылается тело; без них упоминание читается обычным текстом. */
+  readonly glossaryTerms?: readonly GlossaryTerm[];
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
   readonly returnTarget?: MaterialReaderReturnTarget;
@@ -70,6 +77,7 @@ export interface MaterialReaderViewProps {
 export function MaterialReaderView({
   renderLink,
   body,
+  glossaryTerms = [],
   material,
   primaryVideo,
   returnTarget = homeMaterialReaderReturnTarget,
@@ -198,6 +206,7 @@ export function MaterialReaderView({
                 )
               }
               renderLink={renderLink}
+              glossary={glossaryTermsById(glossaryTerms)}
               blocks={body}
               contentVersion={material.contentVersion}
               materialId={material.materialId}
@@ -430,6 +439,7 @@ export function MaterialReaderFooter({
 function ReaderBlocks({
   renderVideo,
   renderLink,
+  glossary,
   blocks,
   contentVersion,
   materialId,
@@ -438,6 +448,7 @@ function ReaderBlocks({
 }: {
   readonly renderVideo: MaterialBodyRendering["video"];
   readonly renderLink?: MaterialBodyRendering["link"];
+  readonly glossary: GlossaryTerms;
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
   readonly materialId: string;
@@ -457,6 +468,7 @@ function ReaderBlocks({
       path={path}
       rendering={{
         ...(renderLink === undefined ? {} : { link: renderLink }),
+        glossary,
         headingId,
         ...(renderVideo === undefined ? {} : { video: renderVideo }),
         image: (block) =>

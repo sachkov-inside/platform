@@ -19,6 +19,10 @@ import {
   statement as dropModeVariantsStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0123-drop-mode-variants.js";
 import {
+  name as glossaryTermsName,
+  statement as glossaryTermsStatement,
+} from "../modules/glossary/infrastructure/postgres/migrations/0124-glossary-terms.js";
+import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0118-automatic-cancel-refund.js";
@@ -799,6 +803,7 @@ export const platformMigrations = [
     statement: dropReaderPreferencesStatement,
   },
   { name: dropModeVariantsName, statement: dropModeVariantsStatement },
+  { name: glossaryTermsName, statement: glossaryTermsStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -12,7 +12,16 @@ import {
 } from "../../apps/backend/src/modules/products/shared/product-topics.ts";
 import { materialUpdateNoteSchema } from "../../apps/backend/src/modules/materials/domain/material-update-note.ts";
 import { z } from "zod";
-import { readerBlocksSchema } from "@inside/material-blocks";
+import {
+  GLOSSARY_FULL_DEFINITION_MAX,
+  GLOSSARY_SHORT_DEFINITION_MAX,
+  GLOSSARY_TERM_TITLE_MAX,
+  GLOSSARY_TERMS_MAX,
+} from "../../apps/backend/src/modules/glossary/domain/glossary-limits.ts";
+import {
+  glossaryTermIdSchema,
+  readerBlocksSchema,
+} from "@inside/material-blocks";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { decodePackageV1, fingerprintAccess } from "./compatibility.mjs";
 
@@ -206,6 +215,48 @@ export const sourceTaskSchema = z
   })
   .strict();
 
+/**
+ * @param {number} max
+ * @param {string} name
+ */
+const trimmedText = (max, name) =>
+  z
+    .string()
+    .refine(
+      (value) => value.trim().length >= 1 && value.trim().length <= max,
+      `${name} must have 1-${String(max)} characters after trim`,
+    );
+
+/** The feature a package declares when it carries the Glossary or mentions its terms. */
+export const GLOSSARY_FEATURE = "glossary-v1";
+
+/**
+ * One Glossary Term as Content exports it (content-studio#88). `sourceId` is the permanent term
+ * identifier Materials write in `term:<id>`; `introducedInMaterialId` is the source ID of the
+ * Material that introduces the term, possibly outside this package. The full definition is plain
+ * text, a blank line between paragraphs. The receiver stores trimmed text, so the limits apply to
+ * trimmed text.
+ */
+const glossaryTermSchema = z
+  .object({
+    sourceId: glossaryTermIdSchema,
+    title: trimmedText(GLOSSARY_TERM_TITLE_MAX, "Term title"),
+    englishTitle: trimmedText(
+      GLOSSARY_TERM_TITLE_MAX,
+      "Term English title",
+    ).nullable(),
+    shortDefinition: trimmedText(
+      GLOSSARY_SHORT_DEFINITION_MAX,
+      "Short definition",
+    ),
+    fullDefinition: trimmedText(
+      GLOSSARY_FULL_DEFINITION_MAX,
+      "Full definition",
+    ),
+    introducedInMaterialId: identifier.nullable(),
+  })
+  .strict();
+
 /** The only explicit selection scope; a package without it selects Materials. */
 export const productShellScope = z.literal("product-shell");
 
@@ -216,6 +267,13 @@ export const manifestSchema = z
     sourceNamespace: identifier,
     practiceDefinitions: z.array(sourcePracticeSchema).max(100).optional(),
     tasks: z.array(sourceTaskSchema).max(200).optional(),
+    // Glossary Terms (#2126, `glossary-v1`): the terms this package's Materials mention or
+    // introduce. Each is written by its identifier; a term the package does not carry stays as the
+    // receiver has it.
+    glossaryTerms: z
+      .array(glossaryTermSchema)
+      .max(GLOSSARY_TERMS_MAX)
+      .optional(),
     selection: z
       .object({
         productId: identifier.nullable(),
@@ -733,6 +791,19 @@ export async function loadPackage(path) {
     "asset identity",
   );
   checkSelectionScope(manifest);
+  if (manifest.glossaryTerms !== undefined) {
+    if (
+      manifest.schemaVersion < 2 ||
+      !manifest.requiredFeatures?.includes(GLOSSARY_FEATURE)
+    )
+      throw new Error(
+        `Glossary Terms require package v2 and ${GLOSSARY_FEATURE}`,
+      );
+    unique(
+      manifest.glossaryTerms.map((term) => term.sourceId),
+      "Glossary Term identity",
+    );
+  }
   const bounded = manifest.selection.contentOnly;
   if (
     Boolean(bounded) !==

@@ -285,3 +285,33 @@ test("video fence places the primary recording between prose with its context", 
     convert('```video\n{"providerVideoId":"another-recording"}\n```'),
   );
 });
+
+test("a term mention stays a term: link and a definition card names only its term", () => {
+  const doc = convert(
+    "Граница [ограниченного контекста](term:bounded-context).\n\n> [!definition] term:bounded-context\n\n> [!definition] Своё определение\n> Текст автора.",
+  );
+  assert.deepEqual(doc.content[0]?.content?.[1], {
+    type: "text",
+    text: "ограниченного контекста",
+    marks: [{ type: "link", attrs: { href: "term:bounded-context" } }],
+  });
+  assert.equal(doc.content[1]?.type, "termDefinition");
+  assert.equal(doc.content[1]?.attrs?.["termId"], "bounded-context");
+  assert.equal(doc.content[2]?.type, "callout");
+  assert.equal(doc.content[2]?.attrs?.["kind"], "definition");
+});
+
+test("a definition card refuses its own text and a malformed term", () => {
+  assert.throws(
+    () => convert("> [!definition] term:bounded-context\n> Лишний текст"),
+    /definition card takes its text from the Glossary/,
+  );
+  assert.throws(
+    () => convert("> [!definition] term:Bounded Context"),
+    /invalid term identifier/,
+  );
+  assert.throws(
+    () => convert("[контекст](term:Bounded)"),
+    /invalid term identifier/,
+  );
+});
