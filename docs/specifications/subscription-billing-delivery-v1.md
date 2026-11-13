@@ -1,4 +1,4 @@
-# Поставка собственной подписки Inside
+# Поставка собственной подписки sachkov.dev
 
 Текущий объём #407 уточнён в [модели подписки](../product/subscription-billing-v1.md)
 и [плане руководств](../product/guides-delivery-plan.md) по решению Workspace #156.
@@ -58,8 +58,8 @@ Map не ждёт исполнения всех production работ и не з
 | [platform #411](https://github.com/sachkov-inside/platform/issues/411) | Покупатель выбирает вариант, видит точную сумму и управляет подпиской; владелец работает с платежами и правами через сайт. | [platform #409](https://github.com/sachkov-inside/platform/issues/409), [platform #410](https://github.com/sachkov-inside/platform/issues/410) |
 | [platform #412](https://github.com/sachkov-inside/platform/issues/412) | Посетитель может без входа прочитать юридические условия; нужные ссылки и отдельные согласия доступны в соответствующих формах. | [workspace #149](https://github.com/sachkov-inside/workspace/issues/149) |
 | [platform #413](https://github.com/sachkov-inside/platform/issues/413) | На разрешённом тестовом контуре доказан полный сценарий покупки и продления, а не только локальные тесты. | [platform #402](https://github.com/sachkov-inside/platform/issues/402), [platform #411](https://github.com/sachkov-inside/platform/issues/411), [platform #412](https://github.com/sachkov-inside/platform/issues/412), [inside-telegram #55](https://github.com/sachkov-inside/inside-telegram/issues/55), [inside-telegram #56](https://github.com/sachkov-inside/inside-telegram/issues/56), [platform #415](https://github.com/sachkov-inside/platform/issues/415) |
-| [platform #414](https://github.com/sachkov-inside/platform/issues/414) | Новые покупатели могут безопасно оплатить Inside в рабочем окружении после отдельного разрешения владельца. | [platform #413](https://github.com/sachkov-inside/platform/issues/413) |
-| [workspace #150](https://github.com/sachkov-inside/workspace/issues/150) | Старые участники сохраняют права и переходят на Inside без второго автосписания за уже оплаченный срок. | [workspace #147](https://github.com/sachkov-inside/workspace/issues/147) |
+| [platform #414](https://github.com/sachkov-inside/platform/issues/414) | Новые покупатели могут безопасно оплатить доступ к sachkov.dev в рабочем окружении после отдельного разрешения владельца. | [platform #413](https://github.com/sachkov-inside/platform/issues/413) |
+| [workspace #150](https://github.com/sachkov-inside/workspace/issues/150) | Старые участники сохраняют права и переходят на sachkov.dev без второго автосписания за уже оплаченный срок. | [workspace #147](https://github.com/sachkov-inside/workspace/issues/147) |
 | [platform #415](https://github.com/sachkov-inside/platform/issues/415) | Изменение прав Account надёжно изменяет желаемое участие в сообществе и даёт владельцу видимый результат применения. | [platform #404](https://github.com/sachkov-inside/platform/issues/404), [inside-telegram #54](https://github.com/sachkov-inside/inside-telegram/issues/54) |
 
 Задачи прикреплены native Parent/sub-issues; блокировка задаётся native dependencies.
@@ -81,7 +81,7 @@ Map не ждёт исполнения всех production работ и не з
 
 ## Согласования и проверяемые факты
 
-- Магазин/терминал: рекомендация — выделить Inside отдельно; ответ владельца и условия банка ещё
+- Магазин/терминал: рекомендация выделить sachkov.dev отдельно; ответ владельца и условия банка ещё
   не подтверждены. Пока спецификация сохраняет изоляцию provider/terminal/customer references,
   а operational задача фиксирует окончательную конфигурацию.
 - COF, смена привязки и касса: нужны текущие факты кабинета и разрешённая DEMO проверка. Карточный

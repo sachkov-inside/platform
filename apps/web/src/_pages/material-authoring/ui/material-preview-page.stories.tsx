@@ -244,7 +244,7 @@ export const ProductRoute: Story = {
     const page = routeContent(canvasElement);
     const route = within(
       page.getByRole("navigation", {
-        name: "Маршрут руководства «Inside AI Engineering»",
+        name: "Маршрут руководства «AI Engineering»",
       }),
     );
     await expect(

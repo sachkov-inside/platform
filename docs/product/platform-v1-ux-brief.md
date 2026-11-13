@@ -1,4 +1,4 @@
-# Sachkov Inside Platform v1 — UX brief
+# sachkov.dev Platform v1: UX brief
 
 Статус: owner-approved UX input от 2026-08-21 для
 [Platform issue #20](https://github.com/sachkov-inside/platform/issues/20). Документ фиксирует
@@ -42,7 +42,7 @@ Workspace [PR #61](https://github.com/sachkov-inside/workspace/pull/61).
 
 ## 1. Purpose и граница
 
-Platform v1 должна стать каноническим домом полноценных материалов Inside. Участник Membership
+Platform v1 должна стать каноническим домом полноценных материалов sachkov.dev. Участник Membership
 должен удобно находить и читать доступный контент, а публичный посетитель — видеть реальный состав
 и ценность Membership до покупки. Telegram остаётся местом community, коротких анонсов и внешнего
 Membership lifecycle. ([Platform MVP brief][platform-brief-outcome],
@@ -72,13 +72,13 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 
 - Основная аудитория — разработчик, который уже умеет программировать и выбирает релевантные
   направления самостоятельно; Platform не должна притворяться обязательным линейным курсом.
-  ([Inside audience][product-audience])
+  ([sachkov.dev audience][product-audience])
 - Ценность строится на реальной инженерной практике, контексте решений и связанных коде, схемах,
   документах, дизайне и других artifacts, а не только на готовом ответе.
-  ([Inside product value][product-value])
+  ([sachkov.dev product value][product-value])
 - Build-series — флагманская линия, но не весь Membership. IA должна сохранять несколько Topic и
   Series trajectories и не сводить Home/Library к одному course progress.
-  ([Inside build-series][product-build-series])
+  ([sachkov.dev build-series][product-build-series])
 
 ### Порядок authority
 
@@ -166,7 +166,7 @@ author. ([ContentAccess matrix][access-matrix]) Email login, явное Telegram
 |---|---|---|
 | `Account` | Stable local identity одного человека, authenticated через Logto | provider subject, email, session или machine identity |
 | `Subject` | Anonymous visitor или authenticated Account, для которого принимается access decision | Telegram user или browser session |
-| Membership signal | Наличие связанной Telegram identity в одном canonical closed Inside chat | Tribute subscription или payment status |
+| Membership signal | Наличие связанной Telegram identity в одном canonical closed sachkov.dev chat | Tribute subscription или payment status |
 | `MembershipEvidence` | Нормализованное наблюдение Membership signal с конечным сроком действия | raw Telegram status или permanent member flag |
 | `AccountRights` | Ограниченный по времени Platform grant для closed content | IdP/Telegram role или subscription |
 | `Resource` | Material body, Asset или Video с publication state и access class | URL, S3 key или Kinescope object |
@@ -595,7 +595,7 @@ utilities.
 
 ```text
 [skip to content]
-[Inside]                         [Menu] [Account/Sign in]
+[sachkov.dev]                    [Menu] [Account/Sign in]
 
 HOME                              LIBRARY
 [h1: Главная]                     [h1: Библиотека]
@@ -623,7 +623,7 @@ replaces only the result region and keeps query/clear action.
 
 ```text
 DESKTOP HOME
-[Inside] [Главная] [Библиотека] [Карта]                         [Account]
+[sachkov.dev] [Главная] [Библиотека] [Карта]                    [Account]
 [h1 Главная]
 [Continue reading + short history — conditional]
 [h2 Новые материалы] [feed card] [feed card] [feed card]
@@ -655,7 +655,7 @@ not move Topics/Series/Roadmap links ahead of their headings or change mobile re
 
 ```text
 [skip]
-[Inside] [Главная] [Библиотека] [Карта]                    [Account]
+[sachkov.dev] [Главная] [Библиотека] [Карта]               [Account]
 
 [h1 Библиотека]                         [search________________] [Найти]
 [result status / error announcement]

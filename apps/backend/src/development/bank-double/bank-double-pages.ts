@@ -41,7 +41,7 @@ export function indexPage(view: StandView): string {
     <td>${escapeHtml(session.status)}</td></tr>`,
     )
     .join("");
-  return `<h1>Двойник банка Inside</h1>
+  return `<h1>Двойник банка</h1>
     <p class="note">Стенд без денег: терминал <b>${escapeHtml(view.terminalKey)}</b>, нотификации уходят на
     <code>${escapeHtml(view.notificationUrl)}</code>, возврат после формы — на <code>${escapeHtml(view.returnUrl)}</code>.</p>
     <form method="post" action="/control">
@@ -112,7 +112,7 @@ export const missingPage = (message: string): string =>
 export function html(body: string, status = 200): Response {
   return new Response(
     `<!doctype html><html lang="ru"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Двойник банка Inside</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Двойник банка</title>
 <style>body{font:16px/1.5 system-ui,sans-serif;margin:0 auto;max-width:46rem;padding:1.5rem;color:#14213d}
 h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:2rem}.note{color:#5b6478;font-size:.9rem}
 .amount{font-size:2rem;font-weight:700;margin:.25rem 0}table{border-collapse:collapse;width:100%}

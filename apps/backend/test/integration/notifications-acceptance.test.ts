@@ -674,7 +674,7 @@ describe("приёмка обоих источников Notifications (реал
     const letter = sent.find((message) =>
       message.text.includes("Первый материал приёмки"),
     );
-    expect(letter).toMatchObject({ subject: "Новый материал в Inside" });
+    expect(letter).toMatchObject({ subject: "Новый материал на sachkov.dev" });
     expect(letter?.text).toContain(`${origin}/materials/`);
     expect(
       [subscriber, buyerAccount].map((id) => `${id}@example.test`),

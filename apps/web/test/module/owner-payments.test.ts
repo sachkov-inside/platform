@@ -239,9 +239,7 @@ describe("a refund returned by a late automatic Cancel (#1932)", () => {
       attempt: null,
     });
     expect(decision.basis).toBe("automatic_cancel");
-    expect(refundBasisLabels.automatic_cancel).toBe(
-      "Автоматическая отмена Inside",
-    );
+    expect(refundBasisLabels.automatic_cancel).toBe("Автоматическая отмена");
   });
 });
 
@@ -371,7 +369,7 @@ describe("payment presentation", () => {
       "Попытка заменена покупкой по другой цене",
     );
     expect(paymentEventLabel("form_address_received")).toBe(
-      "Inside получила адрес формы оплаты",
+      "Платформа получила адрес формы оплаты",
     );
     expect(paymentEventLabel("bank_cancel_confirmed")).toBe(
       "Банк закрыл форму оплаты снятой попытки",

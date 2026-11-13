@@ -1,9 +1,9 @@
-# Sachkov Inside Telegram
+# sachkov.dev Telegram
 
-Telegram application of Sachkov Inside, maintained in `apps/telegram` of
+Telegram application of sachkov.dev, maintained in `apps/telegram` of
 [`sachkov-inside/platform`](https://github.com/sachkov-inside/platform).
 
-The application implements the Membership bridge and the Telegram runtime for Inside
+The application implements the Membership bridge and the Telegram runtime for sachkov.dev
 communications and marketing. It connects a Telegram contact to a Platform Account, observes
 membership in the canonical closed chat, and supplies bounded evidence to Platform without making
 content requests wait for Telegram. Platform owns permissions and access decisions.

@@ -284,7 +284,7 @@ test("подтверждённая оплата доходит до обоих �
     }, barrierBudgetMs);
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({
-      subject: "Оплата Inside подтверждена",
+      subject: "Оплата подтверждена",
       email: "broker-proof@example.test",
     });
     expect(sent[0]?.text).toContain("Материалы");

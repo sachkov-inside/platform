@@ -46,9 +46,9 @@ export function createApiOpenApiDocument(
   app: NestFastifyApplication,
 ): OpenAPIObject {
   const config = new DocumentBuilder()
-    .setTitle("Inside Platform API")
+    .setTitle("sachkov.dev Platform API")
     .setDescription(
-      "Canonical REST contract for the Inside Platform web and agent adapters.",
+      "Canonical REST contract for the sachkov.dev Platform web and agent adapters.",
     )
     .setVersion("1.0.0")
     .addBearerAuth(

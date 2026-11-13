@@ -18,7 +18,7 @@ import { AccountAccessPage } from "./account-access-page.client";
 
 const courseContent = (courseEnrollment.content ?? []).map((entry) => ({
   ...entry,
-  title: "Inside AI Engineering",
+  title: "AI Engineering",
   slug: "inside-ai-engineering",
 }));
 
@@ -55,7 +55,7 @@ const environment = accountSectionEnvironment("/account", {
               collection: {
                 id: "00000000-0000-4000-8000-000000000f01",
                 slug: "inside-ai-engineering",
-                name: "Inside AI Engineering",
+                name: "AI Engineering",
                 summary: null,
                 cover: null,
                 count: 17,

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-10-20T16:29:13Z",
-  "title": "Design System: Sachkov Inside Platform",
+  "title": "Design System: sachkov.dev Platform",
   "extensions": {
     "colorMeta": {
       "background": {
@@ -463,7 +463,7 @@
   ],
   "narrative": {
     "northStar": "Soft Technical Workshop",
-    "overview": "Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.\n\nЭто документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; exact Preview теперь имеет bounded desktop и narrow-mobile evidence, но authoring layout и revision rail остаются candidate pattern до отдельного owner visual/interaction GO.\n\nThe prepared issue #1617 admin workspace follows owner-selected A: warm platform tokens, light text navigation, mounted task panels and responsive payment rows. Owner final production visual GO is pending. Public/member and Reader commitments remain scoped to their existing surfaces.",
+    "overview": "sachkov.dev Platform: спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.\n\nЭто документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; exact Preview теперь имеет bounded desktop и narrow-mobile evidence, но authoring layout и revision rail остаются candidate pattern до отдельного owner visual/interaction GO.\n\nThe prepared issue #1617 admin workspace follows owner-selected A: warm platform tokens, light text navigation, mounted task panels and responsive payment rows. Owner final production visual GO is pending. Public/member and Reader commitments remain scoped to their existing surfaces.",
     "keyCharacteristics": [
       "Warm light canvas with bounded charcoal work regions.",
       "Scarce orange proofing signal rather than ambient decoration.",

@@ -141,7 +141,7 @@ describe("MCP Streamable HTTP adapter", () => {
         authorization_servers: [issuer],
         bearer_methods_supported: ["header"],
         scopes_supported: ["learning:read"],
-        resource_name: "Sachkov Inside learning materials",
+        resource_name: "sachkov.dev learning materials",
       });
       const authoring = await fetch(endpoint, {
         method: "POST",
@@ -243,7 +243,7 @@ describe("MCP Streamable HTTP adapter", () => {
       resource: "http://127.0.0.1:0/mcp",
       authorization_servers: [issuer],
       bearer_methods_supported: ["header"],
-      resource_name: "Sachkov Inside Platform authoring",
+      resource_name: "sachkov.dev authoring",
     });
   });
 
