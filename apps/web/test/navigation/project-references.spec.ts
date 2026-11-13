@@ -134,6 +134,43 @@ test("a body link to another programme step moves the chapter steps; a body link
   ).toBeVisible();
 });
 
+test("a body link from a reference to a programme step selects that step instead of the originating lesson", async ({
+  page,
+}) => {
+  const phone = page.viewportSize()?.width === 390;
+  await page.goto(
+    `/materials/aie-project?from=${encodeURIComponent(programme)}&view=reference&anchor=material%3Areference-lesson-5`,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Описание проекта", exact: true }),
+  ).toBeVisible();
+  const step = page
+    .locator("[data-reader-body]")
+    .filter({ visible: true })
+    .getByRole("link", { name: "урок 7 из описания", exact: true });
+  const href = await step.getAttribute("href");
+  expect(href).not.toContain("view=reference");
+  expect(href).not.toContain("anchor=");
+  await step.click();
+  await expect(
+    page.getByRole("heading", { name: "Урок 7", exact: true }),
+  ).toBeVisible();
+  await expectCourseReadingHost(page);
+  if (phone) await page.getByRole("button", { name: "Вся программа" }).click();
+  const navigation = phone
+    ? page.getByRole("dialog")
+    : page.getByRole("complementary", { name: "Текущая глава" });
+  await expect(
+    navigation.locator('[data-course-step="material:reference-lesson-7"]'),
+  ).toHaveAttribute("aria-current", "step");
+  await expect(
+    navigation.locator('[data-course-step="material:reference-lesson-5"]'),
+  ).not.toHaveAttribute("aria-current", "step");
+  await expect(
+    page.getByText("Шаг 7 из 9").filter({ visible: true }).first(),
+  ).toBeVisible();
+});
+
 test("a programme lesson opened from the catalogue keeps its chapter without step navigation", async ({
   page,
 }) => {

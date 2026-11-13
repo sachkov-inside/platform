@@ -15,11 +15,21 @@ export function reportProcessFailure(
   processName: BackendProcess,
   error: unknown,
 ): void {
-  writeLog("error", "process_failed", {
-    process: processName,
-    status: "operator_attention",
-    error: describeError(error),
-  });
+  // PostgreSQL closing the connection because it is being stopped (a server reboot or a planned
+  // window) is a stop, not a failure: Docker restarts the process once the database is back (#2134).
+  if (databaseStopping(error))
+    writeLog("warn", "process_stopped", {
+      process: processName,
+      status: "dependency_stopped",
+      reason: "database_shutdown",
+      error: describeError(error),
+    });
+  else
+    writeLog("error", "process_failed", {
+      process: processName,
+      status: "operator_attention",
+      error: describeError(error),
+    });
   process.exitCode = 1;
   setTimeout(
     () => process.exit(1),
@@ -63,4 +73,11 @@ export function observeJob<
         }
       },
     );
+}
+
+/** SQLSTATE 57P01 `admin_shutdown` anywhere in the cause chain. */
+function databaseStopping(error: unknown, depth = 0): boolean {
+  if (typeof error !== "object" || error === null || depth > 5) return false;
+  if ("code" in error && error.code === "57P01") return true;
+  return "cause" in error && databaseStopping(error.cause, depth + 1);
 }

@@ -82,3 +82,84 @@ describe.each(Object.entries(surfaces))("%s document links", (_, surface) => {
     },
   );
 });
+
+// Feedback 13.11.2026: `[короткий `AGENTS.md` с указателями](#anchor)` read as three links.
+describe.each(Object.entries(surfaces))(
+  "%s link with mixed content",
+  (_, surface) => {
+    const link = { kind: "link", href: "#anchor" } as const;
+    const anchors = (html: string) => html.match(/<a\b[^>]*>.*?<\/a>/gu) ?? [];
+
+    it("renders one anchor around text and inline code under the same link", () => {
+      const html = renderToStaticMarkup(
+        surface([
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Начни с ", marks: [] },
+              { kind: "text", text: "короткий ", marks: [link] },
+              {
+                kind: "text",
+                text: "AGENTS.md",
+                marks: [link, { kind: "code" }],
+              },
+              { kind: "text", text: " с указателями", marks: [link] },
+              { kind: "text", text: ".", marks: [] },
+            ],
+          },
+        ]),
+      );
+      const found = anchors(html);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toMatch(
+        /^<a [^>]*href="#anchor"[^>]*>короткий <code[^>]*>AGENTS\.md<\/code> с указателями<\/a>$/u,
+      );
+    });
+
+    it("keeps one anchor when the code mark comes before the link mark", () => {
+      const html = renderToStaticMarkup(
+        surface([
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "документации ", marks: [link] },
+              {
+                kind: "text",
+                text: "gh auth login",
+                marks: [{ kind: "code" }, link],
+              },
+            ],
+          },
+        ]),
+      );
+      const found = anchors(html);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toMatch(
+        /^<a [^>]*>документации <code[^>]*>gh auth login<\/code><\/a>$/u,
+      );
+    });
+
+    it("keeps separate anchors for different addresses and for text between links", () => {
+      const html = renderToStaticMarkup(
+        surface([
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "первая", marks: [link] },
+              {
+                kind: "text",
+                text: "вторая",
+                marks: [{ kind: "link", href: "#other" }],
+              },
+              { kind: "text", text: " и ", marks: [] },
+              { kind: "text", text: "третья", marks: [link] },
+            ],
+          },
+        ]),
+      );
+      expect(
+        anchors(html).map((anchor) => anchor.replace(/<[^>]+>/gu, "")),
+      ).toEqual(["первая", "вторая", "третья"]);
+    });
+  },
+);

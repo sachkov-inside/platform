@@ -3,6 +3,10 @@ name: Publish Telegram ordinal release
 on:
   workflow_dispatch:
     inputs:
+      lock:
+        description: Open production-lock Issue that holds production (docs/agents/production-lock.md)
+        required: true
+        type: string
       version:
         description: Next ordinal release (vN)
         required: true
@@ -15,7 +19,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  lock:
+    uses: ./.github/workflows/production-lock.yml
+    permissions:
+      contents: read
+      issues: read
+    with:
+      lock: ${{ inputs.lock }}
+
   plan:
+    needs: lock
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

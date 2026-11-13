@@ -1,5 +1,8 @@
 import { expect, test } from "vitest";
-import { connectWhenBrokerReady } from "../../src/infrastructure/notification-transport/worker.js";
+import {
+  connectWhenBrokerReady,
+  transportLogLevel,
+} from "../../src/infrastructure/notification-transport/worker.js";
 
 /** Virtual time: each pause only moves the clock forward. */
 function virtualClock() {
@@ -87,4 +90,22 @@ test("a stop during the wait ends it at once", async () => {
     ),
   ).rejects.toThrow("ECONNREFUSED");
   expect(attempts).toBe(2);
+});
+
+test("the broker wait is logged as a warning, a transport error stays an error", () => {
+  expect(
+    transportLogLevel({
+      status: "transport_waiting",
+      reason: "notification_broker_unavailable",
+      error: { type: "Error" },
+    }),
+  ).toBe("warn");
+  expect(
+    transportLogLevel({
+      status: "operator_attention",
+      reason: "notification_worker_start_failed",
+      error: { type: "Error" },
+    }),
+  ).toBe("error");
+  expect(transportLogLevel({ status: "transport_observation" })).toBe("info");
 });

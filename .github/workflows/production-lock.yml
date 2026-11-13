@@ -1,0 +1,34 @@
+name: Production lock
+
+# Every release and deployment run starts here (#2138): the run names its production lock Issue,
+# and the run goes on only while that Issue holds production (docs/agents/production-lock.md).
+on:
+  workflow_call:
+    inputs:
+      lock:
+        description: Open production-lock Issue that holds production for this run
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  check:
+    name: Production lock
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: Check out the lock check
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/check-production-lock.sh
+          sparse-checkout-cone-mode: false
+      - name: Require the lock that holds production
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOCK: ${{ inputs.lock }}
+        run: bash scripts/check-production-lock.sh

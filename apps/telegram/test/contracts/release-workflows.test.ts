@@ -205,7 +205,7 @@ describe("deploy workflow", () => {
   it("queues deploy and rollback without cancelling an active operation", () => {
     expect(deploy).toMatch(/^ {10}- deploy$/m);
     expect(deploy).toMatch(/^ {10}- rollback$/m);
-    expect(deploy).toMatch(/^ {2}group: telegram-production-deployment$/m);
+    expect(deploy).toMatch(/^ {2}group: production-server-deployment$/m);
     expect(deploy).toMatch(/^ {2}queue: max$/m);
   });
 

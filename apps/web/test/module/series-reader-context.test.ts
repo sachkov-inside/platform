@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
+import {
+  readerBodyLinkHref,
+  resolveProductReaderContext,
+} from "@/_pages/material-reader/model/product-reader-context";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
+import { parseReaderCourseAnchor } from "@/shared/routing/reader-course-anchor";
 
 const selectedProduct = parseMaterialReaderReturnTarget(
   "/series/platform-inside?from=%2F",
@@ -332,4 +336,129 @@ it("follows repeated flat programme positions while excluding catalogue-only doc
       returnTarget: parseMaterialReaderReturnTarget("/products/flat/programme"),
     }),
   ).toMatchObject({ supplementary: true, next: null, previous: null });
+});
+
+describe("body links inside a course document", () => {
+  const product = {
+    kind: "ready" as const,
+    reference: { slug: "course", name: "Курс" },
+    chapters: [
+      {
+        id: "one",
+        name: "Первая",
+        summary: "",
+        materialIds: ["lesson-id", "checks-id"],
+        supplementaryMaterialIds: ["files-id"],
+      },
+      { id: "two", name: "Вторая", summary: "", materialIds: ["later-id"] },
+    ],
+    items: [
+      { materialId: "lesson-id", slug: "lesson", title: "Подготовка" },
+      { materialId: "checks-id", slug: "checks", title: "Проверки" },
+      { materialId: "later-id", slug: "later", title: "Позже" },
+      { materialId: "files-id", slug: "files", title: "Файлы агента" },
+      { materialId: "brief-id", slug: "brief", title: "Бриф" },
+    ],
+  };
+
+  /** The Reader context of the page an address opens, read from the address alone. */
+  function contextOfOpened(href: string) {
+    const url = new URL(href, "https://inside.local");
+    const query = url.searchParams;
+    return resolveProductReaderContext({
+      product,
+      currentMaterialSlug: url.pathname.replace("/materials/", ""),
+      returnTarget: parseMaterialReaderReturnTarget(
+        query.get("from") ?? undefined,
+      ),
+      anchor: parseReaderCourseAnchor(query.get("anchor") ?? undefined),
+      placementId: query.get("placement") ?? undefined,
+      referenceView: query.get("view") === "reference",
+    });
+  }
+
+  function linkFrom(opened: string, href: string): string {
+    const target = readerBodyLinkHref(contextOfOpened(opened), href);
+    if (target === undefined) throw new Error(`No course link for ${href}`);
+    return target;
+  }
+
+  const programme = encodeURIComponent("/products/course/programme");
+  const supplementary = `/materials/files?from=${programme}&view=reference&anchor=material%3Alesson`;
+
+  it("opens a primary step linked from a supplementary document as that step", () => {
+    const href = linkFrom(supplementary, "/materials/checks#раздел");
+    expect(href).not.toContain("anchor=");
+    expect(href).not.toContain("view=reference");
+    expect(href).toMatch(/#раздел$/u);
+    const opened = contextOfOpened(href);
+    expect(opened?.supplementary).toBeUndefined();
+    expect(opened).toMatchObject({
+      currentPosition: 2,
+      previous: { title: "Подготовка" },
+      next: { title: "Позже" },
+      programme: {
+        current: { id: "material:checks" },
+        currentChapterId: "one:0",
+      },
+    });
+  });
+
+  it("opens a primary step of another chapter in that chapter", () => {
+    const opened = contextOfOpened(linkFrom(supplementary, "/materials/later"));
+    expect(opened?.supplementary).toBeUndefined();
+    expect(opened).toMatchObject({
+      currentPosition: 3,
+      previous: { title: "Проверки" },
+      programme: {
+        current: { id: "material:later" },
+        currentChapterId: "two:1",
+      },
+    });
+  });
+
+  it("opens a primary step linked from a lesson opened for reference as that step", () => {
+    const catalogue = `/materials/lesson?from=${encodeURIComponent("/products/course/programme?part=materials&at=lesson")}&view=reference`;
+    const href = linkFrom(catalogue, "/materials/checks");
+    expect(href).not.toContain("view=reference");
+    const opened = contextOfOpened(href);
+    expect(opened?.supplementary).toBeUndefined();
+    expect(opened).toMatchObject({
+      currentPosition: 2,
+      programme: { current: { id: "material:checks" } },
+    });
+  });
+
+  it("returns from a supplementary document to the originating lesson as its step", () => {
+    const href = linkFrom(supplementary, "/materials/lesson");
+    expect(href).not.toContain("anchor=");
+    expect(href).not.toContain("view=reference");
+    const opened = contextOfOpened(href);
+    expect(opened?.supplementary).toBeUndefined();
+    expect(opened).toMatchObject({
+      currentPosition: 1,
+      next: { title: "Проверки" },
+      programme: { current: { id: "material:lesson" } },
+    });
+  });
+
+  it("keeps the originating step for a document outside the programme steps", () => {
+    for (const opened of [
+      `/materials/lesson?from=${programme}`,
+      supplementary,
+    ]) {
+      const href = linkFrom(opened, "/materials/brief");
+      expect(href).toContain("view=reference");
+      expect(href).toContain("anchor=material%3Alesson");
+      expect(contextOfOpened(href)).toMatchObject({
+        supplementary: true,
+        next: null,
+        previous: null,
+        programme: {
+          current: { id: "material:lesson" },
+          activeReferenceId: "reference:brief",
+        },
+      });
+    }
+  });
 });

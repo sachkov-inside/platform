@@ -14,6 +14,7 @@ import {
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { PrismaClientProvider } from "../infrastructure/prisma/index.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
+import { transportLogLevel } from "../infrastructure/notification-transport/worker.js";
 import { assembleNotificationPipeline } from "./notifications-worker/assemble-notification-pipeline.js";
 import {
   Notifications,
@@ -73,9 +74,3 @@ async function bootstrap() {
 }
 
 // Наблюдение с причиной — сбой, остальные сигналы оператору — предупреждение.
-function transportLogLevel(
-  event: Readonly<Record<string, unknown>>,
-): "info" | "warn" | "error" {
-  if (event["error"] !== undefined) return "error";
-  return event["status"] === "operator_attention" ? "warn" : "info";
-}

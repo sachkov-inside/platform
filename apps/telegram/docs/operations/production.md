@@ -269,7 +269,7 @@ select state, diagnostic_code, count(*) from sales_funnel_event_outbox group by 
 
 ### 1. Выпуск версии
 
-Actions → **Publish Telegram ordinal release** (`telegram-release.yml`) → `version` = следующий `vN` (первый из platform — `v6`). Workflow:
+Actions → **Publish Telegram ordinal release** (`telegram-release.yml`) → `version` = следующий `vN` (первый из platform — `v6`), `lock` = номер [блокировки production](../../../../docs/agents/production-lock.md). Workflow:
 
 - проверяет enabled через общий `scripts/check-release-immutability.sh` с существующим
   `RELEASE_SETTINGS_READ_TOKEN` (только Administration: read); token используется лишь для этого
@@ -303,7 +303,7 @@ run публикации и
 
 ### 2. Выкладка
 
-Actions → **Deploy Telegram production release** (`telegram-deploy.yml`) → `operation` = `deploy`, `version` = `vN`. Job работает в
+Actions → **Deploy Telegram production release** (`telegram-deploy.yml`) → `operation` = `deploy`, `version` = `vN`, `lock` = номер блокировки. Job работает в
 environment `Production-Telegram`, ещё раз сверяет Release, manifest, `compose.yaml`, `telegram.caddy` и run
 публикации и передаёт три файла по SSH пользователю `inside-telegram-deploy`. На сервере forced command запускает
 только gateway `/usr/local/libexec/inside/inside-telegram-deploy`. Выкладки встают в очередь; активная
@@ -410,7 +410,7 @@ Workers и все provider modes выключены; real messages, webhook regi
 
 ### 4. Откат
 
-Actions → **Deploy Telegram production release** (`telegram-deploy.yml`) → `operation` = `rollback`, `version` = `previous.version`
+Actions → **Deploy Telegram production release** (`telegram-deploy.yml`) → `operation` = `rollback`, `version` = `previous.version`, `lock` = номер блокировки
 из `state.json`. Gateway возвращает только записанную предыдущую версию и только если идентичность
 её миграций совпадает с текущей: миграции вниз не выполняются, `migrate` при откате не запускается.
 Иначе откат отклоняется с ошибкой `migration sets differ`; путь — repair forward: исправление в

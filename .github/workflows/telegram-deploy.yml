@@ -3,6 +3,10 @@ name: Deploy Telegram production release
 on:
   workflow_dispatch:
     inputs:
+      lock:
+        description: Open production-lock Issue that holds production (docs/agents/production-lock.md)
+        required: true
+        type: string
       operation:
         description: Deploy the selected release or roll back to it
         required: true
@@ -17,12 +21,22 @@ on:
 
 permissions: {}
 
+# Platform and Telegram deploy to the same server, so both share one queue (#2138).
 concurrency:
-  group: telegram-production-deployment
+  group: production-server-deployment
   queue: max
 
 jobs:
+  lock:
+    uses: ./.github/workflows/production-lock.yml
+    permissions:
+      contents: read
+      issues: read
+    with:
+      lock: ${{ inputs.lock }}
+
   deploy:
+    needs: lock
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: Production-Telegram
