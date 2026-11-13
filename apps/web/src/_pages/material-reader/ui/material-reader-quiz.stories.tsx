@@ -250,6 +250,9 @@ export const ExerciseNumberingMobile: Story = {
 export const MatchAndOrderAnswered: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Как разделить работу?" }),
+    );
     const order = within(
       canvas.getByRole("region", { name: "Упражнение 3 из 3" }),
     );
