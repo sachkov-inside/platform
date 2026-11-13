@@ -356,6 +356,61 @@ describe("production watchdog", () => {
     }
   });
 
+  it("waits for a running backup instead of aging it by an older kind", () => {
+    const fixture = createFixture();
+    try {
+      assertRun(fixture);
+      // systemd clears the exit time of a backup while it runs (2026-11-13, #2109).
+      fixture.fake(
+        "backup-incr",
+        `Result=success\nExecMainExitTimestamp=\nExecMainStartTimestamp=@${String(now - 60)}\nActiveState=activating\n`,
+      );
+      for (const kind of ["diff", "full"]) {
+        fixture.fake(
+          `backup-${kind}`,
+          `Result=success\nExecMainExitTimestamp=@${String(now - 9 * 3600)}\nActiveState=inactive\n`,
+        );
+      }
+      assert.doesNotMatch(
+        assertRun(fixture, now + 60),
+        /Последний успешный бэкап/u,
+      );
+      // Once it ends without a fresh success, the old age is a real signal again.
+      fixture.fake(
+        "backup-incr",
+        `Result=success\nExecMainExitTimestamp=@${String(now - 9 * 3600)}\nActiveState=inactive\n`,
+      );
+      assert.match(
+        assertRun(fixture, now + 120),
+        /Последний успешный бэкап 9 ч назад/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("signals a backup stuck for over two hours and ages by the older kinds again", () => {
+    const fixture = createFixture();
+    try {
+      assertRun(fixture);
+      fixture.fake(
+        "backup-incr",
+        `Result=success\nExecMainExitTimestamp=\nExecMainStartTimestamp=@${String(now - 3 * 3600)}\nActiveState=activating\n`,
+      );
+      for (const kind of ["diff", "full"]) {
+        fixture.fake(
+          `backup-${kind}`,
+          `Result=success\nExecMainExitTimestamp=@${String(now - 9 * 3600)}\nActiveState=inactive\n`,
+        );
+      }
+      const messages = assertRun(fixture, now + 60);
+      assert.match(messages, /Бэкап incr идёт дольше 2 ч/u);
+      assert.match(messages, /Последний успешный бэкап 9 ч назад/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("delivers to Telegram through the relay and retries an undelivered signal", () => {
     const fixture = createFixture();
     try {
