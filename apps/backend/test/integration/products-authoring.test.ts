@@ -103,7 +103,6 @@ test("Product authoring preserves repeated programme identities separately from 
           sourceId: row.sourceId,
           published: row.publicationState === "published",
           topicId: row.topicId,
-          hasModeVariants: row.hasModeVariants,
         }));
       },
     },

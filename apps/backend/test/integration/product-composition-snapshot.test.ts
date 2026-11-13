@@ -118,7 +118,6 @@ test("oversized catalogue is rejected before loading any Material facts", async 
           sourceId: row.sourceId,
           published: row.published !== null,
           topicId: row.topicId,
-          hasModeVariants: row.hasModeVariants,
         }));
       },
     }),

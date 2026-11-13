@@ -7,7 +7,6 @@ export interface ProductMaterialFacts {
   readonly title: string | null;
   readonly access: "free" | "closed";
   readonly topicId: string | null;
-  readonly hasModeVariants: boolean;
 }
 
 /** Materials owns content/publication facts and its reference lock, including in Product writes. */

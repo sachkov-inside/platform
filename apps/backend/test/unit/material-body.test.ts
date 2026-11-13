@@ -436,11 +436,8 @@ describe("MaterialBodyOperations", () => {
     expect(documentOperations.extract(document)).toEqual({
       ok: true,
       value: {
-        // Обе ветки вариантного шага попадают в текст поиска: читатель ищет слова того варианта,
-        // который сейчас не видит.
-        hasModeVariants: true,
         plainText:
-          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nDecision\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nПример\n\nКороткий разбор одного шага.\n\nСпецификация Platform\nЧто обещает контракт\nhttps://example.com/spec\n\nПромпт для разбора\n\nРазбери материал и предложи три правки.\n\nИтоги урока\n\nОдин authority\n\nОдна проверка\n\nADR — Решение — Фиксирует необратимый выбор\nGate — Проверка\n\nУчебный проект: повторите шаг на образце.\n\nСвой проект: примените шаг к своему репозиторию.\n\nВид блока задаёт платформа, а не вёрстка урока.\n\nDelivery stages\nOne retained path\n\nPipeline checklist",
+          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nDecision\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nПример\n\nКороткий разбор одного шага.\n\nСпецификация Platform\nЧто обещает контракт\nhttps://example.com/spec\n\nПромпт для разбора\n\nРазбери материал и предложи три правки.\n\nИтоги урока\n\nОдин authority\n\nОдна проверка\n\nADR — Решение — Фиксирует необратимый выбор\nGate — Проверка\n\nВид блока задаёт платформа, а не вёрстка урока.\n\nDelivery stages\nOne retained path\n\nPipeline checklist",
         headings: [{ level: 2, text: "Developer Pipeline" }],
         resources: [
           {
@@ -456,6 +453,38 @@ describe("MaterialBodyOperations", () => {
           },
         ],
       },
+    });
+  });
+
+  test("rejects a variant step: the block was retired with the reading modes", () => {
+    const paragraph = {
+      type: "paragraph",
+      attrs: { nodeId: "01000000-0000-4000-8000-000000000031" },
+      content: [{ type: "text", text: "Шаг" }],
+    };
+    expect(
+      materialBodyOperations.accept({
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "variant",
+              attrs: { nodeId: "01000000-0000-4000-8000-000000000030" },
+              content: [
+                {
+                  type: "variantOption",
+                  attrs: { mode: "example" },
+                  content: [paragraph],
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { issues: [{ code: "invalid_prosemirror_document" }] },
     });
   });
 

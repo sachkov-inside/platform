@@ -347,51 +347,6 @@ export async function seedLocalDevelopment(
   });
 }
 
-/**
- * A step written for both ways of going through a product, so the local platform shows the mode
- * switch, the one-time hint and the link to the branch the reader is not in.
- */
-function modeVariantBlock(step: string, title: string) {
-  return {
-    attrs: { nodeId: `77000000-0000-4000-8000-${step}` },
-    content: [
-      {
-        attrs: { mode: "example" },
-        content: [
-          {
-            attrs: { nodeId: `78000000-0000-4000-8000-${step}` },
-            content: [
-              {
-                type: "text",
-                text: `Учебный проект: повторите «${title}» на демонстрационном репозитории, ничего не меняя в своём.`,
-              },
-            ],
-            type: "paragraph",
-          },
-        ],
-        type: "variantOption",
-      },
-      {
-        attrs: { mode: "own" },
-        content: [
-          {
-            attrs: { nodeId: `79000000-0000-4000-8000-${step}` },
-            content: [
-              {
-                type: "text",
-                text: `Свой проект: примените «${title}» к своему репозиторию и запишите, что пришлось изменить.`,
-              },
-            ],
-            type: "paragraph",
-          },
-        ],
-        type: "variantOption",
-      },
-    ],
-    type: "variant",
-  } as const;
-}
-
 async function ensureProductReaderScenario(seed: SeedContext): Promise<void> {
   const { authoring } = seed;
   const definitions = [
@@ -447,7 +402,6 @@ async function ensureProductReaderScenario(seed: SeedContext): Promise<void> {
           "Называть шаги, на которых релиз ломается чаще всего",
         ],
       },
-      // Два шага написаны для обоих режимов прохождения: на них виден переключатель.
       {
         orderKey: "demo-298-prepare",
         title: "Подготовка приложения к релизу",
@@ -457,7 +411,6 @@ async function ensureProductReaderScenario(seed: SeedContext): Promise<void> {
           "Собрать приложение под релиз",
           "Проверить сборку до публикации",
         ],
-        modes: true,
       },
       {
         orderKey: "demo-298-docker",
@@ -484,7 +437,6 @@ async function ensureProductReaderScenario(seed: SeedContext): Promise<void> {
         title: "Настройка окружения",
         formatId,
         difficulty: "intermediate" as const,
-        modes: true,
       },
       {
         orderKey: "demo-298-deploy",
@@ -536,9 +488,6 @@ async function ensureProductReaderScenario(seed: SeedContext): Promise<void> {
             content: [{ type: "text", text: definition.bodyText }],
             type: "paragraph",
           },
-          ...("modes" in definition
-            ? [modeVariantBlock(step, definition.title)]
-            : []),
         ],
       },
     } as const;

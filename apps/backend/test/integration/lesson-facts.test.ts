@@ -23,18 +23,11 @@ import {
 
 registerFixedClock();
 
-/** Тело урока читается как есть: проверка смотрит на сам вариантный шаг, а не на его пересказ. */
-const readerBodySchema = z
-  .object({
-    body: z.object({ blocks: z.array(z.looseObject({ kind: z.string() })) }),
-  })
-  .loose();
-
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
 const actor = randomUUID();
 
-describe("Product modes and lesson facts", () => {
+describe("Lesson facts", () => {
   let app: NestFastifyApplication;
   let privateKey: CryptoKey;
   let database: TestDatabase;
@@ -70,7 +63,7 @@ describe("Product modes and lesson facts", () => {
         LOGTO_AUDIENCE: audience,
         LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
         IDENTITY_EMAIL_FINGERPRINT_KEY:
-          "product-modes-test-email-fingerprint-key",
+          "lesson-facts-test-email-fingerprint-key",
       }),
       { logger: false },
     );
@@ -88,146 +81,37 @@ describe("Product modes and lesson facts", () => {
     );
   });
 
-  test("the reader owns one stored mode, and another Account never sees it", async () => {
-    const server = app.getHttpAdapter().getInstance();
-    const reader = await signToken();
-    const other = await signToken({
-      subject: "other",
-      email: "other@example.test",
-    });
-    for (const bearer of [reader, other]) {
-      expect(
-        (
-          await server.inject({
-            method: "POST",
-            url: "/accounts",
-            headers: { authorization: `Bearer ${bearer}` },
-          })
-        ).statusCode,
-      ).toBe(201);
-    }
-    const headers = { authorization: `Bearer ${reader}` };
-
-    expect(
-      (
-        await server.inject({
-          method: "GET",
-          url: "/reading-activity/product-mode",
-        })
-      ).statusCode,
-    ).toBe(401);
-    expect(
-      (
-        await server.inject({
-          method: "PUT",
-          url: "/reading-activity/product-mode",
-          payload: { productMode: "own" },
-        })
-      ).statusCode,
-    ).toBe(401);
-
-    // Читатель, который ни разу не выбирал, проходит руководство по учебному проекту.
-    const initial = await server.inject({
-      method: "GET",
-      url: "/reading-activity/product-mode",
-      headers,
-    });
-    expect(initial.statusCode).toBe(200);
-    expect(initial.headers["cache-control"]).toBe("private, no-store");
-    expect(initial.json()).toEqual({ productMode: "example" });
-
-    expect(
-      (
-        await server.inject({
-          method: "PUT",
-          url: "/reading-activity/product-mode",
-          headers,
-          payload: { productMode: "third" },
-        })
-      ).statusCode,
-    ).toBe(400);
-
-    const saved = await server.inject({
-      method: "PUT",
-      url: "/reading-activity/product-mode",
-      headers,
-      payload: { productMode: "own" },
-    });
-    expect(saved.statusCode).toBe(200);
-    expect(saved.json()).toEqual({ productMode: "own" });
-    expect(
-      (
-        await server.inject({
-          method: "GET",
-          url: "/reading-activity/product-mode",
-          headers,
-        })
-      ).json(),
-    ).toEqual({ productMode: "own" });
-
-    // Последняя запись выигрывает: читатель, переключивший режим дважды, получает второй выбор.
-    await server.inject({
-      method: "PUT",
-      url: "/reading-activity/product-mode",
-      headers,
-      payload: { productMode: "example" },
-    });
-    expect(
-      (
-        await server.inject({
-          method: "GET",
-          url: "/reading-activity/product-mode",
-          headers,
-        })
-      ).json(),
-    ).toEqual({ productMode: "example" });
-
-    expect(
-      (
-        await server.inject({
-          method: "GET",
-          url: "/reading-activity/product-mode",
-          headers: { authorization: `Bearer ${other}` },
-        })
-      ).json(),
-    ).toEqual({ productMode: "example" });
-  });
-
-  test("a Product reports mode variants from its own published composition", async () => {
+  test("a Product programme carries each lesson's difficulty and outcomes", async () => {
     const materials = assembleMaterials({
       prisma: database.prisma,
       authorPolicy: { canManage: () => true },
     });
     const topicId = randomUUID();
     await database.prisma.topic.create({
-      data: { id: topicId, name: "Режимы", slug: "modes" },
+      data: { id: topicId, name: "Факты урока", slug: "lesson-facts" },
     });
-    const withVariants = randomUUID();
-    const withoutVariants = randomUUID();
+    const withFacts = randomUUID();
+    const withoutFacts = randomUUID();
     await database.prisma.product.create({
-      data: { id: withVariants, name: "С вариантами", slug: "with-variants" },
+      data: { id: withFacts, name: "С фактами", slug: "with-facts" },
     });
     await database.prisma.product.create({
-      data: {
-        id: withoutVariants,
-        name: "Без вариантов",
-        slug: "without-variants",
-      },
+      data: { id: withoutFacts, name: "Без фактов", slug: "without-facts" },
     });
 
     const lesson = await publish({
       body: fullRepresentativeDocument(),
       difficulty: "advanced",
-      productId: withVariants,
+      productId: withFacts,
       materials,
       outcomes: ["Пройти шаг на образце", "Повторить его у себя"],
-      title: "Шаг для обоих режимов",
+      title: "Шаг с обещанием",
       topicId,
     });
     await publish({
       body: representativeDocument("Один способ на всех."),
       difficulty: null,
-      productId: withoutVariants,
+      productId: withoutFacts,
       materials,
       outcomes: [],
       title: "Обычный шаг",
@@ -235,16 +119,17 @@ describe("Product modes and lesson facts", () => {
     });
 
     const server = app.getHttpAdapter().getInstance();
-    const variants = await server.inject({
+    const facts = await server.inject({
       method: "GET",
-      url: "/library/products/with-variants",
+      url: "/library/products/with-facts",
     });
-    expect(variants.statusCode).toBe(200);
-    expect(variants.json()).toMatchObject({
-      reference: { hasModeVariants: true },
-    });
+    expect(facts.statusCode).toBe(200);
+    // Режимы прохождения убраны (#2119): продукт больше не сообщает о вариантных шагах.
+    expect(
+      z.object({ reference: z.looseObject({}) }).parse(facts.json()).reference,
+    ).not.toHaveProperty("hasModeVariants");
     // Сложность и обещание урока приезжают в программу вместе с составом.
-    expect(variants.json()).toMatchObject({
+    expect(facts.json()).toMatchObject({
       items: [
         {
           difficulty: "advanced",
@@ -255,12 +140,9 @@ describe("Product modes and lesson facts", () => {
 
     const plain = await server.inject({
       method: "GET",
-      url: "/library/products/without-variants",
+      url: "/library/products/without-facts",
     });
     expect(plain.statusCode).toBe(200);
-    expect(plain.json()).toMatchObject({
-      reference: { hasModeVariants: false },
-    });
     expect(plain.json()).toMatchObject({
       items: [{ difficulty: null, outcomes: [] }],
     });
@@ -268,8 +150,8 @@ describe("Product modes and lesson facts", () => {
     // Тот же урок читается с теми же фактами и вне программы. Бесплатный урок продукта открывает
     // связанный Telegram (#1825), поэтому читает вошедший через Telegram.
     const telegramReader = await signToken({
-      subject: "modes-telegram-reader",
-      email: "modes-telegram-reader@example.test",
+      subject: "facts-telegram-reader",
+      email: "facts-telegram-reader@example.test",
     });
     expect(
       (
@@ -281,7 +163,7 @@ describe("Product modes and lesson facts", () => {
       ).statusCode,
     ).toBe(201);
     await linkTelegram(database.prisma, {
-      logtoSubject: "modes-telegram-reader",
+      logtoSubject: "facts-telegram-reader",
     });
     const reader = await server.inject({
       method: "GET",
@@ -295,47 +177,16 @@ describe("Product modes and lesson facts", () => {
         outcomes: ["Пройти шаг на образце", "Повторить его у себя"],
       },
     });
-    // Вариантный шаг переживает сохранение и публикацию обеими ветками и не становится врезкой.
-    const body = readerBodySchema.parse(reader.json());
+    // Ручка режима ушла вместе с режимами.
     expect(
-      body.body.blocks.filter((block) => block.kind === "variant"),
-    ).toEqual([
-      {
-        kind: "variant",
-        options: [
-          {
-            content: [
-              {
-                content: [
-                  {
-                    kind: "text",
-                    marks: [],
-                    text: "Учебный проект: повторите шаг на образце.",
-                  },
-                ],
-                kind: "paragraph",
-              },
-            ],
-            mode: "example",
-          },
-          {
-            content: [
-              {
-                content: [
-                  {
-                    kind: "text",
-                    marks: [],
-                    text: "Свой проект: примените шаг к своему репозиторию.",
-                  },
-                ],
-                kind: "paragraph",
-              },
-            ],
-            mode: "own",
-          },
-        ],
-      },
-    ]);
+      (
+        await server.inject({
+          method: "GET",
+          url: "/reading-activity/product-mode",
+          headers: { authorization: `Bearer ${telegramReader}` },
+        })
+      ).statusCode,
+    ).toBe(404);
   });
 
   test("publication accepts no promise at all but refuses a single point", async () => {
@@ -428,7 +279,7 @@ describe("Product modes and lesson facts", () => {
         formatId: "guide",
         outcomes,
         productIds: [productId],
-        summary: `${title} для проверки режимов.`,
+        summary: `${title} для проверки фактов урока.`,
         tagIds: [],
         title,
         topicId,
@@ -464,7 +315,7 @@ describe("Product modes and lesson facts", () => {
       .setProtectedHeader({ alg: "ES384", kid: "api-key-1" })
       .setIssuer(issuer)
       .setAudience(audience)
-      .setSubject(overrides.subject ?? "product-modes-reader")
+      .setSubject(overrides.subject ?? "lesson-facts-reader")
       .setIssuedAt(now)
       .setExpirationTime(now + 300)
       .sign(privateKey);

@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import type { ProductMode } from "./product-mode.js";
-
 export type RenderedMark =
   | { readonly kind: "bold" | "code" | "italic" | "strike" }
   | { readonly href: string; readonly kind: "link" };
@@ -150,13 +148,6 @@ export type RenderedBlock =
       readonly rows: readonly MaterialLabeledRow[];
     }
   | { readonly content: readonly RenderedText[]; readonly kind: "key_point" }
-  | {
-      readonly kind: "variant";
-      readonly options: readonly {
-        readonly content: readonly RenderedBlock[];
-        readonly mode: ProductMode;
-      }[];
-    }
   | {
       readonly alt: string;
       readonly assetId: string;

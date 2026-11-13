@@ -451,7 +451,6 @@ model PublishedMaterial {
   summary        String
   difficulty     String?
   outcomes       Json     @default(dbgenerated("'[]'::jsonb"))
-  hasModeVariants Boolean @default(false) @map("has_mode_variants")
   access         String
   inFeed         Boolean  @default(false) @map("in_feed")
   topicId        String   @map("topic_id") @db.Uuid
@@ -736,14 +735,6 @@ model ReadingMaterialState {
   updatedAt DateTime @map("updated_at") @db.Timestamptz
   @@id([accountId, materialId])
   @@map("material_states")
-  @@schema("reading_activity")
-}
-
-model ReaderPreferences {
-  accountId String @id @map("account_id") @db.Uuid
-  productMode String @map("product_mode")
-  updatedAt DateTime @map("updated_at") @db.Timestamptz
-  @@map("reader_preferences")
   @@schema("reading_activity")
 }
 

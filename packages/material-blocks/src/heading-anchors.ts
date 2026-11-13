@@ -20,10 +20,6 @@ export function materialHeadingAnchors(
         block.items.forEach((item, branch) => {
           visit(item, [...at, branch]);
         });
-      if (block.kind === "variant")
-        block.options.forEach((option, branch) => {
-          visit(option.content, [...at, branch]);
-        });
       if (block.kind === "table")
         block.rows.forEach((row, r) => {
           row.cells.forEach((cell, c) => {

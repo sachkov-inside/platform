@@ -5,7 +5,6 @@ export interface ProductReadingMaterial {
   readonly sourceId: string | null;
   readonly published: { readonly slug: string; readonly title: string } | null;
   readonly topicId: string | null;
-  readonly hasModeVariants: boolean;
 }
 /** Material identity and actual publication facts, including on the caller's locked connection. */
 export interface ProductMaterialReading {
