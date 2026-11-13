@@ -191,6 +191,20 @@ describe("ИИ-модели widget: the list", () => {
     });
   });
 
+  it("draws the line between rows square, even where the app rounds its buttons", async () => {
+    await withWidget(async (page) => {
+      // iOS gives every button rounded corners; there the line above a row tapers at its ends.
+      await page.addStyleTag({ content: "button { border-radius: 5px }" });
+      const corners = await page
+        .locator("#w .rw")
+        .evaluateAll((rowButtons) =>
+          rowButtons.map((row) => getComputedStyle(row).borderTopLeftRadius),
+        );
+      expect(corners).toHaveLength(7);
+      expect(new Set(corners)).toEqual(new Set(["0px"]));
+    });
+  });
+
   it("asks for the first page of «Мощные» when the message has no readable chat state", async () => {
     await withWidget(
       async (page) => {
