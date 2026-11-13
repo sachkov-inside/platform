@@ -26,7 +26,7 @@ code, configs or scripts already show.
 | Agent trigger, routing, delivery, verification, or completion rule | The nearest `AGENTS.md` or `docs/agents/` contract; do not copy product/domain explanations into agent files |
 | Sensitive zones, their checks or advance acceptance | [Ship](ship.md); update affected paths in the implementation PR |
 | Owner gates, including merge permission | Root `AGENTS.md`, section `Owner gates` |
-| Pipeline skill | The workspace pipeline through `sync-pipeline`; `.agents/skills/PIPELINE.md` records the source |
+| Pipeline skill | Selected shared folders use Agent Kit through the manifest; retained project variants keep their recorded source. `.agents/skills/AGENT-KIT.md` and `PIPELINE.md` record the split |
 
 Code, schemas, generated contracts, and tests may be the complete authority for a local
 implementation detail. In that case, say `None — code/schema/tests are the authority` in the pull

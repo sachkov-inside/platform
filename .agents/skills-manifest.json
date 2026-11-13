@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "installation": "copies",
+  "skills": [
+    {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "grill-with-docs",
+      "destination": ".agents/skills/grill-with-docs"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "grilling",
+      "destination": ".agents/skills/grilling"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "handoff",
+      "destination": ".agents/skills/handoff"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "prototype",
+      "destination": ".agents/skills/prototype"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "research",
+      "destination": ".agents/skills/research"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "retro",
+      "destination": ".agents/skills/retro"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "to-questionnaire",
+      "destination": ".agents/skills/to-questionnaire"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "wayfinder",
+      "destination": ".agents/skills/wayfinder"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "writing-for-agents",
+      "destination": ".agents/skills/writing-for-agents"
+    }
+  ],
+  "clients": [
+    "codex",
+    "claude"
+  ]
+}

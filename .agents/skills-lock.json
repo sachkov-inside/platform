@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "skills": {
+    ".agents/skills/grill-with-docs": {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "grill-with-docs",
+      "destination": ".agents/skills/grill-with-docs",
+      "sha256": "18c73d6716bedc0914280d918efc76c47cc2145e2763e9e6029c6a700dd91718"
+    },
+    ".agents/skills/grilling": {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "grilling",
+      "destination": ".agents/skills/grilling",
+      "sha256": "e22905a98c7dcfbdd28cfcb2e9efe003e45567a4a2616575ce1e23c5356317d3"
+    },
+    ".agents/skills/handoff": {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "handoff",
+      "destination": ".agents/skills/handoff",
+      "sha256": "444fd2dd22ebda9329c8afe5418070e57b910050718e413ec2ad8fc1b9cbc9b9"
+    },
+    ".agents/skills/prototype": {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "prototype",
+      "destination": ".agents/skills/prototype",
+      "sha256": "817ec80f41e2ce78abb64f1a16bb3575080e8ed5560c51bc071d32527744fd86"
+    },
+    ".agents/skills/research": {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "research",
+      "destination": ".agents/skills/research",
+      "sha256": "e3a8db5152c88d9ee4a1a7f95461deb07cd66262b813b8854152e6b876e57dda"
+    },
+    ".agents/skills/retro": {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "retro",
+      "destination": ".agents/skills/retro",
+      "sha256": "c172c68e614995d7b1624e0eecb2f41a6a5ffd2b0ee19955f23ffb59e0132bf5"
+    },
+    ".agents/skills/to-questionnaire": {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "to-questionnaire",
+      "destination": ".agents/skills/to-questionnaire",
+      "sha256": "f287eb8f35b9168aa8a8a38122c5ded31611202f687f5eb4b5e742041665bef7"
+    },
+    ".agents/skills/wayfinder": {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "wayfinder",
+      "destination": ".agents/skills/wayfinder",
+      "sha256": "fa17f628a3f28f629d81852dfc6319a35e5d97a26b746a6e05685ad43d9af787"
+    },
+    ".agents/skills/writing-for-agents": {
+      "provider": "agent-kit",
+      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "skill": "writing-for-agents",
+      "destination": ".agents/skills/writing-for-agents",
+      "sha256": "6b1b3babb2c8b683a0ccc23544ddf18459985aa414f4ddd1b7c5c3a8b8009907"
+    }
+  }
+}
