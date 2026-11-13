@@ -1,7 +1,8 @@
-import type {
-  MaterialExerciseNumber,
-  RenderedBlock,
-  RenderedText,
+import {
+  materialBlockText,
+  type MaterialExerciseNumber,
+  type RenderedBlock,
+  type RenderedText,
 } from "@inside/material-blocks";
 import type { ReactNode } from "react";
 
@@ -11,7 +12,7 @@ import { MaterialKeyPoint } from "./material-key-point";
 import { MaterialLabeledList } from "./material-labeled-list";
 import { MaterialResourceCard } from "./material-resource-card";
 import { exerciseHeading } from "./material-exercise-frame";
-import { MaterialMatch, MaterialOrder } from "./material-match-order";
+import { MaterialMatch, MaterialOrder } from "./material-match-order.client";
 import { MaterialQuiz } from "./material-quiz.client";
 import { MaterialTakeaways } from "./material-takeaways";
 
@@ -52,6 +53,11 @@ export interface LessonBlockRendering {
     ((exerciseId: string) => MaterialExerciseNumber | undefined) | undefined;
 }
 
+/** Text of rich content for a drop-down list or an announcement, on one line. */
+function plainText(blocks: readonly RenderedBlock[]): string {
+  return blocks.map(materialBlockText).join(" ").replace(/\s+/gu, " ").trim();
+}
+
 /** Один блок урока. Читатель, предпросмотр и редактор показывают его одинаково. */
 export function MaterialLessonBlock({
   block,
@@ -76,28 +82,47 @@ export function MaterialLessonBlock({
           : { context: rich(block.context) }),
         question: rich(block.question),
       };
+      // Rendered after the items, so the branches keep their order in the document.
+      const dontKnow = () =>
+        block.dontKnow === undefined
+          ? {}
+          : {
+              dontKnow: {
+                explanation: rich(block.dontKnow.explanation),
+                reviewLinks: block.dontKnow.reviewLinks,
+              },
+            };
       if (block.kind === "match")
         return (
           <MaterialMatch
+            key={block.id}
             {...common}
+            mode={block.mode}
             rows={block.rows.map((row) => ({
               id: row.id,
               content: rich(row.content),
+              answerId: row.answerId,
+              explanation: rich(row.explanation),
             }))}
             choices={block.choices.map((choice) => ({
               id: choice.id,
-              content: rich(choice.content),
+              label: plainText(choice.content),
             }))}
+            {...dontKnow()}
           />
         );
       if (block.kind === "order")
         return (
           <MaterialOrder
+            key={block.id}
             {...common}
             steps={block.steps.map((step) => ({
               id: step.id,
               content: rich(step.content),
+              label: plainText(step.content),
+              explanation: rich(step.explanation),
             }))}
+            {...dontKnow()}
           />
         );
       return (
@@ -113,14 +138,7 @@ export function MaterialLessonBlock({
               ? {}
               : { explanation: rich(option.explanation) }),
           }))}
-          {...(block.dontKnow === undefined
-            ? {}
-            : {
-                dontKnow: {
-                  explanation: rich(block.dontKnow.explanation),
-                  reviewLinks: block.dontKnow.reviewLinks,
-                },
-              })}
+          {...dontKnow()}
         />
       );
     }

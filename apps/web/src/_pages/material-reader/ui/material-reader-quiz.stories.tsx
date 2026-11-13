@@ -211,7 +211,7 @@ export const AnswerAgainMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
-/** Exercises are numbered in lesson order; match and order show no answers before #2123. */
+/** Exercises are numbered in lesson order; match and order show no explanations before an answer. */
 export const ExerciseNumbering: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -240,6 +240,42 @@ export const ExerciseNumbering: Story = {
 export const ExerciseNumberingMobile: Story = {
   ...ExerciseNumbering,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** In the lesson, a match lists the authored choices as text and an order explains every step. */
+export const MatchAndOrderAnswered: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const order = within(
+      canvas.getByRole("region", { name: "Упражнение 3 из 3" }),
+    );
+    await userEvent.click(order.getByRole("button", { name: "Проверить" }));
+    await expect(order.getByText(/Пока неверно: на месте/u)).toBeVisible();
+    for (const explanation of [
+      "Без результата нечего проверять.",
+      "Код идёт после описания.",
+      "Проверка завершает работу.",
+    ])
+      await expect(order.getByText(explanation)).toBeVisible();
+
+    // Answered last, so its rows stay on screen: axe accepts a label only while it is visible.
+    const match = within(
+      canvas.getByRole("region", { name: "Упражнение 2 из 3" }),
+    );
+    for (const [row, choice] of [
+      ["Пишет план изменений.", "Планировщик"],
+      ["Меняет код.", "Исполнитель"],
+      ["Проверяет результат.", "Исполнитель"],
+    ] as const)
+      await userEvent.selectOptions(
+        match.getByRole("combobox", { name: row }),
+        choice,
+      );
+    await userEvent.click(match.getByRole("button", { name: "Проверить" }));
+    await expect(match.getByText("Пока неверно: 2 из 3")).toBeVisible();
+    await expect(match.getByText("Верный ответ: Проверяющий")).toBeVisible();
+    await expect(match.getByText("Проверяет проверяющий.")).toBeVisible();
+  },
 };
 
 export const RichOptionContent: Story = {
