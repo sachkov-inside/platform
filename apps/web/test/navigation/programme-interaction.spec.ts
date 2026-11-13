@@ -103,6 +103,14 @@ for (const chosenTab of ["materials", "active programme"] as const) {
         );
       }
       await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+      // Сохранённое открытие урока объявляет смену прогресса, и `router.refresh()` перечитывает
+      // текущую страницу. Если отметка доходит уже во время возврата, программу читают два запроса
+      // и задержанных ответов становится два (#2105). Возврат начинается после сохранения.
+      await expect(
+        page.locator("[data-material-open-state]").filter({
+          has: page.locator("[data-reader-body]:visible"),
+        }),
+      ).toHaveAttribute("data-material-open-state", "saved");
       await request.post(
         `${backend}/__reader-programme-hold?held=true&slug=${slug}`,
       );
