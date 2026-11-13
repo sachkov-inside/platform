@@ -38,6 +38,7 @@ const materialTables = [
   "material_related_pins",
   "material_search_documents",
   "material_tags",
+  "material_update_notes",
   "materials",
   "notification_outbox",
   "historical_practice_definitions",

@@ -200,6 +200,7 @@ test("the import environment names the runtime mode and the accepted import cont
         "svg-images-v1",
         "product-topics-v1",
         "material-update-note-v1",
+        "glossary-v1",
       ],
     },
   });
