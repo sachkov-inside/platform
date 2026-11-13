@@ -13,7 +13,7 @@ RUN apk add --no-cache \
     samurai=1.2-r7 \
     bzip2-dev=1.0.8-r6 \
     curl-dev=8.23.0-r0 \
-    libpq-dev=18.6-r0 \
+    libpq-dev=18.7-r0 \
     libxml2-dev=2.13.9-r1 \
     lz4-dev=1.10.0-r0 \
     openssl-dev=3.5.9-r0 \
@@ -53,7 +53,7 @@ ENV PGBACKREST_PG1_PATH=${INSIDE_POSTGRES_DATA_PATH}
 RUN apk add --no-cache \
     libbz2=1.0.8-r6 \
     lz4-libs=1.10.0-r0 \
-    libpq=18.6-r0 \
+    libpq=18.7-r0 \
     libssh2=1.11.1-r4 \
     libxml2=2.13.9-r1 \
     libcrypto3=3.5.9-r0 \
