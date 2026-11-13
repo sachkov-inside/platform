@@ -57,7 +57,10 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
-import { readCommunityBacklog } from "../../src/modules/telegram-membership/features/deliver-community-entitlement/deliver-community-entitlement.js";
+import {
+  pollCommunityOperations,
+  readCommunityBacklog,
+} from "../../src/modules/telegram-membership/features/deliver-community-entitlement/deliver-community-entitlement.js";
 import { createQueryEventClient } from "./setup/query-events.js";
 
 const ajv = new Ajv({ strict: true, allErrors: true });
@@ -1590,6 +1593,151 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       await isolated.dispose();
     }
   });
+
+  test("an unapplied operation is polled before an applied one that waited longer", async () => {
+    const isolated = await createMigratedTestDatabase();
+    try {
+      let instant = new Date(start);
+      const { localAccounts, localGrants, localLinks, enroll } =
+        await streamFixture(isolated, () => instant);
+      const applied = await enroll("poll-order-applied");
+      const waiting = await enroll("poll-order-waiting");
+      const provider = new ProviderDouble();
+      const app = new CommunityEntitlements({
+        accounts: localAccounts,
+        botStartUrl: "https://t.me/inside_test_bot",
+        clock: () => instant,
+        grants: localGrants,
+        links: localLinks,
+        prisma: isolated.prisma,
+        provider,
+      });
+      await app.sweep();
+      const rowOf = (accountId: string) =>
+        isolated.prisma.telegramCommunityOperation.findFirstOrThrow({
+          where: { accountId },
+        });
+      const appliedRow = await rowOf(applied.accountId);
+      const waitingRow = await rowOf(waiting.accountId);
+      provider.observe(appliedRow.operationId, "applied", "member");
+      provider.observe(
+        waitingRow.operationId,
+        "waiting_for_join",
+        "not_member",
+      );
+      instant = new Date(instant.getTime() + 61_000);
+      await app.sweep();
+      // The applied delivery has waited longer, yet one free slot goes to the unapplied one.
+      await isolated.prisma.telegramCommunityOperation.update({
+        where: { operationId: appliedRow.operationId },
+        data: { polledAt: new Date(start) },
+      });
+      instant = new Date(instant.getTime() + 61_000);
+      provider.polled.length = 0;
+      expect(
+        await pollCommunityOperations(
+          { prisma: isolated.prisma, provider },
+          1,
+          instant,
+        ),
+      ).toBe(1);
+      expect(provider.polled).toEqual([waitingRow.operationId]);
+      // The remainder of a batch still reconciles applied deliveries, so a member who left is
+      // noticed.
+      instant = new Date(instant.getTime() + 61_000);
+      provider.polled.length = 0;
+      await pollCommunityOperations(
+        { prisma: isolated.prisma, provider },
+        2,
+        instant,
+      );
+      expect(provider.polled).toEqual([
+        waitingRow.operationId,
+        appliedRow.operationId,
+      ]);
+      // A fifth of the batch stays with applied deliveries even when unapplied rows fill it.
+      const moreWaiting = [];
+      for (const subject of [
+        "poll-order-w2",
+        "poll-order-w3",
+        "poll-order-w4",
+        "poll-order-w5",
+      ])
+        moreWaiting.push(await enroll(subject));
+      await app.sweep();
+      for (const { accountId } of moreWaiting)
+        provider.observe(
+          (await rowOf(accountId)).operationId,
+          "waiting_for_join",
+          "not_member",
+        );
+      instant = new Date(instant.getTime() + 61_000);
+      provider.polled.length = 0;
+      await pollCommunityOperations(
+        { prisma: isolated.prisma, provider },
+        5,
+        instant,
+      );
+      expect(provider.polled).toHaveLength(5);
+      expect(provider.polled).toContain(appliedRow.operationId);
+    } finally {
+      await isolated.dispose();
+    }
+  });
+
+  test.each([41, 49])(
+    "all %s waiting operations below a batch of 50 are polled every minute alongside applied deliveries",
+    async (waitingCount) => {
+      const isolated = await createMigratedTestDatabase();
+      try {
+        let instant = new Date(start);
+        const { localAccounts, localGrants, localLinks, enroll } =
+          await streamFixture(isolated, () => instant);
+        await enroll("poll-minute-applied");
+        for (let index = 0; index < waitingCount; index += 1)
+          await enroll(`poll-minute-waiting-${index}`);
+        const provider = new ProviderDouble();
+        const app = new CommunityEntitlements({
+          accounts: localAccounts,
+          botStartUrl: "https://t.me/inside_test_bot",
+          clock: () => instant,
+          grants: localGrants,
+          links: localLinks,
+          prisma: isolated.prisma,
+          provider,
+        });
+        // Prepare every accepted observation before measuring the production batch of 50.
+        await app.sweep(100);
+        expect(provider.sent).toHaveLength(waitingCount + 1);
+        for (const command of provider.sent)
+          provider.observe(
+            command.operationId,
+            command.binding.telegramIdentityRef ===
+              "identity-poll-minute-applied"
+              ? "applied"
+              : "waiting_for_join",
+            command.binding.telegramIdentityRef ===
+              "identity-poll-minute-applied"
+              ? "member"
+              : "not_member",
+          );
+        instant = new Date(instant.getTime() + 60_000);
+        await app.sweep(100);
+
+        const expectedOperations = provider.sent
+          .map((command) => command.operationId)
+          .sort();
+        for (let minute = 0; minute < 2; minute += 1) {
+          instant = new Date(instant.getTime() + 60_000);
+          provider.polled.length = 0;
+          await app.sweep(50);
+          expect([...provider.polled].sort()).toEqual(expectedOperations);
+        }
+      } finally {
+        await isolated.dispose();
+      }
+    },
+  );
 
   test("an unknown provider outcome stays unapplied and visible to the operator", async () => {
     now = new Date(start);

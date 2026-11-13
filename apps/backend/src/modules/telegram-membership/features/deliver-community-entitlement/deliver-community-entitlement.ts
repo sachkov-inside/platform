@@ -6,6 +6,7 @@ import {
   COMMUNITY_OVERDUE_MS,
   COMMUNITY_RECONCILIATION_INTERVAL_MS,
   COMMUNITY_RETRY_DELAYS_MS,
+  COMMUNITY_SETTLED_RESULTS,
   COMMUNITY_V2_CONTRACT_VERSION,
   communitySetSchema,
   type CommunityResult,
@@ -174,25 +175,45 @@ export async function pollCommunityOperations(
   limit: number,
   now: Date,
 ): Promise<number> {
-  const candidates =
+  const due = {
+    delivery: "accepted",
+    OR: [
+      { polledAt: null },
+      {
+        polledAt: {
+          lte: new Date(now.getTime() - COMMUNITY_RECONCILIATION_INTERVAL_MS),
+        },
+      },
+    ],
+  };
+  const oldestPolledFirst = [
+    { polledAt: "asc" as const },
+    { operationId: "asc" as const },
+  ];
+  // Every due unapplied operation fits when their count is below the batch limit. Once that
+  // lane fills a batch, reserve a fifth for applied deliveries to keep noticing members who left.
+  const dueUnapplied =
     await dependencies.prisma.telegramCommunityOperation.findMany({
       where: {
-        delivery: "accepted",
-        resultStatus: { notIn: ["superseded", "failed"] },
-        OR: [
-          { polledAt: null },
-          {
-            polledAt: {
-              lte: new Date(
-                now.getTime() - COMMUNITY_RECONCILIATION_INTERVAL_MS,
-              ),
-            },
-          },
-        ],
+        ...due,
+        resultStatus: { notIn: COMMUNITY_SETTLED_RESULTS },
       },
-      orderBy: [{ polledAt: "asc" }, { operationId: "asc" }],
+      orderBy: oldestPolledFirst,
       take: limit,
     });
+  const unapplied =
+    dueUnapplied.length < limit
+      ? dueUnapplied
+      : dueUnapplied.slice(0, limit - Math.floor(limit / 5));
+  const applied =
+    unapplied.length < limit
+      ? await dependencies.prisma.telegramCommunityOperation.findMany({
+          where: { ...due, resultStatus: "applied" },
+          orderBy: oldestPolledFirst,
+          take: limit - unapplied.length,
+        })
+      : [];
+  const candidates = [...unapplied, ...applied];
   let polled = 0;
   for (const row of candidates) {
     const command = communitySetSchema.safeParse(row.command);
@@ -256,7 +277,7 @@ export async function readCommunityBacklog(
     prisma.telegramCommunityOperation.count({
       where: {
         delivery: "accepted",
-        resultStatus: { notIn: ["applied", "superseded", "failed"] },
+        resultStatus: { notIn: COMMUNITY_SETTLED_RESULTS },
       },
     }),
     prisma.telegramCommunityOperation.count({
@@ -269,7 +290,7 @@ export async function readCommunityBacklog(
           { delivery: "pending" },
           {
             delivery: "accepted",
-            resultStatus: { notIn: ["applied", "superseded", "failed"] },
+            resultStatus: { notIn: COMMUNITY_SETTLED_RESULTS },
             // Voluntary joining has no deadline. Only fresh, successful observation
             // may exempt that wait; a failed or stopped poll still needs attention.
             OR: [
