@@ -63,6 +63,16 @@ export {
   type ExerciseAnswerState,
 } from "./model/exercise-answers.client";
 
+export {
+  LessonSteps,
+  type LessonStepsProgress,
+  type LessonStepsReader,
+} from "./model/lesson-steps.client";
+export {
+  LessonStepsTail,
+  LessonWholeToggle,
+} from "./ui/lesson-step-controls.client";
+
 export { materialSourceAnchors } from "./model/material-source-anchors";
 export {
   MaterialBodyView,

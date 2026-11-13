@@ -8,6 +8,8 @@ import type {
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { ProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
 import {
+  LessonStepsTail,
+  LessonWholeToggle,
   type MaterialBodyRendering,
   materialTaxonomyLabel,
   MaterialBodyView,
@@ -49,6 +51,7 @@ import {
   type CourseReadingContext,
 } from "@/features/library-discovery";
 import { ReaderTopActions } from "./reader-top-actions.client";
+import { ReaderLessonSteps } from "./reader-lesson-steps.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export interface MaterialReaderViewProps {
@@ -196,40 +199,46 @@ export function MaterialReaderView({
               showWatchedAction={readingAction === undefined}
             />
           )}
-          <article
-            className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
-            data-reader-body
-          >
-            <ReaderBlocks
-              renderVideo={(block) =>
-                primaryVideo === null ? (
-                  <p role="status">Видео к материалу не прикреплено.</p>
-                ) : (
-                  <MaterialPrimaryVideo
-                    cover={material.cover}
-                    key={primaryVideo.videoId}
-                    className="mt-0 max-w-none sm:mt-0"
-                    materialId={material.materialId}
-                    video={{ ...primaryVideo, ...block }}
-                    showWatchedAction={readingAction === undefined}
-                  />
-                )
-              }
-              renderLink={renderLink}
-              glossary={glossaryTermsById(
-                glossaryTerms,
-                courseGlossarySlug === undefined
-                  ? undefined
-                  : (termId) => courseGlossaryHref(courseGlossarySlug, termId),
-              )}
-              blocks={body}
-              contentVersion={material.contentVersion}
-              materialId={material.materialId}
-              materialSlug={material.slug}
-              path={[]}
-            />
-          </article>
-          {termDeck}
+          <ReaderLessonSteps blocks={body} materialId={material.materialId}>
+            <LessonWholeToggle />
+            <article
+              className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
+              data-reader-body
+            >
+              <ReaderBlocks
+                renderVideo={(block) =>
+                  primaryVideo === null ? (
+                    <p role="status">Видео к материалу не прикреплено.</p>
+                  ) : (
+                    <MaterialPrimaryVideo
+                      cover={material.cover}
+                      key={primaryVideo.videoId}
+                      className="mt-0 max-w-none sm:mt-0"
+                      materialId={material.materialId}
+                      video={{ ...primaryVideo, ...block }}
+                      showWatchedAction={readingAction === undefined}
+                    />
+                  )
+                }
+                renderLink={renderLink}
+                glossary={glossaryTermsById(
+                  glossaryTerms,
+                  courseGlossarySlug === undefined
+                    ? undefined
+                    : (termId) =>
+                        courseGlossaryHref(courseGlossarySlug, termId),
+                )}
+                blocks={body}
+                contentVersion={material.contentVersion}
+                materialId={material.materialId}
+                materialSlug={material.slug}
+                path={[]}
+              />
+            </article>
+            {termDeck === undefined ? null : (
+              <LessonStepsTail>{termDeck}</LessonStepsTail>
+            )}
+          </ReaderLessonSteps>
           {practiceActions}
           {submissionWorkspace}
           {deferredPracticeActions === undefined ? null : (

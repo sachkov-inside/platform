@@ -9,6 +9,10 @@ import {
   materialOpenCommandSchema,
   materialOpenResultSchema,
 } from "../model/material-open-contract";
+import {
+  openedPartsCommandSchema,
+  openedPartsResultSchema,
+} from "../model/opened-parts-contract";
 import { personalHomeResultSchema } from "../model/personal-home-contract";
 import {
   readingCommandSchema,
@@ -32,6 +36,15 @@ export const recordMaterialOpenOperation = defineMutationOperation({
   method: "POST",
   path: "/api/reading-progress/open",
   result: materialOpenResultSchema,
+  transportFailure: readerFailure,
+});
+
+/** Saves how many parts of a step-by-step lesson the reader has opened (#2122). */
+export const recordOpenedPartsOperation = defineMutationOperation({
+  input: openedPartsCommandSchema,
+  method: "PUT",
+  path: "/api/reading-progress/opened-parts",
+  result: openedPartsResultSchema,
   transportFailure: readerFailure,
 });
 
