@@ -122,7 +122,7 @@ function exerciseStatistics(rows: readonly Row[]): ExerciseStatistics[] {
       respondents: 0,
       firstTryCorrect: 0,
       firstTryDontKnow: 0,
-      wrong: new Map(),
+      wrong: new Map<string, { answer: ExerciseAnswer; count: number }>(),
     };
     versions.set(key, tally);
     tally.respondents += row.attempts;
@@ -165,10 +165,11 @@ function exerciseStatistics(rows: readonly Row[]): ExerciseStatistics[] {
 }
 
 function byFirstAnswer(left: VersionTally, right: VersionTally): number {
-  return (
-    left.firstAnsweredAt.getTime() - right.firstAnsweredAt.getTime() ||
-    compareText(left.fingerprint, right.fingerprint)
-  );
+  const byTime =
+    left.firstAnsweredAt.getTime() - right.firstAnsweredAt.getTime();
+  return byTime === 0
+    ? compareText(left.fingerprint, right.fingerprint)
+    : byTime;
 }
 
 /** The most frequent wrong answer; a tie goes to the smaller canonical text, so it is stable. */

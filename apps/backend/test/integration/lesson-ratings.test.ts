@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
@@ -295,12 +296,16 @@ describe("Lesson Ratings over Nest HTTP", () => {
       headers: headers(bearer),
     });
   }
-  function rate(bearer: string | null, materialId: string, payload: unknown) {
+  function rate(
+    bearer: string | null,
+    materialId: string,
+    payload: Record<string, string>,
+  ) {
     return server.inject({
       method: "PUT",
       url: ratingUrl(materialId),
       headers: headers(bearer),
-      payload: payload as Record<string, unknown>,
+      payload,
     });
   }
   function clear(bearer: string | null, materialId: string) {
@@ -378,7 +383,11 @@ describe("Lesson Ratings over Nest HTTP", () => {
       const author = await signedIn(permission);
       const read = await counts(author, freeMaterialId);
       expect(read.statusCode).toBe(200);
-      expect(read.json()).toMatchObject({ likes: expect.any(Number) });
+      const body = z
+        .object({ likes: z.number(), dislikes: z.number() })
+        .strict()
+        .parse(read.json());
+      expect(body.likes).toBeGreaterThan(0);
     }
     const denied = await counts(reader, freeMaterialId);
     expect(denied.statusCode).toBe(403);
