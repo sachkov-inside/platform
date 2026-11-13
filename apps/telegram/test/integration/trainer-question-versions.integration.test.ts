@@ -1,6 +1,14 @@
-import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
 
-import { createDatabase } from "../../src/database/create-database.js";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  expect,
+  it as test,
+} from "vitest";
+
 import { migrateTo, migrateToLatest } from "../../src/database/migrator.js";
 import { TrainerBank } from "../../src/modules/trainer/trainer-bank.js";
 import { TrainerDaily } from "../../src/modules/trainer/trainer-daily.js";
@@ -13,10 +21,17 @@ import {
 } from "../support/fixed-clock.js";
 import { clearTrainerData } from "../support/trainer-bot.js";
 import { syntheticTrainerBank } from "../support/synthetic-trainer-bank.js";
+import { createTrainerCaseDatabase } from "../support/trainer-case-database.js";
 
 registerFixedClock();
 
-const database = createDatabase(required(process.env["DATABASE_URL"]));
+const fixture = createTrainerCaseDatabase(
+  required(process.env["DATABASE_URL"]),
+  `trainer_versions_${randomUUID()}`,
+);
+const { database } = fixture;
+const it = (name: string, work: () => Promise<void>) =>
+  test(name, ({ signal }) => fixture.run(signal, work));
 const bank = new TrainerBank(database, virtualTestClock);
 const daily = new TrainerDaily(database);
 const rounds = new TrainerRounds(database);
@@ -41,9 +56,8 @@ beforeEach(async () => {
     })
     .execute();
 });
-afterAll(async () => {
-  await database.destroy();
-});
+afterEach(() => fixture.finish());
+afterAll(() => fixture.destroy());
 
 it("explains the option the person saw before a Bank import reordered the options", async () => {
   const file = syntheticTrainerBank({ topics: 1, questionsPerTopic: 1 });
