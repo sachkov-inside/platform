@@ -110,6 +110,14 @@ export async function managePaymentLink(
           );
           if (!price.ok) return price;
           const source = price.value;
+          if (
+            !(await productSaleAvailable(
+              dependencies.contentCatalog,
+              source,
+              transactionHandle(tx),
+            ))
+          )
+            return failure("not_found");
           if (source.paymentOption.revision !== command.priceRevision)
             return failure("quote_changed");
           const products = source.offer.benefits.filter(isProductCapability);
