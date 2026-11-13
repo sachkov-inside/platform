@@ -170,7 +170,7 @@ const authorSchema = z
             .array(
               z.strictObject({
                 badge: badge.describe(
-                  "favorite «⭐ Мой выбор», confident «Уверенная», mid-tasks «Для средних задач», pricey «Дорого», wasteful «Невыгодно».",
+                  "favorite «⭐ Мой выбор», confident «Уверенная», mid-tasks «Требует контроля», pricey «Дорого», wasteful «Невыгодно».",
                 ),
                 text: text.describe("Пояснение автора к значку."),
                 groups: z

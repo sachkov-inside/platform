@@ -249,7 +249,7 @@ describe("ИИ-модели widget: the list", () => {
       expect(await chosen(page)).toEqual(["Дёшево"]);
       const shown = await text(page);
       expect(shown).toContain(
-        "Delta 1\n$0,12\nзадача\n⭐ Мой выборДля средних задачподписка от $10 · очень дешёвая, для простых задач",
+        "Delta 1\n$0,12\nзадача\n⭐ Мой выборТребует контроляподписка от $10 · очень дешёвая, для простых задач",
       );
       expect(shown).toContain(
         "Echo 5 Flash\n$0,31\nзадача\nтолько API · дешёвая, только по API",
@@ -326,7 +326,7 @@ describe("ИИ-модели widget: the card", () => {
       await tap(page, "Delta 1", card("delta"));
       const delta = await text(page);
       expect(delta).toContain(
-        "Мнение автора\n⭐ Мой выбордешёвая модель на каждый день\nДля средних задачдля средних задач\nсоветую Multigate Go\n",
+        "Мнение автора\n⭐ Мой выбордешёвая модель на каждый день\nТребует контролясправится, если вести по шагам\nсоветую Multigate Go\n",
       );
 
       await press(page, "‹");

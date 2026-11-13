@@ -53,7 +53,7 @@ import {
 // so `row.split("|")` always yields the documented number of fields.
 //
 // Codes:
-// - badge: f «⭐ Мой выбор», c «Уверенная», m «Для средних задач», p «Дорого», w «Невыгодно»,
+// - badge: f «⭐ Мой выбор», c «Уверенная», m «Требует контроля», p «Дорого», w «Невыгодно»,
 //   b «Риск бана». A list row writes them together in this order, for example "fb".
 // - ban risk level: h высокий, m средний, l низкий.
 // - Russia marks: two letters, from Russia then a Russian card; y да, n нет, u нет данных.
