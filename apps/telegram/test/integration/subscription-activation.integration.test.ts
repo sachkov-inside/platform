@@ -539,6 +539,49 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(a.chat.count("create_invite")).toBe(0);
   });
 
+  it("lets /community admit a linked person to the group of their only course", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70116, "/start");
+    await a.link(70116);
+    await a.ingress(70116, "/community");
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.sent.at(-1)?.text).toBe(
+      "AI Engineering\n\nМожно вступить в группу курса.",
+    );
+    expect(a.sent.at(-1)?.buttons).toContainEqual({
+      text: "Вступить в группу",
+      url: "https://t.me/+synthetic",
+    });
+  });
+
+  it("opens Мои продукты on /community when several courses have a group", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70117, "/start");
+    await a.link(70117);
+    const product = required(a.state.products[0]);
+    a.state.products = [
+      product,
+      {
+        ...product,
+        id: "22222222-2222-4222-8222-222222222222",
+        slug: "another-course",
+        name: "Another Course",
+      },
+    ];
+    await a.ingress(70117, "/community");
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.sent.at(-1)?.text).toBe(
+      "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.",
+    );
+    expect(a.chat.count("create_invite")).toBe(0);
+  });
+
   it("measures prepared normal admission from accepted bot action to usable delivered result", async ({
     activation: a,
   }) => {

@@ -370,7 +370,23 @@ export class CourseActivation {
       await this.screen(contact, productList(access.value.products ?? []));
       return;
     }
-    const product = access.value.products?.find((item) => item.id === onlyCode);
+    const products = access.value.products ?? [];
+    // /community names no course: the only course with a group is meant, otherwise the person picks.
+    const withGroup = products.filter(
+      (item) => item.community.state === "available",
+    );
+    if (
+      action === "community" &&
+      !hasText(onlyCode) &&
+      withGroup.length !== 1
+    ) {
+      await this.screen(contact, productList(products));
+      return;
+    }
+    const product =
+      action === "community" && !hasText(onlyCode)
+        ? withGroup[0]
+        : products.find((item) => item.id === onlyCode);
     if (!product) {
       await this.screen(contact, {
         text: "Не удалось проверить доступ. Попробуйте ещё раз.",
