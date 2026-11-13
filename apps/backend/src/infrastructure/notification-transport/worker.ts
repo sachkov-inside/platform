@@ -72,6 +72,16 @@ export async function connectWhenBrokerReady<Connection>(
   }
 }
 
+/** Log level of a worker report: a broker wait is expected after a reboot, an error is not. */
+export function transportLogLevel(
+  event: Readonly<Record<string, unknown>>,
+): "info" | "warn" | "error" {
+  // Waiting for a broker that starts after the worker is expected after a reboot (#2129, #2134).
+  if (event["status"] === "transport_waiting") return "warn";
+  if (event["error"] !== undefined) return "error";
+  return event["status"] === "operator_attention" ? "warn" : "info";
+}
+
 export function assembleNotificationWorker(input: {
   processInbox?: () => Promise<readonly SweepObservation[]>;
   /** Один проход разбора входящих вместе с записью его наблюдений — одна единица работы журнала. */

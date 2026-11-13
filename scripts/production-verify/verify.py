@@ -199,8 +199,10 @@ def verify_public_routes(record):
                         'old Web origin redirects with the same path and query'))
 
 
-def read_logs(container, since=None, until=None):
+def read_logs(container, since=None, until=None, timestamps=False):
     args = ['docker', 'logs', '--since', since or container['State']['StartedAt']]
+    if timestamps:
+        args += ['--timestamps']
     if until is not None:
         args += ['--until', until]
     result = subprocess.run([*args, container['Id']],
@@ -213,6 +215,28 @@ def read_logs(container, since=None, until=None):
 def error_logs(logs):
     import re
     return bool(re.search(r'\[ERROR\]|operator_attention|delivery_not_configured|email_dispatch_failed|platform_response_invalid|"level"\s*:\s*"error"', logs))
+
+
+# After a reboot the bot starts before RabbitMQ and Platform answer (#2134). Only these
+# dependency waits, and only in the first minutes after the start, are not startup errors.
+STARTUP_DEPENDENCY_GRACE_SECONDS = 180
+STARTUP_DEPENDENCY_FAILURE = r'"failure"\s*:\s*"(broker_unavailable|network_[A-Za-z_]+|telegram_network)"'
+
+
+def startup_log_errors(logs, started_at):
+    """logs come from docker logs --timestamps; an unreadable start or line time keeps the error."""
+    import re
+    start = utc_epoch_seconds(started_at)
+    for line in logs.splitlines():
+        stamp, _, text = line.partition(' ')
+        if not error_logs(text):
+            continue
+        at = utc_epoch_seconds(stamp)
+        if (start is not None and at is not None and 0 <= at - start <= STARTUP_DEPENDENCY_GRACE_SECONDS
+                and re.search(STARTUP_DEPENDENCY_FAILURE, text)):
+            continue
+        return True
+    return False
 
 
 TELEGRAM_ERROR_COUNTERS = [
@@ -444,7 +468,10 @@ def verify_telegram(manifest, state, record):
         record.append(check(method + ' ' + path, status == expected, 'expected allowlist/authentication boundary'))
     status, values = telegram_metrics()
     record.append(telegram_error_check(status, values))
-    record.append(check('Telegram startup logs', not error_logs(read_logs(app)), 'no contract/operator/delivery errors since app start'))
+    record.append(check('Telegram startup logs',
+                        not startup_log_errors(read_logs(app, timestamps=True), app['State']['StartedAt']),
+                        'no contract/operator/delivery errors since app start; dependency waits in its first '
+                        + str(STARTUP_DEPENDENCY_GRACE_SECONDS // 60) + ' minutes excepted'))
     telegram = json.loads(run(['docker', 'exec', '-i', app['Id'], 'node', '--input-type=module'], data=TELEGRAM_READ, timeout=60))
     record.append(verify_bot_identity(telegram))
     webhook = telegram['webhook']
