@@ -234,10 +234,11 @@ One of a fixed set of task kinds that an ИИ-модель suits: код, тек
 _Avoid_: Badge, Значок автора, category
 
 **Значок автора** (Author Badge):
-The owner's short opinion shown on an ИИ-модель, from a fixed set: «Мой выбор», «Уверенная», «Для
-средних задач», «Дорого», «Невыгодно», «Риск бана». Only the owner sets or removes it; the
-Ежедневная проверка never changes it. «Риск бана» describes a service and reaches the models used
-through it.
+The owner's short opinion shown on an ИИ-модель, from a fixed set: «Мой выбор», «Уверенная»,
+«Требует контроля», «Дорого», «Невыгодно», «Риск бана». «Требует контроля» means the model handles
+almost any task, but needs smaller steps and more checks than the strongest models. Only the owner
+sets or removes it; the Ежедневная проверка never changes it. «Риск бана» describes a service and
+reaches the models used through it.
 _Avoid_: Tag, Метка задачи, rating, review
 
 **Лучше взять** (Better Pick):

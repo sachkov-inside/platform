@@ -414,7 +414,7 @@
                         "pricey",
                         "wasteful"
                       ],
-                      "description": "favorite «⭐ Мой выбор», confident «Уверенная», mid-tasks «Для средних задач», pricey «Дорого», wasteful «Невыгодно»."
+                      "description": "favorite «⭐ Мой выбор», confident «Уверенная», mid-tasks «Требует контроля», pricey «Дорого», wasteful «Невыгодно»."
                     },
                     "text": {
                       "type": "string",

@@ -312,7 +312,7 @@ export function syntheticAiModelsReference() {
               text: "дешёвая модель на каждый день",
               groups: ["daily"],
             },
-            { badge: "mid-tasks", text: "для средних задач" },
+            { badge: "mid-tasks", text: "справится, если вести по шагам" },
           ],
           advice: "советую Multigate Go",
         },
