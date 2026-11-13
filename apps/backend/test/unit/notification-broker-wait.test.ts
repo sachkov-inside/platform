@@ -65,3 +65,26 @@ test("gives up after two minutes and leaves the failure to the caller", async ()
     reports.every((event) => event["status"] !== "operator_attention"),
   ).toBe(true);
 });
+
+test("a stop during the wait ends it at once", async () => {
+  const clock = virtualClock();
+  const stop = new AbortController();
+  let attempts = 0;
+  await expect(
+    connectWhenBrokerReady(
+      () => {
+        attempts += 1;
+        if (attempts === 2) stop.abort();
+        return Promise.reject(refused());
+      },
+      {
+        principal: "email",
+        report: () => undefined,
+        now: clock.now,
+        pause: clock.pause,
+        signal: stop.signal,
+      },
+    ),
+  ).rejects.toThrow("ECONNREFUSED");
+  expect(attempts).toBe(2);
+});

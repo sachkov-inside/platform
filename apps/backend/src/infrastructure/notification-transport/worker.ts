@@ -39,10 +39,16 @@ export async function connectWhenBrokerReady<Connection>(
     report: (event: Record<string, unknown>) => void;
     now?: () => number;
     pause?: (milliseconds: number) => Promise<unknown>;
+    signal?: AbortSignal;
   },
 ): Promise<Connection> {
   const now = options.now ?? Date.now;
-  const pause = options.pause ?? ((milliseconds) => delay(milliseconds));
+  const pause =
+    options.pause ??
+    ((milliseconds) =>
+      delay(milliseconds, undefined, {
+        ...(options.signal ? { signal: options.signal } : {}),
+      }));
   const deadline = now() + BROKER_START_WAIT_MS;
   let wait = BROKER_RETRY_FIRST_MS;
   let reported = false;
@@ -50,7 +56,7 @@ export async function connectWhenBrokerReady<Connection>(
     try {
       return await connect();
     } catch (error) {
-      if (now() >= deadline) throw error;
+      if (now() >= deadline || options.signal?.aborted === true) throw error;
       if (!reported) {
         reported = true;
         options.report({
@@ -129,7 +135,7 @@ export function assembleNotificationWorker(input: {
                   ? { caFile: input.config.caFile }
                   : {}),
               }),
-            { principal, report: input.report },
+            { principal, report: input.report, signal: abort.signal },
           );
           connections.set(principal, connection);
           connection.on("close", () => {
@@ -241,6 +247,8 @@ export function assembleNotificationWorker(input: {
             );
           });
       } catch (error) {
+        // Остановка во время ожидания брокера — не отказ запуска (#2129).
+        if (stopping) throw error;
         // Причина называется до остановки: свой отказ у остановки тоже бывает, и он не должен
         // заменить собой то, из-за чего запуск не состоялся.
         input.report({
