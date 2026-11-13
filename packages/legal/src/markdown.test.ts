@@ -173,6 +173,9 @@ describe("published editions", () => {
     expect(cookies.text).not.toContain("inside.telegram-onboarding.dismissed");
     expect(cookies.text).not.toContain("inside:communications:sample");
     expect(cookies.text).not.toContain("Tribute");
+    // Гость хранит ответы на упражнения; «задание» в продукте означает Product Task.
+    expect(cookies.text).toContain("Ответы на упражнения без аккаунта");
+    expect(cookies.text).not.toMatch(/задани/u);
     expect(cookies.text).not.toMatch(/\bInside\b/u);
     // Опубликованная v2 остаётся по своему адресу с прежней контрольной суммой.
     expect(findLegalEdition("cookies", 2)?.digest).toBe(
