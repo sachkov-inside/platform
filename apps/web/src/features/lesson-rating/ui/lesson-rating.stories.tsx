@@ -1,0 +1,79 @@
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, fn, userEvent, within } from "storybook/test";
+
+import { LessonRating } from "./lesson-rating.client";
+
+const meta = {
+  id: "features-lesson-rating",
+  title: "Components/Material/Lesson rating",
+  component: LessonRating,
+  args: {
+    state: { kind: "ready", rating: null, saving: false, failed: false },
+    onRate: fn(),
+  },
+  decorators: [
+    (Story) => (
+      <div className="mx-auto max-w-[43rem] p-3">
+        <Story />
+      </div>
+    ),
+  ],
+} satisfies Meta<typeof LessonRating>;
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+/** No rating yet: both choices are open. */
+export const NotRated: Story = {
+  play: async ({ args, canvasElement }) => {
+    const rating = within(canvasElement);
+    await expect(
+      rating.getByRole("heading", { name: "Как вам урок?" }),
+    ).toBeVisible();
+    const like = rating.getByRole("button", { name: "Понравился" });
+    await expect(like).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(like);
+    await expect(args.onRate).toHaveBeenCalledWith("like");
+  },
+};
+
+/** The chosen rating is pressed; pressing it again removes it, the other one replaces it. */
+export const Liked: Story = {
+  args: {
+    state: { kind: "ready", rating: "like", saving: false, failed: false },
+  },
+  play: async ({ args, canvasElement }) => {
+    const rating = within(canvasElement);
+    const like = rating.getByRole("button", { name: "Понравился" });
+    await expect(like).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(like);
+    await expect(args.onRate).toHaveBeenLastCalledWith(null);
+    await userEvent.click(
+      rating.getByRole("button", { name: "Не понравился" }),
+    );
+    await expect(args.onRate).toHaveBeenLastCalledWith("dislike");
+  },
+};
+
+export const Failed: Story = {
+  args: {
+    state: { kind: "ready", rating: null, saving: false, failed: true },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole("status")).toHaveTextContent(
+      "Не удалось сохранить оценку. Попробуйте ещё раз.",
+    );
+  },
+};
+
+/** A guest is asked to sign in instead of rating. */
+export const Guest: Story = {
+  args: { state: { kind: "guest", loginHref: "/account" } },
+  play: async ({ canvasElement }) => {
+    const rating = within(canvasElement);
+    await expect(rating.getByRole("link", { name: "Войдите" })).toHaveAttribute(
+      "href",
+      "/account",
+    );
+    await expect(rating.queryAllByRole("button")).toHaveLength(0);
+  },
+};

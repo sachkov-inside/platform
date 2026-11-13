@@ -12,6 +12,7 @@ import { AuthoringOverviewModule } from "../../modules/authoring-overview/index.
 import { BookmarksModule } from "../../modules/bookmarks/index.js";
 import { ExerciseAttemptsModule } from "../../modules/exercise-attempts/index.js";
 import { GlossaryModule } from "../../modules/glossary/index.js";
+import { LessonRatingsModule } from "../../modules/lesson-ratings/index.js";
 import { SalesFunnelModule } from "../../modules/sales-funnel/index.js";
 import {
   CommunicationsModule,
@@ -98,6 +99,7 @@ export class ApiModule {
         BookmarksModule,
         ExerciseAttemptsModule,
         GlossaryModule,
+        LessonRatingsModule,
         SalesFunnelModule,
         CommunicationsModule,
         CommunicationsTrackingDeliveryModule,

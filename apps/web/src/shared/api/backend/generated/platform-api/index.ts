@@ -28,6 +28,7 @@ export { CourseActivationIntegrationService } from './services/CourseActivationI
 export { ExerciseAttemptsService } from './services/ExerciseAttemptsService';
 export { GlossaryService } from './services/GlossaryService';
 export { KinescopeIntegrationService } from './services/KinescopeIntegrationService';
+export { LessonRatingsService } from './services/LessonRatingsService';
 export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';
 export { MaterialVideoAuthoringService } from './services/MaterialVideoAuthoringService';

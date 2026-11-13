@@ -16,6 +16,7 @@ import {
 import { MaterialLinkPreview } from "./material-link-preview.client";
 import { MaterialVideoAuthoring } from "@/features/material-video";
 import { ContentCoverEditor } from "@/features/content-covers";
+import { SavedLessonStatistics } from "@/features/lesson-statistics";
 import { ProductRemovalConfirmationDialog } from "@/shared/ui/product-removal-confirmation-dialog.client";
 import {
   MaterialAuthoringSignInActions,
@@ -225,6 +226,20 @@ function MaterialAuthoringWorkspaceView({
                 />
               ),
             },
+            ...(presentation.draft.materialId === null
+              ? []
+              : [
+                  {
+                    id: "statistics",
+                    label: "Статистика",
+                    panel: (
+                      <SavedLessonStatistics
+                        document={presentation.draft.document}
+                        materialId={presentation.draft.materialId}
+                      />
+                    ),
+                  },
+                ]),
           ]}
         />
       </form>
