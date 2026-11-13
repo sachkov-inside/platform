@@ -138,7 +138,7 @@ const fullRoadmap: Roadmap = {
     designChapter,
     planned(
       "Тестирование, проверки, фидбэк и evals",
-      "Принимать работу агента по проверкам и свидетельствам, а не по слову «готово».",
+      "Как проверить работу агента тестами, ревью и evals, не читая каждую строку кода.",
       [
         "Тесты, которым можно верить",
         "Проверка в живом приложении",
@@ -150,7 +150,7 @@ const fullRoadmap: Roadmap = {
     ),
     planned(
       "Практика: разработка реального проекта с агентами",
-      "Разные проекты и разные реализации, весь путь от идеи до работающей версии.",
+      "Делаем с агентами несколько проектов от идеи до работающей версии.",
       [
         "Спецификации и деление на задачи",
         "Параллельные агенты",
@@ -159,12 +159,12 @@ const fullRoadmap: Roadmap = {
     ),
     planned(
       "Инфраструктура, CI/CD и деплой с агентами",
-      "Выкатить проект в продакшен и поддерживать его вместе с агентом.",
+      "Настраиваем с агентом сервер, CI/CD и деплой и выкатываем проект в продакшен.",
       ["Окружения и секреты", "CI/CD", "Деплой", "Бэкапы", "Мониторинг"],
     ),
     planned(
       "Существующий проект и процесс команды с агентами",
-      "Подключить агентов к живому проекту и автоматизировать рутину команды.",
+      "Подключаем агентов к проекту, который уже работает, и к процессу команды.",
       [
         "Агент в чужом коде",
         "Общий harness и MCP",
@@ -175,7 +175,7 @@ const fullRoadmap: Roadmap = {
     ),
     planned(
       "Разработка агентов-помощников и встраивание их в продукты",
-      "Сделать своего агента и встроить его в продукт так, чтобы он работал за пользователя.",
+      "Пишем своего агента и встраиваем его в продукт.",
       [
         "Как устроены LLM и цикл агента",
         "Инструменты и tool calling",
@@ -442,30 +442,68 @@ function UpcomingLessonRow({
 
 type NumberedChapter = ReturnType<typeof numbered>[number];
 
+/**
+ * Every chapter folds the same way: the summary keeps the title, the badge and one line; the body
+ * holds the lessons or the topics. Only the chapter in work starts open.
+ */
+function ChapterDisclosure({
+  kind,
+  title,
+  badge,
+  line,
+  open = false,
+  children,
+}: {
+  readonly kind: RoadmapChapter["kind"];
+  readonly title: string;
+  readonly badge?: ReactNode;
+  readonly line: ReactNode;
+  readonly open?: boolean;
+  readonly children: ReactNode;
+}) {
+  return (
+    <details className="group/chapter" data-roadmap-chapter={kind} open={open}>
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0 flex-1">
+          <h3
+            className={cn(
+              chapterTitleClass,
+              kind === "planned" &&
+                "text-[0.9375rem] text-foreground/85 sm:text-lg",
+            )}
+          >
+            {title}
+          </h3>
+          {badge}
+          <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+            {line}
+          </p>
+        </div>
+        <ChevronDown
+          aria-hidden="true"
+          className="mt-1.5 size-4 shrink-0 text-muted-foreground transition-transform group-open/chapter:rotate-180"
+        />
+      </summary>
+      {children}
+    </details>
+  );
+}
+
 function DoneChapter({ entry }: { readonly entry: NumberedChapter }) {
   const lessons = entry.lessons.flatMap((lesson) =>
     lesson.kind === "ready" ? [lesson] : [],
   );
   const read = lessons.filter(({ material: item }) => item.isRead).length;
-  const first = lessons[0]?.ordinal ?? 1;
   return (
-    <details className="group/done" data-roadmap-chapter="done">
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-        <div className="min-w-0">
-          <h3 className={chapterTitleClass}>{entry.chapter.name}</h3>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Изучено {read} из {lessons.length}
-          </p>
-        </div>
-        <ChevronDown
-          aria-hidden="true"
-          className="mt-1.5 size-4 shrink-0 text-muted-foreground transition-transform group-open/done:rotate-180"
-        />
-      </summary>
+    <ChapterDisclosure
+      kind="done"
+      line={`Изучено ${String(read)} из ${String(lessons.length)}`}
+      title={entry.chapter.name}
+    >
       <ol
         aria-label={`Материалы главы «${entry.chapter.name}»`}
         className="mt-3 grid gap-2"
-        start={first}
+        start={lessons[0]?.ordinal ?? 1}
       >
         {lessons.map((lesson) => (
           <ReadyLessonRow
@@ -475,20 +513,20 @@ function DoneChapter({ entry }: { readonly entry: NumberedChapter }) {
           />
         ))}
       </ol>
-    </details>
+    </ChapterDisclosure>
   );
 }
 
 function WritingChapter({ entry }: { readonly entry: NumberedChapter }) {
   const ready = entry.lessons.filter((lesson) => lesson.kind === "ready");
   return (
-    <div data-roadmap-chapter="writing">
-      <h3 className={chapterTitleClass}>{entry.chapter.name}</h3>
-      <StatusBadge tone="writing">Пишется</StatusBadge>
-      <p className="mt-1.5 text-sm text-muted-foreground">
-        Готово {ready.length} из{" "}
-        {plural(entry.lessons.length, "урока", "уроков", "уроков")}
-      </p>
+    <ChapterDisclosure
+      badge={<StatusBadge tone="writing">Пишется</StatusBadge>}
+      kind="writing"
+      line={`Готово ${String(ready.length)} из ${plural(entry.lessons.length, "урока", "уроков", "уроков")}`}
+      open
+      title={entry.chapter.name}
+    >
       <ol
         aria-label={`Материалы главы «${entry.chapter.name}»`}
         className="mt-3 grid gap-2"
@@ -510,7 +548,7 @@ function WritingChapter({ entry }: { readonly entry: NumberedChapter }) {
           ),
         )}
       </ol>
-    </div>
+    </ChapterDisclosure>
   );
 }
 
@@ -520,42 +558,26 @@ function PlannedChapter({
   readonly chapter: Extract<RoadmapChapter, { kind: "planned" }>;
 }) {
   return (
-    <div data-roadmap-chapter="planned">
-      <h3
-        className={cn(
-          chapterTitleClass,
-          "text-[0.9375rem] sm:text-lg",
-          "text-foreground/85",
-        )}
+    <ChapterDisclosure
+      badge={<StatusBadge tone="planned">В планах</StatusBadge>}
+      kind="planned"
+      line={chapter.outcome}
+      title={chapter.name}
+    >
+      <ul
+        aria-label={`Темы главы «${chapter.name}»`}
+        className="mt-3 flex flex-wrap gap-1.5"
       >
-        {chapter.name}
-      </h3>
-      <StatusBadge tone="planned">В планах</StatusBadge>
-      <p className="mt-1 max-w-[64ch] text-sm leading-6 text-muted-foreground">
-        {chapter.outcome}
-      </p>
-      {chapter.topics.length === 0 ? null : (
-        <details className="course-chapter-details mt-0">
-          <summary className="min-h-9! text-sm">
-            <span className="course-chapter-details-label">
-              Темы главы
-              <span className="sr-only"> «{chapter.name}»</span>
-            </span>
-            <ChevronDown aria-hidden="true" />
-          </summary>
-          <ul className="flex flex-wrap gap-1.5 pb-1">
-            {chapter.topics.map((topic) => (
-              <li
-                className="rounded-full bg-secondary px-2.5 py-1 text-xs leading-4 text-foreground/80"
-                key={topic}
-              >
-                {topic}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-    </div>
+        {chapter.topics.map((topic) => (
+          <li
+            className="rounded-full bg-secondary px-2.5 py-1 text-xs leading-4 text-foreground/80"
+            key={topic}
+          >
+            {topic}
+          </li>
+        ))}
+      </ul>
+    </ChapterDisclosure>
   );
 }
 
@@ -697,7 +719,7 @@ export const DefaultMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
-/** Готовая глава и темы будущей главы раскрыты. */
+/** Раскрыты готовая глава и темы первой главы в планах. */
 export const Expanded: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -721,6 +743,27 @@ export const Expanded: Story = {
 };
 export const ExpandedMobile: Story = {
   ...Expanded,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** Глава в работе тоже сворачивается: вся программа помещается на один экран. */
+export const AllCollapsed: Story = {
+  play: async ({ canvasElement }) => {
+    const writing = canvasElement.querySelector<HTMLDetailsElement>(
+      '[data-roadmap-chapter="writing"]',
+    );
+    const summary = writing?.querySelector("summary");
+    if (writing == null || summary == null)
+      throw new Error("Missing chapter in work");
+    await userEvent.click(summary);
+    await expect(writing.open).toBe(false);
+    await expect(
+      canvasElement.querySelectorAll("details[data-roadmap-chapter][open]"),
+    ).toHaveLength(0);
+  },
+};
+export const AllCollapsedMobile: Story = {
+  ...AllCollapsed,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
