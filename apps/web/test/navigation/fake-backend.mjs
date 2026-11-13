@@ -1,6 +1,8 @@
 // @ts-check
 import {
   productReaderStateRoute,
+  readerProgrammeHoldRoute,
+  waitReaderProgrammeResponse,
   holdReaderOptionalResponses,
   readerOptionalResponseState,
   waitReaderOptionalResponse,
@@ -1241,10 +1243,16 @@ const server = createServer(async (request, response) => {
     send(200, readerOptionalResponseState());
     return;
   }
+  const programmeHold = readerProgrammeHoldRoute(url);
+  if (programmeHold !== null) {
+    send(200, programmeHold);
+    return;
+  }
   const readerState = productReaderStateRoute(request, url, {
     baseRoute: route,
   });
   if (readerState !== null) {
+    await waitReaderProgrammeResponse(request, url, response);
     await waitReaderOptionalResponse(url, response);
     send(readerState.status, readerState.value);
     return;
