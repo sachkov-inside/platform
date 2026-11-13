@@ -314,7 +314,7 @@ export class TelegramUpdateProcessor {
       isTruthy(this.config.activation?.enabled) &&
       !hasText(start.marketingSource)
     ) {
-      await this.activation.action(start.contact, "own");
+      await this.activation.action(start.contact, "menu");
     }
     if (
       !accessLink &&

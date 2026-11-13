@@ -634,7 +634,7 @@ describe("durable activation ingress, identity and continuation", () => {
     });
   });
 
-  it("shows the empty Product menu and reserves management for an authorized author", async ({
+  it("offers the course without products and reserves management for an authorized author", async ({
     activation: a,
   }) => {
     await a.ingress(70108, "/start");
@@ -643,10 +643,13 @@ describe("durable activation ingress, identity and continuation", () => {
     const outbound = a.app.get(StartResponseDeliveryProcessor);
     await a.ingress(70108, "/start");
     await outbound.processAvailable(10, a.clock.now());
-    expect(a.sent.at(-1)?.text).toContain("Пока нет доступных продуктов");
-    expect(
-      a.sent.at(-1)?.buttons?.some((button) => button.text === "Управление"),
-    ).toBe(false);
+    expect(a.sent.at(-1)?.text).toBe("Выберите раздел.");
+    expect(a.sent.at(-1)?.buttons?.map((button) => button.text)).toEqual([
+      "Курс AI Engineering",
+      "Тренажёр",
+      "ИИ-модели",
+      "Помощь",
+    ]);
     a.state.author = "allowed";
     await a.ingress(70108, "/start");
     await outbound.processAvailable(10, a.clock.now());
@@ -954,12 +957,10 @@ describe("durable activation ingress, identity and continuation", () => {
         activation.clock.now(),
       );
     }
-    expect(reply?.messageText).toBe(
-      "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.",
-    );
-    expect(reply?.buttons).toContainEqual({
-      text: "AI Engineering",
-      callbackData: "access:product:11111111-1111-4111-8111-111111111111",
+    expect(reply?.messageText).toBe("Выберите раздел.");
+    expect(reply?.buttons?.[0]).toEqual({
+      text: "Мои продукты",
+      callbackData: "access:own",
     });
     await activation.worker.action(
       {
@@ -1036,7 +1037,7 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(activation.proofs.at(-1)?.attemptId).toBe(activation.begins[0]);
   });
 
-  it("shows ordinary start without creating an Account or checking activation", async ({
+  it("shows the guest Главное меню without creating an Account or checking activation", async ({
     activation,
   }) => {
     await activation.ingress(70101, "/start");
@@ -1045,11 +1046,14 @@ describe("durable activation ingress, identity and continuation", () => {
       .claimNext(activation.clock.now());
     expect(reply).toMatchObject({
       messageText:
-        "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
+        "Здесь можно узнать о курсе AI Engineering, проверить свои знания в Тренажёре и посмотреть, какие ИИ-модели сейчас сильнее и сколько они стоят.",
       buttons: [
+        {
+          text: "Курс AI Engineering",
+          url: "https://sachkov.dev/products/ai-engineering",
+        },
         { text: "Тренажёр", callbackData: "trainer:open" },
         { text: "ИИ-модели", callbackData: "ai-models:open" },
-        { text: "Открыть платформу", url: "https://sachkov.dev" },
         {
           text: "Уже есть аккаунт",
           url: "https://sachkov.dev/auth/sign-in?returnTo=%2Faccount%2Faccess",
@@ -1059,6 +1063,38 @@ describe("durable activation ingress, identity and continuation", () => {
     });
     expect(activation.begins).toEqual([]);
     expect(activation.granted.size).toBe(0);
+  });
+
+  it("opens the guest Главное меню from Мои продукты without a link", async ({
+    activation: a,
+  }) => {
+    await a.callback(70104, "access:own");
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(10, a.clock.now());
+    expect(a.edited.at(-1)?.text).toBe(
+      "Здесь можно узнать о курсе AI Engineering, проверить свои знания в Тренажёре и посмотреть, какие ИИ-модели сейчас сильнее и сколько они стоят.",
+    );
+    expect(a.begins).toEqual([]);
+  });
+
+  it("still shows a linked person's Главное меню when the author check is unavailable", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70105, "/start");
+    await a.link(70105);
+    a.state.author = "unavailable";
+    await a.ingress(70105, "/start");
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(10, a.clock.now());
+    expect(a.sent.at(-1)?.text).toBe("Выберите раздел.");
+    expect(a.sent.at(-1)?.buttons?.map((button) => button.text)).toEqual([
+      "Мои продукты",
+      "Тренажёр",
+      "ИИ-модели",
+      "Помощь",
+    ]);
   });
 
   it("keeps the Trainer and ИИ-модели in the start menu when Platform cannot answer", async ({
@@ -1078,7 +1114,7 @@ describe("durable activation ingress, identity and continuation", () => {
       buttons: [
         { text: "Тренажёр", callbackData: "trainer:open" },
         { text: "ИИ-модели", callbackData: "ai-models:open" },
-        { text: "Повторить", callbackData: "access:own" },
+        { text: "Повторить", callbackData: "access:menu" },
         { text: "Помощь", callbackData: "access:help" },
       ],
     });

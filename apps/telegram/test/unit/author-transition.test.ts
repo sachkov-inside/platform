@@ -1,4 +1,4 @@
-import { productList } from "../../src/modules/course-activation/learner-view.js";
+import { mainMenu } from "../../src/modules/course-activation/learner-view.js";
 import { describe, expect, it } from "vitest";
 import {
   emptyAuthorState,
@@ -130,7 +130,7 @@ describe("main menu", () => {
     "opens management from the %s without a prior author session",
     (source) => {
       const button = required(
-        productList([], true).buttons.find(
+        mainMenu({ kind: "linked", products: [], author: true }).buttons.find(
           (item) => item.text === "Управление",
         ),
       );

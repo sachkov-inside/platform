@@ -129,11 +129,13 @@ describe("GrammyMessagesAdapter", () => {
         chatId: "42",
         messageId: "100",
         text: "Вход подтверждён. Вернитесь на сайт.",
-        buttons: [{ text: "Открыть Inside", url: "https://platform.test/" }],
+        buttons: [
+          { text: "Открыть sachkov.dev", url: "https://platform.test/" },
+        ],
       }),
     ).resolves.toEqual({ kind: "delivered", providerMessageId: "100" });
     expect(keyboard).toEqual([
-      [{ text: "Открыть Inside", url: "https://platform.test/" }],
+      [{ text: "Открыть sachkov.dev", url: "https://platform.test/" }],
     ]);
   });
 });
