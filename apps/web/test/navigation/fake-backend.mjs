@@ -435,7 +435,23 @@ function body(lesson, entitled) {
             ],
           },
         ]
-      : [];
+      : // Справочный документ курса ссылается на шаг программы.
+        lesson.slug === "aie-project"
+        ? [
+            {
+              kind: "paragraph",
+              content: [
+                {
+                  kind: "text",
+                  text: "урок 7 из описания",
+                  marks: [
+                    { kind: "link", href: "/materials/reference-lesson-7" },
+                  ],
+                },
+              ],
+            },
+          ]
+        : [];
   return {
     schemaVersion: 1,
     blocks: [

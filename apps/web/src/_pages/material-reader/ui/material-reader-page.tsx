@@ -5,7 +5,6 @@ import { materialSourceAnchors } from "@/entities/material";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import {
   CourseTaskSubmissionStatuses,
-  programmeStepLink,
   withDeferredTaskStatuses,
 } from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
@@ -65,6 +64,7 @@ import type {
   PublicMaterialResult,
 } from "../model/material-reader-view";
 import {
+  readerBodyLinkHref,
   resolveProductReaderContext,
   type ProductReaderContext,
 } from "../model/product-reader-context";
@@ -494,22 +494,7 @@ async function ResolvedMaterialReader({
                     {label}
                   </a>
                 );
-              const programme = productContext?.programme;
-              if (programme == null) return undefined;
-              const current = programme.current;
-              const contextAnchor =
-                programme.currentPosition === 0
-                  ? undefined
-                  : parseReaderCourseAnchor(current.id);
-              // Ссылка урока на шаг программы открывает этот шаг; дополнительный материал
-              // сохраняет исходный шаг и для своих ссылок.
-              const step =
-                productContext?.supplementary === true
-                  ? undefined
-                  : programmeStepLink(programme, href);
-              const target =
-                step?.href ??
-                anchoredMaterialHref(href, programme.href, contextAnchor, true);
+              const target = readerBodyLinkHref(productContext, href);
               return target === undefined ? undefined : (
                 <IntentPrefetchLink
                   className={proseLinkClassName}
