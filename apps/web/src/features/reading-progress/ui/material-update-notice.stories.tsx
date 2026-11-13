@@ -34,7 +34,7 @@ function OpenedLesson() {
 const meta = {
   ...environment,
   id: "features-reading-progress-update-notice",
-  title: "Features/Reading progress/Update notice",
+  title: "Components/Material/Update notice",
   component: OpenedLesson,
   beforeEach: () => {
     getQueryClient().clear();
