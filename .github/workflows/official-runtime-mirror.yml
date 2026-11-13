@@ -36,8 +36,8 @@ jobs:
             tag: 18.4-alpine3.23
             digest: sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
           - image: node
-            tag: 26.10.0-alpine3.24
-            digest: sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80
+            tag: 26.13.1-alpine3.24
+            digest: sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
     steps:
       # No candidate checkout, artifact, repository secret or arbitrary image input.
       - name: Install registry copier

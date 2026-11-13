@@ -1,0 +1,24 @@
+diff --git a/dist/chunks/index.Bi0NXYPf.js b/dist/chunks/index.Bi0NXYPf.js
+--- a/dist/chunks/index.Bi0NXYPf.js
++++ b/dist/chunks/index.Bi0NXYPf.js
+@@ -2,7 +2,7 @@
+ import { n as normalize, m as splitFileAndPostfix$1, j as join, o as isBareImport } from './pathe.M-eThtNZ.zq3TM4NT.js';
+ import { i as isBuiltin, a as isBrowserExternal, t as toBuiltin } from './modules.BJuCwlRJ.js';
+ import { E as EnvironmentTeardownError, a as getSafeWorkerState } from './utils.DYj33du9.js';
+-import { pathToFileURL, URL as URL$1 } from 'node:url';
++import { fileURLToPath, pathToFileURL, URL as URL$1 } from 'node:url';
+ import { distDir } from '../path.js';
+ import { VitestModuleEvaluator, unwrapId } from '../module-evaluator.js';
+ import { AsyncLocalStorage } from 'node:async_hooks';
+@@ -523,7 +523,10 @@
+ 		});
+ 	}
+ 	async mockedRequest(url, evaluatedNode, callstack) {
+-		const mock = this.getDependencyMock(evaluatedNode.id);
++		// Decode external file URLs before matching mocks (#1747).
++		const externalize = evaluatedNode.meta && "externalize" in evaluatedNode.meta ? evaluatedNode.meta.externalize : undefined;
++		const id = externalize?.startsWith("file://") ? normalizeModuleId(fileURLToPath(externalize)) : evaluatedNode.id;
++		const mock = this.getDependencyMock(id);
+ 		if (!mock) return;
+ 		return this.requestWithMockedModule(url, evaluatedNode, callstack, mock);
+ 	}

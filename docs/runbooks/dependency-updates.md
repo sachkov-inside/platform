@@ -51,19 +51,22 @@ exactly or by a range that excludes the fix, and the parent has no fixed release
 `pnpm-workspace.yaml` may override that one package to the fixed version. When other packages use
 another major of it, scope the override to the parent (`parent>package`). Each override names its
 parent and removal condition in a comment, and `scripts/toolchain-contract.test.mjs` lists the
-allowed set, so a new override is a reviewed change of both. Current overrides (#688, #1889):
+allowed set, so a new override is a reviewed change of both. Current overrides (#2117):
 
 | Package | Pinned by | Remove when |
 |---|---|---|
-| `mysql2` | `prisma` 7.10.0 | a stable Prisma release pins mysql2 ≥ 3.23.1 |
-| `deepmerge-ts` | `@prisma/config` 7.10.0 | a stable Prisma release uses deepmerge-ts ≥ 8 |
-| `@fastify/static>glob` | `@fastify/static` 10.1.5 (backend) and 10.1.8 (latest, through Nest), both `glob ^13` (#1889) | a stable `@fastify/static` release depends on glob ≥ 14.0.2 |
+| `archiver-utils>glob` 14.0.3 | archiver-utils 5 (Testcontainers archive creation) | stable parent admits glob >=14.0.2 |
+| `@joshwooding/vite-plugin-react-docgen-typescript>glob` 14.0.3 | inactive Storybook TypeScript docgen dependency | stable parent admits glob >=14.0.2 |
+| `@ts-morph/common>minimatch` 11.0.1 | shadcn CLI | stable parent admits minimatch >=11.0.1 |
+
+Prisma 7.10.1 now pins the fixed mysql2/deepmerge-ts releases; @fastify/static 10.1.10 admits
+fixed glob 14. Their previous overrides were removed.
 
 Overrides never force a peer range onto an incompatible tool; the TypeScript 7 rule below stands.
 
 ## Current baseline
 
-Node `26.10.0` is the shared Platform and Telegram baseline (#989). It is Current, not LTS;
+Node `26.13.1` is the shared Platform and Telegram baseline (#989). It is LTS as of October 2026;
 this migration prepares the owner-approved runtime change and does not release or deploy it.
 Node major changes remain separate reviewed migrations, with merge decided by the owner.
 Application Dockerfiles install Corepack `0.36.0` explicitly because Node 26 does not bundle it;
@@ -91,7 +94,7 @@ template implementation has no TypeScript dependency. Storybook uses `@storybook
 
 Keep strict peer dependencies enabled and do not add peer overrides to force an incompatible tool
 onto TypeScript 7. A dependency that requires the removed API must be replaced, disabled until it
-publishes a compatible stable release, or rejected. Storybook MCP `10.6.1` is part of the baseline
+publishes a compatible stable release, or rejected. Storybook MCP `10.6.7` is part of the baseline
 (#871, #987): its stable dependency graph installs without an additional peer override, and
 `pnpm peers check` passes. Its component manifest uses the existing `react-docgen` path;
 `scripts/toolchain-contract.test.mjs` keeps that path and the matching MCP/framework versions.

@@ -6,9 +6,9 @@
     "upstreamRevision": "79e9e3b0d9f505260d09c80d8a015e56fbc0ec01",
     "forkRevision": "inside.15"
   },
-  "logtoNext": "5.0.0",
-  "logtoNode": "4.0.0",
-  "jose": "6.2.12",
+  "logtoNext": "5.0.2",
+  "logtoNode": "4.0.2",
+  "jose": "6.2.17",
   "postgres": {
     "version": "17.6-alpine",
     "image": "public.ecr.aws/docker/library/postgres:17.6-alpine",

@@ -1,10 +1,10 @@
-FROM ghcr.io/sachkov-inside/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain
+FROM ghcr.io/sachkov-inside/node:26.13.1-alpine3.24@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS toolchain
 
 ENV COREPACK_HOME=/corepack
 RUN mkdir /corepack \
     && npm install --global corepack@0.36.0 \
     && corepack enable \
-    && corepack install --global pnpm@11.27.1 \
+    && corepack install --global pnpm@12.18.0 \
     && chown -R node:node /corepack
 
 WORKDIR /workspace
@@ -106,7 +106,7 @@ RUN pnpm --filter @inside/backend build:production \
     && pnpm --config.inject-workspace-packages=true \
       --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend
 
-FROM ghcr.io/sachkov-inside/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS backend-production
+FROM ghcr.io/sachkov-inside/node:26.13.1-alpine3.24@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS backend-production
 
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \

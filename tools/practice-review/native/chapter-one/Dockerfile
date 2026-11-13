@@ -1,4 +1,4 @@
-FROM node:26.10.0-bookworm-slim@sha256:3ffc19ea878019d9e9ae8971732ad4a03cda44f167107173174b60ed7c65bed3
+FROM node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 RUN apt-get update && apt-get install -y --no-install-recommends git ripgrep python3 ca-certificates curl chromium \
     && rm -rf /var/lib/apt/lists/* \
     && npm install --global @openai/codex@0.163.0

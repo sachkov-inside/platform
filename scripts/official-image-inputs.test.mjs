@@ -37,8 +37,8 @@ const runtimePins = new Map([
     "sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e",
   ],
   [
-    "node:26.10.0-alpine3.24",
-    "sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80",
+    "node:26.13.1-alpine3.24",
+    "sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5",
   ],
 ]);
 
@@ -73,7 +73,7 @@ test("official acquisition inputs select exact approved mirrors and official ups
       if (path === "apps/telegram/infra/production/Dockerfile") {
         assert.equal(
           reference,
-          "docker.io/library/node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
+          "docker.io/library/node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1",
           `${path}: both stages must use the verified upstream Node index without changing identity (#1432)`,
         );
         continue;
@@ -186,8 +186,8 @@ test("runtime publisher admits only the three owner-approved immutable indexes o
     ],
     [
       "node",
-      "26.10.0-alpine3.24",
-      "0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80",
+      "26.13.1-alpine3.24",
+      "6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5",
     ],
   ];
   assert.equal((publisher.match(/- image:/gu) ?? []).length, 3);

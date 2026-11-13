@@ -1,8 +1,8 @@
 # Root repository build context for independent telegram-release.yml.
-FROM docker.io/library/node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2 AS toolchain
+FROM docker.io/library/node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS toolchain
 RUN npm install --global corepack@0.36.0 \
     && corepack enable \
-    && corepack install --global pnpm@11.27.1
+    && corepack install --global pnpm@12.18.0
 
 FROM toolchain AS build
 WORKDIR /workspace
@@ -27,7 +27,7 @@ RUN pnpm --filter @inside/telegram build \
     && pnpm --config.inject-workspace-packages=true \
       --filter @inside/telegram deploy --prod --ignore-scripts --frozen-lockfile /workspace/.production/telegram
 
-FROM docker.io/library/node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2
+FROM docker.io/library/node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 ARG SOURCE_COMMIT
 LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
 ENV NODE_ENV=production
