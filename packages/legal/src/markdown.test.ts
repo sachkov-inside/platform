@@ -156,6 +156,26 @@ describe("published editions", () => {
     expect(cookies.title).toBe("Cookies и локальное хранение на sachkov.dev");
     expect(cookies.text).toContain("localStorage `inside.storage-notice.v1`");
     expect(cookies.text).not.toContain("guide-mode");
+    // Таблица перечисляет ровно то, что ставит apps/web (#2118).
+    for (const key of [
+      "inside.logout-return",
+      "inside_waitlist_intent",
+      "inside.video-progress.v1:",
+      "inside.video-preferences.v1",
+      "inside.exercise-answers.v1:",
+      "inside.lesson-parts.v1:",
+      "inside-reader-entry:",
+      "inside.telegram-link.v1",
+      "inside.billing.purchase.confirmed",
+      "inside.video-upload.v1:",
+    ])
+      expect(cookies.text).toContain(key);
+    expect(cookies.text).not.toContain("inside.telegram-onboarding.dismissed");
+    expect(cookies.text).not.toContain("inside:communications:sample");
+    expect(cookies.text).not.toContain("Tribute");
+    // Гость хранит ответы на упражнения; «задание» в продукте означает Product Task.
+    expect(cookies.text).toContain("Ответы на упражнения без аккаунта");
+    expect(cookies.text).not.toMatch(/задани/u);
     expect(cookies.text).not.toMatch(/\bInside\b/u);
     // Опубликованная v2 остаётся по своему адресу с прежней контрольной суммой.
     expect(findLegalEdition("cookies", 2)?.digest).toBe(
