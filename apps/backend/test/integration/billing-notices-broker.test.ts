@@ -17,7 +17,10 @@ import {
   BillingNotices,
   BillingPayments,
 } from "../../src/modules/billing/index.js";
-import { Notifications } from "../../src/modules/notifications/index.js";
+import {
+  Notifications,
+  assembleBillingNoticeSource,
+} from "../../src/modules/notifications/index.js";
 import { assembleNotificationPipeline } from "../../src/entrypoints/notifications-worker/assemble-notification-pipeline.js";
 import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
 import { lanes } from "../../src/infrastructure/notification-transport/wire.js";
@@ -187,7 +190,7 @@ test("подтверждённая оплата доходит до обоих �
       sources: {
         resolve: (event) =>
           event.eventType === "billing.notice-ready"
-            ? notices.resolveNotice(event)
+            ? assembleBillingNoticeSource(notices, links)(event)
             : Promise.resolve({ status: "unavailable" }),
         canRead: () => Promise.resolve("denied"),
       },

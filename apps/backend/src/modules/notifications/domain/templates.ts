@@ -1,5 +1,6 @@
 import type {
   NotificationSource,
+  SaleBuyer,
   SaleFacts,
 } from "../ports/notification-sources.js";
 const subjects = {
@@ -30,6 +31,34 @@ function promotionLine(promotion: SaleFacts["promotion"]): string[] {
     : [
         `Промокод: ${oneLine(promotion.code)} (скидка ${String(promotion.percent)}%)`,
       ];
+}
+/** Правило username Telegram, как у адреса бота в конфигурации: Telegram показывает его ссылкой. */
+const telegramUsername = /^[A-Za-z][A-Za-z0-9_]{4,31}$/u;
+/** Имя и фамилия в Telegram: до 64 символов каждое, между ними пробел. */
+const TELEGRAM_NAME_LIMIT = 129;
+/**
+ * Сообщение уходит простым текстом, но Telegram сам делает ссылками `@имя`, адреса и команды. Имя
+ * покупателя теряет управляющие и невидимые символы, а `@` в нём не превращается в чужой контакт.
+ */
+function buyerName(value: string): string {
+  const visible = value
+    .replaceAll(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ")
+    .replaceAll(/\s+/gu, " ")
+    .replaceAll("@", "＠")
+    .trim();
+  return [...visible].slice(0, TELEGRAM_NAME_LIMIT).join("").trim();
+}
+function buyerLine(buyer: SaleBuyer): string {
+  if (buyer.state === "not_linked") return "Покупатель: Telegram не привязан";
+  if (buyer.state === "unavailable")
+    return "Покупатель: Telegram привязан, профиль не прочитан";
+  const name = buyer.displayName === null ? "" : buyerName(buyer.displayName);
+  const username =
+    buyer.username !== null && telegramUsername.test(buyer.username)
+      ? `@${buyer.username}`
+      : null;
+  if (name === "") return `Покупатель: ${username ?? "Telegram без имени"}`;
+  return `Покупатель: ${name}, ${username ?? "без username"}`;
 }
 /** Петля не выходит наружу, поэтому стенд читается по http; любой другой узел обязан быть под TLS. */
 function readerLinkAllowed(base: URL): boolean {
@@ -75,11 +104,11 @@ export function renderNotification(
     throw new Error("notification_title_invalid");
   if (source.content.kind === "sale_recorded") {
     const sale = source.sale;
-    if (sale === undefined || source.amountMinor === undefined)
+    if (sale?.buyer === undefined || source.amountMinor === undefined)
       throw new Error("notification_sale_invalid");
     return {
       templateRef: `inside.${source.content.kind}`,
-      templateRevision: 1,
+      templateRevision: 2,
       subject,
       text: [
         subject,
@@ -88,6 +117,7 @@ export function renderNotification(
         `Сумма: ${(source.amountMinor / 100).toFixed(2)} ₽`,
         ...promotionLine(sale.promotion),
         `Время: ${moscowTime.format(new Date(source.event.occurredAt))} по Москве`,
+        buyerLine(sale.buyer),
         "",
         url.href,
       ].join("\n"),

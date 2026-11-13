@@ -37,6 +37,7 @@ import {
   NotificationOperationsController,
 } from "./features/read-deliveries/notifications.controller.js";
 import { NotificationDispatchController } from "./features/authorize-dispatch/notification-dispatch.controller.js";
+import { assembleBillingNoticeSource } from "./assemble-billing-notice-source.js";
 import { assembleNotificationRecipients } from "./assemble-notification-recipients.js";
 
 @Module({
@@ -84,14 +85,16 @@ import { assembleNotificationRecipients } from "./assemble-notification-recipien
             now: () => new Date(),
             origin: config.notificationDelivery?.origin,
             sources: {
-              // Каждый источник подтверждает свой повод собственными фактами: Billing — поводом оплаты,
-              // Materials — анонсом первой публикации. Данные брокера сами по себе отправку не разрешают.
+              // Каждый источник подтверждает свой повод собственными фактами: Billing — поводом оплаты
+              // (продажу Notifications дополняет Telegram покупателя, #2085), Materials — анонсом первой
+              // публикации. Данные брокера сами по себе отправку не разрешают.
               // Таблица закрыта типом события: следующий источник обязан назвать здесь своего владельца,
               // иначе его события молча спрашивали бы чужой повод.
               resolve: (event) =>
                 (
                   ({
-                    "billing.notice-ready": () => notices.resolveNotice(event),
+                    "billing.notice-ready": () =>
+                      assembleBillingNoticeSource(notices, telegram)(event),
                     "material.published": () =>
                       announcements.resolveAnnouncement(event),
                   }) satisfies Record<
