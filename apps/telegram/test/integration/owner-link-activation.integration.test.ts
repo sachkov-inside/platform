@@ -423,16 +423,14 @@ describe("ordinary /start", () => {
     expect(await activationMessages(person.user)).toEqual([]);
     expect(await openReviews(person.user)).toEqual([]);
     expect(grants.has(`course:${person.identityRef}`)).toBe(false);
-    // The person gets the ordinary greeting instead.
+    // The person gets the ordinary Главное меню instead.
     const texts = await db
       .selectFrom("start_response_deliveries")
       .select("message_text")
       .where("bot_identity", "=", bot)
       .where("telegram_user_id", "=", String(person.user))
       .execute();
-    expect(texts.map((row) => row.message_text)).toContain(
-      "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.",
-    );
+    expect(texts.map((row) => row.message_text)).toContain("Выберите раздел.");
   });
 });
 

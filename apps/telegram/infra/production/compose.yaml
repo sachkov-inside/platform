@@ -91,6 +91,14 @@ services:
     profiles: [operations]
     restart: "no"
 
+  # Reads the bot token from application.env; the owner's Telegram ID is passed with -e.
+  bot-commands:
+    <<: *runtime
+    entrypoint: [node, dist/operations/bot-commands-cli.js]
+    networks: [egress]
+    profiles: [operations]
+    restart: "no"
+
   # Operator bearer and writable report directory are provided only to this one-off command.
   group-members-report:
     <<: *runtime

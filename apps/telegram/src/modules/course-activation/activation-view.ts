@@ -171,7 +171,7 @@ export function ownAccessText(access: OwnAccess): string {
     .slice(0, 8)
     .map(
       (e) =>
-        `${e.tier.name}\n${origin[e.origin]}. ${enrollmentStates[e.state]}.\nСостав: ${e.tier.benefits.map(capability).join(", ")}.\nНачало: ${date(e.startsAt)}. ${term(e.endsAt)} — срок назначения. ${(e.benefitTerms ?? []).map((t) => `${capability(t.capability)}: ${t.revoked ? "отозвано" : term(t.endsAt)}`).join("; ")}.${e.renewal === "not_applicable" ? " Списаний Inside нет." : " Продление — по вашему платёжному соглашению."}`,
+        `${e.tier.name}\n${origin[e.origin]}. ${enrollmentStates[e.state]}.\nСостав: ${e.tier.benefits.map(capability).join(", ")}.\nНачало: ${date(e.startsAt)}. ${term(e.endsAt)} — срок назначения. ${(e.benefitTerms ?? []).map((t) => `${capability(t.capability)}: ${t.revoked ? "отозвано" : term(t.endsAt)}`).join("; ")}.${e.renewal === "not_applicable" ? " Списаний нет." : " Продление — по вашему платёжному соглашению."}`,
     );
   for (const ground of access.grounds.filter((g) => g.active).slice(0, 8))
     rows.push(

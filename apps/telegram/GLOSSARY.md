@@ -103,6 +103,17 @@ An owner-configured prior-course group and participant policy used to verify eli
 activation. It is separate from the community a Product opens and does not itself grant Product Access.
 _Avoid_: Community group, subscription source, Product Access
 
+**Главное меню** (Main Menu):
+The first screen of the private chat with the bot, which leads to its Разделы. A person sees only
+the Разделы that apply to them: Мои продукты with Product Access, the course entry until they
+have that course, Управление as an authorised author.
+_Avoid_: Start menu, product list, home screen, command menu
+
+**Раздел** (Bot Section):
+One part of the bot that the Главное меню opens with its own button: Мои продукты, Тренажёр,
+ИИ-модели, Помощь or Управление.
+_Avoid_: Tab, module, feature, mode
+
 **Тренажёр** (Trainer):
 The bot section where a BotContact checks their knowledge of AI engineering inside one widget
 message of the private chat. The person opens it themselves; it needs no PlatformLink or Product

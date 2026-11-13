@@ -37,7 +37,7 @@ export async function queueSignInResult(
     privateChatId: request.private_chat_id,
     messageText: text,
     ...(hasText(returnUrl)
-      ? { buttons: [{ text: "Открыть Inside", url: returnUrl }] }
+      ? { buttons: [{ text: "Открыть sachkov.dev", url: returnUrl }] }
       : {}),
     sourceKey: `sign-in-decision:${requestRef}`,
     signInRequestRef: requestRef,

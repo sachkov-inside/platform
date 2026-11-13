@@ -19,10 +19,56 @@ const products: TelegramButton = {
   text: "Назад к продуктам",
   callbackData: "access:own",
 };
-export function productList(
-  items: readonly LearnerProduct[],
-  author: boolean,
-): LearnerScreen {
+/** The course a person without it can learn about from the Главное меню. */
+const COURSE_SLUG = "ai-engineering";
+const course: TelegramButton = {
+  text: "Курс AI Engineering",
+  url: `${PLATFORM_URL}/products/${COURSE_SLUG}`,
+};
+/** Who opens the Главное меню decides which Разделы it shows. */
+export type MenuVisitor =
+  | { readonly kind: "guest" }
+  | {
+      readonly kind: "linked";
+      readonly products: readonly LearnerProduct[];
+      readonly author: boolean;
+    };
+/** The first screen of the private chat; it never starts with the project name. */
+export function mainMenu(visitor: MenuVisitor): LearnerScreen {
+  if (visitor.kind === "guest")
+    return {
+      text: "Здесь можно узнать о курсе AI Engineering, проверить свои знания в Тренажёре и посмотреть, какие ИИ-модели сейчас сильнее и сколько они стоят.",
+      buttons: [
+        course,
+        TRAINER_MENU_BUTTON,
+        AI_MODELS_MENU_BUTTON,
+        {
+          text: "Уже есть аккаунт",
+          url: `${PLATFORM_URL}/auth/sign-in?returnTo=%2Faccount%2Faccess`,
+        },
+        help(),
+      ],
+    };
+  return {
+    text: "Выберите раздел.",
+    buttons: [
+      ...(visitor.products.length > 0
+        ? [{ text: "Мои продукты", callbackData: "access:own" }]
+        : []),
+      ...(visitor.products.some((item) => item.slug === COURSE_SLUG)
+        ? []
+        : [course]),
+      TRAINER_MENU_BUTTON,
+      AI_MODELS_MENU_BUTTON,
+      help(),
+      ...(visitor.author
+        ? [{ text: "Управление", callbackData: "author:home:0" }]
+        : []),
+    ],
+  };
+}
+/** The Раздел «Мои продукты»; the other Разделы live in the Главное меню. */
+export function productList(items: readonly LearnerProduct[]): LearnerScreen {
   return {
     text:
       items.length > 0
@@ -33,13 +79,9 @@ export function productList(
         text: item.name,
         callbackData: `access:product:${item.id}`,
       })),
-      TRAINER_MENU_BUTTON,
-      AI_MODELS_MENU_BUTTON,
       { text: "На платформу", url: PLATFORM_URL },
       help(),
-      ...(author
-        ? [{ text: "Управление", callbackData: "author:home:0" }]
-        : []),
+      { text: "Назад", callbackData: "access:menu" },
     ],
   };
 }
@@ -47,7 +89,7 @@ export function courseButtons(product: LearnerProduct): TelegramButton[] {
   return product.materials.state === "available" &&
     hasText(product.programmeUrl)
     ? [
-        ...(product.slug === "ai-engineering"
+        ...(product.slug === COURSE_SLUG
           ? [
               {
                 text: "С чего начать",
@@ -118,7 +160,7 @@ export function courseGroupButtons(
     return [];
   return [
     { text: "Открыть группу", url: groupUrl },
-    ...(product.slug === "ai-engineering" &&
+    ...(product.slug === COURSE_SLUG &&
     groupUrl === "https://t.me/c/4421726276/1"
       ? [
           {
@@ -199,7 +241,7 @@ export function helpScreen(
             text: "Назад к продукту",
             callbackData: returnAction ?? `access:product:${id}`,
           }
-        : { text: "Назад", callbackData: "access:own" },
+        : { text: "Назад", callbackData: "access:menu" },
     ],
   };
 }

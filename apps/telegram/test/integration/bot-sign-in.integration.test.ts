@@ -205,14 +205,16 @@ describe("bot sign-in provider", () => {
       }
       expect(await worker.processAvailable()).toBe(0);
       expect(sent.map((message) => message.text)).toEqual([
-        "Вы входите в Sachkov Inside?",
+        "Вы входите на sachkov.dev?",
       ]);
       expect(edited).toEqual([
         {
           chatId: "42",
           messageId: "100",
           text: "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
-          buttons: [{ text: "Открыть Inside", url: "https://platform.test/" }],
+          buttons: [
+            { text: "Открыть sachkov.dev", url: "https://platform.test/" },
+          ],
         },
       ]);
     },
@@ -458,7 +460,7 @@ describe("bot sign-in provider", () => {
     expect(calls[0]).toEqual(calls[1]);
     expect(calls[0]).toMatchObject({ chatId: "42", messageId: "100" });
     expect(calls[0]?.buttons).toEqual([
-      { text: "Открыть Inside", url: "https://platform.test/" },
+      { text: "Открыть sachkov.dev", url: "https://platform.test/" },
     ]);
     expect(await edits()).toMatchObject([
       { state: "delivered", attempt_count: 2 },
@@ -730,7 +732,10 @@ describe("bot sign-in provider", () => {
                   messageId: "100",
                   text: "Подтверждение принято. Вернитесь на сайт, чтобы завершить вход.",
                   buttons: [
-                    { text: "Открыть Inside", url: "https://platform.test/" },
+                    {
+                      text: "Открыть sachkov.dev",
+                      url: "https://platform.test/",
+                    },
                   ],
                 },
               ]
@@ -1085,7 +1090,7 @@ describe("bot sign-in provider", () => {
       config,
     );
     expect(await delivery.processAvailable()).toBe(1);
-    expect(messages[0]?.text).toBe("Вы входите в Sachkov Inside?");
+    expect(messages[0]?.text).toBe("Вы входите на sachkov.dev?");
     expect(messages[0]?.buttons?.map((button) => button.text)).toEqual([
       "Подтвердить вход",
       "Отменить",

@@ -804,6 +804,7 @@ function privateSignInDecision(
 }
 
 const ACCESS_ACTIONS: readonly AccessAction[] = [
+  "menu",
   "own",
   "product",
   "help_missing",
