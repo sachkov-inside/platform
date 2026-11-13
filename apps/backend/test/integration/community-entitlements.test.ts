@@ -1594,7 +1594,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     }
   });
 
-  test("an unapplied operation is polled before applied ones, however many are applied", async () => {
+  test("an unapplied operation is polled before an applied one that waited longer", async () => {
     const isolated = await createMigratedTestDatabase();
     try {
       let instant = new Date(start);
@@ -1655,6 +1655,31 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
         waitingRow.operationId,
         appliedRow.operationId,
       ]);
+      // A fifth of the batch stays with applied deliveries even when unapplied rows fill it.
+      const moreWaiting = [];
+      for (const subject of [
+        "poll-order-w2",
+        "poll-order-w3",
+        "poll-order-w4",
+        "poll-order-w5",
+      ])
+        moreWaiting.push(await enroll(subject));
+      await app.sweep();
+      for (const { accountId } of moreWaiting)
+        provider.observe(
+          (await rowOf(accountId)).operationId,
+          "waiting_for_join",
+          "not_member",
+        );
+      instant = new Date(instant.getTime() + 61_000);
+      provider.polled.length = 0;
+      await pollCommunityOperations(
+        { prisma: isolated.prisma, provider },
+        5,
+        instant,
+      );
+      expect(provider.polled).toHaveLength(5);
+      expect(provider.polled).toContain(appliedRow.operationId);
     } finally {
       await isolated.dispose();
     }

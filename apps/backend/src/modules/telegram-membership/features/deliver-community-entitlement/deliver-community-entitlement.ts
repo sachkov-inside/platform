@@ -6,6 +6,7 @@ import {
   COMMUNITY_OVERDUE_MS,
   COMMUNITY_RECONCILIATION_INTERVAL_MS,
   COMMUNITY_RETRY_DELAYS_MS,
+  COMMUNITY_SETTLED_RESULTS,
   COMMUNITY_V2_CONTRACT_VERSION,
   communitySetSchema,
   type CommunityResult,
@@ -185,23 +186,27 @@ export async function pollCommunityOperations(
       },
     ],
   };
-  const order = [{ polledAt: "asc" as const }, { operationId: "asc" as const }];
+  const oldestPolledFirst = [
+    { polledAt: "asc" as const },
+    { operationId: "asc" as const },
+  ];
   // Unapplied work has an overdue deadline; applied deliveries only watch for a member who
-  // left. Applied ones fill the rest of the batch, so their number never delays the rest (#2080).
+  // left. Applied ones fill the rest of the batch, so their number never delays the rest, and a
+  // fifth of the batch stays theirs, so many unapplied rows never stop that watch (#2080).
   const unapplied =
     await dependencies.prisma.telegramCommunityOperation.findMany({
       where: {
         ...due,
-        resultStatus: { notIn: ["applied", "superseded", "failed"] },
+        resultStatus: { notIn: COMMUNITY_SETTLED_RESULTS },
       },
-      orderBy: order,
-      take: limit,
+      orderBy: oldestPolledFirst,
+      take: limit - Math.floor(limit / 5),
     });
   const applied =
     unapplied.length < limit
       ? await dependencies.prisma.telegramCommunityOperation.findMany({
           where: { ...due, resultStatus: "applied" },
-          orderBy: order,
+          orderBy: oldestPolledFirst,
           take: limit - unapplied.length,
         })
       : [];
@@ -269,7 +274,7 @@ export async function readCommunityBacklog(
     prisma.telegramCommunityOperation.count({
       where: {
         delivery: "accepted",
-        resultStatus: { notIn: ["applied", "superseded", "failed"] },
+        resultStatus: { notIn: COMMUNITY_SETTLED_RESULTS },
       },
     }),
     prisma.telegramCommunityOperation.count({
@@ -282,7 +287,7 @@ export async function readCommunityBacklog(
           { delivery: "pending" },
           {
             delivery: "accepted",
-            resultStatus: { notIn: ["applied", "superseded", "failed"] },
+            resultStatus: { notIn: COMMUNITY_SETTLED_RESULTS },
             // Voluntary joining has no deadline. Only fresh, successful observation
             // may exempt that wait; a failed or stopped poll still needs attention.
             OR: [
