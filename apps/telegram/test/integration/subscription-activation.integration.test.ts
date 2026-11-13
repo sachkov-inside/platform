@@ -118,6 +118,7 @@ async function createFixture(canonicalChatId = "-1001234567890") {
     /** Platform gives no answer, as during its restart. */
     platformSilent: false,
     ownUnavailable: false,
+    dispatchDenied: false,
     author: "denied" as "allowed" | "denied" | "unavailable",
     editRejected: false,
     onOwn: undefined as (() => Promise<void>) | undefined,
@@ -286,7 +287,9 @@ async function createFixture(canonicalChatId = "-1001234567890") {
           attemptId: request.attemptId,
           dispatchId: request.dispatchId,
           decision:
-            command && digest(command) === request.payloadDigest
+            !state.dispatchDenied &&
+            command &&
+            digest(command) === request.payloadDigest
               ? {
                   status: "allowed",
                   permitRef: randomUUID(),
@@ -455,6 +458,247 @@ async function createFixture(canonicalChatId = "-1001234567890") {
 }
 
 describe("durable activation ingress, identity and continuation", () => {
+  for (const entry of ["command", "text", "callback"] as const) {
+    it(`opens the single eligible Product community from ${entry}`, async ({
+      activation: a,
+    }) => {
+      await a.ingress(70115, "/start");
+      await a.link(70115);
+      const product = required(a.state.products[0]);
+      a.state.products = [
+        {
+          ...product,
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Unavailable group",
+          community: { state: "unavailable" },
+        },
+        product,
+      ];
+      if (entry === "callback") await a.callback(70115, "access:community");
+      else
+        await a.ingress(
+          70115,
+          entry === "command" ? "/community" : "Вступить в сообщество",
+        );
+      await a.app
+        .get(StartResponseDeliveryProcessor)
+        .processAvailable(20, a.clock.now());
+      const reply = entry === "callback" ? a.edited.at(-1) : a.sent.at(-1);
+      expect(reply?.text).toBe(
+        "AI Engineering\n\nМожно вступить в группу курса.",
+      );
+      expect(reply?.buttons).toContainEqual({
+        text: "Вступить в группу",
+        url: "https://t.me/+synthetic",
+      });
+      expect(a.chat.count("create_invite")).toBe(1);
+      expect(a.begins).toEqual([]);
+      expect(a.granted.size).toBe(0);
+    });
+
+    it(`shows My products for multiple eligible Products from ${entry}`, async ({
+      activation: a,
+    }) => {
+      await a.ingress(70116, "/start");
+      await a.link(70116);
+      const product = required(a.state.products[0]);
+      a.state.products = [
+        product,
+        {
+          ...product,
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Second course",
+        },
+      ];
+      if (entry === "callback") await a.callback(70116, "access:community");
+      else
+        await a.ingress(
+          70116,
+          entry === "command" ? "/community" : "Вступить в сообщество",
+        );
+      await a.app
+        .get(StartResponseDeliveryProcessor)
+        .processAvailable(20, a.clock.now());
+      const reply = entry === "callback" ? a.edited.at(-1) : a.sent.at(-1);
+      expect(reply?.text).toContain("Мои продукты");
+      expect(reply?.buttons).toEqual(
+        expect.arrayContaining([
+          {
+            text: "AI Engineering",
+            callbackData: `access:product:${product.id}`,
+          },
+          {
+            text: "Second course",
+            callbackData: "access:product:22222222-2222-4222-8222-222222222222",
+          },
+        ]),
+      );
+      expect(a.chat.count("create_invite")).toBe(0);
+    });
+
+    it(`shows My products without available Product communities from ${entry}`, async ({
+      activation: a,
+    }) => {
+      await a.ingress(70117, "/start");
+      await a.link(70117);
+      const product = required(a.state.products[0]);
+      a.state.products = [{ ...product, community: { state: "revoked" } }];
+      a.chat.membership = "member";
+      if (entry === "callback") await a.callback(70117, "access:community");
+      else
+        await a.ingress(
+          70117,
+          entry === "command" ? "/community" : "Вступить в сообщество",
+        );
+      await a.app
+        .get(StartResponseDeliveryProcessor)
+        .processAvailable(20, a.clock.now());
+      const reply = entry === "callback" ? a.edited.at(-1) : a.sent.at(-1);
+      expect(reply?.text).toContain("Мои продукты");
+      expect(reply?.buttons).toContainEqual({
+        text: product.name,
+        callbackData: `access:product:${product.id}`,
+      });
+      expect(
+        reply?.buttons?.some((button) => button.text === "Открыть группу"),
+      ).toBe(false);
+      expect(a.chat.count("create_invite")).toBe(0);
+    });
+  }
+
+  it("retries the community command after a thrown Platform failure", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70118, "/start");
+    await a.link(70118);
+    a.state.onOwn = () =>
+      Promise.reject(new Error("synthetic Platform outage"));
+    await a.ingress(70118, "/community");
+    const outbound = a.app.get(StartResponseDeliveryProcessor);
+    await outbound.processAvailable(20, a.clock.now());
+    expect(a.sent.at(-1)?.text).toBe(
+      "Не удалось проверить доступ. Попробуйте ещё раз.",
+    );
+    expect(a.sent.at(-1)?.buttons).toContainEqual({
+      text: "Повторить",
+      callbackData: "access:community",
+    });
+    a.state.onOwn = undefined;
+    await a.callback(70118, "access:community");
+    await outbound.processAvailable(20, a.clock.now());
+    expect(a.edited.at(-1)?.buttons).toContainEqual({
+      text: "Вступить в группу",
+      url: "https://t.me/+synthetic",
+    });
+  });
+
+  for (const failure of ["binding", "own", "provider"] as const)
+    it(`retries community without a Product after ${failure} unavailability`, async ({
+      activation: a,
+    }) => {
+      await a.ingress(70119, "/start");
+      await a.link(70119);
+      a.state.bindingUnavailable = failure === "binding";
+      a.state.ownUnavailable = failure === "own";
+      a.chat.membership = failure === "provider" ? "unavailable" : "not_member";
+      await a.ingress(70119, "/community");
+      const outbound = a.app.get(StartResponseDeliveryProcessor);
+      await outbound.processAvailable(20, a.clock.now());
+      expect(a.sent.at(-1)?.text).toBe(
+        "Не удалось проверить доступ. Попробуйте ещё раз.",
+      );
+      expect(a.chat.count("create_invite")).toBe(0);
+      const retry = a.sent
+        .at(-1)
+        ?.buttons?.find((button) => button.text === "Повторить");
+      expect(retry?.callbackData).toBe(
+        failure === "provider"
+          ? `access:community:${required(a.state.products[0]).id}`
+          : "access:community",
+      );
+      a.state.bindingUnavailable = false;
+      a.state.ownUnavailable = false;
+      a.chat.membership = "not_member";
+      // The provider retains its first one-second retry backoff after an unavailable observation.
+      if (failure === "provider")
+        a.clock.value = new Date(a.clock.now().getTime() + 1000);
+      await a.callback(70119, required(retry?.callbackData));
+      await outbound.processAvailable(20, a.clock.now());
+      expect(a.edited.at(-1)?.buttons).toContainEqual({
+        text: "Вступить в группу",
+        url: "https://t.me/+synthetic",
+      });
+    });
+
+  it("shows an empty My products menu for community without any Products", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70120, "/start");
+    await a.link(70120);
+    a.state.products = [];
+    await a.ingress(70120, "/community");
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.sent.at(-1)?.text).toContain("Пока нет доступных продуктов");
+    expect(a.chat.count("create_invite")).toBe(0);
+  });
+
+  it("keeps an unknown explicit Product community as a failed lookup", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70121, "/start");
+    await a.link(70121);
+    await a.callback(
+      70121,
+      "access:community:22222222-2222-4222-8222-222222222222",
+    );
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.edited.at(-1)?.text).toBe(
+      "Не удалось проверить доступ. Попробуйте ещё раз.",
+    );
+    expect(a.chat.count("create_invite")).toBe(0);
+  });
+
+  it("does not bypass dispatch authorization for the single eligible community", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70122, "/start");
+    await a.link(70122);
+    a.state.dispatchDenied = true;
+    await a.ingress(70122, "/community");
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.sent.at(-1)?.text).toBe(
+      "Не удалось проверить доступ. Попробуйте ещё раз.",
+    );
+    expect(a.chat.count("create_invite")).toBe(0);
+    expect(a.chat.count("approve")).toBe(0);
+  });
+
+  it("opens the single eligible community for an actual group member", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70123, "/start");
+    await a.link(70123);
+    a.chat.membership = "member";
+    await a.ingress(70123, "/community");
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.sent.at(-1)?.text).toBe(
+      "AI Engineering\n\nВы уже в группе курса.",
+    );
+    expect(a.sent.at(-1)?.buttons).toContainEqual({
+      text: "Открыть группу",
+      url: "https://t.me/c/1234567890/1",
+    });
+    expect(a.chat.count("create_invite")).toBe(0);
+  });
+
   for (const kind of ["binding", "own"] as const)
     it(`retries the same Product community action after ${kind} failure`, async ({
       activation: a,
@@ -514,7 +758,10 @@ describe("durable activation ingress, identity and continuation", () => {
     await a.link(70113);
     a.chat.membership = "member";
     const product = required(a.state.products[0]);
-    a.state.products = [{ ...product, community: { state: "unavailable" } }];
+    a.state.products = [
+      { ...product, community: { state: "unavailable" } },
+      { ...product, id: "22222222-2222-4222-8222-222222222222" },
+    ];
     await a.callback(70113, `access:product:${product.id}`);
     await a.app
       .get(StartResponseDeliveryProcessor)

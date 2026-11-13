@@ -190,18 +190,21 @@ export async function pollCommunityOperations(
     { polledAt: "asc" as const },
     { operationId: "asc" as const },
   ];
-  // Unapplied work has an overdue deadline; applied deliveries only watch for a member who
-  // left. Applied ones fill the rest of the batch, so their number never delays the rest, and a
-  // fifth of the batch stays theirs, so many unapplied rows never stop that watch (#2080).
-  const unapplied =
+  // Every due unapplied operation fits when their count is below the batch limit. Once that
+  // lane fills a batch, reserve a fifth for applied deliveries to keep noticing members who left.
+  const dueUnapplied =
     await dependencies.prisma.telegramCommunityOperation.findMany({
       where: {
         ...due,
         resultStatus: { notIn: COMMUNITY_SETTLED_RESULTS },
       },
       orderBy: oldestPolledFirst,
-      take: limit - Math.floor(limit / 5),
+      take: limit,
     });
+  const unapplied =
+    dueUnapplied.length < limit
+      ? dueUnapplied
+      : dueUnapplied.slice(0, limit - Math.floor(limit / 5));
   const applied =
     unapplied.length < limit
       ? await dependencies.prisma.telegramCommunityOperation.findMany({

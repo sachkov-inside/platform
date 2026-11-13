@@ -29,6 +29,7 @@ import { resetShellScroll } from "@/shared/lib/shell-scroll";
 import { cn } from "@/shared/lib/utils";
 import { readProductPage } from "@/shared/routing/material-reader";
 
+import { useProductProgrammeSelection } from "./product-programme-selection.client";
 import { PRODUCT_BATCH_SIZE } from "./product-batch";
 import {
   ProductMaterialCatalog,
@@ -152,35 +153,29 @@ export function ProductJourneyControls({
     parts.find((entry) => entry.kind === "onboarding" && entry.incomplete) ??
     parts.find((entry) => entry.id === "programme") ??
     parts[0];
-  const [selection, setSelection] = useState(() => ({
-    id: requestedCatalog
-      ? ("supplementary" as const)
-      : ((
-          parts.find((entry) => partRows(entry).some(requestedRow)) ??
-          defaultPart
-        )?.id ?? "programme"),
-    // An explicit switch abandons the page in the address, which belongs to the previous part.
-    explicit: false,
-  }));
-  const part = selection.explicit
-    ? (parts.find(({ id }) => id === selection.id) ?? defaultPart)
-    : requestedCatalog
-      ? (parts.find(({ id }) => id === "supplementary") ?? defaultPart)
-      : (parts.find((entry) => partRows(entry).some(requestedRow)) ??
-        defaultPart);
+  // Only a deliberate switch overrides the address and arriving onboarding facts.
+  const [selection, setSelection] = useProductProgrammeSelection();
+  const part =
+    selection !== null
+      ? (parts.find(({ id }) => id === selection) ?? defaultPart)
+      : requestedCatalog
+        ? (parts.find(({ id }) => id === "supplementary") ?? defaultPart)
+        : (parts.find((entry) => partRows(entry).some(requestedRow)) ??
+          defaultPart);
   const visible = part === undefined ? [] : partRows(part);
   const continuation = learning.kind === "ready" ? learning.continuation : null;
   const resumeIndex = visible.findIndex(
     (row) => row.slug === continuation?.materialSlug && row.available,
   );
   const restoredIndex = visible.findIndex(requestedRow);
-  const restoredCount = selection.explicit
-    ? 0
-    : restoredIndex >= 0
-      ? restoredIndex + 1
-      : search.has("page")
-        ? requestedPage * PRODUCT_BATCH_SIZE
-        : resumeIndex + 1;
+  const restoredCount =
+    selection !== null
+      ? 0
+      : restoredIndex >= 0
+        ? restoredIndex + 1
+        : search.has("page")
+          ? requestedPage * PRODUCT_BATCH_SIZE
+          : resumeIndex + 1;
   const initialCount = Math.min(
     visible.length,
     Math.max(
@@ -303,12 +298,13 @@ export function ProductJourneyControls({
     };
   }, [count, hasMore, initialCount, source, visible.length]);
 
-  const returnSlug = selection.explicit
-    ? undefined
-    : (requestedMaterial ??
-      (search.has("page") && requestedPage > 1
-        ? visible[(requestedPage - 1) * PRODUCT_BATCH_SIZE]?.slug
-        : undefined));
+  const returnSlug =
+    selection !== null
+      ? undefined
+      : (requestedMaterial ??
+        (search.has("page") && requestedPage > 1
+          ? visible[(requestedPage - 1) * PRODUCT_BATCH_SIZE]?.slug
+          : undefined));
   // После гидрации каталог добавляет полку «Новое» и сдвигает полки ниже, поэтому карточку
   // возврата находим ещё раз; в «Новом» её копия целью не служит.
   useEffect(() => {
@@ -321,8 +317,7 @@ export function ProductJourneyControls({
   }, [returnSlug, hydrated]);
 
   function selectPart(id: JourneyPart["id"]) {
-    if (id === part?.id) return;
-    setSelection({ id, explicit: true });
+    setSelection(id);
   }
   /** Выбор раздела из нижней панели: раздел открывается с начала, как новая вкладка приложения. */
   function openPart(id: JourneyPart["id"]) {
@@ -399,8 +394,12 @@ export function ProductJourneyControls({
                     0,
                     Math.max(0, count - run.offset),
                   );
+                  const sectionId = `${run.chapter === null ? "open" : `chapter-${run.chapter.id}`}-run-${String(run.offset)}`;
                   return (
                     <section
+                      id={sectionId}
+                      // A continuation keeps its chapter name without repeating its landmark.
+                      role={run.chapter?.header === null ? "group" : undefined}
                       aria-labelledby={
                         run.chapter === null
                           ? undefined
@@ -412,11 +411,13 @@ export function ProductJourneyControls({
                       data-chapter-state={
                         run.chapter === null
                           ? undefined
-                          : run.rows.length === 0
-                            ? "preparing"
-                            : "open"
+                          : run.chapter.header === null
+                            ? "continuation"
+                            : run.rows.length === 0
+                              ? "preparing"
+                              : "open"
                       }
-                      key={run.chapter?.id ?? `open-${String(run.offset)}`}
+                      key={sectionId}
                     >
                       {run.chapter?.header ?? null}
                       {run.leading ?? null}

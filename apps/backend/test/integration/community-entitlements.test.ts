@@ -1685,6 +1685,60 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     }
   });
 
+  test.each([41, 49])(
+    "all %s waiting operations below a batch of 50 are polled every minute alongside applied deliveries",
+    async (waitingCount) => {
+      const isolated = await createMigratedTestDatabase();
+      try {
+        let instant = new Date(start);
+        const { localAccounts, localGrants, localLinks, enroll } =
+          await streamFixture(isolated, () => instant);
+        await enroll("poll-minute-applied");
+        for (let index = 0; index < waitingCount; index += 1)
+          await enroll(`poll-minute-waiting-${index}`);
+        const provider = new ProviderDouble();
+        const app = new CommunityEntitlements({
+          accounts: localAccounts,
+          botStartUrl: "https://t.me/inside_test_bot",
+          clock: () => instant,
+          grants: localGrants,
+          links: localLinks,
+          prisma: isolated.prisma,
+          provider,
+        });
+        // Prepare every accepted observation before measuring the production batch of 50.
+        await app.sweep(100);
+        expect(provider.sent).toHaveLength(waitingCount + 1);
+        for (const command of provider.sent)
+          provider.observe(
+            command.operationId,
+            command.binding.telegramIdentityRef ===
+              "identity-poll-minute-applied"
+              ? "applied"
+              : "waiting_for_join",
+            command.binding.telegramIdentityRef ===
+              "identity-poll-minute-applied"
+              ? "member"
+              : "not_member",
+          );
+        instant = new Date(instant.getTime() + 60_000);
+        await app.sweep(100);
+
+        const expectedOperations = provider.sent
+          .map((command) => command.operationId)
+          .sort();
+        for (let minute = 0; minute < 2; minute += 1) {
+          instant = new Date(instant.getTime() + 60_000);
+          provider.polled.length = 0;
+          await app.sweep(50);
+          expect([...provider.polled].sort()).toEqual(expectedOperations);
+        }
+      } finally {
+        await isolated.dispose();
+      }
+    },
+  );
+
   test("an unknown provider outcome stays unapplied and visible to the operator", async () => {
     now = new Date(start);
     const account = await member();

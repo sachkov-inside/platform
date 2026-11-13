@@ -71,6 +71,42 @@ export function readerOptionalResponseState() {
   };
 }
 
+/** Main personal composition barrier, owned and released by the navigation regression. */
+let programmeHold = /** @type {PromiseWithResolvers<void> | null} */ (null);
+let programmeSlug = "";
+/** @type {Set<import("node:http").ServerResponse>} */
+const blockedProgramme = new Set();
+/** @param {URL} url */
+export function readerProgrammeHoldRoute(url) {
+  if (url.pathname !== "/__reader-programme-hold") return null;
+  if (url.searchParams.has("held")) {
+    programmeHold?.resolve();
+    programmeSlug = url.searchParams.get("slug") ?? "";
+    programmeHold =
+      url.searchParams.get("held") === "true" ? Promise.withResolvers() : null;
+  }
+  return {
+    blocked: [...blockedProgramme].filter((response) => !response.destroyed)
+      .length,
+  };
+}
+/** @param {import("node:http").IncomingMessage} request @param {URL} url @param {import("node:http").ServerResponse} response */
+export async function waitReaderProgrammeResponse(request, url, response) {
+  if (
+    programmeHold === null ||
+    url.pathname !== `/library/products/${programmeSlug}` ||
+    request.headers.authorization !== `Bearer reader-state:${programmeSlug}`
+  )
+    return;
+  const held = programmeHold;
+  blockedProgramme.add(response);
+  try {
+    await held.promise;
+  } finally {
+    blockedProgramme.delete(response);
+  }
+}
+
 const envelope = z.object({
   status: z.number(),
   value: z.record(z.string(), z.unknown()),

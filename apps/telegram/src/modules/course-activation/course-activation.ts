@@ -181,7 +181,9 @@ export class CourseActivation {
             text: "Повторить",
             callbackData: hasText(onlyCode)
               ? `access:${action}:${onlyCode}`
-              : "access:own",
+              : action === "community"
+                ? "access:community"
+                : "access:own",
           },
           {
             text: "Помощь",
@@ -349,6 +351,10 @@ export class CourseActivation {
       await this.screen(contact, this.actionFailure(action, onlyCode));
       return;
     }
+    const communityProducts =
+      access.value.products?.filter(
+        (item) => item.community.state === "available",
+      ) ?? [];
     if (action === "menu") {
       const author = await this.authors?.authorize({
         kind: "telegram",
@@ -366,11 +372,19 @@ export class CourseActivation {
       );
       return;
     }
-    if (action === "own") {
+    if (
+      action === "own" ||
+      (action === "community" &&
+        onlyCode === undefined &&
+        communityProducts.length !== 1)
+    ) {
       await this.screen(contact, productList(access.value.products ?? []));
       return;
     }
-    const product = access.value.products?.find((item) => item.id === onlyCode);
+    const product =
+      action === "community" && onlyCode === undefined
+        ? communityProducts[0]
+        : access.value.products?.find((item) => item.id === onlyCode);
     if (!product) {
       await this.screen(contact, {
         text: "Не удалось проверить доступ. Попробуйте ещё раз.",

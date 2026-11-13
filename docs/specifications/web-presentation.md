@@ -19,11 +19,12 @@ issues and evidence keep the history.
 
 Owner decision #1591 (accepted prototype A, desktop and mobile): Material action panels group
 Back, Save, Studied and Share at the left, with Next at the right. Repeat the same panel before
-the title and after practice/workspace. Owner correction 2026-10-30 (#1867): on a Material page
-the end panel is the only navigation after the text; no previous/next footer or supplementary
-return footer repeats it below. Omit Next when no successor
-exists. Preserve the computed Back destination, canonical sharing address and existing mutation
-adapters. The article has no automatic contents disclosure.
+the title and after practice/workspace. Owner correction 2026-10-30 (#1867): on an available
+Material page the end panel is the only navigation after the text; no previous/next footer or
+supplementary return footer repeats it below. A locked course lesson has no end action panel
+and keeps the «Шаги курса» footer. Omit Next when no successor exists. Preserve the computed Back
+destination, canonical sharing address and existing mutation adapters. The article has no
+automatic contents disclosure.
 
 Use 44 px controls with 16 px icons, 14 px labels and a 54 px panel at normal text size.
 Owner decision 2026-10-27 (#1731): Next keeps its 44 px hit area, with a 36 px visible surface
@@ -57,8 +58,9 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
 - In checked programme context, Course B supplies the course frame (#1414, owner 2026-10-13):
   a 272 px left chapter rail, position/title, the matching Material action panels, and
   a desktop previous/next footer with neighbor titles on task pages, which have no end action panel
-  (Material pages end with the action panel, #1867). Reserve this composition in shared pending and
-  access states; a pending Material page in a programme reserves no footer. Owner correction 2026-10-15: a floating rounded lesson dock without backdrop blur
+  (available Material pages end with the action panel, #1867). Reserve this composition in shared
+  pending and access states; a pending Material page in a programme reserves no footer. Owner
+  correction 2026-10-15: a floating rounded lesson dock without backdrop blur
   holds previous/next arrows, chapter/step position and a programme opener; its breakpoint and
   styling follow the 2026-10-30 correction below. Owner correction
   2026-10-27 (#1748): bottom navigation belongs only to learning, including programme sections

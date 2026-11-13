@@ -1,7 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
 import { useState, type ComponentProps } from "react";
-import { expect, mocked, userEvent, waitFor, within } from "storybook/test";
+import {
+  expect,
+  mocked,
+  spyOn,
+  userEvent,
+  waitFor,
+  within,
+} from "storybook/test";
 import {
   MaterialReadingScope,
   type MaterialPreview,
@@ -12,7 +19,8 @@ import { productOnlyOffer } from "@/storybook/billing.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
 import { Button } from "@/shared/ui/button";
-import { ProductProgrammeView } from "./product-programme-view";
+import { PendingProduct, ProductProgrammeView } from "./product-programme-view";
+import { ProductProgrammeSelectionProvider } from "./product-programme-selection.client";
 import {
   ProductLearningProvider,
   ProductLearningSource,
@@ -2105,4 +2113,272 @@ export const ProjectReferenceGroup: Story = {
 export const ProjectReferenceGroupMobile: Story = {
   ...ProjectReferenceGroup,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+/** A split chapter keeps authored placements, with its heading and attachments only at the start. */
+export const SplitChapter: Story = {
+  args: {
+    learning: { kind: "guest" },
+    result: {
+      ...result,
+      items: materials.slice(0, 6),
+      chapters: [
+        {
+          id: "split-a",
+          name: "Первая глава",
+          summary: "",
+          materialIds: ["series-material-1", "series-material-3"],
+          supplementaryMaterialIds: ["series-material-4"],
+          tasks: [
+            {
+              code: "split-opening",
+              title: "Подготовь проект",
+              access: "free",
+              afterMaterialId: null,
+              availability: "available",
+              lastSubmittedAt: null,
+            },
+          ],
+        },
+        {
+          id: "split-empty",
+          name: "Пустая глава",
+          summary: "Скоро",
+          materialIds: [],
+        },
+        {
+          id: "split-b",
+          name: "Вторая глава",
+          summary: "",
+          materialIds: ["series-material-2"],
+          supplementaryMaterialIds: ["series-material-5"],
+        },
+        {
+          id: "split-empty-reference",
+          name: "Глава с памяткой",
+          summary: "",
+          materialIds: [],
+          supplementaryMaterialIds: ["series-material-6"],
+        },
+        {
+          id: "split-last-empty",
+          name: "Последняя глава",
+          summary: "",
+          materialIds: [],
+        },
+      ],
+      programmePlacements: [
+        {
+          id: "10000000-0000-4000-8000-000000000001",
+          materialId: "series-material-1",
+          chapterId: "split-a",
+          stepGroup: null,
+        },
+        {
+          id: "10000000-0000-4000-8000-000000000002",
+          materialId: "series-material-2",
+          chapterId: "split-b",
+          stepGroup: null,
+        },
+        {
+          id: "10000000-0000-4000-8000-000000000003",
+          materialId: "series-material-3",
+          chapterId: "split-a",
+          stepGroup: null,
+        },
+      ],
+    },
+  },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const sections = [
+      ...canvasElement.querySelectorAll<HTMLElement>(
+        "section.programme-chapter",
+      ),
+    ];
+    await expect(sections).toHaveLength(6);
+    await expect(new Set(sections.map((section) => section.id)).size).toBe(6);
+    await expect(sections.every((section) => section.id !== "")).toBe(true);
+    await expect(
+      sections.map((section) => section.getAttribute("aria-labelledby")),
+    ).toEqual([
+      "chapter-split-a",
+      "chapter-split-empty",
+      "chapter-split-b",
+      "chapter-split-a",
+      "chapter-split-empty-reference",
+      "chapter-split-last-empty",
+    ]);
+    for (const section of sections) {
+      const id = section.getAttribute("aria-labelledby");
+      await expect(id).not.toBeNull();
+      await expect(
+        canvasElement.querySelectorAll(`[id="${id ?? ""}"]`),
+      ).toHaveLength(1);
+    }
+    await expect(
+      canvas.getAllByRole("heading", { name: "Первая глава", level: 3 }),
+    ).toHaveLength(1);
+    await expect(
+      canvas.getAllByRole("list", { name: "Задания главы «Первая глава»" }),
+    ).toHaveLength(1);
+    await expect(
+      canvas.getAllByRole("navigation", {
+        name: /^Дополнительные материалы главы/u,
+      }),
+    ).toHaveLength(3);
+    await expect(
+      sections[0]?.querySelector(
+        'nav[aria-label="Дополнительные материалы главы «Первая глава»"]',
+      ),
+    ).not.toBeNull();
+    await expect(
+      sections[3]?.querySelector("header, nav, [data-programme-tasks]"),
+    ).toBeNull();
+    await expect(
+      [...canvasElement.querySelectorAll("[data-route-material]")].map((row) =>
+        row.getAttribute("data-route-material"),
+      ),
+    ).toEqual(["series-material-1", "series-material-2", "series-material-3"]);
+    await expect(
+      canvas.getAllByRole("region", { name: "Первая глава" }),
+    ).toHaveLength(1);
+    await expect(canvas.getByRole("group", { name: "Первая глава" })).toBe(
+      sections[3],
+    );
+    const continuation = sections[3];
+    if (continuation === undefined)
+      throw new Error("Missing chapter continuation");
+    await expect(getComputedStyle(continuation, "::before").content).toBe(
+      "none",
+    );
+    const references = canvas.getByRole("navigation", {
+      name: "Дополнительные материалы главы «Первая глава»",
+    });
+    await expect(
+      within(references).getByRole("heading", {
+        name: "Дополнительные материалы",
+        level: 4,
+      }),
+    ).toBeInTheDocument();
+    const ids = [...canvasElement.querySelectorAll("[id]")].map(
+      (element) => element.id,
+    );
+    await expect(new Set(ids).size).toBe(ids.length);
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBe(root.clientWidth);
+    // Switching back mounts the actual section list again, exposing duplicate React keys.
+    const errors = spyOn(console, "error");
+    try {
+      await openPart(canvasElement, /^Материалы/u);
+      await openPart(canvasElement, /^Программа/u);
+      await expect(
+        errors.mock.calls.filter(
+          ([message]) =>
+            typeof message === "string" &&
+            /same key|unique .key./iu.test(message),
+        ),
+      ).toEqual([]);
+      await expect(
+        [...canvasElement.querySelectorAll("[data-route-material]")].map(
+          (row) => row.getAttribute("data-route-material"),
+        ),
+      ).toEqual([
+        "series-material-1",
+        "series-material-2",
+        "series-material-3",
+      ]);
+    } finally {
+      errors.mockRestore();
+    }
+  },
+};
+
+export const SplitChapterMobile: Story = {
+  ...SplitChapter,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+/** The fixture changes only the delivery boundary; both branches render the production programme. */
+function SharedProgrammeSelectionFixture() {
+  const [delivered, setDelivered] = useState(false);
+  const [otherProduct, setOtherProduct] = useState(false);
+  const current = otherProduct
+    ? {
+        ...result,
+        reference: {
+          ...result.reference,
+          slug: "another-course",
+          name: "Другой курс",
+        },
+      }
+    : result;
+  return (
+    <>
+      <div className="flex gap-2">
+        <Button
+          onClick={() => {
+            setDelivered(true);
+          }}
+        >
+          Догрузить личные данные
+        </Button>
+        <Button
+          onClick={() => {
+            setOtherProduct(true);
+          }}
+        >
+          Открыть другой курс
+        </Button>
+      </div>
+      <ProductProgrammeSelectionProvider key={current.reference.slug}>
+        {delivered ? (
+          <ProductProgrammeView
+            result={current}
+            onboarding={{
+              incomplete: true,
+              panel: <p>Подключите Telegram к курсу.</p>,
+            }}
+          />
+        ) : (
+          <PendingProduct
+            result={current}
+            artifacts={{ kind: "ready", artifacts: [] }}
+          />
+        )}
+      </ProductProgrammeSelectionProvider>
+    </>
+  );
+}
+export const SharedProgrammeKeepsSelection: Story = {
+  render: () => <SharedProgrammeSelectionFixture />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await openPart(canvasElement, /^Программа/u);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Догрузить личные данные" }),
+    );
+    await waitFor(async () => {
+      await expect(partButton(canvasElement, /^Онбординг/u)).toBeVisible();
+    });
+    await expect(partButton(canvasElement, /^Программа/u)).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть другой курс" }),
+    );
+    await expect(
+      canvas.getByRole("heading", { name: "Другой курс" }),
+    ).toBeVisible();
+    await expect(partButton(canvasElement, /^Онбординг/u)).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+  },
+};
+export const SharedProgrammeKeepsSelectionMobile: Story = {
+  ...SharedProgrammeKeepsSelection,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
