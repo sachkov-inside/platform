@@ -104,7 +104,9 @@ function counterLink(page: Page, info: TestInfo, count: number | null) {
     })
     .getByRole("link", {
       name:
-        count === null ? "Сдачи" : `Сдачи, без комментария: ${String(count)}`,
+        count === null
+          ? "Сдачи"
+          : `Сдачи ${count > 99 ? "99+" : String(count)}`,
       exact: true,
     });
 }

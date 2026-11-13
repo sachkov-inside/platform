@@ -246,7 +246,7 @@ test("completed intent response renders the guest Reader before navigation respo
     ).toBeVisible();
     const course = page.locator("[data-course-reading-host]");
     const programmeButton = course.getByRole("button", {
-      name: "Вся программа",
+      name: /^Вся программа:/,
       exact: true,
     });
     const mobile = await programmeButton.isVisible();

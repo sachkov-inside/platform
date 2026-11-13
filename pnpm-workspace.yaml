@@ -22,6 +22,7 @@ peerDependencyRules:
     "@nestjs/swagger>typescript": "7"
 # #1023 / #1580: bound IPC history, stop abandoned Vitest and decode non-ASCII test paths.
 patchedDependencies:
+  deepmerge@4.3.1: patches/deepmerge@4.3.1.patch
   "@storybook/addon-vitest@10.6.7": patches/@storybook__addon-vitest@10.6.7.patch
   # #1160: preserve unique Playwright trace names. Remove when upstream scopes chunk names per context.
   "@vitest/browser-playwright@5.1.0": patches/@vitest__browser-playwright@5.1.0.patch

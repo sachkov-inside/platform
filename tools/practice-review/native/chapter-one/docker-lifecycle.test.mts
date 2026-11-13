@@ -23,7 +23,7 @@ for (const mode of ["success", "failure", "SIGTERM", "SIGKILL"] as const) {
           report,
           id,
           mode,
-          "inside-chapter-one-agent:0.163.0",
+          "inside-chapter-one-agent:0.169.0",
         ],
         { detached: true, stdio: ["pipe", "pipe", "pipe"] },
       );

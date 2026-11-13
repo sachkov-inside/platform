@@ -15,7 +15,7 @@ test("mobile course navigation opens the programme and returns from lessons and 
     await expect(
       navigation.getByRole("link", { name: "К прохождению курса" }),
     ).toHaveCount(0);
-    const trigger = navigation.getByRole("button", { name: "Вся программа" });
+    const trigger = navigation.getByRole("button", { name: /^Вся программа:/ });
     await trigger.click();
     const dialog = page.getByRole("dialog", {
       name: "Программа: Курс со справочными документами",
@@ -334,7 +334,7 @@ test("rapid mobile arrows keep the programme selection on the displayed lesson",
     await expect(
       page.getByRole("heading", { name: "Урок 6", exact: true }),
     ).toBeVisible();
-    await navigation.getByRole("button", { name: "Вся программа" }).click();
+    await navigation.getByRole("button", { name: /^Вся программа:/ }).click();
     const dialog = page.getByRole("dialog", {
       name: "Программа: Курс со справочными документами",
     });
@@ -381,7 +381,7 @@ test("Back and Forward keep the current chapter step aligned with the displayed 
     const mobile = info.project.name === "mobile-chromium";
     if (mobile)
       await page
-        .getByRole("button", { name: "Вся программа", exact: true })
+        .getByRole("button", { name: /^Вся программа:/, exact: true })
         .click();
     const navigation = mobile
       ? page.getByRole("dialog")

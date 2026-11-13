@@ -332,12 +332,12 @@ test("normal SDK Engine request observation preserves auth arguments and failed 
 
 test("diagnostic image allowlist retains historical ECR and current GHCR pins without exposing arbitrary inputs", () => {
   const digest =
-    "sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef";
+    "sha256:4841f6384ef8313c3594cd3f2e9f40c10805f8a61c45f08a9a5d9ddea8199267";
   for (const repository of [
     "public.ecr.aws/docker/library/rabbitmq",
     "ghcr.io/sachkov-inside/rabbitmq",
   ]) {
-    const image = `${repository}:4.2.4-management-alpine@${digest}`;
+    const image = `${repository}:4.4.0-management-alpine@${digest}`;
     assert.equal(safeImage(image), image);
     assert.equal(safeImage(`${repository}:latest`), "omitted");
   }
@@ -350,7 +350,7 @@ test("diagnostic image allowlist retains historical ECR and current GHCR pins wi
 test("normal SDK selection acquires pinned RabbitMQ once and rejects other targets", async () => {
   const image = {
     string:
-      "ghcr.io/sachkov-inside/rabbitmq:4.2.4-management-alpine@sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef",
+      "ghcr.io/sachkov-inside/rabbitmq:4.4.0-management-alpine@sha256:4841f6384ef8313c3594cd3f2e9f40c10805f8a61c45f08a9a5d9ddea8199267",
   };
   const error = new Error("toomanyrequests: Rate exceeded");
   const promise = Promise.reject(error);

@@ -1,6 +1,6 @@
 name: Publish official PostgreSQL and Node mirrors
 
-# Owner-approved #1396 packet: 65c84186ced7744f790fb05000be2ca00f01146c6c2d3a6b9e944d38e013faa2.
+# #2117 candidate packet. Publishing these new indexes requires the owner gate before merge.
 # Publishing runs only from trusted main; no candidate code or image input is accepted.
 on:
   push:
@@ -30,11 +30,11 @@ jobs:
       matrix:
         include:
           - image: postgres
-            tag: 18.4-alpine
-            digest: sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+            tag: 18.7-alpine
+            digest: sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73
           - image: postgres
-            tag: 18.4-alpine3.23
-            digest: sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
+            tag: 18.7-alpine3.23
+            digest: sha256:e6014245dccbc0f28b07dac8e3f793c94a18420f78690e9db547957514a524f1
           - image: node
             tag: 26.13.1-alpine3.24
             digest: sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5

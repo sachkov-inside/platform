@@ -67,7 +67,7 @@ jobs:
     if: ${{ needs.plan.outputs.required == 'true' }}
     name: Native encrypted recovery (${{ matrix.architecture }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -101,6 +101,17 @@ jobs:
         run: |
           set -euo pipefail
           docker build --iidfile "$RUNNER_TEMP/legacy-foundation-image.id" legacy-foundation/infra/production/database
+      - name: Check out the frozen production baseline database source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: e514406f9ec774b6ede2524b9638480617c44a24
+          path: previous-foundation
+          sparse-checkout: infra/production/database
+          persist-credentials: false
+      - name: Build the PostgreSQL 18.4 pgBackRest 2.59.3 backup writer
+        run: |
+          set -euo pipefail
+          docker build --iidfile "$RUNNER_TEMP/previous-foundation-image.id" previous-foundation/infra/production/database
       - name: Prove ordinary encrypted recovery and negative cases
         run: |
           set -euo pipefail
@@ -117,6 +128,14 @@ jobs:
             --legacy-source-image "$(cat "$RUNNER_TEMP/legacy-foundation-image.id")" \
             --state-directory "$RUNNER_TEMP/foundation-legacy-proof" \
             --receipt "$RUNNER_TEMP/foundation-legacy-recovery.json"
+      - name: Prove encrypted backup compatibility from the production baseline
+        run: |
+          set -euo pipefail
+          python3 -B scripts/foundation-recovery-proof.py \
+            --image "$(cat "$RUNNER_TEMP/foundation-image.id")" \
+            --previous-source-image "$(cat "$RUNNER_TEMP/previous-foundation-image.id")" \
+            --state-directory "$RUNNER_TEMP/foundation-previous-proof" \
+            --receipt "$RUNNER_TEMP/foundation-previous-recovery.json"
       - name: Prove history preservation and independent repository transition
         run: |
           set -euo pipefail
@@ -141,7 +160,7 @@ jobs:
         if: ${{ always() }}
         run: |
           set -euo pipefail
-          for state in "$RUNNER_TEMP/foundation-proof" "$RUNNER_TEMP/foundation-legacy-proof" "$RUNNER_TEMP/foundation-lifetime"/*; do
+          for state in "$RUNNER_TEMP/foundation-proof" "$RUNNER_TEMP/foundation-legacy-proof" "$RUNNER_TEMP/foundation-previous-proof" "$RUNNER_TEMP/foundation-lifetime"/*; do
             test -d "$state" || continue
             python3 -B scripts/foundation-recovery-proof.py --cleanup-only --state-directory "$state"
           done
@@ -157,5 +176,6 @@ jobs:
           path: |
             ${{ runner.temp }}/foundation-recovery.json
             ${{ runner.temp }}/foundation-legacy-recovery.json
+            ${{ runner.temp }}/foundation-previous-recovery.json
             ${{ runner.temp }}/foundation-transition.json
           if-no-files-found: ignore

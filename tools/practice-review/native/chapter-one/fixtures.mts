@@ -96,7 +96,7 @@ export async function prepareProject(
   await mkdir(join(directory, ".github/workflows"), { recursive: true });
   await writeFile(
     join(directory, ".github/workflows/check.yml"),
-    "name: Checks\non: [pull_request]\njobs:\n  checks:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v6\n      - uses: actions/setup-node@v6\n        with:\n          node-version: 26.10.0\n      - run: npm install\n      - run: docker compose -p learner-ci up -d --build --wait\n      - run: docker compose -p learner-ci exec frontend npm run check\n      - run: docker compose -p learner-ci exec backend npm run test:integration\n      - run: docker compose -p learner-ci exec frontend npm run test:e2e\n      - if: always()\n        run: docker compose -p learner-ci down --volumes\n",
+    "name: Checks\non: [pull_request]\njobs:\n  checks:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0\n        with:\n          node-version: 26.13.1\n      - run: npm install\n      - run: docker compose -p learner-ci up -d --build --wait\n      - run: docker compose -p learner-ci exec frontend npm run check\n      - run: docker compose -p learner-ci exec backend npm run test:integration\n      - run: docker compose -p learner-ci exec frontend npm run test:e2e\n      - if: always()\n        run: docker compose -p learner-ci down --volumes\n",
   );
   if (scenario === "alternative") {
     const spec = await readFile(

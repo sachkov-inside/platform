@@ -236,7 +236,7 @@ export const Desktop: Story = {
     ).toHaveAttribute("aria-current", "page");
     await expect(
       within(navigation).getByRole("link", {
-        name: "Сдачи, без комментария: 4",
+        name: "Сдачи 4",
       }),
     ).toHaveAttribute("href", "/authoring/submissions");
     // Иконка у каждого пункта меню.
@@ -249,7 +249,9 @@ export const Desktop: Story = {
       within(sidebar).getByRole("link", { name: "Библиотека материалов" }),
     ).toHaveAttribute("href", "/");
     await expect(
-      canvas.getByRole("button", { name: "Поиск по админке" }),
+      canvas.getByRole("button", {
+        name: /^Поиск по людям, продуктам, материалам и платежам/,
+      }),
     ).toBeVisible();
     await expect(
       canvas.queryByRole("navigation", { name: "Основные разделы" }),
@@ -313,7 +315,7 @@ export const Mobile: Story = {
       await expect(size.width).toBeGreaterThanOrEqual(44);
     }
     await expect(
-      within(dock).getByRole("link", { name: "Сдачи, без комментария: 4" }),
+      within(dock).getByRole("link", { name: "Сдачи 4" }),
     ).toBeVisible();
     const document = canvasElement.ownerDocument.documentElement;
     await expect(document.scrollWidth).toBe(document.clientWidth);
@@ -417,7 +419,9 @@ export const SearchPeople: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Поиск по админке" }),
+      canvas.getByRole("button", {
+        name: /^Поиск по людям, продуктам, материалам и платежам/,
+      }),
     );
     const dialog = await canvas.findByRole("dialog", {
       name: "Поиск по админке",
@@ -453,7 +457,9 @@ export const SearchPeopleMobile: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Поиск по админке" }),
+      canvas.getByRole("button", {
+        name: /^Поиск по людям, продуктам, материалам и платежам/,
+      }),
     );
     const dialog = await canvas.findByRole("dialog", {
       name: "Поиск по админке",
@@ -477,7 +483,9 @@ export const SearchPeopleNameUnavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Поиск по админке" }),
+      canvas.getByRole("button", {
+        name: /^Поиск по людям, продуктам, материалам и платежам/,
+      }),
     );
     const dialog = await canvas.findByRole("dialog", {
       name: "Поиск по админке",
@@ -504,7 +512,9 @@ export const SearchPartlyUnavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Поиск по админке" }),
+      canvas.getByRole("button", {
+        name: /^Поиск по людям, продуктам, материалам и платежам/,
+      }),
     );
     const dialog = await canvas.findByRole("dialog", {
       name: "Поиск по админке",
@@ -528,7 +538,9 @@ export const SearchForbiddenMobile: Story = {
   ...shellEnvironment({ search: "forbidden" }),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const trigger = canvas.getByRole("button", { name: "Поиск по админке" });
+    const trigger = canvas.getByRole("button", {
+      name: /^Поиск по людям, продуктам, материалам и платежам/,
+    });
     await expect(touchTarget(trigger).height).toBeGreaterThanOrEqual(44);
     await userEvent.click(trigger);
     const dialog = await canvas.findByRole("dialog", {

@@ -5,8 +5,9 @@
         {
           "version": "4.3.1",
           "paths": [
-            "apps__web>shadcn>@shadcn/registry>deepmerge",
-            "apps__web>shadcn>deepmerge"
+            ".>deepmerge",
+            "apps__web>shadcn>deepmerge",
+            "apps__web>shadcn>@shadcn/registry>deepmerge"
           ],
           "dev": true,
           "optional": false,

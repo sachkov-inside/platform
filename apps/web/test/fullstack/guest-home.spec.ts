@@ -47,7 +47,7 @@ test("tablet Home can scroll through the feed and keeps navigation usable", asyn
   await expect(
     page
       .locator("[data-mobile-header]")
-      .getByRole("link", { name: "Главная", exact: true }),
+      .getByRole("link", { name: /^(?:sachkov\.dev, )?Главная$/, exact: true }),
   ).toBeInViewport();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),

@@ -44,7 +44,7 @@ test("admin workspace exposes every active task on desktop and phone through rea
       exact: true,
     });
     const link = navigation.getByRole("link", {
-      name: new RegExp(`^${label}(?:, без комментария: \\d+)?$`, "u"),
+      name: new RegExp(`^${label}(?: (?:\\d+|99\\+))?$`, "u"),
     });
     await expect(link).toBeVisible();
     await link.click();

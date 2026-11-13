@@ -4,7 +4,7 @@ x-logto-runtime: &logto-runtime
   build:
     context: ../../identity/logto
     dockerfile: Dockerfile
-  image: inside/logto-production:1.44.0-inside.15
+  image: inside/logto-production:1.46.0-inside.16
   entrypoint: ["/foundation/entrypoint.sh"]
   env_file:
     - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/logto.env
@@ -22,7 +22,7 @@ services:
     command:
       - sh
       - -c
-      - npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm run alteration deploy 1.44.0
+      - npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm run alteration deploy 1.46.0
     restart: "no"
 
   logto:

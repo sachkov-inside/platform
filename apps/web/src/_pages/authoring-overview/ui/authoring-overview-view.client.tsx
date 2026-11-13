@@ -313,7 +313,7 @@ function AttentionBlock({
             <li key={row.id}>
               {row.kind === "count" ? (
                 <Link
-                  aria-label={`${row.label}: ${row.countText}`}
+                  aria-description={row.countText}
                   className="admin-attention-row"
                   data-kind="count"
                   href={row.href}

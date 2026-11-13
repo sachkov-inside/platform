@@ -1,22 +1,28 @@
 {
   "logto": {
-    "version": "1.44.0",
-    "image": "ghcr.io/logto-io/logto:1.44.0",
-    "digest": "sha256:847cdd2759ad60f61b9733af0ea352183c805681dff5c9f8140a80f52d8e1340",
-    "upstreamRevision": "79e9e3b0d9f505260d09c80d8a015e56fbc0ec01",
-    "forkRevision": "inside.15"
+    "version": "1.46.0",
+    "image": "ghcr.io/logto-io/logto:1.46.0",
+    "digest": "sha256:d5e208ce705cbcf7c79ddba421216eb65413d0b0531aa658fb22a4ba659be983",
+    "upstreamRevision": "d179bf9d2d51104236a342b90c2841df66e4ba5b",
+    "forkRevision": "inside.16"
   },
   "logtoNext": "5.0.2",
   "logtoNode": "4.0.2",
   "jose": "6.2.17",
   "postgres": {
-    "version": "17.6-alpine",
-    "image": "public.ecr.aws/docker/library/postgres:17.6-alpine",
-    "digest": "sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94"
+    "version": "17.12-alpine",
+    "image": "public.ecr.aws/docker/library/postgres:17.12-alpine",
+    "digest": "sha256:34261f594522cf41dfcb76aefd42b9d201098b0e6b23c9c68733f169e4218b6f"
   },
   "mailpit": {
-    "version": "1.30.6",
-    "image": "ghcr.io/axllent/mailpit:v1.30.6",
-    "digest": "sha256:7f33095f80e901f6ad08028f06ca284aa58fe84942be5496008d041d3b9f4d4d"
-  }
+    "version": "1.33.1",
+    "image": "ghcr.io/axllent/mailpit:v1.33.1",
+    "digest": "sha256:aef2aacc11f075ec0fb6874275ee4a421e688e11a96ebb296134d1735c7761ce"
+  },
+  "runtimeNode": {
+    "version": "26.13.1",
+    "image": "docker.io/library/node:26.13.1-alpine3.24",
+    "digest": "sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5"
+  },
+  "runtimeNpm": "12.2.2"
 }

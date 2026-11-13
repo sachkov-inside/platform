@@ -9,7 +9,7 @@ import { createPrismaClient } from "../src/infrastructure/prisma/index.js";
 import { migrateToLatest } from "../src/migrations/index.js";
 import { bootstrapOwnerAccount } from "../src/modules/accounts/index.js";
 const container = await new PostgreSqlContainer(
-  "ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+  "ghcr.io/sachkov-inside/postgres:18.7-alpine@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73",
 ).start();
 const databaseUrl = container.getConnectionUri();
 const prisma = createPrismaClient(databaseUrl);

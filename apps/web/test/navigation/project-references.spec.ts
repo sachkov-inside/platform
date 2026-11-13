@@ -7,7 +7,7 @@ const lesson = `/materials/reference-lesson-5?from=${encodeURIComponent(programm
 async function referenceGroup(page: Page) {
   await expectCourseReadingHost(page);
   if (page.viewportSize()?.width === 390) {
-    await page.getByRole("button", { name: "Вся программа" }).click();
+    await page.getByRole("button", { name: /^Вся программа:/ }).click();
     return page
       .getByRole("dialog")
       .getByRole("navigation", { name: "Дополнительные материалы" });
@@ -121,7 +121,8 @@ test("a body link to another programme step moves the chapter steps; a body link
     page.getByRole("heading", { name: "Урок 7", exact: true }),
   ).toBeVisible();
   await expectCourseReadingHost(page);
-  if (phone) await page.getByRole("button", { name: "Вся программа" }).click();
+  if (phone)
+    await page.getByRole("button", { name: /^Вся программа:/ }).click();
   const navigation = phone
     ? page.getByRole("dialog")
     : page.getByRole("complementary", { name: "Текущая глава" });
@@ -144,7 +145,7 @@ test("a programme lesson opened from the catalogue keeps its chapter without ste
   ).toBeVisible();
   await expectCourseReadingHost(page);
   if (page.viewportSize()?.width === 390)
-    await page.getByRole("button", { name: "Вся программа" }).click();
+    await page.getByRole("button", { name: /^Вся программа:/ }).click();
   const navigation =
     page.viewportSize()?.width === 390
       ? page.getByRole("dialog")

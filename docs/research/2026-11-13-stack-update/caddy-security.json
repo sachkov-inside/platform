@@ -1,0 +1,70 @@
+{
+  "artifact": "caddy_2.11.9_linux_amd64.deb",
+  "sha256": "bbea4aeaadc86b233c168cc33bad9daa1cbce756dc08949b783b45398f8e65cb",
+  "goVersion": "1.27.3",
+  "findings": [
+    {
+      "VulnerabilityID": "CVE-2026-116587",
+      "PkgName": "github.com/go-jose/go-jose/v3",
+      "InstalledVersion": "v3.0.5",
+      "FixedVersion": null,
+      "Severity": "HIGH",
+      "Title": "github.com/go-jose/go-jose: go-jose: Denial of Service via crafted RSA parameters in JWKs",
+      "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-116587"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-116585",
+      "PkgName": "github.com/go-jose/go-jose/v3",
+      "InstalledVersion": "v3.0.5",
+      "FixedVersion": null,
+      "Severity": "MEDIUM",
+      "Title": "github.com/go-jose/go-jose: go-jose: Denial of Service via empty ciphertext buffer during JWE decryption",
+      "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-116585"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-116586",
+      "PkgName": "github.com/go-jose/go-jose/v3",
+      "InstalledVersion": "v3.0.5",
+      "FixedVersion": null,
+      "Severity": "MEDIUM",
+      "Title": "github.com/go-jose/go-jose: go-jose: Denial of Service via deeply nested JSON parsing",
+      "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-116586"
+    },
+    {
+      "VulnerabilityID": "GO-2026-5932",
+      "PkgName": "golang.org/x/crypto",
+      "InstalledVersion": "v0.57.0",
+      "FixedVersion": "0.58.1-0.20261009181718-2f1f834330b2",
+      "Severity": "UNKNOWN",
+      "Title": "The golang.org/x/crypto/openpgp package is unmaintained, unsafe by design, and has known security issues",
+      "PrimaryURL": null
+    },
+    {
+      "VulnerabilityID": "CVE-2026-78661",
+      "PkgName": "golang.org/x/net",
+      "InstalledVersion": "v0.60.0",
+      "FixedVersion": "0.62.0",
+      "Severity": "HIGH",
+      "Title": "golang.org/x/net/html: golang.org/x/net/html: Denial of Service via crafted HTML input",
+      "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-78661"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-97045",
+      "PkgName": "golang.org/x/net",
+      "InstalledVersion": "v0.60.0",
+      "FixedVersion": "0.62.0",
+      "Severity": "MEDIUM",
+      "Title": "golang.org/x/net/html: golang.org/x/net/html: Cross-Site Scripting via improper namespace handling during HTML rendering",
+      "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-97045"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-97054",
+      "PkgName": "stdlib",
+      "InstalledVersion": "v1.27.3",
+      "FixedVersion": "1.26.11, 1.27.4",
+      "Severity": "UNKNOWN",
+      "Title": "For HTTP/1 servers, when MaxBytesReader's limit is exceeded, \"Connecti ...",
+      "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-97054"
+    }
+  ]
+}

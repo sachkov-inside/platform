@@ -190,7 +190,9 @@ export const MobileTopNavigation: Story = {
     if (header === null) throw new Error("Нет шапки телефона");
     await expect(header).toBeVisible();
     await expect(
-      within(header).getByRole("link", { name: "Главная" }),
+      within(header).getByRole("link", {
+        name: /^(?:sachkov\.dev, )?Главная$/,
+      }),
     ).toHaveAttribute("href", "/");
     const navigation = canvas.getByRole("navigation", {
       name: "Мобильная навигация",
@@ -204,7 +206,9 @@ export const MobileTopNavigation: Story = {
     });
     await expect(signIn).toBeVisible();
     await expect(signIn.innerText).toBe("Войти");
-    const brand = within(header).getByRole("link", { name: "Главная" });
+    const brand = within(header).getByRole("link", {
+      name: /^(?:sachkov\.dev, )?Главная$/,
+    });
     const buttonBounds = signIn.getBoundingClientRect();
     const brandBounds = brand.getBoundingClientRect();
     await expect(

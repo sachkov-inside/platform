@@ -80,11 +80,14 @@ type NavigationItemProps = {
 
 export function CourseNavigationItem(props: NavigationItemProps) {
   const Icon = props.icon;
-  const captionId = useId();
+  const itemId = useId();
+  const captionId = `${itemId}-caption`;
+  const labelId = `${itemId}-label`;
+  const programmeId = `${itemId}-programme`;
   const content = (
     <>
       {Icon === undefined ? null : <Icon size={16} aria-hidden="true" />}
-      <span className={styles["label"]} aria-hidden="true">
+      <span className={styles["label"]} id={labelId}>
         {props.caption === undefined ? null : (
           <small id={captionId}>{props.caption}</small>
         )}
@@ -100,7 +103,8 @@ export function CourseNavigationItem(props: NavigationItemProps) {
       className={styles["item"]}
       href={props.href}
       title={props.title ?? props.label}
-      aria-label={props.label}
+      aria-labelledby={labelId}
+      aria-describedby={props.caption === undefined ? undefined : captionId}
       aria-current={props.current === true ? "page" : undefined}
     >
       {content}
@@ -112,13 +116,19 @@ export function CourseNavigationItem(props: NavigationItemProps) {
       onClick={props.onClick}
       disabled={props.disabled}
       title={props.opensProgramme === true ? "Вся программа" : props.label}
+      aria-labelledby={
+        props.opensProgramme === true ? `${programmeId} ${labelId}` : labelId
+      }
+      aria-describedby={props.caption === undefined ? undefined : captionId}
       aria-current={props.current === true ? "true" : undefined}
       aria-haspopup={props.opensProgramme === true ? "dialog" : undefined}
-      aria-label={props.opensProgramme === true ? "Вся программа" : props.label}
-      // The visible position or progress stays available to screen readers.
-      aria-describedby={props.caption === undefined ? undefined : captionId}
     >
       {content}
+      {props.opensProgramme === true ? (
+        <span className="sr-only" id={programmeId}>
+          Вся программа:
+        </span>
+      ) : null}
     </button>
   );
 }

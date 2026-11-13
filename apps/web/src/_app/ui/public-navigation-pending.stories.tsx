@@ -67,6 +67,8 @@ export const BookmarksMobile: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Закладки" }),
     ).toBeVisible();
-    await expect(canvas.queryByRole("heading", { name: "Главная" })).toBeNull();
+    await expect(
+      canvas.queryByRole("heading", { name: /^(?:sachkov\.dev, )?Главная$/ }),
+    ).toBeNull();
   },
 };

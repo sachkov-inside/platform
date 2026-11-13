@@ -170,6 +170,7 @@ overrides:
 patchedDependencies:
   '@storybook/addon-vitest@10.6.7': 4eea57d49079c9e38386b7c485cfe11befe9e1947dae4df090fd82c4ed9872dd
   '@vitest/browser-playwright@5.1.0': c6dc85f5cddef19a74d3b7e45443e245940a4d85c63a524fc2bdcb9778b8ac93
+  deepmerge@4.3.1: 38c613ae7342932df1bc2b0773586a5455c7941badfc765dcd461998c569fc90
   testcontainers@12.2.1: 294d6dbbddafcb16fa7f3f51c810d1ef0257247ab31a3ca51a2030b682a8d801
   vitest@5.1.0: 142b1fd4449ef56c0ebddcc618df5cc344948c46cd8cdc7b09fcf0ce634fa679
 
@@ -193,6 +194,9 @@ importers:
       '@types/proper-lockfile':
         specifier: 4.1.4
         version: 4.1.4
+      deepmerge:
+        specifier: 4.3.1
+        version: 4.3.1(patch_hash=38c613ae7342932df1bc2b0773586a5455c7941badfc765dcd461998c569fc90)
       jose:
         specifier: 6.2.17
         version: 6.2.17
@@ -9293,7 +9297,7 @@ snapshots:
       '@dotenvx/dotenvx': 1.75.1
       cn: 0.2.6
       code-block-writer: 13.0.3
-      deepmerge: 4.3.1
+      deepmerge: 4.3.1(patch_hash=38c613ae7342932df1bc2b0773586a5455c7941badfc765dcd461998c569fc90)
       execa: 9.6.1
       fast-glob: 3.3.3
       fs-extra: 11.4.1
@@ -10585,7 +10589,7 @@ snapshots:
 
   deepmerge-ts@8.0.2: {}
 
-  deepmerge@4.3.1: {}
+  deepmerge@4.3.1(patch_hash=38c613ae7342932df1bc2b0773586a5455c7941badfc765dcd461998c569fc90): {}
 
   default-browser-id@5.0.1: {}
 
@@ -12239,7 +12243,7 @@ snapshots:
       cn: 0.2.6
       commander: 14.0.3
       dedent: 1.7.2
-      deepmerge: 4.3.1
+      deepmerge: 4.3.1(patch_hash=38c613ae7342932df1bc2b0773586a5455c7941badfc765dcd461998c569fc90)
       diff: 8.0.4
       execa: 9.6.1
       fast-glob: 3.3.3

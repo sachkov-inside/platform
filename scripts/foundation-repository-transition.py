@@ -108,7 +108,7 @@ def proof(image, receipt, directory):
         data, repository = resources.volume("transition-data"), resources.volume("transition-repository")
         verdict["stage"] = "old-source"
         source = start(resources, image, data, repository, old, "old-source", initialize=True)
-        if resources.command("exec", source, "pgbackrest", "--version").stdout.strip() != "pgBackRest 2.59.3":
+        if resources.command("exec", source, "pgbackrest", "--version").stdout.strip() != "pgBackRest 2.60.0":
             raise ValueError("transition must use the fixed production pgBackRest version")
         for database in DATABASES:
             base.sql(resources, source, "postgres", "CREATE DATABASE " + database + ";")

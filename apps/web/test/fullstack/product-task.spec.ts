@@ -158,7 +158,7 @@ test("a practical Material reuses the real submission workspace without adding a
       .locator("[data-own-submissions]"),
   ).toContainText(note);
   const programme = page.getByRole("button", {
-    name: "Вся программа",
+    name: /^Вся программа:/,
     exact: true,
   });
   const mobileProgramme = await programme.isVisible();

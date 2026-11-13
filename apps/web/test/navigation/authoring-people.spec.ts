@@ -529,7 +529,11 @@ test("the «Люди» group of the global search opens the person card", async 
     page.getByRole("heading", { level: 1, name: "Люди" }),
   ).toBeVisible();
   if (info.project.name === "mobile-chromium")
-    await page.getByRole("button", { name: "Поиск по админке" }).click();
+    await page
+      .getByRole("button", {
+        name: /^Поиск по людям, продуктам, материалам и платежам/,
+      })
+      .click();
   else await page.keyboard.press("ControlOrMeta+k");
   const dialog = page.getByRole("dialog", { name: "Поиск по админке" });
   await dialog.getByRole("combobox", { name: "Что найти" }).fill("анна");

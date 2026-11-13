@@ -72,8 +72,9 @@ Node major changes remain separate reviewed migrations, with merge decided by th
 Application Dockerfiles install Corepack `0.36.0` explicitly because Node 26 does not bundle it;
 Corepack then installs the exact pnpm version from `packageManager`. CI uses `.node-version`
 and `pnpm/action-setup`, so it does not depend on a bundled Corepack.
-The Logto server keeps its own digest-pinned upstream image in `infra/identity/logto/Dockerfile`;
-its runtime belongs to that external service, not the application Node pin.
+The Logto server keeps its own digest-pinned upstream image in `infra/identity/logto/Dockerfile`.
+Its Node binary is refreshed from the same immutable official Node release; its upstream manifest
+and private security backports are recorded in `infra/identity/logto/security/README.md`.
 The status and production recommendation come from the
 [official Node.js release table](https://nodejs.org/en/about/previous-releases).
 
@@ -124,6 +125,21 @@ before execution. Do not add an ESLint compatibility runner for that gap. Prefer
 rule when one becomes stable; otherwise add a typed API constraint or a focused executable test for
 a demonstrated regression.
 
-pnpm is pinned to `11.27.1`, the latest 11.x; pnpm 12 waits for a separately verified migration
-that passes frozen installation and the full repository gate. Do not weaken
+pnpm is pinned to `12.18.0` in the root workspace and application images. The #2117 migration
+requires frozen installation and the full repository gate. Logto retains its separately supported
+pnpm 10.34.9 build tool and frozen upstream dependency graph. Do not weaken
 `strictPeerDependencies` to accept a package-family update.
+
+## Private security patches
+
+`deepmerge@4.3.1` has no published fix for GHSA-gcqx-w48m-w2h4. The workspace patch excludes
+`__proto__` from source and target keys without dropping symbol properties. Remove it when a
+compatible upstream release fixes prototype poisoning. `scripts/deepmerge-security.test.mjs`
+checks poisoned inputs and ordinary nested, array and symbol merges. The Logto dependency graph
+uses identical patch bytes and runs its own installed-graph proof. Its other dependency backports
+and removal conditions are recorded in [Logto security maintenance](../../infra/identity/logto/security/README.md).
+
+Telegram now uses the shared immutable Node Alpine base, with the same zlib security update and
+without npm in the runtime layer. Its production dependencies use JavaScript transports rather than
+a required glibc addon. Release still requires the image build and Telegram persistence/transport
+checks; a base-image scan alone does not establish compatibility.

@@ -123,7 +123,7 @@ test("desktop retains early reference expansion and rail scroll through host act
     expect(await scroll.evaluate((node) => node.scrollTop)).toBe(position);
     await page.setViewportSize({ width: 390, height: 844 });
     await page
-      .getByRole("button", { name: "Вся программа", exact: true })
+      .getByRole("button", { name: /^Вся программа:/, exact: true })
       .click();
     await expect(
       page.getByRole("dialog").getByRole("button", { name: "Показать ещё" }),
@@ -146,7 +146,7 @@ for (const width of [390, 820])
         `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme`,
       );
       const trigger = page.getByRole("button", {
-        name: "Вся программа",
+        name: /^Вся программа:/,
         exact: true,
       });
       await trigger.click();
@@ -240,7 +240,7 @@ test("an in-progress programme entrance keeps its animation position through hos
       `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme`,
     );
     await page
-      .getByRole("button", { name: "Вся программа", exact: true })
+      .getByRole("button", { name: /^Вся программа:/, exact: true })
       .click();
     const dialog = page.getByRole("dialog");
     // Hold the real CSS animation at an intermediate frame without a wall-clock wait.
@@ -287,7 +287,7 @@ test("reduced-motion programme stays still through host activation", async () =>
       `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme`,
     );
     await page
-      .getByRole("button", { name: "Вся программа", exact: true })
+      .getByRole("button", { name: /^Вся программа:/, exact: true })
       .click();
     const dialog = page.getByRole("dialog");
     expect(await dialog.evaluate((node) => node.getAnimations().length)).toBe(

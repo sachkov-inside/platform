@@ -56,8 +56,8 @@ pnpm identity:proof:down
 ## Frozen artifacts
 
 [`versions.json`](./versions.json) is the machine-readable ledger. The custom Logto image starts
-from the official `1.44.0` multi-platform image by exact digest. That image corresponds to upstream
-revision `79e9e3b0d9f505260d09c80d8a015e56fbc0ec01`. PostgreSQL, Mailpit, `@logto/next`, `@logto/node` and `jose` are
+from the official `1.46.0` multi-platform image by exact digest. That image corresponds to upstream
+revision `d179bf9d2d51104236a342b90c2841df66e4ba5b`. PostgreSQL, Mailpit, `@logto/next`, `@logto/node` and `jose` are
 also exact-versioned; the tooling test rejects floating image references.
 
 Logto 1.42 and later refuse to start on a database without the alterations of their version. Every
@@ -196,3 +196,7 @@ The existing `inside.7` changes remain included. The disposable API proof runs w
 Fork `inside.11` allows existing authenticated first-party sessions to use these routes without
 renewing consent for the `email` scope. The same subject, field permissions, code verification
 and first-attachment restrictions still apply.
+
+Fork revision `inside.16` upgrades upstream to 1.46.0 (#2117), retaining the atomic message-rate
+reservation and the new upstream blocked-decision cleanup. Fresh and existing databases apply
+the 1.46.0 alterations. Production upgrades require a fresh backup and isolated recovery evidence.

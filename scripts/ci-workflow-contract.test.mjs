@@ -526,11 +526,11 @@ describe("application CI workflow contract", () => {
     );
     assert.match(
       telegram,
-      /image: ghcr\.io\/sachkov-inside\/postgres:18\.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15$/mu,
+      /image: ghcr\.io\/sachkov-inside\/postgres:18\.7-alpine@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73$/mu,
     );
     assert.match(
       telegram,
-      /image: ghcr\.io\/sachkov-inside\/rabbitmq:4\.3-management-alpine@sha256:[a-f0-9]{64}$/mu,
+      /image: ghcr\.io\/sachkov-inside\/rabbitmq:4\.4\.0-management-alpine@sha256:[a-f0-9]{64}$/mu,
     );
     assert.match(telegram, /RABBITMQ_DEFAULT_USER: telegram_checks/u);
     assert.match(

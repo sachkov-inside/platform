@@ -1,8 +1,15 @@
-FROM ghcr.io/logto-io/logto:1.44.0@sha256:847cdd2759ad60f61b9733af0ea352183c805681dff5c9f8140a80f52d8e1340
+FROM docker.io/library/node:26.13.1-alpine3.24@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS security-node
+
+FROM ghcr.io/logto-io/logto:1.46.0@sha256:d5e208ce705cbcf7c79ddba421216eb65413d0b0531aa658fb22a4ba659be983
+
+# Upstream 1.46.0 still carries Node 26.13.0 and an older npm dependency tree.
+COPY --from=security-node /usr/local/bin/node /usr/local/bin/node
+RUN apk add --no-cache zlib=1.4-r0 \
+  && npm install --global npm@12.2.2
 
 LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform"
-LABEL org.opencontainers.image.version="1.44.0-inside.15"
-LABEL inside.logto.upstream-revision="79e9e3b0d9f505260d09c80d8a015e56fbc0ec01"
+LABEL org.opencontainers.image.version="1.46.0-inside.16"
+LABEL inside.logto.upstream-revision="d179bf9d2d51104236a342b90c2841df66e4ba5b"
 
 COPY fork/packages/experience/src/Layout/AppLayout/index.tsx packages/experience/src/Layout/AppLayout/index.tsx
 COPY fork/packages/experience/src/Layout/AppLayout/index.module.scss packages/experience/src/Layout/AppLayout/index.module.scss
@@ -63,3 +70,35 @@ RUN apk add --no-cache --virtual .inside-patch-tools patch \
   && patch --fuzz=0 -p1 < /tmp/account-first-email.patch \
   && apk del .inside-patch-tools \
   && cd packages/core && npm run check && ./node_modules/.bin/tsup
+
+# Keep the refreshed upstream dependency graph reproducible, including private router fixes.
+COPY security/manifest-overlay.json security/apply-manifest-overlay.mjs security/router-security.mjs security/zod-security.mjs security/deepmerge-security.mjs /etc/logto/inside-security/
+COPY security/patches /etc/logto/inside-security-patches
+COPY security/pnpm-lock.yaml security/pnpm-workspace.yaml /etc/logto/
+RUN npm install --global pnpm@10.34.9 \
+  && node inside-security/apply-manifest-overlay.mjs \
+  && rm -rf node_modules \
+  && CI=true pnpm install --frozen-lockfile --ignore-scripts \
+  && node --experimental-vm-modules inside-security/router-security.mjs \
+  && node inside-security/zod-security.mjs \
+  && node inside-security/deepmerge-security.mjs \
+  && npm --prefix packages/core run check \
+  && (cd packages/core \
+    && ./node_modules/.bin/tsc -p tsconfig.test.json \
+    && NODE_OPTIONS="--experimental-vm-modules --max_old_space_size=4096" ./node_modules/.bin/jest --runInBand \
+      build/saml-application/SamlApplication/xml-format.test.js \
+      build/saml-application/SamlApplication/signature.test.js \
+      build/saml-application/SamlApplication/authn-policy.test.js \
+      build/saml-application/SamlApplication/callback.test.js \
+      build/libraries/saml-application/utils.test.js \
+      build/sso/SamlConnector/sign.test.js \
+      build/sso/SamlConnector/utils.test.js) \
+  && npm --prefix packages/core run build \
+  && npm --prefix packages/account run build \
+  && npm --prefix packages/console run build \
+  && npm --prefix packages/experience run build \
+  && rm -rf node_modules \
+  && CI=true pnpm install --prod --frozen-lockfile --ignore-scripts
+
+# The CLI and server run compiled JavaScript. esbuild is needed only above during compilation.
+RUN rm -rf node_modules/.pnpm/@esbuild+*/node_modules/@esbuild/*/bin

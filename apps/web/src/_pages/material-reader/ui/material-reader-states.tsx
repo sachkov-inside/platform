@@ -436,7 +436,7 @@ function ReservedBookmarkAction() {
       disabled
       variant="ghost"
       className="h-11 shrink-0 rounded-lg"
-      aria-label="Закладка недоступна"
+      aria-label="Сохранить, закладка недоступна"
     >
       <Bookmark aria-hidden="true" />
       <span>Сохранить</span>

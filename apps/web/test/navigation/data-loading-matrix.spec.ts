@@ -750,7 +750,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
           await page.clock.runFor(250);
           const courseReader = page.locator("[data-course-reading]:visible");
           const allProgramme = courseReader.getByRole("button", {
-            name: "Вся программа",
+            name: /^Вся программа:/,
             exact: true,
           });
           const mobile = await allProgramme.isVisible();

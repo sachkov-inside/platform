@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { lanes, type NotificationPrincipal } from "./wire.js";
 
 export const NOTIFICATION_BROKER_IMAGE =
-  "ghcr.io/sachkov-inside/rabbitmq:4.2.4-management-alpine@sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef";
+  "ghcr.io/sachkov-inside/rabbitmq:4.4.0-management-alpine@sha256:4841f6384ef8313c3594cd3f2e9f40c10805f8a61c45f08a9a5d9ddea8199267";
 /** Ёмкость каждой очереди окружения: сообщения; байты — по 16 KiB на сообщение. Одна для стенда и production. */
 export const NOTIFICATION_QUEUE_CAPACITY = 1_000;
 export const LOCAL_NOTIFICATION_BROKER_CREDENTIALS = {
