@@ -191,8 +191,6 @@ test("the import environment names the runtime mode and the accepted import cont
         "canonical-product-source-v2",
         "material-task-v1",
         "task-c-v2",
-        "quiz-v1",
-        "quiz-multiple-v1",
         "github-anchors-v1",
         "image-variants-v1",
         "collapsible-callouts-v1",
@@ -201,6 +199,8 @@ test("the import environment names the runtime mode and the accepted import cont
         "product-topics-v1",
         "material-update-note-v1",
         "glossary-v1",
+        "exercise-v1",
+        "step-breaks-v1",
       ],
     },
   });

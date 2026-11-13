@@ -1,5 +1,5 @@
 // @ts-check
-import { currentEnvironment } from "./test-support.mjs";
+import { contentExerciseBlocks, currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -923,108 +923,133 @@ test("incomplete or undeclared variant sets stop synchronization before its firs
   }
 });
 
-test("loadPackage accepts Content quiz-v1 readerBlocks without losing the raw source", async (t) => {
-  const f = await temporary(t);
+const EXERCISE_FEATURES = [
+  "exercise-v1",
+  "github-anchors-v1",
+  "step-breaks-v1",
+];
+
+/**
+ * @param {readonly unknown[]} readerBlocks written as given, valid or not
+ * @param {readonly string[]} features
+ */
+function exercisePackage(readerBlocks, features = EXERCISE_FEATURES) {
   const manifest = fixture();
-  manifest.requiredFeatures.push("quiz-v1", "github-anchors-v1");
+  manifest.requiredFeatures.push(...features);
   const task = manifest.tasks[0];
   assert.ok(task);
-  const page = {
-    ...task.page,
-    readerBlocks: [
-      { kind: "markdown", markdown: "## Section\n\nNarrative" },
-      {
-        kind: "quiz",
-        id: "question-1",
-        promptMarkdown: "Which?",
-        correctOptionId: "second",
-        options: [
-          {
-            id: "first",
-            markdown: "First",
-            explanationMarkdown: "Wrong reason",
-          },
-          {
-            id: "second",
-            markdown: "Second",
-            explanationMarkdown: "Correct reason",
-          },
-        ],
-        dontKnow: {
-          explanationMarkdown: "Review section",
-          reviewLinks: ["#section"],
-        },
-      },
-    ],
-  };
-  const envelope = { ...manifest, tasks: [{ ...task, page }] };
+  const page = { ...task.page, readerBlocks };
+  return { ...manifest, tasks: [{ ...task, page }] };
+}
+
+test("loadPackage accepts Content exercise-v1 readerBlocks with a step break without losing the raw source", async (t) => {
+  const f = await temporary(t);
+  const envelope = exercisePackage(contentExerciseBlocks());
   await f.write(envelope);
   const pkg = await loadPackage(f.path);
-  assert.deepEqual(pkg.manifest.tasks?.[0]?.page, page);
+  assert.deepEqual(pkg.manifest.tasks?.[0]?.page, envelope.tasks[0]?.page);
+});
+
+test("readerBlocks require the feature of each thing they carry", async (t) => {
+  const f = await temporary(t);
+  const blocks = contentExerciseBlocks();
+  for (const missing of EXERCISE_FEATURES) {
+    await f.write(
+      exercisePackage(
+        blocks,
+        EXERCISE_FEATURES.filter((feature) => feature !== missing),
+      ),
+    );
+    await assert.rejects(loadPackage(f.path), new RegExp(missing, "u"));
+  }
+  // Without «Не знаю» and step breaks an exercise needs only exercise-v1.
+  await f.write(
+    exercisePackage(
+      blocks.flatMap(
+        /** @returns {object[]} */ (block) => {
+          if (block.kind === "step-break") return [];
+          if (block.kind !== "quiz") return [block];
+          const { dontKnow: _dontKnow, ...rest } = block;
+          return [rest];
+        },
+      ),
+      ["exercise-v1"],
+    ),
+  );
+  await loadPackage(f.path);
+  // The retired quiz-v1 feature is refused.
+  await f.write(exercisePackage(blocks, [...EXERCISE_FEATURES, "quiz-v1"]));
+  await assert.rejects(loadPackage(f.path), /quiz-v1/u);
 });
 
 for (const scenario of [
-  "missing-key",
-  "wrong-key",
-  "two-keys",
-  "missing-explanation",
+  "no-correct-option",
+  "legacy-key",
   "unknown-field",
-  "duplicate-option-id",
-  "duplicate-quiz-id",
+  "duplicate-item-id",
+  "duplicate-exercise-id",
   "missing-anchor",
   "question-only-anchor",
   "explanation-only-anchor",
 ]) {
-  test(`quiz preflight rejects ${scenario} before asset reads or transport`, async (t) => {
+  test(`exercise preflight rejects ${scenario} before asset reads or transport`, async (t) => {
     const f = await temporary(t);
-    const manifest = fixture();
-    manifest.requiredFeatures.push("quiz-v1", "github-anchors-v1");
-    const task = manifest.tasks[0];
-    assert.ok(task);
-    /** @type {Record<string, unknown>[]} */
-    const options = [
-      { id: "first", markdown: "First", explanationMarkdown: "Wrong reason" },
-      {
-        id: "second",
-        markdown: "Second",
-        explanationMarkdown: "Correct reason",
-      },
-    ];
-    const first = options[0];
-    const second = options[1];
-    assert.ok(first && second);
-    /** @type {Record<string, unknown>} */
-    const quiz = {
-      kind: "quiz",
-      id: "question-1",
-      promptMarkdown: "Which?",
-      correctOptionId: "second",
-      options,
-      dontKnow: { explanationMarkdown: "Review", reviewLinks: ["#section"] },
-    };
-    if (scenario === "missing-key") delete quiz["correctOptionId"];
-    if (scenario === "wrong-key") quiz["correctOptionId"] = "absent";
-    if (scenario === "two-keys") quiz["correctOptionId"] = ["first", "second"];
-    if (scenario === "missing-explanation") delete first["explanationMarkdown"];
-    if (scenario === "unknown-field") quiz["analytics"] = true;
-    if (scenario === "duplicate-option-id") second["id"] = "first";
+    const [narrative, quiz, stepBreak, match, ...rest] =
+      contentExerciseBlocks();
+    assert.ok(quiz?.kind === "quiz" && match?.kind === "match");
+    /** @type {object} */
+    let quizValue = quiz;
+    /** @type {object} */
+    let matchValue = match;
+    const first = (/** @type {number} */ index) => index === 0;
+    if (scenario === "no-correct-option")
+      quizValue = {
+        ...quiz,
+        options: quiz.options.map((option) => ({
+          ...option,
+          correct: false,
+          explanationMarkdown: "Нет.",
+        })),
+      };
+    if (scenario === "legacy-key")
+      quizValue = { ...quiz, correctOptionId: "prompt" };
+    if (scenario === "unknown-field")
+      matchValue = { ...match, analytics: true };
+    if (scenario === "duplicate-item-id")
+      matchValue = {
+        ...match,
+        choices: match.choices.map((choice, index) =>
+          first(index) ? { ...choice, id: "plan" } : choice,
+        ),
+        rows: match.rows.map((row, index) =>
+          first(index) ? { ...row, answerId: "plan" } : row,
+        ),
+      };
+    if (scenario === "duplicate-exercise-id")
+      matchValue = { ...match, id: quiz.id };
     if (scenario === "question-only-anchor")
-      quiz["promptMarkdown"] = "## Section\n\nWhich?";
+      quizValue = { ...quiz, questionMarkdown: "## Раздел\n\nВопрос?" };
     if (scenario === "explanation-only-anchor")
-      first["explanationMarkdown"] = "## Section\n\nReason";
-    const absentNarrative = scenario.endsWith("anchor");
-    const readerBlocks = [
-      {
-        kind: "markdown",
-        markdown: absentNarrative ? "Narrative" : "## Section\n\nNarrative",
-      },
-      quiz,
-      ...(scenario === "duplicate-quiz-id" ? [structuredClone(quiz)] : []),
+      quizValue = {
+        ...quiz,
+        options: quiz.options.map((option, index) =>
+          first(index)
+            ? { ...option, explanationMarkdown: "## Раздел\n\nПочему." }
+            : option,
+        ),
+      };
+    const blocks = [
+      scenario.endsWith("anchor")
+        ? { kind: "markdown", markdown: "Без заголовка\n" }
+        : narrative,
+      quizValue,
+      stepBreak,
+      matchValue,
+      ...rest,
     ];
-    // An absent asset is a sentinel: quiz rejection must precede realpath/checksum/upload.
+    // An absent asset is a sentinel: rejection must precede realpath/checksum/upload.
     await f.write({
-      ...manifest,
-      tasks: [{ ...task, page: { ...task.page, readerBlocks } }],
+      ...exercisePackage(blocks),
       assets: [
         {
           sourceId: "absent",
@@ -1041,9 +1066,9 @@ for (const scenario of [
       calls.push(path);
       throw new Error("unexpected transport");
     };
-    const expected = absentNarrative
-      ? /tasks\/one.md: quiz question-1: missing narrative anchor #section/u
-      : /key|explanationMarkdown|Unrecognized|Duplicate/u;
+    const expected = scenario.endsWith("anchor")
+      ? /tasks\/one.md: quiz rag-wrong-platform: missing narrative anchor #раздел/u
+      : /correct|Unrecognized|repeat|Duplicate/u;
     await assert.rejects(loadPackage(f.path), expected);
     await assert.rejects(syncLocal(f.path, f.state, { request }), expected);
     await assert.rejects(
@@ -1108,49 +1133,6 @@ test("material-task-v1 validates primary ownership and one-to-one bindings befor
     },
   ]) {
     await f.write(invalid);
-    await assert.rejects(loadPackage(f.path));
-  }
-});
-
-test("multiple-answer quiz requires its feature marker and preserves the complete set", async (t) => {
-  const f = await temporary(t);
-  const manifest = fixture();
-  manifest.requiredFeatures.push("quiz-v1", "github-anchors-v1");
-  const task = manifest.tasks[0];
-  assert.ok(task);
-  assert.ok(task.page);
-  const quiz = {
-    kind: "quiz",
-    id: "features",
-    selectionMode: "multiple",
-    promptMarkdown: "Select the initial features.",
-    correctOptionIds: ["a", "b", "c", "d"],
-    options: ["a", "b", "c", "d", "e", "f"].map((id) => ({
-      id,
-      markdown: id,
-      explanationMarkdown: `Reason ${id}`,
-    })),
-    dontKnow: { explanationMarkdown: "Review scope.", reviewLinks: ["#scope"] },
-  };
-  const page = {
-    ...task.page,
-    readerBlocks: [{ kind: "markdown", markdown: "## Scope" }, quiz],
-  };
-  const envelope = { ...manifest, tasks: [{ ...task, page }] };
-  await f.write(envelope);
-  await assert.rejects(loadPackage(f.path), /quiz-multiple-v1/u);
-  manifest.requiredFeatures.push("quiz-multiple-v1");
-  await f.write(envelope);
-  const pkg = await loadPackage(f.path);
-  assert.deepEqual(pkg.manifest.tasks?.[0]?.page?.readerBlocks?.[1], quiz);
-  for (const patch of [
-    { correctOptionIds: [] },
-    { correctOptionIds: ["a", "a"] },
-    { correctOptionIds: ["missing"] },
-    { correctOptionId: "a" },
-  ]) {
-    page.readerBlocks[1] = { ...quiz, ...patch };
-    await f.write(envelope);
     await assert.rejects(loadPackage(f.path));
   }
 });

@@ -116,3 +116,67 @@ export function currentEnvironment(mode) {
     },
   };
 }
+
+/**
+ * Reader blocks exactly as the Content exporter emits them (content-studio#86 `exercise-v1`,
+ * #87 `step-breaks-v1`): Markdown fragments with a quiz, a match and an order in place, and a
+ * step break between two parts. The narrative carries the heading `## Раздел`.
+ *
+ * @returns {import("@inside/material-blocks").ContentReaderBlock[]}
+ */
+export function contentExerciseBlocks() {
+  return [
+    { kind: "markdown", markdown: "## Раздел\n\nДо упражнения\n" },
+    {
+      kind: "quiz",
+      id: "rag-wrong-platform",
+      reveal: "after-answer",
+      contextMarkdown: "Ситуация.",
+      questionMarkdown: "На каком шаге ошибка?",
+      selectionMode: "single",
+      options: [
+        {
+          id: "embed",
+          markdown: "Эмбеддинг.",
+          correct: false,
+          explanationMarkdown: "Почему нет.",
+        },
+        { id: "prompt", markdown: "Промпт.", correct: true },
+      ],
+      dontKnow: {
+        explanationMarkdown: "Перечитай [раздел](#раздел).",
+        reviewLinks: ["#раздел"],
+      },
+    },
+    { kind: "step-break", label: "Что дальше?" },
+    {
+      kind: "match",
+      id: "roles",
+      reveal: "none",
+      questionMarkdown: "Кто за что отвечает?",
+      mode: "pairs",
+      rows: ["plan", "code", "test"].map((id) => ({
+        id,
+        markdown: `Строка ${id}.`,
+        answerId: `${id}-role`,
+        explanationMarkdown: `Почему ${id}.`,
+      })),
+      choices: ["plan", "code", "test"].map((id) => ({
+        id: `${id}-role`,
+        markdown: `Роль ${id}`,
+      })),
+    },
+    {
+      kind: "order",
+      id: "pipeline",
+      reveal: "none",
+      questionMarkdown: "В каком порядке?",
+      steps: ["spec", "code", "ship"].map((id) => ({
+        id,
+        markdown: `Шаг ${id}.`,
+        explanationMarkdown: `Почему ${id} здесь.`,
+      })),
+    },
+    { kind: "markdown", markdown: "## Дальше\n\nПосле упражнений\n" },
+  ];
+}

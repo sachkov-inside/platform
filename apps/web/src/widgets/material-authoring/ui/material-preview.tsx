@@ -11,7 +11,11 @@ import {
   MaterialCallout,
   MaterialLessonBlock,
 } from "@/entities/material";
-import { isGlossaryTermHref } from "@inside/material-blocks";
+import {
+  isGlossaryTermHref,
+  materialExerciseNumbers,
+  type MaterialExerciseNumber,
+} from "@inside/material-blocks";
 
 import type {
   MaterialPreviewBlock,
@@ -27,6 +31,7 @@ interface MaterialPreviewProps {
 
 /** Current-Material reading surface shared by Storybook and future production adapters. */
 export function MaterialPreview({ preview }: MaterialPreviewProps) {
+  const exerciseNumbers = materialExerciseNumbers(preview.blocks);
   return (
     <article className="mx-auto w-full max-w-[72ch] px-5 py-10 sm:px-8 sm:py-14">
       <header>
@@ -67,6 +72,7 @@ export function MaterialPreview({ preview }: MaterialPreviewProps) {
           <PreviewBlock
             block={block}
             contentVersion={preview.contentVersion}
+            exerciseNumbers={exerciseNumbers}
             key={`${block.kind}-${String(index)}`}
             video={preview.video}
             materialId={preview.materialId}
@@ -125,11 +131,15 @@ function previewVideoNote(video: MaterialPreviewVideo): string {
 function PreviewBlock({
   block,
   contentVersion,
+  exerciseNumbers,
   materialId,
   video,
 }: {
   readonly block: MaterialPreviewBlock;
   readonly contentVersion: number;
+  /** Exercises stand at the top of a lesson, so only top-level blocks pass their numbers. */
+  readonly exerciseNumbers?:
+    ReadonlyMap<string, MaterialExerciseNumber> | undefined;
   readonly materialId: string;
   readonly video?: MaterialPreviewVideo | undefined;
 }) {
@@ -212,7 +222,12 @@ function PreviewBlock({
           materialId={materialId}
         />
       );
+    // A step break shows nothing yet: the lesson reads whole until parts open one by one (#2122).
+    case "step_break":
+      return null;
     case "quiz":
+    case "match":
+    case "order":
     case "agent_prompt":
     case "callout":
     case "key_point":
@@ -223,6 +238,7 @@ function PreviewBlock({
         <MaterialLessonBlock
           block={block}
           rendering={{
+            exerciseNumber: (id) => exerciseNumbers?.get(id),
             renderBlock: (child, index) => (
               <PreviewBlock
                 block={child}

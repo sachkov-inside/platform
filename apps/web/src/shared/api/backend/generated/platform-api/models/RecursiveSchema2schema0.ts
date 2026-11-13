@@ -151,24 +151,9 @@ export type RecursiveSchema2schema0 = ({
   kind: 'file';
   label: string;
   size?: number;
-} | ({
-  correctOptionId: string;
-  dontKnow: {
-    explanation: Array<RecursiveSchema2schema0>;
-    reviewLinks: Array<string>;
-  };
-  id: string;
-  kind: 'quiz';
-  options: Array<{
-    content: Array<RecursiveSchema2schema0>;
-    explanation: Array<RecursiveSchema2schema0>;
-    id: string;
-  }>;
-  prompt: Array<RecursiveSchema2schema0>;
-  selectionMode?: any;
 } | {
-  correctOptionIds: Array<string>;
-  dontKnow: {
+  context?: Array<RecursiveSchema2schema0>;
+  dontKnow?: {
     explanation: Array<RecursiveSchema2schema0>;
     reviewLinks: Array<string>;
   };
@@ -176,12 +161,14 @@ export type RecursiveSchema2schema0 = ({
   kind: 'quiz';
   options: Array<{
     content: Array<RecursiveSchema2schema0>;
-    explanation: Array<RecursiveSchema2schema0>;
+    correct: boolean;
+    explanation?: Array<RecursiveSchema2schema0>;
     id: string;
   }>;
-  prompt: Array<RecursiveSchema2schema0>;
-  selectionMode: 'multiple';
-}) | {
+  question: Array<RecursiveSchema2schema0>;
+  reveal: 'none' | 'after-answer';
+  selectionMode: 'single' | 'multiple';
+} | {
   chapters?: Array<{
     start: number;
     title: string;
@@ -191,4 +178,43 @@ export type RecursiveSchema2schema0 = ({
 } | {
   kind: 'term_definition';
   termId: string;
+} | {
+  choices: Array<{
+    content: Array<RecursiveSchema2schema0>;
+    id: string;
+  }>;
+  context?: Array<RecursiveSchema2schema0>;
+  dontKnow?: {
+    explanation: Array<RecursiveSchema2schema0>;
+    reviewLinks: Array<string>;
+  };
+  id: string;
+  kind: 'match';
+  mode: 'pairs' | 'groups';
+  question: Array<RecursiveSchema2schema0>;
+  reveal: 'none' | 'after-answer';
+  rows: Array<{
+    answerId: string;
+    content: Array<RecursiveSchema2schema0>;
+    explanation: Array<RecursiveSchema2schema0>;
+    id: string;
+  }>;
+} | {
+  context?: Array<RecursiveSchema2schema0>;
+  dontKnow?: {
+    explanation: Array<RecursiveSchema2schema0>;
+    reviewLinks: Array<string>;
+  };
+  id: string;
+  kind: 'order';
+  question: Array<RecursiveSchema2schema0>;
+  reveal: 'none' | 'after-answer';
+  steps: Array<{
+    content: Array<RecursiveSchema2schema0>;
+    explanation: Array<RecursiveSchema2schema0>;
+    id: string;
+  }>;
+} | {
+  kind: 'step_break';
+  label: string;
 });

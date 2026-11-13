@@ -1,5 +1,9 @@
 # Multiple-answer Material quiz
 
+Superseded by [interactive lessons v1](interactive-lessons-v1.md), section 1 (#2120): the quiz now
+uses the shared `exercise-v1` shape with `correct` on each option, and `quiz-v1` and
+`quiz-multiple-v1` are retired. This page records the earlier decision.
+
 The Reader supports a local comprehension question with several correct options. It extends the existing `quiz-v1` block contract.
 
 ## Authored and rendered data

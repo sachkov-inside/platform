@@ -10,6 +10,7 @@ import {
   coursePreviewManifest,
   prepareCoursePreview,
 } from "./course-preview.mjs";
+import { contentExerciseBlocks } from "./test-support.mjs";
 
 /** @returns {import('./package.mjs').Manifest} */
 function fixture() {
@@ -204,27 +205,11 @@ test("course profile preserves opaque v2 readerBlocks, Task pages and authored a
   const base = fixture();
   const material = base.materials[0];
   assert.ok(material);
-  const readerBlocks = readerBlocksSchema.parse([
-    { kind: "markdown", markdown: "## Section\nText" },
-    {
-      kind: "quiz",
-      id: "question-one",
-      promptMarkdown: "Question?",
-      options: [
-        { id: "a", markdown: "A", explanationMarkdown: "Reason A" },
-        { id: "b", markdown: "B", explanationMarkdown: "Reason B" },
-      ],
-      correctOptionId: "a",
-      dontKnow: {
-        explanationMarkdown: "Review section",
-        reviewLinks: ["#section"],
-      },
-    },
-  ]);
+  const readerBlocks = readerBlocksSchema.parse(contentExerciseBlocks());
   const original = {
     ...base,
     schemaVersion: /** @type {const} */ (2),
-    requiredFeatures: ["quiz-v1", "github-anchors-v1"],
+    requiredFeatures: ["exercise-v1", "github-anchors-v1", "step-breaks-v1"],
     materials: base.materials.map((row) => ({ ...row, readerBlocks })),
     tasks: [
       {

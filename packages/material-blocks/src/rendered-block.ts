@@ -47,37 +47,64 @@ export interface ImageAssetPresentation {
     readonly { readonly height: number; readonly width: number }[] | undefined;
 }
 
-interface RenderedQuizContent {
-  readonly kind: "quiz";
+type RenderedRich = readonly RenderedBlock[];
+
+/** Fields every Lesson Exercise shares. `context` and `question` are what search sees. */
+interface RenderedExerciseCommon {
   readonly id: string;
-  readonly prompt: readonly RenderedBlock[];
-  readonly options: readonly {
-    readonly id: string;
-    readonly content: readonly RenderedBlock[];
-    readonly explanation: readonly RenderedBlock[];
-  }[];
-  readonly dontKnow: {
-    readonly explanation: readonly RenderedBlock[];
-    readonly reviewLinks: readonly string[];
-  };
+  readonly reveal: "none" | "after-answer";
+  readonly context?: RenderedRich | undefined;
+  readonly question: RenderedRich;
+  readonly dontKnow?:
+    | {
+        readonly explanation: RenderedRich;
+        readonly reviewLinks: readonly string[];
+      }
+    | undefined;
 }
 
-export type RenderedQuiz = RenderedQuizContent &
-  (
-    | {
-        readonly correctOptionId: string;
-        readonly selectionMode?: undefined;
-        readonly correctOptionIds?: never;
-      }
-    | {
-        readonly selectionMode: "multiple";
-        readonly correctOptionIds: readonly string[];
-        readonly correctOptionId?: never;
-      }
-  );
+export interface RenderedQuiz extends RenderedExerciseCommon {
+  readonly kind: "quiz";
+  readonly selectionMode: "single" | "multiple";
+  readonly options: readonly {
+    readonly id: string;
+    readonly content: RenderedRich;
+    readonly correct: boolean;
+    readonly explanation?: RenderedRich | undefined;
+  }[];
+}
+
+export interface RenderedMatch extends RenderedExerciseCommon {
+  readonly kind: "match";
+  readonly mode: "pairs" | "groups";
+  readonly rows: readonly {
+    readonly id: string;
+    readonly content: RenderedRich;
+    readonly answerId: string;
+    readonly explanation: RenderedRich;
+  }[];
+  readonly choices: readonly {
+    readonly id: string;
+    readonly content: RenderedRich;
+  }[];
+}
+
+/** `steps` are stored in the correct order; the reader shuffles them. */
+export interface RenderedOrder extends RenderedExerciseCommon {
+  readonly kind: "order";
+  readonly steps: readonly {
+    readonly id: string;
+    readonly content: RenderedRich;
+    readonly explanation: RenderedRich;
+  }[];
+}
+
+export type RenderedExercise = RenderedQuiz | RenderedMatch | RenderedOrder;
 
 export type RenderedBlock =
-  | RenderedQuiz
+  | RenderedExercise
+  /** A Lesson Step Break: the next part opens by a button with this label (#2122). */
+  | { readonly kind: "step_break"; readonly label: string }
   | {
       readonly kind: "video";
       readonly description?: string | undefined;

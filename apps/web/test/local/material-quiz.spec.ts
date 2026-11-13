@@ -94,7 +94,7 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
   await page.goto(`/materials/${detail.metadata.slug}`);
   const quiz = page.locator("[data-material-quiz]");
   await expect(
-    quiz.getByRole("heading", { name: "Проверьте понимание" }),
+    quiz.getByRole("heading", { name: "Упражнение 1 из 3" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Понятно", exact: true }).click();
   await expect(quiz).not.toContainText("RAW ANSWER KEY");
@@ -133,7 +133,7 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
       .violations,
   ).toEqual([]);
   if (process.env["CAPTURE_EVIDENCE"] === "1") {
-    await quiz.getByRole("heading", { name: "Проверьте понимание" }).click();
+    await quiz.getByRole("heading", { name: "Упражнение 1 из 3" }).click();
     await screenshotWholePage(page, {
       animations: "disabled",
       path: resolve(
@@ -147,8 +147,8 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
     "Неверно.",
   );
   await page.goto(`/authoring/materials/${saved.materialId}`);
-  await expect(page.locator("[data-authoring-quiz]")).toContainText(
-    "Квиз редактируется в Content",
+  await expect(page.locator("[data-authoring-exercise]")).toContainText(
+    "Упражнение редактируется в Content",
   );
   await expect(page.locator('.tiptap[contenteditable="true"]')).toHaveCount(0);
   await expect(page.getByLabel("Название", { exact: true })).toBeDisabled();
@@ -193,8 +193,8 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
   await expect(page.locator("header [role=status]")).toContainText("Сохранено");
   await page.reload();
   await expect(editor).toContainText("Проверка редактора.");
-  await expect(page.locator("[data-authoring-quiz]")).toContainText(
-    "Квиз редактируется в Content",
+  await expect(page.locator("[data-authoring-exercise]")).toContainText(
+    "Упражнение редактируется в Content",
   );
   const after = await request.get(
     `/__local-api/authoring/materials/${draft.materialId}`,

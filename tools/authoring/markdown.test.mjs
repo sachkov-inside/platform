@@ -7,6 +7,7 @@ import {
   renderedBlockSchema,
 } from "@inside/material-blocks";
 import { convertMarkdown } from "./markdown.mjs";
+import { contentExerciseBlocks } from "./test-support.mjs";
 
 const options = {
   sourcePath: "chapter/lesson.md",
@@ -202,70 +203,115 @@ for (const sourceSrc of [
   });
 }
 
-test("readerBlocks preserve narrative and typed quiz instead of the raw answer key", () => {
+test("readerBlocks keep narrative, exercises and a step break in place instead of the raw source", () => {
   const body = convertMarkdown("RAW ANSWER KEY", {
     ...options,
-    readerBlocks: [
-      { kind: "markdown", markdown: "## Раздел\n\nДо вопроса" },
-      {
-        kind: "quiz",
-        id: "question-1",
-        promptMarkdown: "Какой результат?",
-        correctOptionId: "option-2",
-        options: [
-          {
-            id: "option-1",
-            markdown: "Первый",
-            explanationMarkdown: "Неверно. Причина",
-          },
-          {
-            id: "option-2",
-            markdown: "Второй",
-            explanationMarkdown: "Верно. Причина",
-          },
-        ],
-        dontKnow: {
-          explanationMarkdown: "Повторите раздел",
-          reviewLinks: ["#раздел"],
-        },
-      },
-      { kind: "markdown", markdown: "## Дальше\n\nПосле вопроса" },
-    ],
+    readerBlocks: contentExerciseBlocks(),
   });
+  materialDocumentSchemaV1.nodeFromJSON(body.doc).check();
   assert.deepEqual(
     body.doc.content.map((node) => node.type),
-    ["heading", "paragraph", "quiz", "heading", "paragraph"],
+    [
+      "heading",
+      "paragraph",
+      "quiz",
+      "stepBreak",
+      "match",
+      "order",
+      "heading",
+      "paragraph",
+    ],
   );
+  assert.deepEqual(body.doc.content[3]?.attrs?.["label"], "Что дальше?");
   assert.doesNotMatch(JSON.stringify(body), /RAW ANSWER KEY/u);
 });
 
-test("multiple-answer conversion keeps the complete key without legacy key", () => {
-  const readerBlocks = readerBlocksSchema.parse([
-    { kind: "markdown", markdown: "## Scope" },
-    {
-      kind: "quiz",
-      id: "features",
-      selectionMode: "multiple",
-      correctOptionIds: ["a", "b"],
-      promptMarkdown: "Which features?",
-      options: ["a", "b", "c"].map((id) => ({
-        id,
-        markdown: id,
-        explanationMarkdown: `Reason ${id}`,
-      })),
-      dontKnow: {
-        explanationMarkdown: "Review scope.",
-        reviewLinks: ["#scope"],
+test("an exercise keeps its author ids, key and every explanation as rendered blocks", () => {
+  const body = convertMarkdown("raw", {
+    ...options,
+    readerBlocks: contentExerciseBlocks(),
+  });
+  const [quiz, match, order] = [2, 4, 5].map((index) =>
+    renderedBlockSchema.parse(body.doc.content[index]?.attrs?.["exercise"]),
+  );
+  /** @param {string} text */
+  const rich = (text) => [
+    { kind: "paragraph", content: [{ kind: "text", text, marks: [] }] },
+  ];
+  assert.deepEqual(quiz, {
+    kind: "quiz",
+    id: "rag-wrong-platform",
+    reveal: "after-answer",
+    context: rich("Ситуация."),
+    question: rich("На каком шаге ошибка?"),
+    selectionMode: "single",
+    options: [
+      {
+        id: "embed",
+        content: rich("Эмбеддинг."),
+        correct: false,
+        explanation: rich("Почему нет."),
       },
+      { id: "prompt", content: rich("Промпт."), correct: true },
+    ],
+    dontKnow: {
+      explanation: [
+        {
+          kind: "paragraph",
+          content: [
+            { kind: "text", text: "Перечитай ", marks: [] },
+            {
+              kind: "text",
+              text: "раздел",
+              // markdown-it percent-encodes the fragment; anchors compare decoded.
+              marks: [
+                { kind: "link", href: `#${encodeURIComponent("раздел")}` },
+              ],
+            },
+            { kind: "text", text: ".", marks: [] },
+          ],
+        },
+      ],
+      reviewLinks: ["#раздел"],
     },
-  ]);
-  const body = convertMarkdown("raw", { ...options, readerBlocks });
-  const quiz = renderedBlockSchema.parse(body.doc.content[1]?.attrs?.["quiz"]);
-  assert.equal(quiz.kind, "quiz");
-  if (quiz.kind !== "quiz") throw new Error("Missing quiz");
-  assert.deepEqual(quiz.correctOptionIds, ["a", "b"]);
-  assert.equal(quiz.selectionMode, "multiple");
-  assert.equal(Object.hasOwn(quiz, "correctOptionId"), false);
+  });
+  assert.equal(match?.kind, "match");
+  if (match?.kind !== "match") throw new Error("Missing match");
+  assert.deepEqual(
+    match.rows.map((row) => [row.id, row.answerId]),
+    [
+      ["plan", "plan-role"],
+      ["code", "code-role"],
+      ["test", "test-role"],
+    ],
+  );
+  assert.deepEqual(match.rows[0]?.explanation, rich("Почему plan."));
+  assert.equal(order?.kind, "order");
+  if (order?.kind !== "order") throw new Error("Missing order");
+  assert.deepEqual(
+    order.steps.map((step) => step.id),
+    ["spec", "code", "ship"],
+  );
+});
+
+test("readerBlocks refuse a repeated exercise id and a step break at the edge", () => {
+  const blocks = contentExerciseBlocks();
+  assert.throws(() =>
+    readerBlocksSchema.parse([...blocks.slice(0, 2), blocks[1]]),
+  );
+  assert.throws(() =>
+    readerBlocksSchema.parse([
+      { kind: "step-break", label: "Дальше" },
+      ...blocks,
+    ]),
+  );
+  assert.throws(() =>
+    readerBlocksSchema.parse([
+      ...blocks.slice(0, 3),
+      { kind: "step-break", label: "Ещё" },
+      ...blocks.slice(3),
+    ]),
+  );
 });
 
 test("video fence places the primary recording between prose with its context", () => {

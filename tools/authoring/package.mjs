@@ -20,6 +20,7 @@ import {
 } from "../../apps/backend/src/modules/glossary/domain/glossary-limits.ts";
 import {
   glossaryTermIdSchema,
+  isExerciseKind,
   readerBlocksSchema,
 } from "@inside/material-blocks";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
@@ -514,6 +515,34 @@ function checkSelectionScope(manifest) {
     );
 }
 
+/** The feature a package declares when a Material carries Lesson Exercises (#2120). */
+export const EXERCISE_FEATURE = "exercise-v1";
+
+/** The feature a package declares when a Material carries Lesson Step Breaks (#2120, #2122). */
+export const STEP_BREAKS_FEATURE = "step-breaks-v1";
+
+/**
+ * Features the reader blocks of one Material need: exercises need `exercise-v1`, a «Не знаю»
+ * link to a heading needs `github-anchors-v1`, a step break needs `step-breaks-v1`.
+ *
+ * @param {readonly unknown[]} readerBlocks
+ * @returns {string[]}
+ */
+function readerBlockFeatures(readerBlocks) {
+  const blocks = readerBlocksSchema.parse(readerBlocks);
+  return [
+    ...(blocks.some((block) => isExerciseKind(block.kind))
+      ? [EXERCISE_FEATURE]
+      : []),
+    ...(blocks.some((block) => "dontKnow" in block && block.dontKnow)
+      ? ["github-anchors-v1"]
+      : []),
+    ...(blocks.some((block) => block.kind === "step-break")
+      ? [STEP_BREAKS_FEATURE]
+      : []),
+  ];
+}
+
 /** The feature a package declares when a Material carries an update note (#2125). */
 export const MATERIAL_UPDATE_NOTE_FEATURE = "material-update-note-v1";
 
@@ -871,21 +900,15 @@ export async function loadPackage(path) {
     ),
   ]) {
     if (material.readerBlocks !== undefined) {
-      if (
-        material.readerBlocks.some(
-          (block) => block.kind === "quiz" && "selectionMode" in block,
-        ) &&
-        !manifest.requiredFeatures?.includes("quiz-multiple-v1")
-      )
-        throw new Error("Multiple-answer quizzes require quiz-multiple-v1");
-      if (
-        manifest.schemaVersion < 2 ||
-        !manifest.requiredFeatures?.includes("quiz-v1") ||
-        !manifest.requiredFeatures.includes("github-anchors-v1")
-      )
+      if (manifest.schemaVersion < 2)
         throw new Error(
-          "readerBlocks require package v2, quiz-v1 and github-anchors-v1",
+          `${material.sourcePath}: readerBlocks require package v2`,
         );
+      for (const feature of readerBlockFeatures(material.readerBlocks))
+        if (!manifest.requiredFeatures?.includes(feature))
+          throw new Error(
+            `${material.sourcePath}: readerBlocks require ${feature}`,
+          );
       convertMarkdown(material.markdown, {
         readerBlocks: material.readerBlocks,
         sourceId: material.sourceId,

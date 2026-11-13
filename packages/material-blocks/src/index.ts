@@ -64,18 +64,33 @@ export type {
 } from "./rendered-block.js";
 
 export {
-  quizContentSchema,
   readerBlocksSchema,
-  type QuizContent,
   type ContentReaderBlock,
-} from "./quiz-content.js";
+  type ExerciseContent,
+  type MatchContent,
+  type OrderContent,
+  type QuizContent,
+} from "./exercise-content.js";
 export { materialHeadingAnchors } from "./heading-anchors.js";
-export type { RenderedQuiz } from "./rendered-block.js";
+export type {
+  RenderedExercise,
+  RenderedMatch,
+  RenderedOrder,
+  RenderedQuiz,
+} from "./rendered-block.js";
 
 export {
-  materialQuizReferenceIssue,
-  materialQuizReferencesValid,
-} from "./quiz-document.js";
+  exerciseIdSchema,
+  exerciseKinds,
+  isExerciseKind,
+  type ExerciseKind,
+} from "./exercise-rules.js";
+export {
+  materialExerciseNumbers,
+  materialExerciseReferenceIssue,
+  materialExerciseReferencesValid,
+  type MaterialExerciseNumber,
+} from "./exercise-document.js";
 
 export { resourceCardUrlValid } from "./blocks/resource-card.js";
 
