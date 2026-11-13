@@ -17,7 +17,10 @@ function termText(text: string, termId: string) {
   };
 }
 
-function lesson(definitionTermId = "bounded-context") {
+function lesson(
+  definitionTermId = "bounded-context",
+  firstMentionTermId = "bounded-context",
+) {
   return {
     schemaVersion: 1,
     doc: {
@@ -28,7 +31,7 @@ function lesson(definitionTermId = "bounded-context") {
           attrs: { nodeId: node("01") },
           content: [
             { type: "text", text: "Граница " },
-            termText("ограниченного контекста", "bounded-context"),
+            termText("ограниченного контекста", firstMentionTermId),
             { type: "text", text: " и " },
             termText("агрегат", "aggregate"),
           ],
@@ -85,8 +88,7 @@ describe("Glossary Term references in a Material body", () => {
   test.each(["Bounded-Context", "bounded context", "", "-x"])(
     "refuses a term link to the malformed identifier %j",
     (termId) => {
-      const source = lesson();
-      source.doc.content[0]!.content![1] = termText("x", termId);
+      const source = lesson("bounded-context", termId);
       expect(materialBodyOperations.accept(source)).toMatchObject({
         ok: false,
         error: { code: "invalid_content" },

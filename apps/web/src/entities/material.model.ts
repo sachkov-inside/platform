@@ -14,6 +14,13 @@ export {
   toMaterialPreview,
 } from "./material/model/material-preview-schema";
 export { materialDifficultyLabel } from "./material/model/material-difficulty-label";
+export {
+  glossaryDefinitionParagraphs,
+  glossaryTermSchema,
+  glossaryTermsById,
+  type GlossaryTerm,
+  type GlossaryTerms,
+} from "./material/model/glossary-term";
 export { materialTaxonomyLabel } from "./material/model/material-taxonomy-label";
 export {
   calloutTones,

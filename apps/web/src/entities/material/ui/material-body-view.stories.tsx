@@ -454,3 +454,114 @@ export const CodeBlockCopyUnavailable: Story = {
     );
   },
 };
+
+const boundedContext = {
+  id: "bounded-context",
+  title: "Ограниченный контекст",
+  englishTitle: "Bounded context",
+  shortDefinition: "Граница, внутри которой у слов модели один смысл.",
+  fullDefinition:
+    "Часть системы со своей моделью и своим языком.\n\nСлово «заказ» внутри одной границы значит одно, в соседней другое.",
+};
+
+export const GlossaryTerms: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Команда делит систему на ", marks: [] },
+          {
+            kind: "text",
+            text: "ограниченные контексты",
+            marks: [{ kind: "link", href: "term:bounded-context" }],
+          },
+          { kind: "text", text: ", а ", marks: [] },
+          {
+            kind: "text",
+            text: "неизвестный термин",
+            marks: [{ kind: "link", href: "term:unknown-term" }],
+          },
+          { kind: "text", text: " читается обычным текстом.", marks: [] },
+        ],
+      },
+      { kind: "term_definition", termId: "bounded-context" },
+      { kind: "term_definition", termId: "unknown-term" },
+    ],
+    rendering: {
+      headingId: (path: readonly number[]) =>
+        `material-section-${path.join("-")}`,
+      image: () => null,
+      file: () => null,
+      glossary: new Map([[boundedContext.id, boundedContext]]),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    // An unknown term is neither a button nor a link, and its card is not shown.
+    await expect(canvas.queryByRole("link")).toBeNull();
+    await expect(
+      canvas.getByText("неизвестный термин").closest("button"),
+    ).toBeNull();
+    await expect(
+      canvasElement.querySelectorAll("[data-material-block=callout]"),
+    ).toHaveLength(1);
+    // The card shows the full definition from the Glossary.
+    const card = canvas.getByRole("complementary", {
+      name: "Определение: Ограниченный контекст (Bounded context)",
+    });
+    await expect(card).toHaveTextContent("Часть системы со своей моделью");
+
+    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
+    await userEvent.click(term);
+    await expect(term).toHaveAttribute("aria-expanded", "true");
+    const bubble = await page.findByRole("dialog", {
+      name: "Ограниченный контекст",
+    });
+    await expect(bubble).toHaveTextContent(boundedContext.shortDefinition);
+    await expect(bubble).not.toHaveTextContent("Часть системы");
+    await userEvent.click(
+      within(bubble).getByRole("button", { name: "Подробнее" }),
+    );
+    await expect(bubble).toHaveTextContent("Часть системы со своей моделью");
+    await expect(bubble).toHaveTextContent("в соседней другое");
+    // The bubble stays inside the window with its 16 px gutter.
+    const box = bubble.getBoundingClientRect();
+    const viewport = canvasElement.ownerDocument.documentElement.clientWidth;
+    await expect(box.left).toBeGreaterThanOrEqual(16);
+    await expect(box.right).toBeLessThanOrEqual(viewport - 16);
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        page.queryByRole("dialog", { name: "Ограниченный контекст" }),
+      ).toBeNull(),
+    );
+    await expect(term).toHaveFocus();
+    await expect(term).toHaveAttribute("aria-expanded", "false");
+  },
+};
+export const GlossaryTermsMobile: Story = {
+  ...GlossaryTerms,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+};
+export const GlossaryTermsHover: Story = {
+  ...GlossaryTerms,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
+    await userEvent.hover(term);
+    const bubble = await page.findByRole("dialog", {
+      name: "Ограниченный контекст",
+    });
+    await expect(bubble).toHaveTextContent(boundedContext.shortDefinition);
+    await userEvent.unhover(term);
+    await waitFor(() =>
+      expect(
+        page.queryByRole("dialog", { name: "Ограниченный контекст" }),
+      ).toBeNull(),
+    );
+  },
+};

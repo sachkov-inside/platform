@@ -582,6 +582,7 @@ async function ResolvedMaterialReader({
           deferredPracticeActions={deferredPracticeActions}
           purchaseCall={purchaseCall}
           body={result.body}
+          glossaryTerms={result.glossaryTerms}
           material={result.material}
           {...(showsModes
             ? {

@@ -11,6 +11,10 @@ import type {
   RenderedText,
 } from "../../material.model";
 import { MaterialLessonBlock } from "./material-blocks";
+import { glossaryTermIdOf, isGlossaryTermHref } from "@inside/material-blocks";
+import type { GlossaryTerms } from "../model/glossary-term";
+import { GlossaryDefinitionCard } from "./glossary/glossary-definition-card";
+import { GlossaryTermMention } from "./glossary/glossary-term-mention.client";
 import { MaterialCodeBlock } from "./material-code-block.client";
 import { MaterialModelComparison } from "./material-model-comparison.client";
 
@@ -36,6 +40,12 @@ export interface MaterialBodyRendering {
   ) => ReactNode | undefined;
   /** Existing surface address retained as an alias unless a Content heading owns it. */
   readonly headingId: (path: readonly number[]) => string;
+  /**
+   * Glossary Terms the body mentions, read with the body. A `term:` link or card whose term is
+   * absent shows plain text or nothing: a surface without terms, such as the authoring preview,
+   * never sends the reader to a `term:` address.
+   */
+  readonly glossary?: GlossaryTerms | undefined;
 }
 
 interface BodyRendering extends MaterialBodyRendering {
@@ -177,6 +187,7 @@ function BodyBlockView({
           <BodyInline
             content={block.content}
             link={rendering.link}
+            glossary={rendering.glossary}
             path={path}
           />
         </p>
@@ -206,6 +217,7 @@ function BodyBlockView({
           <BodyInline
             content={block.content}
             link={rendering.link}
+            glossary={rendering.glossary}
             path={path}
           />
         </Heading>
@@ -279,11 +291,20 @@ function BodyBlockView({
               />
             ),
             renderInline: (content) => (
-              <BodyInline content={content} link={rendering.link} path={path} />
+              <BodyInline
+                content={content}
+                link={rendering.link}
+                glossary={rendering.glossary}
+                path={path}
+              />
             ),
           }}
         />
       );
+    case "term_definition": {
+      const term = rendering.glossary?.get(block.termId);
+      return term === undefined ? null : <GlossaryDefinitionCard term={term} />;
+    }
     case "video":
       return (
         <div className="mt-8 first:mt-0" data-reader-block="video">
@@ -307,16 +328,18 @@ function BodyBlockView({
 
 function BodyInline({
   content,
+  glossary,
   link,
   path,
 }: {
   readonly content: readonly RenderedText[];
   readonly path: readonly number[];
   readonly link?: MaterialBodyRendering["link"];
+  readonly glossary?: GlossaryTerms | undefined;
 }) {
   return content.map((text, index) => (
     <span key={index}>
-      {applyMarks(text.text, text.marks, index, link, path)}
+      {applyMarks(text.text, text.marks, index, link, path, glossary)}
     </span>
   ));
 }
@@ -327,6 +350,7 @@ function applyMarks(
   key: number,
   link: MaterialBodyRendering["link"],
   path: readonly number[],
+  glossary: GlossaryTerms | undefined,
 ): ReactNode {
   return marks.reduceRight<ReactNode>((child, mark, index) => {
     const markKey = `${String(key)}-${String(index)}`;
@@ -347,6 +371,17 @@ function applyMarks(
       case "strike":
         return <s key={markKey}>{child}</s>;
       case "link": {
+        if (isGlossaryTermHref(mark.href)) {
+          const termId = glossaryTermIdOf(mark.href);
+          const term = termId === undefined ? undefined : glossary?.get(termId);
+          return term === undefined ? (
+            <Fragment key={markKey}>{child}</Fragment>
+          ) : (
+            <GlossaryTermMention key={markKey} term={term}>
+              {child}
+            </GlossaryTermMention>
+          );
+        }
         const custom = link?.(mark.href, child, path);
         return custom === undefined ? (
           <ProseAnchor
