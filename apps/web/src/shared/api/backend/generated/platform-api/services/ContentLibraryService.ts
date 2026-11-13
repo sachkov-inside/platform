@@ -1106,6 +1106,47 @@ export class ContentLibraryService {
     });
   }
   /**
+   * Read the Glossary Terms introduced by a Product's lessons
+   * @returns any
+   * @throws ApiError
+   */
+  public readCourseGlossary({
+    slug,
+  }: {
+    slug: string,
+  }): CancelablePromise<{
+    product: {
+      name: string;
+      slug: string;
+    };
+    terms: Array<{
+      englishTitle: string | null;
+      fullDefinition: string;
+      id: string;
+      lesson: {
+        slug: string;
+        title: string;
+      };
+      shortDefinition: string;
+      title: string;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/products/{slug}/glossary',
+      path: {
+        'slug': slug,
+      },
+      errors: {
+        400: `Product slug is malformed`,
+        401: `Optional Account proof is invalid`,
+        404: `Product is not published`,
+        500: `Glossary or Account resolution failed internally`,
+        503: `Glossary or Account dependency is unavailable`,
+      },
+    });
+  }
+  /**
    * Enumerate public addresses; collection slugs occur on the initial page only
    * @returns any Bounded published addresses, with initial collection slugs and an opaque continuation
    * @throws ApiError

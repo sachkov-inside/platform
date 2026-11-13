@@ -271,6 +271,7 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
               kind: "available",
               cacheScope: "private-no-store",
               glossaryTerms: [],
+              lessonTerms: [],
               primaryVideo: null,
               projection,
               body: {

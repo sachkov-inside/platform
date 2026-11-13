@@ -31,6 +31,11 @@ export type PublishedMaterialReadDto =
        * hold is absent; the reader then shows its mention as plain text.
        */
       readonly glossaryTerms: readonly PublishedGlossaryTermDto[];
+      /**
+       * The deck «Термины урока»: the Glossary Terms this lesson introduces, in the order the body
+       * first mentions them, then the rest by identifier. Empty when the lesson introduces none.
+       */
+      readonly lessonTerms: readonly PublishedGlossaryTermDto[];
       readonly primaryVideo: VideoPresentation | null;
       readonly videoChapters?: readonly VideoChapter[];
     }

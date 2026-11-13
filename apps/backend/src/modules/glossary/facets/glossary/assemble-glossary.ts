@@ -1,4 +1,9 @@
 import {
+  readGlossaryTermMarks,
+  setGlossaryTermMark,
+} from "../../features/mark-glossary-terms/mark-glossary-terms.js";
+import {
+  introducedGlossaryTerms,
   listGlossaryTerms,
   lookupGlossaryTerms,
 } from "../../features/read-glossary-terms/read-glossary-terms.js";
@@ -13,6 +18,10 @@ export function assembleGlossary(
     upsert: (command) => upsertGlossaryTerms(dependencies, command),
     list: (query) => listGlossaryTerms(dependencies, query),
     lookup: (ids) => lookupGlossaryTerms(dependencies, ids),
+    introducedIn: (sourceIds) =>
+      introducedGlossaryTerms(dependencies, sourceIds),
+    readMarks: (query) => readGlossaryTermMarks(dependencies, query),
+    setMark: (command) => setGlossaryTermMark(dependencies, command),
   };
   return Object.freeze(glossary);
 }

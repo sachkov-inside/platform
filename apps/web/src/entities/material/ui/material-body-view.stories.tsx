@@ -1,4 +1,5 @@
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
+import { courseGlossaryHref } from "@/shared/routing/subscription-route";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
@@ -545,6 +546,54 @@ export const GlossaryTerms: Story = {
 export const GlossaryTermsMobile: Story = {
   ...GlossaryTerms,
   globals: { viewport: { value: "mobile320", isRotated: false } },
+};
+/** Внутри курса «Подробнее» ведёт к термину на странице словаря курса (#2127). */
+export const GlossaryTermInCourse: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Команда делит систему на ", marks: [] },
+          {
+            kind: "text",
+            text: "ограниченные контексты",
+            marks: [{ kind: "link", href: "term:bounded-context" }],
+          },
+          { kind: "text", text: ".", marks: [] },
+        ],
+      },
+    ],
+    rendering: {
+      headingId: (path: readonly number[]) =>
+        `material-section-${path.join("-")}`,
+      image: () => null,
+      file: () => null,
+      glossary: new Map([
+        [
+          boundedContext.id,
+          {
+            ...boundedContext,
+            moreHref: courseGlossaryHref("ddd", "bounded-context"),
+          },
+        ],
+      ]),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "ограниченные контексты" }),
+    );
+    const bubble = await page.findByRole("dialog", {
+      name: "Ограниченный контекст",
+    });
+    await expect(
+      within(bubble).getByRole("link", { name: "Подробнее" }),
+    ).toHaveAttribute("href", "/products/ddd/glossary#term-bounded-context");
+    await expect(within(bubble).queryByRole("button")).toBeNull();
+  },
 };
 export const GlossaryTermsHover: Story = {
   ...GlossaryTerms,

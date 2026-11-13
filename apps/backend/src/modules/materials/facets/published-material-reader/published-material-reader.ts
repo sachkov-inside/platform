@@ -4,6 +4,7 @@ import type { ReadHomePinnedProductOperation } from "../../features/read-home-pi
 import type { ListPublishedMaterialProjectionsOperation } from "../../features/list-published-material-projections/list-published-material-projections.contract.js";
 import type { DiscoverPublishedMaterialProjectionsOperation } from "../../features/discover-published-material-projections/discover-published-material-projections.contract.js";
 import type { ReadPublishedMaterialOperation } from "../../features/read-published-material/read-published-material.contract.js";
+import type { ReadCourseGlossaryOperation } from "../../features/read-course-glossary/read-course-glossary.contract.js";
 
 export interface PublishedMaterialReader {
   readonly listSiteMaterials: ListPublishedSiteMaterialsOperation;
@@ -12,6 +13,7 @@ export interface PublishedMaterialReader {
   readonly discoverProjections: DiscoverPublishedMaterialProjectionsOperation;
   readonly listProjections: ListPublishedMaterialProjectionsOperation;
   readonly read: ReadPublishedMaterialOperation;
+  readonly readCourseGlossary: ReadCourseGlossaryOperation;
 }
 
 export const PUBLISHED_MATERIAL_READER = Symbol("PUBLISHED_MATERIAL_READER");

@@ -818,6 +818,7 @@ function route(method, url, entitled) {
       kind: "available",
       cacheScope: "private-no-store",
       glossaryTerms: [],
+      lessonTerms: [],
       primaryVideo: null,
       projection: readerProjection(titleLesson),
       body: {
@@ -865,6 +866,7 @@ function route(method, url, entitled) {
       kind: "available",
       cacheScope: "public",
       glossaryTerms: [],
+      lessonTerms: [],
       videoChapters: [
         { start: 0, title: "Start" },
         { start: 3, title: "Early chapter" },
@@ -905,6 +907,7 @@ function route(method, url, entitled) {
       kind: "available",
       cacheScope: "public",
       glossaryTerms: [],
+      lessonTerms: [],
       primaryVideo: null,
       projection: readerProjection({
         ...template,

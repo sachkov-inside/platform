@@ -134,7 +134,7 @@ export type BookmarksPrismaClient = BookmarksPrisma &
 
 export type GlossaryPrisma = Pick<
   PlatformPrisma,
-  "$executeRaw" | "$queryRaw" | "glossaryTerm"
+  "$executeRaw" | "$queryRaw" | "glossaryTerm" | "glossaryTermMark"
 >;
 export type GlossaryPrismaClient = GlossaryPrisma &
   TransactionClient<GlossaryPrisma>;

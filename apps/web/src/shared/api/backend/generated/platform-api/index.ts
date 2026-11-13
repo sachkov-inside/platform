@@ -25,6 +25,7 @@ export { CommunicationsTrackingService } from './services/CommunicationsTracking
 export { ContentCoversService } from './services/ContentCoversService';
 export { ContentLibraryService } from './services/ContentLibraryService';
 export { CourseActivationIntegrationService } from './services/CourseActivationIntegrationService';
+export { GlossaryService } from './services/GlossaryService';
 export { KinescopeIntegrationService } from './services/KinescopeIntegrationService';
 export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';

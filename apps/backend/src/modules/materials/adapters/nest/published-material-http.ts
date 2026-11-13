@@ -82,6 +82,7 @@ export const publishedMaterialReadHttpSchema = z.discriminatedUnion("kind", [
         .nullable(),
       body: renderedMaterialBodySchema,
       glossaryTerms: z.array(publishedGlossaryTermHttpSchema),
+      lessonTerms: z.array(publishedGlossaryTermHttpSchema),
     })
     .strict(),
   z

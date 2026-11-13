@@ -8,7 +8,10 @@ import {
   programmeStepLink,
   withDeferredTaskStatuses,
 } from "@/features/library-discovery";
-import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import {
+  courseGlossaryHref,
+  productProgrammeHref,
+} from "@/shared/routing/subscription-route";
 import { proseLinkClassName } from "@/shared/ui/prose-link";
 import {
   anchoredMaterialHref,
@@ -29,6 +32,7 @@ import {
   VisibleMaterialOpen,
 } from "@/features/reading-progress";
 import { SavedBookmarkAction } from "@/features/bookmarks";
+import { SavedLessonTermDeck } from "@/features/lesson-term-deck";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
@@ -421,6 +425,9 @@ async function ResolvedMaterialReader({
   // Бесплатный урок курса ведёт к покупке курса (#1647); у дополнительного материала своего места
   // в программе нет, и звать оттуда нечего.
   const purchaseProductSlug = productSlugOf(returnTarget);
+  // Подсказка термина и колода ведут в словарь курса, только когда урок открыт внутри курса.
+  const courseGlossarySlug =
+    productContext === null ? undefined : purchaseProductSlug;
   const purchaseCall =
     result.material.access === "free" &&
     purchaseProductSlug !== undefined &&
@@ -541,6 +548,17 @@ async function ResolvedMaterialReader({
         }
         body={result.body}
         glossaryTerms={result.glossaryTerms}
+        courseGlossarySlug={courseGlossarySlug}
+        termDeck={
+          <SavedLessonTermDeck
+            terms={result.lessonTerms}
+            courseGlossaryHref={
+              courseGlossarySlug === undefined
+                ? undefined
+                : courseGlossaryHref(courseGlossarySlug)
+            }
+          />
+        }
         material={result.material}
         primaryVideo={result.primaryVideo}
         returnTarget={returnTarget}
