@@ -3,7 +3,6 @@ import { renderNotification } from "../../src/modules/notifications/domain/templ
 import type {
   NotificationSource,
   SaleBuyer,
-  SaleFacts,
 } from "../../src/modules/notifications/ports/notification-sources.js";
 
 const event = {
@@ -175,7 +174,7 @@ test("продажа без факта о покупателе не собира
   const { buyer: _buyer, ...withoutBuyer } = sale.sale ?? { promotion: null };
   expect(() =>
     renderNotification(
-      { ...sale, sale: withoutBuyer as SaleFacts },
+      { ...sale, sale: withoutBuyer },
       "https://inside.example.test",
     ),
   ).toThrow("notification_sale_invalid");
