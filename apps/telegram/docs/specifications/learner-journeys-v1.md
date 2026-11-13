@@ -115,6 +115,9 @@ flowchart TD
 ## Screens and transitions
 
 Russian text below defines the bot copy. Buttons are separate rows unless a contextual variant is stated.
+Since [#2079](https://github.com/sachkov-inside/platform/issues/2079) the
+[Главное меню](../product/telegram-application-brief.md#главное-меню) replaces B1 and opens B2 and B3
+from its «Мои продукты» Раздел; B2 and B3 lose the author's «Управление», which moved to the Главное меню.
 
 | ID and state | Russian copy | Buttons and transitions |
 |---|---|---|

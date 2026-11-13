@@ -2,6 +2,7 @@ import { StartResponseDeliveryProcessor } from "../outbound/start-response-deliv
 import { TRAINER_MENU_BUTTON } from "../trainer/trainer-requests.js";
 import { AI_MODELS_MENU_BUTTON } from "../ai-models/ai-models-requests.js";
 import {
+  mainMenu,
   productList,
   productCard,
   helpScreen,
@@ -76,6 +77,7 @@ const expirableAttempt = sql<boolean>`(coalesce(
   or result->>'ok' = 'false'
   or result->'value'->>'state' in ('unavailable', 'checking', 'needs_account', 'pending_review'), false))`;
 export type AccessAction =
+  | "menu"
   | "own"
   | "product"
   | "community"
@@ -319,23 +321,12 @@ export class CourseActivation {
       await this.screen(contact, this.actionFailure(action, onlyCode));
       return;
     }
-    if (lookup.value.state === "unlinked" && action === "own") {
-      await this.replies.enqueue({
-        ...this.delivery(
-          contact,
-          "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
-        ),
-        buttons: [
-          TRAINER_MENU_BUTTON,
-          AI_MODELS_MENU_BUTTON,
-          { text: "Открыть платформу", url: "https://sachkov.dev" },
-          {
-            text: "Уже есть аккаунт",
-            url: "https://sachkov.dev/auth/sign-in?returnTo=%2Faccount%2Faccess",
-          },
-          { text: "Помощь", callbackData: "access:help" },
-        ],
-      });
+    // Without a link Мои продукты has nothing to list, so both open the guest Главное меню.
+    if (
+      lookup.value.state === "unlinked" &&
+      (action === "menu" || action === "own")
+    ) {
+      await this.screen(contact, mainMenu({ kind: "guest" }));
       return;
     }
     if (lookup.value.state === "unlinked") {
@@ -358,7 +349,7 @@ export class CourseActivation {
       await this.screen(contact, this.actionFailure(action, onlyCode));
       return;
     }
-    if (action === "own") {
+    if (action === "menu") {
       const author = await this.authors?.authorize({
         kind: "telegram",
         accountRef: lookup.value.binding.accountRef,
@@ -367,8 +358,16 @@ export class CourseActivation {
       });
       await this.screen(
         contact,
-        productList(access.value.products ?? [], author === "allowed"),
+        mainMenu({
+          kind: "linked",
+          products: access.value.products ?? [],
+          author: author === "allowed",
+        }),
       );
+      return;
+    }
+    if (action === "own") {
+      await this.screen(contact, productList(access.value.products ?? []));
       return;
     }
     const product = access.value.products?.find((item) => item.id === onlyCode);
@@ -438,7 +437,8 @@ export class CourseActivation {
     return {
       text: "Не удалось проверить доступ. Попробуйте ещё раз.",
       buttons: [
-        ...(action === "own"
+        // The Trainer and ИИ-модели need no Platform answer, so a failed menu keeps them.
+        ...(action === "menu" || action === "own"
           ? [TRAINER_MENU_BUTTON, AI_MODELS_MENU_BUTTON]
           : []),
         { text: "Повторить", callbackData: retry },
@@ -892,7 +892,7 @@ export class CourseActivation {
           };
       } else if (!hasText(productId) && access?.ok === true) {
         // A historical receipt proves an earlier write; current Products determine navigation.
-        currentScreen = productList(access.value.products ?? [], false);
+        currentScreen = productList(access.value.products ?? []);
       } else
         currentScreen = {
           text: "Не удалось проверить доступ. Попробуйте ещё раз.",

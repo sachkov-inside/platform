@@ -42,6 +42,7 @@ describe("production operations in the runtime image", () => {
       "dist/operations/activation-announcement-cli.js",
     ],
     ["webhook-registration", "dist/operations/webhook-registration-cli.js"],
+    ["bot-commands", "dist/operations/bot-commands-cli.js"],
   ])(
     "offers %s as an operations-only command without pnpm",
     (name, entrypoint) => {
