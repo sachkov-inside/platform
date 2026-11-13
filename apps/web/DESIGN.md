@@ -141,7 +141,7 @@ Sachkov Dev Platform — спокойная светлая инженерная 
 ### Primary
 
 - **Workshop Charcoal** (`primary`): главный action color и плотный text-on-light control; используется для единственного primary action в локальной задаче.
-- **Proof Orange** (`accent`): current state, focus-adjacent evidence, active navigation detail, markers and meaningful links. It is not a generic fill.
+- **Proof Orange** (`accent`): current state, focus-adjacent evidence, active navigation detail, markers and meaningful links. It is not a generic fill. One owner-approved exception (2026-11-13): the «Видео · 23:40» pill on a catalogue card is filled with accent so a video reads apart from a text at a glance.
 
 ### Secondary
 

@@ -764,6 +764,39 @@ export const LargeMaterialCatalogue: Story = {
   },
 };
 
+/** Гайд с видео (решение владельца 13.11.2026): карточка называет его видео, и фильтр «Видео» тоже. */
+export const VideoGuideInVideoFilter: Story = {
+  args: {
+    learning: { kind: "guest" },
+    result: (() => {
+      const corpus = productJourneyCorpus();
+      return {
+        ...corpus,
+        items: corpus.items.map((item) =>
+          item.slug === "material-2"
+            ? { ...item, primaryVideoDurationSeconds: 1420 }
+            : item,
+        ),
+      };
+    })(),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await openPart(canvasElement, /^Материалы/u);
+    const catalogue = () =>
+      canvas.getByRole("region", { name: "Материалы курса" });
+    await userEvent.click(canvas.getByRole("button", { name: "Видео" }));
+    await expect(
+      within(catalogue()).getByRole("heading", { name: "Урок 2" }),
+    ).toBeVisible();
+    await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(61);
+    await userEvent.click(canvas.getByRole("button", { name: "Тексты" }));
+    await expect(
+      within(catalogue()).queryByRole("heading", { name: "Урок 2" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
 /**
  * Библиотека «Материалы» (#2022): полка «Новое» и полки тем курса, у материала без обложки тёмная
  * карточка с форматом и названием. Даты отсчитаны от дня показа.
