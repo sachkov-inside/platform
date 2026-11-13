@@ -51,6 +51,10 @@ import {
   type GetProductProgressResult,
 } from "../../features/get-product-progress/get-product-progress.js";
 import {
+  openedPartsSchema,
+  recordOpenedPartsBodySchema,
+} from "../../features/record-opened-parts/record-opened-parts.js";
+import {
   setReadingStateSchema,
   type SetReadingStateError,
 } from "../../features/set-reading-state/set-reading-state.contract.js";
@@ -132,6 +136,43 @@ export class ReadingActivityController {
     });
     if (!result.ok) throwReadingError(result.error);
     return result.value;
+  }
+
+  @Put("materials/:materialId/opened-parts")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "recordLessonOpenedParts",
+    summary:
+      "Save how many parts of a step-by-step lesson the current Account has opened; the count only grows",
+  })
+  @ApiParam({ name: "materialId", schema: toOpenApiSchema(z.uuid()) })
+  @ApiBody({ schema: toOpenApiSchema(recordOpenedPartsBodySchema) })
+  @ApiOkResponse({
+    schema: toOpenApiSchema(
+      z.object({ openedParts: openedPartsSchema }).strict(),
+    ),
+  })
+  @ApiResponse({
+    status: 403,
+    content: problemDetailsContent(
+      problemDetailsSchema(403, ["access_denied"]),
+    ),
+  })
+  async openParts(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("materialId") materialId: string,
+    @Body() input: unknown,
+  ) {
+    const parsed = recordOpenedPartsBodySchema.safeParse(input);
+    if (!parsed.success)
+      throw readingException(400, { code: "invalid_request" });
+    const result = await this.reading.recordOpenedParts({
+      accountId: current.accountId,
+      materialId,
+      openedParts: parsed.data.openedParts,
+    });
+    if (!result.ok) throwReadingError(result.error);
+    return { openedParts: result.value.openedParts };
   }
 
   @Post("materials/query")

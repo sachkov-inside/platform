@@ -180,6 +180,7 @@
         "_pages/material-reader/ui/material-reader.stories.tsx",
         "_pages/material-reader/ui/material-reader-actions.stories.tsx",
         "_pages/material-reader/ui/material-reader-quiz.stories.tsx",
+        "_pages/material-reader/ui/material-reader-steps.stories.tsx",
         "_pages/material-reader/ui/material-reader-loading.stories.tsx"
       ],
       "reason": ""

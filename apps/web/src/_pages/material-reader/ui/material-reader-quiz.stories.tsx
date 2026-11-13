@@ -215,6 +215,10 @@ export const AnswerAgainMobile: Story = {
 export const ExerciseNumbering: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    // Match and order stand after a step break: the lesson opens them by its button (#2122).
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Как разделить работу?" }),
+    );
     for (const name of [
       "Упражнение 1 из 3",
       "Упражнение 2 из 3",
