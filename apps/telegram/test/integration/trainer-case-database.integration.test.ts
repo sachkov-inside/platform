@@ -4,7 +4,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "kysely";
 
 import { createDatabase } from "../../src/database/create-database.js";
-import { migrateToLatest } from "../../src/database/migrator.js";
+import { migrateTo, migrateToLatest } from "../../src/database/migrator.js";
 import { TrainerBank } from "../../src/modules/trainer/trainer-bank.js";
 import { TrainerDaily } from "../../src/modules/trainer/trainer-daily.js";
 import { TrainerRounds } from "../../src/modules/trainer/trainer-rounds.js";
@@ -160,6 +160,73 @@ it("rejects SQL when cancelled case work resumes between database operations", a
         (await sql<{ value: number }>`select 3 as value`.execute(database))
           .rows,
       ).toEqual([{ value: 3 }]);
+    });
+  } finally {
+    resume();
+    await Promise.allSettled([operation]);
+    await fixture.finish();
+  }
+});
+
+it("restores the latest schema when a revision case is cancelled between downgrade and upgrade", async () => {
+  await clearTrainerData(database);
+  await database
+    .insertInto("bot_contacts")
+    .values({
+      bot_identity: person.botIdentity,
+      telegram_user_id: person.telegramUserId,
+      private_chat_id: person.telegramUserId,
+      contactability: "reachable",
+      first_started_at: at,
+      last_started_at: at,
+      updated_at: at,
+    })
+    .execute();
+  const file = syntheticTrainerBank({ topics: 1, questionsPerTopic: 1 });
+  const bank = new TrainerBank(database, virtualTestClock);
+  await bank.import(file, true);
+  const issued = await daily.open(person, { updateId: "1", at });
+  if (issued.kind !== "question")
+    throw new Error("Expected an issued question");
+
+  let reached!: () => void;
+  const downgraded = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  let resume!: () => void;
+  const resumed = new Promise<void>((resolve) => {
+    resume = resolve;
+  });
+  const abort = new AbortController();
+  const operation = fixture.run(abort.signal, async () => {
+    await migrateTo(database, "052-trainer-question-reactions");
+    reached();
+    await resumed;
+    await migrateToLatest(database);
+  });
+  try {
+    await Promise.race([downgraded, operation]);
+    abort.abort(new Error("synthetic case timeout after downgrade"));
+    resume();
+    await expect(operation).rejects.toBeDefined();
+    await fixture.finish();
+
+    required(file.questions[0]).options.reverse();
+    required(file.questions[0]).explanation = "Новая редакция разбора.";
+    await fixture.run(new AbortController().signal, async () => {
+      expect(await bank.import(file, true)).toMatchObject({
+        status: "imported",
+      });
+      expect(
+        (
+          await new TrainerRounds(database).answer(
+            person,
+            issued.issueId,
+            1,
+            at,
+          )
+        )?.explanation,
+      ).toBe("Разбор А. Общий разбор.");
     });
   } finally {
     resume();

@@ -1,5 +1,6 @@
 import { sql } from "kysely";
 
+import { migrateToLatest } from "../../src/database/migrator.js";
 import { createFixtureDatabase } from "./fixture-database.js";
 
 interface TrainerCaseWork {
@@ -25,8 +26,8 @@ export function createTrainerCaseDatabase(
       active?.signal.throwIfAborted();
       return node;
     },
-    async transformResult({ result }) {
-      return result;
+    transformResult({ result }) {
+      return Promise.resolve(result);
     },
   });
   const owner = createFixtureDatabase(
@@ -43,6 +44,8 @@ export function createTrainerCaseDatabase(
       await Promise.allSettled(owned.pending ? [owned.pending] : []);
       owned.signal.removeEventListener("abort", owned.cancel);
       active = undefined;
+      // Revision cases downgrade the shared schema; an aborted body cannot restore it.
+      await migrateToLatest(database);
     }
   }
   return {
