@@ -193,15 +193,16 @@ describe("ИИ-модели widget: the list", () => {
 
   it("draws the line between rows square, even where the app rounds its buttons", async () => {
     await withWidget(async (page) => {
-      // iOS gives every button rounded corners; there the line above a row tapers at its ends.
+      // Stands in for Telegram on iOS, where rounded button corners tapered both ends of the line
+      // above a row on a screenshot of the list.
       await page.addStyleTag({ content: "button { border-radius: 5px }" });
-      const corners = await page
-        .locator("#w .rw")
-        .evaluateAll((rowButtons) =>
-          rowButtons.map((row) => getComputedStyle(row).borderTopLeftRadius),
-        );
-      expect(corners).toHaveLength(7);
-      expect(new Set(corners)).toEqual(new Set(["0px"]));
+      const corners = await page.locator("#w .rw").evaluateAll((rowButtons) =>
+        rowButtons.map((row) => {
+          const style = getComputedStyle(row);
+          return `${style.borderTopLeftRadius} ${style.borderTopRightRadius}`;
+        }),
+      );
+      expect(corners).toEqual(Array(7).fill("0px 0px"));
     });
   });
 
