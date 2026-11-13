@@ -103,10 +103,10 @@ describe("authored task related section", () => {
     expect(html).toContain('id="раздел-1"');
     expect(html).toContain('id="original-4"');
     expect(html).toContain(
-      '<strong><a href="/materials/lesson" data-progress="known">Авторский урок</a></strong>',
+      '<a href="/materials/lesson" data-progress="known"><strong>Авторский урок</strong></a>',
     );
     expect(html).toMatch(
-      /<strong><a class="[^"]+" href="\/materials\/lesson">Обычная ссылка<\/a><\/strong>/u,
+      /<a class="[^"]+" href="\/materials\/lesson"><strong>Обычная ссылка<\/strong><\/a>/u,
     );
     expect(html).toContain(
       'href="/assets/33333333-3333-4333-8333-333333333331"',
@@ -165,7 +165,7 @@ describe("authored task related section", () => {
       "view=detail&amp;tag=one&amp;tag=two&amp;from=%2Fproducts%2Fcourse%2Fprogramme%3Fpart%3Dmaterials%26at%3Dlesson&amp;anchor=task%3Atask#first-section",
     );
     expect(html).toMatch(
-      /href="\/materials\/lesson\?view=detail&amp;tag=one&amp;tag=two&amp;from=[^"]*&amp;anchor=task%3Atask#first-section">Обычная ссылка<\/a>/u,
+      /href="\/materials\/lesson\?view=detail&amp;tag=one&amp;tag=two&amp;from=[^"]*&amp;anchor=task%3Atask#first-section"><strong>Обычная ссылка<\/strong><\/a>/u,
     );
   });
 });

@@ -534,6 +534,7 @@ The sequence preserves authored Material order and keeps Material ordinals, prog
 Reader preserves explicit validated `from` for confirmed Product membership independently of chapter navigation.
 Without an explicit source, a sole Product membership supplies the programme return; multiple memberships never select an arbitrary Product.
 Prose links use the semantic action color, a persistent underline, a stronger hover underline and a visible keyboard focus outline in all themes.
+One authored link stays one anchor in Reader and Preview, even when its text mixes words and inline code: one focus stop and one accessible name.
 Task uses its known Product slug; composition/history failures do not hide authorized requirements or close submission.
 Guest composition stays in public cache; personal availability/history stays request-owned.
 Pending/access states reserve the same course frame; standalone fallback, mode variants and protected assets remain intact.
