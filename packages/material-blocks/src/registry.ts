@@ -9,9 +9,10 @@ import { horizontalRuleBlock } from "./blocks/horizontal-rule.js";
 import { keyPointBlock } from "./blocks/key-point.js";
 import { labeledListBlock } from "./blocks/labeled-list.js";
 import { bulletListBlock, orderedListBlock } from "./blocks/lists.js";
-import { quizBlock } from "./blocks/quiz.js";
+import { matchBlock, orderBlock, quizBlock } from "./blocks/exercises.js";
 import { paragraphBlock } from "./blocks/paragraph.js";
 import { resourceCardBlock } from "./blocks/resource-card.js";
+import { stepBreakBlock } from "./blocks/step-break.js";
 import { tableBlock } from "./blocks/table.js";
 import { termDefinitionBlock } from "./blocks/term-definition.js";
 import { takeawaysBlock } from "./blocks/takeaways.js";
@@ -45,6 +46,9 @@ export const materialBlockDefinitions: readonly [
   quizBlock,
   videoBlock,
   termDefinitionBlock,
+  matchBlock,
+  orderBlock,
+  stepBreakBlock,
 ];
 
 const definitionsByType = new Map(

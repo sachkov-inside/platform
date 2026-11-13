@@ -11,6 +11,10 @@ import {
 import { readLearningMaterial } from "../../src/modules/content-library/features/read-learning-material/read-learning-material.js";
 import type { PublishedMaterialReader } from "../../src/modules/materials/index.js";
 
+function paragraph(text: string): RenderedBlock {
+  return { kind: "paragraph", content: [{ kind: "text", text, marks: [] }] };
+}
+
 describe("Learning material reference batches", () => {
   it.each(["unchanged", "revoked", "new-version"] as const)(
     "checks 101 unique references before issuing a body when access is %s",
@@ -31,60 +35,38 @@ describe("Learning material reference batches", () => {
           {
             kind: "quiz",
             id: "question-1",
-            correctOptionId: "second",
-            prompt: [
-              {
-                kind: "paragraph",
-                content: [{ kind: "text", text: "Full question", marks: [] }],
-              },
-            ],
+            reveal: "after-answer",
+            question: [paragraph("Full question")],
+            selectionMode: "single",
             options: [
               {
                 id: "first",
-                content: [
-                  {
-                    kind: "paragraph",
-                    content: [{ kind: "text", text: "First", marks: [] }],
-                  },
-                ],
-                explanation: [
-                  {
-                    kind: "paragraph",
-                    content: [
-                      { kind: "text", text: "Wrong explanation", marks: [] },
-                    ],
-                  },
-                ],
+                content: [paragraph("First")],
+                correct: false,
+                explanation: [paragraph("Wrong explanation")],
               },
               {
                 id: "second",
-                content: [
-                  {
-                    kind: "paragraph",
-                    content: [{ kind: "text", text: "Second", marks: [] }],
-                  },
-                ],
-                explanation: [
-                  {
-                    kind: "paragraph",
-                    content: [
-                      { kind: "text", text: "Correct explanation", marks: [] },
-                    ],
-                  },
-                ],
+                content: [paragraph("Second")],
+                correct: true,
+                explanation: [paragraph("Correct explanation")],
               },
             ],
             dontKnow: {
-              explanation: [
-                {
-                  kind: "paragraph",
-                  content: [
-                    { kind: "text", text: "Review explanation", marks: [] },
-                  ],
-                },
-              ],
+              explanation: [paragraph("Review explanation")],
               reviewLinks: ["#section"],
             },
+          },
+          {
+            kind: "order",
+            id: "pipeline",
+            reveal: "none",
+            question: [paragraph("Order question")],
+            steps: ["spec", "code", "ship"].map((id) => ({
+              id,
+              content: [paragraph(`Step ${id}`)],
+              explanation: [paragraph(`Why ${id}`)],
+            })),
           },
           {
             kind: "blockquote" as const,

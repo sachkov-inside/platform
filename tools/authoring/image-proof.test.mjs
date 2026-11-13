@@ -57,10 +57,7 @@ async function fixture(t, readerBlocks = false) {
     packagePath,
     canonical({
       schemaVersion: 2,
-      requiredFeatures: [
-        "image-variants-v1",
-        ...(readerBlocks ? ["quiz-v1", "github-anchors-v1"] : []),
-      ],
+      requiredFeatures: ["image-variants-v1"],
       sourceNamespace: "synthetic",
       selection: {
         productId: null,

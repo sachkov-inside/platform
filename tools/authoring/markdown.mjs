@@ -9,7 +9,7 @@ import {
   readerBlocksSchema,
   renderedBlockSchema,
   renderMaterialBlocks,
-  materialQuizReferenceIssue,
+  materialExerciseReferenceIssue,
 } from "@inside/material-blocks";
 import MarkdownIt from "markdown-it";
 import { z } from "zod";
@@ -401,47 +401,94 @@ export function convertMarkdown(
   const renderNodes = (/** @type {DocNode[]} */ nodes) => {
     return renderMaterialBlocks(z.array(z.json()).parse(nodes));
   };
+  /** @param {string} value */
+  const rich = (value) => renderNodes(blocks(parser.parse(value, {})).content);
+  /**
+   * A Content reader block as document nodes: Markdown fragments become ordinary blocks, an
+   * exercise (`exercise-v1`) one atom carrying its rendered value, a step break one atom.
+   *
+   * @param {import("@inside/material-blocks").ContentReaderBlock} block
+   * @returns {DocNode[]}
+   */
+  const readerBlockNodes = (block) => {
+    if (block.kind === "markdown")
+      return blocks(parser.parse(block.markdown, {})).content;
+    if (block.kind === "step-break")
+      return [{ type: "stepBreak", attrs: { label: block.label } }];
+    const common = {
+      id: block.id,
+      reveal: block.reveal,
+      ...(block.contextMarkdown === undefined
+        ? {}
+        : { context: rich(block.contextMarkdown) }),
+      question: rich(block.questionMarkdown),
+    };
+    const dontKnow =
+      block.dontKnow === undefined
+        ? {}
+        : {
+            dontKnow: {
+              explanation: rich(block.dontKnow.explanationMarkdown),
+              reviewLinks: block.dontKnow.reviewLinks,
+            },
+          };
+    /** @type {Record<string, unknown>} */
+    const exercise =
+      block.kind === "quiz"
+        ? {
+            kind: "quiz",
+            ...common,
+            selectionMode: block.selectionMode,
+            options: block.options.map((option) => ({
+              id: option.id,
+              content: rich(option.markdown),
+              correct: option.correct,
+              ...(option.explanationMarkdown === undefined
+                ? {}
+                : { explanation: rich(option.explanationMarkdown) }),
+            })),
+            ...dontKnow,
+          }
+        : block.kind === "match"
+          ? {
+              kind: "match",
+              ...common,
+              mode: block.mode,
+              rows: block.rows.map((row) => ({
+                id: row.id,
+                content: rich(row.markdown),
+                answerId: row.answerId,
+                explanation: rich(row.explanationMarkdown),
+              })),
+              choices: block.choices.map((choice) => ({
+                id: choice.id,
+                content: rich(choice.markdown),
+              })),
+              ...dontKnow,
+            }
+          : {
+              kind: "order",
+              ...common,
+              steps: block.steps.map((step) => ({
+                id: step.id,
+                content: rich(step.markdown),
+                explanation: rich(step.explanationMarkdown),
+              })),
+              ...dontKnow,
+            };
+    return [{ type: block.kind, attrs: { exercise } }];
+  };
   const doc =
     readerBlocks === undefined
       ? blocks(parser.parse(markdown, {}))
       : {
           type: "doc",
-          content: readerBlocksSchema.parse(readerBlocks).flatMap((block) => {
-            if (block.kind === "markdown")
-              return blocks(parser.parse(block.markdown, {})).content;
-            const rich = (/** @type {string} */ value) =>
-              renderNodes(blocks(parser.parse(value, {})).content);
-            return [
-              {
-                type: "quiz",
-                attrs: {
-                  quiz: {
-                    kind: "quiz",
-                    id: block.id,
-                    prompt: rich(block.promptMarkdown),
-                    ...("selectionMode" in block
-                      ? {
-                          selectionMode: block.selectionMode,
-                          correctOptionIds: block.correctOptionIds,
-                        }
-                      : { correctOptionId: block.correctOptionId }),
-                    options: block.options.map((option) => ({
-                      id: option.id,
-                      content: rich(option.markdown),
-                      explanation: rich(option.explanationMarkdown),
-                    })),
-                    dontKnow: {
-                      explanation: rich(block.dontKnow.explanationMarkdown),
-                      reviewLinks: block.dontKnow.reviewLinks,
-                    },
-                  },
-                },
-              },
-            ];
-          }),
+          content: readerBlocksSchema
+            .parse(readerBlocks)
+            .flatMap((block) => readerBlockNodes(block)),
         };
   if (readerBlocks !== undefined) {
-    const issue = materialQuizReferenceIssue(renderNodes(doc.content));
+    const issue = materialExerciseReferenceIssue(renderNodes(doc.content));
     if (issue !== undefined) throw new Error(`${sourcePath}: ${issue}`);
   }
   /**
