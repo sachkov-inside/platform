@@ -76,17 +76,11 @@ const ATTEMPT_BUDGET = 5;
 const PERMIT_WINDOW_MILLISECONDS = 5000;
 const ATTEMPT_LEASE_MILLISECONDS = 60_000;
 const INVITE_WINDOW_MILLISECONDS = 600_000;
+const DAY_MILLISECONDS = 86_400_000;
 /** A reminder may be read hours later; the bot still approves only the person it was made for. */
-const JOIN_REMINDER_LINK_MILLISECONDS = 86_400_000;
+const JOIN_REMINDER_LINK_MILLISECONDS = DAY_MILLISECONDS;
 /** Reminders go at noon in Moscow: 09:00 UTC. */
 const JOIN_REMINDER_HOUR_UTC = 9;
-/** Owner decision 2026-11-13 (#2086): after one day, then two days, then every three days. */
-function nextJoinReminderAt(now: Date, sent: number): Date {
-  const days = sent === 0 ? 1 : sent === 1 ? 2 : 3;
-  const due = new Date(now.getTime() + days * 86_400_000);
-  due.setUTCHours(JOIN_REMINDER_HOUR_UTC, 0, 0, 0);
-  return due;
-}
 const CAPABILITY_CACHE_MILLISECONDS = 5000;
 
 export interface CommunityJoinRequest {
@@ -1293,6 +1287,18 @@ export class CommunityProvider {
     }
   }
 
+  /** Owner decision 2026-11-13 (#2086): one day, then two days, then every three days, at noon. */
+  private nextJoinReminderAt(now: Date, sent: number): Date {
+    const days = sent === 0 ? 1 : sent === 1 ? 2 : 3;
+    const earliest = now.getTime() + days * DAY_MILLISECONDS;
+    const due = new Date(earliest);
+    due.setUTCHours(JOIN_REMINDER_HOUR_UTC, 0, 0, 0);
+    // The first noon not earlier than the full interval.
+    return due.getTime() < earliest
+      ? new Date(due.getTime() + DAY_MILLISECONDS)
+      : due;
+  }
+
   /**
    * At most ten minutes and never past a finite right; a lifetime stays short too. A requested
    * join reminder gets a day, since it is read later; approval still binds the link to the person.
@@ -1417,26 +1423,43 @@ export class CommunityProvider {
             now,
           ))
         ) {
-          await this.offerReadmission(
+          const readmitted = await this.offerReadmission(
             tx,
             desired,
             effectRef,
             outcome.inviteLink,
             now,
           );
-          await this.offerJoinReminder(tx, desired, outcome.inviteLink, now);
+          await this.offerJoinReminder(
+            tx,
+            desired,
+            { link: outcome.inviteLink, expiresAt: outcome.expiresAt },
+            readmitted,
+            now,
+          );
         }
         return;
       }
       if (outcome.kind === "unknown") {
-        // A lost response is never proof; no blind repeat before a fresh observation.
+        // A lost response is never proof; no blind repeat before a fresh observation. An unknown
+        // day-long reminder link must not block a working `/community` link for a day: the next
+        // fresh link comes after the usual window, and only an intended link is ever approved.
         const invite = action === "create_invite";
+        const unknownUntil =
+          outcome.expiresAt === undefined
+            ? undefined
+            : new Date(
+                Math.min(
+                  outcome.expiresAt.getTime(),
+                  now.getTime() + INVITE_WINDOW_MILLISECONDS,
+                ),
+              );
         await tx
           .updateTable("community_effects")
           .set({
             state: "unknown",
             step: "observe",
-            available_at: invite && outcome.expiresAt ? outcome.expiresAt : now,
+            available_at: invite && unknownUntil ? unknownUntil : now,
             diagnostic_code: `${action}_response_lost`,
             updated_at: now,
           })
@@ -1445,7 +1468,7 @@ export class CommunityProvider {
         if (invite)
           await this.storeInvite(tx, desired, {
             invite_state: "unknown",
-            invite_expires_at: outcome.expiresAt ?? null,
+            invite_expires_at: unknownUntil ?? null,
           });
         await setDesired(
           tx,
@@ -1583,7 +1606,7 @@ export class CommunityProvider {
         welcome_state: "offered",
         readmission_requested_at: null,
         ...(this.options.joinReminder
-          ? { join_reminder_due_at: nextJoinReminderAt(now, 0) }
+          ? { join_reminder_due_at: this.nextJoinReminderAt(now, 0) }
           : {}),
       })
       .where("bot_identity", "=", this.bot)
@@ -1641,43 +1664,50 @@ export class CommunityProvider {
     return due.length;
   }
 
-  /** Sends the requested reminder with the day-long link just created, then schedules the next. */
+  /**
+   * Sends the requested reminder with the day-long link just created, then schedules the next.
+   * A shorter link, made by `/community` meanwhile, waits for the next one; a readmission message
+   * that carries the same link counts as this reminder. A person the bot cannot reach is skipped,
+   * not dropped, so a later unblock still brings the next reminder.
+   */
   private async offerJoinReminder(
     tx: Tx,
     desired: DesiredRow,
-    inviteLink: string,
+    invite: { readonly link: string; readonly expiresAt: Date },
+    readmitted: boolean,
     now: Date,
   ): Promise<void> {
     const reminder = this.options.joinReminder;
-    if (!reminder || desired.join_reminder_requested_at === null) return;
-    const contact = await this.reachableContact(tx, desired);
-    const sent = desired.join_reminders_sent + 1;
+    if (!reminder || !isTruthy(desired.join_reminder_requested_at)) return;
+    const dayLong =
+      invite.expiresAt.getTime() - now.getTime() >=
+      JOIN_REMINDER_LINK_MILLISECONDS - INVITE_WINDOW_MILLISECONDS;
+    if (!dayLong && !readmitted) return;
+    const contact = readmitted
+      ? undefined
+      : await this.reachableContact(tx, desired);
+    const sent = desired.join_reminders_sent + (contact ? 1 : 0);
     if (contact)
       await reminder.replies.enqueue(
         {
           botIdentity: this.bot,
           telegramUserId: contact.telegramUserId,
           privateChatId: contact.privateChatId,
-          messageText: `${reminder.text}\n${inviteLink}`,
-          buttons: [{ text: "Вступить в группу", url: inviteLink }],
+          messageText: `${reminder.text}\n${invite.link}`,
+          buttons: [{ text: "Вступить в группу", url: invite.link }],
           sourceKey: `community-join-reminder:${this.bot}:${desired.account_ref}:${String(sent)}`,
           now,
         },
         tx,
       );
-    // A person the bot cannot reach (blocked or never started) gets no further reminders.
     await tx
       .updateTable("community_desired_states")
-      .set(
-        contact
-          ? {
-              join_reminder_requested_at: null,
-              join_reminders_sent: sent,
-              join_reminder_last_at: now,
-              join_reminder_due_at: nextJoinReminderAt(now, sent),
-            }
-          : { join_reminder_requested_at: null, join_reminder_due_at: null },
-      )
+      .set({
+        join_reminder_requested_at: null,
+        join_reminders_sent: sent,
+        ...(contact ? { join_reminder_last_at: now } : {}),
+        join_reminder_due_at: this.nextJoinReminderAt(now, sent),
+      })
       .where("bot_identity", "=", this.bot)
       .where("account_ref", "=", desired.account_ref)
       .execute();
@@ -1715,9 +1745,9 @@ export class CommunityProvider {
     effectRef: string,
     inviteLink: string,
     now: Date,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const readmission = this.options.readmission;
-    if (!readmission || desired.readmission_requested_at === null) return;
+    if (!readmission || desired.readmission_requested_at === null) return false;
     const contact = await this.reachableContact(tx, desired);
     if (contact)
       await readmission.replies.enqueue(
@@ -1740,6 +1770,7 @@ export class CommunityProvider {
       .where("bot_identity", "=", this.bot)
       .where("account_ref", "=", desired.account_ref)
       .execute();
+    return true;
   }
 
   private async wait(
@@ -2009,6 +2040,28 @@ export class CommunityProvider {
         now,
       );
       const allows = accessAllows(desired.access, now);
+      // A person who again has a right, no restriction and no membership gets reminders again
+      // (#2086): after a lifted restriction, a new right or leaving the group.
+      if (
+        this.options.joinReminder &&
+        allows &&
+        observed === "not_member" &&
+        desired.admission_restriction === "none" &&
+        desired.welcome_state === "offered" &&
+        !isTruthy(desired.join_reminder_due_at) &&
+        !isTruthy(desired.join_reminder_requested_at)
+      )
+        await tx
+          .updateTable("community_desired_states")
+          .set({
+            join_reminder_due_at: this.nextJoinReminderAt(
+              now,
+              desired.join_reminders_sent,
+            ),
+          })
+          .where("bot_identity", "=", this.bot)
+          .where("account_ref", "=", accountRef)
+          .execute();
       const open = await tx
         .selectFrom("community_effects")
         .select("effect_ref")

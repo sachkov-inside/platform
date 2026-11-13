@@ -1240,6 +1240,57 @@ describe("community v2 reminders to join the group", () => {
     expect((await s.row()).join_reminder_due_at).toBeNull();
   });
 
+  it("waits a full day before the first reminder, then picks the next noon", async () => {
+    const s = await stand({ welcome: true, joinReminder: true });
+    at(s, "2026-10-07T23:59:00Z");
+    await s.set();
+    await sweep(s);
+    expect((await s.row()).join_reminder_due_at).toEqual(
+      new Date("2026-10-09T09:00:00Z"),
+    );
+  });
+
+  it("skips a person the bot cannot reach and keeps the next reminder for a later unblock", async () => {
+    const s = await stand({ welcome: true, joinReminder: true });
+    await s.set();
+    await sweep(s);
+    await db
+      .updateTable("bot_contacts")
+      .set({ contactability: "blocked" })
+      .where("bot_identity", "=", s.bot)
+      .execute();
+    at(s, "2026-10-08T09:00:00Z");
+    await sweep(s);
+    expect(await reminders(s)).toEqual([]);
+    expect(await s.row()).toMatchObject({
+      join_reminders_sent: 0,
+      join_reminder_requested_at: null,
+      join_reminder_due_at: new Date("2026-10-09T09:00:00Z"),
+    });
+  });
+
+  it("reminds again after a moderator restriction is lifted", async () => {
+    const s = await stand({ welcome: true, joinReminder: true });
+    await s.set();
+    await sweep(s);
+    const restrict = (value: "moderation" | "none") =>
+      db
+        .updateTable("community_desired_states")
+        .set({ admission_restriction: value })
+        .where("bot_identity", "=", s.bot)
+        .execute();
+    await restrict("moderation");
+    at(s, "2026-10-08T09:00:00Z");
+    await sweep(s);
+    expect((await s.row()).join_reminder_due_at).toBeNull();
+    await restrict("none");
+    at(s, "2026-10-08T10:00:00Z");
+    await sweep(s);
+    expect((await s.row()).join_reminder_due_at).toEqual(
+      new Date("2026-10-10T09:00:00Z"),
+    );
+  });
+
   it("stops reminding a moderator-restricted person", async () => {
     const s = await stand({ welcome: true, joinReminder: true });
     await s.set();

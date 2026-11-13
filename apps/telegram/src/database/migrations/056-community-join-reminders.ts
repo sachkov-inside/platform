@@ -19,12 +19,12 @@ export const communityJoinRemindersMigration: Migration = {
         and status = 'waiting_for_join'
         and observed_membership = 'not_member'
         and admission_restriction = 'none'`.execute(db);
-    await sql`create index community_desired_states_join_reminder_idx
+    await sql`create index community_desired_join_reminder_due
       on community_desired_states (bot_identity, join_reminder_due_at)
       where join_reminder_due_at is not null`.execute(db);
   },
   async down(db: Kysely<unknown>) {
-    await sql`drop index community_desired_states_join_reminder_idx`.execute(
+    await sql`drop index community_desired_join_reminder_due`.execute(
       db,
     );
     await sql`alter table community_desired_states
