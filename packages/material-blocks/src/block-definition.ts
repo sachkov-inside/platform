@@ -18,11 +18,10 @@ export type RenderedBlockVariantSchema<
 > = z.ZodType<Block> & z.core.$ZodTypeDiscriminable<"kind">;
 
 /**
- * ProseMirror node declaration as plain data. The registry stays free of Tiptap; the document
- * schema entry point turns these descriptions into Tiptap nodes. A block and the child nodes it
- * builds its own content from are declared the same way; only a block carries a group.
+ * ProseMirror node declaration of one registry block as plain data. The registry stays free of
+ * Tiptap; the document schema entry point turns these descriptions into Tiptap nodes.
  */
-export interface MaterialBlockChildNodeDescription {
+export interface MaterialBlockNodeDescription {
   readonly atom?: boolean;
   /** Attribute name to its default value. */
   readonly attributes: Readonly<Record<string, JsonValue>>;
@@ -47,19 +46,6 @@ export interface MaterialBlockChildNodeDescription {
   readonly renderHTML: (
     attributes: Readonly<Record<string, unknown>>,
   ) => [string, ...unknown[]];
-}
-
-/** One block of the registry, plus the child nodes its own content is made of. */
-export interface MaterialBlockNodeDescription extends MaterialBlockChildNodeDescription {
-  /**
-   * Nodes this block builds its content from, by node type. They carry no group, so nothing but
-   * this block can contain them — the shape Tiptap already gives `listItem` and `tableRow`. A
-   * child node has no registry entry of its own and is therefore never addressed by progress or
-   * bookmarks; the block that contains it is.
-   */
-  readonly childNodes?: Readonly<
-    Record<string, MaterialBlockChildNodeDescription>
-  >;
   /** Root-only blocks cannot be wrapped in lists, quotes or table cells. */
   readonly group: "block" | "topLevelBlock";
 }

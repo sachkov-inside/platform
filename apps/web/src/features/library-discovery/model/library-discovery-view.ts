@@ -19,11 +19,6 @@ export interface ProductIntroduction {
 export interface LibraryDiscoveryReference {
   readonly id?: string | undefined;
   readonly cover?: ContentCover | null | undefined;
-  /**
-   * Есть ли в руководстве хоть один шаг, написанный для обоих режимов прохождения. Переключатель
-   * принадлежит руководству, поэтому урок берёт этот признак из состава, а не из своего тела.
-   */
-  readonly hasModeVariants?: boolean | undefined;
   readonly introduction?: ProductIntroduction | null | undefined;
   readonly name: string;
   /** Оформление и описание страницы Product; у темы и связанных материалов его нет. */

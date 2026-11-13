@@ -74,7 +74,6 @@ test("upgrade makes automatic programmes explicit before dropping duplicate cata
         sourceId: row.sourceId,
         published: false,
         topicId: row.topicId,
-        hasModeVariants: row.hasModeVariants,
       }));
     },
   });

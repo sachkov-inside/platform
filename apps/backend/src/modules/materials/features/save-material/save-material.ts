@@ -596,7 +596,6 @@ export function assembleSaveMaterial(
                     "publishedAt",
                   ),
                   publishedBy,
-                  hasModeVariants: extraction.value.hasModeVariants,
                   plainText: extraction.value.plainText,
                   primaryVideoId: command.primaryVideoId,
                   coverId: locked.coverId,
@@ -706,7 +705,6 @@ async function replacePublishedProjections(
   values: {
     readonly materialId: string;
     readonly contentVersion: number;
-    readonly hasModeVariants: boolean;
     readonly metadata: {
       readonly access: "free" | "closed";
       readonly difficulty: MaterialDifficulty | null;
@@ -741,7 +739,6 @@ async function replacePublishedProjections(
       access: values.metadata.access,
       inFeed: values.inFeed,
       difficulty: values.metadata.difficulty,
-      hasModeVariants: values.hasModeVariants,
       outcomes: [...values.metadata.outcomes],
       topicId: values.metadata.topicId,
       formatId: values.metadata.formatId,
@@ -759,7 +756,6 @@ async function replacePublishedProjections(
       access: values.metadata.access,
       inFeed: values.inFeed,
       difficulty: values.metadata.difficulty,
-      hasModeVariants: values.hasModeVariants,
       outcomes: [...values.metadata.outcomes],
       topicId: values.metadata.topicId,
       formatId: values.metadata.formatId,

@@ -3,17 +3,7 @@ export {
   calloutTones,
   type CalloutTone,
 } from "./blocks/callout.js";
-export { variantOptionType } from "./blocks/variant.js";
-export {
-  defaultProductMode,
-  productModeLabels,
-  productModes,
-  productModeSchema,
-  isProductMode,
-  type ProductMode,
-} from "./product-mode.js";
 export type {
-  MaterialBlockChildNodeDescription,
   MaterialBlockDefinition,
   MaterialBlockIssueReport,
   MaterialBlockNodeDescription,

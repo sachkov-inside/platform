@@ -119,8 +119,8 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 - A component that reads the clock, randomness or a request value during render breaks the
   production build under Cache Components. Read it in an event handler or an effect.
 - A page the reader left is hidden, not unmounted, and keeps its client state. State that starts
-  from a server value follows that value when it changes; `ProductModeProvider` is the worked
-  example. A surface that must reset on return resets itself.
+  from a server value follows that value when it changes; `ProductContinuationProvider` is the
+  worked example. A surface that must reset on return resets itself.
 - Review server session cookies read through `next/headers`; the Logto import guardrail cannot
   prove that session reads go through `@/shared/auth` and its prefetch-stopping `connection()`.
 - A hydrated or freshly read TanStack query keeps the client default `staleTime`. Freshness after a

@@ -72,40 +72,6 @@ export class ReadingActivityService {
     });
   }
   /**
-   * Read the mode the current Account goes through products in
-   * @returns any
-   * @throws ApiError
-   */
-  public getReaderProductMode(): CancelablePromise<{
-    productMode: 'example' | 'own';
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/reading-activity/product-mode',
-    });
-  }
-  /**
-   * Set the mode the current Account goes through products in
-   * @returns any
-   * @throws ApiError
-   */
-  public setReaderProductMode({
-    requestBody,
-  }: {
-    requestBody: {
-      productMode: 'example' | 'own';
-    },
-  }): CancelablePromise<{
-    productMode: 'example' | 'own';
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/reading-activity/product-mode',
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
    * Read progress over the current published Product composition
    * @returns any
    * @throws ApiError

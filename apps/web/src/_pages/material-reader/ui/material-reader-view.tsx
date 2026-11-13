@@ -62,13 +62,6 @@ export interface MaterialReaderViewProps {
   readonly deferredPracticeActions?: ReactNode;
   /** Призыв к покупке в конце бесплатного урока курса: стоит перед действиями в конце (#1647). */
   readonly purchaseCall?: ReactNode;
-  /**
-   * Подсказка о двух режимах и место, куда она встаёт: перед шагом с этим номером. Место выбирает
-   * страница, потому что подсказка должна стоять у шага, который читатель действительно видит.
-   */
-  readonly modeHint?: { readonly at: number; readonly node: ReactNode };
-  /** Переключатель режима прохождения; у руководства без вариантных шагов его нет. */
-  readonly modeSwitch?: ReactNode;
   /** Плашка «Урок обновлён» над текстом урока: стоит у изучившего урок до обновления (#2125). */
   readonly updateNotice?: ReactNode;
 }
@@ -89,8 +82,6 @@ export function MaterialReaderView({
   submissionWorkspace,
   deferredPracticeActions,
   purchaseCall,
-  modeHint,
-  modeSwitch,
   updateNotice,
 }: MaterialReaderViewProps) {
   const endReadingAction = readingAction ?? topReadingAction;
@@ -176,7 +167,6 @@ export function MaterialReaderView({
             showShare={false}
           />
           {updateNotice}
-          {modeSwitch}
           {primaryVideo === null ||
           body.some((block) => block.kind === "video") ? null : (
             <MaterialPrimaryVideo
@@ -213,9 +203,6 @@ export function MaterialReaderView({
               materialId={material.materialId}
               materialSlug={material.slug}
               path={[]}
-              {...(modeHint === undefined
-                ? {}
-                : { hint: modeHint.node, hintAt: modeHint.at })}
             />
           </article>
           {practiceActions}
@@ -445,8 +432,6 @@ function ReaderBlocks({
   renderLink,
   blocks,
   contentVersion,
-  hint,
-  hintAt,
   materialId,
   materialSlug,
   path,
@@ -455,8 +440,6 @@ function ReaderBlocks({
   readonly renderLink?: MaterialBodyRendering["link"];
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
-  readonly hint?: ReactNode;
-  readonly hintAt?: number;
   readonly materialId: string;
   readonly materialSlug: string;
   readonly path: readonly number[];
@@ -471,8 +454,6 @@ function ReaderBlocks({
       blocks={blocks}
       comparison={agentChoiceComparison(materialSlug, blocks)}
       illustrations={harness?.illustrations}
-      hint={hint}
-      hintAt={hintAt}
       path={path}
       rendering={{
         ...(renderLink === undefined ? {} : { link: renderLink }),

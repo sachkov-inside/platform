@@ -42,12 +42,10 @@ import type {
 } from "@/_pages/material-reader/model/material-reader-view";
 import { calloutTones } from "@/entities/material";
 import { SavedBookmarkAction } from "@/features/bookmarks";
-import { ProductModeHint, ProductModeSwitch } from "@/features/product-modes";
 import {
   ReadingProgressProvider,
   SavedReadingAction,
 } from "@/features/reading-progress";
-import { ProductModeProvider, type ProductMode } from "@/shared/product-mode";
 import {
   materialReaderHref,
   parseMaterialReaderReturnTarget,
@@ -396,99 +394,6 @@ const emptyLessonBody = [
   { kind: "labeled_list", rows: [] },
 ] as const satisfies readonly ReaderBlock[];
 
-/** Шаг руководства, написанный для обоих режимов, и шаг только для своего проекта. */
-const productModeBody = [
-  {
-    kind: "paragraph",
-    content: [
-      {
-        kind: "text",
-        marks: [],
-        text: "Подготовьте репозиторий к первому прогону.",
-      },
-    ],
-  },
-  {
-    kind: "variant",
-    options: [
-      {
-        mode: "example",
-        content: [
-          {
-            kind: "heading",
-            level: 2,
-            content: [{ kind: "text", marks: [], text: "Проверка на образце" }],
-          },
-          {
-            kind: "paragraph",
-            content: [
-              {
-                kind: "text",
-                marks: [],
-                text: "Склонируйте учебный репозиторий и запустите проверку на нём.",
-              },
-            ],
-          },
-        ],
-      },
-      {
-        mode: "own",
-        content: [
-          {
-            kind: "heading",
-            level: 2,
-            content: [{ kind: "text", marks: [], text: "Проверка у себя" }],
-          },
-          {
-            kind: "paragraph",
-            content: [
-              {
-                kind: "text",
-                marks: [],
-                text: "Возьмите свой репозиторий и выпишите, чем его проверка отличается.",
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    kind: "variant",
-    options: [
-      {
-        mode: "own",
-        content: [
-          {
-            kind: "paragraph",
-            content: [
-              {
-                kind: "text",
-                marks: [],
-                text: "Согласуйте проверку с тем, кто отвечает за ваш репозиторий.",
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    kind: "paragraph",
-    content: [
-      {
-        kind: "text",
-        marks: [],
-        text: "Дальше шаги одинаковы для обоих способов.",
-      },
-    ],
-  },
-] as const satisfies readonly ReaderBlock[];
-
-const productModeReturnTarget = parseMaterialReaderReturnTarget(
-  "/products/platform-inside",
-);
-
 /**
  * Основные действия под уроком: отметка о прочтении и закладка.
  * Гостю они предлагают войти; запросов они не делают.
@@ -542,44 +447,6 @@ function accessReadingAction(): ReactNode {
       key={material.materialId}
       materialId={material.materialId}
     />
-  );
-}
-
-function ProductModeReader({
-  initialMode,
-  withModes = true,
-}: {
-  readonly initialMode: ProductMode;
-  readonly withModes?: boolean;
-}) {
-  return (
-    <ProductModeProvider initialMode={initialMode}>
-      <MaterialReaderView
-        {...readerActions(material.materialId, material.format.slug)}
-        body={productModeBody}
-        material={{ ...material, title: "Подготовка к первому прогону" }}
-        {...(withModes
-          ? {
-              // Подсказка встаёт у первого шага, написанного для активного способа.
-              modeHint: { at: 1, node: <ProductModeHint /> },
-              modeSwitch: <ProductModeSwitch signedIn={false} />,
-            }
-          : {})}
-        primaryVideo={null}
-        returnTarget={productModeReturnTarget}
-        productContext={{
-          currentPosition: 2,
-          next: null,
-          previous: null,
-          product: {
-            hasModeVariants: withModes,
-            href: productModeReturnTarget.href,
-            name: "Создание Platform Inside",
-          },
-          totalMaterials: 4,
-        }}
-      />
-    </ProductModeProvider>
   );
 }
 
@@ -1041,7 +908,6 @@ export const PlaylistReturn: Story = {
         title: "Сначала границы",
       },
       product: {
-        hasModeVariants: false,
         href: productProgrammeHref("platform-inside"),
         name: "Создание Platform Inside",
       },
@@ -1448,123 +1314,6 @@ export const LessonBlocksEmpty: Story = {
     await expect(
       canvas.getByRole("region", { name: "Итоги" }),
     ).toBeInTheDocument();
-  },
-};
-
-export const ProductModes: Story = {
-  render: () => <ProductModeReader initialMode="example" />,
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    // Подпись переключателя и есть его доступное имя: одно название, а не два.
-    await expect(
-      canvas.getByRole("group", { name: "Способ прохождения" }),
-    ).toBeVisible();
-    // Виден вариант активного режима; вариант чужого режима в разметке скрыт.
-    await expect(
-      canvas.getByText(/Склонируйте учебный репозиторий/u),
-    ).toBeVisible();
-    await expect(
-      canvas.getByText(/Возьмите свой репозиторий/u),
-    ).not.toBeVisible();
-    // Односторонний шаг чужого режима не показывается совсем.
-    await expect(
-      canvas.queryByText(/Согласуйте проверку/u),
-    ).not.toBeInTheDocument();
-    // Подсказка о двух режимах показывается один раз и стоит у первого вариантного шага.
-    await expect(
-      canvas.getByText(/Переключить способ можно в шапке урока/u),
-    ).toBeVisible();
-    // Сложность и результаты обучения остаются в metadata, без плашки перед текстом.
-    await expect(canvas.queryByText("Сложность: Средний")).toBeNull();
-    await expect(
-      canvas.queryByRole("heading", { name: "Чему научишься" }),
-    ).not.toBeInTheDocument();
-    // Ветка чужого режима скрыта и от вспомогательных технологий тоже.
-    await expect(
-      canvas.queryByRole("heading", { name: "Проверка у себя" }),
-    ).not.toBeInTheDocument();
-    // У заголовков разных веток разные якоря: иначе ссылка вела бы в скрытую ветку.
-    const anchors = [
-      ...canvasElement.querySelectorAll("[data-variant-branch] h2"),
-    ].map((heading) => heading.id);
-    await expect(anchors).toHaveLength(2);
-    await expect(new Set(anchors).size).toBe(2);
-    await expect(anchors.every(Boolean)).toBe(true);
-    // Оглавление в вариантные шаги не заходит: набор заголовков не должен меняться от режима,
-    // а ссылка в скрытую ветку никуда не ведёт. Других заголовков в уроке нет, поэтому его нет.
-    await expect(
-      canvasElement.querySelector('nav[aria-label="В этом материале"]'),
-    ).toBeNull();
-  },
-};
-
-export const ProductModesSwitched: Story = {
-  render: () => <ProductModeReader initialMode="example" />,
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Свой проект" }));
-    await waitFor(async () => {
-      await expect(
-        canvas.getByText(/Возьмите свой репозиторий/u),
-      ).toBeVisible();
-    });
-    // Односторонний шаг появляется ровно в своём режиме.
-    await expect(canvas.getByText(/Согласуйте проверку/u)).toBeVisible();
-    await expect(
-      canvas.getByText(/Склонируйте учебный репозиторий/u),
-    ).not.toBeVisible();
-  },
-};
-
-export const ProductModesOtherBranch: Story = {
-  render: () => <ProductModeReader initialMode="example" />,
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Показать вариант «Свой проект»" }),
-    );
-    await waitFor(async () => {
-      await expect(
-        canvas.getByText(/Возьмите свой репозиторий/u),
-      ).toBeVisible();
-    });
-    // Раскрытие второго варианта не меняет выбранный режим.
-    await expect(
-      canvas.getByRole("button", { name: "Учебный проект" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expect(
-      canvas.getByText(/Склонируйте учебный репозиторий/u),
-    ).toBeVisible();
-  },
-};
-
-export const ProductModesMobile: Story = {
-  render: () => <ProductModeReader initialMode="own" />,
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(canvas.getByText(/Возьмите свой репозиторий/u)).toBeVisible();
-    await expect(canvas.getByText(/Согласуйте проверку/u)).toBeVisible();
-    const page = canvasElement.ownerDocument.documentElement;
-    await expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth);
-  },
-};
-
-export const ProductWithoutModes: Story = {
-  render: () => <ProductModeReader initialMode="example" withModes={false} />,
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    // У руководства без вариантных шагов переключателя нет; шаги читаются в режиме по умолчанию.
-    await expect(
-      canvas.queryByRole("group", { name: "Способ прохождения" }),
-    ).not.toBeInTheDocument();
-    await expect(
-      canvas.getByText(/Склонируйте учебный репозиторий/u),
-    ).toBeVisible();
   },
 };
 
@@ -2010,7 +1759,6 @@ const courseContext = {
   product: {
     name: courseGuide.name,
     href: courseGuide.href,
-    hasModeVariants: false,
   },
   programme: courseGuide,
 };

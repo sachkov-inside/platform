@@ -11,6 +11,14 @@ import {
   statement as productTopicsStatement,
 } from "../modules/products/infrastructure/postgres/migrations/0120-product-topics.js";
 import {
+  name as dropReaderPreferencesName,
+  statement as dropReaderPreferencesStatement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0122-drop-reader-preferences.js";
+import {
+  name as dropModeVariantsName,
+  statement as dropModeVariantsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0123-drop-mode-variants.js";
+import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0118-automatic-cancel-refund.js";
@@ -786,6 +794,11 @@ export const platformMigrations = [
     name: materialUpdateNotesName,
     statement: materialUpdateNotesStatement,
   },
+  {
+    name: dropReaderPreferencesName,
+    statement: dropReaderPreferencesStatement,
+  },
+  { name: dropModeVariantsName, statement: dropModeVariantsStatement },
 ] as const;
 
 export function migrateToLatest(

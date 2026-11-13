@@ -264,25 +264,10 @@ The learner agent's current account of an unfinished self-check of one Task Vers
 from saved submissions and Author Feedback. It is not yet a Self-check Attempt.
 _Avoid_: Product Progress, author review, Task Submission
 
-**Product Mode**:
-One of the two ways a reader goes through a Product: on the worked example the author prepared, or
-on the reader's own project. It belongs to the reader, not to a Material: one choice covers
-every Product, and it changes only what a Variant Step shows, never access, order or progress. In
-Russian product language: «Режим прохождения», with «Учебный проект» and «Свой проект».
-_Avoid_: Difficulty, access class, Product Step Sequence, separate Product copy
-
-**Variant Step**:
-A step of a lesson written for both Product Modes, carrying one branch per mode. A branch may be
-missing: such a step belongs to its own mode alone and is not shown in the other. The reader sees
-the branch of the active mode and can open the other one in place, which changes nothing that is
-stored. Both branches stay in the lesson's search text, and the step — not a branch — is what
-progress and bookmarks address. In Russian product language: «Вариантный шаг».
-_Avoid_: Callout, separate Material, access variant, A/B test
-
 **Material Difficulty**:
 The basic, intermediate or advanced difficulty of one Material, independent of the Product that
 uses it. An unspecified difficulty makes no claim; in Russian product language: «Сложность».
-_Avoid_: Product Mode, access class, Product-level rating
+_Avoid_: access class, Product-level rating
 
 **Material Outcomes**:
 The authored abilities a reader should gain from one Material, independent of its Product
