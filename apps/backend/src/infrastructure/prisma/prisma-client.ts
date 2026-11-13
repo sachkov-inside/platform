@@ -139,6 +139,13 @@ export type GlossaryPrisma = Pick<
 export type GlossaryPrismaClient = GlossaryPrisma &
   TransactionClient<GlossaryPrisma>;
 
+export type ExerciseAttemptsPrisma = Pick<
+  PlatformPrisma,
+  "$executeRaw" | "$queryRaw" | "exerciseAttempt"
+>;
+export type ExerciseAttemptsPrismaClient = ExerciseAttemptsPrisma &
+  TransactionClient<ExerciseAttemptsPrisma>;
+
 export type SalesFunnelPrisma = Pick<
   PlatformPrisma,
   | "$queryRaw"

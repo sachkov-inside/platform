@@ -16,6 +16,8 @@ export {
   type SalesFunnelPrismaClient,
   type BookmarksPrisma,
   type BookmarksPrismaClient,
+  type ExerciseAttemptsPrisma,
+  type ExerciseAttemptsPrismaClient,
   type GlossaryPrisma,
   type GlossaryPrismaClient,
   type AccountsPrisma,

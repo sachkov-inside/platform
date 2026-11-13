@@ -199,7 +199,7 @@ describe("exercise version fingerprint", () => {
         },
         order,
         { ...order, steps: [...order.steps].reverse() },
-      ].map((key) => exerciseFingerprint(key as ExerciseKey)),
+      ].map((key) => exerciseFingerprint(key)),
     );
     expect(fingerprints.size).toBe(7);
   });

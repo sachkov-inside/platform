@@ -10,6 +10,7 @@ import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
 import { ProductLearnersModule } from "../../modules/product-learners/index.js";
 import { AuthoringOverviewModule } from "../../modules/authoring-overview/index.js";
 import { BookmarksModule } from "../../modules/bookmarks/index.js";
+import { ExerciseAttemptsModule } from "../../modules/exercise-attempts/index.js";
 import { GlossaryModule } from "../../modules/glossary/index.js";
 import { SalesFunnelModule } from "../../modules/sales-funnel/index.js";
 import {
@@ -95,6 +96,7 @@ export class ApiModule {
         ProductLearnersModule,
         AuthoringOverviewModule,
         BookmarksModule,
+        ExerciseAttemptsModule,
         GlossaryModule,
         SalesFunnelModule,
         CommunicationsModule,
