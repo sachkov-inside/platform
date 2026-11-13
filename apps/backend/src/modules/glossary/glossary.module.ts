@@ -12,12 +12,13 @@ import {
 } from "../accounts/index.js";
 import { assembleCurrentAccountPermissions } from "../content-access/index.js";
 import { GlossaryAuthoringController } from "./adapters/nest/glossary-authoring.controller.js";
+import { GlossaryMarksController } from "./adapters/nest/glossary-marks.controller.js";
 import { assembleGlossary } from "./facets/glossary/assemble-glossary.js";
 import { GLOSSARY, type Glossary } from "./facets/glossary/glossary.js";
 
 @Module({
   imports: [PrismaModule, AccountsModule],
-  controllers: [GlossaryAuthoringController],
+  controllers: [GlossaryAuthoringController, GlossaryMarksController],
   providers: [
     {
       provide: GLOSSARY,

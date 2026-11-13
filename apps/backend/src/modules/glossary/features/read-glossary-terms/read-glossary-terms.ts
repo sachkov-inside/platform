@@ -39,6 +39,31 @@ export async function listGlossaryTerms(
 }
 
 /**
+ * The source identifiers name published Materials the caller may show: one lesson for its deck or
+ * the readable lessons of one course, so one statement serves them all.
+ */
+export async function introducedGlossaryTerms(
+  dependencies: Pick<GlossaryOperationDependencies, "prisma">,
+  sourceIds: readonly string[],
+): Promise<Result<readonly GlossaryTerm[], GlossaryDependencyError>> {
+  const requested = [...new Set(sourceIds)];
+  if (requested.length === 0) return { ok: true, value: [] };
+  try {
+    const rows = await dependencies.prisma.glossaryTerm.findMany({
+      where: { introducedInSourceId: { in: requested } },
+      orderBy: { id: "asc" },
+    });
+    return { ok: true, value: rows.map(storedGlossaryTerm) };
+  } catch (error) {
+    return dependencyFailure(
+      { module: "glossary", operation: "introducedGlossaryTerms" },
+      error,
+      unavailable,
+    );
+  }
+}
+
+/**
  * The identifiers come from one accepted Material body, which the body's own document limits
  * already bound, so one statement serves them all.
  */

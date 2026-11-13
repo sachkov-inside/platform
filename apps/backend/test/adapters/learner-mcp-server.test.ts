@@ -128,6 +128,7 @@ async function fixture(
               projection: selectedProjection,
               body,
               glossaryTerms: [],
+              lessonTerms: [],
               primaryVideo:
                 options.video === undefined || options.video === "missing"
                   ? null

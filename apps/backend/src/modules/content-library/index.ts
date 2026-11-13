@@ -6,6 +6,7 @@ export { listPublishedMaterials } from "./features/list-published-materials/list
 export { discoverPublishedMaterials } from "./features/discover-published-materials/discover-published-materials.js";
 export { ListPublishedMaterialsController } from "./features/list-published-materials/list-published-materials.controller.js";
 export { DiscoverPublishedMaterialsController } from "./features/discover-published-materials/discover-published-materials.controller.js";
+export { ReadCourseGlossaryController } from "./features/read-course-glossary/read-course-glossary.controller.js";
 export { ReadHomeContentController } from "./features/read-home-content/read-home-content.controller.js";
 export { ReadProductAccessController } from "./features/read-product-access/read-product-access.controller.js";
 

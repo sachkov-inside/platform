@@ -28,6 +28,7 @@ import { RuntimeIdentityModule } from "../../infrastructure/runtime-identity.js"
 import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import {
   DiscoverPublishedMaterialsController,
+  ReadCourseGlossaryController,
   ListPublishedMaterialsController,
   ListPublicSiteIndexController,
   ReadProductAccessController,
@@ -65,6 +66,7 @@ import { HealthController } from "./health.controller.js";
     ListPublishedMaterialsController,
     ListPublicSiteIndexController,
     DiscoverPublishedMaterialsController,
+    ReadCourseGlossaryController,
     ReadHomeContentController,
     ReadProductAccessController,
     ReadProductSaleAvailabilityController,

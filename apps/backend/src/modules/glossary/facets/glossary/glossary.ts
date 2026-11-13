@@ -1,4 +1,5 @@
 import type { Result } from "../../../../infrastructure/content-authoring/result.js";
+import type { GlossaryTermMark } from "../../domain/glossary-term-mark.js";
 import type { GlossaryTerm } from "../../domain/glossary-term.js";
 
 export type GlossaryDependencyError = {
@@ -41,6 +42,29 @@ export interface Glossary {
   lookup(
     ids: readonly string[],
   ): Promise<Result<readonly GlossaryTerm[], GlossaryDependencyError>>;
+  /**
+   * The terms whose introducing Material is among `sourceIds` (authoring source identifiers), in
+   * identifier order. The caller owns access: it passes only Materials the reader may read.
+   */
+  introducedIn(
+    sourceIds: readonly string[],
+  ): Promise<Result<readonly GlossaryTerm[], GlossaryDependencyError>>;
+  /** The reader's own marks among `termIds`, in the order asked; an unmarked term is absent. */
+  readMarks(query: {
+    readonly accountId: string;
+    readonly termIds: readonly string[];
+  }): Promise<Result<readonly GlossaryTermMark[], GlossaryMarkError>>;
+  /** Sets the reader's mark on one known term; a newer mark replaces the older one. */
+  setMark(command: {
+    readonly accountId: string;
+    readonly termId: string;
+    readonly mark: string;
+  }): Promise<Result<GlossaryTermMark, GlossaryMarkError>>;
 }
+
+export type GlossaryMarkError =
+  | { readonly code: "invalid_request" }
+  | { readonly code: "term_not_found" }
+  | GlossaryDependencyError;
 
 export const GLOSSARY: unique symbol = Symbol("GLOSSARY");

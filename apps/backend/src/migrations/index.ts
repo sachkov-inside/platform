@@ -23,6 +23,10 @@ import {
   statement as glossaryTermsStatement,
 } from "../modules/glossary/infrastructure/postgres/migrations/0124-glossary-terms.js";
 import {
+  name as glossaryTermMarksName,
+  statement as glossaryTermMarksStatement,
+} from "../modules/glossary/infrastructure/postgres/migrations/0125-glossary-term-marks.js";
+import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0118-automatic-cancel-refund.js";
@@ -804,6 +808,7 @@ export const platformMigrations = [
   },
   { name: dropModeVariantsName, statement: dropModeVariantsStatement },
   { name: glossaryTermsName, statement: glossaryTermsStatement },
+  { name: glossaryTermMarksName, statement: glossaryTermMarksStatement },
 ] as const;
 
 export function migrateToLatest(

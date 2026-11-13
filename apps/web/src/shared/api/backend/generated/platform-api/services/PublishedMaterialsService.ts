@@ -30,6 +30,13 @@ export class PublishedMaterialsService {
       title: string;
     }>;
     kind: 'available';
+    lessonTerms: Array<{
+      englishTitle: string | null;
+      fullDefinition: string;
+      id: string;
+      shortDefinition: string;
+      title: string;
+    }>;
     primaryVideo: {
       failureCode?: string;
       state: 'uploading' | 'processing' | 'ready' | 'failed';

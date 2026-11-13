@@ -61,7 +61,7 @@ export function assembleMaterials(dependencies: {
     | "loadUnselectedUpload"
     | "loadPresentation"
   >;
-  readonly glossary?: Pick<Glossary, "lookup">;
+  readonly glossary?: Pick<Glossary, "lookup" | "introducedIn">;
 }): Materials {
   const materialContent = composeMaterialAccessFacts(
     assembleMaterialContent({

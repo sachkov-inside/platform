@@ -14,12 +14,13 @@ import type { MaterialContent } from "../../facets/material-content/material-con
 import { selectPublishedMaterialProjectionBySlug } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import type {
+  PublishedGlossaryTermDto,
   PublishedMaterialReadResult,
   ReadPublishedMaterialQuery,
 } from "./read-published-material.contract.js";
 import { hydrateMaterialAssets } from "../../domain/material-body/hydrate-material-assets.js";
 import type { Videos } from "../../../videos/index.js";
-import type { Glossary } from "../../../glossary/index.js";
+import type { Glossary, GlossaryTerm } from "../../../glossary/index.js";
 import {
   keepFirstTermMentions,
   materialGlossaryTermIds,
@@ -54,7 +55,7 @@ export async function readPublishedMaterial(
     readonly subscriptionForSale?: (accountId?: string) => Promise<boolean>;
     readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
     readonly videos?: Pick<Videos, "loadPresentation">;
-    readonly glossary?: Pick<Glossary, "lookup">;
+    readonly glossary?: Pick<Glossary, "lookup" | "introducedIn">;
   },
   query: ReadPublishedMaterialQuery,
 ): Promise<PublishedMaterialReadResult> {
@@ -139,6 +140,7 @@ export async function readPublishedMaterial(
           contentVersion: true,
           publicationState: true,
           videoChapters: true,
+          sourceId: true,
         },
       });
       if (
@@ -192,6 +194,11 @@ export async function readPublishedMaterial(
           ? { ok: true as const, value: [] }
           : await dependencies.glossary.lookup(termIds);
       if (!glossaryTerms.ok) return glossaryTerms;
+      const introduced =
+        currentVideo.sourceId === null || dependencies.glossary === undefined
+          ? { ok: true as const, value: [] }
+          : await dependencies.glossary.introducedIn([currentVideo.sourceId]);
+      if (!introduced.ok) return introduced;
       return {
         ok: true,
         value: {
@@ -203,13 +210,10 @@ export async function readPublishedMaterial(
             { ...rendered.value, blocks },
             loadedPresentations.value,
           ),
-          glossaryTerms: glossaryTerms.value.map((term) => ({
-            id: term.id,
-            title: term.title,
-            englishTitle: term.englishTitle,
-            shortDefinition: term.shortDefinition,
-            fullDefinition: term.fullDefinition,
-          })),
+          glossaryTerms: glossaryTerms.value.map(publishedGlossaryTerm),
+          lessonTerms: inMentionOrder(introduced.value, termIds).map(
+            publishedGlossaryTerm,
+          ),
           primaryVideo: loadedVideo.value,
           ...(videoChapters.length === 0 ? {} : { videoChapters }),
         },
@@ -226,6 +230,31 @@ export async function readPublishedMaterial(
       ),
     };
   }
+}
+
+function publishedGlossaryTerm(term: GlossaryTerm): PublishedGlossaryTermDto {
+  return {
+    id: term.id,
+    title: term.title,
+    englishTitle: term.englishTitle,
+    shortDefinition: term.shortDefinition,
+    fullDefinition: term.fullDefinition,
+  };
+}
+
+/**
+ * The deck follows the lesson: terms the body mentions come in the order of their first mention,
+ * the rest after them in identifier order.
+ */
+function inMentionOrder(
+  terms: readonly GlossaryTerm[],
+  mentionedIds: readonly string[],
+): readonly GlossaryTerm[] {
+  const position = new Map(mentionedIds.map((id, index) => [id, index]));
+  const rank = (term: GlossaryTerm) =>
+    position.get(term.id) ?? Number.MAX_SAFE_INTEGER;
+  // The Glossary returns terms in identifier order and the sort is stable.
+  return [...terms].sort((left, right) => rank(left) - rank(right));
 }
 
 function internalError(): PublishedMaterialReadResult {

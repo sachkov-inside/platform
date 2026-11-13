@@ -235,4 +235,183 @@ describe("Glossary", () => {
       },
     });
   });
+
+  test("a lesson reads its deck: the terms it introduces, mentioned ones first", async () => {
+    await glossary.upsert({
+      actor: author,
+      terms: [
+        { ...aggregate, introducedInSourceId: "content-studio:deck-lesson" },
+        {
+          ...boundedContext,
+          introducedInSourceId: "content-studio:deck-lesson",
+        },
+        { ...aggregate, id: "entity", title: "Сущность" },
+      ],
+    });
+    const materials = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+      glossary,
+    });
+    const metadata = {
+      access: "free" as const,
+      formatId: "guide",
+      difficulty: null,
+      outcomes: [],
+      productIds: [],
+      summary: "Урок с колодой.",
+      tagIds: [],
+      title: "Урок с колодой",
+      topicId,
+    };
+    const created = await materials.authoring.createDraft({
+      actor: author,
+      idempotencyKey: "glossary-deck-create",
+      metadata,
+      body: lessonBody(),
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const published = await materials.authoring.saveMaterial({
+      actor: author,
+      idempotencyKey: "glossary-deck-publish",
+      materialId: created.value.materialId,
+      expectedContentVersion: 1,
+      publicationState: "published",
+      metadata,
+      body: lessonBody(),
+    });
+    if (!published.ok) throw new Error(published.error.code);
+    const stored = await testDatabase.prisma.material.update({
+      where: { id: created.value.materialId },
+      data: {
+        sourceId: "content-studio:deck-lesson",
+        sourcePath: "lessons/deck-lesson.md",
+        sourceRevision: "1",
+      },
+      select: { slug: true },
+    });
+
+    const read = await materials.publishedMaterialReader.read({
+      subject: anonymousSubject,
+      slug: stored.slug ?? "",
+    });
+    if (!read.ok || read.value.kind !== "available")
+      throw new Error("Expected the lesson body");
+    // The body mentions «bounded-context» first; «aggregate» follows; «entity» is introduced elsewhere.
+    expect(read.value.lessonTerms.map((term) => term.id)).toEqual([
+      "bounded-context",
+      "aggregate",
+    ]);
+    expect(read.value.lessonTerms[0]).toEqual({
+      id: "bounded-context",
+      title: boundedContext.title,
+      englishTitle: boundedContext.englishTitle,
+      shortDefinition: boundedContext.shortDefinition,
+      fullDefinition: boundedContext.fullDefinition,
+    });
+  });
+
+  test("finds the terms a Material introduces by its authoring source identifier", async () => {
+    await glossary.upsert({
+      actor: author,
+      terms: [
+        boundedContext,
+        aggregate,
+        {
+          ...aggregate,
+          id: "ubiquitous-language",
+          title: "Единый язык",
+          introducedInSourceId: "content-studio:ddd-intro",
+        },
+      ],
+    });
+    const introduced = await glossary.introducedIn([
+      "content-studio:ddd-intro",
+      "content-studio:other",
+    ]);
+    if (!introduced.ok) throw new Error(introduced.error.code);
+    expect(introduced.value.map((term) => term.id).sort()).toEqual([
+      "bounded-context",
+      "ubiquitous-language",
+    ]);
+    expect(await glossary.introducedIn([])).toEqual({ ok: true, value: [] });
+  });
+
+  test("keeps one «знаю» or «повторить» mark per reader and term", async () => {
+    await glossary.upsert({
+      actor: author,
+      terms: [boundedContext, aggregate],
+    });
+    expect(
+      await glossary.readMarks({
+        accountId: reader,
+        termIds: ["bounded-context", "aggregate"],
+      }),
+    ).toEqual({ ok: true, value: [] });
+
+    expect(
+      await glossary.setMark({
+        accountId: reader,
+        termId: "bounded-context",
+        mark: "review",
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        termId: "bounded-context",
+        mark: "review",
+        markedAt: "2026-10-07T09:00:00.000Z",
+      },
+    });
+    await glossary.setMark({
+      accountId: reader,
+      termId: "bounded-context",
+      mark: "known",
+    });
+    await glossary.setMark({
+      accountId: reader,
+      termId: "aggregate",
+      mark: "review",
+    });
+    const marks = await glossary.readMarks({
+      accountId: reader,
+      termIds: ["bounded-context", "aggregate", "missing"],
+    });
+    expect(marks).toEqual({
+      ok: true,
+      value: [
+        {
+          termId: "bounded-context",
+          mark: "known",
+          markedAt: "2026-10-07T09:00:00.000Z",
+        },
+        {
+          termId: "aggregate",
+          mark: "review",
+          markedAt: "2026-10-07T09:00:00.000Z",
+        },
+      ],
+    });
+    // Another reader sees only their own marks.
+    expect(
+      await glossary.readMarks({ accountId: author, termIds: ["aggregate"] }),
+    ).toEqual({ ok: true, value: [] });
+  });
+
+  test("refuses a mark on an unknown term or with an unknown value", async () => {
+    expect(
+      await glossary.setMark({
+        accountId: reader,
+        termId: "no-such-term",
+        mark: "known",
+      }),
+    ).toEqual({ ok: false, error: { code: "term_not_found" } });
+    expect(
+      await glossary.setMark({
+        accountId: reader,
+        termId: "aggregate",
+        mark: "forgotten",
+      }),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
+  });
 });

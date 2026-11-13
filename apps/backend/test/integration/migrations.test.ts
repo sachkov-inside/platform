@@ -201,7 +201,7 @@ describe("Platform migrations", () => {
       "product_learning_started",
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
-    await expectTables(testDatabase, "glossary", ["terms"]);
+    await expectTables(testDatabase, "glossary", ["term_marks", "terms"]);
     await expectTables(testDatabase, "sales_funnel", [
       "bot_events",
       "product_waitlist_intakes",

@@ -784,7 +784,19 @@ model GlossaryTerm {
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
+  @@index([introducedInSourceId], map: "glossary_terms_introduced_in_idx")
   @@map("terms")
+  @@schema("glossary")
+}
+
+model GlossaryTermMark {
+  accountId String   @map("account_id") @db.Uuid
+  termId    String   @map("term_id")
+  mark      String
+  markedAt  DateTime @map("marked_at") @db.Timestamptz
+
+  @@id([accountId, termId], map: "glossary_term_marks_primary")
+  @@map("term_marks")
   @@schema("glossary")
 }
 
