@@ -19,10 +19,11 @@ import "./product-programme-view.css";
 
 // Throwaway (owner request 2026-11-13): learners ask which course topics are still coming and when.
 // The owner picked variant A «Список с метками» of four HTML sketches and asked to add «Обновлено …»
-// from another sketch. Second pass 2026-11-13: no «Готово» or «Следующая» badges, fewer chapters.
+// from another sketch. Second pass 2026-11-13: no «Готово» or «Следующая» badges, fewer chapters,
+// no parts (the product only has chapters).
 // Fixture data only; nothing in production imports this file. Lesson titles of
 // the two finished chapters and the outcome lines of later chapters are placeholders for the picture.
-// The production version needs chapter status, lesson status, part, outcome line, topics and an
+// The production version needs chapter status, lesson status, outcome line, topics and an
 // update date in the presentation contract (see docs/evidence/course-roadmap/README.md).
 
 interface ReadyLesson {
@@ -54,14 +55,9 @@ type RoadmapChapter =
       readonly topics: readonly string[];
     };
 
-interface RoadmapPart {
-  readonly title: string;
-  readonly chapters: readonly RoadmapChapter[];
-}
-
 interface Roadmap {
   readonly updated: string;
-  readonly parts: readonly RoadmapPart[];
+  readonly chapters: readonly RoadmapChapter[];
   /** How many first published lessons the reader has finished. */
   readonly read: number;
 }
@@ -136,73 +132,58 @@ const planned = (
 const fullRoadmap: Roadmap = {
   updated: "13 ноября",
   read: 9,
-  parts: [
-    {
-      title: "Часть 1. Разработка с агентами",
-      chapters: [
-        firstChapter,
-        secondChapter,
-        designChapter,
-        planned(
-          "Тестирование, проверки, фидбэк и evals",
-          "Принимать работу агента по проверкам и свидетельствам, а не по слову «готово».",
-          [
-            "Тесты, которым можно верить",
-            "Проверка в живом приложении",
-            "Свидетельства в PR",
-            "Независимое ревью",
-            "Фидбэк агенту",
-            "Evals",
-          ],
-        ),
-        planned(
-          "Практика: разработка реального проекта с агентами",
-          "Разные проекты и разные реализации, весь путь от идеи до работающей версии.",
-          [
-            "Спецификации и деление на задачи",
-            "Параллельные агенты",
-            "Фронтенд и дизайн с агентом",
-          ],
-        ),
+  chapters: [
+    firstChapter,
+    secondChapter,
+    designChapter,
+    planned(
+      "Тестирование, проверки, фидбэк и evals",
+      "Принимать работу агента по проверкам и свидетельствам, а не по слову «готово».",
+      [
+        "Тесты, которым можно верить",
+        "Проверка в живом приложении",
+        "Свидетельства в PR",
+        "Независимое ревью",
+        "Фидбэк агенту",
+        "Evals",
       ],
-    },
-    {
-      title: "Часть 2. Доставка и работа команды",
-      chapters: [
-        planned(
-          "Инфраструктура, CI/CD и деплой с агентами",
-          "Выкатить проект в продакшен и поддерживать его вместе с агентом.",
-          ["Окружения и секреты", "CI/CD", "Деплой", "Бэкапы", "Мониторинг"],
-        ),
-        planned(
-          "Существующий проект и процесс команды с агентами",
-          "Подключить агентов к живому проекту и автоматизировать рутину команды.",
-          [
-            "Агент в чужом коде",
-            "Общий harness и MCP",
-            "Агенты по расписанию",
-            "Облачные агенты",
-            "Безопасность: права и песочницы для агентов",
-          ],
-        ),
+    ),
+    planned(
+      "Практика: разработка реального проекта с агентами",
+      "Разные проекты и разные реализации, весь путь от идеи до работающей версии.",
+      [
+        "Спецификации и деление на задачи",
+        "Параллельные агенты",
+        "Фронтенд и дизайн с агентом",
       ],
-    },
-    {
-      title: "Часть 3. AI внутри продукта",
-      chapters: [
-        planned(
-          "Разработка агентов-помощников и встраивание их в продукты",
-          "Сделать своего агента и встроить его в продукт так, чтобы он работал за пользователя.",
-          [
-            "Как устроены LLM и цикл агента",
-            "Инструменты и tool calling",
-            "RAG: поиск и подготовка контекста",
-            "Память и сессии",
-            "Безопасность: prompt injection и действия с подтверждением",
-          ],
-        ),
+    ),
+    planned(
+      "Инфраструктура, CI/CD и деплой с агентами",
+      "Выкатить проект в продакшен и поддерживать его вместе с агентом.",
+      ["Окружения и секреты", "CI/CD", "Деплой", "Бэкапы", "Мониторинг"],
+    ),
+    planned(
+      "Существующий проект и процесс команды с агентами",
+      "Подключить агентов к живому проекту и автоматизировать рутину команды.",
+      [
+        "Агент в чужом коде",
+        "Общий harness и MCP",
+        "Агенты по расписанию",
+        "Облачные агенты",
+        "Безопасность: права и песочницы для агентов",
       ],
-    },
+    ),
+    planned(
+      "Разработка агентов-помощников и встраивание их в продукты",
+      "Сделать своего агента и встроить его в продукт так, чтобы он работал за пользователя.",
+      [
+        "Как устроены LLM и цикл агента",
+        "Инструменты и tool calling",
+        "RAG: поиск и подготовка контекста",
+        "Память и сессии",
+        "Безопасность: prompt injection и действия с подтверждением",
+      ],
+    ),
   ],
 };
 
@@ -210,32 +191,26 @@ const fullRoadmap: Roadmap = {
 const allDoneRoadmap: Roadmap = {
   ...fullRoadmap,
   read: 17,
-  parts: fullRoadmap.parts.map((part) => ({
-    ...part,
-    chapters: part.chapters.map((chapter): RoadmapChapter =>
-      chapter.kind === "done"
-        ? chapter
-        : {
-            kind: "done",
-            name: chapter.name,
-            lessons:
-              chapter.kind === "writing"
-                ? chapter.lessons.map(({ title }) => ({ title }))
-                : chapter.topics.map((title) => ({ title })),
-          },
-    ),
-  })),
+  chapters: fullRoadmap.chapters.map((chapter): RoadmapChapter =>
+    chapter.kind === "done"
+      ? chapter
+      : {
+          kind: "done",
+          name: chapter.name,
+          lessons:
+            chapter.kind === "writing"
+              ? chapter.lessons.map(({ title }) => ({ title }))
+              : chapter.topics.map((title) => ({ title })),
+        },
+  ),
 };
 
 /** The course is still being written, but nothing is announced beyond the current chapter. */
 const noPlannedRoadmap: Roadmap = {
   ...fullRoadmap,
-  parts: fullRoadmap.parts.flatMap((part) => {
-    const chapters = part.chapters.filter(
-      (chapter) => chapter.kind !== "planned",
-    );
-    return chapters.length === 0 ? [] : [{ ...part, chapters }];
-  }),
+  chapters: fullRoadmap.chapters.filter(
+    (chapter) => chapter.kind !== "planned",
+  ),
 };
 
 const isReady = (lesson: ReadyLesson | UpcomingLesson): lesson is ReadyLesson =>
@@ -272,24 +247,21 @@ function material(
 /** Lessons of the whole roadmap with their programme ordinal; future lessons keep their place. */
 function numbered(roadmap: Roadmap) {
   let ordinal = 0;
-  return roadmap.parts.map((part) => ({
-    ...part,
-    chapters: part.chapters.map((chapter) => ({
-      chapter,
-      lessons:
-        chapter.kind === "planned"
-          ? []
-          : chapter.lessons.map((lesson) => {
-              ordinal += 1;
-              return isReady(lesson)
-                ? {
-                    kind: "ready" as const,
-                    material: material(lesson, ordinal, roadmap.read),
-                    ordinal,
-                  }
-                : { kind: "upcoming" as const, lesson, ordinal };
-            }),
-    })),
+  return roadmap.chapters.map((chapter) => ({
+    chapter,
+    lessons:
+      chapter.kind === "planned"
+        ? []
+        : chapter.lessons.map((lesson) => {
+            ordinal += 1;
+            return isReady(lesson)
+              ? {
+                  kind: "ready" as const,
+                  material: material(lesson, ordinal, roadmap.read),
+                  ordinal,
+                }
+              : { kind: "upcoming" as const, lesson, ordinal };
+          }),
   }));
 }
 
@@ -345,7 +317,7 @@ const chapterTitleClass =
   "inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl";
 
 function RoadmapProgress({ roadmap }: { readonly roadmap: Roadmap }) {
-  const chapters = roadmap.parts.flatMap((part) => part.chapters);
+  const chapters = roadmap.chapters;
   const done = chapters.filter((chapter) => chapter.kind === "done").length;
   const summary = [`Готово ${plural(done, "глава", "главы", "глав")}`];
   return (
@@ -468,7 +440,7 @@ function UpcomingLessonRow({
   );
 }
 
-type NumberedChapter = ReturnType<typeof numbered>[number]["chapters"][number];
+type NumberedChapter = ReturnType<typeof numbered>[number];
 
 function DoneChapter({ entry }: { readonly entry: NumberedChapter }) {
   const lessons = entry.lessons.flatMap((lesson) =>
@@ -588,12 +560,11 @@ function PlannedChapter({
 }
 
 function CourseRoadmapPage({ roadmap }: { readonly roadmap: Roadmap }) {
-  const parts = numbered(roadmap);
-  const published = parts
-    .flatMap((part) => part.chapters)
+  const entries = numbered(roadmap);
+  const published = entries
     .flatMap((entry) => entry.lessons)
     .filter((lesson) => lesson.kind === "ready");
-  const chapterCount = parts.flatMap((part) => part.chapters).length;
+  const chapterCount = entries.length;
   return (
     <div
       className="@container/programme mx-auto w-full max-w-[46rem] min-w-0"
@@ -628,38 +599,24 @@ function CourseRoadmapPage({ roadmap }: { readonly roadmap: Roadmap }) {
         <RoadmapProgress roadmap={roadmap} />
       </header>
 
-      <section aria-label="Программа" className="mt-8 grid gap-9">
-        {parts.map((part) => (
+      <section aria-label="Программа" className="mt-8 grid gap-6">
+        {entries.map((entry) => (
           <section
-            aria-labelledby={part.title}
-            className="grid gap-6"
-            key={part.title}
+            className="programme-chapter"
+            data-chapter-state={
+              entry.chapter.kind === "planned" ? "preparing" : "open"
+            }
+            key={entry.chapter.name}
           >
-            <h2
-              className="text-xs font-semibold tracking-[0.08em] text-eyebrow uppercase"
-              id={part.title}
-            >
-              {part.title}
-            </h2>
-            {part.chapters.map((entry) => (
-              <section
-                className="programme-chapter"
-                data-chapter-state={
-                  entry.chapter.kind === "planned" ? "preparing" : "open"
-                }
-                key={entry.chapter.name}
-              >
-                <div className="programme-chapter-head">
-                  {entry.chapter.kind === "done" ? (
-                    <DoneChapter entry={entry} />
-                  ) : entry.chapter.kind === "writing" ? (
-                    <WritingChapter entry={entry} />
-                  ) : (
-                    <PlannedChapter chapter={entry.chapter} />
-                  )}
-                </div>
-              </section>
-            ))}
+            <div className="programme-chapter-head">
+              {entry.chapter.kind === "done" ? (
+                <DoneChapter entry={entry} />
+              ) : entry.chapter.kind === "writing" ? (
+                <WritingChapter entry={entry} />
+              ) : (
+                <PlannedChapter chapter={entry.chapter} />
+              )}
+            </div>
           </section>
         ))}
       </section>
@@ -679,7 +636,6 @@ function ReadingScope({
   readonly children: ReactNode;
 }) {
   const lessons = numbered(roadmap)
-    .flatMap((part) => part.chapters)
     .flatMap((entry) => entry.lessons)
     .flatMap((lesson) => (lesson.kind === "ready" ? [lesson.material] : []));
   return (
