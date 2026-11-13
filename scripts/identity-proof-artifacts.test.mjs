@@ -158,7 +158,7 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.equal(webPackage.dependencies["@logto/next"], versions.logtoNext);
   assert.equal(webPackage.devDependencies["@logto/node"], versions.logtoNode);
   assert.equal(rootPackage.devDependencies["@logto/node"], versions.logtoNode);
-  assert.doesNotMatch(`${dockerfile}\n${compose}`, /(?:latest|npx\s)/u);
+  assert.doesNotMatch(`${dockerfile}\n${compose}`, /(?:latest|\bnpx[ \t])/u);
   assert.match(dockerfile, /^ENTRYPOINT \[\]$/mu);
   // Logto 1.42+ refuses to start on a database without the alterations of its version.
   const [productionCompose, productionLogtoEnv] = await Promise.all([

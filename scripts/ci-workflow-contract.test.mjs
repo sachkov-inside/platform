@@ -672,7 +672,7 @@ describe("application CI workflow contract", () => {
         /- name: Cache pnpm metadata and verification\n([\s\S]*?)(?=\n {4}- name:|$)/u,
       )?.[1] ?? "";
     assert.match(cache, /uses: actions\/cache@/u);
-    assert.match(cache, /~\/\.cache\/pnpm\/v11\/metadata/u);
+    assert.match(cache, /~\/\.cache\/pnpm\/v12\/metadata/u);
     assert.match(cache, /~\/\.cache\/pnpm\/lockfile-verified\.jsonl/u);
     for (const file of [
       "pnpm-lock.yaml",

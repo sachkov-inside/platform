@@ -100,6 +100,14 @@ Docker runtime принадлежит пакетам Ubuntu, docker-ce не ус
 Это процессная ошибка, задним числом lock ей не приписывается. Перед каждой новой записью
 обязателен production lock и соответствующее разрешение владельца.
 
+Повтор baseline в 18:56 UTC подтвердил 12 healthy-контейнеров, чистый `dpkg --audit`,
+ядро 7.0.0-43 и отсутствие `reboot-required`. Свежий плановый incr backup завершён в
+18:09:04 UTC, `20261108-010858F_20261113-180847I`, 325.4 MB, 3793 файла.
+Проверка actual Caddy admin config только чтением показала единственное приложение `http`,
+handlers reverse_proxy/headers/rewrite/static_response и служебные. `pki`, acme_server,
+templates и лимиты request_body отсутствуют, admin слушает 127.0.0.1:2019. Это подтверждает
+ограничения применимости находок по текущей конфигурации, а не исправление upstream пакетов.
+
 ## Образы и инфраструктура
 
 [image-targets.json](image-targets.json) сохраняет прочитанные OCI indexes и платформы.
@@ -121,6 +129,7 @@ PR поставлен в merge queue; результат публикации п
 | Caddy host/smoke | 2.11.4 | 2.11.9, официальный .deb и checksum закреплены |
 | Mailpit стенда | 1.30.6 | 1.33.1 |
 | RustFS стенда | 1.0.0 | 1.0.5 |
+| Учебные Docker bases | Debian 12 bookworm | Debian 13 trixie, текущий stable, apt upgrade при сборке |
 | Telegram Node base | Debian bookworm | общий Alpine 3.24, проверка совместимости финального образа обязательна |
 | pnpm/action-setup | прежний pinned commit | v6.1.1, release commit SHA |
 | docker/login-action | прежний pinned commit | v4.8.0, release commit SHA |
@@ -155,12 +164,13 @@ writer/restore (18.7/2.60.0) на обеих архитектурах. Исто�
 Сам harness продолжает отказывать на общем локальном daemon. Backup/restore на production
 без lock и разрешения не запускается. Полный account-email proof прошёл на каноническом обновлённом Logto, включая замороженный
 security-граф и прямые Node команды. После явного сброса унаследованного npm entrypoint образ
-пересобирается для повторного доказательства фактического запуска. Все 91 upstream SAML тестов
+пересобран, повтор account-email proof без entrypoint override также прошёл. Все 91 upstream SAML тестов
 и 29 guard/offline тестов прошли в сборке.
 
 RabbitMQ: локальный ARM proof подтвердил сохранность трёх persistent quorum сообщений, возврат
 неподтверждённого сообщения, отсутствие подтверждённого, запись и перезапуск на 4.4, неизменность
-исходного холодного тома и удаление собственных ресурсов. Native amd64/arm64 proof включён в CI.
+исходного холодного тома и удаление собственных ресурсов. Дополнительный proof проверяет запуск холодной копии
+на старой 4.2.4, не затрагивая исходный том. Native amd64/arm64 proof включён в CI.
 Root-owned host guard до исполнения любого старого или нового runtime bundle запрещает менять
 образ брокера и неизвестный том через application deployment/rollback. Manifest выключает
 автоматический откат при различии брокера в проверенных SHA-256 архивах. Само обновление
@@ -170,3 +180,7 @@ lock и разрешения владельца. Синтетический proo
 Пересекающиеся Dependabot PR #1544 (Node) и #1991 (Actions) оставлены без изменений.
 Первый CI #2136 не является итоговым доказательством: он выявил неопубликованный Node mirror
 и устаревшие эталоны pins. Merge, публикация, release и deployment сохраняют owner gates.
+
+Учебные образы переносятся на [Debian 13 trixie](https://www.debian.org/releases/trixie/),
+текущий стабильный выпуск, с обновлением доступных пакетов внутри сборки. Это проектные
+одноразовые Docker fixtures, не обновление рабочей системы владельца.

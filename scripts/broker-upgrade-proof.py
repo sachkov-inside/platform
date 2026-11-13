@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Upgrade self-created RabbitMQ data; never accepts an existing volume or publishes ports."""
 import argparse
+import hashlib
 import importlib.util
 import json
 import pathlib
@@ -143,16 +144,20 @@ class Proof:
                  "--env", "RABBITMQ_DEFAULT_USER=proof", "--env", "RABBITMQ_DEFAULT_PASS=synthetic-password",
                  "--env", "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+S 2:2",
                  "--mount", "type=volume,src=" + volume + ",dst=/var/lib/rabbitmq", image)
+        self.wait_ready(name)
+        return name
+
+    def wait_ready(self, name):
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             if self.run("exec", "--user", "rabbitmq", name, "rabbitmq-diagnostics", "-q", "check_running", check=False, timeout=15).returncode == 0:
                 alarms = self.run("exec", "--user", "rabbitmq", name, "rabbitmq-diagnostics", "-q", "check_local_alarms", check=False)
                 if alarms.returncode == 0:
-                    return name
+                    return
             time.sleep(1)
         raise TimeoutError("broker did not become ready")
 
-    def client(self, broker, mode):
+    def client(self, mode):
         self.run("run", "--rm", "--name", self.name("container", "client-" + mode),
                  "--label", LABEL + "=" + self.owner, "--network", self.network,
                  "--memory", "256m", "--cpus", "1", "--entrypoint", "node",
@@ -207,7 +212,7 @@ def main():
         if old_version != "4.2.4":
             raise ValueError("unexpected source broker version")
         before_flags = proof.flags(old)
-        proof.client(old, "seed")
+        proof.client("seed")
         proof.run("stop", "--time", "30", old)
         proof.run("rm", old)
         before = proof.hash(original, "hash-before")
@@ -218,19 +223,28 @@ def main():
         new_version = proof.run("exec", "--user", "rabbitmq", upgraded, "rabbitmqctl", "version").stdout.strip()
         if new_version != "4.4.0":
             raise ValueError("unexpected target broker version")
-        proof.client(upgraded, "upgraded")
+        proof.client("upgraded")
         after_flags = proof.flags(upgraded)
         proof.run("stop", "--time", "30", upgraded)
         proof.run("start", upgraded)
-        deadline = time.monotonic() + 90
-        while proof.run("exec", "--user", "rabbitmq", upgraded, "rabbitmq-diagnostics", "-q", "ping", check=False).returncode:
-            if time.monotonic() >= deadline:
-                raise TimeoutError("upgraded broker restart failed")
-            time.sleep(1)
-        proof.client(upgraded, "after-restart")
+        proof.wait_ready(upgraded)
+        proof.client("after-restart")
         if proof.hash(original, "hash-after") != before:
             raise ValueError("upgrade modified the original cold volume")
-        receipt = dict(schemaVersion=1, sourceVersion="4.2.4", targetVersion="4.4.0",
+        # Prove the cold recovery path on a second copy, preserving the original throughout.
+        proof.run("stop", "--time", "30", upgraded)
+        recovery = proof.create("volume", "cold-recovery")
+        proof.helper("clone-recovery", "--mount", "type=volume,src=" + original + ",dst=/source,readonly",
+                     "--mount", "type=volume,src=" + recovery + ",dst=/target",
+                     "--entrypoint", "sh", proof.client_image, "-ec", "cp -a /source/. /target/")
+        proof.broker(OLD, recovery, "recovered-old")
+        proof.client("cold-recovery")
+        if proof.hash(original, "hash-after-recovery") != before:
+            raise ValueError("recovery modified the original cold volume")
+        receipt = dict(schemaVersion=1,
+                       sourceSha=commands.invoke(["git", "-C", str(ROOT), "rev-parse", "HEAD"]).stdout.strip(),
+                       proofSha256=hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),
+                       coldOldVersionRecoveryPassed=True, sourceVersion="4.2.4", targetVersion="4.4.0",
                        targetImage=args.target_image, clientImage=args.client_image,
                        architecture=proof.run("info", "--format", "{{.Architecture}}").stdout.strip(),
                        sourceImageId=proof.run("image", "inspect", "--format", "{{.Id}}", OLD).stdout.strip(),

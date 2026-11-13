@@ -17,6 +17,14 @@
       "uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0"
     ]
   },
+  ".github/dependabot.yml": {
+    "before": [],
+    "candidate": []
+  },
+  ".github/jactionlint.yaml": {
+    "before": [],
+    "candidate": []
+  },
   ".github/workflows/acquisition-diagnostic.yml": {
     "before": [
       "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
@@ -147,7 +155,10 @@
   },
   ".github/workflows/deploy.yml": {
     "before": ["uses: ./.github/workflows/production-access.yml"],
-    "candidate": ["uses: ./.github/workflows/production-access.yml"]
+    "candidate": [
+      "uses: ./.github/workflows/production-lock.yml",
+      "uses: ./.github/workflows/production-access.yml"
+    ]
   },
   ".github/workflows/foundation-recovery.yml": {
     "before": [
@@ -160,6 +171,8 @@
       "- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
       "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
       "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+      "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
+      "uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2",
       "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
       "uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2"
     ]
@@ -220,6 +233,12 @@
       "uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2"
     ]
   },
+  ".github/workflows/production-lock.yml": {
+    "before": [],
+    "candidate": [
+      "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1"
+    ]
+  },
   ".github/workflows/production-monitor.yml": {
     "before": [
       "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
@@ -263,6 +282,7 @@
       "uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2"
     ],
     "candidate": [
+      "uses: ./.github/workflows/production-lock.yml",
       "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
       "uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1",
       "uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0",
@@ -292,13 +312,16 @@
       "uses: ./.github/actions/setup-platform"
     ]
   },
+  ".github/workflows/telegram-deploy.yml": {
+    "before": [],
+    "candidate": ["uses: ./.github/workflows/production-lock.yml"]
+  },
   ".github/workflows/telegram-release.yml": {
     "before": [
       "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
       "uses: ./.github/actions/setup-platform",
       "uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2",
       "uses: ./.github/workflows/ci.yml",
-      "image:",
       "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
       "uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1",
       "uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0",
@@ -309,11 +332,11 @@
       "uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2"
     ],
     "candidate": [
+      "uses: ./.github/workflows/production-lock.yml",
       "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
       "uses: ./.github/actions/setup-platform",
       "uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2",
       "uses: ./.github/workflows/ci.yml",
-      "image:",
       "uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
       "uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1",
       "uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0",
@@ -566,7 +589,7 @@
       "FROM node:26.10.0-bookworm-slim@sha256:3ffc19ea878019d9e9ae8971732ad4a03cda44f167107173174b60ed7c65bed3"
     ],
     "candidate": [
-      "FROM node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1"
+      "FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc"
     ]
   },
   "tools/practice-review/native/chapter-one/fixtures/project/Dockerfile": {
@@ -574,7 +597,7 @@
       "FROM node:26.10.0-bookworm-slim@sha256:3ffc19ea878019d9e9ae8971732ad4a03cda44f167107173174b60ed7c65bed3"
     ],
     "candidate": [
-      "FROM node:26.13.1-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1"
+      "FROM node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc"
     ]
   },
   "tools/practice-review/native/chapter-one/fixtures/project/compose.yaml": {

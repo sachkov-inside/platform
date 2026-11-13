@@ -66,5 +66,20 @@
       "Title": "For HTTP/1 servers, when MaxBytesReader's limit is exceeded, \"Connecti ...",
       "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-97054"
     }
-  ]
+  ],
+  "activeProductionConfigurationReadAt": "2026-11-13T19:02:00Z",
+  "activeProductionConfiguration": {
+    "handlers": [
+      "copy_response_headers",
+      "headers",
+      "reverse_proxy",
+      "rewrite",
+      "static_response",
+      "subroute",
+      "vars"
+    ],
+    "apps": ["http"],
+    "riskKeysPresent": [],
+    "adminListen": "127.0.0.1:2019"
+  }
 }
