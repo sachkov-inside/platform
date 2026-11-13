@@ -19,7 +19,8 @@ import "./product-programme-view.css";
 
 // Throwaway (owner request 2026-11-13): learners ask which course topics are still coming and when.
 // The owner picked variant A «Список с метками» of four HTML sketches and asked to add «Обновлено …»
-// from another sketch. Fixture data only; nothing in production imports this file. Lesson titles of
+// from another sketch. Second pass 2026-11-13: no «Готово» or «Следующая» badges, fewer chapters.
+// Fixture data only; nothing in production imports this file. Lesson titles of
 // the two finished chapters and the outcome lines of later chapters are placeholders for the picture.
 // The production version needs chapter status, lesson status, part, outcome line, topics and an
 // update date in the presentation contract (see docs/evidence/course-roadmap/README.md).
@@ -49,7 +50,6 @@ type RoadmapChapter =
   | {
       readonly kind: "planned";
       readonly name: string;
-      readonly next?: boolean;
       readonly outcome: string;
       readonly topics: readonly string[];
     };
@@ -131,8 +131,7 @@ const planned = (
   name: string,
   outcome: string,
   topics: readonly string[],
-  next = false,
-): RoadmapChapter => ({ kind: "planned", name, outcome, topics, next });
+): RoadmapChapter => ({ kind: "planned", name, outcome, topics });
 
 const fullRoadmap: Roadmap = {
   updated: "13 ноября",
@@ -145,20 +144,20 @@ const fullRoadmap: Roadmap = {
         secondChapter,
         designChapter,
         planned(
-          "Проверка работы агента",
-          "Принимать работу агента по свидетельствам, а не по слову «готово».",
+          "Тестирование, проверки, фидбэк и evals",
+          "Принимать работу агента по проверкам и свидетельствам, а не по слову «готово».",
           [
             "Тесты, которым можно верить",
             "Проверка в живом приложении",
             "Свидетельства в PR",
             "Независимое ревью",
-            "Что проверяет человек",
+            "Фидбэк агенту",
+            "Evals",
           ],
-          true,
         ),
         planned(
-          "Практика: доводим первую версию платформы",
-          "Весь цикл разработки на реальном проекте, от спецификации до работающей версии.",
+          "Практика: разработка реального проекта с агентами",
+          "Разные проекты и разные реализации, весь путь от идеи до работающей версии.",
           [
             "Спецификации и деление на задачи",
             "Параллельные агенты",
@@ -171,9 +170,9 @@ const fullRoadmap: Roadmap = {
       title: "Часть 2. Доставка и работа команды",
       chapters: [
         planned(
-          "Релиз и эксплуатация",
-          "Выкатить проект в продакшен и следить за ним вместе с агентом.",
-          ["Окружения и секреты", "CI/CD и деплой", "Бэкапы", "Мониторинг"],
+          "Инфраструктура, CI/CD и деплой с агентами",
+          "Выкатить проект в продакшен и поддерживать его вместе с агентом.",
+          ["Окружения и секреты", "CI/CD", "Деплой", "Бэкапы", "Мониторинг"],
         ),
         planned(
           "Существующий проект и процесс команды с агентами",
@@ -183,6 +182,7 @@ const fullRoadmap: Roadmap = {
             "Общий harness и MCP",
             "Агенты по расписанию",
             "Облачные агенты",
+            "Безопасность: права и песочницы для агентов",
           ],
         ),
       ],
@@ -191,29 +191,15 @@ const fullRoadmap: Roadmap = {
       title: "Часть 3. AI внутри продукта",
       chapters: [
         planned(
-          "Как устроены LLM и агенты",
-          "Понять, что модель умеет и где её пределы, до того как строить на ней функцию.",
-          ["Модель", "Контекст", "Ограничения", "Цикл агента", "Tool calling"],
-        ),
-        planned(
-          "Свой агент в продукте",
-          "Встроить агента в свой продукт так, чтобы он делал работу за пользователя.",
-          ["Инструменты", "Сессии", "Память", "Действия с подтверждением"],
-        ),
-        planned(
-          "RAG: поиск и подготовка контекста",
-          "Дать модели нужные данные продукта в момент ответа.",
-          ["Индексация", "Поиск", "Подготовка контекста"],
-        ),
-        planned(
-          "Безопасность агентов",
-          "Не дать агенту сделать лишнее, даже если его попросят.",
-          ["Prompt injection", "Права", "Песочницы"],
-        ),
-        planned(
-          "Качество AI-функций: evals, трассировки, стоимость",
-          "Измерять, насколько хорошо работает AI-функция и сколько она стоит.",
-          ["Evals", "Трассировки", "Стоимость"],
+          "Разработка агентов-помощников и встраивание их в продукты",
+          "Сделать своего агента и встроить его в продукт так, чтобы он работал за пользователя.",
+          [
+            "Как устроены LLM и цикл агента",
+            "Инструменты и tool calling",
+            "RAG: поиск и подготовка контекста",
+            "Память и сессии",
+            "Безопасность: prompt injection и действия с подтверждением",
+          ],
         ),
       ],
     },
@@ -320,10 +306,8 @@ const plural = (n: number, one: string, few: string, many: string) => {
 };
 
 const badgeTone = {
-  done: "bg-[color-mix(in_oklch,var(--primary)_11%,var(--card))] text-foreground",
   writing:
     "bg-[color-mix(in_oklch,var(--accent)_12%,var(--background))] text-action",
-  next: "bg-primary text-primary-foreground",
   planned: "bg-secondary text-muted-foreground",
 } as const;
 
@@ -345,12 +329,7 @@ function StatusBadge({
         )}
         data-roadmap-badge={tone}
       >
-        {tone === "done" ? (
-          <span
-            aria-hidden="true"
-            className="size-1.5 rounded-full bg-primary"
-          />
-        ) : tone === "writing" ? (
+        {tone === "writing" ? (
           <span
             aria-hidden="true"
             className="size-1.5 rounded-full bg-accent"
@@ -368,15 +347,7 @@ const chapterTitleClass =
 function RoadmapProgress({ roadmap }: { readonly roadmap: Roadmap }) {
   const chapters = roadmap.parts.flatMap((part) => part.chapters);
   const done = chapters.filter((chapter) => chapter.kind === "done").length;
-  const writing = chapters.filter((chapter) => chapter.kind === "writing");
-  const plannedCount = chapters.filter(
-    (chapter) => chapter.kind === "planned",
-  ).length;
-  const summary = [
-    `Готово ${plural(done, "глава", "главы", "глав")}`,
-    writing.length === 0 ? undefined : `${String(writing.length)} пишется`,
-    plannedCount === 0 ? undefined : `${String(plannedCount)} в планах`,
-  ].filter((value): value is string => value !== undefined);
+  const summary = [`Готово ${plural(done, "глава", "главы", "глав")}`];
   return (
     <div className="mt-4 border-t border-border/70 pt-4" data-roadmap-progress>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
@@ -510,10 +481,8 @@ function DoneChapter({ entry }: { readonly entry: NumberedChapter }) {
       <summary className="flex cursor-pointer list-none items-start justify-between gap-4 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
         <div className="min-w-0">
           <h3 className={chapterTitleClass}>{entry.chapter.name}</h3>
-          <StatusBadge tone="done">Готово</StatusBadge>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {plural(lessons.length, "урок", "урока", "уроков")} · изучено {read}{" "}
-            из {lessons.length}
+            Изучено {read} из {lessons.length}
           </p>
         </div>
         <ChevronDown
@@ -579,19 +548,17 @@ function PlannedChapter({
   readonly chapter: Extract<RoadmapChapter, { kind: "planned" }>;
 }) {
   return (
-    <div data-roadmap-chapter={chapter.next === true ? "next" : "planned"}>
+    <div data-roadmap-chapter="planned">
       <h3
         className={cn(
           chapterTitleClass,
           "text-[0.9375rem] sm:text-lg",
-          chapter.next === true ? undefined : "text-foreground/85",
+          "text-foreground/85",
         )}
       >
         {chapter.name}
       </h3>
-      <StatusBadge tone={chapter.next === true ? "next" : "planned"}>
-        {chapter.next === true ? "Следующая" : "В планах"}
-      </StatusBadge>
+      <StatusBadge tone="planned">В планах</StatusBadge>
       <p className="mt-1 max-w-[64ch] text-sm leading-6 text-muted-foreground">
         {chapter.outcome}
       </p>
@@ -789,9 +756,9 @@ export const Expanded: Story = {
       }),
     ).toBeVisible();
     const next = canvasElement.querySelector<HTMLElement>(
-      '[data-roadmap-chapter="next"] summary',
+      '[data-roadmap-chapter="planned"] summary',
     );
-    if (next === null) throw new Error("Missing next chapter topics");
+    if (next === null) throw new Error("Missing planned chapter topics");
     await userEvent.click(next);
     await expect(canvas.getByText("Свидетельства в PR")).toBeVisible();
   },
