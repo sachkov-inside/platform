@@ -24,10 +24,7 @@ export type NotificationSource =
       readonly purchaseRef?: string;
       readonly amountMinor?: number;
       readonly dueAt?: string;
-      /**
-       * Неизменяемые факты продажи для автора. Данных покупателя здесь нет: автор находит его по
-       * ссылке на карточку оплаты, а персональные данные не уходят в Telegram.
-       */
+      /** Факты продажи для автора: скидка из повода и текущий Telegram покупателя (#2085). */
       readonly sale?: SaleFacts;
     };
 export interface SaleFacts {
@@ -36,7 +33,20 @@ export interface SaleFacts {
     readonly code: string | null;
     readonly percent: number;
   } | null;
+  /**
+   * Telegram покупателя по его текущей привязке, чтобы автор мог сразу написать (решение
+   * владельца 13.11.2026, #2085). Billing его не знает: факт добавляет композиция Notifications.
+   */
+  readonly buyer?: SaleBuyer;
 }
+export type SaleBuyer =
+  | {
+      readonly state: "available";
+      readonly displayName: string | null;
+      readonly username: string | null;
+    }
+  | { readonly state: "not_linked" }
+  | { readonly state: "unavailable" };
 export interface NotificationSources {
   canReadAccounts?(
     accountIds: readonly string[],

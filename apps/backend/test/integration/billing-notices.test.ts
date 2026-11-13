@@ -21,6 +21,7 @@ import {
 import {
   Notifications,
   type SendNotificationEmail,
+  assembleBillingNoticeSource,
 } from "../../src/modules/notifications/index.js";
 
 import { deliverySchema } from "../../src/modules/notifications/domain/notification-wire.js";
@@ -217,7 +218,7 @@ describe("служебные сообщения подписки (реальны
         sources: {
           resolve: (event) =>
             event.eventType === "billing.notice-ready"
-              ? notices.resolveNotice(event)
+              ? assembleBillingNoticeSource(notices, links)(event)
               : Promise.resolve({ status: "unavailable" }),
           canRead: () => Promise.resolve("denied"),
         },
@@ -595,12 +596,13 @@ describe("служебные сообщения подписки (реальны
         "Продукт: Материалы",
         "Сумма: 1000.00 ₽",
         "Время: 31.01.2030, 13:00 по Москве",
+        "Покупатель: Telegram привязан, профиль не прочитан",
         "",
         `${origin}/authoring/sales/payments/${purchaseRef}`,
       ].join("\n"),
     );
-    // Данных покупателя в тексте нет: автор находит его по ссылке на карточку оплаты.
-    expect(sales[0]?.text).not.toContain(s.buyer);
+    // Адрес заказа в текст не входит: автор видит только Telegram покупателя (#2085).
+    expect(sales[0]?.text).not.toContain(`${s.buyer}@example.test`);
     expect(s.salesFor(stranger)).toHaveLength(0);
     expect(s.salesFor(s.buyer)).toHaveLength(0);
     // Почтой о продаже не пишут никому, а покупатель получает своё обычное письмо.

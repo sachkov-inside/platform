@@ -36,7 +36,7 @@ export type BillingNoticeSource =
       readonly purchaseRef?: string;
       readonly amountMinor?: number;
       readonly dueAt?: string;
-      /** Факты продажи для авторов: только применённая скидка, без данных покупателя. */
+      /** Факты продажи от Billing: применённая скидка. Telegram покупателя добавляет Notifications (#2085). */
       readonly sale?: { readonly promotion: SalePromotion | null };
     };
 
