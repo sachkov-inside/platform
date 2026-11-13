@@ -342,7 +342,7 @@ Entry points вызывают одни application use cases и не созда�
 | `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
 | `ReadingActivity` | установить manual read/unread, пакетно читать состояния и private recent opens | Account-to-Material state и atomic transition history; не content access/analytics |
-| `Glossary` | записать термины пакета по идентификатору и найти термины по идентификаторам ([Словарь](#словарь)) | Glossary Terms: идентификатор, названия, короткое и полное определение, source ID вводящего урока |
+| `Glossary` | записать термины пакета по идентификатору, найти термины по идентификаторам и по вводящему уроку, хранить отметки читателя ([Словарь](#словарь)) | Glossary Terms: идентификатор, названия, короткое и полное определение, source ID вводящего урока; отметки «знаю» и «повторить» Account |
 
 Transaction semantics принадлежат единому
 [write atomicity contract](#validation-results-and-write-atomicity), а verification seams —
@@ -725,6 +725,26 @@ Product. Без поля релиз темы цели не трогает; сп�
 терминов, которые тело упоминает или показывает карточкой. Определения читаются из словаря вместе
 с телом, поэтому исправленное определение видно во всех уроках без перепубликации. Термина нет в
 словаре: Web показывает упоминание обычным текстом и не рисует карточку.
+
+Колода «Термины урока» (#2127): чтение урока возвращает и `lessonTerms` той же формы: термины,
+у которых `introducedInSourceId` равен source ID этого урока, сначала в порядке первого упоминания
+в теле, затем по `id`. Урок без source ID колоды не имеет. Отметки колоды личные: таблица
+`glossary.term_marks` держит одну отметку `known` («знаю») или `review` («повторить») на Account и
+термин, новая заменяет прежнюю, удаление термина удаляет его отметки. `POST /glossary/marks/query`
+(`readGlossaryTermMarks`) принимает `{ termIds }` (1–100) и отдаёт `{ marks: [{ termId, mark,
+markedAt }] }` только по отмеченным терминам; `PUT /glossary/marks/{termId}`
+(`setGlossaryTermMark`) принимает `{ mark }`, неизвестный термин даёт `term_not_found` (404). Оба
+требуют вошедшего Account и не проверяют доступ к уроку: отметка не раскрывает текста термина.
+Гость видит колоду без отметок.
+
+Словарь курса (#2127): `GET /library/products/{slug}/glossary` (`readCourseGlossary`) отдаёт
+`{ product: { slug, name }, terms: [{ id, title, englishTitle, shortDefinition, fullDefinition,
+lesson: { slug, title } }] }`. Термин попадает в ответ, только когда его вводит опубликованный урок
+этого Product и читатель может этот урок открыть (та же проверка доступа, что у чтения урока):
+закрытый урок не раскрывает определений, термины уроков вне курса и термины без вводящего урока в
+ответ не входят. Термины идут по `title` в русском порядке. Ответ зависит от читателя и не
+кешируется как гостевой. Web показывает его на `/products/{slug}/glossary`; карточка термина имеет
+якорь `term-<id>`, и «Подробнее» подсказки урока внутри курса ведёт на него.
 
 REST `GET /authoring/glossary` (`listAuthoringGlossaryTerms`) отдаёт весь словарь,
 `PUT /authoring/glossary/terms` (`upsertAuthoringGlossaryTerms`) принимает `{ terms }` и атомарно
