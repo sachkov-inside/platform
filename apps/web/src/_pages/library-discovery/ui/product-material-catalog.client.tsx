@@ -4,7 +4,11 @@ import { ChevronRight, Search } from "lucide-react";
 import type { Route } from "next";
 import { useState, useSyncExternalStore } from "react";
 
-import { MaterialCard, type MaterialPreview } from "@/entities/material";
+import {
+  MaterialCard,
+  materialPreviewHasVideo,
+  type MaterialPreview,
+} from "@/entities/material";
 import {
   formatMaterialCount,
   type CatalogueTopic,
@@ -58,8 +62,9 @@ interface Shelf {
   readonly entries: readonly CatalogEntry[];
 }
 
+/** Видео то же, что называет плашка карточки: гайд с видео тоже видео (решение владельца 13.11.2026). */
 function isVideo(entry: CatalogEntry): boolean {
-  return entry.material.formatSlug === "video";
+  return materialPreviewHasVideo(entry.material);
 }
 
 function newestFirst(entries: readonly CatalogEntry[]): CatalogEntry[] {

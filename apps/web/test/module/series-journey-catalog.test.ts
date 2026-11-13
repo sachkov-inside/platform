@@ -34,6 +34,21 @@ function shelfTitles(html: string): string[] {
   );
 }
 
+/** The markup of one catalogue card, found by its Material slug. */
+function cardHtml(html: string, slug: string): string {
+  const start = html.indexOf(`data-material-slug="${slug}"`);
+  expect(start).toBeGreaterThan(-1);
+  return html.slice(start, html.indexOf("</article>", start));
+}
+
+/** Visible and screen-reader text of a fragment, without tags. */
+function textOf(fragment: string): string {
+  return fragment
+    .replace(/<!-- -->/gu, "")
+    .replace(/<[^>]+>/gu, " ")
+    .replace(/\s+/gu, " ");
+}
+
 const designTopic = "2a000000-0000-4000-8000-000000000001";
 const reviewTopic = "2a000000-0000-4000-8000-000000000002";
 const emptyTopic = "2a000000-0000-4000-8000-000000000003";
@@ -86,6 +101,35 @@ describe("Product catalogue presentation", () => {
     const html = renderCatalogue(corpusWithTopics());
     expect(html.match(/>Урок 1<\/a>/gu)).toHaveLength(1);
     expect(html).toContain("data-library-title-card");
+  });
+
+  it("spells out on every card whether the Material is a video or a text", () => {
+    const corpus = productJourneyCorpus();
+    const [, guide, , note] = corpus.items;
+    if (guide === undefined || note === undefined)
+      throw new Error("The corpus has at least four Materials");
+    const html = renderCatalogue({
+      ...corpus,
+      items: [
+        {
+          ...guide,
+          slug: "grilling",
+          title: "Проектирование через grilling",
+          format: "Гайд",
+          formatSlug: "guide",
+          primaryVideoDurationSeconds: 1420,
+        },
+        { ...note, slug: "harness", title: "Улучшение harness" },
+      ],
+    });
+    const video = cardHtml(html, "grilling");
+    expect(textOf(video)).toContain("Видео · 23:40");
+    expect(textOf(video)).not.toContain("Гайд");
+    expect(video).toContain("data-library-play");
+    const text = cardHtml(html, "harness");
+    expect(textOf(text)).toContain("Текст");
+    expect(textOf(text)).not.toContain("Гайд");
+    expect(text).not.toContain("data-library-play");
   });
 
   it("keeps the catalogue return address of a card", () => {
