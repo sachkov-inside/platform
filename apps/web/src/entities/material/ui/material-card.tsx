@@ -565,9 +565,11 @@ const libraryFormatIcons = {
 
 /**
  * Карточка библиотеки (#2022, прототип P5, решение владельца 12.11.2026). Все карточки одинаковые:
- * картинка 16:9 и название. Обложки нет — на месте картинки тёмная карточка с форматом и названием,
- * как картинка превью ссылки, но без логотипа; тогда название под ней не повторяется. На картинке
- * формат, длительность видео и отметка «изучено»; сразу под ней, до названия, место в программе.
+ * картинка 16:9 и название. Обложки нет — на месте картинки тёмная карточка с названием, как
+ * картинка превью ссылки, но без логотипа; тогда название под ней не повторяется. Сразу под картинкой,
+ * до названия, место в программе. На картинке отметка «изучено» и формат словом (прототип A,
+ * решение владельца 13.11.2026): «Видео · 23:40» акцентной плашкой или «Текст» белой. Жанр
+ * («Гайд») формат не передаёт: видео тоже бывает гайдом. У видео без обложки ещё кнопка ▶.
  */
 function LibraryMaterialCard({
   annotation,
@@ -609,20 +611,31 @@ function LibraryMaterialCard({
         {cover === null ? (
           // Контейнер стоит на обёртке: единицы cqw внутри считаются от ширины самой карточки.
           <span className="block w-full overflow-hidden rounded-2xl [container-type:inline-size]">
+            {/* Нижний отступ оставляет место плашке формата: иначе на телефоне она закрывает
+                последнюю строку названия. */}
             <span
-              className="relative flex aspect-video w-full flex-col justify-center gap-[2.5cqw] bg-cover-ink px-[6cqw] py-[8cqw] text-white"
+              className="relative flex aspect-video w-full flex-col justify-center bg-cover-ink px-[6cqw] pt-[5cqw] pb-[15cqw] text-white"
               data-library-title-card
             >
-              <span className="text-[clamp(0.625rem,2.6cqw,0.75rem)] font-semibold tracking-[0.08em] uppercase opacity-75">
-                {materialTaxonomyLabel(material.format)}
-              </span>
-              <Heading className="line-clamp-3 text-[clamp(0.9375rem,6.2cqw,1.5rem)] leading-[1.16] font-medium tracking-[-0.01em] [&_a:hover]:text-white [&_a:hover]:underline">
+              <Heading className="line-clamp-3 pr-[14cqw] text-[clamp(0.875rem,6.2cqw,1.5rem)] leading-[1.16] font-medium tracking-[-0.01em] [&_a:hover]:text-white [&_a:hover]:underline">
                 {title}
               </Heading>
               <span
                 aria-hidden="true"
                 className="absolute bottom-[6cqw] left-[6cqw] h-0.5 w-[10cqw] bg-accent"
               />
+              {video ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute top-1/2 right-[6cqw] grid size-[13cqw] -translate-y-1/2 place-items-center rounded-full bg-white/15 ring-1 ring-white/25"
+                  data-library-play
+                >
+                  <Play
+                    className="ml-[0.6cqw] size-[5cqw]"
+                    fill="currentColor"
+                  />
+                </span>
+              ) : null}
             </span>
           </span>
         ) : (
@@ -641,17 +654,22 @@ function LibraryMaterialCard({
             materialId={material.materialId}
           />
         )}
-        <span className="absolute right-2 bottom-2 inline-flex min-h-5 items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[0.7rem] font-semibold text-white tabular-nums">
+        <span
+          className={cn(
+            "absolute right-2 bottom-2 inline-flex min-h-5 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums shadow-sm",
+            video ? "bg-accent text-white" : "bg-white text-foreground",
+          )}
+        >
           <FormatIcon
             aria-hidden="true"
             className="size-3"
             {...(video ? { fill: "currentColor" } : {})}
           />
-          <span className="sr-only">
-            {materialTaxonomyLabel(material.format)}
-            {duration === undefined ? "" : ", "}
-          </span>
-          {duration}
+          {video
+            ? duration === undefined
+              ? "Видео"
+              : `Видео · ${duration}`
+            : "Текст"}
         </span>
       </AccessCover>
       {/* Место в программе стоит сразу под картинкой у всех карточек (решение владельца 12.11.2026):
