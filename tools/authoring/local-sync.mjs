@@ -99,8 +99,8 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {string} [homePinned]
  * @property {"product-shell"} [scope]
  * @property {import("./task-import.mjs").TaskChange[]} [tasks]
- * @property {{ created: number; updated: number; removed: number; unchanged: number }} [glossary]
- *   What the package Glossary changed in the receiver's Glossary; absent when the package has none
+ * @property {{ created: number; updated: number; unchanged: number }} [glossary]
+ *   What the package's Glossary Terms changed in the receiver's Glossary; absent when it has none
  * @typedef {object} SyncOptions
  * @property {string} [origin]
  * @property {import("./target.mjs").LocalTransport | undefined} [request]
@@ -505,31 +505,24 @@ export function productChapters(manifest, product) {
 }
 
 /**
- * The counts a Glossary replacement answered with.
- *
- * @param {import("./local-boundaries.mjs").LocalResponse<"/authoring/glossary">} response
- */
-function glossaryChange(response) {
-  if ("terms" in response)
-    throw new Error("The receiver did not report its Glossary replacement");
-  return response;
-}
-
-/**
- * The Glossary a package asks for, as `PUT /authoring/glossary` takes it: text trimmed as the
- * receiver stores it, terms in identifier order, and the introducing Material named by its source
- * key, the same key its Material import carries.
+ * The Glossary Terms a package carries, as `PUT /authoring/glossary/terms` takes them: text
+ * trimmed as the receiver stores it, terms in identifier order, and the introducing Material named
+ * by its source key, the same key its Material import carries.
  *
  * @param {Pick<Manifest, "sourceNamespace">} manifest
- * @param {NonNullable<Manifest["glossary"]>} glossary
+ * @param {NonNullable<Manifest["glossaryTerms"]>} terms
  */
-export function glossaryTerms(manifest, glossary) {
-  return [...glossary.terms]
+export function glossaryTerms(manifest, terms) {
+  return [...terms]
     .sort((left, right) =>
-      left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+      left.sourceId < right.sourceId
+        ? -1
+        : left.sourceId > right.sourceId
+          ? 1
+          : 0,
     )
     .map((term) => ({
-      id: term.id,
+      id: term.sourceId,
       title: term.title.trim(),
       englishTitle: term.englishTitle?.trim() ?? null,
       shortDefinition: term.shortDefinition.trim(),
@@ -1262,11 +1255,12 @@ export async function syncLocal(
             throw new Error(
               `${row.sourcePath}: a term mention requires ${GLOSSARY_FEATURE}`,
             );
-          // A package without a Glossary leaves the receiver's as it is, so only a carried
-          // Glossary can prove a mention resolves; the reader shows an unknown term as plain text.
+          // Content carries every term its Materials mention (content-studio#88), so a missing
+          // one is an export defect, not a term the receiver may already hold.
           if (
-            pkg.manifest.glossary !== undefined &&
-            !pkg.manifest.glossary.terms.some((term) => term.id === id)
+            !(pkg.manifest.glossaryTerms ?? []).some(
+              (term) => term.sourceId === id,
+            )
           )
             throw new Error(
               `${row.sourcePath}: term is not in the package Glossary: ${id}`,
@@ -1616,33 +1610,34 @@ export async function syncLocal(
         });
     }
 
-    // Every document passed validation, including its term mentions, so the Glossary goes first:
-    // a Material published below finds its terms. The write replaces the whole Glossary and is
-    // idempotent, so it needs no journal; an equal Glossary is not written again.
-    if (pkg.manifest.glossary !== undefined) {
-      const desiredGlossary = glossaryTerms(
-        pkg.manifest,
-        pkg.manifest.glossary,
+    // Every document passed validation, including its term mentions, so the terms go first: a
+    // Material published below finds them. The write sets each sent term by its identifier and is
+    // idempotent, so it needs no journal; only terms that differ from the receiver's are sent.
+    if (pkg.manifest.glossaryTerms !== undefined) {
+      const carried = glossaryTerms(pkg.manifest, pkg.manifest.glossaryTerms);
+      const stored = new Map(
+        (await request("/authoring/glossary")).terms.map((term) => [
+          term.id,
+          canonical(term),
+        ]),
       );
-      const stored = await request("/authoring/glossary");
-      if (!("terms" in stored))
-        throw new Error("The receiver did not list its Glossary");
-      report.glossary =
-        canonical(stored.terms) === canonical(desiredGlossary)
-          ? {
-              created: 0,
-              updated: 0,
-              removed: 0,
-              unchanged: desiredGlossary.length,
-            }
-          : glossaryChange(
-              await request(
-                "/authoring/glossary",
-                { terms: desiredGlossary },
-                undefined,
-                { method: "PUT" },
-              ),
+      const changed = carried.filter(
+        (term) => stored.get(term.id) !== canonical(term),
+      );
+      const written =
+        changed.length === 0
+          ? { created: 0, updated: 0, unchanged: 0 }
+          : await request(
+              "/authoring/glossary/terms",
+              { terms: changed },
+              undefined,
+              { method: "PUT" },
             );
+      report.glossary = {
+        created: written.created,
+        updated: written.updated,
+        unchanged: carried.length - written.created - written.updated,
+      };
     }
 
     /**

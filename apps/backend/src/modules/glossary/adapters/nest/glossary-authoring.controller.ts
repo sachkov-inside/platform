@@ -31,7 +31,7 @@ import {
   type Glossary,
   type GlossaryAuthoringError,
 } from "../../facets/glossary/glossary.js";
-import { replaceGlossaryBodySchema } from "../../features/replace-glossary/replace-glossary.js";
+import { upsertGlossaryTermsBodySchema } from "../../features/upsert-glossary-terms/upsert-glossary-terms.js";
 
 const glossaryProblemSchema = z
   .object({
@@ -48,11 +48,10 @@ const glossaryListSchema = z
   .object({ terms: z.array(glossaryTermSchema) })
   .strict();
 
-const glossaryReplacementSchema = z
+const glossaryUpsertSchema = z
   .object({
     created: z.number().int().nonnegative(),
     updated: z.number().int().nonnegative(),
-    removed: z.number().int().nonnegative(),
     unchanged: z.number().int().nonnegative(),
   })
   .strict();
@@ -70,7 +69,7 @@ function ApiGlossaryErrors(...statuses: readonly number[]) {
 
 /**
  * The Glossary as authoring clients see it: the content package delivery reads it to compare and
- * replaces it whole (`glossary-v1`).
+ * writes the terms the package carries (`glossary-v1`).
  */
 @AuthoringEndpoint()
 @Controller("authoring/glossary")
@@ -100,17 +99,17 @@ export class GlossaryAuthoringController {
     };
   }
 
-  @Put()
+  @Put("terms")
   @ApiOperation({
-    operationId: "replaceAuthoringGlossary",
+    operationId: "upsertAuthoringGlossaryTerms",
     summary:
-      "Replace the whole Glossary; terms missing from the list are removed",
+      "Create or update the listed Glossary Terms; other terms stay as they are",
   })
-  @ApiBody({ schema: toOpenApiSchema(replaceGlossaryBodySchema) })
-  @ApiOkResponse({ schema: toOpenApiSchema(glossaryReplacementSchema) })
+  @ApiBody({ schema: toOpenApiSchema(upsertGlossaryTermsBodySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(glossaryUpsertSchema) })
   @ApiAccountErrors(401, 500)
   @ApiGlossaryErrors(403, 422, 503)
-  async replace(
+  async upsert(
     @CurrentAccount() account: AuthenticatedAccount,
     @Body() input: unknown,
   ) {
@@ -122,7 +121,7 @@ export class GlossaryAuthoringController {
         "Glossary request is malformed",
       );
     }
-    const result = await this.glossary.replace({
+    const result = await this.glossary.upsert({
       actor: account.accountId,
       terms: body.data.terms,
     });
@@ -130,7 +129,6 @@ export class GlossaryAuthoringController {
     return {
       created: result.value.created,
       updated: result.value.updated,
-      removed: result.value.removed,
       unchanged: result.value.unchanged,
     };
   }

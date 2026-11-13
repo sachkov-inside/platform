@@ -11,26 +11,25 @@ export type GlossaryAuthoringError =
   | { readonly code: "invalid_glossary"; readonly message: string }
   | GlossaryDependencyError;
 
-/** What one replacement changed, counted by term. */
-export interface GlossaryReplacement {
+/** What one write changed among the listed terms. */
+export interface GlossaryUpsert {
   readonly created: number;
   readonly updated: number;
-  readonly removed: number;
   readonly unchanged: number;
 }
 
 /**
  * The Glossary: every Glossary Term of the platform, keyed by its permanent identifier. Authoring
- * replaces it whole from the content package; readers look terms up by the identifiers a Material
+ * writes the terms a content package carries; readers look terms up by the identifiers a Material
  * body mentions, at read time, so a corrected definition reaches every Material without a
  * republication.
  */
 export interface Glossary {
-  /** Makes the given list the complete Glossary: absent terms are removed. */
-  replace(command: {
+  /** Creates or updates each listed term; a term missing from the list stays as it is. */
+  upsert(command: {
     readonly actor: string;
     readonly terms: unknown;
-  }): Promise<Result<GlossaryReplacement, GlossaryAuthoringError>>;
+  }): Promise<Result<GlossaryUpsert, GlossaryAuthoringError>>;
   /** The complete Glossary in identifier order, for an authoring client to compare against. */
   list(query: {
     readonly actor: string;

@@ -344,18 +344,18 @@ export const receiverGlossaryTermSchema = z
   })
   .strict();
 const glossaryCount = z.number().int().nonnegative();
-/** `GET /authoring/glossary` lists the Glossary; `PUT` on the same path counts what it changed. */
-const glossaryResponseSchema = z.union([
-  z.object({ terms: z.array(receiverGlossaryTermSchema) }).strict(),
-  z
-    .object({
-      created: glossaryCount,
-      updated: glossaryCount,
-      removed: glossaryCount,
-      unchanged: glossaryCount,
-    })
-    .strict(),
-]);
+/** `GET /authoring/glossary` lists the whole Glossary. */
+const glossarySchema = z
+  .object({ terms: z.array(receiverGlossaryTermSchema) })
+  .strict();
+/** `PUT /authoring/glossary/terms` counts what it changed among the listed terms. */
+const glossaryUpsertSchema = z
+  .object({
+    created: glossaryCount,
+    updated: glossaryCount,
+    unchanged: glossaryCount,
+  })
+  .strict();
 
 const localResponseSchemas = {
   practiceReceipt: practiceReceiptSchema,
@@ -382,7 +382,8 @@ const localResponseSchemas = {
   productArtifacts: productArtifactsSchema,
   artifact: artifactSchema,
   productOrder: productOrderSchema,
-  glossary: glossaryResponseSchema,
+  glossary: glossarySchema,
+  glossaryUpsert: glossaryUpsertSchema,
 };
 
 /**
@@ -446,6 +447,8 @@ const localResponseSchemas = {
  *   ? "productOrder"
  *   : P extends "/authoring/glossary"
  *   ? "glossary"
+ *   : P extends "/authoring/glossary/terms"
+ *   ? "glossaryUpsert"
  *   : never} LocalResponseKindOf
  */
 
@@ -511,6 +514,8 @@ export function localResponseKind(path) {
       return "homePin";
     case "/authoring/glossary":
       return "glossary";
+    case "/authoring/glossary/terms":
+      return "glossaryUpsert";
     default:
       if (
         /^\/authoring\/import\/materials\/state\?namespace=[^&]+$/u.test(path)

@@ -572,9 +572,9 @@ for (const [description, value, message] of /** @type {const} */ ([
   });
 }
 
-/** @param {string} id */
-const glossaryTerm = (id) => ({
-  id,
+/** @param {string} sourceId */
+const glossaryTerm = (sourceId) => ({
+  sourceId,
   title: "Термин",
   englishTitle: null,
   shortDefinition: "Коротко.",
@@ -583,41 +583,41 @@ const glossaryTerm = (id) => ({
 });
 
 /**
- * @param {unknown} glossary
+ * @param {unknown} glossaryTerms
  * @param {string[]} [features]
  */
 const glossaryFixture = (
-  glossary,
+  glossaryTerms,
   features = ["canonical-product-source-v2", "glossary-v1"],
-) => ({ ...fixture(), requiredFeatures: features, glossary });
+) => ({ ...fixture(), requiredFeatures: features, glossaryTerms });
 
-test("a package carries the Glossary (glossary-v1)", async (t) => {
-  const glossary = { terms: [glossaryTerm("bounded-context")] };
-  const pkg = await loadTopicPackage(t, glossaryFixture(glossary));
-  assert.deepEqual(pkg.manifest.glossary, glossary);
+test("a package carries Glossary Terms in the content-studio#88 shape (glossary-v1)", async (t) => {
+  const terms = [glossaryTerm("aggregate"), glossaryTerm("bounded-context")];
+  const pkg = await loadTopicPackage(t, glossaryFixture(terms));
+  assert.deepEqual(pkg.manifest.glossaryTerms, terms);
 });
 
 for (const [description, value, message] of /** @type {const} */ ([
   [
-    "a Glossary without glossary-v1",
-    glossaryFixture({ terms: [] }, ["canonical-product-source-v2"]),
-    /A Glossary requires package v2 and glossary-v1/u,
+    "Glossary Terms without glossary-v1",
+    glossaryFixture([], ["canonical-product-source-v2"]),
+    /Glossary Terms require package v2 and glossary-v1/u,
   ],
   [
     "a repeated term identifier",
-    glossaryFixture({ terms: [glossaryTerm("a"), glossaryTerm("a")] }),
+    glossaryFixture([glossaryTerm("a"), glossaryTerm("a")]),
     /Glossary Term identity/u,
   ],
   [
     "a term identifier that is not a slug",
-    glossaryFixture({ terms: [glossaryTerm("Bounded Context")] }),
+    glossaryFixture([glossaryTerm("Bounded Context")]),
     /Invalid string/u,
   ],
   [
     "a short definition longer than 300 characters",
-    glossaryFixture({
-      terms: [{ ...glossaryTerm("a"), shortDefinition: "x".repeat(301) }],
-    }),
+    glossaryFixture([
+      { ...glossaryTerm("a"), shortDefinition: "x".repeat(301) },
+    ]),
     /Short definition/u,
   ],
 ])) {

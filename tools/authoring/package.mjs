@@ -231,14 +231,15 @@ const trimmedText = (max, name) =>
 export const GLOSSARY_FEATURE = "glossary-v1";
 
 /**
- * One Glossary Term as Content exports it. `id` is the permanent identifier Materials write in
- * `term:<id>`; `introducedInMaterialId` is the source ID of the Material that introduces the term.
- * The full definition is plain text, a blank line between paragraphs. The receiver stores trimmed
- * text, so the limits apply to trimmed text.
+ * One Glossary Term as Content exports it (content-studio#88). `sourceId` is the permanent term
+ * identifier Materials write in `term:<id>`; `introducedInMaterialId` is the source ID of the
+ * Material that introduces the term, possibly outside this package. The full definition is plain
+ * text, a blank line between paragraphs. The receiver stores trimmed text, so the limits apply to
+ * trimmed text.
  */
 const glossaryTermSchema = z
   .object({
-    id: glossaryTermIdSchema,
+    sourceId: glossaryTermIdSchema,
     title: trimmedText(GLOSSARY_TERM_TITLE_MAX, "Term title"),
     englishTitle: trimmedText(
       GLOSSARY_TERM_TITLE_MAX,
@@ -256,10 +257,6 @@ const glossaryTermSchema = z
   })
   .strict();
 
-const glossarySchema = z
-  .object({ terms: z.array(glossaryTermSchema).max(GLOSSARY_TERMS_MAX) })
-  .strict();
-
 /** The only explicit selection scope; a package without it selects Materials. */
 export const productShellScope = z.literal("product-shell");
 
@@ -270,9 +267,13 @@ export const manifestSchema = z
     sourceNamespace: identifier,
     practiceDefinitions: z.array(sourcePracticeSchema).max(100).optional(),
     tasks: z.array(sourceTaskSchema).max(200).optional(),
-    // The Glossary (#2126, `glossary-v1`). An absent field leaves the receiver's Glossary alone; a
-    // present one, even with no terms, is the complete desired Glossary.
-    glossary: glossarySchema.optional(),
+    // Glossary Terms (#2126, `glossary-v1`): the terms this package's Materials mention or
+    // introduce. Each is written by its identifier; a term the package does not carry stays as the
+    // receiver has it.
+    glossaryTerms: z
+      .array(glossaryTermSchema)
+      .max(GLOSSARY_TERMS_MAX)
+      .optional(),
     selection: z
       .object({
         productId: identifier.nullable(),
@@ -790,14 +791,16 @@ export async function loadPackage(path) {
     "asset identity",
   );
   checkSelectionScope(manifest);
-  if (manifest.glossary !== undefined) {
+  if (manifest.glossaryTerms !== undefined) {
     if (
       manifest.schemaVersion < 2 ||
       !manifest.requiredFeatures?.includes(GLOSSARY_FEATURE)
     )
-      throw new Error(`A Glossary requires package v2 and ${GLOSSARY_FEATURE}`);
+      throw new Error(
+        `Glossary Terms require package v2 and ${GLOSSARY_FEATURE}`,
+      );
     unique(
-      manifest.glossary.terms.map((term) => term.id),
+      manifest.glossaryTerms.map((term) => term.sourceId),
       "Glossary Term identity",
     );
   }

@@ -93,34 +93,35 @@ describe("Glossary", () => {
     await testDatabase.dispose();
   });
 
-  test("replaces the whole Glossary and reports what changed", async () => {
+  test("writes the listed terms by identifier and keeps every other term", async () => {
     expect(
-      await glossary.replace({ actor: author, terms: [boundedContext] }),
+      await glossary.upsert({ actor: author, terms: [boundedContext] }),
     ).toEqual({
       ok: true,
-      value: { created: 1, updated: 0, removed: 0, unchanged: 0 },
+      value: { created: 1, updated: 0, unchanged: 0 },
     });
     const corrected = {
       ...boundedContext,
       shortDefinition: "Граница одного смысла слов модели.",
     };
     expect(
-      await glossary.replace({ actor: author, terms: [aggregate, corrected] }),
+      await glossary.upsert({ actor: author, terms: [aggregate, corrected] }),
     ).toEqual({
       ok: true,
-      value: { created: 1, updated: 1, removed: 0, unchanged: 0 },
+      value: { created: 1, updated: 1, unchanged: 0 },
+    });
+    // A package that carries only one term leaves the other one in the Glossary.
+    expect(
+      await glossary.upsert({ actor: author, terms: [corrected] }),
+    ).toEqual({
+      ok: true,
+      value: { created: 0, updated: 0, unchanged: 1 },
     });
     expect(await glossary.list({ actor: author })).toEqual({
       ok: true,
       value: [aggregate, corrected],
     });
-    expect(
-      await glossary.replace({ actor: author, terms: [corrected] }),
-    ).toEqual({
-      ok: true,
-      value: { created: 0, updated: 0, removed: 1, unchanged: 1 },
-    });
-    expect(await glossary.lookup(["aggregate", "bounded-context"])).toEqual({
+    expect(await glossary.lookup(["missing", "bounded-context"])).toEqual({
       ok: true,
       value: [corrected],
     });
@@ -128,7 +129,7 @@ describe("Glossary", () => {
 
   test("stores trimmed text and refuses a repeated identifier", async () => {
     expect(
-      await glossary.replace({
+      await glossary.upsert({
         actor: author,
         terms: [{ ...aggregate, title: "  Агрегат  " }],
       }),
@@ -138,10 +139,10 @@ describe("Glossary", () => {
       value: [aggregate],
     });
     expect(
-      await glossary.replace({ actor: author, terms: [aggregate, aggregate] }),
+      await glossary.upsert({ actor: author, terms: [aggregate, aggregate] }),
     ).toMatchObject({ ok: false, error: { code: "invalid_glossary" } });
     expect(
-      await glossary.replace({
+      await glossary.upsert({
         actor: author,
         terms: [{ ...aggregate, id: "Aggregate" }],
       }),
@@ -149,7 +150,7 @@ describe("Glossary", () => {
   });
 
   test("lets only a Materials manager write or list it", async () => {
-    expect(await glossary.replace({ actor: reader, terms: [] })).toMatchObject({
+    expect(await glossary.upsert({ actor: reader, terms: [] })).toMatchObject({
       ok: false,
       error: { code: "forbidden" },
     });
@@ -160,7 +161,7 @@ describe("Glossary", () => {
   });
 
   test("a published Material reads the current definitions of its terms without republication", async () => {
-    await glossary.replace({ actor: author, terms: [boundedContext] });
+    await glossary.upsert({ actor: author, terms: [boundedContext] });
     const materials = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
@@ -223,7 +224,7 @@ describe("Glossary", () => {
     });
 
     const corrected = "Исправленное определение.";
-    await glossary.replace({
+    await glossary.upsert({
       actor: author,
       terms: [{ ...boundedContext, shortDefinition: corrected }],
     });

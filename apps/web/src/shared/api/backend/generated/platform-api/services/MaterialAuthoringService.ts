@@ -536,11 +536,11 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Replace the whole Glossary; terms missing from the list are removed
+   * Create or update the listed Glossary Terms; other terms stay as they are
    * @returns any
    * @throws ApiError
    */
-  public replaceAuthoringGlossary({
+  public upsertAuthoringGlossaryTerms({
     requestBody,
   }: {
     requestBody: {
@@ -555,13 +555,12 @@ export class MaterialAuthoringService {
     },
   }): CancelablePromise<{
     created: number;
-    removed: number;
     unchanged: number;
     updated: number;
   }> {
     return this.httpRequest.request({
       method: 'PUT',
-      url: '/authoring/glossary',
+      url: '/authoring/glossary/terms',
       body: requestBody,
       mediaType: 'application/json',
     });

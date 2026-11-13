@@ -10,13 +10,13 @@ import {
 } from "../../domain/glossary-term.js";
 import type {
   GlossaryAuthoringError,
-  GlossaryReplacement,
+  GlossaryUpsert,
 } from "../../facets/glossary/glossary.js";
 import type { GlossaryOperationDependencies } from "../../shared/glossary-dependencies.js";
 import { authorizeGlossaryAuthor } from "../../shared/glossary-dependencies.js";
 import { storedGlossaryTerm } from "../../shared/stored-glossary-term.js";
 
-export const replaceGlossaryBodySchema = z
+export const upsertGlossaryTermsBodySchema = z
   .object({ terms: z.array(glossaryTermSchema).max(GLOSSARY_TERMS_MAX) })
   .strict();
 
@@ -27,13 +27,19 @@ const sameTerm = (left: GlossaryTerm, right: GlossaryTerm): boolean =>
   left.fullDefinition === right.fullDefinition &&
   left.introducedInSourceId === right.introducedInSourceId;
 
-export async function replaceGlossary(
+/**
+ * Creates or updates each listed term by its identifier. A package carries only the terms its
+ * Materials need, so a term missing from the list stays as it is (content-studio#88).
+ */
+export async function upsertGlossaryTerms(
   dependencies: GlossaryOperationDependencies,
   command: { readonly actor: string; readonly terms: unknown },
-): Promise<Result<GlossaryReplacement, GlossaryAuthoringError>> {
+): Promise<Result<GlossaryUpsert, GlossaryAuthoringError>> {
   const forbidden = await authorizeGlossaryAuthor(dependencies, command.actor);
   if (forbidden !== null) return { ok: false, error: forbidden };
-  const parsed = replaceGlossaryBodySchema.shape.terms.safeParse(command.terms);
+  const parsed = upsertGlossaryTermsBodySchema.shape.terms.safeParse(
+    command.terms,
+  );
   if (!parsed.success) {
     return {
       ok: false,
@@ -44,8 +50,8 @@ export async function replaceGlossary(
     };
   }
   const terms = parsed.data;
-  const ids = new Set(terms.map((term) => term.id));
-  if (ids.size !== terms.length) {
+  const ids = terms.map((term) => term.id);
+  if (new Set(ids).size !== terms.length) {
     return {
       ok: false,
       error: {
@@ -55,26 +61,21 @@ export async function replaceGlossary(
     };
   }
   try {
-    const replacement = await dependencies.prisma.$transaction(async (tx) => {
-      // Two replacements must not interleave their reads and writes; readers are not blocked.
+    const upsert = await dependencies.prisma.$transaction(async (tx) => {
+      // Two writes must not interleave their reads and writes; readers are not blocked.
       await tx.$executeRaw(
         Prisma.sql`lock table glossary.terms in exclusive mode`,
       );
       const stored = new Map(
-        (await tx.glossaryTerm.findMany()).map((row) => [
-          row.id,
-          storedGlossaryTerm(row),
-        ]),
+        (await tx.glossaryTerm.findMany({ where: { id: { in: ids } } })).map(
+          (row) => [row.id, storedGlossaryTerm(row)],
+        ),
       );
       const created = terms.filter((term) => !stored.has(term.id));
       const changed = terms.filter((term) => {
         const current = stored.get(term.id);
         return current !== undefined && !sameTerm(current, term);
       });
-      const removed = [...stored.keys()].filter((id) => !ids.has(id));
-      if (removed.length > 0) {
-        await tx.glossaryTerm.deleteMany({ where: { id: { in: removed } } });
-      }
       if (created.length > 0) {
         await tx.glossaryTerm.createMany({ data: created });
       }
@@ -89,14 +90,13 @@ export async function replaceGlossary(
       return {
         created: created.length,
         updated: changed.length,
-        removed: removed.length,
         unchanged: terms.length - created.length - changed.length,
       };
     });
-    return { ok: true, value: replacement };
+    return { ok: true, value: upsert };
   } catch (error) {
     return dependencyFailure(
-      { module: "glossary", operation: "replaceGlossary" },
+      { module: "glossary", operation: "upsertGlossaryTerms" },
       error,
       {
         ok: false,

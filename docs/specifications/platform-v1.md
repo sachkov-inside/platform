@@ -352,7 +352,7 @@ Entry points вызывают одни application use cases и не созда�
 | `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
 | `ReadingActivity` | установить manual read/unread, пакетно читать состояния и private recent opens | Account-to-Material state и atomic transition history; не content access/analytics |
-| `Glossary` | заменить словарь целиком из пакета и найти термины по идентификаторам ([Словарь](#словарь)) | Glossary Terms: идентификатор, названия, короткое и полное определение, source ID вводящего урока |
+| `Glossary` | записать термины пакета по идентификатору и найти термины по идентификаторам ([Словарь](#словарь)) | Glossary Terms: идентификатор, названия, короткое и полное определение, source ID вводящего урока |
 
 Transaction semantics принадлежат единому
 [write atomicity contract](#validation-results-and-write-atomicity), а verification seams —
@@ -737,20 +737,21 @@ Product. Без поля релиз темы цели не трогает; сп�
 словаре: Web показывает упоминание обычным текстом и не рисует карточку.
 
 REST `GET /authoring/glossary` (`listAuthoringGlossaryTerms`) отдаёт весь словарь,
-`PUT /authoring/glossary` (`replaceAuthoringGlossary`) принимает `{ terms }` и атомарно заменяет
-словарь целиком: термин вне списка удаляется. Ответ `{ created, updated, removed, unchanged }`.
-Оба доступны Account с `materials:manage`. Повтор `id` или нарушение формы дают
-`invalid_glossary` (422).
+`PUT /authoring/glossary/terms` (`upsertAuthoringGlossaryTerms`) принимает `{ terms }` и атомарно
+создаёт или обновляет каждый термин списка по `id`; термины вне списка остаются как есть, удаления
+нет. Ответ `{ created, updated, unchanged }`. Оба доступны Account с `materials:manage`. Повтор
+`id` или нарушение формы дают `invalid_glossary` (422).
 
-Словарь приходит из Content Studio с возможностью `glossary-v1`. Пакет может нести
-`glossary: { terms: [{ id, title, englishTitle, shortDefinition, fullDefinition,
-introducedInMaterialId }] }`, где `introducedInMaterialId` это source ID материала или `null`.
-Без поля релиз словарь цели не трогает; список, даже пустой, задаёт весь словарь. Markdown
-оставляет `[текст](term:<id>)` ссылкой `term:<id>` и превращает пустую врезку
-`> [!definition] term:<id>` в `termDefinition`; врезка с текстом или неверным идентификатором
-отклоняется. Упоминание требует `glossary-v1`, а при словаре в пакете каждое упоминание должно
-быть в нём. После проверки всех тел перенос сравнивает словарь цели с желаемым и вызывает
-`PUT /authoring/glossary`, только если они различаются; отчёт переноса содержит `glossary`.
+Термины приходят из Content Studio с возможностью `glossary-v1` в форме content-studio#88. Пакет
+может нести на верхнем уровне `glossaryTerms: [{ sourceId, title, englishTitle, shortDefinition,
+fullDefinition, introducedInMaterialId }]`: `sourceId` это `id` термина, `introducedInMaterialId`
+это source ID материала (возможно, вне пакета) или `null`. Пакет несёт только термины, которые его
+материалы упоминают или вводят, поэтому термин вне пакета у цели не меняется. Markdown оставляет
+`[текст](term:<id>)` ссылкой `term:<id>` и превращает пустую врезку `> [!definition] term:<id>` в
+`termDefinition`; врезка с текстом или неверным идентификатором отклоняется. Упоминание требует
+`glossary-v1`, и каждое упоминание и карточка должны называть термин из `glossaryTerms` того же
+пакета. После проверки всех тел перенос сравнивает термины пакета с терминами цели и отправляет в
+`PUT /authoring/glossary/terms` только отличающиеся; отчёт переноса содержит `glossary`.
 
 ### Страница руководства
 

@@ -33611,9 +33611,11 @@
         "tags": [
           "Material authoring"
         ]
-      },
+      }
+    },
+    "/authoring/glossary/terms": {
       "put": {
-        "operationId": "replaceAuthoringGlossary",
+        "operationId": "upsertAuthoringGlossaryTerms",
         "parameters": [],
         "requestBody": {
           "content": {
@@ -33693,11 +33695,6 @@
                       "minimum": 0,
                       "type": "integer"
                     },
-                    "removed": {
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
                     "unchanged": {
                       "maximum": 9007199254740991,
                       "minimum": 0,
@@ -33712,7 +33709,6 @@
                   "required": [
                     "created",
                     "updated",
-                    "removed",
                     "unchanged"
                   ],
                   "type": "object"
@@ -33939,7 +33935,7 @@
             "logto": []
           }
         ],
-        "summary": "Replace the whole Glossary; terms missing from the list are removed",
+        "summary": "Create or update the listed Glossary Terms; other terms stay as they are",
         "tags": [
           "Material authoring"
         ]

@@ -112,6 +112,7 @@ test("each local path selects the schema its response type names", () => {
     ),
     typedKind(`/authoring/products/${id}/order`, "productOrder"),
     typedKind("/authoring/glossary", "glossary"),
+    typedKind("/authoring/glossary/terms", "glossaryUpsert"),
   ])
     assert.equal(localResponseKind(path), kind, path);
   assert.throws(
