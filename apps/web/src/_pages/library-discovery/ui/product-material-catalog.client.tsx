@@ -34,8 +34,7 @@ export interface CatalogPlace {
 }
 
 export type CatalogKind = "all" | "video" | "text";
-type Kind = CatalogKind;
-const kinds: readonly { readonly id: Kind; readonly label: string }[] = [
+const kinds: readonly { readonly id: CatalogKind; readonly label: string }[] = [
   { id: "all", label: "Всё" },
   { id: "video", label: "Видео" },
   { id: "text", label: "Тексты" },
@@ -139,7 +138,7 @@ export function ProductMaterialCatalog({
   readonly topics: readonly CatalogueTopic[];
 }) {
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<Kind>("all");
+  const [kind, setKind] = useState<CatalogKind>("all");
   const [openTopic, setOpenTopic] = useState<string | null>(null);
   const newSince = useSyncExternalStore(
     subscribeToClock,

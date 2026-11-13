@@ -555,7 +555,7 @@ body:has(
 /*
  * Всё, на что можно нажать, отвечает курсору и нажатию. Tailwind 4 оставляет кнопкам обычную
  * стрелку, поэтому указатель-рука задан здесь для всего сайта. Слой base уступает классам
- * компонентов: свой курсор, переход или масштаб у компонента остаются в силе.
+ * компонентов: свои курсор, transition и scale у компонента остаются в силе.
  */
 @layer base {
   :where(
@@ -599,13 +599,13 @@ body:has(
       color, background-color, border-color, box-shadow, opacity, scale;
     transition-duration: var(--motion-duration-fast);
     transition-timing-function: var(--motion-ease-out);
-    -webkit-tap-highlight-color: transparent;
   }
 
+  /* Общий Button сдвигается на 1 px сам, второй эффект ему не нужен. */
   :where(button, [role="button"], [role="tab"]):not(
       :disabled,
       [aria-disabled="true"],
-      [data-no-press]
+      [data-slot="button"]
     ):active {
     scale: 0.98;
   }
