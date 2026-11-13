@@ -127,6 +127,7 @@ it("bounds batch reads and returns private state, with an unseen update note, wi
       whatChanged: "Переписан раздел о сборке промпта.",
       notedAt: "2026-09-08T00:00:00.000Z",
     },
+    openedParts: 2,
   };
   fakes.states.mockResolvedValue({
     ok: true,

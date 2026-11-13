@@ -114,6 +114,7 @@ const meta = {
                   readAt: null,
                   updatedAt: null,
                   updateNote: null,
+                  openedParts: null,
                 },
           ),
         });

@@ -17,6 +17,8 @@ export interface MaterialReadingSnapshot {
   readonly isRead: boolean;
   readonly version: number;
   readonly updateNote?: MaterialUpdateNote | null;
+  /** Parts of a step-by-step lesson the reader has opened (#2122); absent or null opens the first. */
+  readonly openedParts?: number | null;
 }
 export interface MaterialReadingValue {
   readonly accountId: string | null;
@@ -90,6 +92,7 @@ function sameStates(
         other !== undefined &&
         other.isRead === state.isRead &&
         other.version === state.version &&
+        other.openedParts === state.openedParts &&
         other.updateNote?.notedAt === state.updateNote?.notedAt &&
         other.updateNote?.whatChanged === state.updateNote?.whatChanged
       );

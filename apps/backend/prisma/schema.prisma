@@ -774,6 +774,16 @@ model ReadingMaterialVisit {
   @@schema("reading_activity")
 }
 
+model ReadingLessonOpenedParts {
+  accountId String @map("account_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  openedParts Int @map("opened_parts")
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@id([accountId, materialId], map: "lesson_opened_parts_primary")
+  @@map("lesson_opened_parts")
+  @@schema("reading_activity")
+}
+
 model GlossaryTerm {
   id                   String   @id(map: "glossary_terms_primary")
   title                String

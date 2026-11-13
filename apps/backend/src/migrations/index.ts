@@ -27,6 +27,10 @@ import {
   statement as glossaryTermMarksStatement,
 } from "../modules/glossary/infrastructure/postgres/migrations/0125-glossary-term-marks.js";
 import {
+  name as lessonOpenedPartsName,
+  statement as lessonOpenedPartsStatement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0126-lesson-opened-parts.js";
+import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0118-automatic-cancel-refund.js";
@@ -809,6 +813,7 @@ export const platformMigrations = [
   { name: dropModeVariantsName, statement: dropModeVariantsStatement },
   { name: glossaryTermsName, statement: glossaryTermsStatement },
   { name: glossaryTermMarksName, statement: glossaryTermMarksStatement },
+  { name: lessonOpenedPartsName, statement: lessonOpenedPartsStatement },
 ] as const;
 
 export function migrateToLatest(

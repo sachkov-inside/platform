@@ -43,6 +43,32 @@ export class ReadingActivityService {
     });
   }
   /**
+   * Save how many parts of a step-by-step lesson the current Account has opened; the count only grows
+   * @returns any
+   * @throws ApiError
+   */
+  public recordLessonOpenedParts({
+    materialId,
+    requestBody,
+  }: {
+    materialId: string,
+    requestBody: {
+      openedParts: number;
+    },
+  }): CancelablePromise<{
+    openedParts: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/reading-activity/materials/{materialId}/opened-parts',
+      path: {
+        'materialId': materialId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Read personal states for at most 100 Material IDs
    * @returns any
    * @throws ApiError
@@ -56,6 +82,7 @@ export class ReadingActivityService {
   }): CancelablePromise<Array<{
     isRead: boolean;
     materialId: string;
+    openedParts: number | null;
     readAt: string | null;
     updatedAt: string | null;
     updateNote: {
