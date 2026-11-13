@@ -81,6 +81,9 @@ redacts sensitive audit/webhook fields, removes raw SMTP provider errors and pro
 Russian rate-limit copy. Platform does not add a mail relay, quota table, attempt cookie, CAPTCHA,
 reauthentication protocol or second authentication session.
 
+Fork revision `inside.15` names the project sachkov.dev on the Telegram sign-in page and in the
+fallback sign-in title (#2072, PR #2097). Sign-in behaviour is unchanged.
+
 Fork revision `inside.14` makes Telegram sign-in independent of the device wall clock.
 The identity status route returns the remaining lifetime in `expiresInMilliseconds`, calculated
 on the server. The waiting page uses that duration and a monotonic five-minute polling budget;
