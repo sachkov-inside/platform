@@ -146,14 +146,24 @@ describe("published editions", () => {
     );
   });
 
-  it("keeps cookies v2 in force together with the accepted consent path", () => {
-    expect(currentLegalEdition("cookies").version).toBe(2);
-    expect(currentLegalEdition("cookies").text).toContain(
-      "localStorage `inside.storage-notice.v1`",
+  it("puts cookies v3 in force without the reading-mode cookies and keeps v2 and v1 readable", () => {
+    const cookies = currentLegalEdition("cookies");
+    expect(cookies.version).toBe(3);
+    expect(cookies.effectiveFrom).toBe("2026-11-13");
+    expect(cookies.text).toContain(
+      "Версия 3. Действует с 13 ноября 2026 года.",
+    );
+    expect(cookies.title).toBe("Cookies и локальное хранение на sachkov.dev");
+    expect(cookies.text).toContain("localStorage `inside.storage-notice.v1`");
+    expect(cookies.text).not.toContain("guide-mode");
+    expect(cookies.text).not.toMatch(/\bInside\b/u);
+    // Опубликованная v2 остаётся по своему адресу с прежней контрольной суммой.
+    expect(findLegalEdition("cookies", 2)?.digest).toBe(
+      "7ab82f05b5ac0132a421d1aafc48256d3625cb5c65482726895928eb55babf45",
     );
     expect(
       supersededLegalEditions("cookies").map((edition) => edition.version),
-    ).toEqual([1]);
+    ).toEqual([2, 1]);
   });
 
   it.each(legalEditions.map((edition) => [edition.key, edition] as const))(
