@@ -171,7 +171,6 @@ export async function readerSaleAvailabilityRoute(
       reference: {
         ...product.membership.product,
         cover: null,
-        hasModeVariants: false,
         introduction: null,
         summary: "Reader sale programme fixture",
       },

@@ -1231,61 +1231,6 @@ test("Главная ↔ продукт: свой скелет продукта,
   ).toEqual([]);
 });
 
-test("смена режима прохождения сбрасывает страницы, которые браузер помнит в прежнем режиме", async ({
-  page,
-}) => {
-  const modesProgramme = "/products/navigation-modes/programme";
-  // Соседний урок остаётся в документе скрытым, поэтому шаг ищется среди видимого.
-  const step = (mode: "example" | "own") =>
-    page
-      .locator("[data-application-content]")
-      .getByText(`ШАГ-ДЛЯ-РЕЖИМА-${mode}`)
-      .filter({ visible: true });
-  await page.goto(modesProgramme);
-  await programmeReady(page, modesProgramme)();
-  await page
-    .locator(
-      "[data-application-content] [data-product-programme]:visible a[href*='/materials/navigation-lesson-5']",
-    )
-    .first()
-    .click();
-  await lessonReady(page, "navigation-lesson-5")();
-  // У урока продукта с режимами личная часть есть всегда: вариант шага выбирает сервер.
-  await expect(step("example")).toBeVisible();
-
-  const next = page
-    .getByRole("navigation", { name: "Действия в конце материала" })
-    .getByRole("link", { name: "Дальше", exact: true })
-    .filter({ visible: true });
-  await next.click();
-  await lessonReady(page, "navigation-lesson-6")();
-  await page.getByRole("button", { exact: true, name: "Свой проект" }).click();
-  await expect(step("own")).toBeVisible();
-
-  // Первый урок открыт меньше минуты назад и лежит в памяти браузера в прежнем режиме.
-  // Конец урока ведёт только вперёд. Назад ведут стрелка нижней панели телефона или шаг в сайдбаре,
-  // где прошлый урок лежит в предыдущей главе.
-  if (page.viewportSize()?.width === 390) {
-    await page
-      .getByRole("navigation", { name: "Навигация по урокам" })
-      .getByRole("link", { name: "Предыдущий шаг", exact: true })
-      .click();
-  } else {
-    const rail = page.getByRole("complementary", { name: "Текущая глава" });
-    await rail.getByRole("button", { name: /^Глава 2 из 2/u }).click();
-    await rail
-      .getByRole("navigation", { name: "Главы курса" })
-      .getByRole("button", { name: /^Глава 1 /u })
-      .click();
-    await rail
-      .locator('[data-course-step="material:navigation-lesson-5"]')
-      .click();
-  }
-  await lessonReady(page, "navigation-lesson-5")();
-  await expect(step("own")).toBeVisible();
-  await expect(step("example")).toHaveCount(0);
-});
-
 /** Обложка продукта в видимой странице, а не её копия в скрытом контейнере потока. */
 const productCover =
   "[data-application-content] [data-product-part='hero'] img";

@@ -203,7 +203,6 @@ const meta = {
       product: {
         name: "AI Engineering",
         href: programme,
-        hasModeVariants: false,
       },
       previous: {
         title: "Первый урок",

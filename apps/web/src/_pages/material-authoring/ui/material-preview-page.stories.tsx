@@ -174,25 +174,6 @@ export const VideoNotReady: Story = {
   },
 };
 
-/** Вариантный шаг показан как у читателя: ветка режима по умолчанию и переключатель. */
-export const VariantStep: Story = {
-  name: "Вариантный шаг",
-  play: async ({ canvasElement }) => {
-    const page = routeContent(canvasElement);
-    await expect(
-      page.getByText(
-        "Учебный проект: пройдите шаг на подготовленном репозитории.",
-      ),
-    ).toBeVisible();
-    await expect(
-      page.getByText("Свой проект: примените шаг к своему репозиторию."),
-    ).not.toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Показать вариант «Свой проект»" }),
-    ).toBeVisible();
-  },
-};
-
 /** Длинное содержимое на самой узкой ширине: переносы без прокрутки вбок. */
 export const LongBlocksNarrow: Story = {
   args: { preview: { ...materialPreview, blocks: longLessonBlocks } },

@@ -1,5 +1,4 @@
 import "server-only";
-import type { ProductMode } from "@/shared/product-mode";
 import { ReadingActivityService } from "./generated/platform-api";
 import { executeGeneratedRequest } from "./transport-core.server";
 
@@ -31,26 +30,6 @@ export function requestSetReadingState(
       new ReadingActivityService(request).setMaterialReadingState({
         materialId,
         requestBody,
-      }),
-    200,
-    { accessToken },
-  );
-}
-export function requestReaderProductMode(accessToken: string) {
-  return executeGeneratedRequest(
-    (request) => new ReadingActivityService(request).getReaderProductMode(),
-    200,
-    { accessToken },
-  );
-}
-export function requestSetReaderProductMode(
-  productMode: ProductMode,
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) =>
-      new ReadingActivityService(request).setReaderProductMode({
-        requestBody: { productMode },
       }),
     200,
     { accessToken },

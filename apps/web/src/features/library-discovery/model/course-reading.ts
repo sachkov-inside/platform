@@ -61,7 +61,6 @@ export interface CourseReadingContext {
   readonly currentPosition: number;
   readonly totalSteps: number;
   readonly totalMaterials: number;
-  readonly hasModeVariants: boolean;
   /**
    * The context was read without the reader's Task submissions; they arrive later through
    * `CourseTaskSubmissionStatuses` and stay unknown until then.
@@ -91,7 +90,6 @@ interface CourseSource {
   readonly reference: {
     readonly slug: string;
     readonly name: string;
-    readonly hasModeVariants?: boolean | undefined;
   };
   readonly chapters: readonly Pick<
     ProductChapter,
@@ -309,7 +307,6 @@ export function courseReadingContext({
     currentPosition: position + 1,
     totalSteps: steps.length,
     totalMaterials: new Set(placements.map((entry) => entry.materialId)).size,
-    hasModeVariants: product.reference.hasModeVariants ?? false,
     previous: steps[position - 1] ?? null,
     next: position < 0 ? null : (steps[position + 1] ?? null),
   };

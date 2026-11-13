@@ -8,7 +8,6 @@ export const courseSource = {
   reference: {
     slug: "ai-engineering",
     name: "AI Engineering",
-    hasModeVariants: false,
   },
   items: [
     {
@@ -142,7 +141,6 @@ export const progressCourse = requiredContext(
       reference: {
         slug: "ai-engineering",
         name: "AI Engineering",
-        hasModeVariants: false,
       },
       items: [
         ...progressTitles.map((title, index) => ({

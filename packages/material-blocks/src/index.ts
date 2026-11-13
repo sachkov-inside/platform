@@ -4,7 +4,6 @@ export {
   type CalloutTone,
 } from "./blocks/callout.js";
 export type {
-  MaterialBlockChildNodeDescription,
   MaterialBlockDefinition,
   MaterialBlockIssueReport,
   MaterialBlockNodeDescription,

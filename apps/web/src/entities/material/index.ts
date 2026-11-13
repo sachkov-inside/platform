@@ -34,8 +34,6 @@ export {
   type LessonBlock,
   type LessonBlockRendering,
   MaterialLabeledList,
-  MaterialModeVariant,
-  type MaterialModeBranch,
   MaterialResourceCard,
   MaterialTakeaways,
 } from "./ui/material-blocks";
