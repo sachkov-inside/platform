@@ -42,7 +42,7 @@ const runtimePins = new Map([
   ],
 ]);
 
-// Authorized #1337 inputs; these are the original official OCI indexes, not new builds.
+// Historical #1337 inputs and the #2117 candidate packet. Publishing keeps its owner gate.
 const rabbitmqPins = new Map([
   [
     "4.2.4-management-alpine",
@@ -55,6 +55,14 @@ const rabbitmqPins = new Map([
   [
     "4.3-management-alpine",
     "sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95",
+  ],
+  [
+    "4.4.0-management-alpine",
+    "sha256:4841f6384ef8313c3594cd3f2e9f40c10805f8a61c45f08a9a5d9ddea8199267",
+  ],
+  [
+    "4.4.0-alpine",
+    "sha256:7b77c3d3a996c7fcca1ca8bf53ce1557ff43c13b8ca2c132df6031781b209ef2",
   ],
 ]);
 
@@ -123,7 +131,7 @@ test("official acquisition inputs select exact approved mirrors and official ups
   }
 });
 
-test("RabbitMQ publisher is restricted to trusted pushes/main dispatch and preserves all three public indexes", () => {
+test("RabbitMQ publisher is restricted to trusted pushes/main dispatch and preserves all five fixed indexes", () => {
   const publisher = readFileSync(
     new URL("../.github/workflows/rabbitmq-mirror.yml", import.meta.url),
     "utf8",
@@ -145,7 +153,7 @@ test("RabbitMQ publisher is restricted to trusted pushes/main dispatch and prese
     publisher,
     /secrets\.|actions\/checkout|download-artifact|inputs\./u,
   );
-  assert.equal((publisher.match(/- tag:/gu) ?? []).length, 3);
+  assert.equal((publisher.match(/- tag:/gu) ?? []).length, 5);
   for (const [tag, digest] of rabbitmqPins) {
     assert.ok(
       publisher.includes(`- tag: ${tag}\n            digest: ${digest}`),
@@ -165,7 +173,7 @@ test("RabbitMQ publisher is restricted to trusted pushes/main dispatch and prese
   assert.match(publisher, /sha256sum --check/u);
 });
 
-test("runtime publisher admits only the three owner-approved immutable indexes on trusted main", () => {
+test("runtime publisher admits only the three fixed candidate indexes on trusted main", () => {
   const publisher = readFileSync(
     new URL(
       "../.github/workflows/official-runtime-mirror.yml",
@@ -173,30 +181,30 @@ test("runtime publisher admits only the three owner-approved immutable indexes o
     ),
     "utf8",
   );
-  const approvedInputs = [
+  const candidateInputs = [
     [
       "postgres",
-      "18.4-alpine",
-      "9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+      "18.7-alpine",
+      "75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73",
     ],
     [
       "postgres",
-      "18.4-alpine3.23",
-      "996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e",
+      "18.7-alpine3.23",
+      "e6014245dccbc0f28b07dac8e3f793c94a18420f78690e9db547957514a524f1",
     ],
     [
       "node",
-      "26.10.0-alpine3.24",
-      "0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80",
+      "26.13.1-alpine3.24",
+      "6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5",
     ],
   ];
   assert.equal((publisher.match(/- image:/gu) ?? []).length, 3);
-  for (const [image, tag, digest] of approvedInputs) {
+  for (const [image, tag, digest] of candidateInputs) {
     assert.ok(
       publisher.includes(
         `- image: ${image}\n            tag: ${tag}\n            digest: sha256:${digest}`,
       ),
-      `${image}:${tag} must preserve its approved official index`,
+      `${image}:${tag} must preserve its fixed official index`,
     );
   }
   assert.match(publisher, /permissions: \{\}/u);
