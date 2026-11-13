@@ -6,6 +6,39 @@ DEPLOYED_AT = '2026-11-12T16:02:39Z'
 DEPLOYED_EPOCH = 1794499359
 
 
+class TelegramStartupLogTests(unittest.TestCase):
+    STARTED = '2026-11-13T15:21:40.123456789Z'
+
+    def line(self, at, text):
+        return at + ' ' + text
+
+    def test_dependency_waits_in_the_first_minutes_are_not_errors(self):
+        from verify import startup_log_errors
+        # Server reboot 2026-11-13: the bot started before RabbitMQ and Platform answered (#2134).
+        logs = '\n'.join([
+            self.line('2026-11-13T15:21:45.1Z', '{"level":"error","scope":"notification.broker","failure":"broker_unavailable"}'),
+            self.line('2026-11-13T15:22:10.5Z', '{"level":"error","scope":"platform.activation","failure":"network_ECONNREFUSED"}'),
+            self.line('2026-11-13T15:24:30.0Z', '{"level":"error","scope":"telegram.membership","failure":"telegram_network"}'),
+            self.line('2026-11-13T15:30:00.0Z', '{"level":"info","scope":"worker","event":"ready"}'),
+        ])
+        self.assertFalse(startup_log_errors(logs, self.STARTED))
+
+    def test_a_dependency_failure_after_the_start_window_is_an_error(self):
+        from verify import startup_log_errors
+        logs = self.line('2026-11-13T15:25:00.0Z', '{"level":"error","scope":"notification.broker","failure":"broker_unavailable"}')
+        self.assertTrue(startup_log_errors(logs, self.STARTED))
+
+    def test_any_other_error_inside_the_start_window_is_an_error(self):
+        from verify import startup_log_errors
+        logs = self.line('2026-11-13T15:21:50.0Z', '{"level":"error","scope":"telegram.widget-answer","failure":"telegram_400"}')
+        self.assertTrue(startup_log_errors(logs, self.STARTED))
+
+    def test_an_unreadable_start_keeps_every_error(self):
+        from verify import startup_log_errors
+        logs = self.line('2026-11-13T15:21:45.1Z', '{"level":"error","failure":"broker_unavailable"}')
+        self.assertTrue(startup_log_errors(logs, 'unknown'))
+
+
 class TelegramWebhookTests(unittest.TestCase):
     def registration(self, updates=None):
         required = ['message', 'edited_message', 'chat_member', 'my_chat_member',
