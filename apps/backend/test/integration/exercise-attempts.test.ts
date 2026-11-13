@@ -80,6 +80,29 @@ const order: Json = {
   })),
 };
 
+const match: Json = {
+  kind: "match",
+  id: "layers",
+  reveal: "none",
+  question: [paragraph("Сопоставь слои")],
+  mode: "pairs",
+  rows: ["domain", "api", "store"].map((id) => ({
+    id,
+    content: [paragraph(`Row ${id}`)],
+    answerId: `${id}-choice`,
+    explanation: [paragraph(`Why ${id}`)],
+  })),
+  choices: ["domain", "api", "store"].map((id) => ({
+    id: `${id}-choice`,
+    content: [paragraph(`Choice ${id}`)],
+  })),
+};
+
+const matches = (...pairs: [string, string][]) => ({
+  kind: "matches" as const,
+  matches: pairs.map(([rowId, choiceId]) => ({ rowId, choiceId })),
+});
+
 const options = (...optionIds: string[]) => ({
   kind: "options" as const,
   optionIds,
@@ -144,6 +167,7 @@ describe("Exercise Attempts on PostgreSQL", () => {
       }),
       materialContent: materials.materialContent,
       materialBodyOperations,
+      authorPolicy: { canManage: (id) => id === actor },
     });
   });
   afterAll(async () => {
@@ -405,6 +429,143 @@ describe("Exercise Attempts on PostgreSQL", () => {
     ).toEqual({ ok: true, value: [] });
   });
 
+  test("an author reads first-try statistics per exercise version; later attempts do not count", async () => {
+    let material = await publish(lesson(quiz({}), match));
+    const answer = async (exerciseId: string, value: unknown) => {
+      const accountId = randomUUID();
+      const recorded = await attempts.recordAttempt({
+        accountId,
+        materialId: material.materialId,
+        exerciseId,
+        answer: value,
+      });
+      if (!recorded.ok) throw new Error(recorded.error.code);
+      return accountId;
+    };
+    const firstWrong = await answer("rag-wrong-platform", options("embed"));
+    // A later correct attempt of the same reader changes nothing in the statistics.
+    await attempts.recordAttempt({
+      accountId: firstWrong,
+      materialId: material.materialId,
+      exerciseId: "rag-wrong-platform",
+      answer: options("prompt"),
+    });
+    await answer("rag-wrong-platform", options("rerank"));
+    await answer("rag-wrong-platform", options("embed"));
+    await answer("rag-wrong-platform", options("prompt"));
+    await answer("rag-wrong-platform", { kind: "dontKnow" });
+    // The same wrong match in another row order is one answer.
+    await answer(
+      "layers",
+      matches(
+        ["domain", "domain-choice"],
+        ["api", "store-choice"],
+        ["store", "api-choice"],
+      ),
+    );
+    await answer(
+      "layers",
+      matches(
+        ["store", "api-choice"],
+        ["domain", "domain-choice"],
+        ["api", "store-choice"],
+      ),
+    );
+    await answer(
+      "layers",
+      matches(
+        ["domain", "api-choice"],
+        ["api", "domain-choice"],
+        ["store", "store-choice"],
+      ),
+    );
+    await answer(
+      "layers",
+      matches(
+        ["domain", "domain-choice"],
+        ["api", "api-choice"],
+        ["store", "store-choice"],
+      ),
+    );
+    const before = await attempts.readStatistics({
+      actor,
+      materialId: material.materialId,
+    });
+    material = await republish(
+      material,
+      lesson(quiz({ correct: "rerank" }), match),
+    );
+    await answer("rag-wrong-platform", options("rerank"));
+
+    const statistics = await attempts.readStatistics({
+      actor,
+      materialId: material.materialId,
+    });
+    if (!statistics.ok || !before.ok) throw new Error("Statistics must read");
+    const quizVersions = statistics.value.find(
+      (exercise) => exercise.exerciseId === "rag-wrong-platform",
+    )?.versions;
+    const [oldVersion] =
+      before.value.find(
+        (exercise) => exercise.exerciseId === "rag-wrong-platform",
+      )?.versions ?? [];
+    expect(statistics.value.map((exercise) => exercise.exerciseId)).toEqual([
+      "layers",
+      "rag-wrong-platform",
+    ]);
+    expect(statistics.value[0]).toMatchObject({
+      exerciseId: "layers",
+      kind: "match",
+      versions: [
+        {
+          respondents: 4,
+          firstTryCorrect: 1,
+          firstTryDontKnow: 0,
+          mostFrequentWrongAnswer: {
+            answer: matches(
+              ["api", "store-choice"],
+              ["domain", "domain-choice"],
+              ["store", "api-choice"],
+            ),
+            count: 2,
+          },
+        },
+      ],
+    });
+    expect(quizVersions).toMatchObject([
+      {
+        fingerprint: oldVersion?.fingerprint,
+        respondents: 5,
+        firstTryCorrect: 1,
+        firstTryDontKnow: 1,
+        mostFrequentWrongAnswer: { answer: options("embed"), count: 2 },
+      },
+      {
+        respondents: 1,
+        firstTryCorrect: 1,
+        firstTryDontKnow: 0,
+        mostFrequentWrongAnswer: null,
+      },
+    ]);
+    expect(quizVersions?.[1]?.fingerprint).not.toBe(oldVersion?.fingerprint);
+  });
+
+  test("only an Account that manages Materials reads statistics", async () => {
+    const material = await publish(lesson(quiz({})));
+    expect(
+      await attempts.readStatistics({
+        actor: randomUUID(),
+        materialId: material.materialId,
+      }),
+    ).toEqual({ ok: false, error: { code: "forbidden" } });
+    expect(
+      await attempts.readStatistics({ actor, materialId: "not-a-uuid" }),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
+    expect(
+      await attempts.readStatistics({ actor, materialId: material.materialId }),
+    ).toEqual({ ok: true, value: [] });
+  });
+
   test("«Не знаю» is recorded only where the author offered it", async () => {
     const material = await publish(lesson(quiz({}), order));
     const accountId = randomUUID();
@@ -506,7 +667,9 @@ describe("Exercise Attempts over Nest HTTP", () => {
     await identity.close();
   });
 
-  async function signedIn(): Promise<{
+  async function signedIn(
+    permission?: "materials:manage" | "platform:admin",
+  ): Promise<{
     readonly bearer: string;
     readonly accountId: string;
   }> {
@@ -523,6 +686,10 @@ describe("Exercise Attempts over Nest HTTP", () => {
     const account = await database.prisma.account.findFirstOrThrow({
       where: { logtoSubject: subject },
     });
+    if (permission !== undefined)
+      await database.prisma.accountPermission.create({
+        data: { accountId: account.id, permission },
+      });
     return { bearer, accountId: account.id };
   }
 
@@ -650,5 +817,44 @@ describe("Exercise Attempts over Nest HTTP", () => {
         })
       ).statusCode,
     ).toBe(200);
+  });
+
+  function statistics(bearer: string | null, materialId: string) {
+    return server.inject({
+      method: "GET",
+      url: `/authoring/materials/${materialId}/exercise-statistics`,
+      headers: bearer === null ? {} : { authorization: `Bearer ${bearer}` },
+    });
+  }
+
+  test("an author reads exercise statistics; a reader gets 403 and a guest 401", async () => {
+    const reader = await signedIn();
+    await record(reader.bearer, freeMaterialId, { answer: options("embed") });
+    for (const permission of ["materials:manage", "platform:admin"] as const) {
+      const author = await signedIn(permission);
+      const read = await statistics(author.bearer, freeMaterialId);
+      expect(read.statusCode).toBe(200);
+      expect(read.json()).toMatchObject({
+        exercises: [
+          {
+            exerciseId: "rag-wrong-platform",
+            kind: "quiz",
+            versions: [
+              {
+                mostFrequentWrongAnswer: { answer: options("embed") },
+              },
+            ],
+          },
+        ],
+      });
+    }
+    const denied = await statistics(reader.bearer, freeMaterialId);
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toMatchObject({ code: "forbidden" });
+    expect((await statistics(null, freeMaterialId)).statusCode).toBe(401);
+    const author = await signedIn("materials:manage");
+    expect((await statistics(author.bearer, "not-a-uuid")).statusCode).toBe(
+      400,
+    );
   });
 });

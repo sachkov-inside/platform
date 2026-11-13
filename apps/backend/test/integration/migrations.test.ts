@@ -203,6 +203,7 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
     await expectTables(testDatabase, "glossary", ["term_marks", "terms"]);
     await expectTables(testDatabase, "exercise_attempts", ["attempts"]);
+    await expectTables(testDatabase, "lesson_ratings", ["ratings"]);
     await expectTables(testDatabase, "sales_funnel", [
       "bot_events",
       "product_waitlist_intakes",
@@ -973,6 +974,7 @@ async function expectTables(
     | "bookmarks"
     | "glossary"
     | "exercise_attempts"
+    | "lesson_ratings"
     | "product_tasks"
     | "sales_funnel"
     | "accounts"
