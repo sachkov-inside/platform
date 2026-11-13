@@ -299,8 +299,11 @@ not define a second layout or terminology.
 
 Feed cards on Home show a cover only when one is assigned. Without a cover, the title and public
 summary lead. Cards in a Product’s Material catalog (#2022) are uniform: a 16:9 picture and the
-title, no summary. Without a cover the picture is a charcoal title card with the format and the
-title, like the link preview card without its logo, and the title is not repeated below it. A
+title, no summary. A pill on the picture names the medium in words (owner decision 2026-11-13):
+«Видео · 23:40» in the accent colour or «Текст» in white; the genre («Гайд») is not shown, since a
+video can be a guide too. Without a cover the picture is a charcoal title card with the title, like
+the link preview card without its logo, plus a play button for a video, and the title is not
+repeated below it. A
 programme place («Глава N · урок M») stands right under the picture, before the title, on every
 card. For locked or unavailable Materials, the public
 summary is blurred beneath the access badge; protected lesson bodies are never used as teasers.

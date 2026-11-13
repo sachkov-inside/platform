@@ -105,3 +105,67 @@ export const FeedCardIsOpen: Story = {
     await expect(canvasElement.querySelector(".blur-\\[4px\\]")).toBeNull();
   },
 };
+
+/** Формат на карточке каталога (решение владельца 13.11.2026): видео и текст, с обложкой и без. */
+export const LibraryFormats: Story = {
+  render: (args) => {
+    const cover = {
+      coverId: "27100000-0000-4000-8000-000000000005",
+      renditions: [{ width: 960, height: 540 }],
+    };
+    const cards = [
+      {
+        slug: "video-cover",
+        title: "Выбор агента и модели",
+        format: "Видео",
+        formatSlug: "video",
+        primaryVideoDurationSeconds: 563,
+        cover,
+      },
+      {
+        slug: "video-guide",
+        title: "Проектирование с агентом через grilling",
+        format: "Гайд",
+        formatSlug: "guide",
+        primaryVideoDurationSeconds: 1420,
+      },
+      {
+        slug: "text",
+        title: "Как передавать правила исполнителю и ревьюеру",
+        format: "Гайд",
+        formatSlug: "guide",
+      },
+      {
+        slug: "text-cover",
+        title: "Как работать с агентом в существующем проекте",
+        format: "Гайд",
+        formatSlug: "guide",
+        cover: { ...cover, coverId: "27100000-0000-4000-8000-000000000009" },
+      },
+    ] as const;
+    return (
+      <ul className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-x-4 gap-y-5 p-4 sm:grid-cols-4">
+        {cards.map((card) => (
+          <li className="min-w-0" key={card.slug}>
+            <MaterialCard
+              {...args}
+              material={{ ...args.material, ...card }}
+              variant="library"
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Видео · 9:23")).toBeVisible();
+    await expect(canvas.getByText("Видео · 23:40")).toBeVisible();
+    await expect(canvas.getAllByText("Текст")).toHaveLength(2);
+    await expect(canvas.queryByText("Гайд")).not.toBeInTheDocument();
+  },
+};
+export const LibraryFormatsMobile: Story = {
+  ...LibraryFormats,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
