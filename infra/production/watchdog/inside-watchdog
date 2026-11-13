@@ -194,8 +194,10 @@ check_host() {
 # Бэкап: последний запуск каждого вида завершился успехом, таймеры включены, а самый свежий успешный
 # бэкап моложе порога. После перезагрузки systemd не помнит прошлых запусков; тогда возраст неизвестен.
 # Пока бэкап идёт, systemd стирает время окончания его прошлого запуска (#2109): итог и возраст ждут конца.
+# Запуск дольше двух часов считается зависшим: сигнал о нём, а возраст снова считается по остальным видам.
+BACKUP_STUCK_SECONDS=7200
 check_backup() {
-  local kind properties result exited state newest=0 running=0
+  local kind properties result exited state started newest=0 running=0
   local timer
   for kind in incr diff full; do
     # is-active печатает состояние и при ненулевом коде; пустой вывод значит, что systemd не ответил.
@@ -207,14 +209,19 @@ check_backup() {
     fi
     if ! properties="$(systemctl show "inside-pgbackrest-backup@$kind.service" \
       --property=Result --property=ExecMainExitTimestamp --property=ActiveState \
-      --timestamp=unix 2>/dev/null)"; then
+      --property=ExecMainStartTimestamp --timestamp=unix 2>/dev/null)"; then
       hold backup.
       return
     fi
     state="$(sed -n 's/^ActiveState=//p' <<<"$properties")"
     if [[ "$state" == activating || "$state" == active || "$state" == deactivating ]]; then
-      running=1
+      started="$(sed -n 's/^ExecMainStartTimestamp=@\{0,1\}//p' <<<"$properties")"
       hold "backup.failed.$kind"
+      if [[ "$started" =~ ^[0-9]+$ ]] && (( now - started > BACKUP_STUCK_SECONDS )); then
+        observe "backup.stuck.$kind" 1 "Бэкап $kind идёт дольше $((BACKUP_STUCK_SECONDS / 3600)) ч"
+      else
+        running=1
+      fi
       continue
     fi
     result="$(sed -n 's/^Result=//p' <<<"$properties")"
