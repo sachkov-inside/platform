@@ -4,7 +4,11 @@ import { ChevronRight, Search } from "lucide-react";
 import type { Route } from "next";
 import { useState, useSyncExternalStore } from "react";
 
-import { MaterialCard, type MaterialPreview } from "@/entities/material";
+import {
+  MaterialCard,
+  materialPreviewHasVideo,
+  type MaterialPreview,
+} from "@/entities/material";
 import {
   formatMaterialCount,
   type CatalogueTopic,
@@ -29,7 +33,8 @@ export interface CatalogPlace {
   readonly lesson: number;
 }
 
-type Kind = "all" | "video" | "text";
+export type CatalogKind = "all" | "video" | "text";
+type Kind = CatalogKind;
 const kinds: readonly { readonly id: Kind; readonly label: string }[] = [
   { id: "all", label: "Всё" },
   { id: "video", label: "Видео" },
@@ -58,8 +63,18 @@ interface Shelf {
   readonly entries: readonly CatalogEntry[];
 }
 
-function isVideo(entry: CatalogEntry): boolean {
-  return entry.material.formatSlug === "video";
+/**
+ * Видом материала служит то же правило, по которому карточка рисует видео: урок курса с роликом
+ * может иметь формат «Урок», и фильтр «Видео» показывает его вместе с форматом «Видео».
+ */
+export function catalogEntryMatchesKind(
+  entry: CatalogEntry,
+  kind: CatalogKind,
+): boolean {
+  return (
+    kind === "all" ||
+    (kind === "video") === materialPreviewHasVideo(entry.material)
+  );
 }
 
 function newestFirst(entries: readonly CatalogEntry[]): CatalogEntry[] {
@@ -132,9 +147,7 @@ export function ProductMaterialCatalog({
     readServerNewMaterialCutoff,
   );
   const topicName = new Map(topics.map((topic) => [topic.id, topic.name]));
-  const pool = entries.filter(
-    (entry) => kind === "all" || (kind === "video") === isVideo(entry),
-  );
+  const pool = entries.filter((entry) => catalogEntryMatchesKind(entry, kind));
   const shelves: Shelf[] = [
     ...topics.map((topic) => ({
       id: topic.id,
@@ -210,10 +223,10 @@ export function ProductMaterialCatalog({
   );
   const chip = (active: boolean) =>
     cn(
-      "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-9 sm:px-3.5 sm:text-sm",
+      "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-9 sm:px-3.5 sm:text-sm",
       active
         ? "bg-primary text-primary-foreground"
-        : "bg-muted text-muted-foreground hover:text-foreground",
+        : "bg-muted text-muted-foreground hover:bg-foreground/10 hover:text-foreground",
     );
   return (
     <div className="@container/catalog" data-material-catalog>
@@ -233,7 +246,7 @@ export function ProductMaterialCatalog({
                 "min-h-8 rounded-full px-3 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-ring sm:text-sm",
                 kind === option.id
                   ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
               )}
               key={option.id}
               onClick={() => {
