@@ -226,6 +226,39 @@ the submission and changed only by the author. It is not a grade. In Russian pro
 «Комментарий автора».
 _Avoid_: Grade, acceptance, review status
 
+**Lesson Exercise**:
+An interactive check inside a Material, such as a quiz, a matching or an ordering, with an author
+identifier that survives republication. It has no requirements, submission or author feedback and
+never counts as a Product Task. In Russian product language: «Упражнение».
+_Avoid_: Задание, Product Task, test, grade
+
+**Exercise Attempt**:
+One check of an Account's answer to one version of a Lesson Exercise. The first attempt on a
+version is kept apart from later ones; attempts change neither access nor reading state.
+_Avoid_: Task Submission, score, grade
+
+**Lesson Step Break**:
+An author-placed point in a Material where the next part opens on the reader's request. A
+Material without step breaks shows whole.
+In Russian product language: «Переход».
+_Avoid_: Page, slide, every heading
+
+**Glossary Term**:
+A course concept with a permanent identifier, short and full definitions and the Material that
+introduces it. Materials mention it by reference, so one definition serves every Material. The
+whole set is the Glossary; in Russian product language: «Термин» and «Словарь».
+_Avoid_: Tag, Topic, inline-only definition
+
+**Lesson Rating**:
+An Account's current like or dislike of one Material, which can be changed or cleared and changes
+no access or reading state. In Russian product language: «Оценка урока».
+_Avoid_: Review, score, Question Reaction
+
+**Material Update Note**:
+The author's mark that a published Material changed in a way readers should notice, with a short
+«Что изменилось». Readers who marked the Material studied before it see that it was updated.
+_Avoid_: Every republication, changelog, typo fix
+
 **Task Review Progress**:
 The learner agent's current account of an unfinished self-check of one Task Version, separate
 from saved submissions and Author Feedback. It is not yet a Self-check Attempt.
