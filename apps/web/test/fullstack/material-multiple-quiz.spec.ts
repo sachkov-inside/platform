@@ -28,9 +28,9 @@ test("multiple-answer quiz survives real document admission, published Reader an
       {
         kind: "quiz",
         id: "features",
+        reveal: "none",
         selectionMode: "multiple",
-        promptMarkdown: "Выбери возможности первой версии.",
-        correctOptionIds: ["accounts", "projects", "github", "agent"],
+        questionMarkdown: "Выбери возможности первой версии.",
         options: [
           "accounts",
           "projects",
@@ -40,9 +40,10 @@ test("multiple-answer quiz survives real document admission, published Reader an
           "budgets",
           "rag",
           "teams",
-        ].map((id) => ({
+        ].map((id, index) => ({
           id,
           markdown: `Возможность ${id}`,
+          correct: index < 4,
           explanationMarkdown: `Объяснение ${id}`,
         })),
         dontKnow: {
@@ -100,10 +101,12 @@ test("multiple-answer quiz survives real document admission, published Reader an
   await quiz.getByRole("button", { name: "Проверить" }).click();
   await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();
   await expect(quiz.getByText("Объяснение teams")).toBeVisible();
-  await quiz
-    .getByRole("checkbox", { name: "Возможность teams", exact: true })
-    .check();
+  await quiz.getByRole("button", { name: "Ответить ещё раз" }).click();
   await expect(quiz.getByText("Правильно", { exact: true })).toHaveCount(0);
+  for (const id of ["accounts", "projects", "github", "agent", "teams"])
+    await quiz
+      .getByRole("checkbox", { name: `Возможность ${id}`, exact: true })
+      .check();
   await expect(quiz.getByText("Объяснение accounts")).toHaveCount(0);
   await quiz.getByRole("button", { name: "Проверить" }).click();
   await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();

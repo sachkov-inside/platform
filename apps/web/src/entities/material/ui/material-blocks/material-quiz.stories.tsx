@@ -5,9 +5,7 @@ import {
   type MaterialQuizPresentation,
 } from "./material-quiz.client";
 
-function MultipleQuiz(
-  props: Extract<MaterialQuizPresentation, { selectionMode: "multiple" }>,
-) {
+function MultipleQuiz(props: MaterialQuizPresentation) {
   return <MaterialQuiz {...props} />;
 }
 
@@ -24,12 +22,14 @@ const meta = {
   title: "Components/Material/Quiz",
   component: MultipleQuiz,
   args: {
+    id: "mvp-features",
+    heading: "Упражнение 2 из 4",
     selectionMode: "multiple",
-    prompt: "Какие возможности входят в первую версию платформы?",
-    correctOptionIds: ["feature-0", "feature-1", "feature-2", "feature-3"],
+    question: "Какие возможности входят в первую версию платформы?",
     options: labels.map((content, index) => ({
       id: `feature-${String(index)}`,
       content,
+      correct: index < 4,
       explanation:
         index < 4
           ? "Входит в первую версию."
@@ -108,19 +108,31 @@ export const MultipleDontKnow: Story = {
     ).toHaveAttribute("href", "#первая-версия");
   },
 };
-export const MultipleReselection: Story = {
+/** A checked answer stays until «Ответить ещё раз», which starts a fresh selection. */
+export const MultipleAnswerAgain: Story = {
   play: async ({ canvasElement }) => {
     const quiz = within(canvasElement);
+    await expect(
+      quiz.getByRole("heading", { name: "Упражнение 2 из 4" }),
+    ).toBeVisible();
     await userEvent.click(quiz.getByRole("button", { name: "Не знаю" }));
     const first = quiz.getAllByRole("checkbox")[0];
     if (first === undefined) throw new Error("Missing checkbox");
-    await userEvent.click(first);
+    await expect(first).toBeDisabled();
+    await expect(quiz.queryByRole("button", { name: "Проверить" })).toBeNull();
+    await userEvent.click(
+      quiz.getByRole("button", { name: "Ответить ещё раз" }),
+    );
     await expect(quiz.queryByText("Не подходит", { exact: true })).toBeNull();
     await expect(quiz.queryByText("Не знаю · без оценки")).toBeNull();
+    await userEvent.click(first);
     await userEvent.click(quiz.getByRole("button", { name: "Проверить" }));
     await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
-    await userEvent.click(first);
-    await expect(quiz.queryByText("Пока неверно", { exact: true })).toBeNull();
+    await expect(first).toBeChecked();
+    await userEvent.click(
+      quiz.getByRole("button", { name: "Ответить ещё раз" }),
+    );
+    await expect(first).not.toBeChecked();
     await expect(
       quiz.getByRole("button", { name: "Проверить" }),
     ).toBeDisabled();

@@ -1,0 +1,55 @@
+import type { MaterialExerciseNumber } from "@inside/material-blocks";
+import { CircleHelp } from "lucide-react";
+import type { ReactNode } from "react";
+
+/** «Упражнение 2 из 4»; without a known position, just «Упражнение». */
+export function exerciseHeading(
+  position: MaterialExerciseNumber | undefined,
+): string {
+  return position === undefined
+    ? "Упражнение"
+    : `Упражнение ${String(position.number)} из ${String(position.total)}`;
+}
+
+/** Shared frame of every Lesson Exercise: heading, the situation and the question. */
+export function MaterialExerciseFrame({
+  heading,
+  context,
+  question,
+  kind,
+  children,
+}: {
+  readonly heading: string;
+  readonly context?: ReactNode;
+  readonly question: ReactNode;
+  readonly kind: "quiz" | "match" | "order";
+  readonly children: ReactNode;
+}) {
+  return (
+    <section
+      aria-label={heading}
+      data-material-exercise={kind}
+      {...(kind === "quiz" ? { "data-material-quiz": "" } : {})}
+      className="my-6 rounded-xl border p-3 text-sm leading-[1.55] sm:my-8 sm:p-5 sm:text-base [&_p]:min-h-0 [&_p]:mt-3 [&_p:first-child]:mt-0"
+    >
+      <h2
+        data-quiz-heading
+        className="flex items-center gap-2 text-sm font-semibold sm:text-base"
+      >
+        <span className="grid size-6 shrink-0 sm:size-8 place-items-center rounded-lg bg-action text-accent-foreground">
+          <CircleHelp aria-hidden="true" className="size-4 sm:size-5" />
+        </span>
+        {heading}
+      </h2>
+      {context === undefined ? null : (
+        <div className="mt-3 text-muted-foreground" data-exercise-context>
+          {context}
+        </div>
+      )}
+      <div className="mt-3" data-exercise-question>
+        {question}
+      </div>
+      {children}
+    </section>
+  );
+}

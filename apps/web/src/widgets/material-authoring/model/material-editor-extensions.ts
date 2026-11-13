@@ -3,7 +3,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { materialDocumentExtensions } from "@inside/material-blocks/schema";
 import { MaterialVideoNodeView } from "../ui/material-video-node-view.client";
-import { MaterialQuizNodeView } from "../ui/material-quiz-node-view.client";
+import { MaterialExerciseNodeView } from "../ui/material-exercise-node-view.client";
 import { MaterialAssetNodeView } from "../ui/material-asset-node-view.client";
 import {
   MaterialLabeledListNodeView,
@@ -47,12 +47,16 @@ const ExitMaterialBlock = Extension.create({
 });
 // The registry owns every block; the editor only adds its own appearance and shortcuts.
 const assetNodeView = () => ReactNodeViewRenderer(MaterialAssetNodeView);
+const exerciseNodeView = () => ReactNodeViewRenderer(MaterialExerciseNodeView);
 
 export const materialEditorExtensions = [
   ...materialDocumentExtensions({
     nodeViews: {
       video: () => ReactNodeViewRenderer(MaterialVideoNodeView),
-      quiz: () => ReactNodeViewRenderer(MaterialQuizNodeView),
+      // Content owns exercises: the editor shows them read-only.
+      quiz: exerciseNodeView,
+      match: exerciseNodeView,
+      order: exerciseNodeView,
       assetFile: assetNodeView,
       assetImage: assetNodeView,
       // Блоки-формы: их поля нельзя набрать текстом, поэтому автор правит их здесь же.

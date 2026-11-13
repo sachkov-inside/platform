@@ -11,7 +11,12 @@ import type {
   RenderedText,
 } from "../../material.model";
 import { MaterialLessonBlock } from "./material-blocks";
-import { glossaryTermIdOf, isGlossaryTermHref } from "@inside/material-blocks";
+import {
+  glossaryTermIdOf,
+  isGlossaryTermHref,
+  materialExerciseNumbers,
+  type MaterialExerciseNumber,
+} from "@inside/material-blocks";
 import type { GlossaryTerms } from "../model/glossary-term";
 import { GlossaryDefinitionCard } from "./glossary/glossary-definition-card";
 import { GlossaryTermMention } from "./glossary/glossary-term-mention.client";
@@ -46,6 +51,12 @@ export interface MaterialBodyRendering {
    * never sends the reader to a `term:` address.
    */
   readonly glossary?: GlossaryTerms | undefined;
+  /**
+   * «Упражнение N из M» by exercise id. Omitted, the body numbers its own exercises; a surface
+   * that shows one exercise apart from its lesson passes an empty map.
+   */
+  readonly exerciseNumbers?:
+    ReadonlyMap<string, MaterialExerciseNumber> | undefined;
 }
 
 interface BodyRendering extends MaterialBodyRendering {
@@ -75,6 +86,9 @@ export function MaterialBodyView(props: {
             anchors.get(path.join("-")) ?? props.rendering.headingId(path),
           legacyHeadingId: props.rendering.headingId,
           sourceIds: new Set(anchors.values()),
+          exerciseNumbers:
+            props.rendering.exerciseNumbers ??
+            materialExerciseNumbers(props.blocks),
         }}
       />
       <BodyFragmentNavigation />
@@ -256,7 +270,12 @@ function BodyBlockView({
       return <hr className="my-12 border-border" />;
     case "table":
       return <BodyTable block={block} rendering={rendering} path={path} />;
+    // A step break shows nothing yet: the lesson reads whole until parts open one by one (#2122).
+    case "step_break":
+      return null;
     case "quiz":
+    case "match":
+    case "order":
     case "agent_prompt":
     case "callout":
     case "key_point":
@@ -267,6 +286,7 @@ function BodyBlockView({
         <MaterialLessonBlock
           block={block}
           rendering={{
+            exerciseNumber: (id) => rendering.exerciseNumbers?.get(id),
             renderBlock: (child, index) => (
               <BodyBlockView
                 block={child}

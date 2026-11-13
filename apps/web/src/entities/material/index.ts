@@ -55,6 +55,14 @@ export {
   type MaterialUpdateNote,
 } from "./model/reading-context.client";
 
+export {
+  ExerciseAnswersProvider,
+  type ExerciseAnswer,
+  type ExerciseAnswerRecord,
+  type ExerciseAnswerSource,
+  type ExerciseAnswerState,
+} from "./model/exercise-answers.client";
+
 export { materialSourceAnchors } from "./model/material-source-anchors";
 export {
   MaterialBodyView,

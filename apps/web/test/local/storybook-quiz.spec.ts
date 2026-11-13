@@ -24,7 +24,7 @@ for (const state of [
     await expect(page.locator("agentation-toolbar")).toBeHidden();
     const quiz = page.locator("[data-material-quiz]");
     await expect(
-      quiz.getByRole("heading", { name: "Проверьте понимание" }),
+      quiz.getByRole("heading", { name: "Упражнение 1 из 3" }),
     ).toBeVisible();
     if (state === "correct")
       await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();
