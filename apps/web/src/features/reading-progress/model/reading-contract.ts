@@ -11,7 +11,8 @@ export const readingStateSchema = z
 export type ReadingState = z.infer<typeof readingStateSchema>;
 /**
  * The state a list or the Reader reads. `updateNote` names a substantial update the reader has not
- * seen: the lesson was studied before it and has not been opened since (#2125).
+ * seen: the lesson was studied before it and has not been opened since (#2125). `openedParts` is
+ * how many parts of a step-by-step lesson the reader has opened, null before the second (#2122).
  */
 export const materialReadingStateSchema = readingStateSchema
   .extend({
@@ -19,6 +20,7 @@ export const materialReadingStateSchema = readingStateSchema
       .object({ whatChanged: z.string().min(1), notedAt: z.iso.datetime() })
       .strict()
       .nullable(),
+    openedParts: z.number().int().min(1).nullable(),
   })
   .strict();
 export type MaterialReadingState = z.infer<typeof materialReadingStateSchema>;

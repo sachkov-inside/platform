@@ -70,6 +70,7 @@ const meta = {
                     whatChanged: "Переписан раздел о сборке промпта.",
                     notedAt: "2026-10-12T08:00:00.000Z",
                   },
+              openedParts: null,
             },
           ],
         });

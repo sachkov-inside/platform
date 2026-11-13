@@ -10,6 +10,7 @@ import { readProductLearning } from "../../features/read-product-learning/read-p
 import { summarizeProductLearning } from "../../features/summarize-product-learning/summarize-product-learning.js";
 import { setReadingState } from "../../features/set-reading-state/set-reading-state.js";
 import type { SetReadingStateCommand } from "../../features/set-reading-state/set-reading-state.contract.js";
+import { recordOpenedParts } from "../../features/record-opened-parts/record-opened-parts.js";
 
 export class ReadingActivity {
   constructor(
@@ -32,6 +33,14 @@ export class ReadingActivity {
 
   setReadingState(command: SetReadingStateCommand) {
     return setReadingState(this.dependencies, command);
+  }
+  /** Step-by-step reveal (#2122): how many lesson parts the Account has opened; it only grows. */
+  recordOpenedParts(command: {
+    readonly accountId: string;
+    readonly materialId: string;
+    readonly openedParts: number;
+  }) {
+    return recordOpenedParts(this.dependencies, command);
   }
   getReadingStates(query: {
     readonly accountId: string;

@@ -15,6 +15,20 @@ export function requestReadingStates(
     { accessToken },
   );
 }
+export function requestRecordLessonOpenedParts(
+  input: { materialId: string; openedParts: number },
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new ReadingActivityService(request).recordLessonOpenedParts({
+        materialId: input.materialId,
+        requestBody: { openedParts: input.openedParts },
+      }),
+    200,
+    { accessToken },
+  );
+}
 export function requestSetReadingState(
   input: {
     materialId: string;

@@ -22,6 +22,12 @@ import { GlossaryDefinitionCard } from "./glossary/glossary-definition-card";
 import { GlossaryTermMention } from "./glossary/glossary-term-mention.client";
 import { MaterialCodeBlock } from "./material-code-block.client";
 import { MaterialModelComparison } from "./material-model-comparison.client";
+import { lessonParts } from "../model/lesson-parts";
+import {
+  LessonCut,
+  LessonExerciseAnswers,
+  LessonGateControl,
+} from "./lesson-step-controls.client";
 
 export interface MaterialBodyComparison {
   readonly at: number;
@@ -76,10 +82,45 @@ export function MaterialBodyView(props: {
   readonly path: readonly number[];
 }) {
   const anchors = materialSourceAnchors(props.blocks, props.path);
+  // Each gate ends a part: its control and the cut of the next part follow the gate block (#2122).
+  const steps = lessonParts(props.blocks).gates.map((gate, ordinal) => ({
+    after: gate.at,
+    node: (
+      <Fragment key={`lesson-step-${String(ordinal)}`}>
+        <LessonGateControl gate={gate} ordinal={ordinal} />
+        <LessonCut part={ordinal + 1} />
+      </Fragment>
+    ),
+  }));
+  const illustrations =
+    steps.length === 0
+      ? props.illustrations
+      : [
+          ...(props.illustrations ?? []).filter(
+            (item) => !steps.some((step) => step.after === item.after),
+          ),
+          ...steps.map((step) => {
+            const illustration = props.illustrations?.find(
+              (item) => item.after === step.after,
+            );
+            return illustration === undefined
+              ? step
+              : {
+                  after: step.after,
+                  node: (
+                    <>
+                      {illustration.node}
+                      {step.node}
+                    </>
+                  ),
+                };
+          }),
+        ];
   return (
-    <>
+    <LessonExerciseAnswers>
       <BodyBlocks
         {...props}
+        illustrations={illustrations}
         rendering={{
           ...props.rendering,
           headingId: (path) =>
@@ -92,7 +133,7 @@ export function MaterialBodyView(props: {
         }}
       />
       <BodyFragmentNavigation />
-    </>
+    </LessonExerciseAnswers>
   );
 }
 
@@ -270,7 +311,7 @@ function BodyBlockView({
       return <hr className="my-12 border-border" />;
     case "table":
       return <BodyTable block={block} rendering={rendering} path={path} />;
-    // A step break shows nothing yet: the lesson reads whole until parts open one by one (#2122).
+    // The body places a step break's button after the block, where its part ends (#2122).
     case "step_break":
       return null;
     case "quiz":

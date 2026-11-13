@@ -1,6 +1,13 @@
 "use client";
 import type { ExerciseAnswer, ExerciseResult } from "@inside/material-blocks";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 /** What the reader answered: options, matches, a sequence or «Не знаю» (`@inside/material-blocks`). */
 export type { ExerciseAnswer };
@@ -59,6 +66,41 @@ export function ExerciseAnswersProvider({
   readonly source: ExerciseAnswerSource;
   readonly children: ReactNode;
 }) {
+  return (
+    <ExerciseAnswerSourceContext value={source}>
+      {children}
+    </ExerciseAnswerSourceContext>
+  );
+}
+
+/**
+ * Reports, without storing anything, that an exercise below has an answer: a new check or one the
+ * source restored. Step-by-step reveal (#2122) opens the text after an «after answer» exercise by
+ * it. It wraps whichever source is above it, so it stays below any `ExerciseAnswersProvider`.
+ */
+export function ExerciseAnswersObserver({
+  onAnswered,
+  children,
+}: {
+  readonly onAnswered: (exerciseId: string) => void;
+  readonly children: ReactNode;
+}) {
+  const inner = useContext(ExerciseAnswerSourceContext);
+  const listener = useRef(onAnswered);
+  useEffect(() => {
+    listener.current = onAnswered;
+  });
+  const [source] = useState<ExerciseAnswerSource>(
+    () =>
+      function useObservedExerciseAnswer(exerciseId: string) {
+        const state = inner(exerciseId);
+        const answered = state.current !== null;
+        useEffect(() => {
+          if (answered) listener.current(exerciseId);
+        }, [answered, exerciseId]);
+        return state;
+      },
+  );
   return (
     <ExerciseAnswerSourceContext value={source}>
       {children}

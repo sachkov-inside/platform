@@ -1529,6 +1529,7 @@ const server = createServer(async (request, response) => {
           updatedAt: null,
           version: 0,
           updateNote: null,
+          openedParts: null,
         })),
       );
       return;
