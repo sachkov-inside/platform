@@ -86,6 +86,16 @@ export {
   type ExerciseKind,
 } from "./exercise-rules.js";
 export {
+  checkExerciseAnswer,
+  exerciseAnswerSchema,
+  exerciseFingerprint,
+  exerciseResultSchema,
+  type ExerciseAnswer,
+  type ExerciseKey,
+  type ExerciseResult,
+} from "./exercise-answer.js";
+export {
+  materialExercises,
   materialExerciseNumbers,
   materialExerciseReferenceIssue,
   materialExerciseReferencesValid,
