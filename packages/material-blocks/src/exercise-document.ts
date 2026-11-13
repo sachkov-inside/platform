@@ -8,7 +8,7 @@ function isExercise(block: RenderedBlock): block is RenderedExercise {
 }
 
 /** Every exercise of a material in reading order, including any nested in a container. */
-function materialExercises(
+export function materialExercises(
   blocks: readonly RenderedBlock[],
 ): readonly RenderedExercise[] {
   return blocks.flatMap((block) =>

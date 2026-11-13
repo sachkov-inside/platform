@@ -66,6 +66,11 @@ export interface MaterialReaderViewProps {
   readonly courseGlossarySlug?: string | undefined;
   /** Колода «Термины урока» в конце урока (#2127). */
   readonly termDeck?: ReactNode;
+  /**
+   * Wraps the lesson text and its end: Exercise Attempts restore answers inside it and close it
+   * with «Упражнения: N из M решены» (#2121). Without it exercises keep answers on the page only.
+   */
+  readonly exerciseScope?: (lesson: ReactNode) => ReactNode;
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
   readonly returnTarget?: MaterialReaderReturnTarget;
@@ -91,6 +96,7 @@ export function MaterialReaderView({
   glossaryTerms = [],
   courseGlossarySlug,
   termDeck,
+  exerciseScope = (lesson) => lesson,
   material,
   primaryVideo,
   returnTarget = homeMaterialReaderReturnTarget,
@@ -199,46 +205,48 @@ export function MaterialReaderView({
               showWatchedAction={readingAction === undefined}
             />
           )}
-          <ReaderLessonSteps blocks={body} materialId={material.materialId}>
-            <LessonWholeToggle />
-            <article
-              className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
-              data-reader-body
-            >
-              <ReaderBlocks
-                renderVideo={(block) =>
-                  primaryVideo === null ? (
-                    <p role="status">Видео к материалу не прикреплено.</p>
-                  ) : (
-                    <MaterialPrimaryVideo
-                      cover={material.cover}
-                      key={primaryVideo.videoId}
-                      className="mt-0 max-w-none sm:mt-0"
-                      materialId={material.materialId}
-                      video={{ ...primaryVideo, ...block }}
-                      showWatchedAction={readingAction === undefined}
-                    />
-                  )
-                }
-                renderLink={renderLink}
-                glossary={glossaryTermsById(
-                  glossaryTerms,
-                  courseGlossarySlug === undefined
-                    ? undefined
-                    : (termId) =>
-                        courseGlossaryHref(courseGlossarySlug, termId),
-                )}
-                blocks={body}
-                contentVersion={material.contentVersion}
-                materialId={material.materialId}
-                materialSlug={material.slug}
-                path={[]}
-              />
-            </article>
-            {termDeck === undefined ? null : (
-              <LessonStepsTail>{termDeck}</LessonStepsTail>
-            )}
-          </ReaderLessonSteps>
+          {exerciseScope(
+            <ReaderLessonSteps blocks={body} materialId={material.materialId}>
+              <LessonWholeToggle />
+              <article
+                className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
+                data-reader-body
+              >
+                <ReaderBlocks
+                  renderVideo={(block) =>
+                    primaryVideo === null ? (
+                      <p role="status">Видео к материалу не прикреплено.</p>
+                    ) : (
+                      <MaterialPrimaryVideo
+                        cover={material.cover}
+                        key={primaryVideo.videoId}
+                        className="mt-0 max-w-none sm:mt-0"
+                        materialId={material.materialId}
+                        video={{ ...primaryVideo, ...block }}
+                        showWatchedAction={readingAction === undefined}
+                      />
+                    )
+                  }
+                  renderLink={renderLink}
+                  glossary={glossaryTermsById(
+                    glossaryTerms,
+                    courseGlossarySlug === undefined
+                      ? undefined
+                      : (termId) =>
+                          courseGlossaryHref(courseGlossarySlug, termId),
+                  )}
+                  blocks={body}
+                  contentVersion={material.contentVersion}
+                  materialId={material.materialId}
+                  materialSlug={material.slug}
+                  path={[]}
+                />
+              </article>
+              {termDeck === undefined ? null : (
+                <LessonStepsTail>{termDeck}</LessonStepsTail>
+              )}
+            </ReaderLessonSteps>,
+          )}
           {practiceActions}
           {submissionWorkspace}
           {deferredPracticeActions === undefined ? null : (

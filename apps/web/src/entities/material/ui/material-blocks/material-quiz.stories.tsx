@@ -1,5 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
+import { useState } from "react";
+import {
+  ExerciseAnswersProvider,
+  type ExerciseAnswerRecord,
+} from "../../model/exercise-answers.client";
 import {
   MaterialQuiz,
   type MaterialQuizPresentation,
@@ -169,5 +174,54 @@ export const MultipleMobile: Story = {
     await expect(document.documentElement.scrollWidth).toBe(
       document.documentElement.clientWidth,
     );
+  },
+};
+
+/** A past answer restored from an older version, with the guest's line under the exercise. */
+function useRestoredAnswer(): {
+  readonly current: ExerciseAnswerRecord | null;
+  readonly updated: boolean;
+  readonly note: React.ReactNode;
+  readonly answer: (record: ExerciseAnswerRecord) => void;
+  readonly retry: () => void;
+} {
+  const [current, setCurrent] = useState<ExerciseAnswerRecord | null>({
+    answer: { kind: "options", optionIds: ["feature-0", "feature-4"] },
+    result: "incorrect",
+  });
+  return {
+    current,
+    updated: current !== null,
+    note: "Войдите, чтобы ответы сохранялись в аккаунте.",
+    answer: setCurrent,
+    retry: () => {
+      setCurrent(null);
+    },
+  };
+}
+
+export const UpdatedPastAnswer: Story = {
+  decorators: [
+    (Story) => (
+      <ExerciseAnswersProvider source={useRestoredAnswer}>
+        <Story />
+      </ExerciseAnswersProvider>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const quiz = within(canvasElement);
+    await expect(
+      quiz.getByText("Упражнение обновлено, ответь ещё раз"),
+    ).toBeVisible();
+    await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
+    await expect(
+      quiz.getByText("Войдите, чтобы ответы сохранялись в аккаунте."),
+    ).toBeVisible();
+    await userEvent.click(
+      quiz.getByRole("button", { name: "Ответить ещё раз" }),
+    );
+    await expect(
+      quiz.queryByText("Упражнение обновлено, ответь ещё раз"),
+    ).toBeNull();
   },
 };

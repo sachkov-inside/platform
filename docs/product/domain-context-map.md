@@ -18,6 +18,7 @@
 | Product Tasks | Task, неизменяемые Task Version и Submission, текущая самопроверка, Author Feedback | Product/Chapter и Material references, текущий допуск Account |
 | Reading Activity | Ручное чтение, открытия, Product Learning Started | Текущую опубликованную программу; вычисляет прогресс и продолжение |
 | Bookmarks | Личная связь Account и Material | Текущую видимость и доступ; сама связь права не создаёт |
+| Exercise Attempts (`exercise-attempts`) | Exercise Attempt: ответ Account на версию упражнения, результат и первая попытка на версии | Опубликованное тело урока и решение доступа; не меняет доступ, чтение и Product Task |
 | Account Rights | Один Product Access на Account и Product, история выдачи, отзыва и восстановления, ActivationRule и проверенное основание прежнего курса | Подтверждённую оплату, проверенное course evidence, явное действие владельца, факты каталога и связи через порты |
 | Billing | Product Price, Promotion, PriceQuote, Payment Link, Purchase, PaymentAttempt, Payment, Refund, банковская сверка и исходящая выдача | Product, Account, точную Legal Acceptance; право меняет только через Account Rights |
 | Product Sales (facet Billing) | Текущее Product Sales State и решение о приёме новых платежей | Архив Product; изменение плашки не создаёт Intake и не отправляет рассылку |

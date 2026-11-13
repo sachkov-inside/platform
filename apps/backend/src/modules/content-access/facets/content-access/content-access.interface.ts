@@ -48,6 +48,7 @@ export type EnforcementPoint =
   | "reading_state_change"
   | "bookmark_change"
   | "lesson_parts_open"
+  | "exercise_attempt"
   | "published_material_read"
   | "material_preview"
   | "mcp_material_read"

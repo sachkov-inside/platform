@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos", "glossary"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos", "glossary", "exercise_attempts"]
 }
 
 model Account {
@@ -808,6 +808,26 @@ model GlossaryTermMark {
   @@id([accountId, termId], map: "glossary_term_marks_primary")
   @@map("term_marks")
   @@schema("glossary")
+}
+
+/// Exercise Attempts (#2121). The partial unique index `exercise_attempts_one_first` lives in
+/// migration 0126; Prisma cannot describe it.
+model ExerciseAttempt {
+  id              String   @id(map: "exercise_attempts_primary") @db.Uuid
+  sequence        BigInt   @default(autoincrement())
+  accountId       String   @map("account_id") @db.Uuid
+  materialId      String   @map("material_id") @db.Uuid
+  exerciseId      String   @map("exercise_id")
+  exerciseKind    String   @map("exercise_kind")
+  fingerprint     String
+  answer          Json
+  result          String
+  firstForVersion Boolean  @map("first_for_version")
+  attemptedAt     DateTime @map("attempted_at") @db.Timestamptz
+
+  @@index([accountId, materialId, exerciseId, sequence(sort: Desc)], map: "exercise_attempts_latest")
+  @@map("attempts")
+  @@schema("exercise_attempts")
 }
 
 model BookmarkedMaterial {
