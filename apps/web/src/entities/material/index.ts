@@ -57,6 +57,7 @@ export {
 } from "./model/reading-context.client";
 
 export { materialSourceAnchors } from "./model/material-source-anchors";
+export { MaterialInline, type MaterialInlineLink } from "./ui/material-inline";
 export {
   MaterialBodyView,
   type MaterialBodyComparison,

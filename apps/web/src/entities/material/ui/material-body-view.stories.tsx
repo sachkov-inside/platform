@@ -210,6 +210,49 @@ export const ProseLinksDark: Story = {
   ],
 };
 
+/** A link whose text mixes words and inline code stays one link: one focus stop, one name. */
+export const ProseLinkWithInlineCode: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Начни с ", marks: [] },
+          {
+            kind: "text",
+            text: "короткий ",
+            marks: [{ kind: "link", href: "#pointers" }],
+          },
+          {
+            kind: "text",
+            text: "AGENTS.md",
+            marks: [{ kind: "link", href: "#pointers" }, { kind: "code" }],
+          },
+          {
+            kind: "text",
+            text: " с указателями",
+            marks: [{ kind: "link", href: "#pointers" }],
+          },
+          { kind: "text", text: ".", marks: [] },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const links = canvas.getAllByRole("link");
+    await expect(links).toHaveLength(1);
+    const link = canvas.getByRole("link", {
+      name: "короткий AGENTS.md с указателями",
+    });
+    await expect(link.querySelector("code")).toHaveTextContent("AGENTS.md");
+    await userEvent.tab();
+    await expect(link).toHaveFocus();
+    await userEvent.tab();
+    await expect(link).not.toHaveFocus();
+  },
+};
+
 export const ExternalProseLinks: Story = {
   args: {
     blocks: [

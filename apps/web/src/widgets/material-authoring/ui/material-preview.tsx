@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { ProseAnchor } from "@/shared/ui/prose-anchor.client";
 
 import {
   MaterialAssetFile,
@@ -8,12 +7,12 @@ import {
 import { MaterialPrimaryVideo } from "@/features/material-video";
 import {
   materialTaxonomyLabel,
+  MaterialInline,
   MaterialLessonBlock,
 } from "@/entities/material";
 
 import type {
   MaterialPreviewBlock,
-  MaterialPreviewMark,
   MaterialPreviewPresentation,
   MaterialPreviewText,
   MaterialPreviewVideo,
@@ -342,45 +341,6 @@ function PreviewTable({
   );
 }
 
-function renderInline(
-  content: readonly MaterialPreviewText[],
-): readonly ReactNode[] {
-  return content.map((part, index) => applyMarks(part.text, part.marks, index));
-}
-
-function applyMarks(
-  text: string,
-  marks: readonly MaterialPreviewMark[],
-  key: number,
-): ReactNode {
-  return marks.reduce<ReactNode>((node, mark, index) => {
-    const markKey = `${String(key)}-${String(index)}`;
-    switch (mark.kind) {
-      case "bold":
-        return <strong key={markKey}>{node}</strong>;
-      case "code":
-        return (
-          <code
-            className="rounded bg-muted px-1 py-0.5 font-mono text-[0.9em]"
-            key={markKey}
-          >
-            {node}
-          </code>
-        );
-      case "italic":
-        return <em key={markKey}>{node}</em>;
-      case "strike":
-        return <s key={markKey}>{node}</s>;
-      case "link":
-        return (
-          <ProseAnchor
-            className="underline decoration-accent underline-offset-4"
-            href={mark.href}
-            key={markKey}
-          >
-            {node}
-          </ProseAnchor>
-        );
-    }
-  }, text);
+function renderInline(content: readonly MaterialPreviewText[]): ReactNode {
+  return <MaterialInline content={content} />;
 }
