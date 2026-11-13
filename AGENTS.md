@@ -5,7 +5,7 @@ Session mode: worktree
 ## Repository role
 
 Platform owns the Membership application, the Telegram application under `apps/telegram`,
-shared product/legal documents and the developer process of Inside. Applications keep separate
+shared product/legal documents and the developer process of sachkov.dev. Applications keep separate
 processes, databases, migrations and runtime contracts. `REPOSITORIES.md` maps current owners and
 historical sources. Build, test and runtime depend only on this repository; a sibling checkout is
 never a dependency.

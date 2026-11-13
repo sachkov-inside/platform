@@ -9,7 +9,7 @@ code, configs or scripts already show.
 
 | Changed fact | Update |
 |---|---|
-| Shared Inside product scope or commercial/access rules | `docs/product/README.md`, `docs/product/subscription-billing-v1.md` or `docs/product/access-model.md`, whichever owns the changed fact |
+| Shared sachkov.dev product scope or commercial/access rules | `docs/product/README.md`, `docs/product/subscription-billing-v1.md` or `docs/product/access-model.md`, whichever owns the changed fact |
 | Platform scope or user-visible application behaviour | `docs/product/platform-mvp-brief.md` and the owning specification when its contract changes |
 | Legal text or edition status | `docs/legal/README.md` and the owning versioned document; a move does not change accepted status |
 | Domain term, meaning, or relationship | `GLOSSARY.md`; keep implementation and history out of the glossary |
