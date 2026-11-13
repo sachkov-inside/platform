@@ -105,18 +105,21 @@ describe("Product catalogue presentation", () => {
 
   it("spells out on every card whether the Material is a video or a text", () => {
     const corpus = productJourneyCorpus();
+    const [, guide, , note] = corpus.items;
+    if (guide === undefined || note === undefined)
+      throw new Error("The corpus has at least four Materials");
     const html = renderCatalogue({
       ...corpus,
       items: [
         {
-          ...corpus.items[1]!,
+          ...guide,
           slug: "grilling",
           title: "Проектирование через grilling",
           format: "Гайд",
           formatSlug: "guide",
           primaryVideoDurationSeconds: 1420,
         },
-        { ...corpus.items[3]!, slug: "harness", title: "Улучшение harness" },
+        { ...note, slug: "harness", title: "Улучшение harness" },
       ],
     });
     const video = cardHtml(html, "grilling");
