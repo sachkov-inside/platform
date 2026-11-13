@@ -494,8 +494,6 @@ async function ResolvedMaterialReader({
                     {label}
                   </a>
                 );
-              // Ссылка на шаг программы открывает этот шаг и из дополнительного материала;
-              // остальные материалы сохраняют исходный шаг.
               const target = readerBodyLinkHref(productContext, href);
               return target === undefined ? undefined : (
                 <IntentPrefetchLink

@@ -207,7 +207,8 @@ export function resolveProductReaderContext({
 /**
  * A body link to a primary step of this programme opens that step, whether the open document is a
  * lesson or a supplementary document: selecting a primary step ends supplementary browsing. Any other
- * Material opens as a reference that keeps the reader's step. Other addresses are not course links.
+ * Material opens as a reference that keeps the reader's step when the open document has one. Other
+ * addresses are not course links.
  */
 export function readerBodyLinkHref(
   productContext: ProductReaderContext | null,

@@ -419,11 +419,26 @@ describe("body links inside a course document", () => {
 
   it("opens a primary step linked from a lesson opened for reference as that step", () => {
     const catalogue = `/materials/lesson?from=${encodeURIComponent("/products/course/programme?part=materials&at=lesson")}&view=reference`;
-    const opened = contextOfOpened(linkFrom(catalogue, "/materials/checks"));
+    const href = linkFrom(catalogue, "/materials/checks");
+    expect(href).not.toContain("view=reference");
+    const opened = contextOfOpened(href);
     expect(opened?.supplementary).toBeUndefined();
     expect(opened).toMatchObject({
       currentPosition: 2,
       programme: { current: { id: "material:checks" } },
+    });
+  });
+
+  it("returns from a supplementary document to the originating lesson as its step", () => {
+    const href = linkFrom(supplementary, "/materials/lesson");
+    expect(href).not.toContain("anchor=");
+    expect(href).not.toContain("view=reference");
+    const opened = contextOfOpened(href);
+    expect(opened?.supplementary).toBeUndefined();
+    expect(opened).toMatchObject({
+      currentPosition: 1,
+      next: { title: "Проверки" },
+      programme: { current: { id: "material:lesson" } },
     });
   });
 
