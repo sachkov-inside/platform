@@ -1,7 +1,12 @@
 # Pipeline
 
-Copies from the [workspace pipeline](https://github.com/KirillSachkov/workspace/tree/main/pipeline),
-installed through workspace `sync-pipeline` (Project set). Keep each copy identical to its source.
+## Agent Kit selection
+
+The current managed subset, immutable source and update procedure are in [AGENT-KIT.md](AGENT-KIT.md). The manifest owns only those selected folders. The predecessor receipts and local adaptation notes below remain provenance for the other folders; an older whole-set sync recipe does not apply to the managed subset.
+
+
+Predecessor copies came from the [pinned workspace pipeline](https://github.com/KirillSachkov/workspace/tree/979a7ec3ee9cf140efab613864c6f1803425547a/pipeline).
+The Agent Kit subset follows its manifest; retained local folders keep the predecessor source and adaptations below.
 Project rules live in `docs/agents/`, not in skill directories.
 
 ## Source
