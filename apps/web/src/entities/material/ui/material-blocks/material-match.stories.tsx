@@ -122,11 +122,37 @@ export const PartlyWrong: Story = {
   },
 };
 
+/** The option a list offers under the given label. */
+function option(select: HTMLElement, label: string): HTMLOptionElement {
+  const found = within(select).getByRole<HTMLOptionElement>("option", {
+    name: label,
+  });
+  return found;
+}
+
+/** Pairs are one to one: a choice taken by one row is unavailable in the others until freed. */
+export const OneToOne: Story = {
+  play: async ({ canvasElement }) => {
+    const match = within(canvasElement);
+    const [first, second, third] = match.getAllByRole("combobox");
+    if (first === undefined || second === undefined || third === undefined)
+      throw new Error("Missing row");
+    await userEvent.selectOptions(first, "Индексация");
+    await expect(option(first, "Индексация")).toBeEnabled();
+    await expect(option(second, "Индексация")).toBeDisabled();
+    await expect(option(third, "Индексация")).toBeDisabled();
+    await expect(option(second, "Извлечение")).toBeEnabled();
+    await userEvent.selectOptions(first, "Извлечение");
+    await expect(option(second, "Индексация")).toBeEnabled();
+    await expect(option(second, "Извлечение")).toBeDisabled();
+  },
+};
+
 /** «Начать заново» empties every list and hides the verdicts; nothing else on the page changes. */
 export const StartOver: Story = {
   play: async ({ canvasElement }) => {
     const match = within(canvasElement);
-    await pick(canvasElement, ["Извлечение", "Индексация", "Извлечение"]);
+    await pick(canvasElement, ["Извлечение", "Генерация ответа", "Индексация"]);
     await userEvent.click(match.getByRole("button", { name: "Проверить" }));
     await expect(
       match.getByText("Пока неверно: 0 из 3", { exact: true }),
@@ -188,6 +214,11 @@ export const Groups: Story = {
     await expect(
       match.getByText(/В одну группу может попасть несколько строк/u),
     ).toBeVisible();
+    const [first, second] = match.getAllByRole("combobox");
+    if (first === undefined || second === undefined)
+      throw new Error("Missing row");
+    await userEvent.selectOptions(first, "Заранее, при индексации");
+    await expect(option(second, "Заранее, при индексации")).toBeEnabled();
     await pick(canvasElement, [
       "Заранее, при индексации",
       "Заранее, при индексации",

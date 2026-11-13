@@ -246,6 +246,15 @@ export function MaterialMatch(props: MaterialMatchPresentation) {
           const rowId = `${baseId}-row-${String(index)}`;
           const reviewId = `${baseId}-review-${String(index)}`;
           const choice = picked.get(row.id);
+          // Pairs are one to one: a choice another row holds waits until that row lets it go.
+          const taken =
+            mode === "pairs"
+              ? new Set(
+                  [...draft].flatMap(([otherRow, chosen]) =>
+                    otherRow === row.id ? [] : [chosen],
+                  ),
+                )
+              : new Set<string>();
           const correct =
             answered === null || answered.result === "dontKnow"
               ? undefined
@@ -281,7 +290,11 @@ export function MaterialMatch(props: MaterialMatchPresentation) {
               >
                 <option value="">Выбери ответ</option>
                 {choices.map((item) => (
-                  <option key={item.id} value={item.id}>
+                  <option
+                    key={item.id}
+                    value={item.id}
+                    disabled={taken.has(item.id)}
+                  >
                     {item.label}
                   </option>
                 ))}
