@@ -1,7 +1,12 @@
 import type { Route } from "next";
-import type { ReaderCourseAnchor } from "@/shared/routing/reader-course-anchor";
+import {
+  anchoredMaterialHref,
+  parseReaderCourseAnchor,
+  type ReaderCourseAnchor,
+} from "@/shared/routing/reader-course-anchor";
 import {
   courseReadingContext,
+  programmeStepLink,
   type CourseReadingContext,
   type ProductChapter,
 } from "@/features/library-discovery";
@@ -193,6 +198,27 @@ export function resolveProductReaderContext({
       programme?.totalMaterials ??
       new Set(flatProgramme.map((entry) => entry.item.slug)).size,
   };
+}
+
+/**
+ * A body link to a primary step of this programme opens that step, whether the open document is a
+ * lesson or a supplementary document: selecting a primary step ends supplementary browsing. Any other
+ * Material opens as a reference that keeps the reader's step when the open document has one. Other
+ * addresses are not course links.
+ */
+export function readerBodyLinkHref(
+  productContext: ProductReaderContext | null,
+  href: string,
+): Route | undefined {
+  const programme = productContext?.programme;
+  if (programme == null) return undefined;
+  const step = programmeStepLink(programme, href);
+  if (step !== undefined) return step.href;
+  const anchor =
+    programme.currentPosition === 0
+      ? undefined
+      : parseReaderCourseAnchor(programme.current.id);
+  return anchoredMaterialHref(href, programme.href, anchor, true);
 }
 
 function toContextItem(

@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { ProseAnchor } from "@/shared/ui/prose-anchor.client";
 
 import {
   MaterialAssetFile,
@@ -9,6 +8,7 @@ import { MaterialPrimaryVideo } from "@/features/material-video";
 import {
   materialTaxonomyLabel,
   MaterialCallout,
+  MaterialInline,
   MaterialLessonBlock,
 } from "@/entities/material";
 import {
@@ -19,7 +19,6 @@ import {
 
 import type {
   MaterialPreviewBlock,
-  MaterialPreviewMark,
   MaterialPreviewPresentation,
   MaterialPreviewText,
   MaterialPreviewVideo,
@@ -145,9 +144,13 @@ function PreviewBlock({
 }) {
   switch (block.kind) {
     case "paragraph":
-      return <p className="min-h-7">{renderInline(block.content)}</p>;
+      return (
+        <p className="min-h-7">
+          <PreviewInline content={block.content} />
+        </p>
+      );
     case "heading": {
-      const content = renderInline(block.content);
+      const content = <PreviewInline content={block.content} />;
       if (block.level === 2) {
         return (
           <h2 className="pt-6 text-2xl font-semibold tracking-[-0.025em]">
@@ -261,7 +264,7 @@ function PreviewBlock({
                 ))}
               </div>
             ),
-            renderInline: (content) => renderInline(content),
+            renderInline: (content) => <PreviewInline content={content} />,
           }}
         />
       );
@@ -368,56 +371,24 @@ function PreviewTable({
   );
 }
 
-function renderInline(
-  content: readonly MaterialPreviewText[],
-): readonly ReactNode[] {
-  return content.map((part, index) => applyMarks(part.text, part.marks, index));
+/** Inline content as Reader draws it; a term mention stays unresolved until the reader opens it. */
+function PreviewInline({
+  content,
+}: {
+  readonly content: readonly MaterialPreviewText[];
+}) {
+  return <MaterialInline content={content} link={previewLink} />;
 }
 
-function applyMarks(
-  text: string,
-  marks: readonly MaterialPreviewMark[],
-  key: number,
-): ReactNode {
-  return marks.reduce<ReactNode>((node, mark, index) => {
-    const markKey = `${String(key)}-${String(index)}`;
-    switch (mark.kind) {
-      case "bold":
-        return <strong key={markKey}>{node}</strong>;
-      case "code":
-        return (
-          <code
-            className="rounded bg-muted px-1 py-0.5 font-mono text-[0.9em]"
-            key={markKey}
-          >
-            {node}
-          </code>
-        );
-      case "italic":
-        return <em key={markKey}>{node}</em>;
-      case "strike":
-        return <s key={markKey}>{node}</s>;
-      case "link":
-        // A term mention is resolved by the reader against the Glossary; it is not an address.
-        if (isGlossaryTermHref(mark.href))
-          return (
-            <span
-              className="underline decoration-dotted underline-offset-4"
-              key={markKey}
-              title={mark.href}
-            >
-              {node}
-            </span>
-          );
-        return (
-          <ProseAnchor
-            className="underline decoration-accent underline-offset-4"
-            href={mark.href}
-            key={markKey}
-          >
-            {node}
-          </ProseAnchor>
-        );
-    }
-  }, text);
+function previewLink(href: string, children: ReactNode): ReactNode {
+  // A term mention is resolved by the reader against the Glossary; it is not an address.
+  if (!isGlossaryTermHref(href)) return undefined;
+  return (
+    <span
+      className="underline decoration-dotted underline-offset-4"
+      title={href}
+    >
+      {children}
+    </span>
+  );
 }

@@ -1,15 +1,9 @@
-import { proseLinkClassName } from "@/shared/ui/prose-link";
-import { ProseAnchor } from "@/shared/ui/prose-anchor.client";
 import { Fragment, type ReactNode } from "react";
 
 import { BodyFragmentNavigation } from "@/shared/ui/body-fragment-navigation.client";
 import { materialSourceAnchors } from "../model/material-source-anchors";
 import { cn } from "@/shared/lib/utils";
-import type {
-  RenderedBlock,
-  RenderedMark,
-  RenderedText,
-} from "../../material.model";
+import type { RenderedBlock, RenderedText } from "../../material.model";
 import { MaterialLessonBlock } from "./material-blocks";
 import {
   glossaryTermIdOf,
@@ -21,6 +15,7 @@ import type { GlossaryTerms } from "../model/glossary-term";
 import { GlossaryDefinitionCard } from "./glossary/glossary-definition-card";
 import { GlossaryTermMention } from "./glossary/glossary-term-mention.client";
 import { MaterialCodeBlock } from "./material-code-block.client";
+import { MaterialInline } from "./material-inline";
 import { MaterialModelComparison } from "./material-model-comparison.client";
 import { lessonParts } from "../model/lesson-parts";
 import {
@@ -390,66 +385,23 @@ function BodyInline({
   readonly link?: MaterialBodyRendering["link"];
   readonly glossary?: GlossaryTerms | undefined;
 }) {
-  return content.map((text, index) => (
-    <span key={index}>
-      {applyMarks(text.text, text.marks, index, link, path, glossary)}
-    </span>
-  ));
-}
-
-function applyMarks(
-  text: string,
-  marks: readonly RenderedMark[],
-  key: number,
-  link: MaterialBodyRendering["link"],
-  path: readonly number[],
-  glossary: GlossaryTerms | undefined,
-): ReactNode {
-  return marks.reduceRight<ReactNode>((child, mark, index) => {
-    const markKey = `${String(key)}-${String(index)}`;
-    switch (mark.kind) {
-      case "bold":
-        return <strong key={markKey}>{child}</strong>;
-      case "code":
-        return (
-          <code
-            className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.9em]"
-            key={markKey}
-          >
-            {child}
-          </code>
-        );
-      case "italic":
-        return <em key={markKey}>{child}</em>;
-      case "strike":
-        return <s key={markKey}>{child}</s>;
-      case "link": {
-        if (isGlossaryTermHref(mark.href)) {
-          const termId = glossaryTermIdOf(mark.href);
+  return (
+    <MaterialInline
+      content={content}
+      link={(href, children) => {
+        if (isGlossaryTermHref(href)) {
+          const termId = glossaryTermIdOf(href);
           const term = termId === undefined ? undefined : glossary?.get(termId);
           return term === undefined ? (
-            <Fragment key={markKey}>{child}</Fragment>
+            <>{children}</>
           ) : (
-            <GlossaryTermMention key={markKey} term={term}>
-              {child}
-            </GlossaryTermMention>
+            <GlossaryTermMention term={term}>{children}</GlossaryTermMention>
           );
         }
-        const custom = link?.(mark.href, child, path);
-        return custom === undefined ? (
-          <ProseAnchor
-            className={proseLinkClassName}
-            href={mark.href}
-            key={markKey}
-          >
-            {child}
-          </ProseAnchor>
-        ) : (
-          <Fragment key={markKey}>{custom}</Fragment>
-        );
-      }
-    }
-  }, text);
+        return link?.(href, children, path);
+      }}
+    />
+  );
 }
 
 function BodyTable({

@@ -550,6 +550,9 @@ From 48rem to below 64rem, tablets use the same dock and sheet; there is no top 
 At 64rem and above, the chapter rail stays visible. Tablet and desktop retain the named previous/next footer.
 The supplementary footer returns to the originating lesson or Task; it does not offer primary-step arrows.
 Nested supplementary links retain the anchor. Selecting a primary step ends supplementary browsing.
+A body link to a primary step of the same Product, from a lesson, a Material opened for reference or a
+supplementary document, opens that step without the anchor: the rail and programme sheet select it in
+its own chapter with its position and previous/next.
 A direct link without a valid anchor shows the course navigation without a step number when the material has one course.
 For a material of several courses, the direct link uses standalone Reader with the Home return.
 Chapter selection lists actual chapters only, without a synthetic Materials chapter.
@@ -602,6 +605,7 @@ The sequence preserves authored Material order and keeps Material ordinals, prog
 Reader preserves explicit validated `from` for confirmed Product membership independently of chapter navigation.
 Without an explicit source, a sole Product membership supplies the programme return; multiple memberships never select an arbitrary Product.
 Prose links use the semantic action color, a persistent underline, a stronger hover underline and a visible keyboard focus outline in all themes.
+One authored link stays one anchor in Reader and Preview, even when its text mixes words and inline code: one focus stop and one accessible name.
 Task uses its known Product slug; composition/history failures do not hide authorized requirements or close submission.
 Guest composition stays in public cache; personal availability/history stays request-owned.
 Pending/access states reserve the same course frame; standalone fallback, mode variants and protected assets remain intact.

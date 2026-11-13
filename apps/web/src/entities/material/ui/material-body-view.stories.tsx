@@ -211,6 +211,52 @@ export const ProseLinksDark: Story = {
   ],
 };
 
+/** A link whose text mixes words and inline code stays one link: one focus stop, one name. */
+export const ProseLinkWithInlineCode: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Начни с ", marks: [] },
+          {
+            kind: "text",
+            text: "короткий ",
+            marks: [{ kind: "link", href: "#pointers" }],
+          },
+          {
+            kind: "text",
+            text: "AGENTS.md",
+            marks: [{ kind: "link", href: "#pointers" }, { kind: "code" }],
+          },
+          {
+            kind: "text",
+            text: " с указателями",
+            marks: [{ kind: "link", href: "#pointers" }],
+          },
+          { kind: "text", text: ".", marks: [] },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const links = canvas.getAllByRole("link");
+    await expect(links).toHaveLength(1);
+    const link = canvas.getByRole("link", {
+      name: "короткий AGENTS.md с указателями",
+    });
+    const code = link.querySelector("code");
+    await expect(code).toHaveTextContent("AGENTS.md");
+    // Side padding would let the chip background cover the link underline.
+    await expect(code).toHaveStyle({ paddingLeft: "0px", paddingRight: "0px" });
+    await userEvent.tab();
+    await expect(link).toHaveFocus();
+    await userEvent.tab();
+    await expect(link).not.toHaveFocus();
+  },
+};
+
 export const ExternalProseLinks: Story = {
   args: {
     blocks: [
@@ -503,7 +549,7 @@ export const GlossaryTerms: Story = {
     // An unknown term is neither a button nor a link, and its card is not shown.
     await expect(canvas.queryByRole("link")).toBeNull();
     await expect(
-      canvas.getByText("неизвестный термин").closest("button"),
+      canvas.getByText(/неизвестный термин/).closest("button"),
     ).toBeNull();
     await expect(
       canvasElement.querySelectorAll("[data-material-block=callout]"),
