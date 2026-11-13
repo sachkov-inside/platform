@@ -55,6 +55,7 @@ export {
   type MaterialUpdateNote,
 } from "./model/reading-context.client";
 
+export { exerciseAnchor } from "./ui/material-blocks/material-exercise-frame";
 export {
   ExerciseAnswersProvider,
   type ExerciseAnswer,

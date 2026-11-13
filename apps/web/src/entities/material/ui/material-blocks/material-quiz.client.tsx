@@ -64,7 +64,10 @@ export function MaterialQuiz(props: MaterialQuizPresentation) {
     answered?.answer.kind === "options" ? answered.answer.optionIds : [];
   return (
     <MaterialExerciseFrame
+      exerciseId={props.id}
       kind="quiz"
+      updated={state.updated}
+      note={state.note}
       heading={props.heading}
       context={props.context}
       question={props.question}
@@ -77,7 +80,7 @@ export function MaterialQuiz(props: MaterialQuizPresentation) {
           chosen={chosen}
           onCheck={(optionIds) => {
             state.answer({
-              answer: { kind: "options", optionIds },
+              answer: { kind: "options", optionIds: [...optionIds] },
               result: quizResult(props.options, optionIds),
             });
           }}
@@ -90,7 +93,7 @@ export function MaterialQuiz(props: MaterialQuizPresentation) {
           chosen={chosen}
           onCheck={(optionIds) => {
             state.answer({
-              answer: { kind: "options", optionIds },
+              answer: { kind: "options", optionIds: [...optionIds] },
               result: quizResult(props.options, optionIds),
             });
           }}
