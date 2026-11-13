@@ -238,6 +238,83 @@ export const AnswerOpensText: Story = {
   },
 };
 
+const afterMatch = "Разбор: индексация идёт до вопроса.";
+const afterOrder = "Разбор: поиск идёт по готовому индексу.";
+const option = (value: string) => [paragraph(text(value))];
+/** «Сопоставь» and «Расставь по порядку» that hide the text below until an answer (#2123). */
+const matchAndOrderBody: RenderedBlock[] = [
+  heading("Этапы"),
+  paragraph(text("RAG сначала готовит индекс, потом отвечает на вопросы.")),
+  {
+    kind: "match",
+    id: "rag-stages",
+    reveal: "after-answer",
+    question: option("Когда выполняется действие?"),
+    mode: "groups",
+    rows: [
+      ["split", "Нарезать документы", "offline"],
+      ["embed", "Посчитать эмбеддинги документов", "offline"],
+      ["search", "Найти похожие чанки", "online"],
+    ].map(([id = "", value = "", answerId = ""]) => ({
+      id,
+      content: option(value),
+      answerId,
+      explanation: option(`Пояснение: ${value}.`),
+    })),
+    choices: [
+      { id: "offline", content: option("Заранее") },
+      { id: "online", content: option("На каждый запрос") },
+    ],
+  },
+  paragraph(text(afterMatch)),
+  {
+    kind: "order",
+    id: "rag-pipeline",
+    reveal: "after-answer",
+    question: option("Расставь шаги по порядку."),
+    steps: [
+      ["chunk", "Нарезать"],
+      ["index", "Проиндексировать"],
+      ["find", "Найти"],
+    ].map(([id = "", value = ""]) => ({
+      id,
+      content: option(value),
+      explanation: option(`Шаг «${value}».`),
+    })),
+  },
+  paragraph(text(afterOrder)),
+];
+
+/** A wrong answer opens the text; «Начать заново» and «Ответить ещё раз» never close it again. */
+export const MatchAndOrderOpenText: Story = {
+  args: { body: matchAndOrderBody },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(canvas.getByText(afterMatch)).not.toBeVisible());
+    const match = within(
+      canvas.getByRole("region", { name: "Упражнение 1 из 2" }),
+    );
+    for (const select of match.getAllByRole("combobox"))
+      await userEvent.selectOptions(select, "На каждый запрос");
+    await userEvent.click(match.getByRole("button", { name: "Проверить" }));
+    await expect(canvas.getByText(afterMatch)).toBeVisible();
+    await userEvent.click(match.getByRole("button", { name: "Начать заново" }));
+    await expect(canvas.getByText(afterMatch)).toBeVisible();
+
+    const order = within(
+      canvas.getByRole("region", { name: "Упражнение 2 из 2" }),
+    );
+    await expect(canvas.getByText(afterOrder)).not.toBeVisible();
+    await userEvent.click(order.getByRole("button", { name: "Проверить" }));
+    await expect(canvas.getByText(afterOrder)).toBeVisible();
+    await userEvent.click(
+      order.getByRole("button", { name: "Ответить ещё раз" }),
+    );
+    await expect(canvas.getByText(afterOrder)).toBeVisible();
+    await expect(canvas.getByText(afterMatch)).toBeVisible();
+  },
+};
+
 /** «Пропустить» opens the text without an answer. */
 export const SkipOpensText: Story = {
   parameters: { guestParts: 2 },

@@ -84,6 +84,14 @@ const preview: Preview = {
           },
           type: "mobile",
         },
+        mobile360: {
+          name: "Mobile 360 × 800",
+          styles: {
+            height: "800px",
+            width: "360px",
+          },
+          type: "mobile",
+        },
         mobile390: {
           name: "Mobile 390 × 844",
           styles: {

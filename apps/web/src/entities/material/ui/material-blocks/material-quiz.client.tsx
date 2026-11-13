@@ -1,12 +1,13 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
-import { Check, CircleHelp, RotateCcw, X } from "lucide-react";
+import { Check, RotateCcw, X } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
   useExerciseAnswer,
   type ExerciseAnswerRecord,
 } from "../../model/exercise-answers.client";
+import { ExerciseDontKnowReview, ExerciseVerdict } from "./exercise-feedback";
 import { MaterialExerciseFrame } from "./material-exercise-frame";
 
 /** Prepared reading content shared by Reader and its stories. */
@@ -39,18 +40,6 @@ function quizResult(
     ? "correct"
     : "incorrect";
 }
-
-const resultLabels: Readonly<Record<ExerciseAnswerRecord["result"], string>> = {
-  correct: "Правильно",
-  incorrect: "Пока неверно",
-  dontKnow: "Не знаю · без оценки",
-};
-
-const resultColors: Readonly<Record<ExerciseAnswerRecord["result"], string>> = {
-  correct: "var(--callout-good)",
-  incorrect: "var(--callout-bad)",
-  dontKnow: "var(--foreground)",
-};
 
 /**
  * A quiz of a lesson. A checked answer stays on screen with its explanations until the reader
@@ -305,19 +294,7 @@ function QuizFeedback({
   const selected = options.find((option) => option.id === chosen[0]);
   return (
     <div className="mt-3 border-t border-border pt-3" data-quiz-feedback>
-      <p
-        className="flex items-center gap-2 text-sm font-semibold"
-        style={{ color: resultColors[answered.result] }}
-      >
-        {answered.result === "dontKnow" ? (
-          <CircleHelp aria-hidden="true" className="size-4" />
-        ) : answered.result === "correct" ? (
-          <Check aria-hidden="true" className="size-4" />
-        ) : (
-          <X aria-hidden="true" className="size-4" />
-        )}
-        {resultLabels[answered.result]}
-      </p>
+      <ExerciseVerdict result={answered.result} />
       {answered.result === "dontKnow" ? (
         <>
           {/* Several correct options are marked beside each option already. */}
@@ -335,21 +312,7 @@ function QuizFeedback({
             </>
           )}
           {dontKnow === undefined ? null : (
-            <>
-              <div className="mt-2">{dontKnow.explanation}</div>
-              {dontKnow.reviewLinks.map((href, index) => (
-                <a
-                  key={href}
-                  href={href}
-                  className="inline-flex min-h-11 items-center text-sm underline underline-offset-4"
-                >
-                  Повторить раздел
-                  {dontKnow.reviewLinks.length > 1
-                    ? ` ${String(index + 1)}`
-                    : ""}
-                </a>
-              ))}
-            </>
+            <ExerciseDontKnowReview dontKnow={dontKnow} />
           )}
         </>
       ) : selectionMode === "single" && selected?.explanation !== undefined ? (
