@@ -90,3 +90,11 @@ export {
 export { resourceCardUrlValid } from "./blocks/resource-card.js";
 
 export { videoChaptersSchema } from "./blocks/video.js";
+
+export { glossaryTermIdSchema } from "./glossary-term-id.js";
+export {
+  glossaryTermIdOf,
+  isGlossaryTermHref,
+  keepFirstTermMentions,
+  materialGlossaryTermIds,
+} from "./glossary-term.js";

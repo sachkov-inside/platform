@@ -1,5 +1,7 @@
 import {
   addressableMaterialBlockTypes,
+  glossaryTermIdOf,
+  isGlossaryTermHref,
   isJsonArray,
   isJsonObject,
   isUnknownRecord,
@@ -56,6 +58,8 @@ function invalid(
 
 function validateUrl(url: string): boolean {
   if (url.startsWith("#")) return true;
+  // A Glossary Term mention: the reader resolves it, so it is never followed as a URL.
+  if (isGlossaryTermHref(url)) return glossaryTermIdOf(url) !== undefined;
   if (url.startsWith("/") && !url.startsWith("//") && !url.includes("\\")) {
     return true;
   }

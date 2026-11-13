@@ -150,6 +150,8 @@ export type RenderedBlock =
       readonly rows: readonly MaterialLabeledRow[];
     }
   | { readonly content: readonly RenderedText[]; readonly kind: "key_point" }
+  /** A definition card: the reader shows the term's full definition from the Glossary. */
+  | { readonly kind: "term_definition"; readonly termId: string }
   | {
       readonly kind: "variant";
       readonly options: readonly {
