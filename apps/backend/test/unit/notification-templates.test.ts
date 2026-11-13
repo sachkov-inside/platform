@@ -145,6 +145,20 @@ test("продажа: строка покупателя без username, без 
   expect(
     buyerLine({
       state: "available",
+      displayName: "Иван \u202e@someone\u200b\u2028https://evil",
+      username: "1van",
+    }),
+  ).toBe("Покупатель: Иван ＠someone https://evil, без username");
+  expect(
+    buyerLine({
+      state: "available",
+      displayName: "😀".repeat(200),
+      username: null,
+    }),
+  ).toBe(`Покупатель: ${"😀".repeat(129)}, без username`);
+  expect(
+    buyerLine({
+      state: "available",
       displayName: "Анна\nПетрова",
       username: "bad name",
     }),

@@ -101,7 +101,8 @@ the recipients are the Accounts that manage sales, so the email channel is never
 The text names the buyer's current Telegram (name and `@username`, or that Telegram is not linked or
 not readable) by the owner's decision of 2026-11-13 (#2085), and the payment card link identifies
 the purchase. Template revision 2 adds that line. A Telegram change between issue and send makes the
-rebuilt text differ: the command is superseded and replaced, not lost.
+rebuilt text differ: the command is superseded and replaced, not lost. Telegram checks neither the
+text nor `templateRevision`, so this revision needs only a Platform release.
 Platform authorization also denies a recipient who lost the sales permission (`access_denied`).
 An older Telegram rejects the new kind. Release Telegram before Platform for this change.
 

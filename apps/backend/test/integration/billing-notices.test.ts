@@ -601,6 +601,8 @@ describe("служебные сообщения подписки (реальны
         `${origin}/authoring/sales/payments/${purchaseRef}`,
       ].join("\n"),
     );
+    // Адрес заказа в текст не входит: автор видит только Telegram покупателя (#2085).
+    expect(sales[0]?.text).not.toContain(`${s.buyer}@example.test`);
     expect(s.salesFor(stranger)).toHaveLength(0);
     expect(s.salesFor(s.buyer)).toHaveLength(0);
     // Почтой о продаже не пишут никому, а покупатель получает своё обычное письмо.

@@ -32,14 +32,27 @@ function promotionLine(promotion: SaleFacts["promotion"]): string[] {
         `Промокод: ${oneLine(promotion.code)} (скидка ${String(promotion.percent)}%)`,
       ];
 }
-/** Telegram показывает `@username` ссылкой на профиль; чужой символ превращает его в простой текст. */
-const telegramUsername = /^[A-Za-z0-9_]{4,32}$/u;
+/** Правило username Telegram, как у адреса бота в конфигурации: Telegram показывает его ссылкой. */
+const telegramUsername = /^[A-Za-z][A-Za-z0-9_]{4,31}$/u;
+/** Имя и фамилия в Telegram: до 64 символов каждое, между ними пробел. */
+const TELEGRAM_NAME_LIMIT = 129;
+/**
+ * Сообщение уходит простым текстом, но Telegram сам делает ссылками `@имя`, адреса и команды. Имя
+ * покупателя теряет управляющие и невидимые символы, а `@` в нём не превращается в чужой контакт.
+ */
+function buyerName(value: string): string {
+  const visible = value
+    .replaceAll(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, " ")
+    .replaceAll(/\s+/gu, " ")
+    .replaceAll("@", "＠")
+    .trim();
+  return [...visible].slice(0, TELEGRAM_NAME_LIMIT).join("").trim();
+}
 function buyerLine(buyer: SaleBuyer): string {
   if (buyer.state === "not_linked") return "Покупатель: Telegram не привязан";
   if (buyer.state === "unavailable")
     return "Покупатель: Telegram привязан, профиль не прочитан";
-  const name =
-    buyer.displayName === null ? "" : oneLine(buyer.displayName).slice(0, 129);
+  const name = buyer.displayName === null ? "" : buyerName(buyer.displayName);
   const username =
     buyer.username !== null && telegramUsername.test(buyer.username)
       ? `@${buyer.username}`

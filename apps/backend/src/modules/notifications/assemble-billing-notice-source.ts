@@ -1,5 +1,5 @@
 import type { TelegramAccountLinks } from "../telegram-membership/index.js";
-import { dependencyFailure } from "../../infrastructure/observability/dependency-failure.js";
+import { dependencyFailure } from "../../infrastructure/observability/index.js";
 import type { NotificationEvent } from "./domain/notification-wire.js";
 import type {
   NotificationSource,
@@ -53,7 +53,7 @@ async function readBuyer(
     };
   } catch (error) {
     return dependencyFailure(
-      { module: "notifications", operation: "readSaleBuyer" },
+      { module: "notifications", operation: "resolveBillingNotice" },
       error,
       undefined,
     );
