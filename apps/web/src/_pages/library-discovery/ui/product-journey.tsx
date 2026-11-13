@@ -81,7 +81,7 @@ export function ProductJourney({
                 },
               ];
         });
-  // A chapter split into several runs shows its opening tasks once, before its first run.
+  // A split chapter shows its heading, opening tasks and attachments in its first run only.
   const ledChapters = new Set<string>();
   // Chapters are the Product programme; anything the author has not placed in one is supplementary.
   // Each part carries the chapters that apply to it, so no part identifier decides presentation.
@@ -221,10 +221,10 @@ function journeyRun(
         ))}
       </ul>
     );
-  const leading =
-    run.chapter === null || ledChapters.has(run.chapter.id)
-      ? undefined
-      : taskList(placed.leading, `Задания главы «${run.chapter.name}»`);
+  const firstRun = run.chapter !== null && !ledChapters.has(run.chapter.id);
+  const leading = firstRun
+    ? taskList(placed.leading, `Задания главы «${run.chapter.name}»`)
+    : undefined;
   if (run.chapter !== null) ledChapters.add(run.chapter.id);
   const preparing = run.items.length === 0 && tasks.length === 0;
   const visitedMaterials = new Set<string>();
@@ -233,7 +233,7 @@ function journeyRun(
       run.chapter === null
         ? null
         : {
-            header: (
+            header: firstRun ? (
               <header
                 className="programme-chapter-head"
                 key={`head-${run.chapter.id}`}
@@ -264,15 +264,17 @@ function journeyRun(
                   </>
                 )}
               </header>
-            ),
+            ) : null,
             id: run.chapter.id,
             name: run.chapter.name,
           },
     ...(leading === undefined ? {} : { leading }),
     supplementary:
-      run.chapter == null ? null : (
+      run.chapter === null || !firstRun ? null : (
         <CourseReferenceNavigation
           courseHref={currentHref}
+          headingLevel={4}
+          navigationLabel={`Дополнительные материалы главы «${run.chapter.name}»`}
           key={`supplementary-${run.chapter.id}`}
           references={(run.chapter.supplementaryMaterialIds ?? []).flatMap(
             (id) => {

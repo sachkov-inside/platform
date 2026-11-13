@@ -19,7 +19,11 @@ export function CourseReferenceNavigation({
   activeReferenceId,
   courseHref,
   anchor,
+  headingLevel,
+  navigationLabel,
 }: {
+  readonly headingLevel?: 2 | 4 | undefined;
+  readonly navigationLabel?: string | undefined;
   readonly stateKey?: string | undefined;
   readonly references: readonly CourseReferenceMaterial[];
   readonly activeReferenceId?: string | undefined;
@@ -30,6 +34,8 @@ export function CourseReferenceNavigation({
   return (
     <ReferenceList
       key={JSON.stringify(references.map((reference) => reference.id))}
+      headingLevel={headingLevel}
+      navigationLabel={navigationLabel}
       stateKey={stateKey}
       references={references}
       activeReferenceId={activeReferenceId}
@@ -45,15 +51,18 @@ function ReferenceList({
   activeReferenceId,
   courseHref,
   anchor,
+  headingLevel = 2,
+  navigationLabel = "Дополнительные материалы",
 }: Parameters<typeof CourseReferenceNavigation>[0]) {
   const [expanded, setExpanded] = useCourseReferenceExpansion(
     `references:${stateKey ?? "standalone"}:${JSON.stringify(references.map((item) => item.id))}`,
   );
   const listId = useId();
+  const Heading = headingLevel === 4 ? "h4" : "h2";
   const visibleReferences = expanded ? references : references.slice(0, 3);
   return (
-    <nav aria-label="Дополнительные материалы" className={styles["references"]}>
-      <h2>Дополнительные материалы</h2>
+    <nav aria-label={navigationLabel} className={styles["references"]}>
+      <Heading>Дополнительные материалы</Heading>
       <ul id={listId}>
         {visibleReferences.map((reference) => (
           <li key={reference.id}>

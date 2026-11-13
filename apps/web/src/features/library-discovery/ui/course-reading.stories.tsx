@@ -795,6 +795,12 @@ export const SupplementaryMaterials: Story = {
       rail.getByRole("navigation", { name: "Дополнительные материалы" }),
     );
     await expect(group.getAllByRole("link")).toHaveLength(3);
+    await expect(
+      group.getByRole("heading", {
+        name: "Дополнительные материалы",
+        level: 2,
+      }),
+    ).toBeInTheDocument();
     const toggle = group.getByRole("button", { name: "Показать ещё" });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     toggle.focus();

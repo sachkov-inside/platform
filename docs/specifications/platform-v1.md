@@ -774,7 +774,9 @@ optional leading `**bold labels**`. Labels are rendered as escaped text, without
 or HTML support. Published chapters show the outcome inside their topics disclosure. A
 single-paragraph summary does not create an empty disclosure. No lesson list, release action or
 delivery date is invented for a planned chapter. Chapter headings remain visible while lesson
-rows are progressively revealed. Ordinal lesson numbers are smaller than chapter headings.
+rows are progressively revealed. If a chapter occurs in several runs, the programme preserves
+placement order and shows its heading, opening Tasks and attachments only in its first run.
+Later runs retain the same chapter name for assistive technology. Ordinal lesson numbers are smaller than chapter headings.
 A muted format line sits under each lesson title (owner decision 02.11.2026). A lesson with video
 shows a play icon and «Видео · 9:23» at every width, the duration taken from the primary video; a
 video lesson without a primary-video duration shows «Видео» alone. Every other lesson shows a page
