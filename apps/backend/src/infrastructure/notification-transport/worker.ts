@@ -23,6 +23,55 @@ import { hasText } from "../contracts/text.js";
 const RELAY_SWEEP_MS = 1_000;
 const OBSERVATION_INTERVAL_MS = 60_000;
 const BACKLOG_ALERT_MS = 5 * 60 * 1_000;
+/** After a server reboot RabbitMQ may start after the worker (#2129); a start waits this long. */
+const BROKER_START_WAIT_MS = 2 * 60 * 1_000;
+const BROKER_RETRY_FIRST_MS = 1_000;
+const BROKER_RETRY_MAX_MS = 5_000;
+
+/**
+ * Connects once the broker answers. The wait is reported once and is no operator attention; a broker
+ * still silent after `BROKER_START_WAIT_MS` leaves its last error to the caller.
+ */
+export async function connectWhenBrokerReady<Connection>(
+  connect: () => Promise<Connection>,
+  options: {
+    principal: string;
+    report: (event: Record<string, unknown>) => void;
+    now?: () => number;
+    pause?: (milliseconds: number) => Promise<unknown>;
+    signal?: AbortSignal;
+  },
+): Promise<Connection> {
+  const now = options.now ?? Date.now;
+  const pause =
+    options.pause ??
+    ((milliseconds) =>
+      delay(milliseconds, undefined, {
+        ...(options.signal ? { signal: options.signal } : {}),
+      }));
+  const deadline = now() + BROKER_START_WAIT_MS;
+  let wait = BROKER_RETRY_FIRST_MS;
+  let reported = false;
+  for (;;) {
+    try {
+      return await connect();
+    } catch (error) {
+      if (now() >= deadline || options.signal?.aborted === true) throw error;
+      if (!reported) {
+        reported = true;
+        options.report({
+          status: "transport_waiting",
+          reason: "notification_broker_unavailable",
+          principal: options.principal,
+          error: loggableFailure(error),
+        });
+      }
+      await pause(wait);
+      wait = Math.min(wait * 2, BROKER_RETRY_MAX_MS);
+    }
+  }
+}
+
 export function assembleNotificationWorker(input: {
   processInbox?: () => Promise<readonly SweepObservation[]>;
   /** Один проход разбора входящих вместе с записью его наблюдений — одна единица работы журнала. */
@@ -78,12 +127,16 @@ export function assembleNotificationWorker(input: {
           "notifications",
           "email",
         ] as const) {
-          const connection = await connectNotificationBroker({
-            url: input.config.urls[principal],
-            ...(hasText(input.config.caFile)
-              ? { caFile: input.config.caFile }
-              : {}),
-          });
+          const connection = await connectWhenBrokerReady(
+            () =>
+              connectNotificationBroker({
+                url: input.config.urls[principal],
+                ...(hasText(input.config.caFile)
+                  ? { caFile: input.config.caFile }
+                  : {}),
+              }),
+            { principal, report: input.report, signal: abort.signal },
+          );
           connections.set(principal, connection);
           connection.on("close", () => {
             if (!stopping) fail(new Error("notification_broker_disconnected"));
@@ -194,6 +247,8 @@ export function assembleNotificationWorker(input: {
             );
           });
       } catch (error) {
+        // Остановка во время ожидания брокера — не отказ запуска (#2129).
+        if (stopping) throw error;
         // Причина называется до остановки: свой отказ у остановки тоже бывает, и он не должен
         // заменить собой то, из-за чего запуск не состоялся.
         input.report({
