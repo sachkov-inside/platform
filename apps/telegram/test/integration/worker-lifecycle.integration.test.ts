@@ -58,6 +58,7 @@ const config: ApplicationConfig = {
     unavailable: "Synthetic community unavailable",
     readmission: "Synthetic community readmission",
     welcome: "Synthetic community welcome",
+    joinReminder: "Synthetic join reminder",
   },
   databaseUrl,
   deliveryMode: "live",

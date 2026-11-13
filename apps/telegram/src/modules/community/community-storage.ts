@@ -116,6 +116,24 @@ export interface CommunityTables {
       Date | null | undefined,
       Date | null
     >;
+    /** Next private reminder to join the group (#2086); `null` once joined or no longer due. */
+    join_reminder_due_at: ColumnType<
+      Date | null,
+      Date | null | undefined,
+      Date | null
+    >;
+    /** Set at the due time; the next created link lives a day and goes with the reminder. */
+    join_reminder_requested_at: ColumnType<
+      Date | null,
+      Date | null | undefined,
+      Date | null
+    >;
+    join_reminders_sent: ColumnType<number, number | undefined, number>;
+    join_reminder_last_at: ColumnType<
+      Date | null,
+      Date | null | undefined,
+      Date | null
+    >;
     /**
      * `requested` from the first right until the welcome goes with the first link or the
      * person is seen in the chat; `not_due` while the Account has never had a right.

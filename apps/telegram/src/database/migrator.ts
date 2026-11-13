@@ -63,8 +63,10 @@ import { trainerQuestionReactionsMigration } from "./migrations/052-trainer-ques
 import { trainerQuestionVersionsMigration } from "./migrations/053-trainer-question-versions.js";
 import { trainerQuestionContextMigration } from "./migrations/054-trainer-question-context.js";
 import { aiModelsMigration } from "./migrations/055-ai-models.js";
+import { communityJoinRemindersMigration } from "./migrations/056-community-join-reminders.js";
 
 const migrations = {
+  "056-community-join-reminders": communityJoinRemindersMigration,
   "055-ai-models": aiModelsMigration,
   "054-trainer-question-context": trainerQuestionContextMigration,
   "053-trainer-question-versions": trainerQuestionVersionsMigration,
