@@ -19,6 +19,11 @@ import type {
 } from "./read-published-material.contract.js";
 import { hydrateMaterialAssets } from "../../domain/material-body/hydrate-material-assets.js";
 import type { Videos } from "../../../videos/index.js";
+import type { Glossary } from "../../../glossary/index.js";
+import {
+  keepFirstTermMentions,
+  materialGlossaryTermIds,
+} from "@inside/material-blocks";
 
 const querySchema = z
   .object({
@@ -49,6 +54,7 @@ export async function readPublishedMaterial(
     readonly subscriptionForSale?: (accountId?: string) => Promise<boolean>;
     readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
     readonly videos?: Pick<Videos, "loadPresentation">;
+    readonly glossary?: Pick<Glossary, "lookup">;
   },
   query: ReadPublishedMaterialQuery,
 ): Promise<PublishedMaterialReadResult> {
@@ -179,6 +185,13 @@ export async function readPublishedMaterial(
           ? { ok: false, error: loadedVideo.error }
           : internalError();
       }
+      const blocks = keepFirstTermMentions(rendered.value.blocks);
+      const termIds = materialGlossaryTermIds(blocks);
+      const glossaryTerms =
+        termIds.length === 0 || dependencies.glossary === undefined
+          ? { ok: true as const, value: [] }
+          : await dependencies.glossary.lookup(termIds);
+      if (!glossaryTerms.ok) return glossaryTerms;
       return {
         ok: true,
         value: {
@@ -187,9 +200,16 @@ export async function readPublishedMaterial(
             access.reason === "public_resource" ? "public" : "private-no-store",
           projection,
           body: hydrateMaterialAssets(
-            rendered.value,
+            { ...rendered.value, blocks },
             loadedPresentations.value,
           ),
+          glossaryTerms: glossaryTerms.value.map((term) => ({
+            id: term.id,
+            title: term.title,
+            englishTitle: term.englishTitle,
+            shortDefinition: term.shortDefinition,
+            fullDefinition: term.fullDefinition,
+          })),
           primaryVideo: loadedVideo.value,
           ...(videoChapters.length === 0 ? {} : { videoChapters }),
         },

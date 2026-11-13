@@ -22,6 +22,13 @@ export class PublishedMaterialsService {
       schemaVersion: 1;
     };
     cacheScope: 'public' | 'private-no-store';
+    glossaryTerms: Array<{
+      englishTitle: string | null;
+      fullDefinition: string;
+      id: string;
+      shortDefinition: string;
+      title: string;
+    }>;
     kind: 'available';
     primaryVideo: {
       failureCode?: string;

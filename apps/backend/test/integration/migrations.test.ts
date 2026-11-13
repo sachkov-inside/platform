@@ -201,6 +201,7 @@ describe("Platform migrations", () => {
       "reader_preferences",
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
+    await expectTables(testDatabase, "glossary", ["terms"]);
     await expectTables(testDatabase, "sales_funnel", [
       "bot_events",
       "product_waitlist_intakes",
@@ -245,6 +246,7 @@ describe("Platform migrations", () => {
         and source_schema.nspname in (
           'reading_activity',
           'bookmarks',
+          'glossary',
           'product_tasks',
           'sales_funnel',
           'materials',
@@ -958,6 +960,7 @@ async function expectTables(
   schema:
     | "reading_activity"
     | "bookmarks"
+    | "glossary"
     | "product_tasks"
     | "sales_funnel"
     | "accounts"

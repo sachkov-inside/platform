@@ -516,6 +516,57 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * List every Glossary Term
+   * @returns any
+   * @throws ApiError
+   */
+  public listAuthoringGlossaryTerms(): CancelablePromise<{
+    terms: Array<{
+      englishTitle: string | null;
+      fullDefinition: string;
+      id: string;
+      introducedInSourceId: string | null;
+      shortDefinition: string;
+      title: string;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/glossary',
+    });
+  }
+  /**
+   * Replace the whole Glossary; terms missing from the list are removed
+   * @returns any
+   * @throws ApiError
+   */
+  public replaceAuthoringGlossary({
+    requestBody,
+  }: {
+    requestBody: {
+      terms: Array<{
+        englishTitle: string | null;
+        fullDefinition: string;
+        id: string;
+        introducedInSourceId: string | null;
+        shortDefinition: string;
+        title: string;
+      }>;
+    },
+  }): CancelablePromise<{
+    created: number;
+    removed: number;
+    unchanged: number;
+    updated: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/glossary',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Read an exact historical source request receipt without writing Material state
    * @returns any
    * @throws ApiError

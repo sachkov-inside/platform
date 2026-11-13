@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos", "glossary"]
 }
 
 model Account {
@@ -781,6 +781,20 @@ model ReadingMaterialVisit {
   @@index([accountId, lastOpenedAt(sort: Desc), materialId], map: "material_visits_recent")
   @@map("material_visits")
   @@schema("reading_activity")
+}
+
+model GlossaryTerm {
+  id                   String   @id(map: "glossary_terms_primary")
+  title                String
+  englishTitle         String?  @map("english_title")
+  shortDefinition      String   @map("short_definition")
+  fullDefinition       String   @map("full_definition")
+  introducedInSourceId String?  @map("introduced_in_source_id")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@map("terms")
+  @@schema("glossary")
 }
 
 model BookmarkedMaterial {

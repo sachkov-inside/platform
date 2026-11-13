@@ -53,6 +53,17 @@ export const publishedMaterialProjectionHttpSchema = z
   })
   .strict();
 
+/** A Glossary Term the body mentions or shows as a card, as the Glossary holds it now. */
+const publishedGlossaryTermHttpSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    englishTitle: z.string().nullable(),
+    shortDefinition: z.string(),
+    fullDefinition: z.string(),
+  })
+  .strict();
+
 export const publishedMaterialReadHttpSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -70,6 +81,7 @@ export const publishedMaterialReadHttpSchema = z.discriminatedUnion("kind", [
         .strict()
         .nullable(),
       body: renderedMaterialBodySchema,
+      glossaryTerms: z.array(publishedGlossaryTermHttpSchema),
     })
     .strict(),
   z

@@ -47,6 +47,7 @@ import {
   type ObjectStorage,
 } from "../../infrastructure/object-storage/index.js";
 import { VIDEOS, VideosModule, type Videos } from "../videos/index.js";
+import { GLOSSARY, GlossaryModule, type Glossary } from "../glossary/index.js";
 import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
 import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
 import { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
@@ -95,6 +96,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
     AssetsModule,
     MaterialContentModule,
     VideosModule,
+    GlossaryModule,
   ],
   providers: [
     {
@@ -234,6 +236,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
         MATERIAL_ASSETS,
         VIDEOS,
         PRODUCT_SALE_AVAILABILITY,
+        GLOSSARY,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -244,6 +247,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
         materialAssets: MaterialAssets,
         videos: Videos,
         subscriptionForSale: (accountId?: string) => Promise<boolean>,
+        glossary: Glossary,
       ): PublishedMaterialReader =>
         assemblePublishedMaterialReader({
           prisma,
@@ -255,6 +259,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
           materialAssets,
           videos,
           subscriptionForSale,
+          glossary,
         }),
     },
     {
