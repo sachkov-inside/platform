@@ -62,8 +62,10 @@
    15.09.2026 так и остаётся; риск записан в
    [решении владельца 4](consents-unified-path.md#решения-владельца-от-15092026). Рассылка в
    production выключена.
-4. **`cookies` v1 неполон.** Не названы две годовые cookies режима чтения
-   (`apps/web/src/shared/guide-mode/guide-mode.ts`, `max-age` 365 дней) и два ключа sessionStorage.
+4. **`cookies` v1 был неполон. Решено в #2119 (13.11.2026).** В v1 не были названы две годовые
+   cookies режима чтения и два ключа sessionStorage. Режимов чтения больше нет: Platform эти cookies
+   не ставит, а модуль `guide-mode.ts` удалён. `cookies` v3 перечисляет всё, что сайт хранит в
+   браузере, включая ключи sessionStorage.
    Настройки плеера Kinescope описаны верно: адрес плеера получает `dnt=1`, а в параметрах задано
    `behavior.localStorage: false`
    (`apps/web/src/features/material-video/ui/material-primary-video.client.tsx`).
