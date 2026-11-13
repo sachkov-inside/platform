@@ -1550,6 +1550,7 @@ const server = createServer(async (request, response) => {
           readAt: null,
           updatedAt: null,
           version: 0,
+          updateNote: null,
         })),
       );
       return;

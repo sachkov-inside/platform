@@ -5,7 +5,10 @@ import {
   requestSetReadingState,
 } from "@/shared/api/backend/index.server";
 import { handleMutationOperation } from "@/shared/auth/index.server";
-import { readingStateSchema } from "../model/reading-contract";
+import {
+  materialReadingStateSchema,
+  readingStateSchema,
+} from "../model/reading-contract";
 import {
   getReadingStatesOperation,
   setReadingStateOperation,
@@ -23,7 +26,7 @@ export function handleReadingStates(request: Request) {
               result.response.status === 401 ? "unauthorized" : "unavailable",
           };
         const parsed = z
-          .array(readingStateSchema)
+          .array(materialReadingStateSchema)
           .max(100)
           .safeParse(result.body);
         return parsed.success

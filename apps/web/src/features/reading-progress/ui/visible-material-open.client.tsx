@@ -28,7 +28,10 @@ export function VisibleMaterialOpen({
     value: MaterialOpenCommand;
     sent: boolean;
   } | null>(null);
-  const reading = useMaterialReading();
+  const reading = useMaterialReading(materialId);
+  // The open clears an update note on the server (#2125). It waits for this lesson's state, so the
+  // banner reads the note before the open removes it; a failed read does not hold the open back.
+  const stateKnown = reading.state !== undefined || reading.failed;
   const queryClient = useQueryClient();
   const { mutate, data, status, variables } = useMutation({
     mutationKey: ["reading-progress", reading.accountId, "open", materialId],
@@ -57,7 +60,7 @@ export function VisibleMaterialOpen({
   useEffect(() => {
     const accountId = reading.resolved ? reading.accountId : null;
     currentAccount.current = accountId;
-    if (accountId === null) return;
+    if (accountId === null || !stateKnown) return;
     if (command.current?.accountId !== accountId)
       command.current = {
         accountId,
@@ -90,7 +93,14 @@ export function VisibleMaterialOpen({
       observer.disconnect();
       document.removeEventListener("visibilitychange", send);
     };
-  }, [reading.accountId, reading.resolved, materialId, contentVersion, mutate]);
+  }, [
+    reading.accountId,
+    reading.resolved,
+    stateKnown,
+    materialId,
+    contentVersion,
+    mutate,
+  ]);
   const savedCurrentOpen =
     status === "success" &&
     reading.resolved &&

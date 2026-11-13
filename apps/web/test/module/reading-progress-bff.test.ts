@@ -120,16 +120,23 @@ it("does not report success for transport failures or malformed success bodies",
       ).json(),
     ).toEqual({ kind: "unavailable" });
 });
-it("bounds batch reads and returns private state without public metadata", async () => {
+it("bounds batch reads and returns private state, with an unseen update note, without public metadata", async () => {
+  const listed = {
+    ...state,
+    updateNote: {
+      whatChanged: "Переписан раздел о сборке промпта.",
+      notedAt: "2026-09-08T00:00:00.000Z",
+    },
+  };
   fakes.states.mockResolvedValue({
     ok: true,
-    body: [state],
+    body: [listed],
     response: new Response(),
   });
   const response = await handleReadingStates(
     request({ materialIds: [materialId] }),
   );
-  expect(await response.json()).toEqual({ kind: "ready", states: [state] });
+  expect(await response.json()).toEqual({ kind: "ready", states: [listed] });
   expect(fakes.states).toHaveBeenCalledWith([materialId], "trusted-token");
   const body = JSON.stringify({
     materialIds: Array.from({ length: 101 }, () => materialId),

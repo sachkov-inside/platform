@@ -54,6 +54,7 @@ export {
   MaterialReadingScope,
   useMaterialReading,
   type MaterialReadingSnapshot,
+  type MaterialUpdateNote,
 } from "./model/reading-context.client";
 
 export { materialSourceAnchors } from "./model/material-source-anchors";

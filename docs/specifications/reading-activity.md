@@ -125,7 +125,12 @@ Series progress — вычисляемое представление, не от
 ## Малый interface и проверка
 
 Interface ReadingActivity предоставляет setReadingState, bounded getReadingStates для набора IDs
-и private bounded историю переходов только при реальном UI consumer. Recent-open history из
+и private bounded историю переходов только при реальном UI consumer. getReadingStates отдаёт у
+каждого материала `updateNote: { whatChanged, notedAt } | null` ([пометка «урок обновлён»](interactive-lessons-v1.md), раздел 6, #2125).
+Поле не хранится в `material_states`: оно выводится при чтении из последней отметки существенного
+обновления опубликованного материала (Materials, `findUpdateNotes`), `read_at` и последнего
+открытия. Значение не null, когда отметка «Изучено» стоит, `read_at` раньше обновления и материал
+с момента обновления не открывали. Если Materials не ответил, состояния возвращаются с `null`. Recent-open history из
 соседней спецификации — самостоятельный факт, не read_at. Точные REST paths/codecs вводит backend
 child в source schemas с генерацией OpenAPI/Web client, без ручного редактирования generated files.
 
