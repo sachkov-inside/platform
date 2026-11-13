@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Hammer } from "lucide-react";
 import type { ReactNode } from "react";
 import { expect, userEvent, within } from "storybook/test";
 
@@ -37,7 +37,8 @@ interface UpcomingLesson {
   readonly state: "writing" | "soon";
 }
 
-type RoadmapChapter =
+/** `practice`: the chapter tries its mechanics on a real project; the badge «Практика» says so. */
+type RoadmapChapter = { readonly practice?: boolean } & (
   | {
       readonly kind: "done";
       readonly name: string;
@@ -53,7 +54,8 @@ type RoadmapChapter =
       readonly name: string;
       readonly outcome: string;
       readonly topics: readonly string[];
-    };
+    }
+);
 
 interface Roadmap {
   readonly updated: string;
@@ -64,6 +66,7 @@ interface Roadmap {
 
 const firstChapter: RoadmapChapter = {
   kind: "done",
+  practice: true,
   name: "Подготовка проекта и первый цикл разработки с агентом",
   lessons: [
     { title: "Как устроен курс" },
@@ -99,6 +102,7 @@ const secondChapter: RoadmapChapter = {
 };
 const designChapter: RoadmapChapter = {
   kind: "writing",
+  practice: true,
   name: "Проектирование до кода: предметная область, DDD и границы модулей",
   lessons: [
     { title: "Проектирование до кода: что решить до первой задачи" },
@@ -127,7 +131,13 @@ const planned = (
   name: string,
   outcome: string,
   topics: readonly string[],
-): RoadmapChapter => ({ kind: "planned", name, outcome, topics });
+): RoadmapChapter => ({
+  kind: "planned",
+  practice: true,
+  name,
+  outcome,
+  topics,
+});
 
 const fullRoadmap: Roadmap = {
   updated: "13 ноября",
@@ -138,7 +148,7 @@ const fullRoadmap: Roadmap = {
     designChapter,
     planned(
       "Тестирование, проверки, фидбэк и evals",
-      "Как проверить работу агента тестами, ревью и evals, не читая каждую строку кода.",
+      "На реальном проекте проверяем работу агента тестами, ревью и evals, не читая каждую строку кода.",
       [
         "Тесты, которым можно верить",
         "Проверка в живом приложении",
@@ -149,13 +159,8 @@ const fullRoadmap: Roadmap = {
       ],
     ),
     planned(
-      "Практика: разработка реального проекта с агентами",
-      "Делаем с агентами несколько проектов от идеи до работающей версии.",
-      ["Спецификации и деление на задачи", "Параллельные агенты"],
-    ),
-    planned(
       "Агенты в продакшене: инфраструктура и автоматизация",
-      "Выкатываем проект в продакшен и подключаем агентов к его работе: деплой, мониторинг, тикеты и поддержка.",
+      "Выкатываем реальный проект в продакшен и подключаем агентов к его работе: деплой, мониторинг, тикеты и поддержка.",
       [
         "Сервер, окружения и секреты",
         "CI/CD и деплой",
@@ -167,7 +172,7 @@ const fullRoadmap: Roadmap = {
     ),
     planned(
       "Разработка агентов-помощников и встраивание их в продукты",
-      "Пишем своего агента и встраиваем его в продукт.",
+      "Пишем своего агента и встраиваем его в реальный продукт.",
       [
         "Как устроены LLM и цикл агента",
         "Инструменты и tool calling",
@@ -178,10 +183,11 @@ const fullRoadmap: Roadmap = {
     ),
     planned(
       "Software factory и оркестрация",
-      "Собираем всё из курса в один рабочий процесс: агенты берут задачи, пишут код, проверяют друг друга и доводят работу до мержа.",
+      "Собираем всё из курса в один рабочий процесс на реальном проекте: агенты берут задачи, пишут код, проверяют друг друга и доводят работу до мержа.",
       [
+        "Спецификации и деление на задачи",
         "Путь задачи от issue до мержа",
-        "Оркестрация нескольких агентов",
+        "Параллельные агенты и оркестрация",
         "Роли агентов: исполнитель, ревьюер, проверяющий",
         "Права и песочницы для агентов",
         "Где решает человек",
@@ -199,6 +205,7 @@ const allDoneRoadmap: Roadmap = {
       ? chapter
       : {
           kind: "done",
+          practice: chapter.practice,
           name: chapter.name,
           lessons:
             chapter.kind === "writing"
@@ -284,6 +291,7 @@ const badgeTone = {
   writing:
     "bg-[color-mix(in_oklch,var(--accent)_12%,var(--background))] text-action",
   planned: "bg-secondary text-muted-foreground",
+  practice: "border border-border text-foreground/80",
 } as const;
 
 function StatusBadge({
@@ -309,6 +317,8 @@ function StatusBadge({
             aria-hidden="true"
             className="size-1.5 rounded-full bg-accent"
           />
+        ) : tone === "practice" ? (
+          <Hammer aria-hidden="true" className="size-3" />
         ) : null}
         {children}
       </span>
@@ -492,6 +502,12 @@ function ChapterDisclosure({
   );
 }
 
+function PracticeBadge({ chapter }: { readonly chapter: RoadmapChapter }) {
+  return chapter.practice === true ? (
+    <StatusBadge tone="practice">Практика</StatusBadge>
+  ) : null;
+}
+
 function DoneChapter({ entry }: { readonly entry: NumberedChapter }) {
   const lessons = entry.lessons.flatMap((lesson) =>
     lesson.kind === "ready" ? [lesson] : [],
@@ -499,6 +515,7 @@ function DoneChapter({ entry }: { readonly entry: NumberedChapter }) {
   const read = lessons.filter(({ material: item }) => item.isRead).length;
   return (
     <ChapterDisclosure
+      badge={<PracticeBadge chapter={entry.chapter} />}
       kind="done"
       line={`Изучено ${String(read)} из ${String(lessons.length)}`}
       title={entry.chapter.name}
@@ -524,7 +541,12 @@ function WritingChapter({ entry }: { readonly entry: NumberedChapter }) {
   const ready = entry.lessons.filter((lesson) => lesson.kind === "ready");
   return (
     <ChapterDisclosure
-      badge={<StatusBadge tone="writing">Пишется</StatusBadge>}
+      badge={
+        <>
+          <StatusBadge tone="writing">Пишется</StatusBadge>
+          <PracticeBadge chapter={entry.chapter} />
+        </>
+      }
       kind="writing"
       line={`Готово ${String(ready.length)} из ${plural(entry.lessons.length, "урока", "уроков", "уроков")}`}
       open
@@ -562,7 +584,12 @@ function PlannedChapter({
 }) {
   return (
     <ChapterDisclosure
-      badge={<StatusBadge tone="planned">В планах</StatusBadge>}
+      badge={
+        <>
+          <StatusBadge tone="planned">В планах</StatusBadge>
+          <PracticeBadge chapter={chapter} />
+        </>
+      }
       kind="planned"
       line={chapter.outcome}
       title={chapter.name}
