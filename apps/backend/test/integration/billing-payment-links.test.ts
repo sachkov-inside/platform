@@ -197,6 +197,10 @@ test("link creation is owner-authorized and exact replay is stable", async () =>
   });
   const first = await s.pricing.managePaymentLink(world.owner, command);
   expect(first).toMatchObject({ ok: true });
+  await world.db.prisma.product.update({
+    where: { id: s.productId },
+    data: { archivedAt: world.time() },
+  });
   expect(await s.pricing.managePaymentLink(world.owner, command)).toEqual(
     first,
   );
@@ -206,6 +210,149 @@ test("link creation is owner-authorized and exact replay is stable", async () =>
       price: { kind: "amount", amountKopecks: 110000 },
     }),
   ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+});
+
+test("an archived Product rejects new Payment Links without recording a successful command", async () => {
+  const s = await world.scenario();
+  const command = {
+    operation: "paymentLinks.create",
+    operationId: randomUUID(),
+    productId: s.productId,
+    priceRevision: 1,
+    price: { kind: "amount", amountKopecks: 100000 },
+    expiresAt: null,
+  };
+  await world.db.prisma.product.update({
+    where: { id: s.productId },
+    data: { archivedAt: world.time() },
+  });
+  expect(await s.pricing.managePaymentLink(world.owner, command)).toEqual({
+    ok: false,
+    error: { code: "not_found" },
+  });
+  expect(
+    await s.pricing.paymentLinks(world.owner, { productId: s.productId }),
+  ).toEqual({ ok: true, value: { items: [], nextCursor: null } });
+  await world.db.prisma.product.update({
+    where: { id: s.productId },
+    data: { archivedAt: null },
+  });
+  expect(await s.pricing.managePaymentLink(world.owner, command)).toMatchObject(
+    {
+      ok: true,
+      value: { state: "active" },
+    },
+  );
+});
+
+test("the owner can revoke an archived Product's link, and restoring the Product never reopens it", async () => {
+  const s = await world.scenario();
+  const link = value(
+    await s.pricing.managePaymentLink(world.owner, {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+      price: { kind: "amount", amountKopecks: 100000 },
+      expiresAt: null,
+    }),
+  );
+  const buyer = await world.scenario({
+    productId: s.productId,
+    paymentLinkId: link.id,
+  });
+  await world.db.prisma.product.update({
+    where: { id: s.productId },
+    data: { archivedAt: world.time() },
+  });
+  expect(value(await s.pricing.paymentLink(link.id)).state).toBe("changed");
+  const revoke = {
+    operation: "paymentLinks.revoke",
+    operationId: randomUUID(),
+    id: link.id,
+    expectedRevision: link.revision,
+  };
+  expect(await s.pricing.managePaymentLink(buyer.buyer, revoke)).toEqual({
+    ok: false,
+    error: { code: "forbidden" },
+  });
+  expect(
+    await s.pricing.managePaymentLink(world.owner, {
+      ...revoke,
+      expectedRevision: link.revision + 1,
+    }),
+  ).toEqual({ ok: false, error: { code: "revision_conflict" } });
+  const [revoked, replay] = await Promise.all([
+    s.pricing.managePaymentLink(world.owner, revoke),
+    s.pricing.managePaymentLink(world.owner, revoke),
+  ]);
+  expect(revoked).toMatchObject({
+    ok: true,
+    value: { id: link.id, state: "revoked", revision: 2 },
+  });
+  expect(replay).toEqual(revoked);
+  await world.db.prisma.product.update({
+    where: { id: s.productId },
+    data: { archivedAt: null },
+  });
+  expect(value(await s.pricing.paymentLink(link.id)).state).toBe("revoked");
+  expect(
+    await s.pricing.quote(buyer.buyer, {
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+      paymentLinkId: link.id,
+    }),
+  ).toEqual({ ok: false, error: { code: "not_found" } });
+  expect(await buyer.payments.purchase(buyer.buyer, buyer.command)).toEqual({
+    ok: false,
+    error: { code: "not_found" },
+  });
+  expect(buyer.initCalls()).toBe(0);
+});
+
+test("archiving a Product during Init never lets the owner revoke the reserved Payment Link", async () => {
+  const s = await world.scenario();
+  const link = value(
+    await s.pricing.managePaymentLink(world.owner, {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+      price: { kind: "amount", amountKopecks: 100000 },
+      expiresAt: null,
+    }),
+  );
+  const buyer = await world.scenario({
+    productId: s.productId,
+    paymentLinkId: link.id,
+  });
+  const gate = buyer.holdInit();
+  const purchase = world.db.run(() =>
+    buyer.payments.purchase(buyer.buyer, buyer.command),
+  );
+  try {
+    await gate.arrived;
+    await world.db.prisma.product.update({
+      where: { id: s.productId },
+      data: { archivedAt: world.time() },
+    });
+    expect(value(await s.pricing.paymentLink(link.id)).state).toBe("pending");
+    expect(
+      await s.pricing.managePaymentLink(world.owner, {
+        operation: "paymentLinks.revoke",
+        operationId: randomUUID(),
+        id: link.id,
+        expectedRevision: link.revision,
+      }),
+    ).toEqual({ ok: false, error: { code: "reservation_conflict" } });
+  } finally {
+    gate.release();
+    await purchase;
+  }
+  expect(value(await purchase).paymentUrl).not.toBeNull();
+  expect(buyer.initCalls()).toBe(1);
+  expect(value(await s.pricing.paymentLink(link.id)).state).toBe("pending");
 });
 
 const defaultNow = new Date("2030-01-31T10:00:00Z");

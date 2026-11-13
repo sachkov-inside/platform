@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
-import { expect, mocked, userEvent, within } from "storybook/test";
+import { expect, mocked, userEvent, waitFor, within } from "storybook/test";
 
 import { desktop, mobile } from "@/storybook/loads-in-place";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
@@ -183,6 +183,66 @@ export const RevokeConfirmation: Story = {
       within(dialog).getByRole("button", { name: "Отмена" }),
     ).toHaveFocus();
   },
+};
+
+/** Закрытая продажа остаётся закрытой, а владелец может окончательно отозвать ссылку. */
+export const ClosedSaleRevokeDesktop: Story = {
+  beforeEach: scenario({
+    links: storyPaymentLinks(1).map((link) => ({ ...link, state: "changed" })),
+  }),
+  globals: desktop.globals,
+  name: "Продажа закрыта · отзыв · широкий экран",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await page.findByRole("button", { name: /^AI Engineering$/u });
+    const rows =
+      page.queryByRole("table", { name: "Ссылки на оплату, новые сверху" }) ??
+      page.getByRole("list", { name: "Ссылки на оплату, новые сверху" });
+    await expect(within(rows).getByText("Продажа закрыта")).toBeVisible();
+    await userEvent.click(
+      page.getByRole("button", { name: /^AI Engineering$/u }),
+    );
+    const details = await within(document.body).findByRole("dialog", {
+      name: "Ссылка на оплату",
+    });
+    await expect(within(details).getByText("Продажа закрыта")).toBeVisible();
+    await expect(
+      within(details).getByText(/Оплатить по этой ссылке больше нельзя/u),
+    ).toBeVisible();
+    await userEvent.click(
+      within(details).getByRole("button", { name: "Готово" }),
+    );
+    await userEvent.click(
+      page.getByRole("button", {
+        name: "Действия со ссылкой «AI Engineering» от 26 окт. 2026",
+      }),
+    );
+    const revoke = await within(document.body).findByRole("menuitem", {
+      name: "Отозвать",
+    });
+    await expect(revoke).not.toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(revoke);
+    const dialog = await within(document.body).findByRole("dialog", {
+      name: "Отозвать ссылку на «AI Engineering»?",
+    });
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("button", { name: "Отмена" }),
+      ).toHaveFocus(),
+    );
+    await expect(
+      within(dialog).getByRole("button", { name: "Отозвать ссылку" }),
+    ).toBeEnabled();
+    await expect(document.documentElement.scrollWidth).toBe(
+      document.documentElement.clientWidth,
+    );
+  },
+};
+
+export const ClosedSaleRevokeMobile: Story = {
+  ...ClosedSaleRevokeDesktop,
+  globals: mobile.globals,
+  name: "Продажа закрыта · отзыв · телефон",
 };
 
 export const Unavailable: Story = {
