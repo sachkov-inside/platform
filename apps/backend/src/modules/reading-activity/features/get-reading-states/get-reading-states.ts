@@ -39,6 +39,14 @@ export async function getReadingStates(
       where: { accountId, materialId: { in: ids } },
     });
     const states = new Map(rows.map((row) => [row.materialId, row]));
+    const opened = new Map(
+      (
+        await dependencies.prisma.readingLessonOpenedParts.findMany({
+          where: { accountId, materialId: { in: ids } },
+          select: { materialId: true, openedParts: true },
+        })
+      ).map((row) => [row.materialId, row.openedParts]),
+    );
     const notes = await unseenUpdateNotes(
       dependencies,
       accountId,
@@ -53,6 +61,7 @@ export async function getReadingStates(
       value: ids.map((id) => ({
         ...toReadingState(id, states.get(id) ?? null),
         updateNote: notes.get(id) ?? null,
+        openedParts: opened.get(id) ?? null,
       })),
     };
   } catch (error) {

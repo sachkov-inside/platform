@@ -196,6 +196,7 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "reading_activity", [
       "commands",
       "events",
+      "lesson_opened_parts",
       "material_states",
       "material_visits",
       "product_learning_started",

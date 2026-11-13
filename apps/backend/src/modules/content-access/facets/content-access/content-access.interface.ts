@@ -47,6 +47,7 @@ export type EnforcementPoint =
   | "personal_home"
   | "reading_state_change"
   | "bookmark_change"
+  | "lesson_parts_open"
   | "exercise_attempt"
   | "lesson_rating"
   | "published_material_read"

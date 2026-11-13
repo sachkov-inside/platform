@@ -120,6 +120,7 @@ export type ReadingActivityPrisma = Pick<
   | "readingEvent"
   | "readingCommand"
   | "readingMaterialVisit"
+  | "readingLessonOpenedParts"
   | "productLearningStarted"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma &
