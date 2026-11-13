@@ -1,4 +1,4 @@
-export const name = "0126_exercise_attempts";
+export const name = "0124_exercise_attempts";
 
 /**
  * Exercise Attempts (#2121): every checked answer of a signed-in reader to a Lesson Exercise.
@@ -11,7 +11,8 @@ export const name = "0126_exercise_attempts";
  *
  * Author statistics (#2124) read the first attempts of each version through
  * `exercise_attempts_first_by_version`: respondents, the first-try correct share and the most
- * frequent wrong answer, which `answer` keeps as checked.
+ * frequent mistake. `answer` keeps the answer as checked; `mistakes` keeps the items a wrong
+ * match or order answer got wrong, which only the check against the version's key can tell.
  */
 export const statement = `
 create schema exercise_attempts;
@@ -26,6 +27,7 @@ create table exercise_attempts.attempts (
   fingerprint text not null,
   answer jsonb not null,
   result text not null,
+  mistakes jsonb,
   first_for_version boolean not null,
   attempted_at timestamptz not null,
   constraint exercise_attempts_primary primary key (id),
@@ -44,6 +46,13 @@ create table exercise_attempts.attempts (
   ),
   constraint exercise_attempts_result_valid check (
     result in ('correct', 'incorrect', 'dontKnow')
+  ),
+  constraint exercise_attempts_mistakes_valid check (
+    mistakes is null or (
+      result = 'incorrect'
+      and jsonb_typeof(mistakes) = 'object'
+      and mistakes ->> 'kind' in ('pairs', 'steps')
+    )
   )
 );
 

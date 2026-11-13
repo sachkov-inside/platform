@@ -200,6 +200,7 @@ describe("Platform migrations", () => {
       "material_states",
       "material_visits",
       "product_learning_started",
+      "reader_preferences",
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
     await expectTables(testDatabase, "glossary", ["term_marks", "terms"]);
@@ -236,15 +237,22 @@ describe("Platform migrations", () => {
     `);
     expect(functions).toEqual([{ schema: "materials" }]);
 
-    // The reading modes were retired (#2119): the derived lesson flag went with them.
+    // The reading modes were retired (#2119), but expand/contract keeps their storage for one
+    // release: the previous application still reads the table and writes the column, and a new
+    // lesson row relies on the column default.
     const retiredModeColumns = await testDatabase.prisma.$queryRaw<
-      readonly { readonly column_name: string }[]
+      readonly {
+        readonly column_name: string;
+        readonly column_default: string | null;
+      }[]
     >(Prisma.sql`
-      select column_name
+      select column_name, column_default
       from information_schema.columns
       where table_schema = 'materials' and column_name = 'has_mode_variants'
     `);
-    expect(retiredModeColumns).toEqual([]);
+    expect(retiredModeColumns).toEqual([
+      { column_name: "has_mode_variants", column_default: "false" },
+    ]);
 
     const crossSchemaForeignKeys = await testDatabase.prisma.$queryRaw<
       readonly { readonly name: string }[]

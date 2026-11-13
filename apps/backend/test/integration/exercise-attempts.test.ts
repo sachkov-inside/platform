@@ -521,12 +521,12 @@ describe("Exercise Attempts on PostgreSQL", () => {
           respondents: 4,
           firstTryCorrect: 1,
           firstTryDontKnow: 0,
-          mostFrequentWrongAnswer: {
-            answer: matches(
-              ["api", "store-choice"],
-              ["domain", "domain-choice"],
-              ["store", "api-choice"],
-            ),
+          // Two readers paired «api» and «store» with each other's choice; a tie goes to the
+          // smaller row id.
+          mostFrequentMistake: {
+            kind: "pair",
+            rowId: "api",
+            choiceId: "store-choice",
             count: 2,
           },
         },
@@ -538,16 +538,108 @@ describe("Exercise Attempts on PostgreSQL", () => {
         respondents: 5,
         firstTryCorrect: 1,
         firstTryDontKnow: 1,
-        mostFrequentWrongAnswer: { answer: options("embed"), count: 2 },
+        mostFrequentMistake: {
+          kind: "options",
+          optionIds: ["embed"],
+          count: 2,
+        },
       },
       {
         respondents: 1,
         firstTryCorrect: 1,
         firstTryDontKnow: 0,
-        mostFrequentWrongAnswer: null,
+        mostFrequentMistake: null,
       },
     ]);
     expect(quizVersions?.[1]?.fingerprint).not.toBe(oldVersion?.fingerprint);
+  });
+
+  test("an order counts the step readers put out of place most often", async () => {
+    const material = await publish(lesson(order));
+    for (const stepIds of [
+      ["code", "spec", "ship"],
+      ["ship", "code", "spec"],
+      ["ship", "spec", "code"],
+      ["spec", "code", "ship"],
+    ]) {
+      const recorded = await attempts.recordAttempt({
+        accountId: randomUUID(),
+        materialId: material.materialId,
+        exerciseId: "pipeline",
+        answer: { kind: "sequence", stepIds },
+      });
+      if (!recorded.ok) throw new Error(recorded.error.code);
+    }
+
+    const statistics = await attempts.readStatistics({
+      actor,
+      materialId: material.materialId,
+    });
+
+    // Out of place: «spec» in all three wrong answers, «code» and «ship» in two each.
+    expect(statistics).toMatchObject({
+      ok: true,
+      value: [
+        {
+          exerciseId: "pipeline",
+          versions: [
+            {
+              respondents: 4,
+              firstTryCorrect: 1,
+              mostFrequentMistake: { kind: "step", stepId: "spec", count: 3 },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  test("a stored answer that no longer reads leaves the rest of the statistics", async () => {
+    const material = await publish(lesson(quiz({})));
+    const recorded = await attempts.recordAttempt({
+      accountId: randomUUID(),
+      materialId: material.materialId,
+      exerciseId: "rag-wrong-platform",
+      answer: options("embed"),
+    });
+    if (!recorded.ok) throw new Error(recorded.error.code);
+    const [stored] = await database.prisma.$queryRaw<
+      { fingerprint: string }[]
+    >`select fingerprint from exercise_attempts.attempts
+      where material_id = ${material.materialId}::uuid`;
+    // An answer an older release wrote in a shape this one no longer reads.
+    await database.prisma.$executeRaw`
+      insert into exercise_attempts.attempts
+        (id, account_id, material_id, exercise_id, exercise_kind, fingerprint,
+         answer, result, first_for_version, attempted_at)
+      values (${randomUUID()}::uuid, ${randomUUID()}::uuid, ${material.materialId}::uuid,
+        'rag-wrong-platform', 'quiz', ${stored?.fingerprint},
+        '{"kind":"options","optionIds":[]}'::jsonb, 'incorrect', true, now())`;
+
+    const statistics = await attempts.readStatistics({
+      actor,
+      materialId: material.materialId,
+    });
+
+    expect(statistics).toMatchObject({
+      ok: true,
+      value: [
+        {
+          exerciseId: "rag-wrong-platform",
+          versions: [
+            {
+              respondents: 2,
+              firstTryCorrect: 0,
+              mostFrequentMistake: {
+                kind: "options",
+                optionIds: ["embed"],
+                count: 1,
+              },
+            },
+          ],
+        },
+      ],
+    });
   });
 
   test("only an Account that manages Materials reads statistics", async () => {
@@ -841,7 +933,7 @@ describe("Exercise Attempts over Nest HTTP", () => {
             kind: "quiz",
             versions: [
               {
-                mostFrequentWrongAnswer: { answer: options("embed") },
+                mostFrequentMistake: { kind: "options", optionIds: ["embed"] },
               },
             ],
           },

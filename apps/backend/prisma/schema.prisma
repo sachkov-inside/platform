@@ -811,7 +811,7 @@ model GlossaryTermMark {
 }
 
 /// Exercise Attempts (#2121). The partial unique index `exercise_attempts_one_first` lives in
-/// migration 0126; Prisma cannot describe it.
+/// migration 0124; Prisma cannot describe it.
 model ExerciseAttempt {
   id              String   @id(map: "exercise_attempts_primary") @db.Uuid
   sequence        BigInt   @default(autoincrement())
@@ -822,6 +822,7 @@ model ExerciseAttempt {
   fingerprint     String
   answer          Json
   result          String
+  mistakes        Json?
   firstForVersion Boolean  @map("first_for_version")
   attemptedAt     DateTime @map("attempted_at") @db.Timestamptz
 

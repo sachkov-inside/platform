@@ -2,6 +2,8 @@ import {
   checkExerciseAnswer,
   exerciseAnswerSchema,
   exerciseFingerprint,
+  exerciseFingerprintSchema,
+  exerciseMistakes,
   type ExerciseKey,
 } from "@inside/material-blocks";
 import { describe, expect, test } from "vitest";
@@ -162,6 +164,49 @@ describe("exercise answer check", () => {
   });
 });
 
+describe("exercise mistakes", () => {
+  test("a wrong match names each row paired with a wrong choice", () => {
+    expect(
+      exerciseMistakes(match, {
+        kind: "matches",
+        matches: [
+          { rowId: "test", choiceId: "test-role" },
+          { rowId: "plan", choiceId: "code-role" },
+          { rowId: "code", choiceId: "plan-role" },
+        ],
+      }),
+    ).toEqual({
+      kind: "pairs",
+      pairs: [
+        { rowId: "code", choiceId: "plan-role" },
+        { rowId: "plan", choiceId: "code-role" },
+      ],
+    });
+  });
+
+  test("a wrong order names each step out of its place", () => {
+    expect(
+      exerciseMistakes(order, {
+        kind: "sequence",
+        stepIds: ["code", "spec", "ship"],
+      }),
+    ).toEqual({ kind: "steps", stepIds: ["code", "spec"] });
+  });
+
+  test("a right answer, a quiz and «Не знаю» have no item mistakes", () => {
+    expect(
+      exerciseMistakes(order, {
+        kind: "sequence",
+        stepIds: ["spec", "code", "ship"],
+      }),
+    ).toBe(null);
+    expect(
+      exerciseMistakes(quiz, { kind: "options", optionIds: ["embed"] }),
+    ).toBe(null);
+    expect(exerciseMistakes(quiz, { kind: "dontKnow" })).toBe(null);
+  });
+});
+
 describe("exercise version fingerprint", () => {
   test("ignores wording, option order and «Не знаю»", () => {
     const reordered: ExerciseKey = {
@@ -207,6 +252,19 @@ describe("exercise version fingerprint", () => {
   test("is a known value, so web and backend agree across releases", () => {
     // 64-bit FNV-1a of "order|spec,code,ship", computed outside this code.
     expect(exerciseFingerprint(order)).toBe("fedf00a6d2dab0fb");
+  });
+
+  test("has one shared shape: 16 lowercase hex digits", () => {
+    expect(
+      exerciseFingerprintSchema.safeParse("fedf00a6d2dab0fb").success,
+    ).toBe(true);
+    for (const wrong of [
+      "FEDF00A6D2DAB0FB",
+      "fedf00a6d2dab0f",
+      "fedf00a6d2dab0fbb",
+      "fedf00a6d2dab0fg",
+    ])
+      expect(exerciseFingerprintSchema.safeParse(wrong).success).toBe(false);
   });
 });
 

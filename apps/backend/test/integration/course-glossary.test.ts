@@ -200,4 +200,29 @@ describe("Course Glossary", () => {
       }),
     ).toEqual({ ok: false, error: { code: "discovery_not_found" } });
   });
+
+  test("answers a failed access check as a dependency failure", async () => {
+    const failingAccess = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (actor) => actor === author },
+      contentAccess: {
+        authorize: () => Promise.reject(new Error("unused")),
+        checkProductAccess: () => Promise.resolve({ kind: "open" }),
+        checkProductAccessMany: () => Promise.reject(new Error("unused")),
+        checkAvailabilityMany: () =>
+          Promise.resolve({ ok: false, error: { code: "batch_too_large" } }),
+      },
+      glossary,
+    });
+
+    expect(
+      await failingAccess.publishedMaterialReader.readCourseGlossary({
+        subject: { kind: "account", accountId: reader },
+        productSlug: "ddd",
+      }),
+    ).toEqual({
+      ok: false,
+      error: { code: "dependency_unavailable", retryable: true },
+    });
+  });
 });

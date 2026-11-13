@@ -53,6 +53,7 @@ import {
 import {
   openedPartsSchema,
   recordOpenedPartsBodySchema,
+  type RecordOpenedPartsResult,
 } from "../../features/record-opened-parts/record-opened-parts.js";
 import {
   setReadingStateSchema,
@@ -158,6 +159,12 @@ export class ReadingActivityController {
       problemDetailsSchema(403, ["access_denied"]),
     ),
   })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      problemDetailsSchema(404, ["material_not_found"]),
+    ),
+  })
   async openParts(
     @CurrentAccount() current: AuthenticatedAccount,
     @Param("materialId") materialId: string,
@@ -243,7 +250,9 @@ export class ReadingActivityController {
 type ReadingError =
   | SetReadingStateError
   | Extract<
-      GetReadingStatesResult | GetProductProgressResult,
+      | GetReadingStatesResult
+      | GetProductProgressResult
+      | RecordOpenedPartsResult,
       { readonly ok: false }
     >["error"];
 
@@ -254,6 +263,7 @@ function throwReadingError(error: ReadingError): never {
     case "access_denied":
       throw readingException(403, error);
     case "product_not_found":
+    case "material_not_found":
       throw readingException(404, error);
     case "stale_version":
       throw readingException(409, error, { current: error.current });

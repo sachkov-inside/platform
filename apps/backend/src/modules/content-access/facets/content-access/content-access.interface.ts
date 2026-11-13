@@ -113,6 +113,20 @@ export type DenyReason =
   | "resource_action_invalid"
   | "dependency_unavailable";
 
+/**
+ * What a denied read means to a feature that keeps a reader's personal fact about a Material:
+ * Content Access could not decide, the Material does not exist for readers (missing or
+ * unpublished), or the reader may not read it.
+ */
+export function deniedMaterialRead(
+  reason: DenyReason,
+): "dependency_unavailable" | "material_not_found" | "access_denied" {
+  if (reason === "dependency_unavailable") return "dependency_unavailable";
+  return reason === "resource_not_found" || reason === "resource_unpublished"
+    ? "material_not_found"
+    : "access_denied";
+}
+
 interface DecisionMetadata {
   readonly decisionId: string;
   readonly policyVersion: "content-access-v1";

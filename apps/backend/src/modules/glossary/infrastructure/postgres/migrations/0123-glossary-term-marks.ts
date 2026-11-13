@@ -1,4 +1,4 @@
-export const name = "0125_glossary_term_marks";
+export const name = "0123_glossary_term_marks";
 
 /**
  * A reader's mark on a Glossary Term from the lesson deck «Термины урока» (#2127): «знаю» or

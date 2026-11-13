@@ -189,16 +189,16 @@ export async function readPublishedMaterial(
       }
       const blocks = keepFirstTermMentions(rendered.value.blocks);
       const termIds = materialGlossaryTermIds(blocks);
+      // Terms only enrich the lesson: when the Glossary fails (it records the failure itself),
+      // the lesson still reads, with plain term mentions and no deck.
       const glossaryTerms =
         termIds.length === 0 || dependencies.glossary === undefined
           ? { ok: true as const, value: [] }
           : await dependencies.glossary.lookup(termIds);
-      if (!glossaryTerms.ok) return glossaryTerms;
       const introduced =
         currentVideo.sourceId === null || dependencies.glossary === undefined
           ? { ok: true as const, value: [] }
           : await dependencies.glossary.introducedIn([currentVideo.sourceId]);
-      if (!introduced.ok) return introduced;
       return {
         ok: true,
         value: {
@@ -210,10 +210,14 @@ export async function readPublishedMaterial(
             { ...rendered.value, blocks },
             loadedPresentations.value,
           ),
-          glossaryTerms: glossaryTerms.value.map(publishedGlossaryTerm),
-          lessonTerms: inMentionOrder(introduced.value, termIds).map(
-            publishedGlossaryTerm,
-          ),
+          glossaryTerms: glossaryTerms.ok
+            ? glossaryTerms.value.map(publishedGlossaryTerm)
+            : [],
+          lessonTerms: introduced.ok
+            ? inMentionOrder(introduced.value, termIds).map(
+                publishedGlossaryTerm,
+              )
+            : [],
           primaryVideo: loadedVideo.value,
           ...(videoChapters.length === 0 ? {} : { videoChapters }),
         },

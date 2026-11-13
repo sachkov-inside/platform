@@ -11,33 +11,25 @@ import {
   statement as productTopicsStatement,
 } from "../modules/products/infrastructure/postgres/migrations/0120-product-topics.js";
 import {
-  name as dropReaderPreferencesName,
-  statement as dropReaderPreferencesStatement,
-} from "../modules/reading-activity/infrastructure/postgres/migrations/0122-drop-reader-preferences.js";
-import {
-  name as dropModeVariantsName,
-  statement as dropModeVariantsStatement,
-} from "../modules/materials/infrastructure/postgres/migrations/0123-drop-mode-variants.js";
-import {
   name as glossaryTermsName,
   statement as glossaryTermsStatement,
-} from "../modules/glossary/infrastructure/postgres/migrations/0124-glossary-terms.js";
+} from "../modules/glossary/infrastructure/postgres/migrations/0122-glossary-terms.js";
 import {
   name as glossaryTermMarksName,
   statement as glossaryTermMarksStatement,
-} from "../modules/glossary/infrastructure/postgres/migrations/0125-glossary-term-marks.js";
+} from "../modules/glossary/infrastructure/postgres/migrations/0123-glossary-term-marks.js";
 import {
   name as exerciseAttemptsName,
   statement as exerciseAttemptsStatement,
-} from "../modules/exercise-attempts/infrastructure/postgres/migrations/0126-exercise-attempts.js";
+} from "../modules/exercise-attempts/infrastructure/postgres/migrations/0124-exercise-attempts.js";
 import {
   name as lessonOpenedPartsName,
   statement as lessonOpenedPartsStatement,
-} from "../modules/reading-activity/infrastructure/postgres/migrations/0127-lesson-opened-parts.js";
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0125-lesson-opened-parts.js";
 import {
   name as lessonRatingsName,
   statement as lessonRatingsStatement,
-} from "../modules/lesson-ratings/infrastructure/postgres/migrations/0128-lesson-ratings.js";
+} from "../modules/lesson-ratings/infrastructure/postgres/migrations/0126-lesson-ratings.js";
 import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
@@ -814,11 +806,6 @@ export const platformMigrations = [
     name: materialUpdateNotesName,
     statement: materialUpdateNotesStatement,
   },
-  {
-    name: dropReaderPreferencesName,
-    statement: dropReaderPreferencesStatement,
-  },
-  { name: dropModeVariantsName, statement: dropModeVariantsStatement },
   { name: glossaryTermsName, statement: glossaryTermsStatement },
   { name: glossaryTermMarksName, statement: glossaryTermMarksStatement },
   { name: exerciseAttemptsName, statement: exerciseAttemptsStatement },
