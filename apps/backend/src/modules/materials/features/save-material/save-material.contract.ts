@@ -1,4 +1,5 @@
 import type { VideoChapter } from "../../domain/video-chapters.js";
+import type { MaterialUpdateNoteInput } from "../../domain/material-update-note.js";
 import type { PublicationState } from "../../domain/material.js";
 import type { MaterialMetadataValidationError } from "../../domain/material-metadata.js";
 import type {
@@ -37,6 +38,8 @@ export interface SaveMaterialCommand {
   readonly videoChapters?: readonly VideoChapter[];
   /** Руководства с держателями права, снятие опубликованного материала из которых подтверждено. */
   readonly confirmedProductRemovals?: readonly string[] | undefined;
+  /** A substantial update noted by the source package (#2125); omitted keeps the stored note. */
+  readonly updateNote?: MaterialUpdateNoteInput | undefined;
 }
 
 export type SaveMaterialError =

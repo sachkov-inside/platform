@@ -1,14 +1,14 @@
 import type { z } from "zod";
 
 import type {
-  ReadingState,
+  MaterialReadingState,
   readingStatesResultSchema,
 } from "./reading-contract";
 
 type ReadingStatesResult = z.infer<typeof readingStatesResultSchema>;
 
 interface Waiter {
-  readonly resolve: (state: ReadingState) => void;
+  readonly resolve: (state: MaterialReadingState) => void;
   readonly reject: (error: Error) => void;
 }
 
@@ -22,7 +22,7 @@ const MAX_BATCH_SIZE = 100;
  */
 export function createReadingStateBatcher(
   loadStates: (materialIds: readonly string[]) => Promise<ReadingStatesResult>,
-): (materialId: string) => Promise<ReadingState> {
+): (materialId: string) => Promise<MaterialReadingState> {
   let waiting = new Map<string, Waiter[]>();
   let scheduled = false;
 
@@ -75,7 +75,7 @@ export function createReadingStateBatcher(
   };
 
   return (materialId) =>
-    new Promise<ReadingState>((resolve, reject) => {
+    new Promise<MaterialReadingState>((resolve, reject) => {
       const waiters = waiting.get(materialId) ?? [];
       waiters.push({ reject, resolve });
       waiting.set(materialId, waiters);

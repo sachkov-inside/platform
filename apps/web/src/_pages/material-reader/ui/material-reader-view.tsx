@@ -69,6 +69,8 @@ export interface MaterialReaderViewProps {
   readonly modeHint?: { readonly at: number; readonly node: ReactNode };
   /** Переключатель режима прохождения; у руководства без вариантных шагов его нет. */
   readonly modeSwitch?: ReactNode;
+  /** Плашка «Урок обновлён» над текстом урока: стоит у изучившего урок до обновления (#2125). */
+  readonly updateNotice?: ReactNode;
 }
 
 /** Client-safe presentation shared by the production RSC route and Storybook. */
@@ -89,6 +91,7 @@ export function MaterialReaderView({
   purchaseCall,
   modeHint,
   modeSwitch,
+  updateNotice,
 }: MaterialReaderViewProps) {
   const endReadingAction = readingAction ?? topReadingAction;
   const endBookmarkAction = bookmarkAction ?? topBookmarkAction;
@@ -172,6 +175,7 @@ export function MaterialReaderView({
             supplementary={productContext?.supplementary ?? false}
             showShare={false}
           />
+          {updateNotice}
           {modeSwitch}
           {primaryVideo === null ||
           body.some((block) => block.kind === "video") ? null : (

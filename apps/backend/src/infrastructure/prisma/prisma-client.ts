@@ -14,6 +14,7 @@ export type MaterialsPrisma = Pick<
   | "materialRelatedPin"
   | "materialSearchDocument"
   | "materialTag"
+  | "materialUpdateNote"
   | "publishedMaterial"
   | "publishedMaterialTag"
   | "tag"

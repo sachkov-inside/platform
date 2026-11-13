@@ -3,6 +3,10 @@ import {
   statement as saleNoticesStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0119-sale-notices.js";
 import {
+  name as materialUpdateNotesName,
+  statement as materialUpdateNotesStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0121-material-update-notes.js";
+import {
   name as productTopicsName,
   statement as productTopicsStatement,
 } from "../modules/products/infrastructure/postgres/migrations/0120-product-topics.js";
@@ -778,6 +782,10 @@ export const platformMigrations = [
   },
   { name: saleNoticesName, statement: saleNoticesStatement },
   { name: productTopicsName, statement: productTopicsStatement },
+  {
+    name: materialUpdateNotesName,
+    statement: materialUpdateNotesStatement,
+  },
 ] as const;
 
 export function migrateToLatest(

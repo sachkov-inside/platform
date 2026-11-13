@@ -23,5 +23,8 @@ export const authoringImportContract = {
     // A Product may carry its course topics; the client writes them through
     // PUT /authoring/products/:productId/topics (#2022).
     "product-topics-v1",
+    // A lesson apply may carry `updateNote: { id, whatChanged }`, a substantial update readers
+    // who studied the lesson earlier are told about (#2125).
+    "material-update-note-v1",
   ],
 } as const;

@@ -77,6 +77,8 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {string} access
  * @property {boolean} [notifyTelegram]
  * @property {boolean} [inFeed]
+ * @property {{ id: string; whatChanged: string }} [updateNote] The substantial update the package
+ *   notes (#2125); the receiver tells readers who studied the lesson earlier
  * @property {string | null} video
  * @property {"new" | "changed" | "restore" | "unchanged" | "kept" | "conflict"} change `kept`: the
  *   target holds the Material unpublished and the release keeps it private, so apply writes nothing to it
@@ -324,6 +326,7 @@ export async function previewRelease(
         ? {}
         : { notifyTelegram: row.notifyTelegram }),
       ...(row.inFeed === undefined ? {} : { inFeed: row.inFeed }),
+      ...(row.updateNote === undefined ? {} : { updateNote: row.updateNote }),
       video: row.video?.kinescopeId ?? null,
       publication: publicationOfKey(key),
     };

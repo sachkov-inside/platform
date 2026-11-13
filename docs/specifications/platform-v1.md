@@ -1784,7 +1784,7 @@ checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 The authoring package accepts envelope `schemaVersion: 1 | 2 | 3`. Before asset uploads or other writes,
 `loadPackage` checks its version and every `requiredFeatures` entry. Current v3 packages require `canonical-product-source-v2`; v1/v2 envelopes remain historical input. Supported features are
 `material-task-v1`, `task-c-v2`, `quiz-v1`, `quiz-multiple-v1`, `github-anchors-v1`, `image-variants-v1`,
-`collapsible-callouts-v1`, `bounded-content-v1`, `svg-images-v1`, `product-topics-v1` and `canonical-product-source-v2`; unknown features are refused by name.
+`collapsible-callouts-v1`, `bounded-content-v1`, `svg-images-v1`, `product-topics-v1`, `material-update-note-v1` and `canonical-product-source-v2`; unknown features are refused by name.
 With `svg-images-v1` in the receiver's `packageFeatures`, the client uploads an `image/svg+xml` Material image unchanged;
 a receiver without it gets a PNG rendered from the SVG.
 
