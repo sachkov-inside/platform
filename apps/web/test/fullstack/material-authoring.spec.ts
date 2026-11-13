@@ -200,7 +200,7 @@ for (const access of ["public", "closed"] as const) {
     });
     expect(wrongMaterial.status()).toBe(403);
     // The signed-in Reader saves its open and refreshes the route; TITLE is absent mid-refresh (#1626).
-    await expectReaderReadyForAudit(page, `${title} · Sachkov Dev`);
+    await expectReaderReadyForAudit(page, `${title} · sachkov.dev`);
     const accessibility = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
@@ -1134,7 +1134,7 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   ).toBeVisible();
   const fileLink = page.getByRole("link", { name: /chooser.txt/u });
   await expect(fileLink).toBeVisible();
-  await expectReaderReadyForAudit(page, `${title} · Sachkov Dev`);
+  await expectReaderReadyForAudit(page, `${title} · sachkov.dev`);
   const readerAccessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();

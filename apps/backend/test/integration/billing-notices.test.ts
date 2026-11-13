@@ -495,7 +495,7 @@ describe("служебные сообщения подписки (реальны
     await s.pump(s.deliverEmail);
     expect(s.sent).toHaveLength(1);
     expect(s.sent[0]).toMatchObject({
-      subject: "Оплата Inside подтверждена",
+      subject: "Оплата подтверждена",
       email: `${s.buyer}@example.test`,
     });
     expect(s.sent[0]?.text).toContain("Материалы");
@@ -607,7 +607,7 @@ describe("служебные сообщения подписки (реальны
     expect(s.salesFor(s.buyer)).toHaveLength(0);
     // Почтой о продаже не пишут никому, а покупатель получает своё обычное письмо.
     expect(s.sent.map((message) => message.subject)).toEqual([
-      "Оплата Inside подтверждена",
+      "Оплата подтверждена",
     ]);
     // Повод продажи не входит в историю покупок покупателя.
     expect(

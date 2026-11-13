@@ -433,7 +433,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   await expect(
     page.getByRole("heading", { name: "Первый вертикальный срез", level: 2 }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Dev");
+  await expect(page).toHaveTitle("Как устроен Inside Platform · sachkov.dev");
   await expect(
     page.getByRole("main").getByRole("link", { name: "Главная" }),
   ).toHaveCount(0);
@@ -480,7 +480,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
 
   await expectReaderReadyForAudit(
     page,
-    "Как устроен Inside Platform · Sachkov Dev",
+    "Как устроен Inside Platform · sachkov.dev",
   );
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -835,7 +835,7 @@ test("navigates Library → Topic → ordered Product and exposes canonical Read
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
   await expect(page).toHaveTitle(
-    "Создание Platform Inside — продукт · Sachkov Dev",
+    "Создание Platform Inside (продукт) · sachkov.dev",
   );
   await expectProductLandingNavigation(page, testInfo);
   // Материалы, состояния доступа и порядок живут в программе; страница продукта рассказывает.
@@ -931,11 +931,11 @@ test("navigates Library → Topic → ordered Product and exposes canonical Read
       .getByRole("link", { name: "Создание Platform Inside", exact: true }),
   ).toHaveCount(1);
 
-  await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Dev");
+  await expect(page).toHaveTitle("Как устроен Inside Platform · sachkov.dev");
   await expectLibraryNavigationActive(page, testInfo);
   await expectNoSeriousAccessibilityFindings(
     page,
-    "Как устроен Inside Platform · Sachkov Dev",
+    "Как устроен Inside Platform · sachkov.dev",
   );
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");

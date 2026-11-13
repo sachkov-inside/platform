@@ -1,13 +1,13 @@
-# Репозитории Inside
+# Репозитории sachkov.dev
 
-Карта определяет текущих владельцев кода, документов, задач и выпуска Inside, а также исторические источники.
+Карта определяет текущих владельцев кода, документов, задач и выпуска sachkov.dev, а также исторические источники.
 Согласованный переезд завершён в [platform#957](https://github.com/sachkov-inside/platform/issues/957)
 по [workspace#253](https://github.com/sachkov-inside/workspace/issues/253).
 Решение и границы перехода записаны в [ADR 0031](docs/adr/0031-inside-product-monorepo.md).
 
 | Репозиторий | Текущая роль | Состояние |
 |---|---|---|
-| [platform](https://github.com/sachkov-inside/platform) | Код Platform, приложение Telegram в `apps/telegram`, общие документы, словарь, контракты, процесс, CI и текущие задачи Inside | Независимые Telegram workflows обслуживают production; выпуск и откат подтверждены в #960 |
+| [platform](https://github.com/sachkov-inside/platform) | Код Platform, приложение Telegram в `apps/telegram`, общие документы, словарь, контракты, процесс, CI и текущие задачи sachkov.dev | Независимые Telegram workflows обслуживают production; выпуск и откат подтверждены в #960 |
 | [inside-telegram](https://github.com/sachkov-inside/inside-telegram) | Исторический код, закрытые задачи и неизменяемые legacy Releases `v1`–`v5` | Архивирован; README направляет в platform, пять открытых задач перенесены; #961 завершён |
 | [workspace](https://github.com/sachkov-inside/workspace) | Исторический источник документов и решений для проверки происхождения и отката | Архивирован; актуальная работа в platform; архивация завершена в #962 |
 | [engineering-content](https://github.com/sachkov-inside/engineering-content) | Закрытые оригиналы инженерных статей, обзоров, уроков, руководств, заданий и программ | Отдельный репозиторий; Platform остаётся одним из направлений доставки |
@@ -51,14 +51,14 @@ Platform сохраняет действующий процесс exporter/previ
 
 ## Текущие документы
 
-- [Общий brief Inside](docs/product/README.md) определяет продукт и аудиторию.
+- [Общий brief sachkov.dev](docs/product/README.md) определяет продукт и аудиторию.
 - [Brief Platform](docs/product/platform-mvp-brief.md) определяет объём приложения.
 - [GLOSSARY](GLOSSARY.md) владеет общими и прикладными терминами.
 - [Юридический комплект](docs/legal/README.md) владеет редакциями и статусами юридических текстов.
 - [Карта учёта 97 исходных файлов](docs/migrations/958-shared-documents.md) даёт исходные commits и соответствия.
 
 [Brief Telegram](apps/telegram/docs/product/telegram-application-brief.md), ADR и runbooks теперь доступны внутри приложения.
-Процесс разработки Inside принадлежит корневым `AGENTS.md`, `docs/agents/` и `.agents/skills`; копии в Telegram удалены.
+Процесс разработки sachkov.dev принадлежит корневым `AGENTS.md`, `docs/agents/` и `.agents/skills`; копии в Telegram удалены.
 Корневой CI Gate проверяет Telegram на PR, merge_group и точном SHA reusable CI.
 Выпуск и откат Telegram принадлежат [production runbook](apps/telegram/docs/operations/production.md).
 Исторические nested workflows удалены; legacy Releases сохраняются для отката.

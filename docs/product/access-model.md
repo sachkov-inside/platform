@@ -1,4 +1,4 @@
-# Модель доступа к контенту Inside
+# Модель доступа к контенту sachkov.dev
 
 ## Единая выдача доступа (решение владельца 23.10.2026)
 
@@ -252,7 +252,7 @@ Future subscriptions are separate from Products. Historical snapshots, payments 
 retained for reconciliation and audit, not advertised as current functionality.
 A Product uses its explicitly associated Telegram group; multiple Products may share that group.
 The current provider serves `primary` only. Different real groups require provider-contract work.
-The first Inside AI Engineering cohort includes perpetual Materials and community access and
+The first AI Engineering cohort includes perpetual Materials and community access and
 six calendar months of Support. The account presents access by Product, not as a Subscription.
 
 
@@ -332,7 +332,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 - **Сопровождение — одно общее право.** Оно действует, пока есть хотя бы одно действующее
   основание с сопровождением. Отказ от одной покупки не прекращает сопровождение, которое даёт
   другое действующее основание.
-- **Одна общая группа сообщества** — нынешняя группа Telegram, где стоит бот Inside; новая группа
+- **Одна общая группа сообщества**: нынешняя группа Telegram, где стоит бот; новая группа
   не создаётся. Она объединяет всех, кто покупает доступ к любому продукту. Право на сопровождение
   открывает группу на свой срок. При разовой покупке группа остаётся и после окончания
   сопровождения — на срок участия в сообществе из предложения, по умолчанию на срок права на
@@ -354,7 +354,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 - **Покупка хранит свои сроки.** Сроки берутся из снимка предложения при покупке; изменение
   предложения выданные права не меняет. Покупки на редакциях 3 и 4 оферты сохраняют свои условия:
   право на продукт и чат без даты окончания при гарантии договора 2 года, сопровождение 6 месяцев.
-- **Предложение курса Inside AI Engineering:** Lifetime Access Grant на продукт, бессрочное участие
+- **Предложение курса AI Engineering:** Lifetime Access Grant на продукт, бессрочное участие
   в сообществе и `support` на 6 месяцев. По [решению владельца от 07.10.2026](https://github.com/sachkov-inside/platform/issues/855#issuecomment-6032563996)
   предзаказ стоит 29 900 ₽, после старта — 39 900 ₽. Респондент анкеты получает скидку 10 %
   до даты старта: 26 910 ₽. Дату старта владелец назначает в конце подготовки; публикация предложения
@@ -395,7 +395,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
   входы с метками воронок сохраняют свои сценарии. Неподтверждённое основание по ссылке — ответ с
   дальнейшим шагом и запись в очередь разбора владельца ([Telegram #115](https://github.com/sachkov-inside/inside-telegram/issues/115)).
 - Доказуемое основание — членство в группе прежнего курса. Общий чат
-  Inside основанием не является, даже когда ссылка владельца опубликована в нём.
+  sachkov.dev основанием не является, даже когда ссылка владельца опубликована в нём.
 - Бот передаёт основание Platform как SourceEntitlement по протоколу активации. Какие права выдать,
   решает Platform по правилу активации (ActivationRule); бот сам права не назначает.
 - Прежний участник курса получает бессрочное назначение тарифа курса (`tier-via-course`) с тем же
@@ -553,7 +553,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
    владелец решил только для отказа от договора (сноска 10).
 10. Новый вход закрывается сразу; если другого права на чат нет, из чата убирает оператор по списку.
 11. Запрет не снимают новое право, покупка и повторный `/start`. Исключение ботом Tribute запретом
-    не считается: при действующем праве Platform бот Inside возвращает человека в чат.
+    не считается: при действующем праве Platform бот возвращает человека в чат.
 12. `support` на срок из предложения продукта (раздел «Срок прав задаёт предложение»). Общее право — раздел «Что входит в доступ». Отказ от одной
     покупки прекращает только её основание. Окончание сопровождения не закрывает продукт и чат,
     который открыт правом на X.
@@ -593,7 +593,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 
 | Тариф | Продаётся | Новые назначения | Действует |
 |---|---|---|---|
-| Тариф курса Inside AI Engineering: продукт и участие в сообществе без срока, `support` на 6 месяцев, вариант `one_time` | Да, когда владелец опубликовал | Да, бессрочно: прежние участники курса через бота, решение владельца | Да, по покупкам и назначениям |
+| Тариф курса AI Engineering: продукт и участие в сообществе без срока, `support` на 6 месяцев, вариант `one_time` | Да, когда владелец опубликовал | Да, бессрочно: прежние участники курса через бота, решение владельца | Да, по покупкам и назначениям |
 | «Подписка Inside»: охват «вся платформа», вариант `subscription` | Не продаётся ([ADR 0037](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0037-products-without-subscriptions.md)) | Не применяется | Да, по оплатам |
 
 По ADR 0033 активация назначает тариф курса. До задачи переключения код ещё назначает прежний
@@ -725,7 +725,7 @@ does not establish partial-notification Amount semantics, so no difference or ze
 See the [provider refund scenario](https://developer.tbank.ru/eacq/scenarios/cancel_confirm/).
 
 A bank decline (`REJECTED`, `AUTH_FAIL`, `CANCELED`, `DEADLINE_EXPIRED` or `REVERSED`) marks the
-attempt failed in Inside, but the provider can still capture the same PaymentId: on the payment
+attempt failed in Platform, but the provider can still capture the same PaymentId: on the payment
 form the buyer can pick another method after a declined one, such as a card after installments.
 An exactly verified `CONFIRMED` or full `REFUNDED` of that PaymentId therefore confirms a failed
 one-time attempt and issues its saved fulfillment. Recovery and the owner's reconciliation ask the
@@ -736,13 +736,13 @@ unless `REDIRECT_TIMEOUT` says otherwise). Recovery asks for two hours after cre
 lifetime plus a one-hour margin for a delayed Init, an authorization that started before the deadline
 and clock difference (`paymentFormRecheckMilliseconds`). The confirmation retires
 the same Account's unpaid repeat attempts for the same Product or the same Payment Link, so the
-buyer cannot pay twice through the newer form in Inside. Each such attempt whose Init could have
+buyer cannot pay twice through the newer form in Platform. Each such attempt whose Init could have
 reached the bank records `bank_cancel_requested`. A purchase at another price records the same
 mark for a replaced open attempt whose Init was sent (#1925, see the
 [billing specification](../specifications/subscription-billing-v1.md)). An attempt without a stored
 form address, whose unpaid form the bank still reports `NEW` or `FORM_SHOWED`, is retired with the
 same mark by the first bank answer at least 2 minutes after creation (`form_address_lost`, #1926).
-Since #1932 only an attempt whose address Inside never received is retired this way: storing the
+Since #1932 only an attempt whose address Platform never received is retired this way: storing the
 address from the Init answer writes the permanent mark `form_address_received`, and intermediate
 statuses (3-D Secure, authorization, undecided or unrecognized statuses) no longer erase the stored
 address. Outside the transaction, the background
@@ -760,7 +760,7 @@ cancel is open exactly while `bank_cancel_requested` has neither `bank_cancel_co
 (`isBankCancelOpen` in `domain/payment-events.ts`). A buyer can still pay between that GetState
 and Cancel; the bank then returns the money, and `bank_cancel_returned_payment` records it for the
 owner's review list and the watchdog. Since #1932 a full return (`REFUNDED` or `REVERSED`) is also
-an ordinary refund row with the basis `automatic_cancel`, written by Inside without an owner
+an ordinary refund row with the basis `automatic_cancel`, written by Platform without an owner
 decision, so the purchase's refund history, its `refundedKopecks` and the owner's `refunds.read` show
 it. The row carries what remains of the purchase amount after recorded refunds; a repeated
 observation, or a full refund already recorded from a `REFUNDED` notification, adds no row. When that event is recorded first, a later `CONFIRMED` or
@@ -772,7 +772,7 @@ itself closes the mark with `bank_cancel_confirmed` (status `CONFIRMED`). In the
 bank's `REFUNDED` closes the mark with `bank_cancel_confirmed`, which keeps the PaymentId and status.
 When the retired attempt's Init answer was lost, reconciliation finds its PaymentId with CheckOrder. For an order without payments
 the provider answers `Success:false` with `ErrorCode` `335` (order not found, observed on the live
-terminal on 2026-10-31); Inside reads it as an empty payment list. If CheckOrder finds no payment
+terminal on 2026-10-31); Platform reads it as an empty payment list. If CheckOrder finds no payment
 for 30 minutes, `bank_payment_absent` closes the mark instead, because there is no form to cancel
 (#1922). A repeat attempt with an unknown
 outcome is first checked with the bank. An unpaid form retires and is cancelled; a paid one is

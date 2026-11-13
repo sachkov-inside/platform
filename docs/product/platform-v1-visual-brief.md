@@ -1,4 +1,4 @@
-# Sachkov Inside Platform v1 — owner-taste visual input
+# sachkov.dev Platform v1: owner-taste visual input
 
 Статус: owner-calibrated input от 2026-08-21 для
 [Platform issue #21](https://github.com/sachkov-inside/platform/issues/21).
@@ -26,7 +26,7 @@ Reader не показывает related block или декоративную c
 Owner выбрал верхнюю шапку A и словесный логотип C в
 [#311](https://github.com/sachkov-inside/platform/issues/311); production integration — #313.
 Это заменяет desktop sidebar. По уточнению владельца mobile сохраняет нижнюю навигацию без
-верхней шапки. Полное название **Sachkov Inside**, его цветовое
+верхней шапки. Полное название **sachkov.dev**, его цветовое
 разделение и поведение шапки заданы в
 [контракте навигации](platform-mvp-brief.md#поиск-и-навигация).
 Остальной принятый дизайн страниц сохраняется; production visual GO остаётся отдельным от
@@ -38,8 +38,8 @@ Owner выбрал верхнюю шапку A и словесный логот�
 
 ## 1. Subject, audience и jobs
 
-Platform — живая инженерная мастерская и канонический дом полноценных Materials Inside, а не
-линейный курс, dashboard метрик или ещё один documentation portal. Product scope и полный surface
+Platform остаётся живой инженерной мастерской и каноническим домом полноценных Materials sachkov.dev, а не
+линейным курсом, dashboard метрик или ещё одним documentation portal. Product scope и полный surface
 inventory принадлежат [Platform MVP brief](platform-mvp-brief.md) и
 [Platform v1 UX brief](platform-v1-ux-brief.md); здесь зафиксированы только jobs одинаковых
 representative fixtures, на которых UI laboratory и production surfaces проверяют visual
@@ -291,7 +291,7 @@ Owner сохранил каталог как reference для будущего �
   Preview без смены visual language.
 - **Surfaces to prove:** тот же Library/search, long-form/video Material и author editor/Preview
   fixture set, но с editorial canvas как dominant treatment.
-- **Main risk:** потерять узнаваемый Inside character и стать generic publishing tool.
+- **Main risk:** потерять узнаваемый character sachkov.dev и стать generic publishing tool.
 
 H1 задаёт starting point для первого production consumer. H2/H3 остаются reasoning lenses, если
 конкретный surface выявит их реальную пользу; отдельное сравнение 2–3 whole-screen concepts не

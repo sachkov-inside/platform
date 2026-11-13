@@ -16,9 +16,9 @@ export function assembleBillingContactSender(
   }): Promise<void> => {
     await send({
       to: email,
-      subject: "Код подтверждения email — Inside",
+      subject: "Код подтверждения email",
       messageRef: challengeRef,
-      text: `Ваш код подтверждения email для чеков и уведомлений Inside: ${code}. Код действует 10 минут. Если вы не запрашивали код, проигнорируйте письмо.`,
+      text: `Ваш код подтверждения email для чеков и уведомлений sachkov.dev: ${code}. Код действует 10 минут. Если вы не запрашивали код, проигнорируйте письмо.`,
     });
   };
 }

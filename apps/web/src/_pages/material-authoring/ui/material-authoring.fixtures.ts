@@ -485,7 +485,7 @@ const nextRouteItem = previewRouteItem("04", "Проверка результа�
 
 /** Материал в середине закрытой главы: черновики стоят в маршруте наравне с опубликованным. */
 export const materialPreviewRoute = {
-  productName: "Inside AI Engineering",
+  productName: "AI Engineering",
   kind: "ready",
   next: nextRouteItem,
   otherProducts: [],

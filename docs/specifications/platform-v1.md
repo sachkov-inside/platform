@@ -32,7 +32,7 @@ mutable Material/access decision.
 
 ## Результат и authority
 
-Platform v1 публикует Materials и Products Inside через общий authoring Save по
+Platform v1 публикует Materials и Products sachkov.dev через общий authoring Save по
 [контентной границе](../product/platform-mvp-brief.md#контент). Публичный посетитель находит и
 читает открытый контент; участник управляет private
 Account и отдельным Account Profile, связывает Account с Telegram и получает

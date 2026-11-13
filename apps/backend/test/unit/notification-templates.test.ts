@@ -26,6 +26,15 @@ const source: Extract<NotificationSource, { status: "current" }> = {
   readerPath: "/account/purchases",
 };
 
+test("тема письма об оплате называет событие без прежнего имени проекта", () => {
+  const letter = renderNotification(source, "https://inside.example.test");
+  expect(letter).toMatchObject({
+    subject: "Оплата подтверждена",
+    templateRevision: 2,
+  });
+  expect(letter.text.startsWith("Оплата подтверждена\n")).toBe(true);
+});
+
 test("ссылка читателя ведёт только на сам Platform и только под TLS или по петле", () => {
   expect(
     renderNotification(source, "https://inside.example.test").text,

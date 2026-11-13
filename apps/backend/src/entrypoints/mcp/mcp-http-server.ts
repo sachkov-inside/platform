@@ -85,7 +85,7 @@ export function createMcpHttpServer(dependencies: {
     resource: resourceUrlFromServerUrl(configuredUrl).href,
     authorization_servers: [dependencies.identityIssuer],
     bearer_methods_supported: ["header"],
-    resource_name: "Sachkov Inside Platform authoring",
+    resource_name: "sachkov.dev authoring",
   };
   const learningUrl = new URL(
     `${configuredUrl.pathname}/learning`,
@@ -113,7 +113,7 @@ export function createMcpHttpServer(dependencies: {
     authorization_servers: [dependencies.identityIssuer],
     bearer_methods_supported: ["header"],
     scopes_supported: LEARNING_SCOPES,
-    resource_name: "Sachkov Inside learning materials",
+    resource_name: "sachkov.dev learning materials",
   };
   const fetchHandler = {
     async fetch(request: Request): Promise<Response> {

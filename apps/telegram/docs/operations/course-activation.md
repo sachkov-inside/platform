@@ -18,7 +18,7 @@
 | `PLATFORM_ACCOUNT_URL` | Обычный browser Account URL, без токенов, query или fragment |
 | `TELEGRAM_ACTIVATION_SOURCES` | JSON registry: sourceRef, chatId, policy; для confirmed_list — confirmedIdentityRefs |
 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION` | Явный `inside.community-entitlement.v2` на обеих сторонах; другое значение или его отсутствие при настроенном сообществе — отказ при старте |
-| `TELEGRAM_COMMUNITY_REMOVALS_ENABLED` | `true` в production по решению владельца 04.10.2026 (platform#907): бот Inside исключает человека, когда Platform присылает `denied`. При `false` бот никого не исключает |
+| `TELEGRAM_COMMUNITY_REMOVALS_ENABLED` | `true` в production по решению владельца 04.10.2026 (platform#907): бот исключает человека, когда Platform присылает `denied`. При `false` бот никого не исключает |
 | `TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID` | Удалённая настройка. Непустое значение останавливает запуск; удалите переменную |
 | `TELEGRAM_COMMUNITY_READMISSION_TEXT` | Необязательный текст личного сообщения со ссылкой для возвращения |
 | `TELEGRAM_COMMUNITY_WELCOME_TEXT` | Необязательный текст приветствия со ссылкой после первого права на сообщество ([интеграция](../integrations/community-entitlements-v1.md#приветствие-после-первого-права)) |

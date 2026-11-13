@@ -38,7 +38,7 @@ describe("real backend connection", () => {
       return;
     }
 
-    expect(document["info"]["title"]).toBe("Inside Platform API");
+    expect(document["info"]["title"]).toBe("sachkov.dev Platform API");
     expect(document["info"]["version"]).toBe("1.0.0");
     expect(isRecord(document["paths"])).toBe(true);
     if (!isRecord(document["paths"])) {

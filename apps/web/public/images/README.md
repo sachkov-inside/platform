@@ -11,6 +11,6 @@ The calm portrait and exploratory alternatives remain in the prototype branch.
 ## Feed author avatar
 
 `sachkov-dev-avatar.webp` is the owner's portrait supplied on 2026-10-19 for the
-Sachkov Dev byline in feed cards. It preserves the complete square composition,
+sachkov.dev byline in feed cards. It preserves the complete square composition,
 resized from 640×640 to 120×120 WebP at quality 88 for the 32/40 CSS px circular
 avatar at up to DPR 3. The image is decorative beside the visible author name.

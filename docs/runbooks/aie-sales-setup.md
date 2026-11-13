@@ -52,7 +52,7 @@ The prepared Offer does not enable tariff assignments or a subscription.
    Verify the public catalogue excludes this Offer and a buyer quote refuses it.
    Verify the public cohort list retains its pre-application state; do not create or update a cohort.
 
-These commands create new billing records. They leave the existing unpublished Inside subscription untouched.
+These commands create new billing records. They leave the existing unpublished subscription tier untouched.
 Preparation does not issue rights, contact respondents, create a payment or publish content.
 It contains only four commands and does not change the public cohort list or landing page.
 `cohorts.save` is a public change even while an Offer is unpublished, so it belongs to the GO stage.

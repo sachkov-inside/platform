@@ -64,7 +64,7 @@ export function ProductTaskUnavailable() {
 export function ProductTaskNotFound() {
   return (
     <>
-      <title>Задание не найдено · Sachkov Dev</title>
+      <title>Задание не найдено · sachkov.dev</title>
       <StatusPanel
         action={
           <Button asChild size="lg">

@@ -13,7 +13,7 @@
 
 ## 1. Результат и authority
 
-Отложенная модель Workshop описывает практическую область Inside, в которой опубликованные
+Отложенная модель Workshop описывает практическую область sachkov.dev, в которой опубликованные
 Workshop Tracks соединяют Materials, Laboratories и Production Cases в рекомендуемом порядке
 без обязательного линейного unlock. Приведённые ниже границы применяются при возобновлении этого
 направления; они не меняют текущую модель Materials/Series.
@@ -212,7 +212,7 @@ outline, Laboratory and Production Case delivery. A Track read composes their ty
 the presentation vocabulary `public | included | unavailable`, but does not invent a third
 route-level fallback.
 
-Одна active Inside subscription поддерживает две отдельные Platform authorities:
+Одна active subscription sachkov.dev поддерживает две отдельные Platform authorities:
 
 - `AccountRights` для Library/Materials;
 - `WorkshopEntitlement` для protected Workshop content.

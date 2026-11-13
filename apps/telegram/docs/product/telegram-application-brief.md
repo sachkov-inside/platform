@@ -1,4 +1,4 @@
-# Sachkov Inside Telegram application brief
+# sachkov.dev Telegram application brief
 
 Статус: подтверждённый seed brief от 2026-08-30.
 

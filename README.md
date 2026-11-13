@@ -1,12 +1,12 @@
 # platform
-Sachkov Dev membership platform
+sachkov.dev membership platform
 
 ## Product and application contract
 
-Platform now owns shared Inside documents. [The repository map](REPOSITORIES.md) records the
+Platform now owns shared sachkov.dev documents. [The repository map](REPOSITORIES.md) records the
 transition: Telegram has not yet been imported into this workspace.
 
-- [Inside product brief](docs/product/README.md): common product scope and links to access/payment rules;
+- [sachkov.dev product brief](docs/product/README.md): common product scope and links to access/payment rules;
 - [legal index](docs/legal/README.md): document versions and accepted status;
 - [migration map](docs/migrations/958-shared-documents.md): disposition and provenance of all 97 source files.
 

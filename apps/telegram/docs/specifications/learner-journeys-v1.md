@@ -121,7 +121,7 @@ from its «Мои продукты» Раздел; B2 and B3 lose the author's �
 
 | ID and state | Russian copy | Buttons and transitions |
 |---|---|---|
-| B1: ordinary start, unlinked | «Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.» | «Открыть платформу» → sachkov.dev; «Уже есть аккаунт» → Platform sign-in/linking; «Помощь» → H1. |
+| B1: ordinary start, unlinked | «На платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.» | «Открыть платформу» → sachkov.dev; «Уже есть аккаунт» → Platform sign-in/linking; «Помощь» → H1. |
 | B2: linked, Products available | «Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.» | One named Product per row → B4; «На платформу» → sachkov.dev; «Помощь» → H1. Authorized authors also see «Управление» → existing author functions. |
 | B3: linked, no Products found | «Мои продукты\n\nПока нет доступных продуктов. Посмотрите продукты на платформе. Если у вас есть ссылка для получения доступа, откройте её.» | «На платформу»; «Помощь» → H1. Do not promise an available purchase while public sales remain closed. |
 | B4: Product, materials and chat available | «AI Engineering\n\nМатериалы доступны. Вы можете вступить в группу курса.» | «Открыть курс» → selected programme on Platform; «Вступить в группу» → C1; «Помощь» → H1 with Product context; «Назад к продуктам» → B2. |

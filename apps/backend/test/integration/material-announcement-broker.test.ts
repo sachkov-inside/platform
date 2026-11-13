@@ -238,7 +238,7 @@ test("публикация с выключенным Telegram доставляе
     }, barrierBudgetMs);
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({
-      subject: "Новый материал в Inside",
+      subject: "Новый материал на sachkov.dev",
       email: "novye-materialy@example.test",
     });
     expect(sent[0]?.text).toContain("Как мы собираем платформу");

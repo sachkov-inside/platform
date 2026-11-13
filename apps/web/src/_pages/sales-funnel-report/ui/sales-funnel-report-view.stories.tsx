@@ -28,7 +28,7 @@ const report: SalesFunnelReport = {
   products: [
     {
       id: productId,
-      name: "Inside AI Engineering",
+      name: "AI Engineering",
       chapters: [
         { id: chapterId, name: "Глава 1. Проекты и локальный MCP" },
         {

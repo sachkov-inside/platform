@@ -15,7 +15,7 @@ const meta = {
   component: Breadcrumbs,
   args: {
     items: [
-      { label: "Inside AI Engineering", href: productPath("ai-engineering") },
+      { label: "AI Engineering", href: productPath("ai-engineering") },
       {
         label: "Глава 1",
         fullLabel: "Подготовь проект к разработке",
@@ -53,7 +53,7 @@ export const Mobile: Story = {
 export const LongTitles: Story = {
   args: {
     items: [
-      { label: "Inside AI Engineering", href: productPath("ai-engineering") },
+      { label: "AI Engineering", href: productPath("ai-engineering") },
       { label: "Глава 1", href: productProgrammeHref("ai-engineering") },
       { label: "Как устроен пайплайн разработки с агентом" },
     ],

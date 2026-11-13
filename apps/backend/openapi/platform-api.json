@@ -5039,8 +5039,8 @@
   },
   "info": {
     "contact": {},
-    "description": "Canonical REST contract for the Inside Platform web and agent adapters.",
-    "title": "Inside Platform API",
+    "description": "Canonical REST contract for the sachkov.dev Platform web and agent adapters.",
+    "title": "sachkov.dev Platform API",
     "version": "1.0.0"
   },
   "openapi": "3.0.0",

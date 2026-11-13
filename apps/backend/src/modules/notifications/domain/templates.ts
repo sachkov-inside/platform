@@ -4,14 +4,14 @@ import type {
   SaleFacts,
 } from "../ports/notification-sources.js";
 const subjects = {
-  material_published: "Новый материал в Inside",
-  renewal_reminder: "Скоро продление подписки Inside",
-  access_ending: "Доступ Inside скоро закончится",
-  payment_succeeded: "Оплата Inside подтверждена",
-  payment_failed: "Оплата Inside не прошла",
-  renewal_cancelled: "Продление Inside отменено",
-  access_expired: "Доступ Inside закончился",
-  refund_resolved: "Результат возврата Inside",
+  material_published: "Новый материал на sachkov.dev",
+  renewal_reminder: "Скоро продление подписки",
+  access_ending: "Доступ скоро закончится",
+  payment_succeeded: "Оплата подтверждена",
+  payment_failed: "Оплата не прошла",
+  renewal_cancelled: "Продление подписки отменено",
+  access_expired: "Доступ закончился",
+  refund_resolved: "Результат возврата",
   sale_recorded: "Новая покупка",
 } as const;
 /** Авторы работают по московскому времени: снимок цены покупки тоже хранит Europe/Moscow. */
@@ -125,7 +125,8 @@ export function renderNotification(
   }
   return {
     templateRef: `inside.${source.content.kind}`,
-    templateRevision: 1,
+    // Редакция 2 (#2072): тема и первая строка больше не называют проект прежним именем.
+    templateRevision: 2,
     subject,
     text: `${subject}\n\n${title}${amount}${date}\n\n${url.href}`,
   };

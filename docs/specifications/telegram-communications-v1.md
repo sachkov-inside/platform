@@ -1,4 +1,4 @@
-# Telegram-коммуникации Inside v1
+# Telegram-коммуникации sachkov.dev v1
 
 Статус: продуктовая модель согласована владельцем 2026-09-06 в
 [решении #120](https://github.com/sachkov-inside/workspace/issues/120), авторский путь уточнён
@@ -10,7 +10,7 @@
 
 ## Результат и граница
 
-Один существующий бот Inside знакомит зрителя с продуктом и направляет на конкретные опубликованные
+Один существующий бот sachkov.dev знакомит зрителя с продуктом и направляет на конкретные опубликованные
 материалы и серии Platform. Ссылки с метками источников запускают свои сценарии. При включённой активации
 обычный `/start` показывает меню ученика по
 [актуальным сценариям](../../apps/telegram/docs/specifications/learner-journeys-v1.md).
@@ -19,7 +19,7 @@
 
 Platform остаётся единственной authority контента и доступа. Бесплатный материал доступен без
 обязательной регистрации; marketing entry не создаёт Account, browser session или Membership.
-Слово «мастерская» здесь означает нынешний Inside, а не отдельную Workshop surface, которую отменило [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md).
+Слово «мастерская» здесь означает нынешний sachkov.dev, а не отдельную Workshop surface, которую отменило [ADR 0033](https://github.com/sachkov-inside/platform/blob/0d60a4da243edd8ba19b92f99394e58586d0b7d9/docs/adr/0033-product-tariff-payment-model.md).
 Актуальные Material/Series и порядок чтения описаны в
 [контексте серий](../product/series-planning-handoff.md).
 

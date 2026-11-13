@@ -80,7 +80,7 @@ for (const destination of destinations) {
       destination.heading,
     );
     await expect(page).toHaveTitle(
-      new RegExp(`^${destination.label} · Sachkov Dev$`, "u"),
+      new RegExp(`^${destination.label} · sachkov\\.dev$`, "u"),
     );
 
     const navigation = getPrimaryNavigation(page, testInfo.project.name);
@@ -123,7 +123,7 @@ test("неизвестный адрес отвечает 404 по-русски �
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Страница не найдена",
   );
-  await expect(page).toHaveTitle("Страница не найдена · Sachkov Dev");
+  await expect(page).toHaveTitle("Страница не найдена · sachkov.dev");
   await expect(page.getByText("This page could not be found")).toHaveCount(0);
   await expect(
     getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
@@ -224,7 +224,7 @@ test("map remains available by direct URL without a primary navigation item", as
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Карта Sachkov Dev",
+    "Карта sachkov.dev",
   );
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
   await expect(navigation.getByRole("link")).toHaveCount(2);
@@ -500,7 +500,7 @@ test("a guest gets the 404 page and no admin shell on admin addresses (#1879)", 
     await expect(
       page.getByRole("heading", { level: 1, name: "Страница не найдена" }),
     ).toBeVisible();
-    await expect(page).toHaveTitle("Страница не найдена · Sachkov Dev");
+    await expect(page).toHaveTitle("Страница не найдена · sachkov.dev");
     await expect(
       page.getByRole("complementary", { name: "Админка" }),
     ).toHaveCount(0);
@@ -659,7 +659,7 @@ test("keyboard reaches the visible desktop or mobile navigation", async ({
   ).toBeFocused();
   await page.keyboard.press("Tab");
   if (navigationMode(testInfo.project.name) === "desktop") {
-    await expect(page.getByRole("link", { name: "Sachkov Dev" })).toBeFocused();
+    await expect(page.getByRole("link", { name: "sachkov.dev" })).toBeFocused();
     await page.keyboard.press("Tab");
   }
   const navigation = getPrimaryNavigation(page, testInfo.project.name);

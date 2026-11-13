@@ -170,7 +170,7 @@ export function MaterialCard({
           width={120}
         />
         <div className="min-w-0 text-[0.8125rem] sm:text-sm">
-          <strong>Sachkov Dev</strong>
+          <strong>sachkov.dev</strong>
           <p className="text-[0.6875rem] text-muted-foreground sm:text-xs">
             {material.format}
             {material.publishedAt === undefined ? null : (

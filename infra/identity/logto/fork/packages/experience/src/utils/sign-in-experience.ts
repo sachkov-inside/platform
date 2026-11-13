@@ -79,7 +79,7 @@ export const parseHtmlTitle = (path: string) => {
     return;
   }
 
-  return 'Sachkov Dev';
+  return 'sachkov.dev';
 };
 
 export const codeVerificationTypeMap = Object.freeze({

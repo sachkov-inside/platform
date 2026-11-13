@@ -107,7 +107,7 @@ describe("local bank double process/HTTP contracts", () => {
       });
       const page = await fetch(`http://127.0.0.1:${running.port}/`);
       expect(page.status).toBe(200);
-      expect(await page.text()).toContain("Двойник банка Inside");
+      expect(await page.text()).toContain("Двойник банка");
     } finally {
       await running.close();
     }

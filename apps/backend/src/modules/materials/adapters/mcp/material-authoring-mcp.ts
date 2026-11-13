@@ -55,7 +55,11 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   readonly authoring: MaterialAuthoring;
 }): McpServer {
   const server = new McpServer(
-    { name: "inside-platform-material-authoring", version: "1.0.0" },
+    {
+      name: "inside-platform-material-authoring",
+      title: "sachkov.dev authoring",
+      version: "1.0.0",
+    },
     {
       instructions:
         "Product is the standalone product, distinct from the Material format guide. Manage Topics, Products, Product composition, and the complete current Material through the same Platform application rules. " +

@@ -79,9 +79,9 @@ function MaterialAuthoringWorkspaceView({
       </div>
       {presentation.draft.sourcePath === undefined ? null : (
         <p className="mx-auto max-w-[60rem] px-4 pt-4 text-sm text-muted-foreground sm:px-8">
-          Материал редактируется в Inside Content:{" "}
+          Материал редактируется в Content Studio:{" "}
           <span className="break-all">{presentation.draft.sourcePath}</span>.
-          Сохраните оригинал в Obsidian, создайте коммит в Inside Content и
+          Сохраните оригинал в Obsidian, создайте коммит в Content Studio и
           выполните локальную синхронизацию из Git.
         </p>
       )}
