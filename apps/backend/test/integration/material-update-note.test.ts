@@ -327,13 +327,16 @@ describe("material update note (#2125)", () => {
     });
   });
 
-  test("a note without text or id is rejected before any write", async () => {
+  test("a note outside the package shape is rejected before any write", async () => {
     at(0);
     const lesson = await publishedLesson();
     for (const updateNote of [
       { id: "empty", whatChanged: "   " },
       { id: "", whatChanged: "Текст" },
+      { id: "Not-Kebab", whatChanged: "Текст" },
+      { id: "a".repeat(65), whatChanged: "Текст" },
       { id: "long", whatChanged: "я".repeat(501) },
+      { id: "two-lines", whatChanged: "Первая строка\nвторая" },
     ]) {
       expect(
         await lesson.apply({ text: "Rejected", updateNote }),

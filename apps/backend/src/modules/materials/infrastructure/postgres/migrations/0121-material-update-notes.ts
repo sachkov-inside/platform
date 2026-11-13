@@ -15,7 +15,7 @@ CREATE TABLE materials.material_update_notes (
   CONSTRAINT material_update_notes_material_fk FOREIGN KEY (material_id)
     REFERENCES materials.materials (id) ON DELETE CASCADE,
   CONSTRAINT material_update_notes_note_id_valid CHECK (
-    note_id = btrim(note_id) AND char_length(note_id) BETWEEN 1 AND 100
+    note_id ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(note_id) <= 64
   ),
   CONSTRAINT material_update_notes_what_changed_valid CHECK (
     what_changed = btrim(what_changed) AND char_length(what_changed) BETWEEN 1 AND 500
