@@ -89,7 +89,7 @@ export function courseButtons(product: LearnerProduct): TelegramButton[] {
   return product.materials.state === "available" &&
     hasText(product.programmeUrl)
     ? [
-        ...(product.slug === "ai-engineering"
+        ...(product.slug === COURSE_SLUG
           ? [
               {
                 text: "С чего начать",
@@ -160,7 +160,7 @@ export function courseGroupButtons(
     return [];
   return [
     { text: "Открыть группу", url: groupUrl },
-    ...(product.slug === "ai-engineering" &&
+    ...(product.slug === COURSE_SLUG &&
     groupUrl === "https://t.me/c/4421726276/1"
       ? [
           {

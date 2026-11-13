@@ -678,6 +678,15 @@ telegram_url=https://telegram.sachkov.dev/webhooks/telegram
 - `not_confirmed` — ответ `setWebhook` потерян или чтение не совпало. Не повторяйте вслепую:
   выполните `--preview` и сверьте состояние.
 
+Перед `--apply` ожидается `ipAddressPreserved: true` и `port: "443"`. Сохраните прежний
+`getWebhookInfo` в закрытом operational record. Исторический relay:88 не является текущим адресом.
+
+**Новый host без relay.** Начальная регистрация прямого webhook выполняется защищённым операторским
+Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
+`secret_token=TELEGRAM_WEBHOOK_SECRET`, тот же список `allowed_updates`,
+`drop_pending_updates=false`. Токен не помещается в CLI arguments. Повторно прочитайте
+`getWebhookInfo`: точный URL, список и отсутствие ошибок доставки.
+
 ## Меню команд
 
 Список команд, который Telegram показывает по кнопке «Меню», задаёт код: `src/operations/bot-commands.ts`
@@ -700,15 +709,6 @@ telegram_url=https://telegram.sachkov.dev/webhooks/telegram
 - `not_confirmed`: ответ `setMyCommands` потерян или чтение не совпало. Не повторяйте вслепую:
   выполните `--preview` и сверьте состояние.
 
-Перед `--apply` ожидается `ipAddressPreserved: true` и `port: "443"`. Сохраните прежний
-`getWebhookInfo` в закрытом operational record. Исторический relay:88 не является текущим адресом.
-
-**Новый host без relay.** Начальная регистрация прямого webhook выполняется защищённым операторским
-Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
-`secret_token=TELEGRAM_WEBHOOK_SECRET`, тот же список `allowed_updates`,
-`drop_pending_updates=false`. Токен не помещается в CLI arguments. Повторно прочитайте
-`getWebhookInfo`: точный URL, список и отсутствие ошибок доставки.
-
 ## Operations-команды
 
 | Команда | Назначение |
@@ -718,6 +718,7 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 | `run --rm -T activation-review --list` | очередь разбора неподтверждённых оснований, см. [course-activation.md](course-activation.md#подтверждение-статуса-прежних-участников) |
 | `run --rm -T activation-announcement --preview < /protected/announcement.json` | личный образец владельцу с кнопкой активации, см. [course-activation.md](course-activation.md#кнопка-владельца-в-группе-курса) |
 | `run --rm -T -e TELEGRAM_WEBHOOK_URL=… webhook-registration --preview` | список обновлений webhook |
+| `run --rm -T -e TELEGRAM_OWNER_CHAT_ID=… bot-commands --preview` | меню команд бота, см. [Меню команд](#меню-команд) |
 | `run --rm -T trainer-bank-import --preview < /protected/trainer-bank.json` | загрузка Банка вопросов Тренажёра, см. [trainer-bank.md](trainer-bank.md) |
 | `run --rm -T trainer-report --questions` | отчёты автора по Тренажёру, см. [trainer-reports.md](trainer-reports.md) |
 | `run --rm -T ai-models-reference-import --preview < /protected/ai-models-reference.json` | загрузка Справочника «ИИ-моделей», см. [ai-models-reference.md](ai-models-reference.md) |

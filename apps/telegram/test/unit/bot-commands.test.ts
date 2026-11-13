@@ -31,7 +31,7 @@ describe("bot command menu", () => {
     ]);
   });
 
-  it.each(["", "abc", "0", "-100123", "1.5", "99999999999999999999"])(
+  it.each(["", "abc", "0", "-100123", "1.5", "0042", "9999999999999999"])(
     "refuses an owner chat that is not a person's private chat: %j",
     (chat) => {
       expect(() => planBotCommands(chat)).toThrow(/TELEGRAM_OWNER_CHAT_ID/);

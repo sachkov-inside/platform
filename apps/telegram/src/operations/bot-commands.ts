@@ -30,7 +30,13 @@ const SECTIONS: readonly BotCommand[] = [
 export function planBotCommands(
   ownerChatId: string,
 ): readonly BotCommandsTarget[] {
-  if (!/^[1-9]\d{0,15}$/.test(ownerChatId))
+  const chatId = Number(ownerChatId);
+  // A person's private chat is a positive ID that survives the round trip through a number.
+  if (
+    !Number.isSafeInteger(chatId) ||
+    chatId <= 0 ||
+    String(chatId) !== ownerChatId
+  )
     throw new Error(
       "TELEGRAM_OWNER_CHAT_ID must be the owner's numeric Telegram ID",
     );
@@ -42,7 +48,7 @@ export function planBotCommands(
     },
     {
       audience: "owner",
-      scope: { type: "chat", chat_id: Number(ownerChatId) },
+      scope: { type: "chat", chat_id: chatId },
       commands: [
         ...SECTIONS,
         { command: "admin", description: "Управление рассылками" },

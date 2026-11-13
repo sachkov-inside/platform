@@ -105,8 +105,8 @@ _Avoid_: Community group, subscription source, Product Access
 
 **Главное меню** (Main Menu):
 The first screen of the private chat with the bot, which leads to its Разделы. A person sees only
-the Разделы that apply to them: Мои продукты with Product Access, the course entry without it,
-Управление as an authorised author.
+the Разделы that apply to them: Мои продукты with Product Access, the course entry until they
+have that course, Управление as an authorised author.
 _Avoid_: Start menu, product list, home screen, command menu
 
 **Раздел** (Bot Section):

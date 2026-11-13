@@ -1065,6 +1065,38 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(activation.granted.size).toBe(0);
   });
 
+  it("opens the guest Главное меню from Мои продукты without a link", async ({
+    activation: a,
+  }) => {
+    await a.callback(70104, "access:own");
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(10, a.clock.now());
+    expect(a.edited.at(-1)?.text).toBe(
+      "Здесь можно узнать о курсе AI Engineering, проверить свои знания в Тренажёре и посмотреть, какие ИИ-модели сейчас сильнее и сколько они стоят.",
+    );
+    expect(a.begins).toEqual([]);
+  });
+
+  it("still shows a linked person's Главное меню when the author check is unavailable", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70105, "/start");
+    await a.link(70105);
+    a.state.author = "unavailable";
+    await a.ingress(70105, "/start");
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(10, a.clock.now());
+    expect(a.sent.at(-1)?.text).toBe("Выберите раздел.");
+    expect(a.sent.at(-1)?.buttons?.map((button) => button.text)).toEqual([
+      "Мои продукты",
+      "Тренажёр",
+      "ИИ-модели",
+      "Помощь",
+    ]);
+  });
+
   it("keeps the Trainer and ИИ-модели in the start menu when Platform cannot answer", async ({
     activation,
   }) => {
