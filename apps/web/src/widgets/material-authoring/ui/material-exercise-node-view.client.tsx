@@ -6,8 +6,9 @@ import { MaterialBodyView } from "@/entities/material";
 import { MaterialResourcePlaceholder } from "@/shared/ui/material-resource-placeholder";
 
 /**
- * Content owns Lesson Exercises. This atom shows a quiz, a match or an order read-only and keeps
- * the complete imported value on every save.
+ * Content owns Lesson Exercises. This atom shows a quiz, a match or an order without editing its
+ * content and keeps the complete imported value on every save. As the quiz did before #2118, the
+ * author can try answers here; they stay on the page and record no Exercise Attempt.
  */
 export function MaterialExerciseNodeView({ node }: NodeViewProps) {
   const parsed = renderedBlockSchema.safeParse(node.attrs["exercise"]);
