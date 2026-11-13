@@ -376,7 +376,8 @@ type Direction = "up" | "down";
 /**
  * «Расставь по порядку»: the reader moves steps with «Выше» and «Ниже» or Alt + ↑ / ↓; no drag is
  * needed. Each move is announced. After «Проверить» the steps out of place are marked and every
- * step shows why it stands where it does; «Ответить ещё раз» keeps the reader's order to fix.
+ * step shows why it stands where it does; «Ответить ещё раз» starts from the reader's last checked
+ * order, restored after a reload too, so only the marked steps need moving.
  */
 export function MaterialOrder(props: MaterialOrderPresentation) {
   const { id, steps } = props;
@@ -555,7 +556,13 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
         dontKnow={props.dontKnow !== undefined}
         retryLabel="Ответить ещё раз"
         onRetry={() => {
-          setDraft(shown.map((step) => step.id));
+          // The last checked order, saved or just given, is where answering again starts. After
+          // «Не знаю» the page showed the key, so the steps start shuffled again.
+          setDraft(
+            answered?.answer.kind === "sequence"
+              ? shown.map((step) => step.id)
+              : null,
+          );
         }}
       />
       <Feedback

@@ -75,6 +75,9 @@ async function arrange(canvasElement: HTMLElement, order: readonly string[]) {
   }
 }
 
+/** The shuffle of `rag-pipeline`, the order a fresh page starts from. */
+const shownOrderBeforeAnswer = ["store", "embed", "split", "search"];
+
 /** The page never shows the key: the steps start shuffled. */
 export const Shuffled: Story = {
   play: async ({ canvasElement }) => {
@@ -82,6 +85,7 @@ export const Shuffled: Story = {
     await expect(shownOrder(canvasElement)).not.toEqual(
       steps.map((step) => step.id),
     );
+    await expect(shownOrder(canvasElement)).toEqual(shownOrderBeforeAnswer);
     await expect(
       exercise.queryByText("Без чанков нечего индексировать."),
     ).toBeNull();
@@ -220,6 +224,12 @@ export const DontKnow: Story = {
       steps.map((step) => step.id),
     );
     await expect(exercise.queryByText("Не на месте")).toBeNull();
+    // «Не знаю» showed the key; answering again starts from the shuffle, not from the key.
+    const shuffled = shownOrderBeforeAnswer;
+    await userEvent.click(
+      exercise.getByRole("button", { name: "Ответить ещё раз" }),
+    );
+    await expect(shownOrder(canvasElement)).toEqual(shuffled);
   },
 };
 
@@ -270,6 +280,13 @@ export const PastAnswer: Story = {
     await userEvent.click(
       exercise.getByRole("button", { name: "Ответить ещё раз" }),
     );
+    // The saved answer is where answering again starts, not a new shuffle.
+    await expect(shownOrder(canvasElement)).toEqual([
+      "store",
+      "split",
+      "embed",
+      "search",
+    ]);
     await arrange(
       canvasElement,
       steps.map((step) => step.id),
