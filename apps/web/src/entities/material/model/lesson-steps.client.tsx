@@ -88,6 +88,8 @@ export function LessonSteps({
   const [opened, setOpened] = useState(1);
   const [whole, setWhole] = useState(false);
   const restored = useRef(false);
+  // A part opened from an effect is in the document only after its render; then it scrolls.
+  const pendingScroll = useRef<string | null>(null);
   const latest = useRef({ opened, progress, parts });
   useEffect(() => {
     latest.current = { opened, progress, parts };
@@ -142,14 +144,19 @@ export function LessonSteps({
     const saved = clampOpenedParts(progress.saved, parts.count);
     if (saved <= latest.current.opened) return;
     latest.current = { ...latest.current, opened: saved };
-    flushSync(() => {
-      setOpened(saved);
-    });
-    if (window.location.hash !== "") return;
-    document
-      .getElementById(lessonGateElementId(saved - 2))
-      ?.scrollIntoView({ block: "start", behavior: "instant" });
+    setOpened(saved);
+    if (window.location.hash === "")
+      pendingScroll.current = lessonGateElementId(saved - 2);
   }, [progress.saved, parts.count]);
+
+  useEffect(() => {
+    const id = pendingScroll.current;
+    if (id === null) return;
+    pendingScroll.current = null;
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [opened]);
 
   // A heading anchor, the course outline or an exercise's review link opens every part up to its
   // target. Opening happens before the browser and the body's own navigation look for the target.
@@ -172,9 +179,9 @@ export function LessonSteps({
           part = Math.max(part, Number(cut.dataset["lessonPart"]));
       return part;
     };
-    const reveal = (hash: string): boolean => {
+    const reveal = (hash: string, sync: boolean): boolean => {
       const part = partOfTarget(hash);
-      return part !== undefined && open(part + 1, true);
+      return part !== undefined && open(part + 1, sync);
     };
     const followLink = (event: MouseEvent) => {
       const link =
@@ -190,15 +197,17 @@ export function LessonSteps({
         target.pathname !== current.pathname
       )
         return;
-      reveal(target.hash);
+      reveal(target.hash, true);
     };
     const followHash = () => {
-      if (!reveal(window.location.hash)) return;
+      if (!reveal(window.location.hash, true)) return;
       document
         .getElementById(safeDecode(window.location.hash.slice(1)))
         ?.scrollIntoView({ block: "start", behavior: "instant" });
     };
-    followHash();
+    // The page opened at an anchor: its part renders first, then the body scrolls to it.
+    if (reveal(window.location.hash, false))
+      pendingScroll.current = safeDecode(window.location.hash.slice(1));
     document.addEventListener("click", followLink, true);
     window.addEventListener("hashchange", followHash);
     return () => {
