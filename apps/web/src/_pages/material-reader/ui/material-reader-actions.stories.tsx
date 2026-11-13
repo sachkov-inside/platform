@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { SavedBookmarkAction } from "@/features/bookmarks";
 import {
+  MaterialUpdateNotice,
   ReadingProgressProvider,
   SavedReadingAction,
 } from "@/features/reading-progress";
@@ -34,6 +35,8 @@ const environment = publicPageEnvironment("/materials/course-intro", {
   account: "authenticated",
 });
 let isRead = false;
+/** A substantial update the reader has not seen since studying the lesson (#2125). */
+let updateNote: { whatChanged: string; notedAt: string } | null = null;
 let bookmarked = false;
 let version = 0;
 let release: (() => void) | undefined;
@@ -70,6 +73,7 @@ const meta = {
     getQueryClient().clear();
     environment.beforeEach();
     isRead = false;
+    updateNote = null;
     bookmarked = false;
     version = 0;
     release = undefined;
@@ -102,13 +106,14 @@ const meta = {
           kind: "ready",
           states: requested.map((id) =>
             id === materialId
-              ? readingState()
+              ? { ...readingState(), updateNote }
               : {
                   materialId: id,
                   isRead: false,
                   version: 0,
                   readAt: null,
                   updatedAt: null,
+                  updateNote: null,
                 },
           ),
         });
@@ -542,6 +547,62 @@ export const InitialReadFailureKeepsHeaderPlace: Story = {
 };
 export const InitialReadFailureKeepsHeaderPlaceMobile: Story = {
   ...InitialReadFailureKeepsHeaderPlace,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/**
+ * The reader studied the lesson before a substantial update (#2125): the banner names what changed,
+ * the studied mark stays, and the banner holds after the open clears the note on the server.
+ */
+export const UpdatedSinceStudied: Story = {
+  beforeEach: () => {
+    isRead = true;
+    version = 1;
+    updateNote = {
+      whatChanged: "Переписан раздел о сборке промпта и добавлен пример.",
+      notedAt: "2026-10-12T08:00:00.000Z",
+    };
+  },
+  args: {
+    updateNotice: <MaterialUpdateNotice materialId={materialId} />,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const notice = await waitFor(() => {
+      const found = canvasElement.querySelector(
+        "[data-material-update-notice]",
+      );
+      if (found === null) throw new Error("Update notice is missing");
+      return found;
+    });
+    await expect(notice).toHaveTextContent(
+      "Урок обновлён после того, как ты его изучил: Переписан раздел о сборке промпта и добавлен пример.",
+    );
+    await expect(
+      canvas.getAllByRole("button", { name: "Изучено" }).length,
+    ).toBeGreaterThan(0);
+    // The open cleared the note on the server; the next read no longer carries it.
+    updateNote = null;
+    await getQueryClient().invalidateQueries({
+      queryKey: ["reading-progress"],
+    });
+    await waitFor(() =>
+      expect(
+        getQueryClient().getQueryData([
+          "reading-progress",
+          accountId,
+          "material",
+          materialId,
+        ]),
+      ).toMatchObject({ isRead: true, updateNote: null }),
+    );
+    await expect(
+      canvasElement.querySelector("[data-material-update-notice]"),
+    ).toHaveTextContent("Переписан раздел о сборке промпта");
+  },
+};
+export const UpdatedSinceStudiedMobile: Story = {
+  ...UpdatedSinceStudied,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 

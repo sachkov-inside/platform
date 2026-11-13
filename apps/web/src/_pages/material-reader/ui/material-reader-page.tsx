@@ -24,6 +24,7 @@ import {
   readInlineArtifactReference,
 } from "@/features/product-artifacts.reader";
 import {
+  MaterialUpdateNotice,
   SavedReadingAction,
   VisibleMaterialOpen,
 } from "@/features/reading-progress";
@@ -581,6 +582,9 @@ async function ResolvedMaterialReader({
           }
           deferredPracticeActions={deferredPracticeActions}
           purchaseCall={purchaseCall}
+          updateNotice={
+            <MaterialUpdateNotice materialId={result.material.materialId} />
+          }
           body={result.body}
           glossaryTerms={result.glossaryTerms}
           material={result.material}

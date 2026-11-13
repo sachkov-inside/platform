@@ -59,7 +59,10 @@ const meta = {
         updatedAt: isRead ? at : null,
       };
       if (path === "/api/reading-progress/states")
-        return Response.json({ kind: "ready", states: [state] });
+        return Response.json({
+          kind: "ready",
+          states: [{ ...state, updateNote: null }],
+        });
       if (path === "/api/reading-progress/open")
         return Response.json({ kind: "saved", openedAt: at, replayed: false });
       if (path === "/api/reading-progress/state") {

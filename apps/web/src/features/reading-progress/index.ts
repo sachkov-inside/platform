@@ -1,5 +1,6 @@
 export { ReadingAction } from "./ui/reading-action.client";
 export { ProductMaterialMarker } from "./ui/product-material-marker.client";
+export { MaterialUpdateNotice } from "./ui/material-update-notice.client";
 export type {
   ReadingActionProps,
   ReadingActionView,

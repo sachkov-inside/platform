@@ -604,6 +604,10 @@ export class MaterialAuthoringService {
         revision: string;
         showInFeed: boolean;
       };
+      updateNote?: {
+        id: string;
+        whatChanged: string;
+      };
       videoChapters?: Array<{
         start: number;
         title: string;
@@ -796,6 +800,10 @@ export class MaterialAuthoringService {
         revision: string;
         version: 2;
       };
+      updateNote?: {
+        id: string;
+        whatChanged: string;
+      };
       videoChapters?: Array<{
         start: number;
         title: string;
@@ -969,6 +977,10 @@ export class MaterialAuthoringService {
         path: string;
         revision: string;
         version: 2;
+      };
+      updateNote?: {
+        id: string;
+        whatChanged: string;
       };
       videoChapters?: Array<{
         start: number;

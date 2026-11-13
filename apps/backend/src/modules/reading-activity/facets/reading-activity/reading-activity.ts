@@ -21,7 +21,10 @@ export class ReadingActivity {
         ContentAccess,
         "authorize" | "checkProductAccess"
       >;
-      readonly materialContent: Pick<MaterialContent, "findAccessFacts">;
+      readonly materialContent: Pick<
+        MaterialContent,
+        "findAccessFacts" | "findUpdateNotes"
+      >;
       readonly composition: Pick<
         PublishedProductComposition,
         "read" | "readIncludingArchived"
@@ -36,7 +39,7 @@ export class ReadingActivity {
     readonly accountId: string;
     readonly materialIds: readonly string[];
   }) {
-    return getReadingStates(this.dependencies.prisma, query);
+    return getReadingStates(this.dependencies, query);
   }
   getProductProgress(query: {
     readonly accountId: string;

@@ -8,9 +8,15 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+/** «Что изменилось» of a substantial update the reader has not seen since studying the lesson. */
+export interface MaterialUpdateNote {
+  readonly whatChanged: string;
+  readonly notedAt: string;
+}
 export interface MaterialReadingSnapshot {
   readonly isRead: boolean;
   readonly version: number;
+  readonly updateNote?: MaterialUpdateNote | null;
 }
 export interface MaterialReadingValue {
   readonly accountId: string | null;
@@ -83,7 +89,9 @@ function sameStates(
       return (
         other !== undefined &&
         other.isRead === state.isRead &&
-        other.version === state.version
+        other.version === state.version &&
+        other.updateNote?.notedAt === state.updateNote?.notedAt &&
+        other.updateNote?.whatChanged === state.updateNote?.whatChanged
       );
     })
   );

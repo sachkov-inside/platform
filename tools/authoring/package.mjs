@@ -10,6 +10,7 @@ import {
   PRODUCT_TOPIC_SUMMARY_MAX,
   PRODUCT_TOPICS_MAX,
 } from "../../apps/backend/src/modules/products/shared/product-topics.ts";
+import { materialUpdateNoteSchema } from "../../apps/backend/src/modules/materials/domain/material-update-note.ts";
 import { z } from "zod";
 import {
   GLOSSARY_FULL_DEFINITION_MAX,
@@ -106,6 +107,8 @@ export const materialSchema = z
     notifyTelegram: z.boolean().optional(),
     // The author places a free Material outside Products in the feed (#1885); omitted keeps the target.
     inFeed: z.boolean().optional(),
+    // A substantial update the owner accepted (#2125); omitted keeps the target's note.
+    updateNote: materialUpdateNoteSchema.optional(),
     difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
     outcomes: z.array(z.string()).nullable(),
     markdown: z.string(),
@@ -510,6 +513,9 @@ function checkSelectionScope(manifest) {
     );
 }
 
+/** The feature a package declares when a Material carries an update note (#2125). */
+export const MATERIAL_UPDATE_NOTE_FEATURE = "material-update-note-v1";
+
 /** The feature a package declares when a Product carries its course topics. */
 export const PRODUCT_TOPICS_FEATURE = "product-topics-v1";
 
@@ -841,6 +847,20 @@ export async function loadPackage(path) {
       !assets.has(product.coverAssetId)
     )
       throw new Error(`${product.sourceId}: missing cover asset`);
+  if (
+    manifest.materials.some((row) => row.updateNote !== undefined) &&
+    (manifest.schemaVersion < 2 ||
+      !manifest.requiredFeatures?.includes(MATERIAL_UPDATE_NOTE_FEATURE))
+  )
+    throw new Error(
+      `Update notes require package v2 and ${MATERIAL_UPDATE_NOTE_FEATURE}`,
+    );
+  // A Task page is written by the Task import, which carries no update note.
+  for (const task of manifest.tasks ?? [])
+    if (task.page?.updateNote !== undefined)
+      throw new Error(
+        `${task.sourceId}: a Task page cannot carry an update note`,
+      );
   for (const material of [
     ...manifest.materials,
     ...(manifest.tasks ?? []).flatMap((task) =>

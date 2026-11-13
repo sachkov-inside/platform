@@ -691,7 +691,10 @@ describe("People list", () => {
           authorize: refusedRead,
           checkProductAccess: refusedRead,
         },
-        materialContent: { findAccessFacts: refusedRead },
+        materialContent: {
+          findAccessFacts: refusedRead,
+          findUpdateNotes: refusedRead,
+        },
         composition: {
           read: refusedRead,
           readIncludingArchived: refusedRead,

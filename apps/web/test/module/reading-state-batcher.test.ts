@@ -8,6 +8,7 @@ const state = (materialId: string) => ({
   readAt: null,
   updatedAt: null,
   version: 1,
+  updateNote: null,
 });
 
 describe("reading state batcher", () => {

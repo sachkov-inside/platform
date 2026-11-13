@@ -2945,3 +2945,47 @@ test("a term the package Glossary does not define stops the sync before the Glos
     [],
   );
 });
+
+test("a lesson's update note needs material-update-note-v1, shows in the preview and reaches the apply (#2125)", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = [];
+  setup.manifest.selection.taskIds = [];
+  await setup.write();
+  await run(setup, api);
+  const origin = "http://127.0.0.1:4396";
+  const lesson = itemAt(setup.manifest.materials, 0);
+  const note = {
+    id: "2026-11-prompt-assembly",
+    whatChanged: "Переписан раздел о сборке промпта.",
+  };
+  lesson.updateNote = note;
+  await setup.write();
+  await assert.rejects(
+    run(setup, api),
+    /Update notes require package v2 and material-update-note-v1/u,
+  );
+
+  setup.manifest.requiredFeatures = ["material-update-note-v1"];
+  await setup.write();
+  const preview = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const row = preview.preview.materials.find(
+    (item) => item.sourceId === lesson.sourceId,
+  );
+  assert.equal(row?.change, "changed");
+  assert.deepEqual(row?.updateNote, note);
+
+  await run(setup, api);
+  const applied = api.calls.findLast(
+    (call) => call.path === "/authoring/import/materials/apply",
+  );
+  assert.deepEqual(
+    materialApplyRequest(applied ?? {})?.body["updateNote"],
+    note,
+  );
+});

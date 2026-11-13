@@ -1777,6 +1777,9 @@ export async function syncLocal(
             ? {}
             : { notifyTelegram: row.notifyTelegram }),
           ...(row.inFeed === undefined ? {} : { inFeed: row.inFeed }),
+          ...(row.updateNote === undefined
+            ? {}
+            : { updateNote: row.updateNote }),
           materialId: current.materialId,
           expectedContentVersion: current.contentVersion,
           publicationState: publicationOf(row),
