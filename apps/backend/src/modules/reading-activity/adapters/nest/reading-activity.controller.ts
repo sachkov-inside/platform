@@ -37,6 +37,7 @@ import {
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
 import {
+  materialReadingStateSchema,
   readingStateSchema,
   readingOutcomeSchema,
 } from "../../domain/reading-state.js";
@@ -148,7 +149,9 @@ export class ReadingActivityController {
     summary: "Read personal states for at most 100 Material IDs",
   })
   @ApiBody({ schema: toOpenApiSchema(getReadingStatesSchema) })
-  @ApiOkResponse({ schema: toOpenApiSchema(z.array(readingStateSchema)) })
+  @ApiOkResponse({
+    schema: toOpenApiSchema(z.array(materialReadingStateSchema)),
+  })
   @ApiResponse({
     status: 409,
     content: problemDetailsContent(accountProblemSchema),

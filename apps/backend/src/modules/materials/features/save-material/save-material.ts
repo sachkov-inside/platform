@@ -56,6 +56,8 @@ import {
 import { markUnreferencedMaterialAssets } from "../../../assets/index.js";
 import { materialReaderPath } from "../../domain/announcement.js";
 import { recordMaterialAnnouncement } from "./record-announcement.js";
+import { recordMaterialUpdateNote } from "./record-update-note.js";
+import { materialUpdateNoteSchema } from "../../domain/material-update-note.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import { loadCurrentMaterial } from "../../infrastructure/postgres/current-material.js";
@@ -83,6 +85,7 @@ const saveMaterialCommand = z
     body: z.unknown(),
     videoChapters: videoChaptersSchema.optional(),
     confirmedProductRemovals: z.array(z.uuid()).max(100).optional().default([]),
+    updateNote: materialUpdateNoteSchema.optional(),
   })
   .strict();
 
@@ -165,6 +168,10 @@ export function assembleSaveMaterial(
             ...(command.detachVideoIds.length === 0
               ? {}
               : { detachVideoIds: command.detachVideoIds }),
+            // Absent when omitted, so a Save recorded before update notes replays with its own key.
+            ...(command.updateNote === undefined
+              ? {}
+              : { updateNote: command.updateNote }),
           }
         : {
             operation: "source_publication",
@@ -560,6 +567,13 @@ export function assembleSaveMaterial(
                 command.materialId,
                 materializedMetadata,
                 dependencies.memberships,
+              );
+            if (command.updateNote !== undefined)
+              await recordMaterialUpdateNote(
+                transaction,
+                command.materialId,
+                command.updateNote,
+                savedAt,
               );
             if (next.value.publicationState === "published") {
               if (!publishable.ok || publishedBy === null) {

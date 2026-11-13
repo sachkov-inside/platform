@@ -1214,6 +1214,16 @@ model MaterialAnnouncement {
   @@schema("materials")
 }
 
+model MaterialUpdateNote {
+  materialId  String   @id(map: "material_update_notes_primary") @map("material_id") @db.Uuid
+  noteId      String   @map("note_id")
+  whatChanged String   @map("what_changed")
+  notedAt     DateTime @map("noted_at") @db.Timestamptz
+
+  @@map("material_update_notes")
+  @@schema("materials")
+}
+
 model MaterialAnnouncementRevision {
   announcementRef String   @map("announcement_ref") @db.Uuid
   revision        Int

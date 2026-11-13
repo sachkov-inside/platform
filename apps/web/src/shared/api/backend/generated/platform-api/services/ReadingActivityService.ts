@@ -58,6 +58,10 @@ export class ReadingActivityService {
     materialId: string;
     readAt: string | null;
     updatedAt: string | null;
+    updateNote: {
+      notedAt: string;
+      whatChanged: string;
+    } | null;
     version: number;
   }>> {
     return this.httpRequest.request({

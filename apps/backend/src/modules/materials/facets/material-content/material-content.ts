@@ -30,6 +30,12 @@ export interface MaterialAccessFacts {
   readonly archivedOnly?: boolean;
 }
 
+export interface MaterialUpdateNote {
+  readonly materialId: MaterialId;
+  readonly whatChanged: string;
+  readonly notedAt: Date;
+}
+
 type MaterialContentError =
   { readonly code: "invalid_request_shape" } | SystemError;
 
@@ -42,6 +48,13 @@ export interface MaterialContent {
   findAccessFactsMany(
     materialIds: readonly MaterialId[],
   ): Promise<Result<readonly MaterialAccessFacts[], MaterialContentError>>;
+  /**
+   * The latest noted substantial update of each published Material among at most 100 (#2125).
+   * A Material without a note, or not published, is absent from the result.
+   */
+  findUpdateNotes(
+    materialIds: readonly MaterialId[],
+  ): Promise<Result<readonly MaterialUpdateNote[], MaterialContentError>>;
   loadPublishedBody(query: {
     readonly materialId: MaterialId;
     readonly checkedContentVersion: number;
@@ -196,6 +209,46 @@ export function assembleMaterialContent(dependencies: {
           ok: false,
           error: dependencyFailure(
             { module: "materials", operation: "findAccessFactsMany" },
+            error,
+            mapPostgresReadError(error),
+          ),
+        };
+      }
+    },
+
+    async findUpdateNotes(
+      materialIdValues: readonly MaterialId[],
+    ): Promise<Result<readonly MaterialUpdateNote[], MaterialContentError>> {
+      const parsed = materialIdsSchema.safeParse(materialIdValues);
+      if (!parsed.success) {
+        return { ok: false, error: { code: "invalid_request_shape" } };
+      }
+      try {
+        const ids = [...new Set(parsed.data)];
+        const published = await dependencies.prisma.publishedMaterial.findMany({
+          where: { materialId: { in: ids } },
+          select: { materialId: true },
+        });
+        if (published.length === 0) return { ok: true, value: [] };
+        const rows = await dependencies.prisma.materialUpdateNote.findMany({
+          where: {
+            materialId: { in: published.map((row) => row.materialId) },
+          },
+          select: { materialId: true, whatChanged: true, notedAt: true },
+        });
+        return {
+          ok: true,
+          value: rows.map((row) => ({
+            materialId: materialId(row.materialId),
+            whatChanged: row.whatChanged,
+            notedAt: row.notedAt,
+          })),
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          error: dependencyFailure(
+            { module: "materials", operation: "findUpdateNotes" },
             error,
             mapPostgresReadError(error),
           ),
