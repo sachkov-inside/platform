@@ -61,11 +61,6 @@ export interface PublishedMaterialDiscoveryDto {
   readonly items: readonly PublishedMaterialCatalogItemDto[];
   readonly kind: "related" | "product" | "topic";
   readonly reference: {
-    /**
-     * Whether any lesson of this Product is written for both ways of going through it; false for
-     * every other discovery kind.
-     */
-    readonly hasModeVariants: boolean;
     readonly id: string;
     /** Author-written Product introduction; null for every other discovery kind. */
     readonly introduction: ProductIntroductionDto | null;

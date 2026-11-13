@@ -12,7 +12,6 @@ export function compositionMaterialFacts(
         sourceId: material.sourceId,
         published: material.published !== null,
         topicId: material.topicId,
-        hasModeVariants: material.hasModeVariants,
       }));
     },
   };

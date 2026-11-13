@@ -26,7 +26,6 @@ const placementSchema = z.object({
   ordinal: z.number().int(),
   published: z.boolean(),
   topicId: z.uuid().nullable(),
-  hasModeVariants: z.boolean(),
 });
 const programmeSchema = z.object({
   id: z.uuid(),
@@ -67,7 +66,6 @@ export interface ProductMaterialFacts {
       readonly sourceId: string | null;
       readonly published: boolean;
       readonly topicId: string | null;
-      readonly hasModeVariants: boolean;
     }[]
   >;
 }
@@ -197,7 +195,6 @@ export class ProductCompositions {
             ordinal: placement?.ordinal ?? ++supplementaryOrdinal,
             published: fact?.published === true,
             topicId: fact?.topicId ?? null,
-            hasModeVariants: fact?.hasModeVariants ?? false,
           };
         })
         .sort((left, right) => {

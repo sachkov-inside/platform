@@ -30,7 +30,6 @@ import {
   Rows3,
   Columns3,
   Trash2,
-  SplitSquareHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -48,7 +47,6 @@ import {
 import { EditorAssetContext } from "./material-asset-node-view.client";
 import { MaterialBlockFields } from "./material-block-fields.client";
 import { calloutTones, calloutTonePresentation } from "@/entities/material";
-import { productModes } from "@/shared/product-mode";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import styles from "./material-document-editor.module.css";
@@ -388,23 +386,6 @@ function MaterialDocumentEditorView({
             type: "takeaways",
             attrs: { title: "Итоги урока" },
             content: [{ type: "paragraph" }],
-          })
-          .run(),
-    },
-    {
-      name: "Варианты режима",
-      icon: SplitSquareHorizontal,
-      run: () =>
-        editor
-          .chain()
-          .focus()
-          .insertContent({
-            type: "variant",
-            content: productModes.map((mode) => ({
-              type: "variantOption",
-              attrs: { mode },
-              content: [{ type: "paragraph" }],
-            })),
           })
           .run(),
     },

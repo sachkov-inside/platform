@@ -38,7 +38,6 @@ import {
   materialId,
   materialRequests,
   savedReply,
-  variantStepAuthoringPresentation,
   type MaterialReplies,
 } from "./material-authoring.fixtures";
 import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
@@ -1025,36 +1024,17 @@ export const BlockControlsTypingMobile: Story = {
   },
 };
 
-export const VariantStepEditor: Story = {
-  args: { initialPresentation: variantStepAuthoringPresentation },
+export const LessonFactsParameters: Story = {
+  args: { initialPresentation: materialAuthoringPresentation },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  name: "Вариантный шаг · редактор",
+  name: "Параметры · сложность и обещание урока",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Имя режима автор читает на самой ветке: иначе две ветки неразличимы.
-    await expect(canvas.getByText("Учебный проект")).toBeVisible();
-    await expect(canvas.getByText("Свой проект")).toBeVisible();
-    await expect(
-      canvas.getByText(
-        "Учебный проект: пройдите шаг на подготовленном репозитории.",
-      ),
-    ).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: "Параметры" }));
     // Сложность и обещание урока автор заполняет там же, где остальные параметры.
     await expect(canvas.getByText("Сложность")).toBeVisible();
     await expect(canvas.getByText("Чему научишься")).toBeVisible();
     await expect(canvas.getByLabelText("Пункт 1")).toBeVisible();
-  },
-};
-
-export const VariantStepEditorMobile: Story = {
-  args: { initialPresentation: variantStepAuthoringPresentation },
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
-  name: "Вариантный шаг · мобильный",
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(canvas.getByText("Свой проект")).toBeVisible();
-    await expectNoHorizontalOverflow(canvasElement);
   },
 };
 

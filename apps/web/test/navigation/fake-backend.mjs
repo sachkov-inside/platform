@@ -62,9 +62,9 @@ const topic = {
 const format = { id: "guide", name: "Гайд", slug: "guide" };
 export const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
 
-/** Второй продукт написан для двух режимов прохождения: у его уроков личная часть есть всегда. */
-const modesProductId = "11111111-1111-4111-8111-111111111112";
-const modesProductSlug = "navigation-modes";
+/** Второй продукт: его покупка лежит в общем каталоге рядом с первым. */
+const secondProductId = "11111111-1111-4111-8111-111111111112";
+const secondProductSlug = "navigation-second";
 /**
  * Третий продукт с обложкой — для проверки LCP первого экрана (#692). Его нет ни на Главной, ни в
  * других продуктах, поэтому обложка не добавляет запросов остальным проверкам.
@@ -82,7 +82,6 @@ const cover = {
 /**
  * @typedef {{
  *   cover: typeof cover | null;
- *   hasModeVariants: boolean;
  *   id: string;
  *   name: string;
  *   slug: string;
@@ -97,28 +96,24 @@ const archivedProductSlug = "navigation-archive";
 const products = [
   {
     cover: null,
-    hasModeVariants: false,
     id: productId,
     name: "Проверочный продукт",
     slug: productSlug,
   },
   {
     cover: null,
-    hasModeVariants: true,
-    id: modesProductId,
-    name: "Продукт с режимами",
-    slug: modesProductSlug,
+    id: secondProductId,
+    name: "Второй продукт",
+    slug: secondProductSlug,
   },
   {
     cover,
-    hasModeVariants: false,
     id: coverProductId,
     name: "Продукт с обложкой",
     slug: coverProductSlug,
   },
   {
     cover: null,
-    hasModeVariants: false,
     id: "11111111-1111-4111-8111-111111111114",
     name: "Архивный продукт",
     slug: archivedProductSlug,
@@ -128,7 +123,6 @@ const products = [
 /** Изолированный состав #1292 не меняет данные прежних navigation scenarios. */
 const performanceProduct = {
   cover: null,
-  hasModeVariants: false,
   id: "11111111-1111-4111-8111-111111111115",
   name: "Курс на 120 материалов",
   slug: "performance-course",
@@ -163,13 +157,13 @@ const lessons = [
     n: 5,
     access: "free",
     product: products[1],
-    title: "Первый урок с режимами",
+    title: "Первый урок второго продукта",
   },
   {
     n: 6,
     access: "free",
     product: products[1],
-    title: "Второй урок с режимами",
+    title: "Второй урок второго продукта",
   },
   {
     n: 7,
@@ -218,7 +212,6 @@ function createReaderTitleFixture(linear) {
   const scope = randomUUID();
   const product = {
     cover: null,
-    hasModeVariants: false,
     id: scope,
     name: "Курс заголовков",
     slug: `reader-title-${scope}`,
@@ -372,23 +365,6 @@ function body(lesson, entitled) {
       },
     ],
   }));
-  // Шаг, написанный для обоих режимов: какой вариант показать, выбирает сервер по режиму читателя.
-  const step = {
-    kind: "variant",
-    options: ["example", "own"].map((mode) => ({
-      content: [
-        {
-          kind: "paragraph",
-          content: [
-            { kind: "text", marks: [], text: `ШАГ-ДЛЯ-РЕЖИМА-${mode}` },
-          ],
-        },
-      ],
-      mode,
-    })),
-  };
-  const written =
-    lesson.productMemberships[0]?.product.id === modesProductId ? [step] : [];
   // Текст урока ссылается на другие шаги программы, справочный документ курса и свой раздел.
   /** @type {import("@inside/material-blocks").RenderedBlock[]} */
   const crossLinks =
@@ -444,7 +420,6 @@ function body(lesson, entitled) {
         level: 2,
         content: [{ kind: "text", marks: [], text: "Раздел урока" }],
       },
-      ...written,
       ...crossLinks,
       ...paragraphs,
     ],
@@ -713,7 +688,6 @@ function route(method, url, entitled) {
         kind: "topic",
         reference: {
           cover: null,
-          hasModeVariants: false,
           id: topic.id,
           introduction: null,
           name: topic.name,
@@ -791,7 +765,6 @@ function route(method, url, entitled) {
             }
           : {}),
         cover: product.cover,
-        hasModeVariants: product.hasModeVariants,
         id: product.id,
         introduction: {
           audience: "Тем, кто проверяет переходы.",
@@ -818,7 +791,6 @@ function route(method, url, entitled) {
       kind: "related",
       reference: {
         cover: null,
-        hasModeVariants: false,
         id: related[1],
         introduction: null,
         name: "Похожие",
@@ -1050,26 +1022,26 @@ function route(method, url, entitled) {
       renewalPriceKopecks: 990_000,
       timezone: "Europe/Moscow",
     };
-    const modesPrice = {
+    const secondPrice = {
       ...publicPrice,
       product: {
-        id: modesProductId,
-        name: "Продукт с режимами",
+        id: secondProductId,
+        name: "Второй продукт",
         priceRevision: 1,
       },
       offer: {
         ...publicPrice.offer,
-        id: modesProductId,
-        name: "Продукт с режимами",
-        benefits: [`product:${modesProductId}`],
+        id: secondProductId,
+        name: "Второй продукт",
+        benefits: [`product:${secondProductId}`],
         benefitPeriods: [
-          { capability: `product:${modesProductId}`, months: null },
+          { capability: `product:${secondProductId}`, months: null },
         ],
       },
     };
     const selected = url.searchParams.get("productId");
     return json({
-      items: [publicPrice, modesPrice].filter(
+      items: [publicPrice, secondPrice].filter(
         (item) => selected === null || item.product.id === selected,
       ),
       nextCursor: null,

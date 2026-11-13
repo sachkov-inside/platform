@@ -59,8 +59,6 @@ export function MaterialBodyView(props: {
   readonly rendering: MaterialBodyRendering;
   /** Display top-level blocks in this order, retaining every original path and anchor. */
   readonly blockOrder?: readonly number[] | undefined;
-  readonly hint?: ReactNode;
-  readonly hintAt?: number | undefined;
   readonly comparison?: MaterialBodyComparison | undefined;
   readonly illustrations?:
     readonly { readonly after: number; readonly node: ReactNode }[] | undefined;
@@ -87,8 +85,6 @@ export function MaterialBodyView(props: {
 function BodyBlocks({
   blocks,
   rendering,
-  hint,
-  hintAt,
   blockOrder,
   comparison,
   illustrations,
@@ -98,8 +94,6 @@ function BodyBlocks({
   readonly rendering: BodyRendering;
   /** Display top-level blocks in this order, retaining every original path and anchor. */
   readonly blockOrder?: readonly number[] | undefined;
-  readonly hint?: ReactNode;
-  readonly hintAt?: number | undefined;
   readonly comparison?: MaterialBodyComparison | undefined;
   readonly illustrations?:
     readonly { readonly after: number; readonly node: ReactNode }[] | undefined;
@@ -158,10 +152,9 @@ function BodyBlocks({
     const illustration = illustrations?.find(
       (item) => item.after === index,
     )?.node;
-    if (index !== hintAt && illustration === undefined) return view;
+    if (illustration === undefined) return view;
     return (
-      <Fragment key={`hint-${blockPath.join("-")}`}>
-        {index === hintAt ? hint : null}
+      <Fragment key={`illustration-${blockPath.join("-")}`}>
         {view}
         {illustration}
       </Fragment>
@@ -270,7 +263,6 @@ function BodyBlockView({
     case "labeled_list":
     case "resource_card":
     case "takeaways":
-    case "variant":
       return (
         <MaterialLessonBlock
           block={block}

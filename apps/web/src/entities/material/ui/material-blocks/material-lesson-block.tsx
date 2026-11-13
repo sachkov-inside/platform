@@ -5,7 +5,6 @@ import { MaterialAgentPrompt } from "./material-agent-prompt.client";
 import { MaterialCallout } from "./material-callout";
 import { MaterialKeyPoint } from "./material-key-point";
 import { MaterialLabeledList } from "./material-labeled-list";
-import { MaterialModeVariant } from "./material-mode-variant.client";
 import { MaterialResourceCard } from "./material-resource-card";
 import { MaterialQuiz } from "./material-quiz.client";
 import { MaterialTakeaways } from "./material-takeaways";
@@ -21,7 +20,6 @@ export type LessonBlock = Extract<
       | "labeled_list"
       | "resource_card"
       | "takeaways"
-      | "variant"
       | "quiz";
   }
 >;
@@ -34,8 +32,7 @@ export interface LessonBlockRendering {
   readonly renderBlock: (block: RenderedBlock, index: number) => ReactNode;
   /**
    * `branch` разводит несколько вложенных последовательностей одного блока по разным адресам.
-   * Без него две ветки вариантного шага дали бы своим заголовкам один и тот же якорь, и ссылка
-   * из оглавления вела бы в скрытую ветку.
+   * Без него вариант ответа квиза и его разбор дали бы своим заголовкам один и тот же якорь.
    */
   readonly renderBlocks: (
     blocks: readonly RenderedBlock[],
@@ -112,17 +109,6 @@ export function MaterialLessonBlock({
         <MaterialKeyPoint>
           {rendering.renderInline(block.content)}
         </MaterialKeyPoint>
-      );
-    case "variant":
-      // Обе ветки рисует вызывающая поверхность и передаёт готовыми: у режима нет доступа к её
-      // обходу документа, а сама ветка должна приехать в разметку, чтобы переключение было мгновенным.
-      return (
-        <MaterialModeVariant
-          branches={block.options.map((option, index) => ({
-            content: rendering.renderBlocks(option.content, index),
-            mode: option.mode,
-          }))}
-        />
       );
   }
 }

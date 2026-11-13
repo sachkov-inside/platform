@@ -11,9 +11,17 @@ import {
   statement as productTopicsStatement,
 } from "../modules/products/infrastructure/postgres/migrations/0120-product-topics.js";
 import {
+  name as dropReaderPreferencesName,
+  statement as dropReaderPreferencesStatement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0122-drop-reader-preferences.js";
+import {
+  name as dropModeVariantsName,
+  statement as dropModeVariantsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0123-drop-mode-variants.js";
+import {
   name as glossaryTermsName,
   statement as glossaryTermsStatement,
-} from "../modules/glossary/infrastructure/postgres/migrations/0122-glossary-terms.js";
+} from "../modules/glossary/infrastructure/postgres/migrations/0124-glossary-terms.js";
 import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
@@ -790,6 +798,11 @@ export const platformMigrations = [
     name: materialUpdateNotesName,
     statement: materialUpdateNotesStatement,
   },
+  {
+    name: dropReaderPreferencesName,
+    statement: dropReaderPreferencesStatement,
+  },
+  { name: dropModeVariantsName, statement: dropModeVariantsStatement },
   { name: glossaryTermsName, statement: glossaryTermsStatement },
 ] as const;
 

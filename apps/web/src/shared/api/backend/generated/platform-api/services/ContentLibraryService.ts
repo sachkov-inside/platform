@@ -785,7 +785,6 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      hasModeVariants: boolean;
       id: string;
       introduction: {
         audience: string;
@@ -995,7 +994,6 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      hasModeVariants: boolean;
       id: string;
       introduction: {
         audience: string;
@@ -1236,7 +1234,6 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      hasModeVariants: boolean;
       id: string;
       introduction: {
         audience: string;

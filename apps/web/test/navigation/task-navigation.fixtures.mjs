@@ -47,7 +47,6 @@ export function navigationTaskRoute(url, authorized) {
           ...product,
           id: "11111111-1111-4111-8111-111111111116",
           cover: null,
-          hasModeVariants: false,
           introduction: null,
           summary: "Проверка переходов к заданиям.",
         },

@@ -89,12 +89,6 @@ export type RecursiveSchema3schema0 = ({
   }>;
   kind: 'key_point';
 } | {
-  kind: 'variant';
-  options: Array<{
-    content: Array<RecursiveSchema3schema0>;
-    mode: 'example' | 'own';
-  }>;
-} | {
   alt: string;
   assetId: string;
   caption?: string;

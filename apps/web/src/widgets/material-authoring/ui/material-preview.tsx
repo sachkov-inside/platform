@@ -219,7 +219,6 @@ function PreviewBlock({
     case "labeled_list":
     case "resource_card":
     case "takeaways":
-    case "variant":
       return (
         <MaterialLessonBlock
           block={block}

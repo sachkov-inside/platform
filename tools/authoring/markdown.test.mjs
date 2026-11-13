@@ -46,20 +46,28 @@ test("callout signs survive document serialization with titles and nested Markdo
   assert.match(JSON.stringify(reopened), /"collapse":"expanded"/u);
 });
 
-test("real authoring constructs preserve variant placement, bold code, tables and example fences", () => {
+test("real authoring constructs preserve bold code, tables and example fences", () => {
   const doc = convert(
-    "Introduction **`command`**.\n\n> [!variant-example] Учебный проект\n> Example\n\nShared step.\n\n> [!variant-own] Свой проект\n> Own project\n\n| A | B |\n|---|---|\n| One | Two |\n\n> [!example]- Example\n> ```text\n> literal\n> ```\n",
+    "Introduction **`command`**.\n\nShared step.\n\n| A | B |\n|---|---|\n| One | Two |\n\n> [!example]- Example\n> ```text\n> literal\n> ```\n",
   );
   assert.deepEqual(
     doc.content.map((node) => node.type),
-    ["paragraph", "variant", "paragraph", "variant", "table", "callout"],
+    ["paragraph", "paragraph", "table", "callout"],
   );
   const code = doc.content[0]?.content?.find((node) => node.text === "command");
   assert.deepEqual(
     new Set(code?.marks?.map((mark) => mark.type)),
     new Set(["bold", "code"]),
   );
-  assert.equal(doc.content[5]?.content?.[0]?.type, "codeBlock");
+  assert.equal(doc.content[3]?.content?.[0]?.type, "codeBlock");
+});
+
+test("a variant callout is refused: the reading modes were retired (#2119)", () => {
+  for (const kind of ["variant-example", "variant-own"])
+    assert.throws(
+      () => convert(`> [!${kind}] Шаг\n> Text`),
+      new RegExp(`unsupported callout: ${kind}`, "u"),
+    );
 });
 
 test("a practice task keeps the reader's own block and drops the repeated name", () => {

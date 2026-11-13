@@ -1894,7 +1894,6 @@ export class MaterialAuthoringService {
   }): CancelablePromise<{
     contentVersion: number;
     extraction: {
-      hasModeVariants: boolean;
       headings: Array<{
         level: (2 | 3 | 4);
         text: string;

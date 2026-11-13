@@ -121,7 +121,6 @@ export type ReadingActivityPrisma = Pick<
   | "readingCommand"
   | "readingMaterialVisit"
   | "productLearningStarted"
-  | "readerPreferences"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma &
   TransactionClient<ReadingActivityPrisma>;

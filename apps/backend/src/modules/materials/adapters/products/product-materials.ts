@@ -20,34 +20,21 @@ export function assembleProductMaterials(
   return {
     async load(ids: readonly string[], handle?: TransactionHandle) {
       const tx = handle === undefined ? prisma : materialsTransaction(handle);
-      const [materials, publications] = await Promise.all([
-        tx.material.findMany({
-          where: { id: { in: [...ids] } },
-          select: {
-            id: true,
-            sourceId: true,
-            publicationState: true,
-            title: true,
-            access: true,
-            topicId: true,
-          },
-        }),
-        tx.publishedMaterial.findMany({
-          where: { materialId: { in: [...ids] } },
-          select: { materialId: true, hasModeVariants: true },
-        }),
-      ]);
-      const modes = new Map(
-        publications.map((publication) => [
-          publication.materialId,
-          publication.hasModeVariants,
-        ]),
-      );
+      const materials = await tx.material.findMany({
+        where: { id: { in: [...ids] } },
+        select: {
+          id: true,
+          sourceId: true,
+          publicationState: true,
+          title: true,
+          access: true,
+          topicId: true,
+        },
+      });
       return materials.map((material) => ({
         ...material,
         publicationState: publicationState.parse(material.publicationState),
         access: access.parse(material.access),
-        hasModeVariants: modes.get(material.id) ?? false,
       }));
     },
     lockReferences: (ids, handle) =>

@@ -382,31 +382,18 @@ export function convertMarkdown(
           continue;
         }
         if (!content.length) fail(token, "empty callout");
-        if (["variant-example", "variant-own"].includes(meta.kind)) {
-          const mode = meta.kind.slice("variant-".length);
-          const option = { type: "variantOption", attrs: { mode }, content };
-          const previous = top().content.at(-1);
-          if (
-            previous?.type === "variant" &&
-            previous.content?.length === 1 &&
-            previous.content[0]?.attrs?.["mode"] !== mode
-          )
-            previous.content.push(option);
-          else append({ type: "variant", content: [option] });
-        } else {
-          const kind = own(calloutKinds, meta.kind);
-          if (!kind) fail(token, `unsupported callout: ${meta.kind}`);
-          // The reader already sees the kind's own name, so a title repeating it is dropped.
-          const title =
-            meta.collapse === null && meta.title === calloutToneLabels[kind]
-              ? null
-              : meta.title;
-          append({
-            type: "callout",
-            attrs: { kind, title, collapse: meta.collapse },
-            content,
-          });
-        }
+        const kind = own(calloutKinds, meta.kind);
+        if (!kind) fail(token, `unsupported callout: ${meta.kind}`);
+        // The reader already sees the kind's own name, so a title repeating it is dropped.
+        const title =
+          meta.collapse === null && meta.title === calloutToneLabels[kind]
+            ? null
+            : meta.title;
+        append({
+          type: "callout",
+          attrs: { kind, title, collapse: meta.collapse },
+          content,
+        });
       } else fail(token, `unsupported Markdown block: ${token.type}`);
     }
     return root;

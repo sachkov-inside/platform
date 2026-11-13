@@ -199,7 +199,6 @@ describe("Platform migrations", () => {
       "material_states",
       "material_visits",
       "product_learning_started",
-      "reader_preferences",
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
     await expectTables(testDatabase, "glossary", ["terms"]);
@@ -233,6 +232,16 @@ describe("Platform migrations", () => {
       where procedure.proname = 'reject_published_material_slug_change'
     `);
     expect(functions).toEqual([{ schema: "materials" }]);
+
+    // The reading modes were retired (#2119): the derived lesson flag went with them.
+    const retiredModeColumns = await testDatabase.prisma.$queryRaw<
+      readonly { readonly column_name: string }[]
+    >(Prisma.sql`
+      select column_name
+      from information_schema.columns
+      where table_schema = 'materials' and column_name = 'has_mode_variants'
+    `);
+    expect(retiredModeColumns).toEqual([]);
 
     const crossSchemaForeignKeys = await testDatabase.prisma.$queryRaw<
       readonly { readonly name: string }[]

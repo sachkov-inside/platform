@@ -16,7 +16,7 @@ const task = (code: string, afterMaterialId: string | null = null) => ({
 });
 const product = {
   kind: "ready" as const,
-  reference: { slug: "course", name: "Курс", hasModeVariants: true },
+  reference: { slug: "course", name: "Курс" },
   items: [
     {
       materialId: "first-id",
@@ -115,7 +115,6 @@ describe("course reading composition", () => {
     });
     expect(context?.totalMaterials).toBe(2);
     expect(context?.currentPosition).toBe(5);
-    expect(context?.hasModeVariants).toBe(true);
   });
 
   it("numbers tasks in authored chapter order, independently of lesson placement and titles", () => {

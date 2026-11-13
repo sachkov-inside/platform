@@ -34,7 +34,6 @@ export function renderMaterialBody(
 
 interface Collected {
   readonly headings: MaterialBodyHeading[];
-  modeVariants: boolean;
   readonly resources: MaterialBodyResourceSummary[];
 }
 
@@ -44,9 +43,6 @@ function collect(block: RenderedBlock, into: Collected): void {
     into.headings.push(heading);
   }
   into.resources.push(...materialBlockResources(block));
-  if (block.kind === "variant") {
-    into.modeVariants = true;
-  }
   materialBlockChildren(block).forEach((child) => collect(child, into));
 }
 
@@ -55,12 +51,10 @@ export function extractMaterialBody(
 ): MaterialBodyExtraction {
   const collected: Collected = {
     headings: [],
-    modeVariants: false,
     resources: [],
   };
   document.blocks.forEach((block) => collect(block, collected));
   return {
-    hasModeVariants: collected.modeVariants,
     plainText: document.blocks
       .map(materialBlockText)
       .filter(Boolean)

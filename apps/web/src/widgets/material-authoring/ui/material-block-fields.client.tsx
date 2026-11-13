@@ -7,13 +7,6 @@ import {
   calloutTonePresentation,
   type CalloutTone,
 } from "@/entities/material";
-import {
-  productModeLabels,
-  productModes,
-  type ProductMode,
-} from "@/shared/product-mode";
-
-import { variantUnderCursor } from "../model/variant-branch";
 import { Button } from "@/shared/ui/button";
 
 const titleFieldClass =
@@ -27,11 +20,6 @@ type BlockFieldsState =
       readonly tone: CalloutTone;
     }
   | { readonly kind: "takeaways"; readonly title: string }
-  | {
-      readonly branchMode: ProductMode;
-      readonly branches: number;
-      readonly kind: "variant";
-    }
   | { readonly kind: "agentPrompt"; readonly title: string }
   | { readonly kind: "none" };
 
@@ -43,15 +31,6 @@ function blockFieldsState(editor: Editor): BlockFieldsState {
     return { kind: "callout", title: blockTitle(editor, "callout"), tone };
   if (editor.isActive("takeaways"))
     return { kind: "takeaways", title: blockTitle(editor, "takeaways") };
-  const branchMode = productModes.find((mode) =>
-    editor.isActive("variantOption", { mode }),
-  );
-  if (branchMode !== undefined)
-    return {
-      branchMode,
-      branches: variantUnderCursor(editor.state)?.branchPositions.length ?? 0,
-      kind: "variant",
-    };
   if (editor.isActive("agentPrompt"))
     return { kind: "agentPrompt", title: blockTitle(editor, "agentPrompt") };
   return { kind: "none" };
@@ -94,116 +73,6 @@ function BlockTitleField({
       placeholder={placeholder}
       value={value}
     />
-  );
-}
-
-/** Вариантный блок под курсором: сколько в нём веток и где он кончается. */
-/**
- * Назначает ветке режим. Когда этот режим уже занят соседней веткой, ветки меняются режимами:
- * две ветки одного режима — документ, который отвергло бы каждое автосохранение, и автор не
- * должен уметь завести его одним нажатием.
- */
-function selectBranchMode(
-  editor: Editor,
-  mode: ProductMode,
-  currentMode: ProductMode,
-): void {
-  const variant = variantUnderCursor(editor.state);
-  const occupied = variant?.branchPositions.find((position) => {
-    const branchMode: unknown =
-      editor.state.doc.nodeAt(position)?.attrs["mode"];
-    return position !== variant.currentBranch && branchMode === mode;
-  });
-  if (variant === undefined || occupied === undefined) {
-    editor.commands.updateAttributes("variantOption", { mode });
-    return;
-  }
-  editor.commands.command(({ dispatch, tr }) => {
-    if (dispatch) {
-      tr.setNodeAttribute(occupied, "mode", currentMode);
-      tr.setNodeAttribute(variant.currentBranch, "mode", mode);
-    }
-    return true;
-  });
-}
-
-/**
- * Ветка вариантного блока: её режим нельзя набрать текстом, а второй вариант нужно откуда-то
- * завести. Оба действия стоят здесь же, где автор уже меняет вид врезки.
- */
-function VariantFields({
-  branchMode,
-  branches,
-  disabled,
-  editor,
-}: {
-  readonly branchMode: ProductMode;
-  readonly branches: number;
-  readonly disabled: boolean;
-  readonly editor: Editor;
-}) {
-  const missing = productModes.find((mode) => mode !== branchMode);
-
-  return (
-    <div
-      aria-label="Вариант шага"
-      className="mr-auto flex min-w-0 flex-wrap items-center gap-1"
-      role="toolbar"
-    >
-      {productModes.map((mode) => (
-        <Button
-          aria-label={`Режим ветки: ${productModeLabels[mode]}`}
-          aria-pressed={mode === branchMode}
-          disabled={disabled}
-          key={mode}
-          onClick={() => {
-            if (mode === branchMode) return;
-            selectBranchMode(editor, mode, branchMode);
-          }}
-          onMouseDown={(event) => {
-            event.preventDefault();
-          }}
-          type="button"
-          variant={mode === branchMode ? "secondary" : "ghost"}
-        >
-          {productModeLabels[mode]}
-        </Button>
-      ))}
-      {branches > 1 || missing === undefined ? null : (
-        <Button
-          disabled={disabled}
-          onClick={() => {
-            const variant = variantUnderCursor(editor.state);
-            if (variant === undefined) return;
-            editor
-              .chain()
-              .focus()
-              .insertContentAt(variant.end, {
-                type: "variantOption",
-                attrs: { mode: missing },
-                content: [{ type: "paragraph" }],
-              })
-              .run();
-          }}
-          type="button"
-          variant="secondary"
-        >
-          Добавить «{productModeLabels[missing]}»
-        </Button>
-      )}
-      {branches < 2 ? null : (
-        <Button
-          disabled={disabled}
-          onClick={() => {
-            editor.chain().focus().deleteNode("variantOption").run();
-          }}
-          type="button"
-          variant="ghost"
-        >
-          Убрать эту ветку
-        </Button>
-      )}
-    </div>
   );
 }
 
@@ -283,17 +152,6 @@ export function MaterialBlockFields({
           value={fields.title}
         />
       </div>
-    );
-  }
-
-  if (fields.kind === "variant") {
-    return (
-      <VariantFields
-        branchMode={fields.branchMode}
-        branches={fields.branches}
-        disabled={disabled}
-        editor={editor}
-      />
     );
   }
 
