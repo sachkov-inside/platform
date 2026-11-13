@@ -2100,11 +2100,45 @@ export async function syncLocal(
           `${key}: no applied original is recorded; archive it in Platform instead`,
         );
       const body = last.body;
+      // This is a new archive command, not a replay. Historical journal bytes keep their
+      // original key; only the current source and metadata vocabulary goes to the receiver.
       const command = {
-        ...body,
+        source: {
+          version: 2,
+          id: body.source.id,
+          path: body.source.path,
+          revision: body.source.revision,
+          ...(body.source["commit"] === undefined
+            ? {}
+            : {
+                commit: z.hash("sha1").nullable().parse(body.source["commit"]),
+              }),
+        },
+        materialId: body.materialId,
         expectedContentVersion: entry.contentVersion,
         publicationState: "unpublished",
-        metadata: { ...body.metadata, productIds: [] },
+        primaryVideoId: body.primaryVideoId,
+        ...(body.videoChapters === undefined
+          ? {}
+          : { videoChapters: body.videoChapters }),
+        ...(typeof body["notifyTelegram"] === "boolean"
+          ? { notifyTelegram: body["notifyTelegram"] }
+          : {}),
+        ...(typeof body["inFeed"] === "boolean"
+          ? { inFeed: body["inFeed"] }
+          : {}),
+        metadata: {
+          title: body.metadata.title,
+          summary: body.metadata.summary,
+          access: body.metadata.access,
+          difficulty: body.metadata.difficulty,
+          outcomes: body.metadata.outcomes,
+          topicId: body.metadata.topicId,
+          formatId: body.metadata.formatId,
+          tagIds: body.metadata.tagIds,
+          productIds: [],
+        },
+        body: body.body,
       };
       const saved = materialReceiptSchema.parse(
         await applyJournaled(

@@ -569,6 +569,7 @@ export async function previewRelease(
       removed: currentChapterIds.filter((id) => !desiredChapterIds.includes(id))
         .length,
     };
+    /** @type {[string | null, string][]} */
     const desiredProgramme =
       product.chapters.length === 0
         ? product.materialIds.map((id) => [null, ids.get(id) ?? `new:${id}`])
@@ -578,16 +579,18 @@ export async function previewRelease(
               ids.get(id) ?? `new:${id}`,
             ]),
           );
+    /** @type {[string | null, string][] | undefined} */
+    const currentProgramme = order.programmePlacements?.map((entry) => [
+      entry.chapterId,
+      entry.materialId,
+    ]);
+    // A catalogue entry exposes only the first placement of a repeated Material. The full
+    // programme owns its chapters and order whenever the receiver reports that programme.
+    const hasProgramme =
+      shellComposition === undefined && currentProgramme !== undefined;
     const programmeChange =
-      shellComposition === undefined &&
-      order.programmePlacements !== undefined &&
-      canonical(desiredProgramme) !==
-        canonical(
-          order.programmePlacements.map((entry) => [
-            entry.chapterId,
-            entry.materialId,
-          ]),
-        );
+      hasProgramme &&
+      canonical(desiredProgramme) !== canonical(currentProgramme);
     const chaptersChanged =
       canonical(desiredChapterIds) !== canonical(currentChapterIds);
     const chapterSupplementaryChanges = product.chapters.filter(
@@ -647,22 +650,24 @@ export async function previewRelease(
     const detailsChange =
       stored === undefined || !productDetailsMatch(stored, details);
     // A shell that would move a placed Material is refused while composing it.
-    const moved = shellComposition
-      ? 0
-      : order.items.filter(
-          (item) =>
-            (chapterOf.get(item.materialId) ?? null) !==
-            (item.chapterId === null
-              ? null
-              : (currentChapters.get(item.chapterId) ?? null)),
-        ).length;
+    const moved =
+      shellComposition || hasProgramme
+        ? 0
+        : order.items.filter(
+            (item) =>
+              (chapterOf.get(item.materialId) ?? null) !==
+              (item.chapterId === null
+                ? null
+                : (currentChapters.get(item.chapterId) ?? null)),
+          ).length;
     products.push({
       sourceId: product.sourceId,
       title: product.title,
       materials: programme.length,
       artifactChanges,
       change:
-        canonical(desiredOrder) === canonical(currentOrder) &&
+        canonical(hasProgramme ? [...desiredOrder].sort() : desiredOrder) ===
+          canonical(hasProgramme ? [...currentOrder].sort() : currentOrder) &&
         moved === 0 &&
         !chaptersChanged &&
         chapterTextChanges === 0 &&
@@ -691,10 +696,18 @@ export async function previewRelease(
       ...(topics?.changed ? { topicChanges: topics.changed } : {}),
       added: desiredOrder.filter((id) => !currentOrder.includes(id)).length,
       removed: currentOrder.filter((id) => !desiredOrder.includes(id)).length,
-      reorderedOrRegrouped:
-        canonical(desiredOrder.filter((id) => currentOrder.includes(id))) !==
-          canonical(currentOrder.filter((id) => desiredOrder.includes(id))) ||
-        moved > 0,
+      reorderedOrRegrouped: hasProgramme
+        ? canonical(
+            desiredProgramme.filter(([, id]) => currentOrder.includes(id)),
+          ) !==
+          canonical(
+            (currentProgramme ?? []).filter(([, id]) =>
+              desiredOrder.includes(id),
+            ),
+          )
+        : canonical(desiredOrder.filter((id) => currentOrder.includes(id))) !==
+            canonical(currentOrder.filter((id) => desiredOrder.includes(id))) ||
+          moved > 0,
     });
   }
   // Product Tasks follow the Product; validation reads their target revision without a write.
