@@ -299,7 +299,7 @@ export function loadApplicationConfig(
       presentText(
         environment["TELEGRAM_COMMUNITY_JOIN_REMINDER_TEXT"]?.trim(),
       ) ??
-      "Ты ещё не вступил в группу Inside. Там вопросы, обсуждения и ответы автора.\n\nВступить можно по личной ссылке ниже, она действует сутки. Если не успеешь, отправь /community, и бот пришлёт новую.",
+      "Ты ещё не вступил в группу курса. Там вопросы, обсуждения и ответы автора.\n\nВступить можно по личной ссылке ниже, она действует сутки. Если не успеешь, отправь /community, и бот пришлёт новую.",
   });
   const communityIntegrationSecret =
     presentText(environment["PLATFORM_COMMUNITY_INTEGRATION_SECRET"]?.trim()) ??
