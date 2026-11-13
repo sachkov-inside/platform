@@ -174,25 +174,38 @@ export async function pollCommunityOperations(
   limit: number,
   now: Date,
 ): Promise<number> {
-  const candidates =
+  const due = {
+    delivery: "accepted",
+    OR: [
+      { polledAt: null },
+      {
+        polledAt: {
+          lte: new Date(now.getTime() - COMMUNITY_RECONCILIATION_INTERVAL_MS),
+        },
+      },
+    ],
+  };
+  const order = [{ polledAt: "asc" as const }, { operationId: "asc" as const }];
+  // Unapplied work has an overdue deadline; applied deliveries only watch for a member who
+  // left. Applied ones fill the rest of the batch, so their number never delays the rest (#2080).
+  const unapplied =
     await dependencies.prisma.telegramCommunityOperation.findMany({
       where: {
-        delivery: "accepted",
-        resultStatus: { notIn: ["superseded", "failed"] },
-        OR: [
-          { polledAt: null },
-          {
-            polledAt: {
-              lte: new Date(
-                now.getTime() - COMMUNITY_RECONCILIATION_INTERVAL_MS,
-              ),
-            },
-          },
-        ],
+        ...due,
+        resultStatus: { notIn: ["applied", "superseded", "failed"] },
       },
-      orderBy: [{ polledAt: "asc" }, { operationId: "asc" }],
+      orderBy: order,
       take: limit,
     });
+  const applied =
+    unapplied.length < limit
+      ? await dependencies.prisma.telegramCommunityOperation.findMany({
+          where: { ...due, resultStatus: "applied" },
+          orderBy: order,
+          take: limit - unapplied.length,
+        })
+      : [];
+  const candidates = [...unapplied, ...applied];
   let polled = 0;
   for (const row of candidates) {
     const command = communitySetSchema.safeParse(row.command);

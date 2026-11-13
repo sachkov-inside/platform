@@ -57,7 +57,10 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
-import { readCommunityBacklog } from "../../src/modules/telegram-membership/features/deliver-community-entitlement/deliver-community-entitlement.js";
+import {
+  pollCommunityOperations,
+  readCommunityBacklog,
+} from "../../src/modules/telegram-membership/features/deliver-community-entitlement/deliver-community-entitlement.js";
 import { createQueryEventClient } from "./setup/query-events.js";
 
 const ajv = new Ajv({ strict: true, allErrors: true });
@@ -1586,6 +1589,72 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
           where: { operationId: row.operationId },
         }),
       ).toMatchObject({ errorCode: "stale_observation" });
+    } finally {
+      await isolated.dispose();
+    }
+  });
+
+  test("an unapplied operation is polled before applied ones, however many are applied", async () => {
+    const isolated = await createMigratedTestDatabase();
+    try {
+      let instant = new Date(start);
+      const { localAccounts, localGrants, localLinks, enroll } =
+        await streamFixture(isolated, () => instant);
+      const applied = await enroll("poll-order-applied");
+      const waiting = await enroll("poll-order-waiting");
+      const provider = new ProviderDouble();
+      const app = new CommunityEntitlements({
+        accounts: localAccounts,
+        botStartUrl: "https://t.me/inside_test_bot",
+        clock: () => instant,
+        grants: localGrants,
+        links: localLinks,
+        prisma: isolated.prisma,
+        provider,
+      });
+      await app.sweep();
+      const rowOf = (accountId: string) =>
+        isolated.prisma.telegramCommunityOperation.findFirstOrThrow({
+          where: { accountId },
+        });
+      const appliedRow = await rowOf(applied.accountId);
+      const waitingRow = await rowOf(waiting.accountId);
+      provider.observe(appliedRow.operationId, "applied", "member");
+      provider.observe(
+        waitingRow.operationId,
+        "waiting_for_join",
+        "not_member",
+      );
+      instant = new Date(instant.getTime() + 61_000);
+      await app.sweep();
+      // The applied delivery has waited longer, yet one free slot goes to the unapplied one.
+      await isolated.prisma.telegramCommunityOperation.update({
+        where: { operationId: appliedRow.operationId },
+        data: { polledAt: new Date(start) },
+      });
+      instant = new Date(instant.getTime() + 61_000);
+      provider.polled.length = 0;
+      expect(
+        await pollCommunityOperations(
+          { prisma: isolated.prisma, provider },
+          1,
+          instant,
+        ),
+      ).toBe(1);
+      expect(provider.polled).toEqual([waitingRow.operationId]);
+      // The remainder of a batch still reconciles applied deliveries, so a member who left is
+      // noticed.
+      instant = new Date(instant.getTime() + 61_000);
+      provider.polled.length = 0;
+      await pollCommunityOperations(
+        { prisma: isolated.prisma, provider },
+        2,
+        instant,
+      );
+      expect(provider.polled).toEqual([
+        waitingRow.operationId,
+        appliedRow.operationId,
+      ]);
     } finally {
       await isolated.dispose();
     }
