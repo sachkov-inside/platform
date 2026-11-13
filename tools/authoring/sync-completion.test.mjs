@@ -897,6 +897,73 @@ test("a missing original is proposed first and unpublished only on explicit requ
   assert.deepEqual(after.archiveProposals, []);
 });
 
+test("a reviewed archive builds a current command from an applied historical original", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  const journal = await readJournalFile(setup.state);
+  const old = valueAt(api.materials, "inside-content:old");
+  const entry = Object.entries(journal.operations).find(
+    ([, operation]) =>
+      isJournalOperation(operation) &&
+      materialApplyRequest(operation.request)?.body.source.id ===
+        "inside-content:old",
+  );
+  assert.ok(entry && isJournalOperation(entry[1]));
+  const command = materialApplyRequest(entry[1].request)?.body;
+  assert.ok(command);
+  const { version: _version, ...source } = command.source;
+  const { productIds: _products, ...metadata } = command.metadata;
+  const historical = {
+    path: "/authoring/import/materials/apply",
+    body: {
+      ...command,
+      source: { ...source, showInFeed: false },
+      metadata: { ...metadata, seriesIds: [productId] },
+    },
+  };
+  delete journal.operations[entry[0]];
+  const historicalKey = `authoring:${checksum(canonical(historical))}`;
+  journal.operations[historicalKey] = { ...entry[1], request: historical };
+  await writeFile(join(setup.state, "journal.json"), canonical(journal));
+  setup.manifest.materials = setup.manifest.materials.filter(
+    (row) => row.sourceId !== "old",
+  );
+  setup.manifest.selection.materialIds = ["lesson", "video"];
+  itemAt(setup.manifest.products, 0).materialIds = ["lesson", "video"];
+  await setup.write();
+  /** @type {LocalTransport} */
+  const request = async (path, body, key, options) => {
+    if (path === "/authoring/import/materials/apply")
+      assert.deepEqual(body, {
+        ...command,
+        expectedContentVersion: old.contentVersion,
+        publicationState: "unpublished",
+        metadata: { ...metadata, productIds: [] },
+      });
+    return api.request(path, body, key, options);
+  };
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    origin: resolveLocalTarget("editor"),
+    publish: "all",
+    request,
+  });
+  const archived = await applyRelease(reviewed.path, setup.state, {
+    archive: ["old"],
+    request,
+  });
+  assert.deepEqual(archived.archived, [{ sourceId: "inside-content:old" }]);
+  assert.equal(old.publicationState, "unpublished");
+  assert.deepEqual(old.productIds, []);
+  const after = await readJournalFile(setup.state);
+  assert.deepEqual(
+    after.operations[historicalKey],
+    journal.operations[historicalKey],
+  );
+  const repeated = await run(setup, api);
+  assert.deepEqual(repeated.archiveProposals, []);
+});
+
 test("a video that never becomes ready stops before Save and resumes with the same record", async (t) => {
   const setup = await fixture(t);
   const api = applicationApi();
@@ -1757,6 +1824,154 @@ test("a private release keeps an unpublished Material as the target holds it and
         notice.code === "material_kept_unpublished" && notice.path === "old.md",
     ),
   );
+});
+
+test("a release converges with a kept Material placed in two chapters", async (t) => {
+  const { setup, api, old } = await unpublishedByAnotherSession(t);
+  const product = itemAt(setup.manifest.products, 0);
+  product.materialIds = ["old", "lesson", "video"];
+  product.chapters = [
+    { sourceId: "first", title: "Первая", summary: "", materialIds: ["old"] },
+    {
+      sourceId: "second",
+      title: "Вторая",
+      summary: "",
+      materialIds: ["lesson", "video", "old"],
+    },
+  ];
+  await setup.write();
+  const compositionSchema = z.object({
+    chapters: z.array(
+      z.object({ id: z.uuid(), name: z.string(), summary: z.string() }),
+    ),
+    programmePlacements: z.array(
+      z.object({
+        id: z.uuid(),
+        materialId: z.uuid(),
+        chapterId: z.uuid().nullable(),
+        stepGroup: z.string().nullable(),
+      }),
+    ),
+  });
+  /** @type {z.infer<typeof compositionSchema>} */
+  let composition = { chapters: [], programmePlacements: [] };
+  /** @type {LocalTransport} */
+  const request = async (path, body, key, options) => {
+    if (path === `/authoring/products/${productId}/order`) {
+      // The receiver projects catalogue entries from each Material's first programme placement.
+      /** @type {Map<string, (typeof composition.programmePlacements)[number]>} */
+      const first = new Map();
+      for (const placement of composition.programmePlacements)
+        if (!first.has(placement.materialId))
+          first.set(placement.materialId, placement);
+      return {
+        orderVersion: checksum(canonical(composition)),
+        ...structuredClone(composition),
+        items: (api.product.members ?? []).map((materialId) => ({
+          materialId,
+          chapterId: first.get(materialId)?.chapterId ?? null,
+        })),
+      };
+    }
+    const result = await api.request(path, body, key, options);
+    if (path === "/authoring/import/products/composition") {
+      composition = compositionSchema.parse(body);
+      return { orderVersion: checksum(canonical(composition)) };
+    }
+    return result;
+  };
+  const options = { origin: resolveLocalTarget("editor"), request };
+  const reviewed = await previewRelease(
+    setup.packagePath,
+    setup.state,
+    options,
+  );
+  await applyRelease(reviewed.path, setup.state, { request });
+  const clean = await previewRelease(setup.packagePath, setup.state, options);
+  assert.equal(
+    clean.preview.materials.find((row) => row.sourceId === "old")?.change,
+    "kept",
+  );
+  assert.equal(itemAt(clean.preview.products, 0).change, "unchanged");
+  assert.equal(itemAt(clean.preview.products, 0).reorderedOrRegrouped, false);
+  const before = applies(api).length;
+  const repeated = await applyRelease(clean.path, setup.state, { request });
+  assert.equal(repeated.applied, 0);
+  assert.equal(applies(api).length, before);
+  const again = await previewRelease(setup.packagePath, setup.state, options);
+  assert.equal(itemAt(again.preview.products, 0).change, "unchanged");
+  assert.equal(old.publicationState, "unpublished");
+
+  // A real move of the repeated position still changes the reviewed programme.
+  itemAt(composition.programmePlacements, 3).chapterId = itemAt(
+    composition.chapters,
+    0,
+  ).id;
+  const moved = await previewRelease(setup.packagePath, setup.state, options);
+  assert.equal(itemAt(moved.preview.products, 0).change, "composition");
+  assert.equal(itemAt(moved.preview.products, 0).reorderedOrRegrouped, true);
+});
+
+test("a release ignores catalogue ordering outside the programme", async (t) => {
+  const setup = await fixture(t);
+  const product = itemAt(setup.manifest.products, 0);
+  product.materialIds = ["lesson"];
+  product.supplementaryMaterialIds = ["old", "video"];
+  await setup.write();
+  const api = applicationApi();
+  /** @type {{ id: string; materialId: string; chapterId: null; stepGroup: null }[]} */
+  let programmePlacements = [];
+  /** @type {LocalTransport} */
+  const request = async (path, body, key, options) => {
+    if (path === `/authoring/products/${productId}/order`) {
+      const main = programmePlacements.map((entry) => entry.materialId);
+      const extras = (api.product.members ?? [])
+        .filter((id) => !main.includes(id))
+        .sort();
+      return {
+        orderVersion: checksum(canonical({ programmePlacements, extras })),
+        programmePlacements,
+        chapters: [],
+        items: [...main, ...extras].map((materialId) => ({
+          materialId,
+          chapterId: null,
+        })),
+      };
+    }
+    const result = await api.request(path, body, key, options);
+    if (path === "/authoring/import/products/composition") {
+      programmePlacements = z
+        .object({
+          programmePlacements: z.array(
+            z.object({
+              id: z.uuid(),
+              materialId: z.uuid(),
+              chapterId: z.null(),
+              stepGroup: z.null(),
+            }),
+          ),
+        })
+        .parse(body).programmePlacements;
+    }
+    return result;
+  };
+  await run(setup, { request });
+  const old = valueAt(api.materials, "inside-content:old");
+  old.publicationState = "unpublished";
+  old.contentVersion++;
+  const options = {
+    origin: resolveLocalTarget("editor"),
+    publish: ["lesson", "video"],
+    request,
+  };
+  const clean = await previewRelease(setup.packagePath, setup.state, options);
+  assert.equal(itemAt(clean.preview.products, 0).change, "unchanged");
+  assert.equal(itemAt(clean.preview.products, 0).reorderedOrRegrouped, false);
+  await applyRelease(clean.path, setup.state, { request });
+  const again = await previewRelease(setup.packagePath, setup.state, options);
+  assert.equal(itemAt(again.preview.products, 0).change, "unchanged");
+  assert.equal(itemAt(again.preview.products, 0).added, 0);
+  assert.equal(itemAt(again.preview.products, 0).removed, 0);
 });
 
 test("drift on a kept Material after the preview stops apply before any write", async (t) => {
