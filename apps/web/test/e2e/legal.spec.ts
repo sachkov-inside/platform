@@ -258,7 +258,7 @@ test("футер скрыт на карте и ведёт к документа�
   await footer.getByRole("link", { name: "Cookies и хранение" }).click();
   await expect(page).toHaveURL(/\/legal\/cookies$/u);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Cookies и локальное хранение в Inside",
+    "Cookies и локальное хранение на sachkov.dev",
   );
 });
 
