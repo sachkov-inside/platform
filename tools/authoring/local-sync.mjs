@@ -1,5 +1,9 @@
 // @ts-check
 import {
+  productComposition,
+  productShellComposition,
+} from "./product-composition.mjs";
+import {
   assertLegacyTaskReplay,
   assertLegacyTaskTargets,
 } from "./legacy-task-targets.mjs";
@@ -492,21 +496,6 @@ function errorMessage(error) {
 }
 
 /**
- * @param {Manifest} manifest
- * @param {ManifestProduct} product
- */
-export function productChapters(manifest, product) {
-  return product.chapters.map((chapter) => ({
-    id: sourceUuid(
-      `${sourceKey(manifest, product.sourceId)}:chapter:${chapter.sourceId}`,
-    ),
-    // The receiver stores chapter text trimmed; comparing it untrimmed would report a change forever.
-    name: chapter.title.trim(),
-    summary: chapter.summary.trim(),
-  }));
-}
-
-/**
  * The Glossary Terms a package carries, as `PUT /authoring/glossary/terms` takes them: text
  * trimmed as the receiver stores it, terms in identifier order, and the introducing Material named
  * by its source key, the same key its Material import carries.
@@ -679,56 +668,6 @@ export function roadmapState(roadmap) {
           },
     ),
   );
-}
-
-/**
- * The composition a Product shell release sends: the package's chapter list over the Materials the
- * target already holds, each in its current chapter. Platform requires every chapter's Materials to
- * form one uninterrupted run, so each chapter, in chapter order, lists its Materials by their first
- * programme placement (a different order would rewrite the programme), then the unplaced ones in
- * their current order; unchaptered Materials follow the chapters. A placed Material whose chapter
- * the package drops would lose its placement, so that shell is refused before any write.
- *
- * @param {Manifest} manifest
- * @param {ManifestProduct} product
- * @param {{
- *   items: { materialId: string; chapterId: string | null }[];
- *   programmePlacements?: { materialId: string }[] | undefined;
- * }} order
- */
-export function productShellComposition(manifest, product, order) {
-  const chapters = productChapters(manifest, product);
-  const ids = new Set(chapters.map((chapter) => chapter.id));
-  const ungrouped = order.items.filter(
-    (item) => item.chapterId !== null && !ids.has(item.chapterId),
-  ).length;
-  if (ungrouped > 0)
-    throw new Error(
-      `Product ${product.sourceId}: the Product shell drops chapters that hold ${String(ungrouped)} Materials; move them in Platform or keep those chapters`,
-    );
-  /** @type {Map<string, number>} */
-  const firstPlacement = new Map();
-  for (const [index, entry] of (order.programmePlacements ?? []).entries())
-    if (!firstPlacement.has(entry.materialId))
-      firstPlacement.set(entry.materialId, index);
-  /** @param {string | null} chapterId */
-  const chapterRun = (chapterId) =>
-    order.items
-      .filter((item) => item.chapterId === chapterId)
-      .map((item) => item.materialId)
-      // A stable sort keeps unplaced Materials after the placed ones, in their current order.
-      .sort(
-        (left, right) =>
-          (firstPlacement.get(left) ?? Number.MAX_SAFE_INTEGER) -
-          (firstPlacement.get(right) ?? Number.MAX_SAFE_INTEGER),
-      );
-  return {
-    chapters,
-    orderedMaterialIds: [
-      ...chapters.flatMap((chapter) => chapterRun(chapter.id)),
-      ...chapterRun(null),
-    ],
-  };
 }
 
 /**
@@ -1946,77 +1885,17 @@ export async function syncLocal(
       try {
         const current = valueAt(products, product.sourceId);
         const order = await request(`/authoring/products/${current.id}/order`);
-        const chapters = productChapters(pkg.manifest, product).map(
-          (chapter, index) => {
-            const supplementary =
-              product.chapters[index]?.supplementaryMaterialIds;
-            return supplementary === undefined
-              ? chapter
-              : {
-                  ...chapter,
-                  supplementaryMaterialIds: supplementary.map(
-                    (id) => valueAt(currentMaterials, id).materialId,
-                  ),
-                };
-          },
+        const {
+          chapters,
+          chapterAssignments,
+          orderedMaterialIds,
+          programmePlacements,
+        } = productComposition(
+          pkg.manifest,
+          product,
+          order,
+          (id) => valueAt(currentMaterials, id).materialId,
         );
-        const chapterAssignments = Object.fromEntries(
-          product.chapters.flatMap((chapter, index) => {
-            // productChapters keeps the order of product.chapters.
-            const chapterId = chapters[index]?.id;
-            if (chapterId === undefined)
-              throw new Error(`Chapter ${chapter.sourceId} has no identity`);
-            return chapter.materialIds.map((id) => [
-              valueAt(currentMaterials, id).materialId,
-              chapterId,
-            ]);
-          }),
-        );
-        const orderedMaterialIds = [
-          ...product.materialIds,
-          ...product.supplementaryMaterialIds,
-        ].map((id) => valueAt(currentMaterials, id).materialId);
-        const programmePlacements =
-          product.chapters.length === 0
-            ? product.materialIds.map((id) => ({
-                id:
-                  order.programmePlacements?.find(
-                    (entry) =>
-                      entry.materialId ===
-                        valueAt(currentMaterials, id).materialId &&
-                      entry.chapterId === null,
-                  )?.id ??
-                  sourceUuid(
-                    `${sourceKey(pkg.manifest, product.sourceId)}:programme:${id}`,
-                  ),
-                materialId: valueAt(currentMaterials, id).materialId,
-                chapterId: null,
-                stepGroup: null,
-              }))
-            : product.chapters.flatMap((chapter, chapterIndex) => {
-                /** @type {Map<string, number>} */
-                const occurrence = new Map();
-                return chapter.materialIds.map((id) => {
-                  const count = (occurrence.get(id) ?? 0) + 1;
-                  occurrence.set(id, count);
-                  return {
-                    id:
-                      order.programmePlacements?.filter(
-                        (entry) =>
-                          entry.materialId ===
-                            valueAt(currentMaterials, id).materialId &&
-                          entry.chapterId ===
-                            (chapters[chapterIndex]?.id ?? null),
-                      )[count - 1]?.id ??
-                      sourceUuid(
-                        `${sourceKey(pkg.manifest, product.sourceId)}:chapter:${chapter.sourceId}:placement:${id}:${String(count)}`,
-                      ),
-                    materialId: valueAt(currentMaterials, id).materialId,
-                    chapterId: chapters[chapterIndex]?.id ?? null,
-                    stepGroup: null,
-                  };
-                });
-              });
         // The composition write locks the order it read; the topics the preview verified must be
         // the ones it reads, so an edit made after the review stops the release here.
         const reviewedTopicState = reviewedTopics[sourceId(product.sourceId)];

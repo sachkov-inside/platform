@@ -1,12 +1,8 @@
 import type { Route } from "next";
+import { type ReaderCourseAnchor } from "@/shared/routing/reader-course-anchor";
 import {
-  anchoredMaterialHref,
-  parseReaderCourseAnchor,
-  type ReaderCourseAnchor,
-} from "@/shared/routing/reader-course-anchor";
-import {
-  courseReadingContext,
-  programmeStepLink,
+  resolveCourseReading,
+  courseBodyLinkHref,
   type CourseReadingContext,
   type ProductChapter,
 } from "@/features/library-discovery";
@@ -107,50 +103,25 @@ export function resolveProductReaderContext({
       (placementId === undefined || entry.placementId === placementId),
   );
   const programmeHref = productProgrammeHref(product.reference.slug);
-  const primaryProgramme =
+  const resolution =
     product.chapters === undefined || product.chapters.length === 0
       ? undefined
-      : courseReadingContext({
+      : resolveCourseReading({
           product: { ...product, chapters: product.chapters },
           current: { kind: "material", slug: currentMaterialSlug, placementId },
           referenceView,
           returnTarget,
+          anchor,
         });
   const supplementary =
-    referenceView ||
-    (primaryProgramme === undefined && flatIndex < 0) ||
-    primaryProgramme === null ||
-    primaryProgramme?.activeReferenceId !== undefined;
-  const anchoredProgramme =
-    supplementary && anchor !== undefined
-      ? courseReadingContext({
-          product: { ...product, chapters: product.chapters ?? [] },
-          current: anchor,
-          returnTarget,
-        })
-      : primaryProgramme;
-  // Without an anchor the primary context already carries its own reference selection.
-  const reference =
-    supplementary && anchor !== undefined
-      ? primaryProgramme?.references?.find(
-          (item) => item.slug === currentMaterialSlug,
-        )
-      : undefined;
+    resolution?.supplementary ?? (referenceView || flatIndex < 0);
   const programme =
-    anchoredProgramme == null || reference === undefined
-      ? anchoredProgramme
-      : {
-          ...anchoredProgramme,
-          activeReferenceId: reference.id,
-        };
-  if (
-    programme === null ||
-    (supplementary &&
-      anchor !== undefined &&
-      (programme?.current.availability !== "available" ||
-        programme.currentPosition === 0))
-  )
-    return null;
+    resolution === undefined
+      ? supplementary && anchor !== undefined
+        ? null
+        : undefined
+      : resolution.programme;
+  if (programme === null) return null;
 
   return {
     ...(supplementary
@@ -212,13 +183,7 @@ export function readerBodyLinkHref(
 ): Route | undefined {
   const programme = productContext?.programme;
   if (programme == null) return undefined;
-  const step = programmeStepLink(programme, href);
-  if (step !== undefined) return step.href;
-  const anchor =
-    programme.currentPosition === 0
-      ? undefined
-      : parseReaderCourseAnchor(programme.current.id);
-  return anchoredMaterialHref(href, programme.href, anchor, true);
+  return courseBodyLinkHref(programme, href);
 }
 
 function toContextItem(

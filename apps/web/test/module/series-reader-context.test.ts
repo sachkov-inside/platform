@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { selectCourseNavigation } from "@/features/library-discovery/model/course-navigation-selection";
 
 import {
   readerBodyLinkHref,
@@ -459,4 +460,73 @@ describe("body links inside a course document", () => {
       });
     }
   });
+});
+
+it("server confirmation preserves the browser's repeated position and originating step", () => {
+  const firstId = "00000000-0000-4000-8000-000000000001";
+  const secondId = "00000000-0000-4000-8000-000000000002";
+  const product = {
+    kind: "ready" as const,
+    reference: { name: "Course", slug: "platform-inside" },
+    chapters: [
+      {
+        id: "main",
+        name: "Chapter",
+        summary: "",
+        materialIds: ["lesson"],
+        supplementaryMaterialIds: ["reference"],
+      },
+    ],
+    programmePlacements: [firstId, secondId].map((id) => ({
+      id,
+      materialId: "lesson",
+      chapterId: "main",
+      stepGroup: null,
+    })),
+    items: [
+      { materialId: "lesson", slug: "lesson", title: "Lesson" },
+      { materialId: "reference", slug: "reference", title: "Reference" },
+    ],
+  };
+  const first = resolveProductReaderContext({
+    currentMaterialSlug: "lesson",
+    placementId: firstId,
+    product,
+    returnTarget: selectedProduct,
+  })?.programme;
+  if (first == null) throw new Error("The first programme position is missing");
+  const second = resolveProductReaderContext({
+    currentMaterialSlug: "lesson",
+    placementId: secondId,
+    product,
+    returnTarget: selectedProduct,
+  })?.programme;
+  if (second == null)
+    throw new Error("The second programme position is missing");
+  expect(selectCourseNavigation(first, `material:lesson:${secondId}`)).toEqual(
+    second,
+  );
+  expect(second.currentPosition).toBe(2);
+  expect(second.previous?.id).toBe(`material:lesson:${firstId}`);
+  expect(second.next).toBeNull();
+  const reference = resolveProductReaderContext({
+    currentMaterialSlug: "reference",
+    product,
+    returnTarget: selectedProduct,
+    anchor: { kind: "material", slug: "lesson", placementId: secondId },
+  });
+  expect(reference).toMatchObject({
+    supplementary: true,
+    next: null,
+    previous: null,
+  });
+  expect(selectCourseNavigation(second, "reference:reference")).toEqual(
+    reference?.programme,
+  );
+  expect(
+    selectCourseNavigation(
+      reference?.programme ?? first,
+      `material:lesson:${firstId}`,
+    ),
+  ).toEqual(first);
 });

@@ -1,6 +1,11 @@
 import type { Route } from "next";
 import { internalRoute } from "@/shared/routing/internal-route";
-import { materialLinkSlug } from "@/shared/routing/reader-course-anchor";
+import {
+  anchoredMaterialHref,
+  parseReaderCourseAnchor,
+  type ReaderCourseAnchor,
+  materialLinkSlug,
+} from "@/shared/routing/reader-course-anchor";
 import { placeChapterTasks } from "@/entities/product-task.model";
 import {
   materialReaderHref,
@@ -10,6 +15,11 @@ import {
   productProgrammeHref,
   productTaskHref,
 } from "@/shared/routing/subscription-route";
+import {
+  resolveCourseNavigation,
+  isMaterialStep,
+  selectCourseNavigation,
+} from "./course-navigation-selection";
 import type { ProductChapter } from "./library-discovery-view";
 
 export interface CourseReadingStep {
@@ -108,12 +118,7 @@ interface CourseSource {
 }
 
 /** Client-safe presentation only: no personal history, tokens or backend DTOs escape this mapping. */
-export function courseReadingContext({
-  product,
-  current,
-  returnTarget,
-  referenceView = false,
-}: {
+interface CourseReadingRequest {
   readonly product: CourseSource;
   readonly current:
     | {
@@ -124,7 +129,26 @@ export function courseReadingContext({
     | { readonly kind: "task"; readonly code: string };
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly referenceView?: boolean;
-}): CourseReadingContext | null {
+  readonly anchor?: ReaderCourseAnchor | undefined;
+}
+
+export function courseReadingContext(
+  request: CourseReadingRequest,
+): CourseReadingContext | null {
+  return resolveCourseReading(request).programme;
+}
+
+/** Includes whether the displayed document is outside the primary sequence, even for an invalid placement. */
+export function resolveCourseReading({
+  product,
+  current,
+  returnTarget,
+  referenceView = false,
+  anchor,
+}: CourseReadingRequest): {
+  readonly programme: CourseReadingContext | null;
+  readonly supplementary: boolean;
+} {
   const programmeHref = productProgrammeHref(product.reference.slug);
   const href =
     returnTarget?.href.split("?")[0] === programmeHref
@@ -246,53 +270,36 @@ export function courseReadingContext({
       };
     },
   );
-  const steps = chapters.flatMap((chapter) => chapter.steps);
-  const stepIndex = steps.findIndex((step) =>
-    current.kind === "material"
-      ? isMaterialStep(step, current.slug) &&
-        (current.placementId === undefined ||
-          step.placementId === current.placementId)
-      : step.id === `task:${current.code}`,
-  );
-  const position = referenceView ? -1 : stepIndex;
-  // A programme step opened for reference stays selected in its chapter without claiming a position;
-  // a chapter attachment keeps its attachment row.
-  const attached =
-    referenceView &&
-    current.kind === "material" &&
-    chapters.some(
-      (chapter) =>
-        chapter.references?.some((item) => item.slug === current.slug) === true,
-    );
-  const programmeStep = attached ? undefined : steps[stepIndex];
-  const reference =
-    programmeStep !== undefined || current.kind !== "material"
-      ? undefined
-      : references.find((item) => item.id === `reference:${current.slug}`);
-  const referenceItem = publishedItems.find(
-    (item) => item.slug === reference?.slug,
-  );
-  const step =
-    programmeStep ??
-    (reference === undefined
-      ? undefined
-      : {
-          ...reference,
-          kind: "material" as const,
-          availability: referenceItem?.availability ?? "available",
-        });
-  const chapter =
-    chapters.find((entry) =>
-      entry.steps.some((entryStep) => entryStep.id === programmeStep?.id),
-    ) ??
-    (reference === undefined
-      ? undefined
-      : (chapters.find(
-          (entry) =>
-            entry.references?.some((item) => item.id === reference.id) === true,
-        ) ?? chapters[0]));
-  if (step === undefined || chapter === undefined) return null;
-  return {
+  const primary = resolveCourseNavigation({
+    chapters,
+    references,
+    items: publishedItems,
+    current,
+    referenceView,
+  });
+  const supplementary =
+    referenceView ||
+    primary === null ||
+    primary.activeReferenceId !== undefined;
+  const selection =
+    supplementary && anchor !== undefined
+      ? resolveCourseNavigation({
+          chapters,
+          references,
+          items: publishedItems,
+          current: anchor,
+          referenceView: false,
+        })
+      : primary;
+  if (
+    selection === null ||
+    (supplementary &&
+      anchor !== undefined &&
+      (selection.current.availability !== "available" ||
+        selection.currentPosition === 0))
+  )
+    return { programme: null, supplementary };
+  const context: CourseReadingContext = {
     name: product.reference.name,
     href,
     courseHref: programmeHref,
@@ -301,23 +308,27 @@ export function courseReadingContext({
     materialHrefs: publishedItems.map((item) =>
       materialReaderHref(item.slug, href),
     ),
-    ...(reference === undefined ? {} : { activeReferenceId: reference.id }),
-    current: step,
-    currentChapterId: chapter.id,
-    currentPosition: position + 1,
-    totalSteps: steps.length,
+    ...selection,
+    totalSteps: chapters.reduce(
+      (total, chapter) => total + chapter.steps.length,
+      0,
+    ),
     totalMaterials: new Set(placements.map((entry) => entry.materialId)).size,
-    previous: steps[position - 1] ?? null,
-    next: position < 0 ? null : (steps[position + 1] ?? null),
   };
-}
-
-/** Every placement of a Material in the programme is one of its steps. */
-function isMaterialStep(step: CourseReadingStep, slug: string): boolean {
-  return (
-    step.kind === "material" &&
-    (step.id === `material:${slug}` || step.id.startsWith(`material:${slug}:`))
-  );
+  const reference =
+    supplementary &&
+    anchor !== undefined &&
+    primary !== null &&
+    current.kind === "material"
+      ? references.find((item) => item.slug === current.slug)
+      : undefined;
+  return {
+    programme:
+      reference === undefined
+        ? context
+        : selectCourseNavigation(context, reference.id),
+    supplementary,
+  };
 }
 
 /**
@@ -383,4 +394,18 @@ export function originatingStepId(
   return context.activeReferenceId !== undefined && context.currentPosition > 0
     ? context.current.id
     : undefined;
+}
+
+/** Body links choose a programme position before inheriting an originating step as a reference. */
+export function courseBodyLinkHref(
+  context: CourseReadingContext,
+  href: string,
+): Route | undefined {
+  const step = programmeStepLink(context, href);
+  if (step !== undefined) return step.href;
+  const anchor =
+    context.currentPosition === 0
+      ? undefined
+      : parseReaderCourseAnchor(context.current.id);
+  return anchoredMaterialHref(href, context.href, anchor, true);
 }

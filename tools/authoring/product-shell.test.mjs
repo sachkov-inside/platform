@@ -13,7 +13,8 @@ import {
   loadPackage,
   manifestSchema,
 } from "./package.mjs";
-import { productChapters, syncLocal } from "./local-sync.mjs";
+import { syncLocal } from "./local-sync.mjs";
+import { productChapters } from "./product-composition.mjs";
 import { applyRelease, previewRelease } from "./release.mjs";
 import { resolveLocalTarget } from "./target.mjs";
 import { sourceUuid } from "./markdown.mjs";
