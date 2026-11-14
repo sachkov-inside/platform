@@ -9,8 +9,9 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import styles from "./lesson-finish.module.css";
 
+/** The card's main button: graphite, and across the whole card on a phone. */
 const primaryAction =
-  "ml-auto inline-flex min-h-12 max-w-full items-center gap-2 rounded-full bg-lesson-graphite px-4 font-medium @[16rem]/finish:px-6 text-lesson-graphite-foreground no-underline transition-colors duration-(--motion-duration-fast) hover:bg-lesson-graphite-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none";
+  "inline-flex min-h-12 max-w-full items-center justify-center gap-2 rounded-full bg-lesson-graphite px-6 text-base font-semibold text-lesson-graphite-foreground no-underline shadow-(--elevation-card) transition-colors duration-(--motion-duration-fast) hover:bg-lesson-graphite-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none max-sm:order-first max-sm:w-full sm:ml-auto sm:min-w-40";
 
 /** What the finish card leads to inside a course; outside a course the card has no actions. */
 export interface LessonFinishActions {

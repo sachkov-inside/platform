@@ -45,7 +45,7 @@ export function MaterialExerciseFrame({
       aria-label={heading}
       data-material-exercise={kind}
       {...(kind === "quiz" ? { "data-material-quiz": "" } : {})}
-      className="my-6 rounded-xl p-4 text-sm leading-[1.55] sm:my-8 sm:p-6 sm:text-base [&_p]:min-h-0 [&_p]:mt-3 [&_p:first-child]:mt-0"
+      className="my-6 rounded-xl p-4 text-lesson leading-[1.55] sm:my-8 sm:p-6 [&_p]:min-h-0 [&_p]:mt-3 [&_p:first-child]:mt-0"
     >
       <h2
         data-quiz-heading
@@ -59,7 +59,7 @@ export function MaterialExerciseFrame({
         </div>
       )}
       <div
-        className="mt-2 font-semibold text-foreground sm:text-[1.0625rem]"
+        className="mt-2 font-semibold text-foreground"
         data-exercise-question
       >
         {question}

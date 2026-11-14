@@ -14,6 +14,8 @@ import {
   type ItemResult,
 } from "./exercise-feedback";
 import { MaterialExerciseFrame } from "./material-exercise-frame";
+import { exerciseCheckButtonClass } from "./exercise-check-button";
+import { cn } from "@/shared/lib/utils";
 
 /** Prepared reading content shared by Reader and its stories. */
 export interface MaterialQuizPresentation {
@@ -154,7 +156,7 @@ interface ChoiceProps extends MaterialQuizPresentation {
 }
 
 const optionClass =
-  "relative flex min-h-11 w-full gap-2.5 rounded-lg border border-lesson-line bg-card px-3 py-2.5 text-left text-sm leading-[1.5] sm:px-4 sm:text-base";
+  "relative flex min-h-11 w-full gap-2.5 rounded-lg border border-lesson-line bg-card px-3 py-2.5 text-left text-lesson leading-[1.5] sm:px-4";
 
 /** Content cell of an option: clicks pass to the option, links and «Почему» stay clickable. */
 const optionContentClass =
@@ -338,7 +340,7 @@ function MultipleChoice({
         <div className="mt-3 flex flex-wrap gap-2">
           <Button
             type="button"
-            className="min-h-11"
+            className={cn("min-h-11", exerciseCheckButtonClass)}
             disabled={selected.length === 0}
             onClick={() => {
               onCheck(selected);

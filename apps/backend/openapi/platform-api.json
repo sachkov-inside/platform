@@ -278,6 +278,10 @@
                 ],
                 "type": "string"
               },
+              "language": {
+                "minLength": 1,
+                "type": "string"
+              },
               "text": {
                 "type": "string"
               }
@@ -1674,6 +1678,10 @@
                 "enum": [
                   "code_block"
                 ],
+                "type": "string"
+              },
+              "language": {
+                "minLength": 1,
                 "type": "string"
               },
               "text": {
@@ -3074,6 +3082,10 @@
                 ],
                 "type": "string"
               },
+              "language": {
+                "minLength": 1,
+                "type": "string"
+              },
               "text": {
                 "type": "string"
               }
@@ -4470,6 +4482,10 @@
                 "enum": [
                   "code_block"
                 ],
+                "type": "string"
+              },
+              "language": {
+                "minLength": 1,
                 "type": "string"
               },
               "text": {

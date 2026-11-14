@@ -8,10 +8,12 @@ import { Maximize2 } from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 import { hasText } from "@/shared/lib/text";
+import { cn } from "@/shared/lib/utils";
 
 import type { ViewerSize } from "../model/image-viewer-view";
 import { MaterialImageDelivery } from "./material-image-delivery.client";
 import { MaterialImageViewer } from "./material-image-viewer.client";
+import { NARROW_SCREEN, zoomControlClassName } from "./zoom-control";
 
 /**
  * The figure starts its animation once this share of it, or of the screen height for a figure
@@ -144,13 +146,34 @@ export function MaterialSvgFigure({
     );
   }
 
+  const zoomable = figure.kind === "inline" && viewerSize !== undefined;
+  const openViewer = () => {
+    if (figure.kind !== "inline") return;
+    setViewerSrc(
+      URL.createObjectURL(
+        new Blob([figure.markup], { type: SVG_CONTENT_TYPE }),
+      ),
+    );
+  };
   const play: CSSProperties & Record<string, string> = {
     "--fig-play": playing ? "running" : "paused",
   };
   return (
     <div
-      className="group relative"
+      className={cn("relative", zoomable && "max-md:cursor-zoom-in")}
       data-svg-figure={figure.kind === "inline" ? "inline" : "loading"}
+      onClick={(event) => {
+        // On a phone a scaled-down figure is hard to read: a tap opens it large. Wider screens
+        // keep the click for selecting the figure's text.
+        if (
+          !zoomable ||
+          (event.target instanceof Node &&
+            trigger.current?.contains(event.target) === true) ||
+          !window.matchMedia(NARROW_SCREEN).matches
+        )
+          return;
+        openViewer();
+      }}
       ref={frame}
       style={{ aspectRatio: `${String(width)} / ${String(height)}` }}
     >
@@ -181,7 +204,7 @@ export function MaterialSvgFigure({
           />
         </noscript>
       ) : null}
-      {figure.kind === "inline" && viewerSize !== undefined ? (
+      {zoomable ? (
         <button
           aria-haspopup="dialog"
           aria-label={
@@ -189,15 +212,10 @@ export function MaterialSvgFigure({
               ? `Открыть изображение крупно: ${alt}`
               : "Открыть изображение крупно"
           }
-          className="absolute top-2 right-2 z-10 flex size-8 cursor-zoom-in items-center justify-center rounded-full bg-background/85 text-foreground shadow-card outline-none transition-opacity duration-(--motion-duration-fast) focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
-          onClick={() => {
-            setViewerSrc(
-              URL.createObjectURL(
-                new Blob([figure.markup], { type: SVG_CONTENT_TYPE }),
-              ),
-            );
-          }}
+          className={zoomControlClassName}
+          onClick={openViewer}
           ref={trigger}
+          title="Открыть крупно"
           type="button"
         >
           <Maximize2 aria-hidden="true" className="size-4" />

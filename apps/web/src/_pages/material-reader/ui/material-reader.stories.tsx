@@ -548,9 +548,12 @@ export const Mobile: Story = {
     const readerBody =
       canvasElement.querySelector<HTMLElement>("[data-reader-body]");
     if (readerBody === null) throw new Error("Reader structure is missing");
-    await expect(getComputedStyle(heading).fontSize).toBe("22px");
-    await expect(getComputedStyle(readerBody).fontSize).toBe("15px");
-    await expect(getComputedStyle(readerBody).lineHeight).toBe("24.75px");
+    // One reading size and the narrow heading scale (owner, 14.11.2026, variant 2A).
+    await expect(getComputedStyle(heading).fontSize).toBe("26px");
+    await expect(getComputedStyle(readerBody).fontSize).toBe("17px");
+    await expect(
+      Number.parseFloat(getComputedStyle(readerBody).lineHeight),
+    ).toBeCloseTo(28.05, 1);
     for (const name of ["Действия материала", "Действия в конце материала"]) {
       const panel = canvas.getByRole("navigation", { name });
       const mark = within(panel).queryByRole("link", { name: "Изучено" });
@@ -579,7 +582,7 @@ export const Mobile: Story = {
           level: 2,
         }),
       ).fontSize,
-    ).toBe("18px");
+    ).toBe("22px");
     await expect(
       canvas.queryByRole("list", { name: "Теги материала" }),
     ).not.toBeInTheDocument();
@@ -697,7 +700,13 @@ export const Desktop: Story = {
       level: 3,
     });
     if (video === null) throw new Error("Primary video is missing");
-    await expect(getComputedStyle(title).fontSize).toBe("28px");
+    // The wide heading scale (owner, 14.11.2026, variant 2A): h1 34, h2 26, h3 21, text 17.
+    await expect(getComputedStyle(title).fontSize).toBe("34px");
+    await expect(getComputedStyle(h2).fontSize).toBe("26px");
+    await expect(getComputedStyle(h3).fontSize).toBe("21px");
+    const body = canvasElement.querySelector<HTMLElement>("[data-reader-body]");
+    if (body === null) throw new Error("Reader body is missing");
+    await expect(getComputedStyle(body).fontSize).toBe("17px");
     await expect(
       Boolean(
         title.compareDocumentPosition(video) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -723,6 +732,12 @@ export const ImageViewer: Story = {
     const trigger = canvas.getByRole("button", {
       name: `Открыть изображение крупно: ${readerImageAlt}`,
     });
+    const picture = canvas.getByRole("img", { name: readerImageAlt });
+    // The zoom control sits below the picture and never covers a corner of it.
+    await expect(trigger).toBeVisible();
+    await expect(trigger.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      picture.getBoundingClientRect().bottom - 0.5,
+    );
     await userEvent.click(trigger);
     const viewer = within(
       await canvas.findByRole("dialog", {
