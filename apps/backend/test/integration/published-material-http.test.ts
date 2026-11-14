@@ -309,11 +309,13 @@ describe("published Material HTTP contract", () => {
     }
     const productBody = product.json<{
       readonly catalogueTopics: readonly unknown[];
+      readonly roadmapUpdatedOn: string | null;
       readonly kind: string;
       readonly items: readonly { readonly slug: string }[];
     }>();
     expect(productBody.kind).toBe("product");
     expect(productBody.catalogueTopics).toEqual([]);
+    expect(productBody.roadmapUpdatedOn).toBeNull();
     expect(productBody.items.map(({ slug }) => slug)).toEqual([
       "kak-ustroen-inside-platform",
       "developer-pipeline-bez-poteri-konteksta",

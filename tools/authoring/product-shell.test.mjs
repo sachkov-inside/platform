@@ -156,6 +156,8 @@ function platform({ stored = true } = {}) {
       },
     ],
     compositions: 0,
+    /** @type {unknown} The course roadmap (#2141); `null` when none is stored */
+    roadmap: null,
   };
   const version = () =>
     checksum(canonical({ items: state.items, chapters: state.chapters }));
@@ -203,6 +205,15 @@ function platform({ stored = true } = {}) {
           chapters: structuredClone(state.chapters),
           programmePlacements: structuredClone(state.programmePlacements),
         };
+      if (path === `/authoring/products/${productId}/roadmap`) {
+        if (options.method === "PUT")
+          state.roadmap = z
+            .object({ roadmap: z.unknown() })
+            .strict()
+            .parse(body).roadmap;
+        else assert.equal(body, undefined);
+        return { productId, roadmap: structuredClone(state.roadmap) };
+      }
       if (path === "/authoring/import/products/composition") {
         const command = compositionSchema.parse(body);
         assert.equal(
@@ -655,4 +666,83 @@ test("a shell leaves an unfinished Material write alone and says so", async (t) 
   const report = await sync(setup, api);
   assert.ok(report.notices.some((notice) => notice.code === "journal_pending"));
   assert.equal(api.count(/materials\/(reserve|apply|validate)/u), 0);
+});
+
+test("a shell release carries the course roadmap and writes it after the chapters", async (t) => {
+  const setup = await fixture(t);
+  await journalWithLesson(setup.state);
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = ["product-roadmap-v1"];
+  setup.manifest.selection.taskIds = [];
+  itemAt(setup.manifest.products, 0).roadmap = {
+    updatedOn: "2026-11-13",
+    chapters: [
+      { chapterId: "chapter-0", status: "done" },
+      {
+        chapterId: "chapter-1",
+        status: "writing",
+        upcomingLessons: [{ title: "Следующий урок", state: "soon" }],
+      },
+    ],
+  };
+  await setup.write();
+  const api = platform();
+  const origin = resolveLocalTarget("editor");
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    origin,
+    request: api.request,
+  });
+  assert.equal(itemAt(reviewed.preview.products, 0).roadmapChange, true);
+
+  await applyRelease(reviewed.path, setup.state, { request: api.request });
+  assert.deepEqual(api.state.roadmap, {
+    updatedOn: "2026-11-13",
+    chapters: [
+      {
+        chapterId: sourceChapterId("chapter-0"),
+        status: "done",
+        upcomingLessons: [],
+      },
+      {
+        chapterId: sourceChapterId("chapter-1"),
+        status: "writing",
+        upcomingLessons: [{ title: "Следующий урок", state: "soon" }],
+      },
+    ],
+  });
+  const paths = api.calls.map((call) => `${call.method} ${call.path}`);
+  assert.ok(
+    paths.lastIndexOf(`PUT /authoring/products/${productId}/roadmap`) >
+      paths.lastIndexOf("POST /authoring/import/products/composition"),
+  );
+
+  // The settled shell writes nothing more.
+  const settled = await previewRelease(setup.packagePath, setup.state, {
+    origin,
+    request: api.request,
+  });
+  assert.equal(itemAt(settled.preview.products, 0).change, "unchanged");
+  assert.equal(itemAt(settled.preview.products, 0).roadmapChange, undefined);
+  await sync(setup, api, { reviewed: false });
+  assert.equal(api.calls.filter((call) => call.method === "PUT").length, 1);
+});
+
+test("a new product's shell preview reports its roadmap without reading one", async (t) => {
+  const setup = await fixture(t);
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = ["product-roadmap-v1"];
+  setup.manifest.selection.taskIds = [];
+  itemAt(setup.manifest.products, 0).roadmap = {
+    updatedOn: "2026-11-13",
+    chapters: [],
+  };
+  await setup.write();
+  const api = platform({ stored: false });
+  const { preview } = await previewRelease(setup.packagePath, setup.state, {
+    origin: resolveLocalTarget("editor"),
+    request: api.request,
+  });
+  assert.equal(itemAt(preview.products, 0).change, "new");
+  assert.equal(itemAt(preview.products, 0).roadmapChange, true);
+  assert.equal(api.count(/\/roadmap$/u), 0);
 });

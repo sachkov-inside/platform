@@ -38,6 +38,8 @@ export function stubMaterialAuthoring(
     searchMaterials: () => Promise.resolve(forbiddenAuthoringResult),
     updateChapterAttachments: () => Promise.resolve(forbiddenAuthoringResult),
     updateProductTopics: () => Promise.resolve(forbiddenAuthoringResult),
+    loadProductRoadmap: () => Promise.resolve(forbiddenAuthoringResult),
+    updateProductRoadmap: () => Promise.resolve(forbiddenAuthoringResult),
     saveMaterial: () => Promise.resolve(forbiddenAuthoringResult),
     setContentCollectionArchive: () =>
       Promise.resolve(forbiddenAuthoringResult),

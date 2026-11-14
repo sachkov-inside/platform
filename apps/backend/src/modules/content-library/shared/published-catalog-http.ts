@@ -121,6 +121,12 @@ const productChapterHttpSchema = z
     supplementaryMaterialIds: z.array(z.uuid()).optional(),
     name: z.string(),
     summary: z.string(),
+    roadmapStatus: z.enum(["done", "writing", "planned"]).nullable(),
+    upcomingLessons: z.array(
+      z
+        .object({ title: z.string(), state: z.enum(["writing", "soon"]) })
+        .strict(),
+    ),
     tasks: z.array(productChapterTaskHttpSchema),
   })
   .strict();
@@ -150,6 +156,8 @@ export const publishedDiscoveryPageHttpSchema = z
       )
       .optional(),
     catalogueTopics: z.array(productCatalogueTopicHttpSchema).optional(),
+    /** Calendar date of the Product roadmap's last update; Product pages only. */
+    roadmapUpdatedOn: z.iso.date().nullable().optional(),
     chapters: z.array(productChapterHttpSchema),
     hasNext: z.boolean(),
     items: z.array(publishedCatalogItemHttpSchema),
@@ -166,6 +174,7 @@ export const publishedProductPageHttpSchema =
   publishedDiscoveryPageHttpSchema.extend({
     kind: z.literal("product"),
     catalogueTopics: z.array(productCatalogueTopicHttpSchema),
+    roadmapUpdatedOn: z.iso.date().nullable(),
   });
 export const relatedPublishedMaterialsHttpSchema =
   publishedDiscoveryPageHttpSchema.extend({ kind: z.literal("related") });

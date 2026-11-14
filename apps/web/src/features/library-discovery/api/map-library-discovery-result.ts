@@ -74,8 +74,26 @@ const productChapterSchema = z
     summary: z.string().default(""),
     // Задания главы (#947); ответ без них — глава без заданий.
     tasks: z.array(productChapterTaskSchema).default([]),
+    // Дорожная карта курса (#2141); без статуса страница выводит его сама.
+    roadmapStatus: z.enum(["done", "writing", "planned"]).nullable().optional(),
+    upcomingLessons: z
+      .array(
+        z
+          .object({ title: z.string(), state: z.enum(["writing", "soon"]) })
+          .strict(),
+      )
+      .optional(),
   })
-  .strict();
+  .strict()
+  .transform(({ roadmapStatus, upcomingLessons, ...chapter }) => ({
+    ...chapter,
+    ...(roadmapStatus === null || roadmapStatus === undefined
+      ? {}
+      : { roadmapStatus }),
+    ...(upcomingLessons === undefined || upcomingLessons.length === 0
+      ? {}
+      : { upcomingLessons }),
+  }));
 const catalogueTopicSchema = z
   .object({
     id: z.uuid(),
@@ -124,6 +142,8 @@ export function mapLibraryDiscoveryResult<
     .object({
       // Темы курса приходят только со страницей продукта (#2022).
       catalogueTopics: z.array(catalogueTopicSchema).optional(),
+      // День обновления дорожной карты курса (#2141); `null` — дорожной карты нет.
+      roadmapUpdatedOn: z.iso.date().nullable().optional(),
       chapters: z.array(productChapterSchema).default([]),
       programmePlacements: z
         .array(
@@ -171,6 +191,10 @@ export function mapLibraryDiscoveryResult<
           ),
     slug: parsed.data.reference.slug,
     summary: parsed.data.reference.summary,
+    ...(parsed.data.roadmapUpdatedOn === null ||
+    parsed.data.roadmapUpdatedOn === undefined
+      ? {}
+      : { roadmapUpdatedOn: parsed.data.roadmapUpdatedOn }),
   };
   if (parsed.data.items.length === 0 && discoveryKind !== "topic") {
     return {
