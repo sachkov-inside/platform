@@ -1,5 +1,4 @@
 import type { MaterialExerciseNumber } from "@inside/material-blocks";
-import { CircleHelp } from "lucide-react";
 import type { ReactNode } from "react";
 
 /** «Упражнение 2 из 4»; without a known position, just «Упражнение». */
@@ -17,7 +16,8 @@ export function exerciseAnchor(exerciseId: string): string {
 }
 
 /**
- * Shared frame of every Lesson Exercise: heading, the situation and the question. `updated`
+ * Shared frame of every Lesson Exercise: a quiet «Упражнение N из M», the situation and the
+ * question. `updated`
  * marks a past answer to an older version; `note` is the answer source's line under it.
  */
 export function MaterialExerciseFrame({
@@ -45,28 +45,28 @@ export function MaterialExerciseFrame({
       aria-label={heading}
       data-material-exercise={kind}
       {...(kind === "quiz" ? { "data-material-quiz": "" } : {})}
-      className="my-6 rounded-xl border p-3 text-sm leading-[1.55] sm:my-8 sm:p-5 sm:text-base [&_p]:min-h-0 [&_p]:mt-3 [&_p:first-child]:mt-0"
+      className="my-6 rounded-xl p-4 text-sm leading-[1.55] sm:my-8 sm:p-6 sm:text-base [&_p]:min-h-0 [&_p]:mt-3 [&_p:first-child]:mt-0"
     >
       <h2
         data-quiz-heading
-        className="flex items-center gap-2 text-sm font-semibold sm:text-base"
+        className="text-sm font-medium text-muted-foreground"
       >
-        <span className="grid size-6 shrink-0 sm:size-8 place-items-center rounded-lg bg-lesson-graphite text-lesson-graphite-foreground">
-          <CircleHelp aria-hidden="true" className="size-4 sm:size-5" />
-        </span>
         {heading}
       </h2>
       {context === undefined ? null : (
-        <div className="mt-3 text-muted-foreground" data-exercise-context>
+        <div className="mt-2 text-muted-foreground" data-exercise-context>
           {context}
         </div>
       )}
-      <div className="mt-3" data-exercise-question>
+      <div
+        className="mt-2 font-semibold text-foreground sm:text-[1.0625rem]"
+        data-exercise-question
+      >
         {question}
       </div>
       {updated ? (
         <p
-          className="mt-3 rounded-lg border border-lesson-line bg-card px-3 py-2 text-sm"
+          className="mt-3 rounded-lg bg-card px-3 py-2 text-sm"
           data-exercise-updated
           role="status"
         >

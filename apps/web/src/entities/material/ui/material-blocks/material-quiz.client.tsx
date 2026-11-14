@@ -1,13 +1,18 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
-import { Check, RotateCcw, X } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
   useExerciseAnswer,
   type ExerciseAnswerRecord,
 } from "../../model/exercise-answers.client";
-import { ExerciseDontKnowReview, ExerciseVerdict } from "./exercise-feedback";
+import {
+  ExerciseDontKnowReview,
+  ExerciseVerdictBar,
+  ItemExplanation,
+  ItemResultMark,
+  type ItemResult,
+} from "./exercise-feedback";
 import { MaterialExerciseFrame } from "./material-exercise-frame";
 
 /** Prepared reading content shared by Reader and its stories. */
@@ -29,6 +34,8 @@ export interface MaterialQuizPresentation {
   };
 }
 
+type QuizOption = MaterialQuizPresentation["options"][number];
+
 /** Correct only when the chosen set equals the correct set; order does not matter. */
 function quizResult(
   options: MaterialQuizPresentation["options"],
@@ -42,8 +49,28 @@ function quizResult(
 }
 
 /**
- * A quiz of a lesson. A checked answer stays on screen with its explanations until the reader
- * presses «Ответить ещё раз»; answers come from the exercise answer source (#2121 stores them).
+ * How an option reads after a check. A chosen option is right or wrong; a correct option the reader
+ * left out of a set, or the key after «Не знаю», reads as «missed». Other options stay neutral, so
+ * a wrong single choice does not give the key away.
+ */
+function quizOptionResult(
+  option: QuizOption,
+  selectionMode: MaterialQuizPresentation["selectionMode"],
+  answered: ExerciseAnswerRecord | null,
+  chosen: readonly string[],
+): ItemResult | undefined {
+  if (answered === null) return undefined;
+  if (answered.result === "dontKnow")
+    return option.correct ? "missed" : undefined;
+  if (chosen.includes(option.id))
+    return option.correct ? "correct" : "incorrect";
+  return selectionMode === "multiple" && option.correct ? "missed" : undefined;
+}
+
+/**
+ * A quiz of a lesson. A checked answer stays on screen, its options tinted green or red with the
+ * author's explanations folded under them, until the reader presses «Ответить ещё раз»; answers
+ * come from the exercise answer source (#2121 stores them).
  */
 export function MaterialQuiz(props: MaterialQuizPresentation) {
   const state = useExerciseAnswer(props.id);
@@ -51,6 +78,28 @@ export function MaterialQuiz(props: MaterialQuizPresentation) {
   const answered = state.current;
   const chosen =
     answered?.answer.kind === "options" ? answered.answer.optionIds : [];
+  const onCheck = (optionIds: readonly string[]) => {
+    state.answer({
+      answer: { kind: "options", optionIds: [...optionIds] },
+      result: quizResult(props.options, optionIds),
+    });
+  };
+  const dontKnowButton =
+    props.dontKnow === undefined || answered !== null ? null : (
+      <Button
+        type="button"
+        className="min-h-11 px-2.5 text-sm sm:px-3"
+        variant="ghost"
+        onClick={() => {
+          state.answer({
+            answer: { kind: "dontKnow" },
+            result: "dontKnow",
+          });
+        }}
+      >
+        Не знаю
+      </Button>
+    );
   return (
     <MaterialExerciseFrame
       exerciseId={props.id}
@@ -67,60 +116,32 @@ export function MaterialQuiz(props: MaterialQuizPresentation) {
           quizId={quizId}
           answered={answered}
           chosen={chosen}
-          onCheck={(optionIds) => {
-            state.answer({
-              answer: { kind: "options", optionIds: [...optionIds] },
-              result: quizResult(props.options, optionIds),
-            });
-          }}
+          onCheck={onCheck}
+          dontKnowButton={dontKnowButton}
         />
       ) : (
-        <SingleChoice
-          {...props}
-          quizId={quizId}
-          answered={answered}
-          chosen={chosen}
-          onCheck={(optionIds) => {
-            state.answer({
-              answer: { kind: "options", optionIds: [...optionIds] },
-              result: quizResult(props.options, optionIds),
-            });
-          }}
-        />
+        <>
+          <SingleChoice
+            {...props}
+            quizId={quizId}
+            answered={answered}
+            chosen={chosen}
+            onCheck={onCheck}
+          />
+          {dontKnowButton === null ? null : (
+            <div className="mt-3 flex flex-wrap gap-2">{dontKnowButton}</div>
+          )}
+        </>
       )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        {props.dontKnow === undefined || answered !== null ? null : (
-          <Button
-            type="button"
-            className="min-h-11 px-2.5 text-sm sm:px-3"
-            variant="ghost"
-            onClick={() => {
-              state.answer({
-                answer: { kind: "dontKnow" },
-                result: "dontKnow",
-              });
-            }}
-          >
-            Не знаю
-          </Button>
-        )}
-        {answered === null ? null : (
-          <Button
-            type="button"
-            className="min-h-11 px-2.5 text-sm sm:px-3"
-            variant="ghost"
-            onClick={state.retry}
-          >
-            <RotateCcw aria-hidden="true" className="size-4" />
-            Ответить ещё раз
-          </Button>
-        )}
-      </div>
-      <div aria-live="polite" id={`${quizId}-feedback`}>
-        {answered === null ? null : (
-          <QuizFeedback {...props} answered={answered} chosen={chosen} />
-        )}
-      </div>
+      <ExerciseVerdictBar
+        feedbackId={`${quizId}-feedback`}
+        answered={answered}
+        onRetry={state.retry}
+      >
+        {answered?.result === "dontKnow" && props.dontKnow !== undefined ? (
+          <ExerciseDontKnowReview dontKnow={props.dontKnow} />
+        ) : null}
+      </ExerciseVerdictBar>
     </MaterialExerciseFrame>
   );
 }
@@ -132,9 +153,48 @@ interface ChoiceProps extends MaterialQuizPresentation {
   readonly onCheck: (optionIds: readonly string[]) => void;
 }
 
+const optionClass =
+  "relative flex min-h-11 w-full gap-2.5 rounded-lg border border-lesson-line bg-card px-3 py-2.5 text-left text-sm leading-[1.5] sm:px-4 sm:text-base";
+
+/** Content cell of an option: clicks pass to the option, links and «Почему» stay clickable. */
+const optionContentClass =
+  "pointer-events-none relative min-w-0 flex-1 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_summary]:pointer-events-auto";
+
+/** The option's text and, after a check, its folded explanation and its mark. */
+function OptionBody({
+  option,
+  labelId,
+  markId,
+  result,
+  explained,
+}: {
+  readonly option: QuizOption;
+  readonly labelId: string;
+  readonly markId: string;
+  readonly result: ItemResult | undefined;
+  readonly explained: boolean;
+}) {
+  return (
+    <>
+      <div className={optionContentClass}>
+        <div id={labelId}>{option.content}</div>
+        {explained && option.explanation !== undefined ? (
+          <ItemExplanation>{option.explanation}</ItemExplanation>
+        ) : null}
+      </div>
+      {result === undefined ? null : (
+        <span id={markId} className="relative mt-1 self-start">
+          <ItemResultMark result={result} />
+        </span>
+      )}
+    </>
+  );
+}
+
 /** One click answers: the chosen option turns green or red at once. */
 function SingleChoice({
   options,
+  selectionMode,
   quizId,
   answered,
   chosen,
@@ -143,25 +203,33 @@ function SingleChoice({
   return (
     <div className="mt-4 space-y-2" role="group" aria-label="Выберите ответ">
       {options.map((option, index) => {
+        const result = quizOptionResult(
+          option,
+          selectionMode,
+          answered,
+          chosen,
+        );
+        const markId = `${quizId}-mark-${String(index)}`;
         const isChosen = chosen.includes(option.id);
-        const optionResult = !isChosen
-          ? undefined
-          : option.correct
-            ? "correct"
-            : "incorrect";
+        const described = [
+          result === undefined ? undefined : markId,
+          isChosen ? `${quizId}-feedback` : undefined,
+        ].filter((id) => id !== undefined);
         return (
           <div
             key={option.id}
             data-quiz-option
-            data-result={optionResult}
-            className="relative flex min-h-11 w-full gap-2 rounded-lg border border-lesson-line bg-card px-2.5 py-2 pr-8 text-left text-sm leading-[1.5] sm:px-3 sm:pr-9 sm:text-base"
+            data-result={result}
+            className={optionClass}
           >
             <button
               type="button"
               aria-pressed={isChosen}
               disabled={answered !== null}
               aria-labelledby={`${quizId}-number-${String(index)} ${quizId}-option-${String(index)}`}
-              aria-describedby={isChosen ? `${quizId}-feedback` : undefined}
+              aria-describedby={
+                described.length === 0 ? undefined : described.join(" ")
+              }
               onClick={() => {
                 onCheck([option.id]);
               }}
@@ -169,24 +237,17 @@ function SingleChoice({
             />
             <span
               id={`${quizId}-number-${String(index)}`}
-              className="pointer-events-none relative font-semibold"
+              className="pointer-events-none relative tabular-nums text-muted-foreground"
             >
-              {index + 1}.
+              {index + 1}
             </span>
-            <div
-              id={`${quizId}-option-${String(index)}`}
-              className="pointer-events-none relative min-w-0 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_summary]:pointer-events-auto"
-            >
-              {option.content}
-            </div>
-            {optionResult === undefined ? null : optionResult === "correct" ? (
-              <Check
-                aria-hidden="true"
-                className="absolute right-3 top-3 size-4"
-              />
-            ) : (
-              <X aria-hidden="true" className="absolute right-3 top-3 size-4" />
-            )}
+            <OptionBody
+              option={option}
+              labelId={`${quizId}-option-${String(index)}`}
+              markId={markId}
+              result={result}
+              explained={result !== undefined}
+            />
           </div>
         );
       })}
@@ -194,78 +255,90 @@ function SingleChoice({
   );
 }
 
-/** Several correct options: the reader picks a set and checks it with «Проверить». */
+/**
+ * Several correct options: the reader picks a set and checks it with «Проверить». A quiet
+ * «Несколько ответов» tells that more than one option may be right.
+ */
 function MultipleChoice({
   options,
+  selectionMode,
   quizId,
   answered,
   chosen,
   onCheck,
-}: ChoiceProps) {
+  dontKnowButton,
+}: ChoiceProps & { readonly dontKnowButton: ReactNode }) {
   const [selected, setSelected] = useState<readonly string[]>([]);
   const shown = answered === null ? selected : chosen;
   return (
     <>
-      <fieldset className="mt-4 min-w-0 space-y-2" disabled={answered !== null}>
-        <legend className="mb-2 text-sm text-muted-foreground">
-          Выбери все подходящие варианты.
+      {/* Each box is turned off on its own: a disabled fieldset would also keep «Почему» shut. */}
+      <fieldset className="mt-4 min-w-0 space-y-2">
+        <legend className="mb-2 text-xs text-muted-foreground sm:text-sm">
+          Несколько ответов
         </legend>
-        {options.map((option, index) => (
-          <label
-            key={option.id}
-            htmlFor={`${quizId}-option-${String(index)}`}
-            data-quiz-option
-            className="relative flex min-h-11 w-full cursor-pointer items-start gap-2 rounded-lg border border-lesson-line bg-card px-2.5 py-2 text-left text-sm leading-[1.5] sm:px-3 sm:text-base"
-          >
-            <input
-              type="checkbox"
-              id={`${quizId}-option-${String(index)}`}
-              checked={shown.includes(option.id)}
-              aria-labelledby={`${quizId}-label-${String(index)}`}
-              aria-describedby={
-                answered === null
-                  ? undefined
-                  : `${quizId}-explanation-${String(index)}`
-              }
-              className="relative mt-1 size-4 shrink-0 accent-lesson-graphite focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              onChange={(event) => {
-                setSelected(
-                  event.target.checked
-                    ? [...selected, option.id]
-                    : selected.filter((id) => id !== option.id),
-                );
-              }}
-            />
-            <div className="pointer-events-none relative min-w-0 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_summary]:pointer-events-auto">
-              <div id={`${quizId}-label-${String(index)}`}>
-                {option.content}
-              </div>
-              {answered === null ? null : (
-                <div
-                  id={`${quizId}-explanation-${String(index)}`}
-                  className="mt-2 text-sm"
+        {options.map((option, index) => {
+          const result = quizOptionResult(
+            option,
+            selectionMode,
+            answered,
+            chosen,
+          );
+          const markId = `${quizId}-mark-${String(index)}`;
+          const inputId = `${quizId}-option-${String(index)}`;
+          // The label covers the whole option, so a click anywhere ticks the box; «Почему» lies
+          // outside it, above its cover, because a label would take that click.
+          return (
+            <div
+              key={option.id}
+              data-quiz-option
+              data-result={result}
+              className={`${optionClass} items-start${answered === null ? " hover:bg-secondary/50" : ""}`}
+            >
+              <input
+                type="checkbox"
+                id={inputId}
+                checked={shown.includes(option.id)}
+                disabled={answered !== null}
+                aria-labelledby={`${quizId}-label-${String(index)}`}
+                aria-describedby={result === undefined ? undefined : markId}
+                className="relative mt-1 size-4 shrink-0 accent-lesson-graphite focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                onChange={(event) => {
+                  setSelected(
+                    event.target.checked
+                      ? [...selected, option.id]
+                      : selected.filter((id) => id !== option.id),
+                  );
+                }}
+              />
+              <div className="min-w-0 flex-1">
+                <label
+                  htmlFor={inputId}
+                  id={`${quizId}-label-${String(index)}`}
+                  className={`block after:absolute after:inset-0 after:rounded-lg [&_a]:relative [&_a]:z-[1]${answered === null ? " cursor-pointer" : ""}`}
                 >
-                  <p className="flex items-center gap-1 font-semibold">
-                    {option.correct ? (
-                      <Check aria-hidden="true" className="size-4" />
-                    ) : (
-                      <X aria-hidden="true" className="size-4" />
-                    )}
-                    {option.correct ? "Подходит" : "Не подходит"}
-                  </p>
-                  {option.explanation === undefined ? null : (
-                    <div className="mt-1">{option.explanation}</div>
-                  )}
-                </div>
+                  {option.content}
+                </label>
+                {answered !== null && option.explanation !== undefined ? (
+                  <div className="relative z-[1]">
+                    <ItemExplanation>{option.explanation}</ItemExplanation>
+                  </div>
+                ) : null}
+              </div>
+              {result === undefined ? null : (
+                <span id={markId} className="relative mt-1 self-start">
+                  <ItemResultMark result={result} />
+                </span>
               )}
             </div>
-          </label>
-        ))}
+          );
+        })}
       </fieldset>
       {answered !== null ? null : (
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap gap-2">
           <Button
             type="button"
+            className="min-h-11"
             disabled={selected.length === 0}
             onClick={() => {
               onCheck(selected);
@@ -274,50 +347,9 @@ function MultipleChoice({
           >
             Проверить
           </Button>
+          {dontKnowButton}
         </div>
       )}
     </>
-  );
-}
-
-function QuizFeedback({
-  selectionMode,
-  options,
-  dontKnow,
-  answered,
-  chosen,
-}: MaterialQuizPresentation & {
-  readonly answered: ExerciseAnswerRecord;
-  readonly chosen: readonly string[];
-}) {
-  const correct = options.filter((option) => option.correct);
-  const selected = options.find((option) => option.id === chosen[0]);
-  return (
-    <div className="mt-3 border-t border-border pt-3" data-quiz-feedback>
-      <ExerciseVerdict result={answered.result} />
-      {answered.result === "dontKnow" ? (
-        <>
-          {/* Several correct options are marked beside each option already. */}
-          {selectionMode === "multiple" ? null : (
-            <>
-              <p className="mt-2 text-sm font-semibold">Правильный ответ:</p>
-              {correct.map((option) => (
-                <div key={option.id} className="mt-1">
-                  {option.content}
-                  {option.explanation === undefined ? null : (
-                    <div className="mt-2">{option.explanation}</div>
-                  )}
-                </div>
-              ))}
-            </>
-          )}
-          {dontKnow === undefined ? null : (
-            <ExerciseDontKnowReview dontKnow={dontKnow} />
-          )}
-        </>
-      ) : selectionMode === "single" && selected?.explanation !== undefined ? (
-        <div className="mt-2">{selected.explanation}</div>
-      ) : null}
-    </div>
   );
 }

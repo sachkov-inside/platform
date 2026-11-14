@@ -14,6 +14,13 @@ function MultipleQuiz(props: MaterialQuizPresentation) {
   return <MaterialQuiz {...props} />;
 }
 
+/** The colour of every option after a check, read from its `data-result`. */
+function optionResults(canvasElement: HTMLElement): readonly (string | null)[] {
+  return [
+    ...canvasElement.querySelectorAll<HTMLElement>("[data-quiz-option]"),
+  ].map((option) => option.getAttribute("data-result"));
+}
+
 const labels = [
   "Приглашать сотрудников и управлять их доступом",
   "Хранить проекты со всеми их репозиториями",
@@ -63,7 +70,12 @@ export const MultipleEmpty: Story = {
     await expect(
       quiz.getByRole("button", { name: "Проверить" }),
     ).toBeDisabled();
-    await expect(quiz.queryByText("Не подходит", { exact: true })).toBeNull();
+    await expect(
+      quiz.getByText("Несколько ответов", { exact: true }),
+    ).toBeVisible();
+    await expect(quiz.queryByText(/Выбери все/u)).toBeNull();
+    await expect(quiz.queryByText("Почему")).toBeNull();
+    await expect(optionResults(canvasElement)).toEqual(Array(6).fill(null));
     await expect(quiz.getAllByRole("checkbox")).toHaveLength(6);
   },
 };
@@ -85,9 +97,23 @@ export const MultiplePartial: Story = {
     await userEvent.click(first);
     await userEvent.click(quiz.getByRole("button", { name: "Проверить" }));
     await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
-    await expect(
-      quiz.getAllByText("Не подходит", { exact: true }),
-    ).toHaveLength(2);
+    // Green for the chosen right option, dashed green for the right ones left out, the rest neutral.
+    await expect(optionResults(canvasElement)).toEqual([
+      "correct",
+      "missed",
+      "missed",
+      "missed",
+      null,
+      null,
+    ]);
+    await expect(quiz.queryByText("Не подходит", { exact: true })).toBeNull();
+    await expect(quiz.getAllByText("Почему", { exact: true })).toHaveLength(6);
+    const explanation = quiz.getAllByText("Входит в первую версию.")[0];
+    await expect(explanation).not.toBeVisible();
+    const why = quiz.getAllByText("Почему", { exact: true })[0];
+    if (why === undefined) throw new Error("Missing «Почему»");
+    await userEvent.click(why);
+    await expect(explanation).toBeVisible();
   },
 };
 export const MultipleExtra: Story = {
@@ -97,6 +123,19 @@ export const MultipleExtra: Story = {
       await userEvent.click(checkbox);
     await userEvent.click(quiz.getByRole("button", { name: "Проверить" }));
     await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
+    await expect(optionResults(canvasElement)).toEqual([
+      "correct",
+      "correct",
+      "correct",
+      "correct",
+      "incorrect",
+      null,
+    ]);
+    // The colour is for the eye; a screen reader hears the verdict beside each mark.
+    await expect(quiz.getAllByText("Верно", { exact: true })).toHaveLength(4);
+    await expect(quiz.getByText("Неверно", { exact: true })).toHaveClass(
+      "sr-only",
+    );
   },
 };
 export const MultipleDontKnow: Story = {
@@ -104,9 +143,14 @@ export const MultipleDontKnow: Story = {
     const quiz = within(canvasElement);
     await userEvent.click(quiz.getByRole("button", { name: "Не знаю" }));
     await expect(quiz.getByText("Не знаю · без оценки")).toBeVisible();
-    await expect(
-      quiz.getAllByText("Не подходит", { exact: true }),
-    ).toHaveLength(2);
+    await expect(optionResults(canvasElement)).toEqual([
+      "missed",
+      "missed",
+      "missed",
+      "missed",
+      null,
+      null,
+    ]);
     await expect(quiz.getAllByText("Входит в первую версию.")).toHaveLength(4);
     await expect(
       quiz.getByRole("link", { name: "Повторить раздел" }),
@@ -128,7 +172,7 @@ export const MultipleAnswerAgain: Story = {
     await userEvent.click(
       quiz.getByRole("button", { name: "Ответить ещё раз" }),
     );
-    await expect(quiz.queryByText("Не подходит", { exact: true })).toBeNull();
+    await expect(optionResults(canvasElement)).toEqual(Array(6).fill(null));
     await expect(quiz.queryByText("Не знаю · без оценки")).toBeNull();
     await userEvent.click(first);
     await userEvent.click(quiz.getByRole("button", { name: "Проверить" }));
