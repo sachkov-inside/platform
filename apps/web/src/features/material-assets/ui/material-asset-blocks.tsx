@@ -10,6 +10,34 @@ import {
 import { materialAssetFileHref } from "../api/material-asset-file-href";
 import { FileText } from "lucide-react";
 
+import { cn } from "@/shared/lib/utils";
+
+/**
+ * The caption row under a figure. A zoomable figure hangs its zoom control at the right of this
+ * row, so the row keeps room for it even without a caption.
+ */
+export function MaterialFigureCaption({
+  caption,
+  zoomable,
+}: {
+  readonly caption?: string | undefined;
+  readonly zoomable: boolean;
+}) {
+  if (caption === undefined)
+    return zoomable ? <div aria-hidden="true" className="h-11" /> : null;
+  return (
+    <figcaption
+      className={cn(
+        "py-2 text-center text-sm text-muted-foreground",
+        // Equal side room keeps the caption centred beside the zoom control.
+        zoomable ? "flex min-h-11 items-center justify-center px-12" : "px-2",
+      )}
+    >
+      {caption}
+    </figcaption>
+  );
+}
+
 export function MaterialAssetImage({
   alt,
   assetId,
@@ -115,11 +143,7 @@ export function MaterialAssetImage({
         imageVariants={sources}
         preview={preview}
       />
-      {caption === undefined ? null : (
-        <figcaption className="px-2 py-2 text-center text-sm text-muted-foreground">
-          {caption}
-        </figcaption>
-      )}
+      <MaterialFigureCaption caption={caption} zoomable={zoomable} />
     </figure>
   );
 }

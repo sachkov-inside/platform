@@ -127,6 +127,8 @@ async function fixture(
               cacheScope: "private-no-store" as const,
               projection: selectedProjection,
               body,
+              glossaryTerms: [],
+              lessonTerms: [],
               primaryVideo:
                 options.video === undefined || options.video === "missing"
                   ? null

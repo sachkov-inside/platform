@@ -2,11 +2,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
+import { z } from "zod";
 import {
   readerBlocksSchema,
+  renderMaterialBlocks,
   renderedBlockSchema,
 } from "@inside/material-blocks";
 import { convertMarkdown } from "./markdown.mjs";
+import { contentExerciseBlocks } from "./test-support.mjs";
 
 const options = {
   sourcePath: "chapter/lesson.md",
@@ -46,20 +49,28 @@ test("callout signs survive document serialization with titles and nested Markdo
   assert.match(JSON.stringify(reopened), /"collapse":"expanded"/u);
 });
 
-test("real authoring constructs preserve variant placement, bold code, tables and example fences", () => {
+test("real authoring constructs preserve bold code, tables and example fences", () => {
   const doc = convert(
-    "Introduction **`command`**.\n\n> [!variant-example] Учебный проект\n> Example\n\nShared step.\n\n> [!variant-own] Свой проект\n> Own project\n\n| A | B |\n|---|---|\n| One | Two |\n\n> [!example]- Example\n> ```text\n> literal\n> ```\n",
+    "Introduction **`command`**.\n\nShared step.\n\n| A | B |\n|---|---|\n| One | Two |\n\n> [!example]- Example\n> ```text\n> literal\n> ```\n",
   );
   assert.deepEqual(
     doc.content.map((node) => node.type),
-    ["paragraph", "variant", "paragraph", "variant", "table", "callout"],
+    ["paragraph", "paragraph", "table", "callout"],
   );
   const code = doc.content[0]?.content?.find((node) => node.text === "command");
   assert.deepEqual(
     new Set(code?.marks?.map((mark) => mark.type)),
     new Set(["bold", "code"]),
   );
-  assert.equal(doc.content[5]?.content?.[0]?.type, "codeBlock");
+  assert.equal(doc.content[3]?.content?.[0]?.type, "codeBlock");
+});
+
+test("a variant callout is refused: the reading modes were retired (#2119)", () => {
+  for (const kind of ["variant-example", "variant-own"])
+    assert.throws(
+      () => convert(`> [!${kind}] Шаг\n> Text`),
+      new RegExp(`unsupported callout: ${kind}`, "u"),
+    );
 });
 
 test("a practice task keeps the reader's own block and drops the repeated name", () => {
@@ -102,6 +113,39 @@ test("soft line breaks merge adjacent equal-mark text without dropping author wo
       JSON.stringify(materialDocumentSchemaV1.nodeFromJSON(doc).toJSON()),
     ),
     doc,
+  );
+});
+
+test("hard line breaks become line text the document schema and the reader both accept", () => {
+  // Two trailing spaces and a trailing backslash are CommonMark hard breaks. The material schema
+  // has no hard break node, so the import keeps the author's words apart as a soft line break.
+  for (const markdown of [
+    "One line  \nsecond **bold**  \nthird.",
+    "One line\\\nsecond **bold**\\\nthird.",
+  ]) {
+    const doc = convert(markdown);
+    assert.deepEqual(doc.content[0]?.content, [
+      { type: "text", text: "One line\nsecond " },
+      { type: "text", text: "bold", marks: [{ type: "bold" }] },
+      { type: "text", text: "\nthird." },
+    ]);
+    assert.doesNotThrow(() =>
+      renderMaterialBlocks(z.array(z.json()).parse(doc.content)),
+    );
+  }
+  const [, quiz] = contentExerciseBlocks();
+  assert.equal(quiz?.kind, "quiz");
+  const snapshot = convertMarkdown("Text", {
+    ...options,
+    readerBlocks: [
+      { kind: "markdown", markdown: "## Раздел\n\nBefore  \nthe quiz.\n" },
+      { ...quiz, questionMarkdown: "Which step  \nfails?" },
+    ],
+  });
+  materialDocumentSchemaV1.nodeFromJSON(snapshot.doc).check();
+  assert.match(
+    JSON.stringify(snapshot.doc),
+    /"text":"Which step"\},\{"kind":"text","marks":\[\],"text":"\\n"\}/u,
   );
 });
 
@@ -194,70 +238,115 @@ for (const sourceSrc of [
   });
 }
 
-test("readerBlocks preserve narrative and typed quiz instead of the raw answer key", () => {
+test("readerBlocks keep narrative, exercises and a step break in place instead of the raw source", () => {
   const body = convertMarkdown("RAW ANSWER KEY", {
     ...options,
-    readerBlocks: [
-      { kind: "markdown", markdown: "## Раздел\n\nДо вопроса" },
-      {
-        kind: "quiz",
-        id: "question-1",
-        promptMarkdown: "Какой результат?",
-        correctOptionId: "option-2",
-        options: [
-          {
-            id: "option-1",
-            markdown: "Первый",
-            explanationMarkdown: "Неверно. Причина",
-          },
-          {
-            id: "option-2",
-            markdown: "Второй",
-            explanationMarkdown: "Верно. Причина",
-          },
-        ],
-        dontKnow: {
-          explanationMarkdown: "Повторите раздел",
-          reviewLinks: ["#раздел"],
-        },
-      },
-      { kind: "markdown", markdown: "## Дальше\n\nПосле вопроса" },
-    ],
+    readerBlocks: contentExerciseBlocks(),
   });
+  materialDocumentSchemaV1.nodeFromJSON(body.doc).check();
   assert.deepEqual(
     body.doc.content.map((node) => node.type),
-    ["heading", "paragraph", "quiz", "heading", "paragraph"],
+    [
+      "heading",
+      "paragraph",
+      "quiz",
+      "stepBreak",
+      "match",
+      "order",
+      "heading",
+      "paragraph",
+    ],
   );
+  assert.deepEqual(body.doc.content[3]?.attrs?.["label"], "Что дальше?");
   assert.doesNotMatch(JSON.stringify(body), /RAW ANSWER KEY/u);
 });
 
-test("multiple-answer conversion keeps the complete key without legacy key", () => {
-  const readerBlocks = readerBlocksSchema.parse([
-    { kind: "markdown", markdown: "## Scope" },
-    {
-      kind: "quiz",
-      id: "features",
-      selectionMode: "multiple",
-      correctOptionIds: ["a", "b"],
-      promptMarkdown: "Which features?",
-      options: ["a", "b", "c"].map((id) => ({
-        id,
-        markdown: id,
-        explanationMarkdown: `Reason ${id}`,
-      })),
-      dontKnow: {
-        explanationMarkdown: "Review scope.",
-        reviewLinks: ["#scope"],
+test("an exercise keeps its author ids, key and every explanation as rendered blocks", () => {
+  const body = convertMarkdown("raw", {
+    ...options,
+    readerBlocks: contentExerciseBlocks(),
+  });
+  const [quiz, match, order] = [2, 4, 5].map((index) =>
+    renderedBlockSchema.parse(body.doc.content[index]?.attrs?.["exercise"]),
+  );
+  /** @param {string} text */
+  const rich = (text) => [
+    { kind: "paragraph", content: [{ kind: "text", text, marks: [] }] },
+  ];
+  assert.deepEqual(quiz, {
+    kind: "quiz",
+    id: "rag-wrong-platform",
+    reveal: "after-answer",
+    context: rich("Ситуация."),
+    question: rich("На каком шаге ошибка?"),
+    selectionMode: "single",
+    options: [
+      {
+        id: "embed",
+        content: rich("Эмбеддинг."),
+        correct: false,
+        explanation: rich("Почему нет."),
       },
+      { id: "prompt", content: rich("Промпт."), correct: true },
+    ],
+    dontKnow: {
+      explanation: [
+        {
+          kind: "paragraph",
+          content: [
+            { kind: "text", text: "Перечитай ", marks: [] },
+            {
+              kind: "text",
+              text: "раздел",
+              // markdown-it percent-encodes the fragment; anchors compare decoded.
+              marks: [
+                { kind: "link", href: `#${encodeURIComponent("раздел")}` },
+              ],
+            },
+            { kind: "text", text: ".", marks: [] },
+          ],
+        },
+      ],
+      reviewLinks: ["#раздел"],
     },
-  ]);
-  const body = convertMarkdown("raw", { ...options, readerBlocks });
-  const quiz = renderedBlockSchema.parse(body.doc.content[1]?.attrs?.["quiz"]);
-  assert.equal(quiz.kind, "quiz");
-  if (quiz.kind !== "quiz") throw new Error("Missing quiz");
-  assert.deepEqual(quiz.correctOptionIds, ["a", "b"]);
-  assert.equal(quiz.selectionMode, "multiple");
-  assert.equal(Object.hasOwn(quiz, "correctOptionId"), false);
+  });
+  assert.equal(match?.kind, "match");
+  if (match?.kind !== "match") throw new Error("Missing match");
+  assert.deepEqual(
+    match.rows.map((row) => [row.id, row.answerId]),
+    [
+      ["plan", "plan-role"],
+      ["code", "code-role"],
+      ["test", "test-role"],
+    ],
+  );
+  assert.deepEqual(match.rows[0]?.explanation, rich("Почему plan."));
+  assert.equal(order?.kind, "order");
+  if (order?.kind !== "order") throw new Error("Missing order");
+  assert.deepEqual(
+    order.steps.map((step) => step.id),
+    ["spec", "code", "ship"],
+  );
+});
+
+test("readerBlocks refuse a repeated exercise id and a step break at the edge", () => {
+  const blocks = contentExerciseBlocks();
+  assert.throws(() =>
+    readerBlocksSchema.parse([...blocks.slice(0, 2), blocks[1]]),
+  );
+  assert.throws(() =>
+    readerBlocksSchema.parse([
+      { kind: "step-break", label: "Дальше" },
+      ...blocks,
+    ]),
+  );
+  assert.throws(() =>
+    readerBlocksSchema.parse([
+      ...blocks.slice(0, 3),
+      { kind: "step-break", label: "Ещё" },
+      ...blocks.slice(3),
+    ]),
+  );
 });
 
 test("video fence places the primary recording between prose with its context", () => {
@@ -275,5 +364,35 @@ test("video fence places the primary recording between prose with its context", 
   ]);
   assert.throws(() =>
     convert('```video\n{"providerVideoId":"another-recording"}\n```'),
+  );
+});
+
+test("a term mention stays a term: link and a definition card names only its term", () => {
+  const doc = convert(
+    "Граница [ограниченного контекста](term:bounded-context).\n\n> [!definition] term:bounded-context\n\n> [!definition] Своё определение\n> Текст автора.",
+  );
+  assert.deepEqual(doc.content[0]?.content?.[1], {
+    type: "text",
+    text: "ограниченного контекста",
+    marks: [{ type: "link", attrs: { href: "term:bounded-context" } }],
+  });
+  assert.equal(doc.content[1]?.type, "termDefinition");
+  assert.equal(doc.content[1]?.attrs?.["termId"], "bounded-context");
+  assert.equal(doc.content[2]?.type, "callout");
+  assert.equal(doc.content[2]?.attrs?.["kind"], "definition");
+});
+
+test("a definition card refuses its own text and a malformed term", () => {
+  assert.throws(
+    () => convert("> [!definition] term:bounded-context\n> Лишний текст"),
+    /definition card takes its text from the Glossary/,
+  );
+  assert.throws(
+    () => convert("> [!definition] term:Bounded Context"),
+    /invalid term identifier/,
+  );
+  assert.throws(
+    () => convert("[контекст](term:Bounded)"),
+    /invalid term identifier/,
   );
 });

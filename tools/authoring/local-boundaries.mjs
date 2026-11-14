@@ -360,6 +360,31 @@ const taskValidationSchema = z
   })
   .strict();
 
+/** One stored Glossary Term, as `GET /authoring/glossary` lists it and the client writes it. */
+export const receiverGlossaryTermSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    englishTitle: z.string().nullable(),
+    shortDefinition: z.string(),
+    fullDefinition: z.string(),
+    introducedInSourceId: z.string().nullable(),
+  })
+  .strict();
+const glossaryCount = z.number().int().nonnegative();
+/** `GET /authoring/glossary` lists the whole Glossary. */
+const glossarySchema = z
+  .object({ terms: z.array(receiverGlossaryTermSchema) })
+  .strict();
+/** `PUT /authoring/glossary/terms` counts what it changed among the listed terms. */
+const glossaryUpsertSchema = z
+  .object({
+    created: glossaryCount,
+    updated: glossaryCount,
+    unchanged: glossaryCount,
+  })
+  .strict();
+
 const localResponseSchemas = {
   practiceReceipt: practiceReceiptSchema,
   practiceValidation: practiceValidationSchema,
@@ -385,6 +410,8 @@ const localResponseSchemas = {
   productArtifacts: productArtifactsSchema,
   artifact: artifactSchema,
   productOrder: productOrderSchema,
+  glossary: glossarySchema,
+  glossaryUpsert: glossaryUpsertSchema,
   productRoadmap: productRoadmapSchema,
 };
 
@@ -447,6 +474,10 @@ const localResponseSchemas = {
  *   ? "artifact"
  *   : P extends `/authoring/products/${string}/order`
  *   ? "productOrder"
+ *   : P extends "/authoring/glossary"
+ *   ? "glossary"
+ *   : P extends "/authoring/glossary/terms"
+ *   ? "glossaryUpsert"
  *   : P extends `/authoring/products/${string}/roadmap`
  *   ? "productRoadmap"
  *   : never} LocalResponseKindOf
@@ -512,6 +543,10 @@ export function localResponseKind(path) {
       return "order";
     case "/authoring/home-pin":
       return "homePin";
+    case "/authoring/glossary":
+      return "glossary";
+    case "/authoring/glossary/terms":
+      return "glossaryUpsert";
     default:
       if (
         /^\/authoring\/import\/materials\/state\?namespace=[^&]+$/u.test(path)

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
 import { useState, type ComponentProps } from "react";
+import { z } from "zod";
 import {
   expect,
   mocked,
@@ -168,11 +169,25 @@ const meta = {
     (Story, context) => {
       const view = context.args.learning;
       const read = view?.kind === "ready" ? view.read : 0;
+      // Уроки, обновлённые после того, как читатель их изучил (#2125), по номеру в списке.
+      const updated = z
+        .array(z.number().int())
+        .catch([])
+        .parse(context.parameters["updatedLessons"]);
       // Как и сервер, тестовый прогресс описывает каждый урок, иначе счётчик главы ждёт ответа.
       const states = new Map(
         materials.map((item, index) => [
           item.materialId ?? "",
-          { isRead: index < read, version: 1 },
+          {
+            isRead: index < read,
+            version: 1,
+            updateNote: updated.includes(index)
+              ? {
+                  whatChanged: "Переписан раздел о сборке промпта.",
+                  notedAt: "2026-10-12T08:00:00.000Z",
+                }
+              : null,
+          },
         ]),
       );
       return (
@@ -233,6 +248,33 @@ export const InProgress: Story = {
   },
 };
 export const Mobile: Story = {
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+/**
+ * The second lesson was updated after the reader studied it (#2125): its row says «обновлён»
+ * beside the studied check, which stays. Other studied lessons keep the plain check.
+ */
+export const UpdatedSinceStudied: Story = {
+  parameters: { updatedLessons: [1] },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("img", {
+        name: "Материал 2, изучен, обновлён после изучения",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("img", { name: "Материал 1, изучен" }),
+    ).toBeVisible();
+    const updated = canvasElement.querySelectorAll(
+      "[data-product-marker-updated]",
+    );
+    await expect(updated).toHaveLength(1);
+    await expect(updated[0]).toHaveTextContent("обновлён");
+  },
+};
+export const UpdatedSinceStudiedMobile: Story = {
+  ...UpdatedSinceStudied,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 const lockedResult = {

@@ -14,7 +14,7 @@ export function ProfileAvatar({
 }: {
   readonly avatar: AccountProfileAvatar | null;
   readonly displayName: string;
-  readonly size?: "large" | "small" | "header";
+  readonly size?: "large" | "small" | "header" | "reply";
   readonly fallback?: "initials" | "icon";
 }) {
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
@@ -23,7 +23,9 @@ export function ProfileAvatar({
       ? "size-20 shrink-0 text-xl sm:size-24 sm:text-2xl"
       : size === "header"
         ? "size-11 shrink-0 text-sm"
-        : "size-12 shrink-0 text-sm";
+        : size === "reply"
+          ? "size-8 shrink-0 text-xs"
+          : "size-12 shrink-0 text-sm";
   // Аватар видит только владелец профиля, поэтому картинка идёт через его собственный адрес.
   const imageBase =
     avatar === null
@@ -47,7 +49,9 @@ export function ProfileAvatar({
             ? "(min-width: 640px) 96px, 80px"
             : size === "header"
               ? "44px"
-              : "48px"
+              : size === "reply"
+                ? "32px"
+                : "48px"
         }
         src={imageUrl}
         srcSet={[160, 320, 640]

@@ -13,6 +13,7 @@ import {
 } from "@/shared/api/backend/index.server";
 import {
   contentCoverSchema,
+  glossaryTermSchema,
   renderedMaterialBodySchema,
 } from "@/entities/material.model";
 import { materialDifficultySchema } from "@/shared/api/material-lesson-facts";
@@ -47,6 +48,8 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
     cacheScope: z.enum(["public", "private-no-store"]),
     projection: projectionSchema,
     body: renderedMaterialBodySchema,
+    glossaryTerms: z.array(glossaryTermSchema),
+    lessonTerms: z.array(glossaryTermSchema),
     videoChapters: z
       .array(
         z
@@ -178,6 +181,8 @@ async function readPublishedMaterial(
             kind: "available",
             material,
             body: parsed.data.body.blocks,
+            glossaryTerms: parsed.data.glossaryTerms,
+            lessonTerms: parsed.data.lessonTerms,
             primaryVideo:
               parsed.data.primaryVideo === null
                 ? null

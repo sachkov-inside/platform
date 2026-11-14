@@ -1,0 +1,659 @@
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useEffect, useState } from "react";
+import { expect, userEvent, waitFor, within } from "storybook/test";
+import { z } from "zod";
+
+import {
+  exerciseFingerprint,
+  materialExercises,
+  type RenderedBlock,
+} from "@inside/material-blocks";
+import {
+  exerciseAttemptChanges,
+  LessonExerciseAttempts,
+  lessonExercises,
+} from "@/features/exercise-attempts";
+import {
+  lessonRatingChanges,
+  SavedLessonRating,
+} from "@/features/lesson-rating";
+import { LessonTermDeck } from "@/features/lesson-term-deck";
+import {
+  ReadingProgressProvider,
+  SavedReadingAction,
+} from "@/features/reading-progress";
+import { getQueryClient } from "@/shared/api/query-client";
+import {
+  materialReaderHref,
+  parseMaterialReaderReturnTarget,
+} from "@/shared/routing/material-reader";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import { contrast, luminance } from "@/storybook/contrast";
+import { expectPhoneLayout } from "@/storybook/phone-layout";
+import { accountPresentationResponse } from "@/storybook/account.fixtures";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
+import { publicPageEnvironment } from "@/storybook/story-environment";
+import { MaterialReaderView } from "./material-reader-view";
+
+const materialId = "02000000-0000-4000-8000-000000002118";
+const accountId = "20000000-0000-4000-8000-000000002118";
+
+const paragraph = (text: string): RenderedBlock => ({
+  kind: "paragraph",
+  content: [{ kind: "text", text, marks: [] }],
+});
+
+const body: RenderedBlock[] = [
+  paragraph("Проверка начинается с наблюдаемого поведения."),
+  {
+    kind: "quiz",
+    id: "observable-result",
+    reveal: "none",
+    question: [paragraph("Что лучше проверяет результат?")],
+    selectionMode: "single",
+    options: [
+      {
+        id: "visible",
+        content: [paragraph("Пользователь видит запись.")],
+        correct: true,
+      },
+      {
+        id: "stack",
+        content: [paragraph("Код написан на TypeScript.")],
+        correct: false,
+        explanation: [paragraph("Неверно. Это выбор инструмента.")],
+      },
+    ],
+  },
+];
+const [quiz] = materialExercises(body);
+if (quiz === undefined) throw new Error("The lesson needs its exercise");
+
+const term = {
+  id: "observable-behaviour",
+  title: "Наблюдаемое поведение",
+  englishTitle: null,
+  shortDefinition: "То, что видит пользователь.",
+  fullDefinition: "То, что видит пользователь системы.",
+};
+
+/** What the backend holds for the signed-in reader; another tab may change it. */
+const backend = {
+  rating: null as "like" | "dislike" | null,
+  attempts: [] as unknown[],
+  recorded: [] as string[],
+};
+
+function attempt(optionId: string) {
+  return {
+    exerciseId: quiz?.id,
+    fingerprint: quiz === undefined ? "" : exerciseFingerprint(quiz),
+    answer: { kind: "options", optionIds: [optionId] },
+    result: optionId === "visible" ? "correct" : "incorrect",
+    firstForVersion: true,
+    attemptedAt: "2026-11-13T09:00:00.000Z",
+  };
+}
+
+const body$ = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const raw = input instanceof Request ? await input.text() : init?.body;
+  return z
+    .record(z.string(), z.unknown())
+    .parse(JSON.parse(typeof raw === "string" ? raw : "{}"));
+};
+
+/** Who the shell has resolved; a story flips it to an Account after the reader answered. */
+const identity = new EventTarget();
+
+function ReaderIdentity({
+  initiallyResolved,
+  children,
+}: {
+  readonly initiallyResolved: boolean;
+  readonly children: React.ReactNode;
+}) {
+  const [resolved, setResolved] = useState(initiallyResolved);
+  useEffect(() => {
+    const resolve = () => {
+      setResolved(true);
+    };
+    identity.addEventListener("resolve", resolve);
+    return () => {
+      identity.removeEventListener("resolve", resolve);
+    };
+  }, []);
+  return (
+    <ReadingProgressProvider accountId={accountId} resolved={resolved}>
+      {children}
+    </ReadingProgressProvider>
+  );
+}
+
+const environment = publicPageEnvironment("/materials/lesson-end", {
+  account: "authenticated",
+});
+const meta = {
+  ...environment,
+  id: "pages-material-reader-lesson-end",
+  title: "Pages/Material Reader/Lesson End",
+  component: MaterialReaderView,
+  beforeEach: ({ parameters }) => {
+    getQueryClient().clear();
+    environment.beforeEach();
+    backend.rating = null;
+    backend.attempts = [];
+    backend.recorded = [];
+    return fetchBeforeRender(async (input, init) => {
+      const path = new URL(
+        input instanceof Request ? input.url : String(input),
+        window.location.origin,
+      ).pathname;
+      if (path === "/api/account") return accountPresentationResponse();
+      if (path === "/api/reading-progress/states") {
+        const { materialIds } = z
+          .object({ materialIds: z.array(z.string()) })
+          .parse(await body$(input, init));
+        return Response.json({
+          kind: "ready",
+          states: materialIds.map((id) => ({
+            materialId: id,
+            isRead: parameters["studied"] === true,
+            version: 0,
+            readAt: null,
+            updatedAt: null,
+            updateNote: null,
+            openedParts: null,
+          })),
+        });
+      }
+      if (path === "/api/lesson-ratings/query")
+        return Response.json({ kind: "ready", rating: backend.rating });
+      if (path === "/api/lesson-ratings/rating") {
+        const { rating } = z
+          .object({ rating: z.enum(["like", "dislike"]).nullable() })
+          .parse(await body$(input, init));
+        backend.rating = rating;
+        return Response.json({ kind: "ready", rating });
+      }
+      if (path === "/api/exercise-attempts/query")
+        return Response.json({ kind: "ready", attempts: backend.attempts });
+      if (path === "/api/exercise-attempts/attempt") {
+        const { answer } = z
+          .object({ answer: z.object({ optionIds: z.array(z.string()) }) })
+          .parse(await body$(input, init));
+        const [optionId = ""] = answer.optionIds;
+        backend.recorded.push(optionId);
+        const saved = attempt(optionId);
+        backend.attempts = [saved];
+        return Response.json({ kind: "ready", attempt: saved });
+      }
+      return Response.json({ kind: "unavailable" }, { status: 503 });
+    })();
+  },
+  decorators: [
+    (Story, context) => (
+      <ReaderIdentity
+        initiallyResolved={context.parameters["identityPending"] !== true}
+      >
+        <Story />
+      </ReaderIdentity>
+    ),
+    ...environment.decorators,
+  ],
+  args: {
+    body,
+    primaryVideo: null,
+    termDeck: <LessonTermDeck terms={[term]} />,
+    lessonRating: <SavedLessonRating materialId={materialId} />,
+    exerciseScope: (lesson) => (
+      <LessonExerciseAttempts
+        materialId={materialId}
+        exercises={lessonExercises(body)}
+        signInHref="/account"
+      >
+        {lesson}
+      </LessonExerciseAttempts>
+    ),
+    material: {
+      materialId,
+      contentVersion: 1,
+      access: "free",
+      cover: null,
+      format: { name: "Гайд", slug: "guide" },
+      difficulty: "basic",
+      outcomes: [],
+      publishedAt: "2026-11-13T09:00:00.000Z",
+      productMemberships: [],
+      slug: "lesson-end",
+      summary: "Учебная фикстура конца урока.",
+      tags: [],
+      title: "Результат и его проверка",
+      topic: { name: "AI-first engineering", slug: "ai-first-engineering" },
+    },
+  },
+} satisfies Meta<typeof MaterialReaderView>;
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+/** The finish card of the lesson; the page has one. */
+function finishCard(canvasElement: HTMLElement): HTMLElement {
+  const card = canvasElement.querySelector<HTMLElement>("[data-lesson-finish]");
+  if (card === null) throw new Error("The lesson finish card is missing");
+  return card;
+}
+
+/** Collects announcements of one fact channel while a story runs. */
+function heard(channel: {
+  subscribe: (on: (id: string) => void) => () => void;
+}) {
+  const ids: string[] = [];
+  channel.subscribe((id) => {
+    ids.push(id);
+  });
+  return ids;
+}
+
+/** Each write of the lesson end tells the reader's other open tabs. */
+export const WritesTellOtherTabs: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const ratings = heard(lessonRatingChanges(accountId));
+    const attempts = heard(exerciseAttemptChanges(accountId));
+
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /Пользователь видит запись/u }),
+    );
+    await waitFor(() => expect(attempts).toHaveLength(1));
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Понравился" }),
+    );
+    await waitFor(() => expect(ratings).toHaveLength(1));
+  },
+};
+
+/**
+ * Another tab rated the lesson and solved the exercise: this tab shows it after
+ * the announcement, so «Понравился» here does not remove a rating it never showed.
+ */
+export const FollowsAnotherTab: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const like = await canvas.findByRole("button", { name: "Понравился" });
+    await expect(like).toHaveAttribute("aria-pressed", "false");
+
+    backend.rating = "like";
+    backend.attempts = [attempt("visible")];
+    lessonRatingChanges(accountId).announce();
+    exerciseAttemptChanges(accountId).announce();
+
+    await waitFor(() => expect(like).toHaveAttribute("aria-pressed", "true"));
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("heading", { name: "Урок пройден" }),
+      ).toBeVisible(),
+    );
+  },
+};
+
+/** An answer given before the shell knows the reader is saved once it does. */
+export const AnswerBeforeIdentityIsSaved: Story = {
+  parameters: { identityPending: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /Пользователь видит запись/u }),
+    );
+    await expect(backend.recorded).toEqual([]);
+    identity.dispatchEvent(new Event("resolve"));
+    await waitFor(() => expect(backend.recorded).toEqual(["visible"]));
+  },
+};
+
+const programme = productProgrammeHref("ai-engineering");
+const courseContext = {
+  currentPosition: 2,
+  totalMaterials: 3,
+  product: { name: "AI Engineering", href: programme },
+  previous: {
+    title: "Первый урок",
+    href: materialReaderHref("first", programme),
+  },
+  next: {
+    title: "Следующий урок",
+    href: materialReaderHref("next", programme),
+  },
+};
+
+const unsolvedCount = "решено 0 из 1 упражнений, перейти к нерешённому";
+
+/**
+ * «Финиш урока» outside a course: one quiet card whose heading carries the exercise count, a quiet
+ * link to the unsolved exercise, and the rating; the open carousel «Термины урока» stands right
+ * before it, and the reading panel under it stays (owner correction 14.11.2026).
+ */
+export const FinishOutsideCourse: Story = {
+  play: async ({ canvasElement }) => {
+    const card = within(finishCard(canvasElement));
+    const heading = await card.findByRole("heading", {
+      name: /^Конец урока/u,
+    });
+    await expect(heading).toBeVisible();
+    // Seen: «Конец урока · упражнения 0 из 1»; heard: the count in plain words.
+    await expect(heading.innerText.replace(/\s+/gu, " ")).toMatch(
+      /^Конец урока · .*упражнения 0 из 1/u,
+    );
+    await expect(within(heading).getByText("упражнения 0 из 1")).toBeVisible();
+    await expectDarkFinish(canvasElement);
+    // Element boundaries may add a space before the comma; the words are what is heard.
+    await expect(heading).toHaveAccessibleName(
+      new RegExp(`^Конец урока ?, ${unsolvedCount}$`, "u"),
+    );
+    await expect(
+      within(heading).getByRole("link", { name: unsolvedCount }),
+    ).toHaveAttribute("href", `#exercise-${quiz.id}`);
+    // The count lives in the heading only: no separate row with dots or «Решить упражнение».
+    await expect(card.getAllByRole("link")).toHaveLength(1);
+    await expect(card.queryByText(/^Упражнения:/u)).toBeNull();
+    await expect(card.queryByText(/^Решить упражнение/u)).toBeNull();
+    await expect(
+      card.queryByRole("button", { name: /^Термины урока/u }),
+    ).toBeNull();
+    const terms = within(canvasElement).getByRole("region", {
+      name: "Термины урока",
+    });
+    await expect(terms).toBeVisible();
+    await expect(finishCard(canvasElement).contains(terms)).toBe(false);
+    await expect(
+      terms.compareDocumentPosition(finishCard(canvasElement)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(
+      await card.findByRole("group", { name: "Как вам урок?" }),
+    ).toBeVisible();
+    await expect(
+      within(canvasElement).getByRole("navigation", {
+        name: "Действия в конце материала",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(canvasElement)
+        .getByRole("navigation", { name: "Действия в конце материала" })
+        .closest("[data-lesson-finish]"),
+    ).toBeNull();
+  },
+};
+
+/**
+ * Inside a course the card replaces the reading panel under the lesson: «Изучено» and the main
+ * «Дальше»; «Назад» and «Сохранить» stay in the panel above the lesson.
+ */
+export const FinishInCourse: Story = {
+  args: {
+    returnTarget: parseMaterialReaderReturnTarget(programme),
+    productContext: courseContext,
+    readingAction: (
+      <SavedReadingAction compact format="guide" materialId={materialId} />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const ends = canvas.getAllByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    await expect(ends).toHaveLength(1);
+    const [end] = ends;
+    if (end === undefined) throw new Error("The finish actions are missing");
+    await expect(finishCard(canvasElement).contains(end)).toBe(true);
+    await expectDarkFinish(canvasElement);
+    await expect(
+      within(end).getByRole("link", { name: "Дальше" }),
+    ).toHaveAttribute("href", materialReaderHref("next", programme));
+    await expect(
+      within(end).getByRole("button", { name: "Изучено" }),
+    ).toBeVisible();
+    for (const name of ["Назад", "Сохранить"])
+      await expect(within(end).queryByText(name)).toBeNull();
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /Пользователь видит запись/u }),
+    );
+    await waitFor(() =>
+      expect(
+        within(finishCard(canvasElement)).getByRole("heading", {
+          name: "Урок пройден",
+        }),
+      ).toBeVisible(),
+    );
+    await expect(
+      within(finishCard(canvasElement)).queryByRole("link", {
+        name: /перейти к нерешённому/u,
+      }),
+    ).toBeNull();
+    await expectSecondaryStudy(end);
+  },
+};
+
+/**
+ * «Изучено» is a second pill button as tall as the main one, never a bare text control: a light
+ * outline with light text on the dark card.
+ */
+async function expectSecondaryStudy(actions: HTMLElement) {
+  const studied = within(actions).getByRole("button", { name: "Изучено" });
+  const main =
+    within(actions).queryByRole("link", { name: "Дальше" }) ??
+    within(actions).getByRole("link", { name: "К программе" });
+  const box = studied.getBoundingClientRect();
+  await expect(box.height).toBeGreaterThanOrEqual(48);
+  await expect(
+    Math.abs(box.height - main.getBoundingClientRect().height),
+  ).toBeLessThanOrEqual(1);
+  const style = getComputedStyle(studied);
+  await expect(
+    Number.parseFloat(style.borderTopLeftRadius),
+  ).toBeGreaterThanOrEqual(box.height / 2 - 1);
+  await expect(Number.parseFloat(style.borderTopWidth)).toBeGreaterThanOrEqual(
+    1,
+  );
+  await expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  const card = getComputedStyle(finishCardOf(actions)).backgroundColor;
+  await expect(contrast(style.color, card)).toBeGreaterThanOrEqual(4.5);
+  await expect(contrast(style.borderTopColor, card)).toBeGreaterThanOrEqual(3);
+}
+
+function finishCardOf(inside: HTMLElement): HTMLElement {
+  const card = inside.closest<HTMLElement>("[data-lesson-finish]");
+  if (card === null) throw new Error("The actions lie outside the finish card");
+  return card;
+}
+
+/**
+ * The finish card is one of the lesson's few dark graphite blocks: light heading text, and the
+ * main action is a light pill on it. Every pair reads at WCAG AA.
+ */
+async function expectDarkFinish(canvasElement: HTMLElement) {
+  const card = finishCard(canvasElement);
+  const surface = getComputedStyle(card).backgroundColor;
+  await expect(luminance(surface)).toBeLessThan(0.05);
+  const heading = within(card).getByRole("heading", { level: 2 });
+  await expect(
+    contrast(getComputedStyle(heading).color, surface),
+  ).toBeGreaterThanOrEqual(4.5);
+  const main =
+    within(card).queryByRole("link", { name: "Дальше" }) ??
+    within(card).queryByRole("link", { name: "К программе" });
+  if (main !== null) {
+    const pill = getComputedStyle(main);
+    await expect(luminance(pill.backgroundColor)).toBeGreaterThan(0.7);
+    await expect(
+      contrast(pill.color, pill.backgroundColor),
+    ).toBeGreaterThanOrEqual(4.5);
+  }
+  const count = card.querySelector<HTMLElement>("[data-lesson-exercise-count]");
+  if (count !== null)
+    await expect(
+      contrast(getComputedStyle(count).color, surface),
+    ).toBeGreaterThanOrEqual(4.5);
+  for (const icon of card.querySelectorAll<HTMLElement>(
+    "[data-lesson-rating-choice]",
+  ))
+    await expect(
+      contrast(getComputedStyle(icon).color, surface),
+    ).toBeGreaterThanOrEqual(3);
+}
+
+/** A studied lesson: «Изучено» is pressed, with a light double rim and its check icon. */
+export const FinishStudied: Story = {
+  ...FinishInCourse,
+  parameters: { studied: true },
+  play: async ({ canvasElement }) => {
+    const actions = within(finishCard(canvasElement)).getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    const studied = within(actions).getByRole("button", { name: "Изучено" });
+    await waitFor(() =>
+      expect(studied).toHaveAttribute("aria-pressed", "true"),
+    );
+    await expectSecondaryStudy(actions);
+    const style = getComputedStyle(studied);
+    await expect(style.boxShadow).not.toBe("none");
+    await expect(style.borderTopColor).toBe(style.color);
+  },
+};
+
+export const FinishInCoursePhone: Story = {
+  ...FinishInCourse,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async (context) => {
+    await FinishInCourse.play?.(context);
+    const end = finishCard(context.canvasElement).parentElement;
+    if (end === null) throw new Error("The finish card has no frame");
+    await expectPhoneLayout(end, "[data-lesson-finish]");
+    const terms = context.canvasElement.querySelector<HTMLElement>(
+      "[data-lesson-term-deck]",
+    )?.parentElement;
+    if (terms == null) throw new Error("The lesson terms are missing");
+    await expectPhoneLayout(terms, "[data-lesson-term-deck]");
+    // On a phone «Дальше» is the card's main button across its whole width.
+    const actions = within(finishCard(context.canvasElement)).getByRole(
+      "navigation",
+      { name: "Действия в конце материала" },
+    );
+    const next = within(actions).getByRole("link", { name: "Дальше" });
+    const row = actions.getBoundingClientRect();
+    await expect(next.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      row.width - 1,
+    );
+    await expect(next.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+      48,
+    );
+    // «Изучено» spans the card too, under «Дальше», without overlapping it.
+    const studied = within(actions).getByRole("button", { name: "Изучено" });
+    await expect(studied.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      row.width - 1,
+    );
+    await expect(studied.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      next.getBoundingClientRect().bottom,
+    );
+  },
+};
+
+export const FinishInCoursePhone360: Story = {
+  ...FinishInCoursePhone,
+  globals: { viewport: { value: "mobile360", isRotated: false } },
+};
+
+/** A lesson without exercises and terms: the card keeps the plain heading and the rating. */
+export const FinishWithoutExercises: Story = {
+  args: {
+    body: [paragraph("Короткий урок без упражнений.")],
+    termDeck: <LessonTermDeck terms={[]} />,
+    exerciseScope: (lesson) => (
+      <LessonExerciseAttempts
+        materialId={materialId}
+        exercises={[]}
+        signInHref="/account"
+      >
+        {lesson}
+      </LessonExerciseAttempts>
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const card = within(finishCard(canvasElement));
+    await expect(
+      card.getByRole("heading", { name: "Конец урока" }),
+    ).toBeVisible();
+    await expect(card.queryByRole("link")).toBeNull();
+    await expect(
+      within(canvasElement).queryByRole("region", { name: "Термины урока" }),
+    ).toBeNull();
+    await expect(
+      await card.findByRole("group", { name: "Как вам урок?" }),
+    ).toBeVisible();
+  },
+};
+
+/**
+ * The last lesson of a course has no next step: the card leads back to the course programme with
+ * the main «К программе» in place of «Дальше» (решение владельца 14.11.2026).
+ */
+export const FinishOnLastLesson: Story = {
+  args: {
+    returnTarget: parseMaterialReaderReturnTarget(programme),
+    productContext: { ...courseContext, currentPosition: 3, next: null },
+    readingAction: (
+      <SavedReadingAction compact format="guide" materialId={materialId} />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const end = within(finishCard(canvasElement)).getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    await expect(
+      within(end).getByRole("link", { name: "К программе" }),
+    ).toHaveAttribute("href", programme);
+    await expect(
+      within(end).queryByRole("link", { name: "Дальше" }),
+    ).toBeNull();
+    await expectDarkFinish(canvasElement);
+  },
+};
+
+/**
+ * Scrolled to the very end, nothing covers the bottom of the lesson: the page itself never scrolls
+ * past the application frame, so no white band rises from under it (owner, 14.11.2026).
+ */
+export const LessonEndNotCovered: Story = {
+  ...FinishInCourse,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const document = canvasElement.ownerDocument;
+    const card = finishCard(canvasElement);
+    await within(card).findByRole("group", { name: "Как вам урок?" });
+    const scroller = document.querySelector<HTMLElement>(
+      "[data-application-content]",
+    );
+    if (scroller === null) throw new Error("The application frame is missing");
+    scroller.scrollTop = scroller.scrollHeight;
+    document.scrollingElement?.scrollTo(
+      0,
+      document.documentElement.scrollHeight,
+    );
+    const root = document.documentElement;
+    if (getComputedStyle(scroller).overflowY === "auto")
+      // The frame scrolls the lesson; the page around it has nothing to scroll.
+      await expect(root.scrollHeight).toBeLessThanOrEqual(root.clientHeight);
+    await waitFor(() => {
+      const box = card.getBoundingClientRect();
+      return expect(box.bottom).toBeLessThanOrEqual(window.innerHeight);
+    });
+    const box = card.getBoundingClientRect();
+    // Points clear of the rounded corners, along the card's last line.
+    for (const x of [box.left + 24, box.left + box.width / 2, box.right - 24]) {
+      const hit = document.elementFromPoint(x, box.bottom - 12);
+      await expect(hit !== null && card.contains(hit)).toBe(true);
+    }
+  },
+};
+export const LessonEndNotCoveredPhone: Story = {
+  ...LessonEndNotCovered,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};

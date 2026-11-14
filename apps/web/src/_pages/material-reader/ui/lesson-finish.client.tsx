@@ -1,0 +1,118 @@
+"use client";
+
+import { ArrowRight } from "lucide-react";
+import type { Route } from "next";
+import { useId, type ReactNode } from "react";
+
+import {
+  LessonExerciseCount,
+  useLessonExerciseProgress,
+} from "@/features/exercise-attempts";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+
+import styles from "./lesson-finish.module.css";
+
+/** The card's main button: a light pill on the dark card, and across the whole card on a phone. */
+const primaryAction =
+  "inline-flex min-h-12 max-w-full items-center justify-center gap-2 rounded-full bg-lesson-graphite px-6 text-base font-semibold text-lesson-graphite-foreground no-underline shadow-(--elevation-card) transition-colors duration-(--motion-duration-fast) hover:bg-lesson-graphite-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none max-sm:order-first max-sm:w-full sm:ml-auto sm:min-w-40";
+
+/** What the finish card leads to inside a course; outside a course the card has no actions. */
+export interface LessonFinishActions {
+  /** «Изучено»: the reader's own reading-state toggle. */
+  readonly readingAction?: ReactNode;
+  readonly next: { readonly href: Route; readonly title: string } | null;
+  /** Programme page of the course: the last lesson leads there with «К программе». */
+  readonly programme: Route;
+}
+
+/**
+ * «Финиш урока» (решение владельца 14.11.2026, концепция A): одна тёмная графитовая карточка в конце
+ * урока.
+ * Заголовок, строка «Как вам урок?», а внутри курса ещё «Изучено» второй кнопкой и главная
+ * кнопка «Дальше»; в последнем уроке курса на её месте «К программе». Заголовок несёт счёт
+ * упражнений: «Конец урока · упражнения 0 из 1», где счёт ведёт к первому нерешённому; когда все
+ * решены, «Урок пройден» без счёта; в уроке без упражнений «Конец урока».
+ */
+export function LessonFinish({
+  children,
+  actions,
+}: {
+  readonly children?: ReactNode;
+  readonly actions?: LessonFinishActions | undefined;
+}) {
+  const headingId = useId();
+  const progress = useLessonExerciseProgress();
+  return (
+    <section
+      aria-labelledby={headingId}
+      className="mt-12 rounded-2xl px-4 pt-5 pb-3 sm:px-6 sm:pt-6"
+      data-lesson-dark
+      data-lesson-finish
+    >
+      <h2 className="text-lg font-semibold tracking-[-0.01em]" id={headingId}>
+        {progress !== null && progress.next === undefined
+          ? "Урок пройден"
+          : "Конец урока"}
+        {progress?.next === undefined ? null : (
+          <>
+            <span
+              aria-hidden="true"
+              className="font-normal text-muted-foreground"
+            >
+              {" · "}
+            </span>
+            <span className="sr-only">, </span>
+            <LessonExerciseCount
+              next={progress.next}
+              solved={progress.solved}
+              total={progress.total}
+            />
+          </>
+        )}
+      </h2>
+      <div className="mt-2 divide-y divide-lesson-line empty:hidden">
+        {children}
+      </div>
+      {actions === undefined ? null : (
+        <nav
+          aria-label="Действия в конце материала"
+          className="@container/finish mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-lesson-line pt-3"
+          data-material-actions
+          data-reader-footer
+        >
+          <div
+            aria-label="Отметка изучения"
+            className={`min-w-0 max-sm:w-full ${styles["study"] ?? ""}`}
+            data-reader-study-controls
+            role="group"
+          >
+            {actions.readingAction}
+          </div>
+          {actions.next === null ? (
+            <IntentPrefetchLink
+              className={primaryAction}
+              data-lesson-finish-programme
+              href={actions.programme}
+            >
+              К программе
+            </IntentPrefetchLink>
+          ) : (
+            <IntentPrefetchLink
+              aria-label="Дальше"
+              className={primaryAction}
+              data-lesson-finish-next
+              href={actions.next.href}
+              title={actions.next.title}
+            >
+              Дальше
+              <ArrowRight
+                aria-hidden="true"
+                className="hidden size-4 @[16rem]/finish:block"
+              />
+            </IntentPrefetchLink>
+          )}
+        </nav>
+      )}
+    </section>
+  );
+}

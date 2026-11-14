@@ -3,10 +3,13 @@ import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 import {
   addressableMaterialBlockTypes,
   calloutToneLabels,
+  glossaryTermIdOf,
+  glossaryTermIdSchema,
+  isGlossaryTermHref,
   readerBlocksSchema,
   renderedBlockSchema,
   renderMaterialBlocks,
-  materialQuizReferenceIssue,
+  materialExerciseReferenceIssue,
 } from "@inside/material-blocks";
 import MarkdownIt from "markdown-it";
 import { z } from "zod";
@@ -185,13 +188,14 @@ export function sourceUuid(value) {
  *   sourceId: string;
  *   readerBlocks?: readonly import("@inside/material-blocks").ContentReaderBlock[] | undefined;
  *   link: (href: string) => string;
+ *   term?: ((id: string) => void) | undefined;
  *   image: (src: string) => string;
  *   imageVariants?: (src: string) => { sourceSrc: string; imageVariants: import("@inside/material-blocks").ImageVariants<string> } | undefined;
  * }} source
  */
 export function convertMarkdown(
   markdown,
-  { sourcePath, sourceId, link, image, imageVariants, readerBlocks },
+  { sourcePath, sourceId, link, term, image, imageVariants, readerBlocks },
 ) {
   /**
    * @param {Token} token
@@ -209,6 +213,18 @@ export function convertMarkdown(
     const value = token.attrGet(name);
     if (typeof value !== "string") fail(token, `missing ${name}`);
     return value;
+  };
+  /**
+   * A `term:<id>` mention stays as written: the reader resolves it against the Glossary.
+   *
+   * @param {string} href
+   * @param {Token} token
+   */
+  const termHref = (href, token) => {
+    const id = glossaryTermIdOf(href);
+    if (id === undefined) fail(token, `invalid term identifier: ${href}`);
+    term?.(id);
+    return href;
   };
   /**
    * @param {Token[] | null} tokens
@@ -235,20 +251,26 @@ export function convertMarkdown(
                 }
               : {}),
           });
-      } else if (token.type === "softbreak") {
+      } else if (["softbreak", "hardbreak"].includes(token.type)) {
+        // The material schema has no hard break node, so a hard break (two trailing spaces or a
+        // trailing backslash) keeps the author's words apart exactly as a soft one does.
         nodes.push({
           type: "text",
           text: "\n",
           ...(marks.length ? { marks: [...marks] } : {}),
         });
-      } else if (token.type === "hardbreak") nodes.push({ type: "hardBreak" });
-      else if (markType !== undefined) marks.push({ type: markType });
-      else if (token.type === "link_open")
+      } else if (markType !== undefined) marks.push({ type: markType });
+      else if (token.type === "link_open") {
+        const href = attribute(token, "href");
         marks.push({
           type: "link",
-          attrs: { href: link(attribute(token, "href")) },
+          attrs: {
+            href: isGlossaryTermHref(href)
+              ? termHref(href, parent)
+              : link(href),
+          },
         });
-      else if (
+      } else if (
         ["strong_close", "em_close", "s_close", "link_close"].includes(
           token.type,
         )
@@ -343,32 +365,36 @@ export function convertMarkdown(
       else if (token.type === "inside_callout") {
         const meta = calloutMeta(token);
         const content = blocks(parser.parse(meta.content, {})).content;
-        if (!content.length) fail(token, "empty callout");
-        if (["variant-example", "variant-own"].includes(meta.kind)) {
-          const mode = meta.kind.slice("variant-".length);
-          const option = { type: "variantOption", attrs: { mode }, content };
-          const previous = top().content.at(-1);
-          if (
-            previous?.type === "variant" &&
-            previous.content?.length === 1 &&
-            previous.content[0]?.attrs?.["mode"] !== mode
-          )
-            previous.content.push(option);
-          else append({ type: "variant", content: [option] });
-        } else {
-          const kind = own(calloutKinds, meta.kind);
-          if (!kind) fail(token, `unsupported callout: ${meta.kind}`);
-          // The reader already sees the kind's own name, so a title repeating it is dropped.
-          const title =
-            meta.collapse === null && meta.title === calloutToneLabels[kind]
-              ? null
-              : meta.title;
-          append({
-            type: "callout",
-            attrs: { kind, title, collapse: meta.collapse },
-            content,
-          });
+        const cardTerm =
+          meta.kind === "definition" && meta.title?.startsWith("term:")
+            ? meta.title.slice("term:".length)
+            : undefined;
+        if (cardTerm !== undefined) {
+          // `> [!definition] term:<id>`: the Glossary owns the card's text (glossary-v1).
+          if (!glossaryTermIdSchema.safeParse(cardTerm).success)
+            fail(token, `invalid term identifier: ${cardTerm}`);
+          term?.(cardTerm);
+          if (content.length || meta.collapse !== null)
+            fail(
+              token,
+              "a definition card takes its text from the Glossary; leave the card empty",
+            );
+          append({ type: "termDefinition", attrs: { termId: cardTerm } });
+          continue;
         }
+        if (!content.length) fail(token, "empty callout");
+        const kind = own(calloutKinds, meta.kind);
+        if (!kind) fail(token, `unsupported callout: ${meta.kind}`);
+        // The reader already sees the kind's own name, so a title repeating it is dropped.
+        const title =
+          meta.collapse === null && meta.title === calloutToneLabels[kind]
+            ? null
+            : meta.title;
+        append({
+          type: "callout",
+          attrs: { kind, title, collapse: meta.collapse },
+          content,
+        });
       } else fail(token, `unsupported Markdown block: ${token.type}`);
     }
     return root;
@@ -376,47 +402,94 @@ export function convertMarkdown(
   const renderNodes = (/** @type {DocNode[]} */ nodes) => {
     return renderMaterialBlocks(z.array(z.json()).parse(nodes));
   };
+  /** @param {string} value */
+  const rich = (value) => renderNodes(blocks(parser.parse(value, {})).content);
+  /**
+   * A Content reader block as document nodes: Markdown fragments become ordinary blocks, an
+   * exercise (`exercise-v1`) one atom carrying its rendered value, a step break one atom.
+   *
+   * @param {import("@inside/material-blocks").ContentReaderBlock} block
+   * @returns {DocNode[]}
+   */
+  const readerBlockNodes = (block) => {
+    if (block.kind === "markdown")
+      return blocks(parser.parse(block.markdown, {})).content;
+    if (block.kind === "step-break")
+      return [{ type: "stepBreak", attrs: { label: block.label } }];
+    const common = {
+      id: block.id,
+      reveal: block.reveal,
+      ...(block.contextMarkdown === undefined
+        ? {}
+        : { context: rich(block.contextMarkdown) }),
+      question: rich(block.questionMarkdown),
+    };
+    const dontKnow =
+      block.dontKnow === undefined
+        ? {}
+        : {
+            dontKnow: {
+              explanation: rich(block.dontKnow.explanationMarkdown),
+              reviewLinks: block.dontKnow.reviewLinks,
+            },
+          };
+    /** @type {Record<string, unknown>} */
+    const exercise =
+      block.kind === "quiz"
+        ? {
+            kind: "quiz",
+            ...common,
+            selectionMode: block.selectionMode,
+            options: block.options.map((option) => ({
+              id: option.id,
+              content: rich(option.markdown),
+              correct: option.correct,
+              ...(option.explanationMarkdown === undefined
+                ? {}
+                : { explanation: rich(option.explanationMarkdown) }),
+            })),
+            ...dontKnow,
+          }
+        : block.kind === "match"
+          ? {
+              kind: "match",
+              ...common,
+              mode: block.mode,
+              rows: block.rows.map((row) => ({
+                id: row.id,
+                content: rich(row.markdown),
+                answerId: row.answerId,
+                explanation: rich(row.explanationMarkdown),
+              })),
+              choices: block.choices.map((choice) => ({
+                id: choice.id,
+                content: rich(choice.markdown),
+              })),
+              ...dontKnow,
+            }
+          : {
+              kind: "order",
+              ...common,
+              steps: block.steps.map((step) => ({
+                id: step.id,
+                content: rich(step.markdown),
+                explanation: rich(step.explanationMarkdown),
+              })),
+              ...dontKnow,
+            };
+    return [{ type: block.kind, attrs: { exercise } }];
+  };
   const doc =
     readerBlocks === undefined
       ? blocks(parser.parse(markdown, {}))
       : {
           type: "doc",
-          content: readerBlocksSchema.parse(readerBlocks).flatMap((block) => {
-            if (block.kind === "markdown")
-              return blocks(parser.parse(block.markdown, {})).content;
-            const rich = (/** @type {string} */ value) =>
-              renderNodes(blocks(parser.parse(value, {})).content);
-            return [
-              {
-                type: "quiz",
-                attrs: {
-                  quiz: {
-                    kind: "quiz",
-                    id: block.id,
-                    prompt: rich(block.promptMarkdown),
-                    ...("selectionMode" in block
-                      ? {
-                          selectionMode: block.selectionMode,
-                          correctOptionIds: block.correctOptionIds,
-                        }
-                      : { correctOptionId: block.correctOptionId }),
-                    options: block.options.map((option) => ({
-                      id: option.id,
-                      content: rich(option.markdown),
-                      explanation: rich(option.explanationMarkdown),
-                    })),
-                    dontKnow: {
-                      explanation: rich(block.dontKnow.explanationMarkdown),
-                      reviewLinks: block.dontKnow.reviewLinks,
-                    },
-                  },
-                },
-              },
-            ];
-          }),
+          content: readerBlocksSchema
+            .parse(readerBlocks)
+            .flatMap((block) => readerBlockNodes(block)),
         };
   if (readerBlocks !== undefined) {
-    const issue = materialQuizReferenceIssue(renderNodes(doc.content));
+    const issue = materialExerciseReferenceIssue(renderNodes(doc.content));
     if (issue !== undefined) throw new Error(`${sourcePath}: ${issue}`);
   }
   /**

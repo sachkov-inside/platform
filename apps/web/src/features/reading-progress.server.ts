@@ -3,6 +3,7 @@ export {
   handleSetReadingState,
 } from "./reading-progress/api/reading-route.server";
 export { handleMaterialOpen } from "./reading-progress/api/material-open-route.server";
+export { handleOpenedParts } from "./reading-progress/api/opened-parts-route.server";
 
 export {
   getProductContinuation,

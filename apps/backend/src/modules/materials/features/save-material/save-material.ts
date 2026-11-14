@@ -56,6 +56,8 @@ import {
 import { markUnreferencedMaterialAssets } from "../../../assets/index.js";
 import { materialReaderPath } from "../../domain/announcement.js";
 import { recordMaterialAnnouncement } from "./record-announcement.js";
+import { recordMaterialUpdateNote } from "./record-update-note.js";
+import { materialUpdateNoteSchema } from "../../domain/material-update-note.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import { loadCurrentMaterial } from "../../infrastructure/postgres/current-material.js";
@@ -83,6 +85,7 @@ const saveMaterialCommand = z
     body: z.unknown(),
     videoChapters: videoChaptersSchema.optional(),
     confirmedProductRemovals: z.array(z.uuid()).max(100).optional().default([]),
+    updateNote: materialUpdateNoteSchema.optional(),
   })
   .strict();
 
@@ -165,6 +168,10 @@ export function assembleSaveMaterial(
             ...(command.detachVideoIds.length === 0
               ? {}
               : { detachVideoIds: command.detachVideoIds }),
+            // Absent when omitted, so a Save recorded before update notes replays with its own key.
+            ...(command.updateNote === undefined
+              ? {}
+              : { updateNote: command.updateNote }),
           }
         : {
             operation: "source_publication",
@@ -561,6 +568,13 @@ export function assembleSaveMaterial(
                 materializedMetadata,
                 dependencies.memberships,
               );
+            if (command.updateNote !== undefined)
+              await recordMaterialUpdateNote(
+                transaction,
+                command.materialId,
+                command.updateNote,
+                savedAt,
+              );
             if (next.value.publicationState === "published") {
               if (!publishable.ok || publishedBy === null) {
                 return rollback({
@@ -582,7 +596,6 @@ export function assembleSaveMaterial(
                     "publishedAt",
                   ),
                   publishedBy,
-                  hasModeVariants: extraction.value.hasModeVariants,
                   plainText: extraction.value.plainText,
                   primaryVideoId: command.primaryVideoId,
                   coverId: locked.coverId,
@@ -692,7 +705,6 @@ async function replacePublishedProjections(
   values: {
     readonly materialId: string;
     readonly contentVersion: number;
-    readonly hasModeVariants: boolean;
     readonly metadata: {
       readonly access: "free" | "closed";
       readonly difficulty: MaterialDifficulty | null;
@@ -727,7 +739,6 @@ async function replacePublishedProjections(
       access: values.metadata.access,
       inFeed: values.inFeed,
       difficulty: values.metadata.difficulty,
-      hasModeVariants: values.hasModeVariants,
       outcomes: [...values.metadata.outcomes],
       topicId: values.metadata.topicId,
       formatId: values.metadata.formatId,
@@ -745,7 +756,6 @@ async function replacePublishedProjections(
       access: values.metadata.access,
       inFeed: values.inFeed,
       difficulty: values.metadata.difficulty,
-      hasModeVariants: values.hasModeVariants,
       outcomes: [...values.metadata.outcomes],
       topicId: values.metadata.topicId,
       formatId: values.metadata.formatId,

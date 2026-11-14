@@ -47,6 +47,9 @@ export type EnforcementPoint =
   | "personal_home"
   | "reading_state_change"
   | "bookmark_change"
+  | "lesson_parts_open"
+  | "exercise_attempt"
+  | "lesson_rating"
   | "published_material_read"
   | "material_preview"
   | "mcp_material_read"
@@ -109,6 +112,20 @@ export type DenyReason =
   | "resource_mismatch"
   | "resource_action_invalid"
   | "dependency_unavailable";
+
+/**
+ * What a denied read means to a feature that keeps a reader's personal fact about a Material:
+ * Content Access could not decide, the Material does not exist for readers (missing or
+ * unpublished), or the reader may not read it.
+ */
+export function deniedMaterialRead(
+  reason: DenyReason,
+): "dependency_unavailable" | "material_not_found" | "access_denied" {
+  if (reason === "dependency_unavailable") return "dependency_unavailable";
+  return reason === "resource_not_found" || reason === "resource_unpublished"
+    ? "material_not_found"
+    : "access_denied";
+}
 
 interface DecisionMetadata {
   readonly decisionId: string;

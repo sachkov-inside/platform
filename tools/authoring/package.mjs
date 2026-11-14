@@ -10,13 +10,24 @@ import {
   PRODUCT_TOPIC_SUMMARY_MAX,
   PRODUCT_TOPICS_MAX,
 } from "../../apps/backend/src/modules/products/shared/product-topics.ts";
+import { materialUpdateNoteSchema } from "../../apps/backend/src/modules/materials/domain/material-update-note.ts";
 import {
   PRODUCT_ROADMAP_CHAPTERS_MAX,
   PRODUCT_ROADMAP_LESSON_TITLE_MAX,
   PRODUCT_ROADMAP_UPCOMING_LESSONS_MAX,
 } from "../../apps/backend/src/modules/products/shared/product-roadmap.ts";
 import { z } from "zod";
-import { readerBlocksSchema } from "@inside/material-blocks";
+import {
+  GLOSSARY_FULL_DEFINITION_MAX,
+  GLOSSARY_SHORT_DEFINITION_MAX,
+  GLOSSARY_TERM_TITLE_MAX,
+  GLOSSARY_TERMS_MAX,
+} from "../../apps/backend/src/modules/glossary/domain/glossary-limits.ts";
+import {
+  glossaryTermIdSchema,
+  isExerciseKind,
+  readerBlocksSchema,
+} from "@inside/material-blocks";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { decodePackageV1, fingerprintAccess } from "./compatibility.mjs";
 
@@ -102,6 +113,8 @@ export const materialSchema = z
     notifyTelegram: z.boolean().optional(),
     // The author places a free Material outside Products in the feed (#1885); omitted keeps the target.
     inFeed: z.boolean().optional(),
+    // A substantial update the owner accepted (#2125); omitted keeps the target's note.
+    updateNote: materialUpdateNoteSchema.optional(),
     difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
     outcomes: z.array(z.string()).nullable(),
     markdown: z.string(),
@@ -208,6 +221,48 @@ export const sourceTaskSchema = z
   })
   .strict();
 
+/**
+ * @param {number} max
+ * @param {string} name
+ */
+const trimmedText = (max, name) =>
+  z
+    .string()
+    .refine(
+      (value) => value.trim().length >= 1 && value.trim().length <= max,
+      `${name} must have 1-${String(max)} characters after trim`,
+    );
+
+/** The feature a package declares when it carries the Glossary or mentions its terms. */
+export const GLOSSARY_FEATURE = "glossary-v1";
+
+/**
+ * One Glossary Term as Content exports it (content-studio#88). `sourceId` is the permanent term
+ * identifier Materials write in `term:<id>`; `introducedInMaterialId` is the source ID of the
+ * Material that introduces the term, possibly outside this package. The full definition is plain
+ * text, a blank line between paragraphs. The receiver stores trimmed text, so the limits apply to
+ * trimmed text.
+ */
+const glossaryTermSchema = z
+  .object({
+    sourceId: glossaryTermIdSchema,
+    title: trimmedText(GLOSSARY_TERM_TITLE_MAX, "Term title"),
+    englishTitle: trimmedText(
+      GLOSSARY_TERM_TITLE_MAX,
+      "Term English title",
+    ).nullable(),
+    shortDefinition: trimmedText(
+      GLOSSARY_SHORT_DEFINITION_MAX,
+      "Short definition",
+    ),
+    fullDefinition: trimmedText(
+      GLOSSARY_FULL_DEFINITION_MAX,
+      "Full definition",
+    ),
+    introducedInMaterialId: identifier.nullable(),
+  })
+  .strict();
+
 /** The only explicit selection scope; a package without it selects Materials. */
 export const productShellScope = z.literal("product-shell");
 
@@ -218,6 +273,13 @@ export const manifestSchema = z
     sourceNamespace: identifier,
     practiceDefinitions: z.array(sourcePracticeSchema).max(100).optional(),
     tasks: z.array(sourceTaskSchema).max(200).optional(),
+    // Glossary Terms (#2126, `glossary-v1`): the terms this package's Materials mention or
+    // introduce. Each is written by its identifier; a term the package does not carry stays as the
+    // receiver has it.
+    glossaryTerms: z
+      .array(glossaryTermSchema)
+      .max(GLOSSARY_TERMS_MAX)
+      .optional(),
     selection: z
       .object({
         productId: identifier.nullable(),
@@ -496,6 +558,36 @@ function checkSelectionScope(manifest) {
     );
 }
 
+/** The feature a package declares when a Material carries Lesson Exercises (#2120). */
+export const EXERCISE_FEATURE = "exercise-v1";
+
+/** The feature a package declares when a Material carries Lesson Step Breaks (#2120, #2122). */
+export const STEP_BREAKS_FEATURE = "step-breaks-v1";
+
+/**
+ * Features the reader blocks of one Material need: exercises need `exercise-v1`, a «Не знаю»
+ * link to a heading needs `github-anchors-v1`, a step break needs `step-breaks-v1`.
+ *
+ * @param {readonly unknown[]} readerBlocks
+ * @returns {string[]}
+ */
+function readerBlockFeatures(readerBlocks) {
+  const blocks = readerBlocksSchema.parse(readerBlocks);
+  return [
+    ...(blocks.some((block) => isExerciseKind(block.kind))
+      ? [EXERCISE_FEATURE]
+      : []),
+    ...(blocks.some((block) => "dontKnow" in block && block.dontKnow)
+      ? ["github-anchors-v1"]
+      : []),
+    ...(blocks.some((block) => block.kind === "step-break")
+      ? [STEP_BREAKS_FEATURE]
+      : []),
+  ];
+}
+
+/** The feature a package declares when a Material carries an update note (#2125). */
+export const MATERIAL_UPDATE_NOTE_FEATURE = "material-update-note-v1";
 /** The feature a package declares when a Product carries its course roadmap. */
 export const PRODUCT_ROADMAP_FEATURE = "product-roadmap-v1";
 
@@ -808,6 +900,19 @@ export async function loadPackage(path) {
     "asset identity",
   );
   checkSelectionScope(manifest);
+  if (manifest.glossaryTerms !== undefined) {
+    if (
+      manifest.schemaVersion < 2 ||
+      !manifest.requiredFeatures?.includes(GLOSSARY_FEATURE)
+    )
+      throw new Error(
+        `Glossary Terms require package v2 and ${GLOSSARY_FEATURE}`,
+      );
+    unique(
+      manifest.glossaryTerms.map((term) => term.sourceId),
+      "Glossary Term identity",
+    );
+  }
   const bounded = manifest.selection.contentOnly;
   if (
     Boolean(bounded) !==
@@ -858,6 +963,20 @@ export async function loadPackage(path) {
       !assets.has(product.coverAssetId)
     )
       throw new Error(`${product.sourceId}: missing cover asset`);
+  if (
+    manifest.materials.some((row) => row.updateNote !== undefined) &&
+    (manifest.schemaVersion < 2 ||
+      !manifest.requiredFeatures?.includes(MATERIAL_UPDATE_NOTE_FEATURE))
+  )
+    throw new Error(
+      `Update notes require package v2 and ${MATERIAL_UPDATE_NOTE_FEATURE}`,
+    );
+  // A Task page is written by the Task import, which carries no update note.
+  for (const task of manifest.tasks ?? [])
+    if (task.page?.updateNote !== undefined)
+      throw new Error(
+        `${task.sourceId}: a Task page cannot carry an update note`,
+      );
   for (const material of [
     ...manifest.materials,
     ...(manifest.tasks ?? []).flatMap((task) =>
@@ -865,21 +984,15 @@ export async function loadPackage(path) {
     ),
   ]) {
     if (material.readerBlocks !== undefined) {
-      if (
-        material.readerBlocks.some(
-          (block) => block.kind === "quiz" && "selectionMode" in block,
-        ) &&
-        !manifest.requiredFeatures?.includes("quiz-multiple-v1")
-      )
-        throw new Error("Multiple-answer quizzes require quiz-multiple-v1");
-      if (
-        manifest.schemaVersion < 2 ||
-        !manifest.requiredFeatures?.includes("quiz-v1") ||
-        !manifest.requiredFeatures.includes("github-anchors-v1")
-      )
+      if (manifest.schemaVersion < 2)
         throw new Error(
-          "readerBlocks require package v2, quiz-v1 and github-anchors-v1",
+          `${material.sourcePath}: readerBlocks require package v2`,
         );
+      for (const feature of readerBlockFeatures(material.readerBlocks))
+        if (!manifest.requiredFeatures?.includes(feature))
+          throw new Error(
+            `${material.sourcePath}: readerBlocks require ${feature}`,
+          );
       convertMarkdown(material.markdown, {
         readerBlocks: material.readerBlocks,
         sourceId: material.sourceId,

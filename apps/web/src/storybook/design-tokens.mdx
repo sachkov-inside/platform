@@ -52,6 +52,66 @@ export const Swatches = () => (
 Orange is a scarce signal for current state, focus, and important product accents. It is not a
 default decoration. Foreground/background pairs must remain readable in both palettes.
 
+### Interactive lesson
+
+Owner decision 14.11.2026 (#2118, variant A «Тёплая бумага»): the lesson's own blocks use one warm
+family of opaque surfaces and charcoal for the action; orange stays with the site. The term
+carousel and callouts lie on `--lesson-surface`; term cards are white on the front and sand on the
+back, like the glossary «Определение» card; the step-break question is graphite. Owner direction
+14.11.2026 (corrected the same day) makes the «Финиш урока» card and every exercise dark graphite
+blocks: they carry `data-lesson-dark`, which paints them `--lesson-dark` and remaps the tokens their
+contents read. Text and muted text turn light, `--card` becomes `--lesson-dark-raised` for options,
+rows and steps (edged with `--lesson-dark-edge`), `--muted` and `--secondary` become the hover
+`--lesson-dark-hover`, the graphite and primary actions turn light, and links and the check colours
+take lighter values that read at AA on the dark. Every surface is a solid colour, never a mix with
+transparency.
+
+export const lessonRoles = [
+  [
+    "Surface",
+    "--lesson-surface",
+    "bg-lesson-surface text-foreground border-lesson-line",
+  ],
+  [
+    "Sand",
+    "--lesson-sand",
+    "bg-lesson-sand text-foreground border-lesson-sand-line",
+  ],
+  ["Ink", "--lesson-ink", "bg-card text-lesson-ink border-lesson-line"],
+  [
+    "Graphite",
+    "--lesson-graphite",
+    "bg-lesson-graphite text-lesson-graphite-foreground border-lesson-graphite",
+  ],
+  ["Dark", "--lesson-dark", "border-lesson-line", true],
+  [
+    "Reply",
+    "--lesson-reply",
+    "bg-lesson-reply text-foreground border-lesson-reply",
+  ],
+  [
+    "Stack",
+    "--lesson-stack",
+    "bg-lesson-stack text-foreground border-lesson-stack",
+  ],
+];
+
+<div
+  data-public-shell
+  className="not-prose grid gap-3 rounded-2xl bg-background p-4 sm:grid-cols-2 lg:grid-cols-3"
+>
+  {lessonRoles.map(([label, token, classes, dark]) => (
+    <div
+      className={`rounded-xl border p-4 ${classes}`}
+      data-lesson-dark={dark ? "" : undefined}
+      key={token}
+    >
+      <div className="font-semibold">{label}</div>
+      <code className="mt-2 block font-mono text-xs opacity-75">{token}</code>
+    </div>
+  ))}
+</div>
+
 ## Typography
 
 <div className="not-prose space-y-5 rounded-xl border border-border bg-card p-6 text-card-foreground">

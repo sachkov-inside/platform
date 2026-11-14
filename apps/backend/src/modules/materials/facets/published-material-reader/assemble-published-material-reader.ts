@@ -18,6 +18,9 @@ import { discoverPublishedMaterialProjections } from "../../features/discover-pu
 import type { DiscoverPublishedMaterialProjectionsQuery } from "../../features/discover-published-material-projections/discover-published-material-projections.contract.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import type { Videos } from "../../../videos/index.js";
+import type { Glossary } from "../../../glossary/index.js";
+import { readCourseGlossary } from "../../features/read-course-glossary/read-course-glossary.js";
+import type { ReadCourseGlossaryQuery } from "../../features/read-course-glossary/read-course-glossary.contract.js";
 
 export function assemblePublishedMaterialReader(dependencies: {
   readonly prisma: MaterialsPrismaClient;
@@ -33,6 +36,7 @@ export function assemblePublishedMaterialReader(dependencies: {
   readonly subscriptionForSale?: (accountId?: string) => Promise<boolean>;
   readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
   readonly videos?: Pick<Videos, "loadPresentation">;
+  readonly glossary?: Pick<Glossary, "lookup" | "introducedIn">;
 }): PublishedMaterialReader {
   return Object.freeze({
     listSiteMaterials: assembleListPublishedSiteMaterials(
@@ -51,5 +55,7 @@ export function assemblePublishedMaterialReader(dependencies: {
       listPublishedMaterialProjections(dependencies, query),
     read: (query: ReadPublishedMaterialQuery) =>
       readPublishedMaterial(dependencies, query),
+    readCourseGlossary: (query: ReadCourseGlossaryQuery) =>
+      readCourseGlossary(dependencies, query),
   });
 }

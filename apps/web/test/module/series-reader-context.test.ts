@@ -59,7 +59,6 @@ describe("Product Reader context", () => {
             reference: {
               name: "Selected",
               slug: "selected",
-              hasModeVariants: true,
             },
             items: [{ slug: "shared", title: "Shared" }],
           },
@@ -133,7 +132,6 @@ describe("Product Reader context", () => {
         title: "Сначала границы",
       },
       product: {
-        hasModeVariants: false,
         href: "/products/platform-inside/programme",
         name: "Создание Platform Inside",
       },

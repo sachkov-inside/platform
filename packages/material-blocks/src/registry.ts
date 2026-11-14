@@ -9,13 +9,14 @@ import { horizontalRuleBlock } from "./blocks/horizontal-rule.js";
 import { keyPointBlock } from "./blocks/key-point.js";
 import { labeledListBlock } from "./blocks/labeled-list.js";
 import { bulletListBlock, orderedListBlock } from "./blocks/lists.js";
-import { quizBlock } from "./blocks/quiz.js";
+import { matchBlock, orderBlock, quizBlock } from "./blocks/exercises.js";
 import { paragraphBlock } from "./blocks/paragraph.js";
 import { resourceCardBlock } from "./blocks/resource-card.js";
+import { stepBreakBlock } from "./blocks/step-break.js";
 import { tableBlock } from "./blocks/table.js";
+import { termDefinitionBlock } from "./blocks/term-definition.js";
 import { takeawaysBlock } from "./blocks/takeaways.js";
 import { videoBlock } from "./blocks/video.js";
-import { variantBlock } from "./blocks/variant.js";
 import type { RenderedBlockKind } from "./rendered-block.js";
 
 /**
@@ -40,11 +41,14 @@ export const materialBlockDefinitions: readonly [
   takeawaysBlock,
   labeledListBlock,
   keyPointBlock,
-  variantBlock,
   assetImageBlock,
   assetFileBlock,
   quizBlock,
   videoBlock,
+  termDefinitionBlock,
+  matchBlock,
+  orderBlock,
+  stepBreakBlock,
 ];
 
 const definitionsByType = new Map(
@@ -58,8 +62,7 @@ const definitionsByKind = new Map(
 /**
  * Every block the registry describes carries a stable `nodeId`: reading progress and bookmarks
  * address blocks, and the container nodes that do not appear here — list items, table rows and
- * cells, and the branches of a variant block — are never addressed on their own. A branch address
- * would break at the moment the reader switches mode, which is exactly when it has to hold.
+ * cells — are never addressed on their own.
  */
 export const addressableMaterialBlockTypes: readonly string[] =
   materialBlockDefinitions.map((definition) => definition.type);

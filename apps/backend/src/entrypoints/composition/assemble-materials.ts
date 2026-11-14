@@ -31,6 +31,7 @@ import type { AuthorPolicy } from "../../modules/materials/index.js";
 import type { ProductAccessHolders } from "../../modules/materials/index.js";
 import type { HolderCountPolicy } from "../../modules/products/index.js";
 import type { Videos } from "../../modules/videos/index.js";
+import type { Glossary } from "../../modules/glossary/index.js";
 import { materialBodyOperations } from "../../modules/materials/index.js";
 
 export interface Materials {
@@ -60,6 +61,7 @@ export function assembleMaterials(dependencies: {
     | "loadUnselectedUpload"
     | "loadPresentation"
   >;
+  readonly glossary?: Pick<Glossary, "lookup" | "introducedIn">;
 }): Materials {
   const materialContent = composeMaterialAccessFacts(
     assembleMaterialContent({
@@ -134,6 +136,9 @@ export function assembleMaterials(dependencies: {
       ...(dependencies.videos === undefined
         ? {}
         : { videos: dependencies.videos }),
+      ...(dependencies.glossary === undefined
+        ? {}
+        : { glossary: dependencies.glossary }),
     }),
   });
 }

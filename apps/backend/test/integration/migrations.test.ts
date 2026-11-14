@@ -38,6 +38,7 @@ const materialTables = [
   "material_related_pins",
   "material_search_documents",
   "material_tags",
+  "material_update_notes",
   "materials",
   "notification_outbox",
   "historical_practice_definitions",
@@ -196,12 +197,16 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "reading_activity", [
       "commands",
       "events",
+      "lesson_opened_parts",
       "material_states",
       "material_visits",
       "product_learning_started",
       "reader_preferences",
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
+    await expectTables(testDatabase, "glossary", ["terms"]);
+    await expectTables(testDatabase, "exercise_attempts", ["attempts"]);
+    await expectTables(testDatabase, "lesson_ratings", ["ratings"]);
     await expectTables(testDatabase, "sales_funnel", [
       "bot_events",
       "product_waitlist_intakes",
@@ -233,6 +238,23 @@ describe("Platform migrations", () => {
     `);
     expect(functions).toEqual([{ schema: "materials" }]);
 
+    // The reading modes were retired (#2119), but expand/contract keeps their storage for one
+    // release: the previous application still reads the table and writes the column, and a new
+    // lesson row relies on the column default.
+    const retiredModeColumns = await testDatabase.prisma.$queryRaw<
+      readonly {
+        readonly column_name: string;
+        readonly column_default: string | null;
+      }[]
+    >(Prisma.sql`
+      select column_name, column_default
+      from information_schema.columns
+      where table_schema = 'materials' and column_name = 'has_mode_variants'
+    `);
+    expect(retiredModeColumns).toEqual([
+      { column_name: "has_mode_variants", column_default: "false" },
+    ]);
+
     const crossSchemaForeignKeys = await testDatabase.prisma.$queryRaw<
       readonly { readonly name: string }[]
     >(Prisma.sql`
@@ -246,6 +268,7 @@ describe("Platform migrations", () => {
         and source_schema.nspname in (
           'reading_activity',
           'bookmarks',
+          'glossary',
           'product_tasks',
           'sales_funnel',
           'materials',
@@ -959,6 +982,9 @@ async function expectTables(
   schema:
     | "reading_activity"
     | "bookmarks"
+    | "glossary"
+    | "exercise_attempts"
+    | "lesson_ratings"
     | "product_tasks"
     | "sales_funnel"
     | "accounts"

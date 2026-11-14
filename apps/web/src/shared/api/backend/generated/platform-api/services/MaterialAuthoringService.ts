@@ -516,6 +516,56 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * List every Glossary Term
+   * @returns any
+   * @throws ApiError
+   */
+  public listAuthoringGlossaryTerms(): CancelablePromise<{
+    terms: Array<{
+      englishTitle: string | null;
+      fullDefinition: string;
+      id: string;
+      introducedInSourceId: string | null;
+      shortDefinition: string;
+      title: string;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/glossary',
+    });
+  }
+  /**
+   * Create or update the listed Glossary Terms; other terms stay as they are
+   * @returns any
+   * @throws ApiError
+   */
+  public upsertAuthoringGlossaryTerms({
+    requestBody,
+  }: {
+    requestBody: {
+      terms: Array<{
+        englishTitle: string | null;
+        fullDefinition: string;
+        id: string;
+        introducedInSourceId: string | null;
+        shortDefinition: string;
+        title: string;
+      }>;
+    },
+  }): CancelablePromise<{
+    created: number;
+    unchanged: number;
+    updated: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/glossary/terms',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Read an exact historical source request receipt without writing Material state
    * @returns any
    * @throws ApiError
@@ -552,6 +602,10 @@ export class MaterialAuthoringService {
         path: string;
         revision: string;
         showInFeed: boolean;
+      };
+      updateNote?: {
+        id: string;
+        whatChanged: string;
       };
       videoChapters?: Array<{
         start: number;
@@ -745,6 +799,10 @@ export class MaterialAuthoringService {
         revision: string;
         version: 2;
       };
+      updateNote?: {
+        id: string;
+        whatChanged: string;
+      };
       videoChapters?: Array<{
         start: number;
         title: string;
@@ -918,6 +976,10 @@ export class MaterialAuthoringService {
         path: string;
         revision: string;
         version: 2;
+      };
+      updateNote?: {
+        id: string;
+        whatChanged: string;
       };
       videoChapters?: Array<{
         start: number;
@@ -1742,6 +1804,50 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Read first-try statistics of every answered exercise version of a Material. Requires materials:manage
+   * @returns any
+   * @throws ApiError
+   */
+  public readExerciseStatistics({
+    materialId,
+  }: {
+    materialId: string,
+  }): CancelablePromise<{
+    exercises: Array<{
+      exerciseId: string;
+      kind: 'quiz' | 'match' | 'order';
+      versions: Array<{
+        fingerprint: string;
+        firstAnsweredAt: string;
+        firstTryCorrect: number;
+        firstTryDontKnow: number;
+        mostFrequentMistake: ({
+          count: number;
+          kind: 'options';
+          optionIds: Array<string>;
+        } | {
+          choiceId: string;
+          count: number;
+          kind: 'pair';
+          rowId: string;
+        } | {
+          count: number;
+          kind: 'step';
+          stepId: string;
+        }) | null;
+        respondents: number;
+      }>;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/materials/{materialId}/exercise-statistics',
+      path: {
+        'materialId': materialId,
+      },
+    });
+  }
+  /**
    * Render the current saved Material
    * @returns any
    * @throws ApiError
@@ -1819,6 +1925,27 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Count the current likes and dislikes of a lesson. Requires materials:manage
+   * @returns any
+   * @throws ApiError
+   */
+  public countLessonRatings({
+    materialId,
+  }: {
+    materialId: string,
+  }): CancelablePromise<{
+    dislikes: number;
+    likes: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/materials/{materialId}/ratings',
+      path: {
+        'materialId': materialId,
+      },
+    });
+  }
+  /**
    * Validate the current Material for publication
    * @returns any
    * @throws ApiError
@@ -1832,7 +1959,6 @@ export class MaterialAuthoringService {
   }): CancelablePromise<{
     contentVersion: number;
     extraction: {
-      hasModeVariants: boolean;
       headings: Array<{
         level: (2 | 3 | 4);
         text: string;

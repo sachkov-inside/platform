@@ -39,6 +39,7 @@ export type RecursiveSchema3schema0 = ({
   kind: 'blockquote';
 } | {
   kind: 'code_block';
+  language?: string;
   text: string;
 } | {
   kind: 'horizontal_rule';
@@ -88,12 +89,6 @@ export type RecursiveSchema3schema0 = ({
     text: string;
   }>;
   kind: 'key_point';
-} | {
-  kind: 'variant';
-  options: Array<{
-    content: Array<RecursiveSchema3schema0>;
-    mode: 'example' | 'own';
-  }>;
 } | {
   alt: string;
   assetId: string;
@@ -157,24 +152,9 @@ export type RecursiveSchema3schema0 = ({
   kind: 'file';
   label: string;
   size?: number;
-} | ({
-  correctOptionId: string;
-  dontKnow: {
-    explanation: Array<RecursiveSchema3schema0>;
-    reviewLinks: Array<string>;
-  };
-  id: string;
-  kind: 'quiz';
-  options: Array<{
-    content: Array<RecursiveSchema3schema0>;
-    explanation: Array<RecursiveSchema3schema0>;
-    id: string;
-  }>;
-  prompt: Array<RecursiveSchema3schema0>;
-  selectionMode?: any;
 } | {
-  correctOptionIds: Array<string>;
-  dontKnow: {
+  context?: Array<RecursiveSchema3schema0>;
+  dontKnow?: {
     explanation: Array<RecursiveSchema3schema0>;
     reviewLinks: Array<string>;
   };
@@ -182,16 +162,60 @@ export type RecursiveSchema3schema0 = ({
   kind: 'quiz';
   options: Array<{
     content: Array<RecursiveSchema3schema0>;
-    explanation: Array<RecursiveSchema3schema0>;
+    correct: boolean;
+    explanation?: Array<RecursiveSchema3schema0>;
     id: string;
   }>;
-  prompt: Array<RecursiveSchema3schema0>;
-  selectionMode: 'multiple';
-}) | {
+  question: Array<RecursiveSchema3schema0>;
+  reveal: 'none' | 'after-answer';
+  selectionMode: 'single' | 'multiple';
+} | {
   chapters?: Array<{
     start: number;
     title: string;
   }>;
   description?: string;
   kind: 'video';
+} | {
+  kind: 'term_definition';
+  termId: string;
+} | {
+  choices: Array<{
+    content: Array<RecursiveSchema3schema0>;
+    id: string;
+  }>;
+  context?: Array<RecursiveSchema3schema0>;
+  dontKnow?: {
+    explanation: Array<RecursiveSchema3schema0>;
+    reviewLinks: Array<string>;
+  };
+  id: string;
+  kind: 'match';
+  mode: 'pairs' | 'groups';
+  question: Array<RecursiveSchema3schema0>;
+  reveal: 'none' | 'after-answer';
+  rows: Array<{
+    answerId: string;
+    content: Array<RecursiveSchema3schema0>;
+    explanation: Array<RecursiveSchema3schema0>;
+    id: string;
+  }>;
+} | {
+  context?: Array<RecursiveSchema3schema0>;
+  dontKnow?: {
+    explanation: Array<RecursiveSchema3schema0>;
+    reviewLinks: Array<string>;
+  };
+  id: string;
+  kind: 'order';
+  question: Array<RecursiveSchema3schema0>;
+  reveal: 'none' | 'after-answer';
+  steps: Array<{
+    content: Array<RecursiveSchema3schema0>;
+    explanation: Array<RecursiveSchema3schema0>;
+    id: string;
+  }>;
+} | {
+  kind: 'step_break';
+  label: string;
 });

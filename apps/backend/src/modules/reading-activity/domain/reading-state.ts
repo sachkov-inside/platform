@@ -11,6 +11,25 @@ export const readingStateSchema = z
   .strict();
 export type ReadingState = z.infer<typeof readingStateSchema>;
 
+/**
+ * The personal state a Material list or the Reader shows. `updateNote` is the author's
+ * «Что изменилось» for a substantial update the Account has not seen yet: the Account marked the
+ * Material studied before the update and has not opened it since (#2125). The studied mark stays.
+ * `openedParts` is how many parts of a step-by-step lesson the Account has opened (#2122): a saved
+ * count is at least 1, and null means no count was saved, which the Reader treats like 1 (only the
+ * first part). The Reader clamps it to the parts the lesson has now.
+ */
+export const materialReadingStateSchema = readingStateSchema
+  .extend({
+    updateNote: z
+      .object({ whatChanged: z.string().min(1), notedAt: z.iso.datetime() })
+      .strict()
+      .nullable(),
+    openedParts: z.number().int().min(1).nullable(),
+  })
+  .strict();
+export type MaterialReadingState = z.infer<typeof materialReadingStateSchema>;
+
 export const readingOutcomeSchema = z
   .object({
     state: readingStateSchema,

@@ -24,7 +24,7 @@ for (const state of [
     await expect(page.locator("agentation-toolbar")).toBeHidden();
     const quiz = page.locator("[data-material-quiz]");
     await expect(
-      quiz.getByRole("heading", { name: "Проверьте понимание" }),
+      quiz.getByRole("heading", { name: "Упражнение 1 из 3" }),
     ).toBeVisible();
     if (state === "correct")
       await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();
@@ -70,7 +70,7 @@ for (const state of [
       });
     }
     if (state === "unanswered") {
-      const first = quiz.getByRole("button", { name: /1\. Форма написана/u });
+      const first = quiz.getByRole("button", { name: /1 Форма написана/u });
       await first.focus();
       await page.keyboard.press("Enter");
       await expect(
@@ -78,7 +78,7 @@ for (const state of [
       ).toBeVisible();
       await quiz.getByRole("button", { name: "Ответить ещё раз" }).click();
       await expect(first).toBeFocused();
-      const second = quiz.getByRole("button", { name: /2\. После отправки/u });
+      const second = quiz.getByRole("button", { name: /2 После отправки/u });
       await second.focus();
       await page.keyboard.press("Space");
       await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();

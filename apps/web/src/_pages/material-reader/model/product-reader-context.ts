@@ -38,7 +38,6 @@ interface ProductContextSource {
   readonly items: readonly ProductContextMaterial[];
   readonly kind: "ready";
   readonly reference: {
-    readonly hasModeVariants?: boolean | undefined;
     readonly name: string;
     readonly slug: string;
   };
@@ -58,8 +57,6 @@ export interface ProductReaderContext {
   readonly next: ProductReaderContextItem | null;
   readonly previous: ProductReaderContextItem | null;
   readonly product: {
-    /** Переключатель режима принадлежит руководству, а не отдельному уроку. */
-    readonly hasModeVariants: boolean;
     readonly href: Route;
     readonly name: string;
   };
@@ -191,7 +188,6 @@ export function resolveProductReaderContext({
             )
           : null)),
     product: {
-      hasModeVariants: product.reference.hasModeVariants ?? false,
       href:
         returnTarget.href.split("?")[0] === programmeHref
           ? returnTarget.href

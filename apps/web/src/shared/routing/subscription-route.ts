@@ -83,6 +83,23 @@ export function productProgrammeHref(slug: string): Route {
   return internalRoute(`/products/${encodeURIComponent(slug)}/programme`);
 }
 
+/**
+ * «Словарь курса» (#2127): термины уроков курса со ссылкой на урок, где термин введён. С термином
+ * адрес ведёт к его карточке на странице.
+ */
+export function courseGlossaryHref(slug: string, termId?: string): Route {
+  return internalRoute(
+    `/products/${encodeURIComponent(slug)}/glossary${
+      termId === undefined ? "" : `#${courseGlossaryTermAnchor(termId)}`
+    }`,
+  );
+}
+
+/** Якорь карточки термина на странице словаря курса. */
+export function courseGlossaryTermAnchor(termId: string): string {
+  return `term-${termId}`;
+}
+
 /** Страница задания внутри своего руководства (#947): код задания постоянный, адрес тоже. */
 export function productTaskHref(slug: string, code: string): Route {
   return internalRoute(

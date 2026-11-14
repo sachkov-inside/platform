@@ -240,6 +240,22 @@ const topicsBodySchema = z
     ),
   })
   .strict();
+const glossaryBodySchema = z
+  .object({
+    terms: z.array(
+      z
+        .object({
+          id: z.string(),
+          title: z.string(),
+          englishTitle: z.string().nullable(),
+          shortDefinition: z.string(),
+          fullDefinition: z.string(),
+          introducedInSourceId: z.string().nullable(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
 const roadmapSchema = z
   .object({
     updatedOn: z.iso.date(),
@@ -322,6 +338,8 @@ function applicationApi() {
     artifacts,
     product,
     pin: { productId: uuid(901), version: 3 },
+    /** @type {z.infer<typeof glossaryBodySchema>["terms"]} */
+    glossary: [],
     /** @type {string | undefined} */
     rejectValidation: undefined,
     /** @param {RegExp} pattern */
@@ -341,6 +359,33 @@ function applicationApi() {
       });
       if (path === "/authoring/import/materials/environment")
         return currentEnvironment("development");
+      if (path === "/authoring/glossary")
+        return { terms: structuredClone(api.glossary) };
+      if (path === "/authoring/glossary/terms") {
+        assert.equal(options.method, "PUT");
+        const terms = glossaryBodySchema.parse(body).terms;
+        const stored = new Map(
+          api.glossary.map((term) => [term.id, canonical(term)]),
+        );
+        const counts = {
+          created: terms.filter((term) => !stored.has(term.id)).length,
+          updated: terms.filter(
+            (term) =>
+              stored.has(term.id) && stored.get(term.id) !== canonical(term),
+          ).length,
+          unchanged: terms.filter(
+            (term) => stored.get(term.id) === canonical(term),
+          ).length,
+        };
+        // The receiver writes each listed term by identifier and keeps the rest.
+        api.glossary = [
+          ...api.glossary.filter(
+            (term) => !terms.some((next) => next.id === term.id),
+          ),
+          ...structuredClone(terms),
+        ].sort((left, right) => (left.id < right.id ? -1 : 1));
+        return counts;
+      }
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/import/materials/validate")
         return { valid: true };
@@ -2827,6 +2872,215 @@ test("a topics edit after the reviewed preview stops apply before the compositio
   assert.deepEqual(
     api.product.topics.map((topic) => topic.name),
     ["Админ"],
+  );
+});
+
+/**
+ * Moves the fixture to package v2 with Glossary Terms (#2126, the content-studio#88 shape) and
+ * mentions a term in the lesson.
+ *
+ * @param {Awaited<ReturnType<typeof fixture>>} setup
+ * @param {NonNullable<import("./package.mjs").Manifest["glossaryTerms"]>} terms
+ */
+async function writeGlossaryTerms(setup, terms) {
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = ["glossary-v1"];
+  setup.manifest.selection.taskIds = [];
+  setup.manifest.glossaryTerms = terms;
+  itemAt(setup.manifest.materials, 0).markdown =
+    "Граница [ограниченного контекста](term:bounded-context).\n\n> [!definition] term:bounded-context";
+  await setup.write();
+}
+
+const boundedContextTerm = {
+  sourceId: "bounded-context",
+  title: " Ограниченный контекст ",
+  englishTitle: "Bounded context",
+  shortDefinition: "Граница одного смысла слов модели.",
+  fullDefinition: "Часть системы со своей моделью.\n\nИ своим языком.",
+  introducedInMaterialId: "lesson",
+};
+
+test("package Glossary Terms are written once by identifier, keep other terms and replay as a no-op", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  const manual = {
+    id: "manual-term",
+    title: "Ручной",
+    englishTitle: null,
+    shortDefinition: "Есть только у получателя.",
+    fullDefinition: "Есть только у получателя.",
+    introducedInSourceId: null,
+  };
+  api.glossary = [manual];
+  const glossaryCalls = () =>
+    api.calls.filter((call) => call.path.startsWith("/authoring/glossary"));
+
+  // A package without Glossary Terms leaves the receiver's Glossary alone.
+  await run(setup, api);
+  assert.deepEqual(glossaryCalls(), []);
+
+  await writeGlossaryTerms(setup, [
+    {
+      sourceId: "aggregate",
+      title: "Агрегат",
+      englishTitle: null,
+      shortDefinition: "Группа объектов.",
+      fullDefinition: "Граница согласованности.",
+      introducedInMaterialId: null,
+    },
+    boundedContextTerm,
+  ]);
+  const report = await run(setup, api);
+  assert.deepEqual(report.glossary, { created: 2, updated: 0, unchanged: 0 });
+  assert.deepEqual(
+    glossaryCalls().map(({ path, method, body }) => ({ path, method, body })),
+    [
+      { path: "/authoring/glossary", method: "GET", body: undefined },
+      {
+        path: "/authoring/glossary/terms",
+        method: "PUT",
+        body: {
+          terms: [
+            {
+              id: "aggregate",
+              title: "Агрегат",
+              englishTitle: null,
+              shortDefinition: "Группа объектов.",
+              fullDefinition: "Граница согласованности.",
+              introducedInSourceId: null,
+            },
+            {
+              id: "bounded-context",
+              title: "Ограниченный контекст",
+              englishTitle: "Bounded context",
+              shortDefinition: "Граница одного смысла слов модели.",
+              fullDefinition:
+                "Часть системы со своей моделью.\n\nИ своим языком.",
+              introducedInSourceId: "inside-content:lesson",
+            },
+          ],
+        },
+      },
+    ],
+  );
+  const lessonWrite = JSON.stringify(
+    api.calls.filter(
+      (call) =>
+        call.path === "/authoring/import/materials/apply" &&
+        JSON.stringify(call.body).includes("inside-content:lesson"),
+    ),
+  );
+  assert.match(lessonWrite, /"href":"term:bounded-context"/u);
+  assert.match(lessonWrite, /"termId":"bounded-context"/u);
+
+  // The receiver's own term stays: a package carries only the terms its Materials need.
+  assert.deepEqual(
+    api.glossary.map((term) => term.id),
+    ["aggregate", "bounded-context", "manual-term"],
+  );
+
+  const replay = await run(setup, api);
+  assert.deepEqual(replay.glossary, { created: 0, updated: 0, unchanged: 2 });
+  assert.equal(
+    glossaryCalls().filter((call) => call.method === "PUT").length,
+    1,
+  );
+
+  // A corrected definition sends only that term.
+  await writeGlossaryTerms(setup, [
+    { ...boundedContextTerm, shortDefinition: "Исправлено." },
+  ]);
+  const corrected = await run(setup, api);
+  assert.deepEqual(corrected.glossary, {
+    created: 0,
+    updated: 1,
+    unchanged: 0,
+  });
+  assert.deepEqual(
+    glossaryCalls()
+      .filter((call) => call.method === "PUT")
+      .map((call) => call.body),
+    [
+      glossaryCalls().filter((call) => call.method === "PUT")[0]?.body,
+      {
+        terms: [
+          {
+            id: "bounded-context",
+            title: "Ограниченный контекст",
+            englishTitle: "Bounded context",
+            shortDefinition: "Исправлено.",
+            fullDefinition:
+              "Часть системы со своей моделью.\n\nИ своим языком.",
+            introducedInSourceId: "inside-content:lesson",
+          },
+        ],
+      },
+    ],
+  );
+});
+
+test("a term the package does not carry stops the sync before the Glossary or any Material is written", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await writeGlossaryTerms(setup, [
+    { ...boundedContextTerm, sourceId: "aggregate" },
+  ]);
+  await assert.rejects(
+    run(setup, api),
+    /lesson\.md: term is not in the package Glossary: bounded-context/u,
+  );
+  assert.deepEqual(
+    api.calls.filter(
+      (call) =>
+        call.path.startsWith("/authoring/glossary") ||
+        call.path === "/authoring/import/materials/apply",
+    ),
+    [],
+  );
+});
+
+test("a lesson's update note needs material-update-note-v1, shows in the preview and reaches the apply (#2125)", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = [];
+  setup.manifest.selection.taskIds = [];
+  await setup.write();
+  await run(setup, api);
+  const origin = "http://127.0.0.1:4396";
+  const lesson = itemAt(setup.manifest.materials, 0);
+  const note = {
+    id: "2026-11-prompt-assembly",
+    whatChanged: "Переписан раздел о сборке промпта.",
+  };
+  lesson.updateNote = note;
+  await setup.write();
+  await assert.rejects(
+    run(setup, api),
+    /Update notes require package v2 and material-update-note-v1/u,
+  );
+
+  setup.manifest.requiredFeatures = ["material-update-note-v1"];
+  await setup.write();
+  const preview = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const row = preview.preview.materials.find(
+    (item) => item.sourceId === lesson.sourceId,
+  );
+  assert.equal(row?.change, "changed");
+  assert.deepEqual(row?.updateNote, note);
+
+  await run(setup, api);
+  const applied = api.calls.findLast(
+    (call) => call.path === "/authoring/import/materials/apply",
+  );
+  assert.deepEqual(
+    materialApplyRequest(applied ?? {})?.body["updateNote"],
+    note,
   );
 });
 

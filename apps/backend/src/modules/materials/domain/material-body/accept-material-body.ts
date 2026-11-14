@@ -1,5 +1,7 @@
 import {
   addressableMaterialBlockTypes,
+  glossaryTermIdOf,
+  isGlossaryTermHref,
   isJsonArray,
   isJsonObject,
   isUnknownRecord,
@@ -8,7 +10,8 @@ import {
   renderedBlockSchema,
   resourceCardUrlValid,
   type RenderedBlock,
-  materialQuizReferencesValid,
+  isExerciseKind,
+  materialExerciseReferencesValid,
   renderMaterialBlocks,
   stringAttribute,
 } from "@inside/material-blocks";
@@ -56,15 +59,25 @@ function invalid(
 
 function validateUrl(url: string): boolean {
   if (url.startsWith("#")) return true;
+  // A Glossary Term mention: the reader resolves it, so it is never followed as a URL.
+  if (isGlossaryTermHref(url)) return glossaryTermIdOf(url) !== undefined;
   if (url.startsWith("/") && !url.startsWith("//") && !url.includes("\\")) {
     return true;
   }
   return URL.parse(url)?.protocol === "https:";
 }
 
-/** Quiz atoms carry rendered children as data; apply the same URL/asset policy as document nodes. */
-function safeQuizContent(block: RenderedBlock): boolean {
-  if (block.kind === "quiz" || block.kind === "video") return false;
+/**
+ * Exercise atoms carry rendered children as data; apply the same URL/asset policy as document
+ * nodes.
+ */
+function safeExerciseContent(block: RenderedBlock): boolean {
+  if (
+    isExerciseKind(block.kind) ||
+    block.kind === "step_break" ||
+    block.kind === "video"
+  )
+    return false;
   if (
     block.kind === "paragraph" ||
     block.kind === "heading" ||
@@ -86,7 +99,7 @@ function safeQuizContent(block: RenderedBlock): boolean {
     !isUuid(block.assetId)
   )
     return false;
-  return materialBlockChildren(block).every(safeQuizContent);
+  return materialBlockChildren(block).every(safeExerciseContent);
 }
 
 function validateTree(doc: JsonObject): readonly ValidationIssue[] {
@@ -169,18 +182,18 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
             path: validationIssuePath(path),
           });
       }
-      if (type === "quiz") {
-        const quiz = renderedBlockSchema.safeParse(
-          isJsonObject(value["attrs"]) ? value["attrs"]["quiz"] : undefined,
+      if (isExerciseKind(type)) {
+        const exercise = renderedBlockSchema.safeParse(
+          isJsonObject(value["attrs"]) ? value["attrs"]["exercise"] : undefined,
         );
         if (
-          quiz.success &&
-          quiz.data.kind === "quiz" &&
-          !materialBlockChildren(quiz.data).every(safeQuizContent)
+          exercise.success &&
+          exercise.data.kind === type &&
+          !materialBlockChildren(exercise.data).every(safeExerciseContent)
         ) {
           issues.push({
-            code: "unsafe_quiz_content",
-            path: validationIssuePath([...path, "attrs", "quiz"]),
+            code: "unsafe_exercise_content",
+            path: validationIssuePath([...path, "attrs", "exercise"]),
           });
         }
       }
@@ -333,9 +346,9 @@ export function acceptMaterialBody(
     if (
       content !== undefined &&
       isJsonArray(content) &&
-      !materialQuizReferencesValid(renderMaterialBlocks(content))
+      !materialExerciseReferencesValid(renderMaterialBlocks(content))
     ) {
-      return invalid([{ code: "invalid_quiz_reference", path: "/doc" }]);
+      return invalid([{ code: "invalid_exercise_reference", path: "/doc" }]);
     }
     return {
       ok: true,

@@ -6,7 +6,7 @@ import UniqueID from "@tiptap/extension-unique-id";
 import type { Schema } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 
-import type { MaterialBlockChildNodeDescription } from "./block-definition.js";
+import type { MaterialBlockNodeDescription } from "./block-definition.js";
 import {
   addressableMaterialBlockTypes,
   materialBlockDefinitions,
@@ -37,15 +37,10 @@ function decodeAttribute(value: string | null): unknown {
   }
 }
 
-/**
- * `group` is what separates a block from the child nodes a block builds its content from: an
- * ungrouped node appears only where a content expression names it.
- */
 function materialBlockNode(
   name: string,
-  description: MaterialBlockChildNodeDescription,
+  description: MaterialBlockNodeDescription,
   nodeView: (() => NodeViewRenderer) | undefined,
-  group?: "block" | "topLevelBlock",
 ): Node {
   return Node.create({
     ...(description.atom === true ? { atom: true } : {}),
@@ -84,7 +79,7 @@ function materialBlockNode(
         }),
       );
     },
-    ...(group === undefined ? {} : { group }),
+    group: description.group,
     name,
     parseHTML() {
       return description.parseHTML.map((tag) => ({
@@ -143,11 +138,6 @@ export function materialDocumentExtensions(
               definition.type,
               declaration,
               options.nodeViews?.[definition.type],
-              declaration.group,
-            ),
-            ...Object.entries(declaration.childNodes ?? {}).map(
-              ([name, child]) =>
-                materialBlockNode(name, child, options.nodeViews?.[name]),
             ),
           ];
     }),

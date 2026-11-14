@@ -5,7 +5,7 @@ import {
 } from "@inside/material-blocks";
 import type {
   JsonValue,
-  MaterialBlockChildNodeDescription,
+  MaterialBlockNodeDescription,
 } from "@inside/material-blocks";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 import { getSchema } from "@tiptap/core";
@@ -43,24 +43,16 @@ function sampleField(defaultValue: JsonValue): JsonValue {
     : "Значение поля";
 }
 
-/**
- * Каждый объявленный реестром узел: сам блок и дочерние узлы, из которых он собирает своё
- * содержимое. Дочерний узел проходит через буфер обмена тем же путём и теряет поле так же.
- */
+/** Каждый объявленный реестром узел блока. */
 function declaredNodes(): readonly {
-  readonly declaration: MaterialBlockChildNodeDescription;
+  readonly declaration: MaterialBlockNodeDescription;
   readonly type: string;
 }[] {
   return materialBlockDefinitions.flatMap((definition) => {
     const declaration = definition.node;
     return declaration === undefined
       ? []
-      : [
-          { declaration, type: definition.type },
-          ...Object.entries(declaration.childNodes ?? {}).map(
-            ([type, child]) => ({ declaration: child, type }),
-          ),
-        ];
+      : [{ declaration, type: definition.type }];
   });
 }
 
@@ -108,45 +100,6 @@ describe("Material document DOM contract", () => {
       const parsed = type.spec.parseDOM?.[0]?.getAttrs?.(element);
 
       expect([name, parsed]).toEqual([name, expect.objectContaining(fields)]);
-    }
-  });
-});
-
-describe("Material block child nodes", () => {
-  const childNodeTypes = materialBlockDefinitions.flatMap((definition) =>
-    Object.keys(definition.node?.childNodes ?? {}),
-  );
-
-  it("declares a child node the document schema knows", () => {
-    expect(childNodeTypes.length).toBeGreaterThan(0);
-    for (const name of childNodeTypes) {
-      expect([name, materialDocumentSchemaV1.nodes[name]?.name]).toEqual([
-        name,
-        name,
-      ]);
-    }
-  });
-
-  it("keeps a child node out of the block group, so only its own block contains it", () => {
-    for (const name of childNodeTypes) {
-      const type = materialDocumentSchemaV1.nodes[name];
-      if (type === undefined) throw new TypeError(`Missing node ${name}`);
-      expect([name, type.spec.group]).toEqual([name, undefined]);
-      // Негативная проверка правила: узел без группы не может стоять в документе сам по себе.
-      const child = type.createAndFill();
-      if (child === null) throw new TypeError(`Cannot build ${name}`);
-      expect(() =>
-        materialDocumentSchemaV1.nodes["doc"]?.createChecked(null, child),
-      ).toThrow();
-    }
-  });
-
-  it("leaves a child node unaddressed: progress and bookmarks hold the block around it", () => {
-    for (const name of childNodeTypes) {
-      expect([name, addressableMaterialBlockTypes.includes(name)]).toEqual([
-        name,
-        false,
-      ]);
     }
   });
 });

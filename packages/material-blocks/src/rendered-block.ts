@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import type { ProductMode } from "./product-mode.js";
-
 export type RenderedMark =
   | { readonly kind: "bold" | "code" | "italic" | "strike" }
   | { readonly href: string; readonly kind: "link" };
@@ -49,37 +47,64 @@ export interface ImageAssetPresentation {
     readonly { readonly height: number; readonly width: number }[] | undefined;
 }
 
-interface RenderedQuizContent {
-  readonly kind: "quiz";
+type RenderedRich = readonly RenderedBlock[];
+
+/** Fields every Lesson Exercise shares. `context` and `question` are what search sees. */
+interface RenderedExerciseCommon {
   readonly id: string;
-  readonly prompt: readonly RenderedBlock[];
-  readonly options: readonly {
-    readonly id: string;
-    readonly content: readonly RenderedBlock[];
-    readonly explanation: readonly RenderedBlock[];
-  }[];
-  readonly dontKnow: {
-    readonly explanation: readonly RenderedBlock[];
-    readonly reviewLinks: readonly string[];
-  };
+  readonly reveal: "none" | "after-answer";
+  readonly context?: RenderedRich | undefined;
+  readonly question: RenderedRich;
+  readonly dontKnow?:
+    | {
+        readonly explanation: RenderedRich;
+        readonly reviewLinks: readonly string[];
+      }
+    | undefined;
 }
 
-export type RenderedQuiz = RenderedQuizContent &
-  (
-    | {
-        readonly correctOptionId: string;
-        readonly selectionMode?: undefined;
-        readonly correctOptionIds?: never;
-      }
-    | {
-        readonly selectionMode: "multiple";
-        readonly correctOptionIds: readonly string[];
-        readonly correctOptionId?: never;
-      }
-  );
+export interface RenderedQuiz extends RenderedExerciseCommon {
+  readonly kind: "quiz";
+  readonly selectionMode: "single" | "multiple";
+  readonly options: readonly {
+    readonly id: string;
+    readonly content: RenderedRich;
+    readonly correct: boolean;
+    readonly explanation?: RenderedRich | undefined;
+  }[];
+}
+
+export interface RenderedMatch extends RenderedExerciseCommon {
+  readonly kind: "match";
+  readonly mode: "pairs" | "groups";
+  readonly rows: readonly {
+    readonly id: string;
+    readonly content: RenderedRich;
+    readonly answerId: string;
+    readonly explanation: RenderedRich;
+  }[];
+  readonly choices: readonly {
+    readonly id: string;
+    readonly content: RenderedRich;
+  }[];
+}
+
+/** `steps` are stored in the correct order; the reader shuffles them. */
+export interface RenderedOrder extends RenderedExerciseCommon {
+  readonly kind: "order";
+  readonly steps: readonly {
+    readonly id: string;
+    readonly content: RenderedRich;
+    readonly explanation: RenderedRich;
+  }[];
+}
+
+export type RenderedExercise = RenderedQuiz | RenderedMatch | RenderedOrder;
 
 export type RenderedBlock =
-  | RenderedQuiz
+  | RenderedExercise
+  /** A Lesson Step Break: the next part opens by a button with this label (#2122). */
+  | { readonly kind: "step_break"; readonly label: string }
   | {
       readonly kind: "video";
       readonly description?: string | undefined;
@@ -103,7 +128,12 @@ export type RenderedBlock =
       readonly start?: number | undefined;
     }
   | { readonly content: readonly RenderedBlock[]; readonly kind: "blockquote" }
-  | { readonly kind: "code_block"; readonly text: string }
+  | {
+      readonly kind: "code_block";
+      /** Fence language as the author wrote it, such as `python`. */
+      readonly language?: string | undefined;
+      readonly text: string;
+    }
   | { readonly kind: "horizontal_rule" }
   | {
       readonly kind: "table";
@@ -150,13 +180,8 @@ export type RenderedBlock =
       readonly rows: readonly MaterialLabeledRow[];
     }
   | { readonly content: readonly RenderedText[]; readonly kind: "key_point" }
-  | {
-      readonly kind: "variant";
-      readonly options: readonly {
-        readonly content: readonly RenderedBlock[];
-        readonly mode: ProductMode;
-      }[];
-    }
+  /** A definition card: the reader shows the term's full definition from the Glossary. */
+  | { readonly kind: "term_definition"; readonly termId: string }
   | {
       readonly alt: string;
       readonly assetId: string;

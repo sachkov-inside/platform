@@ -45,8 +45,8 @@
 | Рассылки и воронки бота | **Согласие не собирается.** `telegram`: любой личный `/start` создаёт контакт (`src/modules/bot-contacts/bot-contacts.ts`), `marketing_enabled` по умолчанию `true` (`src/database/migrations/011-communication-funnels.ts`); отказ — только `/stop`. В общую рассылку попадают и те, кто лишь входил через бота (`src/modules/communications/broadcasts.ts`). В production выключено (`TELEGRAM_MARKETING_ENABLED=false`) | Идентификаторы Telegram, источник входа, воронка, доставки; продвижение | Нет: `privacy` v2 требует для рекламы отдельного согласия. По [решению владельца 4](consents-unified-path.md#решения-владельца-от-15092026) согласием считается запуск бота `/start` | `privacy` v2; в кандидате `privacy` v3 — согласие запуском `/start` | 38-ФЗ ст. 18 ч. 1 (предварительное согласие); 152-ФЗ ст. 15 |
 | Переходы по ссылкам рассылок | Platform `apps/web/app/communications/visit/route.ts` пишет `communications.tracking_hits`; бот связывает токен с доставкой конкретному контакту (`src/modules/communications/communication-tracking.ts`) | Токен, время, тип трафика; статистика рассылок; фактически по контакту | Не указано | `privacy` v2 не описывает | 152-ФЗ ст. 6; политика ст. 18.1 |
 | Cookie сессии | `logto_<appId>`, HttpOnly | Сессия входа | Договор | `cookies` v1 | Специальной нормы нет; 152-ФЗ, если идентификатор связан с аккаунтом |
-| Режим чтения гостя | Cookies `inside.guide-mode` и `inside.guide-mode-hint` на год (`apps/web/src/shared/guide-mode/guide-mode.ts`) | Выбранный режим и признак показанной подсказки | Функция по запросу | **Не описаны** в `cookies` v1 | Полнота сведений политики, ст. 18.1 152-ФЗ |
-| Хранилище браузера | localStorage `inside.video-progress.v1:…`, `inside.video-upload.v1:…`, `inside:communications:sample:…`; sessionStorage `inside.telegram-onboarding.dismissed`, `inside.billing.purchase` (**не описан**), ключ Tribute у владельца (**не описан**) | Прогресс и продолжение операций | Функция по запросу | `cookies` v1, частично | То же |
+| Режим чтения гостя | Cookies `inside.guide-mode` и `inside.guide-mode-hint` на год (`apps/web/src/shared/guide-mode/guide-mode.ts`). **Убрано в #2119 (13.11.2026):** режимов больше нет, Platform эти cookies (последние имена `inside.product-mode` и `inside.product-mode-hint`) не ставит | Выбранный режим и признак показанной подсказки | Функция по запросу | **Не описаны** в `cookies` v1; описаны в v2, убраны в v3 | Полнота сведений политики, ст. 18.1 152-ФЗ |
+| Хранилище браузера | Сверено с `apps/web` 13.11.2026 (#2118). Cookies `inside.logout-return` (5 минут, `apps/web/app/auth/sign-out/route.ts`) и `inside_waitlist_intent` (15 минут, `features/product-waitlist`). localStorage `inside.video-progress.v1:…`, `inside.video-preferences.v1`, `inside.exercise-answers.v1:<materialId>` (ответы гостя, #2121), `inside.lesson-parts.v1:<materialId>` (открытые части урока гостя, #2122), `inside.storage-notice.v1`, `inside.video-upload.v1:…`. sessionStorage `inside-reader-entry:…`, `inside.telegram-link.v1`, `inside.billing.purchase`, `inside.billing.purchase.confirmed`. Больше не ставятся: `inside.telegram-onboarding.dismissed`, `inside:communications:sample:…`, ключ Tribute у владельца | Прогресс, настройки видео, ответы гостя, возвраты и продолжение операций | Функция по запросу | `cookies` v1 и v2 частично; v3 перечисляет всё | То же |
 | Аналитика | Сторонних счётчиков нет, баннера нет. Спецификация `docs/specifications/author-analytics-measurement-v1.md` планирует собственный идентификатор браузера | — | — | `cookies` v1 обещает выбор до включения | 152-ФЗ ст. 6 и 9 при включении; см. требования |
 | Возраст 14+ | Пункт «от 14 лет» в `terms` v1; условия нигде не принимаются, отдельной отметки возраста нет и по решению владельца не будет | — | — | `terms` v1 | ГК РФ ст. 26, 28; 152-ФЗ ст. 9 ч. 6 |
 
@@ -62,8 +62,10 @@
    15.09.2026 так и остаётся; риск записан в
    [решении владельца 4](consents-unified-path.md#решения-владельца-от-15092026). Рассылка в
    production выключена.
-4. **`cookies` v1 неполон.** Не названы две годовые cookies режима чтения
-   (`apps/web/src/shared/guide-mode/guide-mode.ts`, `max-age` 365 дней) и два ключа sessionStorage.
+4. **`cookies` v1 был неполон. Решено в #2119 (13.11.2026).** В v1 не были названы две годовые
+   cookies режима чтения и два ключа sessionStorage. Режимов чтения больше нет: Platform эти cookies
+   не ставит, а модуль `guide-mode.ts` удалён. `cookies` v3 перечисляет всё, что сайт хранит в
+   браузере, включая ключи sessionStorage.
    Настройки плеера Kinescope описаны верно: адрес плеера получает `dnt=1`, а в параметрах задано
    `behavior.localStorage: false`
    (`apps/web/src/features/material-video/ui/material-primary-video.client.tsx`).

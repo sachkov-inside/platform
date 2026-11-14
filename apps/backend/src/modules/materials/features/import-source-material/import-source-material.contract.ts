@@ -1,4 +1,5 @@
 import { videoChaptersSchema } from "../../domain/video-chapters.js";
+import { materialUpdateNoteSchema } from "../../domain/material-update-note.js";
 import { z } from "zod";
 import {
   authoringSourceIdSchema,
@@ -27,6 +28,8 @@ export const applySourceBodySchema = z
     inFeed: z.boolean().optional(),
     primaryVideoId: z.uuid().nullable(),
     videoChapters: videoChaptersSchema.optional(),
+    /** Package feature `material-update-note-v1`; omitted keeps the stored note. */
+    updateNote: materialUpdateNoteSchema.optional(),
     metadata: materialMetadataSelectionWireSchema,
     body: materialBodySnapshotWireSchema,
   })

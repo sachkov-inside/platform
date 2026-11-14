@@ -12,7 +12,6 @@ const rowsSchema = z.array(
     slug: z.string().nullable(),
     title: z.string().nullable(),
     topicId: z.uuid().nullable(),
-    hasModeVariants: z.boolean(),
   }),
 );
 export function assembleProductMaterialReading(
@@ -31,7 +30,7 @@ export function assembleProductMaterialReading(
       const rows = rowsSchema.parse(
         await transaction.$queryRaw(Prisma.sql`
         select material.id, material.source_id as "sourceId", published.slug, published.title,
-          published.topic_id as "topicId", coalesce(published.has_mode_variants, false) as "hasModeVariants"
+          published.topic_id as "topicId"
         from materials.materials material
         left join materials.published_materials published on published.material_id = material.id and material.publication_state = 'published'
         where ${where}

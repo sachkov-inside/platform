@@ -88,12 +88,6 @@ export interface PublishedMaterialDiscoveryPage {
     }[];
   }[];
   readonly reference: {
-    /**
-     * Whether any lesson of this Product is written for both ways of going through it. The mode
-     * switch belongs to the Product, so a Product without such a lesson shows none; false for every
-     * other discovery kind.
-     */
-    readonly hasModeVariants: boolean;
     readonly id: string;
     /** Author-written Product introduction; null for every other discovery kind. */
     readonly introduction: ProductIntroductionDto | null;
@@ -951,7 +945,6 @@ function projectionQueries(
       chapters: [],
       reference: {
         id: reference.id,
-        hasModeVariants: false,
         introduction: null,
         productPage: null,
         name: reference.name,
@@ -1086,9 +1079,6 @@ function projectionQueries(
       ),
       reference: {
         id: reference.id,
-        hasModeVariants: reference.materials.some(
-          (item) => item.hasModeVariants,
-        ),
         introduction: {
           audience: reference.audience,
           outcome: reference.outcome,
@@ -1194,7 +1184,6 @@ function projectionQueries(
       chapters: [],
       reference: {
         id: source.materialId,
-        hasModeVariants: false,
         introduction: null,
         productPage: null,
         name: source.title,

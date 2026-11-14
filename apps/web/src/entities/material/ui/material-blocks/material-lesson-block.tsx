@@ -1,12 +1,18 @@
-import type { RenderedBlock, RenderedText } from "@inside/material-blocks";
+import {
+  materialBlockText,
+  type MaterialExerciseNumber,
+  type RenderedBlock,
+  type RenderedText,
+} from "@inside/material-blocks";
 import type { ReactNode } from "react";
 
 import { MaterialAgentPrompt } from "./material-agent-prompt.client";
 import { MaterialCallout } from "./material-callout";
 import { MaterialKeyPoint } from "./material-key-point";
 import { MaterialLabeledList } from "./material-labeled-list";
-import { MaterialModeVariant } from "./material-mode-variant.client";
 import { MaterialResourceCard } from "./material-resource-card";
+import { exerciseHeading } from "./material-exercise-frame";
+import { MaterialMatch, MaterialOrder } from "./material-match-order.client";
 import { MaterialQuiz } from "./material-quiz.client";
 import { MaterialTakeaways } from "./material-takeaways";
 
@@ -21,8 +27,9 @@ export type LessonBlock = Extract<
       | "labeled_list"
       | "resource_card"
       | "takeaways"
-      | "variant"
-      | "quiz";
+      | "quiz"
+      | "match"
+      | "order";
   }
 >;
 
@@ -34,14 +41,32 @@ export interface LessonBlockRendering {
   readonly renderBlock: (block: RenderedBlock, index: number) => ReactNode;
   /**
    * `branch` разводит несколько вложенных последовательностей одного блока по разным адресам.
-   * Без него две ветки вариантного шага дали бы своим заголовкам один и тот же якорь, и ссылка
-   * из оглавления вела бы в скрытую ветку.
+   * Без него вариант ответа квиза и его разбор дали бы своим заголовкам один и тот же якорь.
    */
   readonly renderBlocks: (
     blocks: readonly RenderedBlock[],
     branch?: number,
   ) => ReactNode;
   readonly renderInline: (content: readonly RenderedText[]) => ReactNode;
+  /** Position of an exercise in its lesson; unknown in a surface that shows it alone. */
+  readonly exerciseNumber?:
+    ((exerciseId: string) => MaterialExerciseNumber | undefined) | undefined;
+}
+
+/** Text of rich content for a drop-down list or an announcement, on one line. */
+function plainText(blocks: readonly RenderedBlock[]): string {
+  return blocks.map(materialBlockText).join(" ").replace(/\s+/gu, " ").trim();
+}
+
+/**
+ * Every rich sequence of one block gets its own branch in call order, so headings inside them get
+ * their own anchors. The counter lives outside the component, which only calls it during render.
+ */
+function branchedBlocks(
+  rendering: LessonBlockRendering,
+): (blocks: readonly RenderedBlock[]) => ReactNode {
+  let branch = 0;
+  return (blocks) => rendering.renderBlocks(blocks, branch++);
 }
 
 /** Один блок урока. Читатель, предпросмотр и редактор показывают его одинаково. */
@@ -54,28 +79,77 @@ export function MaterialLessonBlock({
 }) {
   switch (block.kind) {
     case "quiz":
+    case "match":
+    case "order": {
+      const rich = branchedBlocks(rendering);
+      const common = {
+        id: block.id,
+        heading: exerciseHeading(rendering.exerciseNumber?.(block.id)),
+        ...(block.context === undefined
+          ? {}
+          : { context: rich(block.context) }),
+        question: rich(block.question),
+      };
+      // Rendered after the items, so the branches keep their order in the document.
+      const dontKnow = () =>
+        block.dontKnow === undefined
+          ? {}
+          : {
+              dontKnow: {
+                explanation: rich(block.dontKnow.explanation),
+                reviewLinks: block.dontKnow.reviewLinks,
+              },
+            };
+      if (block.kind === "match")
+        return (
+          <MaterialMatch
+            key={block.id}
+            {...common}
+            mode={block.mode}
+            rows={block.rows.map((row) => ({
+              id: row.id,
+              content: rich(row.content),
+              answerId: row.answerId,
+              explanation: rich(row.explanation),
+            }))}
+            choices={block.choices.map((choice) => ({
+              id: choice.id,
+              label: plainText(choice.content),
+            }))}
+            {...dontKnow()}
+          />
+        );
+      if (block.kind === "order")
+        return (
+          <MaterialOrder
+            key={block.id}
+            {...common}
+            steps={block.steps.map((step) => ({
+              id: step.id,
+              content: rich(step.content),
+              label: plainText(step.content),
+              explanation: rich(step.explanation),
+            }))}
+            {...dontKnow()}
+          />
+        );
       return (
         <MaterialQuiz
           key={block.id}
-          {...block}
-          prompt={rendering.renderBlocks(block.prompt, 0)}
-          options={block.options.map((option, index) => ({
+          {...common}
+          selectionMode={block.selectionMode}
+          options={block.options.map((option) => ({
             id: option.id,
-            content: rendering.renderBlocks(option.content, index * 2 + 1),
-            explanation: rendering.renderBlocks(
-              option.explanation,
-              index * 2 + 2,
-            ),
+            content: rich(option.content),
+            correct: option.correct,
+            ...(option.explanation === undefined
+              ? {}
+              : { explanation: rich(option.explanation) }),
           }))}
-          dontKnow={{
-            explanation: rendering.renderBlocks(
-              block.dontKnow.explanation,
-              block.options.length * 2 + 1,
-            ),
-            reviewLinks: block.dontKnow.reviewLinks,
-          }}
+          {...dontKnow()}
         />
       );
+    }
     case "callout":
       return (
         <MaterialCallout
@@ -112,17 +186,6 @@ export function MaterialLessonBlock({
         <MaterialKeyPoint>
           {rendering.renderInline(block.content)}
         </MaterialKeyPoint>
-      );
-    case "variant":
-      // Обе ветки рисует вызывающая поверхность и передаёт готовыми: у режима нет доступа к её
-      // обходу документа, а сама ветка должна приехать в разметку, чтобы переключение было мгновенным.
-      return (
-        <MaterialModeVariant
-          branches={block.options.map((option, index) => ({
-            content: rendering.renderBlocks(option.content, index),
-            mode: option.mode,
-          }))}
-        />
       );
   }
 }

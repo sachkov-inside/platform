@@ -180,6 +180,8 @@
         "_pages/material-reader/ui/material-reader.stories.tsx",
         "_pages/material-reader/ui/material-reader-actions.stories.tsx",
         "_pages/material-reader/ui/material-reader-quiz.stories.tsx",
+        "_pages/material-reader/ui/material-reader-steps.stories.tsx",
+        "_pages/material-reader/ui/material-reader-lesson-end.stories.tsx",
         "_pages/material-reader/ui/material-reader-loading.stories.tsx"
       ],
       "reason": ""
@@ -216,6 +218,11 @@
     {
       "route": "/products/[slug]/buy",
       "stories": ["_pages/product-purchase/ui/product-purchase.stories.tsx"],
+      "reason": ""
+    },
+    {
+      "route": "/products/[slug]/glossary",
+      "stories": ["_pages/course-glossary/ui/course-glossary-view.stories.tsx"],
       "reason": ""
     },
     {

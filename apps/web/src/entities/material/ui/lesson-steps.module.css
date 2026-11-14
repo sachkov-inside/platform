@@ -1,0 +1,26 @@
+/*
+ * Step-by-step reveal (#2122). The server renders the whole lesson; a closed cut hides the blocks
+ * after it only while scripts run, so a reader without scripts and a search engine see every part.
+ * A browser without the `scripting` media feature hides them once the page has hydrated.
+ */
+@media (scripting: enabled) {
+  .cut[data-closed] ~ * {
+    display: none;
+  }
+  .tail[data-closed] {
+    display: none;
+  }
+}
+.cut[data-closed][data-hydrated] ~ * {
+  display: none;
+}
+.tail[data-closed][data-hydrated] {
+  display: none;
+}
+
+/* The buttons do nothing without scripts; the text is already whole. */
+@media (scripting: none) {
+  .control {
+    display: none;
+  }
+}

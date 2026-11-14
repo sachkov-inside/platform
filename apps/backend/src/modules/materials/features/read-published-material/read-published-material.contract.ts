@@ -11,12 +11,31 @@ export interface LockedMaterialAccessDto {
   readonly subscriptionOffered: boolean;
 }
 
+export interface PublishedGlossaryTermDto {
+  readonly id: string;
+  readonly title: string;
+  readonly englishTitle: string | null;
+  readonly shortDefinition: string;
+  readonly fullDefinition: string;
+}
+
 export type PublishedMaterialReadDto =
   | {
       readonly kind: "available";
       readonly cacheScope: "private-no-store" | "public";
       readonly projection: PublishedMaterialProjectionDto;
       readonly body: RenderedMaterialBody;
+      /**
+       * The Glossary Terms the body mentions or shows as cards, read from the Glossary with the
+       * body, so a corrected definition needs no republication. A term the Glossary does not
+       * hold is absent; the reader then shows its mention as plain text.
+       */
+      readonly glossaryTerms: readonly PublishedGlossaryTermDto[];
+      /**
+       * The deck «Термины урока»: the Glossary Terms this lesson introduces, in the order the body
+       * first mentions them, then the rest by identifier. Empty when the lesson introduces none.
+       */
+      readonly lessonTerms: readonly PublishedGlossaryTermDto[];
       readonly primaryVideo: VideoPresentation | null;
       readonly videoChapters?: readonly VideoChapter[];
     }

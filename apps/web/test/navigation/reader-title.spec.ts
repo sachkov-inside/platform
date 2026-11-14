@@ -247,7 +247,7 @@ const linearReturnHref = "/products/linear/programme?page=1&at=lesson";
 
 /** Streaming shows the pending frame first; the Reader waits in a hidden segment until React swaps them. */
 function linearReturnDocument(revealed: boolean) {
-  const actions = `<nav aria-label="Действия материала"><a href="${linearReturnHref}">Назад</a></nav><nav aria-label="Действия в конце материала"><a href="${linearReturnHref}">Назад</a></nav>`;
+  const actions = `<nav aria-label="Действия материала"><a href="${linearReturnHref}">Назад</a></nav><nav aria-label="Действия в конце материала"><a href="/materials/next">Дальше</a></nav>`;
   const reader = `<div data-material-reader-state="available">${actions}<nav aria-label="Уроки продукта"><a href="${linearReturnHref}" aria-label="Программа, урок 1">1</a></nav></div>`;
   const head = `<meta name="viewport" content="width=device-width, initial-scale=1"><style>@media (min-width: 768px) { [aria-label="Уроки продукта"] { display: none; } }</style>`;
   return revealed

@@ -3,6 +3,10 @@ import {
   statement as saleNoticesStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0119-sale-notices.js";
 import {
+  name as materialUpdateNotesName,
+  statement as materialUpdateNotesStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0122-material-update-notes.js";
+import {
   name as productTopicsName,
   statement as productTopicsStatement,
 } from "../modules/products/infrastructure/postgres/migrations/0120-product-topics.js";
@@ -10,6 +14,22 @@ import {
   name as productRoadmapsName,
   statement as productRoadmapsStatement,
 } from "../modules/products/infrastructure/postgres/migrations/0121-product-roadmaps.js";
+import {
+  name as glossaryTermsName,
+  statement as glossaryTermsStatement,
+} from "../modules/glossary/infrastructure/postgres/migrations/0123-glossary-terms.js";
+import {
+  name as exerciseAttemptsName,
+  statement as exerciseAttemptsStatement,
+} from "../modules/exercise-attempts/infrastructure/postgres/migrations/0124-exercise-attempts.js";
+import {
+  name as lessonOpenedPartsName,
+  statement as lessonOpenedPartsStatement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0125-lesson-opened-parts.js";
+import {
+  name as lessonRatingsName,
+  statement as lessonRatingsStatement,
+} from "../modules/lesson-ratings/infrastructure/postgres/migrations/0126-lesson-ratings.js";
 import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
@@ -783,6 +803,14 @@ export const platformMigrations = [
   { name: saleNoticesName, statement: saleNoticesStatement },
   { name: productTopicsName, statement: productTopicsStatement },
   { name: productRoadmapsName, statement: productRoadmapsStatement },
+  {
+    name: materialUpdateNotesName,
+    statement: materialUpdateNotesStatement,
+  },
+  { name: glossaryTermsName, statement: glossaryTermsStatement },
+  { name: exerciseAttemptsName, statement: exerciseAttemptsStatement },
+  { name: lessonOpenedPartsName, statement: lessonOpenedPartsStatement },
+  { name: lessonRatingsName, statement: lessonRatingsStatement },
 ] as const;
 
 export function migrateToLatest(

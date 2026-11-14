@@ -22,7 +22,21 @@ export class PublishedMaterialsService {
       schemaVersion: 1;
     };
     cacheScope: 'public' | 'private-no-store';
+    glossaryTerms: Array<{
+      englishTitle: string | null;
+      fullDefinition: string;
+      id: string;
+      shortDefinition: string;
+      title: string;
+    }>;
     kind: 'available';
+    lessonTerms: Array<{
+      englishTitle: string | null;
+      fullDefinition: string;
+      id: string;
+      shortDefinition: string;
+      title: string;
+    }>;
     primaryVideo: {
       failureCode?: string;
       state: 'uploading' | 'processing' | 'ready' | 'failed';

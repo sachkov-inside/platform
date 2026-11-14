@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import {
   MaterialAssetFile,
   MaterialAssetImage,
@@ -5,13 +7,20 @@ import {
 import { MaterialPrimaryVideo } from "@/features/material-video";
 import {
   materialTaxonomyLabel,
+  MaterialCallout,
   MaterialInline,
   MaterialLessonBlock,
 } from "@/entities/material";
+import {
+  isGlossaryTermHref,
+  materialExerciseNumbers,
+  type MaterialExerciseNumber,
+} from "@inside/material-blocks";
 
 import type {
   MaterialPreviewBlock,
   MaterialPreviewPresentation,
+  MaterialPreviewText,
   MaterialPreviewVideo,
 } from "../model/presentation";
 
@@ -21,6 +30,7 @@ interface MaterialPreviewProps {
 
 /** Current-Material reading surface shared by Storybook and future production adapters. */
 export function MaterialPreview({ preview }: MaterialPreviewProps) {
+  const exerciseNumbers = materialExerciseNumbers(preview.blocks);
   return (
     <article className="mx-auto w-full max-w-[72ch] px-5 py-10 sm:px-8 sm:py-14">
       <header>
@@ -61,6 +71,7 @@ export function MaterialPreview({ preview }: MaterialPreviewProps) {
           <PreviewBlock
             block={block}
             contentVersion={preview.contentVersion}
+            exerciseNumbers={exerciseNumbers}
             key={`${block.kind}-${String(index)}`}
             video={preview.video}
             materialId={preview.materialId}
@@ -119,11 +130,15 @@ function previewVideoNote(video: MaterialPreviewVideo): string {
 function PreviewBlock({
   block,
   contentVersion,
+  exerciseNumbers,
   materialId,
   video,
 }: {
   readonly block: MaterialPreviewBlock;
   readonly contentVersion: number;
+  /** Exercises stand at the top of a lesson, so only top-level blocks pass their numbers. */
+  readonly exerciseNumbers?:
+    ReadonlyMap<string, MaterialExerciseNumber> | undefined;
   readonly materialId: string;
   readonly video?: MaterialPreviewVideo | undefined;
 }) {
@@ -131,11 +146,11 @@ function PreviewBlock({
     case "paragraph":
       return (
         <p className="min-h-7">
-          <MaterialInline content={block.content} />
+          <PreviewInline content={block.content} />
         </p>
       );
     case "heading": {
-      const content = <MaterialInline content={block.content} />;
+      const content = <PreviewInline content={block.content} />;
       if (block.level === 2) {
         return (
           <h2 className="pt-6 text-2xl font-semibold tracking-[-0.025em]">
@@ -210,18 +225,23 @@ function PreviewBlock({
           materialId={materialId}
         />
       );
+    // A step break shows nothing yet: the lesson reads whole until parts open one by one (#2122).
+    case "step_break":
+      return null;
     case "quiz":
+    case "match":
+    case "order":
     case "agent_prompt":
     case "callout":
     case "key_point":
     case "labeled_list":
     case "resource_card":
     case "takeaways":
-    case "variant":
       return (
         <MaterialLessonBlock
           block={block}
           rendering={{
+            exerciseNumber: (id) => exerciseNumbers?.get(id),
             renderBlock: (child, index) => (
               <PreviewBlock
                 block={child}
@@ -244,13 +264,22 @@ function PreviewBlock({
                 ))}
               </div>
             ),
-            renderInline: (content) => <MaterialInline content={content} />,
+            renderInline: (content) => <PreviewInline content={content} />,
           }}
         />
       );
     case "video":
       return (
         <PreviewVideo materialId={materialId} video={video} block={block} />
+      );
+    case "term_definition":
+      // The preview has no Glossary: it names the card the reader fills from the Glossary.
+      return (
+        <MaterialCallout tone="definition" title={`Термин ${block.termId}`}>
+          <p className="mt-2 text-muted-foreground">
+            Полное определение придёт из словаря.
+          </p>
+        </MaterialCallout>
       );
     case "image":
       return (
@@ -339,5 +368,27 @@ function PreviewTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** Inline content as Reader draws it; a term mention stays unresolved until the reader opens it. */
+function PreviewInline({
+  content,
+}: {
+  readonly content: readonly MaterialPreviewText[];
+}) {
+  return <MaterialInline content={content} link={previewLink} />;
+}
+
+function previewLink(href: string, children: ReactNode): ReactNode {
+  // A term mention is resolved by the reader against the Glossary; it is not an address.
+  if (!isGlossaryTermHref(href)) return undefined;
+  return (
+    <span
+      className="underline decoration-dotted underline-offset-4"
+      title={href}
+    >
+      {children}
+    </span>
   );
 }

@@ -1,5 +1,6 @@
 export { ReadingAction } from "./ui/reading-action.client";
 export { ProductMaterialMarker } from "./ui/product-material-marker.client";
+export { MaterialUpdateNotice } from "./ui/material-update-notice.client";
 export type {
   ReadingActionProps,
   ReadingActionView,
@@ -8,7 +9,14 @@ export type {
 export { ReadingProgressProvider } from "./ui/reading-provider.client";
 export { SavedReadingAction } from "./ui/saved-reading-action.client";
 export { VisibleMaterialOpen } from "./ui/visible-material-open.client";
-export { readingProgressChanges } from "./model/reading-progress-events";
+export {
+  guestOpenedPartsKey,
+  useLessonOpenedParts,
+} from "./ui/use-lesson-opened-parts.client";
+export {
+  lessonOpenedPartsChanges,
+  readingProgressChanges,
+} from "./model/reading-progress-events";
 
 export {
   productContinuationQueryKey,

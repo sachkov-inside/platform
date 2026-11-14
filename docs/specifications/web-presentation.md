@@ -118,9 +118,10 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   Reader headers omit the Material summary, including loading and access states
   (owner correction 2026-10-13).
 - A collapsed callout is one 44 px summary row; put body padding only inside its open content.
-- On phones, quiz titles, questions and choices use 14 px with compact padding; from `sm` they use 16 px.
-- A quiz uses the shared semantic result colors, a result icon and a written result. A person
-  can change the answer directly; do not repeat the selected text or add a separate retry button.
+- On phones, exercise titles, questions and choices use 14 px with compact padding; from `sm` they use 16 px.
+- A quiz uses the shared semantic result colors, a result icon and a written result. A checked
+  answer stays until «Ответить ещё раз» (owner decision 2026-11-13, interactive lessons v1); do not
+  repeat the selected text.
 
 The 44 px choice preserves comfortable touch targets while reducing visual bulk;
 [W3C target-size guidance](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced)

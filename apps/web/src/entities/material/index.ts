@@ -34,8 +34,6 @@ export {
   type LessonBlock,
   type LessonBlockRendering,
   MaterialLabeledList,
-  MaterialModeVariant,
-  type MaterialModeBranch,
   MaterialResourceCard,
   MaterialTakeaways,
 } from "./ui/material-blocks";
@@ -54,7 +52,25 @@ export {
   MaterialReadingScope,
   useMaterialReading,
   type MaterialReadingSnapshot,
+  type MaterialUpdateNote,
 } from "./model/reading-context.client";
+
+export { exerciseAnchor } from "./ui/material-blocks/material-exercise-frame";
+export {
+  ExerciseAnswersProvider,
+  type ExerciseAnswer,
+  type ExerciseAnswerRecord,
+  type ExerciseAnswerSource,
+  type ExerciseAnswerState,
+} from "./model/exercise-answers.client";
+
+export { lessonParts } from "./model/lesson-parts";
+export {
+  LessonSteps,
+  type LessonStepsProgress,
+  type LessonStepsReader,
+} from "./model/lesson-steps.client";
+export { LessonStepsTail } from "./ui/lesson-step-controls.client";
 
 export { materialSourceAnchors } from "./model/material-source-anchors";
 export { MaterialInline } from "./ui/material-inline";

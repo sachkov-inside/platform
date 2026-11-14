@@ -11,6 +11,10 @@ import {
 import { readLearningMaterial } from "../../src/modules/content-library/features/read-learning-material/read-learning-material.js";
 import type { PublishedMaterialReader } from "../../src/modules/materials/index.js";
 
+function paragraph(text: string): RenderedBlock {
+  return { kind: "paragraph", content: [{ kind: "text", text, marks: [] }] };
+}
+
 describe("Learning material reference batches", () => {
   it.each(["unchanged", "revoked", "new-version"] as const)(
     "checks 101 unique references before issuing a body when access is %s",
@@ -31,60 +35,38 @@ describe("Learning material reference batches", () => {
           {
             kind: "quiz",
             id: "question-1",
-            correctOptionId: "second",
-            prompt: [
-              {
-                kind: "paragraph",
-                content: [{ kind: "text", text: "Full question", marks: [] }],
-              },
-            ],
+            reveal: "after-answer",
+            question: [paragraph("Full question")],
+            selectionMode: "single",
             options: [
               {
                 id: "first",
-                content: [
-                  {
-                    kind: "paragraph",
-                    content: [{ kind: "text", text: "First", marks: [] }],
-                  },
-                ],
-                explanation: [
-                  {
-                    kind: "paragraph",
-                    content: [
-                      { kind: "text", text: "Wrong explanation", marks: [] },
-                    ],
-                  },
-                ],
+                content: [paragraph("First")],
+                correct: false,
+                explanation: [paragraph("Wrong explanation")],
               },
               {
                 id: "second",
-                content: [
-                  {
-                    kind: "paragraph",
-                    content: [{ kind: "text", text: "Second", marks: [] }],
-                  },
-                ],
-                explanation: [
-                  {
-                    kind: "paragraph",
-                    content: [
-                      { kind: "text", text: "Correct explanation", marks: [] },
-                    ],
-                  },
-                ],
+                content: [paragraph("Second")],
+                correct: true,
+                explanation: [paragraph("Correct explanation")],
               },
             ],
             dontKnow: {
-              explanation: [
-                {
-                  kind: "paragraph",
-                  content: [
-                    { kind: "text", text: "Review explanation", marks: [] },
-                  ],
-                },
-              ],
+              explanation: [paragraph("Review explanation")],
               reviewLinks: ["#section"],
             },
+          },
+          {
+            kind: "order",
+            id: "pipeline",
+            reveal: "none",
+            question: [paragraph("Order question")],
+            steps: ["spec", "code", "ship"].map((id) => ({
+              id,
+              content: [paragraph(`Step ${id}`)],
+              explanation: [paragraph(`Why ${id}`)],
+            })),
           },
           {
             kind: "blockquote" as const,
@@ -107,6 +89,8 @@ describe("Learning material reference batches", () => {
               kind: "available",
               cacheScope: "public",
               body,
+              glossaryTerms: [],
+              lessonTerms: [],
               primaryVideo: null,
               projection: {
                 materialId: "72000000-0000-4000-8000-000000000001",
@@ -236,4 +220,73 @@ describe("Learning material reference batches", () => {
       }
     },
   );
+});
+
+describe("Learning material glossary", () => {
+  it("gives the definitions of the terms the body names, so an agent reads them with the lesson", async () => {
+    const term = {
+      id: "bounded-context",
+      title: "Ограниченный контекст",
+      englishTitle: "Bounded context",
+      shortDefinition: "Граница, внутри которой у слов модели один смысл.",
+      fullDefinition: "Часть системы со своей моделью и своим языком.",
+    };
+    const body: RenderedMaterialBody = {
+      schemaVersion: 1,
+      blocks: [{ kind: "term_definition", termId: term.id }],
+    };
+    const result = await readLearningMaterial(
+      {
+        reader: {
+          read: () =>
+            Promise.resolve({
+              ok: true,
+              value: {
+                kind: "available",
+                cacheScope: "public",
+                body,
+                glossaryTerms: [term],
+                lessonTerms: [term],
+                primaryVideo: null,
+                projection: {
+                  materialId: "72000000-0000-4000-8000-000000000002",
+                  contentVersion: 3,
+                  slug: "terms-lesson",
+                  title: "Terms lesson",
+                  summary: "Terms",
+                  access: "free",
+                  publishedAt: "2026-09-02T00:00:00.000Z",
+                  primaryVideoId: null,
+                  difficulty: null,
+                  outcomes: [],
+                  cover: null,
+                  topic: { id: "topic", name: "Topic", slug: "topic" },
+                  format: { id: "guide", name: "Guide", slug: "guide" },
+                  tags: [],
+                  productMemberships: [],
+                },
+              },
+            }),
+        },
+        contentAccess: {
+          checkAvailabilityMany: () => Promise.resolve({ ok: true, items: [] }),
+          authorize: () =>
+            Promise.resolve({
+              decisionId: "check",
+              policyVersion: "content-access-v1",
+              decidedAt: "2026-09-02T00:00:00.000Z",
+              effect: "allow",
+              reason: "public_resource",
+              checkedContentVersion: 3,
+            }),
+          checkProductAccessMany: () => Promise.resolve([]),
+          checkProductAccess: () => Promise.resolve({ kind: "open" }),
+        },
+      },
+      { subject: anonymousSubject, slug: "terms-lesson" },
+    );
+
+    if (!result.ok) throw new Error(result.error.code);
+    expect(result.value.glossaryTerms).toEqual([term]);
+  });
 });

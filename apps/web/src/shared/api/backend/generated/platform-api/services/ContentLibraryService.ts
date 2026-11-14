@@ -790,7 +790,6 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      hasModeVariants: boolean;
       id: string;
       introduction: {
         audience: string;
@@ -1006,7 +1005,6 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      hasModeVariants: boolean;
       id: string;
       introduction: {
         audience: string;
@@ -1116,6 +1114,47 @@ export class ContentLibraryService {
         404: `Topic, Product or source Material is not published`,
         500: `Discovery or Account resolution failed internally`,
         503: `Discovery or Account dependency is unavailable`,
+      },
+    });
+  }
+  /**
+   * Read the Glossary Terms introduced by a Product's lessons
+   * @returns any
+   * @throws ApiError
+   */
+  public readCourseGlossary({
+    slug,
+  }: {
+    slug: string,
+  }): CancelablePromise<{
+    product: {
+      name: string;
+      slug: string;
+    };
+    terms: Array<{
+      englishTitle: string | null;
+      fullDefinition: string;
+      id: string;
+      lesson: {
+        slug: string;
+        title: string;
+      };
+      shortDefinition: string;
+      title: string;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/products/{slug}/glossary',
+      path: {
+        'slug': slug,
+      },
+      errors: {
+        400: `Product slug is malformed`,
+        401: `Optional Account proof is invalid`,
+        404: `Product is not published`,
+        500: `Glossary or Account resolution failed internally`,
+        503: `Glossary or Account dependency is unavailable`,
       },
     });
   }
@@ -1253,7 +1292,6 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
-      hasModeVariants: boolean;
       id: string;
       introduction: {
         audience: string;

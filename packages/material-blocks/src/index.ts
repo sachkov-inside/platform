@@ -3,17 +3,7 @@ export {
   calloutTones,
   type CalloutTone,
 } from "./blocks/callout.js";
-export { variantOptionType } from "./blocks/variant.js";
-export {
-  defaultProductMode,
-  productModeLabels,
-  productModes,
-  productModeSchema,
-  isProductMode,
-  type ProductMode,
-} from "./product-mode.js";
 export type {
-  MaterialBlockChildNodeDescription,
   MaterialBlockDefinition,
   MaterialBlockIssueReport,
   MaterialBlockNodeDescription,
@@ -74,19 +64,55 @@ export type {
 } from "./rendered-block.js";
 
 export {
-  quizContentSchema,
   readerBlocksSchema,
-  type QuizContent,
   type ContentReaderBlock,
-} from "./quiz-content.js";
+  type ExerciseContent,
+  type MatchContent,
+  type OrderContent,
+  type QuizContent,
+} from "./exercise-content.js";
 export { materialHeadingAnchors } from "./heading-anchors.js";
-export type { RenderedQuiz } from "./rendered-block.js";
+export type {
+  RenderedExercise,
+  RenderedMatch,
+  RenderedOrder,
+  RenderedQuiz,
+} from "./rendered-block.js";
 
 export {
-  materialQuizReferenceIssue,
-  materialQuizReferencesValid,
-} from "./quiz-document.js";
+  exerciseIdSchema,
+  exerciseKinds,
+  isExerciseKind,
+  type ExerciseKind,
+} from "./exercise-rules.js";
+export {
+  checkExerciseAnswer,
+  exerciseAnswerSchema,
+  exerciseFingerprint,
+  exerciseFingerprintSchema,
+  exerciseMistakes,
+  exerciseResultSchema,
+  type ExerciseAnswer,
+  type ExerciseKey,
+  type ExerciseMistakes,
+  type ExerciseResult,
+} from "./exercise-answer.js";
+export {
+  materialExercises,
+  materialExerciseNumbers,
+  materialExerciseReferenceIssue,
+  materialExerciseReferencesValid,
+  type MaterialExerciseNumber,
+} from "./exercise-document.js";
 
 export { resourceCardUrlValid } from "./blocks/resource-card.js";
 
 export { videoChaptersSchema } from "./blocks/video.js";
+
+export { glossaryTermIdSchema } from "./glossary-term-id.js";
+export {
+  glossaryTermIdOf,
+  isGlossaryTermHref,
+  keepFirstTermMentions,
+  materialGlossaryTermIds,
+} from "./glossary-term.js";

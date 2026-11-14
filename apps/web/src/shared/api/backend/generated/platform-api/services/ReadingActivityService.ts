@@ -43,6 +43,32 @@ export class ReadingActivityService {
     });
   }
   /**
+   * Save how many parts of a step-by-step lesson the current Account has opened; the count only grows
+   * @returns any
+   * @throws ApiError
+   */
+  public recordLessonOpenedParts({
+    materialId,
+    requestBody,
+  }: {
+    materialId: string,
+    requestBody: {
+      openedParts: number;
+    },
+  }): CancelablePromise<{
+    openedParts: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/reading-activity/materials/{materialId}/opened-parts',
+      path: {
+        'materialId': materialId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Read personal states for at most 100 Material IDs
    * @returns any
    * @throws ApiError
@@ -56,47 +82,18 @@ export class ReadingActivityService {
   }): CancelablePromise<Array<{
     isRead: boolean;
     materialId: string;
+    openedParts: number | null;
     readAt: string | null;
     updatedAt: string | null;
+    updateNote: {
+      notedAt: string;
+      whatChanged: string;
+    } | null;
     version: number;
   }>> {
     return this.httpRequest.request({
       method: 'POST',
       url: '/reading-activity/materials/query',
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * Read the mode the current Account goes through products in
-   * @returns any
-   * @throws ApiError
-   */
-  public getReaderProductMode(): CancelablePromise<{
-    productMode: 'example' | 'own';
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/reading-activity/product-mode',
-    });
-  }
-  /**
-   * Set the mode the current Account goes through products in
-   * @returns any
-   * @throws ApiError
-   */
-  public setReaderProductMode({
-    requestBody,
-  }: {
-    requestBody: {
-      productMode: 'example' | 'own';
-    },
-  }): CancelablePromise<{
-    productMode: 'example' | 'own';
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/reading-activity/product-mode',
       body: requestBody,
       mediaType: 'application/json',
     });

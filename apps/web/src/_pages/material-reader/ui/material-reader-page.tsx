@@ -2,6 +2,7 @@ import { internalRoute } from "@/shared/routing/internal-route";
 import { learnerMcpConnectPrompt } from "@/features/learner-mcp";
 import { MaterialTaskWorkspace } from "@/features/product-task-submission/index.server";
 import { materialSourceAnchors } from "@/entities/material";
+import { highlightMaterialCode } from "@/entities/material.server";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import {
   CourseTaskSubmissionStatuses,
@@ -23,10 +24,17 @@ import {
   readInlineArtifactReference,
 } from "@/features/product-artifacts.reader";
 import {
+  MaterialUpdateNotice,
   SavedReadingAction,
   VisibleMaterialOpen,
 } from "@/features/reading-progress";
 import { SavedBookmarkAction } from "@/features/bookmarks";
+import { SavedLessonRating } from "@/features/lesson-rating";
+import { LessonTermDeck } from "@/features/lesson-term-deck";
+import {
+  LessonExerciseAttempts,
+  lessonExercises,
+} from "@/features/exercise-attempts";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
@@ -38,12 +46,8 @@ import {
 import { resolveReaderReturnTarget } from "../model/reader-return-target";
 import { readReaderProduct } from "../api/read-reader-product.server";
 import { readPublicProduct } from "@/features/library-discovery.server";
-import { ProductModeHint, ProductModeSwitch } from "@/features/product-modes";
-import {
-  loadReaderProductMode,
-  readerHasSeenProductModeHint,
-} from "@/features/product-modes.reader.server";
 import type { PublishedProductResult } from "@/features/library-discovery";
+import { readCourseGlossaryTerms } from "../api/read-course-glossary-terms.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { readWebRuntimeConfig } from "@/shared/config/index.server";
 import {
@@ -51,11 +55,6 @@ import {
   readPublicSiteOrigin,
 } from "@/shared/link-preview/index.server";
 import type { ReaderLearnerMcp } from "../model/practice-review-setup";
-import {
-  ProductModeProvider,
-  defaultProductMode,
-  type ProductMode,
-} from "@/shared/product-mode";
 import { loadMaterialReader } from "../api/load-material-reader";
 import { readPublicMaterial } from "../api/public-material.public-cache.server";
 import type {
@@ -170,16 +169,10 @@ export async function MaterialReaderPage({
     hasProductContext: productContext !== null,
     inferCourseReturn,
   });
-  if (
-    material.kind === "available" &&
-    productContext?.product.hasModeVariants !== true &&
-    anchor === undefined
-  ) {
+  if (material.kind === "available" && anchor === undefined) {
     return (
       <ResolvedMaterialReader
         workspaceQuery={query}
-        productMode={defaultProductMode}
-        hintSeen
         deferredPracticeActions={
           <>
             {productSlug === undefined ||
@@ -266,14 +259,14 @@ async function PersonalMaterialReader({
 }: {
   readonly workspaceQuery: WorkspaceQuery;
   readonly anchor?: ReaderCourseAnchor | undefined;
-  /** Бесплатный урок уже прочитан из общего кеша: личными остаются режим и статусы сдачи в программе. */
+  /** Бесплатный урок уже прочитан из общего кеша: личными остаются статусы сдачи в программе. */
   readonly sharedMaterial?: PublicMaterialResult;
   readonly inferCourseReturn: boolean;
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly slug: string;
 }) {
   // Личная часть принадлежит запросу, а не предзагрузке: `connection()` останавливает её до чтения
-  // сессии. Иначе предзагрузка по намерению дошла бы до обновления токена и до cookie режима.
+  // сессии. Иначе предзагрузка по намерению дошла бы до обновления токена.
   await connection();
   const accessToken = await getOptionalPlatformAccessToken();
   // Гость, которому backend урока не показал, личным чтением ничего нового не узнает.
@@ -296,19 +289,13 @@ async function PersonalMaterialReader({
   // Если личное чтение закончится не отказом, поиск никто не дождётся: его сбой не должен остаться
   // необработанным. Тот, кто дождётся, получит исключение как обычно.
   guestPurchaseProduct?.catch(() => undefined);
-  const [result, productResult, productMode, hintSeen] = await Promise.all([
+  const [result, productResult] = await Promise.all([
     sharedMaterial?.kind === "available"
       ? Promise.resolve(sharedMaterial)
       : loadMaterialReader(slug, accessToken),
     productSlug === undefined
       ? Promise.resolve(null)
       : readReaderProduct(productSlug, accessToken),
-    productSlug === undefined
-      ? Promise.resolve(defaultProductMode)
-      : loadReaderProductMode(accessToken),
-    productSlug === undefined
-      ? Promise.resolve(true)
-      : readerHasSeenProductModeHint(),
   ]);
 
   if (result.kind === "not-found") {
@@ -324,14 +311,10 @@ async function PersonalMaterialReader({
     inferCourseReturn,
   );
   const courseSlug = productSlugOf(courseReturnTarget);
-  const [courseProduct, courseMode, courseHintSeen] =
+  const courseProduct =
     courseSlug === undefined || courseSlug === productSlug
-      ? [productResult, productMode, hintSeen]
-      : await Promise.all([
-          readReaderProduct(courseSlug, accessToken),
-          loadReaderProductMode(accessToken),
-          readerHasSeenProductModeHint(),
-        ]);
+      ? productResult
+      : await readReaderProduct(courseSlug, accessToken);
   const productContext = productContextOf(
     result.material.slug,
     courseReturnTarget,
@@ -346,8 +329,6 @@ async function PersonalMaterialReader({
       {...(guestPurchaseProduct === undefined
         ? {}
         : { purchaseProduct: guestPurchaseProduct })}
-      productMode={courseMode}
-      hintSeen={courseHintSeen}
       result={result}
       returnTarget={resolveReaderReturnTarget({
         returnTarget: courseReturnTarget,
@@ -372,8 +353,6 @@ interface WorkspaceQuery {
 async function ResolvedMaterialReader({
   workspaceQuery,
   accessToken,
-  productMode,
-  hintSeen,
   deferredPracticeActions,
   purchaseProduct: startedPurchaseProduct,
   result,
@@ -386,8 +365,6 @@ async function ResolvedMaterialReader({
   /** Поиск предложения, начатый до личного чтения. */
   readonly purchaseProduct?: Promise<PurchaseProductResult>;
   readonly deferredPracticeActions?: ReactNode;
-  readonly productMode: ProductMode;
-  readonly hintSeen: boolean;
   readonly result: ResolvedMaterial;
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly productContext: ProductReaderContext | null;
@@ -449,12 +426,21 @@ async function ResolvedMaterialReader({
       />
     );
   }
-  const showsModes =
-    productContext?.supplementary !== true &&
-    productContext?.product.hasModeVariants === true;
   // Бесплатный урок курса ведёт к покупке курса (#1647); у дополнительного материала своего места
   // в программе нет, и звать оттуда нечего.
   const purchaseProductSlug = productSlugOf(returnTarget);
+  // Подсказка термина и карусель терминов ведут в словарь курса, только когда урок открыт внутри курса.
+  const courseGlossarySlug =
+    productContext === null ? undefined : purchaseProductSlug;
+  // «Подробнее» ведёт только к термину, который словарь курса показывает читателю.
+  const courseGlossaryTerms =
+    courseGlossarySlug === undefined || result.glossaryTerms.length === 0
+      ? undefined
+      : await readCourseGlossaryTerms(courseGlossarySlug, accessToken);
+  const courseGlossary =
+    courseGlossarySlug === undefined || courseGlossaryTerms?.kind !== "ready"
+      ? undefined
+      : { slug: courseGlossarySlug, termIds: courseGlossaryTerms.termIds };
   const purchaseCall =
     result.material.access === "free" &&
     purchaseProductSlug !== undefined &&
@@ -468,121 +454,118 @@ async function ResolvedMaterialReader({
         />
       </Suspense>
     ) : undefined;
-  // Подсказка объясняет устройство руководства у шага, который читатель видит. Шаг, написанный
-  // для другого способа, в его режиме не рисуется, и подсказка стояла бы рядом с пустотой.
-  const hintAt = result.body.findIndex(
-    (block) =>
-      block.kind === "variant" &&
-      block.options.some((option) => option.mode === productMode),
-  );
   return (
     <VisibleMaterialOpen
       key={`${result.material.materialId}:${String(result.material.contentVersion)}`}
       materialId={result.material.materialId}
       contentVersion={result.material.contentVersion}
     >
-      <ProductModeProvider initialMode={productMode}>
-        <MaterialReaderView
-          renderLink={(href, label) => {
-            const reference = readInlineArtifactReference(href);
-            if (reference === undefined) {
-              // Раздел этого же материала остаётся переходом внутри страницы.
-              const section = ownSectionHref(href, result.material.slug);
-              if (section !== undefined)
-                return (
-                  <a className={proseLinkClassName} href={section}>
-                    {label}
-                  </a>
-                );
-              const target = readerBodyLinkHref(productContext, href);
-              return target === undefined ? undefined : (
-                <IntentPrefetchLink
-                  className={proseLinkClassName}
-                  href={target}
-                >
+      <MaterialReaderView
+        renderLink={(href, label) => {
+          const reference = readInlineArtifactReference(href);
+          if (reference === undefined) {
+            // Раздел этого же материала остаётся переходом внутри страницы.
+            const section = ownSectionHref(href, result.material.slug);
+            if (section !== undefined)
+              return (
+                <a className={proseLinkClassName} href={section}>
                   {label}
-                </IntentPrefetchLink>
+                </a>
               );
-            }
-            return (
-              <Suspense
-                fallback={
-                  <InlineArtifactDownload href={href} label={label} loading />
-                }
-              >
-                <ReaderInlineArtifact
-                  reference={reference}
-                  href={href}
-                  label={label}
-                />
-              </Suspense>
+            const target = readerBodyLinkHref(productContext, href);
+            return target === undefined ? undefined : (
+              <IntentPrefetchLink className={proseLinkClassName} href={target}>
+                {label}
+              </IntentPrefetchLink>
             );
-          }}
-          topReadingAction={
-            <SavedReadingAction
-              compact
-              materialId={result.material.materialId}
-              format={result.material.format.slug}
-            />
           }
-          topBookmarkAction={
-            <SavedBookmarkAction
-              presentation="reader"
-              compact
-              materialId={result.material.materialId}
-            />
-          }
-          readingAction={
-            <SavedReadingAction
-              compact
-              key={result.material.materialId}
-              materialId={result.material.materialId}
-              format={result.material.format.slug}
-            />
-          }
-          bookmarkAction={
-            <SavedBookmarkAction
-              presentation="reader"
-              compact
-              materialId={result.material.materialId}
-            />
-          }
-          submissionWorkspace={
-            <Suspense fallback={null}>
-              <MaterialTaskWorkspace
-                connection={readerSubmissionConnection()}
-                materialId={result.material.materialId}
-                returnTo={workspaceReturnTo(slug, workspaceQuery)}
-                attemptsAfter={
-                  typeof workspaceQuery.attemptsAfter === "string"
-                    ? workspaceQuery.attemptsAfter
-                    : undefined
-                }
-                conflictingAnchorIds={[
-                  ...materialSourceAnchors(result.body).values(),
-                ]}
+          return (
+            <Suspense
+              fallback={
+                <InlineArtifactDownload href={href} label={label} loading />
+              }
+            >
+              <ReaderInlineArtifact
+                reference={reference}
+                href={href}
+                label={label}
               />
             </Suspense>
-          }
-          deferredPracticeActions={deferredPracticeActions}
-          purchaseCall={purchaseCall}
-          body={result.body}
-          material={result.material}
-          {...(showsModes
-            ? {
-                ...(hintSeen || hintAt < 0
-                  ? {}
-                  : { modeHint: { at: hintAt, node: <ProductModeHint /> } }),
-                modeSwitch: (
-                  <ProductModeSwitch signedIn={accessToken !== undefined} />
-                ),
+          );
+        }}
+        topReadingAction={
+          <SavedReadingAction
+            compact
+            materialId={result.material.materialId}
+            format={result.material.format.slug}
+          />
+        }
+        topBookmarkAction={
+          <SavedBookmarkAction
+            presentation="reader"
+            compact
+            materialId={result.material.materialId}
+          />
+        }
+        readingAction={
+          <SavedReadingAction
+            compact
+            key={result.material.materialId}
+            materialId={result.material.materialId}
+            format={result.material.format.slug}
+          />
+        }
+        bookmarkAction={
+          <SavedBookmarkAction
+            presentation="reader"
+            compact
+            materialId={result.material.materialId}
+          />
+        }
+        submissionWorkspace={
+          <Suspense fallback={null}>
+            <MaterialTaskWorkspace
+              connection={readerSubmissionConnection()}
+              materialId={result.material.materialId}
+              returnTo={workspaceReturnTo(slug, workspaceQuery)}
+              attemptsAfter={
+                typeof workspaceQuery.attemptsAfter === "string"
+                  ? workspaceQuery.attemptsAfter
+                  : undefined
               }
-            : {})}
-          primaryVideo={result.primaryVideo}
-          returnTarget={returnTarget}
-          productContext={productContext}
-        />
-      </ProductModeProvider>
+              conflictingAnchorIds={[
+                ...materialSourceAnchors(result.body).values(),
+              ]}
+            />
+          </Suspense>
+        }
+        deferredPracticeActions={deferredPracticeActions}
+        purchaseCall={purchaseCall}
+        updateNotice={
+          <MaterialUpdateNotice materialId={result.material.materialId} />
+        }
+        body={result.body}
+        codeHighlights={await highlightMaterialCode(result.body)}
+        glossaryTerms={result.glossaryTerms}
+        courseGlossary={courseGlossary}
+        termDeck={<LessonTermDeck terms={result.lessonTerms} />}
+        lessonRating={
+          <SavedLessonRating materialId={result.material.materialId} />
+        }
+        exerciseScope={(lesson) => (
+          <LessonExerciseAttempts
+            materialId={result.material.materialId}
+            exercises={lessonExercises(result.body)}
+            signInHref="/account"
+          >
+            {lesson}
+          </LessonExerciseAttempts>
+        )}
+        material={result.material}
+        primaryVideo={result.primaryVideo}
+        returnTarget={returnTarget}
+        productContext={productContext}
+      />
     </VisibleMaterialOpen>
   );
 }

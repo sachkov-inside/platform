@@ -1,7 +1,13 @@
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
+import { courseGlossaryHref } from "@/shared/routing/subscription-route";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
+import type {
+  HighlightedCode,
+  MaterialCodeHighlights,
+} from "../model/code-highlight";
+import { highlightMaterialCode } from "../model/highlight-material-code";
 import { MaterialBodyView } from "./material-body-view";
 
 const meta = {
@@ -33,6 +39,16 @@ const meta = {
 } satisfies Meta<typeof MaterialBodyView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+/** How the browser writes a CSS colour once computed, so a token compares with a used value. */
+function cssColor(canvasElement: HTMLElement, color: string): string {
+  const probe = canvasElement.ownerDocument.createElement("span");
+  probe.style.color = color;
+  canvasElement.append(probe);
+  const computed = getComputedStyle(probe).color;
+  probe.remove();
+  return computed;
+}
 
 export const Document: Story = {
   play: async ({ canvasElement }) => {
@@ -385,8 +401,9 @@ export const CodeBlockCopy: Story = {
     if (code === null) throw new Error("A code block needs a pre element");
     const buttonBox = button.getBoundingClientRect();
     const codeBox = code.getBoundingClientRect();
-    await expect(buttonBox.left).toBeGreaterThanOrEqual(codeBox.right);
-    // A long line wraps: the reader sees the whole text without a hidden horizontal scroll.
+    // The copy control sits above the code and never covers a line of it.
+    await expect(buttonBox.bottom).toBeLessThanOrEqual(codeBox.top + 1);
+    // Text without a language is often a prompt: a long line wraps instead of hiding past the edge.
     await expect(code.scrollWidth).toBeLessThanOrEqual(code.clientWidth);
     await expectCodeFillsCallout(canvasElement);
     await expect(buttonBox.height).toBeGreaterThanOrEqual(36);
@@ -419,6 +436,202 @@ export const CodeBlockCopyMobile: Story = {
 export const CodeBlockCopyDesktop: Story = {
   ...CodeBlockCopy,
   globals: { viewport: { value: "desktop1440", isRotated: false } },
+};
+
+/** The highlighting the story's loader computed, as the server would for a page. */
+function codeHighlightsOf(
+  loaded: Readonly<Record<string, unknown>>,
+): MaterialCodeHighlights | undefined {
+  const value = loaded["codeHighlights"];
+  if (!(value instanceof Map)) return undefined;
+  const highlights = new Map<string, HighlightedCode>();
+  for (const [key, code] of value.entries()) {
+    if (typeof key === "string" && isHighlightedCode(code))
+      highlights.set(key, code);
+  }
+  return highlights;
+}
+
+function isHighlightedCode(value: unknown): value is HighlightedCode {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "label" in value &&
+    typeof value.label === "string" &&
+    "lines" in value &&
+    Array.isArray(value.lines)
+  );
+}
+
+const highlightedBlocks = [
+  {
+    kind: "code_block",
+    language: "typescript",
+    text: [
+      "// Чанк хранит текст и вектор",
+      'const chunks = documents.flatMap((document) => splitIntoChunks(document, { size: 512, overlap: 64, keepHeadings: true, source: document.path, language: document.language ?? "ru", embeddingModel: "text-embedding-3-small" }));',
+    ].join("\n"),
+  },
+] as const;
+
+/**
+ * Код подсвечен по языку, подписан языком и не переносится: длинная строка прокручивается внутри
+ * блока, а `=>` остаётся двумя знаками без лигатуры.
+ */
+export const CodeBlockHighlighted: Story = {
+  args: { blocks: highlightedBlocks },
+  loaders: [
+    async () => ({
+      codeHighlights: await highlightMaterialCode(highlightedBlocks),
+    }),
+  ],
+  render: (args, { loaded }) => (
+    <MaterialBodyView
+      {...args}
+      rendering={{
+        ...args.rendering,
+        codeHighlights: codeHighlightsOf(loaded),
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const block = canvasElement.querySelector<HTMLElement>(
+      '[data-material-block="codeBlock"]',
+    );
+    const pre = block?.querySelector("pre");
+    if (block == null || pre == null)
+      throw new Error("The story needs a code block");
+    await expect(within(block).getByText("TypeScript")).toBeVisible();
+    const keyword = within(pre).getByText("const");
+    const comment = within(pre).getByText("// Чанк хранит текст и вектор");
+    await expect(getComputedStyle(keyword).color).not.toBe(
+      getComputedStyle(pre).color,
+    );
+    await expect(getComputedStyle(comment).color).not.toBe(
+      getComputedStyle(keyword).color,
+    );
+    await expect(getComputedStyle(pre).whiteSpace).toBe("pre");
+    await expect(getComputedStyle(pre).fontVariantLigatures).toBe("none");
+    // The long line scrolls inside the block; the page itself never scrolls sideways.
+    const scroller = block.querySelector<HTMLElement>("[data-code-scroll]");
+    if (scroller === null) throw new Error("The code needs its own scroller");
+    await expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+  },
+};
+export const CodeBlockHighlightedMobile: Story = {
+  ...CodeBlockHighlighted,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const CodeBlockHighlightedDesktop: Story = {
+  ...CodeBlockHighlighted,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+};
+
+function tableCell(text: string, header = false) {
+  return {
+    header,
+    content: [
+      {
+        kind: "paragraph" as const,
+        content: [{ kind: "text" as const, text, marks: [] }],
+      },
+    ],
+  };
+}
+
+const chunkTable = {
+  kind: "table",
+  rows: [
+    {
+      cells: ["Размер чанка", "Плюсы", "Минусы"].map((text) =>
+        tableCell(text, true),
+      ),
+    },
+    {
+      cells: [
+        tableCell("200 токенов"),
+        tableCell("Точный поиск по узкому вопросу"),
+        tableCell("Теряется контекст соседних абзацев"),
+      ],
+    },
+  ],
+} as const;
+
+/**
+ * Широкая таблица на узком экране прокручивается внутри себя, а край, за которым есть столбцы,
+ * затенён: читатель видит, что таблица продолжается.
+ */
+export const WideTableMobile: Story = {
+  args: { blocks: [chunkTable] },
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const table = canvasElement.querySelector<HTMLElement>(
+      '[data-reader-block="table"]',
+    );
+    if (table === null) throw new Error("The story needs a table");
+    const scroller = table.querySelector<HTMLElement>("[data-table-scroll]");
+    if (scroller === null) throw new Error("The table needs its scroller");
+    await expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+    // Table text reads at the lesson's one size (owner, 14.11.2026, variant 2A).
+    await expect(
+      getComputedStyle(table.querySelector("table") ?? table).fontSize,
+    ).toBe("17px");
+    await waitFor(() => expect(table).toHaveAttribute("data-overflow", "end"));
+    const endFade = table.querySelector<HTMLElement>("[data-table-fade='end']");
+    if (endFade === null) throw new Error("The table needs an end fade");
+    await waitFor(() => expect(getComputedStyle(endFade).opacity).toBe("1"));
+    scroller.scrollLeft = scroller.scrollWidth;
+    await waitFor(() =>
+      expect(table).toHaveAttribute("data-overflow", "start"),
+    );
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+  },
+};
+
+/** На широком экране таблица помещается целиком, и края не затеняются. */
+export const WideTableDesktop: Story = {
+  args: { blocks: [chunkTable] },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const table = canvasElement.querySelector<HTMLElement>(
+      '[data-reader-block="table"]',
+    );
+    if (table === null) throw new Error("The story needs a table");
+    await waitFor(() => expect(table).toHaveAttribute("data-overflow", "none"));
+  },
+};
+
+/** Таблица в два столбца помещается и на узком экране, без прокрутки. */
+export const NarrowTableMobile: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "table",
+        rows: [
+          { cells: [tableCell("Термин", true), tableCell("Смысл", true)] },
+          {
+            cells: [
+              tableCell("Чанк"),
+              tableCell("Кусок документа, который ищет поиск"),
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const scroller = canvasElement.querySelector<HTMLElement>(
+      "[data-table-scroll]",
+    );
+    if (scroller === null) throw new Error("The table needs its scroller");
+    await expect(scroller.scrollWidth).toBeLessThanOrEqual(
+      scroller.clientWidth,
+    );
+  },
 };
 
 export const CodeBlockInPlainCallout: Story = {
@@ -499,4 +712,403 @@ export const CodeBlockCopyUnavailable: Story = {
       expect(window.getSelection()?.toString()).toBe("const result = 1;"),
     );
   },
+};
+
+const boundedContext = {
+  id: "bounded-context",
+  title: "Ограниченный контекст",
+  englishTitle: "Bounded context",
+  shortDefinition: "Граница, внутри которой у слов модели один смысл.",
+  fullDefinition:
+    "Часть системы со своей моделью и своим языком.\n\nСлово «заказ» внутри одной границы значит одно, в соседней другое.",
+};
+
+export const GlossaryTerms: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Команда делит систему на ", marks: [] },
+          {
+            kind: "text",
+            text: "ограниченные контексты",
+            marks: [{ kind: "link", href: "term:bounded-context" }],
+          },
+          { kind: "text", text: ", а ", marks: [] },
+          {
+            kind: "text",
+            text: "неизвестный термин",
+            marks: [{ kind: "link", href: "term:unknown-term" }],
+          },
+          { kind: "text", text: " читается обычным текстом.", marks: [] },
+        ],
+      },
+      { kind: "term_definition", termId: "bounded-context" },
+      { kind: "term_definition", termId: "unknown-term" },
+    ],
+    rendering: {
+      headingId: (path: readonly number[]) =>
+        `material-section-${path.join("-")}`,
+      image: () => null,
+      file: () => null,
+      glossary: new Map([[boundedContext.id, boundedContext]]),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    // An unknown term is neither a button nor a link, and its card is not shown.
+    await expect(canvas.queryByRole("link")).toBeNull();
+    await expect(
+      canvas.getByText(/неизвестный термин/).closest("button"),
+    ).toBeNull();
+    await expect(
+      canvasElement.querySelectorAll("[data-material-block=callout]"),
+    ).toHaveLength(1);
+    // The card shows the full definition from the Glossary.
+    const card = canvas.getByRole("complementary", {
+      name: "Определение: Ограниченный контекст (Bounded context)",
+    });
+    await expect(card).toHaveTextContent("Часть системы со своей моделью");
+    // Variant A (#2118): an opaque sand surface from the lesson tokens, not a tinted mix.
+    const sand = getComputedStyle(card)
+      .getPropertyValue("--lesson-sand")
+      .trim();
+    await expect(getComputedStyle(card).backgroundColor).toBe(
+      cssColor(canvasElement, sand),
+    );
+
+    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
+    await userEvent.click(term);
+    await expect(term).toHaveAttribute("aria-expanded", "true");
+    const bubble = await page.findByRole("dialog", {
+      name: "Ограниченный контекст",
+    });
+    await expect(bubble).toHaveTextContent(boundedContext.shortDefinition);
+    await expect(bubble).not.toHaveTextContent("Часть системы");
+    await userEvent.click(
+      within(bubble).getByRole("button", { name: "Подробнее" }),
+    );
+    await expect(bubble).toHaveTextContent("Часть системы со своей моделью");
+    await expect(bubble).toHaveTextContent("в соседней другое");
+    // The bubble stays inside the window with its 16 px gutter.
+    const box = bubble.getBoundingClientRect();
+    const viewport = canvasElement.ownerDocument.documentElement.clientWidth;
+    await expect(box.left).toBeGreaterThanOrEqual(16);
+    await expect(box.right).toBeLessThanOrEqual(viewport - 16);
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        page.queryByRole("dialog", { name: "Ограниченный контекст" }),
+      ).toBeNull(),
+    );
+    await expect(term).toHaveFocus();
+    await expect(term).toHaveAttribute("aria-expanded", "false");
+  },
+};
+export const GlossaryTermsMobile: Story = {
+  ...GlossaryTerms,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+};
+/** Внутри курса «Подробнее» ведёт к термину на странице словаря курса (#2127). */
+export const GlossaryTermInCourse: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Команда делит систему на ", marks: [] },
+          {
+            kind: "text",
+            text: "ограниченные контексты",
+            marks: [{ kind: "link", href: "term:bounded-context" }],
+          },
+          { kind: "text", text: ".", marks: [] },
+        ],
+      },
+    ],
+    rendering: {
+      headingId: (path: readonly number[]) =>
+        `material-section-${path.join("-")}`,
+      image: () => null,
+      file: () => null,
+      glossary: new Map([
+        [
+          boundedContext.id,
+          {
+            ...boundedContext,
+            moreHref: courseGlossaryHref("ddd", "bounded-context"),
+          },
+        ],
+      ]),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "ограниченные контексты" }),
+    );
+    const bubble = await page.findByRole("dialog", {
+      name: "Ограниченный контекст",
+    });
+    await expect(
+      within(bubble).getByRole("link", { name: "Подробнее" }),
+    ).toHaveAttribute("href", "/products/ddd/glossary#term-bounded-context");
+    await expect(within(bubble).queryByRole("button")).toBeNull();
+  },
+};
+function filler(index: number) {
+  return {
+    kind: "paragraph" as const,
+    content: [
+      {
+        kind: "text" as const,
+        text: `Абзац ${String(index + 1)} перед термином: над ним хватает места для подсказки.`,
+        marks: [],
+      },
+    ],
+  };
+}
+
+/**
+ * Подсказка термина не закрывает строку, которую читают: когда сверху есть место, она открывается
+ * над словом с зазором, и стрелка указывает на слово.
+ */
+export const GlossaryTermBubblePlacement: Story = {
+  args: {
+    ...GlossaryTerms.args,
+    blocks: [
+      ...Array.from({ length: 6 }, (_, index) => filler(index)),
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Команда делит систему на ", marks: [] },
+          {
+            kind: "text",
+            text: "ограниченные контексты",
+            marks: [{ kind: "link", href: "term:bounded-context" }],
+          },
+          {
+            kind: "text",
+            text: ", и каждая граница держит свой язык. Вторая строка этого предложения остаётся видна, пока читатель смотрит подсказку.",
+            marks: [],
+          },
+        ],
+      },
+    ],
+  },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
+    await userEvent.hover(term);
+    const bubble = await page.findByRole("dialog", {
+      name: "Ограниченный контекст",
+    });
+    await waitFor(() => expect(bubble).toHaveAttribute("data-side", "top"));
+    const word = term.getBoundingClientRect();
+    // A visible gap separates the bubble from the word's own line once it has its final height.
+    await waitFor(() =>
+      expect(
+        word.top - bubble.getBoundingClientRect().bottom,
+      ).toBeGreaterThanOrEqual(8),
+    );
+    const arrow = bubble.querySelector<HTMLElement>("[data-glossary-arrow]");
+    if (arrow === null) throw new Error("The bubble needs an arrow");
+    const tip = arrow.getBoundingClientRect();
+    await expect(tip.left + tip.width / 2).toBeGreaterThanOrEqual(word.left);
+    await expect(tip.left + tip.width / 2).toBeLessThanOrEqual(word.right);
+  },
+};
+export const GlossaryTermBubblePlacementMobile: Story = {
+  ...GlossaryTermBubblePlacement,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
+    await userEvent.click(term);
+    const bubble = await page.findByRole("dialog", {
+      name: "Ограниченный контекст",
+    });
+    await waitFor(() => expect(bubble).toHaveAttribute("data-side"));
+    const word = term.getBoundingClientRect();
+    // Above or below, the bubble keeps a gap from the word and never covers it.
+    await waitFor(() => {
+      const placed = bubble.getBoundingClientRect();
+      return expect(
+        Math.max(word.top - placed.bottom, placed.top - word.bottom),
+      ).toBeGreaterThanOrEqual(8);
+    });
+    const box = bubble.getBoundingClientRect();
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(box.left).toBeGreaterThanOrEqual(16);
+    await expect(box.right).toBeLessThanOrEqual(root.clientWidth - 16);
+  },
+};
+
+export const GlossaryTermsHover: Story = {
+  ...GlossaryTerms,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
+    await userEvent.hover(term);
+    const bubble = await page.findByRole("dialog", {
+      name: "Ограниченный контекст",
+    });
+    await expect(bubble).toHaveTextContent(boundedContext.shortDefinition);
+    await userEvent.unhover(term);
+    await waitFor(() =>
+      expect(
+        page.queryByRole("dialog", { name: "Ограниченный контекст" }),
+      ).toBeNull(),
+    );
+  },
+};
+
+function calloutText(text: string) {
+  return [
+    {
+      kind: "paragraph" as const,
+      content: [{ kind: "text" as const, text, marks: [] }],
+    },
+  ];
+}
+
+const calloutGalleryTones = [
+  "note",
+  "tip",
+  "warning",
+  "example",
+  "good",
+  "bad",
+  "definition",
+  "task",
+] as const;
+
+/**
+ * Врезки урока (решение владельца 14.11.2026, вариант 1A): одна непрозрачная песочная подложка
+ * без рамки, вид виден значком и цветом подписи. Свой фон держат только «Хорошо» и «Плохо».
+ * Определение автора и карточка термина из словаря выглядят одинаково.
+ */
+export const CalloutGallery: Story = {
+  args: {
+    blocks: [
+      ...calloutGalleryTones.map((tone) => ({
+        kind: "callout" as const,
+        tone,
+        content: calloutText(`Врезка вида ${tone}: текст урока внутри врезки.`),
+      })),
+      {
+        kind: "callout",
+        tone: "tip",
+        title: "Свёрнутый совет",
+        collapse: "collapsed",
+        content: calloutText("Текст свёрнутого совета."),
+      },
+      {
+        kind: "callout",
+        tone: "warning",
+        title: "Развёрнутое предупреждение",
+        collapse: "expanded",
+        content: calloutText("Текст развёрнутого предупреждения."),
+      },
+      {
+        kind: "callout",
+        tone: "definition",
+        title: "Чанк",
+        content: calloutText("Определение, которое написал автор урока."),
+      },
+      { kind: "term_definition", termId: "bounded-context" },
+    ],
+    rendering: {
+      headingId: (path: readonly number[]) =>
+        `material-section-${path.join("-")}`,
+      image: () => null,
+      file: () => null,
+      glossary: new Map([[boundedContext.id, boundedContext]]),
+    },
+  },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const callouts = [
+      ...canvasElement.querySelectorAll<HTMLElement>("[data-callout]"),
+    ];
+    await expect(callouts).toHaveLength(calloutGalleryTones.length + 4);
+    // Tokens are read where the callouts live, so a dark wrapper gives its own values.
+    const host = callouts[0]?.parentElement ?? canvasElement;
+    const token = (name: string) =>
+      cssColor(host, getComputedStyle(host).getPropertyValue(name).trim());
+    const surface = token("--lesson-surface");
+    const sand = token("--lesson-sand");
+    for (const callout of callouts) {
+      const style = getComputedStyle(callout);
+      const tone = callout.dataset["callout"];
+      // No visible frame: the surface alone separates the callout from the text.
+      await expect([tone, style.borderTopColor]).toEqual([
+        tone,
+        "rgba(0, 0, 0, 0)",
+      ]);
+      if (tone === "good" || tone === "bad")
+        await expect(style.backgroundColor).not.toBe(surface);
+      else if (tone === "definition")
+        await expect(style.backgroundColor).toBe(sand);
+      else await expect([tone, style.backgroundColor]).toEqual([tone, surface]);
+    }
+    // Callout text reads at the lesson's one size (owner, 14.11.2026, variant 2A).
+    for (const callout of callouts)
+      await expect(getComputedStyle(callout).fontSize).toBe("17px");
+    // The author's definition and the glossary card share one look.
+    const definitions = callouts.filter(
+      (callout) => callout.dataset["callout"] === "definition",
+    );
+    await expect(definitions).toHaveLength(3);
+    const author = definitions.find(
+      (callout) => !callout.hasAttribute("data-callout-term"),
+    );
+    const glossary = definitions.find((callout) =>
+      callout.hasAttribute("data-callout-term"),
+    );
+    if (author === undefined || glossary === undefined)
+      throw new Error("Both definition callouts are needed");
+    for (const property of ["backgroundColor", "borderTopColor"] as const)
+      await expect(getComputedStyle(author)[property]).toBe(
+        getComputedStyle(glossary)[property],
+      );
+    const label = (callout: HTMLElement) =>
+      getComputedStyle(callout.querySelector("p") ?? callout).color;
+    await expect(label(author)).toBe(label(glossary));
+    // Collapsible callouts keep their behaviour and accessible names.
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Свёрнутый совет").closest("details"),
+    ).not.toHaveAttribute("open");
+    await expect(
+      canvas.getByText("Развёрнутое предупреждение").closest("details"),
+    ).toHaveAttribute("open");
+    await expect(
+      canvas.getByRole("complementary", { name: "Определение: Чанк" }),
+    ).toBeVisible();
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+  },
+};
+export const CalloutGalleryMobile: Story = {
+  ...CalloutGallery,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const CalloutGalleryDark: Story = {
+  ...CalloutGallery,
+  decorators: [
+    (Story) => (
+      <div className="dark bg-background p-6 text-foreground">
+        <Story />
+      </div>
+    ),
+  ],
 };

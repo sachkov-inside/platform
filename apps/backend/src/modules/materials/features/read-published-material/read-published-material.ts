@@ -14,11 +14,17 @@ import type { MaterialContent } from "../../facets/material-content/material-con
 import { selectPublishedMaterialProjectionBySlug } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import type {
+  PublishedGlossaryTermDto,
   PublishedMaterialReadResult,
   ReadPublishedMaterialQuery,
 } from "./read-published-material.contract.js";
 import { hydrateMaterialAssets } from "../../domain/material-body/hydrate-material-assets.js";
 import type { Videos } from "../../../videos/index.js";
+import type { Glossary, GlossaryTerm } from "../../../glossary/index.js";
+import {
+  keepFirstTermMentions,
+  materialGlossaryTermIds,
+} from "@inside/material-blocks";
 
 const querySchema = z
   .object({
@@ -49,6 +55,7 @@ export async function readPublishedMaterial(
     readonly subscriptionForSale?: (accountId?: string) => Promise<boolean>;
     readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
     readonly videos?: Pick<Videos, "loadPresentation">;
+    readonly glossary?: Pick<Glossary, "lookup" | "introducedIn">;
   },
   query: ReadPublishedMaterialQuery,
 ): Promise<PublishedMaterialReadResult> {
@@ -133,6 +140,7 @@ export async function readPublishedMaterial(
           contentVersion: true,
           publicationState: true,
           videoChapters: true,
+          sourceId: true,
         },
       });
       if (
@@ -179,6 +187,18 @@ export async function readPublishedMaterial(
           ? { ok: false, error: loadedVideo.error }
           : internalError();
       }
+      const blocks = keepFirstTermMentions(rendered.value.blocks);
+      const termIds = materialGlossaryTermIds(blocks);
+      // Terms only enrich the lesson: when the Glossary fails (it records the failure itself),
+      // the lesson still reads, with plain term mentions and no deck.
+      const glossaryTerms =
+        termIds.length === 0 || dependencies.glossary === undefined
+          ? { ok: true as const, value: [] }
+          : await dependencies.glossary.lookup(termIds);
+      const introduced =
+        currentVideo.sourceId === null || dependencies.glossary === undefined
+          ? { ok: true as const, value: [] }
+          : await dependencies.glossary.introducedIn([currentVideo.sourceId]);
       return {
         ok: true,
         value: {
@@ -187,9 +207,17 @@ export async function readPublishedMaterial(
             access.reason === "public_resource" ? "public" : "private-no-store",
           projection,
           body: hydrateMaterialAssets(
-            rendered.value,
+            { ...rendered.value, blocks },
             loadedPresentations.value,
           ),
+          glossaryTerms: glossaryTerms.ok
+            ? glossaryTerms.value.map(publishedGlossaryTerm)
+            : [],
+          lessonTerms: introduced.ok
+            ? inMentionOrder(introduced.value, termIds).map(
+                publishedGlossaryTerm,
+              )
+            : [],
           primaryVideo: loadedVideo.value,
           ...(videoChapters.length === 0 ? {} : { videoChapters }),
         },
@@ -206,6 +234,31 @@ export async function readPublishedMaterial(
       ),
     };
   }
+}
+
+function publishedGlossaryTerm(term: GlossaryTerm): PublishedGlossaryTermDto {
+  return {
+    id: term.id,
+    title: term.title,
+    englishTitle: term.englishTitle,
+    shortDefinition: term.shortDefinition,
+    fullDefinition: term.fullDefinition,
+  };
+}
+
+/**
+ * The deck follows the lesson: terms the body mentions come in the order of their first mention,
+ * the rest after them in identifier order.
+ */
+function inMentionOrder(
+  terms: readonly GlossaryTerm[],
+  mentionedIds: readonly string[],
+): readonly GlossaryTerm[] {
+  const position = new Map(mentionedIds.map((id, index) => [id, index]));
+  const rank = (term: GlossaryTerm) =>
+    position.get(term.id) ?? Number.MAX_SAFE_INTEGER;
+  // The Glossary returns terms in identifier order and the sort is stable.
+  return [...terms].sort((left, right) => rank(left) - rank(right));
 }
 
 function internalError(): PublishedMaterialReadResult {

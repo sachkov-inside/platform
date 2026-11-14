@@ -11,7 +11,6 @@ import {
   expect,
   test as vitestTest,
 } from "vitest";
-import { z } from "zod";
 
 import {
   seedLocalDevelopment,
@@ -445,12 +444,6 @@ describe("local development seed after a demo content change", () => {
     });
   }
 
-  function blocks(document: unknown) {
-    return z
-      .object({ content: z.array(z.looseObject({ type: z.string() })) })
-      .parse(document).content;
-  }
-
   /** Определение материала в том виде, в каком его принимает Save: без slug и с плоскими сериями. */
   function definitionOf(
     metadata: MaterialMetadataDto,
@@ -534,18 +527,13 @@ describe("local development seed after a demo content change", () => {
       materialId: seeded.id,
     });
     if (!loaded.ok) throw new Error(loaded.error.code);
-    // Тот же шаг в том виде, в каком его оставило прежнее определение: без вариантного блока,
-    // без сложности и без «Чему научишься».
+    // Тот же шаг в том виде, в каком его оставило прежнее определение: без сложности и без
+    // «Чему научишься».
     const earlier = await authoring.saveMaterial({
       actor: seedActor,
       body: {
         schemaVersion: 1,
-        doc: {
-          ...loaded.value.body.doc,
-          content: blocks(loaded.value.body.doc).filter(
-            ({ type }) => type !== "variant",
-          ),
-        },
+        doc: loaded.value.body.doc,
       },
       expectedContentVersion: loaded.value.contentVersion,
       idempotencyKey: `earlier-demo-definition-${randomUUID()}`,
@@ -604,7 +592,6 @@ describe("local development seed after a demo content change", () => {
     await seedLocalDevelopment(testDatabase.prisma);
 
     const current = await demoStep();
-    expect(blocks(current.body).map(({ type }) => type)).toContain("variant");
     expect(current.difficulty).toBe("basic");
     expect(current.outcomes).toEqual([
       "Собрать приложение под релиз",

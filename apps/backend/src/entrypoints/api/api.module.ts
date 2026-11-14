@@ -10,6 +10,9 @@ import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
 import { ProductLearnersModule } from "../../modules/product-learners/index.js";
 import { AuthoringOverviewModule } from "../../modules/authoring-overview/index.js";
 import { BookmarksModule } from "../../modules/bookmarks/index.js";
+import { ExerciseAttemptsModule } from "../../modules/exercise-attempts/index.js";
+import { GlossaryModule } from "../../modules/glossary/index.js";
+import { LessonRatingsModule } from "../../modules/lesson-ratings/index.js";
 import { SalesFunnelModule } from "../../modules/sales-funnel/index.js";
 import {
   CommunicationsModule,
@@ -27,6 +30,7 @@ import { RuntimeIdentityModule } from "../../infrastructure/runtime-identity.js"
 import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import {
   DiscoverPublishedMaterialsController,
+  ReadCourseGlossaryController,
   ListPublishedMaterialsController,
   ListPublicSiteIndexController,
   ReadProductAccessController,
@@ -64,6 +68,7 @@ import { HealthController } from "./health.controller.js";
     ListPublishedMaterialsController,
     ListPublicSiteIndexController,
     DiscoverPublishedMaterialsController,
+    ReadCourseGlossaryController,
     ReadHomeContentController,
     ReadProductAccessController,
     ReadProductSaleAvailabilityController,
@@ -92,6 +97,9 @@ export class ApiModule {
         ProductLearnersModule,
         AuthoringOverviewModule,
         BookmarksModule,
+        ExerciseAttemptsModule,
+        GlossaryModule,
+        LessonRatingsModule,
         SalesFunnelModule,
         CommunicationsModule,
         CommunicationsTrackingDeliveryModule,

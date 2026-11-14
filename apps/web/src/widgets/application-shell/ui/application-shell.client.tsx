@@ -115,7 +115,7 @@ export function ApplicationShell({
         id="app:content"
         data-application-content
         tabIndex={-1}
-        className="mobile-scrollbar-hidden flex min-w-0 flex-1 flex-col lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain lg:[scrollbar-gutter:stable_both-edges]"
+        className="mobile-scrollbar-hidden flex min-w-0 flex-1 flex-col lg:relative lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain lg:[scrollbar-gutter:stable_both-edges]"
       >
         {/* The page fills the viewport, so a short page still keeps the footer at the bottom. */}
         <div

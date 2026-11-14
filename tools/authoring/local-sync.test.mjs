@@ -1,5 +1,5 @@
 // @ts-check
-import { currentEnvironment } from "./test-support.mjs";
+import { contentExerciseBlocks, currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -523,39 +523,18 @@ test("v2 imports a wide/tall SVG pair named in two keys each as two SVG uploads 
   assert.equal(mixed.calls.length, 0);
 });
 
-test("v2 quiz survives preview, apply and repeated sync without rendering raw answer keys", async (t) => {
+test("v2 exercises survive preview, apply and repeated sync without rendering the raw source", async (t) => {
   const setup = await fixture(t);
   setup.manifest.schemaVersion = 2;
-  setup.manifest.requiredFeatures = ["quiz-v1", "github-anchors-v1"];
+  setup.manifest.requiredFeatures = [
+    "exercise-v1",
+    "github-anchors-v1",
+    "step-breaks-v1",
+  ];
   setup.manifest.selection.taskIds = [];
   const row = itemAt(setup.manifest.materials, 0);
   row.markdown = "RAW ANSWER KEY";
-  row.readerBlocks = [
-    { kind: "markdown", markdown: "## Раздел\n\nДо вопроса" },
-    {
-      kind: "quiz",
-      id: "question-1",
-      promptMarkdown: "Какой результат?",
-      correctOptionId: "option-2",
-      options: [
-        {
-          id: "option-1",
-          markdown: "Первый",
-          explanationMarkdown: "Неверно. Причина",
-        },
-        {
-          id: "option-2",
-          markdown: "Второй",
-          explanationMarkdown: "Верно. Причина",
-        },
-      ],
-      dontKnow: {
-        explanationMarkdown: "Повторите раздел",
-        reviewLinks: ["#раздел"],
-      },
-    },
-    { kind: "markdown", markdown: "## Дальше\n\nПосле вопроса" },
-  ];
+  row.readerBlocks = contentExerciseBlocks();
   await setup.write();
   const api = applicationApi();
   await previewRelease(
@@ -567,9 +546,10 @@ test("v2 quiz survives preview, apply and repeated sync without rendering raw an
   await setup.sync(api);
   const saved = valueAt(api.materials, sourceId).body;
   assert.doesNotMatch(JSON.stringify(saved), /RAW ANSWER KEY/u);
-  assert.match(JSON.stringify(saved), /"type":"quiz"/u);
-  assert.match(JSON.stringify(saved), /"correctOptionId":"option-2"/u);
-  assert.match(JSON.stringify(saved), /После вопроса/u);
+  for (const type of ["quiz", "match", "order", "stepBreak"])
+    assert.match(JSON.stringify(saved), new RegExp(`"type":"${type}"`, "u"));
+  assert.match(JSON.stringify(saved), /"correct":true/u);
+  assert.match(JSON.stringify(saved), /После упражнений/u);
   await setup.sync(api);
   assert.deepEqual(valueAt(api.materials, sourceId).body, saved);
 });

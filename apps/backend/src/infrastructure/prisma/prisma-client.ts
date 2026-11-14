@@ -14,6 +14,7 @@ export type MaterialsPrisma = Pick<
   | "materialRelatedPin"
   | "materialSearchDocument"
   | "materialTag"
+  | "materialUpdateNote"
   | "publishedMaterial"
   | "publishedMaterialTag"
   | "tag"
@@ -119,8 +120,8 @@ export type ReadingActivityPrisma = Pick<
   | "readingEvent"
   | "readingCommand"
   | "readingMaterialVisit"
+  | "readingLessonOpenedParts"
   | "productLearningStarted"
-  | "readerPreferences"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma &
   TransactionClient<ReadingActivityPrisma>;
@@ -131,6 +132,27 @@ export type BookmarksPrisma = Pick<
 >;
 export type BookmarksPrismaClient = BookmarksPrisma &
   TransactionClient<BookmarksPrisma>;
+
+export type GlossaryPrisma = Pick<
+  PlatformPrisma,
+  "$executeRaw" | "$queryRaw" | "glossaryTerm"
+>;
+export type GlossaryPrismaClient = GlossaryPrisma &
+  TransactionClient<GlossaryPrisma>;
+
+export type ExerciseAttemptsPrisma = Pick<
+  PlatformPrisma,
+  "$executeRaw" | "$queryRaw" | "exerciseAttempt"
+>;
+export type ExerciseAttemptsPrismaClient = ExerciseAttemptsPrisma &
+  TransactionClient<ExerciseAttemptsPrisma>;
+
+export type LessonRatingsPrisma = Pick<
+  PlatformPrisma,
+  "$executeRaw" | "$queryRaw" | "lessonRating"
+>;
+export type LessonRatingsPrismaClient = LessonRatingsPrisma &
+  TransactionClient<LessonRatingsPrisma>;
 
 export type SalesFunnelPrisma = Pick<
   PlatformPrisma,

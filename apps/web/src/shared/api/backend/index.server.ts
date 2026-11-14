@@ -42,6 +42,9 @@ export * from "./billing-contact.server";
 export * from "./legal-acceptances.server";
 export * from "./notifications.server";
 export * from "./bookmarks.server";
+export * from "./exercise-attempts.server";
+export * from "./glossary.server";
+export * from "./lesson-ratings.server";
 export * from "./sales-funnel.server";
 export * from "./billing.server";
 

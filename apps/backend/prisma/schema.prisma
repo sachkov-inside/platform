@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos", "glossary", "exercise_attempts", "lesson_ratings"]
 }
 
 model Account {
@@ -461,7 +461,6 @@ model PublishedMaterial {
   summary        String
   difficulty     String?
   outcomes       Json     @default(dbgenerated("'[]'::jsonb"))
-  hasModeVariants Boolean @default(false) @map("has_mode_variants")
   access         String
   inFeed         Boolean  @default(false) @map("in_feed")
   topicId        String   @map("topic_id") @db.Uuid
@@ -749,14 +748,6 @@ model ReadingMaterialState {
   @@schema("reading_activity")
 }
 
-model ReaderPreferences {
-  accountId String @id @map("account_id") @db.Uuid
-  productMode String @map("product_mode")
-  updatedAt DateTime @map("updated_at") @db.Timestamptz
-  @@map("reader_preferences")
-  @@schema("reading_activity")
-}
-
 model ReadingEvent {
   eventId String @id @map("event_id") @db.Uuid
   accountId String @map("account_id") @db.Uuid
@@ -791,6 +782,65 @@ model ReadingMaterialVisit {
   @@index([accountId, lastOpenedAt(sort: Desc), materialId], map: "material_visits_recent")
   @@map("material_visits")
   @@schema("reading_activity")
+}
+
+model ReadingLessonOpenedParts {
+  accountId String @map("account_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  openedParts Int @map("opened_parts")
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@id([accountId, materialId], map: "lesson_opened_parts_primary")
+  @@map("lesson_opened_parts")
+  @@schema("reading_activity")
+}
+
+model GlossaryTerm {
+  id                   String   @id(map: "glossary_terms_primary")
+  title                String
+  englishTitle         String?  @map("english_title")
+  shortDefinition      String   @map("short_definition")
+  fullDefinition       String   @map("full_definition")
+  introducedInSourceId String?  @map("introduced_in_source_id")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@index([introducedInSourceId], map: "glossary_terms_introduced_in_idx")
+  @@map("terms")
+  @@schema("glossary")
+}
+
+/// Exercise Attempts (#2121). The partial unique index `exercise_attempts_one_first` lives in
+/// migration 0124; Prisma cannot describe it.
+model ExerciseAttempt {
+  id              String   @id(map: "exercise_attempts_primary") @db.Uuid
+  sequence        BigInt   @default(autoincrement())
+  accountId       String   @map("account_id") @db.Uuid
+  materialId      String   @map("material_id") @db.Uuid
+  exerciseId      String   @map("exercise_id")
+  exerciseKind    String   @map("exercise_kind")
+  fingerprint     String
+  answer          Json
+  result          String
+  mistakes        Json?
+  firstForVersion Boolean  @map("first_for_version")
+  attemptedAt     DateTime @map("attempted_at") @db.Timestamptz
+
+  @@index([accountId, materialId, exerciseId, sequence(sort: Desc)], map: "exercise_attempts_latest")
+  @@map("attempts")
+  @@schema("exercise_attempts")
+}
+
+/// Lesson Ratings (#2124): one current like or dislike per Account and Material.
+model LessonRating {
+  accountId  String   @map("account_id") @db.Uuid
+  materialId String   @map("material_id") @db.Uuid
+  rating     String
+  ratedAt    DateTime @map("rated_at") @db.Timestamptz
+
+  @@id([accountId, materialId], map: "lesson_ratings_primary")
+  @@index([materialId, rating], map: "lesson_ratings_by_material")
+  @@map("ratings")
+  @@schema("lesson_ratings")
 }
 
 model BookmarkedMaterial {
@@ -1221,6 +1271,16 @@ model MaterialAnnouncement {
   updatedAt    DateTime @map("updated_at") @db.Timestamptz
 
   @@map("publication_announcements")
+  @@schema("materials")
+}
+
+model MaterialUpdateNote {
+  materialId  String   @id(map: "material_update_notes_primary") @map("material_id") @db.Uuid
+  noteId      String   @map("note_id")
+  whatChanged String   @map("what_changed")
+  notedAt     DateTime @map("noted_at") @db.Timestamptz
+
+  @@map("material_update_notes")
   @@schema("materials")
 }
 
