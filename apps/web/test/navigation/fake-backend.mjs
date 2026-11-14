@@ -964,7 +964,9 @@ function route(method, url, entitled) {
       return json({
         body: body(lesson, lesson.access !== "free"),
         cacheScope: lesson.access === "free" ? "public" : "private-no-store",
+        glossaryTerms: [],
         kind: "available",
+        lessonTerms: [],
         primaryVideo: null,
         projection: readerProjection(lesson),
       });
