@@ -1,16 +1,19 @@
 ---
 name: setup-matt-pocock-skills
-description: "Configure this repo for the engineering skills: set up its issue tracker, triage label vocabulary, and domain doc layout. Run once before first use of the other engineering skills."
+description: "Configure this repo for the engineering skills: set up its issue tracker, triage label vocabulary, human language, and domain doc layout. Run once before first use of the other engineering skills."
 disable-model-invocation: true
 ---
 
 # Setup Matt Pocock's Skills
 
-Scaffold the per-repo configuration that the engineering skills assume:
+Configure the repository contracts used by these engineering skills. Preserve established project policy when rerunning setup.
 
+Scaffold missing configuration:
+
+- **Human language**: English (`en`) or Russian (`ru`) for replies, issues, specs, PRs and reports
 - **Issue tracker**: where issues live (GitHub by default; local markdown is also supported out of the box)
 - **Triage labels**: the strings used for the five canonical triage roles
-- **Domain docs**: where `GLOSSARY.md` and ADRs live, and the consumer rules for reading them
+- **Domain docs**: where the project-selected domain/glossary and ADRs live, and the consumer rules for reading them
 
 This is a prompt-driven skill, not a deterministic script. Explore, present what you found, confirm with the user, then write.
 
@@ -22,7 +25,7 @@ Look at the current repo to understand its starting state. Read whatever exists;
 
 - `git remote -v` and `.git/config`: is this a GitHub repo? Which one?
 - `AGENTS.md` and `CLAUDE.md` at the repo root: does either exist? Is there already an `## Agent skills` section in either?
-- `GLOSSARY.md` and `GLOSSARY-MAP.md` at the repo root, and the legacy `CONTEXT.md` / `CONTEXT-MAP.md`. If a legacy file exists, offer to `git mv` it to its `GLOSSARY` name and rewrite those names in `docs/agents/domain.md`.
+- `DOMAIN.md` and `DOMAIN-MAP.md`, plus existing `GLOSSARY.md`, `GLOSSARY-MAP.md`, `CONTEXT.md` and `CONTEXT-MAP.md`. Propose any migration explicitly and update consumers together; preserve the current files until the owner agrees.
 - `docs/adr/` and any `src/*/docs/adr/` directories
 - `docs/agents/`: does this skill's prior output already exist?
 - `.scratch/`: a sign that a local-markdown issue tracker convention is already in use
@@ -30,6 +33,30 @@ Look at the current repo to understand its starting state. Read whatever exists;
 - Monorepo signals: a `pnpm-workspace.yaml`, a `workspaces` field in `package.json`, or a populated `packages/*` with its own `src/`. These are present only in a genuinely large multi-package repo; their absence means single-context, which is almost every repo.
 
 ### 2. Present findings and ask
+
+**Section L: Human language.** Read the existing Language setting first.
+Ask the owner to choose English (`en`) or Russian (`ru`) when it is absent or a change is requested.
+Both choices have identical authority and workflow behavior. Do not infer a default from README order or the conversation language.
+Confirm an existing choice instead of overwriting it. Keep agent instructions and skills in English.
+Preserve unrelated AGENTS/CLAUDE sections and existing project policies.
+Show the proposed Language block with the rest of the draft in step 3.
+Write or update exactly one block in the existing authority file:
+
+```markdown
+## Language
+
+Human language: <en or ru selected by the owner>.
+Supported human languages: en, ru.
+Use the selected language for replies, issues, specs, PRs and reports, including headings.
+Keep executable syntax and identifiers intact.
+Write agent instructions, skills and tool descriptions in English.
+```
+
+This changes future human-facing work; existing issues and reports keep their historical language.
+For a language-only rerun, limit the draft and writes to the Language block.
+Keep accepted tracker, labels, domain layout and other policies unchanged; skip their setup branches.
+Maintain both translations of this repository’s human guides when their meaning changes.
+
 
 Summarise what's present and what's missing. Then take the sections in order. One section, one answer, then the next.
 
@@ -46,6 +73,7 @@ Default posture: these skills were designed for GitHub. If a `git remote` points
 - **Local markdown**: issues live as files under `.scratch/<feature>/` in this repo (good for solo projects or repos without a remote)
 - **Other** (Jira, Linear, etc.): ask the user to describe the workflow in one paragraph; the skill will record it as freeform prose
 
+When a tracker change affects requirement or delivery commands, include those policy changes in the draft for owner agreement.
 Record the choice in `docs/agents/issue-tracker.md`. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off**. Leave it off and don't raise it: a user who wants external PRs in the triage queue can flip the flag in the file later.
 
 A GitHub or GitLab tracker needs a reachable repo. When the user picks one and no `git remote` points at that host, get the repo URL from them and wire it up (`git init` if needed, `git remote add origin <url>`) before going further. Done when `gh repo view` / `glab repo view` prints the project from inside this directory; if it can't, stop and tell the user what's missing.
@@ -58,15 +86,15 @@ If it is installed, ask exactly one question:
 
 The defaults are the five canonical roles, each label string equal to its name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. On **yes**, write them as-is. Only if the user says no, usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`), collect the overrides so `triage` applies existing labels instead of creating duplicates.
 
-**Section C: Domain docs.** Default to **single-context** (one `GLOSSARY.md` + `docs/adr/` at the repo root). This fits almost every repo; write it without asking.
+**Section C: Domain docs.** Preserve any layout already declared by the harness, including GLOSSARY names. For a new setup, propose a single-context glossary plus ADR directory; confirm the missing choice under project requirements rules. The examples in `domain.md` describe shape, not mandatory filenames.
 
-Offer **multi-context** (a root `GLOSSARY-MAP.md` pointing to per-context `GLOSSARY.md` files) only when exploration found monorepo signals. Then confirm which layout they want.
+Offer **multi-context** (a root `DOMAIN-MAP.md` pointing to per-context `DOMAIN.md` files) only when exploration found monorepo signals. Then confirm which layout they want.
 
 ### 3. Confirm and edit
 
 Show the user a draft of:
 
-- The `## Agent skills` block to add to whichever of `CLAUDE.md` / `AGENTS.md` is being edited (see step 4 for selection rules)
+- The selected Language block and the `## Agent skills` block to add to whichever of `CLAUDE.md` / `AGENTS.md` is being edited (see step 4 for selection rules)
 - The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md` (the last only when `triage` is installed)
 
 Let them edit before writing.
@@ -81,7 +109,8 @@ Let them edit before writing.
 
 Never create `AGENTS.md` when `CLAUDE.md` already exists (or vice versa); always edit the one that's already there.
 
-If an `## Agent skills` block already exists in the chosen file, update its contents in-place rather than appending a duplicate. Don't overwrite user edits to the surrounding sections.
+If an `## Agent skills` block exists, update it in place. When equivalent pointers already exist elsewhere, update those instead.
+Preserve the current navigation structure and surrounding policies. When CLAUDE.md points to AGENTS.md, edit the shared target once.
 
 The block:
 

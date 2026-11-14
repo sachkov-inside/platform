@@ -4,57 +4,153 @@
   "skills": [
     {
       "provider": "agent-kit",
-      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
       "skill": "grill-with-docs",
       "destination": ".agents/skills/grill-with-docs"
     },
     {
       "provider": "agent-kit",
-      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
       "skill": "grilling",
       "destination": ".agents/skills/grilling"
     },
     {
       "provider": "agent-kit",
-      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
       "skill": "handoff",
       "destination": ".agents/skills/handoff"
     },
     {
       "provider": "agent-kit",
-      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
       "skill": "prototype",
       "destination": ".agents/skills/prototype"
     },
     {
       "provider": "agent-kit",
-      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
       "skill": "research",
       "destination": ".agents/skills/research"
     },
     {
       "provider": "agent-kit",
-      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
       "skill": "retro",
       "destination": ".agents/skills/retro"
     },
     {
       "provider": "agent-kit",
-      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
       "skill": "to-questionnaire",
       "destination": ".agents/skills/to-questionnaire"
     },
     {
       "provider": "agent-kit",
-      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
       "skill": "wayfinder",
       "destination": ".agents/skills/wayfinder"
     },
     {
       "provider": "agent-kit",
-      "ref": "b0570c6006289437cd587a362d26b4594c987e26",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
       "skill": "writing-for-agents",
       "destination": ".agents/skills/writing-for-agents"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "code-review",
+      "destination": ".agents/skills/code-review"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "codebase-design",
+      "destination": ".agents/skills/codebase-design"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "diagnosing-bugs",
+      "destination": ".agents/skills/diagnosing-bugs"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "domain-modeling",
+      "destination": ".agents/skills/domain-modeling"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "implement",
+      "destination": ".agents/skills/implement"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "implement-spec",
+      "destination": ".agents/skills/implement-spec"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "improve-codebase-architecture",
+      "destination": ".agents/skills/improve-codebase-architecture"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "pr",
+      "destination": ".agents/skills/pr"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "setup-matt-pocock-skills",
+      "destination": ".agents/skills/setup-matt-pocock-skills"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "ship",
+      "destination": ".agents/skills/ship"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "tdd",
+      "destination": ".agents/skills/tdd"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "to-spec",
+      "destination": ".agents/skills/to-spec"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "to-tickets",
+      "destination": ".agents/skills/to-tickets"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "triage",
+      "destination": ".agents/skills/triage"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "wait-what",
+      "destination": ".agents/skills/wait-what"
+    },
+    {
+      "provider": "agent-kit",
+      "ref": "b1608ac14d8f934a8686a0c583f1110466a18b18",
+      "skill": "wizard",
+      "destination": ".agents/skills/wizard"
     }
   ],
   "clients": [

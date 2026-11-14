@@ -7,7 +7,9 @@ description: Diagnosis loop for hard bugs and performance regressions. Use when 
 
 A discipline for hard bugs. Skip phases only when explicitly justified.
 
-When exploring the codebase, read `GLOSSARY.md` (if it exists) to get a clear mental model of the relevant modules, and check ADRs in the area you're touching.
+Read target root `AGENTS.md` and its worktree/testing/assignment pointers. Use its prescribed execution context for reproductions and instrumentation; a dedicated diagnosis worktree is required only where that policy requires one. Diagnosis alone ends after Phase 4: preserve evidence, remove only your temporary probes and throwaway artifacts, and report the cause or remaining uncertainty plus the proposed next step. Phase 5 requires the project's implementation-start rule to be satisfied. An authorized implementation may use this diagnostic discipline inside its agreed issue.
+
+Read the project's declared domain/glossary and ADR pointers. Preserve its vocabulary and filenames, including existing `GLOSSARY.md` or `DOMAIN.md` layouts.
 
 ## Redact
 

@@ -1,3 +1,5 @@
 interface:
   display_name: "Ship"
-  short_description: "Deliver reviewed work and decide if the owner must check it"
+  short_description: "Deliver reviewed work as a verified PR"
+policy:
+  allow_implicit_invocation: true

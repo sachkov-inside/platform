@@ -155,7 +155,7 @@ _env_target() {
   done
 }
 
-# write_env KEY VALUE upserts one single-line dotenv value and sets $KEY.
+# _write_env_file KEY VALUE upserts one single-line dotenv value.
 # ENV_FILE is data for dotenv consumers (including Node util.parseEnv), not a
 # script to source/eval. Choose an absent single/backtick/double delimiter;
 # double quotes cannot represent literal \n/\r faithfully. Reject unsupported
@@ -163,7 +163,7 @@ _env_target() {
 # Build beside the resolved target, then atomically replace it: failed reads,
 # writes, or renames leave the original intact. New files are 0600; existing
 # file modes and ENV_FILE's symlinks are preserved.
-write_env() {
+_write_env_file() {
   local key="$1" value="$2" tmp target status quote
   [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || return 1
   if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
@@ -190,9 +190,15 @@ write_env() {
   fi
   if ! printf '%s=%s%s%s\n' "$key" "$quote" "$value" "$quote" >> "$tmp"; then rm -f -- "$tmp"; return 1; fi
   if ! mv -f -- "$tmp" "$target"; then rm -f -- "$tmp"; return 1; fi
-  printf -v "$key" '%s' "$value"
-  WRITTEN_ENV+=("$key")
   printf '  %s✓ wrote%s %s → %s\n' "$GREEN" "$RESET" "$key" "$ENV_FILE"
+}
+
+# Assign outside the file helper's local scope: a valid KEY may itself be
+# named key, value, target, quote, etc. Preserve the caller's dynamic scope.
+write_env() {
+  _write_env_file "$@" || return $?
+  printf -v "$1" '%s' "$2"
+  WRITTEN_ENV+=("$1")
 }
 
 # set_secret NAME VALUE sets a GitHub Actions repo secret via gh. Falls back
