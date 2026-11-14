@@ -8,7 +8,8 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { canonical, loadPackage } from "./package.mjs";
 import { taskPageBody } from "./task-page.mjs";
-import { productChapters, syncLocal } from "./local-sync.mjs";
+import { syncLocal } from "./local-sync.mjs";
+import { productChapters } from "./product-composition.mjs";
 import { applyRelease, previewRelease } from "./release.mjs";
 
 /** Synthetic exporter envelope, never real course content. */

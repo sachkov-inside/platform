@@ -7,7 +7,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical } from "./package.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
-import { productChapters, syncLocal } from "./local-sync.mjs";
+import { syncLocal } from "./local-sync.mjs";
+import { productChapters } from "./product-composition.mjs";
 import { previewRelease } from "./release.mjs";
 import {
   entryAt,

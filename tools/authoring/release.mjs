@@ -1,4 +1,8 @@
 // @ts-check
+import {
+  productComposition,
+  productShellComposition,
+} from "./product-composition.mjs";
 import { isSnapshot, previewSnapshot, applySnapshot } from "./snapshot.mjs";
 import { assertReceiverContract } from "./contract.mjs";
 import {
@@ -35,10 +39,8 @@ import {
   artifactDeclarations,
   artifactFingerprint,
   desiredMaterial,
-  productChapters,
   productDetails,
   productDetailsMatch,
-  productShellComposition,
   productRoadmap,
   productTopics,
   roadmapState,
@@ -544,19 +546,27 @@ export async function previewRelease(
         journal.materials[sourceKey(manifest, id)]?.materialId,
       ]),
     );
+    const planned = productComposition(
+      manifest,
+      product,
+      order,
+      (id) => ids.get(id) ?? `new:${id}`,
+    );
     const currentOrder = order.items.map((item) => item.materialId);
-    // A Product shell keeps the Materials the target holds in their chapters, each chapter one run.
     const shellComposition = shell
       ? productShellComposition(manifest, product, order)
       : undefined;
     const desiredOrder =
-      shellComposition?.orderedMaterialIds ??
-      programme.map((id) => ids.get(id) ?? `new:${id}`);
+      shellComposition?.orderedMaterialIds ?? planned.orderedMaterialIds;
+    const desiredChapters = planned.chapters;
+    const chapterNames = new Map(
+      desiredChapters.map((chapter) => [chapter.id, chapter.name]),
+    );
     const chapterOf = new Map(
-      product.chapters.flatMap((chapter) =>
-        // Stored chapter names are trimmed, as productChapters sends them.
-        chapter.materialIds.map((id) => [ids.get(id), chapter.title.trim()]),
-      ),
+      Object.entries(planned.chapterAssignments).map(([id, chapterId]) => [
+        id,
+        chapterNames.get(chapterId),
+      ]),
     );
     const currentChapters = new Map(
       order.chapters.map((chapter) => [chapter.id, chapter.name]),
@@ -567,7 +577,6 @@ export async function previewRelease(
         canonical({ name: chapter.name, summary: chapter.summary }),
       ]),
     );
-    const desiredChapters = productChapters(manifest, product);
     const desiredChapterIds = desiredChapters.map((chapter) => chapter.id);
     const currentChapterIds = order.chapters.map((chapter) => chapter.id);
     const chapterListChange = {
@@ -577,15 +586,10 @@ export async function previewRelease(
         .length,
     };
     /** @type {[string | null, string][]} */
-    const desiredProgramme =
-      product.chapters.length === 0
-        ? product.materialIds.map((id) => [null, ids.get(id) ?? `new:${id}`])
-        : product.chapters.flatMap((chapter, index) =>
-            chapter.materialIds.map((id) => [
-              desiredChapters[index]?.id ?? null,
-              ids.get(id) ?? `new:${id}`,
-            ]),
-          );
+    const desiredProgramme = planned.programmePlacements.map((entry) => [
+      entry.chapterId,
+      entry.materialId,
+    ]);
     /** @type {[string | null, string][] | undefined} */
     const currentProgramme = order.programmePlacements?.map((entry) => [
       entry.chapterId,
@@ -600,21 +604,14 @@ export async function previewRelease(
       canonical(desiredProgramme) !== canonical(currentProgramme);
     const chaptersChanged =
       canonical(desiredChapterIds) !== canonical(currentChapterIds);
-    const chapterSupplementaryChanges = product.chapters.filter(
-      (chapter, index) => {
-        if (chapter.supplementaryMaterialIds === undefined) return false;
-        const stored = order.chapters.find(
-          (entry) => entry.id === desiredChapters[index]?.id,
-        );
-        const wanted = chapter.supplementaryMaterialIds.map(
-          (id) => ids.get(id) ?? `new:${id}`,
-        );
-        return (
-          canonical(wanted) !==
-          canonical(stored?.supplementaryMaterialIds ?? [])
-        );
-      },
-    ).length;
+    const chapterSupplementaryChanges = desiredChapters.filter((chapter) => {
+      if (!("supplementaryMaterialIds" in chapter)) return false;
+      const stored = order.chapters.find((entry) => entry.id === chapter.id);
+      return (
+        canonical(chapter.supplementaryMaterialIds) !==
+        canonical(stored?.supplementaryMaterialIds ?? [])
+      );
+    }).length;
     // A package without topics leaves the target's topics alone; Materials new to the target differ.
     const topics =
       product.topics === undefined
