@@ -70,12 +70,27 @@ test("reference navigation preserves nine steps and restores the originating les
       ? page.getByRole("dialog")
       : page.getByRole("complementary", { name: "Текущая глава" });
   await expect(navigation.locator("[data-course-step]")).toHaveCount(9);
-  await expect(
-    navigation.locator('[data-course-step="material:reference-lesson-5"]'),
-  ).toHaveAttribute("aria-current", "step");
+  // Only the open document is highlighted; the originating lesson stays a quiet link back.
+  const origin = navigation.locator(
+    '[data-course-step="material:reference-lesson-5"]',
+  );
+  await expect(origin).not.toHaveAttribute("aria-current");
+  await expect(origin).toHaveAttribute("data-course-origin");
+  await expect(origin).toContainText("вы пришли отсюда");
+  await expect(navigation.locator('[aria-current="step"]')).toHaveCount(0);
+  await expect(navigation.locator("[aria-current]")).toHaveCount(1);
   await expect(
     group.getByRole("link", { name: "Описание проекта" }),
   ).toHaveAttribute("aria-current", "page");
+  await expect(origin).toBeInViewport();
+  if (page.viewportSize()?.width === 390)
+    // The lesson dock names the open document, not a place in the programme.
+    await expect(
+      page.getByRole("button", {
+        name: /^Вся программа:/,
+        includeHidden: true,
+      }),
+    ).toHaveAccessibleDescription("Дополнительный материал");
   await group.getByRole("link", { name: "Бриф заказчика" }).click();
   await expect(
     page.getByRole("heading", { name: "Бриф заказчика", exact: true }),

@@ -535,7 +535,11 @@ The displayed document, primary course anchor and browser return entry remain di
 An `anchor=material:<slug>` or `anchor=task:<code>` query accompanies the existing validated programme `from`.
 The server validates the displayed Material's Product membership and the anchor's primary membership and availability.
 A valid anchor supplies the sidebar and mobile programme, without adding the supplementary document to chapters,
-counts, progress or previous/next. The sidebar selects the originating step; breadcrumbs name the open document.
+counts, progress or previous/next. Only the open document is highlighted, in «Дополнительные материалы»
+(owner 2026-11-14): the originating step loses the accent and `aria-current` and stays a plain link back
+with its saved progress marker and the caption «вы пришли отсюда». The rail and the
+programme sheet scroll to that step, the lesson dock reads «Дополнительный материал», and breadcrumbs
+name the open document.
 Sidebar step markers show the reader's saved progress, not position (#1854, owner 2026-10-30): a check
 marks a Material marked as studied or a submitted Task, an empty ring an unpassed step, and a neutral line
 joins the markers. Studied titles are muted. Only the current step uses the accent: an accent dot and a
@@ -597,7 +601,7 @@ clears the choice when the same Save adds the Material to a Product. The feed qu
 conditions itself. Search and the catalogue ignore the choice. Current Sourcev2 has no `showInFeed` field.
 Original Sourcev1 values survive only in historical records and exact receipt decoding; they cannot place
 Materials in the feed or block Product catalogue removal.
-An anchored reference keeps the originating chapter and step, highlights the active document separately,
+An anchored reference keeps the originating chapter, marks the originating step only as the way back, highlights the active document alone,
 and restores the originating lesson through its return links. A programme entry without an origin
 retains the course frame without claiming a curricular position. A standalone Material URL without
 course context remains standalone; authored read links and artifact download links remain valid.

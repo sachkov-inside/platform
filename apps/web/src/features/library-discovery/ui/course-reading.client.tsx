@@ -37,6 +37,8 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { useMaterialReading } from "@/entities/material";
 import {
   isProgrammeStepOpenedForReference,
+  currentStepId,
+  originatingStepId,
   type CourseReadingContext,
   type CourseReadingStep,
 } from "../model/course-reading";
@@ -50,6 +52,9 @@ import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import styles from "./course-reading.module.css";
 import { useCourseRailSelection } from "./course-reading-handoff.client";
 import { CourseReadingHostContext } from "./course-reading-host-context.client";
+
+/** The row that places the reader: the current step, or the step an open supplementary document came from. */
+const placeRowSelector = '[aria-current="step"], [data-course-origin]';
 
 interface TaskSubmissionOverlay {
   readonly courseHref: string;
@@ -326,6 +331,9 @@ export function CourseRail({
     (entry) => entry.id === context.currentChapterId,
   );
   const readingChapter = context.chapters[readingChapterIndex];
+  // An open supplementary document is current; the step it came from is only the way back.
+  const currentStep = currentStepId(context);
+  const originStep = originatingStepId(context);
   const marks = useCourseReadMarks(context);
   const chapterProgress =
     chapter === undefined ? null : courseChapterProgress(chapter.steps, marks);
@@ -358,7 +366,7 @@ export function CourseRail({
   // Reveal the current step before the host restores a reader-owned scroll position.
   useLayoutEffect(() => {
     const element = rail.current;
-    const active = element?.querySelector<HTMLElement>('[aria-current="step"]');
+    const active = element?.querySelector<HTMLElement>(placeRowSelector);
     if (element === null || active === undefined || active === null) return;
     const railRect = element.getBoundingClientRect();
     const activeStepRect = active.getBoundingClientRect();
@@ -540,7 +548,8 @@ export function CourseRail({
                 <li key={step.id}>
                   <StepLink
                     step={step}
-                    current={context.current.id}
+                    current={step.id === currentStep}
+                    origin={step.id === originStep}
                     progress={courseStepProgress(step, marks)}
                   />
                 </li>
@@ -615,22 +624,26 @@ function formatChapterCount(count: number) {
 function StepLink({
   step,
   current,
+  origin,
   progress,
 }: {
   readonly step: CourseReadingStep;
-  readonly current: string;
+  readonly current: boolean;
+  /** The step an open supplementary document came from: a way back, not a second current row. */
+  readonly origin: boolean;
   readonly progress: CourseStepProgress;
 }) {
   return (
     <IntentPrefetchLink
       className={styles["step"]}
       data-course-step={step.id}
+      data-course-origin={origin ? true : undefined}
       data-progress={progress}
-      aria-current={step.id === current ? "step" : undefined}
+      aria-current={current ? "step" : undefined}
       href={step.href}
     >
       <span aria-hidden="true" className={styles["markSlot"]}>
-        <span className={styles["mark"]}>
+        <span className={styles["mark"]} data-course-step-mark>
           {progress === "done" ? <Check size={9} strokeWidth={3.5} /> : null}
         </span>
       </span>
@@ -653,6 +666,12 @@ function StepLink({
           <span className="sr-only">Сдано</span>
         ) : progress === "done" ? (
           <span className="sr-only">Пройдено</span>
+        ) : null}
+        {origin ? (
+          <span className={styles["originNote"]}>
+            <span className="sr-only">, </span>
+            вы пришли отсюда
+          </span>
         ) : null}
       </span>
     </IntentPrefetchLink>
@@ -694,7 +713,7 @@ export function ProgrammeDialog({
   function openProgramme() {
     dialog.current?.showModal();
     dialog.current
-      ?.querySelector('[aria-current="step"]')
+      ?.querySelector(placeRowSelector)
       ?.scrollIntoView({ block: "nearest" });
   }
   return (
@@ -720,9 +739,7 @@ export function ProgrammeDialog({
           current
           caption={
             !atProgrammeStep
-              ? context.currentPosition === 0
-                ? "Дополнительный материал"
-                : "Ваше место в курсе"
+              ? "Дополнительный материал"
               : progress === null
                 ? `${chapterLabel} · Шаг ${String(chapterStep)} из ${String(chapterTotal)}`
                 : `Пройдено ${String(progress.done)} из ${String(progress.total)}`

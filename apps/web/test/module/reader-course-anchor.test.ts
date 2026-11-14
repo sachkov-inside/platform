@@ -7,6 +7,10 @@ import {
 import { resolveProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { courseSource } from "@/storybook/course-reading.fixtures";
+import {
+  courseReadingContext,
+  originatingStepId,
+} from "@/features/library-discovery";
 
 const returnTarget = parseMaterialReaderReturnTarget(
   "/products/ai-engineering/programme?at=course-intro",
@@ -70,6 +74,42 @@ describe("Supplementary reading anchored to a primary course step", () => {
       ).toBe(false);
     },
   );
+  it.each(["material:course-intro", "task:aie-ch1-onboarding"])(
+    "marks %s as the originating step, not the current one, while its supplementary document is open",
+    (value) => {
+      const programme = resolveProductReaderContext({
+        currentMaterialSlug: "aie-product-brief",
+        returnTarget,
+        product,
+        anchor: parseReaderCourseAnchor(value),
+      })?.programme;
+      if (programme == null) throw new Error("Anchor lost its course");
+      expect(programme.activeReferenceId).toBe("reference:aie-product-brief");
+      expect(originatingStepId(programme)).toBe(value);
+    },
+  );
+  it("leaves ordinary steps, programme references and catalogue lessons without an origin", () => {
+    const read = (currentMaterialSlug: string, anchor?: string) => {
+      const programme = resolveProductReaderContext({
+        currentMaterialSlug,
+        returnTarget,
+        product,
+        anchor: parseReaderCourseAnchor(anchor),
+      })?.programme;
+      if (programme == null) throw new Error("Course frame missing");
+      return originatingStepId(programme);
+    };
+    expect(read("course-intro")).toBeUndefined();
+    expect(read("course-intro", "task:aie-ch1-onboarding")).toBeUndefined();
+    expect(read("aie-product-brief")).toBeUndefined();
+    const catalogue = courseReadingContext({
+      product,
+      current: { kind: "material", slug: "course-intro" },
+      referenceView: true,
+    });
+    if (catalogue === null) throw new Error("Catalogue lesson missing");
+    expect(originatingStepId(catalogue)).toBeUndefined();
+  });
   it.each(["task:absent", "material:next", "material:aie-product-brief"])(
     "uses standalone fallback for inaccessible or missing anchor %s",
     (value) => {

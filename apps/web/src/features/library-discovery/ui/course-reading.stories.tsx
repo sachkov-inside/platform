@@ -834,6 +834,138 @@ export const SupplementaryMaterials: Story = {
   },
 };
 
+/** «Бриф заказчика» opened from the studied lesson «Как устроен курс». */
+const briefFromLesson = {
+  ...courseGuide,
+  activeReferenceId: "reference:aie-product-brief",
+};
+
+function BriefFromLesson({
+  lessonRead = true,
+}: {
+  readonly lessonRead?: boolean;
+}) {
+  return (
+    <MaterialReadingScope
+      value={{
+        accountId: "story-account",
+        resolved: true,
+        failed: false,
+        states: new Map([
+          [
+            "00000000-0000-4000-8000-0000000000a2",
+            { isRead: false, version: 1 },
+          ],
+          [
+            "00000000-0000-4000-8000-0000000000a3",
+            { isRead: lessonRead, version: 1 },
+          ],
+        ]),
+        register: () => () => undefined,
+        refresh: () => Promise.resolve(),
+      }}
+    >
+      <CourseReadingLayout
+        context={briefFromLesson}
+        supplementaryTitle="Бриф заказчика"
+      >
+        <CourseReadingHeader
+          context={briefFromLesson}
+          title="Бриф заказчика"
+          metadata={null}
+          supplementary
+        />
+        <p>Текст материала</p>
+      </CourseReadingLayout>
+    </MaterialReadingScope>
+  );
+}
+
+/** The open supplementary document is the only highlighted row; its lesson is a quiet way back. */
+async function expectOnlyOpenDocumentHighlighted(navigation: HTMLElement) {
+  const programme = within(navigation);
+  const origin = programme.getByRole("link", { name: /^Как устроен курс/ });
+  await expect(origin).toHaveAccessibleName(
+    /^Как устроен курс Пройдено ?, вы пришли отсюда$/u,
+  );
+  await expect(origin).toHaveAttribute("href", courseGuide.current.href);
+  await expect(origin).not.toHaveAttribute("aria-current");
+  await expect(origin).toHaveAttribute("data-course-origin");
+  // The saved progress mark stays; neither the dot nor the row takes the accent.
+  await expect(origin).toHaveAttribute("data-progress", "done");
+  await expect(getComputedStyle(origin).backgroundColor).toBe(
+    "rgba(0, 0, 0, 0)",
+  );
+  const mark = origin.querySelector<HTMLElement>("[data-course-step-mark]");
+  if (mark === null) throw new Error("Origin mark missing");
+  await expect(mark.querySelector("svg")).toBeVisible();
+  await expect(getComputedStyle(mark).boxShadow).toBe("none");
+  const caption = programme.getByText("вы пришли отсюда");
+  await expect(caption).toBeVisible();
+  await expect(Number.parseFloat(getComputedStyle(caption).fontSize)).toBe(12);
+  await expect(navigation.querySelectorAll("[aria-current]")).toHaveLength(1);
+  await expect(
+    within(
+      programme.getByRole("navigation", { name: "Дополнительные материалы" }),
+    ).getByRole("link", { name: "Бриф заказчика" }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    programme.getByRole("link", { name: "Первый урок" }),
+  ).not.toHaveAttribute("data-course-origin");
+}
+
+export const SupplementaryFromLesson: Story = {
+  render: () => <BriefFromLesson />,
+  play: async ({ canvasElement }) => {
+    await expectOnlyOpenDocumentHighlighted(
+      within(canvasElement).getByRole("complementary", {
+        name: "Текущая глава",
+      }),
+    );
+  },
+};
+
+export const SupplementaryFromLessonPhone: Story = {
+  render: () => <BriefFromLesson />,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const opener = within(
+      canvas.getByRole("navigation", { name: "Навигация по урокам" }),
+    ).getByRole("button", { name: /^Вся программа:/ });
+    // The dock names the open document, not a place in the programme.
+    await expect(opener).toHaveAccessibleDescription("Дополнительный материал");
+    await userEvent.click(opener);
+    const dialog = canvas.getByRole("dialog", {
+      name: "Программа: AI Engineering",
+    });
+    await expectOnlyOpenDocumentHighlighted(dialog);
+  },
+};
+
+export const SupplementaryFromLessonTablet: Story = {
+  ...SupplementaryFromLessonPhone,
+  globals: { viewport: { value: "tablet820", isRotated: false } },
+};
+
+export const SupplementaryFromUnreadLesson: Story = {
+  render: () => <BriefFromLesson lessonRead={false} />,
+  play: async ({ canvasElement }) => {
+    const origin = within(
+      within(canvasElement).getByRole("complementary", {
+        name: "Текущая глава",
+      }),
+    ).getByRole("link", { name: /^Как устроен курс/ });
+    // An unread origin keeps its empty ring; the way-back caption does not mark it as passed.
+    await expect(origin).toHaveAccessibleName(
+      /^Как устроен курс ?, вы пришли отсюда$/u,
+    );
+    await expect(origin).toHaveAttribute("data-progress", "todo");
+    await expect(origin).not.toHaveAttribute("aria-current");
+    await expect(origin.querySelector("svg")).toBeNull();
+  },
+};
+
 function ProgressCourse({
   marks = progressCourseMarks,
   failed = false,
