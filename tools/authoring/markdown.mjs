@@ -251,14 +251,15 @@ export function convertMarkdown(
                 }
               : {}),
           });
-      } else if (token.type === "softbreak") {
+      } else if (["softbreak", "hardbreak"].includes(token.type)) {
+        // The material schema has no hard break node, so a hard break (two trailing spaces or a
+        // trailing backslash) keeps the author's words apart exactly as a soft one does.
         nodes.push({
           type: "text",
           text: "\n",
           ...(marks.length ? { marks: [...marks] } : {}),
         });
-      } else if (token.type === "hardbreak") nodes.push({ type: "hardBreak" });
-      else if (markType !== undefined) marks.push({ type: markType });
+      } else if (markType !== undefined) marks.push({ type: markType });
       else if (token.type === "link_open") {
         const href = attribute(token, "href");
         marks.push({
