@@ -18,10 +18,7 @@ import {
   lessonRatingChanges,
   SavedLessonRating,
 } from "@/features/lesson-rating";
-import {
-  SavedLessonTermDeck,
-  termMarkChanges,
-} from "@/features/lesson-term-deck";
+import { LessonTermDeck } from "@/features/lesson-term-deck";
 import {
   ReadingProgressProvider,
   SavedReadingAction,
@@ -83,7 +80,6 @@ const term = {
 /** What the backend holds for the signed-in reader; another tab may change it. */
 const backend = {
   rating: null as "like" | "dislike" | null,
-  marks: [] as { termId: string; mark: "known" | "review"; markedAt: string }[],
   attempts: [] as unknown[],
   recorded: [] as string[],
 };
@@ -145,7 +141,6 @@ const meta = {
     getQueryClient().clear();
     environment.beforeEach();
     backend.rating = null;
-    backend.marks = [];
     backend.attempts = [];
     backend.recorded = [];
     return fetchBeforeRender(async (input, init) => {
@@ -180,16 +175,6 @@ const meta = {
         backend.rating = rating;
         return Response.json({ kind: "ready", rating });
       }
-      if (path === "/api/glossary/marks/states")
-        return Response.json({ kind: "ready", marks: backend.marks });
-      if (path === "/api/glossary/marks/state") {
-        const { termId, mark } = z
-          .object({ termId: z.string(), mark: z.enum(["known", "review"]) })
-          .parse(await body$(input, init));
-        const saved = { termId, mark, markedAt: "2026-11-13T09:00:00.000Z" };
-        backend.marks = [saved];
-        return Response.json({ kind: "ready", mark: saved });
-      }
       if (path === "/api/exercise-attempts/query")
         return Response.json({ kind: "ready", attempts: backend.attempts });
       if (path === "/api/exercise-attempts/attempt") {
@@ -218,7 +203,7 @@ const meta = {
   args: {
     body,
     primaryVideo: null,
-    termDeck: <SavedLessonTermDeck terms={[term]} />,
+    termDeck: <LessonTermDeck terms={[term]} />,
     exerciseSummary: <SavedLessonExerciseSummary />,
     lessonRating: <SavedLessonRating materialId={materialId} />,
     exerciseScope: (lesson) => (
@@ -283,16 +268,12 @@ export const WritesTellOtherTabs: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const ratings = heard(lessonRatingChanges(accountId));
-    const marks = heard(termMarkChanges(accountId));
     const attempts = heard(exerciseAttemptChanges(accountId));
 
     await userEvent.click(
       await canvas.findByRole("button", { name: /Пользователь видит запись/u }),
     );
     await waitFor(() => expect(attempts).toHaveLength(1));
-    await openTerms(canvasElement);
-    await userEvent.click(await canvas.findByRole("button", { name: "Знаю" }));
-    await waitFor(() => expect(marks).toHaveLength(1));
     await userEvent.click(
       await canvas.findByRole("button", { name: "Понравился" }),
     );
@@ -301,7 +282,7 @@ export const WritesTellOtherTabs: Story = {
 };
 
 /**
- * Another tab rated the lesson, marked the term and solved the exercise: this tab shows it after
+ * Another tab rated the lesson and solved the exercise: this tab shows it after
  * the announcement, so «Понравился» here does not remove a rating it never showed.
  */
 export const FollowsAnotherTab: Story = {
@@ -311,26 +292,11 @@ export const FollowsAnotherTab: Story = {
     await expect(like).toHaveAttribute("aria-pressed", "false");
 
     backend.rating = "like";
-    backend.marks = [
-      {
-        termId: term.id,
-        mark: "known",
-        markedAt: "2026-11-13T09:00:00.000Z",
-      },
-    ];
     backend.attempts = [attempt("visible")];
     lessonRatingChanges(accountId).announce();
-    termMarkChanges(accountId).announce();
     exerciseAttemptChanges(accountId).announce();
 
     await waitFor(() => expect(like).toHaveAttribute("aria-pressed", "true"));
-    await openTerms(canvasElement);
-    await waitFor(() =>
-      expect(canvas.getByRole("button", { name: "Знаю" })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      ),
-    );
     await waitFor(() =>
       expect(canvas.getByText("Упражнения: 1 из 1")).toBeVisible(),
     );
@@ -482,7 +448,7 @@ export const FinishInCoursePhone360: Story = {
 export const FinishWithoutExercises: Story = {
   args: {
     body: [paragraph("Короткий урок без упражнений.")],
-    termDeck: <SavedLessonTermDeck terms={[]} />,
+    termDeck: <LessonTermDeck terms={[]} />,
     exerciseScope: (lesson) => (
       <LessonExerciseAttempts
         materialId={materialId}

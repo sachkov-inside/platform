@@ -33,7 +33,7 @@ import {
 } from "@/features/reading-progress";
 import { SavedBookmarkAction } from "@/features/bookmarks";
 import { SavedLessonRating } from "@/features/lesson-rating";
-import { SavedLessonTermDeck } from "@/features/lesson-term-deck";
+import { LessonTermDeck } from "@/features/lesson-term-deck";
 import {
   LessonExerciseAttempts,
   SavedLessonExerciseSummary,
@@ -433,7 +433,7 @@ async function ResolvedMaterialReader({
   // Бесплатный урок курса ведёт к покупке курса (#1647); у дополнительного материала своего места
   // в программе нет, и звать оттуда нечего.
   const purchaseProductSlug = productSlugOf(returnTarget);
-  // Подсказка термина и колода ведут в словарь курса, только когда урок открыт внутри курса.
+  // Подсказка термина и карусель терминов ведут в словарь курса, только когда урок открыт внутри курса.
   const courseGlossarySlug =
     productContext === null ? undefined : purchaseProductSlug;
   // «Подробнее» ведёт только к термину, который словарь курса показывает читателю.
@@ -553,7 +553,7 @@ async function ResolvedMaterialReader({
         glossaryTerms={result.glossaryTerms}
         courseGlossary={courseGlossary}
         termDeck={
-          <SavedLessonTermDeck
+          <LessonTermDeck
             terms={result.lessonTerms}
             courseGlossaryHref={
               courseGlossarySlug === undefined
