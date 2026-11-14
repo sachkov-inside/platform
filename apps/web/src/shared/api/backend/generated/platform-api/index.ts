@@ -26,7 +26,6 @@ export { ContentCoversService } from './services/ContentCoversService';
 export { ContentLibraryService } from './services/ContentLibraryService';
 export { CourseActivationIntegrationService } from './services/CourseActivationIntegrationService';
 export { ExerciseAttemptsService } from './services/ExerciseAttemptsService';
-export { GlossaryService } from './services/GlossaryService';
 export { KinescopeIntegrationService } from './services/KinescopeIntegrationService';
 export { LessonRatingsService } from './services/LessonRatingsService';
 export { MaterialAssetsService } from './services/MaterialAssetsService';

@@ -1,4 +1,4 @@
-export const name = "0127_lesson_ratings";
+export const name = "0126_lesson_ratings";
 
 /**
  * Lesson Ratings (#2124): «Как вам урок?», one like or dislike of a signed-in reader per
