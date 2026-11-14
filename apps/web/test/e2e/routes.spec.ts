@@ -86,7 +86,10 @@ for (const destination of destinations) {
     const navigation = getPrimaryNavigation(page, testInfo.project.name);
     await expect(navigation.getByRole("link")).toHaveCount(2);
     await expect(
-      navigation.getByRole("link", { name: destination.label, exact: true }),
+      navigation.getByRole("link", {
+        name: /^(?:sachkov\.dev, )?Главная$/,
+        exact: true,
+      }),
     ).toHaveAttribute("aria-current", "page");
   });
 
@@ -127,7 +130,7 @@ test("неизвестный адрес отвечает 404 по-русски �
   await expect(page.getByText("This page could not be found")).toHaveCount(0);
   await expect(
     getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
-      name: "Главная",
+      name: /^(?:sachkov\.dev, )?Главная$/,
       exact: true,
     }),
   ).toBeVisible();
@@ -604,7 +607,7 @@ test("navigation works with pointer input", async ({ page }, testInfo) => {
     page,
     testInfo.project.name,
   ).getByRole("link", {
-    name: "Главная",
+    name: /^(?:sachkov\.dev, )?Главная$/,
     exact: true,
   });
   await libraryLink.click();
@@ -622,7 +625,9 @@ test("header stays fixed while desktop content scrolls", async ({
   const before = await header.boundingBox();
   const main = page.getByRole("main");
   const mainBefore = await main.boundingBox();
-  await header.getByRole("link", { name: "Главная", exact: true }).hover();
+  await header
+    .getByRole("link", { name: /^(?:sachkov\.dev, )?Главная$/, exact: true })
+    .hover();
   await expect.poll(() => main.boundingBox()).toEqual(mainBefore);
   await main.evaluate((element) => {
     element.scrollTop = 300;
@@ -664,7 +669,10 @@ test("keyboard reaches the visible desktop or mobile navigation", async ({
   }
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
   await expect(
-    navigation.getByRole("link", { name: "Главная", exact: true }),
+    navigation.getByRole("link", {
+      name: /^(?:sachkov\.dev, )?Главная$/,
+      exact: true,
+    }),
   ).toBeFocused();
   await page.keyboard.press("Tab");
   const libraryLink = navigation.getByRole("link", {
@@ -694,7 +702,10 @@ test("shell exposes essential landmarks to assistive technology", async ({
   expect(accessibilityTree).toContain('- heading "Главная" [level=1]');
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
   await expect(
-    navigation.getByRole("link", { name: "Главная", exact: true }),
+    navigation.getByRole("link", {
+      name: /^(?:sachkov\.dev, )?Главная$/,
+      exact: true,
+    }),
   ).toBeVisible();
   if (navigationMode(testInfo.project.name) === "mobile") {
     const audit = await new AxeBuilder({ page })
@@ -735,7 +746,7 @@ test("reduced motion removes navigation transitions", async ({
     page,
     testInfo.project.name,
   )
-    .getByRole("link", { name: "Главная", exact: true })
+    .getByRole("link", { name: /^(?:sachkov\.dev, )?Главная$/, exact: true })
     .evaluate((element) => getComputedStyle(element).transitionProperty);
 
   expect(transitionProperty).toBe("none");
@@ -748,7 +759,7 @@ test("current destination exposes its semantic selected state", async ({
 
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
   const current = navigation.getByRole("link", {
-    name: "Главная",
+    name: /^(?:sachkov\.dev, )?Главная$/,
     exact: true,
   });
   await expect(current).toHaveAttribute("aria-current", "page");

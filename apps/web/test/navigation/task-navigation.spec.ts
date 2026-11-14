@@ -287,7 +287,7 @@ test("free lesson without mode variants reads saved Task state privately", async
   await expectCourseReadingHost(page);
   if (testInfo.project.name === "mobile-chromium")
     await page
-      .getByRole("button", { name: "Вся программа", exact: true })
+      .getByRole("button", { name: /^Вся программа:/, exact: true })
       .click();
   await expect(
     page.locator('[data-task-submitted="true"]:visible'),
@@ -300,7 +300,7 @@ test("free lesson without mode variants reads saved Task state privately", async
   await expectCourseReadingHost(page);
   if (testInfo.project.name === "mobile-chromium")
     await page
-      .getByRole("button", { name: "Вся программа", exact: true })
+      .getByRole("button", { name: /^Вся программа:/, exact: true })
       .click();
   const title = page.locator('[data-task-submitted="true"]:visible');
   await expect(title).toHaveText("Сохранённое задание");
@@ -325,7 +325,7 @@ test("optional private Task status failure preserves the free lesson and public 
   await expectCourseReadingHost(page);
   if (testInfo.project.name === "mobile-chromium")
     await page
-      .getByRole("button", { name: "Вся программа", exact: true })
+      .getByRole("button", { name: /^Вся программа:/, exact: true })
       .click();
   await expect(
     page.getByRole("link", {

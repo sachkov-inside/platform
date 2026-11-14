@@ -16,7 +16,7 @@ const metricsPerDay = 20_000;
 const errorsPerDay = 5_000;
 const millisecondsPerDay = 86_400_000;
 const postgresImage =
-  "ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15";
+  "ghcr.io/sachkov-inside/postgres:18.7-alpine@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73";
 
 async function measure() {
   const container = await new PostgreSqlContainer(postgresImage)
@@ -233,7 +233,7 @@ async function measure() {
       nodeVersion: process.version,
       platform: process.platform,
       architecture: process.arch,
-      postgres: "18.4",
+      postgres: "18.7",
       postgresImage,
       imageId,
       cpuLimit: 2,

@@ -48,7 +48,7 @@ test("mobile navigation keeps real catalog context and public canvas", async ({
   // Логотип «Главная» стоит в шапке вне списка разделов.
   await page
     .locator("[data-mobile-header]")
-    .getByRole("link", { name: "Главная", exact: true })
+    .getByRole("link", { name: /^(?:sachkov\.dev, )?Главная$/, exact: true })
     .click();
   await expect(page).toHaveURL(/\/\?topic=platform$/u);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600);

@@ -424,9 +424,7 @@ export function ProductJourneyControls({
                   const roadmap = run.chapter?.roadmap;
                   const upcoming = roadmap?.upcoming ?? [];
                   const continued =
-                    run.chapter !== null &&
-                    run.chapter.header === null &&
-                    roadmap === undefined;
+                    run.chapter?.header === null && roadmap === undefined;
                   const sectionId = `${run.chapter === null ? "open" : `chapter-${run.chapter.id}`}-run-${String(run.offset)}`;
                   const list =
                     rows.length === 0 && upcoming.length === 0 ? null : (

@@ -435,7 +435,9 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   ).toBeVisible();
   await expect(page).toHaveTitle("Как устроен Inside Platform · sachkov.dev");
   await expect(
-    page.getByRole("main").getByRole("link", { name: "Главная" }),
+    page
+      .getByRole("main")
+      .getByRole("link", { name: /^(?:sachkov\.dev, )?Главная$/ }),
   ).toHaveCount(0);
   await expect(page.getByRole("main")).toContainText(
     "PostgreSQL хранит current Material",
@@ -1012,7 +1014,9 @@ test("uses the selected Product order for a shared Material and leaves standalon
     page.getByRole("navigation", { name: "Уроки продукта", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("main").getByRole("link", { name: "Главная" }),
+    page
+      .getByRole("main")
+      .getByRole("link", { name: /^(?:sachkov\.dev, )?Главная$/ }),
   ).toHaveCount(0);
 });
 
@@ -1060,7 +1064,7 @@ async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
   await expect(header).toHaveCount(1);
   await expect(header).toBeHidden();
   const home = header.getByRole("link", {
-    name: "Главная",
+    name: /^(?:sachkov\.dev, )?Главная$/,
     exact: true,
     includeHidden: true,
   });
@@ -1106,7 +1110,7 @@ async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
   // Topic и Reader сохраняют видимую навигацию Главной; витрина продукта отдельно скрывает шапку.
   const home = page
     .locator("[data-mobile-header]")
-    .getByRole("link", { name: "Главная", exact: true });
+    .getByRole("link", { name: /^(?:sachkov\.dev, )?Главная$/, exact: true });
   await expect(home).toHaveCount(1);
   await expect(home).toBeVisible();
   await expect(home).toHaveAttribute("href", /^\/(?:\?topic=platform)?$/u);

@@ -289,4 +289,6 @@ else
   incoming_dir=""
 fi
 
+"$host_root/usr/local/libexec/inside/inside-broker-preflight" "$release_dir/runtime/compose.production.yaml"
+
 "$release_dir/runtime/bin/deploy-release" "$operation" "$version" "$run_id"

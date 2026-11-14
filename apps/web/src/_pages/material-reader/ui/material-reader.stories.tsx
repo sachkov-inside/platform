@@ -653,7 +653,7 @@ export const Desktop: Story = {
     ).toBeNull();
     await expect(
       within(canvas.getByRole("main")).queryByRole("link", {
-        name: "Главная",
+        name: /^(?:sachkov\.dev, )?Главная$/,
       }),
     ).toBeNull();
     await expect(
@@ -988,7 +988,9 @@ export const NotFound: Story = {
       canvas.getByRole("heading", { name: "Материал не найден" }),
     ).toBeInTheDocument();
     await expect(
-      within(canvas.getByRole("main")).getByRole("link", { name: "Главная" }),
+      within(canvas.getByRole("main")).getByRole("link", {
+        name: /^(?:sachkov\.dev, )?Главная$/,
+      }),
     ).toBeInTheDocument();
   },
 };
@@ -1213,7 +1215,9 @@ export const ShortMaterial: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      within(canvas.getByRole("main")).queryByRole("link", { name: "Главная" }),
+      within(canvas.getByRole("main")).queryByRole("link", {
+        name: /^(?:sachkov\.dev, )?Главная$/,
+      }),
     ).toBeNull();
     await expect(
       canvasElement.querySelector('[data-reader-return="bottom"]'),
@@ -2087,7 +2091,7 @@ export const SupplementaryFromTask: Story = {
     );
     await expect(
       crumbs.getByRole("link", {
-        name: "Онбординг нового разработчика за час",
+        name: "Задание: Онбординг нового разработчика за час",
       }),
     ).toHaveAttribute(
       "href",
@@ -2214,7 +2218,7 @@ export const ProjectReferenceFromLessonMobile: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Вся программа" }),
+      canvas.getByRole("button", { name: /^Вся программа:/ }),
     );
     const dialog = canvas.getByRole("dialog");
     const references = within(dialog).getByRole("navigation", {

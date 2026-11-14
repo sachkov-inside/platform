@@ -1,6 +1,13 @@
 {
-  "postgres": "18.4",
-  "pgBackRest": "2.59.3",
-  "sourceSha": "46cdca625a73403cad4774d97354a1fac1e91e51",
-  "distributionSha256": "14037901db002e5536a948bf9f0fc0ff6cde31f4e675d3e9b46f129071bf2e5f"
+  "postgres": "18.7",
+  "pgBackRest": "2.60.0",
+  "sourceSha": "2e1c4f2ba727c45a0a23d4b326905088dc15b1a1",
+  "distributionSha256": "6d3ee1b5defdadc85228969b4be804096f5e65e54707bb95c7c4c4ce41f5d007",
+  "gosu": {
+    "version": "1.20",
+    "sourceSha": "29b939aa5bd4dc588af765b8248f6e39150d2565",
+    "sourceSha256": "2b70da8a5480fafedc16bb1fc91b572f064d03df736cbd91a616af2f1b66ab51",
+    "goVersion": "1.27.4",
+    "goImage": "docker.io/library/golang:1.27.4-alpine3.24@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf"
+  }
 }

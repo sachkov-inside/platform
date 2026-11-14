@@ -222,7 +222,7 @@ async function choose(
   await userEvent.clear(field);
   await userEvent.type(field, query);
   await userEvent.click(
-    await view.findByRole("button", { name: `Добавить ${name}` }),
+    await view.findByRole("button", { name: new RegExp(`${name}.*Добавить`) }),
   );
 }
 
@@ -391,7 +391,7 @@ export const NameSearchTruncatedDesktop: Story = {
       await view.findByText("Показаны не все совпадения. Уточните запрос."),
     ).toBeVisible();
     await expect(
-      view.getByRole("button", { name: "Добавить Анна Королёва" }),
+      view.getByRole("button", { name: /Анна Королёва.*Добавить/ }),
     ).toBeVisible();
   },
 };

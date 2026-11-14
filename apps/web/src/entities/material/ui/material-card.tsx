@@ -204,7 +204,7 @@ export function MaterialCard({
         <IntentPrefetchLink
           className="relative mt-3 flex min-h-24 items-center overflow-hidden rounded-xl p-3 no-underline"
           href={readerHref}
-          aria-label={`Открыть: ${material.title}. ${materialAccessLabel(material)}`}
+          aria-label={`Открыть: ${material.title}. ${material.summary} ${materialAccessLabel(material)}`}
           data-access-text-preview={material.availability}
         >
           {/* Only the public summary is used here; protected bodies never enter a feed card. */}
@@ -240,9 +240,7 @@ export function MaterialCard({
         <IntentPrefetchLink
           className="home-feed-artwork"
           href={readerHref}
-          aria-label={
-            video ? `Смотреть: ${material.title}` : `Открыть: ${material.title}`
-          }
+          aria-label={`${video ? "Смотреть" : "Открыть"}: ${material.title}. ${materialAccessLabel(material)}${duration === undefined ? "" : ` ${duration}`}`}
         >
           {cover}
           {video && material.availability === "available" ? (

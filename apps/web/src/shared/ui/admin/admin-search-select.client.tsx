@@ -164,7 +164,7 @@ export function AdminSearchSelect({
       {matching.length > shown.length ? (
         <div className="flex flex-wrap items-center gap-2">
           <Button
-            aria-label={`Предыдущие варианты: ${label}`}
+            aria-label={`Назад, предыдущие варианты: ${label}`}
             className="min-h-11"
             disabled={currentPage === 0 || disabled}
             onClick={() => {
@@ -181,7 +181,7 @@ export function AdminSearchSelect({
             из {matching.length}
           </span>
           <Button
-            aria-label={`Следующие варианты: ${label}`}
+            aria-label={`Далее, следующие варианты: ${label}`}
             className="min-h-11"
             disabled={currentPage === lastPage || disabled}
             onClick={() => {

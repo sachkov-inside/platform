@@ -16,7 +16,7 @@ Platform owns this entrypoint and the receiver.
   The minimal revision is the merge of #1672; the receiver reports import contract `1`.
 - Node exactly as pinned in [`.node-version`](../../.node-version). Another version is refused
   with `node_version`; run the command through it, for example
-  `fnm exec --using 26.10.0 pnpm --dir PLATFORM_CHECKOUT --silent authoring:deliver ...`.
+  `fnm exec --using 26.13.1 pnpm --dir PLATFORM_CHECKOUT --silent authoring:deliver ...`.
 - An immutable package exported from one committed Content revision, with package v2 feature
   `bounded-content-v1` and `selection.contentOnly` naming the selected Materials and Tasks.
   The package keeps the full Guide context for links, embedded Tasks and positions; only selected rows are written.

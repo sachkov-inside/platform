@@ -1,4 +1,5 @@
 // @ts-check
+import { pnpmInvocation } from "./pnpm-invocation.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 import { readFile } from "node:fs/promises";
@@ -100,7 +101,7 @@ async function runPnpm(
 ) {
   if (interruptedSignal !== undefined && !cleanup)
     throw new Error("Local session interrupted");
-  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
+  const child = spawnOwned(...pnpmInvocation(pnpmPath, arguments_), {
     cwd: root,
     env: environment,
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",

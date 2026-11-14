@@ -53,6 +53,27 @@ describe("release rollback proof", () => {
     }
   });
 
+  it("does not offer an automatic rollback across a broker image change", () => {
+    const fixture = createFixture();
+    try {
+      writeFileSync(
+        fixture.inputPath,
+        JSON.stringify({
+          ...fixture.input,
+          brokerImage: `ghcr.io/sachkov-inside/rabbitmq@sha256:${"9".repeat(64)}`,
+        }),
+      );
+      const result = run(fixture.inputPath);
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(
+        readRollbackPlan(result.stdout).rollback.previous.compatible,
+        false,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("rejects a previous image identity that differs from its manifest", () => {
     const fixture = createFixture();
     try {
@@ -136,10 +157,12 @@ function createFixture() {
     images: { backend: backendPath, web: webPath },
     schemaIdentity: `sha256:${"c".repeat(64)}`,
     runtimeBundle: bundlePath,
+    brokerImage: `ghcr.io/sachkov-inside/rabbitmq@sha256:${"8".repeat(64)}`,
     publicationWorkflowRunId: 202,
     rollback: {
       previous: {
         manifest: previousPath,
+        brokerImage: `ghcr.io/sachkov-inside/rabbitmq@sha256:${"8".repeat(64)}`,
         schemaIdentity: `sha256:${"c".repeat(64)}`,
       },
     },

@@ -281,7 +281,7 @@ jobs:
       - name: Verify restore cleanup with synthetic Docker data
         if: ${{ matrix.part == 'database' }}
         run: |
-          restore_test_image=ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+          restore_test_image=ghcr.io/sachkov-inside/postgres:18.7-alpine@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73
           docker pull "$restore_test_image"
           RESTORE_TEST_IMAGE="$(docker image inspect --format '{{.Id}}' "$restore_test_image")"
           export RESTORE_TEST_IMAGE
@@ -490,7 +490,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+        image: ghcr.io/sachkov-inside/postgres:18.7-alpine@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73
         env:
           POSTGRES_DB: inside_telegram
           POSTGRES_USER: inside
@@ -501,7 +501,7 @@ jobs:
           --health-cmd "pg_isready -U inside -d inside_telegram"
           --health-interval 2s --health-timeout 3s --health-retries 30
       rabbitmq:
-        image: ghcr.io/sachkov-inside/rabbitmq:4.3-management-alpine@sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95
+        image: ghcr.io/sachkov-inside/rabbitmq:4.4.0-management-alpine@sha256:4841f6384ef8313c3594cd3f2e9f40c10805f8a61c45f08a9a5d9ddea8199267
         env:
           RABBITMQ_DEFAULT_USER: telegram_checks
           RABBITMQ_DEFAULT_PASS: telegram_checks

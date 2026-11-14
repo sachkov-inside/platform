@@ -311,6 +311,9 @@ def main():
     # The supervisor may report waiting before the parent returns from fork.
     child = os.fork()
     if child == 0:
+        # pnpm 12 kills the script's whole process group when its parent exits.
+        # Keep the supervisor alive to drain detached children before releasing its slot.
+        os.setsid()
         for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
             signal.signal(signum, signal.SIG_IGN)
         if write_fd is not None:

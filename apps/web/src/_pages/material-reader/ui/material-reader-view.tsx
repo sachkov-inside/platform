@@ -365,7 +365,7 @@ export function ProductReaderBar({
           </IntentPrefetchLink>
         )}
         <IntentPrefetchLink
-          aria-label={`Программа, урок ${String(context.currentPosition)} из ${String(context.totalMaterials)}`}
+          aria-label={`Программа, урок ${String(context.currentPosition)} из ${String(context.totalMaterials)}, ${String(context.currentPosition)} / ${String(context.totalMaterials)}`}
           className="inline-flex min-h-11 min-w-14 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium tabular-nums text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           title="Открыть программу"
           href={context.product.href}

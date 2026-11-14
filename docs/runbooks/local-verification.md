@@ -10,6 +10,9 @@ With pinned host Node.js and pnpm:
 pnpm check
 ```
 
+Repository launchers preserve the pinned pnpm CLI from `npm_execpath`: pnpm 12 runs as a native
+executable, while JavaScript CLI entrypoints run through the selected Node.js.
+
 This covers formatting, lint, strict typecheck, backend architecture guardrails,
 unit/module/local contract/Storybook tests, Playwright, production builds and the Storybook build without
 claiming a real database. It runs the four stages `pnpm check:static`, `check:unit`, `check:ui` and
@@ -62,7 +65,7 @@ line, not as a failed story. The pinned versions of `axe-core` and `@storybook/r
 together. `apps/web/test/module/storybook-preload.test.ts` fails when they differ or when the
 `storybook` project loses the setup file.
 
-The pinned `@storybook/addon-vitest@10.6.1` has a local pnpm patch (#1023). Its Execa child
+The pinned `@storybook/addon-vitest@10.6.7` has a local pnpm patch (#1023). Its Execa child
 process disables `ipcOutput` buffering: live listeners already consume every message, while the
 buffer kept all successive full test-state snapshots until Vitest exited. A full MCP `test-run`
 therefore exhausted the Storybook heap after the tests had passed. The patch also makes Vitest exit
@@ -72,7 +75,7 @@ the installed addon's launch options and disconnect handler. Remove the patch on
 version passes both regression cases and the full MCP run. Every Docker dependency stage copies
 `patches/` before the workspace's frozen install.
 
-The pinned `@vitest/browser-playwright@4.1.11` also has a local pnpm patch (#1160).
+The pinned `@vitest/browser-playwright@5.1.0` also has a local pnpm patch (#1160).
 Its trace command leaves the internal chunk name to Playwright: story names such as `Mobile`
 repeat across files, while the browser's contexts share one temporary trace directory. Passing
 that repeated name mixed the files and could fail `tracing.stopChunk` while it built an archive.

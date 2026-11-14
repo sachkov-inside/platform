@@ -1,4 +1,5 @@
 // @ts-check
+import { pnpmInvocation } from "./pnpm-invocation.mjs";
 // Disposable local PostgreSQL + real SMTP adapter + BFF/browser. All identities/recipients are synthetic.
 import assert from "node:assert/strict";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
@@ -113,7 +114,7 @@ for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
 function run(args, env) {
   if (interruptedSignal !== undefined)
     throw new Error("Billing proof interrupted");
-  const child = spawnOwned(process.execPath, [pnpmPath, ...args], {
+  const child = spawnOwned(...pnpmInvocation(pnpmPath, args), {
     cwd: root,
     env,
     stdio: "inherit",
@@ -173,7 +174,7 @@ try {
   const smtpAddress = smtp.address();
   assert(smtpAddress && typeof smtpAddress !== "string");
   database = await new PostgreSqlContainer(
-    "ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+    "ghcr.io/sachkov-inside/postgres:18.7-alpine@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73",
   ).start();
   const fullStackIdentity = await startFullStackIdentity({
     apiBaseUrl,

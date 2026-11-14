@@ -82,14 +82,14 @@ def main():
 
         db_name = task + "-db"
         run(db_name, "-e", "POSTGRES_USER=logto", "-e", "POSTGRES_PASSWORD=proof", "-e", "POSTGRES_DB=logto",
-            "public.ecr.aws/docker/library/postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94")
+            "public.ecr.aws/docker/library/postgres:17.12-alpine@sha256:34261f594522cf41dfcb76aefd42b9d201098b0e6b23c9c68733f169e4218b6f")
         run(task + "-mail", "--network-alias", "mailpit", "-p", f"127.0.0.1:{mail_port}:8025",
-            "ghcr.io/axllent/mailpit:v1.30.6@sha256:7f33095f80e901f6ad08028f06ca284aa58fe84942be5496008d041d3b9f4d4d")
+            "ghcr.io/axllent/mailpit:v1.33.1@sha256:aef2aacc11f075ec0fb6874275ee4a421e688e11a96ebb296134d1735c7761ce")
         wait_for(lambda: docker("exec", db_name, "pg_isready", "-U", "logto"), "PostgreSQL")
         run(task + "-idp", "-p", f"127.0.0.1:{endpoint_port}:3001", "-p", f"127.0.0.1:{admin_port}:3002",
             "-e", f"DB_URL=postgres://logto:proof@{db_name}:5432/logto", "-e", f"ENDPOINT={endpoint}",
-            "-e", f"ADMIN_ENDPOINT={admin}", "--entrypoint", "sh", args.image, "-c",
-            "npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm run alteration deploy 1.44.0 && npm start")
+            "-e", f"ADMIN_ENDPOINT={admin}", args.image, "sh", "-c",
+            "node packages/cli/bin/logto.js db seed --swe --disable-admin-pwned-password-check && node packages/cli/bin/logto.js db alt deploy 1.46.0 && cd packages/core && NODE_ENV=production exec node .")
         def readiness():
             status, body = request(endpoint + "/oidc/.well-known/openid-configuration")
             assert status == 200

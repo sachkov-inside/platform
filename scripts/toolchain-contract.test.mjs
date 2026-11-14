@@ -367,9 +367,9 @@ describe("supported toolchain contract", () => {
       rootPackage.scripts["lint"],
       "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' --ignore-pattern 'apps/web/test/guardrails/fixtures/**' .",
     );
-    assert.equal(rootPackage.devDependencies["oxlint"], "1.86.0");
-    assert.equal(rootPackage.devDependencies["oxlint-tsgolint"], "7.0.2003");
-    assert.equal(rootPackage.devDependencies["oxc-parser"], "0.152.0");
+    assert.equal(rootPackage.devDependencies["oxlint"], "1.93.0");
+    assert.equal(rootPackage.devDependencies["oxlint-tsgolint"], "7.0.2007");
+    assert.equal(rootPackage.devDependencies["oxc-parser"], "0.158.0");
 
     for (const dependency of [
       "eslint",
@@ -652,7 +652,7 @@ describe("supported toolchain contract", () => {
       webPackage.devDependencies["@storybook/nextjs-vite"],
       undefined,
     );
-    assert.equal(webPackage.devDependencies["@storybook/react-vite"], "10.6.1");
+    assert.equal(webPackage.devDependencies["@storybook/react-vite"], "10.6.7");
     assert.equal(
       webPackage.devDependencies["openapi-typescript-codegen"],
       "0.31.0",
@@ -875,7 +875,7 @@ describe("supported toolchain contract", () => {
     );
     assert.equal(
       composeImage,
-      "ghcr.io/rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff",
+      "ghcr.io/rustfs/rustfs:1.0.5@sha256:b81d16a90ee25bd9511280127ca1471788c6e874cf0f0da759645f46b2dc1d74",
       "object-storage must use the official GHCR source with the unchanged RustFS digest",
     );
     assert.ok(
@@ -1110,9 +1110,9 @@ describe("supported toolchain contract", () => {
 });
 
 const documentedSecurityOverrides = [
-  "mysql2",
-  "deepmerge-ts",
-  "@fastify/static>glob",
+  "archiver-utils>glob",
+  "@joshwooding/vite-plugin-react-docgen-typescript>glob",
+  "@ts-morph/common>minimatch",
 ];
 
 /**

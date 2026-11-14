@@ -374,7 +374,10 @@ no-op after live-schema and history validation; the retry only closes the operat
 
 The release workflow derives schema identity from the exact candidate backend digest. Starting with
 `v2`, it also reads the exact previous manifest and backend digest. The manifest records compatibility
-only when both images report the same schema identity. This is deliberately conservative: an
+only when both images report the same schema identity and the broker image reference is identical
+in both runtime bundles. Broker identities are read from the exact archives after checking their
+manifest SHA-256, without loading environment files. A broker transition therefore disables automatic
+application rollback even when the application database schema is unchanged. This is deliberately conservative: an
 expand-compatible but different schema still requires repair forward until the runtime can prove a
 broader contract. A successful deployment opens its rollback window for 24 hours; `v1`, an unknown
 target, a changed manifest, incompatible evidence or a new selection after the window expires is

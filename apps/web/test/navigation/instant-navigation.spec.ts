@@ -459,7 +459,7 @@ async function readerProgrammeLink(page: Page) {
   );
   const button = course.getByRole("button", {
     exact: true,
-    name: "Вся программа",
+    name: /^Вся программа:/,
   });
   if (await button.isVisible()) {
     return course
@@ -1170,7 +1170,7 @@ test("Главная ↔ продукт: свой скелет продукта,
     () =>
       page
         .getByRole("main")
-        .getByRole("link", { name: "Главная" })
+        .getByRole("link", { name: /^(?:sachkov\.dev, )?Главная$/ })
         .first()
         .click(),
     homeReady,
@@ -1189,7 +1189,7 @@ test("Главная ↔ продукт: свой скелет продукта,
     () =>
       page
         .getByRole("main")
-        .getByRole("link", { name: "Главная" })
+        .getByRole("link", { name: /^(?:sachkov\.dev, )?Главная$/ })
         .first()
         .click(),
     homeReady,

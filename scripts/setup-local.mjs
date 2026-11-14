@@ -1,4 +1,5 @@
 // @ts-check
+import { pnpmInvocation } from "./pnpm-invocation.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 import { copyFileSync, existsSync } from "node:fs";
@@ -99,7 +100,7 @@ async function isComposeRunning() {
 async function runPnpm(arguments_, capture = false) {
   if (interruptedSignal !== undefined)
     throw new Error("Local session interrupted");
-  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
+  const child = spawnOwned(...pnpmInvocation(pnpmPath, arguments_), {
     cwd: repositoryRoot,
     env: process.env,
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
@@ -147,7 +148,7 @@ function shutdown() {
 
 /** @param {string[]} arguments_ */
 async function runCleanupPnpm(arguments_) {
-  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
+  const child = spawnOwned(...pnpmInvocation(pnpmPath, arguments_), {
     cwd: repositoryRoot,
     env: process.env,
     stdio: "inherit",

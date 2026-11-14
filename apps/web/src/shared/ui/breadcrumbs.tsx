@@ -72,7 +72,12 @@ export function Breadcrumbs({
                 </span>
               ) : (
                 <Link
-                  aria-label={item.fullLabel}
+                  aria-label={
+                    item.fullLabel === undefined ||
+                    item.fullLabel === item.label
+                      ? undefined
+                      : `${item.label}: ${item.fullLabel}`
+                  }
                   title={item.fullLabel ?? item.label}
                   className={cn(
                     "inline-flex min-h-11 min-w-0 max-w-[8rem] items-center underline-offset-4 hover:text-foreground hover:underline sm:max-w-[12rem]",

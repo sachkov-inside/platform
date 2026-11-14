@@ -26,19 +26,19 @@ const inputPaths = [
   "apps/telegram/scripts/production-smoke.sh",
 ];
 
-// Owner-approved #1396 packet65c84186; anonymous complete-index verification passed.
+// #2117 candidate indexes, checked against the upstream registries. Publication requires approval.
 const runtimePins = new Map([
   [
-    "postgres:18.4-alpine",
-    "sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+    "postgres:18.7-alpine",
+    "sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73",
   ],
   [
-    "postgres:18.4-alpine3.23",
-    "sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e",
+    "postgres:18.7-alpine3.23",
+    "sha256:e6014245dccbc0f28b07dac8e3f793c94a18420f78690e9db547957514a524f1",
   ],
   [
-    "node:26.10.0-alpine3.24",
-    "sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80",
+    "node:26.13.1-alpine3.24",
+    "sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5",
   ],
 ]);
 
@@ -81,15 +81,15 @@ test("official acquisition inputs select exact approved mirrors and official ups
       if (path === "apps/telegram/infra/production/Dockerfile") {
         assert.equal(
           reference,
-          "docker.io/library/node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
-          `${path}: both stages must use the verified upstream Node index without changing identity (#1432)`,
+          "ghcr.io/sachkov-inside/node:26.13.1-alpine3.24@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5",
+          `${path}: both stages must use the verified shared Alpine Node index (#2117)`,
         );
         continue;
       }
       if (image.startsWith("caddy:")) {
         assert.equal(
           reference,
-          "docker.io/library/caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b",
+          "docker.io/library/caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0",
           `${path}: Caddy must use its verified official upstream without changing identity (#1390)`,
         );
         continue;

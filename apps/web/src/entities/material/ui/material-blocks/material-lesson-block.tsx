@@ -58,6 +58,17 @@ function plainText(blocks: readonly RenderedBlock[]): string {
   return blocks.map(materialBlockText).join(" ").replace(/\s+/gu, " ").trim();
 }
 
+/**
+ * Every rich sequence of one block gets its own branch in call order, so headings inside them get
+ * their own anchors. The counter lives outside the component, which only calls it during render.
+ */
+function branchedBlocks(
+  rendering: LessonBlockRendering,
+): (blocks: readonly RenderedBlock[]) => ReactNode {
+  let branch = 0;
+  return (blocks) => rendering.renderBlocks(blocks, branch++);
+}
+
 /** Один блок урока. Читатель, предпросмотр и редактор показывают его одинаково. */
 export function MaterialLessonBlock({
   block,
@@ -70,10 +81,7 @@ export function MaterialLessonBlock({
     case "quiz":
     case "match":
     case "order": {
-      // Every rich sequence gets its own branch, so headings inside them get their own anchors.
-      let branch = 0;
-      const rich = (blocks: readonly RenderedBlock[]) =>
-        rendering.renderBlocks(blocks, branch++);
+      const rich = branchedBlocks(rendering);
       const common = {
         id: block.id,
         heading: exerciseHeading(rendering.exerciseNumber?.(block.id)),

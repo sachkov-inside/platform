@@ -10,16 +10,16 @@
     "build": "node scripts/build.mjs"
   },
   "dependencies": {
-    "fastify": "5.12.5",
+    "fastify": "5.12.8",
     "pg": "8.23.1",
-    "vue": "3.5.44"
+    "vue": "3.5.45"
   },
   "devDependencies": {
     "typescript": "7.0.2",
-    "prettier": "3.9.9",
-    "@types/node": "26.6.4",
+    "prettier": "3.10.1",
+    "@types/node": "26.6.6",
     "@types/pg": "8.23.1",
-    "playwright": "1.63.0",
-    "oxlint": "1.86.0"
+    "playwright": "1.65.0",
+    "oxlint": "1.93.0"
   }
 }

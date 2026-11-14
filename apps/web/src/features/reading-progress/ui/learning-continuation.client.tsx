@@ -68,11 +68,11 @@ export function LearningContinuationView({
             <li>
               <Link
                 className="flex min-h-14 items-center justify-between gap-4 rounded-lg py-2 no-underline hover:bg-background/70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-                aria-label={`Продолжить продукт ${product.collection.name}`}
                 href={productProgrammeHref(product.collection.slug)}
               >
                 <span className="min-w-0">
                   <strong className="line-clamp-2 text-sm font-semibold sm:text-base">
+                    <span className="sr-only">Продолжить продукт </span>
                     {product.collection.name}
                   </strong>
                   <span className="block text-xs text-muted-foreground">

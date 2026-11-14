@@ -217,7 +217,7 @@ function MobileTopNavigation({
           aria-current={
             home === undefined ? undefined : currentAria(currentPath, home.href)
           }
-          aria-label="Главная"
+          aria-label="sachkov.dev, Главная"
           className="flex shrink-0 items-baseline rounded-md text-lg font-extrabold leading-none tracking-[-0.05em] no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           href={home?.href ?? "/"}
           scroll={onNavigate === undefined}

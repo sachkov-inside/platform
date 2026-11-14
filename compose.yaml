@@ -64,7 +64,7 @@ services:
     stop_grace_period: 15s
 
   object-storage:
-    image: ghcr.io/rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
+    image: ghcr.io/rustfs/rustfs:1.0.5@sha256:b81d16a90ee25bd9511280127ca1471788c6e874cf0f0da759645f46b2dc1d74
     env_file:
       - ./config/compose/local/object-storage.env
     ports:
@@ -90,7 +90,7 @@ services:
       - object-storage-rustfs-data:/data
 
   postgres:
-    image: ghcr.io/sachkov-inside/postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
+    image: ghcr.io/sachkov-inside/postgres:18.7-alpine3.23@sha256:e6014245dccbc0f28b07dac8e3f793c94a18420f78690e9db547957514a524f1
     env_file:
       - ./config/compose/local/postgres.env
     ports:
@@ -293,12 +293,12 @@ services:
     build:
       context: ./infra/identity/logto
       dockerfile: Dockerfile
-    image: inside/logto-proof:1.44.0-inside.15
+    image: inside/logto-proof:1.46.0-inside.16
     entrypoint:
       [
         "sh",
         "-c",
-        "npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm run alteration deploy 1.44.0 && npm start",
+        "node packages/cli/bin/logto.js db seed --swe --disable-admin-pwned-password-check && node packages/cli/bin/logto.js db alt deploy 1.46.0 && cd packages/core && NODE_ENV=production exec node .",
       ]
     env_file:
       - ./config/compose/local/logto.env
@@ -334,7 +334,7 @@ services:
 
   logto-postgres:
     profiles: [identity]
-    image: public.ecr.aws/docker/library/postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    image: public.ecr.aws/docker/library/postgres:17.12-alpine@sha256:34261f594522cf41dfcb76aefd42b9d201098b0e6b23c9c68733f169e4218b6f
     env_file:
       - ./config/compose/local/logto-postgres.env
     healthcheck:
@@ -347,7 +347,7 @@ services:
 
   # Перехватчик писем стенда: общий для всех отправителей, наружу не отправляет ничего.
   mailpit:
-    image: ghcr.io/axllent/mailpit:v1.30.6@sha256:7f33095f80e901f6ad08028f06ca284aa58fe84942be5496008d041d3b9f4d4d
+    image: ghcr.io/axllent/mailpit:v1.33.1@sha256:aef2aacc11f075ec0fb6874275ee4a421e688e11a96ebb296134d1735c7761ce
     env_file:
       - ./config/compose/local/mailpit.env
     ports:

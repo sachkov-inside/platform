@@ -109,7 +109,7 @@ export const Owner: Story = {
     );
     await expect(
       attention.getByRole("link", {
-        name: "Оплаты с неизвестным итогом: 2 оплаты",
+        name: "Оплаты с неизвестным итогом 2",
       }),
     ).toHaveAttribute(
       "href",
@@ -247,7 +247,7 @@ export const MaterialsOnly: Story = {
       page.getByRole("region", { name: "Продажи и доступы" }),
     ).toHaveTextContent("право управлять доступом и оплатами");
     await expect(
-      page.getByRole("link", { name: "Сдачи без комментария: 4 сдачи" }),
+      page.getByRole("link", { name: "Сдачи без комментария 4" }),
     ).toBeVisible();
     await expect(
       page.getByText(

@@ -20,7 +20,7 @@ test("production cache-only rejects a missing pinned input before build, pull or
   assert.equal(result.status, 32, result.output + result.trace);
   assert.match(
     result.output,
-    /No such image: .*rabbitmq:4\.2\.4-alpine@sha256:/u,
+    /No such image: .*rabbitmq:4\.4\.0-alpine@sha256:/u,
   );
   assert.doesNotMatch(result.trace, /build|pull|startup|cleanup|image-remove/u);
 });
@@ -30,7 +30,7 @@ test("production cache-only rejects the missing pinned edge input before startup
   assert.equal(result.status, 32, result.output + result.trace);
   assert.match(
     result.output,
-    /No such image: .*caddy:2\.11\.4-alpine@sha256:/u,
+    /No such image: .*caddy:2\.11\.9-alpine@sha256:/u,
   );
   assert.doesNotMatch(
     result.trace,
@@ -136,7 +136,7 @@ test("production acquisition keeps broker and edge admission serial (process ada
   assert.match(result.trace, /application-start\ncleanup\ncleanup\n$/u);
   assert.match(
     result.output,
-    /rabbitmq:4\.2\.4-alpine@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47/u,
+    /rabbitmq:4\.4\.0-alpine@sha256:7b77c3d3a996c7fcca1ca8bf53ce1557ff43c13b8ca2c132df6031781b209ef2/u,
   );
 });
 
@@ -146,7 +146,7 @@ test("production acquisition retains an image-input error and stops before anoth
   assert.equal(result.status, 31, result.output);
   assert.match(
     result.output,
-    /manifest unknown: ghcr\.io\/sachkov-inside\/rabbitmq:4\.2\.4-alpine@sha256:/u,
+    /manifest unknown: ghcr\.io\/sachkov-inside\/rabbitmq:4\.4\.0-alpine@sha256:/u,
   );
   assert.doesNotMatch(result.output, /toomanyrequests/u);
   assert.equal((result.trace.match(/ start /gu) ?? []).length, 1);

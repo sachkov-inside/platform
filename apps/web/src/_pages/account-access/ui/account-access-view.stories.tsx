@@ -201,7 +201,7 @@ export const WithLearning: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("link", { name: "Продолжить продукт AI Engineering" }),
+      canvas.getByRole("link", { name: /^Продолжить продукт AI Engineering/ }),
     ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await expect(canvas.queryByRole("textbox")).not.toBeInTheDocument();
     const learning = canvas.getByRole("region", {

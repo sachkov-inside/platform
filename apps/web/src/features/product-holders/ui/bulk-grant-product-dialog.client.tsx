@@ -481,11 +481,6 @@ function PeopleSearch({
             return (
               <li key={person.accountId}>
                 <button
-                  aria-label={
-                    isChosen
-                      ? `${personName(person)}: уже выбран`
-                      : `Добавить ${personName(person)}`
-                  }
                   className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent"
                   disabled={isChosen || disabled}
                   onClick={() => {

@@ -966,6 +966,7 @@ compose_config="$(docker compose \
   --env-file "$config_dir/compose.env" \
   --file "$compose_file" \
   config --format json)"
+"$host_root/usr/local/libexec/inside/inside-broker-preflight" "$compose_file"
 
 if [[ "$repair_forward" == true && "$is_noop" == true ]]; then
   verify_repair_lineage

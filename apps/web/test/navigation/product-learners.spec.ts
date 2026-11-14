@@ -135,7 +135,9 @@ test("learners tab lists holders by name and grants several people with one retr
     [failingEmail, failingEmail],
   ] as const) {
     await search.fill(query);
-    await dialog.getByRole("button", { name: `Добавить ${name}` }).click();
+    await dialog
+      .getByRole("button", { name: new RegExp(`${name}.*Добавить`) })
+      .click();
   }
   const chosen = dialog.getByRole("list", { name: "Выбранные люди" });
   await expect(chosen.getByText("Уже есть доступ")).toBeVisible();

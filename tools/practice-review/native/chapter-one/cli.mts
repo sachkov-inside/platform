@@ -130,7 +130,7 @@ try {
     await docker([
       "image",
       "inspect",
-      "inside-chapter-one-agent:0.163.0",
+      "inside-chapter-one-agent:0.169.0",
       "--format",
       "{{.Id}}",
     ])

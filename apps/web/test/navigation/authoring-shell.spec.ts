@@ -89,7 +89,7 @@ test("the admin shell reaches every section on desktop and through the phone pan
   await expect(
     page.getByRole("heading", { level: 1, name: "Продукты" }),
   ).toBeVisible();
-  const counter = /^Сдачи, без комментария: \d+$/u;
+  const counter = /^Сдачи (?:\d+|99\+)$/u;
 
   if (!phone(info)) {
     const sections = page.getByRole("navigation", { name: "Разделы админки" });
@@ -204,7 +204,11 @@ test("global search opens with the shortcut or the button and opens the chosen p
     page.getByRole("heading", { level: 1, name: "Темы" }),
   ).toBeVisible();
   if (phone(info))
-    await page.getByRole("button", { name: "Поиск по админке" }).click();
+    await page
+      .getByRole("button", {
+        name: /^Поиск по людям, продуктам, материалам и платежам/,
+      })
+      .click();
   else await page.keyboard.press("ControlOrMeta+k");
   const dialog = page.getByRole("dialog", { name: "Поиск по админке" });
   const input = dialog.getByRole("combobox", { name: "Что найти" });
@@ -241,7 +245,11 @@ test("global search refuses an account without the right instead of answering em
   if (baseURL === undefined) throw new Error("baseURL required");
   await context.addCookies([await authorCookie(baseURL, "search-forbidden")]);
   await page.goto("/authoring/topics");
-  await page.getByRole("button", { name: "Поиск по админке" }).click();
+  await page
+    .getByRole("button", {
+      name: /^Поиск по людям, продуктам, материалам и платежам/,
+    })
+    .click();
   const dialog = page.getByRole("dialog", { name: "Поиск по админке" });
   await dialog.getByRole("combobox", { name: "Что найти" }).fill("архитектура");
   await expect(

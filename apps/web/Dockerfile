@@ -1,10 +1,12 @@
-FROM ghcr.io/sachkov-inside/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain
+FROM ghcr.io/sachkov-inside/node:26.13.1-alpine3.24@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS toolchain
 
 ENV COREPACK_HOME=/corepack
 RUN mkdir /corepack \
+    && apk add --no-cache zlib=1.4-r0 \
+    && npm install --global npm@12.2.2 \
     && npm install --global corepack@0.36.0 \
     && corepack enable \
-    && corepack install --global pnpm@11.27.1 \
+    && corepack install --global pnpm@12.18.0 \
     && chown -R node:node /corepack
 
 WORKDIR /workspace
@@ -61,7 +63,11 @@ FROM development AS production-build
 ARG CSP_LOCAL_OBJECT_STORAGE_ORIGIN=""
 RUN pnpm --filter @inside/web build
 
-FROM ghcr.io/sachkov-inside/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS web-production
+FROM ghcr.io/sachkov-inside/node:26.13.1-alpine3.24@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS web-production
+
+# Runtime uses Node directly; npm/npx are build tools and carry their own dependency tree.
+RUN apk add --no-cache zlib=1.4-r0 \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
