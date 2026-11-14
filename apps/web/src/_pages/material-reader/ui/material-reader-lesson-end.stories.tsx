@@ -494,3 +494,28 @@ export const FinishWithoutExercises: Story = {
     ).toBeVisible();
   },
 };
+
+/**
+ * The last lesson of a course has no next step: the card leads back to the course programme with
+ * the main «К программе» in place of «Дальше» (решение владельца 14.11.2026).
+ */
+export const FinishOnLastLesson: Story = {
+  args: {
+    returnTarget: parseMaterialReaderReturnTarget(programme),
+    productContext: { ...courseContext, currentPosition: 3, next: null },
+    readingAction: (
+      <SavedReadingAction compact format="guide" materialId={materialId} />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const end = within(finishCard(canvasElement)).getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    await expect(
+      within(end).getByRole("link", { name: "К программе" }),
+    ).toHaveAttribute("href", programme);
+    await expect(
+      within(end).queryByRole("link", { name: "Дальше" }),
+    ).toBeNull();
+  },
+};
