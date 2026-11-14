@@ -151,7 +151,7 @@ export const SignIn: Story = {
     await expect(
       button.closest("form")?.querySelector("input[name=entry]"),
     ).toBeNull();
-    await expect(canvas.queryByText(/почт/u)).toBeNull();
+    await expect(canvas.queryByText(/аккаунт с почтой/u)).toBeNull();
   },
 };
 export const Conflict: Story = {

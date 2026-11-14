@@ -29,6 +29,13 @@ describe("learner course navigation", () => {
     ]);
   });
 
+  it("sends a learner with a sign-in problem to Telegram, never to email", () => {
+    const text = helpScreen("help_signin").text;
+    expect(text).toContain("Войдите через Telegram.");
+    expect(text).toContain("с телефона");
+    expect(text).not.toMatch(/почт/u);
+  });
+
   it("returns from help without a product to the menu", () => {
     expect(helpScreen("help").buttons.at(-1)).toEqual({
       text: "Назад",

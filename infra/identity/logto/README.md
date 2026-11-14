@@ -62,8 +62,9 @@ that, the «Войти снова» link of the Telegram waiting page led to the
 Telegram did not open registered a second, empty Account by email.
 
 The email connector stays enabled: it sends Billing Contact codes. The production access pass keeps
-signing its email identities in with a one-time token, which Logto does not check against the
-sign-in methods. An existing email Account with a linked Telegram reaches the same Account through
+signing its email identities in with a one-time token: Logto 1.46 skips the sign-in method check
+for a verified one-time token (`guardIdentificationMethod` in
+`packages/core/src/routes/experience/classes/libraries/sign-in-experience-validator.ts`). An existing email Account with a linked Telegram reaches the same Account through
 Telegram sign-in. The local stand and the identity proofs keep email sign-in through
 `ensureSignInExperience` in `scripts/identity-proof-bootstrap.mjs`; production differs from them here.
 
@@ -72,10 +73,10 @@ Production has no provisioning script for the sign-in experience; the setting li
 
 ```bash
 ssh inside-production 'docker exec inside-production-database-postgres-1 psql -U postgres -d logto -Atc \
-  "select sign_in::text, sign_up::text, sign_in_mode from sign_in_experiences where tenant_id = '"'"'default'"'"';"'
+  "select sign_in->'"'"'methods'"'"', sign_up->'"'"'identifiers'"'"', sign_in_mode from sign_in_experiences where tenant_id = '"'"'default'"'"';"'
 ```
 
-The expected result is `{"methods": []}|{"verify": false, "password": false, "identifiers": []}|SignInAndRegister`.
+The expected result is `[]|[]|SignInAndRegister`.
 
 ## Frozen artifacts
 
