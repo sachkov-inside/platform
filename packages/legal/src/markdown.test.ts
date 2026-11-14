@@ -149,9 +149,9 @@ describe("published editions", () => {
   it("puts cookies v3 in force without the reading-mode cookies and keeps v2 and v1 readable", () => {
     const cookies = currentLegalEdition("cookies");
     expect(cookies.version).toBe(3);
-    expect(cookies.effectiveFrom).toBe("2026-11-13");
+    expect(cookies.effectiveFrom).toBe("2026-11-14");
     expect(cookies.text).toContain(
-      "Версия 3. Действует с 13 ноября 2026 года.",
+      "Версия 3. Действует с 14 ноября 2026 года.",
     );
     expect(cookies.title).toBe("Cookies и локальное хранение на sachkov.dev");
     expect(cookies.text).toContain("localStorage `inside.storage-notice.v1`");
