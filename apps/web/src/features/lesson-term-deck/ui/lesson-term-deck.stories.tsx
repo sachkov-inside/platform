@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { courseGlossaryHref } from "@/shared/routing/subscription-route";
 import { expectPhoneLayout } from "@/storybook/phone-layout";
@@ -21,6 +21,13 @@ const terms = [
     shortDefinition: "Группа объектов, которая меняется как одно целое.",
     fullDefinition: "Граница согласованности изменений.",
   },
+  {
+    id: "domain-event",
+    title: "Доменное событие",
+    englishTitle: "Domain event",
+    shortDefinition: "Факт предметной области, который уже произошёл.",
+    fullDefinition: "Запись о значимом изменении в модели.",
+  },
 ];
 
 const meta = {
@@ -29,21 +36,14 @@ const meta = {
   component: LessonTermDeck,
   args: {
     terms,
-    onMark: fn(),
     courseGlossaryHref: courseGlossaryHref("ddd"),
-    marking: {
-      kind: "ready",
-      marks: new Map(),
-      savingTermId: null,
-      failed: false,
-    },
   },
   parameters: {
     layout: "padded",
     docs: {
       description: {
         component:
-          "Колода «Термины урока» в конце урока (#2127): термин на лицевой стороне, короткое определение на обороте, отметки «знаю» и «повторить» сохраняются за вошедшим. Отметки поставляет production adapter `SavedLessonTermDeck`.",
+          "«Термины урока» в конце урока (решение владельца 14.11.2026): строка раскрывает карусель карточек. Свайп, стрелки или клавиши ← и → листают карточки, следующая выглядывает справа; нажатие, Enter или пробел переворачивают карточку: термин на лицевой стороне, короткое определение на обороте. Отметок и состояния «пройдено» нет.",
       },
     },
   },
@@ -51,160 +51,142 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The card that faces the reader: one button, named by its visible side. */
-function card(canvasElement: HTMLElement) {
-  const deck = canvasElement.querySelector<HTMLElement>(
-    "[data-lesson-term-card]",
+/** The card of one term: a button named by its visible side. */
+function card(canvasElement: HTMLElement, termId: string) {
+  const found = canvasElement.querySelector<HTMLElement>(
+    `[data-lesson-term-card="${termId}"]`,
   );
-  if (deck === null) throw new Error("The deck shows no card");
-  return deck;
+  if (found === null) throw new Error(`The carousel shows no card ${termId}`);
+  return found;
 }
 
 /** Opens the collapsed «Термины урока · N» row. */
 async function open(canvasElement: HTMLElement) {
   const row = within(canvasElement).getByRole("button", {
-    name: /^Термины урока · 2$/u,
+    name: /^Термины урока · 3$/u,
   });
   await userEvent.click(row);
   await expect(row).toHaveAttribute("aria-expanded", "true");
 }
 
-/** The finish card shows the deck as one row; the cards stay closed until the reader opens it. */
+/** The finish card shows the terms as one row; the cards stay closed until the reader opens it. */
 export const Collapsed: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const row = canvas.getByRole("button", { name: /^Термины урока · 2$/u });
+    const row = canvas.getByRole("button", { name: /^Термины урока · 3$/u });
     await expect(row).toHaveAttribute("aria-expanded", "false");
-    await expect(canvas.queryByRole("button", { name: "Знаю" })).toBeNull();
+    await expect(
+      canvasElement.querySelector("[data-lesson-term-card]"),
+    ).toBeNull();
     row.focus();
     await userEvent.keyboard("{Enter}");
     await expect(row).toHaveAttribute("aria-expanded", "true");
-    await expect(
-      canvas.getByRole("region", { name: "Термины урока" }),
-    ).toBeVisible();
+    const carousel = canvas.getByRole("region", { name: "Термины урока" });
+    await expect(carousel).toHaveAttribute("aria-roledescription", "карусель");
+    await expect(carousel).toBeVisible();
     await userEvent.click(row);
     await expect(row).toHaveAttribute("aria-expanded", "false");
   },
 };
 
-export const MarkAndAdvance: Story = {
-  play: async ({ args, canvasElement }) => {
+/**
+ * Only cards: no marks, counters, completion or captions. A click turns a card; the next card
+ * peeks out at the right edge.
+ */
+export const FlipAndLeaf: Story = {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await open(canvasElement);
-    await expect(canvas.getByText("1 из 2")).toBeVisible();
+    for (const gone of ["Знаю", "Повторить", "Пройти ещё раз"])
+      await expect(canvas.queryByRole("button", { name: gone })).toBeNull();
+    await expect(canvas.queryByText(/из 3/u)).toBeNull();
+    await expect(canvas.queryByText("Колода пройдена")).toBeNull();
+    const slides = canvas.getAllByRole("group");
+    await expect(slides).toHaveLength(3);
+    await expect(slides[0]).toHaveAttribute("aria-roledescription", "слайд");
+    await expect(slides[0]).toHaveAccessibleName("1 из 3");
+
+    // The second card peeks out: it starts inside the carousel and runs past its edge.
+    const track = slides[0]?.parentElement;
+    const second = slides[1];
+    if (track === null || track === undefined || second === undefined)
+      throw new Error("The carousel has no track");
+    const edge = track.getBoundingClientRect().right;
+    await expect(second.getBoundingClientRect().left).toBeLessThan(edge);
+    await expect(second.getBoundingClientRect().right).toBeGreaterThan(edge);
+
     await userEvent.click(
-      canvas.getByRole("button", {
-        name: /^Ограниченный контекст.*Показать определение$/u,
-      }),
+      canvas.getByRole("button", { name: /^Ограниченный контекст/u }),
     );
-    await expect(card(canvasElement)).toHaveAttribute(
+    await expect(card(canvasElement, "bounded-context")).toHaveAttribute(
       "data-lesson-term-side",
       "back",
     );
     await expect(
       canvas.getByRole("button", {
-        name: /Граница, внутри которой у слов модели один смысл\..*Показать термин/u,
+        name: "Граница, внутри которой у слов модели один смысл.",
       }),
     ).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: "Повторить" }));
-    await expect(args.onMark).toHaveBeenCalledWith("bounded-context", "review");
-    // After a mark the deck turns to the next term, front side up.
-    await expect(canvas.getByText("2 из 2")).toBeVisible();
-    await expect(card(canvasElement)).toHaveAttribute(
-      "data-lesson-term-side",
-      "front",
+
+    const previous = canvas.getByRole("button", { name: "Предыдущий термин" });
+    const next = canvas.getByRole("button", { name: "Следующий термин" });
+    await expect(previous).toBeDisabled();
+    await userEvent.click(next);
+    await waitFor(() =>
+      expect(card(canvasElement, "aggregate")).toHaveAttribute("tabindex", "0"),
     );
-    await expect(
-      canvas.getByRole("button", { name: /^Агрегат/u }),
-    ).toBeVisible();
+    await expect(previous).toBeEnabled();
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelector("[data-lesson-term-announcement]"),
+      ).toHaveTextContent("Агрегат, 2 из 3"),
+    );
     await expect(
       canvas.getByRole("link", { name: "Все термины курса" }),
     ).toHaveAttribute("href", "/products/ddd/glossary");
-    // The deck has no separate arrows: the big buttons move it on.
+  },
+};
+
+/** ← and → move between cards; Enter and Space turn the focused card over. */
+export const Keyboard: Story = {
+  play: async ({ canvasElement }) => {
+    await open(canvasElement);
+    const first = card(canvasElement, "bounded-context");
+    await expect(first).toHaveAttribute("tabindex", "0");
+    await expect(card(canvasElement, "aggregate")).toHaveAttribute(
+      "tabindex",
+      "-1",
+    );
+    first.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(first).toHaveAttribute("data-lesson-term-side", "back");
+    await userEvent.keyboard(" ");
+    await expect(first).toHaveAttribute("data-lesson-term-side", "front");
+
+    await userEvent.keyboard("{ArrowRight}");
+    const second = card(canvasElement, "aggregate");
+    await expect(second).toHaveFocus();
+    await waitFor(() => expect(second).toHaveAttribute("tabindex", "0"));
+    await userEvent.keyboard(" ");
+    await expect(second).toHaveAttribute("data-lesson-term-side", "back");
+    await userEvent.keyboard("{End}");
+    await expect(card(canvasElement, "domain-event")).toHaveFocus();
+    await userEvent.keyboard("{ArrowLeft}");
+    await expect(second).toHaveFocus();
+  },
+};
+
+/** One term needs no arrows. */
+export const SingleTerm: Story = {
+  args: { terms: terms.slice(0, 1) },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: /^Термины урока · 1$/u }),
+    );
     await expect(
       canvas.queryByRole("button", { name: "Следующий термин" }),
     ).toBeNull();
-    await userEvent.click(canvas.getByRole("button", { name: "Знаю" }));
-    await expect(args.onMark).toHaveBeenLastCalledWith("aggregate", "known");
-    await expect(canvas.getByText("Колода пройдена")).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Пройти ещё раз" }),
-    );
-    await expect(canvas.getByText("1 из 2")).toBeVisible();
-  },
-};
-
-/** The card turns with the keyboard too: Tab reaches it, Enter and Space turn it over. */
-export const FlipWithKeyboard: Story = {
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await open(canvasElement);
-    const turnable = canvas.getByRole("button", { name: /^Ограниченный/u });
-    turnable.focus();
-    await userEvent.keyboard("{Enter}");
-    await expect(card(canvasElement)).toHaveAttribute(
-      "data-lesson-term-side",
-      "back",
-    );
-    await userEvent.keyboard(" ");
-    await expect(card(canvasElement)).toHaveAttribute(
-      "data-lesson-term-side",
-      "front",
-    );
-  },
-};
-
-export const Marked: Story = {
-  args: {
-    marking: {
-      kind: "ready",
-      marks: new Map([
-        ["bounded-context", "known"],
-        ["aggregate", "review"],
-      ] as const),
-      savingTermId: null,
-      failed: false,
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await open(canvasElement);
-    await expect(canvas.getByRole("button", { name: "Знаю" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Знаю: 1, повторить: 1",
-    );
-  },
-};
-
-/** A guest leafs through the deck without marks and is asked to sign in to keep them. */
-export const Guest: Story = {
-  args: { marking: { kind: "guest", loginHref: "/account" } },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await open(canvasElement);
-    await expect(canvas.queryByRole("button", { name: "Знаю" })).toBeNull();
-    await expect(canvas.getByRole("link", { name: "Войдите" })).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Следующий термин" }),
-    );
-    await expect(canvas.getByText("2 из 2")).toBeVisible();
-  },
-};
-
-export const SaveFailed: Story = {
-  args: {
-    marking: {
-      kind: "ready",
-      marks: new Map(),
-      savingTermId: null,
-      failed: true,
-    },
-  },
-  play: async ({ canvasElement }) => {
-    await open(canvasElement);
   },
 };
 
@@ -218,8 +200,8 @@ export const OutsideCourse: Story = {
   },
 };
 
-export const Mobile: Story = {
-  globals: { viewport: { value: "mobile320", isRotated: false } },
+export const Phone360: Story = {
+  globals: { viewport: { value: "mobile360", isRotated: false } },
   play: async ({ canvasElement }) => {
     await open(canvasElement);
     await expectPhoneLayout(canvasElement, "[data-lesson-term-deck]");

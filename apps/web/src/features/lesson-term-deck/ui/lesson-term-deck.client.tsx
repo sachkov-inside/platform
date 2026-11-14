@@ -1,88 +1,43 @@
 "use client";
 
-import {
-  BookOpen,
-  Check,
-  ChevronDown,
-  RefreshCw,
-  RotateCcw,
-} from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
-import { useId, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
 import type { GlossaryTerm } from "@/entities/material.model";
 import { cn } from "@/shared/lib/utils";
 
-import type { TermMarkValue } from "../model/term-mark-contract";
-
-/**
- * Что колода может сделать с отметками: гость их не сохраняет, вошедший ждёт свои, читает их или
- * не смог их прочитать.
- */
-export type LessonTermDeckMarking =
-  | { readonly kind: "guest"; readonly loginHref: Route }
-  | { readonly kind: "loading" }
-  | { readonly kind: "unavailable" }
-  | {
-      readonly kind: "ready";
-      readonly marks: ReadonlyMap<string, TermMarkValue>;
-      /** Термин, отметка которого сейчас сохраняется. */
-      readonly savingTermId: string | null;
-      readonly failed: boolean;
-    };
-
 export interface LessonTermDeckProps {
   readonly terms: readonly GlossaryTerm[];
-  readonly marking: LessonTermDeckMarking;
-  readonly onMark?: (termId: string, mark: TermMarkValue) => void;
   /** Страница словаря курса; вне курса её нет. */
   readonly courseGlossaryHref?: Route | undefined;
 }
 
-const markLabels: Record<TermMarkValue, string> = {
-  known: "Знаю",
-  review: "Повторить",
-};
-
-const bigButton =
-  "flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 font-medium transition-colors duration-(--motion-duration-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 motion-reduce:transition-none";
-const quietButton = `${bigButton} border border-lesson-line bg-card text-foreground hover:bg-muted`;
-const strongButton = `${bigButton} bg-lesson-graphite text-lesson-graphite-foreground hover:bg-lesson-graphite-hover`;
-const cardShadow = "shadow-card";
+const arrowButton =
+  "inline-flex size-11 items-center justify-center rounded-full text-muted-foreground transition-colors duration-(--motion-duration-fast) hover:bg-lesson-stack hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-35 disabled:hover:bg-transparent motion-reduce:transition-none";
 
 /**
- * «Термины урока · N» в карточке конца урока: одна строка, которая раскрывает колоду на месте.
- * Колода: стопка карточек, термин на лицевой стороне, короткое определение на обороте; карточка
- * переворачивается нажатием или с клавиатуры. Вошедший отмечает термин «Знаю» или «Повторить»,
- * отметка сохраняется за ним, и колода переходит к следующему термину. Гость листает колоду без
- * отметок.
+ * «Термины урока · N» в карточке конца урока: одна строка, которая раскрывает карусель на месте
+ * (решение владельца 14.11.2026). Карточки листаются свайпом, стрелками или клавишами ← и →;
+ * следующая карточка выглядывает справа. Нажатие, Enter или пробел переворачивают карточку:
+ * термин на лицевой стороне, короткое определение на обороте. Отметок, счётчиков и состояния
+ * «пройдено» нет.
  */
 export function LessonTermDeck({
   terms,
-  marking,
-  onMark,
   courseGlossaryHref,
 }: LessonTermDeckProps) {
   const deckId = useId();
   const [expanded, setExpanded] = useState(false);
-  const [index, setIndex] = useState(0);
-  const [turned, setTurned] = useState(false);
   if (terms.length === 0) return null;
-  const done = index >= terms.length;
-  const position = Math.min(index, terms.length - 1);
-  const term = terms[position];
-  if (term === undefined) return null;
-  const marks: ReadonlyMap<string, TermMarkValue> =
-    marking.kind === "ready" ? marking.marks : new Map();
-  const known = terms.filter((item) => marks.get(item.id) === "known").length;
-  const review = terms.filter((item) => marks.get(item.id) === "review").length;
-  const current = marks.get(term.id);
-  const go = (next: number) => {
-    setIndex(next);
-    setTurned(false);
-  };
-
   return (
     <div data-lesson-term-deck>
       <button
@@ -108,179 +63,212 @@ export function LessonTermDeck({
           )}
         />
       </button>
-      <section
-        aria-label="Термины урока"
-        className="pt-2 pb-4"
-        hidden={!expanded}
-        id={deckId}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div aria-hidden="true" className="flex flex-1 gap-1">
-            {terms.map((item, place) => (
-              <span
-                className={cn(
-                  "h-1 flex-1 rounded-full",
-                  done || place < position
-                    ? "bg-lesson-graphite"
-                    : "bg-lesson-line",
-                )}
-                key={item.id}
-              />
-            ))}
-          </div>
-          <p
-            className="text-sm text-muted-foreground tabular-nums"
-            data-lesson-term-position
-          >
-            {done ? terms.length : position + 1} из {terms.length}
-          </p>
-        </div>
-
-        <div className="mx-auto mt-5 max-w-md">
-          {done ? (
-            <div
-              className={`flex min-h-60 flex-col items-center justify-center rounded-2xl bg-card px-6 py-8 text-center ${cardShadow}`}
-              data-lesson-term-done
-            >
-              <p className="text-xl font-semibold">Колода пройдена</p>
-              {marking.kind === "ready" ? (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Знаю: {known}, повторить: {review}
-                </p>
-              ) : null}
-              <button
-                className={`${quietButton} mt-5 min-h-11`}
-                onClick={() => {
-                  go(0);
-                }}
-                type="button"
-              >
-                <RotateCcw aria-hidden="true" className="size-4" />
-                Пройти ещё раз
-              </button>
-            </div>
-          ) : (
-            <DeckPile>
-              <button
-                className="block w-full rounded-2xl text-left perspective-[1400px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-                data-lesson-term-card={term.id}
-                data-lesson-term-side={turned ? "back" : "front"}
-                onClick={() => {
-                  setTurned((value) => !value);
-                }}
-                type="button"
-              >
-                <TermCardFaces term={term} turned={turned} />
-              </button>
-            </DeckPile>
-          )}
-          {/* The turned side is read out once, the way a sighted reader sees it appear. */}
-          <p aria-live="polite" className="sr-only">
-            {turned && !done ? term.shortDefinition : ""}
-          </p>
-
-          {done ? null : marking.kind === "ready" ? (
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              {(["review", "known"] as const).map((mark) => (
-                <button
-                  aria-pressed={current === mark}
-                  className={cn(
-                    mark === "known" ? strongButton : quietButton,
-                    current === mark &&
-                      "ring-2 ring-lesson-graphite ring-offset-2 ring-offset-lesson-surface",
-                  )}
-                  data-lesson-term-mark={mark}
-                  disabled={marking.savingTermId !== null}
-                  key={mark}
-                  onClick={() => {
-                    onMark?.(term.id, mark);
-                    go(position + 1);
-                  }}
-                  type="button"
-                >
-                  {mark === "known" ? (
-                    <Check aria-hidden="true" className="size-4" />
-                  ) : (
-                    <RotateCcw aria-hidden="true" className="size-4" />
-                  )}
-                  {markLabels[mark]}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-5">
-              <button
-                className={`${quietButton} w-full`}
-                onClick={() => {
-                  go(position + 1);
-                }}
-                type="button"
-              >
-                Следующий термин
-              </button>
-            </div>
-          )}
-
-          {marking.kind === "ready" ? (
-            <p
-              className="mt-3 text-center text-sm text-muted-foreground"
-              role="status"
-            >
-              {marking.failed
-                ? "Не удалось сохранить отметку. Попробуйте ещё раз."
-                : `Знаю: ${String(known)}, повторить: ${String(review)}`}
-            </p>
-          ) : marking.kind === "guest" ? (
-            <p className="mt-3 text-center text-sm text-muted-foreground">
-              <Link
-                className="text-foreground underline underline-offset-4"
-                href={marking.loginHref}
-              >
-                Войдите
-              </Link>
-              , чтобы отмечать термины «знаю» и «повторить».
-            </p>
-          ) : marking.kind === "unavailable" ? (
-            <p
-              className="mt-3 text-center text-sm text-muted-foreground"
-              role="status"
-            >
-              Отметки сейчас недоступны.
-            </p>
-          ) : null}
-        </div>
-
-        {courseGlossaryHref === undefined ? null : (
-          <p className="mt-2 text-center text-sm">
-            <Link
-              className="inline-flex min-h-11 items-center gap-1.5 text-muted-foreground underline underline-offset-4 hover:text-foreground"
-              href={courseGlossaryHref}
-            >
-              <BookOpen aria-hidden="true" className="size-4" />
-              Все термины курса
-            </Link>
-          </p>
-        )}
-      </section>
+      <div className="pt-1 pb-3" hidden={!expanded} id={deckId}>
+        {expanded ? (
+          <TermCarousel courseGlossaryHref={courseGlossaryHref} terms={terms} />
+        ) : null}
+      </div>
     </div>
   );
 }
 
-/** The card with the rest of the deck under it: two edges peek out below, like a pile of cards. */
-function DeckPile({ children }: { readonly children: ReactNode }) {
+/**
+ * Карусель по образцу WAI-ARIA Carousel: область с ролью «карусель», каждая карточка — слайд;
+ * в порядке Tab стоит только текущая карточка, ← и → переводят фокус к соседней.
+ */
+function TermCarousel({
+  terms,
+  courseGlossaryHref,
+}: {
+  readonly terms: readonly GlossaryTerm[];
+  readonly courseGlossaryHref: Route | undefined;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [index, setIndex] = useState(0);
+  const [turned, setTurned] = useState<ReadonlySet<string>>(() => new Set());
+  const [announcement, setAnnouncement] = useState("");
+  const indexRef = useRef(0);
+
+  const cardAt = useCallback((place: number) => {
+    return (
+      trackRef.current?.querySelectorAll<HTMLElement>(
+        "[data-lesson-term-card]",
+      )[place] ?? null
+    );
+  }, []);
+
+  // The visible card follows the scroll position, whatever moved it: a swipe, a wheel, an arrow.
+  useEffect(() => {
+    const track = trackRef.current;
+    if (track === null) return;
+    let frame = 0;
+    const settle = () => {
+      frame = 0;
+      const nearest = visibleSlide(track);
+      if (nearest === indexRef.current) return;
+      indexRef.current = nearest;
+      setIndex(nearest);
+      const term = terms[nearest];
+      if (term !== undefined)
+        setAnnouncement(
+          `${term.title}, ${String(nearest + 1)} из ${String(terms.length)}`,
+        );
+    };
+    const onScroll = () => {
+      if (frame === 0) frame = requestAnimationFrame(settle);
+    };
+    track.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      track.removeEventListener("scroll", onScroll);
+      if (frame !== 0) cancelAnimationFrame(frame);
+    };
+  }, [terms]);
+
+  const go = (place: number, focus: boolean) => {
+    const target = Math.max(0, Math.min(terms.length - 1, place));
+    const track = trackRef.current;
+    if (track === null) return;
+    const slide = slides(track)[target];
+    if (slide === undefined) return;
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    track.scrollTo({
+      left: slideScrollLeft(track, slide),
+      behavior: reduced ? "auto" : "smooth",
+    });
+    if (focus) cardAt(target)?.focus({ preventScroll: true });
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowRight") go(indexRef.current + 1, true);
+    else if (event.key === "ArrowLeft") go(indexRef.current - 1, true);
+    else if (event.key === "Home") go(0, true);
+    else if (event.key === "End") go(terms.length - 1, true);
+    else return;
+    event.preventDefault();
+  };
+
+  const flip = (term: GlossaryTerm) => {
+    const next = new Set(turned);
+    const showing = !next.has(term.id);
+    if (showing) next.add(term.id);
+    else next.delete(term.id);
+    setTurned(next);
+    setAnnouncement(showing ? term.shortDefinition : term.title);
+  };
+
   return (
-    <div className="relative pb-3">
+    <section
+      aria-label="Термины урока"
+      aria-roledescription="карусель"
+      data-lesson-term-carousel
+    >
       <div
-        aria-hidden="true"
-        className="absolute inset-x-6 bottom-0 h-8 rounded-2xl bg-lesson-stack"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-3 bottom-1.5 h-8 rounded-2xl border border-lesson-line bg-card"
-      />
-      <div className="relative">{children}</div>
-    </div>
+        className="relative -mx-1 flex snap-x snap-mandatory scroll-px-1 gap-3 overflow-x-auto px-1 overscroll-x-contain pt-2 pb-3 [scrollbar-width:none] motion-safe:scroll-smooth [&::-webkit-scrollbar]:hidden"
+        onKeyDown={onKeyDown}
+        ref={trackRef}
+      >
+        {terms.map((term, place) => {
+          const isTurned = turned.has(term.id);
+          return (
+            <div
+              aria-label={`${String(place + 1)} из ${String(terms.length)}`}
+              aria-roledescription="слайд"
+              className="w-[calc(100%-2.75rem)] max-w-sm shrink-0 snap-start"
+              data-lesson-term-slide
+              key={term.id}
+              role="group"
+            >
+              <button
+                className="block w-full rounded-2xl text-left perspective-[1400px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                data-lesson-term-card={term.id}
+                data-lesson-term-side={isTurned ? "back" : "front"}
+                onClick={() => {
+                  flip(term);
+                }}
+                tabIndex={place === index ? 0 : -1}
+                type="button"
+              >
+                <TermCardFaces term={term} turned={isTurned} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <p aria-live="polite" className="sr-only" data-lesson-term-announcement>
+        {announcement}
+      </p>
+      <div className="flex min-h-11 items-center justify-between gap-2">
+        {courseGlossaryHref === undefined ? (
+          <span />
+        ) : (
+          <Link
+            className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline decoration-lesson-line underline-offset-4 transition-colors duration-(--motion-duration-fast) hover:text-foreground hover:decoration-current motion-reduce:transition-none"
+            href={courseGlossaryHref}
+          >
+            Все термины курса
+          </Link>
+        )}
+        {terms.length > 1 ? (
+          <div className="-mr-2 flex items-center">
+            <button
+              aria-label="Предыдущий термин"
+              className={arrowButton}
+              disabled={index === 0}
+              onClick={() => {
+                go(index - 1, false);
+              }}
+              type="button"
+            >
+              <ChevronLeft aria-hidden="true" className="size-5" />
+            </button>
+            <button
+              aria-label="Следующий термин"
+              className={arrowButton}
+              disabled={index === terms.length - 1}
+              onClick={() => {
+                go(index + 1, false);
+              }}
+              type="button"
+            >
+              <ChevronRight aria-hidden="true" className="size-5" />
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
+}
+
+function slides(track: HTMLElement): HTMLElement[] {
+  return [...track.querySelectorAll<HTMLElement>("[data-lesson-term-slide]")];
+}
+
+/** Where the track scrolls to bring `slide` to its start edge. */
+function slideScrollLeft(track: HTMLElement, slide: HTMLElement): number {
+  const first = slides(track)[0];
+  return slide.offsetLeft - (first?.offsetLeft ?? 0);
+}
+
+/**
+ * The slide at the start edge. A track scrolled to its end shows the last slide, even when it
+ * cannot reach the start edge because the slides before it are narrower than the track.
+ */
+function visibleSlide(track: HTMLElement): number {
+  const all = slides(track);
+  if (track.scrollLeft >= track.scrollWidth - track.clientWidth - 1)
+    return Math.max(0, all.length - 1);
+  let nearest = 0;
+  let distance = Number.POSITIVE_INFINITY;
+  all.forEach((slide, place) => {
+    const gap = Math.abs(slideScrollLeft(track, slide) - track.scrollLeft);
+    if (gap < distance) {
+      distance = gap;
+      nearest = place;
+    }
+  });
+  return nearest;
 }
 
 /** Both sides of a card in one place; the hidden side is turned away and out of the reading order. */
@@ -292,7 +280,7 @@ function TermCardFaces({
   readonly turned: boolean;
 }) {
   const face =
-    "col-start-1 row-start-1 flex min-h-60 flex-col rounded-2xl px-6 py-8 backface-hidden";
+    "col-start-1 row-start-1 flex min-h-44 flex-col justify-center rounded-2xl px-5 py-6 backface-hidden";
   return (
     <div
       className={cn(
@@ -302,9 +290,9 @@ function TermCardFaces({
     >
       <div
         aria-hidden={turned}
-        className={`${face} items-center justify-center bg-card text-center text-foreground ${cardShadow}`}
+        className={`${face} bg-card text-foreground shadow-card`}
       >
-        <p className="text-2xl font-semibold tracking-[-0.02em] text-balance">
+        <p className="text-xl font-semibold tracking-[-0.02em] text-balance">
           {term.title}
         </p>
         {term.englishTitle === null ? null : (
@@ -312,22 +300,13 @@ function TermCardFaces({
             {term.englishTitle}
           </p>
         )}
-        <p className="mt-8 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <RefreshCw aria-hidden="true" className="size-3.5" />
-          Показать определение
-        </p>
       </div>
       <div
         aria-hidden={!turned}
-        className={`${face} rotate-y-180 justify-center bg-lesson-sand text-foreground ${cardShadow}`}
+        className={`${face} rotate-y-180 bg-lesson-sand text-foreground shadow-card`}
       >
-        <p className="text-sm font-semibold text-lesson-ink">{term.title}</p>
-        <p className="mt-2 text-lg leading-7 text-pretty">
+        <p className="text-base leading-7 text-pretty">
           {term.shortDefinition}
-        </p>
-        <p className="mt-6 flex items-center gap-1.5 text-xs font-medium text-lesson-ink">
-          <RefreshCw aria-hidden="true" className="size-3.5" />
-          Показать термин
         </p>
       </div>
     </div>
