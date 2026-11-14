@@ -57,7 +57,10 @@ function readingFixture() {
       await route.fulfill({
         json: write
           ? { kind: "saved", state: snapshot, replayed: false }
-          : { kind: "ready", states: [snapshot] },
+          : {
+              kind: "ready",
+              states: [{ ...snapshot, updateNote: null, openedParts: null }],
+            },
       });
     });
     await page.goto(`${baseURL}?reading=1${secondary ? "&secondary=1" : ""}`);
