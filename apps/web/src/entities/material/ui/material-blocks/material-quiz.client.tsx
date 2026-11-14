@@ -289,7 +289,8 @@ function MultipleChoice({
           const markId = `${quizId}-mark-${String(index)}`;
           const inputId = `${quizId}-option-${String(index)}`;
           // The label covers the whole option, so a click anywhere ticks the box; «Почему» lies
-          // outside it, above its cover, because a label would take that click.
+          // outside it, above its cover, because a label would take that click. The box itself also
+          // sits above the cover, so a click or tap on it reaches the checkbox directly.
           return (
             <div
               key={option.id}
@@ -304,7 +305,7 @@ function MultipleChoice({
                 disabled={answered !== null}
                 aria-labelledby={`${quizId}-label-${String(index)}`}
                 aria-describedby={result === undefined ? undefined : markId}
-                className="relative mt-1 size-4 shrink-0 accent-lesson-graphite focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="relative z-[1] mt-1 size-4 shrink-0 accent-lesson-graphite focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 onChange={(event) => {
                   setSelected(
                     event.target.checked

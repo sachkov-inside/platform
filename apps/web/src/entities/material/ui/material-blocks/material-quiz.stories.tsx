@@ -216,6 +216,40 @@ export const MultipleKeyboard: Story = {
     await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
   },
 };
+/**
+ * A real pointer ticks an option both on its box and on its words: the box sits above the
+ * option-wide label cover, so the click lands on the checkbox itself.
+ */
+export const MultiplePointer: Story = {
+  play: async ({ canvasElement }) => {
+    const quiz = within(canvasElement);
+    const [first, second] = quiz.getAllByRole("checkbox");
+    if (first === undefined || second === undefined)
+      throw new Error("Missing checkbox");
+    const box = first.getBoundingClientRect();
+    await expect(
+      canvasElement.ownerDocument.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2,
+      ),
+    ).toBe(first);
+    // Vitest's Playwright provider clicks with native pointer events and Playwright's
+    // hit-target check; the catalog keeps the story for manual clicks.
+    if (import.meta.env.MODE !== "test") return;
+    const { userEvent: browserUserEvent } =
+      await import("@vitest/browser/context");
+    await browserUserEvent.click(first);
+    await expect(first).toBeChecked();
+    await browserUserEvent.click(quiz.getByText(labels[1] ?? ""));
+    await expect(second).toBeChecked();
+    await browserUserEvent.click(first);
+    await expect(first).not.toBeChecked();
+  },
+};
+export const MultiplePointerMobile: Story = {
+  ...MultiplePointer,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
 export const MultipleMobile: Story = {
   ...MultipleCorrect,
   globals: { viewport: { value: "mobile390", isRotated: false } },

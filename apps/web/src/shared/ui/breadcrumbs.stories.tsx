@@ -113,7 +113,7 @@ export const CompactLessonMobile: Story = {
     await expect(current.getBoundingClientRect().width).toBeGreaterThan(120);
     // The chapter stays reachable for assistive technology but folds into an ellipsis.
     const chapter = within(nav).getByRole("link", {
-      name: "Подготовь проект к разработке",
+      name: "Глава 1: Подготовь проект к разработке",
     });
     await expect(chapter.getBoundingClientRect().width).toBeLessThanOrEqual(1);
     await expect(within(nav).getByText("…")).toBeVisible();
