@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   courseReadingContext,
   withDeferredTaskStatuses,
+  type CourseStepProgress,
 } from "@/features/library-discovery";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { expect, userEvent, waitFor, within } from "storybook/test";
@@ -842,13 +843,15 @@ const briefFromLesson = {
 
 function BriefFromLesson({
   lessonRead = true,
+  guest = false,
 }: {
   readonly lessonRead?: boolean;
+  readonly guest?: boolean;
 }) {
   return (
     <MaterialReadingScope
       value={{
-        accountId: "story-account",
+        accountId: guest ? null : "story-account",
         resolved: true,
         failed: false,
         states: new Map([
@@ -951,20 +954,61 @@ export const SupplementaryFromLessonTablet: Story = {
 export const SupplementaryFromUnreadLesson: Story = {
   render: () => <BriefFromLesson lessonRead={false} />,
   play: async ({ canvasElement }) => {
-    const origin = within(
-      within(canvasElement).getByRole("complementary", {
-        name: "Текущая глава",
-      }),
-    ).getByRole("link", { name: /^Как устроен курс/ });
     // An unread origin keeps its empty ring; the way-back caption does not mark it as passed.
-    await expect(origin).toHaveAccessibleName(
-      /^Как устроен курс ?, вы пришли отсюда$/u,
-    );
-    await expect(origin).toHaveAttribute("data-progress", "todo");
-    await expect(origin).not.toHaveAttribute("aria-current");
+    const origin = await expectPlainOriginMark(canvasElement, "todo");
     await expect(origin.querySelector("svg")).toBeNull();
   },
 };
+
+export const SupplementaryFromLessonGuest: Story = {
+  render: () => <BriefFromLesson guest />,
+  play: async ({ canvasElement }) => {
+    // A guest sees the same neutral dot on every step, the way back included.
+    await expectPlainOriginMark(canvasElement, "unknown");
+  },
+};
+
+/** The not-yet-passed originating step is a way back whose marker matches «Первый урок» in the same progress state. */
+async function expectPlainOriginMark(
+  canvasElement: HTMLElement,
+  progress: Exclude<CourseStepProgress, "done">,
+) {
+  const origin = within(
+    within(canvasElement).getByRole("complementary", {
+      name: "Текущая глава",
+    }),
+  ).getByRole("link", { name: /^Как устроен курс/ });
+  await expect(origin).toHaveAccessibleName(
+    /^Как устроен курс ?, вы пришли отсюда$/u,
+  );
+  await expect(origin).toHaveAttribute("data-progress", progress);
+  await expect(origin).not.toHaveAttribute("aria-current");
+  await expectSameMarkAsPeer(origin, progress);
+  return origin;
+}
+
+async function expectSameMarkAsPeer(
+  origin: HTMLElement,
+  progress: Exclude<CourseStepProgress, "done">,
+) {
+  const rail = origin.closest("aside");
+  if (rail === null) throw new Error("Course rail missing");
+  const peer = within(rail).getByRole("link", { name: /^Первый урок/ });
+  await expect(peer).toHaveAttribute("data-progress", progress);
+  const markStyle = (link: HTMLElement) => {
+    const mark = link.querySelector<HTMLElement>("[data-course-step-mark]");
+    if (mark === null) throw new Error("Step mark missing");
+    const style = getComputedStyle(mark);
+    return {
+      width: style.width,
+      height: style.height,
+      background: style.backgroundColor,
+      border: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`,
+      shadow: style.boxShadow,
+    };
+  };
+  await expect(markStyle(origin)).toEqual(markStyle(peer));
+}
 
 function ProgressCourse({
   marks = progressCourseMarks,

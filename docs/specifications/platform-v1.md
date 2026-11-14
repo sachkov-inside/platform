@@ -537,7 +537,7 @@ The server validates the displayed Material's Product membership and the anchor'
 A valid anchor supplies the sidebar and mobile programme, without adding the supplementary document to chapters,
 counts, progress or previous/next. Only the open document is highlighted, in «Дополнительные материалы»
 (owner 2026-11-14): the originating step loses the accent and `aria-current` and stays a plain link back
-with its saved progress marker and the caption «вы пришли отсюда». The rail and the
+with the same saved progress marker as other steps and the caption «вы пришли отсюда». The rail and the
 programme sheet scroll to that step, the lesson dock reads «Дополнительный материал», and breadcrumbs
 name the open document.
 Sidebar step markers show the reader's saved progress, not position (#1854, owner 2026-10-30): a check
