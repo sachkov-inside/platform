@@ -28,6 +28,7 @@ import {
   parseMaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import { contrast, luminance } from "@/storybook/contrast";
 import { expectPhoneLayout } from "@/storybook/phone-layout";
 import { accountPresentationResponse } from "@/storybook/account.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
@@ -342,6 +343,7 @@ export const FinishOutsideCourse: Story = {
       /^Конец урока · .*упражнения 0 из 1/u,
     );
     await expect(within(heading).getByText("упражнения 0 из 1")).toBeVisible();
+    await expectDarkFinish(canvasElement);
     // Element boundaries may add a space before the comma; the words are what is heard.
     await expect(heading).toHaveAccessibleName(
       new RegExp(`^Конец урока ?, ${unsolvedCount}$`, "u"),
@@ -402,6 +404,7 @@ export const FinishInCourse: Story = {
     const [end] = ends;
     if (end === undefined) throw new Error("The finish actions are missing");
     await expect(finishCard(canvasElement).contains(end)).toBe(true);
+    await expectDarkFinish(canvasElement);
     await expect(
       within(end).getByRole("link", { name: "Дальше" }),
     ).toHaveAttribute("href", materialReaderHref("next", programme));
@@ -429,7 +432,10 @@ export const FinishInCourse: Story = {
   },
 };
 
-/** «Изучено» is a second pill button as tall as the main one, never a bare text control. */
+/**
+ * «Изучено» is a second pill button as tall as the main one, never a bare text control: a light
+ * outline with light text on the dark card.
+ */
 async function expectSecondaryStudy(actions: HTMLElement) {
   const studied = within(actions).getByRole("button", { name: "Изучено" });
   const main =
@@ -447,10 +453,54 @@ async function expectSecondaryStudy(actions: HTMLElement) {
   await expect(Number.parseFloat(style.borderTopWidth)).toBeGreaterThanOrEqual(
     1,
   );
-  await expect(style.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+  await expect(style.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  const card = getComputedStyle(finishCardOf(actions)).backgroundColor;
+  await expect(contrast(style.color, card)).toBeGreaterThanOrEqual(4.5);
+  await expect(contrast(style.borderTopColor, card)).toBeGreaterThanOrEqual(3);
 }
 
-/** A studied lesson: «Изучено» is pressed, with a graphite rim and its check icon. */
+function finishCardOf(inside: HTMLElement): HTMLElement {
+  const card = inside.closest<HTMLElement>("[data-lesson-finish]");
+  if (card === null) throw new Error("The actions lie outside the finish card");
+  return card;
+}
+
+/**
+ * The finish card is one of the lesson's few dark graphite blocks: light heading text, and the
+ * main action is a light pill on it. Every pair reads at WCAG AA.
+ */
+async function expectDarkFinish(canvasElement: HTMLElement) {
+  const card = finishCard(canvasElement);
+  const surface = getComputedStyle(card).backgroundColor;
+  await expect(luminance(surface)).toBeLessThan(0.05);
+  const heading = within(card).getByRole("heading", { level: 2 });
+  await expect(
+    contrast(getComputedStyle(heading).color, surface),
+  ).toBeGreaterThanOrEqual(4.5);
+  const main =
+    within(card).queryByRole("link", { name: "Дальше" }) ??
+    within(card).queryByRole("link", { name: "К программе" });
+  if (main !== null) {
+    const pill = getComputedStyle(main);
+    await expect(luminance(pill.backgroundColor)).toBeGreaterThan(0.7);
+    await expect(
+      contrast(pill.color, pill.backgroundColor),
+    ).toBeGreaterThanOrEqual(4.5);
+  }
+  const count = card.querySelector<HTMLElement>("[data-lesson-exercise-count]");
+  if (count !== null)
+    await expect(
+      contrast(getComputedStyle(count).color, surface),
+    ).toBeGreaterThanOrEqual(4.5);
+  for (const icon of card.querySelectorAll<HTMLElement>(
+    "[data-lesson-rating-choice]",
+  ))
+    await expect(
+      contrast(getComputedStyle(icon).color, surface),
+    ).toBeGreaterThanOrEqual(3);
+}
+
+/** A studied lesson: «Изучено» is pressed, with a light double rim and its check icon. */
 export const FinishStudied: Story = {
   ...FinishInCourse,
   parameters: { studied: true },
@@ -563,6 +613,7 @@ export const FinishOnLastLesson: Story = {
     await expect(
       within(end).queryByRole("link", { name: "Дальше" }),
     ).toBeNull();
+    await expectDarkFinish(canvasElement);
   },
 };
 

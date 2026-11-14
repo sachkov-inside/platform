@@ -58,7 +58,11 @@ Owner decision 14.11.2026 (#2118, variant A «Тёплая бумага»): the 
 family of opaque surfaces and charcoal for the action; orange stays with the site. Exercises, the
 term carousel and the end-of-lesson rows lie on `--lesson-surface`; the glossary «Определение» card
 and the back of a term card are sand; the step-break question, the exercise badge and a pressed
-rating are graphite. Every surface is a solid colour, never a mix with transparency.
+rating are graphite. Owner direction 14.11.2026 adds a few dark graphite blocks, at most two or
+three on a lesson screen: the «Финиш урока» card and the front of a term card carry
+`data-lesson-dark`, which paints them `--lesson-dark` and remaps the tokens their contents read
+(text, muted text, lines, the graphite action turns light). Every surface is a solid colour, never
+a mix with transparency.
 
 export const lessonRoles = [
   [
@@ -77,6 +81,7 @@ export const lessonRoles = [
     "--lesson-graphite",
     "bg-lesson-graphite text-lesson-graphite-foreground border-lesson-graphite",
   ],
+  ["Dark", "--lesson-dark", "border-lesson-line", true],
   [
     "Reply",
     "--lesson-reply",
@@ -93,8 +98,12 @@ export const lessonRoles = [
   data-public-shell
   className="not-prose grid gap-3 rounded-2xl bg-background p-4 sm:grid-cols-2 lg:grid-cols-3"
 >
-  {lessonRoles.map(([label, token, classes]) => (
-    <div className={`rounded-xl border p-4 ${classes}`} key={token}>
+  {lessonRoles.map(([label, token, classes, dark]) => (
+    <div
+      className={`rounded-xl border p-4 ${classes}`}
+      data-lesson-dark={dark ? "" : undefined}
+      key={token}
+    >
       <div className="font-semibold">{label}</div>
       <code className="mt-2 block font-mono text-xs opacity-75">{token}</code>
     </div>

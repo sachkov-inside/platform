@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
+import { contrast, luminance } from "@/storybook/contrast";
 import { expectPhoneLayout } from "@/storybook/phone-layout";
 
 import { LessonTermDeck } from "./lesson-term-deck.client";
@@ -62,6 +63,16 @@ function card(canvasElement: HTMLElement, termId: string) {
   );
   if (found === null) throw new Error(`The carousel shows no card ${termId}`);
   return found;
+}
+
+/** The front and the back face of a card. */
+function faces(cardButton: HTMLElement): [HTMLElement, HTMLElement] {
+  const [front, back] = cardButton.querySelectorAll<HTMLElement>(
+    "[data-lesson-term-face]",
+  );
+  if (front === undefined || back === undefined)
+    throw new Error("The card has no two faces");
+  return [front, back];
 }
 
 function track(canvasElement: HTMLElement) {
@@ -128,8 +139,31 @@ export const FlipAndLeaf: Story = {
 
     // The front says it turns over; the hint is not part of the card's name.
     const [hint] = canvas.getAllByText("Нажмите, чтобы увидеть определение");
+    if (hint === undefined) throw new Error("The front has no hint");
     await expect(hint).toBeVisible();
     const first = card(canvasElement, "bounded-context");
+
+    // The front is dark graphite with light text, the back is sand with dark text, and the
+    // carousel stays sand: the turn is visible and every text reads at WCAG AA.
+    const [front, back] = faces(first);
+    const frontSurface = getComputedStyle(front).backgroundColor;
+    const backSurface = getComputedStyle(back).backgroundColor;
+    await expect(luminance(frontSurface)).toBeLessThan(0.05);
+    await expect(luminance(frontSurface)).toBeLessThan(luminance(backSurface));
+    await expect(
+      luminance(getComputedStyle(carousel).backgroundColor),
+    ).toBeGreaterThan(luminance(frontSurface));
+    const title = within(front).getByText("Ограниченный контекст");
+    await expect(
+      contrast(getComputedStyle(title).color, frontSurface),
+    ).toBeGreaterThanOrEqual(4.5);
+    await expect(
+      contrast(getComputedStyle(hint).color, frontSurface),
+    ).toBeGreaterThanOrEqual(4.5);
+    await expect(
+      contrast(getComputedStyle(back).color, backSurface),
+    ).toBeGreaterThanOrEqual(4.5);
+
     await expect(first).toHaveAccessibleName(
       "Ограниченный контекст Bounded context",
     );

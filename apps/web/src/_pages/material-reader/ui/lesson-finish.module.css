@@ -1,7 +1,7 @@
 /*
- * «Изучено» is the card's second button: the pill shape and 48 px height of «Дальше», a light sand
- * fill and graphite text. Marked as studied, it gets a graphite rim and its check icon. On a phone
- * it spans the card under «Дальше».
+ * «Изучено» is the card's second button: the pill shape and 48 px height of «Дальше», an outline
+ * pill with light text on the dark card. Marked as studied, it gets a light double rim and its
+ * check icon. On a phone it spans the card under «Дальше».
  */
 .study [data-reading-action-state] > :is(a, button):first-child {
   min-height: 48px;
@@ -9,21 +9,21 @@
   max-width: 100%;
   padding-inline: 1.5rem;
   gap: 0.5rem;
-  border: 1px solid var(--lesson-sand-line);
+  border: 1px solid var(--lesson-dark-outline);
   border-radius: 9999px;
-  background: var(--lesson-sand);
-  color: var(--lesson-graphite);
+  background: transparent;
+  color: var(--lesson-dark-foreground);
   font-size: 1rem;
   font-weight: 600;
 }
 .study [data-reading-action-state] > :is(a, button):first-child:hover {
-  border-color: var(--lesson-graphite);
-  background: var(--lesson-sand);
-  color: var(--lesson-graphite);
+  border-color: var(--lesson-dark-foreground);
+  background: var(--lesson-dark-raised);
+  color: var(--lesson-dark-foreground);
 }
 .study [data-reading-action-state] > [aria-pressed="true"]:first-child {
-  border-color: var(--lesson-graphite);
-  box-shadow: inset 0 0 0 1px var(--lesson-graphite);
+  border-color: var(--lesson-dark-foreground);
+  box-shadow: inset 0 0 0 1px var(--lesson-dark-foreground);
 }
 @media (width >= 40rem) {
   .study [data-reading-action-state] > :is(a, button):first-child {
