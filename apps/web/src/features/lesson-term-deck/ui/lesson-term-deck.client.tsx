@@ -87,7 +87,25 @@ function TermCarousel({
   const [index, setIndex] = useState(0);
   const [turned, setTurned] = useState<ReadonlySet<string>>(() => new Set());
   const [announcement, setAnnouncement] = useState("");
+  // Arrows appear only when the cards do not all fit: a wide finish card may show every term.
+  const [scrollable, setScrollable] = useState(false);
   const indexRef = useRef(0);
+  // The card an arrow or a key asked for; the scroll position catches up with it smoothly.
+  const pendingRef = useRef<number | null>(null);
+
+  const show = useCallback(
+    (place: number) => {
+      if (place === indexRef.current) return;
+      indexRef.current = place;
+      setIndex(place);
+      const term = terms[place];
+      if (term !== undefined)
+        setAnnouncement(
+          `${term.title}, ${String(place + 1)} из ${String(terms.length)}`,
+        );
+    },
+    [terms],
+  );
 
   const cardAt = useCallback((place: number) => {
     return (
@@ -105,24 +123,36 @@ function TermCarousel({
     const settle = () => {
       frame = 0;
       const nearest = visibleSlide(track);
-      if (nearest === indexRef.current) return;
-      indexRef.current = nearest;
-      setIndex(nearest);
-      const term = terms[nearest];
-      if (term !== undefined)
-        setAnnouncement(
-          `${term.title}, ${String(nearest + 1)} из ${String(terms.length)}`,
-        );
+      if (pendingRef.current !== null) {
+        if (nearest !== pendingRef.current) return;
+        pendingRef.current = null;
+      }
+      show(nearest);
     };
     const onScroll = () => {
       if (frame === 0) frame = requestAnimationFrame(settle);
     };
+    // A reader's own swipe or wheel takes over from a scroll an arrow started.
+    const takeOver = () => {
+      pendingRef.current = null;
+    };
     track.addEventListener("scroll", onScroll, { passive: true });
+    track.addEventListener("pointerdown", takeOver, { passive: true });
+    track.addEventListener("wheel", takeOver, { passive: true });
+    const measure = () => {
+      setScrollable(track.scrollWidth > track.clientWidth + 1);
+    };
+    measure();
+    const resize = new ResizeObserver(measure);
+    resize.observe(track);
     return () => {
       track.removeEventListener("scroll", onScroll);
+      track.removeEventListener("pointerdown", takeOver);
+      track.removeEventListener("wheel", takeOver);
+      resize.disconnect();
       if (frame !== 0) cancelAnimationFrame(frame);
     };
-  }, [terms]);
+  }, [show]);
 
   const go = (place: number, focus: boolean) => {
     const target = Math.max(0, Math.min(terms.length - 1, place));
@@ -133,6 +163,8 @@ function TermCarousel({
     const reduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+    pendingRef.current = target;
+    show(target);
     track.scrollTo({
       left: slideScrollLeft(track, slide),
       behavior: reduced ? "auto" : "smooth",
@@ -165,7 +197,7 @@ function TermCarousel({
       data-lesson-term-carousel
     >
       <div
-        className="relative -mx-1 flex snap-x snap-mandatory scroll-px-1 gap-3 overflow-x-auto px-1 overscroll-x-contain pt-2 pb-3 [scrollbar-width:none] motion-safe:scroll-smooth [&::-webkit-scrollbar]:hidden"
+        className="relative flex snap-x snap-mandatory scroll-px-1 gap-3 overflow-x-auto px-1 overscroll-x-contain pt-2 pb-5 [scrollbar-width:none] motion-safe:scroll-smooth [&::-webkit-scrollbar]:hidden"
         onKeyDown={onKeyDown}
         ref={trackRef}
       >
@@ -199,44 +231,46 @@ function TermCarousel({
       <p aria-live="polite" className="sr-only" data-lesson-term-announcement>
         {announcement}
       </p>
-      <div className="flex min-h-11 items-center justify-between gap-2">
-        {courseGlossaryHref === undefined ? (
-          <span />
-        ) : (
-          <Link
-            className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline decoration-lesson-line underline-offset-4 transition-colors duration-(--motion-duration-fast) hover:text-foreground hover:decoration-current motion-reduce:transition-none"
-            href={courseGlossaryHref}
-          >
-            Все термины курса
-          </Link>
-        )}
-        {terms.length > 1 ? (
-          <div className="-mr-2 flex items-center">
-            <button
-              aria-label="Предыдущий термин"
-              className={arrowButton}
-              disabled={index === 0}
-              onClick={() => {
-                go(index - 1, false);
-              }}
-              type="button"
+      {courseGlossaryHref === undefined && !scrollable ? null : (
+        <div className="flex min-h-11 items-center justify-between gap-2">
+          {courseGlossaryHref === undefined ? (
+            <span />
+          ) : (
+            <Link
+              className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline decoration-lesson-line underline-offset-4 transition-colors duration-(--motion-duration-fast) hover:text-foreground hover:decoration-current motion-reduce:transition-none"
+              href={courseGlossaryHref}
             >
-              <ChevronLeft aria-hidden="true" className="size-5" />
-            </button>
-            <button
-              aria-label="Следующий термин"
-              className={arrowButton}
-              disabled={index === terms.length - 1}
-              onClick={() => {
-                go(index + 1, false);
-              }}
-              type="button"
-            >
-              <ChevronRight aria-hidden="true" className="size-5" />
-            </button>
-          </div>
-        ) : null}
-      </div>
+              Все термины курса
+            </Link>
+          )}
+          {scrollable ? (
+            <div className="flex items-center">
+              <button
+                aria-label="Предыдущий термин"
+                className={arrowButton}
+                disabled={index === 0}
+                onClick={() => {
+                  go(index - 1, false);
+                }}
+                type="button"
+              >
+                <ChevronLeft aria-hidden="true" className="size-5" />
+              </button>
+              <button
+                aria-label="Следующий термин"
+                className={arrowButton}
+                disabled={index === terms.length - 1}
+                onClick={() => {
+                  go(index + 1, false);
+                }}
+                type="button"
+              >
+                <ChevronRight aria-hidden="true" className="size-5" />
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
     </section>
   );
 }
@@ -257,6 +291,7 @@ function slideScrollLeft(track: HTMLElement, slide: HTMLElement): number {
  */
 function visibleSlide(track: HTMLElement): number {
   const all = slides(track);
+  if (track.scrollWidth <= track.clientWidth + 1) return 0;
   if (track.scrollLeft >= track.scrollWidth - track.clientWidth - 1)
     return Math.max(0, all.length - 1);
   let nearest = 0;

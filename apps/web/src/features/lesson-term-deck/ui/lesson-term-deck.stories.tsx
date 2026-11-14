@@ -38,6 +38,14 @@ const meta = {
     terms,
     courseGlossaryHref: courseGlossaryHref("ddd"),
   },
+  // As wide as the lesson column that holds the finish card.
+  decorators: [
+    (Story) => (
+      <div className="max-w-2xl">
+        <Story />
+      </div>
+    ),
+  ],
   parameters: {
     layout: "padded",
     docs: {
@@ -176,7 +184,7 @@ export const Keyboard: Story = {
   },
 };
 
-/** One term needs no arrows. */
+/** Cards that all fit need no arrows. */
 export const SingleTerm: Story = {
   args: { terms: terms.slice(0, 1) },
   play: async ({ canvasElement }) => {
