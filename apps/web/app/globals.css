@@ -583,20 +583,61 @@ body:has(
   background: var(--lesson-sand);
 }
 
-/* Упражнение лежит на непрозрачной тёплой подложке; результат узнаётся также по значку и тексту. */
+/*
+ * Упражнение лежит на непрозрачной тёплой подложке без рамки. После проверки вариант, строка или
+ * шаг окрашены: зелёный значит верно (или верный ответ, который не выбран), красный значит неверно.
+ * Текст остаётся цвета текста, цвет несут фон, рамка и маленький значок; программа чтения экрана
+ * слышит смысл скрытыми словами рядом со значком.
+ */
 [data-material-exercise] {
   background: var(--lesson-surface);
-  border-color: var(--lesson-line);
 }
-[data-quiz-option][data-result="correct"] {
+[data-material-exercise] [data-result="correct"],
+[data-material-exercise] [data-result="missed"],
+[data-material-exercise] [data-result="in-place"] {
+  --item-ink: var(--callout-good);
+}
+[data-material-exercise] [data-result="incorrect"],
+[data-material-exercise] [data-result="out-of-place"] {
+  --item-ink: var(--callout-bad);
+}
+[data-material-exercise] [data-result] {
+  border-color: color-mix(in oklab, var(--item-ink) 45%, var(--card));
+  background: color-mix(in oklab, var(--item-ink) 11%, var(--card));
+}
+[data-material-exercise] [data-result="missed"] {
+  border-style: dashed;
+}
+[data-material-exercise] [data-result] [data-item-mark] {
+  color: var(--item-ink);
+}
+
+/* Итог проверки: одна окрашенная строка с кнопкой «Ответить ещё раз». */
+[data-exercise-verdict="correct"] {
   color: var(--callout-good);
-  border-color: color-mix(in oklab, var(--callout-good) 55%, var(--border));
-  background: color-mix(in oklab, var(--callout-good) 12%, var(--card));
+  background: color-mix(in oklab, var(--callout-good) 14%, var(--card));
 }
-[data-quiz-option][data-result="incorrect"] {
+[data-exercise-verdict="incorrect"] {
   color: var(--callout-bad);
-  border-color: color-mix(in oklab, var(--callout-bad) 55%, var(--border));
-  background: color-mix(in oklab, var(--callout-bad) 10%, var(--card));
+  background: color-mix(in oklab, var(--callout-bad) 12%, var(--card));
+}
+[data-exercise-verdict="dontKnow"] {
+  background: var(--lesson-reply);
+}
+
+/*
+ * «Выше / Ниже» у шага не шумят: при наведении мыши они видны, когда указатель над шагом или фокус
+ * внутри него. Клавиатура и программа чтения экрана достают их всегда; на сенсорном экране они видны.
+ */
+@media (hover: hover) {
+  [data-order-moves] {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+  }
+  [data-order-step]:hover [data-order-moves],
+  [data-order-step]:focus-within [data-order-moves] {
+    opacity: 1;
+  }
 }
 
 ::selection {
