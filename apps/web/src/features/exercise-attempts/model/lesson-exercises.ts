@@ -51,7 +51,7 @@ export function exerciseAnswerView(
 }
 
 /**
- * «Упражнения: 3 из 4 решены»: an exercise is solved when the latest answer on its current
+ * «упражнения 3 из 4» in the lesson finish heading: an exercise is solved when the latest answer on its current
  * version is correct. A correct answer to an older version does not count.
  */
 export function lessonExerciseSummary(

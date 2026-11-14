@@ -33,7 +33,6 @@ import { SavedLessonRating } from "@/features/lesson-rating";
 import { LessonTermDeck } from "@/features/lesson-term-deck";
 import {
   LessonExerciseAttempts,
-  SavedLessonExerciseSummary,
   lessonExercises,
 } from "@/features/exercise-attempts";
 import { notFound } from "next/navigation";
@@ -550,7 +549,6 @@ async function ResolvedMaterialReader({
         glossaryTerms={result.glossaryTerms}
         courseGlossary={courseGlossary}
         termDeck={<LessonTermDeck terms={result.lessonTerms} />}
-        exerciseSummary={<SavedLessonExerciseSummary />}
         lessonRating={
           <SavedLessonRating materialId={result.material.materialId} />
         }

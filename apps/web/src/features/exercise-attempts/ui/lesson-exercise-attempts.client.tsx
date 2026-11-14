@@ -39,7 +39,6 @@ import {
   type LessonExercise,
   type StoredExerciseAnswer,
 } from "../model/lesson-exercises";
-import { LessonExerciseSummary } from "./lesson-exercise-summary";
 
 type LessonAnswers = (exerciseId: string) => ExerciseAnswerState;
 
@@ -77,7 +76,7 @@ function useLessonExerciseAnswer(exerciseId: string): ExerciseAnswerState {
  * Exercise Attempts of one open lesson. A signed-in reader's answers are checked and recorded by
  * the server and come back when the lesson opens again; a guest's stay in this browser, with an
  * offer to sign in under each exercise, and are not moved to the Account after sign-in.
- * `SavedLessonExerciseSummary` inside the wrapped content shows «Упражнения: N из M».
+ * `useLessonExerciseProgress` inside the wrapped content reads «упражнения N из M».
  * Attempts change neither «Изучено» nor course progress.
  */
 export function LessonExerciseAttempts({
@@ -259,18 +258,20 @@ export function LessonExerciseAttempts({
   );
 }
 
-/** «Упражнения: N из M» of the lesson around it; nothing outside `LessonExerciseAttempts`. */
-export function SavedLessonExerciseSummary() {
-  const summary = useContext(LessonSummaryContext);
-  return summary === null ? null : <LessonExerciseSummary {...summary} />;
-}
-
 /**
- * Whether every exercise of the lesson around it is solved: `null` outside
- * `LessonExerciseAttempts` and in a lesson without exercises.
+ * Exercise progress of the lesson around it: solved of total and the first unsolved exercise,
+ * `undefined` when every one is solved. `null` outside `LessonExerciseAttempts` and in a lesson
+ * without exercises.
  */
-export function useLessonExercisesSolved(): boolean | null {
+export function useLessonExerciseProgress(): {
+  readonly total: number;
+  readonly solved: number;
+  readonly next: LessonExercise | undefined;
+} | null {
   const summary = useContext(LessonSummaryContext);
   if (summary === null || summary.total === 0) return null;
-  return summary.solved === summary.total;
+  const [next] = [...summary.unsolved].sort(
+    (first, second) => first.number - second.number,
+  );
+  return { total: summary.total, solved: summary.solved, next };
 }
