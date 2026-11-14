@@ -1,9 +1,24 @@
 "use client";
 
 import { checkExerciseAnswer } from "@inside/material-blocks";
-import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, ChevronUp, GripVertical, RotateCcw } from "lucide-react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
+import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
 import {
   useExerciseAnswer,
   type ExerciseAnswerRecord,
@@ -32,8 +47,8 @@ interface ExercisePresentation {
 }
 
 /**
- * «Сопоставь». A choice is plain text, because a native drop-down list shows only text; on a
- * phone it opens the system picker, which never runs wider than the screen.
+ * «Сопоставь». A choice is plain text: the site's drop-down list shows it as one item and wraps it
+ * inside the screen on a phone.
  */
 export interface MaterialMatchPresentation extends ExercisePresentation {
   /** `pairs`: one row per choice. `groups`: several rows share a group (2-3 groups). */
@@ -270,35 +285,41 @@ export function MaterialMatch(props: MaterialMatchPresentation) {
                     ? "correct"
                     : "incorrect"
               }
-              className="grid min-w-0 gap-2 rounded-lg border border-border bg-card px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,16rem)] sm:items-center sm:px-3"
+              className="grid min-w-0 gap-2 rounded-lg border border-lesson-line bg-card px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,16rem)] sm:items-center sm:px-3"
             >
               <div id={rowId} className="min-w-0">
                 {row.content}
               </div>
-              <select
-                aria-labelledby={rowId}
-                aria-describedby={answered === null ? undefined : reviewId}
+              <Select
                 disabled={answered !== null}
                 value={choice ?? ""}
-                onChange={(event) => {
+                onValueChange={(value) => {
                   const next = new Map(draft);
-                  if (event.target.value === "") next.delete(row.id);
-                  else next.set(row.id, event.target.value);
+                  next.set(row.id, value);
                   setDraft(next);
                 }}
-                className="min-h-11 w-full min-w-0 rounded-lg border border-input bg-background px-2.5 text-base text-foreground sm:text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-100"
               >
-                <option value="">Выбери ответ</option>
-                {choices.map((item) => (
-                  <option
-                    key={item.id}
-                    value={item.id}
-                    disabled={taken.has(item.id)}
-                  >
-                    {item.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  aria-labelledby={rowId}
+                  aria-describedby={answered === null ? undefined : reviewId}
+                  data-match-choice
+                  className="h-auto rounded-lg border-lesson-line bg-background py-2 text-base font-normal sm:text-sm disabled:opacity-100 [&>span:first-child]:whitespace-normal"
+                >
+                  <SelectValue placeholder="Выбери ответ" />
+                </SelectTrigger>
+                <SelectContent className="max-w-[min(var(--radix-select-content-available-width),calc(100vw-2rem))]">
+                  {choices.map((item) => (
+                    <SelectItem
+                      key={item.id}
+                      value={item.id}
+                      disabled={taken.has(item.id)}
+                      className="text-base font-normal sm:text-sm"
+                    >
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {answered === null ? null : (
                 <ItemReview
                   id={reviewId}
@@ -386,9 +407,109 @@ export function arrangedSteps<Step extends { readonly id: string }>(
 
 type Direction = "up" | "down";
 
+/** The order with the step at `from` taken out and put back at `to`. */
+export function movedOrder(
+  order: readonly string[],
+  from: number,
+  to: number,
+): readonly string[] {
+  const next = [...order];
+  const [step] = next.splice(from, 1);
+  if (step === undefined) return order;
+  next.splice(to, 0, step);
+  return next;
+}
+
 /**
- * «Расставь по порядку»: the reader moves steps with «Выше» and «Ниже» or Alt + ↑ / ↓; no drag is
- * needed. Each move is announced. After «Проверить» the steps out of place are marked and every
+ * Where a dragged step lands: the number of the other steps whose middle lies above the dragged
+ * step's middle. `middles` are the other steps' middles, top to bottom.
+ */
+export function dropPosition(
+  middles: readonly number[],
+  draggedMiddle: number,
+): number {
+  return middles.filter((middle) => middle < draggedMiddle).length;
+}
+
+/** A step being dragged: which one, how far it moved, and where it would land now. */
+interface StepDrag {
+  readonly from: number;
+  readonly offset: number;
+  readonly to: number;
+  /** Top of the drop line inside the list, in pixels. */
+  readonly lineTop: number;
+}
+
+/**
+ * Dragging a step by its handle, with a mouse or a finger. The list is measured once when the drag
+ * starts; the other steps stay in place and a line shows where the step will land.
+ */
+function useStepDrag(onDrop: (from: number, to: number) => void) {
+  const list = useRef<HTMLOListElement>(null);
+  const [drag, setDrag] = useState<StepDrag | null>(null);
+  const stop = useRef<(() => void) | null>(null);
+  useEffect(() => () => stop.current?.(), []);
+
+  const start = (from: number, event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0 || list.current === null) return;
+    event.preventDefault();
+    const top = list.current.getBoundingClientRect().top;
+    const boxes = [...list.current.children].map((item) => {
+      const box = item.getBoundingClientRect();
+      return { top: box.top - top, bottom: box.bottom - top };
+    });
+    const dragged = boxes[from];
+    if (dragged === undefined) return;
+    const others = boxes.filter((_, index) => index !== from);
+    const startY = event.clientY;
+    const gap = 4;
+    const measure = (offset: number): StepDrag => {
+      const middle = (dragged.top + dragged.bottom) / 2 + offset;
+      const to = dropPosition(
+        others.map((box) => (box.top + box.bottom) / 2),
+        middle,
+      );
+      const before = others[to];
+      const after = others[to - 1];
+      const lineTop =
+        before === undefined ? (after?.bottom ?? 0) + gap : before.top - gap;
+      return { from, offset, to, lineTop };
+    };
+    let current = measure(0);
+    setDrag(current);
+    const move = (moveEvent: PointerEvent) => {
+      current = measure(moveEvent.clientY - startY);
+      setDrag(current);
+    };
+    const finish = (dropped: boolean) => {
+      stop.current?.();
+      setDrag(null);
+      if (dropped && current.to !== current.from)
+        onDrop(current.from, current.to);
+    };
+    const up = () => {
+      finish(true);
+    };
+    const cancel = () => {
+      finish(false);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    stop.current = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      stop.current = null;
+    };
+  };
+
+  return { list, drag, start };
+}
+
+/**
+ * «Расставь по порядку»: the reader drags a step by its handle, or moves it with «Выше» and «Ниже»
+ * or Alt + ↑ / ↓, so no drag is needed. Each move is announced. After «Проверить» the steps out of place are marked and every
  * step shows why it stands where it does; «Ответить ещё раз» starts from the reader's last checked
  * order, restored after a reload too, so only the marked steps need moving.
  */
@@ -443,6 +564,21 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
     );
   };
 
+  const { list, drag, start } = useStepDrag((from, to) => {
+    const step = shown[from];
+    if (step === undefined) return;
+    setDraft(
+      movedOrder(
+        shown.map((item) => item.id),
+        from,
+        to,
+      ),
+    );
+    setAnnouncement(
+      `«${step.label}»: место ${String(to + 1)} из ${String(shown.length)}`,
+    );
+  });
+
   const check = () => {
     const answer = {
       kind: "sequence" as const,
@@ -470,95 +606,128 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
       <p className="mt-3 text-sm text-muted-foreground">
         {dontKnow
           ? "Верный порядок:"
-          : "Расставь шаги кнопками «Выше» и «Ниже» или клавишами Alt + ↑ / ↓."}
+          : "Перетащи шаги за ручку слева или расставь их кнопками «Выше» и «Ниже» (Alt + ↑ / ↓)."}
       </p>
-      <ol className="mt-3 space-y-2" data-exercise-steps>
-        {shown.map((step, index) => {
-          const labelId = `${baseId}-step-${String(index)}`;
-          const reviewId = `${baseId}-review-${String(index)}`;
-          const correct =
-            answered === null || dontKnow
-              ? undefined
-              : position.get(step.id) === index;
-          return (
-            <li
-              key={step.id}
-              data-order-step
-              data-result={
-                correct === undefined
-                  ? undefined
-                  : correct
-                    ? "in-place"
-                    : "out-of-place"
-              }
-              aria-describedby={answered === null ? undefined : reviewId}
-              onKeyDown={(event) => {
-                if (answered !== null || !event.altKey) return;
-                const direction =
-                  event.key === "ArrowUp"
-                    ? "up"
-                    : event.key === "ArrowDown"
-                      ? "down"
-                      : undefined;
-                if (direction === undefined) return;
-                event.preventDefault();
-                move(index, direction);
-              }}
-              className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-2 data-[result=out-of-place]:border-[var(--callout-bad)] sm:px-3"
-            >
-              <span className="font-semibold tabular-nums">{index + 1}.</span>
-              <div id={labelId} className="min-w-0">
-                {step.content}
-              </div>
-              {answered === null ? (
-                <div className="flex gap-1">
-                  <MoveButton
-                    direction="up"
-                    labelId={labelId}
-                    disabled={index === 0}
-                    register={(element) => {
-                      if (element === null)
-                        buttons.current.delete(`${step.id}:up`);
-                      else buttons.current.set(`${step.id}:up`, element);
+      <div className="relative mt-3">
+        <ol className="space-y-2" data-exercise-steps ref={list}>
+          {shown.map((step, index) => {
+            const labelId = `${baseId}-step-${String(index)}`;
+            const reviewId = `${baseId}-review-${String(index)}`;
+            const correct =
+              answered === null || dontKnow
+                ? undefined
+                : position.get(step.id) === index;
+            return (
+              <li
+                key={step.id}
+                data-order-step
+                data-result={
+                  correct === undefined
+                    ? undefined
+                    : correct
+                      ? "in-place"
+                      : "out-of-place"
+                }
+                aria-describedby={answered === null ? undefined : reviewId}
+                onKeyDown={(event) => {
+                  if (answered !== null || !event.altKey) return;
+                  const direction =
+                    event.key === "ArrowUp"
+                      ? "up"
+                      : event.key === "ArrowDown"
+                        ? "down"
+                        : undefined;
+                  if (direction === undefined) return;
+                  event.preventDefault();
+                  move(index, direction);
+                }}
+                data-dragging={drag?.from === index ? "" : undefined}
+                style={
+                  drag?.from === index
+                    ? { transform: `translateY(${String(drag.offset)}px)` }
+                    : undefined
+                }
+                className={cn(
+                  "relative grid min-w-0 items-center gap-2 rounded-lg border border-lesson-line bg-card py-2 pr-2.5 data-[result=out-of-place]:border-[var(--callout-bad)] data-dragging:z-10 data-dragging:shadow-card sm:pr-3",
+                  answered === null
+                    ? "grid-cols-[auto_auto_minmax(0,1fr)_auto] pl-0"
+                    : "grid-cols-[auto_minmax(0,1fr)_auto] pl-2.5 sm:pl-3",
+                )}
+              >
+                {answered === null ? (
+                  <span
+                    aria-hidden="true"
+                    data-order-handle
+                    onPointerDown={(event) => {
+                      start(index, event);
                     }}
-                    onClick={() => {
-                      move(index, "up");
-                    }}
-                  />
-                  <MoveButton
-                    direction="down"
-                    labelId={labelId}
-                    disabled={index === shown.length - 1}
-                    register={(element) => {
-                      if (element === null)
-                        buttons.current.delete(`${step.id}:down`);
-                      else buttons.current.set(`${step.id}:down`, element);
-                    }}
-                    onClick={() => {
-                      move(index, "down");
-                    }}
-                  />
+                    className="-my-2 flex min-h-11 w-7 cursor-grab touch-none items-center justify-center self-stretch rounded-l-lg text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                  >
+                    <GripVertical className="size-4" />
+                  </span>
+                ) : null}
+                <span className="font-semibold tabular-nums">{index + 1}.</span>
+                <div id={labelId} className="min-w-0">
+                  {step.content}
                 </div>
-              ) : (
-                <span />
-              )}
-              {answered === null ? null : (
-                <ItemReview
-                  id={reviewId}
-                  correct={correct}
-                  verdict={correct === true ? "На месте" : "Не на месте"}
-                  hint={
-                    correct === false
-                      ? `Место этого шага: ${String((position.get(step.id) ?? 0) + 1)}`
-                      : undefined
-                  }
-                  explanation={step.explanation}
-                />
-              )}
-            </li>
-          );
-        })}
-      </ol>
+                {answered === null ? (
+                  <div className="flex gap-1">
+                    <MoveButton
+                      direction="up"
+                      labelId={labelId}
+                      disabled={index === 0}
+                      register={(element) => {
+                        if (element === null)
+                          buttons.current.delete(`${step.id}:up`);
+                        else buttons.current.set(`${step.id}:up`, element);
+                      }}
+                      onClick={() => {
+                        move(index, "up");
+                      }}
+                    />
+                    <MoveButton
+                      direction="down"
+                      labelId={labelId}
+                      disabled={index === shown.length - 1}
+                      register={(element) => {
+                        if (element === null)
+                          buttons.current.delete(`${step.id}:down`);
+                        else buttons.current.set(`${step.id}:down`, element);
+                      }}
+                      onClick={() => {
+                        move(index, "down");
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <span />
+                )}
+                {answered === null ? null : (
+                  <ItemReview
+                    id={reviewId}
+                    correct={correct}
+                    verdict={correct === true ? "На месте" : "Не на месте"}
+                    hint={
+                      correct === false
+                        ? `Место этого шага: ${String((position.get(step.id) ?? 0) + 1)}`
+                        : undefined
+                    }
+                    explanation={step.explanation}
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        {drag === null || drag.to === drag.from ? null : (
+          <span
+            aria-hidden="true"
+            data-order-drop-line
+            className="pointer-events-none absolute inset-x-0 h-0.5 -translate-y-1/2 rounded-full bg-lesson-graphite"
+            style={{ top: drag.lineTop }}
+          />
+        )}
+      </div>
       <p className="sr-only" aria-live="polite" data-order-announcement>
         {announcement}
       </p>

@@ -6,6 +6,7 @@ import type {
   RenderedBlock,
 } from "@inside/material-blocks";
 import { readerBlocks } from "@/storybook/quiz-content";
+import { chooseInSelect } from "@/storybook/select-choice";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { MaterialReaderView } from "./material-reader-view";
 
@@ -275,10 +276,7 @@ export const MatchAndOrderAnswered: Story = {
       ["Меняет код.", "Проверяющий"],
       ["Проверяет результат.", "Исполнитель"],
     ] as const)
-      await userEvent.selectOptions(
-        match.getByRole("combobox", { name: row }),
-        choice,
-      );
+      await chooseInSelect(match.getByRole("combobox", { name: row }), choice);
     await userEvent.click(match.getByRole("button", { name: "Проверить" }));
     await expect(match.getByText("Пока неверно: 1 из 3")).toBeVisible();
     await expect(match.getByText("Верный ответ: Проверяющий")).toBeVisible();
