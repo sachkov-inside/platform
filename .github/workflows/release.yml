@@ -194,6 +194,8 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.source_sha }}
           persist-credentials: false
+      - name: Install Docker Compose
+        uses: ./.github/actions/setup-docker-compose
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Install Node.js

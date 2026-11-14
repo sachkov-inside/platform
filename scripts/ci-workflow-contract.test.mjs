@@ -597,6 +597,7 @@ describe("application CI workflow contract", () => {
       assert.ok(
         [
           "./.github/actions/setup-platform",
+          "./.github/actions/setup-docker-compose",
           "./.github/workflows/foundation-recovery.yml",
         ].includes(reference),
         reference,

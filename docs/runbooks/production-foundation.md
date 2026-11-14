@@ -213,6 +213,31 @@ df -h /
 защищённые текущие и recovery-образы должны оставаться локально. Очистка не изменяет допустимое
 окно или совместимость отката.
 
+## Docker Compose
+
+Ubuntu supplies Docker Engine, Buildx and a fallback `docker-compose-v2` package. The project
+installer [install-docker-compose.sh](../../infra/production/host/install-docker-compose.sh) owns
+the active official Compose 5.7.1 plugin on Linux. CI uses the same installer. Its two architecture
+checksums are fixed before executing the download. The package-managed plugin is preserved.
+The [compatibility report](../research/2026-11-13-stack-update/compose-toolchain.md) explains why
+the bundled CI version cannot parse the runtime inspection contract.
+
+On an existing host, hold the production lock and both deployment operation locks. Record the
+current plugin path, version and checksum, and save any previous file at the destination root-only.
+Run only the installer from the checked source, without repeating provisioning:
+
+```bash
+sudo bash infra/production/host/install-docker-compose.sh /usr/local/lib/docker/cli-plugins
+docker compose version
+docker info --format '{{json .ClientInfo.Plugins}}'
+```
+
+Require the active Compose version to match 5.7.1 and the selected path to be the installed file.
+Check current Compose models and container identities before any service operation. Installing
+the plugin does not restart Docker or containers. To return, restore the saved destination file,
+or remove only the new override when it did not previously exist, then verify the packaged plugin
+is selected. Do not overwrite `/usr/libexec/docker/cli-plugins/docker-compose` or change credentials.
+
 ## Отдельное обновление Caddy baseline
 
 Для изменения протоколов на уже работающем сервере не запускайте provisioning повторно.

@@ -46,7 +46,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='inside-release-broker-') as directory:
         path = Path(directory) / 'compose.production.yaml'
         path.write_bytes(compose)
-        result = subprocess.run(['docker', 'compose', '--project-name', 'inside-release', '--file', str(path),
+        result = subprocess.run(['docker', 'compose', '--env-file', '/dev/null', '--project-name', 'inside-release', '--file', str(path),
                                  'config', '--no-interpolate', '--no-env-resolution', '--no-consistency', '--format', 'json'],
                                 check=True, capture_output=True, text=True, timeout=30)
     config = json.loads(result.stdout)

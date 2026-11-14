@@ -4,6 +4,11 @@
 BASE_SHA: `e514406f9ec774b6ede2524b9638480617c44a24`, актуальный origin/main при начале работы.
 Worktree `2117-update-entire-stack`, ветка `chore/2117-update-stack`, основной PR #2136.
 
+Основной PR слит 14.11.2026 в `07ed26b7b67693cc475b2202208ab1c6639ae8dc`.
+Владелец разрешил merge, публикацию и production, операция ведётся в [production lock #2144](https://github.com/sachkov-inside/platform/issues/2144).
+Публикация Platform обнаружила несовместимость Compose на runner; отдельное исправление и
+фактические версии описаны в [Compose toolchain](compose-toolchain.md).
+
 ## Зависимости и источники
 
 [inputs.json](inputs.json) перечисляет Docker/Compose/CI inputs до и после по файлам.

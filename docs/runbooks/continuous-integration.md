@@ -105,7 +105,8 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
 | `compose-production` | Requires both isolated cold/cache runtime proofs and the reusable native foundation recovery workflow. Recovery runs for foundation/toolchain changes; release calls without a path comparison run the complete proof |
 
-`.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
+`.github/actions/setup-platform` owns the shared setup: the checked official Docker Compose plugin,
+pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact
 Playwright version. `setup-node` caches the pnpm package store. A separate exact-key cache retains
 pnpm's registry metadata and policy-bound lockfile verification records; pnpm itself checks whether

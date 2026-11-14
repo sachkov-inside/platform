@@ -84,6 +84,8 @@ jobs:
         with:
           ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
+      - name: Install Docker Compose
+        uses: ./.github/actions/setup-docker-compose
       - name: Run admission and ownership contracts
         run: |
           python3 -B -m unittest discover -s scripts -p test_foundation_recovery_proof.py
@@ -202,6 +204,8 @@ jobs:
         with:
           ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
+      - name: Install Docker Compose
+        uses: ./.github/actions/setup-docker-compose
       - name: Check resource ownership and failure cases
         run: python3 -B scripts/test_broker_upgrade_proof.py
       - name: Build the real application AMQP client
