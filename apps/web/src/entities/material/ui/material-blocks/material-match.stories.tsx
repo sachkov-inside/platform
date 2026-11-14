@@ -1,3 +1,4 @@
+import { expectCalmDisabledCheck } from "@/storybook/exercise-actions";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { useState } from "react";
@@ -106,9 +107,9 @@ export const Empty: Story = {
     await expect(
       match.getByRole("combobox", { name: /Нарезка документов на чанки/u }),
     ).toHaveTextContent("Выбери ответ");
-    await expect(
+    await expectCalmDisabledCheck(
       match.getByRole("button", { name: "Проверить" }),
-    ).toBeDisabled();
+    );
     await pick(canvasElement, correct.slice(0, 2));
     await expect(
       match.getByRole("button", { name: "Проверить" }),

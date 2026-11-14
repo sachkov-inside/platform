@@ -31,6 +31,7 @@ import {
   type ItemResult,
 } from "./exercise-feedback";
 import { MaterialExerciseFrame } from "./material-exercise-frame";
+import { exerciseCheckButtonClass } from "./exercise-check-button";
 
 /** What the author wrote for «Не знаю». */
 interface DontKnow {
@@ -93,7 +94,7 @@ function ExerciseActions({
     <div className="mt-3 flex flex-wrap gap-2">
       <Button
         type="button"
-        className={buttonClass}
+        className={cn(buttonClass, exerciseCheckButtonClass)}
         disabled={!canCheck}
         onClick={onCheck}
       >

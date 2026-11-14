@@ -14,6 +14,8 @@ import {
   type ItemResult,
 } from "./exercise-feedback";
 import { MaterialExerciseFrame } from "./material-exercise-frame";
+import { exerciseCheckButtonClass } from "./exercise-check-button";
+import { cn } from "@/shared/lib/utils";
 
 /** Prepared reading content shared by Reader and its stories. */
 export interface MaterialQuizPresentation {
@@ -338,7 +340,7 @@ function MultipleChoice({
         <div className="mt-3 flex flex-wrap gap-2">
           <Button
             type="button"
-            className="min-h-11"
+            className={cn("min-h-11", exerciseCheckButtonClass)}
             disabled={selected.length === 0}
             onClick={() => {
               onCheck(selected);

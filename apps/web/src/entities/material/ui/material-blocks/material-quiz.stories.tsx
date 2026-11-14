@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expectCalmDisabledCheck } from "@/storybook/exercise-actions";
 import { expect, userEvent, within } from "storybook/test";
 import { useState } from "react";
 import {
@@ -67,9 +68,9 @@ type Story = StoryObj<typeof meta>;
 export const MultipleEmpty: Story = {
   play: async ({ canvasElement }) => {
     const quiz = within(canvasElement);
-    await expect(
+    await expectCalmDisabledCheck(
       quiz.getByRole("button", { name: "Проверить" }),
-    ).toBeDisabled();
+    );
     await expect(
       quiz.getByText("Несколько ответов", { exact: true }),
     ).toBeVisible();
