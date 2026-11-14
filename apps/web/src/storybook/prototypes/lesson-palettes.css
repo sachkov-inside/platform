@@ -1,0 +1,210 @@
+/*
+ * Prototype for #2118: three lesson palettes. Each class redefines only the tokens globals.css
+ * gives the lesson (`--lesson-*`, `--code-*`, `--sidebar*`, callout inks, accent and link
+ * colours); the few structural rules below (borders in C, local tokens of dark blocks in B) are
+ * what a chosen palette would add to globals.css next to the existing `[data-callout]` and
+ * `[data-material-exercise]` rules. Light only: the public shell is light.
+ */
+
+.lesson-palette-header {
+  background: var(--card);
+}
+
+/* ------------------------------------------------------------------ A · Графит */
+
+.lesson-palette-a {
+  --muted: #f1f2f4;
+  --muted-foreground: #565b63;
+  --body-muted: #43474e;
+  --reader-foreground: #5f646c;
+  --border: rgb(31 33 37 / 10%);
+  --input: rgb(31 33 37 / 14%);
+  /* Markers and the quote bar turn graphite; the orange stays for links and focus. */
+  --accent: #3a3d43;
+  --action: #b83a1d;
+  --action-hover: #8f2c16;
+  --ring: #c7461e;
+  --lesson-surface: #f2f3f5;
+  --lesson-line: #dfe2e7;
+  --lesson-sand: #e9ebef;
+  --lesson-sand-line: #d3d7de;
+  --lesson-ink: #3a3e45;
+  --lesson-graphite: #1f2125;
+  --lesson-graphite-foreground: #ffffff;
+  --lesson-graphite-hover: #3a3d42;
+  --lesson-reply: #e9ebee;
+  --lesson-stack: #e4e6ea;
+  --callout-note: #4c5159;
+  --callout-tip: oklch(0.46 0.07 230);
+  --callout-warning: oklch(0.5 0.11 70);
+  --callout-example: oklch(0.47 0.09 260);
+  --callout-task: oklch(0.46 0.1 330);
+  --sidebar: #1c1e22;
+  --sidebar-foreground: #e4e6e9;
+  --sidebar-accent: #33363c;
+  --sidebar-accent-foreground: #ffffff;
+  --code-foreground: #e4e6e9;
+  --code-token-keyword: #ff9466;
+  --code-token-string: #b7d3a8;
+  --code-token-string-expression: #b7d3a8;
+  --code-token-comment: #8e939b;
+  --code-token-function: #9cc6ff;
+  --code-token-constant: #f3b08e;
+  --code-token-parameter: #e4e6e9;
+  --code-token-punctuation: #adb2ba;
+  --code-token-link: #9cc6ff;
+  --code-token-inserted: #b7d3a8;
+  --code-token-deleted: #ff9a8a;
+  --code-token-changed: #f3c98e;
+}
+
+/* ------------------------------------------------------------------ B · Тёмные блоки */
+
+.lesson-palette-b {
+  --muted: #f1f2f4;
+  --muted-foreground: #565b63;
+  --border: rgb(31 33 37 / 10%);
+  --lesson-surface: #f2f3f5;
+  --lesson-line: #e0e3e8;
+  --lesson-sand: #eaecf0;
+  --lesson-sand-line: #d5d9e0;
+  --lesson-ink: #3d4148;
+  --lesson-graphite: #1d1f23;
+  --lesson-graphite-foreground: #ffffff;
+  --lesson-graphite-hover: #393c42;
+  --lesson-reply: #eceef1;
+  --lesson-stack: #e5e7eb;
+  --callout-note: #4c5159;
+  --sidebar: #1d1f23;
+  --sidebar-foreground: #e4e6e9;
+  --sidebar-accent: #33363c;
+  --sidebar-accent-foreground: #ffffff;
+  --code-foreground: #e4e6e9;
+  --code-token-keyword: #ff9466;
+  --code-token-string: #b7d3a8;
+  --code-token-string-expression: #b7d3a8;
+  --code-token-comment: #8e939b;
+  --code-token-function: #9cc6ff;
+  --code-token-constant: #f3b08e;
+  --code-token-parameter: #e4e6e9;
+  --code-token-punctuation: #adb2ba;
+  --code-token-link: #9cc6ff;
+}
+
+/*
+ * Interactive blocks are dark cards: the tokens their contents read are redefined inside them,
+ * so production classes (text-foreground, bg-card, bg-primary…) turn light-on-dark by themselves.
+ */
+.lesson-palette-b
+  :is([data-material-exercise], [data-lesson-finish], [data-lesson-term-deck]) {
+  --lesson-surface: #1d1f23;
+  --foreground: #f1f2f4;
+  --card: #2b2e34;
+  --card-foreground: #f1f2f4;
+  --background: #25282d;
+  --popover: #2b2e34;
+  --popover-foreground: #f1f2f4;
+  --muted: #2b2e34;
+  --muted-foreground: #a9aeb6;
+  --secondary: #2b2e34;
+  --secondary-foreground: #f1f2f4;
+  --primary: #f1f2f4;
+  --primary-foreground: #1d1f23;
+  --border: rgb(255 255 255 / 13%);
+  --input: rgb(255 255 255 / 20%);
+  --lesson-line: #363940;
+  --lesson-sand: #33363d;
+  --lesson-ink: #ffb08a;
+  --lesson-graphite: #f1f2f4;
+  --lesson-graphite-foreground: #1d1f23;
+  --lesson-graphite-hover: #d6d8dc;
+  --lesson-reply: #2b2e34;
+  --lesson-stack: #2b2e34;
+  --callout-good: oklch(0.78 0.13 150);
+  --callout-bad: oklch(0.74 0.15 27);
+  --action: #ffb08a;
+  --action-hover: #ffd0b8;
+  --ring: #ef6b3c;
+  --elevation-card: 0 0.75rem 2rem -1rem rgb(0 0 0 / 60%);
+  color: var(--foreground);
+}
+
+/* ------------------------------------------------------------------ C · Контраст */
+
+.lesson-palette-c {
+  --foreground: #17181b;
+  --muted: #f4f5f6;
+  --muted-foreground: #4b4f56;
+  --body-muted: #3a3d43;
+  --reader-foreground: #4b4f56;
+  --border: rgb(23 24 27 / 22%);
+  --input: rgb(23 24 27 / 35%);
+  --accent: #17181b;
+  --action: #17181b;
+  --action-hover: #000000;
+  --ring: #17181b;
+  --lesson-surface: #ffffff;
+  /* The frame of a block; dividers inside blocks stay a quiet line. */
+  --lesson-frame: #2f3237;
+  --lesson-line: #d3d6db;
+  --lesson-sand: #f4f5f6;
+  --lesson-sand-line: #d3d6db;
+  --lesson-ink: #17181b;
+  --lesson-graphite: #17181b;
+  --lesson-graphite-foreground: #ffffff;
+  --lesson-graphite-hover: #34373c;
+  --lesson-reply: #f4f5f6;
+  --lesson-stack: #f4f5f6;
+  /* Kinds of callouts differ by icon and label only; colour belongs to correct / incorrect. */
+  --callout-note: #17181b;
+  --callout-tip: #17181b;
+  --callout-warning: #17181b;
+  --callout-example: #17181b;
+  --callout-definition: #17181b;
+  --callout-task: #17181b;
+  --callout-good: #2f7a43;
+  --callout-bad: #b3261e;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #4b4f56;
+  --sidebar-accent: #eceef0;
+  --sidebar-accent-foreground: #17181b;
+  --code-foreground: #17181b;
+  --code-token-keyword: #17181b;
+  --code-token-string: #2f6a3a;
+  --code-token-string-expression: #2f6a3a;
+  --code-token-comment: #6a6e75;
+  --code-token-function: #1f4f8a;
+  --code-token-constant: #8a3414;
+  --code-token-parameter: #17181b;
+  --code-token-punctuation: #4b4f56;
+  --code-token-link: #1f4f8a;
+  --code-token-inserted: #2f6a3a;
+  --code-token-deleted: #b3261e;
+  --code-token-changed: #8a5a00;
+}
+
+.lesson-palette-c
+  :is(
+    [data-callout],
+    [data-material-exercise],
+    [data-lesson-finish],
+    [data-lesson-term-deck],
+    [data-material-block="codeBlock"]
+  ) {
+  border: 1px solid var(--lesson-frame);
+}
+
+.lesson-palette-c :is([data-callout="good"], [data-callout="bad"]) {
+  border-color: var(--callout-ink);
+  background: var(--card);
+}
+
+.lesson-palette-c [data-lesson-term-card] {
+  box-shadow: none;
+}
+
+.lesson-palette-c [data-lesson-term-side] > * {
+  border: 1px solid var(--lesson-frame);
+  border-radius: 1rem;
+  box-shadow: none;
+}
