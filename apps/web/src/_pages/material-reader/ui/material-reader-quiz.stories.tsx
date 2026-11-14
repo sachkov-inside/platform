@@ -271,7 +271,8 @@ export const MatchAndOrderAnswered: Story = {
     );
     for (const [row, choice] of [
       ["Пишет план изменений.", "Планировщик"],
-      ["Меняет код.", "Исполнитель"],
+      // Pairs are one to one, so the wrong answer swaps two choices.
+      ["Меняет код.", "Проверяющий"],
       ["Проверяет результат.", "Исполнитель"],
     ] as const)
       await userEvent.selectOptions(
@@ -279,7 +280,7 @@ export const MatchAndOrderAnswered: Story = {
         choice,
       );
     await userEvent.click(match.getByRole("button", { name: "Проверить" }));
-    await expect(match.getByText("Пока неверно: 2 из 3")).toBeVisible();
+    await expect(match.getByText("Пока неверно: 1 из 3")).toBeVisible();
     await expect(match.getByText("Верный ответ: Проверяющий")).toBeVisible();
     await expect(match.getByText("Проверяет проверяющий.")).toBeVisible();
   },

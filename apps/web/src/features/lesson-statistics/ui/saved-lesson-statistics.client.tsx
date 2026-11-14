@@ -27,9 +27,6 @@ export function SavedLessonStatistics({
   const query = useQuery({
     queryKey: ["lesson-statistics", materialId],
     queryFn: () => readLessonStatisticsOperation.send({ materialId }),
-    // Author-only data is not kept after the tab closes, so another account never sees it.
-    gcTime: 0,
-    staleTime: 0,
     retry: false,
   });
   const exercises = useMemo(() => documentExercises(document), [document]);
