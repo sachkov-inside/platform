@@ -92,8 +92,18 @@ export function LessonTermDeck({ terms }: LessonTermDeckProps) {
     const track = trackRef.current;
     if (track === null) return;
     let frame = 0;
+    // The edge where more cards wait fades into the sand; the start and the end stay sharp.
+    const edges = () => {
+      const more = track.scrollWidth - track.clientWidth;
+      if (track.scrollLeft > 1) track.dataset["moreBefore"] = "";
+      else delete track.dataset["moreBefore"];
+      if (more > 1 && track.scrollLeft < more - 1)
+        track.dataset["moreAfter"] = "";
+      else delete track.dataset["moreAfter"];
+    };
     const settle = () => {
       frame = 0;
+      edges();
       const nearest = visibleSlide(track);
       if (pendingRef.current !== null) {
         if (nearest !== pendingRef.current) return;
@@ -177,6 +187,7 @@ export function LessonTermDeck({ terms }: LessonTermDeckProps) {
     track.addEventListener("pointercancel", onPointerEnd);
     track.addEventListener("click", onClickCapture, true);
     const measure = () => {
+      edges();
       setScrollable(track.scrollWidth > track.clientWidth + 1);
     };
     measure();
@@ -221,10 +232,10 @@ export function LessonTermDeck({ terms }: LessonTermDeckProps) {
     <section
       aria-labelledby={headingId}
       aria-roledescription="карусель"
-      className="mt-12"
+      className="mt-12 rounded-2xl bg-lesson-surface pt-3 sm:pt-4"
       data-lesson-term-deck
     >
-      <div className="flex min-h-11 items-center justify-between gap-2">
+      <div className="flex min-h-11 items-center justify-between gap-2 px-4 sm:px-6">
         <h2
           className="text-sm font-medium text-muted-foreground"
           id={headingId}
@@ -232,7 +243,7 @@ export function LessonTermDeck({ terms }: LessonTermDeckProps) {
           Термины урока
         </h2>
         {scrollable ? (
-          <div className="-my-1 flex items-center">
+          <div className="-my-1 -mr-2 flex items-center">
             <button
               aria-label="Предыдущий термин"
               className={arrowButton}
@@ -259,7 +270,7 @@ export function LessonTermDeck({ terms }: LessonTermDeckProps) {
         ) : null}
       </div>
       <div
-        className="relative flex snap-x snap-mandatory scroll-px-1 gap-3 overflow-x-auto overscroll-x-contain px-1 pt-2 pb-6 select-none [scrollbar-width:none] motion-safe:scroll-smooth data-dragging:cursor-grabbing data-dragging:snap-none data-dragging:scroll-auto [&::-webkit-scrollbar]:hidden"
+        className="lesson-term-track relative flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto overscroll-x-contain px-4 pt-2 pb-6 select-none sm:scroll-px-6 sm:px-6 [scrollbar-width:none] motion-safe:scroll-smooth data-dragging:cursor-grabbing data-dragging:snap-none data-dragging:scroll-auto [&::-webkit-scrollbar]:hidden"
         data-lesson-term-track
         onKeyDown={onKeyDown}
         ref={trackRef}
