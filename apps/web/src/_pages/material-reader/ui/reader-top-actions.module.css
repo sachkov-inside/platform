@@ -108,8 +108,12 @@
     white-space: nowrap;
   }
 }
+/*
+ * At phone width «Изучено» keeps its word: an empty circle alone says nothing. With «Дальше» at
+ * the right edge, the arrow alone stands for «Назад» to make room.
+ */
 @container reader-actions (width <= 390px) {
-  .reading :is(a, button) > span:last-child {
+  .panel:has(.forward) .return a > span {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -124,6 +128,19 @@
   }
   .panel :is(a, button) {
     padding-inline: 0.5rem;
+  }
+}
+/* Only a panel too narrow for the word drops it; the button keeps its name and tooltip. */
+@container reader-actions (width <= 340px) {
+  .panel:has(.forward) .reading :is(a, button) > span:last-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 @container reader-actions (width <= 290px) {

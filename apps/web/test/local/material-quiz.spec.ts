@@ -99,13 +99,13 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
   await page.getByRole("button", { name: "Понятно", exact: true }).click();
   await expect(quiz).not.toContainText("RAW ANSWER KEY");
   await expect(quiz).not.toContainText("Неверно.");
-  const first = quiz.getByRole("button", { name: /1\. Форма написана/u });
+  const first = quiz.getByRole("button", { name: /1 Форма написана/u });
   await first.focus();
   await page.keyboard.press("Enter");
   await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
   await quiz.getByRole("button", { name: "Ответить ещё раз" }).click();
   await expect(first).toBeFocused();
-  const second = quiz.getByRole("button", { name: /2\. После отправки/u });
+  const second = quiz.getByRole("button", { name: /2 После отправки/u });
   await second.focus();
   await page.keyboard.press("Space");
   await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();

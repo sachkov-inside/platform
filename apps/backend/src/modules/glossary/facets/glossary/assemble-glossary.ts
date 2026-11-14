@@ -1,8 +1,4 @@
 import {
-  readGlossaryTermMarks,
-  setGlossaryTermMark,
-} from "../../features/mark-glossary-terms/mark-glossary-terms.js";
-import {
   introducedGlossaryTerms,
   listGlossaryTerms,
   lookupGlossaryTerms,
@@ -20,8 +16,6 @@ export function assembleGlossary(
     lookup: (ids) => lookupGlossaryTerms(dependencies, ids),
     introducedIn: (sourceIds) =>
       introducedGlossaryTerms(dependencies, sourceIds),
-    readMarks: (query) => readGlossaryTermMarks(dependencies, query),
-    setMark: (command) => setGlossaryTermMark(dependencies, command),
   };
   return Object.freeze(glossary);
 }

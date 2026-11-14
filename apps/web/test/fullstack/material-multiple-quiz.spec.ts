@@ -100,6 +100,12 @@ test("multiple-answer quiz survives real document admission, published Reader an
       .check();
   await quiz.getByRole("button", { name: "Проверить" }).click();
   await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();
+  // Every option keeps its explanation, folded under «Почему».
+  await expect(quiz.getByText("Объяснение teams")).toBeHidden();
+  await quiz
+    .locator("[data-quiz-option]", { hasText: "Возможность teams" })
+    .getByText("Почему", { exact: true })
+    .click();
   await expect(quiz.getByText("Объяснение teams")).toBeVisible();
   await quiz.getByRole("button", { name: "Ответить ещё раз" }).click();
   await expect(quiz.getByText("Правильно", { exact: true })).toHaveCount(0);

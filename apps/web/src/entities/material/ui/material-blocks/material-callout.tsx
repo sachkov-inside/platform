@@ -12,8 +12,8 @@ const codeBlockFill =
   "[&>[data-material-block=codeBlock]]:mx-[calc(-1*var(--callout-pad-x))] [&>[data-material-block=codeBlock]]:mt-4 [&>[data-material-block=codeBlock]]:rounded-none [&>[data-material-block=codeBlock]:last-child]:mb-[calc(-1*var(--callout-pad-b))] [&>[data-material-block=codeBlock]:last-child]:rounded-b-[calc(var(--radius-xl)-1px)]";
 
 /**
- * Врезка урока. Вид виден словом, значком и цветом; цвет берётся из токена вида, а не из
- * собственной палитры блока.
+ * Врезка урока. Вид виден словом, значком и цветом подписи на общей песочной подложке без рамки
+ * (вариант 1A); цвет берётся из токена вида, а не из собственной палитры блока.
  * Temporary semantic UI for #1196.
  * Replace through #1278 after Storybook acceptance.
  */
@@ -26,7 +26,7 @@ export function MaterialCallout({
 }: {
   readonly children?: ReactNode;
   readonly collapse?: "collapsed" | "expanded" | undefined;
-  /** Карточка термина из словаря курса: своя песочная поверхность урока (#2118). */
+  /** Карточка термина из словаря курса (#2118); выглядит как «Определение» автора. */
   readonly term?: boolean;
   readonly title?: string | undefined;
   readonly tone: CalloutTone;
@@ -37,7 +37,7 @@ export function MaterialCallout({
   if (collapse !== undefined) {
     return (
       <details
-        className="group mt-6 rounded-xl border text-[0.9375rem] leading-7"
+        className="group mt-6 rounded-xl border text-lesson"
         data-callout={tone}
         data-material-block="callout"
         open={collapse === "expanded"}
@@ -66,7 +66,7 @@ export function MaterialCallout({
   return (
     <aside
       aria-label={title === undefined ? label : `${label}: ${title}`}
-      className={`mt-8 rounded-xl border px-(--callout-pad-x) pt-4 pb-(--callout-pad-b) text-[0.9375rem] leading-7 [--callout-pad-b:--spacing(4)] [--callout-pad-x:--spacing(5)] sm:[--callout-pad-x:--spacing(6)] ${codeBlockFill}`}
+      className={`mt-8 rounded-xl border px-(--callout-pad-x) pt-4 pb-(--callout-pad-b) text-lesson [--callout-pad-b:--spacing(4)] [--callout-pad-x:--spacing(5)] sm:[--callout-pad-x:--spacing(6)] ${codeBlockFill}`}
       data-callout={tone}
       data-callout-term={term ? "" : undefined}
       data-material-block="callout"

@@ -55,7 +55,7 @@ export type MaterialReaderResult =
       readonly body: readonly ReaderBlock[];
       /** Термины словаря, которые упоминает тело; определения читаются вместе с ним. */
       readonly glossaryTerms: readonly GlossaryTerm[];
-      /** Колода «Термины урока»: термины, которые урок вводит впервые. */
+      /** «Термины урока»: термины, которые урок вводит впервые, для карусели карточек. */
       readonly lessonTerms: readonly GlossaryTerm[];
       readonly primaryVideo: PrimaryVideoPresentation | null;
     }

@@ -1,7 +1,7 @@
 "use client";
 
 import { checkExerciseAnswer } from "@inside/material-blocks";
-import { ChevronDown, ChevronUp, GripVertical, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -21,15 +21,17 @@ import {
 } from "@/shared/ui/select";
 import {
   useExerciseAnswer,
-  type ExerciseAnswerRecord,
   type ExerciseAnswerState,
 } from "../../model/exercise-answers.client";
 import {
   ExerciseDontKnowReview,
-  ExerciseVerdict,
-  ResultIcon,
+  ExerciseVerdictBar,
+  ItemExplanation,
+  ItemResultMark,
+  type ItemResult,
 } from "./exercise-feedback";
 import { MaterialExerciseFrame } from "./material-exercise-frame";
+import { exerciseCheckButtonClass } from "./exercise-check-button";
 
 /** What the author wrote for «Не знаю». */
 interface DontKnow {
@@ -75,47 +77,24 @@ export interface MaterialOrderPresentation extends ExercisePresentation {
 
 const buttonClass = "min-h-11 px-2.5 text-sm sm:px-3";
 
-/**
- * Buttons under a checked or unchecked exercise. «Начать заново» and «Ответить ещё раз» clear only
- * the shown answer: the recorded attempt stays, and text the answer opened stays open (#2122).
- */
+/** «Проверить» and «Не знаю» under an exercise not checked yet. */
 function ExerciseActions({
   state,
   canCheck,
   onCheck,
   dontKnow,
-  retryLabel,
-  onRetry,
 }: {
   readonly state: ExerciseAnswerState;
   readonly canCheck: boolean;
   readonly onCheck: () => void;
   readonly dontKnow: boolean;
-  readonly retryLabel: string;
-  readonly onRetry: () => void;
 }) {
-  if (state.current !== null)
-    return (
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          type="button"
-          className={buttonClass}
-          variant="ghost"
-          onClick={() => {
-            onRetry();
-            state.retry();
-          }}
-        >
-          <RotateCcw aria-hidden="true" className="size-4" />
-          {retryLabel}
-        </Button>
-      </div>
-    );
+  if (state.current !== null) return null;
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       <Button
         type="button"
-        className={buttonClass}
+        className={cn(buttonClass, exerciseCheckButtonClass)}
         disabled={!canCheck}
         onClick={onCheck}
       >
@@ -137,71 +116,79 @@ function ExerciseActions({
   );
 }
 
-/** Verdict of one row or step, the right answer when it differs, and the author's explanation. */
-function ItemReview({
-  id,
-  correct,
-  verdict,
-  hint,
-  explanation,
+/**
+ * The verdict bar of a checked exercise. «Начать заново» and «Ответить ещё раз» clear only the
+ * shown answer: the recorded attempt stays, and text the answer opened stays open (#2122).
+ */
+function Feedback({
+  feedbackId,
+  state,
+  score,
+  dontKnow,
+  retryLabel,
+  onRetry,
 }: {
-  readonly id: string;
-  /** Undefined after «Не знаю»: nothing was answered, so nothing is right or wrong. */
-  readonly correct: boolean | undefined;
-  readonly verdict: string | undefined;
-  readonly hint: string | undefined;
-  readonly explanation: ReactNode;
+  readonly feedbackId: string;
+  readonly state: ExerciseAnswerState;
+  readonly score: string;
+  readonly dontKnow: DontKnow | undefined;
+  readonly retryLabel: string;
+  readonly onRetry: () => void;
 }) {
+  const answered = state.current;
   return (
-    <div id={id} className="col-span-full mt-1 text-sm" data-item-review>
-      {correct === undefined ? null : (
-        <p
-          className="flex items-center gap-1 font-semibold"
-          style={{
-            color: correct ? "var(--callout-good)" : "var(--callout-bad)",
-          }}
-        >
-          <ResultIcon correct={correct} />
-          {verdict}
-        </p>
-      )}
-      {hint === undefined ? null : <p className="font-semibold">{hint}</p>}
-      <div className="mt-1">{explanation}</div>
-    </div>
+    <ExerciseVerdictBar
+      feedbackId={feedbackId}
+      answered={answered}
+      score={score}
+      retryLabel={retryLabel}
+      onRetry={() => {
+        onRetry();
+        state.retry();
+      }}
+    >
+      {answered?.result === "dontKnow" && dontKnow !== undefined ? (
+        <ExerciseDontKnowReview dontKnow={dontKnow} />
+      ) : null}
+    </ExerciseVerdictBar>
   );
 }
 
-function Feedback({
-  feedbackId,
-  answered,
-  score,
-  dontKnow,
+/**
+ * The quiet line under a checked row or step: the right answer when it differs, after a «→» that a
+ * screen reader hears as words, and the author's explanation folded under «Почему».
+ */
+function ItemReview({
+  id,
+  answer,
+  answerSpeech,
+  explanation,
 }: {
-  readonly feedbackId: string;
-  readonly answered: ExerciseAnswerRecord | null;
-  readonly score: string;
-  readonly dontKnow: DontKnow | undefined;
+  readonly id: string;
+  readonly answer: string | undefined;
+  /** What a screen reader hears in place of the arrow. */
+  readonly answerSpeech: string;
+  readonly explanation: ReactNode;
 }) {
   return (
-    <div aria-live="polite" id={feedbackId}>
-      {answered === null ? null : (
-        <div
-          className="mt-3 border-t border-border pt-3"
-          data-exercise-feedback
-        >
-          <ExerciseVerdict result={answered.result} score={score} />
-          {answered.result === "dontKnow" && dontKnow !== undefined ? (
-            <ExerciseDontKnowReview dontKnow={dontKnow} />
-          ) : null}
-        </div>
+    <div className="col-span-full min-w-0" data-item-review>
+      {answer === undefined ? null : (
+        <p id={id} className="text-sm text-muted-foreground">
+          <span aria-hidden="true">→ </span>
+          <span className="sr-only">{answerSpeech}</span>
+          {answer}
+        </p>
       )}
+      <ItemExplanation>{explanation}</ItemExplanation>
     </div>
   );
 }
 
 /**
- * «Сопоставь»: a drop-down list at each row. After «Проверить» every row shows its verdict and
- * explanation; «Начать заново» empties the lists. Answers go to the exercise answer source.
+ * «Сопоставь»: a drop-down list at each row. After «Проверить» each row shows the chosen answer as
+ * plain text, turns green or red, names the right answer after «→» when it differs and folds its
+ * explanation under «Почему»; «Начать заново» empties the lists. Answers go to the exercise answer
+ * source.
  */
 export function MaterialMatch(props: MaterialMatchPresentation) {
   const { id, mode, rows, choices } = props;
@@ -251,15 +238,11 @@ export function MaterialMatch(props: MaterialMatchPresentation) {
       context={props.context}
       question={props.question}
     >
-      <p className="mt-3 text-sm text-muted-foreground">
-        {mode === "groups"
-          ? "Выбери группу для каждой строки. В одну группу может попасть несколько строк."
-          : "Выбери ответ для каждой строки. Каждый ответ подходит только к одной строке."}
-      </p>
-      <ol className="mt-3 space-y-2" data-exercise-rows>
+      <ol className="mt-4 space-y-2" data-exercise-rows>
         {rows.map((row, index) => {
           const rowId = `${baseId}-row-${String(index)}`;
           const reviewId = `${baseId}-review-${String(index)}`;
+          const markId = `${baseId}-mark-${String(index)}`;
           const choice = picked.get(row.id);
           // Pairs are one to one: a choice another row holds waits until that row lets it go.
           const taken =
@@ -270,66 +253,85 @@ export function MaterialMatch(props: MaterialMatchPresentation) {
                   ),
                 )
               : new Set<string>();
-          const correct =
-            answered === null || answered.result === "dontKnow"
+          // After «Не знаю» the row shows its key, tinted like a missed answer.
+          const result: ItemResult | undefined =
+            answered === null
               ? undefined
-              : choice === row.answerId;
+              : answered.result === "dontKnow"
+                ? "missed"
+                : choice === row.answerId
+                  ? "correct"
+                  : "incorrect";
+          const answerLabel = labels.get(row.answerId) ?? "";
           return (
             <li
               key={row.id}
               data-match-row
-              data-result={
-                correct === undefined
-                  ? undefined
-                  : correct
-                    ? "correct"
-                    : "incorrect"
-              }
-              className="grid min-w-0 gap-2 rounded-lg border border-lesson-line bg-card px-2.5 py-2 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,16rem)] sm:items-center sm:px-3"
+              data-result={result}
+              className={cn(
+                "grid min-w-0 gap-x-3 rounded-lg border border-lesson-line bg-card px-3 py-2.5 sm:px-4",
+                result === undefined
+                  ? "gap-y-2 sm:grid-cols-[minmax(0,1fr)_minmax(9rem,16rem)] sm:items-center"
+                  : "grid-cols-[minmax(0,1fr)_auto] items-start gap-y-0.5",
+              )}
             >
               <div id={rowId} className="min-w-0">
                 {row.content}
               </div>
-              <Select
-                disabled={answered !== null}
-                value={choice ?? ""}
-                onValueChange={(value) => {
-                  const next = new Map(draft);
-                  next.set(row.id, value);
-                  setDraft(next);
-                }}
-              >
-                <SelectTrigger
-                  aria-labelledby={rowId}
-                  aria-describedby={answered === null ? undefined : reviewId}
-                  data-match-choice
-                  className="h-auto rounded-lg border-lesson-line bg-background py-2 text-base font-normal sm:text-sm disabled:opacity-100 [&>span:first-child]:whitespace-normal"
+              {result === undefined ? (
+                <Select
+                  value={choice ?? ""}
+                  onValueChange={(value) => {
+                    const next = new Map(draft);
+                    next.set(row.id, value);
+                    setDraft(next);
+                  }}
                 >
-                  <SelectValue placeholder="Выбери ответ" />
-                </SelectTrigger>
-                <SelectContent className="max-w-[min(var(--radix-select-content-available-width),calc(100vw-2rem))]">
-                  {choices.map((item) => (
-                    <SelectItem
-                      key={item.id}
-                      value={item.id}
-                      disabled={taken.has(item.id)}
-                      className="text-base font-normal sm:text-sm"
-                    >
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {answered === null ? null : (
+                  <SelectTrigger
+                    aria-labelledby={rowId}
+                    data-match-choice
+                    className="h-auto rounded-lg border-lesson-line bg-background py-2 text-lesson font-normal [&>span:first-child]:whitespace-normal"
+                  >
+                    <SelectValue placeholder="Выбери ответ" />
+                  </SelectTrigger>
+                  <SelectContent className="max-w-[min(var(--radix-select-content-available-width),calc(100vw-2rem))]">
+                    {choices.map((item) => (
+                      <SelectItem
+                        key={item.id}
+                        value={item.id}
+                        disabled={taken.has(item.id)}
+                        className="text-lesson font-normal"
+                      >
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="flex max-w-[45vw] items-center gap-2 sm:max-w-64">
+                  <span
+                    data-match-choice
+                    className="min-w-0 rounded-md bg-background/70 px-2 py-0.5 text-sm"
+                  >
+                    <span className="sr-only">
+                      {result === "missed" ? "Верный ответ: " : "Ответ: "}
+                    </span>
+                    {result === "missed"
+                      ? answerLabel
+                      : choice === undefined
+                        ? "Без ответа"
+                        : (labels.get(choice) ?? "Без ответа")}
+                  </span>
+                  <span id={markId} className="shrink-0">
+                    <ItemResultMark result={result} />
+                  </span>
+                </span>
+              )}
+              {result === undefined ? null : (
                 <ItemReview
                   id={reviewId}
-                  correct={correct}
-                  verdict={correct === true ? "Верно" : "Неверно"}
-                  hint={
-                    correct === true
-                      ? undefined
-                      : `Верный ответ: ${labels.get(row.answerId) ?? ""}`
-                  }
+                  answer={result === "incorrect" ? answerLabel : undefined}
+                  answerSpeech="Верный ответ: "
                   explanation={row.explanation}
                 />
               )}
@@ -342,16 +344,16 @@ export function MaterialMatch(props: MaterialMatchPresentation) {
         canCheck={rows.every((row) => draft.has(row.id))}
         onCheck={check}
         dontKnow={props.dontKnow !== undefined}
+      />
+      <Feedback
+        feedbackId={feedbackId}
+        state={state}
+        score={`${String(rightRows.length)} из ${String(rows.length)}`}
+        dontKnow={props.dontKnow}
         retryLabel="Начать заново"
         onRetry={() => {
           setDraft(new Map());
         }}
-      />
-      <Feedback
-        feedbackId={feedbackId}
-        answered={answered}
-        score={`${String(rightRows.length)} из ${String(rows.length)}`}
-        dontKnow={props.dontKnow}
       />
     </MaterialExerciseFrame>
   );
@@ -509,9 +511,11 @@ function useStepDrag(onDrop: (from: number, to: number) => void) {
 
 /**
  * «Расставь по порядку»: the reader drags a step by its handle, or moves it with «Выше» and «Ниже»
- * or Alt + ↑ / ↓, so no drag is needed. Each move is announced. After «Проверить» the steps out of place are marked and every
- * step shows why it stands where it does; «Ответить ещё раз» starts from the reader's last checked
- * order, restored after a reload too, so only the marked steps need moving.
+ * or Alt + ↑ / ↓, so no drag is needed; the buttons show on hover and focus. Each move is
+ * announced. After «Проверить» a step in place turns green, a step out of place turns red with its
+ * right place as «→ 2», and every step folds why it stands there under «Почему»; «Ответить ещё раз»
+ * starts from the reader's last checked order, restored after a reload too, so only the marked
+ * steps need moving.
  */
 export function MaterialOrder(props: MaterialOrderPresentation) {
   const { id, steps } = props;
@@ -603,13 +607,21 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
       context={props.context}
       question={props.question}
     >
-      <p className="mt-3 text-sm text-muted-foreground">
-        {dontKnow
-          ? "Верный порядок:"
-          : "Перетащи шаги за ручку слева или расставь их кнопками «Выше» и «Ниже» (Alt + ↑ / ↓)."}
-      </p>
-      <div className="relative mt-3">
-        <ol className="space-y-2" data-exercise-steps ref={list}>
+      {dontKnow ? (
+        <p className="mt-4 text-sm text-muted-foreground">Верный порядок</p>
+      ) : answered === null ? (
+        <p className="sr-only" id={`${baseId}-how`}>
+          Шаги переставляются кнопками «Выше» и «Ниже» или клавишами Alt + ↑ /
+          ↓.
+        </p>
+      ) : null}
+      <div className="relative mt-4">
+        <ol
+          className="space-y-2"
+          data-exercise-steps
+          ref={list}
+          aria-describedby={answered === null ? `${baseId}-how` : undefined}
+        >
           {shown.map((step, index) => {
             const labelId = `${baseId}-step-${String(index)}`;
             const reviewId = `${baseId}-review-${String(index)}`;
@@ -617,6 +629,7 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
               answered === null || dontKnow
                 ? undefined
                 : position.get(step.id) === index;
+            const place = (position.get(step.id) ?? 0) + 1;
             return (
               <li
                 key={step.id}
@@ -628,7 +641,7 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
                       ? "in-place"
                       : "out-of-place"
                 }
-                aria-describedby={answered === null ? undefined : reviewId}
+                aria-describedby={correct === undefined ? undefined : reviewId}
                 onKeyDown={(event) => {
                   if (answered !== null || !event.altKey) return;
                   const direction =
@@ -648,10 +661,10 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
                     : undefined
                 }
                 className={cn(
-                  "relative grid min-w-0 items-center gap-2 rounded-lg border border-lesson-line bg-card py-2 pr-2.5 data-[result=out-of-place]:border-[var(--callout-bad)] data-dragging:z-10 data-dragging:shadow-card sm:pr-3",
+                  "relative grid min-w-0 gap-x-2.5 rounded-lg border border-lesson-line bg-card py-2 pr-1.5 data-dragging:z-10 data-dragging:shadow-card",
                   answered === null
-                    ? "grid-cols-[auto_auto_minmax(0,1fr)_auto] pl-0"
-                    : "grid-cols-[auto_minmax(0,1fr)_auto] pl-2.5 sm:pl-3",
+                    ? "grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center pl-0"
+                    : "grid-cols-[auto_minmax(0,1fr)_auto] items-start py-2.5 pl-3 pr-3 sm:pl-4 sm:pr-4",
                 )}
               >
                 {answered === null ? (
@@ -666,12 +679,17 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
                     <GripVertical className="size-4" />
                   </span>
                 ) : null}
-                <span className="font-semibold tabular-nums">{index + 1}.</span>
-                <div id={labelId} className="min-w-0">
-                  {step.content}
+                <span className="tabular-nums text-muted-foreground">
+                  {index + 1}
+                </span>
+                <div className="min-w-0">
+                  <div id={labelId}>{step.content}</div>
+                  {answered === null ? null : (
+                    <ItemExplanation>{step.explanation}</ItemExplanation>
+                  )}
                 </div>
                 {answered === null ? (
-                  <div className="flex gap-1">
+                  <div className="flex" data-order-moves>
                     <MoveButton
                       direction="up"
                       labelId={labelId}
@@ -699,21 +717,24 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
                       }}
                     />
                   </div>
-                ) : (
+                ) : correct === undefined ? (
                   <span />
-                )}
-                {answered === null ? null : (
-                  <ItemReview
+                ) : correct ? (
+                  <span id={reviewId} className="mt-1">
+                    <ItemResultMark result="correct" speech="На месте" />
+                  </span>
+                ) : (
+                  <span
                     id={reviewId}
-                    correct={correct}
-                    verdict={correct === true ? "На месте" : "Не на месте"}
-                    hint={
-                      correct === false
-                        ? `Место этого шага: ${String((position.get(step.id) ?? 0) + 1)}`
-                        : undefined
-                    }
-                    explanation={step.explanation}
-                  />
+                    data-item-mark="incorrect"
+                    data-order-place={place}
+                    className="mt-0.5 whitespace-nowrap text-sm font-semibold tabular-nums"
+                  >
+                    <span aria-hidden="true">→ {place}</span>
+                    <span className="sr-only">
+                      Не на месте, место этого шага: {place}
+                    </span>
+                  </span>
                 )}
               </li>
             );
@@ -736,6 +757,12 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
         canCheck
         onCheck={check}
         dontKnow={props.dontKnow !== undefined}
+      />
+      <Feedback
+        feedbackId={`${baseId}-feedback`}
+        state={state}
+        score={`на месте ${String(inPlace.length)} из ${String(steps.length)}`}
+        dontKnow={props.dontKnow}
         retryLabel="Ответить ещё раз"
         onRetry={() => {
           // The last checked order, saved or just given, is where answering again starts. After
@@ -746,12 +773,6 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
               : null,
           );
         }}
-      />
-      <Feedback
-        feedbackId={`${baseId}-feedback`}
-        answered={answered}
-        score={`на месте ${String(inPlace.length)} из ${String(steps.length)}`}
-        dontKnow={props.dontKnow}
       />
     </MaterialExerciseFrame>
   );

@@ -149,17 +149,21 @@ export const Correct: Story = {
   play: async ({ canvasElement }) => {
     const quiz = quizOf(canvasElement);
     await userEvent.click(
-      quiz.getByRole("button", { name: /2\. После отправки/u }),
+      quiz.getByRole("button", { name: /2 После отправки/u }),
     );
     await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();
-    await expect(quiz.getByText(/Верно\. Критерий/u)).toBeVisible();
+    // The chosen option's explanation is folded under «Почему».
+    const explanation = quiz.getByText(/Верно\. Критерий/u);
+    await expect(explanation).not.toBeVisible();
+    await userEvent.click(quiz.getByText("Почему", { exact: true }));
+    await expect(explanation).toBeVisible();
   },
 };
 export const Incorrect: Story = {
   play: async ({ canvasElement }) => {
     const quiz = quizOf(canvasElement);
     await userEvent.click(
-      quiz.getByRole("button", { name: /1\. Форма написана/u }),
+      quiz.getByRole("button", { name: /1 Форма написана/u }),
     );
     await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
   },
@@ -168,7 +172,14 @@ export const DontKnow: Story = {
   play: async ({ canvasElement }) => {
     const quiz = quizOf(canvasElement);
     await userEvent.click(quiz.getByRole("button", { name: "Не знаю" }));
-    await expect(quiz.getByText("Правильный ответ:")).toBeVisible();
+    // The key turns green as an answer not given; the other options stay neutral.
+    const key = quiz
+      .getByRole("button", { name: /2 После отправки/u })
+      .closest("[data-quiz-option]");
+    await expect(key).toHaveAttribute("data-result", "missed");
+    await expect(
+      canvasElement.querySelectorAll("[data-quiz-option][data-result]"),
+    ).toHaveLength(1);
     await expect(
       quiz.getByRole("link", { name: "Повторить раздел" }),
     ).toHaveAttribute("href", "#проверяемый-результат");
@@ -178,8 +189,8 @@ export const DontKnow: Story = {
 export const AnswerAgain: Story = {
   play: async ({ canvasElement }) => {
     const quiz = quizOf(canvasElement);
-    const wrong = quiz.getByRole("button", { name: /1\. Форма написана/u });
-    const correct = quiz.getByRole("button", { name: /2\. После отправки/u });
+    const wrong = quiz.getByRole("button", { name: /1 Форма написана/u });
+    const correct = quiz.getByRole("button", { name: /2 После отправки/u });
     await userEvent.click(wrong);
     const wrongOption = wrong.closest("[data-quiz-option]");
     if (wrongOption === null) throw new Error("Wrong option is missing");
@@ -264,7 +275,7 @@ export const MatchAndOrderAnswered: Story = {
       "Код идёт после описания.",
       "Проверка завершает работу.",
     ])
-      await expect(order.getByText(explanation)).toBeVisible();
+      await expect(order.getByText(explanation)).toBeInTheDocument();
 
     // Answered last, so its rows stay on screen: axe accepts a label only while it is visible.
     const match = within(
@@ -279,8 +290,10 @@ export const MatchAndOrderAnswered: Story = {
       await chooseInSelect(match.getByRole("combobox", { name: row }), choice);
     await userEvent.click(match.getByRole("button", { name: "Проверить" }));
     await expect(match.getByText("Пока неверно: 1 из 3")).toBeVisible();
-    await expect(match.getByText("Верный ответ: Проверяющий")).toBeVisible();
-    await expect(match.getByText("Проверяет проверяющий.")).toBeVisible();
+    await expect(
+      match.getByText("Проверяющий", { selector: "[data-item-review] > p" }),
+    ).toHaveTextContent("→ Верный ответ: Проверяющий");
+    await expect(match.getByText("Проверяет проверяющий.")).toBeInTheDocument();
   },
 };
 
@@ -354,7 +367,7 @@ export const RichOptionContent: Story = {
       }),
     ).toBeVisible();
     await userEvent.click(
-      canvas.getByRole("button", { name: /1\. Форма написана/u }),
+      canvas.getByRole("button", { name: /1 Форма написана/u }),
     );
     await expect(
       canvas.getByText("Пока неверно", { exact: true }),
@@ -399,8 +412,9 @@ export const CompactLongChoicesMobile: Story = {
     for (const option of quiz.querySelectorAll<HTMLElement>(
       "[data-quiz-option]",
     )) {
+      // Exercises read at the lesson's one text size (owner, 14.11.2026, variant 2A).
       await expect(Number.parseFloat(getComputedStyle(option).fontSize)).toBe(
-        14,
+        17,
       );
       await expect(option.scrollWidth).toBeLessThanOrEqual(option.clientWidth);
       await expect(
@@ -411,7 +425,7 @@ export const CompactLongChoicesMobile: Story = {
       document.documentElement.clientWidth,
     );
     await userEvent.click(
-      within(quiz).getByRole("button", { name: /1\. Форма написана/u }),
+      within(quiz).getByRole("button", { name: /1 Форма написана/u }),
     );
     await expect(
       within(quiz).getByText("Пока неверно", { exact: true }),
@@ -484,6 +498,13 @@ export const MultipleAnswerReader: Story = {
       await userEvent.click(checkbox);
     await userEvent.click(quiz.getByRole("button", { name: "Проверить" }));
     await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();
-    await expect(quiz.getByText("Начинаем интеграции с GitHub.")).toBeVisible();
+    await expect(
+      quiz.getByText("Начинаем интеграции с GitHub."),
+    ).toBeInTheDocument();
+    await expect(
+      canvasElement.querySelectorAll(
+        '[data-quiz-option][data-result="correct"]',
+      ),
+    ).toHaveLength(4);
   },
 };

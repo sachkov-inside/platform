@@ -63,6 +63,13 @@ function shownOrder(canvasElement: HTMLElement): string[] {
   );
 }
 
+/** The colour of every step after a check, read from its `data-result`. */
+function stepResults(canvasElement: HTMLElement): readonly (string | null)[] {
+  return [
+    ...canvasElement.querySelectorAll<HTMLElement>("[data-order-step]"),
+  ].map((step) => step.getAttribute("data-result"));
+}
+
 /** Moves steps with «Выше» until the page shows them in the given order. */
 async function arrange(canvasElement: HTMLElement, order: readonly string[]) {
   const exercise = within(canvasElement);
@@ -92,6 +99,7 @@ export const Shuffled: Story = {
     await expect(
       exercise.getByRole("button", { name: "Проверить" }),
     ).toBeEnabled();
+    await expect(exercise.queryByText(/Перетащи шаги/u)).toBeNull();
   },
 };
 
@@ -124,7 +132,14 @@ export const MoveWithKeyboard: Story = {
     const order = shownOrder(canvasElement);
     const last = order[3] ?? "";
     const label = steps.find((step) => step.id === last)?.label ?? "";
+    const moves =
+      canvasElement.querySelectorAll<HTMLElement>("[data-order-moves]")[3];
+    if (moves === undefined) throw new Error("Missing buttons");
+    // With a mouse the buttons stay quiet until the step is hovered or holds the focus.
+    if (matchMedia("(hover: hover)").matches)
+      await expect(getComputedStyle(moves).opacity).toBe("0");
     exercise.getByRole("button", { name: `Выше ${label}` }).focus();
+    await waitFor(() => expect(getComputedStyle(moves).opacity).toBe("1"));
     await userEvent.keyboard("{Enter}");
     await expect(shownOrder(canvasElement)[2]).toBe(last);
     await userEvent.keyboard("{Alt>}{ArrowUp}{ArrowUp}{/Alt}");
@@ -253,17 +268,23 @@ export const Correct: Story = {
     await expect(
       exercise.getByText("Правильно", { exact: true }),
     ).toBeVisible();
+    await expect(stepResults(canvasElement)).toEqual(Array(4).fill("in-place"));
     await expect(
-      exercise.getAllByText("На месте", { exact: true }),
-    ).toHaveLength(4);
-    await expect(
-      exercise.getByText("Поиск идёт по заполненному индексу."),
-    ).toBeVisible();
+      exercise.getAllByText("На месте", { exact: true })[0],
+    ).toHaveClass("sr-only");
+    const explanation = exercise.getByText(
+      "Поиск идёт по заполненному индексу.",
+    );
+    await expect(explanation).not.toBeVisible();
+    const why = exercise.getAllByText("Почему", { exact: true })[3];
+    if (why === undefined) throw new Error("Missing «Почему»");
+    await userEvent.click(why);
+    await expect(explanation).toBeVisible();
     await expect(exercise.queryByRole("button", { name: /^Выше/u })).toBeNull();
   },
 };
 
-/** Steps out of place are marked, with the place they belong to; every step is explained. */
+/** Steps out of place turn red with the place they belong to; every step folds its explanation. */
 export const OutOfPlace: Story = {
   play: async ({ canvasElement }) => {
     const exercise = within(canvasElement);
@@ -272,14 +293,28 @@ export const OutOfPlace: Story = {
     await expect(
       exercise.getByText("Пока неверно: на месте 2 из 4", { exact: true }),
     ).toBeVisible();
+    await expect(stepResults(canvasElement)).toEqual([
+      "out-of-place",
+      "out-of-place",
+      "in-place",
+      "in-place",
+    ]);
+    // The right place is a small «→ 2» for the eye and a sentence for a screen reader.
+    const places = [
+      ...canvasElement.querySelectorAll<HTMLElement>("[data-order-place]"),
+    ];
+    await expect(places.map((place) => place.dataset["orderPlace"])).toEqual([
+      "2",
+      "1",
+    ]);
+    await expect(places[1]).toHaveTextContent(
+      "→ 1Не на месте, место этого шага: 1",
+    );
     await expect(
-      canvasElement.querySelectorAll('[data-result="out-of-place"]'),
-    ).toHaveLength(2);
-    await expect(
-      exercise.getByText("Место этого шага: 1", { exact: true }),
-    ).toBeVisible();
+      exercise.queryByText("Не на месте", { exact: true }),
+    ).toBeNull();
     for (const step of steps)
-      await expect(exercise.getByText(step.explanation)).toBeVisible();
+      await expect(exercise.getByText(step.explanation)).toBeInTheDocument();
   },
 };
 
@@ -322,7 +357,8 @@ export const DontKnow: Story = {
     const exercise = within(canvasElement);
     await userEvent.click(exercise.getByRole("button", { name: "Не знаю" }));
     await expect(exercise.getByText("Не знаю · без оценки")).toBeVisible();
-    await expect(exercise.getByText("Верный порядок:")).toBeVisible();
+    await expect(exercise.getByText("Верный порядок")).toBeVisible();
+    await expect(stepResults(canvasElement)).toEqual(Array(4).fill(null));
     await expect(shownOrder(canvasElement)).toEqual(
       steps.map((step) => step.id),
     );

@@ -5,6 +5,7 @@ import type { Route } from "next";
 import { MaterialBodyView, type RenderedBlock } from "@/entities/material";
 import { projectHarnessIllustrations } from "@/features/project-harness";
 import {
+  MaterialFigureCaption,
   MaterialResponsiveImage,
   type MaterialImageSource,
 } from "@/features/material-assets";
@@ -227,11 +228,7 @@ function TaskImage({
         imageVariants={imageVariants}
         preview={false}
       />
-      {block.caption === undefined ? null : (
-        <figcaption className="px-2 py-2 text-center text-sm text-muted-foreground">
-          {block.caption}
-        </figcaption>
-      )}
+      <MaterialFigureCaption caption={block.caption} zoomable />
     </figure>
   );
 }

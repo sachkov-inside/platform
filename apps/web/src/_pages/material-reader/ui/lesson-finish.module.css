@@ -1,0 +1,4 @@
+/* «Изучено» keeps the 44 px surface of the panel it replaces, also on phones. */
+.study :is(a, button) {
+  min-height: 44px;
+}

@@ -2,8 +2,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
+import { z } from "zod";
 import {
   readerBlocksSchema,
+  renderMaterialBlocks,
   renderedBlockSchema,
 } from "@inside/material-blocks";
 import { convertMarkdown } from "./markdown.mjs";
@@ -111,6 +113,39 @@ test("soft line breaks merge adjacent equal-mark text without dropping author wo
       JSON.stringify(materialDocumentSchemaV1.nodeFromJSON(doc).toJSON()),
     ),
     doc,
+  );
+});
+
+test("hard line breaks become line text the document schema and the reader both accept", () => {
+  // Two trailing spaces and a trailing backslash are CommonMark hard breaks. The material schema
+  // has no hard break node, so the import keeps the author's words apart as a soft line break.
+  for (const markdown of [
+    "One line  \nsecond **bold**  \nthird.",
+    "One line\\\nsecond **bold**\\\nthird.",
+  ]) {
+    const doc = convert(markdown);
+    assert.deepEqual(doc.content[0]?.content, [
+      { type: "text", text: "One line\nsecond " },
+      { type: "text", text: "bold", marks: [{ type: "bold" }] },
+      { type: "text", text: "\nthird." },
+    ]);
+    assert.doesNotThrow(() =>
+      renderMaterialBlocks(z.array(z.json()).parse(doc.content)),
+    );
+  }
+  const [, quiz] = contentExerciseBlocks();
+  assert.equal(quiz?.kind, "quiz");
+  const snapshot = convertMarkdown("Text", {
+    ...options,
+    readerBlocks: [
+      { kind: "markdown", markdown: "## Раздел\n\nBefore  \nthe quiz.\n" },
+      { ...quiz, questionMarkdown: "Which step  \nfails?" },
+    ],
+  });
+  materialDocumentSchemaV1.nodeFromJSON(snapshot.doc).check();
+  assert.match(
+    JSON.stringify(snapshot.doc),
+    /"text":"Which step"\},\{"kind":"text","marks":\[\],"text":"\\n"\}/u,
   );
 });
 

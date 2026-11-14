@@ -809,17 +809,6 @@ model GlossaryTerm {
   @@schema("glossary")
 }
 
-model GlossaryTermMark {
-  accountId String   @map("account_id") @db.Uuid
-  termId    String   @map("term_id")
-  mark      String
-  markedAt  DateTime @map("marked_at") @db.Timestamptz
-
-  @@id([accountId, termId], map: "glossary_term_marks_primary")
-  @@map("term_marks")
-  @@schema("glossary")
-}
-
 /// Exercise Attempts (#2121). The partial unique index `exercise_attempts_one_first` lives in
 /// migration 0124; Prisma cannot describe it.
 model ExerciseAttempt {

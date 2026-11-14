@@ -217,7 +217,7 @@ test("accepted Reader actions fit desktop, tablet and phone with the same naviga
     await expect(
       page.getByRole("heading", { name: "Урок 5", exact: true }),
     ).toBeVisible();
-    // The end of the lesson keeps one step navigation: the bottom action panel.
+    // The end of the lesson keeps one step navigation: «Дальше» in the lesson finish card.
     await expect(
       page.getByRole("navigation", { name: "Шаги курса", exact: true }),
     ).toHaveCount(0);
@@ -229,20 +229,27 @@ test("accepted Reader actions fit desktop, tablet and phone with the same naviga
       await panel.scrollIntoViewIfNeeded();
       const back = panel.getByRole("link", { name: "Назад", exact: true });
       const next = panel.getByRole("link", { name: "Дальше", exact: true });
-      await expect(back).toHaveAttribute("href", programme);
       await expect(next).toHaveAttribute(
         "href",
         `/materials/reference-lesson-6?from=${encodeURIComponent(programme)}`,
       );
       await expect(
-        panel.getByRole("link", { name: "Сохранить", exact: true }),
-      ).toBeVisible();
-      await expect(
         panel.getByRole("link", { name: "Изучено", exact: true }),
       ).toBeVisible();
-      await expect(
-        panel.getByRole("button", { name: /^Поделиться материалом/u }),
-      ).toBeVisible();
+      const save = panel.getByRole("link", { name: "Сохранить", exact: true });
+      const share = panel.getByRole("button", {
+        name: /^Поделиться материалом/u,
+      });
+      if (position === "top") {
+        await expect(back).toHaveAttribute("href", programme);
+        await expect(save).toBeVisible();
+        await expect(share).toBeVisible();
+      } else {
+        // «Финиш урока» (owner decision 14.11.2026): return, bookmark and share stay above.
+        await expect(back).toHaveCount(0);
+        await expect(save).toHaveCount(0);
+        await expect(share).toHaveCount(0);
+      }
       const geometry = await panel.evaluate((el) => ({
         client: el.clientWidth,
         scroll: el.scrollWidth,

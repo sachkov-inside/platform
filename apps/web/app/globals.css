@@ -104,6 +104,20 @@
   --font-body:
     "Manrope Variable", "Manrope Fallback", ui-sans-serif, sans-serif;
   --font-utility: "JetBrains Mono Variable", ui-monospace, monospace;
+  /* Code sits on the graphite `--sidebar` surface in both themes: sand text, orange keywords. */
+  --code-foreground: #ede4d3;
+  --code-token-keyword: #f08a5d;
+  --code-token-string: #b9cc8f;
+  --code-token-string-expression: #b9cc8f;
+  --code-token-comment: #a9a59a;
+  --code-token-function: #e8bb7a;
+  --code-token-constant: #f2b48c;
+  --code-token-parameter: #ede4d3;
+  --code-token-punctuation: #c9c1b1;
+  --code-token-link: #e8bb7a;
+  --code-token-inserted: #b9cc8f;
+  --code-token-deleted: #f08a7a;
+  --code-token-changed: #e8bb7a;
   --theme-is-dark: 0;
   color-scheme: light;
 }
@@ -231,6 +245,13 @@
 }
 
 @theme inline {
+  /*
+   * Шкала урока (решение владельца 14.11.2026, вариант 2A): один размер чтения 17 px для абзацев,
+   * врезок, упражнений и таблиц. Заголовки: h1 34 / 26, h2 26 / 22, h3 21 / 19, h4 18 / 17
+   * (широкий / узкий экран).
+   */
+  --text-lesson: 1.0625rem;
+  --text-lesson--line-height: 1.65;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -505,6 +526,55 @@ body:has(
 }
 
 /*
+ * Карусель «Термины урока»: первая карточка один раз слегка поворачивается, подсказывая, что её
+ * можно перевернуть. Анимация без fill-mode, поэтому после неё работает обычный переворот.
+ */
+@keyframes lesson-term-flip-hint {
+  0%,
+  100% {
+    transform: rotateY(0);
+  }
+
+  40% {
+    transform: rotateY(-18deg);
+  }
+
+  75% {
+    transform: rotateY(5deg);
+  }
+}
+
+/*
+ * Дорожка карусели «Термины урока» на песочной подложке: край, за которым ещё есть карточки,
+ * растворяется в песке. В начале и в конце края чёткие.
+ */
+.lesson-term-track {
+  --lesson-term-fade-start: 0px;
+  --lesson-term-fade-end: 0px;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--lesson-term-fade-start),
+    #000 calc(100% - var(--lesson-term-fade-end)),
+    transparent 100%
+  );
+}
+
+.lesson-term-track[data-more-before] {
+  --lesson-term-fade-start: 1.75rem;
+}
+
+.lesson-term-track[data-more-after] {
+  --lesson-term-fade-end: 1.75rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lesson-term-flip-hint {
+    animation: lesson-term-flip-hint 1100ms var(--motion-ease-out) 700ms 1;
+  }
+}
+
+/*
  * Приглашение к оплате: по чёрной кнопке слева направо проходит мягкий блик. Он привлекает
  * внимание, не меняя цвет кнопки и не двигая её саму, поэтому соседние элементы не смещаются.
  */
@@ -545,9 +615,19 @@ body:has(
  * цвет вида задан здесь один раз. Поверхность и рамка выводятся из того же токена: собственных
  * цветов у врезки нет.
  */
+/*
+ * Врезки урока (решение владельца 14.11.2026, вариант 1A): одна непрозрачная песочная подложка
+ * без рамки. Вид виден значком и цветом подписи; свой оттенок фона держат только «Хорошо» и
+ * «Плохо», где цвет и есть смысл.
+ */
 [data-callout] {
   --callout-ink: var(--callout-note);
-  border-color: color-mix(in oklab, var(--callout-ink) 28%, var(--border));
+  border-color: transparent;
+  background: var(--lesson-surface);
+}
+
+[data-callout="good"],
+[data-callout="bad"] {
   background: color-mix(in oklab, var(--callout-ink) 10%, var(--card));
 }
 
@@ -566,37 +646,74 @@ body:has(
 [data-callout="bad"] {
   --callout-ink: var(--callout-bad);
 }
-[data-callout="definition"] {
-  --callout-ink: var(--callout-definition);
-}
 [data-callout="task"] {
   --callout-ink: var(--callout-task);
 }
 
 /*
- * Карточка «Определение» из словаря курса (#2118): непрозрачный песок, а не смесь цвета вида
- * с фоном. Обычная врезка «Определение» автора остаётся в цвете своего вида.
+ * «Определение» автора и карточка термина из словаря курса (#2118) выглядят одинаково:
+ * непрозрачный песок и подпись цветом `--lesson-ink`.
  */
-[data-callout][data-callout-term] {
+[data-callout="definition"] {
   --callout-ink: var(--lesson-ink);
-  border-color: var(--lesson-sand-line);
   background: var(--lesson-sand);
 }
 
-/* Упражнение лежит на непрозрачной тёплой подложке; результат узнаётся также по значку и тексту. */
+/*
+ * Упражнение лежит на непрозрачной тёплой подложке без рамки. После проверки вариант, строка или
+ * шаг окрашены: зелёный значит верно (или верный ответ, который не выбран), красный значит неверно.
+ * Текст остаётся цвета текста, цвет несут фон, рамка и маленький значок; программа чтения экрана
+ * слышит смысл скрытыми словами рядом со значком.
+ */
 [data-material-exercise] {
   background: var(--lesson-surface);
-  border-color: var(--lesson-line);
 }
-[data-quiz-option][data-result="correct"] {
+[data-material-exercise] [data-result="correct"],
+[data-material-exercise] [data-result="missed"],
+[data-material-exercise] [data-result="in-place"] {
+  --item-ink: var(--callout-good);
+}
+[data-material-exercise] [data-result="incorrect"],
+[data-material-exercise] [data-result="out-of-place"] {
+  --item-ink: var(--callout-bad);
+}
+[data-material-exercise] [data-result] {
+  border-color: color-mix(in oklab, var(--item-ink) 45%, var(--card));
+  background: color-mix(in oklab, var(--item-ink) 11%, var(--card));
+}
+[data-material-exercise] [data-result="missed"] {
+  border-style: dashed;
+}
+[data-material-exercise] [data-result] [data-item-mark] {
+  color: var(--item-ink);
+}
+
+/* Итог проверки: одна окрашенная строка с кнопкой «Ответить ещё раз». */
+[data-exercise-verdict="correct"] {
   color: var(--callout-good);
-  border-color: color-mix(in oklab, var(--callout-good) 55%, var(--border));
-  background: color-mix(in oklab, var(--callout-good) 12%, var(--card));
+  background: color-mix(in oklab, var(--callout-good) 14%, var(--card));
 }
-[data-quiz-option][data-result="incorrect"] {
+[data-exercise-verdict="incorrect"] {
   color: var(--callout-bad);
-  border-color: color-mix(in oklab, var(--callout-bad) 55%, var(--border));
-  background: color-mix(in oklab, var(--callout-bad) 10%, var(--card));
+  background: color-mix(in oklab, var(--callout-bad) 12%, var(--card));
+}
+[data-exercise-verdict="dontKnow"] {
+  background: var(--lesson-reply);
+}
+
+/*
+ * «Выше / Ниже» у шага не шумят: при наведении мыши они видны, когда указатель над шагом или фокус
+ * внутри него. Клавиатура и программа чтения экрана достают их всегда; на сенсорном экране они видны.
+ */
+@media (hover: hover) {
+  [data-order-moves] {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+  }
+  [data-order-step]:hover [data-order-moves],
+  [data-order-step]:focus-within [data-order-moves] {
+    opacity: 1;
+  }
 }
 
 ::selection {

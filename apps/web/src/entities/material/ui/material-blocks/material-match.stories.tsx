@@ -1,3 +1,4 @@
+import { expectCalmDisabledCheck } from "@/storybook/exercise-actions";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { useState } from "react";
@@ -65,6 +66,29 @@ function page(element: HTMLElement) {
 
 const choose = chooseInSelect;
 
+/** The colour of every row after a check, read from its `data-result`. */
+function rowResults(canvasElement: HTMLElement): readonly (string | null)[] {
+  return [
+    ...canvasElement.querySelectorAll<HTMLElement>("[data-match-row]"),
+  ].map((row) => row.getAttribute("data-result"));
+}
+
+/** The plain answer a checked row shows in place of its list. */
+function rowChoices(canvasElement: HTMLElement): readonly string[] {
+  return [
+    ...canvasElement.querySelectorAll<HTMLElement>(
+      "[data-match-row] [data-match-choice]",
+    ),
+  ].map((choice) => choice.textContent);
+}
+
+/** The quiet «→ answer» lines of wrong rows, as a screen reader hears them. */
+function rightAnswers(canvasElement: HTMLElement): readonly string[] {
+  return [
+    ...canvasElement.querySelectorAll<HTMLElement>("[data-item-review] > p"),
+  ].map((line) => line.textContent);
+}
+
 async function pick(canvasElement: HTMLElement, labels: readonly string[]) {
   const match = within(canvasElement);
   const selects = match.getAllByRole("combobox");
@@ -83,9 +107,9 @@ export const Empty: Story = {
     await expect(
       match.getByRole("combobox", { name: /Нарезка документов на чанки/u }),
     ).toHaveTextContent("Выбери ответ");
-    await expect(
+    await expectCalmDisabledCheck(
       match.getByRole("button", { name: "Проверить" }),
-    ).toBeDisabled();
+    );
     await pick(canvasElement, correct.slice(0, 2));
     await expect(
       match.getByRole("button", { name: "Проверить" }),
@@ -102,14 +126,25 @@ export const Correct: Story = {
     await pick(canvasElement, correct);
     await userEvent.click(match.getByRole("button", { name: "Проверить" }));
     await expect(match.getByText("Правильно", { exact: true })).toBeVisible();
-    await expect(
-      match.getByText("Чанки готовят заранее, при индексации."),
-    ).toBeVisible();
-    await expect(match.getAllByText("Верно", { exact: true })).toHaveLength(3);
+    await expect(rowResults(canvasElement)).toEqual([
+      "correct",
+      "correct",
+      "correct",
+    ]);
+    // The explanation is folded under «Почему» and opens with a click.
+    const explanation = match.getByText(
+      "Чанки готовят заранее, при индексации.",
+    );
+    await expect(explanation).not.toBeVisible();
+    const why = match.getAllByText("Почему", { exact: true })[0];
+    if (why === undefined) throw new Error("Missing «Почему»");
+    await userEvent.click(why);
+    await expect(explanation).toBeVisible();
+    await expect(rightAnswers(canvasElement)).toEqual([]);
   },
 };
 
-/** Each row gets its own verdict and explanation; a wrong row names the right answer. */
+/** Each row turns green or red and folds its explanation; a wrong row names the right answer. */
 export const PartlyWrong: Story = {
   play: async ({ canvasElement }) => {
     const match = within(canvasElement);
@@ -118,15 +153,25 @@ export const PartlyWrong: Story = {
     await expect(
       match.getByText("Пока неверно: 1 из 3", { exact: true }),
     ).toBeVisible();
+    await expect(rowResults(canvasElement)).toEqual([
+      "incorrect",
+      "incorrect",
+      "correct",
+    ]);
+    await expect(rightAnswers(canvasElement)).toEqual([
+      "→ Верный ответ: Индексация",
+      "→ Верный ответ: Извлечение",
+    ]);
     await expect(
-      match.getByText("Верный ответ: Индексация", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      match.getByText("Верный ответ: Извлечение", { exact: true }),
-    ).toBeVisible();
-    await expect(match.getAllByText("Верно", { exact: true })).toHaveLength(1);
-    for (const select of match.getAllByRole("combobox"))
-      await expect(select).toBeDisabled();
+      match.queryByText(/^Неверно$/u, { ignore: ".sr-only" }),
+    ).toBeNull();
+    // A checked row shows the chosen answer as plain text, not a list.
+    await expect(match.queryAllByRole("combobox")).toHaveLength(0);
+    await expect(rowChoices(canvasElement)).toEqual([
+      "Ответ: Извлечение",
+      "Ответ: Индексация",
+      "Ответ: Генерация ответа",
+    ]);
   },
 };
 
@@ -221,9 +266,7 @@ export const Groups: Story = {
   },
   play: async ({ canvasElement }) => {
     const match = within(canvasElement);
-    await expect(
-      match.getByText(/В одну группу может попасть несколько строк/u),
-    ).toBeVisible();
+    await expect(match.queryByText(/Выбери группу/u)).toBeNull();
     const [first, second] = match.getAllByRole("combobox");
     if (first === undefined || second === undefined)
       throw new Error("Missing row");
@@ -239,12 +282,18 @@ export const Groups: Story = {
     await expect(
       match.getByText("Пока неверно: 3 из 4", { exact: true }),
     ).toBeVisible();
-    await expect(
-      match.getByText("Верный ответ: На каждый запрос", { exact: true }),
-    ).toBeVisible();
+    await expect(rowResults(canvasElement)).toEqual([
+      "correct",
+      "correct",
+      "correct",
+      "incorrect",
+    ]);
+    await expect(rightAnswers(canvasElement)).toEqual([
+      "→ Верный ответ: На каждый запрос",
+    ]);
     await expect(
       match.getByText("Поиск идёт по каждому вопросу."),
-    ).toBeVisible();
+    ).not.toBeVisible();
   },
 };
 
@@ -259,9 +308,17 @@ export const DontKnow: Story = {
     const match = within(canvasElement);
     await userEvent.click(match.getByRole("button", { name: "Не знаю" }));
     await expect(match.getByText("Не знаю · без оценки")).toBeVisible();
-    await expect(
-      match.getByText("Верный ответ: Индексация", { exact: true }),
-    ).toBeVisible();
+    // The key shows in each row, tinted as an answer not given; nothing reads as wrong.
+    await expect(rowResults(canvasElement)).toEqual([
+      "missed",
+      "missed",
+      "missed",
+    ]);
+    await expect(rowChoices(canvasElement)).toEqual([
+      "Верный ответ: Индексация",
+      "Верный ответ: Извлечение",
+      "Верный ответ: Генерация ответа",
+    ]);
     await expect(match.queryByText("Неверно", { exact: true })).toBeNull();
     await expect(
       match.getByRole("link", { name: "Повторить раздел" }),
@@ -311,12 +368,12 @@ export const PastAnswer: Story = {
     await expect(
       match.getByText("Упражнение обновлено, ответь ещё раз"),
     ).toBeVisible();
-    await expect(
-      match.getByRole("combobox", { name: /Нарезка документов/u }),
-    ).toHaveTextContent("Индексация");
-    await expect(
-      match.getByRole("combobox", { name: /Поиск ближайших/u }),
-    ).toHaveTextContent("Выбери ответ");
+    // A choice removed in the new version reads as an empty answer.
+    await expect(rowChoices(canvasElement)).toEqual([
+      "Ответ: Индексация",
+      "Ответ: Без ответа",
+      "Ответ: Генерация ответа",
+    ]);
     await expect(
       match.getByText("Пока неверно: 2 из 3", { exact: true }),
     ).toBeVisible();
@@ -394,14 +451,17 @@ export const ChooseWithKeyboard: Story = {
   },
 };
 
-/** On a phone the open list stays inside the screen and keeps 16 px text. */
+/**
+ * On a phone the open list stays inside the screen. Its text keeps the lesson's 17 px reading size
+ * (owner, 14.11.2026, variant 2A), above the 16 px a phone needs to skip zooming in.
+ */
 export const Phone360Open: Story = {
   ...Phone360,
   play: async ({ canvasElement }) => {
     const match = within(canvasElement);
     const [, second] = match.getAllByRole("combobox");
     if (second === undefined) throw new Error("Missing row");
-    await expect(getComputedStyle(second).fontSize).toBe("16px");
+    await expect(getComputedStyle(second).fontSize).toBe("17px");
     await userEvent.click(second);
     const list = await page(canvasElement).findByRole("listbox");
     const box = list.getBoundingClientRect();
@@ -410,7 +470,7 @@ export const Phone360Open: Story = {
     const item = await page(canvasElement).findByRole("option", {
       name: /Индексация/u,
     });
-    await expect(getComputedStyle(item).fontSize).toBe("16px");
+    await expect(getComputedStyle(item).fontSize).toBe("17px");
     await expect(document.documentElement.scrollWidth).toBe(
       document.documentElement.clientWidth,
     );

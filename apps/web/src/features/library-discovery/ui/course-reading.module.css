@@ -399,9 +399,10 @@ button.step {
   font-size: 0.75rem;
   color: var(--muted-foreground);
 }
+/* Lesson heading scale (owner, 14.11.2026, variant 2A): 34 px wide, 26 px narrow. */
 .header h1 {
   margin: 0.75rem 0 1rem;
-  font-size: 1.75rem;
+  font-size: 2.125rem;
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.025em;
@@ -619,7 +620,7 @@ button.step {
 }
 @media (max-width: 39.99rem) {
   .header h1 {
-    font-size: 1.375rem;
+    font-size: 1.625rem;
   }
   .footer {
     gap: 1rem;
@@ -668,7 +669,7 @@ button.step {
 }
 @media (width < 48rem) {
   .header h1 {
-    font-size: 1.25rem;
+    font-size: 1.625rem;
     text-wrap: initial;
     line-height: 1.25;
   }

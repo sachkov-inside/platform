@@ -154,7 +154,7 @@ const meta = {
     primaryVideo: null,
     termDeck: <section aria-label="Термины урока">Термины урока</section>,
     exerciseSummary: (
-      <section aria-label="Упражнения урока">Упражнения: 1 из 1 решены</section>
+      <section aria-label="Упражнения урока">Упражнения: 1 из 1</section>
     ),
     lessonRating: <section aria-label="Как вам урок?">Как вам урок?</section>,
     material: {
@@ -385,8 +385,8 @@ export const LastPartOpensTermDeck: Story = {
 };
 
 /**
- * The end of the lesson waits for its last part and reads in one order: the term deck, the
- * exercises summary, then the rating.
+ * The lesson end waits for its last part and reads in one order: the lesson terms before the
+ * finish card, then its exercises and the rating.
  */
 export const LessonEndWaitsForLastPart: Story = {
   parameters: { guestParts: 3 },

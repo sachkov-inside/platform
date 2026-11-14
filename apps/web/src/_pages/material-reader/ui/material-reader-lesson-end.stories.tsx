@@ -18,12 +18,18 @@ import {
   lessonRatingChanges,
   SavedLessonRating,
 } from "@/features/lesson-rating";
+import { LessonTermDeck } from "@/features/lesson-term-deck";
 import {
-  SavedLessonTermDeck,
-  termMarkChanges,
-} from "@/features/lesson-term-deck";
-import { ReadingProgressProvider } from "@/features/reading-progress";
+  ReadingProgressProvider,
+  SavedReadingAction,
+} from "@/features/reading-progress";
 import { getQueryClient } from "@/shared/api/query-client";
+import {
+  materialReaderHref,
+  parseMaterialReaderReturnTarget,
+} from "@/shared/routing/material-reader";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import { expectPhoneLayout } from "@/storybook/phone-layout";
 import { accountPresentationResponse } from "@/storybook/account.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { publicPageEnvironment } from "@/storybook/story-environment";
@@ -74,7 +80,6 @@ const term = {
 /** What the backend holds for the signed-in reader; another tab may change it. */
 const backend = {
   rating: null as "like" | "dislike" | null,
-  marks: [] as { termId: string; mark: "known" | "review"; markedAt: string }[],
   attempts: [] as unknown[],
   recorded: [] as string[],
 };
@@ -136,7 +141,6 @@ const meta = {
     getQueryClient().clear();
     environment.beforeEach();
     backend.rating = null;
-    backend.marks = [];
     backend.attempts = [];
     backend.recorded = [];
     return fetchBeforeRender(async (input, init) => {
@@ -145,8 +149,23 @@ const meta = {
         window.location.origin,
       ).pathname;
       if (path === "/api/account") return accountPresentationResponse();
-      if (path === "/api/reading-progress/states")
-        return Response.json({ kind: "ready", states: [] });
+      if (path === "/api/reading-progress/states") {
+        const { materialIds } = z
+          .object({ materialIds: z.array(z.string()) })
+          .parse(await body$(input, init));
+        return Response.json({
+          kind: "ready",
+          states: materialIds.map((id) => ({
+            materialId: id,
+            isRead: false,
+            version: 0,
+            readAt: null,
+            updatedAt: null,
+            updateNote: null,
+            openedParts: null,
+          })),
+        });
+      }
       if (path === "/api/lesson-ratings/query")
         return Response.json({ kind: "ready", rating: backend.rating });
       if (path === "/api/lesson-ratings/rating") {
@@ -155,16 +174,6 @@ const meta = {
           .parse(await body$(input, init));
         backend.rating = rating;
         return Response.json({ kind: "ready", rating });
-      }
-      if (path === "/api/glossary/marks/states")
-        return Response.json({ kind: "ready", marks: backend.marks });
-      if (path === "/api/glossary/marks/state") {
-        const { termId, mark } = z
-          .object({ termId: z.string(), mark: z.enum(["known", "review"]) })
-          .parse(await body$(input, init));
-        const saved = { termId, mark, markedAt: "2026-11-13T09:00:00.000Z" };
-        backend.marks = [saved];
-        return Response.json({ kind: "ready", mark: saved });
       }
       if (path === "/api/exercise-attempts/query")
         return Response.json({ kind: "ready", attempts: backend.attempts });
@@ -194,7 +203,7 @@ const meta = {
   args: {
     body,
     primaryVideo: null,
-    termDeck: <SavedLessonTermDeck terms={[term]} />,
+    termDeck: <LessonTermDeck terms={[term]} />,
     exerciseSummary: <SavedLessonExerciseSummary />,
     lessonRating: <SavedLessonRating materialId={materialId} />,
     exerciseScope: (lesson) => (
@@ -227,6 +236,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** The finish card of the lesson; the page has one. */
+function finishCard(canvasElement: HTMLElement): HTMLElement {
+  const card = canvasElement.querySelector<HTMLElement>("[data-lesson-finish]");
+  if (card === null) throw new Error("The lesson finish card is missing");
+  return card;
+}
+
 /** Collects announcements of one fact channel while a story runs. */
 function heard(channel: {
   subscribe: (on: (id: string) => void) => () => void;
@@ -243,15 +259,12 @@ export const WritesTellOtherTabs: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const ratings = heard(lessonRatingChanges(accountId));
-    const marks = heard(termMarkChanges(accountId));
     const attempts = heard(exerciseAttemptChanges(accountId));
 
     await userEvent.click(
       await canvas.findByRole("button", { name: /Пользователь видит запись/u }),
     );
     await waitFor(() => expect(attempts).toHaveLength(1));
-    await userEvent.click(await canvas.findByRole("button", { name: "Знаю" }));
-    await waitFor(() => expect(marks).toHaveLength(1));
     await userEvent.click(
       await canvas.findByRole("button", { name: "Понравился" }),
     );
@@ -260,7 +273,7 @@ export const WritesTellOtherTabs: Story = {
 };
 
 /**
- * Another tab rated the lesson, marked the term and solved the exercise: this tab shows it after
+ * Another tab rated the lesson and solved the exercise: this tab shows it after
  * the announcement, so «Понравился» here does not remove a rating it never showed.
  */
 export const FollowsAnotherTab: Story = {
@@ -270,28 +283,17 @@ export const FollowsAnotherTab: Story = {
     await expect(like).toHaveAttribute("aria-pressed", "false");
 
     backend.rating = "like";
-    backend.marks = [
-      {
-        termId: term.id,
-        mark: "known",
-        markedAt: "2026-11-13T09:00:00.000Z",
-      },
-    ];
     backend.attempts = [attempt("visible")];
     lessonRatingChanges(accountId).announce();
-    termMarkChanges(accountId).announce();
     exerciseAttemptChanges(accountId).announce();
 
     await waitFor(() => expect(like).toHaveAttribute("aria-pressed", "true"));
     await waitFor(() =>
-      expect(canvas.getByRole("button", { name: "Знаю" })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      ),
+      expect(canvas.getByText("Упражнения: 1 из 1")).toBeVisible(),
     );
-    await waitFor(() =>
-      expect(canvas.getByText("Упражнения: 1 из 1 решены")).toBeVisible(),
-    );
+    await expect(
+      canvas.getByRole("heading", { name: "Урок пройден" }),
+    ).toBeVisible();
   },
 };
 
@@ -307,4 +309,238 @@ export const AnswerBeforeIdentityIsSaved: Story = {
     identity.dispatchEvent(new Event("resolve"));
     await waitFor(() => expect(backend.recorded).toEqual(["visible"]));
   },
+};
+
+const programme = productProgrammeHref("ai-engineering");
+const courseContext = {
+  currentPosition: 2,
+  totalMaterials: 3,
+  product: { name: "AI Engineering", href: programme },
+  previous: {
+    title: "Первый урок",
+    href: materialReaderHref("first", programme),
+  },
+  next: {
+    title: "Следующий урок",
+    href: materialReaderHref("next", programme),
+  },
+};
+
+/**
+ * «Финиш урока» outside a course: one quiet card with the unsolved exercise and the rating; the
+ * open carousel «Термины урока» stands right before it, and the reading panel under it stays.
+ */
+export const FinishOutsideCourse: Story = {
+  play: async ({ canvasElement }) => {
+    const card = within(finishCard(canvasElement));
+    await expect(
+      await card.findByRole("heading", { name: "Конец урока" }),
+    ).toBeVisible();
+    await expect(card.getByText("Упражнения: 0 из 1")).toBeVisible();
+    await expect(
+      card.getByRole("link", { name: "Решить упражнение 1" }),
+    ).toHaveAttribute("href", `#exercise-${quiz.id}`);
+    await expect(
+      card.queryByRole("button", { name: /^Термины урока/u }),
+    ).toBeNull();
+    const terms = within(canvasElement).getByRole("region", {
+      name: "Термины урока",
+    });
+    await expect(terms).toBeVisible();
+    await expect(finishCard(canvasElement).contains(terms)).toBe(false);
+    await expect(
+      terms.compareDocumentPosition(finishCard(canvasElement)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(
+      await card.findByRole("group", { name: "Как вам урок?" }),
+    ).toBeVisible();
+    await expect(
+      within(canvasElement).getByRole("navigation", {
+        name: "Действия в конце материала",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(canvasElement)
+        .getByRole("navigation", { name: "Действия в конце материала" })
+        .closest("[data-lesson-finish]"),
+    ).toBeNull();
+  },
+};
+
+/**
+ * Inside a course the card replaces the reading panel under the lesson: «Изучено» and the main
+ * «Дальше»; «Назад» and «Сохранить» stay in the panel above the lesson.
+ */
+export const FinishInCourse: Story = {
+  args: {
+    returnTarget: parseMaterialReaderReturnTarget(programme),
+    productContext: courseContext,
+    readingAction: (
+      <SavedReadingAction compact format="guide" materialId={materialId} />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const ends = canvas.getAllByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    await expect(ends).toHaveLength(1);
+    const [end] = ends;
+    if (end === undefined) throw new Error("The finish actions are missing");
+    await expect(finishCard(canvasElement).contains(end)).toBe(true);
+    await expect(
+      within(end).getByRole("link", { name: "Дальше" }),
+    ).toHaveAttribute("href", materialReaderHref("next", programme));
+    await expect(
+      within(end).getByRole("button", { name: "Изучено" }),
+    ).toBeVisible();
+    for (const name of ["Назад", "Сохранить"])
+      await expect(within(end).queryByText(name)).toBeNull();
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /Пользователь видит запись/u }),
+    );
+    await waitFor(() =>
+      expect(
+        within(finishCard(canvasElement)).getByRole("heading", {
+          name: "Урок пройден",
+        }),
+      ).toBeVisible(),
+    );
+    await expect(
+      within(finishCard(canvasElement)).queryByRole("link", {
+        name: /^Решить упражнение/u,
+      }),
+    ).toBeNull();
+  },
+};
+
+export const FinishInCoursePhone: Story = {
+  ...FinishInCourse,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async (context) => {
+    await FinishInCourse.play?.(context);
+    const end = finishCard(context.canvasElement).parentElement;
+    if (end === null) throw new Error("The finish card has no frame");
+    await expectPhoneLayout(end, "[data-lesson-finish]");
+    const terms = context.canvasElement.querySelector<HTMLElement>(
+      "[data-lesson-term-deck]",
+    )?.parentElement;
+    if (terms == null) throw new Error("The lesson terms are missing");
+    await expectPhoneLayout(terms, "[data-lesson-term-deck]");
+    // On a phone «Дальше» is the card's main button across its whole width.
+    const actions = within(finishCard(context.canvasElement)).getByRole(
+      "navigation",
+      { name: "Действия в конце материала" },
+    );
+    const next = within(actions).getByRole("link", { name: "Дальше" });
+    const row = actions.getBoundingClientRect();
+    await expect(next.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      row.width - 1,
+    );
+    await expect(next.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+      48,
+    );
+  },
+};
+
+export const FinishInCoursePhone360: Story = {
+  ...FinishInCoursePhone,
+  globals: { viewport: { value: "mobile360", isRotated: false } },
+};
+
+/** A lesson without exercises and terms: the card keeps the plain heading and the rating. */
+export const FinishWithoutExercises: Story = {
+  args: {
+    body: [paragraph("Короткий урок без упражнений.")],
+    termDeck: <LessonTermDeck terms={[]} />,
+    exerciseScope: (lesson) => (
+      <LessonExerciseAttempts
+        materialId={materialId}
+        exercises={[]}
+        signInHref="/account"
+      >
+        {lesson}
+      </LessonExerciseAttempts>
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const card = within(finishCard(canvasElement));
+    await expect(
+      card.getByRole("heading", { name: "Конец урока" }),
+    ).toBeVisible();
+    await expect(card.queryByText(/^Упражнения:/u)).toBeNull();
+    await expect(
+      within(canvasElement).queryByRole("region", { name: "Термины урока" }),
+    ).toBeNull();
+    await expect(
+      await card.findByRole("group", { name: "Как вам урок?" }),
+    ).toBeVisible();
+  },
+};
+
+/**
+ * The last lesson of a course has no next step: the card leads back to the course programme with
+ * the main «К программе» in place of «Дальше» (решение владельца 14.11.2026).
+ */
+export const FinishOnLastLesson: Story = {
+  args: {
+    returnTarget: parseMaterialReaderReturnTarget(programme),
+    productContext: { ...courseContext, currentPosition: 3, next: null },
+    readingAction: (
+      <SavedReadingAction compact format="guide" materialId={materialId} />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const end = within(finishCard(canvasElement)).getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    await expect(
+      within(end).getByRole("link", { name: "К программе" }),
+    ).toHaveAttribute("href", programme);
+    await expect(
+      within(end).queryByRole("link", { name: "Дальше" }),
+    ).toBeNull();
+  },
+};
+
+/**
+ * Scrolled to the very end, nothing covers the bottom of the lesson: the page itself never scrolls
+ * past the application frame, so no white band rises from under it (owner, 14.11.2026).
+ */
+export const LessonEndNotCovered: Story = {
+  ...FinishInCourse,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const document = canvasElement.ownerDocument;
+    const card = finishCard(canvasElement);
+    await within(card).findByRole("group", { name: "Как вам урок?" });
+    const scroller = document.querySelector<HTMLElement>(
+      "[data-application-content]",
+    );
+    if (scroller === null) throw new Error("The application frame is missing");
+    scroller.scrollTop = scroller.scrollHeight;
+    document.scrollingElement?.scrollTo(
+      0,
+      document.documentElement.scrollHeight,
+    );
+    const root = document.documentElement;
+    if (getComputedStyle(scroller).overflowY === "auto")
+      // The frame scrolls the lesson; the page around it has nothing to scroll.
+      await expect(root.scrollHeight).toBeLessThanOrEqual(root.clientHeight);
+    await waitFor(() => {
+      const box = card.getBoundingClientRect();
+      return expect(box.bottom).toBeLessThanOrEqual(window.innerHeight);
+    });
+    const box = card.getBoundingClientRect();
+    // Points clear of the rounded corners, along the card's last line.
+    for (const x of [box.left + 24, box.left + box.width / 2, box.right - 24]) {
+      const hit = document.elementFromPoint(x, box.bottom - 12);
+      await expect(hit !== null && card.contains(hit)).toBe(true);
+    }
+  },
+};
+export const LessonEndNotCoveredPhone: Story = {
+  ...LessonEndNotCovered,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };

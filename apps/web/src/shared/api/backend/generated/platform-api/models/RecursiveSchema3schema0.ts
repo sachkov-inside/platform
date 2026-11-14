@@ -39,6 +39,7 @@ export type RecursiveSchema3schema0 = ({
   kind: 'blockquote';
 } | {
   kind: 'code_block';
+  language?: string;
   text: string;
 } | {
   kind: 'horizontal_rule';

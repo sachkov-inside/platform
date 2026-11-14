@@ -18,6 +18,7 @@ import {
   glossaryTermsById,
   type GlossaryTerm,
   type GlossaryTerms,
+  type MaterialCodeHighlights,
 } from "@/entities/material.model";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -54,6 +55,7 @@ import {
 } from "@/features/library-discovery";
 import { ReaderTopActions } from "./reader-top-actions.client";
 import { ReaderLessonSteps } from "./reader-lesson-steps.client";
+import { LessonFinish } from "./lesson-finish.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export interface MaterialReaderViewProps {
@@ -66,21 +68,23 @@ export interface MaterialReaderViewProps {
    * словарь показывает читателю. Остальные термины и все термины вне курса раскрываются на месте.
    */
   readonly courseGlossary?: ReaderCourseGlossary | undefined;
-  /** Колода «Термины урока» в конце урока (#2127). */
+  /** Подсветка блоков кода, посчитанная на сервере; без неё код одного цвета. */
+  readonly codeHighlights?: MaterialCodeHighlights | undefined;
+  /**
+   * Карусель «Термины урока» (#2127): свой блок в конце урока перед карточкой «Финиш урока».
+   * Как и карточка, ждёт, пока откроется последняя часть урока.
+   */
   readonly termDeck?: ReactNode;
   /**
-   * «Упражнения: N из M решены» после колоды (#2121). Читает ответы из `exerciseScope`, поэтому
-   * стоит внутри него; как и колода, ждёт, пока откроется последняя часть урока.
+   * Строка «Упражнения: N из M» карточки «Финиш урока» (#2121). Читает ответы из `exerciseScope`,
+   * поэтому карточка стоит внутри него.
    */
   readonly exerciseSummary?: ReactNode;
-  /**
-   * «Как вам урок?» в конце урока (#2124). Как и колода, ждёт, пока откроется последняя часть
-   * урока.
-   */
+  /** Строка «Как вам урок?» карточки «Финиш урока» (#2124). */
   readonly lessonRating?: ReactNode;
   /**
-   * Wraps the lesson text and its end: Exercise Attempts restore answers inside it, and
-   * `exerciseSummary` reads them there (#2121). Without it exercises keep answers on the page only.
+   * Wraps the lesson text and its finish card: Exercise Attempts restore answers inside it, and
+   * the card reads them there (#2121). Without it exercises keep answers on the page only.
    */
   readonly exerciseScope?: (lesson: ReactNode) => ReactNode;
   readonly material: MaterialReaderMetadata;
@@ -107,6 +111,7 @@ export function MaterialReaderView({
   body,
   glossaryTerms = [],
   courseGlossary,
+  codeHighlights,
   termDeck,
   exerciseSummary,
   lessonRating,
@@ -148,6 +153,21 @@ export function MaterialReaderView({
     productContext?.supplementary === true
       ? null
       : productContext?.programme?.next;
+  // Внутри курса карточка «Финиш урока» заменяет нижнюю панель: «Изучено» и «Дальше» переходят в
+  // неё (в последнем уроке курса на месте «Дальше» стоит «К программе»), «Назад» и «Сохранить»
+  // остаются в верхней панели. Вне курса и у дополнительного материала, где важен возврат
+  // «К уроку», нижняя панель остаётся прежней.
+  const finishActions =
+    productContext === null || productContext.supplementary === true
+      ? undefined
+      : {
+          readingAction: endReadingAction,
+          next:
+            (nextStep === undefined ? productContext.next : nextStep) ?? null,
+          programme: productContext.product.href,
+        };
+  const finishRows =
+    exerciseSummary !== undefined || lessonRating !== undefined;
   const topActions = (
     <ReaderTopActions
       context={productContext?.programme == null ? productContext : null}
@@ -223,7 +243,7 @@ export function MaterialReaderView({
             {exerciseScope(
               <>
                 <article
-                  className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
+                  className="mt-8 min-w-0 break-words text-pretty text-lesson text-foreground [&_h2:not([data-quiz-heading])]:text-[1.375rem] [&_h3:not([data-comparison-heading])]:text-[1.1875rem] [&_h4]:text-lesson md:[&_h2:not([data-quiz-heading])]:text-[1.625rem] md:[&_h3:not([data-comparison-heading])]:text-[1.3125rem] md:[&_h4]:text-lg"
                   data-reader-body
                 >
                   <ReaderBlocks
@@ -247,58 +267,63 @@ export function MaterialReaderView({
                       courseGlossaryMoreHref(courseGlossary),
                     )}
                     blocks={body}
+                    codeHighlights={codeHighlights}
                     contentVersion={material.contentVersion}
                     materialId={material.materialId}
                     materialSlug={material.slug}
                     path={[]}
                   />
                 </article>
+                {practiceActions}
+                {submissionWorkspace}
+                {deferredPracticeActions === undefined ? null : (
+                  <div
+                    className="mt-2 flex flex-wrap items-start"
+                    data-reader-practice-actions
+                  >
+                    {deferredPracticeActions}
+                  </div>
+                )}
+                {purchaseCall}
+                {/* The lesson end waits for its last part; the panel above stays. */}
                 {termDeck === undefined ? null : (
                   <LessonStepsTail>{termDeck}</LessonStepsTail>
                 )}
-                {exerciseSummary === undefined ? null : (
-                  <LessonStepsTail>{exerciseSummary}</LessonStepsTail>
-                )}
-                {lessonRating === undefined ? null : (
-                  <LessonStepsTail>{lessonRating}</LessonStepsTail>
+                {finishActions === undefined && !finishRows ? null : (
+                  <LessonStepsTail>
+                    <LessonFinish actions={finishActions}>
+                      {exerciseSummary}
+                      {lessonRating}
+                    </LessonFinish>
+                  </LessonStepsTail>
                 )}
               </>,
             )}
-            {practiceActions}
-            {submissionWorkspace}
-            {deferredPracticeActions === undefined ? null : (
-              <div
-                className="mt-2 flex flex-wrap items-start"
-                data-reader-practice-actions
-              >
-                {deferredPracticeActions}
-              </div>
-            )}
-            {purchaseCall}
-            {/* The panel under the lesson waits for its last part; the panel above stays. */}
-            <LessonStepsTail>
-              <div className="mt-5" data-material-actions data-reader-footer>
-                <ReaderTopActions
-                  position="bottom"
-                  context={
-                    productContext?.programme == null ? productContext : null
-                  }
-                  returnAction={returnAction}
-                  bookmarkAction={endBookmarkAction}
-                  nextStep={nextStep}
-                  shareAction={
-                    material.access === "free" ? (
-                      <MaterialShareButton
-                        slug={material.slug}
-                        title={material.title}
-                        presentation="reader"
-                      />
-                    ) : null
-                  }
-                  readingAction={endReadingAction}
-                />
-              </div>
-            </LessonStepsTail>
+            {finishActions === undefined ? (
+              <LessonStepsTail>
+                <div className="mt-5" data-material-actions data-reader-footer>
+                  <ReaderTopActions
+                    position="bottom"
+                    context={
+                      productContext?.programme == null ? productContext : null
+                    }
+                    returnAction={returnAction}
+                    bookmarkAction={endBookmarkAction}
+                    nextStep={nextStep}
+                    shareAction={
+                      material.access === "free" ? (
+                        <MaterialShareButton
+                          slug={material.slug}
+                          title={material.title}
+                          presentation="reader"
+                        />
+                      ) : null
+                    }
+                    readingAction={endReadingAction}
+                  />
+                </div>
+              </LessonStepsTail>
+            ) : null}
           </ReaderLessonSteps>
         </div>
       </ReaderFrame>
@@ -429,7 +454,7 @@ export function MaterialReaderHeader({
           <MaterialShareButton slug={material.slug} title={material.title} />
         ) : null}
       </div>
-      <h1 className="mt-3 break-words text-balance text-[1.375rem] font-semibold leading-[1.2] tracking-[-0.025em] sm:mt-4 sm:text-2xl md:text-[1.75rem]">
+      <h1 className="mt-3 break-words text-balance text-[1.625rem] font-semibold leading-[1.2] tracking-[-0.025em] sm:mt-4 md:text-[2.125rem]">
         {material.title}
       </h1>
     </header>
@@ -494,6 +519,7 @@ function ReaderBlocks({
   renderVideo,
   renderLink,
   glossary,
+  codeHighlights,
   blocks,
   contentVersion,
   materialId,
@@ -503,6 +529,7 @@ function ReaderBlocks({
   readonly renderVideo: MaterialBodyRendering["video"];
   readonly renderLink?: MaterialBodyRendering["link"];
   readonly glossary: GlossaryTerms;
+  readonly codeHighlights: MaterialCodeHighlights | undefined;
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
   readonly materialId: string;
@@ -523,6 +550,7 @@ function ReaderBlocks({
       rendering={{
         ...(renderLink === undefined ? {} : { link: renderLink }),
         glossary,
+        codeHighlights,
         headingId,
         ...(renderVideo === undefined ? {} : { video: renderVideo }),
         image: (block) =>

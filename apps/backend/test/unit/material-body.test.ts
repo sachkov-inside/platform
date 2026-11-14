@@ -606,6 +606,38 @@ describe("MaterialBodyOperations", () => {
     ]);
   });
 
+  test("keeps the code block language from the stored body to the rendered block", () => {
+    const stored = {
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "codeBlock",
+            attrs: { language: "python", nodeId: testNodeId(40) },
+            content: [{ type: "text", text: "print(1)" }],
+          },
+          {
+            type: "codeBlock",
+            attrs: { nodeId: testNodeId(41) },
+            content: [{ type: "text", text: "plain" }],
+          },
+        ],
+      },
+    } as const;
+    const accepted = materialBodyOperations.accept(stored);
+    expect(accepted).toEqual({ ok: true, value: stored });
+    if (!accepted.ok)
+      throw new Error("A code block with a language must stay valid");
+    const rendered = materialBodyOperations.render(accepted.value);
+    if (!rendered.ok)
+      throw new Error("A code block with a language must render");
+    expect(rendered.value.blocks).toEqual([
+      { kind: "code_block", language: "python", text: "print(1)" },
+      { kind: "code_block", text: "plain" },
+    ]);
+  });
+
   test("accepts, renders and validates optional callout collapse states", () => {
     for (const collapse of [
       "collapsed",

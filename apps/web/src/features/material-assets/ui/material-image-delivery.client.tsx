@@ -7,6 +7,7 @@ import { hasText } from "@/shared/lib/text";
 
 import type { ViewerSize } from "../model/image-viewer-view";
 import { MaterialImageViewer } from "./material-image-viewer.client";
+import { zoomControlClassName } from "./zoom-control";
 
 /**
  * Keep failed protected deliveries visible and retryable without reloading the article. With
@@ -86,28 +87,34 @@ export function MaterialImageDelivery({
           </button>
         </div>
       ) : viewerSize !== undefined ? (
-        <button
-          aria-haspopup="dialog"
-          aria-label={
-            hasText(alt)
-              ? `Открыть изображение крупно: ${alt}`
-              : "Открыть изображение крупно"
-          }
-          className="group block w-full cursor-zoom-in outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
-          onClick={() => {
-            setViewing(true);
-          }}
-          ref={trigger}
-          type="button"
-        >
-          {image}
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute top-2 right-2 flex size-8 items-center justify-center rounded-full bg-background/85 text-foreground shadow-card transition-opacity duration-(--motion-duration-fast) motion-reduce:transition-none md:opacity-0 md:group-hover:opacity-100 md:group-focus-visible:opacity-100"
+        <>
+          {/* A click on the picture is a pointer shortcut; the button below is the control. */}
+          <div
+            className="cursor-zoom-in"
+            onClick={() => {
+              setViewing(true);
+            }}
           >
-            <Maximize2 className="size-4" />
-          </span>
-        </button>
+            {image}
+          </div>
+          <button
+            aria-haspopup="dialog"
+            aria-label={
+              hasText(alt)
+                ? `Открыть изображение крупно: ${alt}`
+                : "Открыть изображение крупно"
+            }
+            className={zoomControlClassName}
+            onClick={() => {
+              setViewing(true);
+            }}
+            ref={trigger}
+            title="Открыть крупно"
+            type="button"
+          >
+            <Maximize2 aria-hidden="true" className="size-4" />
+          </button>
+        </>
       ) : (
         image
       )}
