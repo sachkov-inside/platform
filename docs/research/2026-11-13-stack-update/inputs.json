@@ -626,5 +626,23 @@
       "docker.io/moby/buildkit:v0.35.0@sha256:aa632b921ef07411d2cb77292cd34213d4f7b384001d6fceef1e1f25bf9752bb",
       "docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1"
     ]
+  },
+  "infra/production/database/gosu/go.mod": {
+    "before": [],
+    "candidate": [
+      "module github.com/tianon/gosu",
+      "go 1.26.0",
+      "github.com/moby/sys/user v0.5.0",
+      "golang.org/x/sys v0.50.0"
+    ]
+  },
+  "infra/production/database/gosu/go.sum": {
+    "before": [],
+    "candidate": [
+      "github.com/moby/sys/user v0.5.0 h1:5+S4lyoavGyX1DGs68NW8xpx48T9+a7ogSUc0KjZg8Y=",
+      "github.com/moby/sys/user v0.5.0/go.mod h1:4mQzP5aTmaLjDLp/dc870oNkik6E9vjRtWYwI05gvow=",
+      "golang.org/x/sys v0.50.0 h1:dkKZEFTEKaLr1sjhs0WiKqoi8Jj5nHbS3Njmx1UoMJs=",
+      "golang.org/x/sys v0.50.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og="
+    ]
   }
 }

@@ -15,7 +15,10 @@ RUN gosu --version > /tmp/gosu-version \
     && grep '^1.20 ' /tmp/gosu-version \
     && rm /tmp/gosu-version \
     && test "$(gosu postgres id -u)" = "$(id -u postgres)" \
-    && ! gosu inside-invalid-user true
+    && test "$(gosu postgres id -g)" = "$(id -g postgres)" \
+    && test "$(gosu postgres id -G)" = "$(id -G postgres)" \
+    && ! gosu inside-invalid-user true \
+    && ! gosu postgres:inside-invalid-group true
 
 FROM postgres-base AS pgbackrest-build
 
