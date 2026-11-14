@@ -118,7 +118,7 @@ interface CourseSource {
 }
 
 /** Client-safe presentation only: no personal history, tokens or backend DTOs escape this mapping. */
-type CourseReadingRequest = {
+interface CourseReadingRequest {
   readonly product: CourseSource;
   readonly current:
     | {
@@ -130,7 +130,7 @@ type CourseReadingRequest = {
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly referenceView?: boolean;
   readonly anchor?: ReaderCourseAnchor | undefined;
-};
+}
 
 export function courseReadingContext(
   request: CourseReadingRequest,
