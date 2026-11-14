@@ -33,6 +33,8 @@ export async function POST(request: Request): Promise<Response> {
       prompt: [Prompt.Login, Prompt.Consent],
       ...(postRedirectUri === undefined ? {} : { postRedirectUri }),
     };
+    // `account-choice` opens the general Logto page without the Telegram shortcut. Production
+    // offers only Telegram there; the production access pass uses it with a one-time token.
     const { url } = await client.handleSignIn(
       form?.get("entry") === "account-choice"
         ? options

@@ -53,6 +53,30 @@ that isolated proof environment explicitly:
 pnpm identity:proof:down
 ```
 
+## Production sign-in methods
+
+Production signs people in and registers them only through Telegram (`inside-telegram`). Since
+14.11.2026 its sign-in experience has no email method: `signIn.methods` and `signUp.identifiers`
+are empty, `signInMode` stays `SignInAndRegister`, so Telegram still registers new people. Before
+that, the «Войти снова» link of the Telegram waiting page led to the email form, and a person whose
+Telegram did not open registered a second, empty Account by email.
+
+The email connector stays enabled: it sends Billing Contact codes. The production access pass keeps
+signing its email identities in with a one-time token, which Logto does not check against the
+sign-in methods. An existing email Account with a linked Telegram reaches the same Account through
+Telegram sign-in. The local stand and the identity proofs keep email sign-in through
+`ensureSignInExperience` in `scripts/identity-proof-bootstrap.mjs`; production differs from them here.
+
+Production has no provisioning script for the sign-in experience; the setting lives in the
+`logto` database. Read it over SSH:
+
+```bash
+ssh inside-production 'docker exec inside-production-database-postgres-1 psql -U postgres -d logto -Atc \
+  "select sign_in::text, sign_up::text, sign_in_mode from sign_in_experiences where tenant_id = '"'"'default'"'"';"'
+```
+
+The expected result is `{"methods": []}|{"verify": false, "password": false, "identifiers": []}|SignInAndRegister`.
+
 ## Frozen artifacts
 
 [`versions.json`](./versions.json) is the machine-readable ledger. The custom Logto image starts
