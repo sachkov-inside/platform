@@ -39,6 +39,7 @@ export const telemetryRouteTemplates = [
   "/materials/[slug]",
   "/products/[slug]",
   "/products/[slug]/buy",
+  "/products/[slug]/glossary",
   "/products/[slug]/programme",
   "/products/[slug]/tasks/[code]",
 ] as const;
