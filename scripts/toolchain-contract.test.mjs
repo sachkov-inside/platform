@@ -368,7 +368,7 @@ describe("supported toolchain contract", () => {
       "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' --ignore-pattern 'apps/web/test/guardrails/fixtures/**' .",
     );
     assert.equal(rootPackage.devDependencies["oxlint"], "1.93.0");
-    assert.equal(rootPackage.devDependencies["oxlint-tsgolint"], "7.0.2006");
+    assert.equal(rootPackage.devDependencies["oxlint-tsgolint"], "7.0.2007");
     assert.equal(rootPackage.devDependencies["oxc-parser"], "0.158.0");
 
     for (const dependency of [

@@ -3,7 +3,9 @@ import type { createElement } from "react";
 import type { renderToStaticMarkup } from "react-dom/server";
 
 export type { ComponentType, ReactNode } from "react";
-export type ReactModule = { createElement: typeof createElement };
-export type ReactServerModule = {
+export interface ReactModule {
+  createElement: typeof createElement;
+}
+export interface ReactServerModule {
   renderToStaticMarkup: typeof renderToStaticMarkup;
-};
+}
