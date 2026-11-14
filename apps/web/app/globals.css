@@ -544,6 +544,30 @@ body:has(
   }
 }
 
+/*
+ * Дорожка карусели «Термины урока» на песочной подложке: край, за которым ещё есть карточки,
+ * растворяется в песке. В начале и в конце края чёткие.
+ */
+.lesson-term-track {
+  --lesson-term-fade-start: 0px;
+  --lesson-term-fade-end: 0px;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--lesson-term-fade-start),
+    #000 calc(100% - var(--lesson-term-fade-end)),
+    transparent 100%
+  );
+}
+
+.lesson-term-track[data-more-before] {
+  --lesson-term-fade-start: 1.75rem;
+}
+
+.lesson-term-track[data-more-after] {
+  --lesson-term-fade-end: 1.75rem;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .lesson-term-flip-hint {
     animation: lesson-term-flip-hint 1100ms var(--motion-ease-out) 700ms 1;

@@ -119,6 +119,13 @@ export const FlipAndLeaf: Story = {
     await expect(second.getBoundingClientRect().left).toBeLessThan(edge);
     await expect(second.getBoundingClientRect().right).toBeGreaterThan(edge);
 
+    // The cards lie on an opaque sand block; only the edge with more cards fades.
+    await expect(getComputedStyle(carousel).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
+    );
+    await expect(track(canvasElement)).toHaveAttribute("data-more-after");
+    await expect(track(canvasElement)).not.toHaveAttribute("data-more-before");
+
     // The front says it turns over; the hint is not part of the card's name.
     const [hint] = canvas.getAllByText("Нажмите, чтобы увидеть определение");
     await expect(hint).toBeVisible();
@@ -142,6 +149,9 @@ export const FlipAndLeaf: Story = {
       expect(card(canvasElement, "aggregate")).toHaveAttribute("tabindex", "0"),
     );
     await expect(previous).toBeEnabled();
+    await waitFor(() =>
+      expect(track(canvasElement)).toHaveAttribute("data-more-before"),
+    );
     await waitFor(() =>
       expect(
         canvasElement.querySelector("[data-lesson-term-announcement]"),
@@ -206,6 +216,11 @@ export const Keyboard: Story = {
     await expect(second).toHaveAttribute("data-lesson-term-side", "back");
     await userEvent.keyboard("{End}");
     await expect(card(canvasElement, "domain-event")).toHaveFocus();
+    // At the end only the start edge fades: no cards wait after the last one.
+    await waitFor(() =>
+      expect(track(canvasElement)).not.toHaveAttribute("data-more-after"),
+    );
+    await expect(track(canvasElement)).toHaveAttribute("data-more-before");
     await userEvent.keyboard("{ArrowLeft}");
     await expect(second).toHaveFocus();
   },
@@ -222,6 +237,8 @@ export const SingleTerm: Story = {
     await expect(
       canvas.queryByRole("button", { name: "Следующий термин" }),
     ).toBeNull();
+    await expect(track(canvasElement)).not.toHaveAttribute("data-more-after");
+    await expect(track(canvasElement)).not.toHaveAttribute("data-more-before");
   },
 };
 
