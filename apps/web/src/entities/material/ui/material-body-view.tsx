@@ -15,6 +15,7 @@ import type { GlossaryTerms } from "../model/glossary-term";
 import { GlossaryDefinitionCard } from "./glossary/glossary-definition-card";
 import { GlossaryTermMention } from "./glossary/glossary-term-mention.client";
 import { MaterialCodeBlock } from "./material-code-block.client";
+import { MaterialTableScroll } from "./material-table-scroll.client";
 import {
   codeHighlightKey,
   type MaterialCodeHighlights,
@@ -425,15 +426,16 @@ function BodyTable({
   readonly rendering: BodyRendering;
   readonly path: readonly number[];
 }) {
+  const columns = Math.max(0, ...block.rows.map((row) => row.cells.length));
   return (
-    <div
-      aria-label="Таблица в материале"
-      className="mt-8 max-w-full overflow-x-auto rounded-xl border border-border [scrollbar-color:var(--muted-foreground)_var(--muted)]"
-      data-reader-block="table"
-      role="region"
-      tabIndex={0}
-    >
-      <table className="w-full min-w-[36rem] table-fixed border-collapse [overflow-wrap:anywhere] text-left text-sm leading-6">
+    <MaterialTableScroll>
+      <table
+        className="w-full table-fixed border-collapse [overflow-wrap:anywhere] text-left text-sm leading-6"
+        // Two columns fit a phone; each further column keeps a readable width and scrolls instead.
+        style={
+          columns > 2 ? { minWidth: `${String(columns * 9)}rem` } : undefined
+        }
+      >
         <caption className="sr-only">Таблица в материале</caption>
         <tbody className="divide-y divide-border">
           {block.rows.map((row, rowIndex) => (
@@ -462,6 +464,6 @@ function BodyTable({
           ))}
         </tbody>
       </table>
-    </div>
+    </MaterialTableScroll>
   );
 }

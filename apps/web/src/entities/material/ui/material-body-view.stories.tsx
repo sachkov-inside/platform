@@ -504,6 +504,107 @@ export const CodeBlockHighlightedDesktop: Story = {
   globals: { viewport: { value: "desktop1440", isRotated: false } },
 };
 
+function tableCell(text: string, header = false) {
+  return {
+    header,
+    content: [
+      {
+        kind: "paragraph" as const,
+        content: [{ kind: "text" as const, text, marks: [] }],
+      },
+    ],
+  };
+}
+
+const chunkTable = {
+  kind: "table",
+  rows: [
+    {
+      cells: ["Размер чанка", "Плюсы", "Минусы"].map((text) =>
+        tableCell(text, true),
+      ),
+    },
+    {
+      cells: [
+        tableCell("200 токенов"),
+        tableCell("Точный поиск по узкому вопросу"),
+        tableCell("Теряется контекст соседних абзацев"),
+      ],
+    },
+  ],
+} as const;
+
+/**
+ * Широкая таблица на узком экране прокручивается внутри себя, а край, за которым есть столбцы,
+ * затенён: читатель видит, что таблица продолжается.
+ */
+export const WideTableMobile: Story = {
+  args: { blocks: [chunkTable] },
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const table = canvasElement.querySelector<HTMLElement>(
+      '[data-reader-block="table"]',
+    );
+    if (table === null) throw new Error("The story needs a table");
+    const scroller = table.querySelector<HTMLElement>("[data-table-scroll]");
+    if (scroller === null) throw new Error("The table needs its scroller");
+    await expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+    await waitFor(() => expect(table).toHaveAttribute("data-overflow", "end"));
+    const endFade = table.querySelector<HTMLElement>("[data-table-fade='end']");
+    if (endFade === null) throw new Error("The table needs an end fade");
+    await waitFor(() => expect(getComputedStyle(endFade).opacity).toBe("1"));
+    scroller.scrollLeft = scroller.scrollWidth;
+    await waitFor(() =>
+      expect(table).toHaveAttribute("data-overflow", "start"),
+    );
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+  },
+};
+
+/** На широком экране таблица помещается целиком, и края не затеняются. */
+export const WideTableDesktop: Story = {
+  args: { blocks: [chunkTable] },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const table = canvasElement.querySelector<HTMLElement>(
+      '[data-reader-block="table"]',
+    );
+    if (table === null) throw new Error("The story needs a table");
+    await waitFor(() => expect(table).toHaveAttribute("data-overflow", "none"));
+  },
+};
+
+/** Таблица в два столбца помещается и на узком экране, без прокрутки. */
+export const NarrowTableMobile: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "table",
+        rows: [
+          { cells: [tableCell("Термин", true), tableCell("Смысл", true)] },
+          {
+            cells: [
+              tableCell("Чанк"),
+              tableCell("Кусок документа, который ищет поиск"),
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const scroller = canvasElement.querySelector<HTMLElement>(
+      "[data-table-scroll]",
+    );
+    if (scroller === null) throw new Error("The table needs its scroller");
+    await expect(scroller.scrollWidth).toBeLessThanOrEqual(
+      scroller.clientWidth,
+    );
+  },
+};
+
 export const CodeBlockInPlainCallout: Story = {
   args: {
     blocks: [
