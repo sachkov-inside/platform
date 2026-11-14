@@ -16,7 +16,7 @@ project="$(sed -nE 's/^PLATFORM_COMPOSE_PROJECT=([a-z0-9][a-z0-9_-]*)$/\1/p' "$h
 [[ "$project" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo 'Invalid server-owned Compose project' >&2; exit 1; }
 expected_volume="${project}_broker-data"
 # Parse YAML with Compose itself without reading env_file secrets or evaluating bundle variables.
-config="$(docker compose --project-name "$project" --file "$1" config \
+config="$(docker compose --env-file /dev/null --project-name "$project" --file "$1" config \
   --no-interpolate --no-env-resolution --no-consistency --format json)"
 jq --exit-status --slurp 'length == 1 and (.[0].services | type == "object")' <<<"$config" >/dev/null
 broker_present="$(jq --raw-output '.services | has("rabbitmq")' <<<"$config")"

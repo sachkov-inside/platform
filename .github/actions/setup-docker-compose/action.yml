@@ -1,0 +1,11 @@
+name: Set up pinned Docker Compose
+description: Installs the checked official Linux Compose plugin without replacing the runner package
+runs:
+  using: composite
+  steps:
+    - name: Install checked Compose plugin
+      shell: bash
+      run: |
+        bash infra/production/host/install-docker-compose.sh "$HOME/.docker/cli-plugins"
+        docker compose version
+        test "$(docker compose version --short)" = "$("$HOME/.docker/cli-plugins/docker-compose" version --short)"

@@ -354,6 +354,8 @@ jobs:
         with:
           ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
+      - name: Install pinned Docker Compose
+        uses: ./.github/actions/setup-docker-compose
       - name: Validate and build profile topology
         run: |
           docker compose --profile storybook config --quiet

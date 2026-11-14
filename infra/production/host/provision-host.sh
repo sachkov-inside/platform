@@ -97,6 +97,7 @@ production_dir="$(cd "$script_dir/.." && pwd)"
 repository_dir="$(cd "$production_dir/../.." && pwd)"
 
 bash "$script_dir/install-caddy.sh"
+bash "$script_dir/install-docker-compose.sh" /usr/local/lib/docker/cli-plugins
 
 cp --archive \
   "$production_dir/database/." \
