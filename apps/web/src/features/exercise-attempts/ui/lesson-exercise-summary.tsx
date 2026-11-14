@@ -5,7 +5,7 @@ import type { LessonExercise } from "../model/lesson-exercises";
 
 /**
  * «Упражнения: 3 из 4» in the lesson finish card: one quiet row with a dot per exercise, solved
- * ones filled, and a link to the first unsolved exercise. A lesson without exercises shows nothing.
+ * ones filled graphite and open ones outlined, and a link to the first unsolved exercise. A lesson without exercises shows nothing.
  */
 export function LessonExerciseSummary({
   total,
@@ -29,14 +29,15 @@ export function LessonExerciseSummary({
       data-lesson-exercise-summary
     >
       <div className="flex min-w-0 items-center gap-3">
-        <span aria-hidden="true" className="flex max-w-32 flex-wrap gap-1">
+        <span aria-hidden="true" className="flex max-w-36 flex-wrap gap-1.5">
           {Array.from({ length: total }, (_, place) => {
             const done = !open.has(place + 1);
             return (
               <span
                 className={cn(
-                  "size-2 rounded-full",
-                  done ? "bg-lesson-graphite" : "bg-lesson-line",
+                  // Open dots are outlined in graphite: a pale fill was lost on the sand card.
+                  "size-2.5 rounded-full border-2 border-lesson-graphite",
+                  done ? "bg-lesson-graphite" : "bg-transparent",
                 )}
                 data-lesson-exercise-marker={done ? "solved" : "open"}
                 key={place}

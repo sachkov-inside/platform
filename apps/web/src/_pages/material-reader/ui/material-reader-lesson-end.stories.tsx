@@ -457,6 +457,19 @@ export const FinishInCoursePhone: Story = {
     const end = finishCard(context.canvasElement).parentElement;
     if (end === null) throw new Error("The finish card has no frame");
     await expectPhoneLayout(end, "[data-lesson-finish]");
+    // On a phone «Дальше» is the card's main button across its whole width.
+    const actions = within(finishCard(context.canvasElement)).getByRole(
+      "navigation",
+      { name: "Действия в конце материала" },
+    );
+    const next = within(actions).getByRole("link", { name: "Дальше" });
+    const row = actions.getBoundingClientRect();
+    await expect(next.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      row.width - 1,
+    );
+    await expect(next.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+      48,
+    );
   },
 };
 
