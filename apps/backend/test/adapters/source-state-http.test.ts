@@ -199,6 +199,7 @@ test("the import environment names the runtime mode and the accepted import cont
         "bounded-content-v1",
         "svg-images-v1",
         "product-topics-v1",
+        "product-roadmap-v1",
       ],
     },
   });

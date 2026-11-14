@@ -118,6 +118,10 @@ export { chapterAttachmentsBodySchema } from "./features/update-chapter-attachme
 export type { UpdateChapterAttachmentsOperation } from "./features/update-chapter-attachments/update-chapter-attachments.js";
 export { productTopicsBodySchema } from "./features/update-product-topics/update-product-topics.js";
 export type { UpdateProductTopicsOperation } from "./features/update-product-topics/update-product-topics.js";
+export { productRoadmapBodySchema } from "./features/update-product-roadmap/update-product-roadmap.js";
+export type { UpdateProductRoadmapOperation } from "./features/update-product-roadmap/update-product-roadmap.js";
+export type { LoadProductRoadmapOperation } from "./features/load-product-roadmap/load-product-roadmap.js";
+export { productRoadmapReceiptSchema } from "./shared/product-roadmap.js";
 export {
   PRODUCT_TOPIC_NAME_MAX,
   PRODUCT_TOPIC_SUMMARY_MAX,

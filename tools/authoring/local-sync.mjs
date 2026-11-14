@@ -109,6 +109,8 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {string[]} [reviewedProductRemovals] Scoped Product removal choices from the reviewed release.
  * @property {Record<string, string>} [reviewedTopics] The target topic state a reviewed release
  *   verified, by Product source key; apply stops when the target's topics differ from it.
+ * @property {Record<string, string>} [reviewedRoadmaps] The target roadmap state a reviewed release
+ *   read, by Product source key; apply stops when the target's roadmap differs from it.
  * @property {boolean} [reviewed] Set only by an exact release apply; a trusted target requires it.
  * @property {boolean} [reconcileOnly] Complete the journal's unfinished writes with their original
  *   idempotency keys and stop; allowed on a trusted target because it sends nothing new.
@@ -575,6 +577,75 @@ export function topicState(topics, kept) {
 }
 
 /**
+ * @typedef {{
+ *   updatedOn: string;
+ *   chapters: {
+ *     chapterId: string;
+ *     status: "done" | "writing" | "planned";
+ *     upcomingLessons: { title: string; state: "writing" | "soon" }[];
+ *   }[];
+ * }} WireRoadmap
+ */
+
+/**
+ * The course roadmap a package asks for, as `PUT /authoring/products/:productId/roadmap` takes it
+ * (#2141). A chapter is named by the ID `productChapters` derives for it, so the roadmap needs no
+ * Material and fits a Product shell as well as a composition release.
+ *
+ * @param {Manifest} manifest
+ * @param {string} productSourceId
+ * @param {NonNullable<ManifestProduct["roadmap"]>} roadmap
+ * @returns {WireRoadmap}
+ */
+export function productRoadmap(manifest, productSourceId, roadmap) {
+  return {
+    updatedOn: roadmap.updatedOn,
+    chapters: roadmap.chapters.map((entry) => ({
+      chapterId: sourceUuid(
+        `${sourceKey(manifest, productSourceId)}:chapter:${entry.chapterId}`,
+      ),
+      status: entry.status,
+      // The receiver stores lesson titles trimmed, as it does chapter text.
+      upcomingLessons: (entry.upcomingLessons ?? []).map((lesson) => ({
+        title: lesson.title.trim(),
+        state: lesson.state,
+      })),
+    })),
+  };
+}
+
+/**
+ * A roadmap as a release compares it: the desired one against the target's, and the target's at
+ * apply against the one the preview read. Entries compare by chapter, because the Product's
+ * chapter list, not the roadmap, orders them; upcoming lessons keep their order.
+ *
+ * @param {WireRoadmap | null} roadmap
+ */
+export function roadmapState(roadmap) {
+  return checksum(
+    canonical(
+      roadmap === null
+        ? null
+        : {
+            updatedOn: roadmap.updatedOn,
+            chapters: roadmap.chapters
+              .map((entry) => ({
+                chapterId: entry.chapterId,
+                status: entry.status,
+                upcomingLessons: entry.upcomingLessons.map((lesson) => ({
+                  title: lesson.title,
+                  state: lesson.state,
+                })),
+              }))
+              .sort((left, right) =>
+                left.chapterId.localeCompare(right.chapterId),
+              ),
+          },
+    ),
+  );
+}
+
+/**
  * The composition a Product shell release sends: the package's chapter list over the Materials the
  * target already holds, each in its current chapter. Platform requires every chapter's Materials to
  * form one uninterrupted run, so each chapter, in chapter order, lists its Materials by their first
@@ -765,6 +836,7 @@ export async function syncLocal(
     reviewedTaskAccess = [],
     reviewedProductRemovals = [],
     reviewedTopics = {},
+    reviewedRoadmaps = {},
     reconcileOnly = false,
     sourceCommit,
     contextLinks,
@@ -1468,6 +1540,7 @@ export async function syncLocal(
           product,
           order,
         );
+        const storedRoadmap = await readRoadmap(product, current);
         // Omitted assignments keep every retained Material in its chapter; an unchanged shell writes nothing.
         await applyComposition({
           sourceId: sourceId(product.sourceId),
@@ -1479,6 +1552,7 @@ export async function syncLocal(
           orderedMaterialIds: composition.orderedMaterialIds,
           chapters: composition.chapters,
         });
+        await syncRoadmap(product, current, storedRoadmap);
         report.products.push({
           title: product.title,
           url: `${reader}/products/${current.slug}`,
@@ -1869,6 +1943,7 @@ export async function syncLocal(
           throw new Error(
             "The Product topics changed after the preview; preview again before releasing",
           );
+        const storedRoadmap = await readRoadmap(product, current);
         const composed = await applyComposition({
           programmePlacements,
           sourceId: sourceId(product.sourceId),
@@ -1888,6 +1963,7 @@ export async function syncLocal(
           parseLocalResponse("/authoring/import/products/composition", composed)
             .orderVersion,
         );
+        await syncRoadmap(product, current, storedRoadmap);
         await syncArtifacts(product, current);
         report.products.push({
           title: product.title,
@@ -1937,6 +2013,56 @@ export async function syncLocal(
       await request(
         `/authoring/products/${current.id}/topics`,
         { expectedOrderVersion: orderVersion, topics: desired },
+        undefined,
+        { method: "PUT" },
+      );
+    }
+
+    /**
+     * The target's course roadmap, read before the composition write when the package carries one
+     * (#2141). A reviewed release stops here when the roadmap differs from the one its preview read,
+     * so an edit made on the target after the review is never overwritten. A package without a
+     * roadmap reads nothing.
+     *
+     * @param {ManifestProduct} product
+     * @param {StoredProduct} current
+     * @returns {Promise<WireRoadmap | null | undefined>} `undefined` when the package has no roadmap
+     */
+    async function readRoadmap(product, current) {
+      if (product.roadmap === undefined) return undefined;
+      const { roadmap } = await request(
+        `/authoring/products/${current.id}/roadmap`,
+      );
+      const reviewed = reviewedRoadmaps[sourceId(product.sourceId)];
+      if (reviewed !== undefined && roadmapState(roadmap) !== reviewed)
+        throw new Error(
+          "The Product roadmap changed after the preview; preview again before releasing",
+        );
+      return roadmap;
+    }
+
+    /**
+     * The course roadmap follows the composition, which writes the chapters it names. A package
+     * without a roadmap leaves the target's alone; a present one replaces it, and only when it
+     * differs from the roadmap read before the composition. The write replaces the whole roadmap
+     * and the receiver accepts an already reached state, so a repeated release needs no journal
+     * entry, as with course topics.
+     *
+     * @param {ManifestProduct} product
+     * @param {StoredProduct} current
+     * @param {WireRoadmap | null | undefined} stored The roadmap `readRoadmap` returned
+     */
+    async function syncRoadmap(product, current, stored) {
+      if (product.roadmap === undefined) return;
+      const desired = productRoadmap(
+        pkg.manifest,
+        product.sourceId,
+        product.roadmap,
+      );
+      if (roadmapState(desired) === roadmapState(stored ?? null)) return;
+      await request(
+        `/authoring/products/${current.id}/roadmap`,
+        { roadmap: desired },
         undefined,
         { method: "PUT" },
       );

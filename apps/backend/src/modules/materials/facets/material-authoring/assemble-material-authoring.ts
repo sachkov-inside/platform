@@ -1,6 +1,10 @@
 import { assembleReadHistoricalSourceMaterialReceipt } from "../../features/read-historical-source-receipt/read-historical-source-receipt.js";
 import { assembleUpdateChapterAttachments } from "../../features/update-chapter-attachments/update-chapter-attachments.js";
 import { assembleUpdateProductTopics } from "../../features/update-product-topics/update-product-topics.js";
+import {
+  assembleLoadProductRoadmap,
+  assembleUpdateProductRoadmap,
+} from "../../features/update-product-roadmap/update-product-roadmap.js";
 import { assembleReadHistoricalPracticeReceipt } from "../../features/import-source-practice/import-source-practice.js";
 import {
   assembleReserveSourceProduct,
@@ -71,6 +75,8 @@ export function assembleMaterialAuthoring(
     reorderProduct: assembleReorderProduct(dependencies),
     updateChapterAttachments: assembleUpdateChapterAttachments(dependencies),
     updateProductTopics: assembleUpdateProductTopics(dependencies),
+    loadProductRoadmap: assembleLoadProductRoadmap(dependencies),
+    updateProductRoadmap: assembleUpdateProductRoadmap(dependencies),
     saveMaterial,
     setContentCollectionArchive:
       assembleSetContentCollectionArchive(dependencies),

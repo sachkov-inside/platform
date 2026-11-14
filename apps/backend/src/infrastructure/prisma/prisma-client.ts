@@ -213,6 +213,7 @@ export type ProductsPrisma = Pick<
   | "productMaterialRemoval"
   | "productMembership"
   | "productProgrammePlacement"
+  | "productRoadmap"
   | "productTopic"
   | "productTopicMaterial"
   | "publishedMaterialProductMembership"

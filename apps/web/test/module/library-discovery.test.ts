@@ -333,6 +333,97 @@ describe("Library discovery server adapter", () => {
     });
   });
 
+  it("carries the course roadmap of a Product and its chapters (#2141)", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    const base = {
+      materialIds: [],
+      summary: "",
+      tasks: [],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          chapters: [
+            {
+              ...base,
+              id: "72000000-0000-4000-8000-000000000040",
+              name: "Пишется",
+              roadmapStatus: "writing",
+              upcomingLessons: [
+                { title: "Следующий урок", state: "writing" },
+                { title: "Потом", state: "soon" },
+              ],
+            },
+            {
+              ...base,
+              id: "72000000-0000-4000-8000-000000000041",
+              name: "Без статуса",
+              roadmapStatus: null,
+              upcomingLessons: [],
+            },
+          ],
+          hasNext: false,
+          items: [publishedProjection],
+          kind: "product",
+          reference: {
+            cover: null,
+            id: "72000000-0000-4000-8000-000000000002",
+            name: "Platform",
+            slug: "platform",
+            summary: "Материалы о Platform.",
+          },
+          relatedProduct: [],
+          roadmapUpdatedOn: "2026-11-13",
+          topics: [],
+        }),
+      ),
+    );
+
+    const result = await getPublishedProduct("platform");
+    if (result.kind !== "ready") throw new Error("Expected a ready Product");
+    expect(result.reference.roadmapUpdatedOn).toBe("2026-11-13");
+    expect(result.chapters[0]).toMatchObject({
+      roadmapStatus: "writing",
+      upcomingLessons: [
+        { title: "Следующий урок", state: "writing" },
+        { title: "Потом", state: "soon" },
+      ],
+    });
+    // A chapter without a stored status keeps no roadmap fields: the page derives its status.
+    expect(result.chapters[1]).not.toHaveProperty("roadmapStatus");
+    expect(result.chapters[1]).not.toHaveProperty("upcomingLessons");
+  });
+
+  it("reads a Product without a roadmap as before", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          chapters: [],
+          hasNext: false,
+          items: [publishedProjection],
+          kind: "product",
+          reference: {
+            cover: null,
+            id: "72000000-0000-4000-8000-000000000002",
+            name: "Platform",
+            slug: "platform",
+            summary: "Материалы о Platform.",
+          },
+          relatedProduct: [],
+          roadmapUpdatedOn: null,
+          topics: [],
+        }),
+      ),
+    );
+
+    const result = await getPublishedProduct("platform");
+    if (result.kind !== "ready") throw new Error("Expected a ready Product");
+    expect(result.reference).not.toHaveProperty("roadmapUpdatedOn");
+  });
+
   it("carries the product page and drops a description this site cannot draw", async () => {
     const page = {
       card: null,

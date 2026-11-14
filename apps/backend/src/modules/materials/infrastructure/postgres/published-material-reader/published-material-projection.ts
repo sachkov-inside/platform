@@ -66,6 +66,11 @@ export interface PublishedMaterialDiscoveryPage {
     readonly summary: string;
     readonly materialIds: readonly string[];
   }[];
+  /**
+   * Calendar date (YYYY-MM-DD) of the Product roadmap's last update, null without a roadmap;
+   * absent for every other discovery kind.
+   */
+  readonly roadmapUpdatedOn?: string | null;
   /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;
@@ -74,6 +79,13 @@ export interface PublishedMaterialDiscoveryPage {
     readonly name: string;
     /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
     readonly summary: string;
+    /** Roadmap status the author set for the chapter; null when the roadmap names none. */
+    readonly roadmapStatus: "done" | "writing" | "planned" | null;
+    /** Unpublished lessons of a `writing` chapter, in author order; empty otherwise. */
+    readonly upcomingLessons: readonly {
+      readonly title: string;
+      readonly state: "writing" | "soon";
+    }[];
   }[];
   readonly reference: {
     /**
@@ -1047,8 +1059,17 @@ function projectionQueries(
           materialIds,
         }),
       ),
+      roadmapUpdatedOn: reference.roadmap?.updatedOn ?? null,
       chapters: productCompositionChapters(reference).map(
-        ({ id, materialIds, name, summary, supplementaryMaterialIds }) => ({
+        ({
+          id,
+          materialIds,
+          name,
+          summary,
+          supplementaryMaterialIds,
+          roadmapStatus,
+          upcomingLessons,
+        }) => ({
           ...(supplementaryMaterialIds.length === 0
             ? {}
             : { supplementaryMaterialIds }),
@@ -1056,6 +1077,11 @@ function projectionQueries(
           materialIds,
           name,
           summary,
+          roadmapStatus,
+          upcomingLessons: upcomingLessons.map(({ title, state }) => ({
+            title,
+            state,
+          })),
         }),
       ),
       reference: {

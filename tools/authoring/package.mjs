@@ -10,6 +10,11 @@ import {
   PRODUCT_TOPIC_SUMMARY_MAX,
   PRODUCT_TOPICS_MAX,
 } from "../../apps/backend/src/modules/products/shared/product-topics.ts";
+import {
+  PRODUCT_ROADMAP_CHAPTERS_MAX,
+  PRODUCT_ROADMAP_LESSON_TITLE_MAX,
+  PRODUCT_ROADMAP_UPCOMING_LESSONS_MAX,
+} from "../../apps/backend/src/modules/products/shared/product-roadmap.ts";
 import { z } from "zod";
 import { readerBlocksSchema } from "@inside/material-blocks";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
@@ -307,6 +312,44 @@ export const manifestSchema = z
             )
             .max(PRODUCT_TOPICS_MAX)
             .optional(),
+          // The course roadmap (#2141): a status per chapter, upcoming lessons of a chapter being
+          // written and the date of the last roadmap review. An absent roadmap leaves the target's
+          // alone; a present one replaces it completely.
+          roadmap: z
+            .object({
+              updatedOn: z.iso.date(),
+              chapters: z
+                .array(
+                  z
+                    .object({
+                      chapterId: identifier,
+                      status: z.enum(["done", "writing", "planned"]),
+                      upcomingLessons: z
+                        .array(
+                          z
+                            .object({
+                              title: z
+                                .string()
+                                .refine(
+                                  (value) =>
+                                    value.trim().length >= 1 &&
+                                    value.trim().length <=
+                                      PRODUCT_ROADMAP_LESSON_TITLE_MAX,
+                                  `Upcoming lesson title must have 1-${String(PRODUCT_ROADMAP_LESSON_TITLE_MAX)} characters after trim`,
+                                ),
+                              state: z.enum(["writing", "soon"]),
+                            })
+                            .strict(),
+                        )
+                        .max(PRODUCT_ROADMAP_UPCOMING_LESSONS_MAX)
+                        .optional(),
+                    })
+                    .strict(),
+                )
+                .max(PRODUCT_ROADMAP_CHAPTERS_MAX),
+            })
+            .strict()
+            .optional(),
         })
         .strict(),
     ),
@@ -451,6 +494,44 @@ function checkSelectionScope(manifest) {
     throw new Error(
       "A Product shell release carries the complete chapter list without Material placement",
     );
+}
+
+/** The feature a package declares when a Product carries its course roadmap. */
+export const PRODUCT_ROADMAP_FEATURE = "product-roadmap-v1";
+
+/**
+ * A course roadmap names chapters of its own Product, each at most once; only a chapter being
+ * written lists upcoming lessons. A receiver without the feature refuses the package in the
+ * handshake.
+ *
+ * @param {Manifest} manifest
+ * @param {ManifestProduct} product
+ */
+function checkProductRoadmap(manifest, product) {
+  const roadmap = product.roadmap;
+  if (roadmap === undefined) return;
+  if (
+    manifest.schemaVersion < 2 ||
+    !manifest.requiredFeatures?.includes(PRODUCT_ROADMAP_FEATURE)
+  )
+    throw new Error(
+      `Product roadmap requires package v2 and ${PRODUCT_ROADMAP_FEATURE}`,
+    );
+  unique(
+    roadmap.chapters.map((entry) => entry.chapterId),
+    `${product.sourceId} roadmap chapter`,
+  );
+  const chapters = new Set(product.chapters.map((chapter) => chapter.sourceId));
+  for (const entry of roadmap.chapters) {
+    if (!chapters.has(entry.chapterId))
+      throw new Error(
+        `${product.sourceId}: roadmap names a chapter outside the Product: ${entry.chapterId}`,
+      );
+    if (entry.status !== "writing" && (entry.upcomingLessons?.length ?? 0) > 0)
+      throw new Error(
+        `${product.sourceId}: roadmap chapter ${entry.chapterId} lists upcoming lessons but is not being written`,
+      );
+  }
 }
 
 /** The feature a package declares when a Product carries its course topics. */
@@ -741,6 +822,10 @@ export async function loadPackage(path) {
       throw new Error(
         "Bounded content never changes Product topics; release them with the Product",
       );
+    if (manifest.products.some((product) => product.roadmap !== undefined))
+      throw new Error(
+        "Bounded content never changes a Product roadmap; release it with the Product",
+      );
     if (
       isProductShell(manifest) ||
       (manifest.practiceDefinitions ?? []).length ||
@@ -881,6 +966,7 @@ export async function loadPackage(path) {
         );
     }
     checkProductTopics(manifest, product);
+    checkProductRoadmap(manifest, product);
     if (
       product.chapters.length &&
       canonical([

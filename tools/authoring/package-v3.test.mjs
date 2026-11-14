@@ -571,3 +571,176 @@ for (const [description, value, message] of /** @type {const} */ ([
     await assert.rejects(loadTopicPackage(t, value), message);
   });
 }
+
+/**
+ * A v3 package of one Product with two chapters and the given course roadmap (#2141).
+ *
+ * @param {unknown} roadmap `undefined` omits the field
+ * @param {string[]} [features]
+ */
+function roadmapFixture(
+  roadmap,
+  features = ["canonical-product-source-v2", "product-roadmap-v1"],
+) {
+  const value = topicFixture(undefined, features);
+  const [product] = value.products;
+  assert.ok(product);
+  product["chapters"] = [
+    { sourceId: "first", title: "First", summary: "", materialIds: ["one"] },
+    { sourceId: "second", title: "Second", summary: "", materialIds: [] },
+  ];
+  if (roadmap !== undefined) product["roadmap"] = roadmap;
+  return value;
+}
+
+/** @param {unknown[]} chapters @param {string} [updatedOn] */
+const roadmap = (chapters, updatedOn = "2026-11-13") => ({
+  updatedOn,
+  chapters,
+});
+
+test("a Product carries its course roadmap over its own chapters", async (t) => {
+  const value = roadmapFixture(
+    roadmap([
+      { chapterId: "first", status: "done" },
+      {
+        chapterId: "second",
+        status: "writing",
+        upcomingLessons: [
+          { title: "  Next lesson  ", state: "writing" },
+          { title: "Later", state: "soon" },
+        ],
+      },
+    ]),
+  );
+  const pkg = await loadTopicPackage(t, value);
+  assert.deepEqual(
+    pkg.manifest.products[0]?.roadmap,
+    value.products[0]?.["roadmap"],
+  );
+});
+
+test("a package without a roadmap stays valid and names none", async (t) => {
+  const pkg = await loadTopicPackage(t, roadmapFixture(undefined));
+  assert.equal(Object.hasOwn(pkg.manifest.products[0] ?? {}, "roadmap"), false);
+});
+
+for (const [description, value, message] of /** @type {const} */ ([
+  [
+    "a roadmap chapter named twice",
+    roadmapFixture(
+      roadmap([
+        { chapterId: "first", status: "done" },
+        { chapterId: "first", status: "planned" },
+      ]),
+    ),
+    /Duplicate course roadmap chapter/u,
+  ],
+  [
+    "a roadmap chapter outside the Product",
+    roadmapFixture(roadmap([{ chapterId: "third", status: "planned" }])),
+    /roadmap names a chapter outside the Product: third/u,
+  ],
+  [
+    "upcoming lessons of a chapter that is not being written",
+    roadmapFixture(
+      roadmap([
+        {
+          chapterId: "first",
+          status: "done",
+          upcomingLessons: [{ title: "Next", state: "soon" }],
+        },
+      ]),
+    ),
+    /chapter first lists upcoming lessons but is not being written/u,
+  ],
+  [
+    "an unknown roadmap status",
+    roadmapFixture(roadmap([{ chapterId: "first", status: "paused" }])),
+    /status/u,
+  ],
+  [
+    "an unknown upcoming lesson state",
+    roadmapFixture(
+      roadmap([
+        {
+          chapterId: "first",
+          status: "writing",
+          upcomingLessons: [{ title: "Next", state: "later" }],
+        },
+      ]),
+    ),
+    /state/u,
+  ],
+  [
+    "an upcoming lesson title that is empty after trim",
+    roadmapFixture(
+      roadmap([
+        {
+          chapterId: "first",
+          status: "writing",
+          upcomingLessons: [{ title: "   ", state: "soon" }],
+        },
+      ]),
+    ),
+    /Upcoming lesson title/u,
+  ],
+  [
+    "an upcoming lesson title longer than 160 characters after trim",
+    roadmapFixture(
+      roadmap([
+        {
+          chapterId: "first",
+          status: "writing",
+          upcomingLessons: [{ title: ` ${"x".repeat(161)} `, state: "soon" }],
+        },
+      ]),
+    ),
+    /Upcoming lesson title/u,
+  ],
+  [
+    "more than 50 upcoming lessons",
+    roadmapFixture(
+      roadmap([
+        {
+          chapterId: "first",
+          status: "writing",
+          upcomingLessons: Array.from({ length: 51 }, (_, index) => ({
+            title: `Lesson ${String(index)}`,
+            state: "soon",
+          })),
+        },
+      ]),
+    ),
+    /too_big|Too big/u,
+  ],
+  [
+    "an update date that is not a calendar date",
+    roadmapFixture(roadmap([], "2026-13-01")),
+    /updatedOn|date/iu,
+  ],
+  [
+    "a roadmap in a bounded content update",
+    {
+      ...roadmapFixture(roadmap([]), [
+        "canonical-product-source-v2",
+        "product-roadmap-v1",
+        "bounded-content-v1",
+      ]),
+      selection: {
+        ...roadmapFixture(undefined).selection,
+        contentOnly: { materialIds: ["one"], taskIds: [], artifactIds: [] },
+      },
+    },
+    /Bounded content never changes a Product roadmap/u,
+  ],
+  [
+    "a roadmap without product-roadmap-v1",
+    roadmapFixture(roadmap([]), ["canonical-product-source-v2"]),
+    /Product roadmap requires package v2 and product-roadmap-v1/u,
+  ],
+])) {
+  test(`package loading refuses ${description}`, async (t) => {
+    await assert.rejects(loadTopicPackage(t, value), message);
+  });
+}
