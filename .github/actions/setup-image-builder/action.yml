@@ -1,0 +1,35 @@
+name: Set up pinned image builder
+description: Selects one checked Buildx and BuildKit pair for image publication and compatibility proofs
+runs:
+  using: composite
+  steps:
+    - name: Select toolchain
+      id: versions
+      shell: bash
+      run: |
+        echo 'buildx=v0.39.0' >>"$GITHUB_OUTPUT"
+        echo 'buildkit=v0.35.0' >>"$GITHUB_OUTPUT"
+        echo 'image=docker.io/moby/buildkit:v0.35.0@sha256:aa632b921ef07411d2cb77292cd34213d4f7b384001d6fceef1e1f25bf9752bb' >>"$GITHUB_OUTPUT"
+    - name: Install Buildx and start BuildKit
+      id: builder
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      with:
+        version: ${{ steps.versions.outputs.buildx }}
+        driver: docker-container
+        use: true
+        driver-opts: |
+          image=${{ steps.versions.outputs.image }}
+          default-load=true
+    - name: Select builder for Docker CLI consumers
+      shell: bash
+      env:
+        SELECTED_BUILDER: ${{ steps.builder.outputs.name }}
+      run: |
+        [[ "$SELECTED_BUILDER" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]+$ ]]
+        printf 'BUILDX_BUILDER=%s\n' "$SELECTED_BUILDER" >>"$GITHUB_ENV"
+    - name: Verify selected versions
+      shell: bash
+      env:
+        EXPECTED_BUILDX_VERSION: ${{ steps.versions.outputs.buildx }}
+        EXPECTED_BUILDKIT_VERSION: ${{ steps.versions.outputs.buildkit }}
+      run: bash scripts/check-image-builder.sh

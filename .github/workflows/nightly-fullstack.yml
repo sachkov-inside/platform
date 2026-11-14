@@ -26,6 +26,8 @@ jobs:
           persist-credentials: false
       - name: Install pinned Docker Compose
         uses: ./.github/actions/setup-docker-compose
+      - name: Set up image builder
+        uses: ./.github/actions/setup-image-builder
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - name: Install Node.js
