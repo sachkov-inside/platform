@@ -40,12 +40,15 @@ export async function expectLinearProgrammeReturn(
     name: "Действия в конце материала",
     exact: true,
   });
-  for (const actions of [top, bottom]) {
-    await expect(actions).toHaveCount(1);
-    await expect(
-      actions.getByRole("link", { name: "Назад", exact: true }),
-    ).toHaveAttribute("href", href);
-  }
+  await expect(top).toHaveCount(1);
+  await expect(
+    top.getByRole("link", { name: "Назад", exact: true }),
+  ).toHaveAttribute("href", href);
+  // The lesson finish card ends the lesson; the return stays in the panel above it.
+  await expect(bottom).toHaveCount(1);
+  await expect(
+    bottom.getByRole("link", { name: "Назад", exact: true }),
+  ).toHaveCount(0);
   const dock = page.getByRole("navigation", {
     name: "Уроки продукта",
     exact: true,

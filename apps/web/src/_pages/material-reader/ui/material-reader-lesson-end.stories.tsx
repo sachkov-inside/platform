@@ -22,8 +22,17 @@ import {
   SavedLessonTermDeck,
   termMarkChanges,
 } from "@/features/lesson-term-deck";
-import { ReadingProgressProvider } from "@/features/reading-progress";
+import {
+  ReadingProgressProvider,
+  SavedReadingAction,
+} from "@/features/reading-progress";
 import { getQueryClient } from "@/shared/api/query-client";
+import {
+  materialReaderHref,
+  parseMaterialReaderReturnTarget,
+} from "@/shared/routing/material-reader";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import { expectPhoneLayout } from "@/storybook/phone-layout";
 import { accountPresentationResponse } from "@/storybook/account.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { publicPageEnvironment } from "@/storybook/story-environment";
@@ -145,8 +154,23 @@ const meta = {
         window.location.origin,
       ).pathname;
       if (path === "/api/account") return accountPresentationResponse();
-      if (path === "/api/reading-progress/states")
-        return Response.json({ kind: "ready", states: [] });
+      if (path === "/api/reading-progress/states") {
+        const { materialIds } = z
+          .object({ materialIds: z.array(z.string()) })
+          .parse(await body$(input, init));
+        return Response.json({
+          kind: "ready",
+          states: materialIds.map((id) => ({
+            materialId: id,
+            isRead: false,
+            version: 0,
+            readAt: null,
+            updatedAt: null,
+            updateNote: null,
+            openedParts: null,
+          })),
+        });
+      }
       if (path === "/api/lesson-ratings/query")
         return Response.json({ kind: "ready", rating: backend.rating });
       if (path === "/api/lesson-ratings/rating") {
@@ -227,6 +251,22 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** Opens the collapsed «Термины урока · N» row of the finish card. */
+async function openTerms(canvasElement: HTMLElement) {
+  await userEvent.click(
+    await within(canvasElement).findByRole("button", {
+      name: /^Термины урока · \d+$/u,
+    }),
+  );
+}
+
+/** The finish card of the lesson; the page has one. */
+function finishCard(canvasElement: HTMLElement): HTMLElement {
+  const card = canvasElement.querySelector<HTMLElement>("[data-lesson-finish]");
+  if (card === null) throw new Error("The lesson finish card is missing");
+  return card;
+}
+
 /** Collects announcements of one fact channel while a story runs. */
 function heard(channel: {
   subscribe: (on: (id: string) => void) => () => void;
@@ -250,6 +290,7 @@ export const WritesTellOtherTabs: Story = {
       await canvas.findByRole("button", { name: /Пользователь видит запись/u }),
     );
     await waitFor(() => expect(attempts).toHaveLength(1));
+    await openTerms(canvasElement);
     await userEvent.click(await canvas.findByRole("button", { name: "Знаю" }));
     await waitFor(() => expect(marks).toHaveLength(1));
     await userEvent.click(
@@ -283,6 +324,7 @@ export const FollowsAnotherTab: Story = {
     exerciseAttemptChanges(accountId).announce();
 
     await waitFor(() => expect(like).toHaveAttribute("aria-pressed", "true"));
+    await openTerms(canvasElement);
     await waitFor(() =>
       expect(canvas.getByRole("button", { name: "Знаю" })).toHaveAttribute(
         "aria-pressed",
@@ -290,8 +332,11 @@ export const FollowsAnotherTab: Story = {
       ),
     );
     await waitFor(() =>
-      expect(canvas.getByText("Упражнения: 1 из 1 решены")).toBeVisible(),
+      expect(canvas.getByText("Упражнения: 1 из 1")).toBeVisible(),
     );
+    await expect(
+      canvas.getByRole("heading", { name: "Урок пройден" }),
+    ).toBeVisible();
   },
 };
 
@@ -306,5 +351,146 @@ export const AnswerBeforeIdentityIsSaved: Story = {
     await expect(backend.recorded).toEqual([]);
     identity.dispatchEvent(new Event("resolve"));
     await waitFor(() => expect(backend.recorded).toEqual(["visible"]));
+  },
+};
+
+const programme = productProgrammeHref("ai-engineering");
+const courseContext = {
+  currentPosition: 2,
+  totalMaterials: 3,
+  product: { name: "AI Engineering", href: programme },
+  previous: {
+    title: "Первый урок",
+    href: materialReaderHref("first", programme),
+  },
+  next: {
+    title: "Следующий урок",
+    href: materialReaderHref("next", programme),
+  },
+};
+
+/**
+ * «Финиш урока» outside a course: one quiet card with the unsolved exercise, the lesson terms row
+ * and the rating; the reading panel under it stays as it was.
+ */
+export const FinishOutsideCourse: Story = {
+  play: async ({ canvasElement }) => {
+    const card = within(finishCard(canvasElement));
+    await expect(
+      await card.findByRole("heading", { name: "Конец урока" }),
+    ).toBeVisible();
+    await expect(card.getByText("Упражнения: 0 из 1")).toBeVisible();
+    await expect(
+      card.getByRole("link", { name: "Решить упражнение 1" }),
+    ).toHaveAttribute("href", `#exercise-${quiz.id}`);
+    const terms = card.getByRole("button", { name: "Термины урока · 1" });
+    await expect(terms).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      await card.findByRole("group", { name: "Как вам урок?" }),
+    ).toBeVisible();
+    await expect(
+      within(canvasElement).getByRole("navigation", {
+        name: "Действия в конце материала",
+      }),
+    ).toBeVisible();
+    await expect(
+      within(canvasElement)
+        .getByRole("navigation", { name: "Действия в конце материала" })
+        .closest("[data-lesson-finish]"),
+    ).toBeNull();
+  },
+};
+
+/**
+ * Inside a course the card replaces the reading panel under the lesson: «Изучено» and the main
+ * «Дальше»; «Назад» and «Сохранить» stay in the panel above the lesson.
+ */
+export const FinishInCourse: Story = {
+  args: {
+    returnTarget: parseMaterialReaderReturnTarget(programme),
+    productContext: courseContext,
+    readingAction: (
+      <SavedReadingAction compact format="guide" materialId={materialId} />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const ends = canvas.getAllByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    await expect(ends).toHaveLength(1);
+    const [end] = ends;
+    if (end === undefined) throw new Error("The finish actions are missing");
+    await expect(finishCard(canvasElement).contains(end)).toBe(true);
+    await expect(
+      within(end).getByRole("link", { name: "Дальше" }),
+    ).toHaveAttribute("href", materialReaderHref("next", programme));
+    await expect(
+      within(end).getByRole("button", { name: "Изучено" }),
+    ).toBeVisible();
+    for (const name of ["Назад", "Сохранить"])
+      await expect(within(end).queryByText(name)).toBeNull();
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /Пользователь видит запись/u }),
+    );
+    await waitFor(() =>
+      expect(
+        within(finishCard(canvasElement)).getByRole("heading", {
+          name: "Урок пройден",
+        }),
+      ).toBeVisible(),
+    );
+    await expect(
+      within(finishCard(canvasElement)).queryByRole("link", {
+        name: /^Решить упражнение/u,
+      }),
+    ).toBeNull();
+  },
+};
+
+export const FinishInCoursePhone: Story = {
+  ...FinishInCourse,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async (context) => {
+    await FinishInCourse.play?.(context);
+    await openTerms(context.canvasElement);
+    const end = finishCard(context.canvasElement).parentElement;
+    if (end === null) throw new Error("The finish card has no frame");
+    await expectPhoneLayout(end, "[data-lesson-finish]");
+  },
+};
+
+export const FinishInCoursePhone360: Story = {
+  ...FinishInCoursePhone,
+  globals: { viewport: { value: "mobile360", isRotated: false } },
+};
+
+/** A lesson without exercises and terms: the card keeps the plain heading and the rating. */
+export const FinishWithoutExercises: Story = {
+  args: {
+    body: [paragraph("Короткий урок без упражнений.")],
+    termDeck: <SavedLessonTermDeck terms={[]} />,
+    exerciseScope: (lesson) => (
+      <LessonExerciseAttempts
+        materialId={materialId}
+        exercises={[]}
+        signInHref="/account"
+      >
+        {lesson}
+      </LessonExerciseAttempts>
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const card = within(finishCard(canvasElement));
+    await expect(
+      card.getByRole("heading", { name: "Конец урока" }),
+    ).toBeVisible();
+    await expect(card.queryByText(/^Упражнения:/u)).toBeNull();
+    await expect(
+      card.queryByRole("button", { name: /^Термины урока/u }),
+    ).toBeNull();
+    await expect(
+      await card.findByRole("group", { name: "Как вам урок?" }),
+    ).toBeVisible();
   },
 };

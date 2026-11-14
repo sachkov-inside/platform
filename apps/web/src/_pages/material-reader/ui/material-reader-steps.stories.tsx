@@ -154,7 +154,7 @@ const meta = {
     primaryVideo: null,
     termDeck: <section aria-label="Термины урока">Термины урока</section>,
     exerciseSummary: (
-      <section aria-label="Упражнения урока">Упражнения: 1 из 1 решены</section>
+      <section aria-label="Упражнения урока">Упражнения: 1 из 1</section>
     ),
     lessonRating: <section aria-label="Как вам урок?">Как вам урок?</section>,
     material: {
@@ -385,14 +385,14 @@ export const LastPartOpensTermDeck: Story = {
 };
 
 /**
- * The end of the lesson waits for its last part and reads in one order: the term deck, the
- * exercises summary, then the rating.
+ * The finish card waits for its last part and reads in one order: the exercises, the lesson
+ * terms, then the rating.
  */
 export const LessonEndWaitsForLastPart: Story = {
   parameters: { guestParts: 3 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const end = ["Термины урока", "Упражнения урока", "Как вам урок?"];
+    const end = ["Упражнения урока", "Термины урока", "Как вам урок?"];
     for (const name of end)
       await expect(
         canvas.getByRole("region", { name, hidden: true }),
