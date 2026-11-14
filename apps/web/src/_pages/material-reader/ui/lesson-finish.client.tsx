@@ -9,17 +9,22 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import styles from "./lesson-finish.module.css";
 
+const primaryAction =
+  "ml-auto inline-flex min-h-12 max-w-full items-center gap-2 rounded-full bg-lesson-graphite px-4 font-medium @[16rem]/finish:px-6 text-lesson-graphite-foreground no-underline transition-colors duration-(--motion-duration-fast) hover:bg-lesson-graphite-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none";
+
 /** What the finish card leads to inside a course; outside a course the card has no actions. */
 export interface LessonFinishActions {
   /** «Изучено»: the reader's own reading-state toggle. */
   readonly readingAction?: ReactNode;
   readonly next: { readonly href: Route; readonly title: string } | null;
+  /** Programme page of the course: the last lesson leads there with «К программе». */
+  readonly programme: Route;
 }
 
 /**
  * «Финиш урока» (решение владельца 14.11.2026, концепция A): одна тихая карточка в конце урока.
  * Заголовок, строки «Упражнения», «Термины урока» и «Как вам урок?», а внутри курса ещё «Изучено»
- * и главная кнопка «Дальше». Заголовок «Урок пройден» стоит, когда все упражнения урока решены;
+ * и главная кнопка «Дальше»; в последнем уроке курса на её месте «К программе». Заголовок «Урок пройден» стоит, когда все упражнения урока решены;
  * иначе и в уроке без упражнений «Конец урока».
  */
 export function LessonFinish({
@@ -58,10 +63,18 @@ export function LessonFinish({
           >
             {actions.readingAction}
           </div>
-          {actions.next === null ? null : (
+          {actions.next === null ? (
+            <IntentPrefetchLink
+              className={primaryAction}
+              data-lesson-finish-programme
+              href={actions.programme}
+            >
+              К программе
+            </IntentPrefetchLink>
+          ) : (
             <IntentPrefetchLink
               aria-label="Дальше"
-              className="ml-auto inline-flex min-h-12 max-w-full items-center gap-2 rounded-full bg-lesson-graphite px-4 font-medium @[16rem]/finish:px-6 text-lesson-graphite-foreground no-underline transition-colors duration-(--motion-duration-fast) hover:bg-lesson-graphite-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+              className={primaryAction}
               data-lesson-finish-next
               href={actions.next.href}
               title={actions.next.title}

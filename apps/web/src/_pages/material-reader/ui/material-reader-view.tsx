@@ -150,8 +150,9 @@ export function MaterialReaderView({
       ? null
       : productContext?.programme?.next;
   // Внутри курса карточка «Финиш урока» заменяет нижнюю панель: «Изучено» и «Дальше» переходят в
-  // неё, «Назад» и «Сохранить» остаются в верхней панели. Вне курса и у дополнительного
-  // материала, где важен возврат «К уроку», нижняя панель остаётся прежней.
+  // неё (в последнем уроке курса на месте «Дальше» стоит «К программе»), «Назад» и «Сохранить»
+  // остаются в верхней панели. Вне курса и у дополнительного материала, где важен возврат
+  // «К уроку», нижняя панель остаётся прежней.
   const finishActions =
     productContext === null || productContext.supplementary === true
       ? undefined
@@ -159,6 +160,7 @@ export function MaterialReaderView({
           readingAction: endReadingAction,
           next:
             (nextStep === undefined ? productContext.next : nextStep) ?? null,
+          programme: productContext.product.href,
         };
   const finishRows =
     termDeck !== undefined ||
