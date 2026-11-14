@@ -941,3 +941,142 @@ export const GlossaryTermsHover: Story = {
     );
   },
 };
+
+function calloutText(text: string) {
+  return [
+    {
+      kind: "paragraph" as const,
+      content: [{ kind: "text" as const, text, marks: [] }],
+    },
+  ];
+}
+
+const calloutGalleryTones = [
+  "note",
+  "tip",
+  "warning",
+  "example",
+  "good",
+  "bad",
+  "definition",
+  "task",
+] as const;
+
+/**
+ * Врезки урока (решение владельца 14.11.2026, вариант 1A): одна непрозрачная песочная подложка
+ * без рамки, вид виден значком и цветом подписи. Свой фон держат только «Хорошо» и «Плохо».
+ * Определение автора и карточка термина из словаря выглядят одинаково.
+ */
+export const CalloutGallery: Story = {
+  args: {
+    blocks: [
+      ...calloutGalleryTones.map((tone) => ({
+        kind: "callout" as const,
+        tone,
+        content: calloutText(`Врезка вида ${tone}: текст урока внутри врезки.`),
+      })),
+      {
+        kind: "callout",
+        tone: "tip",
+        title: "Свёрнутый совет",
+        collapse: "collapsed",
+        content: calloutText("Текст свёрнутого совета."),
+      },
+      {
+        kind: "callout",
+        tone: "warning",
+        title: "Развёрнутое предупреждение",
+        collapse: "expanded",
+        content: calloutText("Текст развёрнутого предупреждения."),
+      },
+      {
+        kind: "callout",
+        tone: "definition",
+        title: "Чанк",
+        content: calloutText("Определение, которое написал автор урока."),
+      },
+      { kind: "term_definition", termId: "bounded-context" },
+    ],
+    rendering: {
+      headingId: (path: readonly number[]) =>
+        `material-section-${path.join("-")}`,
+      image: () => null,
+      file: () => null,
+      glossary: new Map([[boundedContext.id, boundedContext]]),
+    },
+  },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const callouts = [
+      ...canvasElement.querySelectorAll<HTMLElement>("[data-callout]"),
+    ];
+    await expect(callouts).toHaveLength(calloutGalleryTones.length + 4);
+    // Tokens are read where the callouts live, so a dark wrapper gives its own values.
+    const host = callouts[0]?.parentElement ?? canvasElement;
+    const token = (name: string) =>
+      cssColor(host, getComputedStyle(host).getPropertyValue(name).trim());
+    const surface = token("--lesson-surface");
+    const sand = token("--lesson-sand");
+    for (const callout of callouts) {
+      const style = getComputedStyle(callout);
+      const tone = callout.dataset["callout"];
+      // No visible frame: the surface alone separates the callout from the text.
+      await expect([tone, style.borderTopColor]).toEqual([
+        tone,
+        "rgba(0, 0, 0, 0)",
+      ]);
+      if (tone === "good" || tone === "bad")
+        await expect(style.backgroundColor).not.toBe(surface);
+      else if (tone === "definition")
+        await expect(style.backgroundColor).toBe(sand);
+      else await expect([tone, style.backgroundColor]).toEqual([tone, surface]);
+    }
+    // The author's definition and the glossary card share one look.
+    const definitions = callouts.filter(
+      (callout) => callout.dataset["callout"] === "definition",
+    );
+    await expect(definitions).toHaveLength(3);
+    const author = definitions.find(
+      (callout) => !callout.hasAttribute("data-callout-term"),
+    );
+    const glossary = definitions.find((callout) =>
+      callout.hasAttribute("data-callout-term"),
+    );
+    if (author === undefined || glossary === undefined)
+      throw new Error("Both definition callouts are needed");
+    for (const property of ["backgroundColor", "borderTopColor"] as const)
+      await expect(getComputedStyle(author)[property]).toBe(
+        getComputedStyle(glossary)[property],
+      );
+    const label = (callout: HTMLElement) =>
+      getComputedStyle(callout.querySelector("p") ?? callout).color;
+    await expect(label(author)).toBe(label(glossary));
+    // Collapsible callouts keep their behaviour and accessible names.
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Свёрнутый совет").closest("details"),
+    ).not.toHaveAttribute("open");
+    await expect(
+      canvas.getByText("Развёрнутое предупреждение").closest("details"),
+    ).toHaveAttribute("open");
+    await expect(
+      canvas.getByRole("complementary", { name: "Определение: Чанк" }),
+    ).toBeVisible();
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+  },
+};
+export const CalloutGalleryMobile: Story = {
+  ...CalloutGallery,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const CalloutGalleryDark: Story = {
+  ...CalloutGallery,
+  decorators: [
+    (Story) => (
+      <div className="dark bg-background p-6 text-foreground">
+        <Story />
+      </div>
+    ),
+  ],
+};

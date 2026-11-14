@@ -559,9 +559,19 @@ body:has(
  * цвет вида задан здесь один раз. Поверхность и рамка выводятся из того же токена: собственных
  * цветов у врезки нет.
  */
+/*
+ * Врезки урока (решение владельца 14.11.2026, вариант 1A): одна непрозрачная песочная подложка
+ * без рамки. Вид виден значком и цветом подписи; свой оттенок фона держат только «Хорошо» и
+ * «Плохо», где цвет и есть смысл.
+ */
 [data-callout] {
   --callout-ink: var(--callout-note);
-  border-color: color-mix(in oklab, var(--callout-ink) 28%, var(--border));
+  border-color: transparent;
+  background: var(--lesson-surface);
+}
+
+[data-callout="good"],
+[data-callout="bad"] {
   background: color-mix(in oklab, var(--callout-ink) 10%, var(--card));
 }
 
@@ -580,20 +590,16 @@ body:has(
 [data-callout="bad"] {
   --callout-ink: var(--callout-bad);
 }
-[data-callout="definition"] {
-  --callout-ink: var(--callout-definition);
-}
 [data-callout="task"] {
   --callout-ink: var(--callout-task);
 }
 
 /*
- * Карточка «Определение» из словаря курса (#2118): непрозрачный песок, а не смесь цвета вида
- * с фоном. Обычная врезка «Определение» автора остаётся в цвете своего вида.
+ * «Определение» автора и карточка термина из словаря курса (#2118) выглядят одинаково:
+ * непрозрачный песок и подпись цветом `--lesson-ink`.
  */
-[data-callout][data-callout-term] {
+[data-callout="definition"] {
   --callout-ink: var(--lesson-ink);
-  border-color: var(--lesson-sand-line);
   background: var(--lesson-sand);
 }
 
