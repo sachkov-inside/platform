@@ -1,8 +1,7 @@
 export {
   LessonExerciseAttempts,
-  SavedLessonExerciseSummary,
-  useLessonExercisesSolved,
+  useLessonExerciseProgress,
 } from "./ui/lesson-exercise-attempts.client";
-export { LessonExerciseSummary } from "./ui/lesson-exercise-summary";
+export { LessonExerciseCount } from "./ui/lesson-exercise-count";
 export { lessonExercises, type LessonExercise } from "./model/lesson-exercises";
 export { exerciseAttemptChanges } from "./model/exercise-attempt-events";

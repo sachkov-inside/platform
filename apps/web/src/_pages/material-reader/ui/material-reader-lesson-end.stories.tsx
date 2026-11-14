@@ -12,7 +12,6 @@ import {
   exerciseAttemptChanges,
   LessonExerciseAttempts,
   lessonExercises,
-  SavedLessonExerciseSummary,
 } from "@/features/exercise-attempts";
 import {
   lessonRatingChanges,
@@ -137,7 +136,7 @@ const meta = {
   id: "pages-material-reader-lesson-end",
   title: "Pages/Material Reader/Lesson End",
   component: MaterialReaderView,
-  beforeEach: () => {
+  beforeEach: ({ parameters }) => {
     getQueryClient().clear();
     environment.beforeEach();
     backend.rating = null;
@@ -157,7 +156,7 @@ const meta = {
           kind: "ready",
           states: materialIds.map((id) => ({
             materialId: id,
-            isRead: false,
+            isRead: parameters["studied"] === true,
             version: 0,
             readAt: null,
             updatedAt: null,
@@ -204,7 +203,6 @@ const meta = {
     body,
     primaryVideo: null,
     termDeck: <LessonTermDeck terms={[term]} />,
-    exerciseSummary: <SavedLessonExerciseSummary />,
     lessonRating: <SavedLessonRating materialId={materialId} />,
     exerciseScope: (lesson) => (
       <LessonExerciseAttempts
@@ -289,11 +287,10 @@ export const FollowsAnotherTab: Story = {
 
     await waitFor(() => expect(like).toHaveAttribute("aria-pressed", "true"));
     await waitFor(() =>
-      expect(canvas.getByText("Упражнения: 1 из 1")).toBeVisible(),
+      expect(
+        canvas.getByRole("heading", { name: "Урок пройден" }),
+      ).toBeVisible(),
     );
-    await expect(
-      canvas.getByRole("heading", { name: "Урок пройден" }),
-    ).toBeVisible();
   },
 };
 
@@ -326,20 +323,36 @@ const courseContext = {
   },
 };
 
+const unsolvedCount = "решено 0 из 1 упражнений, перейти к нерешённому";
+
 /**
- * «Финиш урока» outside a course: one quiet card with the unsolved exercise and the rating; the
- * open carousel «Термины урока» stands right before it, and the reading panel under it stays.
+ * «Финиш урока» outside a course: one quiet card whose heading carries the exercise count, a quiet
+ * link to the unsolved exercise, and the rating; the open carousel «Термины урока» stands right
+ * before it, and the reading panel under it stays (owner correction 14.11.2026).
  */
 export const FinishOutsideCourse: Story = {
   play: async ({ canvasElement }) => {
     const card = within(finishCard(canvasElement));
+    const heading = await card.findByRole("heading", {
+      name: /^Конец урока/u,
+    });
+    await expect(heading).toBeVisible();
+    // Seen: «Конец урока · упражнения 0 из 1»; heard: the count in plain words.
+    await expect(heading.innerText.replace(/\s+/gu, " ")).toMatch(
+      /^Конец урока · .*упражнения 0 из 1/u,
+    );
+    await expect(within(heading).getByText("упражнения 0 из 1")).toBeVisible();
+    // Element boundaries may add a space before the comma; the words are what is heard.
+    await expect(heading).toHaveAccessibleName(
+      new RegExp(`^Конец урока ?, ${unsolvedCount}$`, "u"),
+    );
     await expect(
-      await card.findByRole("heading", { name: "Конец урока" }),
-    ).toBeVisible();
-    await expect(card.getByText("Упражнения: 0 из 1")).toBeVisible();
-    await expect(
-      card.getByRole("link", { name: "Решить упражнение 1" }),
+      within(heading).getByRole("link", { name: unsolvedCount }),
     ).toHaveAttribute("href", `#exercise-${quiz.id}`);
+    // The count lives in the heading only: no separate row with dots or «Решить упражнение».
+    await expect(card.getAllByRole("link")).toHaveLength(1);
+    await expect(card.queryByText(/^Упражнения:/u)).toBeNull();
+    await expect(card.queryByText(/^Решить упражнение/u)).toBeNull();
     await expect(
       card.queryByRole("button", { name: /^Термины урока/u }),
     ).toBeNull();
@@ -409,9 +422,50 @@ export const FinishInCourse: Story = {
     );
     await expect(
       within(finishCard(canvasElement)).queryByRole("link", {
-        name: /^Решить упражнение/u,
+        name: /перейти к нерешённому/u,
       }),
     ).toBeNull();
+    await expectSecondaryStudy(end);
+  },
+};
+
+/** «Изучено» is a second pill button as tall as the main one, never a bare text control. */
+async function expectSecondaryStudy(actions: HTMLElement) {
+  const studied = within(actions).getByRole("button", { name: "Изучено" });
+  const main =
+    within(actions).queryByRole("link", { name: "Дальше" }) ??
+    within(actions).getByRole("link", { name: "К программе" });
+  const box = studied.getBoundingClientRect();
+  await expect(box.height).toBeGreaterThanOrEqual(48);
+  await expect(
+    Math.abs(box.height - main.getBoundingClientRect().height),
+  ).toBeLessThanOrEqual(1);
+  const style = getComputedStyle(studied);
+  await expect(
+    Number.parseFloat(style.borderTopLeftRadius),
+  ).toBeGreaterThanOrEqual(box.height / 2 - 1);
+  await expect(Number.parseFloat(style.borderTopWidth)).toBeGreaterThanOrEqual(
+    1,
+  );
+  await expect(style.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+}
+
+/** A studied lesson: «Изучено» is pressed, with a graphite rim and its check icon. */
+export const FinishStudied: Story = {
+  ...FinishInCourse,
+  parameters: { studied: true },
+  play: async ({ canvasElement }) => {
+    const actions = within(finishCard(canvasElement)).getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    const studied = within(actions).getByRole("button", { name: "Изучено" });
+    await waitFor(() =>
+      expect(studied).toHaveAttribute("aria-pressed", "true"),
+    );
+    await expectSecondaryStudy(actions);
+    const style = getComputedStyle(studied);
+    await expect(style.boxShadow).not.toBe("none");
+    await expect(style.borderTopColor).toBe(style.color);
   },
 };
 
@@ -441,6 +495,14 @@ export const FinishInCoursePhone: Story = {
     await expect(next.getBoundingClientRect().height).toBeGreaterThanOrEqual(
       48,
     );
+    // «Изучено» spans the card too, under «Дальше», without overlapping it.
+    const studied = within(actions).getByRole("button", { name: "Изучено" });
+    await expect(studied.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      row.width - 1,
+    );
+    await expect(studied.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      next.getBoundingClientRect().bottom,
+    );
   },
 };
 
@@ -469,7 +531,7 @@ export const FinishWithoutExercises: Story = {
     await expect(
       card.getByRole("heading", { name: "Конец урока" }),
     ).toBeVisible();
-    await expect(card.queryByText(/^Упражнения:/u)).toBeNull();
+    await expect(card.queryByRole("link")).toBeNull();
     await expect(
       within(canvasElement).queryByRole("region", { name: "Термины урока" }),
     ).toBeNull();

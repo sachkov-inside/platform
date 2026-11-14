@@ -75,11 +75,6 @@ export interface MaterialReaderViewProps {
    * Как и карточка, ждёт, пока откроется последняя часть урока.
    */
   readonly termDeck?: ReactNode;
-  /**
-   * Строка «Упражнения: N из M» карточки «Финиш урока» (#2121). Читает ответы из `exerciseScope`,
-   * поэтому карточка стоит внутри него.
-   */
-  readonly exerciseSummary?: ReactNode;
   /** Строка «Как вам урок?» карточки «Финиш урока» (#2124). */
   readonly lessonRating?: ReactNode;
   /**
@@ -113,7 +108,6 @@ export function MaterialReaderView({
   courseGlossary,
   codeHighlights,
   termDeck,
-  exerciseSummary,
   lessonRating,
   exerciseScope = (lesson) => lesson,
   material,
@@ -166,8 +160,7 @@ export function MaterialReaderView({
             (nextStep === undefined ? productContext.next : nextStep) ?? null,
           programme: productContext.product.href,
         };
-  const finishRows =
-    exerciseSummary !== undefined || lessonRating !== undefined;
+  const finishRows = lessonRating !== undefined;
   const topActions = (
     <ReaderTopActions
       context={productContext?.programme == null ? productContext : null}
@@ -292,7 +285,6 @@ export function MaterialReaderView({
                 {finishActions === undefined && !finishRows ? null : (
                   <LessonStepsTail>
                     <LessonFinish actions={finishActions}>
-                      {exerciseSummary}
                       {lessonRating}
                     </LessonFinish>
                   </LessonStepsTail>

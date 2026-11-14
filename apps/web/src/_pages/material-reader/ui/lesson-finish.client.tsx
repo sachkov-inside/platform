@@ -4,7 +4,10 @@ import { ArrowRight } from "lucide-react";
 import type { Route } from "next";
 import { useId, type ReactNode } from "react";
 
-import { useLessonExercisesSolved } from "@/features/exercise-attempts";
+import {
+  LessonExerciseCount,
+  useLessonExerciseProgress,
+} from "@/features/exercise-attempts";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import styles from "./lesson-finish.module.css";
@@ -24,9 +27,10 @@ export interface LessonFinishActions {
 
 /**
  * «Финиш урока» (решение владельца 14.11.2026, концепция A): одна тихая карточка в конце урока.
- * Заголовок, строки «Упражнения» и «Как вам урок?», а внутри курса ещё «Изучено»
- * и главная кнопка «Дальше»; в последнем уроке курса на её месте «К программе». Заголовок «Урок пройден» стоит, когда все упражнения урока решены;
- * иначе и в уроке без упражнений «Конец урока».
+ * Заголовок, строка «Как вам урок?», а внутри курса ещё «Изучено» второй кнопкой и главная
+ * кнопка «Дальше»; в последнем уроке курса на её месте «К программе». Заголовок несёт счёт
+ * упражнений: «Конец урока · упражнения 0 из 1», где счёт ведёт к первому нерешённому; когда все
+ * решены, «Урок пройден» без счёта; в уроке без упражнений «Конец урока».
  */
 export function LessonFinish({
   children,
@@ -36,7 +40,7 @@ export function LessonFinish({
   readonly actions?: LessonFinishActions | undefined;
 }) {
   const headingId = useId();
-  const solved = useLessonExercisesSolved();
+  const progress = useLessonExerciseProgress();
   return (
     <section
       aria-labelledby={headingId}
@@ -44,7 +48,25 @@ export function LessonFinish({
       data-lesson-finish
     >
       <h2 className="text-lg font-semibold tracking-[-0.01em]" id={headingId}>
-        {solved === true ? "Урок пройден" : "Конец урока"}
+        {progress !== null && progress.next === undefined
+          ? "Урок пройден"
+          : "Конец урока"}
+        {progress?.next === undefined ? null : (
+          <>
+            <span
+              aria-hidden="true"
+              className="font-normal text-muted-foreground"
+            >
+              {" · "}
+            </span>
+            <span className="sr-only">, </span>
+            <LessonExerciseCount
+              next={progress.next}
+              solved={progress.solved}
+              total={progress.total}
+            />
+          </>
+        )}
       </h2>
       <div className="mt-2 divide-y divide-lesson-line empty:hidden">
         {children}
@@ -58,7 +80,7 @@ export function LessonFinish({
         >
           <div
             aria-label="Отметка изучения"
-            className={`-ml-3 min-w-0 ${styles["study"] ?? ""}`}
+            className={`min-w-0 max-sm:w-full ${styles["study"] ?? ""}`}
             data-reader-study-controls
             role="group"
           >

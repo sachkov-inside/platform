@@ -1,4 +1,40 @@
-/* «Изучено» keeps the 44 px surface of the panel it replaces, also on phones. */
-.study :is(a, button) {
-  min-height: 44px;
+/*
+ * «Изучено» is the card's second button: the pill shape and 48 px height of «Дальше», a light sand
+ * fill and graphite text. Marked as studied, it gets a graphite rim and its check icon. On a phone
+ * it spans the card under «Дальше».
+ */
+.study [data-reading-action-state] > :is(a, button):first-child {
+  min-height: 48px;
+  height: auto;
+  max-width: 100%;
+  padding-inline: 1.5rem;
+  gap: 0.5rem;
+  border: 1px solid var(--lesson-sand-line);
+  border-radius: 9999px;
+  background: var(--lesson-sand);
+  color: var(--lesson-graphite);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.study [data-reading-action-state] > :is(a, button):first-child:hover {
+  border-color: var(--lesson-graphite);
+  background: var(--lesson-sand);
+  color: var(--lesson-graphite);
+}
+.study [data-reading-action-state] > [aria-pressed="true"]:first-child {
+  border-color: var(--lesson-graphite);
+  box-shadow: inset 0 0 0 1px var(--lesson-graphite);
+}
+@media (width >= 40rem) {
+  .study [data-reading-action-state] > :is(a, button):first-child {
+    min-width: min(10rem, 100%);
+  }
+}
+@media (width < 40rem) {
+  .study [data-reading-action-state] {
+    align-items: stretch;
+  }
+  .study [data-reading-action-state] > :is(a, button):first-child {
+    width: 100%;
+  }
 }
