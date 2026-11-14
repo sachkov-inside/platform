@@ -155,7 +155,7 @@ esac
     assert.match(workflow, /^ {10}- deploy$/mu);
     assert.match(workflow, /^ {10}- rollback$/mu);
     assert.match(workflow, /^ {6}version:$/mu);
-    assert.match(workflow, /^ {2}group: platform-production-deployment$/mu);
+    assert.match(workflow, /^ {2}group: production-server-deployment$/mu);
     assert.match(workflow, /^ {2}queue: max$/mu);
     assert.doesNotMatch(workflow, /cancel-in-progress/u);
     assert.match(workflow, /^ {4}environment: Production$/mu);

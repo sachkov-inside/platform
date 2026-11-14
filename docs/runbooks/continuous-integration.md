@@ -259,7 +259,8 @@ Consumers do not need registry credentials for these inputs.
 ### RabbitMQ mirror
 
 The owner authorized mirroring exactly `4.2.4-management-alpine`, `4.2.4-alpine` and
-`4.3-management-alpine` in #1337. Their original index digests remain unchanged. The
+`4.3-management-alpine` in #1337. Their original index digests remain unchanged. The #2117 candidate adds the official
+`4.4.0-management-alpine` and `4.4.0-alpine` indexes, pending owner approval before merge. The
 [`rabbitmq-mirror.yml`](../../.github/workflows/rabbitmq-mirror.yml) trusted publisher copies the
 complete official Docker Hub index with `skopeo copy --all --preserve-digests`, without rebuilding,
 adding labels or converting manifest formats. It then requires anonymous GHCR reading, identical
@@ -285,8 +286,10 @@ authenticated push alone does not satisfy this contract.
 The owner approved three additional official indexes in [#1396](https://github.com/sachkov-inside/platform/issues/1396),
 packet `65c84186ced7744f790fb05000be2ca00f01146c6c2d3a6b9e944d38e013faa2`:
 PostgreSQL `18.4-alpine`, PostgreSQL `18.4-alpine3.23` and Node `26.10.0-alpine3.24`.
-The fixed matrix in [`official-runtime-mirror.yml`](../../.github/workflows/official-runtime-mirror.yml)
-owns their unchanged official index digests. This publisher uses the same trusted-main,
+The initial published digests are recorded in the retained identity receipt below.
+The candidate matrix for #2117 now selects Node `26.13.1-alpine3.24` and PostgreSQL
+`18.7-alpine`/`18.7-alpine3.23`, pending the owner's publication approval before merge.
+This publisher uses the same trusted-main,
 job-token-only and complete-index verification contract as the RabbitMQ publisher. It accepts no
 branch bootstrap, candidate code, credentials or configurable image input.
 
@@ -858,3 +861,14 @@ Telegram gateway contracts write safe first-failure artifacts to
 `ci-artifacts/telegram-deploy-gateway`. Both Telegram full checks and the unit contract matrix
 upload that directory on failure with run/attempt-specific names and seven-day retention. Existing
 full-stack browser and infrastructure uploads remain the diagnostic authority for their failures.
+
+### Stack update mirror packet (#2117)
+
+The exact five new inputs belong to
+[`mirror-packet.json`](../research/2026-11-13-stack-update/mirror-packet.json).
+This candidate packet is not publication permission. The supporting PR keeps every application
+consumer on the previously published inputs. Its merge needs explicit owner approval for the
+resulting automatic publication on trusted `main`; there is no branch bootstrap, PAT or dynamic input.
+After successful anonymous equality checks of each index and every child manifest, including
+amd64/arm64, the application update may select those copies and run its full CI. That update,
+application release and production deployment retain their own owner gates.

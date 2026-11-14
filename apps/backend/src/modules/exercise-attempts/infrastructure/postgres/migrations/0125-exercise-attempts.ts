@@ -1,4 +1,4 @@
-export const name = "0124_exercise_attempts";
+export const name = "0125_exercise_attempts";
 
 /**
  * Exercise Attempts (#2121): every checked answer of a signed-in reader to a Lesson Exercise.

@@ -113,6 +113,7 @@ test("each local path selects the schema its response type names", () => {
     typedKind(`/authoring/products/${id}/order`, "productOrder"),
     typedKind("/authoring/glossary", "glossary"),
     typedKind("/authoring/glossary/terms", "glossaryUpsert"),
+    typedKind(`/authoring/products/${id}/roadmap`, "productRoadmap"),
   ])
     assert.equal(localResponseKind(path), kind, path);
   assert.throws(
@@ -153,6 +154,10 @@ const malformedResponses = [
   ],
   [`/authoring/products/${id}/order`, { orderVersion: "corrupt" }],
   ["/authoring/import/products/composition", { orderVersion: null }],
+  [
+    `/authoring/products/${id}/roadmap`,
+    { productId: id, roadmap: { updatedOn: "13.11.2026", chapters: [] } },
+  ],
 ];
 for (const [path, response] of malformedResponses)
   test(`rejects malformed response at ${path}`, () =>

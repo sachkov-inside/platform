@@ -126,6 +126,9 @@ export async function discoverPublishedMaterials(
                   materialIds: topic.materialIds,
                 })),
               }),
+          ...(page.value.roadmapUpdatedOn === undefined
+            ? {}
+            : { roadmapUpdatedOn: page.value.roadmapUpdatedOn }),
           chapters: page.value.chapters.map((chapter) => ({
             id: chapter.id,
             materialIds: chapter.materialIds,
@@ -134,6 +137,10 @@ export async function discoverPublishedMaterials(
               : { supplementaryMaterialIds: chapter.supplementaryMaterialIds }),
             name: chapter.name,
             summary: chapter.summary,
+            roadmapStatus: chapter.roadmapStatus,
+            upcomingLessons: chapter.upcomingLessons.map(
+              ({ title, state }) => ({ title, state }),
+            ),
             tasks: tasksByChapter.get(chapter.id) ?? [],
           })),
           hasNext: page.value.hasNext,

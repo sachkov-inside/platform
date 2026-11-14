@@ -1,4 +1,4 @@
-export const name = "0122_glossary_terms";
+export const name = "0123_glossary_terms";
 
 /**
  * Glossary Terms (#2126). A term keeps its permanent identifier, the slug authors write in

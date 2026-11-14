@@ -591,14 +591,14 @@ export const Chapters: Story = {
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Что дальше" }),
     ).toBeVisible();
+    // A chapter without lessons is planned (#2141): a badge and its outcome line, nothing to open.
     const future = canvasElement.querySelector<HTMLElement>(
-      ".course-preparing-chapter",
+      '[data-roadmap-chapter="planned"]',
     );
     if (future === null) throw new Error("Missing future chapter");
-    await expect(future).not.toHaveAttribute("open");
-    await userEvent.click(within(future).getByText("Что дальше"));
+    await expect(within(future).getByText("В планах")).toBeVisible();
     await expect(
-      within(future).getByText(/Материалы этой главы готовятся/u),
+      within(future).getByText(/Что разбираем в главе «Что дальше»/u),
     ).toBeVisible();
   },
 };
@@ -1116,7 +1116,7 @@ export const OnlyPlannedChapters: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvasElement.querySelectorAll(".course-preparing-chapter:not([open])"),
+      canvasElement.querySelectorAll('[data-roadmap-chapter="planned"]'),
     ).toHaveLength(5);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
@@ -1912,7 +1912,9 @@ export const EarlyLessonReveal: Story = {
       await expect(rows()).toHaveLength(24);
     });
     await expect(
-      canvasElement.querySelectorAll(".course-preparing-chapter[open]"),
+      canvasElement.querySelectorAll(
+        'details[data-roadmap-chapter="planned"][open]',
+      ),
     ).toHaveLength(0);
   },
 };

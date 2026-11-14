@@ -364,6 +364,16 @@ model ProductTopicMaterial {
   @@schema("products")
 }
 
+model ProductRoadmap {
+  productId String   @id(map: "product_roadmaps_primary") @map("product_id") @db.Uuid
+  updatedOn DateTime @map("updated_on") @db.Date
+  chapters  Json
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@map("product_roadmaps")
+  @@schema("products")
+}
+
 model HomeProductPin {
   id       Int     @id
   productId String? @map("product_id") @db.Uuid

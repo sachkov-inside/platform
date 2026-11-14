@@ -47,13 +47,15 @@ export const Desktop: Story = {
       }),
     ).not.toBeInTheDocument();
     await expect(
-      canvasElement.querySelectorAll(".course-preparing-chapter:not([open])"),
+      canvasElement.querySelectorAll(
+        'details[data-roadmap-chapter="planned"]:not([open])',
+      ),
     ).toHaveLength(8);
     await expect(
       canvas.getByRole("heading", { name: /^Качество работы агентов:/u }),
     ).toBeVisible();
     const details = canvasElement.querySelector<HTMLDetailsElement>(
-      ".course-preparing-chapter",
+      'details[data-roadmap-chapter="planned"]',
     );
     const summary = details?.querySelector("summary");
     if (details === null || summary === null || summary === undefined)
@@ -61,7 +63,9 @@ export const Desktop: Story = {
     await expect(details).not.toHaveAttribute("open");
     await userEvent.click(summary);
     await expect(details).toHaveAttribute("open");
-    await expect(within(details).getByRole("list")).toBeVisible();
+    await expect(
+      within(details).getByRole("list", { name: /^Темы главы/u }),
+    ).toBeVisible();
     await userEvent.click(summary);
     await expect(details).not.toHaveAttribute("open");
   },
@@ -111,7 +115,9 @@ export const WithPublishedLessons: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.queryByText(/Показано .* материалов/u)).toBeNull();
     await expect(
-      canvasElement.querySelectorAll(".course-preparing-chapter:not([open])"),
+      canvasElement.querySelectorAll(
+        'details[data-roadmap-chapter="planned"]:not([open])',
+      ),
     ).toHaveLength(6);
     await expect(
       canvas.getByRole("heading", { name: /^Качество работы агентов:/u }),
@@ -126,18 +132,14 @@ export const WithPublishedLessons: Story = {
     await expect(
       chapters[1]?.querySelector(".course-chapter-outcome"),
     ).not.toBeVisible();
-    await expect(
-      chapters[2]?.querySelector(".course-chapter-outcome"),
-    ).not.toBeVisible();
+    // A planned chapter names its outcome in its heading and keeps its topics folded (#2141).
+    const topics = chapters[2]?.querySelector("ul");
+    if (topics == null) throw new Error("Missing future chapter topics");
+    await expect(topics).not.toBeVisible();
     const future = chapters[2]?.querySelector("summary");
     if (future == null) throw new Error("Missing future chapter disclosure");
     await userEvent.click(future);
-    await expect(
-      chapters[2]?.querySelector(".course-chapter-preparing-notice"),
-    ).toBeVisible();
-    await expect(
-      chapters[2]?.querySelector(".course-chapter-outcome"),
-    ).toBeVisible();
+    await expect(topics).toBeVisible();
     await expect(
       chapters[0]?.querySelector(".course-chapter-details > summary"),
     ).toBeVisible();

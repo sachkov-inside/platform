@@ -4,9 +4,10 @@ One session changes production at a time. The **production lock** is the single 
 Issue labelled `production-lock`. Its comments announce the work to the owner and to every other
 session, and it becomes the release record of [release](../runbooks/release.md) step 8.
 
-Workflow `concurrency` groups and the server `operation.lock` already serialize identical runs.
-The lock covers what they cannot see: two sessions with the owner's permission planning releases,
-deployments, backups and server windows at the same time without knowing about each other.
+Workflow `concurrency` groups and the server `operation.lock` already serialize runs: Platform and
+Telegram deployments share the queue `production-server-deployment`. The lock covers what they cannot
+see: two sessions with the owner's permission planning releases, deployments, backups and server
+windows at the same time without knowing about each other.
 
 ## When
 
@@ -48,7 +49,12 @@ Take it before any server `operation.lock` a runbook asks for. Read-only work ru
 
 ## Announce
 
-Comment on the lock with the URL of each workflow run as you start it. Before each maintenance
+Pass the lock number in the `lock` field of every run of the four workflows. Their first job,
+[production-lock.yml](../../.github/workflows/production-lock.yml), refuses the run unless that Issue
+is open, labelled `production-lock` and the lowest-numbered open lock, checked when the run leaves
+the queue. Keep the lock open until every queued run has finished. Platform and Telegram deployments
+share one queue that keeps order but not success, so queue a deployment that depends on another only
+after that one has succeeded. Comment on the lock with the URL of each workflow run as you start it. Before each maintenance
 window, name the expected downtime to the owner (release step 4) and record it in the lock. Record
 each failure and change of plan in the lock as it happens.
 

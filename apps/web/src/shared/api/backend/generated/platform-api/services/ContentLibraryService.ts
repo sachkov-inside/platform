@@ -707,6 +707,7 @@ export class ContentLibraryService {
       id: string;
       materialIds: Array<string>;
       name: string;
+      roadmapStatus: 'done' | 'writing' | 'planned' | null;
       summary: string;
       supplementaryMaterialIds?: Array<string>;
       tasks: Array<{
@@ -717,6 +718,10 @@ export class ContentLibraryService {
         embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
         programmeVisibility?: 'embedded';
+        title: string;
+      }>;
+      upcomingLessons: Array<{
+        state: 'writing' | 'soon';
         title: string;
       }>;
     }>;
@@ -868,6 +873,7 @@ export class ContentLibraryService {
       summary: string;
       totalMaterialCount: number;
     }>;
+    roadmapUpdatedOn?: string | null;
     topics: Array<{
       cover: {
         coverId: string;
@@ -916,6 +922,7 @@ export class ContentLibraryService {
       id: string;
       materialIds: Array<string>;
       name: string;
+      roadmapStatus: 'done' | 'writing' | 'planned' | null;
       summary: string;
       supplementaryMaterialIds?: Array<string>;
       tasks: Array<{
@@ -926,6 +933,10 @@ export class ContentLibraryService {
         embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
         programmeVisibility?: 'embedded';
+        title: string;
+      }>;
+      upcomingLessons: Array<{
+        state: 'writing' | 'soon';
         title: string;
       }>;
     }>;
@@ -1077,6 +1088,7 @@ export class ContentLibraryService {
       summary: string;
       totalMaterialCount: number;
     }>;
+    roadmapUpdatedOn: string | null;
     topics: Array<{
       cover: {
         coverId: string;
@@ -1197,6 +1209,7 @@ export class ContentLibraryService {
       id: string;
       materialIds: Array<string>;
       name: string;
+      roadmapStatus: 'done' | 'writing' | 'planned' | null;
       summary: string;
       supplementaryMaterialIds?: Array<string>;
       tasks: Array<{
@@ -1207,6 +1220,10 @@ export class ContentLibraryService {
         embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
         programmeVisibility?: 'embedded';
+        title: string;
+      }>;
+      upcomingLessons: Array<{
+        state: 'writing' | 'soon';
         title: string;
       }>;
     }>;
@@ -1358,6 +1375,7 @@ export class ContentLibraryService {
       summary: string;
       totalMaterialCount: number;
     }>;
+    roadmapUpdatedOn?: string | null;
     topics: Array<{
       cover: {
         coverId: string;

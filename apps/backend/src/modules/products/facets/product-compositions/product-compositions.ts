@@ -4,6 +4,7 @@ import {
   type ProductsPrisma,
 } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
+import { productRoadmapSchema } from "../../shared/product-roadmap.js";
 
 export const MAX_PRODUCT_MATERIALS = 10_000;
 const chapterSchema = z.object({
@@ -52,6 +53,11 @@ const compositionSchema = z.object({
   chapters: z.array(chapterSchema),
   /** Product topics in author order; Materials are published catalogue members in catalogue order. */
   catalogueTopics: z.array(catalogueTopicSchema),
+  /**
+   * Chapter statuses and upcoming lessons; null while the author keeps no roadmap. A stored row
+   * that no longer parses hides the roadmap instead of failing the whole Product page.
+   */
+  roadmap: productRoadmapSchema.nullable().catch(null),
   placements: z.array(placementSchema),
 });
 export type ProductComposition = z.infer<typeof compositionSchema> & {
@@ -144,7 +150,10 @@ export class ProductCompositions {
         ) order by topic.ordinal,topic.id) from (
           select id,name,summary,ordinal from products.product_topics where product_id=product.id
           order by ordinal,id limit ${MAX_PRODUCT_TOPICS + 1}
-        ) topic),'[]'::jsonb) as "catalogueTopics"
+        ) topic),'[]'::jsonb) as "catalogueTopics",
+        (select jsonb_build_object(
+          'updatedOn',to_char(roadmap.updated_on,'YYYY-MM-DD'),'chapters',roadmap.chapters
+        ) from products.product_roadmaps roadmap where roadmap.product_id=product.id) as roadmap
       from products.products product where ${condition}
       order by product.name,product.id limit ${limit}
     `),
@@ -259,13 +268,25 @@ export async function readProductCompositionAccess(
   return access.kind;
 }
 
+/**
+ * Chapters in author order with their published programme Materials and roadmap entry. A roadmap
+ * entry of a chapter that no longer exists is ignored; a chapter without one has no status.
+ */
 export function productCompositionChapters(product: ProductComposition) {
   if (product.placements.length > MAX_PRODUCT_MATERIALS)
     throw new RangeError("Product composition exceeds its bound");
-  return product.chapters.map((chapter) => ({
-    ...chapter,
-    materialIds: product.publishedProgramme
-      .filter((material) => material.chapterId === chapter.id)
-      .map((material) => material.materialId),
-  }));
+  const roadmap = new Map(
+    (product.roadmap?.chapters ?? []).map((entry) => [entry.chapterId, entry]),
+  );
+  return product.chapters.map((chapter) => {
+    const entry = roadmap.get(chapter.id);
+    return {
+      ...chapter,
+      materialIds: product.publishedProgramme
+        .filter((material) => material.chapterId === chapter.id)
+        .map((material) => material.materialId),
+      roadmapStatus: entry?.status ?? null,
+      upcomingLessons: entry?.upcomingLessons ?? [],
+    };
+  });
 }

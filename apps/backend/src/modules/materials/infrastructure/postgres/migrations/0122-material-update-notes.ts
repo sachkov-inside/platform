@@ -1,4 +1,4 @@
-export const name = "0121_material_update_notes";
+export const name = "0122_material_update_notes";
 
 /**
  * The latest substantial update an author noted on a Material and its «Что изменилось» text

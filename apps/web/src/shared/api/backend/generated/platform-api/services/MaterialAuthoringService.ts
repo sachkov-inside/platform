@@ -2601,6 +2601,84 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Read the Product roadmap: chapter statuses and upcoming lessons
+   * @returns any
+   * @throws ApiError
+   */
+  public getAuthoringProductRoadmap({
+    productId,
+  }: {
+    productId: string,
+  }): CancelablePromise<{
+    productId: string;
+    roadmap: {
+      chapters: Array<{
+        chapterId: string;
+        status: 'done' | 'writing' | 'planned';
+        upcomingLessons: Array<{
+          state: 'writing' | 'soon';
+          title: string;
+        }>;
+      }>;
+      updatedOn: string;
+    } | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/products/{productId}/roadmap',
+      path: {
+        'productId': productId,
+      },
+    });
+  }
+  /**
+   * Replace or delete the Product roadmap without changing the catalogue, programme or order version
+   * @returns any
+   * @throws ApiError
+   */
+  public updateAuthoringProductRoadmap({
+    productId,
+    requestBody,
+  }: {
+    productId: string,
+    requestBody: {
+      roadmap: {
+        chapters: Array<{
+          chapterId: string;
+          status: 'done' | 'writing' | 'planned';
+          upcomingLessons?: Array<{
+            state: 'writing' | 'soon';
+            title: string;
+          }>;
+        }>;
+        updatedOn: string;
+      } | null;
+    },
+  }): CancelablePromise<{
+    productId: string;
+    roadmap: {
+      chapters: Array<{
+        chapterId: string;
+        status: 'done' | 'writing' | 'planned';
+        upcomingLessons: Array<{
+          state: 'writing' | 'soon';
+          title: string;
+        }>;
+      }>;
+      updatedOn: string;
+    } | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/products/{productId}/roadmap',
+      path: {
+        'productId': productId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Replace the Product topics and their Materials without changing the catalogue or programme
    * @returns any
    * @throws ApiError

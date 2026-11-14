@@ -3,13 +3,18 @@
 import { useEffect, useMemo } from "react";
 import { useMaterialReading } from "@/entities/material";
 
-/** Uses the same account-scoped saved marks as the lesson rows, including rows not yet revealed. */
+/**
+ * Uses the same account-scoped saved marks as the lesson rows, including rows not yet revealed.
+ * `sentence` is the line of a finished roadmap chapter: «Изучено 9 из 13» (#2141).
+ */
 export function ChapterReadingProgress({
   materialIds,
   name,
+  sentence = false,
 }: {
   readonly materialIds: readonly string[];
   readonly name: string;
+  readonly sentence?: boolean;
 }) {
   const { accountId, states, register, resolved, failed } =
     useMaterialReading();
@@ -21,7 +26,9 @@ export function ChapterReadingProgress({
     };
   }, [ids, register]);
   if (ids.length === 0)
-    return <span className="programme-chapter-progress" aria-hidden="true" />;
+    return sentence ? null : (
+      <span className="programme-chapter-progress" aria-hidden="true" />
+    );
   const missing =
     accountId !== null && (!resolved || ids.some((id) => !states.has(id)));
   const read =
@@ -31,7 +38,7 @@ export function ChapterReadingProgress({
   const label = failed && missing ? "—" : missing ? "…" : String(read);
   return (
     <span
-      className="programme-chapter-progress"
+      className={sentence ? undefined : "programme-chapter-progress"}
       data-chapter-progress
       aria-label={
         missing
@@ -39,6 +46,7 @@ export function ChapterReadingProgress({
           : `Изучено ${String(read)} из ${String(ids.length)} материалов главы «${name}»`
       }
     >
+      {sentence ? "Изучено " : null}
       {label} из {ids.length}
     </span>
   );

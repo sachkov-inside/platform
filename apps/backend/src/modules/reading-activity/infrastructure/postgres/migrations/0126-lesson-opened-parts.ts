@@ -1,4 +1,4 @@
-export const name = "0125_lesson_opened_parts";
+export const name = "0126_lesson_opened_parts";
 
 /**
  * How many parts of a step-by-step lesson an Account has opened (#2122). Parts have no id: the

@@ -201,6 +201,7 @@ test("the import environment names the runtime mode and the accepted import cont
         "glossary-v1",
         "exercise-v1",
         "step-breaks-v1",
+        "product-roadmap-v1",
       ],
     },
   });

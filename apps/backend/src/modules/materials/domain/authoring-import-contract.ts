@@ -34,5 +34,8 @@ export const authoringImportContract = {
     // `readerBlocks` may carry `{ kind: "step-break", label }` between two parts of a lesson
     // (content-studio#87). The receiver stores it; the reader opens parts one by one (#2122).
     "step-breaks-v1",
+    // A Product may carry its course roadmap; the client writes it through
+    // PUT /authoring/products/:productId/roadmap (#2141).
+    "product-roadmap-v1",
   ],
 } as const;

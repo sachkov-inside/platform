@@ -403,14 +403,14 @@ The protected `Production` environment owns `PRODUCTION_SSH_HOST`, `PRODUCTION_S
 To deploy an existing release:
 
 ```bash
-gh workflow run deploy.yml --ref main --field operation=deploy --field version=vN
+gh workflow run deploy.yml --ref main --field operation=deploy --field version=vN --field lock=<номер блокировки>
 ```
 
 For rollback, `version` is the exact previous target recorded in `state.json`, for example `v1`
 while `v2` is current:
 
 ```bash
-gh workflow run deploy.yml --ref main --field operation=rollback --field version=v1
+gh workflow run deploy.yml --ref main --field operation=rollback --field version=v1 --field lock=<номер блокировки>
 ```
 
 The workflow uses `concurrency.queue: max`, never cancels the active command, and rechecks the
@@ -482,7 +482,7 @@ the immutable GitHub Release with
 schema identity, successful publication run and exact previous manifest when one exists:
 
 ```bash
-gh workflow run release.yml --ref main --field version=vN
+gh workflow run release.yml --ref main --field version=vN --field lock=<номер блокировки>
 ```
 
 The publication workflow performs publication. An explicit owner release command authorizes

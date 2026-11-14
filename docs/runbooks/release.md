@@ -11,7 +11,8 @@
 шага 2 и разовых шагов после выкладки в шаге 4, выполняется без входа на сервер.
 
 Агент до шага 1 берёт [блокировку production](../agents/production-lock.md). Её задача и есть
-задача выпуска из шага 8.
+задача выпуска из шага 8. Номер этой задачи передаётся в поле `lock` каждого запуска выпуска и
+выкладки: без открытой блокировки, которая держит production, запуск сразу отказывает.
 
 Сеть от рабочей машины до сервера и GitHub рвётся (banner timeout, EOF). Повторяйте только
 подключение, не действие (решение владельца от 27.09.2026, sachkov-inside/workspace#228):
@@ -81,7 +82,7 @@ git diff --stat "$current" origin/main -- \
 ## 3. Опубликовать выпуск Platform
 
 ```bash
-gh workflow run release.yml --repo sachkov-inside/platform --ref main --field version=vN
+gh workflow run release.yml --repo sachkov-inside/platform --ref main --field version=vN --field lock=<номер блокировки>
 gh run watch --repo sachkov-inside/platform "$(gh run list --repo sachkov-inside/platform -w release.yml -L 1 --json databaseId -q '.[0].databaseId')" --exit-status
 gh release view vN --repo sachkov-inside/platform --json isImmutable,targetCommitish
 ```
@@ -98,7 +99,7 @@ maintenance route после preflight и pre-pull до возврата мар�
 по предыдущему выпуску; объём миграций может увеличить простой.
 
 ```bash
-gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field operation=deploy --field version=vN
+gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field operation=deploy --field version=vN --field lock=<номер блокировки>
 ```
 
 Выкладка скачивает backend, web и объявленный в Compose брокер в фазе `pre-pull`.
@@ -152,7 +153,7 @@ Telegram выпускается независимо из `apps/telegram` в pla
 (`rollback` в `state.json` не `null`):
 
 ```bash
-gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field operation=rollback --field version=vN-1
+gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field operation=rollback --field version=vN-1 --field lock=<номер блокировки>
 ```
 
 Миграции вниз не выполняются. Если у выпуска новые миграции, откат не предлагается: исправление

@@ -23,6 +23,11 @@ export interface LibraryDiscoveryReference {
   readonly name: string;
   /** Оформление и описание страницы Product; у темы и связанных материалов его нет. */
   readonly productPage?: ProductLandingPage | null | undefined;
+  /**
+   * День последнего обновления дорожной карты курса (`YYYY-MM-DD`, #2141). Без него у Product нет
+   * дорожной карты, и программа выглядит как раньше.
+   */
+  readonly roadmapUpdatedOn?: string | undefined;
   readonly slug: string;
   readonly summary: string;
 }
@@ -49,6 +54,21 @@ export interface ProductChapter {
    * начале главы. Глава без заданий может поле опустить.
    */
   readonly tasks?: readonly ProductChapterTask[];
+  /**
+   * Статус главы в дорожной карте курса (#2141). Без него программа выводит статус сама: глава с
+   * уроками готова, глава без них в планах.
+   */
+  readonly roadmapStatus?: ProductChapterRoadmapStatus | undefined;
+  /** Неопубликованные уроки главы в работе, в авторском порядке. Ссылок у них нет. */
+  readonly upcomingLessons?: readonly ProductUpcomingLesson[] | undefined;
+}
+
+export type ProductChapterRoadmapStatus = "done" | "writing" | "planned";
+
+export interface ProductUpcomingLesson {
+  readonly title: string;
+  /** `writing` — урок пишется сейчас, `soon` — выйдет следом. */
+  readonly state: "writing" | "soon";
 }
 
 /**
