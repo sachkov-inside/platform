@@ -17,7 +17,7 @@ export function exerciseAnchor(exerciseId: string): string {
 
 /**
  * Shared frame of every Lesson Exercise: a quiet «Упражнение N из M», the situation and the
- * question. `updated`
+ * question, on a dark graphite block (`data-lesson-dark`, owner decision 14.11.2026). `updated`
  * marks a past answer to an older version; `note` is the answer source's line under it.
  */
 export function MaterialExerciseFrame({
@@ -44,6 +44,7 @@ export function MaterialExerciseFrame({
       id={exerciseAnchor(exerciseId)}
       aria-label={heading}
       data-material-exercise={kind}
+      data-lesson-dark
       {...(kind === "quiz" ? { "data-material-quiz": "" } : {})}
       className="my-6 rounded-xl p-4 text-lesson leading-[1.55] sm:my-8 sm:p-6 [&_p]:min-h-0 [&_p]:mt-3 [&_p:first-child]:mt-0"
     >

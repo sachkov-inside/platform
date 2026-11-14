@@ -5,6 +5,7 @@ import type {
   ContentReaderBlock,
   RenderedBlock,
 } from "@inside/material-blocks";
+import { expectReadableDarkExercise } from "@/storybook/exercise-actions";
 import { readerBlocks } from "@/storybook/quiz-content";
 import { chooseInSelect } from "@/storybook/select-choice";
 import { publicPageEnvironment } from "@/storybook/story-environment";
@@ -143,6 +144,7 @@ export const Unanswered: Story = {
     await expect(
       quiz.queryByRole("button", { name: "Ответить ещё раз" }),
     ).toBeNull();
+    await expectReadableDarkExercise(canvasElement);
   },
 };
 export const Correct: Story = {
@@ -166,6 +168,7 @@ export const Incorrect: Story = {
       quiz.getByRole("button", { name: /1 Форма написана/u }),
     );
     await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
+    await expectReadableDarkExercise(canvasElement);
   },
 };
 export const DontKnow: Story = {
@@ -294,6 +297,8 @@ export const MatchAndOrderAnswered: Story = {
       match.getByText("Проверяющий", { selector: "[data-item-review] > p" }),
     ).toHaveTextContent("→ Верный ответ: Проверяющий");
     await expect(match.getByText("Проверяет проверяющий.")).toBeInTheDocument();
+    for (const name of ["Упражнение 2 из 3", "Упражнение 3 из 3"])
+      await expectReadableDarkExercise(canvas.getByRole("region", { name }));
   },
 };
 

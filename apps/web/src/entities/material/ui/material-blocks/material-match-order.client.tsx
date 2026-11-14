@@ -290,7 +290,7 @@ export function MaterialMatch(props: MaterialMatchPresentation) {
                   <SelectTrigger
                     aria-labelledby={rowId}
                     data-match-choice
-                    className="h-auto rounded-lg border-lesson-line bg-background py-2 text-lesson font-normal [&>span:first-child]:whitespace-normal"
+                    className="h-auto rounded-lg py-2 text-lesson font-normal [&>span:first-child]:whitespace-normal"
                   >
                     <SelectValue placeholder="Выбери ответ" />
                   </SelectTrigger>

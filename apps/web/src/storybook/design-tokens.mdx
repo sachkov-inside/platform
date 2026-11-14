@@ -55,14 +55,16 @@ default decoration. Foreground/background pairs must remain readable in both pal
 ### Interactive lesson
 
 Owner decision 14.11.2026 (#2118, variant A «Тёплая бумага»): the lesson's own blocks use one warm
-family of opaque surfaces and charcoal for the action; orange stays with the site. Exercises, the
-term carousel and the end-of-lesson rows lie on `--lesson-surface`; the glossary «Определение» card
-and the back of a term card are sand; the step-break question, the exercise badge and a pressed
-rating are graphite. Owner direction 14.11.2026 adds a few dark graphite blocks, at most two or
-three on a lesson screen: the «Финиш урока» card and the front of a term card carry
-`data-lesson-dark`, which paints them `--lesson-dark` and remaps the tokens their contents read
-(text, muted text, lines, the graphite action turns light). Every surface is a solid colour, never
-a mix with transparency.
+family of opaque surfaces and charcoal for the action; orange stays with the site. The term
+carousel and callouts lie on `--lesson-surface`; term cards are white on the front and sand on the
+back, like the glossary «Определение» card; the step-break question is graphite. Owner direction
+14.11.2026 (corrected the same day) makes the «Финиш урока» card and every exercise dark graphite
+blocks: they carry `data-lesson-dark`, which paints them `--lesson-dark` and remaps the tokens their
+contents read. Text and muted text turn light, `--card` becomes `--lesson-dark-raised` for options,
+rows and steps (edged with `--lesson-dark-edge`), `--muted` and `--secondary` become the hover
+`--lesson-dark-hover`, the graphite and primary actions turn light, and links and the check colours
+take lighter values that read at AA on the dark. Every surface is a solid colour, never a mix with
+transparency.
 
 export const lessonRoles = [
   [

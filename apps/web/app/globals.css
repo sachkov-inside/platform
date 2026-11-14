@@ -64,13 +64,15 @@
   --lesson-graphite-hover: #3b3c3f;
   --lesson-reply: #efebe3;
   --lesson-stack: #ebe6dc;
-  /* Тёмные графитовые акценты урока: «Финиш урока» и лицо карточки термина (решение владельца 14.11.2026). */
+  /* Тёмные графитовые блоки урока: «Финиш урока» и упражнения (решения владельца 14.11.2026). */
   --lesson-dark: #202124;
   --lesson-dark-foreground: #f6f4ef;
-  --lesson-dark-muted: #aca79c;
+  --lesson-dark-muted: #b5b0a5;
   --lesson-dark-line: #3a3a38;
+  --lesson-dark-edge: #48494d;
   --lesson-dark-outline: #7a766e;
   --lesson-dark-raised: #303134;
+  --lesson-dark-hover: #3b3c40;
   --lesson-dark-action-hover: #e6dfd2;
   --eyebrow: oklch(0.46 0.014 128);
   --reader-foreground: oklch(0.48 0.012 128);
@@ -175,13 +177,15 @@
   --lesson-graphite-hover: #3b3c3f;
   --lesson-reply: #efebe3;
   --lesson-stack: #ebe6dc;
-  /* Тёмные графитовые акценты урока: «Финиш урока» и лицо карточки термина (решение владельца 14.11.2026). */
+  /* Тёмные графитовые блоки урока: «Финиш урока» и упражнения (решения владельца 14.11.2026). */
   --lesson-dark: #202124;
   --lesson-dark-foreground: #f6f4ef;
-  --lesson-dark-muted: #aca79c;
+  --lesson-dark-muted: #b5b0a5;
   --lesson-dark-line: #3a3a38;
+  --lesson-dark-edge: #48494d;
   --lesson-dark-outline: #7a766e;
   --lesson-dark-raised: #303134;
+  --lesson-dark-hover: #3b3c40;
   --lesson-dark-action-hover: #e6dfd2;
   --reader-foreground: #696a6e;
   --placeholder: #8b8c88;
@@ -244,10 +248,12 @@
   --lesson-stack: #33342f;
   --lesson-dark: #141513;
   --lesson-dark-foreground: #ede9e0;
-  --lesson-dark-muted: #a9a59a;
+  --lesson-dark-muted: #ada99e;
   --lesson-dark-line: #2f302b;
+  --lesson-dark-edge: #3c3d38;
   --lesson-dark-outline: #6f6c64;
   --lesson-dark-raised: #2a2b27;
+  --lesson-dark-hover: #34352f;
   --lesson-dark-action-hover: #d9d4c8;
   --destructive: oklch(0.68 0.2 25);
   --border: oklch(0.34 0.013 128);
@@ -683,39 +689,51 @@ body:has(
 }
 
 /*
- * Тёмный графитовый блок урока (решение владельца 14.11.2026): карточка «Финиш урока» и лицо
- * карточки термина. Внутри блока переопределены токены, которые читает его содержимое, поэтому
- * обычные классы (text-muted-foreground, bg-lesson-graphite, outline-ring…) сами становятся
- * светлыми на тёмном: главная кнопка светлая, линии и подписи приглушённо-светлые.
+ * Тёмный графитовый блок урока (решения владельца 14.11.2026): карточка «Финиш урока» и
+ * упражнения. Внутри блока переопределены токены, которые читает его содержимое, поэтому обычные
+ * классы (text-muted-foreground, bg-card, bg-lesson-graphite, outline-ring…) сами становятся
+ * тёмными поверхностями и светлым текстом: главная кнопка светлая, карточки чуть светлее блока,
+ * линии и подписи приглушённо-светлые. Зелёный и красный проверки, ссылки и кольцо фокуса взяты
+ * светлее, чтобы читаться на тёмном не хуже AA.
  */
 [data-lesson-dark] {
   --foreground: var(--lesson-dark-foreground);
   --card-foreground: var(--lesson-dark-foreground);
   --muted-foreground: var(--lesson-dark-muted);
+  --background: var(--lesson-dark);
+  --card: var(--lesson-dark-raised);
+  --muted: var(--lesson-dark-hover);
+  --secondary: var(--lesson-dark-hover);
   --primary: var(--lesson-dark-foreground);
   --primary-foreground: var(--lesson-dark);
   --border: var(--lesson-dark-outline);
   --input: var(--lesson-dark-outline);
   --lesson-line: var(--lesson-dark-line);
   --lesson-stack: var(--lesson-dark-raised);
+  --lesson-reply: var(--lesson-dark-raised);
   --lesson-graphite: var(--lesson-dark-foreground);
   --lesson-graphite-foreground: var(--lesson-dark);
   --lesson-graphite-hover: var(--lesson-dark-action-hover);
+  --callout-good: #86d9a4;
   --callout-bad: #ff9a8a;
+  --action: #f6a582;
+  --action-hover: #ffc4a8;
   --ring: #ef6b3c;
   --elevation-card: 0 1rem 2.5rem -1.75rem rgb(20 21 24 / 55%);
   background-color: var(--lesson-dark);
   color: var(--foreground);
+  color-scheme: dark;
 }
 
 /*
- * Упражнение лежит на непрозрачной тёплой подложке без рамки. После проверки вариант, строка или
- * шаг окрашены: зелёный значит верно (или верный ответ, который не выбран), красный значит неверно.
- * Текст остаётся цвета текста, цвет несут фон, рамка и маленький значок; программа чтения экрана
- * слышит смысл скрытыми словами рядом со значком.
+ * Упражнение: тёмный графитовый блок без рамки; варианты, строки и шаги лежат на нём чуть
+ * светлее блока, с заметной кромкой. После проверки вариант, строка или шаг окрашены: зелёный
+ * значит верно (или верный ответ, который не выбран), красный значит неверно. Текст остаётся
+ * цвета текста, цвет несут фон, рамка и маленький значок ✓ или ✕; программа чтения экрана слышит
+ * смысл скрытыми словами рядом со значком.
  */
 [data-material-exercise] {
-  background: var(--lesson-surface);
+  --lesson-line: var(--lesson-dark-edge);
 }
 [data-material-exercise] [data-result="correct"],
 [data-material-exercise] [data-result="missed"],

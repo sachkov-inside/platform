@@ -6,6 +6,8 @@ import {
   type ExerciseAnswerRecord,
   type ExerciseAnswerState,
 } from "../../model/exercise-answers.client";
+import { backgroundBehind, contrast } from "@/storybook/contrast";
+import { expectReadableDarkExercise } from "@/storybook/exercise-actions";
 import { expectPhoneLayout } from "@/storybook/phone-layout";
 import { MaterialOrder } from "./material-match-order.client";
 
@@ -100,6 +102,20 @@ export const Shuffled: Story = {
       exercise.getByRole("button", { name: "Проверить" }),
     ).toBeEnabled();
     await expect(exercise.queryByText(/Перетащи шаги/u)).toBeNull();
+    // On the dark block the drag handle and a focused step's «Ниже» read at 3:1.
+    const down = exercise.getAllByRole("button", { name: /^Ниже /u })[0];
+    if (down === undefined) throw new Error("A step has no «Ниже»");
+    down.focus();
+    for (const glyph of [
+      canvasElement.querySelector("[data-order-handle] svg"),
+      down.querySelector("svg"),
+    ]) {
+      if (glyph === null) throw new Error("A step has no glyph");
+      await expect(
+        contrast(getComputedStyle(glyph).color, backgroundBehind(glyph)),
+      ).toBeGreaterThanOrEqual(3);
+    }
+    await expectReadableDarkExercise(canvasElement);
   },
 };
 
@@ -315,6 +331,7 @@ export const OutOfPlace: Story = {
     ).toBeNull();
     for (const step of steps)
       await expect(exercise.getByText(step.explanation)).toBeInTheDocument();
+    await expectReadableDarkExercise(canvasElement);
   },
 };
 
@@ -363,6 +380,7 @@ export const DontKnow: Story = {
       steps.map((step) => step.id),
     );
     await expect(exercise.queryByText("Не на месте")).toBeNull();
+    await expectReadableDarkExercise(canvasElement);
     // «Не знаю» showed the key; answering again starts from the shuffle, not from the key.
     const shuffled = shownOrderBeforeAnswer;
     await userEvent.click(

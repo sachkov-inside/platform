@@ -1,4 +1,7 @@
-import { expectCalmDisabledCheck } from "@/storybook/exercise-actions";
+import {
+  expectCalmDisabledCheck,
+  expectReadableDarkExercise,
+} from "@/storybook/exercise-actions";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { useState } from "react";
@@ -117,6 +120,7 @@ export const Empty: Story = {
     await expect(
       match.queryByText("Чанки готовят заранее, при индексации."),
     ).toBeNull();
+    await expectReadableDarkExercise(canvasElement);
   },
 };
 
@@ -172,6 +176,7 @@ export const PartlyWrong: Story = {
       "Ответ: Индексация",
       "Ответ: Генерация ответа",
     ]);
+    await expectReadableDarkExercise(canvasElement);
   },
 };
 
@@ -323,6 +328,7 @@ export const DontKnow: Story = {
     await expect(
       match.getByRole("link", { name: "Повторить раздел" }),
     ).toHaveAttribute("href", "#этапы-rag");
+    await expectReadableDarkExercise(canvasElement);
   },
 };
 
@@ -377,6 +383,7 @@ export const PastAnswer: Story = {
     await expect(
       match.getByText("Пока неверно: 2 из 3", { exact: true }),
     ).toBeVisible();
+    await expectReadableDarkExercise(canvasElement);
     await userEvent.click(match.getByRole("button", { name: "Начать заново" }));
     await pick(canvasElement, correct);
     await userEvent.click(match.getByRole("button", { name: "Проверить" }));
