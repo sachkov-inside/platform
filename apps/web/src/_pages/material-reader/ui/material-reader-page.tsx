@@ -8,10 +8,7 @@ import {
   CourseTaskSubmissionStatuses,
   withDeferredTaskStatuses,
 } from "@/features/library-discovery";
-import {
-  courseGlossaryHref,
-  productProgrammeHref,
-} from "@/shared/routing/subscription-route";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { proseLinkClassName } from "@/shared/ui/prose-link";
 import {
   anchoredMaterialHref,
@@ -552,16 +549,7 @@ async function ResolvedMaterialReader({
         codeHighlights={await highlightMaterialCode(result.body)}
         glossaryTerms={result.glossaryTerms}
         courseGlossary={courseGlossary}
-        termDeck={
-          <LessonTermDeck
-            terms={result.lessonTerms}
-            courseGlossaryHref={
-              courseGlossarySlug === undefined
-                ? undefined
-                : courseGlossaryHref(courseGlossarySlug)
-            }
-          />
-        }
+        termDeck={<LessonTermDeck terms={result.lessonTerms} />}
         exerciseSummary={<SavedLessonExerciseSummary />}
         lessonRating={
           <SavedLessonRating materialId={result.material.materialId} />
