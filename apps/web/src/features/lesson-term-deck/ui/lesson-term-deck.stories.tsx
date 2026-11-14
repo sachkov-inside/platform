@@ -143,16 +143,19 @@ export const FlipAndLeaf: Story = {
     await expect(hint).toBeVisible();
     const first = card(canvasElement, "bounded-context");
 
-    // The front is dark graphite with light text, the back is sand with dark text, and the
-    // carousel stays sand: the turn is visible and every text reads at WCAG AA.
+    // The front is a light card, the back is sand, and the carousel under them is a warm surface
+    // (owner correction 14.11.2026: the cards are light again); every text reads at WCAG AA.
     const [front, back] = faces(first);
     const frontSurface = getComputedStyle(front).backgroundColor;
     const backSurface = getComputedStyle(back).backgroundColor;
-    await expect(luminance(frontSurface)).toBeLessThan(0.05);
-    await expect(luminance(frontSurface)).toBeLessThan(luminance(backSurface));
+    await expect(front).not.toHaveAttribute("data-lesson-dark");
+    await expect(luminance(frontSurface)).toBeGreaterThan(0.85);
+    await expect(luminance(frontSurface)).toBeGreaterThan(
+      luminance(backSurface),
+    );
     await expect(
       luminance(getComputedStyle(carousel).backgroundColor),
-    ).toBeGreaterThan(luminance(frontSurface));
+    ).toBeLessThan(luminance(frontSurface));
     const title = within(front).getByText("Ограниченный контекст");
     await expect(
       contrast(getComputedStyle(title).color, frontSurface),

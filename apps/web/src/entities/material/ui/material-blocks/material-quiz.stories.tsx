@@ -1,5 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expectCalmDisabledCheck } from "@/storybook/exercise-actions";
+import { luminance, textContrast } from "@/storybook/contrast";
+import {
+  expectCalmDisabledCheck,
+  expectReadableDarkExercise,
+} from "@/storybook/exercise-actions";
 import { expect, userEvent, within } from "storybook/test";
 import { useState } from "react";
 import {
@@ -78,6 +82,7 @@ export const MultipleEmpty: Story = {
     await expect(quiz.queryByText("Почему")).toBeNull();
     await expect(optionResults(canvasElement)).toEqual(Array(6).fill(null));
     await expect(quiz.getAllByRole("checkbox")).toHaveLength(6);
+    await expectReadableDarkExercise(canvasElement);
   },
 };
 export const MultipleCorrect: Story = {
@@ -86,7 +91,13 @@ export const MultipleCorrect: Story = {
     for (const checkbox of quiz.getAllByRole("checkbox").slice(0, 4))
       await userEvent.click(checkbox);
     await expect(quiz.queryByText("Правильно", { exact: true })).toBeNull();
-    await userEvent.click(quiz.getByRole("button", { name: "Проверить" }));
+    // On the dark exercise «Проверить» is the light main button with dark words.
+    const check = quiz.getByRole("button", { name: "Проверить" });
+    await expect(
+      luminance(getComputedStyle(check).backgroundColor),
+    ).toBeGreaterThan(0.8);
+    await expect(textContrast(check)).toBeGreaterThanOrEqual(4.5);
+    await userEvent.click(check);
     await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();
   },
 };
@@ -137,6 +148,7 @@ export const MultipleExtra: Story = {
     await expect(quiz.getByText("Неверно", { exact: true })).toHaveClass(
       "sr-only",
     );
+    await expectReadableDarkExercise(canvasElement);
   },
 };
 export const MultipleDontKnow: Story = {
@@ -156,6 +168,7 @@ export const MultipleDontKnow: Story = {
     await expect(
       quiz.getByRole("link", { name: "Повторить раздел" }),
     ).toHaveAttribute("href", "#первая-версия");
+    await expectReadableDarkExercise(canvasElement);
   },
 };
 /** A checked answer stays until «Ответить ещё раз», which starts a fresh selection. */
@@ -262,6 +275,7 @@ export const UpdatedPastAnswer: Story = {
     await expect(
       quiz.getByText("Войдите, чтобы ответы сохранялись в аккаунте."),
     ).toBeVisible();
+    await expectReadableDarkExercise(canvasElement);
     await userEvent.click(
       quiz.getByRole("button", { name: "Ответить ещё раз" }),
     );
