@@ -64,6 +64,14 @@
   --lesson-graphite-hover: #3b3c3f;
   --lesson-reply: #efebe3;
   --lesson-stack: #ebe6dc;
+  /* Тёмные графитовые акценты урока: «Финиш урока» и лицо карточки термина (решение владельца 14.11.2026). */
+  --lesson-dark: #202124;
+  --lesson-dark-foreground: #f6f4ef;
+  --lesson-dark-muted: #aca79c;
+  --lesson-dark-line: #3a3a38;
+  --lesson-dark-outline: #7a766e;
+  --lesson-dark-raised: #303134;
+  --lesson-dark-action-hover: #e6dfd2;
   --eyebrow: oklch(0.46 0.014 128);
   --reader-foreground: oklch(0.48 0.012 128);
   --placeholder: oklch(0.61 0.01 128);
@@ -167,6 +175,14 @@
   --lesson-graphite-hover: #3b3c3f;
   --lesson-reply: #efebe3;
   --lesson-stack: #ebe6dc;
+  /* Тёмные графитовые акценты урока: «Финиш урока» и лицо карточки термина (решение владельца 14.11.2026). */
+  --lesson-dark: #202124;
+  --lesson-dark-foreground: #f6f4ef;
+  --lesson-dark-muted: #aca79c;
+  --lesson-dark-line: #3a3a38;
+  --lesson-dark-outline: #7a766e;
+  --lesson-dark-raised: #303134;
+  --lesson-dark-action-hover: #e6dfd2;
   --reader-foreground: #696a6e;
   --placeholder: #8b8c88;
   --placeholder-strong: #777873;
@@ -226,6 +242,13 @@
   --lesson-graphite-hover: #d9d4c8;
   --lesson-reply: #302f2a;
   --lesson-stack: #33342f;
+  --lesson-dark: #141513;
+  --lesson-dark-foreground: #ede9e0;
+  --lesson-dark-muted: #a9a59a;
+  --lesson-dark-line: #2f302b;
+  --lesson-dark-outline: #6f6c64;
+  --lesson-dark-raised: #2a2b27;
+  --lesson-dark-action-hover: #d9d4c8;
   --destructive: oklch(0.68 0.2 25);
   --border: oklch(0.34 0.013 128);
   --input: oklch(0.34 0.013 128);
@@ -657,6 +680,32 @@ body:has(
 [data-callout="definition"] {
   --callout-ink: var(--lesson-ink);
   background: var(--lesson-sand);
+}
+
+/*
+ * Тёмный графитовый блок урока (решение владельца 14.11.2026): карточка «Финиш урока» и лицо
+ * карточки термина. Внутри блока переопределены токены, которые читает его содержимое, поэтому
+ * обычные классы (text-muted-foreground, bg-lesson-graphite, outline-ring…) сами становятся
+ * светлыми на тёмном: главная кнопка светлая, линии и подписи приглушённо-светлые.
+ */
+[data-lesson-dark] {
+  --foreground: var(--lesson-dark-foreground);
+  --card-foreground: var(--lesson-dark-foreground);
+  --muted-foreground: var(--lesson-dark-muted);
+  --primary: var(--lesson-dark-foreground);
+  --primary-foreground: var(--lesson-dark);
+  --border: var(--lesson-dark-outline);
+  --input: var(--lesson-dark-outline);
+  --lesson-line: var(--lesson-dark-line);
+  --lesson-stack: var(--lesson-dark-raised);
+  --lesson-graphite: var(--lesson-dark-foreground);
+  --lesson-graphite-foreground: var(--lesson-dark);
+  --lesson-graphite-hover: var(--lesson-dark-action-hover);
+  --callout-bad: #ff9a8a;
+  --ring: #ef6b3c;
+  --elevation-card: 0 1rem 2.5rem -1.75rem rgb(20 21 24 / 55%);
+  background-color: var(--lesson-dark);
+  color: var(--foreground);
 }
 
 /*

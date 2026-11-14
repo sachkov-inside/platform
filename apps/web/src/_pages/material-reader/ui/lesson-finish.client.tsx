@@ -12,7 +12,7 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import styles from "./lesson-finish.module.css";
 
-/** The card's main button: graphite, and across the whole card on a phone. */
+/** The card's main button: a light pill on the dark card, and across the whole card on a phone. */
 const primaryAction =
   "inline-flex min-h-12 max-w-full items-center justify-center gap-2 rounded-full bg-lesson-graphite px-6 text-base font-semibold text-lesson-graphite-foreground no-underline shadow-(--elevation-card) transition-colors duration-(--motion-duration-fast) hover:bg-lesson-graphite-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none max-sm:order-first max-sm:w-full sm:ml-auto sm:min-w-40";
 
@@ -26,7 +26,8 @@ export interface LessonFinishActions {
 }
 
 /**
- * «Финиш урока» (решение владельца 14.11.2026, концепция A): одна тихая карточка в конце урока.
+ * «Финиш урока» (решение владельца 14.11.2026, концепция A): одна тёмная графитовая карточка в конце
+ * урока.
  * Заголовок, строка «Как вам урок?», а внутри курса ещё «Изучено» второй кнопкой и главная
  * кнопка «Дальше»; в последнем уроке курса на её месте «К программе». Заголовок несёт счёт
  * упражнений: «Конец урока · упражнения 0 из 1», где счёт ведёт к первому нерешённому; когда все
@@ -44,7 +45,8 @@ export function LessonFinish({
   return (
     <section
       aria-labelledby={headingId}
-      className="mt-12 rounded-2xl bg-lesson-surface px-4 pt-5 pb-3 sm:px-6 sm:pt-6"
+      className="mt-12 rounded-2xl px-4 pt-5 pb-3 sm:px-6 sm:pt-6"
+      data-lesson-dark
       data-lesson-finish
     >
       <h2 className="text-lg font-semibold tracking-[-0.01em]" id={headingId}>
