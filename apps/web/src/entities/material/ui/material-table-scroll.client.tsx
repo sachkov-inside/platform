@@ -32,7 +32,9 @@ export function MaterialTableScroll({
   useEffect(() => {
     const element = scroller.current;
     if (element === null) return;
-    const update = () => setOverflow(overflowOf(element));
+    const update = () => {
+      setOverflow(overflowOf(element));
+    };
     update();
     element.addEventListener("scroll", update, { passive: true });
     const resize = new ResizeObserver(update);

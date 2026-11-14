@@ -167,7 +167,8 @@ export function MaterialSvgFigure({
         // keep the click for selecting the figure's text.
         if (
           !zoomable ||
-          trigger.current?.contains(event.target as Node) === true ||
+          (event.target instanceof Node &&
+            trigger.current?.contains(event.target) === true) ||
           !window.matchMedia(NARROW_SCREEN).matches
         )
           return;

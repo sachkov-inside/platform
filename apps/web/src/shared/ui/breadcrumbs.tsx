@@ -1,5 +1,6 @@
 import type { Route } from "next";
 import { ChevronRight } from "lucide-react";
+import { Fragment } from "react";
 import { IntentPrefetchLink } from "./intent-prefetch-link.client";
 import { cn } from "@/shared/lib/utils";
 import { ReaderOriginLink } from "./reader-history.client";
@@ -43,7 +44,7 @@ export function Breadcrumbs({
           const first = index === 0;
           const last = index === items.length - 1;
           const middle = folds && !first && !last;
-          return (
+          const crumb = (
             <li
               key={`${String(index)}:${item.label}`}
               className={cn(
@@ -58,17 +59,6 @@ export function Breadcrumbs({
               {first ? null : (
                 <ChevronRight aria-hidden="true" className="size-3 shrink-0" />
               )}
-              {folds && last ? (
-                <span aria-hidden="true" className="sm:hidden">
-                  …
-                </span>
-              ) : null}
-              {folds && last ? (
-                <ChevronRight
-                  aria-hidden="true"
-                  className="size-3 shrink-0 sm:hidden"
-                />
-              ) : null}
               {item.href === undefined ? (
                 <span
                   aria-current="page"
@@ -94,6 +84,22 @@ export function Breadcrumbs({
                 </Link>
               )}
             </li>
+          );
+          // On a phone the folded middle shows as one ellipsis before the current page; the
+          // folded places stay in the list for assistive technology.
+          return folds && last ? (
+            <Fragment key={`${String(index)}:${item.label}`}>
+              <li
+                aria-hidden="true"
+                className="flex shrink-0 items-center gap-1 sm:hidden"
+              >
+                <ChevronRight className="size-3 shrink-0" />
+                <span>…</span>
+              </li>
+              {crumb}
+            </Fragment>
+          ) : (
+            crumb
           );
         })}
       </ol>

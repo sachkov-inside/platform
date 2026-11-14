@@ -92,16 +92,18 @@ function codeBlocks(
     return;
   }
   if (typeof value !== "object" || value === null) return;
-  const record = value as Record<string, unknown>;
   if (
-    record["kind"] === "code_block" &&
-    typeof record["language"] === "string" &&
-    typeof record["text"] === "string"
+    "kind" in value &&
+    value.kind === "code_block" &&
+    "language" in value &&
+    typeof value.language === "string" &&
+    "text" in value &&
+    typeof value.text === "string"
   ) {
-    found.push({ language: record["language"], text: record["text"] });
+    found.push({ language: value.language, text: value.text });
     return;
   }
-  for (const child of Object.values(record)) codeBlocks(child, found);
+  for (const child of Object.values(value)) codeBlocks(child, found);
 }
 
 function highlight(

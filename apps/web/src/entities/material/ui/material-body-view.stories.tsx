@@ -3,6 +3,10 @@ import { courseGlossaryHref } from "@/shared/routing/subscription-route";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
+import type {
+  HighlightedCode,
+  MaterialCodeHighlights,
+} from "../model/code-highlight";
 import { highlightMaterialCode } from "../model/highlight-material-code";
 import { MaterialBodyView } from "./material-body-view";
 
@@ -434,6 +438,31 @@ export const CodeBlockCopyDesktop: Story = {
   globals: { viewport: { value: "desktop1440", isRotated: false } },
 };
 
+/** The highlighting the story's loader computed, as the server would for a page. */
+function codeHighlightsOf(
+  loaded: Readonly<Record<string, unknown>>,
+): MaterialCodeHighlights | undefined {
+  const value = loaded["codeHighlights"];
+  if (!(value instanceof Map)) return undefined;
+  const highlights = new Map<string, HighlightedCode>();
+  for (const [key, code] of value.entries()) {
+    if (typeof key === "string" && isHighlightedCode(code))
+      highlights.set(key, code);
+  }
+  return highlights;
+}
+
+function isHighlightedCode(value: unknown): value is HighlightedCode {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "label" in value &&
+    typeof value.label === "string" &&
+    "lines" in value &&
+    Array.isArray(value.lines)
+  );
+}
+
 const highlightedBlocks = [
   {
     kind: "code_block",
@@ -461,11 +490,7 @@ export const CodeBlockHighlighted: Story = {
       {...args}
       rendering={{
         ...args.rendering,
-        codeHighlights: (
-          loaded as {
-            codeHighlights: Awaited<ReturnType<typeof highlightMaterialCode>>;
-          }
-        ).codeHighlights,
+        codeHighlights: codeHighlightsOf(loaded),
       }}
     />
   ),

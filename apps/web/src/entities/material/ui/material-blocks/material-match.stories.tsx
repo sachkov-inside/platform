@@ -451,14 +451,17 @@ export const ChooseWithKeyboard: Story = {
   },
 };
 
-/** On a phone the open list stays inside the screen and keeps 16 px text. */
+/**
+ * On a phone the open list stays inside the screen. Its text keeps the lesson's 17 px reading size
+ * (owner, 14.11.2026, variant 2A), above the 16 px a phone needs to skip zooming in.
+ */
 export const Phone360Open: Story = {
   ...Phone360,
   play: async ({ canvasElement }) => {
     const match = within(canvasElement);
     const [, second] = match.getAllByRole("combobox");
     if (second === undefined) throw new Error("Missing row");
-    await expect(getComputedStyle(second).fontSize).toBe("16px");
+    await expect(getComputedStyle(second).fontSize).toBe("17px");
     await userEvent.click(second);
     const list = await page(canvasElement).findByRole("listbox");
     const box = list.getBoundingClientRect();
@@ -467,7 +470,7 @@ export const Phone360Open: Story = {
     const item = await page(canvasElement).findByRole("option", {
       name: /Индексация/u,
     });
-    await expect(getComputedStyle(item).fontSize).toBe("16px");
+    await expect(getComputedStyle(item).fontSize).toBe("17px");
     await expect(document.documentElement.scrollWidth).toBe(
       document.documentElement.clientWidth,
     );
