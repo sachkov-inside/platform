@@ -20,11 +20,14 @@ const codeBlockFill =
 export function MaterialCallout({
   children,
   collapse,
+  term = false,
   title,
   tone,
 }: {
   readonly children?: ReactNode;
   readonly collapse?: "collapsed" | "expanded" | undefined;
+  /** Карточка термина из словаря курса: своя песочная поверхность урока (#2118). */
+  readonly term?: boolean;
   readonly title?: string | undefined;
   readonly tone: CalloutTone;
 }) {
@@ -65,6 +68,7 @@ export function MaterialCallout({
       aria-label={title === undefined ? label : `${label}: ${title}`}
       className={`mt-8 rounded-xl border px-(--callout-pad-x) pt-4 pb-(--callout-pad-b) text-[0.9375rem] leading-7 [--callout-pad-b:--spacing(4)] [--callout-pad-x:--spacing(5)] sm:[--callout-pad-x:--spacing(6)] ${codeBlockFill}`}
       data-callout={tone}
+      data-callout-term={term ? "" : undefined}
       data-material-block="callout"
     >
       <p

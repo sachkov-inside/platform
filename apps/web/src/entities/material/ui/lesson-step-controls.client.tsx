@@ -65,9 +65,9 @@ export function LessonGateControl({
         passed ? (
           <LessonReply label={gate.label} />
         ) : waiting ? (
-          <div className={cn("mt-8 flex justify-center", styles["control"])}>
+          <div className={cn("mt-10 flex justify-center", styles["control"])}>
             <button
-              className="min-h-11 max-w-[85%] rounded-2xl border border-accent bg-background px-4 py-2.5 text-center font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="min-h-11 max-w-[90%] rounded-full bg-lesson-graphite px-5 py-2.5 text-center font-medium text-lesson-graphite-foreground shadow-sm transition-colors duration-(--motion-duration-fast) hover:bg-lesson-graphite-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
               onClick={() => {
                 steps.openThrough(ordinal + 1, "reply");
               }}
@@ -107,7 +107,7 @@ function LessonReply({ label }: { readonly label: string }) {
         <span className="text-xs text-muted-foreground">
           {steps.reader.name}
         </span>
-        <p className="rounded-2xl rounded-br-sm bg-muted px-4 py-2.5 text-foreground">
+        <p className="rounded-2xl rounded-br-sm bg-lesson-reply px-4 py-2.5 text-foreground">
           {label}
         </p>
       </div>

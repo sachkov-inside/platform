@@ -2,6 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
 
+import { chooseInSelect } from "@/storybook/select-choice";
+
 import type { RenderedBlock } from "@inside/material-blocks";
 import {
   guestOpenedPartsKey,
@@ -199,9 +201,20 @@ export const GuestOpensNextPart: Story = {
     await expect(
       canvas.queryByRole("region", { name: "Термины урока" }),
     ).toBeNull();
-    await userEvent.click(
-      canvas.getByRole("button", { name: "А как проверить результат?" }),
+    // Variant A (#2118): the question is a dark filled button in the middle of the column.
+    const question = canvas.getByRole("button", {
+      name: "А как проверить результат?",
+    });
+    const column = question.parentElement?.getBoundingClientRect();
+    const box = question.getBoundingClientRect();
+    if (column === undefined) throw new Error("The button has no column");
+    await expect(
+      Math.abs(box.left - column.left - (column.right - box.right)),
+    ).toBeLessThanOrEqual(1);
+    await expect(getComputedStyle(question).backgroundColor).not.toBe(
+      "rgba(0, 0, 0, 0)",
     );
+    await userEvent.click(question);
     await expect(
       canvas.getByText("Проверка начинается с наблюдаемого поведения."),
     ).toBeVisible();
@@ -213,6 +226,13 @@ export const GuestOpensNextPart: Story = {
     await expect(
       within(reply).getByText("А как проверить результат?"),
     ).toBeVisible();
+    // The reply sits on the right on an opaque bubble.
+    const bubble = within(reply).getByText("А как проверить результат?");
+    await expect(
+      reply.getBoundingClientRect().right -
+        bubble.getBoundingClientRect().right,
+    ).toBeLessThan(48);
+    await expect(getComputedStyle(bubble).backgroundColor).toMatch(/^rgb\(/u);
     await expect(
       canvas.queryByRole("button", { name: "А как проверить результат?" }),
     ).toBeNull();
@@ -313,7 +333,7 @@ export const MatchAndOrderOpenText: Story = {
       canvas.getByRole("region", { name: "Упражнение 1 из 2" }),
     );
     for (const select of match.getAllByRole("combobox"))
-      await userEvent.selectOptions(select, "На каждый запрос");
+      await chooseInSelect(select, "На каждый запрос");
     await userEvent.click(match.getByRole("button", { name: "Проверить" }));
     await expect(canvas.getByText(afterMatch)).toBeVisible();
     await userEvent.click(match.getByRole("button", { name: "Начать заново" }));

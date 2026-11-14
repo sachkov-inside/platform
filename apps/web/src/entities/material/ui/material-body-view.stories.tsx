@@ -35,6 +35,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** How the browser writes a CSS colour once computed, so a token compares with a used value. */
+function cssColor(canvasElement: HTMLElement, color: string): string {
+  const probe = canvasElement.ownerDocument.createElement("span");
+  probe.style.color = color;
+  canvasElement.append(probe);
+  const computed = getComputedStyle(probe).color;
+  probe.remove();
+  return computed;
+}
+
 export const Document: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -559,6 +569,13 @@ export const GlossaryTerms: Story = {
       name: "Определение: Ограниченный контекст (Bounded context)",
     });
     await expect(card).toHaveTextContent("Часть системы со своей моделью");
+    // Variant A (#2118): an opaque sand surface from the lesson tokens, not a tinted mix.
+    const sand = getComputedStyle(card)
+      .getPropertyValue("--lesson-sand")
+      .trim();
+    await expect(getComputedStyle(card).backgroundColor).toBe(
+      cssColor(canvasElement, sand),
+    );
 
     const term = canvas.getByRole("button", { name: "ограниченные контексты" });
     await userEvent.click(term);

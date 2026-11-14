@@ -28,7 +28,7 @@ const HOVER_CLOSE_DELAY_MS = 150;
 type Openness = "closed" | "hover" | "pinned";
 
 const moreClassName =
-  "mt-2 min-h-11 font-medium text-accent underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring";
+  "mt-2 min-h-11 font-medium text-lesson-ink underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring";
 
 interface BubblePosition {
   readonly left: number;
@@ -150,7 +150,7 @@ export function GlossaryTermMention({
       <button
         aria-controls={open ? bubbleId : undefined}
         aria-expanded={open}
-        className="cursor-help rounded-sm text-inherit underline decoration-current decoration-dotted decoration-1 underline-offset-4 [font:inherit] focus-visible:outline-2 focus-visible:outline-ring"
+        className="cursor-help rounded-sm text-inherit underline decoration-lesson-ink decoration-dotted decoration-[1.5px] underline-offset-4 [font:inherit] focus-visible:outline-2 focus-visible:outline-ring"
         data-glossary-term={term.id}
         onClick={() => {
           cancelClose();

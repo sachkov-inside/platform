@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
+import { expectPhoneLayout } from "@/storybook/phone-layout";
+
 import { LessonRating } from "./lesson-rating.client";
 
 const meta = {
@@ -75,5 +77,29 @@ export const Guest: Story = {
       "/account",
     );
     await expect(rating.queryAllByRole("button")).toHaveLength(0);
+  },
+};
+
+/** A dislike is pressed and visible as the dark round button. */
+export const Disliked: Story = {
+  args: {
+    state: { kind: "ready", rating: "dislike", saving: false, failed: false },
+  },
+  play: async ({ canvasElement }) => {
+    const rating = within(canvasElement);
+    await expect(
+      rating.getByRole("button", { name: "Не понравился" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      rating.getByRole("button", { name: "Понравился" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  },
+};
+
+export const Phone360: Story = {
+  ...Liked,
+  globals: { viewport: { value: "mobile360", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expectPhoneLayout(canvasElement, "[data-lesson-rating]");
   },
 };

@@ -51,7 +51,7 @@ export function MaterialExerciseFrame({
         data-quiz-heading
         className="flex items-center gap-2 text-sm font-semibold sm:text-base"
       >
-        <span className="grid size-6 shrink-0 sm:size-8 place-items-center rounded-lg bg-action text-accent-foreground">
+        <span className="grid size-6 shrink-0 sm:size-8 place-items-center rounded-lg bg-lesson-graphite text-lesson-graphite-foreground">
           <CircleHelp aria-hidden="true" className="size-4 sm:size-5" />
         </span>
         {heading}
@@ -66,7 +66,7 @@ export function MaterialExerciseFrame({
       </div>
       {updated ? (
         <p
-          className="mt-3 rounded-lg bg-muted px-3 py-2 text-sm"
+          className="mt-3 rounded-lg border border-lesson-line bg-card px-3 py-2 text-sm"
           data-exercise-updated
           role="status"
         >

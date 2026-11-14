@@ -1,12 +1,11 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { BookOpen, Check, RefreshCw, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import type { Route } from "next";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 import type { GlossaryTerm } from "@/entities/material.model";
-import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 
 import type { TermMarkValue } from "../model/term-mark-contract";
@@ -40,10 +39,17 @@ const markLabels: Record<TermMarkValue, string> = {
   review: "Повторить",
 };
 
+const bigButton =
+  "flex min-h-12 items-center justify-center gap-2 rounded-xl px-4 font-medium transition-colors duration-(--motion-duration-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 motion-reduce:transition-none";
+const quietButton = `${bigButton} border border-lesson-line bg-card text-foreground hover:bg-muted`;
+const strongButton = `${bigButton} bg-lesson-graphite text-lesson-graphite-foreground hover:bg-lesson-graphite-hover`;
+const cardShadow = "shadow-card";
+
 /**
- * Колода «Термины урока» в конце урока: термин на лицевой стороне, короткое определение на
- * обороте. Отметки «знаю» и «повторить» вошедший сохраняет за собой; после отметки колода
- * переходит к следующему термину.
+ * Колода «Термины урока» в конце урока: стопка карточек, термин на лицевой стороне, короткое
+ * определение на обороте; карточка переворачивается нажатием или с клавиатуры. Вошедший
+ * отмечает термин «Знаю» или «Повторить», отметка сохраняется за ним, и колода переходит к
+ * следующему термину. Гость листает колоду без отметок.
  */
 export function LessonTermDeck({
   terms,
@@ -55,6 +61,7 @@ export function LessonTermDeck({
   const [index, setIndex] = useState(0);
   const [turned, setTurned] = useState(false);
   if (terms.length === 0) return null;
+  const done = index >= terms.length;
   const position = Math.min(index, terms.length - 1);
   const term = terms[position];
   if (term === undefined) return null;
@@ -71,10 +78,10 @@ export function LessonTermDeck({
   return (
     <section
       aria-labelledby={headingId}
-      className="mt-10 rounded-2xl border border-border bg-card p-4 sm:p-6"
+      className="mt-12 rounded-2xl border border-lesson-line bg-lesson-surface p-4 sm:p-6"
       data-lesson-term-deck
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <div className="flex items-center justify-between gap-4">
         <h2 className="text-lg font-semibold" id={headingId}>
           Термины урока
         </h2>
@@ -82,124 +89,216 @@ export function LessonTermDeck({
           className="text-sm text-muted-foreground tabular-nums"
           data-lesson-term-position
         >
-          {position + 1} из {terms.length}
+          {done ? terms.length : position + 1} из {terms.length}
         </p>
       </div>
-
-      <div
-        className="mt-4 flex min-h-44 flex-col justify-center rounded-xl border border-border bg-background p-4 text-center sm:p-6"
-        data-lesson-term-card={term.id}
-        data-lesson-term-side={turned ? "back" : "front"}
-      >
-        {turned ? (
-          <p className="text-base leading-7" aria-live="polite">
-            {term.shortDefinition}
-          </p>
-        ) : (
-          <p className="text-xl font-semibold text-balance">
-            {term.title}
-            {term.englishTitle === null ? null : (
-              <span className="mt-1 block text-sm font-normal text-muted-foreground">
-                {term.englishTitle}
-              </span>
+      <div aria-hidden="true" className="mt-3 flex gap-1">
+        {terms.map((item, place) => (
+          <span
+            className={cn(
+              "h-1 flex-1 rounded-full",
+              done || place < position
+                ? "bg-lesson-graphite"
+                : "bg-lesson-line",
             )}
-          </p>
-        )}
-        <div className="mt-4">
-          <Button
-            className="min-h-11"
-            onClick={() => {
-              setTurned((value) => !value);
-            }}
-            type="button"
-            variant="outline"
-          >
-            {turned ? "Показать термин" : "Показать определение"}
-          </Button>
-        </div>
+            key={item.id}
+          />
+        ))}
       </div>
 
-      {marking.kind === "ready" ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {(["known", "review"] as const).map((mark) => (
-            <Button
-              aria-pressed={current === mark}
-              className={cn(
-                "min-h-11 flex-1 sm:flex-none",
-                current === mark && "ring-2 ring-ring/50",
-              )}
-              data-lesson-term-mark={mark}
-              disabled={marking.savingTermId !== null}
-              key={mark}
+      <div className="mx-auto mt-5 max-w-md">
+        {done ? (
+          <div
+            className={`flex min-h-60 flex-col items-center justify-center rounded-2xl bg-card px-6 py-8 text-center ${cardShadow}`}
+            data-lesson-term-done
+          >
+            <p className="text-xl font-semibold">Колода пройдена</p>
+            {marking.kind === "ready" ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Знаю: {known}, повторить: {review}
+              </p>
+            ) : null}
+            <button
+              className={`${quietButton} mt-5 min-h-11`}
               onClick={() => {
-                onMark?.(term.id, mark);
-                if (position + 1 < terms.length) go(position + 1);
+                go(0);
               }}
               type="button"
-              variant={current === mark ? "default" : "outline"}
             >
-              {markLabels[mark]}
-            </Button>
-          ))}
-          <p className="w-full text-sm text-muted-foreground" role="status">
+              <RotateCcw aria-hidden="true" className="size-4" />
+              Пройти ещё раз
+            </button>
+          </div>
+        ) : (
+          <DeckPile>
+            <button
+              className="block w-full rounded-2xl text-left perspective-[1400px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+              data-lesson-term-card={term.id}
+              data-lesson-term-side={turned ? "back" : "front"}
+              onClick={() => {
+                setTurned((value) => !value);
+              }}
+              type="button"
+            >
+              <TermCardFaces term={term} turned={turned} />
+            </button>
+          </DeckPile>
+        )}
+        {/* The turned side is read out once, the way a sighted reader sees it appear. */}
+        <p aria-live="polite" className="sr-only">
+          {turned && !done ? term.shortDefinition : ""}
+        </p>
+
+        {done ? null : marking.kind === "ready" ? (
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            {(["review", "known"] as const).map((mark) => (
+              <button
+                aria-pressed={current === mark}
+                className={cn(
+                  mark === "known" ? strongButton : quietButton,
+                  current === mark &&
+                    "ring-2 ring-lesson-graphite ring-offset-2 ring-offset-lesson-surface",
+                )}
+                data-lesson-term-mark={mark}
+                disabled={marking.savingTermId !== null}
+                key={mark}
+                onClick={() => {
+                  onMark?.(term.id, mark);
+                  go(position + 1);
+                }}
+                type="button"
+              >
+                {mark === "known" ? (
+                  <Check aria-hidden="true" className="size-4" />
+                ) : (
+                  <RotateCcw aria-hidden="true" className="size-4" />
+                )}
+                {markLabels[mark]}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-5">
+            <button
+              className={`${quietButton} w-full`}
+              onClick={() => {
+                go(position + 1);
+              }}
+              type="button"
+            >
+              Следующий термин
+            </button>
+          </div>
+        )}
+
+        {marking.kind === "ready" ? (
+          <p
+            className="mt-3 text-center text-sm text-muted-foreground"
+            role="status"
+          >
             {marking.failed
               ? "Не удалось сохранить отметку. Попробуйте ещё раз."
               : `Знаю: ${String(known)}, повторить: ${String(review)}`}
           </p>
-        </div>
-      ) : marking.kind === "guest" ? (
-        <p className="mt-4 text-sm text-muted-foreground">
-          <Link
-            className="text-foreground underline underline-offset-4"
-            href={marking.loginHref}
+        ) : marking.kind === "guest" ? (
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            <Link
+              className="text-foreground underline underline-offset-4"
+              href={marking.loginHref}
+            >
+              Войдите
+            </Link>
+            , чтобы отмечать термины «знаю» и «повторить».
+          </p>
+        ) : marking.kind === "unavailable" ? (
+          <p
+            className="mt-3 text-center text-sm text-muted-foreground"
+            role="status"
           >
-            Войдите
-          </Link>
-          , чтобы отмечать термины «знаю» и «повторить».
-        </p>
-      ) : marking.kind === "unavailable" ? (
-        <p className="mt-4 text-sm text-muted-foreground" role="status">
-          Отметки сейчас недоступны.
-        </p>
-      ) : null}
+            Отметки сейчас недоступны.
+          </p>
+        ) : null}
+      </div>
 
-      <nav
-        aria-label="Карточки терминов"
-        className="mt-4 flex items-center justify-between gap-2"
-      >
-        <Button
-          aria-label="Предыдущий термин"
-          className="min-h-11 min-w-11"
-          disabled={position === 0}
-          onClick={() => {
-            go(position - 1);
-          }}
-          type="button"
-          variant="ghost"
-        >
-          <ChevronLeft aria-hidden="true" />
-        </Button>
-        {courseGlossaryHref === undefined ? null : (
+      {courseGlossaryHref === undefined ? null : (
+        <p className="mt-2 text-center text-sm">
           <Link
-            className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            className="inline-flex min-h-11 items-center gap-1.5 text-muted-foreground underline underline-offset-4 hover:text-foreground"
             href={courseGlossaryHref}
           >
+            <BookOpen aria-hidden="true" className="size-4" />
             Все термины курса
           </Link>
-        )}
-        <Button
-          aria-label="Следующий термин"
-          className="min-h-11 min-w-11"
-          disabled={position + 1 >= terms.length}
-          onClick={() => {
-            go(position + 1);
-          }}
-          type="button"
-          variant="ghost"
-        >
-          <ChevronRight aria-hidden="true" />
-        </Button>
-      </nav>
+        </p>
+      )}
     </section>
+  );
+}
+
+/** The card with the rest of the deck under it: two edges peek out below, like a pile of cards. */
+function DeckPile({ children }: { readonly children: ReactNode }) {
+  return (
+    <div className="relative pb-3">
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-6 bottom-0 h-8 rounded-2xl bg-lesson-stack"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-3 bottom-1.5 h-8 rounded-2xl border border-lesson-line bg-card"
+      />
+      <div className="relative">{children}</div>
+    </div>
+  );
+}
+
+/** Both sides of a card in one place; the hidden side is turned away and out of the reading order. */
+function TermCardFaces({
+  term,
+  turned,
+}: {
+  readonly term: GlossaryTerm;
+  readonly turned: boolean;
+}) {
+  const face =
+    "col-start-1 row-start-1 flex min-h-60 flex-col rounded-2xl px-6 py-8 backface-hidden";
+  return (
+    <div
+      className={cn(
+        "relative grid transform-3d transition-transform duration-500 ease-(--motion-ease-out) motion-reduce:transition-none",
+        turned && "rotate-y-180",
+      )}
+    >
+      <div
+        aria-hidden={turned}
+        className={`${face} items-center justify-center bg-card text-center text-foreground ${cardShadow}`}
+      >
+        <p className="text-2xl font-semibold tracking-[-0.02em] text-balance">
+          {term.title}
+        </p>
+        {term.englishTitle === null ? null : (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {term.englishTitle}
+          </p>
+        )}
+        <p className="mt-8 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <RefreshCw aria-hidden="true" className="size-3.5" />
+          Показать определение
+        </p>
+      </div>
+      <div
+        aria-hidden={!turned}
+        className={`${face} rotate-y-180 justify-center bg-lesson-sand text-foreground ${cardShadow}`}
+      >
+        <p className="text-sm font-semibold text-lesson-ink">{term.title}</p>
+        <p className="mt-2 text-lg leading-7 text-pretty">
+          {term.shortDefinition}
+        </p>
+        <p className="mt-6 flex items-center gap-1.5 text-xs font-medium text-lesson-ink">
+          <RefreshCw aria-hidden="true" className="size-3.5" />
+          Показать термин
+        </p>
+      </div>
+    </div>
   );
 }

@@ -52,6 +52,55 @@ export const Swatches = () => (
 Orange is a scarce signal for current state, focus, and important product accents. It is not a
 default decoration. Foreground/background pairs must remain readable in both palettes.
 
+### Interactive lesson
+
+Owner decision 14.11.2026 (#2118, variant A «Тёплая бумага»): the lesson's own blocks use one warm
+family of opaque surfaces and charcoal for the action; orange stays with the site. Exercises, the
+term deck and the end-of-lesson rows lie on `--lesson-surface`; the glossary «Определение» card
+and the back of a deck card are sand; the step-break question, the exercise badge, «Знаю» and a
+pressed rating are graphite. Every surface is a solid colour, never a mix with transparency.
+
+export const lessonRoles = [
+  [
+    "Surface",
+    "--lesson-surface",
+    "bg-lesson-surface text-foreground border-lesson-line",
+  ],
+  [
+    "Sand",
+    "--lesson-sand",
+    "bg-lesson-sand text-foreground border-lesson-sand-line",
+  ],
+  ["Ink", "--lesson-ink", "bg-card text-lesson-ink border-lesson-line"],
+  [
+    "Graphite",
+    "--lesson-graphite",
+    "bg-lesson-graphite text-lesson-graphite-foreground border-lesson-graphite",
+  ],
+  [
+    "Reply",
+    "--lesson-reply",
+    "bg-lesson-reply text-foreground border-lesson-reply",
+  ],
+  [
+    "Stack",
+    "--lesson-stack",
+    "bg-lesson-stack text-foreground border-lesson-stack",
+  ],
+];
+
+<div
+  data-public-shell
+  className="not-prose grid gap-3 rounded-2xl bg-background p-4 sm:grid-cols-2 lg:grid-cols-3"
+>
+  {lessonRoles.map(([label, token, classes]) => (
+    <div className={`rounded-xl border p-4 ${classes}`} key={token}>
+      <div className="font-semibold">{label}</div>
+      <code className="mt-2 block font-mono text-xs opacity-75">{token}</code>
+    </div>
+  ))}
+</div>
+
 ## Typography
 
 <div className="not-prose space-y-5 rounded-xl border border-border bg-card p-6 text-card-foreground">
