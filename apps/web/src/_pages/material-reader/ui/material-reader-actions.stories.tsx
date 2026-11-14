@@ -435,16 +435,11 @@ async function expectFinishActions(panel: HTMLElement, nextHref: string) {
   await expect(
     frame.right - next.getBoundingClientRect().right,
   ).toBeLessThanOrEqual(1);
-  // Phone buttons keep a 36 px surface over a 44 px touch area (shared Button density).
+  // Both keep the 44 px surface of the panel they replace, also on phones.
   for (const control of [studied, next]) {
     const box = control.getBoundingClientRect();
-    const touch = getComputedStyle(control, "::after");
-    await expect(
-      Math.max(box.width, parseFloat(touch.width) || 0),
-    ).toBeGreaterThanOrEqual(44);
-    await expect(
-      Math.max(box.height, parseFloat(touch.height) || 0),
-    ).toBeGreaterThanOrEqual(44);
+    await expect(box.width).toBeGreaterThanOrEqual(44);
+    await expect(box.height).toBeGreaterThanOrEqual(44);
   }
   await expectSeparatedActions(panel);
 }

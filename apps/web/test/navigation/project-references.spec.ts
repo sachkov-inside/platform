@@ -227,17 +227,12 @@ test("programme references and direct links of a sole-course material keep cours
       .getByRole("dialog")
       .getByRole("button", { name: "Закрыть" })
       .click();
-  // The panel above the lesson returns to the programme; no second return link repeats it below.
-  await expect(
-    page
-      .getByRole("navigation", { name: "Действия материала" })
-      .getByRole("link", { name: "Назад", exact: true }),
-  ).toHaveAttribute("href", programme);
+  // The end action panel returns to the programme; no second return link repeats it below.
   await expect(
     page
       .getByRole("navigation", { name: "Действия в конце материала" })
       .getByRole("link", { name: "Назад", exact: true }),
-  ).toHaveCount(0);
+  ).toHaveAttribute("href", programme);
   await expect(
     page.getByRole("link", { name: "К программе", exact: true }),
   ).toHaveCount(0);
