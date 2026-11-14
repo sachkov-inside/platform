@@ -70,10 +70,7 @@ export {
   type LessonStepsProgress,
   type LessonStepsReader,
 } from "./model/lesson-steps.client";
-export {
-  LessonStepsTail,
-  LessonWholeToggle,
-} from "./ui/lesson-step-controls.client";
+export { LessonStepsTail } from "./ui/lesson-step-controls.client";
 
 export { materialSourceAnchors } from "./model/material-source-anchors";
 export { MaterialInline } from "./ui/material-inline";

@@ -65,9 +65,9 @@ export function LessonGateControl({
         passed ? (
           <LessonReply label={gate.label} />
         ) : waiting ? (
-          <div className={cn("mt-8 flex justify-end", styles["control"])}>
+          <div className={cn("mt-8 flex justify-center", styles["control"])}>
             <button
-              className="min-h-11 max-w-[85%] rounded-2xl rounded-br-sm border border-accent bg-background px-4 py-2.5 text-left font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="min-h-11 max-w-[85%] rounded-2xl border border-accent bg-background px-4 py-2.5 text-center font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               onClick={() => {
                 steps.openThrough(ordinal + 1, "reply");
               }}
@@ -116,31 +116,6 @@ function LessonReply({ label }: { readonly label: string }) {
   );
 }
 
-/** «Показать урок целиком»: shows every part without changing what the reader has opened. */
-export function LessonWholeToggle() {
-  const steps = useLessonSteps();
-  if (steps === null) return null;
-  return (
-    <label
-      className={cn(
-        "mt-6 flex min-h-11 w-fit cursor-pointer items-center gap-3 text-sm text-muted-foreground",
-        styles["control"],
-      )}
-    >
-      <input
-        checked={steps.whole}
-        className="size-4 accent-[var(--action)]"
-        onChange={(event) => {
-          steps.setWhole(event.target.checked);
-        }}
-        role="switch"
-        type="checkbox"
-      />
-      Показать урок целиком
-    </label>
-  );
-}
-
 /** The first answer to an «after answer» exercise opens the text below it. */
 export function LessonExerciseAnswers({
   children,
@@ -156,7 +131,10 @@ export function LessonExerciseAnswers({
   );
 }
 
-/** What follows the last part, such as the term deck: it waits until the lesson is open. */
+/**
+ * What follows the last part, such as the term deck or the reading panel under the lesson: it
+ * waits until the lesson is open, so an open part does not read as the end of the lesson.
+ */
 export function LessonStepsTail({
   children,
 }: {

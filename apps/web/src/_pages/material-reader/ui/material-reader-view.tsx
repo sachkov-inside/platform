@@ -9,7 +9,6 @@ import type {
 import type { ProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
 import {
   LessonStepsTail,
-  LessonWholeToggle,
   type MaterialBodyRendering,
   materialTaxonomyLabel,
   MaterialBodyView,
@@ -220,83 +219,87 @@ export function MaterialReaderView({
               showWatchedAction={readingAction === undefined}
             />
           )}
-          {exerciseScope(
-            <ReaderLessonSteps blocks={body} materialId={material.materialId}>
-              <LessonWholeToggle />
-              <article
-                className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
-                data-reader-body
-              >
-                <ReaderBlocks
-                  renderVideo={(block) =>
-                    primaryVideo === null ? (
-                      <p role="status">Видео к материалу не прикреплено.</p>
-                    ) : (
-                      <MaterialPrimaryVideo
-                        cover={material.cover}
-                        key={primaryVideo.videoId}
-                        className="mt-0 max-w-none sm:mt-0"
-                        materialId={material.materialId}
-                        video={{ ...primaryVideo, ...block }}
-                        showWatchedAction={readingAction === undefined}
-                      />
-                    )
-                  }
-                  renderLink={renderLink}
-                  glossary={glossaryTermsById(
-                    glossaryTerms,
-                    courseGlossaryMoreHref(courseGlossary),
-                  )}
-                  blocks={body}
-                  contentVersion={material.contentVersion}
-                  materialId={material.materialId}
-                  materialSlug={material.slug}
-                  path={[]}
-                />
-              </article>
-              {termDeck === undefined ? null : (
-                <LessonStepsTail>{termDeck}</LessonStepsTail>
-              )}
-              {exerciseSummary === undefined ? null : (
-                <LessonStepsTail>{exerciseSummary}</LessonStepsTail>
-              )}
-              {lessonRating === undefined ? null : (
-                <LessonStepsTail>{lessonRating}</LessonStepsTail>
-              )}
-            </ReaderLessonSteps>,
-          )}
-          {practiceActions}
-          {submissionWorkspace}
-          {deferredPracticeActions === undefined ? null : (
-            <div
-              className="mt-2 flex flex-wrap items-start"
-              data-reader-practice-actions
-            >
-              {deferredPracticeActions}
-            </div>
-          )}
-          {purchaseCall}
-          <div className="mt-5" data-material-actions data-reader-footer>
-            <ReaderTopActions
-              position="bottom"
-              context={
-                productContext?.programme == null ? productContext : null
-              }
-              returnAction={returnAction}
-              bookmarkAction={endBookmarkAction}
-              nextStep={nextStep}
-              shareAction={
-                material.access === "free" ? (
-                  <MaterialShareButton
-                    slug={material.slug}
-                    title={material.title}
-                    presentation="reader"
+          <ReaderLessonSteps blocks={body} materialId={material.materialId}>
+            {exerciseScope(
+              <>
+                <article
+                  className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
+                  data-reader-body
+                >
+                  <ReaderBlocks
+                    renderVideo={(block) =>
+                      primaryVideo === null ? (
+                        <p role="status">Видео к материалу не прикреплено.</p>
+                      ) : (
+                        <MaterialPrimaryVideo
+                          cover={material.cover}
+                          key={primaryVideo.videoId}
+                          className="mt-0 max-w-none sm:mt-0"
+                          materialId={material.materialId}
+                          video={{ ...primaryVideo, ...block }}
+                          showWatchedAction={readingAction === undefined}
+                        />
+                      )
+                    }
+                    renderLink={renderLink}
+                    glossary={glossaryTermsById(
+                      glossaryTerms,
+                      courseGlossaryMoreHref(courseGlossary),
+                    )}
+                    blocks={body}
+                    contentVersion={material.contentVersion}
+                    materialId={material.materialId}
+                    materialSlug={material.slug}
+                    path={[]}
                   />
-                ) : null
-              }
-              readingAction={endReadingAction}
-            />
-          </div>
+                </article>
+                {termDeck === undefined ? null : (
+                  <LessonStepsTail>{termDeck}</LessonStepsTail>
+                )}
+                {exerciseSummary === undefined ? null : (
+                  <LessonStepsTail>{exerciseSummary}</LessonStepsTail>
+                )}
+                {lessonRating === undefined ? null : (
+                  <LessonStepsTail>{lessonRating}</LessonStepsTail>
+                )}
+              </>,
+            )}
+            {practiceActions}
+            {submissionWorkspace}
+            {deferredPracticeActions === undefined ? null : (
+              <div
+                className="mt-2 flex flex-wrap items-start"
+                data-reader-practice-actions
+              >
+                {deferredPracticeActions}
+              </div>
+            )}
+            {purchaseCall}
+            {/* The panel under the lesson waits for its last part; the panel above stays. */}
+            <LessonStepsTail>
+              <div className="mt-5" data-material-actions data-reader-footer>
+                <ReaderTopActions
+                  position="bottom"
+                  context={
+                    productContext?.programme == null ? productContext : null
+                  }
+                  returnAction={returnAction}
+                  bookmarkAction={endBookmarkAction}
+                  nextStep={nextStep}
+                  shareAction={
+                    material.access === "free" ? (
+                      <MaterialShareButton
+                        slug={material.slug}
+                        title={material.title}
+                        presentation="reader"
+                      />
+                    ) : null
+                  }
+                  readingAction={endReadingAction}
+                />
+              </div>
+            </LessonStepsTail>
+          </ReaderLessonSteps>
         </div>
       </ReaderFrame>
       <ProductReaderBar context={productContext} />

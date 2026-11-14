@@ -75,6 +75,7 @@ const body: RenderedBlock[] = [
 let saved: number[] = [];
 let serverParts: number | null = null;
 let failedStateReads = 0;
+let studied = false;
 
 const environment = publicPageEnvironment("/materials/step-reveal");
 const meta = {
@@ -87,6 +88,7 @@ const meta = {
     environment.beforeEach();
     saved = [];
     failedStateReads = z.number().parse(parameters["failedStateReads"] ?? 0);
+    studied = parameters["studied"] === true;
     serverParts = z
       .number()
       .nullable()
@@ -114,8 +116,8 @@ const meta = {
           states: [
             {
               materialId,
-              isRead: false,
-              version: 0,
+              isRead: studied,
+              version: studied ? 1 : 0,
               readAt: null,
               updatedAt: null,
               updateNote: null,
@@ -176,6 +178,11 @@ type Story = StoryObj<typeof meta>;
 
 const visible = (canvasElement: HTMLElement, value: string) =>
   within(canvasElement).queryByText(value);
+const footer = (canvasElement: HTMLElement) => {
+  const element = canvasElement.querySelector("[data-reader-footer]");
+  if (element === null) throw new Error("The reading panel is missing");
+  return element;
+};
 const guestParts = () =>
   window.localStorage.getItem(guestOpenedPartsKey(materialId));
 
@@ -380,30 +387,97 @@ export const LessonEndWaitsForLastPart: Story = {
   },
 };
 
-/** «Показать урок целиком» shows every part and leaves the opened parts as they were. */
-export const WholeLesson: Story = {
+/**
+ * A reader who marked the lesson «Изучено» sees it whole: every part, no step buttons and no
+ * switch. The opened parts stay as they were.
+ */
+export const StudiedLessonShowsWhole: Story = {
+  parameters: { signedIn: true, account: "authenticated", studied: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const whole = canvas.getByRole("switch", { name: "Показать урок целиком" });
-    await userEvent.click(whole);
+    await waitFor(() =>
+      expect(
+        canvas.getByText("Результат описан, проверка понятна."),
+      ).toBeVisible(),
+    );
     for (const value of [
       "Проверка начинается с наблюдаемого поведения.",
       "Разбор: проверяйте то, что видит пользователь.",
-      "Результат описан, проверка понятна.",
     ])
       await expect(canvas.getByText(value)).toBeVisible();
     await expect(
       canvas.getByRole("region", { name: "Термины урока" }),
     ).toBeVisible();
-    await expect(
-      canvas.queryByRole("button", { name: "А как проверить результат?" }),
-    ).toBeNull();
-    await expect(guestParts()).toBeNull();
-    await userEvent.click(whole);
+    await expect(footer(canvasElement)).toBeVisible();
+    for (const name of ["А как проверить результат?", "Готово!", "Пропустить"])
+      await expect(canvas.queryByRole("button", { name })).toBeNull();
+    await expect(canvas.queryByRole("switch")).toBeNull();
+    await expect(saved).toEqual([]);
+  },
+};
+
+/** A guest has no switch to show the lesson whole: the parts open one by one. */
+export const GuestHasNoWholeSwitch: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole("switch")).toBeNull();
+    await expect(canvas.queryByText("Показать урок целиком")).toBeNull();
     await expect(
       canvas.getByText("Проверка начинается с наблюдаемого поведения."),
     ).not.toBeVisible();
   },
+};
+
+/**
+ * The reading panel under the lesson waits for the last part, so the reader does not take an
+ * open part for the end of the lesson. The panel above the lesson stays.
+ */
+export const BottomPanelWaitsForLastPart: Story = {
+  parameters: { guestParts: 3 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const done = await canvas.findByRole("button", { name: "Готово!" });
+    await expect(footer(canvasElement)).not.toBeVisible();
+    await expect(
+      canvasElement.querySelector("[data-reader-top-actions]"),
+    ).toBeVisible();
+    await userEvent.click(done);
+    await expect(footer(canvasElement)).toBeVisible();
+  },
+};
+
+/** The step button stands in the middle of the column; the reply after it keeps to the right. */
+export const StepButtonCentered: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const button = canvas.getByRole("button", {
+      name: "А как проверить результат?",
+    });
+    const article = canvasElement.querySelector("[data-reader-body]");
+    if (article === null) throw new Error("The lesson body is missing");
+    const center = (rect: DOMRect) => rect.left + rect.width / 2;
+    await expect(
+      Math.abs(
+        center(button.getBoundingClientRect()) -
+          center(article.getBoundingClientRect()),
+      ),
+    ).toBeLessThan(2);
+    await userEvent.click(button);
+    const reply = canvasElement.querySelector<HTMLElement>(
+      "[data-lesson-reply]",
+    );
+    if (reply === null) throw new Error("The reply is missing");
+    await expect(
+      Math.abs(
+        reply.getBoundingClientRect().right -
+          article.getBoundingClientRect().right,
+      ),
+    ).toBeLessThan(2);
+  },
+};
+export const StepButtonCenteredMobile: Story = {
+  ...StepButtonCentered,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
 /** A link to a heading in a closed part opens every part up to it. */
