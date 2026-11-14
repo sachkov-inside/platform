@@ -2,11 +2,11 @@
 
 14 ноября 2026 выпущены [Platform v81](https://github.com/sachkov-inside/platform/releases/tag/v81)
 и [Telegram v55](https://github.com/sachkov-inside/platform/releases/tag/telegram-v55).
-Владелец разрешил merge, публикацию и production в этой проектной сессии. Все новые операции
+Владелец разрешил merge, публикацию и production в этой проектной сессии. Операции первого этапа
 на сервере выполнены под [lock #2144](https://github.com/sachkov-inside/platform/issues/2144).
 Исходная ошибка прежней сессии, обновление ОС без lock, не переименовывается в соблюдённый процесс.
 
-## Версии и владельцы
+## Версии и владельцы первого этапа
 
 | Компонент | До | Применено | Фактический источник |
 |---|---|---|---|
@@ -105,3 +105,86 @@ modules; активный Caddy не содержит tracing handlers/config и
 не объявляются исправленными по одному pnpm audit. Ограничение #1627 сохранено:
 `rngFailureVerified=false`, историческое качество subkeys не установлено; STOP на эксперимент
 и обход его границ не отменён. Обычный upgrade и backup не выдаются за успешный RNG failure test.
+
+## Завершение полного обновления 14.11.2026
+
+После первого этапа независимая сессия под [lock #2151](https://github.com/sachkov-inside/platform/issues/2151)
+выпустила Telegram v56 и отключила email-вход в существующей настройке Logto. Финальный этап #2117
+сохранил это состояние. Текущий Telegram source `9a8751f07777e2c1575fcf4eea705fd5d3130134`,
+digest `bf7b0f26ce1b1b14cbdfa5a3e29a496dd57846ec09dd05667e0075f97458536d`.
+Его publication [43603769894](https://github.com/sachkov-inside/platform/actions/runs/43603769894)
+и deploy [43606890220](https://github.com/sachkov-inside/platform/actions/runs/43606890220) успешны.
+Platform остаётся v81. Новые изменения других задач из main не выпускались этой сессией.
+
+[PR #2150](https://github.com/sachkov-inside/platform/pull/2150) обновил CI Buildx до 0.39.0
+и BuildKit до 0.35.0 с проверкой фактически выбранного builder. PR CI 43603945239 и queue CI
+43605020460 прошли: по 32 успешные проверки и два предусмотренных покрытых пропуска.
+Это изменение инструментов CI, отдельного application release оно не требует.
+Остаточные находки официального builder сохранены в [его аудите](image-builder.md).
+
+[PR #2155](https://github.com/sachkov-inside/platform/pull/2155), merge
+`bdcdf47d65f10ca92a5f45439d932bd9a3184bc4`, закрыл дополнительный пропуск собственных Go manifests.
+Модули Gosu обновлены до user 0.5.0 и x/sys 0.50.0. Reviewed head
+`7b441610bc41ae5078096b9365d65d433bfa69c2`; PR CI 43607827665 и
+[queue CI 43609348479](https://github.com/sachkov-inside/platform/actions/runs/43609348479)
+прошли по 32 проверки с двумя покрытыми пропусками. Queue checkout совпадает с merge SHA.
+Native backup/recovery и broker jobs прошли на amd64 и arm64. Подробности в [Go-аудите](gosu-modules.md).
+
+### Последняя замена PostgreSQL helper image
+
+Операция выполнена под новым [lock #2159](https://github.com/sachkov-inside/platform/issues/2159).
+После создания выдержаны 30 секунд и повторно проверены locks и четыре production workflow.
+Источники, операторы и native archive привязаны SHA-256 к merge #2155. Archive SHA-256
+`baf9d5612592c926e027b9e538756e2f1619d4ac1a3025de2d0c9f1b85b75113`.
+Работающий image теперь `2d598f70d4c399d09a1b7d7d2d82cec90f7df39351f78434cfc43420a9959f91`.
+Это замена helper при тех же PostgreSQL 18.7 и pgBackRest 2.60.0.
+Прежний `e316e421…`, его архив и отдельный rollback tag сохранены.
+Хеш работающего ELF Gosu совпал с проверенным amd64 binary:
+`aac64fc54ec495f697cde6d86019fdf4bdffe4ddcd4b89167c2809cf71e332eb`.
+
+Каждая backup/restore-фаза запускалась отдельной systemd unit с canonical supervisor.
+На настоящем сервере подтверждены PPID1 владельца и удержание обеих operation.lock.
+Четыре локальных сценария, включая смерть тела/владельца и отказ удаления чужого ресурса,
+использовали подставные Docker/systemctl;
+они не выдаются за эксперимент с убийством SSH или systemd на production.
+Units завершились success, `bodyExitCode=0`, `cleanupConfirmed=true`.
+Таймаут аварийной очистки не обрывает ожидание действующего backup.
+
+До окна создана копия прежним writer `20261114-132615F_20261114-160927I`.
+Новый image восстановил её в 16:10:54 UTC. После замены фактический новый writer создал
+`20261114-132615F_20261114-161814I`; её восстановление завершилось в 16:19:41 UTC.
+В обоих случаях проверены `inside`, `logto`, `inside_telegram`; отдельный UUID volume,
+network none, ноль опубликованных портов, 512 MiB/1 CPU/128 PIDs. Отсутствие временных контейнеров
+и томов после удаления проверено. Восстановление не выполнялось поверх рабочего тома.
+
+Первый apply остановился до journal/preimages и обслуживания. Guard ожидал operations-сервис
+в модели Compose без соответствующего профиля. Чтением также выявлена явная null-семантика
+наследуемых Entrypoint/Cmd/User. Исправления повторно прошли Standards, Spec и security review;
+эффективная модель и все сохранённые foundation inputs проверены до повторного запуска.
+Прежние operator/binding bytes и журнал отказа сохранены. Эта попытка не добавила downtime.
+
+Успешное окно 16:15:20–16:17:35 UTC, 135 секунд. Пересоздан только PostgreSQL.
+Сохранены рабочий том, сети, полное окружение и политики запуска, private pgbackrest.conf,
+семь закрытых env/policy inputs, IDs/images всех клиентов и состояния application deployments.
+Хеш `sign_in_experiences` Logto совпал до и после. Доступность восстановлена до проверки всех
+backup repositories; `check` прошёл без `--repo`, таймеры возвращены в active.
+
+Контроль 16:20:33 UTC: все 12 контейнеров healthy, HTTP 200, `dpkg --audit` чист,
+reboot не требуется. Available memory 1556 MiB из 3910 MiB, swap нет, корневой диск занят на 52%.
+Старые custom images, cold RabbitMQ copies, закрытые preimages и recovery archives сохранены.
+Чужие worktrees и зарезервированный локальный стенд не изменялись.
+
+Platform production:verify v81 прошёл после замены. Строгие проверки Telegram v56 прошли.
+Первое дополнительное наблюдение 16:17:56–16:18:57 не прошло условие пустой очереди:
+community_due 4→1, возраст 0.715→0.015 секунды. Ошибок обработки и рестартов не было.
+Диагностика десятью read-only samples за 30 секунд показала периодическую обработку заданий,
+максимальный возраст 0.472 секунды и нулевые счётчики ошибок. Новое наблюдение
+16:20:18–16:21:18 прошло все пять условий без перезапуска: due/age/unknown равны нулю,
+backlog 7 равен семи проверенным приглашениям, ожидающим добровольного вступления.
+Первый отрицательный результат сохранён. Данные, задания и счётчики не менялись вручную;
+новый Telegram deploy не потребовался.
+
+Финальная проверка 16:22:12 UTC подтвердила все 12 healthy, HTTP 200, свободные серверные
+блокировки и отсутствие собственных временных restore-ресурсов. Available memory 1600 MiB,
+swap не используется. Lock #2159 закрыт с результатами. Ограничения security и #1627 из этого
+отчёта остаются в силе. Это завершённое обновление, а не перенос работы в Workspace.
