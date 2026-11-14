@@ -1,4 +1,5 @@
 // @ts-check
+import { pnpmInvocation } from "./pnpm-invocation.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 import {
@@ -513,7 +514,7 @@ function startPnpm(name, arguments_, environment) {
     throw new Error("Full-stack smoke interrupted");
   /** @type {string[]} */
   const output = [];
-  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
+  const child = spawnOwned(...pnpmInvocation(pnpmPath, arguments_), {
     cwd: repositoryRoot,
     env: environment,
     stdio: ["ignore", "pipe", "pipe"],

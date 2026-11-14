@@ -22,7 +22,7 @@ CLIENT = r'''
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const amqp = createRequire('/app/package.json')('amqplib');
-const connection = await amqp.connect('amqp://proof:synthetic-password@rabbitmq');
+const connection = await amqp.connect('amqp://proof:inside-proof@rabbitmq');
 try {
   const channel = await connection.createConfirmChannel();
   const queue = 'upgrade-proof';
@@ -141,7 +141,7 @@ class Proof:
         self.run("run", "--detach", "--name", name, "--hostname", "rabbitmq",
                  "--label", LABEL + "=" + self.owner, "--network", self.network,
                  "--network-alias", "rabbitmq", "--memory", "768m", "--cpus", "2",
-                 "--env", "RABBITMQ_DEFAULT_USER=proof", "--env", "RABBITMQ_DEFAULT_PASS=synthetic-password",
+                 "--env", "RABBITMQ_DEFAULT_USER=proof", "--env", "RABBITMQ_DEFAULT_PASS=inside-proof",
                  "--env", "RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+S 2:2",
                  "--mount", "type=volume,src=" + volume + ",dst=/var/lib/rabbitmq", image)
         self.wait_ready(name)

@@ -1,4 +1,5 @@
 // @ts-check
+import { pnpmInvocation } from "./pnpm-invocation.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 import { readFile } from "node:fs/promises";
@@ -341,7 +342,7 @@ async function assertDatabaseInvariants(environment) {
 function spawnApplication(arguments_, environment) {
   if (interruptedSignal !== undefined)
     throw new Error("Identity proof interrupted");
-  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
+  const child = spawnOwned(...pnpmInvocation(pnpmPath, arguments_), {
     cwd: root,
     env: environment,
     stdio: ["ignore", "pipe", "pipe"],
@@ -460,7 +461,7 @@ function runCompose(compose, arguments_, environment, capture = false) {
  * @param {Environment} environment
  */
 function runPnpm(arguments_, environment) {
-  return run(process.execPath, [pnpmPath, ...arguments_], environment, false);
+  return run(...pnpmInvocation(pnpmPath, arguments_), environment, false);
 }
 
 /**

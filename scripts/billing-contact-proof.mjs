@@ -1,4 +1,5 @@
 // @ts-check
+import { pnpmInvocation } from "./pnpm-invocation.mjs";
 // Disposable local PostgreSQL + real SMTP adapter + BFF/browser. All identities/recipients are synthetic.
 import assert from "node:assert/strict";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
@@ -113,7 +114,7 @@ for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
 function run(args, env) {
   if (interruptedSignal !== undefined)
     throw new Error("Billing proof interrupted");
-  const child = spawnOwned(process.execPath, [pnpmPath, ...args], {
+  const child = spawnOwned(...pnpmInvocation(pnpmPath, args), {
     cwd: root,
     env,
     stdio: "inherit",

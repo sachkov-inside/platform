@@ -1,3 +1,4 @@
+import { pnpmInvocation } from "../../../scripts/pnpm-invocation.mjs";
 import type { ChildProcess } from "node:child_process";
 import { spawnOwned, stopOwned } from "../../../scripts/owned-process.mjs";
 import { createServer } from "node:net";
@@ -21,19 +22,15 @@ describe("API development process", () => {
       throw new Error("npm_execpath is required to launch the pinned pnpm CLI");
     }
 
-    const process = spawnOwned(
-      globalThis.process.execPath,
-      [pnpmPath, "dev:api"],
-      {
-        cwd: backendRoot,
-        env: {
-          ...globalThis.process.env,
-          API_HOST: "127.0.0.1",
-          API_PORT: String(port),
-        },
-        stdio: ["ignore", "pipe", "pipe"],
+    const process = spawnOwned(...pnpmInvocation(pnpmPath, ["dev:api"]), {
+      cwd: backendRoot,
+      env: {
+        ...globalThis.process.env,
+        API_HOST: "127.0.0.1",
+        API_PORT: String(port),
       },
-    );
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     process.stdout?.on("data", (chunk: Buffer) =>
       output.push(chunk.toString()),
     );

@@ -1,3 +1,4 @@
+// @ts-check
 // Review artifact. Run inside the Logto image:
 // node --experimental-vm-modules router-variants.mjs
 // Reads installed package variants; does not apply patches or write files.
@@ -8,8 +9,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import vm from "node:vm";
 
-process.env.NODE_ENV = "production";
-const logtoRoot = process.env.LOGTO_ROOT ?? "/etc/logto";
+process.env["NODE_ENV"] = "production";
+const logtoRoot = process.env["LOGTO_ROOT"] ?? "/etc/logto";
 const account = createRequire(path.join(logtoRoot, "packages/account/package.json"));
 const domEntry = account.resolve("react-router-dom");
 const domRoot = path.resolve(path.dirname(domEntry), "..");
@@ -17,17 +18,26 @@ const domRequire = createRequire(domEntry);
 const reactRouterRequire = createRequire(domRequire.resolve("react-router"));
 const routerEntry = reactRouterRequire.resolve("@remix-run/router");
 const routerRoot = path.resolve(path.dirname(routerEntry), "..");
-const React = domRequire("react");
-const { renderToStaticMarkup } = domRequire("react-dom/server");
+/* oxlint-disable typescript/no-unsafe-type-assertion -- installed Logto React module boundaries */
+const React = /** @type {import("../../../../apps/web/test/support/proof-dependencies.js").ReactModule} */ (domRequire("react"));
+const { renderToStaticMarkup } = /** @type {import("../../../../apps/web/test/support/proof-dependencies.js").ReactServerModule} */ (domRequire("react-dom/server"));
+/* oxlint-enable typescript/no-unsafe-type-assertion */
 const mixed = ["//foo", "\\\\foo", "/\\foo", "\\/foo"];
 const redirects = [
   "//localhost/foo", "\\\\localhost/foo", "/\\localhost/foo", "\\/localhost/foo",
 ];
 
+/**
+ * @typedef {{ navigate(to: string): Promise<void>, state: {location: {pathname: string}, errors: unknown}, dispose(): void }} Navigation
+ * @typedef {{ resolvePath(to: string, from?: string): unknown, createRouter(options: object): {initialize(): Navigation}, createMemoryHistory(options: object): unknown, redirect(to: string): unknown }} RouterApi
+ * @typedef {{MemoryRouter: import("../../../../apps/web/test/support/proof-dependencies.js").ComponentType<{initialEntries: string[], children?: import("../../../../apps/web/test/support/proof-dependencies.js").ReactNode}>, Link: import("../../../../apps/web/test/support/proof-dependencies.js").ComponentType<{to: string, children?: import("../../../../apps/web/test/support/proof-dependencies.js").ReactNode}>}} DomApi
+ */
+
+/** @param {string} root @param {string} file @param {boolean} esm */
 async function loadVariant(root, file, esm) {
   const filename = path.join(root, file);
   const source = fs.readFileSync(filename, "utf8");
-  const module = { exports: {} };
+  const module = { exports: /** @type {unknown} */ ({}) };
   const context = vm.createContext({
     module, exports: module.exports, require: createRequire(filename),
     console, URL, URLSearchParams, Request, Response, Headers,
@@ -40,14 +50,17 @@ async function loadVariant(root, file, esm) {
   }
   assert.equal(typeof vm.SourceTextModule, "function", "Use --experimental-vm-modules");
   const entry = new vm.SourceTextModule(source, { context, identifier: filename });
+  /** @type {Map<string, vm.Module>} */
   const imports = new Map();
   const require = createRequire(filename);
   await entry.link((name) => {
-    if (imports.has(name)) return imports.get(name);
-    const value = require(name);
+    const imported = imports.get(name);
+    if (imported) return imported;
+    const value = /** @type {unknown} */ (require(name));
+    assert.ok(value !== null && (typeof value === "object" || typeof value === "function"));
     const keys = [...new Set([...Object.keys(value), "default"])];
     const dependency = new vm.SyntheticModule(keys, function () {
-      for (const key of keys) this.setExport(key, key === "default" ? value : value[key]);
+      for (const key of keys) this.setExport(key, key === "default" ? value : Reflect.get(value, key));
     }, { context });
     imports.set(name, dependency);
     return dependency;
@@ -56,11 +69,13 @@ async function loadVariant(root, file, esm) {
   return { api: entry.namespace, source };
 }
 
+/** @param {string} file @param {number} count @param {string} source */
 function receipt(file, count, source) {
   const digest = createHash("sha256").update(source).digest("hex");
   console.log(`${file}: ${count} cases passed; sha256=${digest}`);
 }
 
+/** @param {Navigation} instance @param {string} to */
 async function boundedNavigation(instance, to) {
   let timeout;
   try {
@@ -77,7 +92,10 @@ async function boundedNavigation(instance, to) {
 }
 
 for (const file of ["dist/router.cjs.js", "dist/router.js", "dist/router.umd.js", "dist/router.umd.min.js"]) {
-  const { api, source } = await loadVariant(routerRoot, file, file === "dist/router.js");
+  const { api: loaded, source } = await loadVariant(routerRoot, file, file === "dist/router.js");
+  /* oxlint-disable typescript/no-unsafe-type-assertion -- installed Logto router VM module boundary */
+  const api = /** @type {RouterApi} */ (loaded);
+  /* oxlint-enable typescript/no-unsafe-type-assertion */
   for (const input of mixed) {
     assert.equal(JSON.stringify(api.resolvePath(input)), JSON.stringify({ pathname: "/foo", search: "", hash: "" }));
     const instance = api.createRouter({
@@ -107,7 +125,10 @@ for (const file of [
   "dist/react-router-dom.development.js", "dist/index.js", "dist/react-router-dom.production.min.js",
   "dist/umd/react-router-dom.development.js", "dist/umd/react-router-dom.production.min.js",
 ]) {
-  const { api, source } = await loadVariant(domRoot, file, !file.includes("/umd/"));
+  const { api: loaded, source } = await loadVariant(domRoot, file, !file.includes("/umd/"));
+  /* oxlint-disable typescript/no-unsafe-type-assertion -- installed Logto React router VM module boundary */
+  const api = /** @type {DomApi} */ (loaded);
+  /* oxlint-enable typescript/no-unsafe-type-assertion */
   const inputs = ["//evil.test/foo", "\\\\evil.test/foo", "/\\evil.test/foo", "\\/evil.test/foo", "../next?q=1#part", "https://evil.test/foo"];
   const links = inputs.map((to) => renderToStaticMarkup(React.createElement(api.MemoryRouter,
     { initialEntries: ["/first/current"] }, React.createElement(api.Link, { to }, "link"))));
@@ -122,7 +143,9 @@ for (const file of ["server.js", "server.mjs", "dist/server.js", "dist/server.mj
   const source = fs.readFileSync(path.join(domRoot, file), "utf8");
   const expression = source.match(/ABSOLUTE_URL_REGEX\s*=\s*(\/[^\n]+\/[a-z]*);/)?.[1];
   assert.ok(expression, `${file}: missing ABSOLUTE_URL_REGEX`);
-  const regex = vm.runInNewContext(expression, {}, { timeout: 1000 });
+  /* oxlint-disable typescript/no-unsafe-type-assertion -- cross-realm RegExp from the installed module's literal */
+  const regex = /** @type {RegExp} */ (vm.runInNewContext(expression, {}, { timeout: 1000 }));
+  /* oxlint-enable typescript/no-unsafe-type-assertion */
   for (const input of redirects) assert.equal(regex.test(input), true, `${file}: ${input}`);
   for (const input of ["/local", "\\local", "next"]) assert.equal(regex.test(input), false);
   assert.equal(regex.test("HTTPS://example.com"), true);

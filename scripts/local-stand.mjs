@@ -1,4 +1,5 @@
 // @ts-check
+import { pnpmInvocation } from "./pnpm-invocation.mjs";
 // Один стенд: приложение целиком плюс вход. Одна команда доводит его до состояния, в котором
 // владелец сразу открывает приложение, выбирает проверочный Account и покупает в том же окружении.
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
@@ -246,7 +247,7 @@ export async function launchLocalStand({
       "logto-postgres",
       "logto",
     ]);
-    await run(process.execPath, [pnpmPath, "identity:proof:bootstrap"], {
+    await run(...pnpmInvocation(pnpmPath, ["identity:proof:bootstrap"]), {
       extraEnvironment: {
         LOGTO_ON_STAND: "true",
         ...(onIdentityReady ? { LOCAL_STAND_IDENTITY_RECEIPT: "true" } : {}),
@@ -354,7 +355,7 @@ export async function launchLocalStand({
    * @param {Record<string, string>} [extraEnvironment]
    */
   function runPnpm(arguments_, extraEnvironment = {}) {
-    return run(process.execPath, [pnpmPath, ...arguments_], {
+    return run(...pnpmInvocation(pnpmPath, arguments_), {
       extraEnvironment,
     });
   }

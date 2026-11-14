@@ -112,7 +112,7 @@ export function AuthoringSearchTrigger() {
         id={`${triggerId}-prompt`}
       >
         {searchPrompt}
-      </span>
+      </span>{" "}
       <kbd
         className="authoring-search-trigger-kbd"
         id={`${triggerId}-shortcut`}

@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import deepmerge from "deepmerge";
@@ -15,11 +16,11 @@ test("merging untrusted keys keeps the result prototype unchanged", () => {
     ]) {
       assert.equal(Object.getPrototypeOf(result), Object.prototype);
       assert.equal(Object.hasOwn(result, "__proto__"), false);
-      assert.equal(result.inherited, undefined);
-      assert.deepEqual(result.safe, { value: 1 });
+      assert.equal(result["inherited"], undefined);
+      assert.deepEqual(result["safe"], { value: 1 });
     }
   }
-  assert.equal({}.inherited, undefined);
+  assert.equal(Reflect.get({}, "inherited"), undefined);
 });
 
 test("ordinary nested values, arrays and symbol keys still merge", () => {

@@ -1,4 +1,5 @@
 // @ts-check
+import { pnpmInvocation } from "./pnpm-invocation.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 import { readFileSync } from "node:fs";
@@ -20,7 +21,7 @@ const proofEnvironment = parseEnv(
 );
 const { apiPort, webPort } = readIdentityProofEndpoints(process.env);
 
-const child = spawnOwned(process.execPath, [pnpmPath, "dev"], {
+const child = spawnOwned(...pnpmInvocation(pnpmPath, ["dev"]), {
   cwd: root,
   env: {
     ...process.env,
