@@ -37,6 +37,7 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { useMaterialReading } from "@/entities/material";
 import {
   isProgrammeStepOpenedForReference,
+  currentStepId,
   originatingStepId,
   type CourseReadingContext,
   type CourseReadingStep,
@@ -330,6 +331,9 @@ export function CourseRail({
     (entry) => entry.id === context.currentChapterId,
   );
   const readingChapter = context.chapters[readingChapterIndex];
+  // An open supplementary document is current; the step it came from is only the way back.
+  const currentStep = currentStepId(context);
+  const originStep = originatingStepId(context);
   const marks = useCourseReadMarks(context);
   const chapterProgress =
     chapter === undefined ? null : courseChapterProgress(chapter.steps, marks);
@@ -544,7 +548,8 @@ export function CourseRail({
                 <li key={step.id}>
                   <StepLink
                     step={step}
-                    context={context}
+                    current={step.id === currentStep}
+                    origin={step.id === originStep}
                     progress={courseStepProgress(step, marks)}
                   />
                 </li>
@@ -618,24 +623,23 @@ function formatChapterCount(count: number) {
 
 function StepLink({
   step,
-  context,
+  current,
+  origin,
   progress,
 }: {
   readonly step: CourseReadingStep;
-  readonly context: CourseReadingContext;
+  readonly current: boolean;
+  /** The step an open supplementary document came from: a way back, not a second current row. */
+  readonly origin: boolean;
   readonly progress: CourseStepProgress;
 }) {
-  // An open supplementary document is current; the step it came from is only the way back.
-  const origin = step.id === originatingStepId(context);
   return (
     <IntentPrefetchLink
       className={styles["step"]}
       data-course-step={step.id}
       data-course-origin={origin ? true : undefined}
       data-progress={progress}
-      aria-current={
-        step.id === context.current.id && !origin ? "step" : undefined
-      }
+      aria-current={current ? "step" : undefined}
       href={step.href}
     >
       <span aria-hidden="true" className={styles["markSlot"]}>

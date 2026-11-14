@@ -23,6 +23,7 @@ export {
 } from "./ui/collection-cards";
 export {
   courseReadingContext,
+  currentStepId,
   isProgrammeStepOpenedForReference,
   originatingStepId,
   programmeStepLink,

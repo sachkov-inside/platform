@@ -89,14 +89,10 @@ describe("Supplementary reading anchored to a primary course step", () => {
     },
   );
   it("leaves ordinary steps, programme references and catalogue lessons without an origin", () => {
-    const read = (
-      currentMaterialSlug: string,
-      anchor?: string,
-      from = returnTarget,
-    ) => {
+    const read = (currentMaterialSlug: string, anchor?: string) => {
       const programme = resolveProductReaderContext({
         currentMaterialSlug,
-        returnTarget: from,
+        returnTarget,
         product,
         anchor: parseReaderCourseAnchor(anchor),
       })?.programme;

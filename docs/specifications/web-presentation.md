@@ -78,7 +78,7 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   44 px round buttons on the secondary surface; the dark centre shows a list icon (hidden on the
   narrowest phones), «Программа», a caption that describes the button and an upward chevron. The caption reads
   «Пройдено N из M» for the chapter once the reader's progress is known, otherwise the chapter and
-  step position. Tablets keep the task-page previous/next footer, and their sheet fits its content. The
+  step position; on a supplementary document it reads «Дополнительный материал». Tablets keep the task-page previous/next footer, and their sheet fits its content. The
   programme sections bar keeps its compact width and stays phone-only. At 64rem the rail stays visible.
   Prose uses 16 px below 80rem and 18 px above; retain 15 px phone prose.
   Keep the mobile course heading at 20 px; omit format, course and topic metadata.
@@ -87,7 +87,11 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   saved progress: a filled check for a passed step, an empty ring for an unpassed one, a neutral
   dot while progress is unknown or for a guest. Passed titles are muted, unpassed ones use
   foreground text. Only the current step uses the action colour: an action dot with a soft halo
-  and a muted row fill. A neutral line joins the markers.
+  and a muted row fill. A neutral line joins the markers. While a supplementary document opened
+  from a step is shown, only its «Дополнительные материалы» row is current (owner 2026-11-14); the
+  originating step keeps its progress marker, without action colour or row fill, a neutral centre
+  fills its unpassed ring or its unknown dot, and a 12 px muted caption «вы пришли отсюда» follows
+  its title.
   The rail heading names the shown chapter, wrapping up to three lines at 1.4 line height, with
   its ordinal out of the chapter count. Below it, a signed-in reader sees a thin progress bar and
   «N из M» over the chapter's rows (announced as «Пройдено N из M»); otherwise a plain divider.

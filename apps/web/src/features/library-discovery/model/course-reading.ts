@@ -367,6 +367,15 @@ export function isProgrammeStepOpenedForReference(
   );
 }
 
+/** The chapter step shown as current; an open supplementary document is current instead. */
+export function currentStepId(
+  context: CourseReadingContext,
+): string | undefined {
+  return context.activeReferenceId === undefined
+    ? context.current.id
+    : undefined;
+}
+
 /**
  * The programme step a supplementary document was opened from. Navigation offers it as the way
  * back, while the open document alone is current (owner decision, 2026-11-14).

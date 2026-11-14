@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { courseGuide, courseNext } from "@/storybook/course-reading.fixtures";
-import { originatingStepId } from "@/features/library-discovery";
+import { currentStepId, originatingStepId } from "@/features/library-discovery";
 import {
   reconcileCourseNavigation,
   selectCourseNavigation,
@@ -71,4 +71,21 @@ test("a reference click settles on a programme lesson opened for reference", () 
   };
   expect(reconcileCourseNavigation(intent, destination)).toBeNull();
   expect(reconcileCourseNavigation(intent, courseGuide)).toBe(intent);
+});
+
+test("a reference clicked from a catalogue lesson leaves no chapter step current while it loads", () => {
+  const catalogueLesson = {
+    ...courseGuide,
+    currentPosition: 0,
+    previous: null,
+    next: null,
+  };
+  expect(currentStepId(catalogueLesson)).toBe(courseGuide.current.id);
+  const reference = selectCourseNavigation(
+    catalogueLesson,
+    "reference:aie-project",
+  );
+  // Without a course position the lesson is no origin, and the open document alone is current.
+  expect(currentStepId(reference)).toBeUndefined();
+  expect(originatingStepId(reference)).toBeUndefined();
 });
