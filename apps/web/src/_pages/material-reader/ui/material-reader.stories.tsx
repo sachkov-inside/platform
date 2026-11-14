@@ -918,9 +918,10 @@ export const PlaylistReturn: Story = {
     const productNavigation = within(canvasElement).getByRole("navigation", {
       name: "Действия в конце материала",
     });
+    // The lesson finish card leads on; the return stays in the panel above the lesson.
     await expect(
-      within(productNavigation).getByRole("link", { name: "Назад" }),
-    ).toHaveAttribute("href", playlistReturnTarget.href);
+      within(productNavigation).queryByRole("link", { name: "Назад" }),
+    ).toBeNull();
     const top = await within(canvasElement).findByRole("navigation", {
       name: "Действия материала",
     });

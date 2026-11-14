@@ -29,7 +29,7 @@ export const NotRated: Story = {
   play: async ({ args, canvasElement }) => {
     const rating = within(canvasElement);
     await expect(
-      rating.getByRole("heading", { name: "Как вам урок?" }),
+      rating.getByRole("group", { name: "Как вам урок?" }),
     ).toBeVisible();
     const like = rating.getByRole("button", { name: "Понравился" });
     await expect(like).toHaveAttribute("aria-pressed", "false");
@@ -67,7 +67,7 @@ export const Failed: Story = {
   },
 };
 
-/** A guest is asked to sign in instead of rating. */
+/** A guest sees a quiet offer to sign in instead of the buttons. */
 export const Guest: Story = {
   args: { state: { kind: "guest", loginHref: "/account" } },
   play: async ({ canvasElement }) => {

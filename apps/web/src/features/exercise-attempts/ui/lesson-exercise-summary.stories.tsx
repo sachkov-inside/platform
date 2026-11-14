@@ -28,11 +28,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** One row: a marker per exercise, solved ones ticked, and a link to the first unsolved one. */
+/** One quiet row: a dot per exercise, solved ones filled, and a link to the first unsolved one. */
 export const SomeUnsolved: Story = {
   play: async ({ canvasElement }) => {
     const summary = within(canvasElement);
-    await expect(summary.getByText("Упражнения: 2 из 4 решены")).toBeVisible();
+    await expect(summary.getByText("Упражнения: 2 из 4")).toBeVisible();
     await expect(summary.getAllByRole("link")).toHaveLength(1);
     await expect(
       summary.getByRole("link", { name: "Решить упражнение 2" }),
@@ -49,7 +49,7 @@ export const AllSolved: Story = {
   args: { total: 3, solved: 3, unsolved: [] },
   play: async ({ canvasElement }) => {
     const summary = within(canvasElement);
-    await expect(summary.getByText("Упражнения: 3 из 3 решены")).toBeVisible();
+    await expect(summary.getByText("Упражнения: 3 из 3")).toBeVisible();
     await expect(summary.queryAllByRole("link")).toHaveLength(0);
   },
 };

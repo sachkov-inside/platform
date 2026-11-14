@@ -60,12 +60,37 @@ function card(canvasElement: HTMLElement) {
   return deck;
 }
 
+/** Opens the collapsed «Термины урока · N» row. */
+async function open(canvasElement: HTMLElement) {
+  const row = within(canvasElement).getByRole("button", {
+    name: /^Термины урока · 2$/u,
+  });
+  await userEvent.click(row);
+  await expect(row).toHaveAttribute("aria-expanded", "true");
+}
+
+/** The finish card shows the deck as one row; the cards stay closed until the reader opens it. */
+export const Collapsed: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const row = canvas.getByRole("button", { name: /^Термины урока · 2$/u });
+    await expect(row).toHaveAttribute("aria-expanded", "false");
+    await expect(canvas.queryByRole("button", { name: "Знаю" })).toBeNull();
+    row.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(row).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      canvas.getByRole("region", { name: "Термины урока" }),
+    ).toBeVisible();
+    await userEvent.click(row);
+    await expect(row).toHaveAttribute("aria-expanded", "false");
+  },
+};
+
 export const MarkAndAdvance: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(
-      canvas.getByRole("heading", { name: "Термины урока" }),
-    ).toBeVisible();
+    await open(canvasElement);
     await expect(canvas.getByText("1 из 2")).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", {
@@ -113,6 +138,7 @@ export const MarkAndAdvance: Story = {
 export const FlipWithKeyboard: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await open(canvasElement);
     const turnable = canvas.getByRole("button", { name: /^Ограниченный/u });
     turnable.focus();
     await userEvent.keyboard("{Enter}");
@@ -142,6 +168,7 @@ export const Marked: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await open(canvasElement);
     await expect(canvas.getByRole("button", { name: "Знаю" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -157,6 +184,7 @@ export const Guest: Story = {
   args: { marking: { kind: "guest", loginHref: "/account" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await open(canvasElement);
     await expect(canvas.queryByRole("button", { name: "Знаю" })).toBeNull();
     await expect(canvas.getByRole("link", { name: "Войдите" })).toBeVisible();
     await userEvent.click(
@@ -175,15 +203,25 @@ export const SaveFailed: Story = {
       failed: true,
     },
   },
+  play: async ({ canvasElement }) => {
+    await open(canvasElement);
+  },
 };
 
 export const OutsideCourse: Story = {
   args: { courseGlossaryHref: undefined },
+  play: async ({ canvasElement }) => {
+    await open(canvasElement);
+    await expect(
+      within(canvasElement).queryByRole("link", { name: "Все термины курса" }),
+    ).toBeNull();
+  },
 };
 
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile320", isRotated: false } },
   play: async ({ canvasElement }) => {
+    await open(canvasElement);
     await expectPhoneLayout(canvasElement, "[data-lesson-term-deck]");
   },
 };
@@ -191,6 +229,7 @@ export const Mobile: Story = {
 export const Phone390: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
+    await open(canvasElement);
     await expectPhoneLayout(canvasElement, "[data-lesson-term-deck]");
   },
 };

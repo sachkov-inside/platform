@@ -294,18 +294,19 @@ export const SyncedActions: Story = {
     await expect(topRead.getBoundingClientRect().height).toBe(before.height);
     for (const position of scrollPositions)
       await expect(position.element.scrollTop).toBe(position.top);
+    // «Сохранить» stays in the panel above the lesson; the finish card does not repeat it.
+    await expect(
+      within(bottom).queryByRole("button", { name: /^Сохран/u }),
+    ).toBeNull();
     const topBookmark = within(top).getByRole("button", { name: "Сохранить" });
     await userEvent.click(topBookmark);
     await waitFor(async () => {
       await expect(
         within(top).getByRole("button", { name: "Сохранено" }),
       ).toHaveAttribute("aria-pressed", "true");
-      await expect(
-        within(bottom).getByRole("button", { name: "Сохранено" }),
-      ).toHaveAttribute("aria-pressed", "true");
     });
     await userEvent.click(
-      within(bottom).getByRole("button", { name: "Сохранено" }),
+      within(top).getByRole("button", { name: "Сохранено" }),
     );
     await waitFor(async () =>
       expect(
@@ -416,6 +417,38 @@ async function expectEdgeNavigation(panel: HTMLElement) {
   }
 }
 
+/**
+ * «Финиш урока» inside a course (owner decision 14.11.2026): the end of the lesson keeps only
+ * «Изучено» and «Дальше»; «Назад», «Сохранить» and sharing stay in the panel above the lesson.
+ */
+async function expectFinishActions(panel: HTMLElement, nextHref: string) {
+  const actions = within(panel);
+  for (const name of ["Назад", "Сохранить", /Поделиться материалом/u])
+    await expect([
+      ...actions.queryAllByRole("link", { name }),
+      ...actions.queryAllByRole("button", { name }),
+    ]).toHaveLength(0);
+  const studied = actions.getByRole("button", { name: "Изучено" });
+  const next = actions.getByRole("link", { name: "Дальше" });
+  await expect(next).toHaveAttribute("href", nextHref);
+  const frame = panel.getBoundingClientRect();
+  await expect(
+    frame.right - next.getBoundingClientRect().right,
+  ).toBeLessThanOrEqual(1);
+  // Phone buttons keep a 36 px surface over a 44 px touch area (shared Button density).
+  for (const control of [studied, next]) {
+    const box = control.getBoundingClientRect();
+    const touch = getComputedStyle(control, "::after");
+    await expect(
+      Math.max(box.width, parseFloat(touch.width) || 0),
+    ).toBeGreaterThanOrEqual(44);
+    await expect(
+      Math.max(box.height, parseFloat(touch.height) || 0),
+    ).toBeGreaterThanOrEqual(44);
+  }
+  await expectSeparatedActions(panel);
+}
+
 async function expectCompactNext(next: HTMLElement) {
   const bounds = next.getBoundingClientRect();
   const surface = getComputedStyle(next, "::before");
@@ -428,8 +461,8 @@ export const MobileActionPanels: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const panels = ["Действия материала", "Действия в конце материала"].map(
-      (name) => canvas.getByRole("navigation", { name }),
+    const panels = ["Действия материала"].map((name) =>
+      canvas.getByRole("navigation", { name }),
     );
     for (const panel of panels) {
       panel.scrollIntoView({ block: "center", behavior: "instant" });
@@ -456,12 +489,11 @@ export const MobileActionPanels: Story = {
       }
       await expect(panel.scrollWidth).toBe(panel.clientWidth);
     }
-    const [top, bottom] = panels;
-    if (top === undefined || bottom === undefined)
-      throw new Error("Missing action panel");
-    await expect(bottom.getBoundingClientRect().height).toBe(
-      top.getBoundingClientRect().height,
-    );
+    const bottom = canvas.getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    bottom.scrollIntoView({ block: "center", behavior: "instant" });
+    await expectFinishActions(bottom, materialReaderHref("next", programme));
     const pager = canvas.getByRole("navigation", { name: "Уроки продукта" });
     await expect(
       within(pager).getByRole("link", { name: "Предыдущий урок" }),
@@ -486,13 +518,13 @@ export const IntermediateActionPanelWidth: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    for (const name of ["Действия материала", "Действия в конце материала"]) {
-      const panel = canvas.getByRole("navigation", { name });
-      const slot = panel.parentElement;
-      if (slot === null) throw new Error("Reader action container missing");
-      slot.style.width = "305px";
-      await expectEdgeNavigation(panel);
-    }
+    const panel = canvas.getByRole("navigation", {
+      name: "Действия материала",
+    });
+    const slot = panel.parentElement;
+    if (slot === null) throw new Error("Reader action container missing");
+    slot.style.width = "305px";
+    await expectEdgeNavigation(panel);
   },
 };
 
@@ -935,26 +967,17 @@ export const DesktopActionPanels: Story = {
   globals: { viewport: { value: "desktop1440", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const panels = ["Действия материала", "Действия в конце материала"].map(
-      (name) => canvas.getByRole("navigation", { name }),
-    );
-    for (const panel of panels) {
-      await expectEdgeNavigation(panel);
-      await expect(
-        within(panel).getByRole("link", { name: "Назад" }),
-      ).toHaveAttribute("href", programme);
-      await expect(
-        within(panel).getByRole("link", { name: "Дальше" }),
-      ).toHaveAttribute("href", materialReaderHref("next", programme));
-    }
-    const [top, bottom] = panels;
-    if (top === undefined || bottom === undefined)
-      throw new Error("Reader panels are missing");
-    await expect(getComputedStyle(top).backgroundColor).toBe(
-      getComputedStyle(bottom).backgroundColor,
-    );
-    await expect(top.getBoundingClientRect().height).toBe(
-      bottom.getBoundingClientRect().height,
+    const top = canvas.getByRole("navigation", { name: "Действия материала" });
+    await expectEdgeNavigation(top);
+    await expect(
+      within(top).getByRole("link", { name: "Назад" }),
+    ).toHaveAttribute("href", programme);
+    await expect(
+      within(top).getByRole("link", { name: "Дальше" }),
+    ).toHaveAttribute("href", materialReaderHref("next", programme));
+    await expectFinishActions(
+      canvas.getByRole("navigation", { name: "Действия в конце материала" }),
+      materialReaderHref("next", programme),
     );
   },
 };
@@ -967,7 +990,7 @@ export const GroupedReaderActions: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    for (const name of ["Действия материала", "Действия в конце материала"]) {
+    for (const name of ["Действия материала"]) {
       const panel = canvas.getByRole("navigation", { name });
       const actions = within(panel);
       const back = actions.getByRole("link", { name: "Назад" });
@@ -1001,6 +1024,7 @@ export const GroupedReaderActions: Story = {
     const bottom = canvas.getByRole("navigation", {
       name: "Действия в конце материала",
     });
+    await expectFinishActions(bottom, courseGuide.next?.href ?? "");
     const study = within(top).getByRole("button", { name: "Изучено" });
     await waitFor(() =>
       expect(study).toHaveAttribute("aria-disabled", "false"),

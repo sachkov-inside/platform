@@ -3,6 +3,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
+import { useId } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -31,49 +32,36 @@ const choices = [
 ] as const;
 
 /**
- * «Как вам урок?» в конце урока (#2124): одна строка на подложке и две круглые кнопки, лайк и
- * дизлайк вошедшего. Оценку можно изменить или снять повторным нажатием.
+ * «Как вам урок?» в карточке конца урока (#2124): одна тихая строка и две круглые кнопки, лайк и
+ * дизлайк вошедшего. Оценку можно изменить или снять повторным нажатием. Гость видит вместо кнопок
+ * короткое предложение войти.
  */
 export function LessonRating({ state, onRate }: LessonRatingProps) {
+  const labelId = useId();
   if (state.kind === "loading") return null;
   return (
-    <section
-      aria-labelledby="lesson-rating-heading"
-      className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-2xl border border-lesson-line bg-lesson-surface py-2 pr-2 pl-4 sm:pl-6"
+    <div
+      aria-labelledby={labelId}
+      className="flex min-h-12 flex-wrap items-center justify-between gap-x-4 gap-y-1 py-1"
       data-lesson-rating
+      role="group"
     >
-      <div className="min-w-0 flex-1 py-2">
-        <h2 className="font-semibold" id="lesson-rating-heading">
-          Как вам урок?
-        </h2>
-        {state.kind === "guest" ? (
-          <p className="text-sm text-muted-foreground">
-            <Link
-              className="text-foreground underline underline-offset-4"
-              href={state.loginHref}
-            >
-              Войдите
-            </Link>
-            , чтобы оценить урок.
-          </p>
-        ) : state.kind === "unavailable" ? (
-          <p className="text-sm text-muted-foreground" role="status">
-            Оценка сейчас недоступна.
-          </p>
-        ) : (
-          <p
-            className="text-xs text-muted-foreground empty:hidden"
-            role="status"
+      <p id={labelId}>Как вам урок?</p>
+      {state.kind === "guest" ? (
+        <p className="text-sm text-muted-foreground">
+          <Link
+            className="inline-flex min-h-11 items-center text-foreground underline underline-offset-4"
+            href={state.loginHref}
           >
-            {state.failed
-              ? "Не удалось сохранить оценку. Попробуйте ещё раз."
-              : state.rating === null
-                ? ""
-                : "Спасибо за оценку. Повторное нажатие снимает её."}
-          </p>
-        )}
-      </div>
-      {state.kind === "ready" ? (
+            Войдите
+          </Link>
+          , чтобы оценить
+        </p>
+      ) : state.kind === "unavailable" ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          Оценка сейчас недоступна.
+        </p>
+      ) : (
         <div className="flex shrink-0 gap-1">
           {choices.map(({ value, label, Icon }) => {
             const chosen = state.rating === value;
@@ -85,7 +73,7 @@ export function LessonRating({ state, onRate }: LessonRatingProps) {
                   "grid size-11 place-items-center rounded-full transition-colors duration-(--motion-duration-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 motion-reduce:transition-none",
                   chosen
                     ? "bg-lesson-graphite text-lesson-graphite-foreground hover:bg-lesson-graphite-hover"
-                    : "border border-lesson-line bg-card text-foreground hover:bg-muted",
+                    : "text-muted-foreground hover:bg-lesson-stack hover:text-foreground",
                 )}
                 data-lesson-rating-choice={value}
                 disabled={state.saving}
@@ -101,7 +89,21 @@ export function LessonRating({ state, onRate }: LessonRatingProps) {
             );
           })}
         </div>
+      )}
+      {state.kind === "ready" ? (
+        <p
+          className={
+            state.failed ? "w-full text-xs text-muted-foreground" : "sr-only"
+          }
+          role="status"
+        >
+          {state.failed
+            ? "Не удалось сохранить оценку. Попробуйте ещё раз."
+            : state.rating === null
+              ? ""
+              : "Спасибо за оценку."}
+        </p>
       ) : null}
-    </section>
+    </div>
   );
 }
