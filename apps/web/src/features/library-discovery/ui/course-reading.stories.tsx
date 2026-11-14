@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   courseReadingContext,
   withDeferredTaskStatuses,
+  type CourseStepProgress,
 } from "@/features/library-discovery";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { expect, userEvent, waitFor, within } from "storybook/test";
@@ -953,44 +954,42 @@ export const SupplementaryFromLessonTablet: Story = {
 export const SupplementaryFromUnreadLesson: Story = {
   render: () => <BriefFromLesson lessonRead={false} />,
   play: async ({ canvasElement }) => {
-    const origin = within(
-      within(canvasElement).getByRole("complementary", {
-        name: "Текущая глава",
-      }),
-    ).getByRole("link", { name: /^Как устроен курс/ });
     // An unread origin keeps its empty ring; the way-back caption does not mark it as passed.
-    await expect(origin).toHaveAccessibleName(
-      /^Как устроен курс ?, вы пришли отсюда$/u,
-    );
-    await expect(origin).toHaveAttribute("data-progress", "todo");
-    await expect(origin).not.toHaveAttribute("aria-current");
+    const origin = await expectPlainOriginMark(canvasElement, "todo");
     await expect(origin.querySelector("svg")).toBeNull();
-    await expectSameMarkAsPeer(origin, "todo");
   },
 };
 
 export const SupplementaryFromLessonGuest: Story = {
   render: () => <BriefFromLesson guest />,
   play: async ({ canvasElement }) => {
-    const origin = within(
-      within(canvasElement).getByRole("complementary", {
-        name: "Текущая глава",
-      }),
-    ).getByRole("link", { name: /^Как устроен курс/ });
     // A guest sees the same neutral dot on every step, the way back included.
-    await expect(origin).toHaveAccessibleName(
-      /^Как устроен курс ?, вы пришли отсюда$/u,
-    );
-    await expect(origin).toHaveAttribute("data-progress", "unknown");
-    await expect(origin).not.toHaveAttribute("aria-current");
-    await expectSameMarkAsPeer(origin, "unknown");
+    await expectPlainOriginMark(canvasElement, "unknown");
   },
 };
 
-/** The originating step's marker matches «Первый урок» in the same progress state. */
+/** The not-yet-passed originating step is a way back whose marker matches «Первый урок» in the same progress state. */
+async function expectPlainOriginMark(
+  canvasElement: HTMLElement,
+  progress: Exclude<CourseStepProgress, "done">,
+) {
+  const origin = within(
+    within(canvasElement).getByRole("complementary", {
+      name: "Текущая глава",
+    }),
+  ).getByRole("link", { name: /^Как устроен курс/ });
+  await expect(origin).toHaveAccessibleName(
+    /^Как устроен курс ?, вы пришли отсюда$/u,
+  );
+  await expect(origin).toHaveAttribute("data-progress", progress);
+  await expect(origin).not.toHaveAttribute("aria-current");
+  await expectSameMarkAsPeer(origin, progress);
+  return origin;
+}
+
 async function expectSameMarkAsPeer(
   origin: HTMLElement,
-  progress: "todo" | "unknown",
+  progress: Exclude<CourseStepProgress, "done">,
 ) {
   const rail = origin.closest("aside");
   if (rail === null) throw new Error("Course rail missing");
