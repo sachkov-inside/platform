@@ -230,7 +230,7 @@ foundation jobs, но весь CI Gate остался красным. Найде
 только в локальном стенде и изолированных проверках с loopback портами.
 
 Учебные образы обновляют доступные пакеты Debian 13 при сборке и внутренние glob/minimatch
-npm до 14.0.3/11.0.1. Системный скан всё равно содержит находки без исправления в stable Debian.
+npm до 14.0.3/11.0.1 во всём вложенном графе через npm overrides. Системный скан всё равно содержит находки без исправления в stable Debian.
 В частности, Trivy оценивает CVE-2026-6653 в libxml2 как critical, а
 [Debian tracker](https://security-tracker.debian.org/tracker/CVE-2026-6653) оставляет trixie
 vulnerable/no-dsa (Minor issue), без исправленного stable-пакета. Пакеты из unstable не подмешиваются.
@@ -254,3 +254,10 @@ Caddy, системные пакеты учебных образов и нати
 Kysely 0.29.9, oxlint-tsgolint 7.0.2007. Они включены в manifests и lockfile.
 Prisma 8.0.0-rc.33 исключён как prerelease. Сборки до этого среза сохраняются как промежуточные
 доказательства, окончательный CI должен проверять новый согласованный граф.
+
+
+14.11.2026 в 06:41 UTC повтор production baseline подтвердил 12 healthy-контейнеров,
+HTTP 200, чистый `dpkg --audit`, ядро 7.0.0-43 и отсутствие reboot-required.
+Свежий плановый incr backup завершился в 06:04:39 UTC, label
+`20261108-010858F_20261114-060422I`, 306.7 MB, 3795 файлов, Result=success/ExecMainStatus=0.
+Это чтение существующего расписания, новый backup или restore не запускались.
