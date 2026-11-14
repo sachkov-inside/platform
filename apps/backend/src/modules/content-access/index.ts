@@ -21,6 +21,7 @@ export type {
 export {
   anonymousSubject,
   CONTENT_ACCESS_BATCH_SIZE,
+  deniedMaterialRead,
   type AccessAvailability,
   type ContentAccess,
   type Resource,

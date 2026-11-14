@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { RenderedBlock } from "@inside/material-blocks";
 import {
   guestOpenedPartsKey,
+  lessonOpenedPartsChanges,
   ReadingProgressProvider,
 } from "@/features/reading-progress";
 import { getQueryClient } from "@/shared/api/query-client";
@@ -73,6 +74,7 @@ const body: RenderedBlock[] = [
 
 let saved: number[] = [];
 let serverParts: number | null = null;
+let failedStateReads = 0;
 
 const environment = publicPageEnvironment("/materials/step-reveal");
 const meta = {
@@ -84,6 +86,7 @@ const meta = {
     getQueryClient().clear();
     environment.beforeEach();
     saved = [];
+    failedStateReads = z.number().parse(parameters["failedStateReads"] ?? 0);
     serverParts = z
       .number()
       .nullable()
@@ -101,6 +104,10 @@ const meta = {
         window.location.origin,
       ).pathname;
       if (path === "/api/account") return accountPresentationResponse();
+      if (path === "/api/reading-progress/states" && failedStateReads > 0) {
+        failedStateReads -= 1;
+        return Response.json({ kind: "unavailable" }, { status: 503 });
+      }
       if (path === "/api/reading-progress/states")
         return Response.json({
           kind: "ready",
@@ -142,6 +149,10 @@ const meta = {
     body,
     primaryVideo: null,
     termDeck: <section aria-label="Термины урока">Термины урока</section>,
+    exerciseSummary: (
+      <section aria-label="Упражнения урока">Упражнения: 1 из 1 решены</section>
+    ),
+    lessonRating: <section aria-label="Как вам урок?">Как вам урок?</section>,
     material: {
       materialId,
       contentVersion: 1,
@@ -346,6 +357,29 @@ export const LastPartOpensTermDeck: Story = {
   },
 };
 
+/**
+ * The end of the lesson waits for its last part and reads in one order: the term deck, the
+ * exercises summary, then the rating.
+ */
+export const LessonEndWaitsForLastPart: Story = {
+  parameters: { guestParts: 3 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const end = ["Термины урока", "Упражнения урока", "Как вам урок?"];
+    for (const name of end)
+      await expect(
+        canvas.getByRole("region", { name, hidden: true }),
+      ).not.toBeVisible();
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Готово!" }),
+    );
+    const regions = end.map((name) => canvas.getByRole("region", { name }));
+    for (const region of regions) await expect(region).toBeVisible();
+    const tops = regions.map((region) => region.getBoundingClientRect().top);
+    await expect([...tops].sort((left, right) => left - right)).toEqual(tops);
+  },
+};
+
 /** «Показать урок целиком» shows every part and leaves the opened parts as they were. */
 export const WholeLesson: Story = {
   play: async ({ canvasElement }) => {
@@ -420,12 +454,16 @@ export const GuestReturns: Story = {
 
 /**
  * A signed-in reader's parts come from the server, a removed break cannot open more parts than
- * the lesson has, and the reply carries the reader's name.
+ * the lesson has, and the reply carries the reader's name. A saved part tells other open tabs.
  */
 export const SignedInReturns: Story = {
   parameters: { signedIn: true, account: "authenticated", serverParts: 2 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const announced: string[] = [];
+    const stop = lessonOpenedPartsChanges(accountId).subscribe((id) => {
+      announced.push(id);
+    });
     await waitFor(() =>
       expect(
         canvas.getByText("Проверка начинается с наблюдаемого поведения."),
@@ -440,7 +478,30 @@ export const SignedInReturns: Story = {
     );
     await userEvent.click(canvas.getByRole("button", { name: "Пропустить" }));
     await waitFor(() => expect(saved).toEqual([3]));
+    await waitFor(() => expect(announced).toHaveLength(1));
+    stop();
     await expect(guestParts()).toBeNull();
+  },
+};
+
+/** The first reading-state read failed; the next successful one still restores the parts. */
+export const SignedInReturnsAfterFailedRead: Story = {
+  parameters: {
+    signedIn: true,
+    account: "authenticated",
+    serverParts: 2,
+    failedStateReads: 1,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const second = "Проверка начинается с наблюдаемого поведения.";
+    await waitFor(() => expect(failedStateReads).toBe(0));
+    await expect(canvas.getByText(second)).not.toBeVisible();
+    await getQueryClient().invalidateQueries({
+      queryKey: ["reading-progress"],
+    });
+    await waitFor(() => expect(canvas.getByText(second)).toBeVisible());
+    await expect(saved).toEqual([]);
   },
 };
 

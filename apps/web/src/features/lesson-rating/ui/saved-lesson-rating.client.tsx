@@ -1,14 +1,17 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { useMaterialReading } from "@/entities/material";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
 import {
   lessonRatingQueryOptions,
   setLessonRating,
 } from "../api/lesson-rating.browser";
 import type { LessonRatingValue } from "../model/lesson-rating-contract";
+import { lessonRatingChanges } from "../model/lesson-rating-events";
 import { LessonRating, type LessonRatingState } from "./lesson-rating.client";
 
 /**
@@ -27,13 +30,21 @@ export function SavedLessonRating({
     materialId,
   });
   const query = useQuery(options);
+  // Another tab's write must show here, or «Понравился» on a stale page undoes a rating it hides.
+  const changes = useMemo(
+    () =>
+      resolved && accountId !== null ? lessonRatingChanges(accountId) : null,
+    [accountId, resolved],
+  );
+  useAnnouncedRefresh(changes, ["lesson-rating", accountId]);
   const mutation = useMutation({
     mutationKey: ["lesson-rating", accountId, materialId, "set"],
     mutationFn: (rating: LessonRatingValue | null) =>
       setLessonRating({ materialId, rating }),
     onSuccess: (result) => {
-      if (result.kind === "ready")
-        queryClient.setQueryData(options.queryKey, result);
+      if (result.kind !== "ready") return;
+      queryClient.setQueryData(options.queryKey, result);
+      changes?.announce();
     },
   });
 

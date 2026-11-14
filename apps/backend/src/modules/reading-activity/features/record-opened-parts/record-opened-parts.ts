@@ -6,7 +6,10 @@ import {
   type ReadingActivityPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
-import type { ContentAccess } from "../../../content-access/index.js";
+import {
+  deniedMaterialRead,
+  type ContentAccess,
+} from "../../../content-access/index.js";
 import { materialId } from "../../../materials/index.js";
 
 /**
@@ -36,7 +39,10 @@ export type RecordOpenedPartsResult =
       readonly ok: false;
       readonly error: {
         readonly code:
-          "invalid_request" | "access_denied" | "dependency_unavailable";
+          | "invalid_request"
+          | "access_denied"
+          | "material_not_found"
+          | "dependency_unavailable";
       };
     };
 
@@ -81,12 +87,7 @@ export async function recordOpenedParts(
     if (decision.effect === "deny")
       return {
         ok: false,
-        error: {
-          code:
-            decision.reason === "dependency_unavailable"
-              ? "dependency_unavailable"
-              : "access_denied",
-        },
+        error: { code: deniedMaterialRead(decision.reason) },
       };
     const rows: unknown = await dependencies.prisma.$queryRaw(Prisma.sql`
       insert into reading_activity.lesson_opened_parts

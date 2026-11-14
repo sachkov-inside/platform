@@ -77,7 +77,15 @@ export async function readCourseGlossary(
         correlationId: randomUUID(),
       },
     );
-    if (!availability.ok) return internalError();
+    if (!availability.ok)
+      return dependencyFailure(
+        { module: "materials", operation: "readCourseGlossary" },
+        availability.error,
+        {
+          ok: false,
+          error: { code: "dependency_unavailable", retryable: true },
+        },
+      );
     for (const item of availability.items)
       if (item.availability === "available") readable.add(item.itemId);
   }
@@ -132,11 +140,4 @@ export async function readCourseGlossary(
   // The Glossary returns terms in identifier order and the sort is stable.
   terms.sort((left, right) => titleOrder.compare(left.title, right.title));
   return { ok: true, value: { product, terms } };
-}
-
-function internalError(): CourseGlossaryResult {
-  return {
-    ok: false,
-    error: { code: "internal_error", correlationId: randomUUID() },
-  };
 }

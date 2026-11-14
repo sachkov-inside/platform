@@ -146,7 +146,8 @@ describe("Lesson opened parts HTTP", () => {
       headers,
       payload: { openedParts: 2 },
     });
-    expect(missing.statusCode).toBe(403);
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json()).toMatchObject({ code: "material_not_found" });
 
     const saved = await server.inject({
       method: "PUT",

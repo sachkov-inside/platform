@@ -1,5 +1,6 @@
 import {
   exerciseAnswerSchema,
+  exerciseFingerprintSchema,
   exerciseIdSchema,
   exerciseResultSchema,
 } from "@inside/material-blocks";
@@ -9,7 +10,7 @@ import { z } from "zod";
 export const exerciseAttemptSchema = z
   .object({
     exerciseId: exerciseIdSchema,
-    fingerprint: z.string().regex(/^[0-9a-f]{16}$/u),
+    fingerprint: exerciseFingerprintSchema,
     answer: exerciseAnswerSchema,
     result: exerciseResultSchema,
     firstForVersion: z.boolean(),

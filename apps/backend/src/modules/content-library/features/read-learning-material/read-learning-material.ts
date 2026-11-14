@@ -166,6 +166,8 @@ export async function readLearningMaterial(
       contentVersion,
       complete: true,
       body: material.body,
+      // Term links and cards in the body carry only `termId`; the definitions travel beside it.
+      glossaryTerms: material.glossaryTerms,
       assets: references.map((asset) => ({
         assetId: asset.assetId,
         kind: asset.kind,

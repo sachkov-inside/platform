@@ -168,6 +168,51 @@ export function checkExerciseAnswer(
 }
 
 /**
+ * The items a wrong «Сопоставь» or «Расставь по порядку» answer got wrong, in identifier order:
+ * each row paired with a choice that is not its own, or each step outside its place. Author
+ * statistics count them per item. A quiz answer is one choice, so it has none; neither has a
+ * right answer, «Не знаю» or an answer that does not fit the exercise.
+ */
+export type ExerciseMistakes =
+  | {
+      readonly kind: "pairs";
+      readonly pairs: readonly {
+        readonly rowId: string;
+        readonly choiceId: string;
+      }[];
+    }
+  | { readonly kind: "steps"; readonly stepIds: readonly string[] };
+
+export function exerciseMistakes(
+  exercise: ExerciseKey,
+  answer: ExerciseAnswer,
+): ExerciseMistakes | null {
+  if (checkExerciseAnswer(exercise, answer) !== "incorrect") return null;
+  if (exercise.kind === "match" && answer.kind === "matches") {
+    const key = new Map(exercise.rows.map((row) => [row.id, row.answerId]));
+    return {
+      kind: "pairs",
+      pairs: answer.matches
+        .filter((match) => key.get(match.rowId) !== match.choiceId)
+        .map((match) => ({ rowId: match.rowId, choiceId: match.choiceId }))
+        .sort((left, right) => compareIds(left.rowId, right.rowId)),
+    };
+  }
+  if (exercise.kind === "order" && answer.kind === "sequence")
+    return {
+      kind: "steps",
+      stepIds: answer.stepIds
+        .filter((id, index) => exercise.steps[index]?.id !== id)
+        .sort(compareIds),
+    };
+  return null;
+}
+
+function compareIds(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/**
  * The canonical text of an exercise version: items and the key, nothing else. Quiz options,
  * match rows and choices are sorted, because their order is presentation; order steps keep
  * their sequence, because it is the key.
@@ -233,3 +278,8 @@ export function exerciseFingerprint(exercise: ExerciseKey): string {
   }
   return hash.toString(16).padStart(16, "0");
 }
+
+/** The shape of an `exerciseFingerprint` value wherever one is stored or sent. */
+export const exerciseFingerprintSchema: z.ZodString = z
+  .string()
+  .regex(/^[0-9a-f]{16}$/u);

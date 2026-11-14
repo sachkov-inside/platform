@@ -125,7 +125,9 @@ function VersionRow({ version }: { readonly version: ExerciseVersionView }) {
             <dd className="tabular-nums">{version.firstTryDontKnow}</dd>
           </>
         )}
-        <dt className="text-muted-foreground">Частый неверный ответ</dt>
+        <dt className="text-muted-foreground">
+          {version.mostFrequentWrong?.label ?? "Частый неверный ответ"}
+        </dt>
         <dd className="min-w-0 break-words">
           {version.mostFrequentWrong === null
             ? "нет"

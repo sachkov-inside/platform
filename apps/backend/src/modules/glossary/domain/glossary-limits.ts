@@ -6,5 +6,8 @@
 export const GLOSSARY_TERM_TITLE_MAX = 120;
 export const GLOSSARY_SHORT_DEFINITION_MAX = 300;
 export const GLOSSARY_FULL_DEFINITION_MAX = 4000;
-/** One write replaces the whole Glossary, so the bound covers every term at once. */
+/**
+ * Most Glossary Terms one write may carry. A write upserts each term by id and never deletes a term
+ * it omits, so the bound limits one request, not the Glossary.
+ */
 export const GLOSSARY_TERMS_MAX = 2000;

@@ -246,6 +246,15 @@ export function MaterialMatch(props: MaterialMatchPresentation) {
           const rowId = `${baseId}-row-${String(index)}`;
           const reviewId = `${baseId}-review-${String(index)}`;
           const choice = picked.get(row.id);
+          // Pairs are one to one: a choice another row holds waits until that row lets it go.
+          const taken =
+            mode === "pairs"
+              ? new Set(
+                  [...draft].flatMap(([otherRow, chosen]) =>
+                    otherRow === row.id ? [] : [chosen],
+                  ),
+                )
+              : new Set<string>();
           const correct =
             answered === null || answered.result === "dontKnow"
               ? undefined
@@ -281,7 +290,11 @@ export function MaterialMatch(props: MaterialMatchPresentation) {
               >
                 <option value="">Выбери ответ</option>
                 {choices.map((item) => (
-                  <option key={item.id} value={item.id}>
+                  <option
+                    key={item.id}
+                    value={item.id}
+                    disabled={taken.has(item.id)}
+                  >
                     {item.label}
                   </option>
                 ))}
@@ -376,7 +389,8 @@ type Direction = "up" | "down";
 /**
  * «Расставь по порядку»: the reader moves steps with «Выше» and «Ниже» or Alt + ↑ / ↓; no drag is
  * needed. Each move is announced. After «Проверить» the steps out of place are marked and every
- * step shows why it stands where it does; «Ответить ещё раз» keeps the reader's order to fix.
+ * step shows why it stands where it does; «Ответить ещё раз» starts from the reader's last checked
+ * order, restored after a reload too, so only the marked steps need moving.
  */
 export function MaterialOrder(props: MaterialOrderPresentation) {
   const { id, steps } = props;
@@ -555,7 +569,13 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
         dontKnow={props.dontKnow !== undefined}
         retryLabel="Ответить ещё раз"
         onRetry={() => {
-          setDraft(shown.map((step) => step.id));
+          // The last checked order, saved or just given, is where answering again starts. After
+          // «Не знаю» the page showed the key, so the steps start shuffled again.
+          setDraft(
+            answered?.answer.kind === "sequence"
+              ? shown.map((step) => step.id)
+              : null,
+          );
         }}
       />
       <Feedback

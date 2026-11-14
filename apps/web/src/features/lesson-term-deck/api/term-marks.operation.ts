@@ -1,3 +1,4 @@
+import { glossaryTermIdSchema } from "@inside/material-blocks";
 import { z } from "zod";
 
 import { defineMutationOperation } from "@/shared/api/mutation-operation";
@@ -12,15 +13,7 @@ import {
 /** Reads the reader's marks on the terms of one deck. */
 export const getTermMarksOperation = defineMutationOperation({
   input: z.object({
-    termIds: z
-      .array(
-        z
-          .string()
-          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
-          .max(120),
-      )
-      .min(1)
-      .max(TERM_MARKS_QUERY_MAX),
+    termIds: z.array(glossaryTermIdSchema).min(1).max(TERM_MARKS_QUERY_MAX),
   }),
   method: "POST",
   path: "/api/glossary/marks/states",

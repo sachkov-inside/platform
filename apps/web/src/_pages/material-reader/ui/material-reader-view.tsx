@@ -38,9 +38,12 @@ import {
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import { materialPath, topicPath } from "@/shared/routing/public-page-path";
-import { courseGlossaryHref } from "@/shared/routing/subscription-route";
 
 import { agentChoiceComparison } from "../model/agent-choice-comparison";
+import {
+  courseGlossaryMoreHref,
+  type ReaderCourseGlossary,
+} from "../model/course-glossary-more-href";
 import { projectHarnessIllustrations } from "@/features/project-harness";
 
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
@@ -60,20 +63,25 @@ export interface MaterialReaderViewProps {
   /** Термины словаря, на которые ссылается тело; без них упоминание читается обычным текстом. */
   readonly glossaryTerms?: readonly GlossaryTerm[];
   /**
-   * Курс, внутри которого открыт урок: «Подробнее» в подсказке термина ведёт на его словарь.
-   * Вне курса подсказка раскрывает полное определение на месте.
+   * Словарь курса, внутри которого открыт урок: «Подробнее» в подсказке ведёт к термину, который
+   * словарь показывает читателю. Остальные термины и все термины вне курса раскрываются на месте.
    */
-  readonly courseGlossarySlug?: string | undefined;
+  readonly courseGlossary?: ReaderCourseGlossary | undefined;
   /** Колода «Термины урока» в конце урока (#2127). */
   readonly termDeck?: ReactNode;
+  /**
+   * «Упражнения: N из M решены» после колоды (#2121). Читает ответы из `exerciseScope`, поэтому
+   * стоит внутри него; как и колода, ждёт, пока откроется последняя часть урока.
+   */
+  readonly exerciseSummary?: ReactNode;
   /**
    * «Как вам урок?» в конце урока (#2124). Как и колода, ждёт, пока откроется последняя часть
    * урока.
    */
   readonly lessonRating?: ReactNode;
   /**
-   * Wraps the lesson text and its end: Exercise Attempts restore answers inside it and close it
-   * with «Упражнения: N из M решены» (#2121). Without it exercises keep answers on the page only.
+   * Wraps the lesson text and its end: Exercise Attempts restore answers inside it, and
+   * `exerciseSummary` reads them there (#2121). Without it exercises keep answers on the page only.
    */
   readonly exerciseScope?: (lesson: ReactNode) => ReactNode;
   readonly material: MaterialReaderMetadata;
@@ -99,8 +107,9 @@ export function MaterialReaderView({
   renderLink,
   body,
   glossaryTerms = [],
-  courseGlossarySlug,
+  courseGlossary,
   termDeck,
+  exerciseSummary,
   lessonRating,
   exerciseScope = (lesson) => lesson,
   material,
@@ -236,10 +245,7 @@ export function MaterialReaderView({
                   renderLink={renderLink}
                   glossary={glossaryTermsById(
                     glossaryTerms,
-                    courseGlossarySlug === undefined
-                      ? undefined
-                      : (termId) =>
-                          courseGlossaryHref(courseGlossarySlug, termId),
+                    courseGlossaryMoreHref(courseGlossary),
                   )}
                   blocks={body}
                   contentVersion={material.contentVersion}
@@ -250,6 +256,9 @@ export function MaterialReaderView({
               </article>
               {termDeck === undefined ? null : (
                 <LessonStepsTail>{termDeck}</LessonStepsTail>
+              )}
+              {exerciseSummary === undefined ? null : (
+                <LessonStepsTail>{exerciseSummary}</LessonStepsTail>
               )}
               {lessonRating === undefined ? null : (
                 <LessonStepsTail>{lessonRating}</LessonStepsTail>

@@ -4,6 +4,7 @@ import {
   exerciseAnswerSchema,
   exerciseFingerprint,
   exerciseIdSchema,
+  exerciseMistakes,
   materialExercises,
   type RenderedExercise,
 } from "@inside/material-blocks";
@@ -11,7 +12,10 @@ import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ExerciseAttemptsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
-import type { ContentAccess } from "../../../content-access/index.js";
+import {
+  deniedMaterialRead,
+  type ContentAccess,
+} from "../../../content-access/index.js";
 import {
   materialId,
   type MaterialContent,
@@ -68,6 +72,7 @@ export async function recordExerciseAttempt(
     if (result === undefined)
       return { ok: false, error: { code: "answer_mismatch" } };
     const fingerprint = exerciseFingerprint(exercise.value);
+    const mistakes = exerciseMistakes(exercise.value, command.answer);
     const attemptedAt = new Date();
     const row = {
       accountId: command.accountId,
@@ -77,6 +82,7 @@ export async function recordExerciseAttempt(
       fingerprint,
       answer: command.answer,
       result,
+      ...(mistakes === null ? {} : { mistakes }),
       attemptedAt,
     };
     // `exercise_attempts_one_first` admits one first attempt per Account and version; a lost
@@ -139,19 +145,15 @@ async function publishedExercise(
       enforcementPoint: "exercise_attempt",
       correlationId: randomUUID(),
     });
-    if (decision.effect === "deny")
+    if (decision.effect === "deny") {
+      const denied = deniedMaterialRead(decision.reason);
       return {
         ok: false,
         error: {
-          code:
-            decision.reason === "dependency_unavailable"
-              ? "dependency_unavailable"
-              : decision.reason === "resource_not_found" ||
-                  decision.reason === "resource_unpublished"
-                ? "exercise_not_found"
-                : "access_denied",
+          code: denied === "material_not_found" ? "exercise_not_found" : denied,
         },
       };
+    }
     const body = await dependencies.materialContent.loadPublishedBody({
       materialId: materialId(command.materialId),
       checkedContentVersion: decision.checkedContentVersion,

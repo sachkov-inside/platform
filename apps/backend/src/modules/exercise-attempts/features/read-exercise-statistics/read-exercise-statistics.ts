@@ -2,7 +2,6 @@ import {
   exerciseAnswerSchema,
   exerciseKinds,
   exerciseResultSchema,
-  type ExerciseAnswer,
 } from "@inside/material-blocks";
 import { z } from "zod";
 import {
@@ -15,8 +14,8 @@ import {
   type ExerciseAttemptsPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import {
-  canonicalExerciseAnswer,
   exerciseStatisticsSchema,
+  storedExerciseMistakesSchema,
   type ExerciseStatistics,
 } from "../../domain/exercise-statistics.js";
 
@@ -50,11 +49,17 @@ const rowSchema = z.object({
   exercise_kind: z.enum(exerciseKinds),
   fingerprint: z.string(),
   result: exerciseResultSchema,
-  answer: exerciseAnswerSchema,
+  // Read per row: an answer or mistakes an older release stored in another shape still count
+  // as a respondent and only drop out of the mistake tally.
+  answer: z.unknown(),
+  mistakes: z.unknown(),
   attempts: z.number().int().positive(),
   first_answered_at: z.date(),
 });
 type Row = z.infer<typeof rowSchema>;
+type Mistake = NonNullable<
+  ExerciseStatistics["versions"][number]["mostFrequentMistake"]
+>;
 
 /**
  * First-try statistics of every exercise version of one Material that readers answered, for an
@@ -76,12 +81,12 @@ export async function readExerciseStatistics(
   try {
     // `exercise_attempts_first_by_version` serves this read.
     const rows: unknown = await dependencies.prisma.$queryRaw(Prisma.sql`
-      select exercise_id, exercise_kind, fingerprint, result, answer,
+      select exercise_id, exercise_kind, fingerprint, result, answer, mistakes,
         count(*)::int as attempts, min(attempted_at) as first_answered_at
       from exercise_attempts.attempts
       where material_id = ${parsed.data.materialId.toLowerCase()}::uuid
         and first_for_version
-      group by exercise_id, exercise_kind, fingerprint, result, answer
+      group by exercise_id, exercise_kind, fingerprint, result, answer, mistakes
     `);
     return {
       ok: true,
@@ -107,7 +112,8 @@ interface VersionTally {
   respondents: number;
   firstTryCorrect: number;
   firstTryDontKnow: number;
-  readonly wrong: Map<string, { answer: ExerciseAnswer; count: number }>;
+  /** Mistake counts by a canonical key, so equal mistakes add up. */
+  readonly mistakes: Map<string, Mistake>;
 }
 
 function exerciseStatistics(rows: readonly Row[]): ExerciseStatistics[] {
@@ -122,7 +128,7 @@ function exerciseStatistics(rows: readonly Row[]): ExerciseStatistics[] {
       respondents: 0,
       firstTryCorrect: 0,
       firstTryDontKnow: 0,
-      wrong: new Map<string, { answer: ExerciseAnswer; count: number }>(),
+      mistakes: new Map<string, Mistake>(),
     };
     versions.set(key, tally);
     tally.respondents += row.attempts;
@@ -130,14 +136,14 @@ function exerciseStatistics(rows: readonly Row[]): ExerciseStatistics[] {
       tally.firstAnsweredAt = row.first_answered_at;
     if (row.result === "correct") tally.firstTryCorrect += row.attempts;
     if (row.result === "dontKnow") tally.firstTryDontKnow += row.attempts;
-    if (row.result === "incorrect") {
-      // Stored answers keep the reader's order; equal sets are one answer.
-      const answer = canonicalExerciseAnswer(row.answer);
-      const answerKey = JSON.stringify(answer);
-      const wrong = tally.wrong.get(answerKey) ?? { answer, count: 0 };
-      wrong.count += row.attempts;
-      tally.wrong.set(answerKey, wrong);
-    }
+    if (row.result === "incorrect")
+      for (const mistake of rowMistakes(row)) {
+        const counted = tally.mistakes.get(mistake.key)?.count ?? 0;
+        tally.mistakes.set(mistake.key, {
+          ...mistake.value,
+          count: counted + mistake.value.count,
+        });
+      }
   }
   const exercises = new Map<string, VersionTally[]>();
   for (const tally of versions.values())
@@ -158,10 +164,47 @@ function exerciseStatistics(rows: readonly Row[]): ExerciseStatistics[] {
           respondents: tally.respondents,
           firstTryCorrect: tally.firstTryCorrect,
           firstTryDontKnow: tally.firstTryDontKnow,
-          mostFrequentWrongAnswer: mostFrequent(tally.wrong),
+          mostFrequentMistake: mostFrequent(tally.mistakes),
         })),
       }),
     );
+}
+
+/**
+ * What one wrong first answer counts towards: a quiz its whole option set (equal sets are one
+ * answer, whatever order the reader chose them in); a match each wrong row → choice pair; an
+ * order each step out of place.
+ */
+function rowMistakes(
+  row: Row,
+): { readonly key: string; readonly value: Mistake }[] {
+  if (row.exercise_kind === "quiz") {
+    const answer = exerciseAnswerSchema.safeParse(row.answer);
+    if (!answer.success || answer.data.kind !== "options") return [];
+    const optionIds = [...answer.data.optionIds].sort(compareText);
+    return [
+      {
+        key: `options|${optionIds.join(",")}`,
+        value: { kind: "options", optionIds, count: row.attempts },
+      },
+    ];
+  }
+  const mistakes = storedExerciseMistakesSchema.safeParse(row.mistakes);
+  if (!mistakes.success) return [];
+  return mistakes.data.kind === "pairs"
+    ? mistakes.data.pairs.map((pair) => ({
+        key: `pair|${pair.rowId}|${pair.choiceId}`,
+        value: {
+          kind: "pair",
+          rowId: pair.rowId,
+          choiceId: pair.choiceId,
+          count: row.attempts,
+        },
+      }))
+    : mistakes.data.stepIds.map((stepId) => ({
+        key: `step|${stepId}`,
+        value: { kind: "step", stepId, count: row.attempts },
+      }));
 }
 
 function byFirstAnswer(left: VersionTally, right: VersionTally): number {
@@ -172,20 +215,17 @@ function byFirstAnswer(left: VersionTally, right: VersionTally): number {
     : byTime;
 }
 
-/** The most frequent wrong answer; a tie goes to the smaller canonical text, so it is stable. */
-function mostFrequent(
-  wrong: ReadonlyMap<string, { answer: ExerciseAnswer; count: number }>,
-): { answer: ExerciseAnswer; count: number } | null {
-  let best: { key: string; answer: ExerciseAnswer; count: number } | null =
-    null;
-  for (const [key, entry] of wrong)
+/** The most frequent mistake; a tie goes to the smaller canonical key, so it is stable. */
+function mostFrequent(mistakes: ReadonlyMap<string, Mistake>): Mistake | null {
+  let best: { key: string; mistake: Mistake } | null = null;
+  for (const [key, mistake] of mistakes)
     if (
       best === null ||
-      entry.count > best.count ||
-      (entry.count === best.count && compareText(key, best.key) < 0)
+      mistake.count > best.mistake.count ||
+      (mistake.count === best.mistake.count && compareText(key, best.key) < 0)
     )
-      best = { key, answer: entry.answer, count: entry.count };
-  return best === null ? null : { answer: best.answer, count: best.count };
+      best = { key, mistake };
+  return best?.mistake ?? null;
 }
 
 function compareText(left: string, right: string): number {

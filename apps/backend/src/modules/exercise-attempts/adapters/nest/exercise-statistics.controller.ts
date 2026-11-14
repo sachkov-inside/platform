@@ -78,13 +78,7 @@ export class ExerciseStatisticsController {
           respondents: version.respondents,
           firstTryCorrect: version.firstTryCorrect,
           firstTryDontKnow: version.firstTryDontKnow,
-          mostFrequentWrongAnswer:
-            version.mostFrequentWrongAnswer === null
-              ? null
-              : {
-                  answer: version.mostFrequentWrongAnswer.answer,
-                  count: version.mostFrequentWrongAnswer.count,
-                },
+          mostFrequentMistake: version.mostFrequentMistake,
         })),
       })),
     };

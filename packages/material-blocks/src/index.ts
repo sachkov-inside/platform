@@ -89,9 +89,12 @@ export {
   checkExerciseAnswer,
   exerciseAnswerSchema,
   exerciseFingerprint,
+  exerciseFingerprintSchema,
+  exerciseMistakes,
   exerciseResultSchema,
   type ExerciseAnswer,
   type ExerciseKey,
+  type ExerciseMistakes,
   type ExerciseResult,
 } from "./exercise-answer.js";
 export {

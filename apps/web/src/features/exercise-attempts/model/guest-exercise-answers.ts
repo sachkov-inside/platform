@@ -1,5 +1,6 @@
 import {
   exerciseAnswerSchema,
+  exerciseFingerprintSchema,
   exerciseIdSchema,
   exerciseResultSchema,
 } from "@inside/material-blocks";
@@ -16,7 +17,7 @@ const storedSchema = z.record(
     .object({
       answer: exerciseAnswerSchema,
       result: exerciseResultSchema,
-      fingerprint: z.string().regex(/^[0-9a-f]{16}$/u),
+      fingerprint: exerciseFingerprintSchema,
     })
     .strict(),
 );

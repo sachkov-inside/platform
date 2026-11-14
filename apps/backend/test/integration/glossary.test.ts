@@ -311,6 +311,38 @@ describe("Glossary", () => {
     });
   });
 
+  test("a lesson still reads when the Glossary is unavailable, without terms", async () => {
+    const unavailable = {
+      ok: false as const,
+      error: {
+        code: "dependency_unavailable" as const,
+        retryable: true as const,
+      },
+    };
+    const materials = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+      glossary: {
+        lookup: () => Promise.resolve(unavailable),
+        introducedIn: () => Promise.resolve(unavailable),
+      },
+    });
+    const stored = await testDatabase.prisma.material.findFirstOrThrow({
+      where: { sourceId: "content-studio:deck-lesson" },
+      select: { slug: true },
+    });
+
+    const read = await materials.publishedMaterialReader.read({
+      subject: anonymousSubject,
+      slug: stored.slug ?? "",
+    });
+
+    expect(read.ok && read.value.kind).toBe("available");
+    if (!read.ok || read.value.kind !== "available") return;
+    expect(read.value.glossaryTerms).toEqual([]);
+    expect(read.value.lessonTerms).toEqual([]);
+  });
+
   test("finds the terms a Material introduces by its authoring source identifier", async () => {
     await glossary.upsert({
       actor: author,

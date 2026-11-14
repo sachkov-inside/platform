@@ -2,12 +2,15 @@
 
 import type { Route } from "next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { useMaterialReading } from "@/entities/material";
 import type { GlossaryTerm } from "@/entities/material.model";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
 import { setTermMark, termMarksQueryOptions } from "../api/term-marks.browser";
 import type { TermMarkCommand } from "../model/term-mark-contract";
+import { termMarkChanges } from "../model/term-mark-events";
 import {
   LessonTermDeck,
   type LessonTermDeckMarking,
@@ -31,6 +34,11 @@ export function SavedLessonTermDeck({
     termIds: terms.map((term) => term.id),
   });
   const state = useQuery(options);
+  const changes = useMemo(
+    () => (resolved && accountId !== null ? termMarkChanges(accountId) : null),
+    [accountId, resolved],
+  );
+  useAnnouncedRefresh(changes, ["glossary-marks", accountId]);
   const mutation = useMutation({
     mutationKey: ["glossary-marks", accountId, "set"],
     mutationFn: (input: TermMarkCommand) => setTermMark(input),
@@ -47,6 +55,7 @@ export function SavedLessonTermDeck({
           result.mark,
         ],
       }));
+      changes?.announce();
     },
   });
 

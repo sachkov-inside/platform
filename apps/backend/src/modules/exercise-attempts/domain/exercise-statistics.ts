@@ -1,11 +1,9 @@
 import {
-  exerciseAnswerSchema,
+  exerciseFingerprintSchema,
   exerciseIdSchema,
   exerciseKinds,
-  type ExerciseAnswer,
 } from "@inside/material-blocks";
 import { z } from "zod";
-import { exerciseFingerprintSchema } from "./exercise-attempt.js";
 
 /**
  * First-try statistics of one exercise version (#2124). Only the first attempt of each Account
@@ -13,8 +11,10 @@ import { exerciseFingerprintSchema } from "./exercise-attempt.js";
  * they reached the right answer.
  * - `respondents`: Accounts that answered this version;
  * - `firstTryCorrect`, `firstTryDontKnow`: how many of them answered right or «Не знаю» first;
- * - `mostFrequentWrongAnswer`: the wrong full answer given first most often, in canonical form
- *   (`canonicalExerciseAnswer`), or null when nobody answered wrong first.
+ * - `mostFrequentMistake`: what readers got wrong first most often, or null when nobody answered
+ *   wrong first. A quiz names the wrong option set (`options`); a match names the wrong
+ *   row → choice pair (`pair`); an order names the step put out of place (`step`). The count is
+ *   how many first answers held it; a tie goes to the smaller identifiers, so it is stable.
  */
 export const exerciseVersionStatisticsSchema = z
   .object({
@@ -23,12 +23,31 @@ export const exerciseVersionStatisticsSchema = z
     respondents: z.number().int().positive(),
     firstTryCorrect: z.number().int().nonnegative(),
     firstTryDontKnow: z.number().int().nonnegative(),
-    mostFrequentWrongAnswer: z
-      .object({
-        answer: exerciseAnswerSchema,
-        count: z.number().int().positive(),
-      })
-      .strict()
+    mostFrequentMistake: z
+      .discriminatedUnion("kind", [
+        z
+          .object({
+            kind: z.literal("options"),
+            optionIds: z.array(exerciseIdSchema).min(1),
+            count: z.number().int().positive(),
+          })
+          .strict(),
+        z
+          .object({
+            kind: z.literal("pair"),
+            rowId: exerciseIdSchema,
+            choiceId: exerciseIdSchema,
+            count: z.number().int().positive(),
+          })
+          .strict(),
+        z
+          .object({
+            kind: z.literal("step"),
+            stepId: exerciseIdSchema,
+            count: z.number().int().positive(),
+          })
+          .strict(),
+      ])
       .nullable(),
   })
   .strict();
@@ -43,25 +62,19 @@ export const exerciseStatisticsSchema = z
   .strict();
 export type ExerciseStatistics = z.infer<typeof exerciseStatisticsSchema>;
 
-/**
- * One spelling for answers that mean the same: chosen options and match rows are a set, so they
- * are sorted; an order keeps its sequence, which is the answer itself.
- */
-export function canonicalExerciseAnswer(
-  answer: ExerciseAnswer,
-): ExerciseAnswer {
-  switch (answer.kind) {
-    case "options":
-      return { kind: "options", optionIds: [...answer.optionIds].sort() };
-    case "matches":
-      return {
-        kind: "matches",
-        matches: [...answer.matches].sort((left, right) =>
-          left.rowId < right.rowId ? -1 : left.rowId > right.rowId ? 1 : 0,
-        ),
-      };
-    case "sequence":
-    case "dontKnow":
-      return answer;
-  }
-}
+/** The items a wrong match or order answer got wrong, as `exerciseMistakes` writes them. */
+export const storedExerciseMistakesSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("pairs"),
+      pairs: z.array(
+        z
+          .object({ rowId: exerciseIdSchema, choiceId: exerciseIdSchema })
+          .strict(),
+      ),
+    })
+    .strict(),
+  z
+    .object({ kind: z.literal("steps"), stepIds: z.array(exerciseIdSchema) })
+    .strict(),
+]);

@@ -3,7 +3,10 @@ import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { LessonRatingsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
-import type { ContentAccess } from "../../../content-access/index.js";
+import {
+  deniedMaterialRead,
+  type ContentAccess,
+} from "../../../content-access/index.js";
 import { materialId } from "../../../materials/index.js";
 import {
   lessonRatingSchema,
@@ -75,15 +78,7 @@ export async function rateLesson(
     if (decision.effect === "deny")
       return {
         ok: false,
-        error: {
-          code:
-            decision.reason === "dependency_unavailable"
-              ? "dependency_unavailable"
-              : decision.reason === "resource_not_found" ||
-                  decision.reason === "resource_unpublished"
-                ? "material_not_found"
-                : "access_denied",
-        },
+        error: { code: deniedMaterialRead(decision.reason) },
       };
     const ratedAt = new Date();
     await dependencies.prisma.lessonRating.upsert({

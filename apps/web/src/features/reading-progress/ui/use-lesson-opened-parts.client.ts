@@ -1,5 +1,5 @@
 "use client";
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -7,9 +7,11 @@ import {
   type LessonStepsProgress,
   type MaterialReadingSnapshot,
 } from "@/entities/material";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
 import { recordOpenedPartsOperation } from "../api/reading-progress.operation";
 import { LESSON_OPENED_PARTS_MAX } from "../model/opened-parts-contract";
+import { lessonOpenedPartsChanges } from "../model/reading-progress-events";
 
 /** A guest's opened parts stay in this browser only (#2122). */
 export function guestOpenedPartsKey(materialId: string): string {
@@ -53,6 +55,12 @@ export function useLessonOpenedParts(materialId: string): LessonStepsProgress {
     () => readGuestParts(materialId),
     () => undefined,
   );
+  const stateKey = ["reading-progress", accountId, "material", materialId];
+  const changes = useMemo(
+    () => (accountId == null ? null : lessonOpenedPartsChanges(accountId)),
+    [accountId],
+  );
+  useAnnouncedRefresh(changes, stateKey);
   const { mutate } = useMutation({
     mutationKey: ["reading-progress", accountId, "opened-parts", materialId],
     mutationFn: (openedParts: number) =>
@@ -62,11 +70,12 @@ export function useLessonOpenedParts(materialId: string): LessonStepsProgress {
       if (result.kind !== "saved" || accountId == null) return;
       queryClient.setQueryData<
         MaterialReadingSnapshot & { materialId: string }
-      >(["reading-progress", accountId, "material", materialId], (state) =>
+      >(stateKey, (state) =>
         state === undefined
           ? state
           : { ...state, openedParts: result.openedParts },
       );
+      changes?.announce();
     },
   });
   if (accountId === undefined) return { saved: undefined, save: ignore };
@@ -85,9 +94,10 @@ export function useLessonOpenedParts(materialId: string): LessonStepsProgress {
       },
     };
   return {
-    saved: reading.failed
-      ? null
-      : reading.state === undefined
+    // A failed read has not answered: the first part shows, and the next successful read of the
+    // reading state still restores the saved parts.
+    saved:
+      reading.failed || reading.state === undefined
         ? undefined
         : (reading.state.openedParts ?? null),
     save: (openedParts) => {

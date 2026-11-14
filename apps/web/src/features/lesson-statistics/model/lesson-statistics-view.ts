@@ -3,7 +3,6 @@ import {
   isExerciseKind,
   materialBlockText,
   renderedBlockSchema,
-  type ExerciseAnswer,
   type RenderedBlock,
   type RenderedExercise,
 } from "@inside/material-blocks";
@@ -19,6 +18,8 @@ export interface ExerciseVersionView {
   readonly firstTryCorrectPercent: number;
   readonly firstTryDontKnow: number;
   readonly mostFrequentWrong: {
+    /** What the line counts: a wrong answer, a wrong pair or a step out of place. */
+    readonly label: string;
     readonly text: string;
     readonly count: number;
   } | null;
@@ -106,15 +107,12 @@ function versionViews(
       ),
       firstTryDontKnow: version.firstTryDontKnow,
       mostFrequentWrong:
-        version.mostFrequentWrongAnswer === null
+        version.mostFrequentMistake === null
           ? null
-          : {
-              text: answerText(
-                version.mostFrequentWrongAnswer.answer,
-                (id) => labels.get(id) ?? id,
-              ),
-              count: version.mostFrequentWrongAnswer.count,
-            },
+          : mistakeView(
+              version.mostFrequentMistake,
+              (id) => labels.get(id) ?? id,
+            ),
     }))
     .sort((left, right) =>
       left.current !== right.current
@@ -145,22 +143,34 @@ function itemLabels(exercise: RenderedExercise): Map<string, string> {
   }
 }
 
-/** The whole wrong answer: chosen options, every row with its choice, or the full order. */
-function answerText(
-  answer: ExerciseAnswer,
+type Mistake = NonNullable<
+  ExerciseStatistics["versions"][number]["mostFrequentMistake"]
+>;
+
+/** A quiz's wrong option set, a match's wrong pair or an order's step out of place, as text. */
+function mistakeView(
+  mistake: Mistake,
   label: (id: string) => string,
-): string {
-  switch (answer.kind) {
+): NonNullable<ExerciseVersionView["mostFrequentWrong"]> {
+  switch (mistake.kind) {
     case "options":
-      return answer.optionIds.map(label).join("; ");
-    case "matches":
-      return answer.matches
-        .map((match) => `${label(match.rowId)} → ${label(match.choiceId)}`)
-        .join("; ");
-    case "sequence":
-      return answer.stepIds.map(label).join(" → ");
-    case "dontKnow":
-      return "Не знаю";
+      return {
+        label: "Частый неверный ответ",
+        text: mistake.optionIds.map(label).join("; "),
+        count: mistake.count,
+      };
+    case "pair":
+      return {
+        label: "Частая неверная пара",
+        text: `${label(mistake.rowId)} → ${label(mistake.choiceId)}`,
+        count: mistake.count,
+      };
+    case "step":
+      return {
+        label: "Чаще всего не на своём месте",
+        text: label(mistake.stepId),
+        count: mistake.count,
+      };
   }
 }
 

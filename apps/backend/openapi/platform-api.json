@@ -59467,134 +59467,104 @@
                                   "minimum": 0,
                                   "type": "integer"
                                 },
-                                "mostFrequentWrongAnswer": {
-                                  "additionalProperties": false,
+                                "mostFrequentMistake": {
                                   "nullable": true,
-                                  "properties": {
-                                    "answer": {
-                                      "oneOf": [
-                                        {
-                                          "additionalProperties": false,
-                                          "properties": {
-                                            "kind": {
-                                              "enum": [
-                                                "options"
-                                              ],
-                                              "type": "string"
-                                            },
-                                            "optionIds": {
-                                              "items": {
-                                                "maxLength": 64,
-                                                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                                                "type": "string"
-                                              },
-                                              "maxItems": 8,
-                                              "minItems": 1,
-                                              "type": "array"
-                                            }
-                                          },
-                                          "required": [
-                                            "kind",
-                                            "optionIds"
-                                          ],
-                                          "type": "object"
+                                  "oneOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "count": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
                                         },
-                                        {
-                                          "additionalProperties": false,
-                                          "properties": {
-                                            "kind": {
-                                              "enum": [
-                                                "matches"
-                                              ],
-                                              "type": "string"
-                                            },
-                                            "matches": {
-                                              "items": {
-                                                "additionalProperties": false,
-                                                "properties": {
-                                                  "choiceId": {
-                                                    "maxLength": 64,
-                                                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                                                    "type": "string"
-                                                  },
-                                                  "rowId": {
-                                                    "maxLength": 64,
-                                                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                                                    "type": "string"
-                                                  }
-                                                },
-                                                "required": [
-                                                  "rowId",
-                                                  "choiceId"
-                                                ],
-                                                "type": "object"
-                                              },
-                                              "maxItems": 6,
-                                              "minItems": 1,
-                                              "type": "array"
-                                            }
-                                          },
-                                          "required": [
-                                            "kind",
-                                            "matches"
+                                        "kind": {
+                                          "enum": [
+                                            "options"
                                           ],
-                                          "type": "object"
+                                          "type": "string"
                                         },
-                                        {
-                                          "additionalProperties": false,
-                                          "properties": {
-                                            "kind": {
-                                              "enum": [
-                                                "sequence"
-                                              ],
-                                              "type": "string"
-                                            },
-                                            "stepIds": {
-                                              "items": {
-                                                "maxLength": 64,
-                                                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-                                                "type": "string"
-                                              },
-                                              "maxItems": 8,
-                                              "minItems": 1,
-                                              "type": "array"
-                                            }
+                                        "optionIds": {
+                                          "items": {
+                                            "maxLength": 64,
+                                            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                                            "type": "string"
                                           },
-                                          "required": [
-                                            "kind",
-                                            "stepIds"
-                                          ],
-                                          "type": "object"
-                                        },
-                                        {
-                                          "additionalProperties": false,
-                                          "properties": {
-                                            "kind": {
-                                              "enum": [
-                                                "dontKnow"
-                                              ],
-                                              "type": "string"
-                                            }
-                                          },
-                                          "required": [
-                                            "kind"
-                                          ],
-                                          "type": "object"
+                                          "minItems": 1,
+                                          "type": "array"
                                         }
-                                      ]
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "optionIds",
+                                        "count"
+                                      ],
+                                      "type": "object"
                                     },
-                                    "count": {
-                                      "exclusiveMinimum": true,
-                                      "maximum": 9007199254740991,
-                                      "minimum": 0,
-                                      "type": "integer"
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "choiceId": {
+                                          "maxLength": 64,
+                                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                                          "type": "string"
+                                        },
+                                        "count": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
+                                        "kind": {
+                                          "enum": [
+                                            "pair"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "rowId": {
+                                          "maxLength": 64,
+                                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "rowId",
+                                        "choiceId",
+                                        "count"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "count": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
+                                        "kind": {
+                                          "enum": [
+                                            "step"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "stepId": {
+                                          "maxLength": 64,
+                                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "stepId",
+                                        "count"
+                                      ],
+                                      "type": "object"
                                     }
-                                  },
-                                  "required": [
-                                    "answer",
-                                    "count"
-                                  ],
-                                  "type": "object"
+                                  ]
                                 },
                                 "respondents": {
                                   "exclusiveMinimum": true,
@@ -59609,7 +59579,7 @@
                                 "respondents",
                                 "firstTryCorrect",
                                 "firstTryDontKnow",
-                                "mostFrequentWrongAnswer"
+                                "mostFrequentMistake"
                               ],
                               "type": "object"
                             },
@@ -152315,6 +152285,46 @@
                     "type": {
                       "enum": [
                         "urn:inside:problem:access_denied"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "material_not_found"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        404
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "urn:inside:problem:material_not_found"
                       ],
                       "type": "string"
                     }

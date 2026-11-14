@@ -6,6 +6,14 @@ export function readingProgressChanges(accountId: string) {
   return factAnnouncement(`inside.reading-progress.${accountId}.changed`);
 }
 
+/**
+ * Opened parts of a step-by-step lesson travel with its reading state, but have their own channel:
+ * a part opens often, and the reading progress channel re-renders whole pages.
+ */
+export function lessonOpenedPartsChanges(accountId: string) {
+  return factAnnouncement(`inside.lesson-opened-parts.${accountId}.changed`);
+}
+
 const refreshes = new WeakMap<
   QueryClient,
   Map<string, { readonly id: string; readonly pending: Promise<void> }>

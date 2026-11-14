@@ -28,13 +28,13 @@ export type GlossaryTerms = ReadonlyMap<string, GlossaryTermReading>;
 
 export function glossaryTermsById(
   terms: readonly GlossaryTerm[],
-  moreHref?: (termId: string) => Route,
+  moreHref?: (termId: string) => Route | undefined,
 ): GlossaryTerms {
   return new Map(
-    terms.map((term) => [
-      term.id,
-      moreHref === undefined ? term : { ...term, moreHref: moreHref(term.id) },
-    ]),
+    terms.map((term) => {
+      const href = moreHref?.(term.id);
+      return [term.id, href === undefined ? term : { ...term, moreHref: href }];
+    }),
   );
 }
 

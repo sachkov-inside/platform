@@ -24,7 +24,11 @@ const meta = {
               respondents: 40,
               firstTryCorrectPercent: 55,
               firstTryDontKnow: 4,
-              mostFrequentWrong: { text: "Эмбеддинги", count: 11 },
+              mostFrequentWrong: {
+                label: "Частый неверный ответ",
+                text: "Эмбеддинги",
+                count: 11,
+              },
             },
             {
               fingerprint: "00000000000000aa",
@@ -33,7 +37,11 @@ const meta = {
               respondents: 18,
               firstTryCorrectPercent: 28,
               firstTryDontKnow: 0,
-              mostFrequentWrong: { text: "Промпт", count: 9 },
+              mostFrequentWrong: {
+                label: "Частый неверный ответ",
+                text: "Промпт",
+                count: 9,
+              },
             },
           ],
         },
