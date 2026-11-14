@@ -549,6 +549,10 @@ export const WideTableMobile: Story = {
     const scroller = table.querySelector<HTMLElement>("[data-table-scroll]");
     if (scroller === null) throw new Error("The table needs its scroller");
     await expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+    // Table text reads at the lesson's one size (owner, 14.11.2026, variant 2A).
+    await expect(
+      getComputedStyle(table.querySelector("table") ?? table).fontSize,
+    ).toBe("17px");
     await waitFor(() => expect(table).toHaveAttribute("data-overflow", "end"));
     const endFade = table.querySelector<HTMLElement>("[data-table-fade='end']");
     if (endFade === null) throw new Error("The table needs an end fade");
@@ -1031,6 +1035,9 @@ export const CalloutGallery: Story = {
         await expect(style.backgroundColor).toBe(sand);
       else await expect([tone, style.backgroundColor]).toEqual([tone, surface]);
     }
+    // Callout text reads at the lesson's one size (owner, 14.11.2026, variant 2A).
+    for (const callout of callouts)
+      await expect(getComputedStyle(callout).fontSize).toBe("17px");
     // The author's definition and the glossary card share one look.
     const definitions = callouts.filter(
       (callout) => callout.dataset["callout"] === "definition",

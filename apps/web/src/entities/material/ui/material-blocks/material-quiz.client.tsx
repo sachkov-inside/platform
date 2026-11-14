@@ -156,7 +156,7 @@ interface ChoiceProps extends MaterialQuizPresentation {
 }
 
 const optionClass =
-  "relative flex min-h-11 w-full gap-2.5 rounded-lg border border-lesson-line bg-card px-3 py-2.5 text-left text-sm leading-[1.5] sm:px-4 sm:text-base";
+  "relative flex min-h-11 w-full gap-2.5 rounded-lg border border-lesson-line bg-card px-3 py-2.5 text-left text-lesson leading-[1.5] sm:px-4";
 
 /** Content cell of an option: clicks pass to the option, links and «Почему» stay clickable. */
 const optionContentClass =

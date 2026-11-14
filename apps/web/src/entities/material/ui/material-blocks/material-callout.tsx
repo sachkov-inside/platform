@@ -37,7 +37,7 @@ export function MaterialCallout({
   if (collapse !== undefined) {
     return (
       <details
-        className="group mt-6 rounded-xl border text-[0.9375rem] leading-7"
+        className="group mt-6 rounded-xl border text-lesson"
         data-callout={tone}
         data-material-block="callout"
         open={collapse === "expanded"}
@@ -66,7 +66,7 @@ export function MaterialCallout({
   return (
     <aside
       aria-label={title === undefined ? label : `${label}: ${title}`}
-      className={`mt-8 rounded-xl border px-(--callout-pad-x) pt-4 pb-(--callout-pad-b) text-[0.9375rem] leading-7 [--callout-pad-b:--spacing(4)] [--callout-pad-x:--spacing(5)] sm:[--callout-pad-x:--spacing(6)] ${codeBlockFill}`}
+      className={`mt-8 rounded-xl border px-(--callout-pad-x) pt-4 pb-(--callout-pad-b) text-lesson [--callout-pad-b:--spacing(4)] [--callout-pad-x:--spacing(5)] sm:[--callout-pad-x:--spacing(6)] ${codeBlockFill}`}
       data-callout={tone}
       data-callout-term={term ? "" : undefined}
       data-material-block="callout"

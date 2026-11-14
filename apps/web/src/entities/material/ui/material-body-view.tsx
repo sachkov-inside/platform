@@ -430,7 +430,7 @@ function BodyTable({
   return (
     <MaterialTableScroll>
       <table
-        className="w-full table-fixed border-collapse [overflow-wrap:anywhere] text-left text-sm leading-6"
+        className="w-full table-fixed border-collapse [overflow-wrap:anywhere] text-left text-lesson"
         // Two columns fit a phone; each further column keeps a readable width and scrolls instead.
         style={
           columns > 2 ? { minWidth: `${String(columns * 9)}rem` } : undefined

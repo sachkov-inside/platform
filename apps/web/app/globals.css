@@ -245,6 +245,13 @@
 }
 
 @theme inline {
+  /*
+   * Шкала урока (решение владельца 14.11.2026, вариант 2A): один размер чтения 17 px для абзацев,
+   * врезок, упражнений и таблиц. Заголовки: h1 34 / 26, h2 26 / 22, h3 21 / 19, h4 18 / 17
+   * (широкий / узкий экран).
+   */
+  --text-lesson: 1.0625rem;
+  --text-lesson--line-height: 1.65;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
