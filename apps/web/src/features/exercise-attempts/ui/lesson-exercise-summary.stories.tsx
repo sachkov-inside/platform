@@ -19,7 +19,7 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="mx-auto max-w-[43rem] p-3">
+      <div className="mx-auto max-w-[43rem] bg-lesson-surface p-3">
         <Story />
       </div>
     ),
@@ -27,6 +27,50 @@ const meta = {
 } satisfies Meta<typeof LessonExerciseSummary>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+/** WCAG relative luminance of a computed `rgb(...)` colour. */
+function luminance(color: string): number {
+  const [r = 0, g = 0, b = 0] = (color.match(/[\d.]+/gu) ?? []).map(Number);
+  const channel = (value: number) => {
+    const c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+function contrast(first: string, second: string): number {
+  const [light, dark] = [luminance(first), luminance(second)].sort(
+    (a, b) => b - a,
+  );
+  return ((light ?? 0) + 0.05) / ((dark ?? 0) + 0.05);
+}
+
+/** Each dot stands out from the sand card: solved ones filled graphite, open ones outlined. */
+async function expectVisibleMarkers(canvasElement: HTMLElement) {
+  const surface = getComputedStyle(
+    canvasElement.querySelector(".bg-lesson-surface") ?? canvasElement,
+  ).backgroundColor;
+  for (const marker of canvasElement.querySelectorAll<HTMLElement>(
+    "[data-lesson-exercise-marker]",
+  )) {
+    const style = getComputedStyle(marker);
+    await expect(marker.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+      10,
+    );
+    if (marker.dataset["lessonExerciseMarker"] === "solved") {
+      await expect(
+        contrast(style.backgroundColor, surface),
+      ).toBeGreaterThanOrEqual(3);
+    } else {
+      await expect(
+        Number.parseFloat(style.borderTopWidth),
+      ).toBeGreaterThanOrEqual(1.5);
+      await expect(
+        contrast(style.borderTopColor, surface),
+      ).toBeGreaterThanOrEqual(3);
+    }
+  }
+}
 
 /** One quiet row: a dot per exercise, solved ones filled, and a link to the first unsolved one. */
 export const SomeUnsolved: Story = {
@@ -42,6 +86,7 @@ export const SomeUnsolved: Story = {
         (marker) => marker.getAttribute("data-lesson-exercise-marker"),
       ),
     ).toEqual(["solved", "open", "solved", "open"]);
+    await expectVisibleMarkers(canvasElement);
   },
 };
 

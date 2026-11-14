@@ -353,6 +353,8 @@ export const CourseStudyActions: Story = {
     await expect(
       within(header).getByRole("button", { name: "Изучено" }),
     ).toBeVisible();
+    // The mark keeps its word on a phone too: an empty circle alone says nothing.
+    await expectVisibleReadingLabel(header);
     await expect(
       canvas.queryByRole("button", { name: /Содержание:/u }),
     ).toBeNull();
@@ -365,6 +367,13 @@ export const CourseStudyActionsMobile: Story = {
   ...CourseStudyActions,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+
+async function expectVisibleReadingLabel(panel: HTMLElement) {
+  const label = within(
+    within(panel).getByRole("button", { name: "Изучено" }),
+  ).getByText("Изучено");
+  await expect(label.getBoundingClientRect().width).toBeGreaterThan(30);
+}
 
 async function expectSeparatedActions(panel: HTMLElement) {
   const actions = [
@@ -462,6 +471,9 @@ export const MobileActionPanels: Story = {
     for (const panel of panels) {
       panel.scrollIntoView({ block: "center", behavior: "instant" });
       await expectEdgeNavigation(panel);
+      // At 390 the arrow alone stands for «Назад», and «Изучено» keeps its word.
+      if (canvasElement.ownerDocument.documentElement.clientWidth >= 390)
+        await expectVisibleReadingLabel(panel);
       await expect(
         within(panel).getByRole("link", { name: "Назад" }),
       ).toHaveAttribute("href", programme);

@@ -412,8 +412,9 @@ export const CompactLongChoicesMobile: Story = {
     for (const option of quiz.querySelectorAll<HTMLElement>(
       "[data-quiz-option]",
     )) {
+      // Exercises read at the lesson's one text size (owner, 14.11.2026, variant 2A).
       await expect(Number.parseFloat(getComputedStyle(option).fontSize)).toBe(
-        14,
+        17,
       );
       await expect(option.scrollWidth).toBeLessThanOrEqual(option.clientWidth);
       await expect(

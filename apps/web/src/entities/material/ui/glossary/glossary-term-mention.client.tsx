@@ -13,6 +13,8 @@ import { createPortal } from "react-dom";
 
 import Link from "next/link";
 
+import { cn } from "@/shared/lib/utils";
+
 import {
   glossaryDefinitionParagraphs,
   type GlossaryTermReading,
@@ -20,7 +22,10 @@ import {
 
 /** Отступ подсказки от края окна: на телефоне 360 px она не выходит за экран. */
 const VIEWPORT_GUTTER = 16;
-const BUBBLE_GAP = 8;
+/** Зазор между словом и подсказкой: стрелка занимает его, строка текста остаётся видна. */
+const BUBBLE_GAP = 12;
+/** Стрелка не подходит к скруглённому углу подсказки ближе этого. */
+const ARROW_INSET = 16;
 const BUBBLE_MAX_WIDTH = 320;
 /** Курсор успевает перейти с термина на подсказку, и она не закрывается по дороге. */
 const HOVER_CLOSE_DELAY_MS = 150;
@@ -34,6 +39,10 @@ interface BubblePosition {
   readonly left: number;
   readonly top: number;
   readonly width: number;
+  /** Над словом или под ним. */
+  readonly side: "top" | "bottom";
+  /** Середина стрелки от левого края подсказки. */
+  readonly arrow: number;
 }
 
 /**
@@ -79,12 +88,23 @@ export function GlossaryTermMention({
       viewport - VIEWPORT_GUTTER - width,
     );
     const height = bubbleRef.current?.offsetHeight ?? 0;
-    const below = anchor.bottom + BUBBLE_GAP;
-    const fitsBelow = below + height <= window.innerHeight - VIEWPORT_GUTTER;
+    // Над словом подсказка закрывает уже прочитанные строки, а не ту, что читатель читает дальше.
     const above = anchor.top - BUBBLE_GAP - height;
+    const below = anchor.bottom + BUBBLE_GAP;
+    const fitsAbove = above >= VIEWPORT_GUTTER;
+    const fitsBelow = below + height <= window.innerHeight - VIEWPORT_GUTTER;
+    const side = fitsAbove || !fitsBelow ? "top" : "bottom";
+    // A term that wraps onto two lines points at its first line.
+    const firstLine = trigger.getClientRects()[0] ?? anchor;
+    const arrow = Math.min(
+      Math.max(firstLine.left + firstLine.width / 2 - left, ARROW_INSET),
+      width - ARROW_INSET,
+    );
     setPosition({
+      arrow,
       left,
-      top: fitsBelow || above < VIEWPORT_GUTTER ? below : above,
+      side,
+      top: side === "top" ? Math.max(above, VIEWPORT_GUTTER) : below,
       width,
     });
   }, []);
@@ -95,9 +115,13 @@ export function GlossaryTermMention({
     place();
     window.addEventListener("scroll", place, { passive: true });
     window.addEventListener("resize", place);
+    // The bubble's height changes once it takes its width: placing it above needs the final one.
+    const resize = new ResizeObserver(place);
+    if (bubbleRef.current !== null) resize.observe(bubbleRef.current);
     return () => {
       window.removeEventListener("scroll", place);
       window.removeEventListener("resize", place);
+      resize.disconnect();
     };
   }, [open, expanded, place]);
 
@@ -170,6 +194,7 @@ export function GlossaryTermMention({
               aria-label={term.title}
               className="fixed z-50 rounded-xl border border-border bg-popover p-4 text-left text-sm leading-6 text-popover-foreground shadow-lg"
               data-glossary-bubble={term.id}
+              data-side={position?.side}
               id={bubbleId}
               onPointerEnter={hoverOpen}
               onPointerLeave={hoverClose}
@@ -185,6 +210,19 @@ export function GlossaryTermMention({
                     }
               }
             >
+              {position === null ? null : (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute size-3 -translate-x-1/2 rotate-45 border-border bg-popover",
+                    position.side === "top"
+                      ? "-bottom-1.5 border-r border-b"
+                      : "-top-1.5 border-t border-l",
+                  )}
+                  data-glossary-arrow=""
+                  style={{ left: position.arrow }}
+                />
+              )}
               <p className="font-semibold text-foreground">
                 {term.title}
                 {term.englishTitle === null ? null : (

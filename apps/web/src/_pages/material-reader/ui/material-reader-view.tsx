@@ -18,6 +18,7 @@ import {
   glossaryTermsById,
   type GlossaryTerm,
   type GlossaryTerms,
+  type MaterialCodeHighlights,
 } from "@/entities/material.model";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -67,6 +68,8 @@ export interface MaterialReaderViewProps {
    * словарь показывает читателю. Остальные термины и все термины вне курса раскрываются на месте.
    */
   readonly courseGlossary?: ReaderCourseGlossary | undefined;
+  /** Подсветка блоков кода, посчитанная на сервере; без неё код одного цвета. */
+  readonly codeHighlights?: MaterialCodeHighlights | undefined;
   /**
    * Строка «Термины урока · N» карточки «Финиш урока» (#2127). Карточка ждёт, пока откроется
    * последняя часть урока.
@@ -108,6 +111,7 @@ export function MaterialReaderView({
   body,
   glossaryTerms = [],
   courseGlossary,
+  codeHighlights,
   termDeck,
   exerciseSummary,
   lessonRating,
@@ -241,7 +245,7 @@ export function MaterialReaderView({
             {exerciseScope(
               <>
                 <article
-                  className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
+                  className="mt-8 min-w-0 break-words text-pretty text-lesson text-foreground [&_h2:not([data-quiz-heading])]:text-[1.375rem] [&_h3:not([data-comparison-heading])]:text-[1.1875rem] [&_h4]:text-lesson md:[&_h2:not([data-quiz-heading])]:text-[1.625rem] md:[&_h3:not([data-comparison-heading])]:text-[1.3125rem] md:[&_h4]:text-lg"
                   data-reader-body
                 >
                   <ReaderBlocks
@@ -265,6 +269,7 @@ export function MaterialReaderView({
                       courseGlossaryMoreHref(courseGlossary),
                     )}
                     blocks={body}
+                    codeHighlights={codeHighlights}
                     contentVersion={material.contentVersion}
                     materialId={material.materialId}
                     materialSlug={material.slug}
@@ -449,7 +454,7 @@ export function MaterialReaderHeader({
           <MaterialShareButton slug={material.slug} title={material.title} />
         ) : null}
       </div>
-      <h1 className="mt-3 break-words text-balance text-[1.375rem] font-semibold leading-[1.2] tracking-[-0.025em] sm:mt-4 sm:text-2xl md:text-[1.75rem]">
+      <h1 className="mt-3 break-words text-balance text-[1.625rem] font-semibold leading-[1.2] tracking-[-0.025em] sm:mt-4 md:text-[2.125rem]">
         {material.title}
       </h1>
     </header>
@@ -514,6 +519,7 @@ function ReaderBlocks({
   renderVideo,
   renderLink,
   glossary,
+  codeHighlights,
   blocks,
   contentVersion,
   materialId,
@@ -523,6 +529,7 @@ function ReaderBlocks({
   readonly renderVideo: MaterialBodyRendering["video"];
   readonly renderLink?: MaterialBodyRendering["link"];
   readonly glossary: GlossaryTerms;
+  readonly codeHighlights: MaterialCodeHighlights | undefined;
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
   readonly materialId: string;
@@ -543,6 +550,7 @@ function ReaderBlocks({
       rendering={{
         ...(renderLink === undefined ? {} : { link: renderLink }),
         glossary,
+        codeHighlights,
         headingId,
         ...(renderVideo === undefined ? {} : { video: renderVideo }),
         image: (block) =>

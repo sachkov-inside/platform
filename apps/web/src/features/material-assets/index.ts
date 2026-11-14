@@ -1,6 +1,7 @@
 export {
   MaterialAssetFile,
   MaterialAssetImage,
+  MaterialFigureCaption,
 } from "./ui/material-asset-blocks";
 export { materialAssetFileHref } from "./api/material-asset-file-href";
 
