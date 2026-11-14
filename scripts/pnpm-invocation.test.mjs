@@ -14,7 +14,7 @@ test("runs a native pinned executable without interpreting its binary as JavaScr
       "console.log(process.argv[1])",
       "native argument",
     ]),
-    { encoding: "utf8" },
+    { encoding: "utf8", timeout: 10_000, killSignal: "SIGKILL" },
   );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, "native argument\n");
@@ -27,6 +27,8 @@ test("keeps JavaScript CLI entrypoints working through the selected Node runtime
     writeFileSync(cli, "console.log(process.argv[2]);\n");
     const result = spawnSync(...pnpmInvocation(cli, ["script argument"]), {
       encoding: "utf8",
+      timeout: 10_000,
+      killSignal: "SIGKILL",
     });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stdout, "script argument\n");

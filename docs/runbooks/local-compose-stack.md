@@ -139,6 +139,6 @@ docker compose --profile storybook up --build
 The profile uses the same frozen container dependencies as the default stack.
 
 The local RustFS service and its API, MCP and worker clients use `us-east-1`. Local client env
-files set `OBJECT_STORAGE_REGION` explicitly, so the production default `ru-central1` cannot
+files and the host fallback `.env.example` set `OBJECT_STORAGE_REGION` explicitly, so the production default `ru-central1` cannot
 change the location constraint of newly created local buckets. RustFS 1.0.5 validates that
 constraint against its configured region.

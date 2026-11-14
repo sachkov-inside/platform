@@ -432,5 +432,8 @@
         "cleanupPassed": true
       }
     }
-  ]
+  ],
+  "providerEvent": "pull_request",
+  "checkoutSha": "c31b1b7b324ce2639296af28f74ecd680a1d2deb",
+  "checkoutBinding": "GitHub pull_request synthetic merge of ba92f9e3a464775faa6ef83c166f715c9253ca5d into f07e731e3ead7df35ca1621597968299a4785c64; provider run head_sha identifies the PR head, receipt source identifies the actual checkout."
 }
