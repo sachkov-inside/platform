@@ -4,7 +4,8 @@ export const name = "0123_glossary_terms";
  * Glossary Terms (#2126). A term keeps its permanent identifier, the slug authors write in
  * `term:<id>`; Materials reference it by that identifier, so the table has no foreign key into
  * Materials. The introducing Material is recorded by its authoring source identifier, which stays
- * the same across environments and exists before the Material is imported.
+ * the same across environments and exists before the Material is imported. The index serves the
+ * course Glossary, which reads terms by their introducing Material.
  */
 export const statement = `
 create schema glossary;
@@ -44,4 +45,7 @@ create table glossary.terms (
     or char_length(introduced_in_source_id) between 1 and 200
   )
 );
+
+create index glossary_terms_introduced_in_idx
+  on glossary.terms (introduced_in_source_id);
 `;
