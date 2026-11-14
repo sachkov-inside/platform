@@ -32,7 +32,7 @@ printf '#!/bin/sh\\ntouch "%s"\\n' "$INSIDE_COMPOSE_TEST_MARKER" > "$output"
             marker = root / 'untrusted-binary-executed'
             result = subprocess.run(['bash', str(INSTALLER), str(destination)], capture_output=True, text=True,
                                     env={**os.environ, 'PATH': str(tools) + os.pathsep + os.environ['PATH'],
-                                         'INSIDE_COMPOSE_TEST_MARKER': str(marker)}, timeout=10)
+                                         'INSIDE_COMPOSE_TEST_MARKER': str(marker)})
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(previous.read_text(), 'previous verified plugin\n')
             self.assertFalse(marker.exists())

@@ -52,6 +52,8 @@ jobs:
             pnpm-lock.yaml package.json pnpm-workspace.yaml \
             infra/production/database scripts/foundation-recovery-proof.py \
             compose.production.yaml infra/production/host/inside-broker-preflight \
+            infra/production/host/install-docker-compose.sh \
+            .github/actions/setup-docker-compose/action.yml \
             scripts/broker-upgrade-proof.py scripts/test_broker_upgrade_proof.py \
             scripts/heavy-check/processes.py \
             scripts/test_foundation_recovery_proof.py scripts/test_foundation_recovery_lifecycle_docker.py \

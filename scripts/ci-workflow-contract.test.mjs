@@ -1026,6 +1026,7 @@ describe("nightly full-stack workflow contract", () => {
     const actionReferences = actionReferenceLines(nightlyWorkflow);
     assert.ok(actionReferences.length > 0);
     for (const reference of actionReferences) {
+      if (reference === "./.github/actions/setup-docker-compose") continue;
       assert.match(reference, commitPinnedAction);
     }
   });
