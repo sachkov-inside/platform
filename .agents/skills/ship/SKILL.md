@@ -1,28 +1,27 @@
 ---
 name: ship
-description: "Deliver reviewed, committed work: open or update the PR, get CI green, decide whether the owner must check the result, then merge or hand it over. Use after implement or implement-spec, or when the user asks to ship a branch."
+description: "Deliver assigned and reviewed work under the target project's rules. Use after implementation or when asked to deliver; the harness selects PR or main-checkout delivery, checks, acceptance and merge authority."
 ---
 
-Deliver the current branch. `code-review` is done and its confirmed findings are fixed and committed.
+Read target root `AGENTS.md`, its delivery/testing/tracker/human-participation
+pointers, and the assignment. Resolve the delivery mode and authority from them;
+do not invent a fixed CI name, mandatory PR, owner handoff or deployment permission.
 
-Read `docs/agents/ship.md` from the target branch, if it exists, not from this branch. It can list sensitive zones, merge permission, and extra required checks.
-
-## Steps
-
-1. Push the branch. Call the Skill tool with "pr" to write the body, then open the PR or update the existing one. Link the ticket with the tracker's closing keyword. Without PRs, the project's local checks replace CI; do steps 3–4 before pushing to `main`.
-
-2. Wait for required CI. Fix real failures and push again. If a failure is unrelated to the diff, re-run it once and name it in the PR.
-
-3. Decide whether the owner must check the result. Answer three questions:
-
-   - **Door:** can one revert undo the change, with nothing lost, and will no later work be built on it? Data migrations, sent messages, releases, public contracts, and new architecture are one-way doors.
-   - **Zone:** does the diff stay outside the sensitive zones? The zones are those in `docs/agents/ship.md`, plus always: money, auth and permissions, production data, personal data, secrets, legal text, CI and release workflows, and agent instructions (`AGENTS.md`, `WORKFLOW.md`, skills, `docs/agents/`).
-   - **Proof:** does the Evidence cover every acceptance criterion without human judgement? A "no" also covers an open review finding, a product choice you made outside the agreed result, and new visual design or UX.
-
-   Three "yes" answers: no owner check. Any "no": name what the owner must look at or decide. Put it in the PR body and in your reply. If the owner already accepted that exact thing, in the assignment or earlier in the conversation, the answer is "yes".
-
-   An owner check means looking at the result or making the decision. It is not a code review, unless `docs/agents/ship.md` asks for one.
-
-4. Merge only when step 3 needs no owner check and merge permission is written in the project's instructions or the owner's words. Otherwise mark the PR ready for review and stop. Without PRs, keep the commits unpushed and stop.
-
-5. Report the PR, the CI state, the three answers, and what the owner must do, if anything.
+1. Check that the work matches the assignment and has required checks and
+   independent review under the project's commit/review order. Record immutable
+   checked commits or snapshot trees, findings and evidence limits.
+2. Follow the selected mode. For a PR, push the owned branch, use `pr` for its body,
+   create/update it through the tracker and follow draft timing. For an authorized
+   main-checkout flow, run its checks/review and commit/push as that flow requires.
+3. Verify current CI when the project requires it. Earlier green, pending, missing
+   or cancelled checks do not establish success. Fix in-scope failures, rerun affected
+   checks and repeat required independent review under the project's commit/review
+   order. For pre-commit review, verify the delivered commit matches the reviewed tree.
+4. Resolve human decisions due at this stage. Present the result, full delivered SHA,
+   verification and its limits, and the owner's concrete next action when needed.
+   Keep reviewed, accepted, merged and deployed states distinct.
+5. Merge, deploy or publish only when the assignment and project gates authorize that
+   concrete step. Follow required head guards, acceptance and queues. Otherwise stop
+   at the project's defined handoff with the remaining gate explicit.
+6. Retain or clean only owned resources under project lifecycle rules. Preserve active
+   writers, unsaved work and unintegrated child results.

@@ -8,6 +8,25 @@ Merge permission follows `Owner gates` in [AGENTS.md](../../AGENTS.md#owner-gate
 [merge queue](../runbooks/continuous-integration.md#enqueue-a-checked-pull-request). `CI Gate` and
 merge-queue CI stay required.
 
+## Owner acceptance
+
+After independent review and required green CI, answer all three questions on the delivered head:
+
+- **Door:** can one revert undo the change with nothing lost, with no later work built on it?
+  Data migrations, sent messages, releases, public contracts and new architecture are one-way doors.
+- **Zone:** does the behaviour change stay outside the sensitive zones below?
+- **Proof:** does evidence cover every acceptance criterion without human judgement?
+  An open review finding, a product choice outside the agreed result, or new visual design/UX
+  means no.
+
+Three yes answers need no owner check. Otherwise name the concrete result or decision for the
+owner in the PR and handoff, with the full delivered SHA. Recorded acceptance of that exact thing
+in the assignment or earlier conversation satisfies its question; apply advance acceptance below
+only within its scope. Owner acceptance is inspection or a decision, not a code review.
+Merge only with recorded merge permission and all owner checks satisfied. Otherwise mark the
+reviewed, green PR ready for review and stop at that concrete remaining gate. Report CI state,
+the three answers and the owner's next action. Production permission remains separate.
+
 ## Advance acceptance
 
 Owner decision 1 (2026-10-22): an assignment to finish through merge, such as «сделай всё до конца»,
@@ -16,7 +35,9 @@ merge permission alone is not such an assignment.
 
 ## Sensitive zones
 
-The zones add to the ones `ship` always checks. Classify the actual behaviour change: a comment in a
+The baseline zones are money, auth and permissions, production data, personal data, secrets,
+legal text, CI and release workflows, and agent instructions (`AGENTS.md`, `WORKFLOW.md`, skills
+and `docs/agents/`). The table adds Platform paths and checks. Classify the actual behaviour change: a comment in a
 sensitive module stays outside the zone, and a small change elsewhere can enter it.
 
 | Zone | Paths | Checks when behaviour changes |

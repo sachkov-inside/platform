@@ -17,7 +17,7 @@ A wizard is ephemeral by default: built for one run, saved to a scratch or `scri
 
 Work out every manual step the human must take and every value that gets captured along the way. Read the repo first, don't ask cold:
 
-- For setup: `.env`, `.env.example`, `.env.*`, `README`, `docker-compose*`, framework config, and `.github/workflows/*` (every `secrets.*` / `vars.*` reference is a value the wizard must produce).
+- For setup: read authorized non-secret schemas/examples, `README`, `docker-compose*`, framework config and `.github/workflows/*` to discover required variable names. Existing credential values remain unread unless the assignment and project policy authorize access; otherwise the human supplies them through the generated wizard. A `secrets.*` / `vars.*` reference identifies a value the wizard may need to collect.
 - For a migration or transition: the current state, the target state, and the irreversible actions between them.
 
 Then show the user the ordered list of stages and the values each produces, and confirm: they may add, drop, or reorder.
@@ -32,7 +32,7 @@ For each stage, write the precise path a human follows: which URL to open, what 
 
 ### 3. Author the wizard
 
-Copy `template.sh` to the target path. Replace the example stage with one `stage` per step, in dependency order. Use the library helpers: `stage`, `say`/`step`, `open_url`, `ask`/`ask_secret`, `write_env`, `set_secret`/`set_var`, `pause`/`confirm`. Set `TOTAL_STAGES` to the number of stages you wrote.
+Copy `template.sh` to the target path. `write_env` stores single-line dotenv data, not shell code to source/eval. It chooses a whole-value single, backtick or double delimiter compatible with Node `util.parseEnv` and rejects unsupported combinations before writing. Verify that the actual target parser accepts the chosen representation; otherwise use that consumer's supported configuration path. Preserve this boundary rather than adding ad hoc shell escaping. Replace the example stage with one `stage` per step, in dependency order. Use the library helpers: `stage`, `say`/`step`, `open_url`, `ask`/`ask_secret`, `write_env`, `set_secret`/`set_var`, `pause`/`confirm`. Set `TOTAL_STAGES` to the number of stages you wrote.
 
 Hold the bar the template sets: open the URL before asking for its value, use `ask_secret` for anything secret, `write_env` every persisted value, `set_secret` only the values CI actually needs, and `confirm` before any irreversible action. Each `stage` clears the screen so only the current step is visible: keep a stage to one focused task so nothing the human needs scrolls away. Don't touch the library above the marker.
 

@@ -26,10 +26,10 @@ Closes #<issue>
 
 ## Sections
 
-- **Что сделано**: use the `pr` skill's guidance for the Summary view.
+- **Что сделано**: use the `pr` skill's `PRESENTATION.md` guidance for choosing a view.
 - **Проверка**: list actual checks with their scope and outcome. Name a check you did not run,
   a skipped criterion, or a re-run of an unrelated failure.
-- **Риск merge**: use the `pr` skill's guidance for Merge Danger.
+- **Риск merge**: use the reversibility and consequence criteria in [ship](ship.md#owner-acceptance).
 - **Нужно от владельца**: write what the owner check of `ship` asks the owner to look at or decide. Ask each
   decision as one yes/no question in plain Russian. Add one sentence on what «да» changes: what
   merges, ships or becomes allowed. Name the effect in everyday words.

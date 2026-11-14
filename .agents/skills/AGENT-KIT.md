@@ -1,12 +1,36 @@
 # Selected Agent Kit skills
 
-Shared source: [KirillSachkov/agent-kit](https://github.com/KirillSachkov/agent-kit/tree/b0570c6006289437cd587a362d26b4594c987e26), commit `b0570c6006289437cd587a362d26b4594c987e26`.
-The selected subset is recorded in [the manifest](../skills-manifest.json); [the lock](../skills-lock.json) records whole-folder content identity, including license notices.
+Shared source: [KirillSachkov/agent-kit](https://github.com/KirillSachkov/agent-kit/tree/b1608ac14d8f934a8686a0c583f1110466a18b18),
+commit `b1608ac14d8f934a8686a0c583f1110466a18b18`. The [manifest](../skills-manifest.json) selects the existing 25 engineering
+skills; the [lock](../skills-lock.json) records whole-folder identities, including notices.
 
-Selected skills: `grill-with-docs`, `grilling`, `handoff`, `prototype`, `research`, `retro`, `to-questionnaire`, `wayfinder`, `writing-for-agents`.
+Selected skills: `code-review`, `codebase-design`, `diagnosing-bugs`, `domain-modeling`, `grill-with-docs`, `grilling`, `handoff`, `implement`, `implement-spec`, `improve-codebase-architecture`, `pr`, `prototype`, `research`, `retro`, `setup-matt-pocock-skills`, `ship`, `tdd`, `to-questionnaire`, `to-spec`, `to-tickets`, `triage`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`.
 
-The remaining skill folders keep their project or package ownership and their existing provenance. A name match does not authorize replacing a local adaptation. Root `AGENTS.md` and project documents continue to own invocation, checks, review, merge and deployment policy. The installed files work without Home or a sibling checkout on another laptop.
+## Project ownership
 
-Use the public Agent Kit installer from an explicitly selected local clone: preview the manifest, install a selected update, then check the result. A full commit SHA is required. Installation refuses local edits; explicit adopt is only for verified exact copies. Keep the predecessor source and project adaptations when reconciling a variant. See [distribution instructions](https://github.com/KirillSachkov/agent-kit/blob/b0570c6006289437cd587a362d26b4594c987e26/docs/distribution.md).
+Portable procedures come from pinned Agent Kit copies. Root [AGENTS.md](../../AGENTS.md) and
+[project contracts](../../docs/agents/implementation.md) own starts, worktree mode, testing seams,
+commit-before-review order and delivery. [Ship](../../docs/agents/ship.md) owns baseline sensitive
+zones, Door/Zone/Proof acceptance, merge permission, CI Gate and merge queue policy. Tracker,
+frontend, domain and owner-correction contracts keep their existing owners.
 
-Before this migration the selected directories were verified exact copies of the preserved Agent Harness ancestor `5e051a49287724bff80a2568d73512d9b334d692`. They were explicitly adopted at that revision, then updated through the new manifest/lock to Agent Kit. No unselected skill body or project gate was replaced. Original upstream credits and notices remain with the distributions.
+Unselected folders retain project/package ownership: `ai-models-refresh`, `impeccable`,
+`local-stand`, `modern-web-guidance`, `playwright-cli`, `session-cleanup` and
+`vercel-react-best-practices`. Their complete folder identities are unchanged in this migration.
+Codex reads `.agents/skills`; Claude's relative `.claude/skills` alias reads the same local copies.
+Runtime discovery needs neither Home nor a sibling checkout.
+
+## Updating
+
+Use the canonical `tools/skills.py` from an explicitly selected Agent Kit clone with Python 3.11+.
+Select named skills at a full commit SHA, preview, install, then check. Follow
+[distribution instructions](https://github.com/KirillSachkov/agent-kit/blob/b1608ac14d8f934a8686a0c583f1110466a18b18/docs/distribution.md).
+Never edit locked copies or force replacement. Keep installer backups ignored and retain their
+matching locks; local changes require explicit reconciliation before adoption.
+
+Migration base: `492636dd8660b44a028f0358ad9d7b86302ab9b9`. Nine managed selections were updated normally. Sixteen tracked
+whole-folder variants were compared semantically, their project rules retained in owning contracts,
+and their exact tracked bytes/modes adopted with a private temporary catalog at that immutable
+base before selecting this public revision. Private receipts are not distribution metadata.
+Original raw backups and installer backups remain ignored. Installed metadata, credits and notices
+come from the source distribution.

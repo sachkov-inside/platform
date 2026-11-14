@@ -15,7 +15,8 @@ never a dependency.
 Questions and discussion get answers; files change only on an explicit request. Readiness labels,
 status requests and resumed chats are context, not an assignment.
 Implementation runs the skill chain `implement` → `tdd` → `code-review` → `ship`; a whole
-specification runs `implement-spec`. [PIPELINE.md](.agents/skills/PIPELINE.md) records the skills' source.
+specification runs `implement-spec`. [Implementation](docs/agents/implementation.md) owns
+testing seams, commit/review order and the no-ticket acceptance record. [PIPELINE.md](.agents/skills/PIPELINE.md) records the skills' source.
 
 - Branches, worktrees, pull requests, blockers and handoff: [delivery](docs/agents/delivery.md).
 - Merge permission, sensitive zones and owner acceptance: [ship](docs/agents/ship.md).

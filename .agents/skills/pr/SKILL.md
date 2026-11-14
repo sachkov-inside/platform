@@ -9,164 +9,65 @@ metadata:
     url: "https://github.com/humanlayer/skills/blob/main/plugins/show-me/skills/show-me/SKILL.md"
 ---
 
-Use this template for writing the PR body:
+Write a report the owner can understand without reading the conversation or every changed line. Root `AGENTS.md` owns audience language, including headings. Preserve technical syntax and the project's declared domain vocabulary. `ship` owns delivery; this skill owns the PR description and its project-specific contract. `recap` may supply readable narrative, but does not independently create or edit the PR.
 
-If `docs/agents/pr.md` exists, use its template and section notes instead of the ones below.
+## Build the explanation
 
-```markdown
-## Summary
+1. Read the issue/spec, actual diff, verification results, and independent findings. Read target `AGENTS.md` and its actual tracker/writing/human-participation pointers; apply inline or linked rules without requiring a particular filename.
+2. Lead with the problem and resulting behavior. Use a concrete before/after example where it helps. Show the affected scope.
+3. Choose the smallest useful structure. For diagrams, visual evidence, or formatting beyond the template, read the relevant [presentation](PRESENTATION.md) section. Use GitHub-supported Markdown to make the result clear and easy to scan.
+4. Show the evidence conclusion and material limits first. Put commands, logs, revision records, and the complete check table in a disclosure.
+5. State the owner's next action and additional human checks, or briefly explain why none are needed. Keep unresolved questions visible.
+6. Describe consequences, reversibility, and rollback. Include deviations only when they exist. Read the rendered result before handoff.
 
-<diagram, diff-sketch, or tree>
+## Suggested shape
 
-## Evidence
+Scale this shape to the change. Translate its headings into the team language. Omit empty sections and replace every placeholder.
 
-- **Before:** <screenshot/output/failing test run>
-  **After:** <screenshot/output/passing test run>
+````markdown
+<agent provenance under project rules>
 
-## Merge Danger
+## What changes
 
-**Door:** <one-way or two-way>
+<problem, resulting behavior, and a small visual when useful>
 
-<optional: description>
+## Verification
 
-**Blast Radius:** <one-word description>
+<short result, actual evidence, and the important limit>
 
-<optional: potential ramifications of merge>
-```
+<details>
+<summary>Verification details</summary>
 
-## Sections
+Checked head: <commit permalink>. Review base: <full SHA>.
 
-Skip all preambles and keep prose brief. Use the user's domain language from `GLOSSARY.md`.
+| Check | Result | What it confirms |
+| --- | --- | --- |
+| <command or observed step> | <actual result> | <scope and limit> |
 
-### Summary
+</details>
 
-Pick the smallest view that makes the key point clear.
+## What the owner needs to do
 
-- Show logic or an algorithm as pseudocode:
+<concrete question or action, expected result, reason, and evidence>
+<or a short reason why no additional manual check is needed>
 
-```text
-on(save)
-  if content is unchanged
-    return cached result
-  write new content
-  return fresh result
-```
+## Risk and rollback
 
-- Show runtime control flow as a call tree:
+<affected behavior, consequences, reversibility, rollback, and residual uncertainty>
+````
 
-```text
-submitForm
-  createSession
-    persistPrompt
-    launchAgent
-  navigateToSession
-```
+## Evidence and human actions
 
-- Show UI structure as a component tree, including state and module boundaries that matter:
+List every check actually run on the delivered result in the detailed table, including manual observations. Distinguish current evidence from earlier runs, planned work, skipped checks, and unavailable checks. Record exact revisions and requirement inputs. Keep the conclusion short; the journal must remain available without dominating it.
 
-```text
-<SessionPage> (apps/example/src/routes/session.tsx)
-  useSessionEvents()
-  <SessionToolbar>
-    <RunSkillButton> (packages/ui)
-```
+For a bug, show how the reproduction or regression test fails before the fix and passes after it, when observed. For changed assertions, explain old/new expectations and the requirement that changed them. For visual changes, provide real screenshots or recordings when they demonstrate the changed property. Label examples and proposed experiments as unexecuted.
 
-- Show file responsibility or a broad refactor as a shallow file tree:
+Link findings to their disposition. Explain a rejected finding or deferred item rather than hiding it in a green summary. A passing check confirms only what it exercised; a screenshot does not establish a backend permission rule.
 
-```text
-src/
-├── commands/       # parses user actions
-├── sessions/       # owns session state
-└── transport/      # sends API requests
-```
+Follow the project's human-check policy instead of generating a generic checklist. An owner's task list records their required actions; mark an action complete only from their recorded result. Keep readiness, acceptance, and merge authority distinct.
 
-- Show component interaction, control flow, or data flow with Mermaid:
+## Language and links
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant UI
-    participant Daemon
-    User->>UI: choose command
-    UI->>Daemon: send expanded prompt
-    Daemon-->>UI: stream result
-```
+Use plain, concrete sentences with one idea each. Introduce unfamiliar terms. Prefer behavior and consequences over an inventory of files. Add file links only where they help inspection.
 
-- Use `diff` when the point is what changes and the surrounding shape already exists. Match the diff shape to the topic.
-
-For a component change:
-
-```diff
- <SessionPage>
-   useSessionEvents()
-   <SessionToolbar>
-+    <RunSkillButton />
-   <SessionTimeline>
-+    <SkillResultCard />
-```
-
-For a file-layout change:
-
-```diff
- src/
- ├── commands/
-+│   └── show-me.ts       # expands the slash command
- ├── sessions/
--└── transport.ts
-+└── transport/
-+    ├── client.ts
-+    └── stream.ts
-```
-
-For a call-tree or call-stack change:
-
-```diff
- submitForm
-   createSession
-     persistPrompt
-+    expandSkillMention
-     launchAgent
--  navigateToSession
-+  navigateToSession
-+    subscribeToEvents
-```
-
-For a state or control-flow change:
-
-```diff
- on(save)
--  write content
-+  if content is unchanged
-+    return cached result
-+  write new content
-+  invalidate cache
-```
-
-- Show the whole block when most of it is new, when omitted context would hide ownership or order, or when the user needs a copyable target shape:
-
-```ts
-function expandSkill(command: string): string {
-  const skillName = command.slice(1);
-  return `use the ${skillName} skill`;
-}
-```
-
-#### Guidance
-
-Place each visual next to the short text it supports. Keep only the calls, files, props, states, and boundaries needed to answer the user's current question or the options to resolve the current discussion point.
-
-You may use one of these, you may use several, it is unlikely you will use all of them. Use your judgement and don't overwhelm the user.
-
-### Evidence
-
-Concrete evidence that the change works. Show a before and after.
-
-Screenshots are S-tier - when the environment is set up for it and the change is visual.
-
-Execution-based evidence is A-tier. Test results, console output. Show the exact test that now fails and passes, using pseudocode.
-
-### Merge Danger
-
-Describe whether it's a one-way or two-way door. You can walk back through two-way doors, but not one-way doors. A PR that is cheap to roll back is lower risk. Changes that involve destructive actions or hard-to-reverse decisions are one-way doors.
-
-The blast radius is the potential impact or scope of the changes introduced by this PR. Consider all possibilities. Examples are layout shift, breakages for consumers, mobile responsiveness, etc.
+Link to the issue, CI run, evidence, and relevant code at the checked revision. Published PRs use accessible GitHub links; local paths and private session artifacts are not shared evidence. Keep essential limitations, decisions, and required human actions outside collapsed sections.

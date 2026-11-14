@@ -16,6 +16,15 @@ observation and reports.
 
 ## Whole specification
 
+Platform uses one integration branch and one final PR for a whole assigned specification.
+Prepare its draft after the first integrated child commit. Treat tickets as a dependency graph;
+use fresh implementers at the ready frontier and fresh integration/review contexts. Workers return
+committed, checked results and integrate current integration-branch changes through permitted
+merges before reporting. Exploration notes follow the project location below. Final independent
+review covers the complete integration diff; confirmed corrections retain that original coverage.
+Resolve the specification and tickets through the linked final PR, then clean only owned,
+integrated worker resources under the cleanup rules.
+
 - Coordinate only the assigned specification or tickets and your own workers and resources.
 - Each implementer works in its own worktree based on the integration branch.
 - Serialize shared runtime and Compose operations under the

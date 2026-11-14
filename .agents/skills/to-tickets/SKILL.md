@@ -10,6 +10,8 @@ Break a plan, spec, or conversation into a set of **tickets**: tracer-bullet ver
 
 The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
+Before drafting, read the requirements and human-participation pointers in root `AGENTS.md`. Apply its language rule to published tickets.
+
 ## Process
 
 ### 1. Gather context
