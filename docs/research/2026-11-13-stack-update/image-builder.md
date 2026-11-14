@@ -43,11 +43,31 @@ BuildKit 0.35.0: 96 high, 79 medium, 9 low, 10 unknown, critical нет.
 Это полный результат по включённым бинарным файлам и modules; он не устанавливает цепочки вызовов.
 Строки не исключаются автоматически как false positive.
 
-Остатки поставляемого upstream образа требуют отдельной security-оценки. Этот daemon запускается
-в одноразовых CI runners, не развёртывается на production и не получает публичный API проекта.
-Публикация использует проверенный captured main; PR CI выполняет код проверяемой ветки в изоляции.
-Digest подтверждает идентичность образа, не его безопасность. Обоснования оставшихся находок и
-фактические результаты CI сохраняются в PR и [production lock #2144](https://github.com/sachkov-inside/platform/issues/2144).
+Отдельный security review не нашёл новой блокирующей проблемы в workflow. PR CI использует
+одноразовый GitHub-hosted runner, `contents: read`, без production secrets и checkout credentials.
+Публикация работает отдельно с captured main и временным GHCR token. Кэш сборочных слоёв между
+PR и публикацией не передаётся. Вложенный action сохраняет `cleanup=true`, `keep-state=false` и
+удаляет builder/context в post-handler. Компрометация release runner всё ещё могла бы затронуть
+образы и GHCR token; отсутствие critical не доказывает безопасность.
+
+Готовой официальной stable замены новее BuildKit 0.35.0 на дату проверки нет.
+Его [Dockerfile](https://github.com/moby/buildkit/blob/v0.35.0/Dockerfile) включает CNI 1.9.1 и runc 1.5.2.
+[CNI 1.10.0](https://github.com/containernetworking/plugins/releases/tag/v1.10.0) уже выпущен,
+но один bump не доказывает устранение всех находок встроенного Go.
+[runc 1.5.3](https://github.com/opencontainers/runc/releases/tag/v1.5.3) сохраняет просканированные
+версии `x/net` и `moby/sys/user`, поэтому десять прежних строк этим bump не устраняются. Он исправляет
+другую CVE-2026-119101 в checkpoint/restore, которые эти workflow не выполняют.
+Замена компонентов внутри официального bundle потребует собственного образа и новой проверки
+обеих архитектур. Это конкретное ограничение текущего upstream артефакта, строки не исключены.
+
+High [CVE-2026-17106](https://github.com/moby/go-archive/security/advisories/GHSA-hfg8-hc9c-6c3h)
+в `go-archive` исправлена в 0.3.0, официальный daemon включает 0.2.0.
+[BuildKit действительно вызывает](https://github.com/moby/buildkit/blob/v0.35.0/solver/llbsolver/file/unpack.go)
+`chrootarchive.Untar` при распаковке. Linux helper выполняет `archive.Unpack` внутри chroot с корнем
+назначения. Это дополнительная изоляция конкретного вызова, не доказательство полной недостижимости.
+Находка сохраняется вместе с zlib и OpenPGP. Trivy сообщил 53 уникальных идентификатора в 194 строках.
+При текущем разделении PR/публикации переход допустим как уменьшение риска с известными остатками.
+Новый исправленный официальный bundle требует повторной оценки и совместимости, без ложного zero claim.
 
 Platform v81 уже опубликован из frozen source `492636dd8660b44a028f0358ad9d7b86302ab9b9`,
 Telegram v55 из `07ed26b7b67693cc475b2202208ab1c6639ae8dc`. Обновление будущего CI builder

@@ -213,6 +213,8 @@ jobs:
         uses: ./.github/actions/setup-docker-compose
       - name: Check resource ownership and failure cases
         run: python3 -B scripts/test_broker_upgrade_proof.py
+      - name: Set up pinned image builder
+        uses: ./.github/actions/setup-image-builder
       - name: Build the real application AMQP client
         env:
           SOURCE_SHA: ${{ inputs.source_sha || github.sha }}

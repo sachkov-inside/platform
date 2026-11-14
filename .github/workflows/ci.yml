@@ -531,6 +531,8 @@ jobs:
         uses: ./.github/actions/setup-platform
       - name: Check Telegram with isolated data services
         run: pnpm --filter @inside/telegram check:full
+      - name: Set up pinned image builder
+        uses: ./.github/actions/setup-image-builder
       - name: Build and inspect Telegram production image
         run: |
           docker build --no-cache --file apps/telegram/infra/production/Dockerfile --tag inside-telegram-ci:check .

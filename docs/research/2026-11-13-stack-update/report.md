@@ -107,7 +107,9 @@ Docker runtime принадлежит пакетам Ubuntu, docker-ce не ус
 версии с сохранением hold записано в отчёте production rollout.
 `reboot-required` отсутствует. Память при baseline: 3910 MB всего, 1570 MB available, без swap.
 
-Эта сессия не выполняла записей на production, включая apt refresh, backup и restart.
+На момент исходного аудита 13.11.2026 эта проектная сессия ещё не выполняла записей
+на production, включая apt refresh, backup и restart. Применённые 14.11.2026 операции
+перечислены в [production rollout](production-rollout.md).
 Предыдущая сессия обновила 28 пакетов ОС и перезагрузила сервер без production lock.
 Это процессная ошибка, задним числом lock ей не приписывается. Перед каждой новой записью
 обязателен production lock и соответствующее разрешение владельца.

@@ -30,7 +30,9 @@ test("image builders use one stable pinned toolchain in publication and compatib
     ["telegram-release.yml", "image"],
     ["ci.yml", "compose-development"],
     ["ci.yml", "compose-production-checks"],
+    ["ci.yml", "telegram"],
     ["foundation-recovery.yml", "recover"],
+    ["foundation-recovery.yml", "broker-upgrade"],
     ["nightly-fullstack.yml", "full-stack"],
   ]) {
     const source = readFileSync(`.github/workflows/${file}`, "utf8");
