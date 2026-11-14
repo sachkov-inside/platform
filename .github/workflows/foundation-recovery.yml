@@ -121,6 +121,10 @@ jobs:
         run: |
           set -euo pipefail
           docker build --iidfile "$RUNNER_TEMP/previous-foundation-image.id" previous-foundation/infra/production/database
+      - name: Remove the owned builder before empty-runner recovery admission
+        run: |
+          set -euo pipefail
+          docker buildx rm "$BUILDX_BUILDER"
       - name: Prove ordinary encrypted recovery and negative cases
         run: |
           set -euo pipefail

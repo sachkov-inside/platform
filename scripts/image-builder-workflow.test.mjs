@@ -99,3 +99,22 @@ test("builder verification rejects an older active BuildKit (Bash/Docker boundar
 test("builder verification accepts the selected pair (Bash/Docker boundary)", async (t) => {
   assert.equal(await verifyBuilder(t, "v0.39.0", "v0.35.0"), 0);
 });
+
+test("encrypted recovery removes its own builder after builds and preserves empty-runner admission", () => {
+  const source = readFileSync(
+    ".github/workflows/foundation-recovery.yml",
+    "utf8",
+  );
+  const section = source.slice(
+    source.indexOf("\n  recover:"),
+    source.indexOf("\n  broker-upgrade:"),
+  );
+  const finalBuild = section.indexOf(
+    "previous-foundation/infra/production/database",
+  );
+  const removal = section.indexOf('docker buildx rm "$BUILDX_BUILDER"');
+  const proof = section.indexOf(
+    "      - name: Prove ordinary encrypted recovery",
+  );
+  assert.ok(finalBuild >= 0 && removal > finalBuild && proof > removal);
+});
