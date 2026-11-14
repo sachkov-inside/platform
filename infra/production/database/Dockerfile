@@ -17,6 +17,13 @@ RUN gosu --version > /tmp/gosu-version \
     && test "$(gosu postgres id -u)" = "$(id -u postgres)" \
     && test "$(gosu postgres id -g)" = "$(id -g postgres)" \
     && test "$(gosu postgres id -G)" = "$(id -G postgres)" \
+    && addgroup -g 54321 inside-gosu-check \
+    && addgroup postgres inside-gosu-check \
+    && addgroup -g 54322 inside-gosu-inherited \
+    && addgroup root inside-gosu-inherited \
+    && gosu root sh -ec 'case " $(id -G) " in *" 54322 "*) ;; *) exit 1 ;; esac; test "$(gosu postgres id -G)" = "$(id -g postgres) 54321"' \
+    && delgroup inside-gosu-check \
+    && delgroup inside-gosu-inherited \
     && ! gosu inside-invalid-user true \
     && ! gosu postgres:inside-invalid-group true
 

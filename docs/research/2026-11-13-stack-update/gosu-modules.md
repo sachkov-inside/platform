@@ -23,7 +23,10 @@
 проверяет весь разрешённый граф, а не npm workspace.
 
 Полные PostgreSQL images с новыми модулями собраны на Linux amd64 и arm64 без изменения исходников Gosu.
-Во время сборки прошли UID, primary/supplementary groups и оба отрицательных отказа.
+Во время сборки проверяются UID, primary/supplementary groups и оба отрицательных отказа.
+Для дополнительных групп в стадии gosu-update создаются два отдельных membership: postgres/54321
+и root/54322. Вложенный запуск должен сохранить 54321 у postgres и удалить унаследованную 54322.
+Проверочные группы удаляются; итоговая стадия наследует чистый postgres-base и копирует только binary.
 ELF metadata обеих архитектур подтвердили user 0.5.0, x/sys 0.50.0 и compiler Go 1.27.4.
 `go mod tidy` выполнен на исходниках с проверенным archive hash, не на пустом каталоге manifest.
 Старые неиспользуемые sums удалены. Docker продолжает использовать `-mod=readonly` и `GOTOOLCHAIN=local`.
