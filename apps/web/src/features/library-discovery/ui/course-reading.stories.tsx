@@ -842,13 +842,15 @@ const briefFromLesson = {
 
 function BriefFromLesson({
   lessonRead = true,
+  guest = false,
 }: {
   readonly lessonRead?: boolean;
+  readonly guest?: boolean;
 }) {
   return (
     <MaterialReadingScope
       value={{
-        accountId: "story-account",
+        accountId: guest ? null : "story-account",
         resolved: true,
         failed: false,
         states: new Map([
@@ -963,8 +965,51 @@ export const SupplementaryFromUnreadLesson: Story = {
     await expect(origin).toHaveAttribute("data-progress", "todo");
     await expect(origin).not.toHaveAttribute("aria-current");
     await expect(origin.querySelector("svg")).toBeNull();
+    await expectSameMarkAsPeer(origin, "todo");
   },
 };
+
+export const SupplementaryFromLessonGuest: Story = {
+  render: () => <BriefFromLesson guest />,
+  play: async ({ canvasElement }) => {
+    const origin = within(
+      within(canvasElement).getByRole("complementary", {
+        name: "Текущая глава",
+      }),
+    ).getByRole("link", { name: /^Как устроен курс/ });
+    // A guest sees the same neutral dot on every step, the way back included.
+    await expect(origin).toHaveAccessibleName(
+      /^Как устроен курс ?, вы пришли отсюда$/u,
+    );
+    await expect(origin).toHaveAttribute("data-progress", "unknown");
+    await expect(origin).not.toHaveAttribute("aria-current");
+    await expectSameMarkAsPeer(origin, "unknown");
+  },
+};
+
+/** The originating step's marker matches «Первый урок» in the same progress state. */
+async function expectSameMarkAsPeer(
+  origin: HTMLElement,
+  progress: "todo" | "unknown",
+) {
+  const rail = origin.closest("aside");
+  if (rail === null) throw new Error("Course rail missing");
+  const peer = within(rail).getByRole("link", { name: /^Первый урок/ });
+  await expect(peer).toHaveAttribute("data-progress", progress);
+  const markStyle = (link: HTMLElement) => {
+    const mark = link.querySelector<HTMLElement>("[data-course-step-mark]");
+    if (mark === null) throw new Error("Step mark missing");
+    const style = getComputedStyle(mark);
+    return {
+      width: style.width,
+      height: style.height,
+      background: style.backgroundColor,
+      border: `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`,
+      shadow: style.boxShadow,
+    };
+  };
+  await expect(markStyle(origin)).toEqual(markStyle(peer));
+}
 
 function ProgressCourse({
   marks = progressCourseMarks,

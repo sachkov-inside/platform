@@ -89,9 +89,8 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   foreground text. Only the current step uses the action colour: an action dot with a soft halo
   and a muted row fill. A neutral line joins the markers. While a supplementary document opened
   from a step is shown, only its «Дополнительные материалы» row is current (owner 2026-11-14); the
-  originating step keeps its progress marker, without action colour or row fill, a neutral centre
-  fills its unpassed ring or its unknown dot, and a 12 px muted caption «вы пришли отсюда» follows
-  its title.
+  originating step keeps the same progress marker as any other step, without action colour, row
+  fill or an extra centre dot, and a 12 px muted caption «вы пришли отсюда» follows its title.
   The rail heading names the shown chapter, wrapping up to three lines at 1.4 line height, with
   its ordinal out of the chapter count. Below it, a signed-in reader sees a thin progress bar and
   «N из M» over the chapter's rows (announced as «Пройдено N из M»); otherwise a plain divider.
