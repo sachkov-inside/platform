@@ -1,0 +1,235 @@
+/*
+ * Prototype for #2118: three colour schemes of the interactive lesson. Storybook only; nothing in
+ * production imports this file. Every surface is an opaque colour, never a mix with transparency.
+ *
+ * --lv-page        page canvas
+ * --lv-surface     exercises and end-of-lesson blocks
+ * --lv-line        their border
+ * --lv-def-*       the «Определение» card
+ * --lv-ask-*       the step-break question button
+ * --lv-reply-*     the student's reply bubble
+ * --lv-badge-*     exercise icon tile
+ * --lv-link        term underline and inline links
+ * --lv-front-*     deck card, face side
+ * --lv-back-*      deck card, definition side
+ * --lv-known-*     «Знаю» button
+ */
+
+/* A · Тёплая бумага: one warm family, charcoal for the action. */
+[data-lv="a"] {
+  --lv-page: #ffffff;
+  --lv-surface: #f6f4ef;
+  --lv-line: #e7e2d8;
+  --lv-def-bg: #f7eedf;
+  --lv-def-line: #e9d7b9;
+  --lv-def-ink: #85561a;
+  --lv-def-fg: #202124;
+  --lv-ask-bg: #202124;
+  --lv-ask-fg: #ffffff;
+  --lv-ask-hover: #3b3c3f;
+  --lv-reply-bg: #efebe3;
+  --lv-reply-fg: #202124;
+  --lv-badge-bg: #202124;
+  --lv-badge-fg: #ffffff;
+  --lv-link: #85561a;
+  --lv-front-bg: #ffffff;
+  --lv-front-fg: #202124;
+  --lv-front-sub: #6b6a64;
+  --lv-back-bg: #f7eedf;
+  --lv-back-fg: #202124;
+  --lv-back-sub: #85561a;
+  --lv-stack: #ebe6dc;
+  --lv-known-bg: #202124;
+  --lv-known-fg: #ffffff;
+  --lv-chip-bg: #ffffff;
+}
+[data-lv="a"].dark {
+  --lv-page: #1b1c1a;
+  --lv-surface: #252623;
+  --lv-line: #36372f;
+  --lv-def-bg: #3a2f20;
+  --lv-def-line: #54442c;
+  --lv-def-ink: #e8bb7a;
+  --lv-def-fg: #efece6;
+  --lv-ask-bg: #ede9e0;
+  --lv-ask-fg: #1b1c1a;
+  --lv-ask-hover: #d9d4c8;
+  --lv-reply-bg: #302f2a;
+  --lv-reply-fg: #efece6;
+  --lv-badge-bg: #ede9e0;
+  --lv-badge-fg: #1b1c1a;
+  --lv-link: #e8bb7a;
+  --lv-front-bg: #2e2f2b;
+  --lv-front-fg: #efece6;
+  --lv-front-sub: #a9a69c;
+  --lv-back-bg: #3a2f20;
+  --lv-back-fg: #efece6;
+  --lv-back-sub: #e8bb7a;
+  --lv-stack: #33342f;
+  --lv-known-bg: #ede9e0;
+  --lv-known-fg: #1b1c1a;
+  --lv-chip-bg: #2e2f2b;
+}
+
+/* B · Морская волна: one cool teal family for the lesson's own voice. */
+[data-lv="b"] {
+  --lv-page: #ffffff;
+  --lv-surface: #f0f5f4;
+  --lv-line: #d8e4e2;
+  --lv-def-bg: #e1f0ec;
+  --lv-def-line: #b8d9d1;
+  --lv-def-ink: #1b5f55;
+  --lv-def-fg: #1c2624;
+  --lv-ask-bg: #1b5f55;
+  --lv-ask-fg: #ffffff;
+  --lv-ask-hover: #154c44;
+  --lv-reply-bg: #e5eeec;
+  --lv-reply-fg: #1c2624;
+  --lv-badge-bg: #1b5f55;
+  --lv-badge-fg: #ffffff;
+  --lv-link: #1b5f55;
+  --lv-front-bg: #ffffff;
+  --lv-front-fg: #1c2624;
+  --lv-front-sub: #5b6b68;
+  --lv-back-bg: #1b5f55;
+  --lv-back-fg: #ffffff;
+  --lv-back-sub: #bfe3db;
+  --lv-stack: #dde8e6;
+  --lv-known-bg: #1b5f55;
+  --lv-known-fg: #ffffff;
+  --lv-chip-bg: #ffffff;
+}
+[data-lv="b"].dark {
+  --lv-page: #141a19;
+  --lv-surface: #1d2524;
+  --lv-line: #2c3836;
+  --lv-def-bg: #163a34;
+  --lv-def-line: #22524a;
+  --lv-def-ink: #83d3c4;
+  --lv-def-fg: #e7f0ee;
+  --lv-ask-bg: #83d3c4;
+  --lv-ask-fg: #0e2420;
+  --lv-ask-hover: #9fdfd2;
+  --lv-reply-bg: #24302e;
+  --lv-reply-fg: #e7f0ee;
+  --lv-badge-bg: #83d3c4;
+  --lv-badge-fg: #0e2420;
+  --lv-link: #83d3c4;
+  --lv-front-bg: #222c2b;
+  --lv-front-fg: #e7f0ee;
+  --lv-front-sub: #9fb1ad;
+  --lv-back-bg: #163a34;
+  --lv-back-fg: #e7f0ee;
+  --lv-back-sub: #83d3c4;
+  --lv-stack: #273230;
+  --lv-known-bg: #83d3c4;
+  --lv-known-fg: #0e2420;
+  --lv-chip-bg: #222c2b;
+}
+
+/* C · Графит и оранжевый: the site's own workbench pairing, charcoal card and orange action. */
+[data-lv="c"] {
+  --lv-page: #ffffff;
+  --lv-surface: #f3f1ed;
+  --lv-line: #e4e0d8;
+  --lv-def-bg: #26282a;
+  --lv-def-line: #26282a;
+  --lv-def-ink: #f2915f;
+  --lv-def-fg: #eeece7;
+  --lv-ask-bg: #c7461e;
+  --lv-ask-fg: #ffffff;
+  --lv-ask-hover: #a5381b;
+  --lv-reply-bg: #f3f1ed;
+  --lv-reply-fg: #202124;
+  --lv-badge-bg: #c7461e;
+  --lv-badge-fg: #ffffff;
+  --lv-link: #b83a1d;
+  --lv-front-bg: #26282a;
+  --lv-front-fg: #f4f2ed;
+  --lv-front-sub: #b5b2aa;
+  --lv-back-bg: #ffffff;
+  --lv-back-fg: #202124;
+  --lv-back-sub: #b83a1d;
+  --lv-stack: #d9d5cc;
+  --lv-known-bg: #c7461e;
+  --lv-known-fg: #ffffff;
+  --lv-chip-bg: #ffffff;
+}
+[data-lv="c"].dark {
+  --lv-page: #161716;
+  --lv-surface: #212321;
+  --lv-line: #343633;
+  --lv-def-bg: #2e3134;
+  --lv-def-line: #3e4245;
+  --lv-def-ink: #f2915f;
+  --lv-def-fg: #eeece7;
+  --lv-ask-bg: #f07c4c;
+  --lv-ask-fg: #1a1410;
+  --lv-ask-hover: #f4956d;
+  --lv-reply-bg: #2a2c2a;
+  --lv-reply-fg: #eeece7;
+  --lv-badge-bg: #f07c4c;
+  --lv-badge-fg: #1a1410;
+  --lv-link: #f2915f;
+  --lv-front-bg: #2e3134;
+  --lv-front-fg: #f4f2ed;
+  --lv-front-sub: #b5b2aa;
+  --lv-back-bg: #ece8df;
+  --lv-back-fg: #1e1f1d;
+  --lv-back-sub: #a5381b;
+  --lv-stack: #2a2c2a;
+  --lv-known-bg: #f07c4c;
+  --lv-known-fg: #1a1410;
+  --lv-chip-bg: #2a2c2a;
+}
+
+[data-lv] {
+  background: var(--lv-page);
+  color: var(--foreground);
+}
+[data-lv] ::selection {
+  color: var(--lv-ask-fg);
+  background: var(--lv-ask-bg);
+}
+
+.lv-surface {
+  background: var(--lv-surface);
+  border: 1px solid var(--lv-line);
+}
+
+/* Deck: a physical card that turns over. */
+.lv-flip {
+  perspective: 1400px;
+}
+.lv-flip-inner {
+  position: relative;
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.lv-flip-inner[data-turned] {
+  transform: rotateY(180deg);
+}
+.lv-face {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.lv-face-back {
+  transform: rotateY(180deg);
+}
+.lv-card-shadow {
+  box-shadow:
+    0 1px 2px rgb(20 21 24 / 8%),
+    0 14px 28px -14px rgb(20 21 24 / 32%);
+}
+.dark .lv-card-shadow {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 40%),
+    0 16px 32px -16px rgb(0 0 0 / 70%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-flip-inner {
+    transition: none;
+  }
+}
