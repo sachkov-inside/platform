@@ -143,11 +143,16 @@ export async function expectSvgFigure(
       figure.style.width = originalWidth;
       await layout("wide");
     }
-    await userEvent.click(
-      canvas.getByRole("button", {
-        name: `Открыть изображение крупно: ${svgFigurePair.alt}`,
-      }),
+    const zoom = canvas.getByRole("button", {
+      name: `Открыть изображение крупно: ${svgFigurePair.alt}`,
+    });
+    // The zoom control sits below the figure and never covers a corner of it.
+    await expect(zoom).toBeVisible();
+    await expect(zoom.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      host.getBoundingClientRect().bottom - 0.5,
     );
+    // On a phone a tap on the figure itself opens it large instead of shrinking its text.
+    await userEvent.click(mobile ? host : zoom);
     const dialog = await canvas.findByRole("dialog", {
       name: `${svgFigurePair.alt}, просмотр крупно`,
     });

@@ -723,6 +723,12 @@ export const ImageViewer: Story = {
     const trigger = canvas.getByRole("button", {
       name: `Открыть изображение крупно: ${readerImageAlt}`,
     });
+    const picture = canvas.getByRole("img", { name: readerImageAlt });
+    // The zoom control sits below the picture and never covers a corner of it.
+    await expect(trigger).toBeVisible();
+    await expect(trigger.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      picture.getBoundingClientRect().bottom - 0.5,
+    );
     await userEvent.click(trigger);
     const viewer = within(
       await canvas.findByRole("dialog", {
