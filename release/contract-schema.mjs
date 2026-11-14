@@ -106,6 +106,10 @@ export const releasePlanInputSchema = z.strictObject({
   existingReleases: z.array(releasedOrdinalSchema),
 });
 
+const brokerImageSchema = z
+  .string()
+  .regex(/^[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}$/u)
+  .nullable();
 const filePathSchema = z.string().min(1);
 export const releaseManifestInputSchema = z.strictObject({
   version: ordinalVersionSchema,
@@ -117,12 +121,14 @@ export const releaseManifestInputSchema = z.strictObject({
   }),
   schemaIdentity: sha256IdentitySchema,
   runtimeBundle: filePathSchema,
+  brokerImage: brokerImageSchema,
   publicationWorkflowRunId: z.number().int().positive(),
   rollback: z.strictObject({
     previous: z.union([
       z.null(),
       z.strictObject({
         manifest: filePathSchema,
+        brokerImage: brokerImageSchema,
         schemaIdentity: sha256IdentitySchema,
       }),
     ]),

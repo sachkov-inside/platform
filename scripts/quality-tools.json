@@ -1,24 +1,24 @@
 {
   "jactionlint": {
     "repository": "jdx/jactionlint",
-    "version": "v2.3.0",
+    "version": "v2.6.0",
     "member": "jactionlint",
     "assets": {
       "darwin-arm64": {
-        "file": "jactionlint_2.3.0_darwin_arm64.tar.gz",
-        "sha256": "f96afa36578b21290203ae8df4fa7ac3bf5aba08ed288df28cb0530af7ca6e55"
+        "file": "jactionlint_2.6.0_darwin_arm64.tar.gz",
+        "sha256": "c3f373c7eac668aacb390b9c802cf4b5e2ad1a11b0b0c0aea6b04ca0cfa0c018"
       },
       "darwin-x64": {
-        "file": "jactionlint_2.3.0_darwin_amd64.tar.gz",
-        "sha256": "a61006b669ec0ab1266c73e3561eecf839537eb6e8b3b6be766a55ba17fcbe42"
+        "file": "jactionlint_2.6.0_darwin_amd64.tar.gz",
+        "sha256": "aa89c49ad5c9530f2308f18333166050f97f14d420f478a8225d043bef1e2cab"
       },
       "linux-arm64": {
-        "file": "jactionlint_2.3.0_linux_arm64.tar.gz",
-        "sha256": "deea7744e5769e1e5cc8c9898a838f80a941ec68476d9f2814a61474d5652dac"
+        "file": "jactionlint_2.6.0_linux_arm64.tar.gz",
+        "sha256": "c726185a85f26d09aa94ea556509a19827979074b35d65f357f3a4947573e934"
       },
       "linux-x64": {
-        "file": "jactionlint_2.3.0_linux_amd64.tar.gz",
-        "sha256": "907e6f6a59e181879f7e6936e19ee2eca1cbc51de134fb85460cfa8d65a71f28"
+        "file": "jactionlint_2.6.0_linux_amd64.tar.gz",
+        "sha256": "d5400967b8f0d3a5ae9a4cee21f56400a50eb3f05d0cbb4ef17184f17f0760c8"
       }
     }
   },
@@ -70,24 +70,24 @@
   },
   "betterleaks": {
     "repository": "betterleaks/betterleaks",
-    "version": "v1.9.0",
+    "version": "v1.10.1",
     "member": "betterleaks",
     "assets": {
       "darwin-arm64": {
-        "file": "betterleaks_1.9.0_darwin_arm64.tar.gz",
-        "sha256": "83dd7eaab13d44a1e8e347a17064cdef153a1478db473276d41b38d55613d3f2"
+        "file": "betterleaks_1.10.1_darwin_arm64.tar.gz",
+        "sha256": "ca91eb3b006f15478411f235b5e2712fb15cea74f6701ebadc2364efe0af1403"
       },
       "darwin-x64": {
-        "file": "betterleaks_1.9.0_darwin_x64.tar.gz",
-        "sha256": "68dfd83458d9e7f90663daa7a81c7f944083b170dae82e4f5f8d0581ed519ef1"
+        "file": "betterleaks_1.10.1_darwin_x64.tar.gz",
+        "sha256": "1ae2e3885d161918d8ad2e911e205e73f0d9ffba52c85b38126586c52d355ef4"
       },
       "linux-arm64": {
-        "file": "betterleaks_1.9.0_linux_arm64.tar.gz",
-        "sha256": "1d39116e0a58dc94574715e2aa12a2dbd5062f193eee3fec011fef6ba06bd13b"
+        "file": "betterleaks_1.10.1_linux_arm64.tar.gz",
+        "sha256": "62a63199f9f61a6b5e5a6f58f048493db20fbc8c770014f4d903a4d97886e1bf"
       },
       "linux-x64": {
-        "file": "betterleaks_1.9.0_linux_x64.tar.gz",
-        "sha256": "f8b185a39ffcece2a1ca82bf3a4e7435cd81963ffd16b7a9128daf75f35f6de7"
+        "file": "betterleaks_1.10.1_linux_x64.tar.gz",
+        "sha256": "c174b42d7aa60caf58c0c3e555c0e4bed01fe6b0d99a412bce777b5af4ce913e"
       }
     }
   }

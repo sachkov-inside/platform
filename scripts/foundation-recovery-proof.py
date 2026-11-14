@@ -374,12 +374,16 @@ def restore_case(resources, image, repository, envfile, suffix, target, expected
     return container
 
 
-def proof(image, receipt, directory, legacy_source=None):
+def proof(image, receipt, directory, legacy_source=None, previous_source=None):
+    if legacy_source and previous_source:
+        raise ValueError("select only one backup source")
     if not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
         raise ValueError("proof image must be a local immutable image ID")
     if legacy_source is not None and not re.fullmatch(r"sha256:[a-f0-9]{64}", legacy_source):
         raise ValueError("legacy source must be a local immutable image ID")
-    writer = legacy_source or image
+    if previous_source is not None and not re.fullmatch(r"sha256:[a-f0-9]{64}", previous_source):
+        raise ValueError("previous source must be a local immutable image ID")
+    writer = legacy_source or previous_source or image
     resources = Resources(admit(), directory)
     verdict = {"passed": False, "source": os.environ.get("GITHUB_SHA"),
                "image": image, "backupWriterImage": writer, "network": "none", "publishedPorts": 0}
@@ -421,11 +425,12 @@ def proof(image, receipt, directory, legacy_source=None):
         if result.returncode:
             raise RuntimeError("synthetic source initialization failed")
         wait_sql(resources, container)
-        if sql(resources, container, "postgres", "SHOW server_version_num;") != "180004":
-            raise ValueError("proof requires PostgreSQL 18.4")
+        expected_postgres = "180004" if legacy_source or previous_source else "180007"
+        if sql(resources, container, "postgres", "SHOW server_version_num;") != expected_postgres:
+            raise ValueError("backup writer PostgreSQL version does not match the selected proof case")
         writer_version = resources.command("exec", container, "pgbackrest", "--version").stdout.strip()
         expected_version = json.loads((ROOT / "infra/production/database/versions.json").read_text())["pgBackRest"]
-        if writer_version != "pgBackRest " + ("2.57.0" if legacy_source else expected_version):
+        if writer_version != "pgBackRest " + ("2.57.0" if legacy_source else "2.59.3" if previous_source else expected_version):
             raise ValueError("backup writer version does not match the selected proof case")
         verdict["backupWriterVersion"] = writer_version
         identity_container, identity_started = resources.container(
@@ -439,12 +444,12 @@ def proof(image, receipt, directory, legacy_source=None):
         verdict["pgBackRestVersion"] = version
         libpq = resources.command("exec", identity_container,
                                  "/usr/libexec/inside/libpq-version").stdout.strip()
-        if libpq != "180004":
-            raise ValueError("runtime libpq must remain PostgreSQL 18.4")
+        if libpq != "180007":
+            raise ValueError("runtime libpq must remain PostgreSQL 18.7")
         verdict["libpqVersion"] = int(libpq)
         provenance = json.loads(resources.command(
             "exec", identity_container, "cat", "/usr/share/inside/pgbackrest-build.json").stdout)
-        if provenance.get("libpqVersion") != "18.4" or provenance.get("libpqPcDirectory") != "/usr/local/lib/pkgconfig":
+        if provenance.get("libpqVersion") != "18.7" or provenance.get("libpqPcDirectory") != "/usr/local/lib/pkgconfig":
             raise ValueError("unexpected selected build-time libpq metadata")
         versions = json.loads((ROOT / "infra/production/database/versions.json").read_text())
         if (provenance.get("pgBackRestSource") != versions["sourceSha"]
@@ -538,7 +543,8 @@ def proof(image, receipt, directory, legacy_source=None):
         verdict.update(passed=True, databases=list(DATABASES), encryptedFullRestore=True,
                        namedTargetPitr=True, wrongCipherRefused=True, missingWalRefused=True,
                        sourcePreserved=True, repositoryPreserved=True,
-                       legacyBackupRead=bool(legacy_source), rngFailureVerified=False,
+                       legacyBackupRead=bool(legacy_source), previousBackupRead=bool(previous_source),
+                       rngFailureVerified=False,
                        wrongKeyControlledComparison=True, wrongKeyTargetAbsent=True,
                        sourceAndRepositoryManifestSha256=before)
     finally:
@@ -552,6 +558,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image")
     parser.add_argument("--legacy-source-image")
+    parser.add_argument("--previous-source-image")
     parser.add_argument("--receipt", type=pathlib.Path)
     parser.add_argument("--state-directory", required=True, type=pathlib.Path)
     parser.add_argument("--cleanup-only", action="store_true")
@@ -573,7 +580,7 @@ def main():
         parser.error("--image and --receipt are required for the proof")
     directory.mkdir(mode=0o700)
     try:
-        proof(args.image, args.receipt, directory, args.legacy_source_image)
+        proof(args.image, args.receipt, directory, args.legacy_source_image, args.previous_source_image)
     finally:
         for name in ("proof.env", "wrong.env"):
             (directory / name).unlink(missing_ok=True)

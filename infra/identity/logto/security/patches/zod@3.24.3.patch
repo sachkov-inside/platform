@@ -1,0 +1,84 @@
+--- a/lib/types.js
++++ b/lib/types.js
+@@ -1817,6 +1817,7 @@
+                     exact: true,
+                     message: def.exactLength.message,
+                 });
++                if (tooBig) return parseUtil_1.INVALID;
+                 status.dirty();
+             }
+         }
+@@ -1843,7 +1844,7 @@
+                     exact: false,
+                     message: def.maxLength.message,
+                 });
+-                status.dirty();
++                return parseUtil_1.INVALID;
+             }
+         }
+         if (ctx.common.async) {
+@@ -2874,7 +2875,7 @@
+                     exact: false,
+                     message: def.maxSize.message,
+                 });
+-                status.dirty();
++                return parseUtil_1.INVALID;
+             }
+         }
+         const valueType = this._def.valueType;
+--- a/lib/index.mjs
++++ b/lib/index.mjs
+@@ -2333,6 +2333,7 @@
+                     exact: true,
+                     message: def.exactLength.message,
+                 });
++                if (tooBig) return INVALID;
+                 status.dirty();
+             }
+         }
+@@ -2359,7 +2360,7 @@
+                     exact: false,
+                     message: def.maxLength.message,
+                 });
+-                status.dirty();
++                return INVALID;
+             }
+         }
+         if (ctx.common.async) {
+@@ -3381,7 +3382,7 @@
+                     exact: false,
+                     message: def.maxSize.message,
+                 });
+-                status.dirty();
++                return INVALID;
+             }
+         }
+         const valueType = this._def.valueType;
+--- a/lib/index.umd.js
++++ b/lib/index.umd.js
+@@ -2339,6 +2339,7 @@
+                         exact: true,
+                         message: def.exactLength.message,
+                     });
++                    if (tooBig) return INVALID;
+                     status.dirty();
+                 }
+             }
+@@ -2365,7 +2366,7 @@
+                         exact: false,
+                         message: def.maxLength.message,
+                     });
+-                    status.dirty();
++                    return INVALID;
+                 }
+             }
+             if (ctx.common.async) {
+@@ -3387,7 +3388,7 @@
+                         exact: false,
+                         message: def.maxSize.message,
+                     });
+-                    status.dirty();
++                    return INVALID;
+                 }
+             }
+             const valueType = this._def.valueType;

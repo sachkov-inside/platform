@@ -328,7 +328,7 @@ export const TabletProgramme: Story = {
     const dock = within(
       canvas.getByRole("navigation", { name: "Навигация по урокам" }),
     );
-    const trigger = dock.getByRole("button", { name: "Вся программа" });
+    const trigger = dock.getByRole("button", { name: /^Вся программа:/ });
     await expect(trigger).toBeVisible();
     await expect(trigger).toHaveTextContent("Глава 1 · Шаг 2 из 3");
     await userEvent.click(trigger);
@@ -384,7 +384,7 @@ export const PhoneProgramme: Story = {
     await expect(labelRange.getClientRects()).toHaveLength(1);
     const textBounds = labelRange.getBoundingClientRect();
     const buttonBounds = dock
-      .getByRole("button", { name: "Вся программа" })
+      .getByRole("button", { name: /^Вся программа:/ })
       .getBoundingClientRect();
     await expect(textBounds.left - buttonBounds.left).toBeGreaterThanOrEqual(
       12,
@@ -393,7 +393,7 @@ export const PhoneProgramme: Story = {
       12,
     );
     await userEvent.click(
-      canvas.getByRole("button", { name: "Вся программа" }),
+      canvas.getByRole("button", { name: /^Вся программа:/ }),
     );
     const dialog = canvas.getByRole("dialog", {
       name: "Программа: AI Engineering",
@@ -438,7 +438,7 @@ export const NarrowSupplementaryProgramme: Story = {
     await document.fonts.ready;
     // The narrowest phones keep the words and drop the list icon.
     const opener = within(navigation).getByRole("button", {
-      name: "Вся программа",
+      name: /^Вся программа:/,
     });
     const icon = opener.querySelector("svg");
     if (icon === null) throw new Error("Programme icon missing");
@@ -454,7 +454,7 @@ export const NarrowSupplementaryProgramme: Story = {
       ).toBeGreaterThanOrEqual(44);
     }
     await userEvent.click(
-      within(navigation).getByRole("button", { name: "Вся программа" }),
+      within(navigation).getByRole("button", { name: /^Вся программа:/ }),
     );
     const dialog = canvas.getByRole("dialog", {
       name: "Программа: AI Engineering",
@@ -470,7 +470,7 @@ export const NarrowSupplementaryProgramme: Story = {
     );
     await expect(dialog).not.toBeVisible();
     await expect(
-      within(navigation).getByRole("button", { name: "Вся программа" }),
+      within(navigation).getByRole("button", { name: /^Вся программа:/ }),
     ).toHaveFocus();
   },
 };
@@ -625,7 +625,7 @@ export const SubmittedCurrentAssignment: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const opener = canvas.queryByRole("button", {
-      name: "Вся программа",
+      name: /^Вся программа:/,
     });
     if (opener !== null && opener.getClientRects().length > 0)
       await userEvent.click(opener);
@@ -1052,7 +1052,7 @@ async function expectLessonDock(canvasElement: HTMLElement) {
     name: "Навигация по урокам",
   });
   const opener = within(navigation).getByRole("button", {
-    name: "Вся программа",
+    name: /^Вся программа:/,
   });
   await expect(opener).toHaveAccessibleDescription("Пройдено 8 из 13");
   const bounds = navigation.getBoundingClientRect();
@@ -1076,7 +1076,7 @@ export const LessonDockTablet: Story = {
     await expectLessonDock(canvasElement);
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Вся программа" }),
+      canvas.getByRole("button", { name: /^Вся программа:/ }),
     );
     const dialog = canvas.getByRole("dialog", {
       name: "Программа: AI Engineering",

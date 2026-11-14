@@ -15,10 +15,9 @@ type Story = StoryObj<typeof meta>;
 
 export const Home: Story = {
   play: async ({ canvas }) => {
-    await expect(canvas.getByRole("link", { name: "Главная" })).toHaveAttribute(
-      "href",
-      "/",
-    );
+    await expect(
+      canvas.getByRole("link", { name: /^(?:sachkov\.dev, )?Главная$/ }),
+    ).toHaveAttribute("href", "/");
   },
 };
 export const Programme: Story = {

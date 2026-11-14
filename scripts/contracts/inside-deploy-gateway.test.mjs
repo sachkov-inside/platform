@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
@@ -21,6 +22,50 @@ import { writeTrustedReleaseEvidence } from "../github-release-evidence.test-sup
 const gateway = readFileSync("infra/production/host/inside-deploy", "utf8");
 
 describe("inside-deploy forced SSH command", () => {
+  it("blocks a legacy rollback before executing its unguarded bundle", () => {
+    const fixture = createFixture("different");
+    try {
+      const result = runGateway(fixture, "rollback v1 704");
+      assert.notEqual(result.status, 0);
+      assert.match(
+        result.stderr,
+        /Broker image change requires a separate foundation upgrade/u,
+      );
+      assert.equal(existsSync(resolve(fixture.root, "invocation")), false);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+  it("requires the server-owned broker guard even for a legacy bundle", () => {
+    const fixture = createFixture("same");
+    try {
+      rmSync(
+        resolve(
+          fixture.root,
+          "usr/local/libexec/inside/inside-broker-preflight",
+        ),
+      );
+      const result = runGateway(fixture, "rollback v1 705");
+      assert.notEqual(result.status, 0);
+      assert.equal(existsSync(resolve(fixture.root, "invocation")), false);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+  it("allows the legacy executor when its broker image and volume match", () => {
+    const fixture = createFixture("same");
+    try {
+      const result = runGateway(fixture, "rollback v1 706");
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(
+        readFileSync(resolve(fixture.root, "invocation"), "utf8"),
+        "rollback v1 706\n",
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   for (const [paddingBytes, diagnostic] of /** @type {const} */ ([
     [33 * 1024 * 1024, /Decoded archive exceeds/u],
     [2 * 1024 * 1024, /Archive member exceeds/u],
@@ -219,7 +264,8 @@ describe("inside-deploy forced SSH command", () => {
   });
 });
 
-function createFixture() {
+/** @param {"absent" | "same" | "different"} [broker] */
+function createFixture(broker = "absent") {
   const directory = mkdtempSync(resolve(tmpdir(), "inside-deploy-gateway-"));
   const root = resolve(directory, "host");
   const bin = resolve(directory, "bin");
@@ -234,6 +280,61 @@ function createFixture() {
 set -euo pipefail
 if [[ -f "$INSIDE_DEPLOY_TEST_ROOT/var/lib/inside/deployments/operation.lock.held" ]]; then
   exit 1
+fi
+`,
+  );
+
+  mkdirSync(resolve(root, "usr/local/libexec/inside"), { recursive: true });
+  mkdirSync(resolve(root, "etc/inside/runtime"), { recursive: true });
+  copyFileSync(
+    "infra/production/host/inside-broker-preflight",
+    resolve(root, "usr/local/libexec/inside/inside-broker-preflight"),
+  );
+  chmodSync(
+    resolve(root, "usr/local/libexec/inside/inside-broker-preflight"),
+    0o755,
+  );
+  writeFileSync(
+    resolve(root, "etc/inside/runtime/compose.env"),
+    "PLATFORM_COMPOSE_PROJECT=inside-platform-production\n",
+  );
+  const brokerImage = `test-broker@sha256:${"4".repeat(64)}`;
+  const brokerConfig =
+    broker === "absent"
+      ? { services: {} }
+      : {
+          services: {
+            rabbitmq: {
+              image: brokerImage,
+              volumes: [
+                {
+                  type: "volume",
+                  source: "broker-data",
+                  target: "/var/lib/rabbitmq",
+                },
+              ],
+            },
+          },
+          volumes: {
+            "broker-data": { name: "inside-platform-production_broker-data" },
+          },
+        };
+  const liveImage =
+    broker === "different"
+      ? `test-broker@sha256:${"2".repeat(64)}`
+      : brokerImage;
+  writeExecutable(
+    resolve(bin, "docker"),
+    `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == compose ]]; then
+  printf '%s\\n' '${JSON.stringify(brokerConfig)}'
+elif [[ "$1" == ps ]]; then
+  ${broker === "absent" ? ":" : `if [[ "$*" == *--no-trunc* ]]; then printf '%s\\n' '${"a".repeat(64)}'; else printf '%s\\n' '${"a".repeat(12)}'; fi`}
+elif [[ "$1" == inspect && "$3" == '{{.Config.Image}}' ]]; then
+  printf '%s\\n' '${liveImage}'
+elif [[ "$1" == inspect ]]; then
+  printf '%s\\n' '[{"Type":"volume","Name":"inside-platform-production_broker-data","Destination":"/var/lib/rabbitmq"}]'
 fi
 `,
   );

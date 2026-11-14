@@ -53,7 +53,7 @@ export function ReaderTopActions({
                 disabled
                 className="shrink-0"
                 variant="ghost"
-                aria-label="Закладка недоступна"
+                aria-label="Сохранить, закладка недоступна"
               >
                 <Bookmark aria-hidden="true" />
                 <span>Сохранить</span>

@@ -268,7 +268,9 @@ async function createPreviousProof(input) {
     sourceSha: previous.source.sha,
     manifestSha256: sha256(previousText),
     schemaIdentity: previous.schema.identity,
-    compatible: input.schemaIdentity === previous.schema.identity,
+    compatible:
+      input.schemaIdentity === previous.schema.identity &&
+      input.brokerImage === input.rollback.previous.brokerImage,
     verifiedByWorkflowRunId: input.publicationWorkflowRunId,
   };
 }

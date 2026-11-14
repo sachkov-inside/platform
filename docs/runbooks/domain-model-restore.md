@@ -12,7 +12,7 @@ recovery требует отдельного поручения владельц
 Исторические Product находятся в `materials.series`. Telegram начинает с собственной migration
 `035-waitlist-confirmations`, до `036-material-announcements`, сохраняя настоящий `kysely_migration`, а не выдуманный общий ledger.
 
-Каждая проверка создаёт собственный PostgreSQL 18.4 по закреплённому digest. `pg_dump` и
+Каждая проверка создаёт собственный PostgreSQL 18.7 по закреплённому digest. `pg_dump` и
 `pg_restore` запускаются внутри этого же контейнера. Базы и имена архивов случайные, подключение
 доступно только на случайном loopback port, данные синтетические. Проверка не использует Compose,
 общий стенд, host PostgreSQL tools или production credentials.

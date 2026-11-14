@@ -6,8 +6,8 @@ set -euo pipefail
 [[ "$EUID" -eq 0 ]] || { echo 'Run as root' >&2; exit 1; }
 [[ "$(dpkg --print-architecture)" == amd64 ]] || { echo 'Pinned Caddy package requires amd64' >&2; exit 1; }
 
-caddy_version=2.11.4
-caddy_sha256=c41708ffb4af9bc6d19f7d22a7a034804352a21ecc62e1d3dfe3d58e30b38a3e
+caddy_version=2.11.9
+caddy_sha256=bbea4aeaadc86b233c168cc33bad9daa1cbce756dc08949b783b45398f8e65cb
 caddy_url="https://dl.cloudsmith.io/public/caddy/stable/deb/debian/pool/any-version/main/c/ca/caddy_${caddy_version}/caddy_${caddy_version}_linux_amd64.deb"
 caddy_stage="$(mktemp -d)"
 trap 'rm -rf -- "$caddy_stage"' EXIT

@@ -16,7 +16,7 @@
  
 --- a/packages/core/src/queries/sentinel-activities.ts
 +++ b/packages/core/src/queries/sentinel-activities.ts
-@@ -19,18 +19,21 @@ type CountActivitiesQuery = {
+@@ -20,18 +20,21 @@
    windowSeconds: number;
  };
  
@@ -39,7 +39,7 @@
      targetType,
      targetHash,
      action,
-@@ -38,7 +41,7 @@ export const createSentinelActivitiesQueries = (pool: CommonQueryMethods) => {
+@@ -39,7 +42,7 @@
    }: CountActivitiesQuery): Promise<number> =>
      // Postgres returns count(*) as a bigint that Slonik surfaces as a string; coerce to a number.
      Number(
@@ -48,10 +48,11 @@
          select count(*)
          from ${table}
          where ${fields.targetType} = ${targetType}
-@@ -48,6 +51,28 @@ export const createSentinelActivitiesQueries = (pool: CommonQueryMethods) => {
+@@ -48,6 +51,28 @@
+           and ${fields.createdAt} > now() - make_interval(secs => ${windowSeconds})
        `)
      );
- 
++
 +  const countActivities = async (query: CountActivitiesQuery): Promise<number> =>
 +    countActivitiesWithPool(pool, query);
 +
@@ -73,11 +74,10 @@
 +      await buildInsertIntoWithPool(transaction)(SentinelActivities)(activity);
 +      return activity.id;
 +    });
-+
+ 
    /**
     * Delete all records in the `sentinel_activities` table that match the given target within
-    * 1 hour. This should unblock the user if they are locked.
-@@ -67,6 +92,7 @@ export const createSentinelActivitiesQueries = (pool: CommonQueryMethods) => {
+@@ -75,6 +100,7 @@
    return {
      insertActivity,
      countActivities,

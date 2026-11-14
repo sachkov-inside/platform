@@ -252,15 +252,17 @@ function counterValue(
     : null;
 }
 
-/** Доступное имя пункта: число счётчика названо словами, а не одной цифрой. */
+/** Описание счётчика дополняет видимое название пункта и точное число сдач. */
 function counterLabel(
   item: AuthoringNavigationItem,
   awaitingFeedbackCount: number | null,
-): { readonly "aria-label"?: string } {
+): { readonly "aria-description"?: string } {
   const count = counterValue(item, awaitingFeedbackCount);
   return count === null
     ? {}
-    : { "aria-label": `${item.label}, без комментария: ${String(count)}` };
+    : {
+        "aria-description": `${String(count)} без комментария`,
+      };
 }
 
 /** Счётчик сдач без комментария: видимое число, «99+» сверх двух знаков. */
@@ -274,7 +276,7 @@ function Counter({
   const count = counterValue(item, awaitingFeedbackCount);
   if (count === null) return null;
   return (
-    <span aria-hidden="true" className="authoring-nav-count" data-nav-counter>
+    <span className="authoring-nav-count" data-nav-counter>
       {count > 99 ? "99+" : String(count)}
     </span>
   );

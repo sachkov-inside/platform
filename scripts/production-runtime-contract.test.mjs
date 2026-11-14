@@ -555,7 +555,7 @@ describe("production runtime architecture contract", () => {
           ...runtime,
           compose: runtime.compose.replace(
             /image: ghcr\.io\/sachkov-inside\/rabbitmq:[^\n]+/u,
-            "image: rabbitmq:4.2.4-alpine",
+            "image: rabbitmq:4.4.0-alpine",
           ),
         }),
       /broker image must be pinned by digest/u,

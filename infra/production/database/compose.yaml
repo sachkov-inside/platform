@@ -4,7 +4,7 @@ x-database-image: &database-image
   build:
     context: .
     dockerfile: Dockerfile
-  image: inside/postgres-pgbackrest:18.4-2.59.3
+  image: inside/postgres-pgbackrest:18.7-2.60.0
 
 x-postgres-environment: &postgres-environment
   env_file:

@@ -40,6 +40,14 @@ class RecoveryAdmission(unittest.TestCase):
                 proof.proof("postgres:latest", pathlib.Path("unused"), pathlib.Path("unused"))
             admit.assert_not_called()
 
+    def test_refuses_two_backup_sources_before_admission(self):
+        image = "sha256:" + "a" * 64
+        with mock.patch.object(proof, "admit") as admit:
+            with self.assertRaisesRegex(ValueError, "one backup source"):
+                proof.proof(image, pathlib.Path("unused"), pathlib.Path("unused"),
+                            legacy_source=image, previous_source=image)
+            admit.assert_not_called()
+
     def test_refuses_shared_runner_before_creating_resources(self):
         with mock.patch.object(proof, "hosted_runner"), mock.patch.object(proof, "local_endpoint", return_value="unix:///tmp/proof.sock"), mock.patch.object(proof, "invoke", return_value=result("foreign-container\n")) as call:
             with self.assertRaisesRegex(ValueError, "empty runner"):

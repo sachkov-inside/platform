@@ -439,7 +439,7 @@ PostgreSQL service использует `init: true`: Docker init собирае
    Не перезаписывайте live-файл этим шаблоном. Его изменения доставляются отдельным проверенным
    diff по [порядку перехода repository](pgbackrest-repository-transition.md).
 3. Сделайте свежий backup: `systemctl start inside-pgbackrest-backup@incr.service`. Alteration
-   меняет схему базы `logto`, и путь назад без backup требует `npm run alteration rollback`.
+   меняет схему базы `logto`, и путь назад без backup требует `node packages/cli/bin/logto.js db alt rollback`.
 4. Примените стек без сборки на сервере:
 
    ```bash

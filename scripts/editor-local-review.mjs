@@ -1,4 +1,5 @@
 // @ts-check
+import { pnpmInvocation } from "./pnpm-invocation.mjs";
 // Explicit, loopback-only review runtime. Real Platform/DB/storage; synthetic local identity/video provider.
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
@@ -145,7 +146,7 @@ gateway.on("upgrade", (request, socket, head) => {
 /** @param {string[]} args @param {boolean} [service] */
 function run(args, service = false) {
   if (closing) throw new Error("Local editor interrupted");
-  const child = spawnOwned(process.execPath, [pnpmPath, ...args], {
+  const child = spawnOwned(...pnpmInvocation(pnpmPath, args), {
     cwd: root,
     env: environment,
     stdio: "inherit",

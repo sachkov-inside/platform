@@ -155,7 +155,7 @@ test("profile continuation opens the real product, persists marks and reconciles
   await expectReadingMark(page, "Прочитано", true);
   await page.goto("/account");
   const resumeProduct = page.getByRole("link", {
-    name: "Продолжить продукт Demo · Прогресс обучения",
+    name: /^Продолжить продукт Demo · Прогресс обучения/,
   });
   await expect(resumeProduct).toContainText("Прочитано 1 из 3");
   await expect(resumeProduct).toHaveAttribute(
@@ -238,7 +238,10 @@ test("profile continuation opens the real product, persists marks and reconciles
   await expect(page.locator("[data-course-reading]")).toHaveCount(0);
   if (mobile)
     await expect(
-      page.getByRole("link", { name: "Программа, урок 2 из 3", exact: true }),
+      page.getByRole("link", {
+        name: "Программа, урок 2 из 3, 2 / 3",
+        exact: true,
+      }),
     ).toBeVisible();
   await expectLinearProgrammeReturn(page, mobile, programmeReturnHref);
   const videoMark = await unmark(page, "Просмотрено");

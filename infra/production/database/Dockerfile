@@ -1,4 +1,21 @@
-FROM ghcr.io/sachkov-inside/postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e AS postgres-base
+FROM ghcr.io/sachkov-inside/postgres:18.7-alpine3.23@sha256:e6014245dccbc0f28b07dac8e3f793c94a18420f78690e9db547957514a524f1 AS postgres-base
+
+FROM docker.io/library/golang:1.27.4-alpine3.24@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS gosu-build
+WORKDIR /source
+ENV GOTOOLCHAIN=local CGO_ENABLED=0 GOMAXPROCS=2
+ADD --checksum=sha256:2b70da8a5480fafedc16bb1fc91b572f064d03df736cbd91a616af2f1b66ab51 https://github.com/tianon/gosu/archive/29b939aa5bd4dc588af765b8248f6e39150d2565.tar.gz /tmp/gosu-source.tar.gz
+COPY gosu/go.mod gosu/go.sum /tmp/gosu-modules/
+RUN tar -xzf /tmp/gosu-source.tar.gz --strip-components=1 -C /source \
+    && cp /tmp/gosu-modules/go.mod /tmp/gosu-modules/go.sum /source/ \
+    && go build -p 2 -mod=readonly -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o /out/gosu .
+
+FROM postgres-base AS gosu-update
+COPY --from=gosu-build /out/gosu /usr/local/bin/gosu
+RUN gosu --version > /tmp/gosu-version \
+    && grep '^1.20 ' /tmp/gosu-version \
+    && rm /tmp/gosu-version \
+    && test "$(gosu postgres id -u)" = "$(id -u postgres)" \
+    && ! gosu inside-invalid-user true
 
 FROM postgres-base AS pgbackrest-build
 
@@ -25,14 +42,14 @@ RUN apk add --no-cache \
 COPY libpq-version.c /build/libpq-version.c
 # pkg-config deliberately emits multiple compiler/linker arguments.
 # hadolint ignore=SC2046
-RUN test "$(pkg-config --modversion libpq)" = "18.4" \
+RUN test "$(pkg-config --modversion libpq)" = "18.7" \
     && test "$(pkg-config --variable=pcfiledir libpq)" = "/usr/local/lib/pkgconfig" \
     && cc $(pkg-config --cflags libpq libcrypto) /build/libpq-version.c -o /build/libpq-version $(pkg-config --libs libpq libcrypto) \
-    && printf '%s\n' '{"libpqVersion":"18.4","libpqPcDirectory":"/usr/local/lib/pkgconfig","pgBackRestSource":"46cdca625a73403cad4774d97354a1fac1e91e51","distributionSha256":"14037901db002e5536a948bf9f0fc0ff6cde31f4e675d3e9b46f129071bf2e5f"}' > /build/pgbackrest-build.json
+    && printf '%s\n' '{"libpqVersion":"18.7","libpqPcDirectory":"/usr/local/lib/pkgconfig","pgBackRestSource":"2e1c4f2ba727c45a0a23d4b326905088dc15b1a1","distributionSha256":"6d3ee1b5defdadc85228969b4be804096f5e65e54707bb95c7c4c4ce41f5d007"}' > /build/pgbackrest-build.json
 
 # Official distribution asset includes generated sources; GitHub archive/checkout is not equivalent.
 # SHA256 matches the official release asset digest and its published .sha256sum file.
-ADD --checksum=sha256:14037901db002e5536a948bf9f0fc0ff6cde31f4e675d3e9b46f129071bf2e5f https://github.com/pgbackrest/pgbackrest/releases/download/release/2.59.3/pgbackrest-2.59.3.tar.gz /build/pgbackrest.tar.gz
+ADD --checksum=sha256:6d3ee1b5defdadc85228969b4be804096f5e65e54707bb95c7c4c4ce41f5d007 https://github.com/pgbackrest/pgbackrest/releases/download/release/2.60.0/pgbackrest-2.60.0.tar.gz /build/pgbackrest.tar.gz
 RUN mkdir -p /build/source \
     && tar -xzf /build/pgbackrest.tar.gz -C /build/source --strip-components=1 \
     && test -f /build/source/dist \
@@ -45,6 +62,10 @@ RUN mkdir -p /build/source \
     && meson install -C /build/output --no-rebuild --destdir /build/install
 
 FROM postgres-base
+
+COPY --from=gosu-update /usr/local/bin/gosu /usr/local/bin/gosu
+COPY --from=gosu-build /source/LICENSE /usr/share/licenses/gosu/LICENSE
+COPY gosu/go.mod gosu/go.sum /usr/share/inside/gosu/
 
 ENV INSIDE_POSTGRES_DATA_PATH=/var/lib/postgresql/18/docker
 ENV PGDATA=${INSIDE_POSTGRES_DATA_PATH}
@@ -66,7 +87,7 @@ RUN apk add --no-cache \
 COPY --from=pgbackrest-build /build/install/usr/bin/pgbackrest /usr/bin/pgbackrest
 COPY --from=pgbackrest-build /build/libpq-version /usr/libexec/inside/libpq-version
 COPY --from=pgbackrest-build /build/pgbackrest-build.json /usr/share/inside/pgbackrest-build.json
-RUN pgbackrest --version && test "$(/usr/libexec/inside/libpq-version)" = "180004"
+RUN pgbackrest --version && test "$(/usr/libexec/inside/libpq-version)" = "180007"
 
 COPY init-production-databases.sh /docker-entrypoint-initdb.d/10-production-databases.sh
 COPY restore-entrypoint.sh /usr/local/bin/inside-pgbackrest-restore

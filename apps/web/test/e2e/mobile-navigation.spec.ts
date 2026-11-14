@@ -46,7 +46,10 @@ function navigation(page: Page) {
 }
 
 function homeLink(page: Page) {
-  return header(page).getByRole("link", { name: "Главная", exact: true });
+  return header(page).getByRole("link", {
+    name: /^(?:sachkov\.dev, )?Главная$/,
+    exact: true,
+  });
 }
 
 /**

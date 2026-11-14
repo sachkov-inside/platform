@@ -30,6 +30,8 @@ import {
 } from "../model/authoring-search";
 import "./authoring-search.css";
 
+const searchPrompt = "Поиск по людям, продуктам, материалам и платежам";
+
 const SearchContext = createContext<(() => void) | null>(null);
 
 /** The user agent does not change while the page lives. */
@@ -87,6 +89,7 @@ export function AuthoringSearchRoot({
 export function AuthoringSearchTrigger() {
   const openSearch = useContext(SearchContext);
   // The platform is a browser fact: the server render and hydration assume «Ctrl K».
+  const triggerId = useId();
   const shortcut = useSyncExternalStore(
     subscribeToNothing,
     () => (/Mac|iPhone|iPad/u.test(navigator.userAgent) ? "⌘K" : "Ctrl K"),
@@ -95,7 +98,7 @@ export function AuthoringSearchTrigger() {
   return (
     <button
       aria-keyshortcuts="Meta+K Control+K"
-      aria-label="Поиск по админке"
+      aria-labelledby={`${triggerId}-prompt ${triggerId}-shortcut`}
       className="authoring-search-trigger"
       disabled={openSearch === null}
       onClick={() => {
@@ -104,10 +107,16 @@ export function AuthoringSearchTrigger() {
       type="button"
     >
       <Search aria-hidden="true" className="authoring-search-trigger-icon" />
-      <span className="authoring-search-trigger-text">
-        Поиск по людям, продуктам, материалам и платежам
-      </span>
-      <kbd aria-hidden="true" className="authoring-search-trigger-kbd">
+      <span
+        className="authoring-search-trigger-text"
+        id={`${triggerId}-prompt`}
+      >
+        {searchPrompt}
+      </span>{" "}
+      <kbd
+        className="authoring-search-trigger-kbd"
+        id={`${triggerId}-shortcut`}
+      >
         {shortcut}
       </kbd>
     </button>

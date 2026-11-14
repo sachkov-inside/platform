@@ -9,5 +9,8 @@
   "schemaIdentity": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   "runtimeBundle": "scripts/fixtures/release/production-runtime.tar.gz",
   "publicationWorkflowRunId": 12345,
-  "rollback": { "previous": null }
+  "rollback": {
+    "previous": null
+  },
+  "brokerImage": null
 }

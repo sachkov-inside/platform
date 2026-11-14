@@ -25,8 +25,19 @@ const foundation = {
 
 const databaseVersion = z
   .object({
-    postgres: z.literal("18.4"),
-    pgBackRest: z.literal("2.59.3"),
+    postgres: z.literal("18.7"),
+    gosu: z.strictObject({
+      version: z.literal("1.20"),
+      sourceSha: z.hex().length(40),
+      sourceSha256: z.hash("sha256"),
+      goVersion: z.literal("1.27.4"),
+      goImage: z
+        .string()
+        .regex(
+          /^docker\.io\/library\/golang:1\.27\.4-alpine3\.24@sha256:[a-f0-9]{64}$/u,
+        ),
+    }),
+    pgBackRest: z.literal("2.60.0"),
     sourceSha: z.string().regex(/^[a-f0-9]{40}$/u),
     distributionSha256: z.string().regex(/^[a-f0-9]{64}$/u),
   })
@@ -35,6 +46,17 @@ const databaseVersion = z
 
 /** @param {{databaseCompose: string, dockerfile: string}} files */
 function assertDatabaseRelease(files) {
+  assert.ok(
+    files.dockerfile.includes(
+      `FROM ${databaseVersion.gosu.goImage} AS gosu-build`,
+    ),
+  );
+  assert.ok(
+    files.dockerfile.includes(
+      `ADD --checksum=sha256:${databaseVersion.gosu.sourceSha256} https://github.com/tianon/gosu/archive/${databaseVersion.gosu.sourceSha}.tar.gz `,
+    ),
+    "gosu source must match the fixed upstream revision",
+  );
   const asset = `ADD --checksum=sha256:${databaseVersion.distributionSha256} https://github.com/pgbackrest/pgbackrest/releases/download/release/${databaseVersion.pgBackRest}/pgbackrest-${databaseVersion.pgBackRest}.tar.gz `;
   assert.ok(
     files.dockerfile.includes(asset),
@@ -150,7 +172,10 @@ describe("production foundation architecture contract", () => {
       () =>
         assertDatabaseRelease({
           ...foundation,
-          dockerfile: "RUN apk add --no-cache pgbackrest=2.57.0-r0\n",
+          dockerfile: foundation.dockerfile.replace(
+            /^ADD --checksum=.*pgbackrest.*$/mu,
+            "RUN apk add --no-cache pgbackrest=2.57.0-r0",
+          ),
         }),
       /official distribution asset/u,
     );

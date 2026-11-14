@@ -6,7 +6,7 @@ What the repository Compose stack runs and how its images and configuration are 
 
 The default stack contains:
 
-- PostgreSQL 18.4 with a persistent named volume;
+- PostgreSQL 18.7 with a persistent named volume;
 - RustFS with separate public-delivery, protected and quarantine buckets; its S3-compatible API is
   on <http://127.0.0.1:9000> and console is on <http://127.0.0.1:9001>. Services reach it as
   `object-storage:9000`, while `OBJECT_STORAGE_SIGNED_GET_ENDPOINT` signs protected browser links for
@@ -137,3 +137,8 @@ docker compose --profile storybook up --build
 ```
 
 The profile uses the same frozen container dependencies as the default stack.
+
+The local RustFS service and its API, MCP and worker clients use `us-east-1`. Local client env
+files and the host fallback `.env.example` set `OBJECT_STORAGE_REGION` explicitly, so the production default `ru-central1` cannot
+change the location constraint of newly created local buckets. RustFS 1.0.5 validates that
+constraint against its configured region.

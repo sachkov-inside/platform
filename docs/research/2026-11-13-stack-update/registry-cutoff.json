@@ -1,0 +1,74 @@
+[
+  {
+    "package": "@ai-sdk/openai",
+    "current": "4.0.115",
+    "latest": "4.0.117",
+    "currentPublishedAt": "2026-11-11T18:38:11.492Z",
+    "latestPublishedAt": "2026-11-13T05:58:20.121Z",
+    "latestAgeHours": 24.64140601361111,
+    "checkedAt": "2026-11-14T06:36:49.182649+00:00"
+  },
+  {
+    "package": "@ai-sdk/openai-compatible",
+    "current": "3.0.90",
+    "latest": "3.0.92",
+    "currentPublishedAt": "2026-11-10T20:16:44.815Z",
+    "latestPublishedAt": "2026-11-13T05:57:28.666Z",
+    "latestAgeHours": 24.655630024722225,
+    "checkedAt": "2026-11-14T06:36:48.934089+00:00"
+  },
+  {
+    "package": "ai",
+    "current": "7.0.170",
+    "latest": "7.0.172",
+    "currentPublishedAt": "2026-11-11T18:38:03.443Z",
+    "latestPublishedAt": "2026-11-13T05:59:50.596Z",
+    "latestAgeHours": 24.616227386944445,
+    "checkedAt": "2026-11-14T06:36:49.014593+00:00"
+  },
+  {
+    "package": "kysely",
+    "current": "0.29.8",
+    "latest": "0.29.9",
+    "currentPublishedAt": "2026-11-01T02:05:55.068Z",
+    "latestPublishedAt": "2026-11-12T16:48:02.551Z",
+    "latestAgeHours": 37.812873977500004,
+    "checkedAt": "2026-11-14T06:36:48.897319+00:00"
+  },
+  {
+    "package": "oxlint-tsgolint",
+    "current": "7.0.2006",
+    "latest": "7.0.2007",
+    "currentPublishedAt": "2026-11-05T14:12:18.865Z",
+    "latestPublishedAt": "2026-11-12T17:07:44.343Z",
+    "latestAgeHours": 37.484726035,
+    "checkedAt": "2026-11-14T06:36:49.356726+00:00"
+  },
+  {
+    "package": "@aws-sdk/client-s3",
+    "current": "3.1167.0",
+    "latest": "3.1168.0",
+    "currentPublishedAt": "2026-11-11T20:10:39.433Z",
+    "latestPublishedAt": "2026-11-12T20:16:38.069Z",
+    "latestAgeHours": 34.33652172583333,
+    "checkedAt": "2026-11-14T06:36:49.547213+00:00"
+  },
+  {
+    "package": "@aws-sdk/s3-request-presigner",
+    "current": "3.1167.0",
+    "latest": "3.1168.0",
+    "currentPublishedAt": "2026-11-11T20:14:14.597Z",
+    "latestPublishedAt": "2026-11-12T20:15:37.197Z",
+    "latestAgeHours": 34.353432991388885,
+    "checkedAt": "2026-11-14T06:36:49.555769+00:00"
+  },
+  {
+    "package": "prisma",
+    "current": "7.10.1",
+    "latest": "8.0.0-rc.33",
+    "currentPublishedAt": "2026-10-15T19:25:15.682Z",
+    "latestPublishedAt": "2026-11-06T20:01:51.526Z",
+    "latestAgeHours": 178.58353901083333,
+    "checkedAt": "2026-11-14T06:36:52.266439+00:00"
+  }
+]

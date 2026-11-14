@@ -166,7 +166,7 @@ test("attention rows open already filtered lists and an unchecked source is neve
   await expect(attention.getByText("Сдачи без комментария")).toHaveCount(0);
 
   await attention
-    .getByRole("link", { name: "Оплачено, но выдача не завершена: 1 оплата" })
+    .getByRole("link", { name: "Оплачено, но выдача не завершена 1" })
     .click();
   await expect(page).toHaveURL(
     "/authoring/sales/payments?state=confirmed&fulfillment=incomplete",
@@ -178,7 +178,7 @@ test("attention rows open already filtered lists and an unchecked source is neve
   await page.goBack();
   await expect(page).toHaveURL(/\/authoring$/u);
   await attention
-    .getByRole("link", { name: "Сбой доступа к группе Telegram: 1 человек" })
+    .getByRole("link", { name: "Сбой доступа к группе Telegram 1" })
     .click();
   await expect(page).toHaveURL("/authoring/people?telegram=community_failed");
   await expect(
@@ -226,7 +226,7 @@ test("a materials-only author sees refusals that name the right, not zeros (#171
     name: "Требует внимания",
   });
   await expect(
-    attention.getByRole("link", { name: "Сдачи без комментария: 2 сдачи" }),
+    attention.getByRole("link", { name: "Сдачи без комментария 2" }),
   ).toHaveAttribute("href", "/authoring/submissions");
   await expect(attention).toContainText(
     "Оплаты, выдачу и Telegram проверяет аккаунт с правом управлять доступом и оплатами.",

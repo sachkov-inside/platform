@@ -1,0 +1,104 @@
+{
+  "timestamp": "2026-11-13T17:59:11Z",
+  "image": {
+    "reference": "docker.io/library/rabbitmq@sha256:7b77c3d3a996c7fcca1ca8bf53ce1557ff43c13b8ca2c132df6031781b209ef2",
+    "indexDigest": "sha256:7b77c3d3a996c7fcca1ca8bf53ce1557ff43c13b8ca2c132df6031781b209ef2",
+    "platform": "linux/amd64",
+    "platformManifestDigest": "sha256:a4328c48117c7f82167ae3a247250bbd5853fde574dfe30b3f62aa3ebfe75832",
+    "architecture": "amd64",
+    "rootfsDiffIDsMatchRawTrivyScan": true,
+    "rootfsDiffIDs": [
+      "sha256:75f1d9657d880da5f75298e8f40e9928bb6e260c50d26f97af196845307e3064",
+      "sha256:8104fa14d4d516fb11e7dd6dc96c8833f90457eaa7c9edc0091d0c2c279a286a",
+      "sha256:8f28ef5fc1b8048670b3dd81b000d25b6572045e446437428af5b1e03cd90721",
+      "sha256:9d30019265ac88ef35dbf8c3ce13275b6b1b5e43238035c18d58dab7bbc13a16",
+      "sha256:c977eafee98b640eae8a8024fc27a9213b6e1c4ac053345a64df4015806ff480",
+      "sha256:46afcf0f97d15f2e19a0dc61313dfbdb357e00b2d3a0576e8f26604aaa83ee3d",
+      "sha256:2d86ff0821a6646b1587107deb15e0576ae84c952a03b39f89bc239d85470c40",
+      "sha256:d82665c8de163e799bdf86673029ac3a3aab695b295e079856a7abaaf74f3e89",
+      "sha256:fb8e2b796a1f1716547bebe8b41ef2b45bd656fbf537577e465389400a24fa4d"
+    ],
+    "trivyConfigImageID": "sha256:fed8ec54d327f2fb71a8b89d6d7f27f08914c33ff26d3ac72b36d9e93bd2c8c1"
+  },
+  "package": {
+    "name": "zlib",
+    "version": "1.3.2-r1",
+    "architecture": "x86_64",
+    "aportsCommit": "0afa2da0e8c8051c6f8f64a7a388e5a259904245",
+    "files": ["/usr/lib/libz.so.1", "/usr/lib/libz.so.1.3.2"]
+  },
+  "library": {
+    "path": "/usr/lib/libz.so.1.3.2",
+    "size": 108376,
+    "sha256": "ecc8b9dfc45eb7fa29b410ffaca6257873890de53b80fe91735737b49067c5f2",
+    "apkFileSha1Matches": true,
+    "presentSymbols": [
+      "inflateBack",
+      "inflateBackInit_",
+      "inflateBackEnd",
+      "inflate"
+    ],
+    "absentSymbols": [
+      "inflateBack9",
+      "inflateBack9Init_",
+      "inflateBack9End",
+      "inflate_table9"
+    ]
+  },
+  "rabbitErlang": {
+    "beamPath": "/opt/erlang/lib/erlang/erts-17.1.1/bin/beam.smp",
+    "ldd": "\t/lib/ld-musl-x86_64.so.1 (0x7ffffff58000)\n\tlibncursesw.so.6 => /usr/lib/libncursesw.so.6 (0x7ffffeaad000)\n\tlibstdc++.so.6 => /usr/lib/libstdc++.so.6 (0x7ffffe7fb000)\n\tlibgcc_s.so.1 => /usr/lib/libgcc_s.so.1 (0x7ffffe7cf000)\n\tlibc.musl-x86_64.so.1 => /lib/ld-musl-x86_64.so.1 (0x7ffffff58000)\n",
+    "systemLibzDynamicallyLinked": false
+  },
+  "filesystemSearch": {
+    "roots": ["/opt", "/usr", "/lib"],
+    "patterns": ["*infback9*", "*inftree9*", "*gdal*"],
+    "matches": []
+  },
+  "installedApkNames": [
+    ".otp-run-deps",
+    "alpine-baselayout",
+    "alpine-baselayout-data",
+    "alpine-keys",
+    "alpine-release",
+    "apk-tools",
+    "bash",
+    "busybox",
+    "busybox-binsh",
+    "ca-certificates-bundle",
+    "libapk",
+    "libcrypto3",
+    "libgcc",
+    "libintl",
+    "libncursesw",
+    "libproc2",
+    "libssl3",
+    "libstdc++",
+    "musl",
+    "musl-utils",
+    "ncurses-terminfo-base",
+    "procps-ng",
+    "readline",
+    "scanelf",
+    "skalibs-libs",
+    "ssl_client",
+    "su-exec",
+    "tzdata",
+    "utmps-libs",
+    "zlib"
+  ],
+  "assessment": {
+    "vulnerability": "CVE-2026-4738",
+    "status": "not_affected",
+    "justification": "vulnerable_code_not_present",
+    "packageUpdated": false,
+    "scope": "Only the zlib APK in this exact linux/amd64 RabbitMQ platform manifest. Not a claim about other architectures, other vulnerabilities, or future builds."
+  },
+  "sources": {
+    "zlibChangelog": "https://zlib.net/ChangeLog.txt",
+    "zlibRelease": "https://github.com/madler/zlib/releases/tag/v1.4",
+    "apkbuild": "https://github.com/alpinelinux/aports/blob/0afa2da0e8c8051c6f8f64a7a388e5a259904245/main/zlib/APKBUILD",
+    "upstreamMakefile": "https://github.com/madler/zlib/blob/v1.3.2/Makefile.in",
+    "infback9Header": "https://github.com/madler/zlib/blob/v1.3.2/contrib/infback9/infback9.h"
+  }
+}

@@ -1,8 +1,10 @@
 # Root repository build context for independent telegram-release.yml.
-FROM docker.io/library/node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2 AS toolchain
-RUN npm install --global corepack@0.36.0 \
+FROM ghcr.io/sachkov-inside/node:26.13.1-alpine3.24@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS toolchain
+RUN apk add --no-cache zlib=1.4-r0 \
+    && npm install --global npm@12.2.2 \
+    && npm install --global corepack@0.36.0 \
     && corepack enable \
-    && corepack install --global pnpm@11.27.1
+    && corepack install --global pnpm@12.18.0
 
 FROM toolchain AS build
 WORKDIR /workspace
@@ -27,7 +29,9 @@ RUN pnpm --filter @inside/telegram build \
     && pnpm --config.inject-workspace-packages=true \
       --filter @inside/telegram deploy --prod --ignore-scripts --frozen-lockfile /workspace/.production/telegram
 
-FROM docker.io/library/node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2
+FROM ghcr.io/sachkov-inside/node:26.13.1-alpine3.24@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
+RUN apk add --no-cache zlib=1.4-r0 \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ARG SOURCE_COMMIT
 LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
 ENV NODE_ENV=production

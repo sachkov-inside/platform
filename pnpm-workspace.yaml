@@ -22,20 +22,17 @@ peerDependencyRules:
     "@nestjs/swagger>typescript": "7"
 # #1023 / #1580: bound IPC history, stop abandoned Vitest and decode non-ASCII test paths.
 patchedDependencies:
-  "@storybook/addon-vitest@10.6.1": patches/@storybook__addon-vitest@10.6.1.patch
+  deepmerge@4.3.1: patches/deepmerge@4.3.1.patch
+  "@storybook/addon-vitest@10.6.7": patches/@storybook__addon-vitest@10.6.7.patch
   # #1160: preserve unique Playwright trace names. Remove when upstream scopes chunk names per context.
-  "@vitest/browser-playwright@4.1.11": patches/@vitest__browser-playwright@4.1.11.patch
+  "@vitest/browser-playwright@5.1.0": patches/@vitest__browser-playwright@5.1.0.patch
   # #1315: reject failed pull streams and inspect the acquired image. Remove when upstream guarantees both.
-  testcontainers@12.2.0: patches/testcontainers@12.2.0.patch
+  testcontainers@12.2.1: patches/testcontainers@12.2.1.patch
   # #1747: decode external file URLs for mock lookup. Remove when Vitest normalizes these identities.
-  vitest@4.1.11: patches/vitest@4.1.11.patch
-# Security overrides only: each replaces a transitive dependency that its parent pins exactly or by a
-# range that excludes the fix of a published advisory, while the parent has no fixed release on our major. Remove an entry once the named parent ships the fix
-# (docs/runbooks/dependency-updates.md, Security overrides).
+  vitest@5.1.0: patches/vitest@5.1.0.patch
+# Security fixes for development tools whose stable parents still exclude the fixed major.
+# Remove each entry when that parent admits glob >=14.0.2 or minimatch >=11.0.1.
 overrides:
-  # prisma 7.10.0 pins mysql2 3.15.3 and, through @prisma/config, deepmerge-ts 7.1.5.
-  mysql2: 3.24.4
-  deepmerge-ts: 8.0.2
-  # #1889: @fastify/static 10.1.8 (latest) depends on glob ^13; glob 14.0.3 also brings minimatch 11.
-  # Remove when a stable @fastify/static release depends on glob >= 14.0.2.
-  "@fastify/static>glob": 14.0.3
+  "archiver-utils>glob": 14.0.3
+  "@joshwooding/vite-plugin-react-docgen-typescript>glob": 14.0.3
+  "@ts-morph/common>minimatch": 11.0.1

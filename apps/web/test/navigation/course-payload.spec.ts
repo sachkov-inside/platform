@@ -80,7 +80,7 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
   await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
   const course = page.locator("[data-course-reading]:visible");
   const programmeButton = course.getByRole("button", {
-    name: "Вся программа",
+    name: /^Вся программа:/,
     exact: true,
   });
   const mobile = await programmeButton.isVisible();
