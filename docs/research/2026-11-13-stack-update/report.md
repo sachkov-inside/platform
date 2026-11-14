@@ -1,6 +1,8 @@
 # Обновление стека Inside Platform, #2117
 
-Работа продолжается. В production изменения этой сессии не применены.
+Основной стек применён в production: Platform v81, Telegram v55 и обновлённая foundation.
+[Фактические версии, проверки и ограничения](production-rollout.md). Дополнительное обновление
+CI builder описано в [отдельном аудите](image-builder.md).
 BASE_SHA: `e514406f9ec774b6ede2524b9638480617c44a24`, актуальный origin/main при начале работы.
 Worktree `2117-update-entire-stack`, ветка `chore/2117-update-stack`, основной PR #2136.
 
@@ -100,7 +102,9 @@ label `20261108-010858F_20261113-120227I`, 315.4 MB. Восстановлени�
 
 Docker runtime принадлежит пакетам Ubuntu, docker-ce не установлен. Другой канал поставки
 не подменяет фактического владельца пакета. По кешу apt доступны distro-info и python3-distro-info.
-`qemu-guest-agent` находится на hold; его доступное обновление не разрешает снять hold.
+`qemu-guest-agent` на момент аудита находился на hold. Причина и владелец этого выбора
+не установлены; это не отдельное решение владельца о запрете обновления. Итоговое изменение
+версии с сохранением hold записано в отчёте production rollout.
 `reboot-required` отсутствует. Память при baseline: 3910 MB всего, 1570 MB available, без swap.
 
 Эта сессия не выполняла записей на production, включая apt refresh, backup и restart.

@@ -598,6 +598,7 @@ describe("application CI workflow contract", () => {
         [
           "./.github/actions/setup-platform",
           "./.github/actions/setup-docker-compose",
+          "./.github/actions/setup-image-builder",
           "./.github/workflows/foundation-recovery.yml",
         ].includes(reference),
         reference,
@@ -1026,7 +1027,13 @@ describe("nightly full-stack workflow contract", () => {
     const actionReferences = actionReferenceLines(nightlyWorkflow);
     assert.ok(actionReferences.length > 0);
     for (const reference of actionReferences) {
-      if (reference === "./.github/actions/setup-docker-compose") continue;
+      if (
+        [
+          "./.github/actions/setup-docker-compose",
+          "./.github/actions/setup-image-builder",
+        ].includes(reference)
+      )
+        continue;
       assert.match(reference, commitPinnedAction);
     }
   });

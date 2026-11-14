@@ -245,6 +245,16 @@ in-memory bank-double behaviour remain unit tests. Synchronous Telegram commands
 the deadline sends TERM to its Node owner, which waits for Python's bounded TERM/KILL cleanup before exit.
 Other synchronous contract commands have explicit termination budgets; asynchronous process contracts observe close and register cleanup.
 
+## Image builder toolchain
+
+`.github/actions/setup-image-builder` owns the explicit Buildx/BuildKit pair for publication,
+Development/Production Compose, native foundation image recovery and manual full-stack smoke.
+The daemon image retains an official immutable index digest. `default-load=true` keeps local
+image-store results for CLI consumers; the post-bootstrap guard checks the actual client and daemon.
+Native recovery runs when this action or its verification script changes. Version sources,
+remaining upstream findings and release-source boundaries are recorded in the
+[stack audit](../research/2026-11-13-stack-update/image-builder.md).
+
 ## Official image inputs
 
 CI service containers, application Dockerfile bases, Compose dependencies and explicit

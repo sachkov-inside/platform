@@ -356,6 +356,8 @@ jobs:
           persist-credentials: false
       - name: Install pinned Docker Compose
         uses: ./.github/actions/setup-docker-compose
+      - name: Set up image builder
+        uses: ./.github/actions/setup-image-builder
       - name: Validate and build profile topology
         run: |
           docker compose --profile storybook config --quiet
@@ -427,6 +429,8 @@ jobs:
           persist-credentials: false
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
+      - name: Set up image builder
+        uses: ./.github/actions/setup-image-builder
       - name: Run isolated production smoke
         if: ${{ matrix.part == 'cold' }}
         env:
