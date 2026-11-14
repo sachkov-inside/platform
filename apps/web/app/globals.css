@@ -104,6 +104,20 @@
   --font-body:
     "Manrope Variable", "Manrope Fallback", ui-sans-serif, sans-serif;
   --font-utility: "JetBrains Mono Variable", ui-monospace, monospace;
+  /* Code sits on the graphite `--sidebar` surface in both themes: sand text, orange keywords. */
+  --code-foreground: #ede4d3;
+  --code-token-keyword: #f08a5d;
+  --code-token-string: #b9cc8f;
+  --code-token-string-expression: #b9cc8f;
+  --code-token-comment: #a9a59a;
+  --code-token-function: #e8bb7a;
+  --code-token-constant: #f2b48c;
+  --code-token-parameter: #ede4d3;
+  --code-token-punctuation: #c9c1b1;
+  --code-token-link: #e8bb7a;
+  --code-token-inserted: #b9cc8f;
+  --code-token-deleted: #f08a7a;
+  --code-token-changed: #e8bb7a;
   --theme-is-dark: 0;
   color-scheme: light;
 }

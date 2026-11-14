@@ -18,6 +18,7 @@ import {
   glossaryTermsById,
   type GlossaryTerm,
   type GlossaryTerms,
+  type MaterialCodeHighlights,
 } from "@/entities/material.model";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -67,6 +68,8 @@ export interface MaterialReaderViewProps {
    * словарь показывает читателю. Остальные термины и все термины вне курса раскрываются на месте.
    */
   readonly courseGlossary?: ReaderCourseGlossary | undefined;
+  /** Подсветка блоков кода, посчитанная на сервере; без неё код одного цвета. */
+  readonly codeHighlights?: MaterialCodeHighlights | undefined;
   /**
    * Строка «Термины урока · N» карточки «Финиш урока» (#2127). Карточка ждёт, пока откроется
    * последняя часть урока.
@@ -108,6 +111,7 @@ export function MaterialReaderView({
   body,
   glossaryTerms = [],
   courseGlossary,
+  codeHighlights,
   termDeck,
   exerciseSummary,
   lessonRating,
@@ -265,6 +269,7 @@ export function MaterialReaderView({
                       courseGlossaryMoreHref(courseGlossary),
                     )}
                     blocks={body}
+                    codeHighlights={codeHighlights}
                     contentVersion={material.contentVersion}
                     materialId={material.materialId}
                     materialSlug={material.slug}
@@ -514,6 +519,7 @@ function ReaderBlocks({
   renderVideo,
   renderLink,
   glossary,
+  codeHighlights,
   blocks,
   contentVersion,
   materialId,
@@ -523,6 +529,7 @@ function ReaderBlocks({
   readonly renderVideo: MaterialBodyRendering["video"];
   readonly renderLink?: MaterialBodyRendering["link"];
   readonly glossary: GlossaryTerms;
+  readonly codeHighlights: MaterialCodeHighlights | undefined;
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
   readonly materialId: string;
@@ -543,6 +550,7 @@ function ReaderBlocks({
       rendering={{
         ...(renderLink === undefined ? {} : { link: renderLink }),
         glossary,
+        codeHighlights,
         headingId,
         ...(renderVideo === undefined ? {} : { video: renderVideo }),
         image: (block) =>

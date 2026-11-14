@@ -15,6 +15,10 @@ import type { GlossaryTerms } from "../model/glossary-term";
 import { GlossaryDefinitionCard } from "./glossary/glossary-definition-card";
 import { GlossaryTermMention } from "./glossary/glossary-term-mention.client";
 import { MaterialCodeBlock } from "./material-code-block.client";
+import {
+  codeHighlightKey,
+  type MaterialCodeHighlights,
+} from "../model/code-highlight";
 import { MaterialInline } from "./material-inline";
 import { MaterialModelComparison } from "./material-model-comparison.client";
 import { lessonParts } from "../model/lesson-parts";
@@ -58,6 +62,8 @@ export interface MaterialBodyRendering {
    */
   readonly exerciseNumbers?:
     ReadonlyMap<string, MaterialExerciseNumber> | undefined;
+  /** Server-side highlighting of the body's code; omitted, code shows in one colour. */
+  readonly codeHighlights?: MaterialCodeHighlights | undefined;
 }
 
 interface BodyRendering extends MaterialBodyRendering {
@@ -301,7 +307,13 @@ function BodyBlockView({
         </blockquote>
       );
     case "code_block":
-      return <MaterialCodeBlock text={block.text} />;
+      return (
+        <MaterialCodeBlock
+          highlighted={rendering.codeHighlights?.get(codeHighlightKey(block))}
+          language={block.language}
+          text={block.text}
+        />
+      );
     case "horizontal_rule":
       return <hr className="my-12 border-border" />;
     case "table":

@@ -3,6 +3,7 @@ import { courseGlossaryHref } from "@/shared/routing/subscription-route";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
+import { highlightMaterialCode } from "../model/highlight-material-code";
 import { MaterialBodyView } from "./material-body-view";
 
 const meta = {
@@ -396,8 +397,9 @@ export const CodeBlockCopy: Story = {
     if (code === null) throw new Error("A code block needs a pre element");
     const buttonBox = button.getBoundingClientRect();
     const codeBox = code.getBoundingClientRect();
-    await expect(buttonBox.left).toBeGreaterThanOrEqual(codeBox.right);
-    // A long line wraps: the reader sees the whole text without a hidden horizontal scroll.
+    // The copy control sits above the code and never covers a line of it.
+    await expect(buttonBox.bottom).toBeLessThanOrEqual(codeBox.top + 1);
+    // Text without a language is often a prompt: a long line wraps instead of hiding past the edge.
     await expect(code.scrollWidth).toBeLessThanOrEqual(code.clientWidth);
     await expectCodeFillsCallout(canvasElement);
     await expect(buttonBox.height).toBeGreaterThanOrEqual(36);
@@ -429,6 +431,76 @@ export const CodeBlockCopyMobile: Story = {
 };
 export const CodeBlockCopyDesktop: Story = {
   ...CodeBlockCopy,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+};
+
+const highlightedBlocks = [
+  {
+    kind: "code_block",
+    language: "typescript",
+    text: [
+      "// Чанк хранит текст и вектор",
+      'const chunks = documents.flatMap((document) => splitIntoChunks(document, { size: 512, overlap: 64, keepHeadings: true, source: document.path, language: document.language ?? "ru", embeddingModel: "text-embedding-3-small" }));',
+    ].join("\n"),
+  },
+] as const;
+
+/**
+ * Код подсвечен по языку, подписан языком и не переносится: длинная строка прокручивается внутри
+ * блока, а `=>` остаётся двумя знаками без лигатуры.
+ */
+export const CodeBlockHighlighted: Story = {
+  args: { blocks: highlightedBlocks },
+  loaders: [
+    async () => ({
+      codeHighlights: await highlightMaterialCode(highlightedBlocks),
+    }),
+  ],
+  render: (args, { loaded }) => (
+    <MaterialBodyView
+      {...args}
+      rendering={{
+        ...args.rendering,
+        codeHighlights: (
+          loaded as {
+            codeHighlights: Awaited<ReturnType<typeof highlightMaterialCode>>;
+          }
+        ).codeHighlights,
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const block = canvasElement.querySelector<HTMLElement>(
+      '[data-material-block="codeBlock"]',
+    );
+    const pre = block?.querySelector("pre");
+    if (block == null || pre == null)
+      throw new Error("The story needs a code block");
+    await expect(within(block).getByText("TypeScript")).toBeVisible();
+    const keyword = within(pre).getByText("const");
+    const comment = within(pre).getByText("// Чанк хранит текст и вектор");
+    await expect(getComputedStyle(keyword).color).not.toBe(
+      getComputedStyle(pre).color,
+    );
+    await expect(getComputedStyle(comment).color).not.toBe(
+      getComputedStyle(keyword).color,
+    );
+    await expect(getComputedStyle(pre).whiteSpace).toBe("pre");
+    await expect(getComputedStyle(pre).fontVariantLigatures).toBe("none");
+    // The long line scrolls inside the block; the page itself never scrolls sideways.
+    const scroller = block.querySelector<HTMLElement>("[data-code-scroll]");
+    if (scroller === null) throw new Error("The code needs its own scroller");
+    await expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+  },
+};
+export const CodeBlockHighlightedMobile: Story = {
+  ...CodeBlockHighlighted,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const CodeBlockHighlightedDesktop: Story = {
+  ...CodeBlockHighlighted,
   globals: { viewport: { value: "desktop1440", isRotated: false } },
 };
 

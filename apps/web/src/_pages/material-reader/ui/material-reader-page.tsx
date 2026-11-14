@@ -2,6 +2,7 @@ import { internalRoute } from "@/shared/routing/internal-route";
 import { learnerMcpConnectPrompt } from "@/features/learner-mcp";
 import { MaterialTaskWorkspace } from "@/features/product-task-submission/index.server";
 import { materialSourceAnchors } from "@/entities/material";
+import { highlightMaterialCode } from "@/entities/material.server";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import {
   CourseTaskSubmissionStatuses,
@@ -548,6 +549,7 @@ async function ResolvedMaterialReader({
           <MaterialUpdateNotice materialId={result.material.materialId} />
         }
         body={result.body}
+        codeHighlights={await highlightMaterialCode(result.body)}
         glossaryTerms={result.glossaryTerms}
         courseGlossary={courseGlossary}
         termDeck={
