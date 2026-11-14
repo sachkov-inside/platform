@@ -18,7 +18,7 @@
   display: none;
 }
 
-/* Buttons and the switch do nothing without scripts; the text is already whole. */
+/* The buttons do nothing without scripts; the text is already whole. */
 @media (scripting: none) {
   .control {
     display: none;

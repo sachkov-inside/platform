@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { useState } from "react";
 import {
   ExerciseAnswersProvider,
@@ -136,6 +136,109 @@ export const MoveWithKeyboard: Story = {
     await expect(
       canvasElement.querySelector("[data-order-announcement]"),
     ).toHaveTextContent(`«${label}»: место 1 из 4`);
+  },
+};
+
+/** Pointer events of one drag, as a mouse or a finger sends them. */
+function pointer(type: string, clientY: number, pointerType: string) {
+  return new PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+    buttons: type === "pointerup" ? 0 : 1,
+    clientX: 20,
+    clientY,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType,
+  });
+}
+
+/**
+ * Drags the step at `from` by its handle until its middle passes the middle of the step at `to`,
+ * checking the drop line on the way.
+ */
+async function drag(
+  canvasElement: HTMLElement,
+  from: number,
+  to: number,
+  pointerType = "mouse",
+) {
+  const items = [
+    ...canvasElement.querySelectorAll<HTMLElement>("[data-order-step]"),
+  ];
+  const handle = items[from]?.querySelector<HTMLElement>("[data-order-handle]");
+  const source = items[from]?.getBoundingClientRect();
+  const target = items[to]?.getBoundingClientRect();
+  if (handle === null || handle === undefined || !source || !target)
+    throw new Error("Missing step");
+  const startY = source.top + source.height / 2;
+  const endY = target.top + target.height / 2 + (to > from ? 6 : -6);
+  handle.dispatchEvent(pointer("pointerdown", startY, pointerType));
+  window.dispatchEvent(
+    pointer("pointermove", (startY + endY) / 2, pointerType),
+  );
+  window.dispatchEvent(pointer("pointermove", endY, pointerType));
+  await waitFor(() =>
+    expect(
+      canvasElement.querySelector("[data-order-drop-line]"),
+    ).not.toBeNull(),
+  );
+  await expect(items[from]).toHaveAttribute("data-dragging");
+  window.dispatchEvent(pointer("pointerup", endY, pointerType));
+  await waitFor(() =>
+    expect(canvasElement.querySelector("[data-order-drop-line]")).toBeNull(),
+  );
+}
+
+/** A step dragged by its handle lands where the line showed, and the move is announced. */
+export const DragToReorder: Story = {
+  play: async ({ canvasElement }) => {
+    const before = shownOrder(canvasElement);
+    const moved = before[0] ?? "";
+    const label = steps.find((step) => step.id === moved)?.label ?? "";
+    await drag(canvasElement, 0, 2);
+    await expect(shownOrder(canvasElement)).toEqual([
+      before[1],
+      before[2],
+      moved,
+      before[3],
+    ]);
+    await expect(
+      canvasElement.querySelector("[data-order-announcement]"),
+    ).toHaveTextContent(`«${label}»: место 3 из 4`);
+    await drag(canvasElement, 3, 0, "touch");
+    await expect(shownOrder(canvasElement)[0]).toBe(before[3]);
+  },
+};
+
+/** Dragging the correct order and checking it gives «Правильно»; the handles leave after checking. */
+export const DragThenCheck: Story = {
+  play: async ({ canvasElement }) => {
+    const exercise = within(canvasElement);
+    for (const [target, id] of steps.map((step) => step.id).entries()) {
+      const from = shownOrder(canvasElement).indexOf(id);
+      if (from !== target) await drag(canvasElement, from, target);
+    }
+    await expect(shownOrder(canvasElement)).toEqual(
+      steps.map((step) => step.id),
+    );
+    await userEvent.click(exercise.getByRole("button", { name: "Проверить" }));
+    await expect(
+      exercise.getByText("Правильно", { exact: true }),
+    ).toBeVisible();
+    await expect(canvasElement.querySelector("[data-order-handle]")).toBeNull();
+  },
+};
+
+/** On a 360 px phone a finger drags a step without horizontal scroll. */
+export const DragOnPhone360: Story = {
+  globals: { viewport: { value: "mobile360", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const before = shownOrder(canvasElement);
+    await drag(canvasElement, 1, 3, "touch");
+    await expect(shownOrder(canvasElement)[3]).toBe(before[1]);
+    await expectPhoneLayout(canvasElement, "[data-order-step]");
   },
 };
 

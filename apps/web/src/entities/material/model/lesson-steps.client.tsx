@@ -37,14 +37,13 @@ interface LessonStepsValue {
   readonly parts: LessonParts;
   /** Opened parts, clamped to the parts this version has. */
   readonly opened: number;
-  /** «Показать урок целиком»: every part shows; the saved progress stays as it was. */
+  /** A lesson the reader has studied shows every part; the saved progress stays as it was. */
   readonly whole: boolean;
   readonly reader: LessonStepsReader;
   /** Opens every part up to and including `part` (counted from 0). */
   readonly openThrough: (part: number, focus?: "reply") => void;
   /** The first answer to an «after answer» exercise opens the text below it. */
   readonly answered: (exerciseId: string) => void;
-  readonly setWhole: (whole: boolean) => void;
 }
 
 const LessonStepsContext = createContext<LessonStepsValue | null>(null);
@@ -54,7 +53,7 @@ export function useLessonSteps(): LessonStepsValue | null {
   return useContext(LessonStepsContext);
 }
 
-/** A part that shows: opened, or the whole lesson is on. */
+/** A part that shows: opened, or the lesson shows whole. */
 export function lessonPartShows(
   steps: LessonStepsValue | null,
   part: number,
@@ -71,22 +70,24 @@ export function lessonGateElementId(gate: number): string {
  * Step-by-step reveal of one lesson (#2122). The server renders every part; the parts past the
  * opened ones are hidden by CSS only while scripts run, so search engines and readers without
  * scripts get the whole text. A lesson without gates passes its children through unchanged.
+ * `whole` shows every part without buttons, as for a lesson the reader has marked «Изучено».
  */
 export function LessonSteps({
   blocks,
   progress,
   reader,
+  whole = false,
   children,
 }: {
   readonly blocks: readonly RenderedBlock[];
   readonly progress: LessonStepsProgress;
   readonly reader: LessonStepsReader;
+  readonly whole?: boolean;
   readonly children: ReactNode;
 }) {
   const parts = useMemo(() => lessonParts(blocks), [blocks]);
   // The server and the first client render agree on the first part; the store answers later.
   const [opened, setOpened] = useState(1);
-  const [whole, setWhole] = useState(false);
   const restored = useRef(false);
   // A part opened from an effect is in the document only after its render; then it scrolls.
   const pendingScroll = useRef<string | null>(null);
@@ -224,7 +225,6 @@ export function LessonSteps({
       reader,
       openThrough,
       answered,
-      setWhole,
     }),
     [parts, opened, whole, reader, openThrough, answered],
   );

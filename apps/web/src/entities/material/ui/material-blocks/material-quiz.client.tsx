@@ -154,7 +154,7 @@ function SingleChoice({
             key={option.id}
             data-quiz-option
             data-result={optionResult}
-            className="relative flex min-h-11 w-full gap-2 rounded-lg border border-border bg-card px-2.5 py-2 pr-8 text-left text-sm leading-[1.5] sm:px-3 sm:pr-9 sm:text-base"
+            className="relative flex min-h-11 w-full gap-2 rounded-lg border border-lesson-line bg-card px-2.5 py-2 pr-8 text-left text-sm leading-[1.5] sm:px-3 sm:pr-9 sm:text-base"
           >
             <button
               type="button"
@@ -215,7 +215,7 @@ function MultipleChoice({
             key={option.id}
             htmlFor={`${quizId}-option-${String(index)}`}
             data-quiz-option
-            className="relative flex min-h-11 w-full cursor-pointer items-start gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-left text-sm leading-[1.5] sm:px-3 sm:text-base"
+            className="relative flex min-h-11 w-full cursor-pointer items-start gap-2 rounded-lg border border-lesson-line bg-card px-2.5 py-2 text-left text-sm leading-[1.5] sm:px-3 sm:text-base"
           >
             <input
               type="checkbox"
@@ -227,7 +227,7 @@ function MultipleChoice({
                   ? undefined
                   : `${quizId}-explanation-${String(index)}`
               }
-              className="relative mt-1 size-4 shrink-0 accent-action focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="relative mt-1 size-4 shrink-0 accent-lesson-graphite focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               onChange={(event) => {
                 setSelected(
                   event.target.checked

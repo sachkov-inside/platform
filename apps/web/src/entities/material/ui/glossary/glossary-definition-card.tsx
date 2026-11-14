@@ -15,6 +15,7 @@ export function GlossaryDefinitionCard({
 }) {
   return (
     <MaterialCallout
+      term
       tone="definition"
       title={
         term.englishTitle === null
