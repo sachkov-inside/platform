@@ -50,3 +50,13 @@ private encryption patches, config, data layout и правила cipher ост�
 затем отдельный production lock, свежий backup/recovery proof и проверка нового image.
 Прежний image и native archive сохраняются. До отдельной записи доставки обновление на production
 не считается применённым. Применённые результаты фиксируются в PR и production lock.
+
+## Применённый результат
+
+PR #2155 слит в `bdcdf47d65f10ca92a5f45439d932bd9a3184bc4`. Полный PR CI 43607827665 и queue CI
+43609348479 успешны, включая native recovery обеих архитектур. Standards, Spec и отдельный
+security review пройдены. Под lock #2159 фактический production image заменён с `e316e421…`
+на `2d598f70d4c399d09a1b7d7d2d82cec90f7df39351f78434cfc43420a9959f91`.
+Новый binary сверён по SHA-256; новый writer backup восстановлен в трёх БД.
+Интервал, привязки образов, копии и ограничения проверки записаны в
+[итоге production](production-rollout.md#последняя-замена-postgresql-helper-image).
