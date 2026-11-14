@@ -53,6 +53,17 @@
   --callout-bad: oklch(0.48 0.15 27);
   --callout-definition: oklch(0.47 0.11 300);
   --callout-task: oklch(0.47 0.13 340);
+  /* Интерактивный урок, вариант A «Тёплая бумага» (#2118, решение владельца 14.11.2026). */
+  --lesson-surface: #f6f4ef;
+  --lesson-line: #e7e2d8;
+  --lesson-sand: #f7eedf;
+  --lesson-sand-line: #e9d7b9;
+  --lesson-ink: #85561a;
+  --lesson-graphite: #202124;
+  --lesson-graphite-foreground: #ffffff;
+  --lesson-graphite-hover: #3b3c3f;
+  --lesson-reply: #efebe3;
+  --lesson-stack: #ebe6dc;
   --eyebrow: oklch(0.46 0.014 128);
   --reader-foreground: oklch(0.48 0.012 128);
   --placeholder: oklch(0.61 0.01 128);
@@ -131,6 +142,17 @@
   --callout-bad: oklch(0.48 0.15 27);
   --callout-definition: oklch(0.47 0.11 300);
   --callout-task: oklch(0.47 0.13 340);
+  /* Урок публичной оболочки тоже светлый всегда. */
+  --lesson-surface: #f6f4ef;
+  --lesson-line: #e7e2d8;
+  --lesson-sand: #f7eedf;
+  --lesson-sand-line: #e9d7b9;
+  --lesson-ink: #85561a;
+  --lesson-graphite: #202124;
+  --lesson-graphite-foreground: #ffffff;
+  --lesson-graphite-hover: #3b3c3f;
+  --lesson-reply: #efebe3;
+  --lesson-stack: #ebe6dc;
   --reader-foreground: #696a6e;
   --placeholder: #8b8c88;
   --placeholder-strong: #777873;
@@ -180,6 +202,16 @@
   --callout-bad: oklch(0.72 0.15 27);
   --callout-definition: oklch(0.76 0.12 300);
   --callout-task: oklch(0.78 0.13 340);
+  --lesson-surface: #252623;
+  --lesson-line: #36372f;
+  --lesson-sand: #3a2f20;
+  --lesson-sand-line: #54442c;
+  --lesson-ink: #e8bb7a;
+  --lesson-graphite: #ede9e0;
+  --lesson-graphite-foreground: #1b1c1a;
+  --lesson-graphite-hover: #d9d4c8;
+  --lesson-reply: #302f2a;
+  --lesson-stack: #33342f;
   --destructive: oklch(0.68 0.2 25);
   --border: oklch(0.34 0.013 128);
   --input: oklch(0.34 0.013 128);
@@ -233,6 +265,16 @@
   --color-cover-mint-foreground: var(--cover-mint-foreground);
   --color-cover-sand: var(--cover-sand);
   --color-cover-sand-foreground: var(--cover-sand-foreground);
+  --color-lesson-surface: var(--lesson-surface);
+  --color-lesson-line: var(--lesson-line);
+  --color-lesson-sand: var(--lesson-sand);
+  --color-lesson-sand-line: var(--lesson-sand-line);
+  --color-lesson-ink: var(--lesson-ink);
+  --color-lesson-graphite: var(--lesson-graphite);
+  --color-lesson-graphite-foreground: var(--lesson-graphite-foreground);
+  --color-lesson-graphite-hover: var(--lesson-graphite-hover);
+  --color-lesson-reply: var(--lesson-reply);
+  --color-lesson-stack: var(--lesson-stack);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
@@ -531,10 +573,20 @@ body:has(
   --callout-ink: var(--callout-task);
 }
 
-/* Квиз выделяется фоном; результат узнаётся также по значку и тексту. */
-[data-material-quiz] {
-  background: color-mix(in oklab, var(--action) 5%, var(--card));
-  border-color: color-mix(in oklab, var(--action) 25%, var(--border));
+/*
+ * Карточка «Определение» из словаря курса (#2118): непрозрачный песок, а не смесь цвета вида
+ * с фоном. Обычная врезка «Определение» автора остаётся в цвете своего вида.
+ */
+[data-callout][data-callout-term] {
+  --callout-ink: var(--lesson-ink);
+  border-color: var(--lesson-sand-line);
+  background: var(--lesson-sand);
+}
+
+/* Упражнение лежит на непрозрачной тёплой подложке; результат узнаётся также по значку и тексту. */
+[data-material-exercise] {
+  background: var(--lesson-surface);
+  border-color: var(--lesson-line);
 }
 [data-quiz-option][data-result="correct"] {
   color: var(--callout-good);
