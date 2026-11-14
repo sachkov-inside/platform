@@ -519,3 +519,44 @@ export const FinishOnLastLesson: Story = {
     ).toBeNull();
   },
 };
+
+/**
+ * Scrolled to the very end, nothing covers the bottom of the lesson: the page itself never scrolls
+ * past the application frame, so no white band rises from under it (owner, 14.11.2026).
+ */
+export const LessonEndNotCovered: Story = {
+  ...FinishInCourse,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const document = canvasElement.ownerDocument;
+    const card = finishCard(canvasElement);
+    await within(card).findByRole("group", { name: "Как вам урок?" });
+    const scroller = document.querySelector<HTMLElement>(
+      "[data-application-content]",
+    );
+    if (scroller === null) throw new Error("The application frame is missing");
+    scroller.scrollTop = scroller.scrollHeight;
+    document.scrollingElement?.scrollTo(
+      0,
+      document.documentElement.scrollHeight,
+    );
+    const root = document.documentElement;
+    if (getComputedStyle(scroller).overflowY === "auto")
+      // The frame scrolls the lesson; the page around it has nothing to scroll.
+      await expect(root.scrollHeight).toBeLessThanOrEqual(root.clientHeight);
+    await waitFor(() => {
+      const box = card.getBoundingClientRect();
+      return expect(box.bottom).toBeLessThanOrEqual(window.innerHeight);
+    });
+    const box = card.getBoundingClientRect();
+    // Points clear of the rounded corners, along the card's last line.
+    for (const x of [box.left + 24, box.left + box.width / 2, box.right - 24]) {
+      const hit = document.elementFromPoint(x, box.bottom - 12);
+      await expect(hit !== null && card.contains(hit)).toBe(true);
+    }
+  },
+};
+export const LessonEndNotCoveredPhone: Story = {
+  ...LessonEndNotCovered,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
