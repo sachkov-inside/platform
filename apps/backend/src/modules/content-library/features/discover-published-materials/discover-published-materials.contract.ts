@@ -43,6 +43,11 @@ export interface PublishedMaterialDiscoveryDto {
     /** Published catalogue Materials of the topic, in catalogue order. */
     readonly materialIds: readonly string[];
   }[];
+  /**
+   * Calendar date (YYYY-MM-DD) of the Product roadmap's last update, null without a roadmap;
+   * absent for every other discovery kind.
+   */
+  readonly roadmapUpdatedOn?: string | null;
   /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;
@@ -51,6 +56,13 @@ export interface PublishedMaterialDiscoveryDto {
     readonly name: string;
     /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
     readonly summary: string;
+    /** Roadmap status the author set for the chapter; null when the roadmap names none. */
+    readonly roadmapStatus: "done" | "writing" | "planned" | null;
+    /** Unpublished lessons of a `writing` chapter, in author order; empty otherwise. */
+    readonly upcomingLessons: readonly {
+      readonly title: string;
+      readonly state: "writing" | "soon";
+    }[];
     /**
      * Published Product Tasks of the chapter in author order (#947). Each stands after the Material
      * it names, or at the start of the chapter; the main path and its ordinals stay Materials only.

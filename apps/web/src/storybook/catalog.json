@@ -223,6 +223,7 @@
       "stories": [
         "_pages/library-discovery/ui/product-journey.stories.tsx",
         "_pages/library-discovery/ui/course-programme-overview.stories.tsx",
+        "_pages/library-discovery/ui/course-roadmap.stories.tsx",
         "_pages/library-discovery/ui/product-onboarding.stories.tsx",
         "_pages/library-discovery/ui/product-programme-loading.stories.tsx"
       ],

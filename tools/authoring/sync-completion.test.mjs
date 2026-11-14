@@ -196,6 +196,11 @@ async function fixture(t) {
  * @property {boolean} pageRejected
  * @property {string[]} [members]
  * @property {FakeTopic[]} [topics] Course topics; a receiver before #2022 reports none
+ * @property {{ id: string; name: string; summary: string }[]} [chapters] Stored chapters; only a
+ *   test that sets them gets them back from the order, others keep the double's empty list
+ * @property {Record<string, string>} [assignments] The chapter of each Material, with `chapters`
+ * @property {FakeRoadmap | null} [roadmap] The course roadmap (#2141); absent means none stored
+ * @typedef {z.infer<typeof roadmapSchema>} FakeRoadmap
  * @typedef {{ id: string; name: string; summary: string; materialIds: string[] }} FakeTopic
  */
 
@@ -235,6 +240,35 @@ const topicsBodySchema = z
     ),
   })
   .strict();
+const roadmapSchema = z
+  .object({
+    updatedOn: z.iso.date(),
+    chapters: z.array(
+      z
+        .object({
+          chapterId: z.uuid(),
+          status: z.enum(["done", "writing", "planned"]),
+          upcomingLessons: z.array(
+            z
+              .object({ title: z.string(), state: z.enum(["writing", "soon"]) })
+              .strict(),
+          ),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+const roadmapBodySchema = z.object({ roadmap: roadmapSchema }).strict();
+const chapterCompositionBodySchema = z
+  .object({
+    chapters: z.array(
+      z
+        .object({ id: z.uuid(), name: z.string(), summary: z.string() })
+        .passthrough(),
+    ),
+    chapterAssignments: z.record(z.uuid(), z.uuid()).optional(),
+  })
+  .passthrough();
 /** A receiver with topics hashes the catalogue and the topics; an older one keeps fixed versions.
  * @param {FakeProduct} product */
 const fakeOrderVersion = (product) =>
@@ -360,9 +394,9 @@ function applicationApi() {
           orderVersion: fakeOrderVersion(product),
           items: (product.members ?? []).map((materialId) => ({
             materialId,
-            chapterId: null,
+            chapterId: product.assignments?.[materialId] ?? null,
           })),
-          chapters: [],
+          chapters: structuredClone(product.chapters ?? []),
           ...(product.topics === undefined
             ? {}
             : { topics: structuredClone(product.topics) }),
@@ -384,8 +418,27 @@ function applicationApi() {
         }));
         return { productId, orderVersion: fakeOrderVersion(product) };
       }
+      if (path === `/authoring/products/${productId}/roadmap`) {
+        if (body === undefined)
+          return {
+            productId,
+            roadmap: structuredClone(product.roadmap ?? null),
+          };
+        assert.equal(options.method, "PUT");
+        product.roadmap = roadmapBodySchema.parse(body).roadmap;
+        return { productId, roadmap: structuredClone(product.roadmap) };
+      }
       if (path === "/authoring/import/products/composition") {
         product.members = compositionBodySchema.parse(body).orderedMaterialIds;
+        if (product.chapters !== undefined) {
+          const composed = chapterCompositionBodySchema.parse(body);
+          product.chapters = composed.chapters.map((chapter) => ({
+            id: chapter.id,
+            name: chapter.name,
+            summary: chapter.summary,
+          }));
+          product.assignments = composed.chapterAssignments ?? {};
+        }
         return {
           orderVersion:
             product.topics === undefined
@@ -2774,5 +2827,235 @@ test("a topics edit after the reviewed preview stops apply before the compositio
   assert.deepEqual(
     api.product.topics.map((topic) => topic.name),
     ["Админ"],
+  );
+});
+
+/**
+ * Gives the fixture two chapters, so a course roadmap has chapters to name (#2141). The double
+ * stores the chapters the composition writes.
+ *
+ * @param {Awaited<ReturnType<typeof fixture>>} setup
+ * @param {ReturnType<typeof applicationApi>} api
+ */
+async function writeChapters(setup, api) {
+  const product = itemAt(setup.manifest.products, 0);
+  product.chapters = [
+    {
+      sourceId: "basics",
+      title: "Основы",
+      summary: "",
+      materialIds: [...product.materialIds],
+    },
+    { sourceId: "next", title: "Дальше", summary: "", materialIds: [] },
+  ];
+  api.product.chapters = [];
+  await setup.write();
+}
+
+/**
+ * Moves the fixture to package v2 with the course roadmap feature (#2141).
+ *
+ * @param {Awaited<ReturnType<typeof fixture>>} setup
+ * @param {NonNullable<import("./package.mjs").ManifestProduct["roadmap"]>} roadmap
+ */
+async function writeRoadmap(setup, roadmap) {
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = ["product-roadmap-v1"];
+  setup.manifest.selection.taskIds = [];
+  itemAt(setup.manifest.products, 0).roadmap = roadmap;
+  await setup.write();
+}
+
+const chapterId = (/** @type {string} */ id) =>
+  sourceUuid(`inside-content:product:chapter:${id}`);
+
+test("a course roadmap travels with the Product: an absent one is never read, a present one is reviewed and written once", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await writeChapters(setup, api);
+  const origin = "http://127.0.0.1:4396";
+  const roadmapCalls = () =>
+    api.calls.filter((call) => call.path.endsWith("/roadmap"));
+
+  // A package from an older exporter names no roadmap: the target's is neither read nor written.
+  await run(setup, api);
+  const untouched = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const before = itemAt(untouched.preview.products, 0);
+  assert.equal(before.change, "unchanged");
+  assert.equal(before.roadmapChange, undefined);
+  assert.deepEqual(roadmapCalls(), []);
+
+  await writeRoadmap(setup, {
+    updatedOn: "2026-11-13",
+    chapters: [
+      { chapterId: "basics", status: "done" },
+      {
+        chapterId: "next",
+        status: "writing",
+        upcomingLessons: [
+          { title: " Следующий урок ", state: "writing" },
+          { title: "Потом", state: "soon" },
+        ],
+      },
+    ],
+  });
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const listed = itemAt(reviewed.preview.products, 0);
+  assert.equal(listed.change, "composition");
+  assert.equal(listed.roadmapChange, true);
+  assert.equal(listed.chapterListChange, undefined);
+  assert.equal(listed.topicListChange, undefined);
+
+  const appliedFrom = api.calls.length;
+  await applyRelease(reviewed.path, setup.state, { request: api.request });
+  const applied = api.calls.slice(appliedFrom);
+  const writes = applied.filter(
+    (call) => call.path.endsWith("/roadmap") && call.method === "PUT",
+  );
+  assert.deepEqual(
+    writes.map(({ body }) => body),
+    [
+      {
+        roadmap: {
+          updatedOn: "2026-11-13",
+          chapters: [
+            {
+              chapterId: chapterId("basics"),
+              status: "done",
+              upcomingLessons: [],
+            },
+            {
+              chapterId: chapterId("next"),
+              status: "writing",
+              upcomingLessons: [
+                { title: "Следующий урок", state: "writing" },
+                { title: "Потом", state: "soon" },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  );
+  // The roadmap names chapters the composition writes, so it follows that write.
+  const lastComposition = applied.findLastIndex(
+    (call) => call.path === "/authoring/import/products/composition",
+  );
+  assert.ok(lastComposition >= 0);
+  assert.ok(applied.indexOf(itemAt(writes, 0)) > lastComposition);
+  // The roadmap write uses no journal key: it replaces the whole roadmap and repeats safely.
+  assert.equal(itemAt(writes, 0).key, undefined);
+
+  const settled = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const after = itemAt(settled.preview.products, 0);
+  assert.equal(after.change, "unchanged");
+  assert.equal(after.roadmapChange, undefined);
+  await run(setup, api);
+  assert.equal(
+    roadmapCalls().filter((call) => call.method === "PUT").length,
+    1,
+  );
+
+  // A new update date alone is a roadmap change.
+  const roadmap = itemAt(setup.manifest.products, 0).roadmap;
+  assert.ok(roadmap);
+  roadmap.updatedOn = "2026-11-20";
+  await setup.write();
+  const dated = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin,
+    request: api.request,
+  });
+  const changed = itemAt(dated.preview.products, 0);
+  assert.equal(changed.change, "composition");
+  assert.equal(changed.roadmapChange, true);
+});
+
+test("a roadmap edit after the reviewed preview stops apply before the composition write", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await writeChapters(setup, api);
+  await run(setup, api);
+  await writeRoadmap(setup, {
+    updatedOn: "2026-11-13",
+    chapters: [{ chapterId: "basics", status: "done" }],
+  });
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin: "http://127.0.0.1:4396",
+    request: api.request,
+  });
+  /** @type {FakeRoadmap} */
+  const manual = {
+    updatedOn: "2026-11-14",
+    chapters: [
+      { chapterId: chapterId("next"), status: "planned", upcomingLessons: [] },
+    ],
+  };
+  const request = api.request;
+  let edited = false;
+  let editedAt = 0;
+  /** @type {LocalTransport} */
+  const editing = async (path, body, key, options) => {
+    // The first Product reservation comes after apply has checked the preview again.
+    if (path === "/authoring/import/products/reserve" && !edited) {
+      edited = true;
+      editedAt = api.calls.length;
+      api.product.roadmap = structuredClone(manual);
+    }
+    return request(path, body, key, options);
+  };
+  await assert.rejects(
+    applyRelease(reviewed.path, setup.state, { request: editing }),
+    /Product product: The Product roadmap changed after the preview/u,
+  );
+  assert.ok(edited);
+  assert.deepEqual(
+    api.calls
+      .slice(editedAt)
+      .filter(
+        (call) =>
+          (call.path.endsWith("/roadmap") && call.method === "PUT") ||
+          call.path === "/authoring/import/products/composition",
+      ),
+    [],
+  );
+  assert.deepEqual(api.product.roadmap, manual);
+});
+
+test("a receiver without product-roadmap-v1 refuses a roadmap before any write", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await writeChapters(setup, api);
+  await writeRoadmap(setup, { updatedOn: "2026-11-13", chapters: [] });
+  const request = api.request;
+  /** @type {LocalTransport} */
+  const older = async (path, body, key, options) => {
+    if (path === "/authoring/import/materials/environment") {
+      const environment = currentEnvironment("development");
+      environment.contract.packageFeatures =
+        environment.contract.packageFeatures.filter(
+          (feature) => feature !== "product-roadmap-v1",
+        );
+      return environment;
+    }
+    return request(path, body, key, options);
+  };
+  await assert.rejects(run(setup, { request: older }), /product-roadmap-v1/u);
+  assert.deepEqual(
+    api.calls.filter((call) => call.method !== "GET"),
+    [],
   );
 });

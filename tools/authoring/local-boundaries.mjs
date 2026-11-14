@@ -170,6 +170,34 @@ const productOrderSchema = orderSchema.extend({
     )
     .optional(),
 });
+/** A Product's course roadmap (#2141), as the receiver reads and writes it; `null` when none is stored. */
+const productRoadmapSchema = z
+  .object({
+    productId: z.uuid(),
+    roadmap: z
+      .object({
+        updatedOn: z.iso.date(),
+        chapters: z.array(
+          z
+            .object({
+              chapterId: z.uuid(),
+              status: z.enum(["done", "writing", "planned"]),
+              upcomingLessons: z.array(
+                z
+                  .object({
+                    title: z.string(),
+                    state: z.enum(["writing", "soon"]),
+                  })
+                  .passthrough(),
+              ),
+            })
+            .passthrough(),
+        ),
+      })
+      .passthrough()
+      .nullable(),
+  })
+  .passthrough();
 export const assetReceiptSchema = z.object({ assetId: z.uuid() }).passthrough();
 const historicalApplyBodySchema = z
   .object({
@@ -357,6 +385,7 @@ const localResponseSchemas = {
   productArtifacts: productArtifactsSchema,
   artifact: artifactSchema,
   productOrder: productOrderSchema,
+  productRoadmap: productRoadmapSchema,
 };
 
 /**
@@ -418,6 +447,8 @@ const localResponseSchemas = {
  *   ? "artifact"
  *   : P extends `/authoring/products/${string}/order`
  *   ? "productOrder"
+ *   : P extends `/authoring/products/${string}/roadmap`
+ *   ? "productRoadmap"
  *   : never} LocalResponseKindOf
  */
 
@@ -517,6 +548,8 @@ export function localResponseKind(path) {
       if (/^\/authoring\/products\/[^/]+\/order$/u.test(path))
         return "productOrder";
       if (/^\/authoring\/products\/[^/]+\/topics$/u.test(path)) return "order";
+      if (/^\/authoring\/products\/[^/]+\/roadmap$/u.test(path))
+        return "productRoadmap";
       throw new Error(`Unsupported local response boundary: ${path}`);
   }
 }

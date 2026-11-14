@@ -736,6 +736,8 @@ describe("оплата, выдача прав и доступ к материа�
         materialIds: [productMaterial, sharedMaterial],
         name: "Первая глава",
         summary: "",
+        roadmapStatus: null,
+        upcomingLessons: [],
         // Заданий в этом руководстве нет (#947).
         tasks: [],
       },

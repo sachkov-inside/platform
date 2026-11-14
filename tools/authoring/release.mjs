@@ -39,7 +39,9 @@ import {
   productDetails,
   productDetailsMatch,
   productShellComposition,
+  productRoadmap,
   productTopics,
+  roadmapState,
   topicChanges,
   topicState,
   normalizeSourceIds,
@@ -114,6 +116,7 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {{ added: number; removed: number }} [chapterListChange]
  * @property {{ added: number; removed: number }} [topicListChange] Course topics added or removed, or a changed topic order
  * @property {number} [topicChanges] Kept course topics whose name, summary or Materials change
+ * @property {boolean} [roadmapChange] The course roadmap the release writes differs from the target's
  */
 
 /**
@@ -521,6 +524,7 @@ export async function previewRelease(
         ...(product.topics?.length
           ? { topicListChange: { added: product.topics.length, removed: 0 } }
           : {}),
+        ...(product.roadmap === undefined ? {} : { roadmapChange: true }),
       });
       continue;
     }
@@ -627,6 +631,19 @@ export async function previewRelease(
         order.topics ?? [],
         new Set(desiredOrder),
       );
+    // A package without a roadmap never reads the target's; apply checks it against this state.
+    let roadmapChange = false;
+    if (product.roadmap !== undefined) {
+      const { roadmap } = await request(
+        `/authoring/products/${productId}/roadmap`,
+      );
+      const state = roadmapState(roadmap);
+      expected[`${sourceKey(manifest, product.sourceId)}:roadmap`] = state;
+      roadmapChange =
+        roadmapState(
+          productRoadmap(manifest, product.sourceId, product.roadmap),
+        ) !== state;
+    }
     const chapterTextChanges = desiredChapters.filter(
       (chapter) =>
         currentChapterText.has(chapter.id) &&
@@ -673,7 +690,8 @@ export async function previewRelease(
         chapterTextChanges === 0 &&
         chapterSupplementaryChanges === 0 &&
         !programmeChange &&
-        !topics?.differ
+        !topics?.differ &&
+        !roadmapChange
           ? detailsChange
             ? "details"
             : "unchanged"
@@ -694,6 +712,7 @@ export async function previewRelease(
           }
         : {}),
       ...(topics?.changed ? { topicChanges: topics.changed } : {}),
+      ...(roadmapChange ? { roadmapChange } : {}),
       added: desiredOrder.filter((id) => !currentOrder.includes(id)).length,
       removed: currentOrder.filter((id) => !desiredOrder.includes(id)).length,
       reorderedOrRegrouped: hasProgramme
@@ -920,6 +939,13 @@ export async function applyRelease(
       pkg.manifest.products.flatMap((product) => {
         const key = sourceKey(pkg.manifest, product.sourceId);
         const state = current.preview.expected[`${key}:topics`];
+        return typeof state === "string" ? [[key, state]] : [];
+      }),
+    ),
+    reviewedRoadmaps: Object.fromEntries(
+      pkg.manifest.products.flatMap((product) => {
+        const key = sourceKey(pkg.manifest, product.sourceId);
+        const state = current.preview.expected[`${key}:roadmap`];
         return typeof state === "string" ? [[key, state]] : [];
       }),
     ),

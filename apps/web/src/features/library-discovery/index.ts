@@ -6,6 +6,8 @@ export type {
   DiscoveryTopic,
   ProductAccess,
   ProductChapter,
+  ProductChapterRoadmapStatus,
+  ProductUpcomingLesson,
   ProductIntroduction,
   RelatedPlaylist,
   PublishedProductResult,

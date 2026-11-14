@@ -10,6 +10,8 @@ import { assembleLoadProductOrder } from "../../features/load-product-order/load
 import { assembleReorderProduct } from "../../features/reorder-product/reorder-product.js";
 import { assembleUpdateChapterAttachments } from "../../features/update-chapter-attachments/update-chapter-attachments.js";
 import { assembleUpdateProductTopics } from "../../features/update-product-topics/update-product-topics.js";
+import { assembleLoadProductRoadmap } from "../../features/load-product-roadmap/load-product-roadmap.js";
+import { assembleUpdateProductRoadmap } from "../../features/update-product-roadmap/update-product-roadmap.js";
 import { assembleReserveSourceProduct } from "../../features/import-source-product/import-source-product.js";
 import { assembleValidateSourceProduct } from "../../features/import-source-product/import-source-product.js";
 import { assembleUpdateSourceProduct } from "../../features/import-source-product/import-source-product.js";
@@ -31,6 +33,8 @@ export function assembleProductAuthoring(
     reorderProduct: assembleReorderProduct(dependencies),
     updateChapterAttachments: assembleUpdateChapterAttachments(dependencies),
     updateProductTopics: assembleUpdateProductTopics(dependencies),
+    loadProductRoadmap: assembleLoadProductRoadmap(dependencies),
+    updateProductRoadmap: assembleUpdateProductRoadmap(dependencies),
     reserveSourceProduct: assembleReserveSourceProduct(dependencies),
     validateSourceProduct: assembleValidateSourceProduct(dependencies),
     updateSourceProduct: assembleUpdateSourceProduct(dependencies),

@@ -888,8 +888,17 @@ describe("Product chapters", () => {
         materialIds: [published],
         name: "Готовая глава",
         summary: chapterSummary,
+        roadmapStatus: null,
+        upcomingLessons: [],
       },
-      { id: empty, materialIds: [], name: "Пустая глава", summary: "" },
+      {
+        id: empty,
+        materialIds: [],
+        name: "Пустая глава",
+        summary: "",
+        roadmapStatus: null,
+        upcomingLessons: [],
+      },
     ]);
     expect(programme.value.items.map(({ materialId }) => materialId)).toEqual([
       published,

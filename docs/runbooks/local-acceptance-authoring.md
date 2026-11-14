@@ -132,7 +132,7 @@ journal appears as `new`, because Platform offers no read-only lookup by source 
 checks its real state before any write.
 Course package v2 declares `requiredFeatures`; unsupported features stop before writes or asset
 uploads. This importer supports `material-task-v1`, `task-c-v2`, `quiz-v1`, `quiz-multiple-v1`,
-`github-anchors-v1`, `image-variants-v1`, `collapsible-callouts-v1`, `bounded-content-v1`, `svg-images-v1` and `product-topics-v1`; the receiver
+`github-anchors-v1`, `image-variants-v1`, `collapsible-callouts-v1`, `bounded-content-v1`, `svg-images-v1`, `product-topics-v1` and `product-roadmap-v1`; the receiver
 reports the same list in its import contract (`supportedPackageFeatures` in `tools/authoring/package.mjs`). Content quiz `readerBlocks` take precedence over raw Markdown;
 quiz shape and narrative review anchors are validated before asset uploads. A Task with `access: null` is a preview conflict
 until `--task-access CODE=free|closed` records an explicit choice. Repeat the option for each Task;
