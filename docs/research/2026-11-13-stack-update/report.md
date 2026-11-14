@@ -142,7 +142,7 @@ PR смержен 13.11.2026 в 19:01:10 UTC, commit
 |---|---|---|
 | PostgreSQL foundation | 18.4 | 18.7, тот же major и каталог данных |
 | pgBackRest | 2.59.3 | 2.60.0, source/checksum закреплены, native restore proof обязателен |
-| Gosu внутри PostgreSQL | 1.19 | 1.20, исходники закреплены, пересобран Go 1.27.4 и x/sys 0.44.0 |
+| Gosu внутри PostgreSQL | 1.19 | 1.20, исходники закреплены, пересобран Go 1.27.4; [модули helper](gosu-modules.md) дополнительно обновляются до user 0.5.0 / x/sys 0.50.0 |
 | Logto | 1.44.0-inside.15 | 1.46.0-inside.16, все частные патчи сохранены |
 | Изолированная БД Logto proof/стенда | PostgreSQL 17.6 | 17.12, сохраняется major существующего volume |
 | RabbitMQ | 4.2.4 | 4.4.0, прямой переход с 4.2 поддержан upstream, нужны stable feature flags и проверка тома |
