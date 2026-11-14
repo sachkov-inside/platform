@@ -831,6 +831,97 @@ export const GlossaryTermInCourse: Story = {
     await expect(within(bubble).queryByRole("button")).toBeNull();
   },
 };
+function filler(index: number) {
+  return {
+    kind: "paragraph" as const,
+    content: [
+      {
+        kind: "text" as const,
+        text: `Абзац ${String(index + 1)} перед термином: над ним хватает места для подсказки.`,
+        marks: [],
+      },
+    ],
+  };
+}
+
+/**
+ * Подсказка термина не закрывает строку, которую читают: когда сверху есть место, она открывается
+ * над словом с зазором, и стрелка указывает на слово.
+ */
+export const GlossaryTermBubblePlacement: Story = {
+  args: {
+    ...GlossaryTerms.args,
+    blocks: [
+      ...Array.from({ length: 6 }, (_, index) => filler(index)),
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Команда делит систему на ", marks: [] },
+          {
+            kind: "text",
+            text: "ограниченные контексты",
+            marks: [{ kind: "link", href: "term:bounded-context" }],
+          },
+          {
+            kind: "text",
+            text: ", и каждая граница держит свой язык. Вторая строка этого предложения остаётся видна, пока читатель смотрит подсказку.",
+            marks: [],
+          },
+        ],
+      },
+    ],
+  },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
+    await userEvent.hover(term);
+    const bubble = await page.findByRole("dialog", {
+      name: "Ограниченный контекст",
+    });
+    await waitFor(() => expect(bubble).toHaveAttribute("data-side", "top"));
+    const word = term.getBoundingClientRect();
+    // A visible gap separates the bubble from the word's own line once it has its final height.
+    await waitFor(() =>
+      expect(
+        word.top - bubble.getBoundingClientRect().bottom,
+      ).toBeGreaterThanOrEqual(8),
+    );
+    const arrow = bubble.querySelector<HTMLElement>("[data-glossary-arrow]");
+    if (arrow === null) throw new Error("The bubble needs an arrow");
+    const tip = arrow.getBoundingClientRect();
+    await expect(tip.left + tip.width / 2).toBeGreaterThanOrEqual(word.left);
+    await expect(tip.left + tip.width / 2).toBeLessThanOrEqual(word.right);
+  },
+};
+export const GlossaryTermBubblePlacementMobile: Story = {
+  ...GlossaryTermBubblePlacement,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
+    await userEvent.click(term);
+    const bubble = await page.findByRole("dialog", {
+      name: "Ограниченный контекст",
+    });
+    await waitFor(() => expect(bubble).toHaveAttribute("data-side"));
+    const word = term.getBoundingClientRect();
+    // Above or below, the bubble keeps a gap from the word and never covers it.
+    await waitFor(() => {
+      const placed = bubble.getBoundingClientRect();
+      return expect(
+        Math.max(word.top - placed.bottom, placed.top - word.bottom),
+      ).toBeGreaterThanOrEqual(8);
+    });
+    const box = bubble.getBoundingClientRect();
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(box.left).toBeGreaterThanOrEqual(16);
+    await expect(box.right).toBeLessThanOrEqual(root.clientWidth - 16);
+  },
+};
+
 export const GlossaryTermsHover: Story = {
   ...GlossaryTerms,
   play: async ({ canvasElement }) => {
