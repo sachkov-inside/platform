@@ -2432,7 +2432,9 @@ export const ProjectReferenceFromLesson: Story = {
       "href",
       "/materials/aie-project?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fat%3Dcourse-intro&view=reference&anchor=material%3Acourse-intro",
     );
-    await expect(rail.querySelector('[aria-current="step"]')).toHaveAttribute(
+    // Only the open document is current; the lesson it came from is the way back.
+    await expect(rail.querySelector('[aria-current="step"]')).toBeNull();
+    await expect(rail.querySelector("[data-course-origin]")).toHaveAttribute(
       "data-course-step",
       "material:course-intro",
     );
@@ -2463,9 +2465,12 @@ export const ProjectReferenceFromLessonMobile: Story = {
     await expect(
       within(references).getByRole("link", { name: "Бриф заказчика" }),
     ).toHaveAttribute("aria-current", "page");
-    await expect(
-      within(dialog).getByRole("link", { name: "Как устроен курс" }),
-    ).toHaveAttribute("aria-current", "step");
+    const origin = within(dialog).getByRole("link", {
+      name: /^Как устроен курс/u,
+    });
+    await expect(origin).not.toHaveAttribute("aria-current");
+    await expect(origin).toHaveAttribute("data-course-origin");
+    await expect(within(origin).getByText("вы пришли отсюда")).toBeVisible();
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Закрыть программу" }),
     );

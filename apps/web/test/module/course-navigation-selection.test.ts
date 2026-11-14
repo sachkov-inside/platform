@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import { courseGuide, courseNext } from "@/storybook/course-reading.fixtures";
+import { originatingStepId } from "@/features/library-discovery";
 import {
   reconcileCourseNavigation,
   selectCourseNavigation,
@@ -22,9 +23,12 @@ test("reference clicks preserve the originating step; ordinary steps clear the r
   );
   expect(reference.activeReferenceId).toBe("reference:aie-project");
   expect(reference.current).toBe(courseGuide.current);
-  expect(
-    selectCourseNavigation(reference, courseNext.current.id).activeReferenceId,
-  ).toBeUndefined();
+  // The clicked document becomes current at once; the lesson stays only as the way back.
+  expect(originatingStepId(courseGuide)).toBeUndefined();
+  expect(originatingStepId(reference)).toBe(courseGuide.current.id);
+  const step = selectCourseNavigation(reference, courseNext.current.id);
+  expect(step.activeReferenceId).toBeUndefined();
+  expect(originatingStepId(step)).toBeUndefined();
   expect(selectCourseNavigation(courseGuide, "missing")).toBe(courseGuide);
 });
 
