@@ -67,14 +67,9 @@ export function TelegramContinuationPage({
               ? "Войдите, чтобы получить доступ к курсу."
               : `Войдите, чтобы получить доступ к ${product.name}.`}
           </p>
-          <p className="text-sm text-muted-foreground">
-            Уже есть аккаунт с почтой? Войдите в него, чтобы сохранить покупки и
-            прогресс. Новый аккаунт можно создать через Telegram.
-          </p>
           <form action="/auth/sign-in" method="post">
             <input name="returnTo" type="hidden" value={returnTo} />
-            <input name="entry" type="hidden" value="account-choice" />
-            <Button type="submit">Войти через Telegram или почту</Button>
+            <Button type="submit">Войти через Telegram</Button>
           </form>
           <p className="text-sm text-muted-foreground">
             Вход действует в этом браузере. После входа мы вернём вас к

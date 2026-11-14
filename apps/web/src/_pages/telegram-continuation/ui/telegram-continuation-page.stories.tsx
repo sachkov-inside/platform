@@ -142,14 +142,16 @@ export const SignIn: Story = {
       ),
     ).toBeVisible();
     const button = await canvas.findByRole("button", {
-      name: "Войти через Telegram или почту",
+      name: "Войти через Telegram",
     });
     await expect(
       button.closest("form")?.querySelector("input[name=returnTo]"),
     ).toHaveValue(`/telegram/continue?attempt=${attemptId}`);
+    // Вход только через Telegram: общая страница Logto с почтой здесь не открывается.
     await expect(
       button.closest("form")?.querySelector("input[name=entry]"),
-    ).toHaveValue("account-choice");
+    ).toBeNull();
+    await expect(canvas.queryByText(/аккаунт с почтой/u)).toBeNull();
   },
 };
 export const Conflict: Story = {
