@@ -347,8 +347,8 @@ function visibleSlide(track: HTMLElement): number {
 
 /**
  * Both sides of a card in one place; the hidden side is turned away and out of the reading order.
- * The front is a dark graphite card and the back is sand, so the turn shows. A quiet turn glyph
- * sits in the corner of both sides; the front also says what a press does.
+ * The front is a light card and the back is sand, so the turn shows. A quiet turn glyph sits in
+ * the corner of both sides; the front also says what a press does.
  */
 function TermCardFaces({
   term,
@@ -372,8 +372,7 @@ function TermCardFaces({
     >
       <div
         aria-hidden={turned}
-        className={`${face} shadow-card`}
-        data-lesson-dark
+        className={`${face} bg-card text-foreground shadow-card`}
         data-lesson-term-face="front"
       >
         <p className="text-xl font-semibold tracking-[-0.02em] text-balance">
