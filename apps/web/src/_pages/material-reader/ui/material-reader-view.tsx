@@ -68,8 +68,8 @@ export interface MaterialReaderViewProps {
    */
   readonly courseGlossary?: ReaderCourseGlossary | undefined;
   /**
-   * Строка «Термины урока · N» карточки «Финиш урока» (#2127). Карточка ждёт, пока откроется
-   * последняя часть урока.
+   * Карусель «Термины урока» (#2127): свой блок в конце урока перед карточкой «Финиш урока».
+   * Как и карточка, ждёт, пока откроется последняя часть урока.
    */
   readonly termDeck?: ReactNode;
   /**
@@ -163,9 +163,7 @@ export function MaterialReaderView({
           programme: productContext.product.href,
         };
   const finishRows =
-    termDeck !== undefined ||
-    exerciseSummary !== undefined ||
-    lessonRating !== undefined;
+    exerciseSummary !== undefined || lessonRating !== undefined;
   const topActions = (
     <ReaderTopActions
       context={productContext?.programme == null ? productContext : null}
@@ -283,11 +281,13 @@ export function MaterialReaderView({
                 )}
                 {purchaseCall}
                 {/* The lesson end waits for its last part; the panel above stays. */}
+                {termDeck === undefined ? null : (
+                  <LessonStepsTail>{termDeck}</LessonStepsTail>
+                )}
                 {finishActions === undefined && !finishRows ? null : (
                   <LessonStepsTail>
                     <LessonFinish actions={finishActions}>
                       {exerciseSummary}
-                      {termDeck}
                       {lessonRating}
                     </LessonFinish>
                   </LessonStepsTail>

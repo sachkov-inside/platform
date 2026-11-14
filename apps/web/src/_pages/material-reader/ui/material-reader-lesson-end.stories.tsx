@@ -236,15 +236,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Opens the collapsed «Термины урока · N» row of the finish card. */
-async function openTerms(canvasElement: HTMLElement) {
-  await userEvent.click(
-    await within(canvasElement).findByRole("button", {
-      name: /^Термины урока · \d+$/u,
-    }),
-  );
-}
-
 /** The finish card of the lesson; the page has one. */
 function finishCard(canvasElement: HTMLElement): HTMLElement {
   const card = canvasElement.querySelector<HTMLElement>("[data-lesson-finish]");
@@ -336,8 +327,8 @@ const courseContext = {
 };
 
 /**
- * «Финиш урока» outside a course: one quiet card with the unsolved exercise, the lesson terms row
- * and the rating; the reading panel under it stays as it was.
+ * «Финиш урока» outside a course: one quiet card with the unsolved exercise and the rating; the
+ * open carousel «Термины урока» stands right before it, and the reading panel under it stays.
  */
 export const FinishOutsideCourse: Story = {
   play: async ({ canvasElement }) => {
@@ -349,8 +340,18 @@ export const FinishOutsideCourse: Story = {
     await expect(
       card.getByRole("link", { name: "Решить упражнение 1" }),
     ).toHaveAttribute("href", `#exercise-${quiz.id}`);
-    const terms = card.getByRole("button", { name: "Термины урока · 1" });
-    await expect(terms).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      card.queryByRole("button", { name: /^Термины урока/u }),
+    ).toBeNull();
+    const terms = within(canvasElement).getByRole("region", {
+      name: "Термины урока",
+    });
+    await expect(terms).toBeVisible();
+    await expect(finishCard(canvasElement).contains(terms)).toBe(false);
+    await expect(
+      terms.compareDocumentPosition(finishCard(canvasElement)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     await expect(
       await card.findByRole("group", { name: "Как вам урок?" }),
     ).toBeVisible();
@@ -419,10 +420,14 @@ export const FinishInCoursePhone: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async (context) => {
     await FinishInCourse.play?.(context);
-    await openTerms(context.canvasElement);
     const end = finishCard(context.canvasElement).parentElement;
     if (end === null) throw new Error("The finish card has no frame");
     await expectPhoneLayout(end, "[data-lesson-finish]");
+    const terms = context.canvasElement.querySelector<HTMLElement>(
+      "[data-lesson-term-deck]",
+    )?.parentElement;
+    if (terms == null) throw new Error("The lesson terms are missing");
+    await expectPhoneLayout(terms, "[data-lesson-term-deck]");
   },
 };
 
@@ -453,7 +458,7 @@ export const FinishWithoutExercises: Story = {
     ).toBeVisible();
     await expect(card.queryByText(/^Упражнения:/u)).toBeNull();
     await expect(
-      card.queryByRole("button", { name: /^Термины урока/u }),
+      within(canvasElement).queryByRole("region", { name: "Термины урока" }),
     ).toBeNull();
     await expect(
       await card.findByRole("group", { name: "Как вам урок?" }),

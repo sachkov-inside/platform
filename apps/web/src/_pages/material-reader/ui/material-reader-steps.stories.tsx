@@ -385,14 +385,14 @@ export const LastPartOpensTermDeck: Story = {
 };
 
 /**
- * The finish card waits for its last part and reads in one order: the exercises, the lesson
- * terms, then the rating.
+ * The lesson end waits for its last part and reads in one order: the lesson terms before the
+ * finish card, then its exercises and the rating.
  */
 export const LessonEndWaitsForLastPart: Story = {
   parameters: { guestParts: 3 },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const end = ["Упражнения урока", "Термины урока", "Как вам урок?"];
+    const end = ["Термины урока", "Упражнения урока", "Как вам урок?"];
     for (const name of end)
       await expect(
         canvas.getByRole("region", { name, hidden: true }),

@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
-import { courseGlossaryHref } from "@/shared/routing/subscription-route";
 import { expectPhoneLayout } from "@/storybook/phone-layout";
 
 import { LessonTermDeck } from "./lesson-term-deck.client";
@@ -34,11 +33,8 @@ const meta = {
   id: "features-lesson-term-deck",
   title: "Components/Material/Lesson term deck",
   component: LessonTermDeck,
-  args: {
-    terms,
-    courseGlossaryHref: courseGlossaryHref("ddd"),
-  },
-  // As wide as the lesson column that holds the finish card.
+  args: { terms },
+  // As wide as the lesson column.
   decorators: [
     (Story) => (
       <div className="max-w-2xl">
@@ -51,7 +47,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "«Термины урока» в конце урока (решение владельца 14.11.2026): строка раскрывает карусель карточек. Свайп, стрелки или клавиши ← и → листают карточки, следующая выглядывает справа; нажатие, Enter или пробел переворачивают карточку: термин на лицевой стороне, короткое определение на обороте. Отметок и состояния «пройдено» нет.",
+          "«Термины урока» (решения владельца 14.11.2026): свой всегда открытый блок в конце урока перед карточкой «Финиш урока». Карточки листаются свайпом, мышью (нажать и тянуть), стрелками или клавишами ← и →, следующая выглядывает справа. Нажатие, Enter или пробел переворачивают карточку: термин на лицевой стороне, короткое определение на обороте. Значок поворота и тихая подсказка показывают, что карточку можно перевернуть. Отметок, счётчиков и ссылок нет.",
       },
     },
   },
@@ -68,68 +64,70 @@ function card(canvasElement: HTMLElement, termId: string) {
   return found;
 }
 
-/** Opens the collapsed «Термины урока · N» row. */
-async function open(canvasElement: HTMLElement) {
-  const row = within(canvasElement).getByRole("button", {
-    name: /^Термины урока · 3$/u,
-  });
-  await userEvent.click(row);
-  await expect(row).toHaveAttribute("aria-expanded", "true");
+function track(canvasElement: HTMLElement) {
+  const found = canvasElement.querySelector<HTMLElement>(
+    "[data-lesson-term-track]",
+  );
+  if (found === null) throw new Error("The carousel has no track");
+  return found;
 }
 
-/** The finish card shows the terms as one row; the cards stay closed until the reader opens it. */
-export const Collapsed: Story = {
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const row = canvas.getByRole("button", { name: /^Термины урока · 3$/u });
-    await expect(row).toHaveAttribute("aria-expanded", "false");
-    await expect(
-      canvasElement.querySelector("[data-lesson-term-card]"),
-    ).toBeNull();
-    row.focus();
-    await userEvent.keyboard("{Enter}");
-    await expect(row).toHaveAttribute("aria-expanded", "true");
-    const carousel = canvas.getByRole("region", { name: "Термины урока" });
-    await expect(carousel).toHaveAttribute("aria-roledescription", "карусель");
-    await expect(carousel).toBeVisible();
-    await userEvent.click(row);
-    await expect(row).toHaveAttribute("aria-expanded", "false");
-  },
-};
+/** One mouse pointer event at `clientX`, the way a browser sends it. */
+function mouse(type: string, target: HTMLElement, clientX: number) {
+  target.dispatchEvent(
+    new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 1,
+      pointerType: "mouse",
+      button: 0,
+      buttons: type === "pointerup" ? 0 : 1,
+      clientX,
+      clientY: 100,
+    }),
+  );
+}
 
 /**
- * Only cards: no marks, counters, completion or captions. A click turns a card; the next card
- * peeks out at the right edge.
+ * The carousel stands open under a quiet heading: only cards, no marks, counters, completion or
+ * links. A click turns a card; the next card peeks out at the right edge.
  */
 export const FlipAndLeaf: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await open(canvasElement);
+    const carousel = canvas.getByRole("region", { name: "Термины урока" });
+    await expect(carousel).toHaveAttribute("aria-roledescription", "карусель");
+    await expect(
+      canvas.getByRole("heading", { name: "Термины урока" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: /^Термины урока/u }),
+    ).toBeNull();
     for (const gone of ["Знаю", "Повторить", "Пройти ещё раз"])
       await expect(canvas.queryByRole("button", { name: gone })).toBeNull();
+    await expect(canvas.queryByRole("link")).toBeNull();
     await expect(canvas.queryByText(/из 3/u)).toBeNull();
-    await expect(canvas.queryByText("Колода пройдена")).toBeNull();
     const slides = canvas.getAllByRole("group");
     await expect(slides).toHaveLength(3);
     await expect(slides[0]).toHaveAttribute("aria-roledescription", "слайд");
     await expect(slides[0]).toHaveAccessibleName("1 из 3");
 
     // The second card peeks out: it starts inside the carousel and runs past its edge.
-    const track = slides[0]?.parentElement;
+    const edge = track(canvasElement).getBoundingClientRect().right;
     const second = slides[1];
-    if (track === null || track === undefined || second === undefined)
-      throw new Error("The carousel has no track");
-    const edge = track.getBoundingClientRect().right;
+    if (second === undefined) throw new Error("The carousel has one card");
     await expect(second.getBoundingClientRect().left).toBeLessThan(edge);
     await expect(second.getBoundingClientRect().right).toBeGreaterThan(edge);
 
-    await userEvent.click(
-      canvas.getByRole("button", { name: /^Ограниченный контекст/u }),
+    // The front says it turns over; the hint is not part of the card's name.
+    const [hint] = canvas.getAllByText("Нажмите, чтобы увидеть определение");
+    await expect(hint).toBeVisible();
+    const first = card(canvasElement, "bounded-context");
+    await expect(first).toHaveAccessibleName(
+      "Ограниченный контекст Bounded context",
     );
-    await expect(card(canvasElement, "bounded-context")).toHaveAttribute(
-      "data-lesson-term-side",
-      "back",
-    );
+    await userEvent.click(first);
+    await expect(first).toHaveAttribute("data-lesson-term-side", "back");
     await expect(
       canvas.getByRole("button", {
         name: "Граница, внутри которой у слов модели один смысл.",
@@ -149,16 +147,45 @@ export const FlipAndLeaf: Story = {
         canvasElement.querySelector("[data-lesson-term-announcement]"),
       ).toHaveTextContent("Агрегат, 2 из 3"),
     );
-    await expect(
-      canvas.getByRole("link", { name: "Все термины курса" }),
-    ).toHaveAttribute("href", "/products/ddd/glossary");
+  },
+};
+
+/** A mouse drags the cards like a finger; the drag does not turn the card it started on. */
+export const MouseDrag: Story = {
+  play: async ({ canvasElement }) => {
+    const first = card(canvasElement, "bounded-context");
+    const rail = track(canvasElement);
+    await expect(rail.scrollLeft).toBe(0);
+    mouse("pointerdown", first, 400);
+    mouse("pointermove", first, 380);
+    mouse("pointermove", first, 250);
+    await expect(rail).toHaveAttribute("data-dragging");
+    await expect(rail.scrollLeft).toBeGreaterThan(100);
+    mouse("pointerup", first, 250);
+    // The browser clicks where the drag ended; that click must not turn the card.
+    first.click();
+    await expect(rail).not.toHaveAttribute("data-dragging");
+    // The drag settles on the next card; by then a turn of the first card would have shown.
+    await waitFor(() =>
+      expect(card(canvasElement, "aggregate")).toHaveAttribute("tabindex", "0"),
+    );
+    await expect(first).toHaveAttribute("data-lesson-term-side", "front");
+
+    // A press without travel is still a click that turns the card.
+    const second = card(canvasElement, "aggregate");
+    mouse("pointerdown", second, 300);
+    mouse("pointermove", second, 302);
+    mouse("pointerup", second, 302);
+    second.click();
+    await waitFor(() =>
+      expect(second).toHaveAttribute("data-lesson-term-side", "back"),
+    );
   },
 };
 
 /** ← and → move between cards; Enter and Space turn the focused card over. */
 export const Keyboard: Story = {
   play: async ({ canvasElement }) => {
-    await open(canvasElement);
     const first = card(canvasElement, "bounded-context");
     await expect(first).toHaveAttribute("tabindex", "0");
     await expect(card(canvasElement, "aggregate")).toHaveAttribute(
@@ -189,21 +216,21 @@ export const SingleTerm: Story = {
   args: { terms: terms.slice(0, 1) },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(
-      canvas.getByRole("button", { name: /^Термины урока · 1$/u }),
-    );
+    await expect(
+      canvas.getByRole("region", { name: "Термины урока" }),
+    ).toBeVisible();
     await expect(
       canvas.queryByRole("button", { name: "Следующий термин" }),
     ).toBeNull();
   },
 };
 
-export const OutsideCourse: Story = {
-  args: { courseGlossaryHref: undefined },
+/** A lesson without new terms has no block at all. */
+export const NoTerms: Story = {
+  args: { terms: [] },
   play: async ({ canvasElement }) => {
-    await open(canvasElement);
     await expect(
-      within(canvasElement).queryByRole("link", { name: "Все термины курса" }),
+      canvasElement.querySelector("[data-lesson-term-deck]"),
     ).toBeNull();
   },
 };
@@ -211,7 +238,6 @@ export const OutsideCourse: Story = {
 export const Phone360: Story = {
   globals: { viewport: { value: "mobile360", isRotated: false } },
   play: async ({ canvasElement }) => {
-    await open(canvasElement);
     await expectPhoneLayout(canvasElement, "[data-lesson-term-deck]");
   },
 };
@@ -219,7 +245,6 @@ export const Phone360: Story = {
 export const Phone390: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
-    await open(canvasElement);
     await expectPhoneLayout(canvasElement, "[data-lesson-term-deck]");
   },
 };
