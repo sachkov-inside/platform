@@ -128,7 +128,12 @@ export type RenderedBlock =
       readonly start?: number | undefined;
     }
   | { readonly content: readonly RenderedBlock[]; readonly kind: "blockquote" }
-  | { readonly kind: "code_block"; readonly text: string }
+  | {
+      readonly kind: "code_block";
+      /** Fence language as the author wrote it, such as `python`. */
+      readonly language?: string | undefined;
+      readonly text: string;
+    }
   | { readonly kind: "horizontal_rule" }
   | {
       readonly kind: "table";
