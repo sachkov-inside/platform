@@ -11,6 +11,8 @@ export const metadata: Metadata = {
     template: "%s · sachkov.dev",
   },
   description: "Материалы, темы и продукты sachkov.dev",
+  // Android и ChromeOS увеличивают текст по системной настройке размера шрифта: размеры в `rem`.
+  other: { "text-scale": "scale" },
 };
 
 export default function RootLayout({

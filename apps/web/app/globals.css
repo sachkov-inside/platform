@@ -393,6 +393,8 @@ body {
   font-family: var(--font-body);
   line-height: 1.5;
   text-rendering: optimizeLegibility;
+  /* При крупном системном шрифте длинное слово или адрес переносится, а не уводит страницу вбок. */
+  overflow-wrap: break-word;
 }
 
 /* Safari's canvas/overscroll must match the public page, including the first paint. */
@@ -812,6 +814,18 @@ body:has(
   :where(dialog)::backdrop {
     overflow: hidden;
     overscroll-behavior: contain;
+  }
+
+  /*
+   * Заголовок делит строки поровну, без одинокого слова на последней. Крупный заголовок
+   * переносит длинное слово по слогам, когда оно не помещается в строку при крупном шрифте.
+   */
+  :where(h1, h2, h3) {
+    text-wrap: balance;
+  }
+
+  :where(h1, h2) {
+    hyphens: auto;
   }
 
   :where(

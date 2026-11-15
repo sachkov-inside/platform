@@ -226,7 +226,7 @@ export function ProductMaterialCatalog({
     );
   return (
     <div className="@container/catalog" data-material-catalog>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold tracking-[-0.02em] sm:text-xl">
           Материалы
         </h2>

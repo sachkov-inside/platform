@@ -10,6 +10,7 @@ import {
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { ProductLandingView } from "./product-landing-view";
+import { expectNoSidewaysScrollAtDoubleText } from "@/storybook/phone-layout";
 
 const environment = publicPageEnvironment("/products/working-with-agents");
 const meta = {
@@ -60,6 +61,12 @@ export const Desktop: Story = {
 };
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** Крупный системный шрифт на телефоне: текст вдвое больше, страница не прокручивается вбок. */
+export const MobileDoubleText: Story = {
+  ...Mobile,
+  play: async () => expectNoSidewaysScrollAtDoubleText(),
 };
 
 /**

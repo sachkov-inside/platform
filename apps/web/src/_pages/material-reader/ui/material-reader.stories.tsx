@@ -70,6 +70,7 @@ import {
   numberedListBlocks,
   expectNumberedLists,
 } from "@/storybook/material-list-start";
+import { expectNoSidewaysScrollAtDoubleText } from "@/storybook/phone-layout";
 
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
@@ -2162,6 +2163,12 @@ export const PracticalLesson: Story = {
 export const PracticalLessonMobile: Story = {
   ...PracticalLesson,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** Крупный системный шрифт на телефоне: текст вдвое больше, страница не прокручивается вбок. */
+export const PracticalLessonDoubleText: Story = {
+  ...PracticalLessonMobile,
+  play: async () => expectNoSidewaysScrollAtDoubleText(),
 };
 
 export const ProjectReferenceFromLesson: Story = {

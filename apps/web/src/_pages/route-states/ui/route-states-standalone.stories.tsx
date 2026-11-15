@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
 import { StandalonePageError } from "./route-states";
+import { expectNoSidewaysScrollAtDoubleText } from "@/storybook/phone-layout";
 
 /** Сбой раскладки раздела или корня: оболочки уже нет, как в `app/error.tsx` и `global-error.tsx`. */
 const meta = {
@@ -41,4 +42,11 @@ export const LayoutErrorMobile: Story = {
     page.getByRole("button", { name: "Повторить" }).click();
     await expect(args.onRetry).toHaveBeenCalledOnce();
   },
+};
+
+/** Крупный системный шрифт на телефоне: текст вдвое больше, страница не прокручивается вбок. */
+export const LayoutErrorDoubleText: Story = {
+  globals: mobile,
+  name: "Layout error · крупный шрифт",
+  play: async () => expectNoSidewaysScrollAtDoubleText(),
 };

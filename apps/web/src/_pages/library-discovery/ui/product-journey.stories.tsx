@@ -28,6 +28,7 @@ import {
   type ProductLearningView,
 } from "./product-learning.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
+import { expectNoSidewaysScrollAtDoubleText } from "@/storybook/phone-layout";
 
 const titles = [
   "От идеи к первой версии",
@@ -1004,6 +1005,15 @@ export const MaterialLibrary: Story = {
 export const MaterialLibraryMobile: Story = {
   ...MaterialLibrary,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** Крупный системный шрифт на телефоне: текст вдвое больше, страница не прокручивается вбок. */
+export const MaterialLibraryDoubleText: Story = {
+  ...MaterialLibraryMobile,
+  play: async ({ canvasElement }) => {
+    await openPart(canvasElement, /^Материалы/u);
+    await expectNoSidewaysScrollAtDoubleText();
+  },
 };
 
 /**

@@ -7,7 +7,9 @@
 .ai-product-page .preorder-price p {
   margin: 0;
 }
-.preorder-price-line {
+/* Цена и цена после старта не рвутся внутри, но при крупном шрифте вторая уходит на новую строку. */
+.preorder-price-now,
+.preorder-price-after {
   white-space: nowrap;
 }
 .preorder-price-now {
