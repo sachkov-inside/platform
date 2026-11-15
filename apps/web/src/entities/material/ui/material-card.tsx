@@ -56,6 +56,11 @@ export interface MaterialCardProps {
    * от остальных и слова «Бесплатно» не несёт.
    */
   readonly productOpen?: boolean;
+  /**
+   * Обложка ленты на первом экране: грузится сразу и с высоким приоритетом. На телефоне первая
+   * обложка ленты оказывается самым крупным элементом первого экрана (LCP); остальные грузятся лениво.
+   */
+  readonly coverPriority?: boolean;
   readonly variant: "feed" | "row" | "product" | "library";
 }
 
@@ -76,6 +81,7 @@ export function MaterialCard({
   showAccessDetails = false,
   accessPending = false,
   productOpen = false,
+  coverPriority = false,
   variant,
 }: MaterialCardProps) {
   const Heading = headingLevel;
@@ -147,6 +153,7 @@ export function MaterialCard({
           video ? "video" : material.formatSlug === "note" ? "note" : "material"
         }
         fallbackSeed={material.slug}
+        priority={coverPriority}
         sizes="(min-width: 768px) 38rem, 100vw"
       />
     </AccessCover>
