@@ -2,7 +2,10 @@ import type { TransactionHandle } from "../../../../infrastructure/prisma/transa
 import { materialsTransaction } from "../../infrastructure/transaction.js";
 import { z } from "zod";
 
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  writeLog,
+} from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type {
   MaterialBodyOperations,
@@ -39,7 +42,7 @@ export interface MaterialUpdateNote {
 type MaterialContentError =
   { readonly code: "invalid_request_shape" } | SystemError;
 
-/** The stored body fails the current schema, so whether it references an Asset is unknown. */
+/** The stored body fails the current schema or cannot be inspected, so its Asset references are unknown. */
 type AssetReferenceError =
   MaterialContentError | { readonly code: "unreadable_material_body" };
 
@@ -321,16 +324,13 @@ export function assembleMaterialContent(dependencies: {
           schemaVersion: row.schemaVersion,
         });
         // A stored body the current schema rejects, such as a quiz kept in its pre-#2118 shape
-        // (#2174), is a fact about that Material, not a failed dependency.
-        if (!body.ok) {
-          return { error: { code: "unreadable_material_body" }, ok: false };
-        }
+        // (#2174), gets its own code so a caller can choose a safe answer; the warning names the
+        // Material for every caller.
+        if (!body.ok) return unreadableBody(parsed.data);
         const extraction = dependencies.materialBodyOperations.extract(
           body.value,
         );
-        if (!extraction.ok) {
-          return { error: { code: "unreadable_material_body" }, ok: false };
-        }
+        if (!extraction.ok) return unreadableBody(parsed.data);
         return {
           ok: true,
           value: extraction.value.resources.some(
@@ -407,6 +407,22 @@ function toAccessFacts(row: unknown): MaterialAccessFacts | undefined {
 }
 
 /** Сохранённые факты Material не прошли проверку: это сбой хранилища, а не отказ участнику. */
+function unreadableBody(input: {
+  readonly assetId: string;
+  readonly materialId: string;
+}): {
+  readonly ok: false;
+  readonly error: { readonly code: "unreadable_material_body" };
+} {
+  writeLog("warn", "material_body_unreadable", {
+    module: "materials",
+    operation: "containsAssetReference",
+    materialId: input.materialId,
+    assetId: input.assetId,
+  });
+  return { ok: false, error: { code: "unreadable_material_body" } };
+}
+
 function invalidStoredMaterial(operation: string, reason: string): SystemError {
   const error = new TypeError(reason);
   return dependencyFailure(

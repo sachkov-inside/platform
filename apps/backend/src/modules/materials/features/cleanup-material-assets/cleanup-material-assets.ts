@@ -1,7 +1,4 @@
-import {
-  dependencyFailure,
-  writeLog,
-} from "../../../../infrastructure/observability/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { PlatformConfig } from "../../../../config/platform-config.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import type { MaterialContent } from "../../facets/material-content/material-content.js";
@@ -44,12 +41,6 @@ export function assembleMaterialAssetMaintenance(dependencies: {
               throw new Error(reference.error.code);
             }
             // Without a readable body the reference is unknown, so the Asset stays (#2174).
-            writeLog("warn", "material_asset_kept_unreadable_body", {
-              module: "materials",
-              operation: "cleanup",
-              materialId: input.materialId,
-              assetId: input.assetId,
-            });
             return true;
           },
         });

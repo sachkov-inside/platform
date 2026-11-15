@@ -3,7 +3,7 @@ import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
@@ -472,6 +472,10 @@ describe("Reference reads on an exhausted pool", () => {
       where: { id: assetId },
     });
 
+    const warnings: unknown[] = [];
+    const warn = vi.spyOn(console, "warn").mockImplementation((line) => {
+      warnings.push(JSON.parse(String(line)));
+    });
     const cleanup = await assembleMaterialAssetMaintenance({
       assets: assembleMaterialAssets({
         objectStorage: unusedObjectStorage,
@@ -486,8 +490,19 @@ describe("Reference reads on an exhausted pool", () => {
         prisma: database.prisma,
       }).materialContent,
     }).cleanup();
+    warn.mockRestore();
 
     expect(cleanup).toEqual({ cleaned: 0, ok: true, retained: 1 });
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        level: "warn",
+        event: "material_body_unreadable",
+        module: "materials",
+        operation: "containsAssetReference",
+        materialId,
+        assetId,
+      }),
+    ]);
     await expect(readAsset(assetId)).resolves.toMatchObject({
       currentlyReferenced: true,
     });

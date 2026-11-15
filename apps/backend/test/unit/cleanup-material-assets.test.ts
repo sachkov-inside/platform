@@ -1,9 +1,13 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { MaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleMaterialAssetMaintenance } from "../../src/modules/materials/features/cleanup-material-assets/cleanup-material-assets.js";
 
 describe("Material Asset maintenance", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   test("runs cleanup with the configured grace and current Material references", async () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Maintenance only passes the cleanup transaction on to Materials.
     const cleanupTransaction = {} as Parameters<
@@ -46,15 +50,11 @@ describe("Material Asset maintenance", () => {
     );
   });
 
-  test("keeps the Assets of a Material whose stored body cannot be read and goes on (#2174)", async () => {
+  test("keeps the Asset of a Material whose stored body cannot be read (#2174)", async () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Maintenance only passes the cleanup transaction on to Materials.
     const cleanupTransaction = {} as Parameters<
       Parameters<MaterialAssets["cleanupOrphans"]>[0]["isReferenced"]
     >[0];
-    const warnings: string[] = [];
-    vi.spyOn(console, "warn").mockImplementation((line: unknown) => {
-      warnings.push(String(line));
-    });
     const cleanupOrphans = vi
       .fn<MaterialAssets["cleanupOrphans"]>()
       .mockImplementation(async ({ isReferenced }) => {
@@ -85,17 +85,6 @@ describe("Material Asset maintenance", () => {
       ok: true,
       retained: 1,
     });
-    expect(warnings.map((line) => JSON.parse(line) as unknown)).toEqual([
-      expect.objectContaining({
-        level: "warn",
-        event: "material_asset_kept_unreadable_body",
-        module: "materials",
-        operation: "cleanup",
-        materialId: "material",
-        assetId: "asset",
-      }),
-    ]);
-    vi.restoreAllMocks();
   });
 
   test("returns a retryable failure for a durable worker retry", async () => {
