@@ -141,9 +141,6 @@ function CollapsibleLessonMenu({ variant }: { readonly variant: Variant }) {
           >
             <PanelLeftOpen aria-hidden="true" />
           </Button>
-          <span className={styles["stripLabel"]} aria-hidden="true">
-            Уроки главы
-          </span>
         </div>
       ) : null}
       <div className={styles["document"]}>
