@@ -399,3 +399,129 @@ test("Back and Forward keep the current chapter step aligned with the displayed 
     if (mobile) await page.keyboard.press("Escape");
   }
 });
+
+const lessonMenuKey = "inside.course-menu.v1";
+
+test("the desktop lesson menu collapses to a strip, keeps the lesson centred and stays collapsed across lessons and reloads", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "desktop-chromium",
+    "The collapsible lesson menu belongs to the desktop rail (#2158).",
+  );
+  // A painted frame with the rail while the saved choice is «collapsed» would be a flash.
+  await page.addInitScript((key) => {
+    Reflect.set(window, "railPainted", false);
+    const watch = () => {
+      const rail = document.querySelector('aside[aria-label="Текущая глава"]');
+      if (
+        localStorage.getItem(key) === "collapsed" &&
+        rail !== null &&
+        rail.getClientRects().length > 0
+      )
+        Reflect.set(window, "railPainted", true);
+      requestAnimationFrame(watch);
+    };
+    requestAnimationFrame(watch);
+  }, lessonMenuKey);
+  await page.goto(
+    `/materials/reference-lesson-5?from=${encodeURIComponent(programme)}`,
+  );
+  const host = page.locator("[data-course-reading-host]");
+  await expect(host).toBeVisible();
+  const rail = page.getByRole("complementary", { name: "Текущая глава" });
+  const collapse = rail.getByRole("button", {
+    name: "Свернуть меню уроков",
+    exact: true,
+  });
+  await expect(collapse).toHaveAttribute("aria-expanded", "true");
+  const header = page.locator("[data-reader-header]:visible");
+  const expandedHeader = await header.boundingBox();
+  if (expandedHeader === null) throw new Error("Missing lesson header");
+
+  await collapse.click();
+  await expect(rail).toBeHidden();
+  const expand = page.getByRole("button", {
+    name: "Развернуть меню уроков",
+    exact: true,
+  });
+  await expect(expand).toBeVisible();
+  await expect(expand).toHaveAttribute("aria-expanded", "false");
+  await expect(expand).toHaveAttribute("title", "Развернуть меню уроков");
+  expect(await expand.evaluate((node) => node === document.activeElement)).toBe(
+    true,
+  );
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), lessonMenuKey),
+  ).toBe("collapsed");
+  // The lesson keeps its width and moves to the middle of the course frame.
+  await expect(async () => {
+    const hostBox = await host.boundingBox();
+    const headerBox = await header.boundingBox();
+    const stripBox = await expand.boundingBox();
+    if (hostBox === null || headerBox === null || stripBox === null)
+      throw new Error("Missing collapsed geometry");
+    expect(Math.round(headerBox.width)).toBe(Math.round(expandedHeader.width));
+    expect(
+      Math.abs(
+        headerBox.x + headerBox.width / 2 - (hostBox.x + hostBox.width / 2),
+      ),
+    ).toBeLessThanOrEqual(1);
+    expect(stripBox.x + stripBox.width).toBeLessThan(headerBox.x);
+  }).toPass();
+
+  await page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("link", { name: "Дальше", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Урок 6", exact: true }),
+  ).toBeVisible();
+  await expect(rail).toBeHidden();
+  await expect(expand).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Урок 6", exact: true }),
+  ).toBeVisible();
+  await expect(expand).toBeVisible();
+  await expect(rail).toBeHidden();
+  expect(
+    await page.evaluate(() => Reflect.get(window, "railPainted") === true),
+  ).toBe(false);
+
+  await expand.focus();
+  await page.keyboard.press("Enter");
+  await expect(rail).toBeVisible();
+  await expect(expand).toBeHidden();
+  expect(
+    await collapse.evaluate((node) => node === document.activeElement),
+  ).toBe(true);
+  await page.reload();
+  await expect(rail).toBeVisible();
+  await expect(expand).toBeHidden();
+});
+
+test("phones keep the programme dock when the desktop lesson menu was collapsed", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "mobile-chromium",
+    "Below 64rem the programme lives in the bottom dock (#2158).",
+  );
+  await page.addInitScript((key) => {
+    localStorage.setItem(key, "collapsed");
+  }, lessonMenuKey);
+  await page.goto(
+    `/materials/reference-lesson-5?from=${encodeURIComponent(programme)}`,
+  );
+  await expect(
+    page.getByRole("navigation", { name: "Навигация по урокам" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Развернуть меню уроков" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Свернуть меню уроков" }),
+  ).toHaveCount(0);
+});

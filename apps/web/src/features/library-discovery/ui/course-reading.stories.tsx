@@ -23,6 +23,7 @@ import {
   CourseReadingHeader,
   CourseReadingFooter,
 } from "./course-reading.client";
+import { saveCourseMenuCollapsed } from "../model/course-menu";
 const meta = {
   ...publicPageEnvironment("/materials/course-intro"),
   component: CourseReadingLayout,
@@ -139,6 +140,71 @@ export const LongChapter: Story = {
         rail.getBoundingClientRect().top,
       );
     });
+  },
+};
+/** The reader collapsed the desktop lesson menu; the lesson stays 43rem wide and centred (#2158). */
+export const CollapsedLessonMenu: Story = {
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  beforeEach: () => {
+    saveCourseMenuCollapsed(true);
+    return () => {
+      saveCourseMenuCollapsed(false);
+    };
+  },
+  render: () => (
+    <CourseReadingLayout context={courseGuide}>
+      <CourseReadingHeader
+        context={courseGuide}
+        title="Как устроен курс"
+        metadata={<span>Гайд · AI Engineering</span>}
+      />
+      <p className="mt-8">
+        Меню уроков свёрнуто в полосу со значком. Выбор помнится в этом браузере
+        и сохраняется при переходе между уроками.
+      </p>
+      <CourseReadingFooter context={courseGuide} />
+    </CourseReadingLayout>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const expand = canvas.getByRole("button", {
+      name: "Развернуть меню уроков",
+    });
+    await expect(expand).toHaveAttribute("aria-expanded", "false");
+    await expect(expand).toHaveAttribute("title", "Развернуть меню уроков");
+    await expect(
+      canvas.queryByRole("complementary", { name: "Текущая глава" }),
+    ).toBeNull();
+    // The lesson column keeps 43rem and sits in the middle of the course frame.
+    const frame = canvasElement.querySelector("[data-course-reading]");
+    const header = canvasElement.querySelector("[data-reader-header]");
+    if (frame === null || header === null)
+      throw new Error("Course frame missing");
+    const frameBox = frame.getBoundingClientRect();
+    const headerBox = header.getBoundingClientRect();
+    await expect(
+      Math.abs(
+        headerBox.left +
+          headerBox.width / 2 -
+          (frameBox.left + frameBox.width / 2),
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect(headerBox.width).toBe(688);
+    await expect(expand.getBoundingClientRect().right).toBeLessThan(
+      headerBox.left,
+    );
+    await userEvent.click(expand);
+    const collapse = canvas.getByRole("button", {
+      name: "Свернуть меню уроков",
+    });
+    await expect(collapse).toHaveFocus();
+    await expect(
+      canvas.getByRole("complementary", { name: "Текущая глава" }),
+    ).toBeVisible();
+    await userEvent.click(collapse);
+    await expect(
+      canvas.getByRole("button", { name: "Развернуть меню уроков" }),
+    ).toHaveFocus();
   },
 };
 export const ChapterNavigation: Story = {

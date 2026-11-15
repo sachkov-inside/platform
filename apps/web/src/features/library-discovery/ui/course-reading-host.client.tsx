@@ -19,6 +19,7 @@ import {
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import { CourseRail, ProgrammeDialog } from "./course-reading.client";
+import { CourseMenuStrip } from "./course-menu.client";
 import {
   CourseReadingHostContext,
   type CourseFramePublication,
@@ -196,6 +197,7 @@ export function CourseReadingHost({
             <>
               <HidePublicFooter />
               <CourseRail context={navigation} />
+              <CourseMenuStrip />
             </>
           ) : null}
           <div className={styles["hostDocument"]}>

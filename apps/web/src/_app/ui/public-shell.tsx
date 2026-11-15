@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { CourseMenuRestore } from "@/features/library-discovery";
 import { AppShell } from "./app-shell";
 import { PublicShellContent } from "./public-shell-content";
 import { QueryProvider } from "./query-provider.client";
@@ -10,10 +11,13 @@ import { QueryProvider } from "./query-provider.client";
  */
 export function PublicShell({ children }: { readonly children: ReactNode }) {
   return (
-    <QueryProvider>
-      <AppShell>
-        <PublicShellContent>{children}</PublicShellContent>
-      </AppShell>
-    </QueryProvider>
+    <>
+      <CourseMenuRestore />
+      <QueryProvider>
+        <AppShell>
+          <PublicShellContent>{children}</PublicShellContent>
+        </AppShell>
+      </QueryProvider>
+    </>
   );
 }

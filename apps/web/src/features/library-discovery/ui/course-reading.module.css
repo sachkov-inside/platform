@@ -1,10 +1,75 @@
+/*
+ * The menu track holds the rail (or the collapsed strip) with its gap; the balance track mirrors
+ * the strip so a collapsed menu leaves the lesson centred at its usual width (#2158).
+ */
+.layout,
+.host {
+  --course-host-gap: 2rem;
+  --course-menu-track: calc(17rem + var(--course-host-gap));
+  --course-balance-track: 0rem;
+}
+:root[data-course-menu="collapsed"] :is(.layout, .host) {
+  --course-menu-track: calc(2.75rem + var(--course-host-gap));
+  --course-balance-track: var(--course-menu-track);
+}
 .layout {
   display: grid;
-  grid-template-columns: 17rem minmax(0, 43rem);
+  grid-template-columns:
+    var(--course-menu-track) minmax(0, 43rem)
+    var(--course-balance-track);
   justify-content: center;
   align-items: start;
-  gap: 2rem;
   min-width: 0;
+  transition: grid-template-columns var(--motion-duration-fast)
+    var(--motion-ease-out);
+}
+.layout > .rail,
+.layout > .menuStrip {
+  grid-column: 1;
+  grid-row: 1;
+}
+.layout > .document {
+  grid-column: 2;
+  grid-row: 1;
+}
+.layout > .rail,
+.host > .rail {
+  width: 17rem;
+}
+.menuStrip {
+  position: sticky;
+  top: 1.5rem;
+  display: none;
+  width: 2.75rem;
+  border-radius: 0.75rem;
+  background: var(--muted);
+}
+.menuCollapse,
+.menuExpand {
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--muted-foreground);
+}
+.menuCollapse {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+}
+/* The ghost button fills on aria-expanded; the collapse control is always expanded, so it stays quiet. */
+.menuCollapse[aria-expanded="true"]:not(:hover, :focus-visible) {
+  background: transparent;
+}
+.rail > .programmeLink {
+  margin-inline-end: 3rem;
+}
+@media (min-width: 64rem) {
+  :root[data-course-menu="collapsed"] :is(.layout, .host) > .rail {
+    display: none;
+  }
+  :root[data-course-menu="collapsed"] :is(.layout, .host) > .menuStrip {
+    display: flex;
+  }
 }
 .standalone {
   max-width: 43rem;
@@ -606,11 +671,6 @@ button.step {
     font-size: 0.875rem;
   }
 }
-@media (max-width: 74rem) {
-  .layout {
-    gap: 1.75rem;
-  }
-}
 @media (max-width: 63.99rem) {
   .layout {
     display: block;
@@ -833,15 +893,17 @@ button.step {
 
 /* Keep the page's full-width box stable while the persistent rail shares its grid row. */
 .host {
-  --course-host-gap: 2rem;
   display: grid;
   grid-template-columns:
-    minmax(0, 1fr) 17rem var(--course-host-gap) minmax(0, 43rem)
-    minmax(0, 1fr);
+    minmax(0, 1fr) var(--course-menu-track) minmax(0, 43rem)
+    var(--course-balance-track) minmax(0, 1fr);
   align-items: start;
   min-width: 0;
+  transition: grid-template-columns var(--motion-duration-fast)
+    var(--motion-ease-out);
 }
-.host > .rail {
+.host > .rail,
+.host > .menuStrip {
   grid-column: 2;
   grid-row: 1;
   z-index: 1;
@@ -857,16 +919,23 @@ button.step {
 @media (min-width: 64rem) {
   .host [data-material-reader-state="loading"],
   .host [data-product-task-state="loading"] {
-    width: calc(100% - 17rem - var(--course-host-gap));
+    width: calc(100% - var(--course-menu-track) - var(--course-balance-track));
     max-width: 43rem;
     margin-inline-start: max(
-      calc(17rem + var(--course-host-gap)),
-      calc((100% + 17rem + var(--course-host-gap) - 43rem) / 2)
+      var(--course-menu-track),
+      calc(
+        (
+            100% + var(--course-menu-track) - var(--course-balance-track) -
+              43rem
+          ) /
+          2
+      )
     );
     margin-inline-end: 0;
   }
 }
 @media (max-width: 74rem) {
+  .layout,
   .host {
     --course-host-gap: 1.75rem;
   }
@@ -874,6 +943,12 @@ button.step {
 @media (max-width: 63.99rem) {
   .host {
     display: block;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .layout,
+  .host {
+    transition: none;
   }
 }
 .content {

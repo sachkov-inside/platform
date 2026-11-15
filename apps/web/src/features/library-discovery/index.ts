@@ -54,3 +54,4 @@ export {
 } from "./ui/course-navigation-bar.client";
 
 export { CourseReadingHost } from "./ui/course-reading-host.client";
+export { CourseMenuRestore } from "./ui/course-menu-restore";
