@@ -1,0 +1,92 @@
+/* Throwaway prototype for #2158; only collapsible-lesson-menu-prototype.stories.tsx imports it. */
+.frame {
+  --menu-track: 19rem;
+  --balance-track: 0rem;
+  --document-width: 43rem;
+  display: grid;
+  grid-template-columns:
+    var(--menu-track) minmax(0, var(--document-width))
+    var(--balance-track);
+  justify-content: center;
+  align-items: start;
+  min-width: 0;
+  transition: grid-template-columns 200ms ease;
+}
+.frame[data-menu="collapsed"][data-variant="strip"] {
+  --menu-track: 4.25rem;
+  /* The lesson column keeps its width and its place in the middle of the page. */
+  --balance-track: 4.25rem;
+}
+.frame[data-menu="collapsed"][data-variant="wide"] {
+  --menu-track: 4.25rem;
+  --document-width: 58rem;
+}
+.frame[data-menu="collapsed"][data-variant="header"] {
+  --menu-track: 0rem;
+}
+.menu {
+  position: sticky;
+  top: 1.5rem;
+  width: 17rem;
+  min-width: 0;
+}
+.menu[hidden] {
+  display: none;
+}
+.collapse {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+}
+.strip {
+  position: sticky;
+  top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: 2.75rem;
+  padding-block: 0.25rem;
+  border-radius: 0.75rem;
+  background: var(--muted);
+}
+.stripLabel {
+  writing-mode: vertical-rl;
+  rotate: 180deg;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  padding-block: 0.25rem 0.5rem;
+}
+.document {
+  grid-column: 2;
+  min-width: 0;
+}
+.iconButton {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+.headerToggle {
+  display: inline-flex;
+}
+.prose p {
+  margin-top: 1.25rem;
+  line-height: 1.7;
+}
+@media (max-width: 63.99rem) {
+  .frame {
+    display: block;
+    max-width: 43rem;
+    margin-inline: auto;
+  }
+  .menu,
+  .strip,
+  .headerToggle {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .frame {
+    transition: none;
+  }
+}
