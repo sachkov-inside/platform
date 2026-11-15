@@ -476,21 +476,25 @@ describe("Reference reads on an exhausted pool", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation((line) => {
       warnings.push(JSON.parse(String(line)));
     });
-    const cleanup = await assembleMaterialAssetMaintenance({
-      assets: assembleMaterialAssets({
-        objectStorage: unusedObjectStorage,
-        prisma: database.prisma,
-      }),
-      config: {
-        objectStorage: { orphanGraceMs: orphanGraceBeyondStaleMark },
-      },
-      covers: { cleanup: () => Promise.resolve({ cleaned: 0, retained: 0 }) },
-      materials: assembleMaterials({
-        authorPolicy: { canManage: () => false },
-        prisma: database.prisma,
-      }).materialContent,
-    }).cleanup();
-    warn.mockRestore();
+    let cleanup;
+    try {
+      cleanup = await assembleMaterialAssetMaintenance({
+        assets: assembleMaterialAssets({
+          objectStorage: unusedObjectStorage,
+          prisma: database.prisma,
+        }),
+        config: {
+          objectStorage: { orphanGraceMs: orphanGraceBeyondStaleMark },
+        },
+        covers: { cleanup: () => Promise.resolve({ cleaned: 0, retained: 0 }) },
+        materials: assembleMaterials({
+          authorPolicy: { canManage: () => false },
+          prisma: database.prisma,
+        }).materialContent,
+      }).cleanup();
+    } finally {
+      warn.mockRestore();
+    }
 
     expect(cleanup).toEqual({ cleaned: 0, ok: true, retained: 1 });
     expect(warnings).toEqual([

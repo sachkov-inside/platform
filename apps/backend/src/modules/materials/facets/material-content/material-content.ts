@@ -406,7 +406,7 @@ function toAccessFacts(row: unknown): MaterialAccessFacts | undefined {
   };
 }
 
-/** Сохранённые факты Material не прошли проверку: это сбой хранилища, а не отказ участнику. */
+/** Тело Material не читается текущей схемой: предупреждение называет Material, ответ решает вызывающий (#2174). */
 function unreadableBody(input: {
   readonly assetId: string;
   readonly materialId: string;
@@ -423,6 +423,7 @@ function unreadableBody(input: {
   return { ok: false, error: { code: "unreadable_material_body" } };
 }
 
+/** Сохранённые факты Material не прошли проверку: это сбой хранилища, а не отказ участнику. */
 function invalidStoredMaterial(operation: string, reason: string): SystemError {
   const error = new TypeError(reason);
   return dependencyFailure(
