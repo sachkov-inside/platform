@@ -72,7 +72,6 @@ export function InfiniteMaterialCatalog({
       {pages.map((page, pageIndex) => (
         <MaterialCatalogGrid
           presentation={presentation}
-          firstScreen={pageIndex === 0}
           className="mt-4"
           items={page.items}
           key={page.items[0]?.slug ?? `catalog-page-${String(pageIndex + 1)}`}
@@ -137,27 +136,17 @@ export function InfiniteMaterialCatalog({
 
 export function MaterialCatalogGrid({
   className = "",
-  firstScreen = false,
   presentation = "catalog",
   items,
   label,
   returnHref,
 }: {
   readonly className?: string;
-  /** Сетка начинает страницу: первая обложка ленты в ней грузится сразу. */
-  readonly firstScreen?: boolean;
   readonly presentation?: "catalog" | "feed";
   readonly items: ReadyLibraryCatalogPage["items"];
   readonly label?: string;
   readonly returnHref?: Route;
 }) {
-  const priorityCover =
-    firstScreen && presentation === "feed"
-      ? items.find(
-          (material) =>
-            material.cover != null && material.cover.renditions.length > 0,
-        )?.slug
-      : undefined;
   return (
     <ul
       {...(label === undefined ? {} : { "aria-label": label })}
@@ -168,7 +157,6 @@ export function MaterialCatalogGrid({
       {items.map((material) => (
         <li className="h-full min-w-0 w-full" key={material.slug}>
           <MaterialCard
-            coverPriority={material.slug === priorityCover}
             headingLevel={presentation === "feed" ? "h2" : "h3"}
             material={material}
             variant={presentation === "feed" ? "feed" : "row"}

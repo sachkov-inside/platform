@@ -227,31 +227,6 @@ export const FeedFiltersMobile: Story = {
   ...FeedFilters,
   globals: mobile.globals,
 };
-/**
- * На телефоне первая обложка ленты становится самым крупным элементом первого экрана: она грузится сразу и с
- * высоким приоритетом. Остальные обложки ленты грузятся лениво.
- */
-export const FeedFirstCoverLoadsFirst: Story = {
-  args: { result: { kind: "ready", value: home }, feed: feed() },
-  globals: mobile.globals,
-  play: async ({ canvasElement }) => {
-    const covers = await waitFor(() => {
-      const found = [
-        ...canvasElement.querySelectorAll<HTMLImageElement>(
-          "[data-material-variant='feed'] img[srcset]",
-        ),
-      ];
-      return found.length > 1 ? found : Promise.reject(new Error("no feed"));
-    });
-    const [first, ...rest] = covers;
-    await expect(first).toHaveAttribute("fetchpriority", "high");
-    await expect(first).toHaveAttribute("loading", "eager");
-    for (const cover of rest) {
-      await expect(cover).toHaveAttribute("loading", "lazy");
-      await expect(cover).not.toHaveAttribute("fetchpriority");
-    }
-  },
-};
 /** More than six topics fold into one menu with the chip shape. */
 export const FeedFiltersManyTopics: Story = {
   args: {
