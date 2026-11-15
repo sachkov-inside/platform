@@ -42,6 +42,9 @@
 }
 .aie-mentoring-points li > span {
   display: grid;
+  /* При крупном шрифте длинное слово переносится, а текст пункта сжимается рядом со значком. */
+  min-width: 0;
+  overflow-wrap: anywhere;
   gap: 0.15rem;
   font-size: 0.875rem;
   font-weight: 450;
