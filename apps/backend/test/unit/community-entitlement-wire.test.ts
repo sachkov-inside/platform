@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import fixtures from "../../../../docs/contracts/billing-v1/fixtures.json" with { type: "json" };
 import schema from "../../../../docs/contracts/billing-v1/schema.json" with { type: "json" };
@@ -113,6 +113,95 @@ describe("community entitlement wire agreement", () => {
         fixture.name,
       )
       .toBe(fixture.valid);
+  });
+
+  test.each(
+    v2Fixtures.filter(
+      (fixture) =>
+        fixture.name.includes("join-reminders") &&
+        fixture.value.contractVersion === "inside.community-entitlement.v2",
+    ),
+  )(
+    "HTTP consumer keeps the result and reads a malformed reminder count as unknown: $name",
+    async (fixture) => {
+      const value = fixture.value;
+      if (
+        !("binding" in value) ||
+        !("access" in value) ||
+        !("entitlementRevision" in value) ||
+        !("joinReminders" in value)
+      )
+        throw new Error("Expected result fixture with join reminders");
+      const command = communitySetSchema.parse({
+        contractVersion: value.contractVersion,
+        operation: "entitlement.set",
+        operationId: value.operationId,
+        binding: value.binding,
+        entitlementRevision: value.entitlementRevision,
+        access: value.access,
+        issuedAt: "2030-01-01T00:00:00Z",
+        correlationRef: "00000000-0000-4000-8000-000000000003",
+      });
+      const provider = new HttpCommunityEntitlementProvider(
+        "https://telegram.test/community-entitlements",
+        "synthetic-secret",
+        () => Promise.resolve(Response.json(value)),
+      );
+      const log = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      try {
+        const outcome = await provider.status(command);
+        if (outcome.kind !== "result") throw new Error(fixture.name);
+        expect(outcome.result.joinReminders).toEqual(
+          fixture.valid ? value.joinReminders : undefined,
+        );
+        expect(outcome.result.status).toBe(value.status);
+        // A dropped count is logged once, without the binding or the value itself.
+        expect(log).toHaveBeenCalledTimes(fixture.valid ? 0 : 1);
+        if (!fixture.valid) {
+          const line = String(log.mock.calls[0]?.[0]);
+          expect(line).toContain("community_join_reminders_malformed");
+          expect(line).not.toContain(value.binding.accountRef);
+          expect(line).not.toContain(value.binding.telegramIdentityRef);
+        }
+      } finally {
+        log.mockRestore();
+      }
+    },
+  );
+
+  test("HTTP consumer leaves a v1 result with join reminders to the v1 contract, which rejects it", async () => {
+    const valid = v2Fixtures.find(
+      (fixture) => fixture.name === "waiting-join-reminders",
+    )?.value;
+    if (valid === undefined || !("binding" in valid))
+      throw new Error("Expected the waiting-join-reminders fixture");
+    const { admissionRestriction: _v2Only, ...v1 } = {
+      ...valid,
+      contractVersion: "inside.community-entitlement.v1",
+      joinReminders: { sent: -1, lastAt: null },
+    };
+    const command = communitySetSchema.parse({
+      contractVersion: v1.contractVersion,
+      operation: "entitlement.set",
+      operationId: v1.operationId,
+      binding: v1.binding,
+      entitlementRevision: v1.entitlementRevision,
+      access: v1.access,
+      issuedAt: "2030-01-01T00:00:00Z",
+      correlationRef: "00000000-0000-4000-8000-000000000003",
+    });
+    const log = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const provider = new HttpCommunityEntitlementProvider(
+        "https://telegram.test/community-entitlements",
+        "synthetic-secret",
+        () => Promise.resolve(Response.json(v1)),
+      );
+      expect((await provider.status(command)).kind).toBe("unavailable");
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
   });
 
   test.each(v2Fixtures.filter((fixture) => fixture.name.includes("group-url")))(

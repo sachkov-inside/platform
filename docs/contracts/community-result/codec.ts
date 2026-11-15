@@ -32,6 +32,18 @@ const admissionRestrictionSchema: z.ZodEnum<{
 export const communityGroupUrlSchema: z.ZodURL = z.url({ protocol: /^https$/, hostname: /^t\.me$/ })
   .regex(/^https:\/\/t\.me\/c\/[1-9][0-9]*\/[1-9][0-9]*$/u);
 
+/**
+ * Join reminders the bot has sent for this Account: how many and when the last one was queued.
+ * Telegram adds the current count to a v2 result; a result without it carries no claim.
+ */
+export const communityJoinRemindersSchema: z.ZodObject<{
+  sent: z.ZodNumber; lastAt: z.ZodNullable<z.ZodString>;
+}, z.core.$strict> = z.strictObject({
+  sent: z.number().int().nonnegative(),
+  lastAt: instant.nullable(),
+});
+export type CommunityJoinReminders = z.infer<typeof communityJoinRemindersSchema>;
+
 export const communityAccessSchema: z.ZodDiscriminatedUnion<[
   z.ZodObject<{ kind: z.ZodLiteral<"denied"> }, z.core.$strict>,
   z.ZodObject<{ kind: z.ZodLiteral<"finite">; validUntil: z.ZodString }, z.core.$strict>,
@@ -91,6 +103,7 @@ export const communityResultSchema: z.ZodObject<{
   observedMembership: typeof observedMembershipSchema;
   admissionRestriction: z.ZodOptional<typeof admissionRestrictionSchema>;
   groupUrl: z.ZodOptional<typeof communityGroupUrlSchema>;
+  joinReminders: z.ZodOptional<typeof communityJoinRemindersSchema>;
   updatedAt: z.ZodString;
 }, z.core.$strict> = z
   .strictObject({
@@ -107,12 +120,15 @@ export const communityResultSchema: z.ZodObject<{
     observedMembership: observedMembershipSchema,
     admissionRestriction: admissionRestrictionSchema.optional(),
     groupUrl: communityGroupUrlSchema.optional(),
+    joinReminders: communityJoinRemindersSchema.optional(),
     updatedAt: instant,
   })
   .refine((value) =>
     value.contractVersion === COMMUNITY_V2_CONTRACT_VERSION
       ? value.admissionRestriction !== undefined
-      : value.admissionRestriction === undefined && value.groupUrl === undefined,
+      : value.admissionRestriction === undefined &&
+        value.groupUrl === undefined &&
+        value.joinReminders === undefined,
   )
   .refine((value) => value.groupUrl === undefined || (
     value.access.kind !== "denied" &&

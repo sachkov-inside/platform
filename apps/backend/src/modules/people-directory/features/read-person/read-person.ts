@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import type { CommunityJoinReminders } from "@inside/contracts/community-result";
 import { z } from "zod";
 
 import type { ProductAccessOrigin } from "../../../account-rights/index.js";
@@ -102,6 +103,11 @@ export interface PersonTelegram {
   readonly restriction: "none" | "moderation" | "external_unknown" | "unknown";
   readonly marketing: "enabled" | "stopped" | "unknown";
   readonly observedAt: string | null;
+  /**
+   * Join reminders queued as of Telegram's answer to the last poll, not as of `observedAt`;
+   * `null` when that answer did not report them.
+   */
+  readonly joinReminders: CommunityJoinReminders | null;
 }
 
 export interface PersonWaitlist {
@@ -340,6 +346,7 @@ export async function readPerson(
               // The `/stop` state comes with the live contact read; without it, unknown.
               marketing: contact?.marketing ?? "unknown",
               observedAt: member.value.observedAt,
+              joinReminders: member.value.joinReminders,
             }
           : unavailable,
       waitlists:

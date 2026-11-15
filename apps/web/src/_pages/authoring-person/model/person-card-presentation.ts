@@ -156,6 +156,27 @@ export function telegramObservedText(observedAt: string | null): string {
     : `Состояние в группе проверено ${formatMoscowDateTime(observedAt)}.`;
 }
 
+const joinRemindersLabel = "Напоминаний о вступлении в группу";
+
+/**
+ * Напоминания о вступлении в группу, поставленные ботом в очередь, на момент последнего ответа
+ * Telegram Platform. `null`: Telegram о них не сообщил, поэтому число остаётся неизвестным, а не
+ * нулём.
+ */
+export function joinRemindersText(
+  joinReminders: Extract<
+    PersonCardTelegram,
+    { readonly state: "ready" }
+  >["joinReminders"],
+): string {
+  if (joinReminders === null) return `${joinRemindersLabel}: неизвестно.`;
+  if (joinReminders.sent === 0) return `${joinRemindersLabel}: нет.`;
+  const count = `${joinRemindersLabel}: ${String(joinReminders.sent)}`;
+  return joinReminders.lastAt === null
+    ? `${count}.`
+    : `${count}, последнее ${formatMoscowDateTime(joinReminders.lastAt)}.`;
+}
+
 /** Название продукта для строки другого блока: из продуктов, затем из обучения. */
 export function productNameOf(card: PersonCard, productId: string): string {
   const fromProducts =

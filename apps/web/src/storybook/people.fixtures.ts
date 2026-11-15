@@ -305,6 +305,7 @@ export const annaCard: PersonCard = {
     restriction: "none",
     marketing: "stopped",
     observedAt: "2026-10-26T09:00:00.000Z",
+    joinReminders: { sent: 3, lastAt: "2026-10-24T09:00:00.000Z" },
   },
   waitlists: {
     state: "ready",
@@ -366,6 +367,7 @@ export const newcomerCard: PersonCard = {
     restriction: "unknown",
     marketing: "unknown",
     observedAt: null,
+    joinReminders: null,
   },
   waitlists: { state: "ready", items: [] },
 };

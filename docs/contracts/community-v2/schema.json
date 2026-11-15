@@ -267,6 +267,30 @@
           "type": "string",
           "format": "uri",
           "pattern": "^https://t\\.me/c/[1-9][0-9]*/[1-9][0-9]*$"
+        },
+        "joinReminders": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sent",
+            "lastAt"
+          ],
+          "properties": {
+            "sent": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lastAt": {
+              "oneOf": [
+                {
+                  "$ref": "#/definitions/instant"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
         }
       },
       "allOf": [

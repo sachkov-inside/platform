@@ -168,6 +168,11 @@ export const AllBlocks: Story = {
       page.getByText("3 сдачи, последняя 25 окт. 2026, 14:05"),
     ).toBeVisible();
     await expect(page.getByText("Отказался через /stop")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Напоминаний о вступлении в группу: 3, последнее 24 окт. 2026, 12:00.",
+      ),
+    ).toBeVisible();
     await expect(page.getAllByText("Поток весна 2027")[0]).toBeVisible();
     // Email не стоит рядом со сдачами, UUID не служит названием.
     await expect(page.queryByText(storyAnnaId)).toBeNull();
@@ -238,6 +243,35 @@ export const Newcomer: Story = {
     await expect(page.getAllByText("Неизвестно")).toHaveLength(3);
     await expect(
       page.getByText("Бот ещё не проверял состояние в группе."),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Напоминаний о вступлении в группу: неизвестно."),
+    ).toBeVisible();
+  },
+};
+
+export const NoJoinReminders: Story = {
+  args: {
+    state: cardState({
+      ...annaCard,
+      telegram: {
+        state: "ready",
+        link: "linked",
+        membership: "not_member",
+        restriction: "none",
+        marketing: "enabled",
+        observedAt: "2026-10-26T09:00:00.000Z",
+        joinReminders: { sent: 0, lastAt: null },
+      },
+    }),
+  },
+  globals: desktop.globals,
+  name: "Telegram: напоминаний о вступлении нет (#2092)",
+  play: async ({ canvasElement }) => {
+    await expect(
+      routeContent(canvasElement).getByText(
+        "Напоминаний о вступлении в группу: нет.",
+      ),
     ).toBeVisible();
   },
 };

@@ -161,6 +161,39 @@ export class CommunityProvider {
 
   // ---------------------------------------------------------------- inbound
 
+  /**
+   * The Platform answer: the command's result plus the live count of join reminders (#2092). A
+   * fresh, replayed or polled v2 result carries the count read now, never one stored with the
+   * operation. The stored receipt keeps no count; `handle` stays free of it so it also runs on a
+   * schema older than the reminder columns, as the archive restore test does.
+   */
+  async answer(body: unknown): Promise<CommunityHandled> {
+    const response = await this.handle(body);
+    const result = response.body;
+    if (
+      result?.operation !== "entitlement.result" ||
+      result.contractVersion !== COMMUNITY_V2
+    )
+      return response;
+    const desired = await this.db
+      .selectFrom("community_desired_states")
+      .select(["join_reminders_sent", "join_reminder_last_at"])
+      .where("bot_identity", "=", this.bot)
+      .where("account_ref", "=", result.binding.accountRef)
+      .executeTakeFirst();
+    return {
+      status: response.status,
+      body: assertCommunityResult({
+        ...result,
+        // No desired state yet means the bot has sent none.
+        joinReminders: {
+          sent: desired?.join_reminders_sent ?? 0,
+          lastAt: desired?.join_reminder_last_at?.toISOString() ?? null,
+        },
+      }),
+    };
+  }
+
   async handle(body: unknown): Promise<CommunityHandled> {
     const response = await this.handleCommand(body);
     const result = response.body;

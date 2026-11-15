@@ -24,6 +24,7 @@ import type {
   PersonCardWaitlist,
 } from "../model/person-card";
 import {
+  joinRemindersText,
   learningActivityText,
   learningProgressText,
   learningStartText,
@@ -263,7 +264,10 @@ function SubmissionsSummary({
   );
 }
 
-/** Telegram: связь, группа, ограничения и рассылка; неизвестное остаётся неизвестным. */
+/**
+ * Telegram: связь, группа, ограничения, рассылка и напоминания о вступлении; неизвестное
+ * остаётся неизвестным.
+ */
 export function PersonTelegramBlock({
   onRetry,
   telegram,
@@ -287,6 +291,9 @@ export function PersonTelegramBlock({
       </dl>
       <p className="m-0 text-sm text-muted-foreground">
         {telegramObservedText(telegram.observedAt)}
+      </p>
+      <p className="m-0 text-sm text-muted-foreground">
+        {joinRemindersText(telegram.joinReminders)}
       </p>
     </div>
   );

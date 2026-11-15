@@ -37,6 +37,7 @@ import {
   communitySetSchema,
   communityResultSchema,
   type CommunityDeliveryStatus,
+  type CommunityJoinReminders,
   type DispatchAuthorizeRequest,
   type ObservedMembership,
 } from "../../src/modules/telegram-membership/domain/community-entitlement.js";
@@ -81,6 +82,7 @@ class ProviderDouble implements CommunityEntitlementProvider {
   readonly sent: CommunitySetCommand[] = [];
   readonly polled: string[] = [];
   groupUrl: string | undefined;
+  joinReminders: CommunityJoinReminders | undefined;
   updatedAt: string | undefined;
   answer: "accept" | "unavailable" | "operation_conflict" = "accept";
   restriction: "none" | "moderation" | "external_unknown" = "none";
@@ -133,6 +135,9 @@ class ProviderDouble implements CommunityEntitlementProvider {
       command.access.kind !== "denied" &&
       observation.observed === "member"
         ? { groupUrl: this.groupUrl }
+        : {}),
+      ...(this.joinReminders !== undefined
+        ? { joinReminders: this.joinReminders }
         : {}),
       admissionRestriction: this.restriction,
       access: command.access,
@@ -1112,6 +1117,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       membership: "unknown",
       restriction: "unknown",
       observedAt: null,
+      joinReminders: null,
     };
     expect(await app.readMemberState(account)).toEqual({
       ok: true,
@@ -1150,12 +1156,15 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
         membership: "unknown",
         restriction: "none",
         observedAt: now.toISOString(),
+        joinReminders: null,
       },
     });
 
     const [queued] = await operations(account);
     provider.restriction = "moderation";
     provider.observe(queued?.operationId ?? "", "accepted", "not_member");
+    // A newer Telegram reports the reminders it sent; an older one says nothing (#2092).
+    provider.joinReminders = { sent: 2, lastAt: "2026-10-10T09:00:00.000Z" };
     now = new Date(new Date(start).getTime() + 122_000);
     provider.updatedAt = now.toISOString();
     await app.sweep();
@@ -1166,6 +1175,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
         membership: "not_member",
         restriction: "moderation",
         observedAt: now.toISOString(),
+        joinReminders: { sent: 2, lastAt: "2026-10-10T09:00:00.000Z" },
       },
     });
 
@@ -1181,6 +1191,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
         membership: "member",
         restriction: "none",
         observedAt: now.toISOString(),
+        joinReminders: { sent: 2, lastAt: "2026-10-10T09:00:00.000Z" },
       },
     });
 

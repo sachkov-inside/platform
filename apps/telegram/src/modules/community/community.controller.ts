@@ -39,7 +39,7 @@ export class CommunityController {
         HttpStatus.UNAUTHORIZED,
       );
 
-    const handled = await this.provider.handle(body);
+    const handled = await this.provider.answer(body);
     if (handled.status === 200 && handled.body) return handled.body;
     throw new HttpException(
       handled.body ?? { statusCode: handled.status },

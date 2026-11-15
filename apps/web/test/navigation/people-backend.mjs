@@ -378,6 +378,9 @@ function card(person) {
       restriction: rich ? "none" : "unknown",
       marketing: rich ? "stopped" : "unknown",
       observedAt: rich ? "2026-10-26T09:00:00.000Z" : null,
+      joinReminders: rich
+        ? { sent: 3, lastAt: "2026-10-24T09:00:00.000Z" }
+        : null,
     },
     waitlists: {
       state: "ready",

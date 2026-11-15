@@ -4,6 +4,7 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
   communityResultSchema,
+  type CommunityJoinReminders,
   type ObservedMembership,
 } from "../../domain/community-entitlement.js";
 import type { TelegramAccountLinks } from "../../facets/telegram-account-links/telegram-account-links.js";
@@ -23,6 +24,12 @@ export interface CommunityMemberState {
   readonly restriction: "none" | "moderation" | "external_unknown" | "unknown";
   /** When the provider made that observation; `null` when there is none. */
   readonly observedAt: string | null;
+  /**
+   * Join reminders the bot had queued when Telegram answered the last poll of the current link,
+   * read at answer time rather than at `observedAt`; `null` when that answer did not carry them
+   * (no answer yet, a malformed count, or a Telegram release before #2092).
+   */
+  readonly joinReminders: CommunityJoinReminders | null;
 }
 
 export type ReadMemberStateResult =
@@ -36,6 +43,7 @@ const unobserved = {
   membership: "unknown",
   restriction: "unknown",
   observedAt: null,
+  joinReminders: null,
 } as const;
 
 /**
@@ -87,6 +95,7 @@ export async function readMemberState(
         membership: result.data.observedMembership,
         restriction: result.data.admissionRestriction ?? "unknown",
         observedAt: new Date(result.data.updatedAt).toISOString(),
+        joinReminders: result.data.joinReminders ?? null,
       },
     };
   } catch (error) {
