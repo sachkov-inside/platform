@@ -146,13 +146,28 @@ describe("published editions", () => {
     );
   });
 
-  it("puts cookies v3 in force without the reading-mode cookies and keeps v2 and v1 readable", () => {
+  it("puts cookies v4 in force with the collapsed lesson menu and keeps v3, v2 and v1 readable", () => {
     const cookies = currentLegalEdition("cookies");
-    expect(cookies.version).toBe(3);
-    expect(cookies.effectiveFrom).toBe("2026-11-14");
+    expect(cookies.version).toBe(4);
+    expect(cookies.effectiveFrom).toBe("2026-11-15");
     expect(cookies.text).toContain(
-      "Версия 3. Действует с 14 ноября 2026 года.",
+      "Версия 4. Действует с 15 ноября 2026 года.",
     );
+    // v4 adds exactly one row to v3 and changes only the version line (#2158).
+    const previous = findLegalEdition("cookies", 3);
+    expect(previous?.digest).toBe(
+      "4eab7d4384756258a02ea57d5dc1ff8f9b10ad2c42b65c357ce84cdefb9dfc27",
+    );
+    const menuRow =
+      "| Свёрнутое меню уроков курса | localStorage `inside.course-menu.v1` (свёрнуто или раскрыто) | Отдельный срок не задан; до удаления данных сайта |\n";
+    expect(
+      cookies.text
+        .replace(menuRow, "")
+        .replace(
+          "Версия 4. Действует с 15 ноября 2026 года.",
+          "Версия 3. Действует с 14 ноября 2026 года.",
+        ),
+    ).toBe(previous?.text);
     expect(cookies.title).toBe("Cookies и локальное хранение на sachkov.dev");
     expect(cookies.text).toContain("localStorage `inside.storage-notice.v1`");
     expect(cookies.text).not.toContain("guide-mode");
@@ -164,6 +179,7 @@ describe("published editions", () => {
       "inside.video-preferences.v1",
       "inside.exercise-answers.v1:",
       "inside.lesson-parts.v1:",
+      "inside.course-menu.v1",
       "inside-reader-entry:",
       "inside.telegram-link.v1",
       "inside.billing.purchase.confirmed",
@@ -183,7 +199,7 @@ describe("published editions", () => {
     );
     expect(
       supersededLegalEditions("cookies").map((edition) => edition.version),
-    ).toEqual([2, 1]);
+    ).toEqual([3, 2, 1]);
   });
 
   it.each(legalEditions.map((edition) => [edition.key, edition] as const))(
