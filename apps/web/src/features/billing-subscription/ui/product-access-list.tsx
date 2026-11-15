@@ -19,7 +19,7 @@ import {
   productPurchaseHref,
 } from "@/shared/routing/subscription-route";
 import { accountProducts } from "../model/account-products";
-import { BillingDisclosure } from "./billing-disclosure.client";
+import { BillingDisclosure } from "./billing-disclosure";
 
 function accessLabel(
   access: OwnPayment["access"],
