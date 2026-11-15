@@ -319,6 +319,8 @@ export function AdminSearchChecklist({
           <li key={option.value}>
             <label className="admin-checklist-item">
               <input
+                // Ошибка выбора помечает флажки: отправка формы переводит фокус на первый из них.
+                aria-invalid={hasText(error) ? true : undefined}
                 checked={values.includes(option.value)}
                 onChange={(event) => {
                   toggle(option.value, event.currentTarget.checked);

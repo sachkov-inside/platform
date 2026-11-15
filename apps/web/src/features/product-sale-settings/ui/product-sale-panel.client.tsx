@@ -539,11 +539,15 @@ function SalesStateBlock({
     event.preventDefault();
     if (pending || conflict) return;
     const found = salesStateErrors(draft);
-    showFormErrors(event.currentTarget, () => {
+    const applyChecks = () => {
       setSubmitted(true);
       setErrors(found);
-    });
-    if (Object.keys(found).length > 0) return;
+    };
+    if (Object.keys(found).length > 0) {
+      showFormErrors(event.currentTarget, applyChecks);
+      return;
+    }
+    applyChecks();
     onSave(draft);
   };
   return (

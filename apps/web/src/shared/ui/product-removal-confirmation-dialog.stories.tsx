@@ -71,8 +71,8 @@ export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 /**
- * На телефоне жест над затемнением и прокрутка внутри окна не прокручивают страницу под ним:
- * окно и его подложка держат прокрутку у себя.
+ * На телефоне окно и его подложка держат прокрутку у себя: у модального окна
+ * `overscroll-behavior: contain`, а подложка стала контейнером прокрутки с тем же правилом.
  */
 export const PageStaysBehindDialog: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },

@@ -223,12 +223,16 @@ function CreateForm({
           return;
         }
         const expiresAt = paymentLinkExpiresAt(expiry);
-        showFormErrors(form, () => {
+        const applyChecks = () => {
           setSubmitted(true);
           setProductError("");
           setExpiryError(expiresAt.ok ? "" : expiresAt.error);
-        });
-        if (preview === null || !preview.valid || !expiresAt.ok) return;
+        };
+        if (preview === null || !preview.valid || !expiresAt.ok) {
+          showFormErrors(form, applyChecks);
+          return;
+        }
+        applyChecks();
         const input = {
           productId: selected.productId,
           priceRevision: selected.priceRevision,
