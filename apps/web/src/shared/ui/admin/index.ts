@@ -25,7 +25,7 @@ export {
   AdminPagination,
 } from "./admin-pagination.client";
 export { AdminRowMenu } from "./admin-row-menu.client";
-export { showFormErrors } from "./show-form-errors";
+export { showFormErrors } from "./show-form-errors.client";
 export {
   AdminSearchChecklist,
   AdminSearchSelect,

@@ -1,3 +1,5 @@
+"use client";
+
 import { flushSync } from "react-dom";
 
 /**
