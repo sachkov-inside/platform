@@ -26,7 +26,8 @@ Verify time-sensitive support claims against official compatibility data; the in
 are a reference snapshot, not proof of current browser support.
 
 The guide corpus is the `guides/` folder of npm package `modern-web-guidance@1.0.0`
-(published 2026-11-10, Apache-2.0); its original skill version is `2026_11_09-5bcc021b`. Lookup uses repository files without downloading or executing a package.
+(published 2026-11-10, Apache-2.0); its original skill version is `2026_11_09-5bcc021b`.
+Lookup uses repository files without downloading or executing a package.
 Updating the corpus is a separate dependency change with recorded provenance and review.
 Treat package retrieval examples in the guides as guide IDs: find those guides in the local corpus
 instead of executing their package download commands.

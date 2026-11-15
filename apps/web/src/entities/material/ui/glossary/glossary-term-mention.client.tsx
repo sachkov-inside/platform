@@ -61,16 +61,15 @@ export function GlossaryTermMention({
   const [expanded, setExpanded] = useState(false);
   const open = openness !== "closed";
 
-  const cancelTimers = () => {
+  const cancelTimers = useCallback(() => {
     window.clearTimeout(openTimer.current);
     window.clearTimeout(closeTimer.current);
-  };
+  }, []);
   const close = useCallback(() => {
-    window.clearTimeout(openTimer.current);
-    window.clearTimeout(closeTimer.current);
+    cancelTimers();
     setOpenness("closed");
     setExpanded(false);
-  }, []);
+  }, [cancelTimers]);
 
   const place = useCallback(() => {
     const trigger = triggerRef.current;
@@ -113,14 +112,14 @@ export function GlossaryTermMention({
   useLayoutEffect(() => {
     if (!open) return;
     place();
-    const scroll = { capture: true, passive: true } as const;
-    document.addEventListener("scroll", place, scroll);
+    const scrollListener = { capture: true, passive: true } as const;
+    document.addEventListener("scroll", place, scrollListener);
     window.addEventListener("resize", place);
-    // The bubble's height changes once it takes its width: placing it above needs the final one.
+    // The bubble's height changes when its content does («Подробнее» expands it in place).
     const resize = new ResizeObserver(place);
     if (bubbleRef.current !== null) resize.observe(bubbleRef.current);
     return () => {
-      document.removeEventListener("scroll", place, scroll);
+      document.removeEventListener("scroll", place, scrollListener);
       window.removeEventListener("resize", place);
       resize.disconnect();
     };
@@ -152,13 +151,7 @@ export function GlossaryTermMention({
     };
   }, [open, close]);
 
-  useEffect(
-    () => () => {
-      window.clearTimeout(openTimer.current);
-      window.clearTimeout(closeTimer.current);
-    },
-    [],
-  );
+  useEffect(() => cancelTimers, [cancelTimers]);
 
   const hoverOpen = (event: React.PointerEvent) => {
     if (event.pointerType !== "mouse") return;

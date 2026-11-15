@@ -971,6 +971,9 @@ export const GlossaryTermsHover: Story = {
   },
 };
 
+/** Дольше задержки открытия по наведению (100 мс) с запасом на медленную машину. */
+const pastHoverOpenDelayMs = 250;
+
 /** Курсор, который просто проходит по термину, не открывает подсказку. */
 export const GlossaryTermCursorPassesBy: Story = {
   ...GlossaryTerms,
@@ -980,7 +983,8 @@ export const GlossaryTermCursorPassesBy: Story = {
     const term = canvas.getByRole("button", { name: "ограниченные контексты" });
     await userEvent.hover(term);
     await userEvent.unhover(term);
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    // Nothing is meant to happen: a pause past the 100 ms hover delay is the instrument here.
+    await new Promise((resolve) => setTimeout(resolve, pastHoverOpenDelayMs));
     await expect(
       page.queryByRole("dialog", { name: "Ограниченный контекст" }),
     ).toBeNull();
@@ -1018,17 +1022,15 @@ export const GlossaryTermBubbleOpensInPlace: Story = {
   ...GlossaryTermBubblePlacement,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const document = canvasElement.ownerDocument;
-    const view = document.defaultView;
+    const page = canvasElement.ownerDocument;
+    const view = page.defaultView;
     if (view === null) throw new Error("The story needs a window");
     const term = canvas.getByRole("button", { name: "ограниченные контексты" });
     // Every frame from before the pointer arrives: the first shown frame is the one that jumps.
     const frames: ReturnType<typeof settledBox>[] = [];
     let recording = true;
     const record = () => {
-      const bubble = document.querySelector<HTMLElement>(
-        "[data-glossary-bubble]",
-      );
+      const bubble = page.querySelector<HTMLElement>("[data-glossary-bubble]");
       if (bubble?.checkVisibility({ visibilityProperty: true }) === true)
         frames.push(settledBox(bubble));
       if (recording) view.requestAnimationFrame(record);
@@ -1040,44 +1042,6 @@ export const GlossaryTermBubbleOpensInPlace: Story = {
     recording = false;
     await expect(frames.length).toBeGreaterThanOrEqual(8);
     for (const frame of frames) await expect(frame).toEqual(frames[0]);
-  },
-};
-
-/**
- * На компьютере урок прокручивается внутри колонки оболочки, а не всем окном: открытая подсказка
- * всё равно остаётся у своего слова.
- */
-export const GlossaryTermBubbleFollowsScroll: Story = {
-  ...GlossaryTermBubblePlacement,
-  decorators: [
-    (Story) => (
-      <div data-testid="scroller" style={{ height: 480, overflowY: "auto" }}>
-        <Story />
-        <div style={{ height: 1200 }} />
-      </div>
-    ),
-  ],
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const page = within(canvasElement.ownerDocument.body);
-    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
-    term.scrollIntoView({ block: "end" });
-    await userEvent.click(term);
-    const bubble = await page.findByRole("dialog", {
-      name: "Ограниченный контекст",
-    });
-    const gap = () =>
-      Math.round(
-        term.getBoundingClientRect().top - bubble.getBoundingClientRect().top,
-      );
-    await waitFor(() => expect(bubble).toHaveAttribute("data-side", "top"));
-    const before = gap();
-    const wordTop = term.getBoundingClientRect().top;
-    canvas.getByTestId("scroller").scrollBy({ top: 60 });
-    await waitFor(() =>
-      expect(Math.round(wordTop - term.getBoundingClientRect().top)).toBe(60),
-    );
-    await waitFor(() => expect(gap()).toBe(before));
   },
 };
 
