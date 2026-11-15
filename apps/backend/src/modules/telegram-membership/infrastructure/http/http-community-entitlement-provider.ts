@@ -1,4 +1,7 @@
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  writeLog,
+} from "../../../../infrastructure/observability/index.js";
 import {
   COMMUNITY_V2_CONTRACT_VERSION,
   COMMUNITY_MAXIMUM_BODY_BYTES,
@@ -103,17 +106,24 @@ export class HttpCommunityEntitlementProvider implements CommunityEntitlementPro
 }
 
 /**
- * The reminder count only feeds the operator's person card (#2092). A malformed one reads as
- * unknown, so it can never cost the community result that admission depends on.
+ * The reminder count only feeds the operator's person card (#2092). In a v2 result a malformed
+ * one reads as unknown, so it can never cost the community result that admission depends on. v1
+ * does not know the field, so its own contract decides. The warning names no binding or value.
  */
 function withoutMalformedJoinReminders(payload: unknown): unknown {
   if (
     typeof payload !== "object" ||
     payload === null ||
+    !("contractVersion" in payload) ||
+    payload.contractVersion !== COMMUNITY_V2_CONTRACT_VERSION ||
     !("joinReminders" in payload) ||
     communityJoinRemindersSchema.safeParse(payload.joinReminders).success
   )
     return payload;
+  writeLog("warn", "community_join_reminders_malformed", {
+    module: "telegram-membership",
+    operation: "exchange",
+  });
   const { joinReminders: _malformed, ...rest } = payload;
   return rest;
 }

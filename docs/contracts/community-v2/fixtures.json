@@ -1154,6 +1154,7 @@
   },
   {
     "name": "join-reminders-wrong-type",
+    "description": "Invalid against the schema. Platform still accepts the rest of the result and reads joinReminders as unknown; only the field is dropped.",
     "definition": "communityResponse",
     "value": {
       "contractVersion": "inside.community-entitlement.v2",
@@ -1179,6 +1180,7 @@
   },
   {
     "name": "join-reminders-invalid-time",
+    "description": "Invalid against the schema. Platform still accepts the rest of the result and reads joinReminders as unknown; only the field is dropped.",
     "definition": "communityResponse",
     "value": {
       "contractVersion": "inside.community-entitlement.v2",
