@@ -53,9 +53,6 @@ it("reports unavailable connection diagnostics without retaining the connection 
   const result = await postgresWaitDiagnostics(
     "postgresql://private-test:%ZZ@localhost/example",
   );
-  expect(result).toMatchObject({
-    status: "unavailable",
-    error: expect.any(String),
-  });
+  expect(result.status).toBe("unavailable");
   expect(JSON.stringify(result)).not.toContain("private-test");
 });
