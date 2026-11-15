@@ -76,7 +76,7 @@ let enabled = false;
 let subscriptionOffered = false;
 let priceKopecks = 990000;
 let cohortRevision = 1;
-let startsOn = "2026-11-15";
+let startsOn = "2099-11-15";
 
 /** Fixture measurements count physical HTTP responses, never database statements or provider calls.
  * @param {import("node:http").IncomingMessage} request

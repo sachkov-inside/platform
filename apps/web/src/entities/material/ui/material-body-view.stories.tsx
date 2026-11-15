@@ -971,6 +971,80 @@ export const GlossaryTermsHover: Story = {
   },
 };
 
+/** Дольше задержки открытия по наведению (100 мс) с запасом на медленную машину. */
+const pastHoverOpenDelayMs = 250;
+
+/** Курсор, который просто проходит по термину, не открывает подсказку. */
+export const GlossaryTermCursorPassesBy: Story = {
+  ...GlossaryTerms,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
+    await userEvent.hover(term);
+    await userEvent.unhover(term);
+    // Nothing is meant to happen: a pause past the 100 ms hover delay is the instrument here.
+    await new Promise((resolve) => setTimeout(resolve, pastHoverOpenDelayMs));
+    await expect(
+      page.queryByRole("dialog", { name: "Ограниченный контекст" }),
+    ).toBeNull();
+    await expect(term).toHaveAttribute("aria-expanded", "false");
+  },
+};
+
+function nextFrame(view: Window) {
+  return new Promise<void>((resolve) => {
+    view.requestAnimationFrame(() => {
+      resolve();
+    });
+  });
+}
+
+/** Where the bubble is painted, without its entry animation: the box it settles in. */
+function settledBox(bubble: HTMLElement) {
+  const { left, top, width, height } = bubble.getBoundingClientRect();
+  const translate = getComputedStyle(bubble).translate;
+  const [x = 0, y = 0] =
+    translate === "none" ? [] : translate.split(" ").map(Number.parseFloat);
+  return {
+    height: Math.round(height),
+    left: Math.round(left - x),
+    top: Math.round(top - y),
+    width: Math.round(width),
+  };
+}
+
+/**
+ * Подсказка появляется сразу на своём месте: в первом же показанном кадре у неё окончательные
+ * размер и положение, и потом она не прыгает.
+ */
+export const GlossaryTermBubbleOpensInPlace: Story = {
+  ...GlossaryTermBubblePlacement,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const page = canvasElement.ownerDocument;
+    const view = page.defaultView;
+    if (view === null) throw new Error("The story needs a window");
+    const term = canvas.getByRole("button", { name: "ограниченные контексты" });
+    // Every frame from before the pointer arrives: the first shown frame is the one that jumps.
+    const frames: ReturnType<typeof settledBox>[] = [];
+    let recording = true;
+    const record = () => {
+      const bubble = page.querySelector<HTMLElement>("[data-glossary-bubble]");
+      if (bubble?.checkVisibility({ visibilityProperty: true }) === true)
+        frames.push(settledBox(bubble));
+      if (recording) view.requestAnimationFrame(record);
+    };
+    view.requestAnimationFrame(record);
+    await userEvent.hover(term);
+    for (let frame = 0; frames.length < 8 && frame < 90; frame += 1)
+      await nextFrame(view);
+    recording = false;
+    await expect(frames.length).toBeGreaterThanOrEqual(8);
+    for (const frame of frames) await expect(frame).toEqual(frames[0]);
+  },
+};
+
 function calloutText(text: string) {
   return [
     {

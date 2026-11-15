@@ -13,8 +13,6 @@ import { createPortal } from "react-dom";
 
 import Link from "next/link";
 
-import { cn } from "@/shared/lib/utils";
-
 import {
   glossaryDefinitionParagraphs,
   type GlossaryTermReading,
@@ -27,6 +25,8 @@ const BUBBLE_GAP = 12;
 /** Стрелка не подходит к скруглённому углу подсказки ближе этого. */
 const ARROW_INSET = 16;
 const BUBBLE_MAX_WIDTH = 320;
+/** Курсор, который просто проходит по тексту, не открывает подсказки одну за другой. */
+const HOVER_OPEN_DELAY_MS = 100;
 /** Курсор успевает перейти с термина на подсказку, и она не закрывается по дороге. */
 const HOVER_CLOSE_DELAY_MS = 150;
 
@@ -35,21 +35,14 @@ type Openness = "closed" | "hover" | "pinned";
 const moreClassName =
   "mt-2 min-h-11 font-medium text-lesson-ink underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring";
 
-interface BubblePosition {
-  readonly left: number;
-  readonly top: number;
-  readonly width: number;
-  /** Над словом или под ним. */
-  readonly side: "top" | "bottom";
-  /** Середина стрелки от левого края подсказки. */
-  readonly arrow: number;
-}
-
 /**
  * Первое упоминание термина в уроке: пунктирное подчёркивание, по наведению курсора и по нажатию
  * на телефоне короткое определение и «Подробнее». С `moreHref` (словарь курса показывает термин
  * читателю) «Подробнее» ведёт к его карточке, без него раскрывает полное определение на месте. Подсказка висит
  * поверх текста и не сдвигает его.
+ *
+ * Место подсказки компонент пишет прямо в её стили до отрисовки кадра, а не через состояние React:
+ * так она появляется сразу на своём месте и идёт за словом при прокрутке без отставания.
  */
 export function GlossaryTermMention({
   children,
@@ -61,25 +54,27 @@ export function GlossaryTermMention({
   const bubbleId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
+  const arrowRef = useRef<HTMLSpanElement>(null);
+  const openTimer = useRef<number | undefined>(undefined);
   const closeTimer = useRef<number | undefined>(undefined);
   const [openness, setOpenness] = useState<Openness>("closed");
   const [expanded, setExpanded] = useState(false);
-  const [position, setPosition] = useState<BubblePosition | null>(null);
   const open = openness !== "closed";
 
-  const cancelClose = () => {
+  const cancelTimers = useCallback(() => {
+    window.clearTimeout(openTimer.current);
     window.clearTimeout(closeTimer.current);
-  };
+  }, []);
   const close = useCallback(() => {
-    window.clearTimeout(closeTimer.current);
+    cancelTimers();
     setOpenness("closed");
     setExpanded(false);
-    setPosition(null);
-  }, []);
+  }, [cancelTimers]);
 
   const place = useCallback(() => {
     const trigger = triggerRef.current;
-    if (trigger === null) return;
+    const bubble = bubbleRef.current;
+    if (trigger === null || bubble === null) return;
     const anchor = trigger.getBoundingClientRect();
     const viewport = document.documentElement.clientWidth;
     const width = Math.min(BUBBLE_MAX_WIDTH, viewport - 2 * VIEWPORT_GUTTER);
@@ -87,7 +82,10 @@ export function GlossaryTermMention({
       Math.max(anchor.left, VIEWPORT_GUTTER),
       viewport - VIEWPORT_GUTTER - width,
     );
-    const height = bubbleRef.current?.offsetHeight ?? 0;
+    // The height is measured at the final width: a narrower or wider bubble wraps differently.
+    bubble.style.width = `${String(width)}px`;
+    bubble.style.left = `${String(left)}px`;
+    const height = bubble.offsetHeight;
     // Над словом подсказка закрывает уже прочитанные строки, а не ту, что читатель читает дальше.
     const above = anchor.top - BUBBLE_GAP - height;
     const below = anchor.bottom + BUBBLE_GAP;
@@ -100,26 +98,28 @@ export function GlossaryTermMention({
       Math.max(firstLine.left + firstLine.width / 2 - left, ARROW_INSET),
       width - ARROW_INSET,
     );
-    setPosition({
-      arrow,
-      left,
-      side,
-      top: side === "top" ? Math.max(above, VIEWPORT_GUTTER) : below,
-      width,
-    });
+    const top = side === "top" ? Math.max(above, VIEWPORT_GUTTER) : below;
+    bubble.style.top = `${String(top)}px`;
+    bubble.setAttribute("data-side", side);
+    if (arrowRef.current !== null)
+      arrowRef.current.style.left = `${String(arrow)}px`;
+    bubble.setAttribute("data-placed", "");
   }, []);
 
-  // The bubble is measured after it renders, and follows its term while the page scrolls.
+  // The bubble is placed before its first frame is painted, and follows its term while the page
+  // or any container around the lesson scrolls: on a desktop the shell's column scrolls, not the
+  // window, and a scroll event of an element reaches the document only in the capture phase.
   useLayoutEffect(() => {
     if (!open) return;
     place();
-    window.addEventListener("scroll", place, { passive: true });
+    const scrollListener = { capture: true, passive: true } as const;
+    document.addEventListener("scroll", place, scrollListener);
     window.addEventListener("resize", place);
-    // The bubble's height changes once it takes its width: placing it above needs the final one.
+    // The bubble's height changes when its content does («Подробнее» expands it in place).
     const resize = new ResizeObserver(place);
     if (bubbleRef.current !== null) resize.observe(bubbleRef.current);
     return () => {
-      window.removeEventListener("scroll", place);
+      document.removeEventListener("scroll", place, scrollListener);
       window.removeEventListener("resize", place);
       resize.disconnect();
     };
@@ -151,21 +151,21 @@ export function GlossaryTermMention({
     };
   }, [open, close]);
 
-  useEffect(
-    () => () => {
-      window.clearTimeout(closeTimer.current);
-    },
-    [],
-  );
+  useEffect(() => cancelTimers, [cancelTimers]);
 
   const hoverOpen = (event: React.PointerEvent) => {
     if (event.pointerType !== "mouse") return;
-    cancelClose();
-    setOpenness((current) => (current === "closed" ? "hover" : current));
+    cancelTimers();
+    if (open) return;
+    openTimer.current = window.setTimeout(() => {
+      setOpenness((current) => (current === "closed" ? "hover" : current));
+    }, HOVER_OPEN_DELAY_MS);
   };
   const hoverClose = (event: React.PointerEvent) => {
-    if (event.pointerType !== "mouse" || openness !== "hover") return;
-    cancelClose();
+    if (event.pointerType !== "mouse") return;
+    window.clearTimeout(openTimer.current);
+    if (openness !== "hover") return;
+    window.clearTimeout(closeTimer.current);
     closeTimer.current = window.setTimeout(close, HOVER_CLOSE_DELAY_MS);
   };
 
@@ -177,7 +177,7 @@ export function GlossaryTermMention({
         className="cursor-help rounded-sm text-inherit underline decoration-lesson-ink decoration-dotted decoration-[1.5px] underline-offset-4 [font:inherit] focus-visible:outline-2 focus-visible:outline-ring"
         data-glossary-term={term.id}
         onClick={() => {
-          cancelClose();
+          cancelTimers();
           if (openness === "pinned") close();
           else setOpenness("pinned");
         }}
@@ -192,37 +192,20 @@ export function GlossaryTermMention({
         ? createPortal(
             <div
               aria-label={term.title}
-              className="fixed z-50 rounded-xl border border-border bg-popover p-4 text-left text-sm leading-6 text-popover-foreground shadow-lg"
+              className="glossary-bubble group invisible fixed top-0 left-0 z-50 rounded-xl border border-border bg-popover p-4 text-left text-sm leading-6 text-popover-foreground shadow-lg data-placed:visible"
               data-glossary-bubble={term.id}
-              data-side={position?.side}
               id={bubbleId}
               onPointerEnter={hoverOpen}
               onPointerLeave={hoverClose}
               ref={bubbleRef}
               role="dialog"
-              style={
-                position === null
-                  ? { left: 0, top: 0, visibility: "hidden" }
-                  : {
-                      left: position.left,
-                      top: position.top,
-                      width: position.width,
-                    }
-              }
             >
-              {position === null ? null : (
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute size-3 -translate-x-1/2 rotate-45 border-border bg-popover",
-                    position.side === "top"
-                      ? "-bottom-1.5 border-r border-b"
-                      : "-top-1.5 border-t border-l",
-                  )}
-                  data-glossary-arrow=""
-                  style={{ left: position.arrow }}
-                />
-              )}
+              <span
+                aria-hidden="true"
+                className="absolute size-3 -translate-x-1/2 rotate-45 border-border bg-popover group-data-[side=bottom]:-top-1.5 group-data-[side=bottom]:border-t group-data-[side=bottom]:border-l group-data-[side=top]:-bottom-1.5 group-data-[side=top]:border-r group-data-[side=top]:border-b"
+                data-glossary-arrow=""
+                ref={arrowRef}
+              />
               <p className="font-semibold text-foreground">
                 {term.title}
                 {term.englishTitle === null ? null : (
