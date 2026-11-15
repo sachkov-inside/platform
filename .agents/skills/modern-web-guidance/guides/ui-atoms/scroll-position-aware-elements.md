@@ -1,3 +1,5 @@
+# Scroll Position Aware Elements
+
 ## Overview
 
 Improve the user experience of floating buttons, like a "Back to Top" link, by showing them only when they are useful. This guide shows how to build these elements using CSS `container-scroll-state-queries`, which allows styling elements based on the scroll position of their container without relying on JavaScript scroll listeners or observers.
@@ -34,7 +36,8 @@ Place the element inside the container and style it. By default, it should be hi
 }
 ```
 
-> **Important:** Sticky or floating elements hover above the scrollable content. Ensure that the main content has sufficient bottom padding or margin so that the last few elements are not permanently covered by the button when the user scrolls completely to the bottom.
+> [!IMPORTANT]
+> Sticky or floating elements hover above the scrollable content. Ensure that the main content has sufficient bottom padding or margin so that the last few elements are not permanently covered by the button when the user scrolls completely to the bottom.
 
 ### 3. Respond to the Scroll State
 
@@ -53,8 +56,8 @@ Use the `@container` rule with the `scroll-state` function. To check if the user
 
 ## Fallback strategies
 
-Container scroll-state queries has limited availability.
-Supported by: Chrome 133 (Feb 2025) and Edge 133 (Feb 2025).
+Browser support for Container scroll-state queries: Limited availability.
+Supported by: Chrome 144 (Jan 2026) and Edge 144 (Jan 2026).
 Unsupported in: Firefox and Safari.
 
 ### Basic Fallback

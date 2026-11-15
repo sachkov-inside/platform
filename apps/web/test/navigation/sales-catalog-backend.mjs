@@ -108,7 +108,7 @@ function initialLinks() {
       revision: 1,
       state: "active",
       createdAt: "2026-10-26T09:00:00.000Z",
-      expiresAt: "2026-11-16T00:00:00+03:00",
+      expiresAt: "2099-11-16T00:00:00+03:00",
       snapshot: snapshot(
         productAt(0),
         2_541_500,

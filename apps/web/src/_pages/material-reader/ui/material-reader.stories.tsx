@@ -2393,3 +2393,81 @@ export const InlineVideoMissing: Story = {
     ).toHaveLength(0);
   },
 };
+
+function readerParagraph(text: string) {
+  return {
+    kind: "paragraph" as const,
+    content: [{ kind: "text" as const, marks: [], text }],
+  };
+}
+
+const scrolledTerm = {
+  id: "bounded-context",
+  title: "Ограниченный контекст",
+  englishTitle: "Bounded context",
+  shortDefinition: "Граница, внутри которой у слов модели один смысл.",
+  fullDefinition: "Часть системы со своей моделью и своим языком.",
+};
+
+/**
+ * На компьютере урок прокручивается внутри колонки оболочки, а не всем окном: открытая подсказка
+ * термина всё равно идёт за своим словом.
+ */
+export const GlossaryTermFollowsShellScroll: Story = {
+  args: {
+    body: [
+      ...Array.from({ length: 12 }, (_, index) =>
+        readerParagraph(`Абзац ${String(index + 1)} перед термином.`),
+      ),
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", marks: [], text: "Команда делит систему на " },
+          {
+            kind: "text",
+            marks: [{ kind: "link", href: "term:bounded-context" }],
+            text: "ограниченные контексты",
+          },
+          { kind: "text", marks: [], text: "." },
+        ],
+      },
+      ...Array.from({ length: 30 }, (_, index) =>
+        readerParagraph(`Абзац ${String(index + 1)} после термина.`),
+      ),
+    ],
+    glossaryTerms: [scrolledTerm],
+    material: { ...material, cover: null },
+  },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const view = canvasElement.ownerDocument.defaultView;
+    if (view === null) throw new Error("The story needs a window");
+    const term = within(canvasElement).getByRole("button", {
+      name: "ограниченные контексты",
+    });
+    let column = term.parentElement;
+    while (column !== null && getComputedStyle(column).overflowY !== "auto")
+      column = column.parentElement;
+    if (column === null) throw new Error("The shell owns desktop scrolling");
+    term.scrollIntoView({ block: "end" });
+    await userEvent.click(term);
+    const bubble = await page.findByRole("dialog", {
+      name: scrolledTerm.title,
+    });
+    await waitFor(() => expect(bubble).toHaveAttribute("data-side", "top"));
+    const gap = () =>
+      Math.round(
+        term.getBoundingClientRect().top - bubble.getBoundingClientRect().top,
+      );
+    const before = gap();
+    const wordTop = term.getBoundingClientRect().top;
+    const windowScroll = view.scrollY;
+    column.scrollBy({ top: 60 });
+    await waitFor(() =>
+      expect(Math.round(wordTop - term.getBoundingClientRect().top)).toBe(60),
+    );
+    await expect(view.scrollY).toBe(windowScroll);
+    await waitFor(() => expect(gap()).toBe(before));
+  },
+};
