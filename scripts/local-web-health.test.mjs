@@ -53,6 +53,7 @@ async function runProbe(t, readyStatus) {
     { stdio: "ignore" },
   );
   const probeDeadlineMilliseconds = 5000;
+  // deterministic-test-allow duration-wait: Bound a stuck probe; assertions wait for supervisor exit.
   const deadline = setTimeout(
     () => void stopOwned(child, 0),
     probeDeadlineMilliseconds,
