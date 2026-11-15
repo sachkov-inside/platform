@@ -372,12 +372,18 @@ body {
   );
 }
 
-.public-horizontal-rail {
-  scrollbar-width: none;
-}
+/*
+ * Полосы прокрутки прячутся только на сенсорном экране: там ленту листают пальцем. С мышью полоса
+ * видна, иначе прокрутить ленту или узкое окно нечем.
+ */
+@media (pointer: coarse) {
+  .public-horizontal-rail {
+    scrollbar-width: none;
+  }
 
-.public-horizontal-rail::-webkit-scrollbar {
-  display: none;
+  .public-horizontal-rail::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 body {
@@ -509,7 +515,7 @@ body:has(
   }
 }
 
-@media (width < 48rem) {
+@media (width < 48rem) and (pointer: coarse) {
   html,
   body {
     scrollbar-width: none;
