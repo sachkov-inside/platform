@@ -41,7 +41,19 @@ export async function expectNoSidewaysScrollAtDoubleText(): Promise<void> {
   const fontSize = root.style.fontSize;
   try {
     root.style.fontSize = "200%";
-    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+    const edge = root.clientWidth;
+    // The message names what crosses the right edge, so a failure on another machine is readable.
+    const beyond = [...document.body.querySelectorAll<HTMLElement>("*")]
+      .filter((element) => element.getBoundingClientRect().right > edge + 0.5)
+      .slice(0, 3)
+      .map(
+        (element) =>
+          `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 60)} «${(element.textContent ?? "").trim().slice(0, 30)}»`,
+      );
+    await expect(
+      root.scrollWidth,
+      `beyond the edge: ${beyond.join("; ")}`,
+    ).toBeLessThanOrEqual(edge);
   } finally {
     root.style.fontSize = fontSize;
   }
