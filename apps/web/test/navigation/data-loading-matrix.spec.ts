@@ -96,7 +96,7 @@ async function reset(request: APIRequestContext) {
           subscriptionOffered: false,
           priceKopecks: 990000,
           cohortRevision: 1,
-          startsOn: "2026-11-15",
+          startsOn: "2099-11-15",
         },
       })
     ).ok(),
@@ -904,7 +904,7 @@ for (const role of ["guest", "non-owner"] as const) {
           reset: true,
           priceKopecks: 1290000,
           cohortRevision: 2,
-          startsOn: "2026-12-15",
+          startsOn: "2099-12-15",
         },
       });
       await page.reload({ waitUntil: "commit" });

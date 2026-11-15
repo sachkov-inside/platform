@@ -378,8 +378,8 @@ test("скидки: создание, изменение и архив без в
   await expect(
     form.getByRole("list", { name: "Выбрано: Продукты" }),
   ).toContainText("Архитектура систем");
-  await form.getByLabel("Первый день").fill("2026-11-27");
-  await form.getByLabel("Последний день").fill("2026-11-30");
+  await form.getByLabel("Первый день").fill("2099-11-27");
+  await form.getByLabel("Последний день").fill("2099-11-30");
   await salesAdminEvidence(page, info, "discount-form");
   if (isPhone(info)) await expectTouchTargets(form);
   await form.getByRole("button", { name: "Создать скидку" }).click();
@@ -427,8 +427,8 @@ test("скидки: создание, изменение и архив без в
         percent: 30,
         code: "BLACK",
         productIds: [architecture],
-        startsAt: "2026-11-27T00:00:00+03:00",
-        endsAt: "2026-12-01T00:00:00+03:00",
+        startsAt: "2099-11-27T00:00:00+03:00",
+        endsAt: "2099-12-01T00:00:00+03:00",
         usageLimit: null,
       }),
     }),
