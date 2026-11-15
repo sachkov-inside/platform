@@ -46,6 +46,58 @@ describe("Material Asset maintenance", () => {
     );
   });
 
+  test("keeps the Assets of a Material whose stored body cannot be read and goes on (#2174)", async () => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Maintenance only passes the cleanup transaction on to Materials.
+    const cleanupTransaction = {} as Parameters<
+      Parameters<MaterialAssets["cleanupOrphans"]>[0]["isReferenced"]
+    >[0];
+    const warnings: string[] = [];
+    vi.spyOn(console, "warn").mockImplementation((line: unknown) => {
+      warnings.push(String(line));
+    });
+    const cleanupOrphans = vi
+      .fn<MaterialAssets["cleanupOrphans"]>()
+      .mockImplementation(async ({ isReferenced }) => {
+        await expect(
+          isReferenced(cleanupTransaction, {
+            assetId: "asset",
+            materialId: "material",
+          }),
+        ).resolves.toBe(true);
+        return { ok: true, value: { cleaned: 0, retained: 1 } };
+      });
+    const maintenance = assembleMaterialAssetMaintenance({
+      assets: { cleanupOrphans },
+      covers: {
+        cleanup: vi.fn().mockResolvedValue({ cleaned: 0, retained: 0 }),
+      },
+      config: { objectStorage: { orphanGraceMs: 86_400_000 } },
+      materials: {
+        containsAssetReference: vi.fn().mockResolvedValue({
+          ok: false,
+          error: { code: "unreadable_material_body" },
+        }),
+      },
+    });
+
+    await expect(maintenance.cleanup()).resolves.toEqual({
+      cleaned: 0,
+      ok: true,
+      retained: 1,
+    });
+    expect(warnings.map((line) => JSON.parse(line) as unknown)).toEqual([
+      expect.objectContaining({
+        level: "warn",
+        event: "material_asset_kept_unreadable_body",
+        module: "materials",
+        operation: "cleanup",
+        materialId: "material",
+        assetId: "asset",
+      }),
+    ]);
+    vi.restoreAllMocks();
+  });
+
   test("returns a retryable failure for a durable worker retry", async () => {
     const maintenance = assembleMaterialAssetMaintenance({
       assets: {

@@ -39,6 +39,10 @@ export interface MaterialUpdateNote {
 type MaterialContentError =
   { readonly code: "invalid_request_shape" } | SystemError;
 
+/** The stored body fails the current schema, so whether it references an Asset is unknown. */
+type AssetReferenceError =
+  MaterialContentError | { readonly code: "unreadable_material_body" };
+
 export interface MaterialContent {
   /** Reads in the caller's transaction when it holds one, as a reading command does under its lock. */
   findAccessFacts(
@@ -67,7 +71,7 @@ export interface MaterialContent {
       readonly materialId: string;
     },
     transaction?: TransactionHandle,
-  ): Promise<Result<boolean, MaterialContentError>>;
+  ): Promise<Result<boolean, AssetReferenceError>>;
   /** Reads in the Video deletion claim's transaction, under the Material reference lock it holds. */
   containsVideoReference(
     handle: TransactionHandle,
@@ -291,7 +295,7 @@ export function assembleMaterialContent(dependencies: {
         readonly materialId: string;
       },
       handle?: TransactionHandle,
-    ): Promise<Result<boolean, MaterialContentError>> {
+    ): Promise<Result<boolean, AssetReferenceError>> {
       const transaction =
         handle === undefined
           ? dependencies.prisma
@@ -316,26 +320,16 @@ export function assembleMaterialContent(dependencies: {
           doc: row.body,
           schemaVersion: row.schemaVersion,
         });
+        // A stored body the current schema rejects, such as a quiz kept in its pre-#2118 shape
+        // (#2174), is a fact about that Material, not a failed dependency.
         if (!body.ok) {
-          return {
-            error: invalidStoredMaterial(
-              "containsAssetReference",
-              "Stored Material body is invalid",
-            ),
-            ok: false,
-          };
+          return { error: { code: "unreadable_material_body" }, ok: false };
         }
         const extraction = dependencies.materialBodyOperations.extract(
           body.value,
         );
         if (!extraction.ok) {
-          return {
-            error: invalidStoredMaterial(
-              "containsAssetReference",
-              "Stored Material body cannot be inspected",
-            ),
-            ok: false,
-          };
+          return { error: { code: "unreadable_material_body" }, ok: false };
         }
         return {
           ok: true,
