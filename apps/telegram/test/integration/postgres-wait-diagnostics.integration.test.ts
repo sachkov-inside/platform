@@ -1,10 +1,10 @@
 import { Client } from "pg";
 import { expect, it } from "vitest";
 import { hasText } from "../../src/shared/text.js";
+import { postgresWaitDiagnostics } from "../support/postgres-wait-diagnostics.js";
+
 const connectionBudgetMilliseconds = 1_000;
 const queryBudgetMilliseconds = 4_000;
-
-import { postgresWaitDiagnostics } from "../support/postgres-wait-diagnostics.js";
 
 it("reports the blocking test session without retaining SQL or connection metadata", async () => {
   const databaseUrl = process.env["DATABASE_URL"];
