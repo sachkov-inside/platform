@@ -881,7 +881,7 @@
           {
             "badge": "favorite",
             "text": "аналог Sol или Opus для любых задач, но немного слабее",
-            "groups": ["daily", "design"]
+            "groups": ["design"]
           },
           {
             "badge": "confident",
