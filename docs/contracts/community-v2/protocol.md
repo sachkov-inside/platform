@@ -31,4 +31,6 @@ queued (`null` before the first). Telegram reads the current values at answer ti
 or polled result carries the live count, never the count stored with the operation. An older v2
 result without the field remains valid and means the count is unknown, not zero; v1 never includes
 it. Platform stores the polled result and shows the count in the operator's person card only for an
-observation of the current link. Deploy Platform first, then Telegram.
+observation of the current link. Deploy Platform first, then Telegram. Roll back in the reverse
+order: Platform stores polled results, and a Platform without the field rejects a stored result
+that carries it.
