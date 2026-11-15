@@ -1232,17 +1232,19 @@ describe("community v2 reminders to join the group", () => {
   it("reports the current reminder count and time in every v2 result for the person card (#2092)", async () => {
     const s = await stand({ welcome: true, joinReminder: true });
     const command = await s.set();
-    const status = async () =>
-      (
-        await s.provider().handle({
-          contractVersion: COMMUNITY_V2,
-          operation: "entitlement.status",
-          operationId: command.operationId,
-        })
-      ).body;
+    const statusRequest = {
+      contractVersion: COMMUNITY_V2,
+      operation: "entitlement.status",
+      operationId: command.operationId,
+    };
+    const status = async () => (await s.provider().answer(statusRequest)).body;
     expect(await status()).toMatchObject({
       joinReminders: { sent: 0, lastAt: null },
     });
+    // The receipt itself stays as stored; only the Platform answer adds the count.
+    expect((await s.provider().handle(statusRequest)).body).not.toHaveProperty(
+      "joinReminders",
+    );
 
     await sweep(s);
     at(s, "2026-10-08T09:00:00Z");
@@ -1255,11 +1257,11 @@ describe("community v2 reminders to join the group", () => {
       joinReminders: { sent: 2, lastAt: "2026-10-10T09:00:00.000Z" },
     });
     // A replayed set and a new revision answer with the same count.
-    expect((await s.provider().handle(command)).body).toMatchObject({
+    expect((await s.provider().answer(command)).body).toMatchObject({
       joinReminders: { sent: 2, lastAt: "2026-10-10T09:00:00.000Z" },
     });
     const next = await s.set({ kind: "denied" });
-    expect((await s.provider().handle(next)).body).toMatchObject({
+    expect((await s.provider().answer(next)).body).toMatchObject({
       joinReminders: { sent: 2, lastAt: "2026-10-10T09:00:00.000Z" },
     });
   });
@@ -1288,7 +1290,7 @@ describe("community v2 reminders to join the group", () => {
       },
       s.chat,
     );
-    const response = await legacy.handle(old);
+    const response = await legacy.answer(old);
     expect(response.status).toBe(200);
     expect(response.body).not.toHaveProperty("joinReminders");
   });

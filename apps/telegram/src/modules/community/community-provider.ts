@@ -161,52 +161,59 @@ export class CommunityProvider {
 
   // ---------------------------------------------------------------- inbound
 
-  async handle(body: unknown): Promise<CommunityHandled> {
-    const response = await this.handleCommand(body);
-    const stored = response.body;
+  /**
+   * The Platform answer: the command's result plus the live count of join reminders (#2092). A
+   * fresh, replayed or polled v2 result carries the current count, never one stored with the
+   * operation; the stored receipt and every other caller of `handle` stay unchanged.
+   */
+  async answer(body: unknown): Promise<CommunityHandled> {
+    const response = await this.handle(body);
+    const result = response.body;
     if (
-      stored?.operation !== "entitlement.result" ||
-      stored.contractVersion !== COMMUNITY_V2
+      result?.operation !== "entitlement.result" ||
+      result.contractVersion !== COMMUNITY_V2
     )
       return response;
-    // A v2 answer, fresh or replayed, carries the live reminder count, never a stored one (#2092).
-    const result = assertCommunityResult({
-      ...stored,
-      joinReminders: await this.joinRemindersOf(stored.binding.accountRef),
-    });
-    const answer = { status: response.status, body: result };
+    const desired = await this.db
+      .selectFrom("community_desired_states")
+      .select(["join_reminders_sent", "join_reminder_last_at"])
+      .where("bot_identity", "=", this.bot)
+      .where("account_ref", "=", result.binding.accountRef)
+      .executeTakeFirst();
+    return {
+      status: response.status,
+      body: assertCommunityResult({
+        ...result,
+        // No desired state yet means the bot has sent none.
+        joinReminders: {
+          sent: desired?.join_reminders_sent ?? 0,
+          lastAt: desired?.join_reminder_last_at?.toISOString() ?? null,
+        },
+      }),
+    };
+  }
+
+  async handle(body: unknown): Promise<CommunityHandled> {
+    const response = await this.handleCommand(body);
+    const result = response.body;
     if (
+      result?.operation !== "entitlement.result" ||
+      result.contractVersion !== COMMUNITY_V2 ||
       result.observedMembership !== "member" ||
       result.admissionRestriction !== "none" ||
       result.status !== "applied" ||
       !accessAllows(result.access, this.clock.now())
     )
-      return answer;
+      return response;
     // Bot API supergroup IDs are -(1_000_000_000_000 + MTProto channel ID).
     const channelId = -BigInt(this.canonicalChatId) - 1_000_000_000_000n;
-    if (channelId <= 0n) return answer;
+    if (channelId <= 0n) return response;
     return {
       status: response.status,
       body: assertCommunityResult({
         ...result,
         groupUrl: `https://t.me/c/${channelId}/1`,
       }),
-    };
-  }
-
-  /** Reminders the bot queued for this Account; none before its first desired state. */
-  private async joinRemindersOf(
-    accountRef: string,
-  ): Promise<NonNullable<CommunityResult["joinReminders"]>> {
-    const desired = await this.db
-      .selectFrom("community_desired_states")
-      .select(["join_reminders_sent", "join_reminder_last_at"])
-      .where("bot_identity", "=", this.bot)
-      .where("account_ref", "=", accountRef)
-      .executeTakeFirst();
-    return {
-      sent: desired?.join_reminders_sent ?? 0,
-      lastAt: desired?.join_reminder_last_at?.toISOString() ?? null,
     };
   }
 
