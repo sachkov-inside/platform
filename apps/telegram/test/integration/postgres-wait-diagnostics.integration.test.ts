@@ -1,18 +1,26 @@
 import { Client } from "pg";
 import { expect, it } from "vitest";
 import { hasText } from "../../src/shared/text.js";
+const connectionBudgetMilliseconds = 1_000;
+const queryBudgetMilliseconds = 4_000;
+
 import { postgresWaitDiagnostics } from "../support/postgres-wait-diagnostics.js";
 
 it("reports the blocking test session without retaining SQL or connection metadata", async () => {
   const databaseUrl = process.env["DATABASE_URL"];
   if (!hasText(databaseUrl)) throw new Error("DATABASE_URL required");
   const owner = new Client({
+    connectionTimeoutMillis: connectionBudgetMilliseconds,
+    query_timeout: queryBudgetMilliseconds,
     connectionString: databaseUrl,
     application_name: "private-test-app",
   });
-  const waiter = new Client({ connectionString: databaseUrl });
+  const waiter = new Client({
+    connectionString: databaseUrl,
+    connectionTimeoutMillis: connectionBudgetMilliseconds,
+    query_timeout: queryBudgetMilliseconds,
+  });
   let waiting: Promise<unknown> | undefined;
-  let locked = false;
   try {
     await owner.connect();
     await waiter.connect();
@@ -25,10 +33,9 @@ it("reports the blocking test session without retaining SQL or connection metada
     );
     const waiterPid = pending.rows[0]?.pid;
     await owner.query("select pg_advisory_lock(2094)");
-    locked = true;
-    waiting = waiter.query(
-      "select pg_advisory_lock(2094) /* private-test-query */",
-    );
+    waiting = waiter
+      .query("select pg_advisory_lock(2094) /* private-test-query */")
+      .catch(() => undefined);
     await expect
       .poll(async () => {
         const snapshot = await postgresWaitDiagnostics(databaseUrl);
@@ -39,19 +46,19 @@ it("reports the blocking test session without retaining SQL or connection metada
       })
       .toMatchObject({ waitEventType: "Lock", blockingPids: [ownerPid] });
   } finally {
-    if (locked)
-      await owner
-        .query("select pg_advisory_unlock_all()")
-        .catch(() => undefined);
-    await waiting?.catch(() => undefined);
-    await waiter.end();
-    await owner.end();
+    // end() cancels an active query; never await the held lock before cancelling its owner.
+    try {
+      await waiter.end();
+      await waiting;
+    } finally {
+      await owner.end();
+    }
   }
 });
 
 it("reports unavailable connection diagnostics without retaining the connection value", async () => {
   const result = await postgresWaitDiagnostics(
-    "postgresql://private-test:%ZZ@localhost/example",
+    "postgresql://private-test@localhost:invalid/example",
   );
   expect(result.status).toBe("unavailable");
   expect(JSON.stringify(result)).not.toContain("private-test");

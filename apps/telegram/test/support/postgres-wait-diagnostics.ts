@@ -17,13 +17,14 @@ const sessionsSchema = z.array(
 
 /** Failure-only observer of the owned test database. Never retain SQL, URLs or query parameters. */
 export async function postgresWaitDiagnostics(databaseUrl: string) {
-  const client = new Client({
-    connectionString: databaseUrl,
-    connectionTimeoutMillis: connectionBudgetMilliseconds,
-    statement_timeout: statementBudgetMilliseconds,
-    query_timeout: responseBudgetMilliseconds,
-  });
+  let client: Client | undefined;
   try {
+    client = new Client({
+      connectionString: databaseUrl,
+      connectionTimeoutMillis: connectionBudgetMilliseconds,
+      statement_timeout: statementBudgetMilliseconds,
+      query_timeout: responseBudgetMilliseconds,
+    });
     await client.connect();
     const result = await client.query(`
       select pid, state, wait_event_type as "waitEventType", wait_event as "waitEvent",
@@ -43,6 +44,6 @@ export async function postgresWaitDiagnostics(databaseUrl: string) {
       error: error instanceof Error ? error.name : "unknown",
     };
   } finally {
-    await client.end().catch(() => undefined);
+    await client?.end().catch(() => undefined);
   }
 }
