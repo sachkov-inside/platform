@@ -3,7 +3,7 @@ import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
@@ -440,6 +440,73 @@ describe("Reference reads on an exhausted pool", () => {
     );
 
     expect(cleanup).toEqual({ cleaned: 0, ok: true, retained: 1 });
+    await expect(readAsset(assetId)).resolves.toMatchObject({
+      currentlyReferenced: true,
+    });
+  });
+
+  test("orphan Asset cleanup keeps the Asset of a Material whose stored body is unreadable (#2174)", async () => {
+    const actor = randomUUID();
+    const materialId = await createDraft(actor, "unreadable-body-cleanup");
+    const assetId = await insertReadyImage(materialId, actor);
+    // A quiz still in its pre-#2118 shape: the exercise sits under `quiz`, not `exercise`.
+    const legacyQuizBody = {
+      type: "doc",
+      content: [
+        ...imageBody(assetId).doc.content,
+        {
+          type: "quiz",
+          attrs: {
+            nodeId: randomUUID(),
+            quiz: { id: "question-1", kind: "quiz", prompt: [], options: [] },
+          },
+        },
+      ],
+    };
+    await database.prisma.material.update({
+      data: { body: legacyQuizBody },
+      where: { id: materialId },
+    });
+    await database.prisma.materialAsset.update({
+      data: { orphanedAt: staleOrphanMark, updatedAt: staleOrphanMark },
+      where: { id: assetId },
+    });
+
+    const warnings: unknown[] = [];
+    const warn = vi.spyOn(console, "warn").mockImplementation((line) => {
+      warnings.push(JSON.parse(String(line)));
+    });
+    let cleanup;
+    try {
+      cleanup = await assembleMaterialAssetMaintenance({
+        assets: assembleMaterialAssets({
+          objectStorage: unusedObjectStorage,
+          prisma: database.prisma,
+        }),
+        config: {
+          objectStorage: { orphanGraceMs: orphanGraceBeyondStaleMark },
+        },
+        covers: { cleanup: () => Promise.resolve({ cleaned: 0, retained: 0 }) },
+        materials: assembleMaterials({
+          authorPolicy: { canManage: () => false },
+          prisma: database.prisma,
+        }).materialContent,
+      }).cleanup();
+    } finally {
+      warn.mockRestore();
+    }
+
+    expect(cleanup).toEqual({ cleaned: 0, ok: true, retained: 1 });
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        level: "warn",
+        event: "material_body_unreadable",
+        module: "materials",
+        operation: "containsAssetReference",
+        materialId,
+        assetId,
+      }),
+    ]);
     await expect(readAsset(assetId)).resolves.toMatchObject({
       currentlyReferenced: true,
     });

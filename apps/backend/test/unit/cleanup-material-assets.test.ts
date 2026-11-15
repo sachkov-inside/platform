@@ -1,9 +1,13 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { MaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleMaterialAssetMaintenance } from "../../src/modules/materials/features/cleanup-material-assets/cleanup-material-assets.js";
 
 describe("Material Asset maintenance", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   test("runs cleanup with the configured grace and current Material references", async () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Maintenance only passes the cleanup transaction on to Materials.
     const cleanupTransaction = {} as Parameters<
@@ -44,6 +48,43 @@ describe("Material Asset maintenance", () => {
       { assetId: "asset", materialId: "material" },
       cleanupTransaction,
     );
+  });
+
+  test("keeps the Asset of a Material whose stored body cannot be read (#2174)", async () => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Maintenance only passes the cleanup transaction on to Materials.
+    const cleanupTransaction = {} as Parameters<
+      Parameters<MaterialAssets["cleanupOrphans"]>[0]["isReferenced"]
+    >[0];
+    const cleanupOrphans = vi
+      .fn<MaterialAssets["cleanupOrphans"]>()
+      .mockImplementation(async ({ isReferenced }) => {
+        await expect(
+          isReferenced(cleanupTransaction, {
+            assetId: "asset",
+            materialId: "material",
+          }),
+        ).resolves.toBe(true);
+        return { ok: true, value: { cleaned: 0, retained: 1 } };
+      });
+    const maintenance = assembleMaterialAssetMaintenance({
+      assets: { cleanupOrphans },
+      covers: {
+        cleanup: vi.fn().mockResolvedValue({ cleaned: 0, retained: 0 }),
+      },
+      config: { objectStorage: { orphanGraceMs: 86_400_000 } },
+      materials: {
+        containsAssetReference: vi.fn().mockResolvedValue({
+          ok: false,
+          error: { code: "unreadable_material_body" },
+        }),
+      },
+    });
+
+    await expect(maintenance.cleanup()).resolves.toEqual({
+      cleaned: 0,
+      ok: true,
+      retained: 1,
+    });
   });
 
   test("returns a retryable failure for a durable worker retry", async () => {

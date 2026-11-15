@@ -2,7 +2,10 @@ import type { TransactionHandle } from "../../../../infrastructure/prisma/transa
 import { materialsTransaction } from "../../infrastructure/transaction.js";
 import { z } from "zod";
 
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  writeLog,
+} from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type {
   MaterialBodyOperations,
@@ -39,6 +42,10 @@ export interface MaterialUpdateNote {
 type MaterialContentError =
   { readonly code: "invalid_request_shape" } | SystemError;
 
+/** The stored body fails the current schema or cannot be inspected, so its Asset references are unknown. */
+type AssetReferenceError =
+  MaterialContentError | { readonly code: "unreadable_material_body" };
+
 export interface MaterialContent {
   /** Reads in the caller's transaction when it holds one, as a reading command does under its lock. */
   findAccessFacts(
@@ -67,7 +74,7 @@ export interface MaterialContent {
       readonly materialId: string;
     },
     transaction?: TransactionHandle,
-  ): Promise<Result<boolean, MaterialContentError>>;
+  ): Promise<Result<boolean, AssetReferenceError>>;
   /** Reads in the Video deletion claim's transaction, under the Material reference lock it holds. */
   containsVideoReference(
     handle: TransactionHandle,
@@ -291,7 +298,7 @@ export function assembleMaterialContent(dependencies: {
         readonly materialId: string;
       },
       handle?: TransactionHandle,
-    ): Promise<Result<boolean, MaterialContentError>> {
+    ): Promise<Result<boolean, AssetReferenceError>> {
       const transaction =
         handle === undefined
           ? dependencies.prisma
@@ -316,27 +323,14 @@ export function assembleMaterialContent(dependencies: {
           doc: row.body,
           schemaVersion: row.schemaVersion,
         });
-        if (!body.ok) {
-          return {
-            error: invalidStoredMaterial(
-              "containsAssetReference",
-              "Stored Material body is invalid",
-            ),
-            ok: false,
-          };
-        }
+        // A stored body the current schema rejects, such as a quiz kept in its pre-#2118 shape
+        // (#2174), gets its own code so a caller can choose a safe answer; the warning names the
+        // Material for every caller.
+        if (!body.ok) return unreadableBody(parsed.data);
         const extraction = dependencies.materialBodyOperations.extract(
           body.value,
         );
-        if (!extraction.ok) {
-          return {
-            error: invalidStoredMaterial(
-              "containsAssetReference",
-              "Stored Material body cannot be inspected",
-            ),
-            ok: false,
-          };
-        }
+        if (!extraction.ok) return unreadableBody(parsed.data);
         return {
           ok: true,
           value: extraction.value.resources.some(
@@ -410,6 +404,23 @@ function toAccessFacts(row: unknown): MaterialAccessFacts | undefined {
     contentVersion,
     primaryVideoId: parsed.data.primaryVideoId,
   };
+}
+
+/** Тело Material не читается текущей схемой: предупреждение называет Material, ответ решает вызывающий (#2174). */
+function unreadableBody(input: {
+  readonly assetId: string;
+  readonly materialId: string;
+}): {
+  readonly ok: false;
+  readonly error: { readonly code: "unreadable_material_body" };
+} {
+  writeLog("warn", "material_body_unreadable", {
+    module: "materials",
+    operation: "containsAssetReference",
+    materialId: input.materialId,
+    assetId: input.assetId,
+  });
+  return { ok: false, error: { code: "unreadable_material_body" } };
 }
 
 /** Сохранённые факты Material не прошли проверку: это сбой хранилища, а не отказ участнику. */

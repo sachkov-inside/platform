@@ -36,8 +36,12 @@ export function assembleMaterialAssetMaintenance(dependencies: {
                 input,
                 transaction,
               );
-            if (!reference.ok) throw new Error(reference.error.code);
-            return reference.value;
+            if (reference.ok) return reference.value;
+            if (reference.error.code !== "unreadable_material_body") {
+              throw new Error(reference.error.code);
+            }
+            // Without a readable body the reference is unknown, so the Asset stays (#2174).
+            return true;
           },
         });
         if (!result.ok) return result;
