@@ -218,6 +218,13 @@ Every entry point loads `.env`, or the file named by `ENV_FILE`, with Node's
 `process.loadEnvFile()`. Exported variables win unless `ENV_FILE_OVERRIDE=true`;
 production reads its environment from Compose.
 
+A failed broadcast ordering case emits `[broadcast-order diagnostics]` into its original Vitest/CI
+job log. The record includes the unfinished step, completed-step durations and up to 32 sessions
+from the owned test database: process IDs, wait events, query age and blocking process IDs. It omits
+SQL text, parameters, application names and connection URLs. The observer uses a separate bounded
+connection; an unavailable snapshot is reported without replacing the original test failure. Save
+the first failed job log before re-running it.
+
 ## Current verification
 
 From the root, with the owned infrastructure URLs exported above:

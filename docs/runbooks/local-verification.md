@@ -75,6 +75,14 @@ the installed addon's launch options and disconnect handler. Remove the patch on
 version passes both regression cases and the full MCP run. Every Docker dependency stage copies
 `patches/` before the workspace's frozen install.
 
+The inline SVG browser contract retains its unfinished phase, completed-step durations and resource
+snapshot in `apps/web/test-results/browser-engines/inline-svg/<engine>/failure.json`. WebKit also
+retains a bounded protocol/browser log in `webkit-log.json`. The failure hook runs after cleanup,
+so a timeout in `browser.close()` gets diagnostics too. The existing UI failure artifact
+`browser-engines-playwright-<attempt>` includes this directory. Download it before another local run,
+which clears this test's previous output. These files contain the test's synthetic SVG fixture;
+they do not observe an authenticated application session.
+
 The pinned `@vitest/browser-playwright@5.1.0` also has a local pnpm patch (#1160).
 Its trace command leaves the internal chunk name to Playwright: story names such as `Mobile`
 repeat across files, while the browser's contexts share one temporary trace directory. Passing

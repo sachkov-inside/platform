@@ -1,3 +1,4 @@
+import { postgresWaitDiagnostics } from "../support/postgres-wait-diagnostics.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
@@ -1242,28 +1243,70 @@ describe("broadcast crash boundaries", () => {
   });
 });
 
-it("orders first/latest and continuation by entry time when a later Telegram update ID is lower", async () => {
-  const value = await setup();
-  await start("100", required(value.sources[0]).code);
-  await seedEntryPage(101, 200, value);
+it("orders first/latest and continuation by entry time when a later Telegram update ID is lower", async ({
+  onTestFailed,
+  signal,
+}) => {
+  const started = performance.now();
+  let pendingStep: string | null = null;
+  const steps: { name: string; milliseconds: number }[] = [];
+  const step = async <T>(
+    name: string,
+    operation: () => Promise<T>,
+  ): Promise<T> => {
+    signal.throwIfAborted();
+    pendingStep = name;
+    const before = performance.now();
+    const result = await operation();
+    signal.throwIfAborted();
+    steps.push({ name, milliseconds: performance.now() - before });
+    pendingStep = null;
+    return result;
+  };
+  onTestFailed(async () => {
+    // CI retains this record in the original failed job's log, alongside the original error.
+    console.error(
+      "[broadcast-order diagnostics]",
+      JSON.stringify({
+        pendingStep,
+        elapsedMilliseconds: performance.now() - started,
+        steps,
+        postgres: await postgresWaitDiagnostics(databaseUrl),
+      }),
+    );
+  });
+  const value = await step("setup", () => setup());
+  await step("first-start", () =>
+    start("100", required(value.sources[0]).code),
+  );
+  await step("seed-page", () => seedEntryPage(101, 200, value));
   const initial = required(
-    (await http(command("statistics.read", {}))).json<CommunicationsBody>()
-      .statistics.contacts[0],
+    (
+      await step("initial-statistics", async () => {
+        await new Promise(() => undefined);
+        return http(command("statistics.read", {}));
+      })
+    ).json<CommunicationsBody>().statistics.contacts[0],
   );
   now = new Date(+now + 8 * 24 * 60 * 60 * 1000);
-  await start("1");
+  await step("lower-update-start", () => start("1"));
   const current = required(
-    (await http(command("statistics.read", {}))).json<CommunicationsBody>()
-      .statistics.contacts[0],
+    (
+      await step("current-statistics", () =>
+        http(command("statistics.read", {})),
+      )
+    ).json<CommunicationsBody>().statistics.contacts[0],
   );
   expect(current.firstSourceId).toBe(required(value.sources[0]).sourceId);
   expect(current.latestSourceId).toBeNull();
   const page = (
-    await http(
-      command("entries.read", {
-        contactId: initial.contactId,
-        cursor: required(initial.nextEntryCursor),
-      }),
+    await step("continuation", () =>
+      http(
+        command("entries.read", {
+          contactId: initial.contactId,
+          cursor: required(initial.nextEntryCursor),
+        }),
+      ),
     )
   ).json<CommunicationsBody>();
   expect(page.entries).toHaveLength(2);
