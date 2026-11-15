@@ -41,7 +41,7 @@
   top: 1.5rem;
   display: none;
   width: 2.75rem;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-md);
   background: var(--muted);
 }
 .menuCollapse,

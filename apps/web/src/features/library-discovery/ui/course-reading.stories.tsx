@@ -189,7 +189,10 @@ export const CollapsedLessonMenu: Story = {
           (frameBox.left + frameBox.width / 2),
       ),
     ).toBeLessThanOrEqual(1);
-    await expect(headerBox.width).toBe(688);
+    const rem = Number.parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
+    await expect(headerBox.width).toBeCloseTo(43 * rem, 0);
     await expect(expand.getBoundingClientRect().right).toBeLessThan(
       headerBox.left,
     );
