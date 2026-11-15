@@ -48,3 +48,14 @@ it("reports the blocking test session without retaining SQL or connection metada
     await owner.end();
   }
 });
+
+it("reports unavailable connection diagnostics without retaining the connection value", async () => {
+  const result = await postgresWaitDiagnostics(
+    "postgresql://private-test:%ZZ@localhost/example",
+  );
+  expect(result).toMatchObject({
+    status: "unavailable",
+    error: expect.any(String),
+  });
+  expect(JSON.stringify(result)).not.toContain("private-test");
+});

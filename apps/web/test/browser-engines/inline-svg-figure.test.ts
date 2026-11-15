@@ -97,10 +97,7 @@ for (const engine of [chromium, webkit]) {
     );
     t.onTestFinished(() => {
       bodyPendingStep = pendingStep;
-      return step("close", async () => {
-        await browser.close();
-        await new Promise(() => undefined);
-      });
+      return step("close", () => browser.close());
     });
     const page = await step("new-page", () =>
       browser.newPage({

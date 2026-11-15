@@ -1282,10 +1282,9 @@ it("orders first/latest and continuation by entry time when a later Telegram upd
   await step("seed-page", () => seedEntryPage(101, 200, value));
   const initial = required(
     (
-      await step("initial-statistics", async () => {
-        await new Promise(() => undefined);
-        return http(command("statistics.read", {}));
-      })
+      await step("initial-statistics", () =>
+        http(command("statistics.read", {})),
+      )
     ).json<CommunicationsBody>().statistics.contacts[0],
   );
   now = new Date(+now + 8 * 24 * 60 * 60 * 1000);
