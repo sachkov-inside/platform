@@ -23,8 +23,8 @@ export async function expectReaderReadyForAudit(page: Page, title: string) {
         attribute,
         /^(loading|pending)$/u,
       );
-      const button = control.locator('button:not([aria-disabled="true"]), a');
-      if ((await button.count()) > 0)
+      const buttons = control.locator('button:not([aria-disabled="true"]), a');
+      for (const button of await buttons.all())
         await expect(button).toHaveCSS("opacity", "1");
     }
   }

@@ -50,3 +50,24 @@ for (const action of ["reading", "bookmark"]) {
     }
   });
 }
+
+test("Reader audit accepts a settled conflict with its action and refresh button", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`<title>Reader</title>
+      <div data-route-refresh-pending="false">
+        <div data-material-open-state="saved">
+          <main data-material-reader-state="available">
+            <div data-reading-action-state="conflict">
+              <button aria-disabled="false">Изучено</button>
+              <button>Обновить статус</button>
+            </div>
+          </main>
+        </div>
+      </div>`);
+    await expectReaderReadyForAudit(page, "Reader");
+  } finally {
+    await browser.close();
+  }
+});
