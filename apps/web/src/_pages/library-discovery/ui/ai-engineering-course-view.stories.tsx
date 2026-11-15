@@ -31,6 +31,7 @@ import { courseTelegramHandle } from "../model/course-contact";
 import { TicketContact } from "./telegram-contact";
 import { LearnerCourseStatus } from "./ai-engineering-course-view";
 import { ProductLandingView } from "./product-landing-view";
+import { expectNoSidewaysScrollAtDoubleText } from "@/storybook/phone-layout";
 
 function fail(message: string): never {
   throw new Error(message);
@@ -349,6 +350,12 @@ export const Mobile: Story = {
       canvasElement.querySelector('nav[aria-label="Навигация курса"]'),
     ).toBeNull();
   },
+};
+
+/** Крупный системный шрифт на телефоне: текст вдвое больше, страница не прокручивается вбок. */
+export const MobileDoubleText: Story = {
+  ...Mobile,
+  play: async () => expectNoSidewaysScrollAtDoubleText(),
 };
 
 /** Планшет: темы идут по порядку, по две равные карточки в каждом ряду. */

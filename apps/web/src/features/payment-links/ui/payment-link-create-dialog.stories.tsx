@@ -69,6 +69,22 @@ export const ProductPriceMobile: Story = {
   },
 };
 
+/** Ссылка без продукта не создаётся: фокус переходит на выбор продукта с ошибкой. */
+export const ProductRequired: Story = {
+  globals: desktop.globals,
+  name: "Продукт не выбран",
+  play: async () => {
+    const dialog = await dialogOf();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Создать ссылку" }),
+    );
+    await expect(dialog).toHaveTextContent("Выберите продукт");
+    await expect(
+      within(dialog).getByRole("combobox", { name: "Продукт" }),
+    ).toHaveFocus();
+  },
+};
+
 export const ProductPriceDesktop: Story = {
   ...ProductPriceMobile,
   globals: desktop.globals,

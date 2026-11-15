@@ -28,6 +28,7 @@ import {
   type ProductLearningView,
 } from "./product-learning.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
+import { expectNoSidewaysScrollAtDoubleText } from "@/storybook/phone-layout";
 
 const titles = [
   "От идеи к первой версии",
@@ -1004,6 +1005,41 @@ export const MaterialLibrary: Story = {
 export const MaterialLibraryMobile: Story = {
   ...MaterialLibrary,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** Крупный системный шрифт на телефоне: текст вдвое больше, страница не прокручивается вбок. */
+export const MaterialLibraryDoubleText: Story = {
+  ...MaterialLibraryMobile,
+  play: async ({ canvasElement }) => {
+    await openPart(canvasElement, /^Материалы/u);
+    await expectNoSidewaysScrollAtDoubleText();
+  },
+};
+
+/**
+ * На широком экране полка с шестью материалами показывает край четвёртой карточки, а с мышью видна
+ * полоса прокрутки: понятно, что полку можно листать.
+ */
+export const MaterialShelfShowsMore: Story = {
+  ...MaterialLibrary,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await openPart(canvasElement, /^Материалы/u);
+    const shelf = canvasElement.querySelector<HTMLElement>(
+      '[data-catalog-shelf="Ревью и замечания"] ul',
+    );
+    if (shelf === null) throw new Error("The topic shelf is missing");
+    const cards = [...shelf.children].map((card) =>
+      card.getBoundingClientRect(),
+    );
+    const edge = shelf.getBoundingClientRect().right;
+    await expect(cards[2]?.right).toBeLessThanOrEqual(edge);
+    const fourth = cards[3];
+    if (fourth === undefined) throw new Error("The shelf needs a fourth card");
+    await expect(fourth.left).toBeLessThan(edge - 24);
+    await expect(fourth.right).toBeGreaterThan(edge);
+    await expect(getComputedStyle(shelf).scrollbarWidth).toBe("auto");
+  },
 };
 
 export const LargeMaterialCatalogueMobile: Story = {

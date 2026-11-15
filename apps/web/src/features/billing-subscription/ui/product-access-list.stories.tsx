@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 import {
   cabinetProduct,
   cabinetProductGround,
@@ -14,6 +14,22 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Granted: Story = {};
+/**
+ * «Доступ и покупка» стоит на родном `<details>`: закрытый текст остаётся в странице, поиск по странице
+ * его находит и раскрывает блок.
+ */
+export const AccessDetails: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const summary = canvas.getByText("Доступ и покупка");
+    const details = summary.closest("details");
+    if (details === null) throw new Error("The disclosure is a native details");
+    await expect(details).not.toHaveAttribute("open");
+    await expect(details.textContent).toMatch(/:/u);
+    await userEvent.click(summary);
+    await expect(details).toHaveAttribute("open");
+  },
+};
 export const Empty: Story = { args: { grounds: [] } };
 export const Revoked: Story = {
   args: {

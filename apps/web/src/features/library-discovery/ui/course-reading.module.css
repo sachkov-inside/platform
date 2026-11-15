@@ -727,13 +727,6 @@ button.step {
 .metadata {
   margin-bottom: 0.25rem;
 }
-.dialog {
-  overscroll-behavior: contain;
-}
-.dialog::backdrop {
-  overflow: hidden;
-  overscroll-behavior: contain;
-}
 @media (width < 48rem) {
   .header h1 {
     font-size: 1.625rem;

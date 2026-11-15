@@ -381,7 +381,7 @@
   .ai-product-project,
   .ai-product-shift,
   .ai-product-support {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.75rem;
   }
   .ai-product-hero {
@@ -412,7 +412,7 @@
   .ai-product-programme ol,
   .ai-product-outcome-grid,
   .ai-product-bonus-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .ai-product-outcome-grid,
   .ai-product-bonus-grid {

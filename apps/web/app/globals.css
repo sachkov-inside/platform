@@ -372,12 +372,18 @@ body {
   );
 }
 
-.public-horizontal-rail {
-  scrollbar-width: none;
-}
+/*
+ * Полосы прокрутки прячутся только на сенсорном экране: там ленту листают пальцем. С мышью полоса
+ * видна, иначе прокрутить ленту или узкое окно нечем.
+ */
+@media (pointer: coarse) {
+  .public-horizontal-rail {
+    scrollbar-width: none;
+  }
 
-.public-horizontal-rail::-webkit-scrollbar {
-  display: none;
+  .public-horizontal-rail::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 body {
@@ -387,6 +393,8 @@ body {
   font-family: var(--font-body);
   line-height: 1.5;
   text-rendering: optimizeLegibility;
+  /* При крупном системном шрифте длинное слово или адрес переносится, а не уводит страницу вбок. */
+  overflow-wrap: break-word;
 }
 
 /* Safari's canvas/overscroll must match the public page, including the first paint. */
@@ -509,7 +517,7 @@ body:has(
   }
 }
 
-@media (width < 48rem) {
+@media (width < 48rem) and (pointer: coarse) {
   html,
   body {
     scrollbar-width: none;
@@ -820,6 +828,27 @@ body:has(
  * компонентов: свои курсор, transition и scale у компонента остаются в силе.
  */
 @layer base {
+  /*
+   * Страница под модальным окном не прокручивается: жест над затемнением и прокрутка до края
+   * окна не уходят в документ. Подложка становится контейнером прокрутки без полосы, иначе
+   * `overscroll-behavior` на ней не действует. Safari на 15.11.2026 держит только окна с переполнением.
+   */
+  :where(dialog:modal) {
+    overscroll-behavior: contain;
+  }
+
+  :where(dialog)::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
+  /*
+   * Заголовок делит строки поровну, без одинокого слова на последней.
+   */
+  :where(h1, h2, h3) {
+    text-wrap: balance;
+  }
+
   :where(
     button,
     summary,

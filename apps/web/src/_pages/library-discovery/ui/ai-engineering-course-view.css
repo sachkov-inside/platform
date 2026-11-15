@@ -18,6 +18,7 @@
 }
 .aie-mentoring-points {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
   margin: 0;
   padding: 0;
@@ -41,6 +42,9 @@
 }
 .aie-mentoring-points li > span {
   display: grid;
+  /* При крупном шрифте длинное слово переносится, а текст пункта сжимается рядом со значком. */
+  min-width: 0;
+  overflow-wrap: anywhere;
   gap: 0.15rem;
   font-size: 0.875rem;
   font-weight: 450;
@@ -221,7 +225,7 @@
   }
   .aie-status,
   .aie-status:has(.aie-cohort-status) {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "intro"
       "list"
@@ -232,7 +236,7 @@
   }
   /* На узком экране пункты «что входит» идут строками: значок слева, подпись справа. */
   .aie-status:has(.aie-cohort-status) > ul {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.5rem;
   }
   .aie-status:has(.aie-cohort-status) li {
@@ -300,7 +304,10 @@
 /* Плитки ряда одной высоты: иллюстрация занимает всё свободное место, текст стоит внизу. */
 .aie-bento-art {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
+  /* Рисунок не раздвигает карточку при крупном системном шрифте. */
+  overflow: hidden;
   flex: 1 1 auto;
   min-height: 12rem;
   padding: 1.5rem 1.25rem 1rem;
@@ -748,6 +755,7 @@
   grid-column: 2;
   grid-row: 1 / span 2;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
 }
 .ai-product-page .aie-faq .aie-faq-note {
@@ -756,7 +764,7 @@
 }
 @media (max-width: 63.999rem) {
   .aie-faq {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: none;
   }
   .aie-faq-head,
@@ -775,6 +783,7 @@
 }
 .aie-faq summary {
   display: flex;
+  overflow-wrap: anywhere;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -871,7 +880,7 @@
   }
   .aie-value ol {
     position: relative;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.6rem;
     margin-top: 1.75rem;
   }
@@ -1243,6 +1252,7 @@
 }
 .aie-agents li {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: center;
   align-content: center;
   gap: 0.6rem;
@@ -1277,6 +1287,7 @@
 }
 .aie-audience li {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: start;
   align-content: start;
   gap: 0.6rem;
@@ -1293,6 +1304,7 @@
 }
 .ai-product-page .aie-audience li p {
   margin: 0;
+  overflow-wrap: anywhere;
   font-size: 0.92rem;
   line-height: 1.55;
   color: var(--muted-foreground);
@@ -1392,11 +1404,11 @@
   .aie-bento,
   .aie-format ol,
   .aie-audience ul {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .aie-practice,
   .aie-agents {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.75rem;
     margin-block: 3rem;
   }
@@ -2110,10 +2122,10 @@
 }
 @media (max-width: 63.999rem) {
   .aie-control {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .aie-process > div:first-child {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     margin-bottom: 1.75rem;
   }
 }
@@ -2123,14 +2135,14 @@
     margin-top: 4rem;
   }
   .aie-position {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 2rem;
   }
   .aie-roles > div {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .aie-window {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     min-height: 0;
   }
   .aie-window-group {

@@ -27,7 +27,7 @@ export function StatusPanel({
         <span className="relative grid size-12 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-6">
           {icon}
         </span>
-        <h1 className="relative mt-5 max-w-[18ch] text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
+        <h1 className="relative mt-5 max-w-[18ch] text-balance text-3xl [overflow-wrap:anywhere] font-semibold tracking-[-0.03em] sm:text-4xl">
           {title}
         </h1>
         <p className="relative mt-4 max-w-[60ch] text-pretty leading-7 text-muted-foreground">

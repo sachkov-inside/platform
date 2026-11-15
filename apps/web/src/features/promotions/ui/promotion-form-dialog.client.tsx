@@ -11,6 +11,7 @@ import {
   AdminDialogError,
   AdminSearchChecklist,
   DateField,
+  showFormErrors,
 } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 
@@ -147,7 +148,9 @@ function PromotionForm({
         if (pending) return;
         const command = promotionCommand(values, draft.id, draft.origin);
         if (!command.ok) {
-          setErrors(command.errors);
+          showFormErrors(event.currentTarget, () => {
+            setErrors(command.errors);
+          });
           return;
         }
         setErrors({});

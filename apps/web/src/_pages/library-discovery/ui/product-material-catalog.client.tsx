@@ -226,7 +226,7 @@ export function ProductMaterialCatalog({
     );
   return (
     <div className="@container/catalog" data-material-catalog>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold tracking-[-0.02em] sm:text-xl">
           Материалы
         </h2>
@@ -422,7 +422,15 @@ function ShelfRow({
           </button>
         )}
       </div>
-      <ul className="public-horizontal-rail -mx-4 grid snap-x scroll-px-4 auto-cols-[62%] grid-flow-col gap-3 overflow-x-auto px-4 sm:mx-0 sm:scroll-px-0 sm:px-0 @min-[34rem]/catalog:auto-cols-[calc((100%-2rem)/3)] @min-[34rem]/catalog:gap-4">
+      {/* Больше трёх карточек: край четвёртой виден, и понятно, что полку можно листать. */}
+      <ul
+        className={cn(
+          "public-horizontal-rail -mx-4 grid snap-x scroll-px-4 auto-cols-[62%] grid-flow-col gap-3 overflow-x-auto px-4 sm:mx-0 sm:scroll-px-0 sm:px-0 @min-[34rem]/catalog:gap-4",
+          entries.length > 3
+            ? "@min-[34rem]/catalog:auto-cols-[calc((100%-3rem)/3.25)]"
+            : "@min-[34rem]/catalog:auto-cols-[calc((100%-2rem)/3)]",
+        )}
+      >
         {entries.map((entry) => (
           <li
             className="min-w-0 snap-start"

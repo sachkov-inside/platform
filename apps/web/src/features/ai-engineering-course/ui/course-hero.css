@@ -138,7 +138,7 @@
    * сетку, чтобы анимация встала между фразой и пунктами.
    */
   .aie-hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0;
   }
   .aie-hero-copy {
@@ -287,8 +287,9 @@
 
 /* Телефон: шрифты первого экрана на ступень мельче (решение владельца 09.10.2026). */
 @media (max-width: 47.999rem) {
+  /* Название курса не переносится: при крупном системном шрифте оно не шире экрана. */
   .aie-hero-title {
-    font-size: 2rem;
+    font-size: min(2rem, 10vw);
   }
   .aie-hero-lead {
     font-size: 0.9375rem;

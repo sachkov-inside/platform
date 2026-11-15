@@ -77,6 +77,10 @@ export const CreateMobile: Story = {
     );
     await expect(dialog).toHaveTextContent("Введите название скидки");
     await expect(dialog).toHaveTextContent("Укажите первый день скидки");
+    // The first field with an error takes the focus, not the submit button.
+    await expect(
+      within(dialog).getByRole("textbox", { name: "Название" }),
+    ).toHaveFocus();
   },
 };
 

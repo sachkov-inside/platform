@@ -116,6 +116,27 @@ export const FirstSignInMobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 
+/**
+ * Safari без `closedby` может закрыть окно повторным Esc, не спросив `cancel`. Пока условия не
+ * приняты, окно сразу открывается снова модальным.
+ */
+export const ReopensAfterBrowserClose: Story = {
+  ...FirstSignIn,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const dialog = await canvas.findByRole<HTMLDialogElement>("dialog", {
+      name: "Добро пожаловать",
+    });
+    await waitFor(() =>
+      expect(dialog).toSatisfy((element: Element) => element.matches(":modal")),
+    );
+    dialog.close();
+    await waitFor(() =>
+      expect(dialog).toSatisfy((element: Element) => element.matches(":modal")),
+    );
+  },
+};
+
 /** Человек принимал прежнюю редакцию: окно говорит, что условия обновились. */
 export const UpdatedTerms: Story = {
   args: { returning: true },

@@ -147,6 +147,21 @@ export const ClosedDesktop: Story = {
 };
 export const ClosedMobile: Story = { ...ClosedDesktop, ...mobile };
 
+/** Поток без названия не сохраняется: фокус переходит на поле с ошибкой. */
+export const SalesStateNeedsName: Story = {
+  ...ClosedDesktop,
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    const name = await page.findByRole("textbox", { name: "Название потока" });
+    await userEvent.clear(name);
+    await userEvent.click(
+      page.getByRole("button", { name: "Сохранить состояние продажи" }),
+    );
+    await expect(await page.findByText("Назовите поток")).toBeVisible();
+    await expect(name).toHaveFocus();
+  },
+};
+
 /** Идёт поток, продажи открыты. Закрытие спрашивает подтверждение и не отзывает доступ. */
 export const RunningDesktop: Story = {
   ...desktop,
