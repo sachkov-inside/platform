@@ -17,6 +17,7 @@ import {
   AdminRowMenu,
   AmountField,
   DateField,
+  showFormErrors,
   StateBadge,
 } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
@@ -538,8 +539,10 @@ function SalesStateBlock({
     event.preventDefault();
     if (pending || conflict) return;
     const found = salesStateErrors(draft);
-    setSubmitted(true);
-    setErrors(found);
+    showFormErrors(event.currentTarget, () => {
+      setSubmitted(true);
+      setErrors(found);
+    });
     if (Object.keys(found).length > 0) return;
     onSave(draft);
   };

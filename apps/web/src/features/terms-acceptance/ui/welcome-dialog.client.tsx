@@ -40,6 +40,12 @@ export function WelcomeDialog({
       onCancel={(event) => {
         event.preventDefault();
       }}
+      // Повторный Esc без действия человека браузер может не дать отменить: окно закрывается.
+      // Пока условия не приняты, оно открывается снова.
+      onClose={(event) => {
+        const element = event.currentTarget;
+        if (element.isConnected && !element.open) element.showModal();
+      }}
       className="welcome-dialog m-auto max-h-[calc(100dvh-2rem)] w-[min(26rem,calc(100vw-2rem))] max-w-none overflow-y-auto overscroll-contain rounded-[1.25rem] border border-border bg-card p-0 text-foreground shadow-card"
     >
       {children}

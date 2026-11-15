@@ -12,6 +12,7 @@ import {
   AdminSearchSelect,
   AmountField,
   DateField,
+  showFormErrors,
 } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 
@@ -213,14 +214,20 @@ function CreateForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (pending) return;
-        setSubmitted(true);
+        const form = event.currentTarget;
         if (selected === undefined) {
-          setProductError("Выберите продукт");
+          showFormErrors(form, () => {
+            setSubmitted(true);
+            setProductError("Выберите продукт");
+          });
           return;
         }
-        setProductError("");
         const expiresAt = paymentLinkExpiresAt(expiry);
-        setExpiryError(expiresAt.ok ? "" : expiresAt.error);
+        showFormErrors(form, () => {
+          setSubmitted(true);
+          setProductError("");
+          setExpiryError(expiresAt.ok ? "" : expiresAt.error);
+        });
         if (preview === null || !preview.valid || !expiresAt.ok) return;
         const input = {
           productId: selected.productId,

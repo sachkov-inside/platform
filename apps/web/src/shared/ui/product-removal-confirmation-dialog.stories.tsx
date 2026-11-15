@@ -70,3 +70,20 @@ export const Mobile: Story = {
   ...Confirm,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+/**
+ * На телефоне жест над затемнением и прокрутка внутри окна не прокручивают страницу под ним:
+ * окно и его подложка держат прокрутку у себя.
+ */
+export const PageStaysBehindDialog: Story = {
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const dialog = await within(canvasElement).findByRole("dialog");
+    await expect(dialog).toSatisfy((element: Element) =>
+      element.matches(":modal"),
+    );
+    await expect(getComputedStyle(dialog).overscrollBehaviorY).toBe("contain");
+    const backdrop = getComputedStyle(dialog, "::backdrop");
+    await expect(backdrop.overflowY).toBe("hidden");
+    await expect(backdrop.overscrollBehaviorY).toBe("contain");
+  },
+};

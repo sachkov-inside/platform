@@ -794,6 +794,20 @@ body:has(
  * компонентов: свои курсор, transition и scale у компонента остаются в силе.
  */
 @layer base {
+  /*
+   * Страница под модальным окном не прокручивается: жест над затемнением и прокрутка до края
+   * окна не уходят в документ. Подложка становится контейнером прокрутки без полосы, иначе
+   * `overscroll-behavior` на ней не действует. Safari пока держит только окна с переполнением.
+   */
+  :where(dialog:modal) {
+    overscroll-behavior: contain;
+  }
+
+  :where(dialog)::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
   :where(
     button,
     summary,
