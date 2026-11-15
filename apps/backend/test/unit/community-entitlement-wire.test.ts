@@ -115,6 +115,47 @@ describe("community entitlement wire agreement", () => {
       .toBe(fixture.valid);
   });
 
+  test.each(
+    v2Fixtures.filter(
+      (fixture) =>
+        fixture.name.includes("join-reminders") &&
+        fixture.value.contractVersion === "inside.community-entitlement.v2",
+    ),
+  )(
+    "HTTP consumer keeps the result and reads a malformed reminder count as unknown: $name",
+    async (fixture) => {
+      const value = fixture.value;
+      if (
+        !("binding" in value) ||
+        !("access" in value) ||
+        !("entitlementRevision" in value) ||
+        !("joinReminders" in value)
+      )
+        throw new Error("Expected result fixture with join reminders");
+      const command = communitySetSchema.parse({
+        contractVersion: value.contractVersion,
+        operation: "entitlement.set",
+        operationId: value.operationId,
+        binding: value.binding,
+        entitlementRevision: value.entitlementRevision,
+        access: value.access,
+        issuedAt: "2030-01-01T00:00:00Z",
+        correlationRef: "00000000-0000-4000-8000-000000000003",
+      });
+      const provider = new HttpCommunityEntitlementProvider(
+        "https://telegram.test/community-entitlements",
+        "synthetic-secret",
+        () => Promise.resolve(Response.json(value)),
+      );
+      const outcome = await provider.status(command);
+      if (outcome.kind !== "result") throw new Error(fixture.name);
+      expect(outcome.result.joinReminders).toEqual(
+        fixture.valid ? value.joinReminders : undefined,
+      );
+      expect(outcome.result.status).toBe(value.status);
+    },
+  );
+
   test.each(v2Fixtures.filter((fixture) => fixture.name.includes("group-url")))(
     "HTTP consumer preserves group URL semantics: $name",
     async (fixture) => {

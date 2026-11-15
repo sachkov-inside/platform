@@ -156,11 +156,12 @@ export function telegramObservedText(observedAt: string | null): string {
     : `Состояние в группе проверено ${formatMoscowDateTime(observedAt)}.`;
 }
 
-const reminderForms = ["напоминание", "напоминания", "напоминаний"] as const;
+const joinRemindersLabel = "Напоминаний о вступлении в группу";
 
 /**
- * Напоминания о вступлении в группу по последней проверке. `null`: Telegram о них не сообщил,
- * поэтому число остаётся неизвестным, а не нулём.
+ * Напоминания о вступлении в группу, поставленные ботом в очередь, на момент последнего ответа
+ * Telegram Platform. `null`: Telegram о них не сообщил, поэтому число остаётся неизвестным, а не
+ * нулём.
  */
 export function joinRemindersText(
   joinReminders: Extract<
@@ -168,14 +169,12 @@ export function joinRemindersText(
     { readonly state: "ready" }
   >["joinReminders"],
 ): string {
-  if (joinReminders === null)
-    return "Сколько напоминаний о вступлении в группу отправил бот, неизвестно.";
-  if (joinReminders.sent === 0)
-    return "Бот не отправлял напоминаний о вступлении в группу.";
-  const sent = `Бот отправил ${formatCountRu(joinReminders.sent, reminderForms)} о вступлении в группу`;
+  if (joinReminders === null) return `${joinRemindersLabel}: неизвестно.`;
+  if (joinReminders.sent === 0) return `${joinRemindersLabel}: нет.`;
+  const count = `${joinRemindersLabel}: ${String(joinReminders.sent)}`;
   return joinReminders.lastAt === null
-    ? `${sent}.`
-    : `${sent}, последнее ${formatMoscowDateTime(joinReminders.lastAt)}.`;
+    ? `${count}.`
+    : `${count}, последнее ${formatMoscowDateTime(joinReminders.lastAt)}.`;
 }
 
 /** Название продукта для строки другого блока: из продуктов, затем из обучения. */

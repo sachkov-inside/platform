@@ -163,8 +163,9 @@ export class CommunityProvider {
 
   /**
    * The Platform answer: the command's result plus the live count of join reminders (#2092). A
-   * fresh, replayed or polled v2 result carries the current count, never one stored with the
-   * operation; the stored receipt and every other caller of `handle` stay unchanged.
+   * fresh, replayed or polled v2 result carries the count read now, never one stored with the
+   * operation. The stored receipt keeps no count; `handle` stays free of it so it also runs on a
+   * schema older than the reminder columns, as the archive restore test does.
    */
   async answer(body: unknown): Promise<CommunityHandled> {
     const response = await this.handle(body);

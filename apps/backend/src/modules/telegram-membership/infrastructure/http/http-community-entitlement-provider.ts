@@ -4,6 +4,7 @@ import {
   COMMUNITY_MAXIMUM_BODY_BYTES,
   COMMUNITY_REQUEST_TIMEOUT_MS,
   communityErrorSchema,
+  communityJoinRemindersSchema,
   communityResultSchema,
   sameAccess,
   type CommunityResult,
@@ -83,7 +84,9 @@ export class HttpCommunityEntitlementProvider implements CommunityEntitlementPro
       );
     }
     if (response.status === 200) {
-      const result = communityResultSchema.safeParse(payload);
+      const result = communityResultSchema.safeParse(
+        withoutMalformedJoinReminders(payload),
+      );
       return result.success && correlates(result.data, command)
         ? { kind: "result", result: result.data }
         : { kind: "unavailable" };
@@ -97,6 +100,22 @@ export class HttpCommunityEntitlementProvider implements CommunityEntitlementPro
       ? { kind: "error", error: failure.data.error }
       : { kind: "unavailable" };
   }
+}
+
+/**
+ * The reminder count only feeds the operator's person card (#2092). A malformed one reads as
+ * unknown, so it can never cost the community result that admission depends on.
+ */
+function withoutMalformedJoinReminders(payload: unknown): unknown {
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !("joinReminders" in payload) ||
+    communityJoinRemindersSchema.safeParse(payload.joinReminders).success
+  )
+    return payload;
+  const { joinReminders: _malformed, ...rest } = payload;
+  return rest;
 }
 
 /**

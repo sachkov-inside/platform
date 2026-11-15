@@ -37,6 +37,7 @@ import {
   communitySetSchema,
   communityResultSchema,
   type CommunityDeliveryStatus,
+  type CommunityJoinReminders,
   type DispatchAuthorizeRequest,
   type ObservedMembership,
 } from "../../src/modules/telegram-membership/domain/community-entitlement.js";
@@ -81,7 +82,7 @@ class ProviderDouble implements CommunityEntitlementProvider {
   readonly sent: CommunitySetCommand[] = [];
   readonly polled: string[] = [];
   groupUrl: string | undefined;
-  joinReminders: { sent: number; lastAt: string | null } | undefined;
+  joinReminders: CommunityJoinReminders | undefined;
   updatedAt: string | undefined;
   answer: "accept" | "unavailable" | "operation_conflict" = "accept";
   restriction: "none" | "moderation" | "external_unknown" = "none";

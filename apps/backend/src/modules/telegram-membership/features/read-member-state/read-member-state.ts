@@ -4,7 +4,7 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
   communityResultSchema,
-  type CommunityResult,
+  type CommunityJoinReminders,
   type ObservedMembership,
 } from "../../domain/community-entitlement.js";
 import type { TelegramAccountLinks } from "../../facets/telegram-account-links/telegram-account-links.js";
@@ -25,10 +25,11 @@ export interface CommunityMemberState {
   /** When the provider made that observation; `null` when there is none. */
   readonly observedAt: string | null;
   /**
-   * Join reminders the bot had sent by that observation; `null` when Telegram did not report
-   * them (no observation, or a Telegram release before #2092).
+   * Join reminders the bot had queued when Telegram answered the last poll of the current link,
+   * read at answer time rather than at `observedAt`; `null` when that answer did not carry them
+   * (no answer yet, a malformed count, or a Telegram release before #2092).
    */
-  readonly joinReminders: NonNullable<CommunityResult["joinReminders"]> | null;
+  readonly joinReminders: CommunityJoinReminders | null;
 }
 
 export type ReadMemberStateResult =

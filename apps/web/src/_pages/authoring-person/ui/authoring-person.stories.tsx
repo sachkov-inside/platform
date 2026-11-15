@@ -170,7 +170,7 @@ export const AllBlocks: Story = {
     await expect(page.getByText("Отказался через /stop")).toBeVisible();
     await expect(
       page.getByText(
-        "Бот отправил 3 напоминания о вступлении в группу, последнее 24 окт. 2026, 12:00.",
+        "Напоминаний о вступлении в группу: 3, последнее 24 окт. 2026, 12:00.",
       ),
     ).toBeVisible();
     await expect(page.getAllByText("Поток весна 2027")[0]).toBeVisible();
@@ -245,9 +245,7 @@ export const Newcomer: Story = {
       page.getByText("Бот ещё не проверял состояние в группе."),
     ).toBeVisible();
     await expect(
-      page.getByText(
-        "Сколько напоминаний о вступлении в группу отправил бот, неизвестно.",
-      ),
+      page.getByText("Напоминаний о вступлении в группу: неизвестно."),
     ).toBeVisible();
   },
 };
@@ -268,11 +266,11 @@ export const NoJoinReminders: Story = {
     }),
   },
   globals: desktop.globals,
-  name: "Telegram: бот не отправлял напоминаний о вступлении (#2092)",
+  name: "Telegram: напоминаний о вступлении нет (#2092)",
   play: async ({ canvasElement }) => {
     await expect(
       routeContent(canvasElement).getByText(
-        "Бот не отправлял напоминаний о вступлении в группу.",
+        "Напоминаний о вступлении в группу: нет.",
       ),
     ).toBeVisible();
   },

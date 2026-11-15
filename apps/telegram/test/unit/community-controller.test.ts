@@ -13,15 +13,11 @@ describe("community entitlement HTTP surface", () => {
         calls.push(`answer:${JSON.stringify(request)}`);
         return Promise.resolve({ status: 200, body });
       },
-      handle: () => {
-        calls.push("handle");
-        return Promise.resolve({ status: 200 });
-      },
     };
     const controller = new CommunityController(
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the controller reads only this secret.
       { communityIntegrationSecret: "synthetic-secret" } as ApplicationConfig,
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a double of the two inbound methods.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- a double of the one method the controller calls.
       provider as unknown as CommunityProvider,
     );
 

@@ -7,6 +7,7 @@ import {
 export {
   communityAccessSchema,
   communityBindingSchema,
+  communityJoinRemindersSchema,
   communityStatusSchema,
   observedMembershipSchema,
   communityResultSchema,
@@ -15,6 +16,7 @@ export type {
   CommunityAccess,
   CommunityBinding,
   CommunityDeliveryStatus,
+  CommunityJoinReminders,
   ObservedMembership,
   CommunityResult,
 } from "@inside/contracts/community-result";

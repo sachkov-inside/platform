@@ -237,22 +237,25 @@ describe("person card presentation", () => {
     ]);
   });
 
-  it("says how many join reminders the bot sent and when, and keeps an unreported count unknown", () => {
+  it("names the join reminder count and the last one, and keeps an unreported count unknown", () => {
     expect(joinRemindersText(null)).toBe(
-      "Сколько напоминаний о вступлении в группу отправил бот, неизвестно.",
+      "Напоминаний о вступлении в группу: неизвестно.",
     );
     expect(joinRemindersText({ sent: 0, lastAt: null })).toBe(
-      "Бот не отправлял напоминаний о вступлении в группу.",
+      "Напоминаний о вступлении в группу: нет.",
     );
     expect(
       joinRemindersText({ sent: 1, lastAt: "2026-10-10T09:00:00.000Z" }),
     ).toBe(
-      "Бот отправил 1 напоминание о вступлении в группу, последнее 10 окт. 2026, 12:00.",
+      "Напоминаний о вступлении в группу: 1, последнее 10 окт. 2026, 12:00.",
     );
     expect(
       joinRemindersText({ sent: 5, lastAt: "2026-10-16T09:00:00.000Z" }),
     ).toBe(
-      "Бот отправил 5 напоминаний о вступлении в группу, последнее 16 окт. 2026, 12:00.",
+      "Напоминаний о вступлении в группу: 5, последнее 16 окт. 2026, 12:00.",
+    );
+    expect(joinRemindersText({ sent: 2, lastAt: null })).toBe(
+      "Напоминаний о вступлении в группу: 2.",
     );
   });
 
