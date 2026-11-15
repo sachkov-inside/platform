@@ -80,6 +80,14 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   «Пройдено N из M» for the chapter once the reader's progress is known, otherwise the chapter and
   step position; on a supplementary document it reads «Дополнительный материал». Tablets keep the task-page previous/next footer, and their sheet fits its content. The
   programme sections bar keeps its compact width and stays phone-only. At 64rem the rail stays visible.
+  Owner decision 2026-11-15 (#2158): from 64rem the reader can collapse the rail of a course lesson
+  with a 44 px icon button «Свернуть меню уроков» in the «Страница курса» row. The collapsed rail
+  leaves a 44 px strip holding only the icon button «Развернуть меню уроков» (the same accessible
+  name and hover hint, no caption); the lesson column keeps 43rem and moves to the centre of the
+  frame. The choice is remembered in this browser (`inside.course-menu.v1`), survives navigation
+  between lessons and applies before the first paint. Focus moves to the control that appears; the
+  column shift uses the fast motion token and none under reduced motion. Phones, tablets and the
+  outline of materials outside a course are unchanged.
   Prose uses 16 px below 80rem and 18 px above; retain 15 px phone prose.
   Keep the mobile course heading at 20 px; omit format, course and topic metadata.
   Rail rows use 16 px and 1.6 line height. Keep step titles at weight 400 in every selection

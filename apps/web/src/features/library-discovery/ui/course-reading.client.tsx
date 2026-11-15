@@ -52,6 +52,11 @@ import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import styles from "./course-reading.module.css";
 import { useCourseRailSelection } from "./course-reading-handoff.client";
 import { CourseReadingHostContext } from "./course-reading-host-context.client";
+import {
+  CourseMenuCollapseButton,
+  CourseMenuStrip,
+  courseMenuId,
+} from "./course-menu.client";
 
 /** The row that places the reader: the current step, or the step an open supplementary document came from. */
 const placeRowSelector = '[aria-current="step"], [data-course-origin]';
@@ -150,7 +155,10 @@ export function CourseReadingLayout({
       >
         <HidePublicFooter />
         {host?.active === true ? null : (
-          <CourseRail context={displayedContext} />
+          <>
+            <CourseRail context={displayedContext} />
+            <CourseMenuStrip />
+          </>
         )}
         <div className={styles["document"]}>
           {host?.active === true ? null : (
@@ -388,7 +396,11 @@ export function CourseRail({
     <Root
       className={styles[variant === "rail" ? "rail" : "sheetRail"]}
       {...(variant === "rail"
-        ? { "aria-label": "Текущая глава", "data-course-chapter": chapterId }
+        ? {
+            id: courseMenuId,
+            "aria-label": "Текущая глава",
+            "data-course-chapter": chapterId,
+          }
         : {})}
       onKeyDown={(event) => {
         if (!choosing || event.key !== "Escape") return;
@@ -398,6 +410,7 @@ export function CourseRail({
         chooseChapter(chapterId);
       }}
     >
+      {variant === "rail" ? <CourseMenuCollapseButton /> : null}
       {variant === "rail" ? (
         <IntentPrefetchLink
           className={styles["programmeLink"]}

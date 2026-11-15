@@ -17,7 +17,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="ru">
+    // The lesson-menu restore script marks <html> before hydration (#2158).
+    <html lang="ru" suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );
