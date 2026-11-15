@@ -31,6 +31,14 @@ import {
   statement as lessonRatingsStatement,
 } from "../modules/lesson-ratings/infrastructure/postgres/migrations/0126-lesson-ratings.js";
 import {
+  name as dropReaderPreferencesName,
+  statement as dropReaderPreferencesStatement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0127-drop-reader-preferences.js";
+import {
+  name as dropModeVariantsName,
+  statement as dropModeVariantsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0128-drop-mode-variants.js";
+import {
   name as automaticCancelRefundName,
   statement as automaticCancelRefundStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0118-automatic-cancel-refund.js";
@@ -811,6 +819,11 @@ export const platformMigrations = [
   { name: exerciseAttemptsName, statement: exerciseAttemptsStatement },
   { name: lessonOpenedPartsName, statement: lessonOpenedPartsStatement },
   { name: lessonRatingsName, statement: lessonRatingsStatement },
+  {
+    name: dropReaderPreferencesName,
+    statement: dropReaderPreferencesStatement,
+  },
+  { name: dropModeVariantsName, statement: dropModeVariantsStatement },
 ] as const;
 
 export function migrateToLatest(
