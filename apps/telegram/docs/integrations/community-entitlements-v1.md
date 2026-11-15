@@ -45,6 +45,15 @@ correlation. `entitlement.status` возвращает durable result исход
 В v1 поле отсутствует; сначала выпускается Platform, затем Telegram.
 Общий runtime codec — `@inside/contracts/community-result`.
 
+## Напоминания о вступлении в ответе (#2092)
+
+Каждый ответ v2 на `entitlement.set` и `entitlement.status`, в том числе повтор, несёт
+`joinReminders: {sent, lastAt}`. Provider читает их при ответе из `community_desired_states`
+(`join_reminders_sent`, `join_reminder_last_at`), а не из сохранённого результата операции. До
+первого желаемого состояния ответ содержит `{sent: 0, lastAt: null}`. В v1 поля нет. Platform
+сохраняет результат опроса и показывает число и время последнего напоминания в карточке человека.
+Сначала выпускается Platform, затем Telegram.
+
 ## Что хранится
 
 - `community_operations` — durable inbox: команда, её fingerprint и последний result. Fingerprint —

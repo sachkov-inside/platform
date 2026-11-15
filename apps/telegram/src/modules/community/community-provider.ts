@@ -163,25 +163,50 @@ export class CommunityProvider {
 
   async handle(body: unknown): Promise<CommunityHandled> {
     const response = await this.handleCommand(body);
-    const result = response.body;
+    const stored = response.body;
     if (
-      result?.operation !== "entitlement.result" ||
-      result.contractVersion !== COMMUNITY_V2 ||
+      stored?.operation !== "entitlement.result" ||
+      stored.contractVersion !== COMMUNITY_V2
+    )
+      return response;
+    // A v2 answer, fresh or replayed, carries the live reminder count, never a stored one (#2092).
+    const result = assertCommunityResult({
+      ...stored,
+      joinReminders: await this.joinRemindersOf(stored.binding.accountRef),
+    });
+    const answer = { status: response.status, body: result };
+    if (
       result.observedMembership !== "member" ||
       result.admissionRestriction !== "none" ||
       result.status !== "applied" ||
       !accessAllows(result.access, this.clock.now())
     )
-      return response;
+      return answer;
     // Bot API supergroup IDs are -(1_000_000_000_000 + MTProto channel ID).
     const channelId = -BigInt(this.canonicalChatId) - 1_000_000_000_000n;
-    if (channelId <= 0n) return response;
+    if (channelId <= 0n) return answer;
     return {
       status: response.status,
       body: assertCommunityResult({
         ...result,
         groupUrl: `https://t.me/c/${channelId}/1`,
       }),
+    };
+  }
+
+  /** Reminders the bot queued for this Account; none before its first desired state. */
+  private async joinRemindersOf(
+    accountRef: string,
+  ): Promise<NonNullable<CommunityResult["joinReminders"]>> {
+    const desired = await this.db
+      .selectFrom("community_desired_states")
+      .select(["join_reminders_sent", "join_reminder_last_at"])
+      .where("bot_identity", "=", this.bot)
+      .where("account_ref", "=", accountRef)
+      .executeTakeFirst();
+    return {
+      sent: desired?.join_reminders_sent ?? 0,
+      lastAt: desired?.join_reminder_last_at?.toISOString() ?? null,
     };
   }
 

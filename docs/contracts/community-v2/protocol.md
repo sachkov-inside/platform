@@ -24,3 +24,11 @@ Platform hides `groupUrl` after a failed provider poll or more than two reconcil
 (120 seconds) without a successful result or a current provider `updatedAt`. A successful HTTP status replay
 cannot refresh the age of Telegram’s stored observation. The previous member status remains
 as the #822 fallback.
+
+#2092 adds optional `joinReminders: {sent, lastAt}` to `entitlement.result`: how many reminders
+to join the group the bot has queued for the Account (an integer from 0) and when the last one was
+queued (`null` before the first). Telegram reads the current values at answer time, so a replayed
+or polled result carries the live count, never the count stored with the operation. An older v2
+result without the field remains valid and means the count is unknown, not zero; v1 never includes
+it. Platform stores the polled result and shows the count in the operator's person card only for an
+observation of the current link. Deploy Platform first, then Telegram.

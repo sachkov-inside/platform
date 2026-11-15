@@ -316,6 +316,7 @@ describe("Person card", () => {
       restriction: "unknown",
       marketing: "stopped",
       observedAt: null,
+      joinReminders: null,
     });
     expect(answer["waitlists"]).toEqual({
       state: "ready",
@@ -423,6 +424,75 @@ describe("Person card", () => {
     } finally {
       api.telegram.mode = "v2";
     }
+  });
+
+  test("the Telegram block shows the join reminders of the current link's last observation (#2092)", async () => {
+    const reminded = await api.person({
+      registeredAt: "2026-09-03T00:00:00.000Z",
+      telegram: {
+        displayName: "Напоминаемый",
+        username: null,
+        marketing: "enabled",
+      },
+    });
+    const link =
+      await api.database.prisma.telegramAccountLinkState.findUniqueOrThrow({
+        where: { accountId: reminded },
+      });
+    const binding = {
+      accountRef: link.principalRef ?? "",
+      telegramIdentityRef: link.identityRef ?? "",
+      linkRef: link.linkRef,
+      linkRevision: link.revision,
+    };
+    const operationId = randomUUID();
+    const at = new Date("2026-10-10T09:00:05.000Z");
+    await api.database.prisma.telegramCommunityOperation.create({
+      data: {
+        operationId,
+        accountId: reminded,
+        entitlementRevision: 1,
+        purpose: "apply",
+        linkRef: binding.linkRef,
+        linkRevision: binding.linkRevision,
+        accountRef: binding.accountRef,
+        identityRef: binding.telegramIdentityRef,
+        access: { kind: "lifetime" },
+        command: {},
+        payloadDigest: "0".repeat(64),
+        issuedAt: at,
+        delivery: "accepted",
+        nextAttemptAt: at,
+        result: {
+          contractVersion: "inside.community-entitlement.v2",
+          operation: "entitlement.result",
+          operationId,
+          binding,
+          entitlementRevision: 1,
+          access: { kind: "lifetime" },
+          status: "waiting_for_join",
+          observedMembership: "not_member",
+          admissionRestriction: "none",
+          joinReminders: { sent: 3, lastAt: "2026-10-10T09:00:00.000Z" },
+          updatedAt: at.toISOString(),
+        },
+        resultStatus: "waiting_for_join",
+        observedMembership: "not_member",
+        resultAt: at,
+        polledAt: at,
+        createdAt: at,
+        updatedAt: at,
+      },
+    });
+    expect((await card(reminded))["telegram"]).toEqual({
+      state: "ready",
+      link: "linked",
+      membership: "not_member",
+      restriction: "none",
+      marketing: "enabled",
+      observedAt: at.toISOString(),
+      joinReminders: { sent: 3, lastAt: "2026-10-10T09:00:00.000Z" },
+    });
   });
 
   test("a failing owner leaves its block unavailable and every other block ready", async () => {

@@ -156,6 +156,28 @@ export function telegramObservedText(observedAt: string | null): string {
     : `Состояние в группе проверено ${formatMoscowDateTime(observedAt)}.`;
 }
 
+const reminderForms = ["напоминание", "напоминания", "напоминаний"] as const;
+
+/**
+ * Напоминания о вступлении в группу по последней проверке. `null`: Telegram о них не сообщил,
+ * поэтому число остаётся неизвестным, а не нулём.
+ */
+export function joinRemindersText(
+  joinReminders: Extract<
+    PersonCardTelegram,
+    { readonly state: "ready" }
+  >["joinReminders"],
+): string {
+  if (joinReminders === null)
+    return "Сколько напоминаний о вступлении в группу отправил бот, неизвестно.";
+  if (joinReminders.sent === 0)
+    return "Бот не отправлял напоминаний о вступлении в группу.";
+  const sent = `Бот отправил ${formatCountRu(joinReminders.sent, reminderForms)} о вступлении в группу`;
+  return joinReminders.lastAt === null
+    ? `${sent}.`
+    : `${sent}, последнее ${formatMoscowDateTime(joinReminders.lastAt)}.`;
+}
+
 /** Название продукта для строки другого блока: из продуктов, затем из обучения. */
 export function productNameOf(card: PersonCard, productId: string): string {
   const fromProducts =

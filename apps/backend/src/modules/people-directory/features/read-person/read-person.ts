@@ -102,6 +102,11 @@ export interface PersonTelegram {
   readonly restriction: "none" | "moderation" | "external_unknown" | "unknown";
   readonly marketing: "enabled" | "stopped" | "unknown";
   readonly observedAt: string | null;
+  /** Reminders to join the group by that observation; `null` when Telegram did not report them. */
+  readonly joinReminders: {
+    readonly sent: number;
+    readonly lastAt: string | null;
+  } | null;
 }
 
 export interface PersonWaitlist {
@@ -340,6 +345,7 @@ export async function readPerson(
               // The `/stop` state comes with the live contact read; without it, unknown.
               marketing: contact?.marketing ?? "unknown",
               observedAt: member.value.observedAt,
+              joinReminders: member.value.joinReminders,
             }
           : unavailable,
       waitlists:

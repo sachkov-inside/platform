@@ -175,6 +175,13 @@ const personCardHttpSchema = z
       ]),
       marketing: z.enum(["enabled", "stopped", "unknown"]),
       observedAt: z.iso.datetime().nullable(),
+      joinReminders: z
+        .object({
+          sent: z.int().nonnegative(),
+          lastAt: z.iso.datetime().nullable(),
+        })
+        .strict()
+        .nullable(),
     }),
     waitlists: blockHttpSchema({
       items: z.array(
@@ -342,6 +349,7 @@ function personCardHttp(card: PersonCard): PersonCardHttp {
             restriction: card.telegram.restriction,
             marketing: card.telegram.marketing,
             observedAt: card.telegram.observedAt,
+            joinReminders: card.telegram.joinReminders,
           }
         : { state: "unavailable" },
     waitlists:

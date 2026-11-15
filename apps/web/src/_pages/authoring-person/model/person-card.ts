@@ -121,6 +121,10 @@ const telegramSchema = z
     restriction: z.enum(["none", "moderation", "external_unknown", "unknown"]),
     marketing: z.enum(["enabled", "stopped", "unknown"]),
     observedAt: instant.nullable(),
+    joinReminders: z
+      .object({ sent: z.int().nonnegative(), lastAt: instant.nullable() })
+      .strict()
+      .nullable(),
   })
   .strict();
 

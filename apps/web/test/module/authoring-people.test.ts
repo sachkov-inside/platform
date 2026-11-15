@@ -20,6 +20,7 @@ import {
 import { handlePersonCardRequest } from "@/_pages/authoring-person.server";
 import {
   historyActorLabel,
+  joinRemindersText,
   paymentStateText,
   telegramFacts,
   telegramHref,
@@ -226,6 +227,7 @@ describe("person card presentation", () => {
         restriction: "external_unknown",
         marketing: "unknown",
         observedAt: null,
+        joinReminders: null,
       }).map((fact) => fact.state),
     ).toEqual([
       "telegram.linked",
@@ -233,6 +235,25 @@ describe("person card presentation", () => {
       "telegram.restricted_outside",
       "telegram.unknown",
     ]);
+  });
+
+  it("says how many join reminders the bot sent and when, and keeps an unreported count unknown", () => {
+    expect(joinRemindersText(null)).toBe(
+      "Сколько напоминаний о вступлении в группу отправил бот, неизвестно.",
+    );
+    expect(joinRemindersText({ sent: 0, lastAt: null })).toBe(
+      "Бот не отправлял напоминаний о вступлении в группу.",
+    );
+    expect(
+      joinRemindersText({ sent: 1, lastAt: "2026-10-10T09:00:00.000Z" }),
+    ).toBe(
+      "Бот отправил 1 напоминание о вступлении в группу, последнее 10 окт. 2026, 12:00.",
+    );
+    expect(
+      joinRemindersText({ sent: 5, lastAt: "2026-10-16T09:00:00.000Z" }),
+    ).toBe(
+      "Бот отправил 5 напоминаний о вступлении в группу, последнее 16 окт. 2026, 12:00.",
+    );
   });
 
   it("names actors and payment states without technical values", () => {

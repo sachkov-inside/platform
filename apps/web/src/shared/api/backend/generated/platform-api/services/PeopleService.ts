@@ -178,6 +178,10 @@ export class PeopleService {
       state: 'unavailable';
     });
     telegram: ({
+      joinReminders: {
+        lastAt: string | null;
+        sent: number;
+      } | null;
       link: 'linked' | 'not_linked';
       marketing: 'enabled' | 'stopped' | 'unknown';
       membership: 'member' | 'not_member' | 'unknown';
