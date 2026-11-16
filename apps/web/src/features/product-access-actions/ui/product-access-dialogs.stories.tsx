@@ -174,6 +174,9 @@ export const Restore: Story = {
       await dialog(`Восстановить доступ к «${storyProducts[1].name}»`),
     );
     await userEvent.type(restore.getByLabelText("Причина"), "Оплата нашлась");
+    await expect(
+      restore.getByRole("textbox", { name: "Причина" }),
+    ).toHaveFocus();
     await userEvent.click(
       restore.getByRole("button", { name: "Восстановить доступ" }),
     );

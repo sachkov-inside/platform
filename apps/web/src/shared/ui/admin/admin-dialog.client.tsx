@@ -1,9 +1,12 @@
 "use client";
 
 import { CircleAlert, LoaderCircle, X } from "lucide-react";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
-import { useNativeDialog } from "@/shared/lib/native-dialog.client";
+import {
+  dialogInitialFocus,
+  useNativeDialog,
+} from "@/shared/lib/native-dialog.client";
 import { hasText } from "@/shared/lib/text";
 import { Button } from "@/shared/ui/button";
 
@@ -153,12 +156,6 @@ function ConfirmBody({
   readonly pending: boolean;
   readonly tone: "default" | "danger";
 }) {
-  const cancel = useRef<HTMLButtonElement>(null);
-  const confirm = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (tone === "danger") cancel.current?.focus();
-    else confirm.current?.focus();
-  }, [tone]);
   return (
     <>
       {hasText(error) ? (
@@ -169,7 +166,7 @@ function ConfirmBody({
           className="min-h-11 px-4"
           disabled={pending}
           onClick={onCancel}
-          ref={cancel}
+          ref={tone === "danger" ? dialogInitialFocus : undefined}
           type="button"
           variant="outline"
         >
@@ -180,7 +177,7 @@ function ConfirmBody({
           className="min-h-11 px-4"
           disabled={pending}
           onClick={onConfirm}
-          ref={confirm}
+          ref={tone === "danger" ? undefined : dialogInitialFocus}
           type="button"
           variant={tone === "danger" ? "destructive" : "default"}
         >
