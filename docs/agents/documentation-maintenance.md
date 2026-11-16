@@ -5,6 +5,9 @@ public contracts, developer commands, delivery workflows, or agent routing. Each
 one current source. Documentation records decisions, gates and intent; it does not restate what
 code, configs or scripts already show.
 
+Write `AGENTS.md`, `docs/agents/` documents and project-owned skills with `writing-for-agents`;
+Agent Kit copies change only through [AGENT-KIT.md](../../.agents/skills/AGENT-KIT.md).
+
 ## Choose the authority
 
 | Changed fact | Update |

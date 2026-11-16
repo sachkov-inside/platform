@@ -1,8 +1,7 @@
 name: Set up Platform
 description: >-
   Installs the pinned pnpm and Node.js, the frozen workspace dependencies and, on request,
-  Playwright browser engines from a cache keyed by the exact Playwright version and their system
-  packages from a cache that main saves.
+  Playwright browser engines and their system packages from caches that only main saves.
 
 inputs:
   browsers:
@@ -50,9 +49,13 @@ runs:
       run: |
         echo "version=$(pnpm --filter @inside/web exec playwright --version | awk '{print $2}')" >>"$GITHUB_OUTPUT"
         echo "image=$ImageOS-$ImageVersion" >>"$GITHUB_OUTPUT"
+    # A run reads caches of its own ref and of main. Only main saves browser engines, so pull
+    # requests and every merge-queue ref restore one shared entry (#2184).
+    # .github/workflows/browser-cache.yml fills it.
     - name: Restore Playwright browser engines
+      id: browser-engines
       if: ${{ inputs.browsers != '' }}
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
@@ -84,3 +87,9 @@ runs:
       with:
         path: ~/.cache/playwright-apt/*.deb
         key: ${{ steps.system-packages.outputs.cache-primary-key }}
+    - name: Save Playwright browser engines
+      if: ${{ inputs.browsers != '' && github.ref == 'refs/heads/main' && steps.browser-engines.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ steps.browser-engines.outputs.cache-primary-key }}

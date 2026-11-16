@@ -8,8 +8,9 @@ context alone do not. Keep the worktree mode and ownership in [delivery](deliver
 Without a ticket, state the agreed result and acceptance criteria before writing. That list is
 the specification for review. Record starting HEAD and the immutable base covering the whole task.
 Use TDD where possible; [testing](testing.md) owns the test kinds, the seams and who chooses them.
+For a bug or regression whose cause is unknown, find the cause with `diagnosing-bugs` before the fix.
 During product implementation, run typechecking and focused test files regularly. Finish with the
-verification level in root AGENTS.md: product checks or documentation checks as applicable.
+verification in root AGENTS.md → Commands.
 
 ## Review and delivery
 

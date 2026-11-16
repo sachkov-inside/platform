@@ -20,8 +20,12 @@ port; keep another session's listener on `6006` or any other port.
 
 Use the owned preview's `platform-storybook` MCP endpoint when the runtime can reach it: read
 `get-storybook-story-instructions` before editing stories. If the endpoint belongs to another
-worktree, read the local stories and review the owned preview through browser tools; report that
-fallback.
+worktree, read the local stories and review the owned preview in a browser under the
+[browser rule](../../AGENTS.md#process); report that fallback.
+
+Design critique, audit or polish of a UI uses `impeccable`, which reads `apps/web/PRODUCT.md` and
+`apps/web/DESIGN.md`. A new visual direction still needs the owner's proof acceptance gate and
+production visual gate in the delivery contract below.
 
 ## Prototypes
 

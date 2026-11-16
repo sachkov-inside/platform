@@ -228,6 +228,11 @@ These rules require review. An effect count or a passing dependency linter canno
 - Keep Web guardrails and negative fixtures aligned. [Testing](../../docs/agents/testing.md)
   owns the choice between module tests, Storybook and Playwright.
 
+## Web platform guidance
+
+- Review a change that [Web platform guidance](AGENTS.md#web-platform-guidance) covers against
+  its guide; a departure from the guide states its reason.
+
 ## Product presentation
 
 Reader controls, the course frame, mobile control density and site animation follow the

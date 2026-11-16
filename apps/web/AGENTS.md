@@ -24,6 +24,14 @@ Read the owning ADR before changing:
   public-link entry route, or a guest browser-report handler:
   [ADR 0028](../../docs/adr/0028-web-edge-hardening.md).
 
+## Web platform guidance
+
+Before frontend work adds a web platform feature new to this codebase (an HTML element, a CSS
+feature, a browser API, a form or accessibility pattern), a compatibility fallback or a web
+performance technique, read the matching guide through
+[`modern-web-guidance`](../../.agents/skills/modern-web-guidance/SKILL.md). Changes that follow an
+existing project pattern need no guide.
+
 ## Verification
 
 - [Testing](../../docs/agents/testing.md) says which kind of test a Web change needs and what it
