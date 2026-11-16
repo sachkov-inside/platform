@@ -2,8 +2,11 @@
 
 import { Check, Copy } from "lucide-react";
 
+import {
+  type CopyTextState,
+  useCopyText,
+} from "@/shared/lib/use-copy-text.client";
 import { Button } from "@/shared/ui/button";
-import { type CopyTextState, useCopyText } from "../use-copy-text.client";
 
 const labels: Readonly<Record<CopyTextState, string>> = {
   copied: "Скопировано",
