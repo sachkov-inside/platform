@@ -45,5 +45,5 @@ one from its report in the handoff.
 
 ## Done when
 
-The finish report shows the worktree removed, or the handoff names each failed step, kept resource
+The last step's report shows the worktree removed, or the handoff names each failed step, kept resource
 and remaining worktree with its owner and reason.
