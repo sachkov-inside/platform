@@ -30,6 +30,9 @@ testing seams, commit/review order and the no-ticket acceptance record. [PIPELIN
 - Frontend delivery, Storybook review or a prototype: [frontend delivery](docs/agents/frontend-delivery.md).
 - Local application review, the shared stand or a light per-agent instance:
   `.agents/skills/local-stand/SKILL.md`.
+- Interactive browser work: `agent-browser`, headless, in a session named for the task; never the
+  owner's browser or `close --all`. Playwright runs only committed automation: `playwright test` and
+  repository scripts and tests.
 - Before review, the Standards reviewer reads `CODING_STANDARDS.md` and the `CODING_STANDARDS.md`
   of each changed application.
 - After an explicit owner correction: follow [owner corrections](docs/agents/owner-corrections.md).
@@ -39,9 +42,12 @@ testing seams, commit/review order and the no-ticket acceptance record. [PIPELIN
 
 ## Commands
 
-- Product change: `pnpm check` on the final head, or exact-head CI under the
-  [verification evidence policy](docs/agents/release-evidence.md).
-- Documentation-only change: `pnpm docs:check` and focused checks; application suites are not a local gate.
+- Verification: locally an agent runs the focused tests of the changed code and the static checks
+  that cover it (for example typecheck, lint, `pnpm format:check`, `pnpm docs:check`). The full
+  suite runs on GitHub under the [verification evidence policy](docs/agents/release-evidence.md):
+  PR CI runs the checks the change selects on the exact final head, and the merge queue runs
+  complete coverage. The whole `pnpm check` and `pnpm check:full` are not local gates; run them, or a
+  single stage, only to reproduce or diagnose a failure.
 - Docker with Compose runs the primary development stack; host Node.js and pnpm are an optional
   fallback pinned in `.node-version` and `packageManager`.
 - Before any repository Compose command, including the Compose smoke, read the

@@ -1,6 +1,10 @@
 # Out-of-Scope Knowledge Base
 
-The `.out-of-scope/` directory in a repo stores persistent records of rejected feature requests. It serves two purposes:
+Resolve rejected-request storage and retention from the project tracker/instruction contract before reading or writing. It may be a directory, tracker record or another knowledge base. If absent, ask whether and where to retain rejections; do not create a directory implicitly.
+
+The `.out-of-scope/` paths and per-concept Markdown format below are examples only for projects that select that layout. For another store, use its operations and preserve the decision, reason and prior-request links. A project may keep the reason only in the closing tracker comment.
+
+The selected store retains persistent records of rejected feature requests. It serves two purposes:
 
 1. **Institutional memory**: why a feature was rejected, so the reasoning isn't lost when the issue is closed
 2. **Deduplication**: when a new issue comes in that matches a prior rejection, the skill can surface the previous decision instead of re-litigating it

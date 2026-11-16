@@ -79,11 +79,11 @@ The status and production recommendation come from the
 [official Node.js release table](https://nodejs.org/en/about/previous-releases).
 
 TypeScript is pinned to `7.0.2` in the root, backend and web manifests. There is no compatibility
-alias or second compiler. The canonical proof is:
+alias or second compiler. The canonical proof is green CI for the change (root AGENTS.md →
+Commands) and, locally:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm check
 pnpm list -r typescript --depth 30
 ```
 

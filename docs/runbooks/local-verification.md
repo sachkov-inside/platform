@@ -10,6 +10,9 @@ With pinned host Node.js and pnpm:
 pnpm check
 ```
 
+Root AGENTS.md → Commands decides which checks verify a task; the commands here reproduce or
+diagnose a CI stage locally.
+
 Repository launchers preserve the pinned pnpm CLI from `npm_execpath`: pnpm 12 runs as a native
 executable, while JavaScript CLI entrypoints run through the selected Node.js.
 

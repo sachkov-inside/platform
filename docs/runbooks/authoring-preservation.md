@@ -184,7 +184,7 @@ This initial command supports PNG variants on Material pages. Task-page assets a
 An affected selection must identify one rendered image and nonempty ALT unambiguously.
 
 The immutable manifest specifies observations; preparing it does not prove a browser rendered anything.
-Use the existing browser tooling with the stand owner. Record the actual running Platform SHA and browser version.
+Observe in a browser under the [browser rule](../../AGENTS.md#process), with the stand owner. Record the actual running Platform SHA and browser version.
 Do not replace the stand's UI with another branch merely to obtain proof.
 
 ## Browser observation and check

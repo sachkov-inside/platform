@@ -30,7 +30,10 @@ A defect outside the task that blocks it gets a linked Issue labelled `ready-for
 open one. Fix the blocker first. The task's merge permission covers the fix only when one revert
 undoes it and it touches only tests, CI, docs or scripts outside release and deploy. Otherwise ask.
 `ship` still decides whether the owner must check the fix.
-Work waiting for the owner stays open with the specific decision recorded.
+Work waiting for the owner stays open with the specific decision recorded. When the blocking step
+needs the owner's own hands (a credential, a provider dashboard, a cutover) and no existing script
+covers it (such as
+`pnpm --filter @inside/telegram credentialed-proof:wizard`), prepare it with `wizard`.
 
 ## Handoff
 

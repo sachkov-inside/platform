@@ -29,7 +29,8 @@
 
 ## Verification
 
-Besides root `pnpm check`, run `pnpm --filter @inside/telegram check:full` on the final head. It
+PR CI runs `pnpm --filter @inside/telegram check:full` on the exact head in `Telegram full checks`;
+root AGENTS.md → Commands decides what runs locally. To reproduce that job locally, the command
 needs a PostgreSQL database and a non-guest RabbitMQ that this session owns;
 [Local development](README.md#local-development) sets up the isolated project, free loopback
 ports, `DATABASE_URL` and both `NOTIFICATION_TEST_*` URLs. Set that RabbitMQ user's credentials
