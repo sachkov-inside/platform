@@ -19,8 +19,7 @@ Commit assigned work before `code-review`. Run it once, with independent Standar
 reviewers in parallel over the complete assigned diff; supply immutable base/head and the
 requirement source. The implementer fixes every blocking finding, and either fixes each optional
 finding or records a one-line reason for leaving it. Rerun affected checks and commit corrections.
-There is no re-review. This project rule overrides the re-review steps in the pinned `implement`,
-`code-review` and delivery skills until their source updates reach the pinned copies.
+There is no re-review.
 
 Next comes [verification](human-review.md#verification) on the corrected result by a fresh agent,
 or one line on why the change needs none. Hand the original review reports, their dispositions and
