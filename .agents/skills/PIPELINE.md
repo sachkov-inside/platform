@@ -9,8 +9,13 @@ The manifest and lock own installation; project rules live in root AGENTS.md and
 - `implement`, `tdd`, `code-review`: [implementation](../../docs/agents/implementation.md).
 - `ship`: [ship](../../docs/agents/ship.md). `pr`: [PR body](../../docs/agents/pr.md).
 - `prototype`: [frontend delivery](../../docs/agents/frontend-delivery.md#prototypes).
-- `to-spec`, `to-tickets`, `triage`: [triage labels](../../docs/agents/triage-labels.md).
-- `implement-spec`: [coordinated execution](../../docs/agents/coordinated-execution.md).
+- `to-spec`, `to-tickets`, `triage`: tracker and ticket location in
+  [issue tracker](../../docs/agents/issue-tracker.md); readiness roles and the rejected-request
+  record in [triage labels](../../docs/agents/triage-labels.md).
+- `implement-spec`: exploration notes and evidence in
+  [coordinated execution](../../docs/agents/coordinated-execution.md).
+- `setup-matt-pocock-skills`: root AGENTS.md is the only owner-maintained instruction file;
+  `.claude/skills` is an alias of `.agents/skills`.
 - `retro`: [owner corrections](../../docs/agents/owner-corrections.md).
 
 ## Provenance and exclusions

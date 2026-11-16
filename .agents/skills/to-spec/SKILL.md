@@ -8,7 +8,7 @@ Before drafting, read the requirements, testing, and human-participation pointer
 
 This skill takes the current conversation context and codebase understanding and produces a spec. Do NOT interview the user; just synthesize what you already know.
 
-The issue tracker and triage label vocabulary should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
+Read the target project's configured tracker, artifact paths and role mappings from root instructions and their pointers. Use its existing contract; request only a missing decision. Offer setup only for an unconfigured project. Readiness describes specification quality, dependency readiness describes completed blockers, and assignment identifies the authorized scope and actor. None alone grants permission to execute: satisfy the project's implementation start rule separately.
 
 ## Process
 
@@ -18,7 +18,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 Reuse the testing seams and decision authority established by the project harness. Ask for confirmation when that contract requires it or a new boundary remains undecided.
 
-3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+3. Write the spec using the template below, then publish it to the project issue tracker. Apply the project-mapped readiness role only when its criteria and required confirmation are satisfied; use its configured status mechanism rather than assuming a literal label.
 
 Follow the project's required confirmation of behavior, scope, criteria and human checkpoints before publishing or marking ready. Do not present unconfirmed decisions as accepted. The readiness label does not authorize execution.
 

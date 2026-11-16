@@ -18,8 +18,11 @@ own `wayfinder:*` labels; `production-lock` marks the [production lock](producti
 carries no role. There are no category labels (`bug`, `enhancement`): `triage` sets only
 the role from this table.
 
-These rules replace parts of the pipeline skills:
+Project roles for the pipeline skills:
 
 - `to-spec` publishes the specification without `ready-for-agent`.
-- `to-tickets` removes `ready-for-agent` from the parent after it publishes child tickets.
-- `triage` records a rejected request in its `wontfix` closing comment, not in `.out-of-scope/`.
+- `to-tickets` publishes each ticket as a GitHub sub-issue, never as a local file, and applies
+  `ready-for-agent` to a fully specified ticket. After publishing it removes `ready-for-agent`
+  from the parent.
+- `triage` keeps the rejected-request record in its `wontfix` closing comment; there is no
+  `.out-of-scope/` directory.
