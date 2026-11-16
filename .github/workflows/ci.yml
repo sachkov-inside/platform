@@ -77,6 +77,9 @@ jobs:
 
   docs:
     name: Documentation contracts
+    permissions:
+      contents: read
+      actions: read
     needs: plan
     if: ${{ contains(fromJSON(needs.plan.outputs.required), 'docs') }}
     runs-on: ubuntu-24.04
@@ -90,8 +93,17 @@ jobs:
           persist-credentials: false
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
-      - name: Verify selected contracts
-        run: pnpm docs:check
+      - name: Verify selected contracts or identical completed evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci-docs-run.mjs
+      - name: Retain documentation identity and decision
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.0
+        with:
+          name: ci-docs-evidence-${{ github.run_attempt }}
+          path: ci-artifacts/docs-evidence/docs-evidence.json
+          if-no-files-found: error
+          retention-days: 7
 
   contracts:
     name: Tooling contracts
