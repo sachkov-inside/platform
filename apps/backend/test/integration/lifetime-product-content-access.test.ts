@@ -286,7 +286,6 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
         effect: "deny",
         reason: "membership_required",
       });
-    // Each batch and its scalar reads use unchanged PostgreSQL facts and the same clock.
     const materialResource = own[0];
     if (materialResource?.kind !== "material")
       throw new Error("Material fixture missing");
@@ -342,6 +341,79 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
       }
     }
     for (const seed of propertySeeds()) {
+      for (const selectedProduct of boundedSequence(
+        seed,
+        [product, otherProduct],
+        2,
+      )) {
+        const candidate = randomUUID();
+        await db.prisma.account.create({
+          data: {
+            id: candidate,
+            logtoIssuer: "https://identity.test",
+            logtoSubject: candidate,
+          },
+        });
+        const temporary = await grants.issueProductAccess(
+          { source: "manual", actorId: owner },
+          {
+            accountId: candidate,
+            productId: selectedProduct,
+            sourceRef: randomUUID(),
+            issuedAt: now.toISOString(),
+            reason: "Generated rights case",
+          },
+        );
+        if (!temporary.ok) throw new Error(temporary.error.code);
+        for (const [resources, owningProduct] of [
+          [own, product],
+          [foreign, otherProduct],
+        ] as const) {
+          for (const resource of resources) {
+            expect(await authorize(candidate, resource)).toMatchObject({
+              effect: selectedProduct === owningProduct ? "allow" : "deny",
+            });
+            expect(
+              await content.authorize({
+                subject: { kind: "account", accountId: accountId(candidate) },
+                resource,
+                action: resource.kind === "video" ? "download" : "play",
+                enforcementPoint: "material_open",
+                correlationId: `invalid-action-${seed}`,
+              }),
+            ).toMatchObject({
+              effect: "deny",
+              reason: "resource_action_invalid",
+            });
+          }
+        }
+        expect(
+          await grants.revokeProductAccess(owner, {
+            accountId: candidate,
+            productId: selectedProduct,
+            operationId: randomUUID(),
+            expectedRevision: temporary.value.revision,
+            reason: "End generated rights case",
+          }),
+        ).toMatchObject({ ok: true });
+      }
+    }
+    const beforeCalendarBoundary = now;
+    for (const instant of [
+      "2030-12-31T23:59:59.999Z",
+      "2031-01-01T00:00:00.000Z",
+      "2100-01-01T00:00:00.000Z",
+    ]) {
+      now = new Date(instant);
+      for (const resource of own)
+        expect(await authorize(holder, resource)).toMatchObject({
+          effect: "allow",
+          validUntil: null,
+          decidedAt: instant,
+        });
+    }
+    now = beforeCalendarBoundary;
+    for (const seed of propertySeeds()) {
       for (const [index, state] of boundedSequence(
         seed,
         ["draft", "published", "unpublished"] as const,
@@ -365,6 +437,19 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
             data: { contentVersion: BigInt(version) },
           });
         });
+        for (const resource of own) {
+          if (resource.kind === "productTask")
+            await db.prisma.productTask.update({
+              where: { id: resource.taskId },
+              data: {
+                publicationState:
+                  state === "published" ? "published" : "unpublished",
+              },
+            });
+          expect(await authorize(holder, resource)).toMatchObject({
+            effect: state === "published" ? "allow" : "deny",
+          });
+        }
         const decision = await authorize(holder, materialResource);
         expect(decision).toMatchObject({
           effect: state === "published" ? "allow" : "deny",
@@ -373,6 +458,12 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
         });
       }
     }
+    for (const resource of own)
+      if (resource.kind === "productTask")
+        await db.prisma.productTask.update({
+          where: { id: resource.taskId },
+          data: { publicationState: "published" },
+        });
     await db.prisma.$transaction(async (tx) => {
       await tx.material.update({
         where: { id: materialResource.materialId },
@@ -389,7 +480,6 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
         data: { contentVersion: 1n },
       });
     });
-    // An actual database dependency fails, rather than replacing an internal module.
     await db.prisma.$executeRawUnsafe(
       'ALTER TABLE materials."materials" RENAME TO "materials_property_outage"',
     );
