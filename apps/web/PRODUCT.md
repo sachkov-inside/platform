@@ -74,8 +74,8 @@ web
 - Owner-taste constraints and accepted UI-laboratory direction:
   `docs/product/platform-v1-visual-brief.md`.
 - Application vocabulary: `GLOSSARY.md`.
-- Storybook contains page stories of every production route and representative sanitized content
-  fixtures; proofs stay on their `prototype/*` branches. No testimonials, customer logos, commercial benchmarks or other
+- Storybook contains component stories, page stories of hard-to-reach states and representative
+  sanitized content fixtures; proofs stay on their `prototype/*` branches. No testimonials, customer logos, commercial benchmarks or other
   marketing proof may be invented.
 - Accepted production evidence для Account и Account Profile: `docs/evidence/issue-189/README.md` с
   desktop и 390 × 844 mobile captures из Storybook и full-stack smoke.

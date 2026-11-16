@@ -25,8 +25,8 @@ worktree, read the local stories and review the owned preview in a browser under
 [browser rule](../../AGENTS.md#process); report that fallback.
 
 Design critique, audit or polish of a UI uses `impeccable`, which reads `apps/web/PRODUCT.md` and
-`apps/web/DESIGN.md`. A new visual direction still needs the owner's proof acceptance gate and
-production visual gate in the delivery contract below.
+`apps/web/DESIGN.md`. A new visual direction still needs the owner's choice from a
+prototype under the delivery contract below.
 
 ## Prototypes
 
@@ -48,64 +48,28 @@ production fallback behaviour stay behind the production adapter; fixtures hold 
 presentation states only. `.storybook`, `src/storybook`, stories and fixture modules stay in the
 Storybook graph, outside production; the web guardrail and the production build confirm it.
 
-The owning Specification and child issue state in plain language what the user receives and
-whether the ticket completes the feature or only enables a later integration; technical delivery
-details follow that outcome.
+The owning Specification and child issue state in plain language what the user receives;
+technical delivery details follow that outcome.
 
-Choose the path from the catalog you inspected:
+One ticket delivers the functional path and its look in a production-owned UI module that the
+route and its stories both import. Choose the source of the look from the catalog you inspected:
 
-1. Reuse an accepted production-owned UI module when it already covers the required states. Its
-   stories and the production route import the same implementation.
-2. Use the **accepted-proof path** only when an existing Storybook proof establishes the core
-   composition and main interaction, its presentation interface is stable, and the issue links the
-   exact recorded owner visual acceptance. The production issue lists any required operational
-   states that the proof did not cover. This **proof acceptance gate** says that the
-   development-only design is ready to promote; its evidence and owner decision live in the proof
-   issue. A proof stays on its `prototype/*` branch. The same vertical ticket may then move the
-   presentation implementation into its owning feature or shared module, connect the real
-   production adapter, and make both the production route and stories import that module's
-   client-safe public interface.
+1. Reuse a production-owned UI module when it already covers the required states.
+2. For a new visual direction, the owner chooses it from a [prototype](#prototypes). The
+   production issue links that recorded choice and lists the operational states the prototype did
+   not cover (loading, empty, access, not-found, pagination, error). The ticket moves the
+   presentation into its owning feature or shared module and connects the production adapter; the
+   prototype stays on its `prototype/*` branch. A missing state that reopens the core information
+   architecture or visual direction needs a new prototype and choice.
+3. Otherwise build the module behind the presentation interface from the accepted primitives and
+   tokens of `apps/web/DESIGN.md`.
 
-   The ticket may add missing loading, empty, access, not-found, pagination, or error states to the
-   production-owned module when they preserve the accepted core composition and interface. Add
-   stories for those states and accept them through the production visual gate below. If a missing
-   state reopens the core information architecture or visual direction, use the default path in
-   step 3 until a new proof is accepted.
+The look is accepted once, in the pull request: [verification](human-review.md#verification)
+shows it in the running application, and [owner attention](owner-attention.md) decides whether the
+owner is called.
 
-   Before handoff, pass a separate **production visual gate**: capture responsive and accessibility
-   evidence for the exact production-owned implementation in both Storybook and the live route,
-   keep that evidence in the linked pull request, resolve every owner
-   annotation, and record a new owner visual GO. The earlier proof acceptance is a prerequisite;
-   it does not approve the promoted implementation. Production visual GO is not merge GO; the merge
-   follows `ship`. When every accepted-proof condition passes, the one ticket closes the
-   functional path and visual integration without temporary UI, a temporary marker, or a second
-   integration ticket.
-3. Otherwise, when a required UI module or state is missing, unaccepted, or still changing,
-   deliver the real functional path with the smallest accessible, feature-local semantic
-   implementation behind the presentation interface. It may use accepted primitives, but it does
-   not create a speculative reusable visual system or introduce a fake client/data path. This
-   functional ticket may merge with temporary semantic UI when the real end-to-end behavior and
-   tests pass; final visual acceptance is not a dependency for proving the feature path.
-4. Before the functional ticket merges, create or link a native child integration ticket under the
-   owning Specification. It names the missing Storybook proof, is blocked by the functional ticket
-   and relevant UI-foundation gate, and replaces the temporary implementation after owner visual
-   acceptance. Put exactly one marker, at the temporary module's interface, linking both issues.
-
-   Replace the placeholders below with the linked issue numbers:
-
-   ```ts
-   /**
-    * Temporary semantic UI for #FUNCTIONAL_ISSUE.
-    * Replace through #INTEGRATION_ISSUE after Storybook acceptance.
-    */
-   ```
-
-5. Develop the missing visual module in Storybook through the same presentation interface. Once
-   accepted, keep its implementation in a normal feature or shared UI module, let both Storybook
-   and production import it, connect the production adapter, and delete the temporary
-   implementation and marker in the integration ticket. The owning Specification becomes `Done`
-   only after every linked Storybook/integration ticket is closed and every temporary UI marker is
-   removed.
+Markers `Temporary semantic UI for #…` and their integration tickets come from the earlier
+contract (#2229). Each closes under its own ticket; new work adds none.
 
 ## Production foundation
 
@@ -116,18 +80,22 @@ decisions 2, 8 and 13 of the [admin redesign specification](../specifications/au
 (#1717): it replaces the public navigation and always links back to the public Library and site.
 Another shell variant needs a new owner decision.
 
-## Catalog stays in sync
+## Stories
 
-The Storybook catalog on `main` shows the product as it is: every production route has a page
-story, and every shared module that a page uses has a component story. `src/storybook` holds story
-support (the route environments, fetch mocks and fixtures) and the stories of modules that live
-outside `apps/web`, such as the Telegram sign-in page of the identity service.
+Storybook holds the stories that do work the running application cannot do cheaply:
 
-- A pull request that adds or changes a surface updates its stories in the same pull request: a
-  new route gets a page story, a new state gets a story, and a removed surface or state takes its
-  stories and fixtures with it.
-- A route with no page story is listed with its reason on the catalog page `Foundations/Overview`
-  (`apps/web/src/storybook/overview.mdx`); the same pull request updates that list.
+- **Component story**: every shared module that a page uses has one. `storybook-catalog.test.ts`
+  checks `src/shared/ui`; a helper with nothing to show is listed with its reason in
+  `apps/web/src/storybook/catalog.json`.
+- **Page story**: for a state that is hard to reach in the running application (an error, loading,
+  denied access, a payment outcome, long text), or to test the page's behaviour with a `play`
+  scenario. A route needs no page story otherwise.
+
+A pull request that changes a surface keeps its stories true in the same pull request: a new
+hard-to-reach state gets a story, and a removed surface or state takes its stories and fixtures
+with it. `src/storybook` holds story support (the route environments, fetch mocks and fixtures)
+and the stories of modules that live outside `apps/web`, such as the Telegram sign-in page of the
+identity service.
 
 ## Interface evidence
 
