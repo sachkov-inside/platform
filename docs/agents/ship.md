@@ -1,44 +1,51 @@
 # Ship
 
-Platform facts for the `ship` skill: merge, the decision whether the owner is needed, and advance
-acceptance. [Human participation](human-review.md) owns the rules this decision applies.
+Platform facts for the `ship` skill: the merge, the owner-attention status and what it permits.
+[Human participation](human-review.md) owns the rules of evidence; [owner attention](owner-attention.md)
+owns the conditions of the status.
 
 ## Merge
 
-Merge permission follows `Owner gates` in [AGENTS.md](../../AGENTS.md#owner-gates). Merge through the
+Merge through the
 [merge queue](../runbooks/continuous-integration.md#enqueue-a-checked-pull-request). `CI Gate` and
 merge-queue CI stay required.
 
-## Owner acceptance
+## Owner attention
 
-After independent review, required green CI and the
-[verification](human-review.md#verification) the change requires, apply the
-[consequence triggers](human-review.md#consequence-triggers) to the delivered change and run the
-checks of every trigger that applies. Add the triggers the Spec reviewer reported.
+Every task ends with a PR in the [briefing form](pr.md) with its evidence. Run the checks of every
+[consequence](human-review.md#consequence-triggers) the change has. Then a classifier sets the
+status that opens the PR: «Внимание не требуется», «Требуется решение» or «Требуется внимание».
 
-The change needs no owner acceptance when all four hold:
+Run the classifier once per PR and last, when the review, the
+[verification](human-review.md#verification) and CI on the last commit have their final results.
+Start the `owner-attention` skill as a fresh subagent and hand it the inputs its `SKILL.md` lists;
+the conditions file is [owner attention](owner-attention.md). The Spec reviewer checks the change
+against the task and leaves the notes; the classifier alone sets the status. Run it again when the
+task's code changes after its decision; a merge of `origin/main` without conflicts needs no new
+run. No CI check stands on top of the status. During the pilot (#2215) record the classifier's
+duration and tokens in the PR under «Подробности».
 
-- behaviour does not change for users;
-- the task says there is nothing to show;
-- no consequence trigger applies;
-- the independent review agrees: no open finding and no missed trigger.
+### What the status permits
 
-Otherwise the owner accepts from evidence. Name the concrete result or decision for the owner in
-the PR and handoff, with the full delivered SHA. Recorded acceptance of that exact thing in the
-assignment or earlier conversation satisfies it; apply advance acceptance below only within its
-scope.
+«Внимание не требуется» is the owner's standing permission to merge that task; quote nothing from
+a chat. The other two statuses wait for the owner's explicit «да» in the PR: mark the PR ready
+for review, stop, and report the status and his next action. An assignment to finish the
+work does not replace that «да». The status is a rule, not a GitHub lock: agents work under the
+owner's GitHub account.
 
-Merge permission is a separate condition: merge only with recorded merge permission and every
-owner acceptance satisfied. Otherwise mark the reviewed, green PR ready for review and stop at that
-concrete remaining gate. Report CI state, the conditions that failed and the owner's next action.
-Releases, deployments, production writes, payments and credentials stay with the owner whatever
-the four conditions say.
+### What merged without the owner
 
-## Advance acceptance
+Label the PR with its status: `attention:none`, `attention:decision` or `attention:required`. The
+owner sees what merged without him in
+[merged PRs labelled `attention:none`](https://github.com/sachkov-inside/platform/pulls?q=is%3Apr+is%3Amerged+label%3Aattention%3Anone+sort%3Aupdated-desc).
 
-Owner decision 1 (2026-10-22): an assignment to finish through merge, such as «сделай всё до конца»,
-accepts the prepared result in advance, except production, money and legal effects; standing
-merge permission alone is not such an assignment.
+### Measurement
+
+The conditions change by numbers. A monthly repeat of the measurement in
+[the delivery baseline](../research/issue-2186-delivery-baseline-and-review-experiment.md) reports
+fixes after a merge, PRs whose status called the owner yet merged without his «да», and the
+classifier's result on harmful and harmless edits like those of that report's part B. The owner
+assigns each repeat as its own task.
 
 ## CI failures
 

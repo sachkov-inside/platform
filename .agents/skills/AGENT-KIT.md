@@ -12,14 +12,15 @@ Portable procedures come from pinned Agent Kit copies. Root [AGENTS.md](../../AG
 [project contracts](../../docs/agents/implementation.md) own starts, worktree mode,
 commit-before-review order and delivery; [testing](../../docs/agents/testing.md) owns testing
 seams. [Human participation](../../docs/agents/human-review.md) owns owner participation,
-consequence triggers and evidence. [Ship](../../docs/agents/ship.md) owns the decision whether the
-owner is needed, CI Gate and merge queue policy. Tracker, frontend, domain and owner-correction
+consequence triggers and evidence. [Ship](../../docs/agents/ship.md) owns the owner-attention
+status, CI Gate and merge queue policy. Tracker, frontend, domain and owner-correction
 contracts keep their existing owners.
 
 Unselected folders retain project/package ownership: `ai-models-refresh`, `impeccable`,
 `local-stand`, `modern-web-guidance`, `session-cleanup` and `vercel-react-best-practices`.
 Their complete folder identities were unchanged in this migration; `playwright-cli` was removed later
-by owner decision (#2194). `verify-platform` is project-owned and was added later (#2211).
+by owner decision (#2194). `verify-platform` and `owner-attention` are project-owned and were added
+later (#2211, #2215).
 Codex reads `.agents/skills`; Claude's relative `.claude/skills` alias reads the same local copies.
 Runtime discovery needs neither Home nor a sibling checkout.
 

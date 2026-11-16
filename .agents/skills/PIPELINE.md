@@ -35,4 +35,5 @@ No installed procedure calls the excluded name or requires an `ask` alias.
 ## Outside the pipeline
 
 Platform retains `ai-models-refresh`, `impeccable`, `vercel-react-best-practices`,
-`modern-web-guidance`, `session-cleanup`, `local-stand` and `verify-platform`.
+`modern-web-guidance`, `session-cleanup`, `local-stand`, `verify-platform` and `owner-attention`. `ship` starts
+`owner-attention` under [ship](../../docs/agents/ship.md#owner-attention).

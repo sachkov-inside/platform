@@ -21,15 +21,17 @@ When preparing a specification or a task, record with the owner:
 
 A task with no key scenario says "nothing to show". Tickets inherit the specification's scenarios
 and decisions and add their own. Work without a ticket records them beside its acceptance criteria.
-Raise a newly discovered check when its decision is needed. An agreed check stays until the owner
+When the task touches the "always show" list of [owner attention](owner-attention.md), the
+specification's author proposes those items as key scenarios. Raise a newly discovered check when its
+decision is needed. An agreed check stays until the owner
 resolves it; an agent cannot waive it.
 
 ## Consequence triggers
 
-Judge what the change does. Its size and the paths it touches decide nothing: a comment in a
-payment module triggers nothing, and a small change elsewhere can change who sees data. A trigger
-means two things: the change gets the checks below, and the owner inspects or decides the named
-result from evidence.
+Judge what the change does. The paths it touches decide nothing: a comment in a
+payment module triggers nothing, and a small change elsewhere can change who sees data. A
+consequence brings the checks below; [owner attention](owner-attention.md) owns whether the owner
+is called.
 
 | Consequence | Checks when behaviour changes |
 |---|---|
@@ -44,21 +46,18 @@ result from evidence.
 | Agent authority: `AGENTS.md`, `CODING_STANDARDS.md`, skills, `docs/agents/` and their checks | `pnpm docs:check`; review under the rules on `main` before the change |
 
 Assign a security review also for external input handling, secrets, or uncertain security
-relevance. Missing or conflicting expectations, insufficient evidence and a scenario only a human
-can reach are triggers too.
+relevance.
 
-Two readers apply the triggers. The implementer applies them in `ship`. The independent Spec
-reviewer applies them separately to the requirements, the agreed key scenarios, the complete
-delivered diff and the current evidence, and reports missed triggers, an unsupported "nothing to
-show" and stale evidence. A trigger either of them finds counts.
+The independent Spec reviewer compares the requirements, the agreed key scenarios, the complete
+delivered diff and the current evidence. Its report carries notes on what may concern the owner: a
+missed consequence, an unsupported "nothing to show", stale evidence. The classifier that
+[ship](ship.md#owner-attention) runs reads those notes.
 
 ## Verification
 
 Verification is its own step, by another agent, at the place root
 [AGENTS.md](../../AGENTS.md#process) gives it in the skill chain. A fresh agent that did not write
-the change runs it the way a user would, through the project skill `verify-platform` (not installed
-as of 2026-11-16, #2206; until it is, the fresh agent runs the key scenarios with `local-stand`),
-and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
+the change runs it the way a user would, through the project skill `verify-platform`, and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
 
 - **Required** when user-visible behaviour changes or the task has key scenarios. An internal
   change or documentation needs none, and the PR says so in one line.
@@ -68,28 +67,39 @@ and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
   `origin/main` without conflicts in the files the task touches keeps it.
 - **Matched by the Spec reviewer.** The independent Spec reviewer confirms that the verdict
   covers the delivered change: in its review when the verdict already exists, otherwise in a short
-  follow-up given the verdict and the diff, before `pr`.
+  follow-up given the verdict and the diff, before `pr`. In the same pass it looks through the
+  artifacts for data that is not the stand's test data.
 - **`FAIL`** returns the work to implementation; its fix is reviewed and verified again.
-  **`PASS+NOTES`** carries its notes into the PR, outside any disclosure.
+  **`PASS+NOTES`** carries its notes into the PR's «Проверено».
 
 ## Evidence
 
-The PR's «Как проверено» is assembled from sources the implementer cannot embellish:
+The PR's «Проверено» is assembled from sources the implementer cannot embellish:
 
 - CI results, by link to the run on the delivered head.
-- The verifier's verdict with its video and screenshots.
+- The verifier's verdict with its artifacts.
 - An agent's own observation, labelled «наблюдение агента».
 
-What each kind proves:
+Choose the kind of evidence for each scenario; one PR mixes them:
 
-- A screenshot proves only what is visible. Permissions, money and side effects need evidence at
-  the boundary where they happen: the real backend and database.
-- Tests protect against regressions. They are not the evidence the owner accepts from.
-- Storybook is a workshop. The running application proves the look a user gets.
+- **Video, 10 to 30 seconds**: movement, such as a transition, an animation or an order of actions.
+- **Screenshot**: a look at one moment; two screenshots, before and after, when something existing
+  changes.
+- **Table "action, expected, got"**: what the screen does not show (permissions, money, database
+  records), taken from the real backend and database. A screenshot proves only what is visible.
+- **Numbers before and after**: speed, size, reliability.
+- **One line**: nothing changes for the user.
+
+Tests protect against regressions and are not the evidence the owner accepts from. Storybook is a
+workshop: the running application proves the look a user gets.
+
+The verifier's verdict is the inventory of evidence: for each scenario it states the kind of
+evidence, the files, what they show in one line, the source of the data and the change they cover.
+`verify-platform` owns the evidence directory and the report skeleton; the files are never
+committed. `pr` assembles «Проверено» from that inventory and retells nothing in its own words.
 
 Evidence lives in the PR; a specification keeps it in its final PR. No feature page holds it and
-no script classifies a diff (owner decision 5 of #2206). The repository is public: evidence shows
-only the stand's test data. [PR body](pr.md#attachments) owns how artifacts get into the PR.
+no script classifies a diff (owner decision 5 of #2206). The repository is public: evidence shows only test data. [PR body](pr.md#attachments) owns how artifacts get into the PR.
 
 ## Ask the owner
 
