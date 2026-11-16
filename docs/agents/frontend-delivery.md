@@ -68,8 +68,8 @@ The look is accepted once, in the pull request: [verification](human-review.md#v
 shows it in the running application, and [owner attention](owner-attention.md) decides whether the
 owner is called.
 
-Markers `Temporary semantic UI for #…` and their integration tickets come from the earlier
-contract (#2229). Each closes under its own ticket; new work adds none.
+Markers `Temporary semantic UI for #…` and their integration tickets are leftovers of the path
+that #2229 retired. New work adds none; a remaining marker is removed under its own ticket.
 
 ## Production foundation
 
