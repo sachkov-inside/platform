@@ -51,13 +51,14 @@ Closes #<issue>
 
 - **Что изменилось для пользователя**: behaviour and consequences, with no inventory of files.
 - **Как это работает теперь**: the key scenarios agreed in the task, each with its artifact. A
-  task with nothing to show says so in one line and drops «Как проверить самому». For an internal
+  task with nothing to show says why in one line and drops «Как проверить самому»; its evidence is
+  that line, the CI link and the review result. For an internal
   change, choose the smallest view with the `pr` skill's `PRESENTATION.md` guidance.
 - **Как проверено**: only the [evidence sources](human-review.md#evidence), each under its own
   label. Name a check you did not run, a skipped criterion, or a re-run of an unrelated failure.
 - **Как проверить самому**: the `local-stand` skill gives the address and the sign-in.
-- **Что нужно от владельца**: what [ship](ship.md#owner-acceptance) asks the owner to look at or
-  decide. Ask each decision as one yes/no question in plain Russian and add one sentence on what
+- **Что нужно от владельца**: the outcome of [ship](ship.md#owner-acceptance), «не звать» or
+  «звать» with the condition that called the owner, then what he is asked to look at or decide. Ask each decision as one yes/no question in plain Russian and add one sentence on what
   «да» changes: what merges, ships or becomes allowed. Record here the merge permission and the
   acceptance the owner already gave, in his words.
 - **Риск и откат**: consequences in everyday words; say when one revert undoes the change.
@@ -71,8 +72,17 @@ Attach images and video with `gh pr create --attach`, `gh pr edit --attach` or
 `main` does not grow, and the picture shows in the PR body.
 
 - **Public and permanent.** Anyone can open an attachment without signing in, and an agent cannot
-  delete it. Attach only the stand's test data, never anything from production; look at every file
-  before attaching it.
+  delete it. Look at every file before attaching it.
+- **Test data only.** Record evidence only on a light instance or the stand with test data, and
+  confirm that the database is the test one before recording.
+- **In doubt, leave it out.** When the data on screen may be real, attach nothing: link the CI
+  artifact or describe the result in words.
+- **Production stays in text.** Describe a production check in words; attach none of its screens.
+- **A second look.** The Spec reviewer looks through the artifacts for foreign data before the
+  merge ([verification](human-review.md#verification)).
+- **Local until merged.** Keep the files in the worktree's ignored `ci-artifacts/` folder, outside
+  Git; after the merge the `agent-worktree finish` step of `session-cleanup` removes them with the
+  worktree.
 - **Size.** An image and a video are limited to 10 MB each, and one command takes up to 50 files.
   The verifier records one short video per scenario, never the whole run in one file.
 - **Formats.** PNG, GIF, JPEG and SVG; MP4, MOV and WebM.

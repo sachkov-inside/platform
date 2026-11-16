@@ -68,11 +68,15 @@ and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
   `origin/main` without conflicts in the files the task touches keeps it.
 - **Matched by the Spec reviewer.** The independent Spec reviewer confirms that the verdict
   covers the delivered change: in its review when the verdict already exists, otherwise in a short
-  follow-up given the verdict and the diff, before `pr`.
+  follow-up given the verdict and the diff, before `pr`. In the same pass it looks through the
+  artifacts for data that is not the stand's test data.
 - **`FAIL`** returns the work to implementation; its fix is reviewed and verified again.
   **`PASS+NOTES`** carries its notes into the PR, outside any disclosure.
 
 ## Evidence
+
+Every task ends with a PR in the briefing form that carries its evidence, whatever the task is.
+A change with nothing to show gives one line on why, the CI link and the review result.
 
 The PR's «Как проверено» is assembled from sources the implementer cannot embellish:
 
