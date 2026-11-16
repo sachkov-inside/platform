@@ -34,9 +34,10 @@ removes finished ones. Existing `<repo>.worktrees` checkouts of the earlier layo
 
 The primary checkout belongs to the owner. Read it through `git -C` or absolute paths; change it
 only on the owner's request. Keep other sessions' worktrees, branches, containers, volumes, stashes,
-servers and results. Only `pnpm session:cleanup --apply`, and `agent-worktree sweep` for
-`.claude/worktrees`, remove another session's resources, and only when their rules prove them
-disposable.
+servers and results. The coordinator or owner may remove this task's exact worktree through
+Orca after its writing session exits and the [cleanup checks](../../.agents/skills/session-cleanup/SKILL.md)
+prove it disposable. Repository-wide `pnpm session:cleanup --apply` and `agent-worktree sweep`
+for `.claude/worktrees` belong to separately assigned cleanup, not routine task completion.
 
 ## Pull requests
 
