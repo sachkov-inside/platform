@@ -148,7 +148,6 @@ for (const fact of facts) {
       await reader.goto(`${baseURL}?kind=${fact.kind}`);
       await reading;
       await writer.getByRole("button", { name: "Announce write" }).click();
-      // The new read must finish while the old response is still held.
       await state(reader, 2);
       expect(reads).toBe(2);
       release();
