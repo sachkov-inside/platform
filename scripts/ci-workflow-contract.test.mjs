@@ -843,7 +843,7 @@ describe("application CI workflow contract", () => {
     assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 10);
     assert.equal(
       workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
-      10,
+      8,
     );
     // A failed smoke keeps the Playwright results and the dev-server log (#863).
     assert.match(jobBlock("integration-checks"), /apps\/web\/test-results/u);
@@ -927,9 +927,10 @@ describe("application CI workflow contract", () => {
   it("keeps Web E2E recordings and HTML call logs separate for each CI attempt", () => {
     const webE2E = jobBlock("web-e2e-browser");
     const upload = webE2E.slice(
-      webE2E.indexOf("      - name: Upload Playwright diagnostics\n"),
+      webE2E.indexOf("      - name: Upload Playwright report and results\n"),
     );
-    assert.match(upload, /if: \$\{\{ failure\(\) \}\}/u);
+    // Отчёт успешного запуска служит доказательством для владельца (#2187).
+    assert.match(upload, /^ {8}if: \$\{\{ !cancelled\(\) \}\}$/mu);
     assert.match(upload, /uses: actions\/upload-artifact@/u);
     assert.match(
       upload,
@@ -938,6 +939,38 @@ describe("application CI workflow contract", () => {
     assert.match(upload, /^ {12}apps\/web\/playwright-report$/mu);
     assert.match(upload, /^ {12}apps\/web\/test-results$/mu);
     assert.doesNotMatch(upload, /overwrite: true/u);
+  });
+
+  it("keeps full-stack Playwright reports of passed and failed runs for each attempt", () => {
+    const job = jobBlock("fullstack-browser");
+    const upload = job.slice(
+      job.indexOf("      - name: Upload Playwright report and results\n"),
+      job.indexOf("      - name: Remove infrastructure\n"),
+    );
+    assert.match(upload, /^ {8}if: \$\{\{ !cancelled\(\) \}\}$/mu);
+    assert.match(upload, /uses: actions\/upload-artifact@/u);
+    assert.match(
+      upload,
+      /name: fullstack-diagnostics-\$\{\{ matrix\.project \}\}-\$\{\{ matrix\.shard \}\}-\$\{\{ github\.run_attempt \}\}/u,
+    );
+    assert.match(upload, /^ {12}apps\/web\/playwright-report$/mu);
+    assert.match(upload, /^ {12}apps\/web\/test-results$/mu);
+    assert.match(upload, /retention-days: 7/u);
+    assert.match(
+      job,
+      /- name: Capture infrastructure diagnostics\n {8}if: \$\{\{ failure\(\) \}\}/u,
+    );
+  });
+
+  it("gives the Web navigation suite its own HTML report inside the uploaded folder", () => {
+    const navigation = readFileSync(
+      resolve(repositoryRoot, "apps/web/playwright.navigation.config.ts"),
+      "utf8",
+    );
+    assert.match(
+      navigation,
+      /\["html", \{ open: "never", outputFolder: "playwright-report\/navigation" \}\]/u,
+    );
   });
 
   it("uploads browser-engine and Storybook import diagnostics for each CI attempt", () => {
