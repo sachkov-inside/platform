@@ -204,8 +204,13 @@ export const lightRoles = {
   newcomer: { subject: "light-newcomer", name: null },
 };
 
-/** @type {readonly LightRole[]} */
-export const lightRoleNames = ["owner", "holder", "learner", "newcomer"];
+/** Every key of `lightRoles`, in order; a test keeps the two together. */
+export const lightRoleNames = /** @type {const} */ ([
+  "owner",
+  "holder",
+  "learner",
+  "newcomer",
+]);
 
 /** @typedef {keyof typeof lightRoles} LightRole */
 

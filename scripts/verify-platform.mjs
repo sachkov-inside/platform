@@ -493,17 +493,31 @@ async function evidence(context) {
     const facts = {};
     for (const { path } of manifest.scenarios.flatMap((item) => item.files)) {
       const absolute = join(directory, path);
-      // A link would have the check read a file outside .evidence.
+      // A link, the file's own or a directory's on the way, would have the check read outside
+      // .evidence.
       const entry = lstatSync(absolute, { throwIfNoEntry: false });
-      if (entry?.isFile())
+      if (
+        entry?.isFile() &&
+        (await realpath(absolute)) === join(await realpath(directory), path)
+      )
         facts[path] = { bytes: entry.size, seconds: clipLength(absolute) };
     }
     const head = git(context.worktree, ["rev-parse", "HEAD"]);
+    const uncommitted = changedFiles(context.worktree).map((file) => file.path);
+    const digest =
+      uncommitted.length === 0
+        ? null
+        : await uncommittedDigest(context.worktree, uncommitted);
     const problems = [
       ...(manifest.commit === head
         ? []
         : [
             `the manifest is of ${manifest.commit.slice(0, 12)}, HEAD is ${head.slice(0, 12)}; verify this commit after: evidence start --reset`,
+          ]),
+      ...(manifest.commit !== head || manifest.uncommittedDiffSha256 === digest
+        ? []
+        : [
+            "the uncommitted changes differ from the ones the run started with; verify them after: evidence start --reset",
           ]),
       ...manifestProblems(manifest, facts),
     ];

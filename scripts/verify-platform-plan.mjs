@@ -418,6 +418,10 @@ export function addScenario(manifest, input) {
     );
   const mismatch = kindMismatch(parsed.data);
   if (mismatch !== undefined) throw new Error(mismatch);
+  if (parsed.data.source === "stand-test-data" && parsed.data.kind !== "none")
+    throw new Error(
+      "a scenario from the shared stand keeps no file: use kind none and say the result in --shows",
+    );
   return { ...manifest, scenarios: [...manifest.scenarios, parsed.data] };
 }
 

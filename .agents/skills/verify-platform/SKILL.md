@@ -88,9 +88,11 @@ O wait --text "Доступ выдан."
   | `newcomer` | no name, terms not accepted | the first sign-in and an empty profile |
   | `guest` | nobody signed in | public pages |
 
-  Sign in with `O open "$(V address owner /authoring)"`, and likewise `H`/`holder`, `L`/`learner`,
-  `N`/`newcomer`; the guest opens `G open "$(V address web /)"`. A role's name stands on its
-  `/account`. Each role is its own session with its own cookies, so they stay signed in side by
+  The owner signs in with `O open "$(V address owner /authoring)"`; `/authoring` answers
+  «Страница не найдена» to everyone else. The other roles sign in to their cabinet:
+  `H open "$(V address holder /account)"`, and likewise `L`/`learner` and `N`/`newcomer`; the
+  guest opens `G open "$(V address web /)"`. A named role's name stands under the heading of its
+  `/account`; the newcomer gets the welcome dialog there and has no profile row yet. Each role is its own session with its own cookies, so they stay signed in side by
   side. `V account <role>` prints a role's Account ID. On the shared stand the roles are the
   profiles of `/__local/accounts` named in step 1; they carry no fictional names yet (#2218).
 - **Namespace.** When the machine's `agent-browser` rules name a namespace, export it as
@@ -104,8 +106,8 @@ O wait --text "Доступ выдан."
 - **Viewport.** Set 1440×900. In the default short window the material editor's toolbar overlaps
   «Опубликовать».
 - **First visit.** The newcomer's first open of `/account` shows «Добро пожаловать» in place of
-  the cabinet (`snapshot -s main` returns the dialog); press «Принять условия и продолжить», then
-  open the address again. Public pages, materials and `/bookmarks` do not ask. Reader pages and
+  the cabinet (`snapshot -s main` returns the dialog), on every open until the terms are accepted;
+  press «Принять условия и продолжить» and the cabinet opens by itself. Public pages, materials and `/bookmarks` do not ask. Reader pages and
   `/account` show a cookie notice in every session until «Понятно» is pressed: it covers controls
   near the bottom of the page.
 - **Output.** `agent-browser` prints a notice that its Chrome is behind the stable release on
@@ -149,7 +151,8 @@ A **scenario** is one thing checked. Choose the kind of evidence for each scenar
 
 GitHub attaches at most 10 MB per file, so record one short clip per scenario, never the whole
 run in one file: start the recording right before the action and stop it once the resulting
-state has stood for a few seconds (`O wait 3000`). A scenario's second view on another page is a
+state has stood for a few seconds (`O wait 3000`). `record start` keeps the open page. A clip
+  holds less time than the wall clock: pauses without repaints are short in it. A scenario's second view on another page is a
 scenario of its own. `V evidence check` reads clip lengths with `ffprobe`.
 
 ```bash
@@ -157,8 +160,10 @@ O record start "$E/grant.webm" --cursor
 # … the action and its result …
 O record stop
 O screenshot "$E/granted.png"
-V sql "select p.slug, a.revoked_at is not null as revoked from account_rights.product_access a
-       join products.products p on p.id = a.product_id" | tee "$E/access-rows.csv"
+printf 'action,expected,got\n"owner grants platform-inside","platform-inside,f","%s"\n' "$(
+  V sql "select p.slug, a.revoked_at is not null from account_rights.product_access a
+         join products.products p on p.id = a.product_id
+         where a.account_id = '$(V account learner)'" | tail -1)" > "$E/access-rows.csv"
 
 V evidence add --title "Владелец выдаёт продукт, ученик видит закрытый материал" \
   --kind video --file "grant.webm::выдача в карточке человека и открытый материал у ученика" \

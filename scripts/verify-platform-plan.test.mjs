@@ -362,6 +362,18 @@ test("a manifest collects scenarios under unique ids", () => {
     /takes no clip/u,
   );
   assert.throws(
+    () => addScenario(manifest, { ...scenario, source: "stand-test-data" }),
+    /shared stand keeps no file/u,
+  );
+  assert.doesNotThrow(() =>
+    addScenario(manifest, {
+      ...scenario,
+      source: "stand-test-data",
+      kind: "none",
+      files: [],
+    }),
+  );
+  assert.throws(
     () =>
       addScenario(manifest, {
         ...scenario,

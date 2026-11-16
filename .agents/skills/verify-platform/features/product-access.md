@@ -78,7 +78,7 @@ returns `0`). The holder's seeded product is another person's row.
 - History lines name the acting owner «Аккаунт без имени и email», the same label the learner has.
 - Without the search the list has three rows with the same name, and a click by name takes the
   first. A text wait returns before the list is filtered; wait for one row.
-- The grant takes about 7 s on screen; let the result stand a few seconds before `record stop`.
+- After the grant the learner's `/account` shows «Продолжить обучение» above «Мои продукты».
 - The page shows a reason in guillemets; the page text read by `get text` or `wait --text` has
   none.
 - Telegram group membership follows product access on the shared stand only; the light instance

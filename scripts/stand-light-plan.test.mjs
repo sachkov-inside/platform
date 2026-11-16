@@ -9,6 +9,7 @@ import {
   assertLightDatabase,
   lightEnvironment,
   lightInstanceName,
+  lightRoleNames,
   lightRoles,
   lightSignInHandler,
   seedLightRoles,
@@ -227,6 +228,7 @@ test("named roles accept the terms, get a fictional name, and the holder its pro
     },
   ]);
   assert.equal(lightRoles.newcomer.name, null);
+  assert.deepEqual([...lightRoleNames], Object.keys(lightRoles));
 });
 
 test("a refused role request stops the instance with the request named", async () => {
