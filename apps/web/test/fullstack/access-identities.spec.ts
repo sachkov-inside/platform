@@ -585,7 +585,7 @@ test("two separate Accounts cannot read or change each other's progress and book
       await heldAuth.promise;
       await route.fulfill({ response });
     });
-    await owner.page.clock.setSystemTime(new Date("2026-11-16T12:00:31Z"));
+    await owner.page.clock.fastForward(31_000);
     await signInFullStack(owner.context, "READER_B");
     await owner.page.bringToFront();
     await owner.page.evaluate(() => {

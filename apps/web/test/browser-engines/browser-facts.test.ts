@@ -62,7 +62,7 @@ test("returning Account reads its own bookmark after another session answered un
       page.getByRole("button", { name: "Сохранено", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
     session = accountB;
-    await page.clock.setSystemTime(new Date("2026-11-16T12:00:31Z"));
+    await page.clock.fastForward(31_000);
     await page.evaluate(() => {
       document.dispatchEvent(new Event("visibilitychange", { bubbles: true }));
     });
