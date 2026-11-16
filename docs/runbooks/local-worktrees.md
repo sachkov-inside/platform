@@ -17,13 +17,11 @@ pnpm worktree:prepare --task <issue>
 ```
 
 The project-owned `.worktree-resources.json` contains argv commands, executed without a shell.
-Its `finish` steps run from the worktree root during `agent-worktree finish`; `pnpm stand:finish`
-stops the worktree's light stand instance and releases a stand reservation it holds
-([local stand](local-stand.md)).
 Preparation installs dependencies with the frozen lockfile; it does not start services, migrate or
 seed a database, create `.env`, or copy credentials. Repeating it reconciles the same dependencies.
-The `finish` commands of `.worktree-resources.json` run in the task's last step, described in
-`session-cleanup`.
+The `finish` commands of `.worktree-resources.json` run from the worktree root in the task's last
+step, described in `session-cleanup`. `pnpm stand:finish` stops the worktree's light stand instance
+and releases a stand reservation it holds ([local stand](local-stand.md)).
 The installed optional `agent-worktree` host CLI records successful preparation for the task.
 Without that CLI, the same project command runs preparation and explicitly reports that resource
 tracking is unavailable. No sibling checkout or global host CLI is needed to install dependencies.
