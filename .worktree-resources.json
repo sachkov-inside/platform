@@ -1,4 +1,7 @@
 {
   "prepare": [["pnpm", "install", "--frozen-lockfile"]],
-  "finish": [["pnpm", "session:cleanup", "--apply"]]
+  "finish": [
+    ["pnpm", "stand:finish"],
+    ["pnpm", "session:cleanup", "--apply"]
+  ]
 }

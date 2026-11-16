@@ -9,11 +9,12 @@ Selected skills: `code-review`, `codebase-design`, `diagnosing-bugs`, `domain-mo
 ## Project ownership
 
 Portable procedures come from pinned Agent Kit copies. Root [AGENTS.md](../../AGENTS.md) and
-[project contracts](../../docs/agents/implementation.md) own starts, worktree mode, testing seams,
-commit-before-review order and delivery. [Human participation](../../docs/agents/human-review.md) owns owner
-participation, consequence triggers and evidence. [Ship](../../docs/agents/ship.md) owns the
-decision whether the owner is needed, CI Gate and merge queue policy. Tracker,
-frontend, domain and owner-correction contracts keep their existing owners.
+[project contracts](../../docs/agents/implementation.md) own starts, worktree mode,
+commit-before-review order and delivery; [testing](../../docs/agents/testing.md) owns testing
+seams. [Human participation](../../docs/agents/human-review.md) owns owner participation,
+consequence triggers and evidence. [Ship](../../docs/agents/ship.md) owns the decision whether the
+owner is needed, CI Gate and merge queue policy. Tracker, frontend, domain and owner-correction
+contracts keep their existing owners.
 
 Unselected folders retain project/package ownership: `ai-models-refresh`, `impeccable`,
 `local-stand`, `modern-web-guidance`, `session-cleanup` and `vercel-react-best-practices`.

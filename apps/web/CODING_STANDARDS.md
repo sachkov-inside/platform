@@ -225,8 +225,8 @@ These rules require review. An effect count or a passing dependency linter canno
   sign-in on `focus`. A bare `focus` only re-checks sign-in and re-reads no query. Worked examples:
   `returnToStaleTab` in `test/fullstack/personal-home.spec.ts` for a return to the tab and
   `signInAndRecheckOnFocus` in `test/fullstack/reading-progress.spec.ts` for a sign-in re-check.
-- Keep Web guardrails and negative fixtures aligned. Use mapping/query tests, Storybook for
-  meaningful UI states, and Playwright for route behaviour and accessibility.
+- Keep Web guardrails and negative fixtures aligned. [Testing](../../docs/agents/testing.md)
+  owns the choice between module tests, Storybook and Playwright.
 
 ## Web platform guidance
 

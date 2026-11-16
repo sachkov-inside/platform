@@ -8,6 +8,7 @@ import { z } from "zod";
 import {
   controlStand,
   planPrebuild,
+  readReservation,
   requireUnmanagedStand,
 } from "./stand-controller.mjs";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
@@ -902,4 +903,88 @@ test("a mismatched replacement leaves a stale reservation recorded", async (t) =
     withMissing,
   );
   assert.equal(status.reservation?.worktree, "/fixture/a");
+});
+
+test("release from another worktree keeps the reservation and names its owner", async (t) => {
+  const { dependencies } = await fixture(t);
+  const shown = await controlStand(
+    { command: "show", worktree: "/fixture/a" },
+    dependencies,
+  );
+  await assert.rejects(
+    controlStand({ command: "release", worktree: "/fixture/b" }, dependencies),
+    /reserved for \/fixture\/a/u,
+  );
+  assert.deepEqual(await readReservation(dependencies.directory), {
+    reservation: shown.reservation && {
+      id: shown.reservation.id,
+      worktree: "/fixture/a",
+    },
+    controller: "/fixture/controller",
+  });
+  const released = await controlStand(
+    { command: "release", worktree: "/fixture/a" },
+    dependencies,
+  );
+  assert.equal(released.reservation, null);
+  assert.deepEqual(await readReservation(dependencies.directory), {
+    reservation: null,
+    controller: "/fixture/controller",
+  });
+});
+
+test("an unused stand has no reservation to read", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "stand-controller-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  assert.equal(await readReservation(directory), null);
+});
+
+test("release --if-owned under the lock leaves a reservation taken by another worktree in the meantime", async (t) => {
+  const { dependencies } = await fixture(t);
+  const shown = await controlStand(
+    { command: "show", worktree: "/fixture/a" },
+    dependencies,
+  );
+  const result = await controlStand(
+    { command: "release", worktree: "/fixture/b", ifOwned: true },
+    dependencies,
+  );
+  assert.equal(result.reservation?.id, shown.reservation?.id);
+  assert.equal(
+    (await readReservation(dependencies.directory))?.reservation?.worktree,
+    "/fixture/a",
+  );
+  const own = await controlStand(
+    { command: "release", worktree: "/fixture/a", ifOwned: true },
+    dependencies,
+  );
+  assert.equal(own.reservation, null);
+});
+
+test("a release is reported as done when Docker is unavailable afterwards", async (t) => {
+  const { dependencies } = await fixture(t);
+  await controlStand({ command: "show", worktree: "/fixture/a" }, dependencies);
+  const result = await controlStand(
+    { command: "release", worktree: "/fixture/a" },
+    {
+      ...dependencies,
+      inspect: async () => {
+        throw new Error("Docker is not running");
+      },
+    },
+  );
+  assert.equal(result.status, "unknown");
+  assert.equal(result.reservation, null);
+  await assert.rejects(
+    controlStand(
+      { command: "status", worktree: "/fixture/a" },
+      {
+        ...dependencies,
+        inspect: async () => {
+          throw new Error("Docker is not running");
+        },
+      },
+    ),
+    /Docker is not running/u,
+  );
 });
