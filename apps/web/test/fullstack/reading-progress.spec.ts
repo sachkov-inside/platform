@@ -1,5 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type Response } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Page,
+  type Request,
+  type Response,
+} from "@playwright/test";
 import { resolve } from "node:path";
 import { z } from "zod";
 import {
@@ -213,12 +219,14 @@ test("reading progress reconciles stale windows and account changes without relo
     });
     let statusChecks = 0;
     let earlierCheckAnswered = false;
+    let earlierRequest: Request | undefined;
     await page.route("**/auth/status", async (route) => {
       statusChecks += 1;
       if (statusChecks > 1) {
         await route.continue();
         return;
       }
+      earlierRequest = route.request();
       const response = await route.fetch();
       earlierCheckAnswered = true;
       await earlierCheckReleased;
@@ -231,6 +239,9 @@ test("reading progress reconciles stale windows and account changes without relo
       response.url().endsWith("/auth/status");
     // Задержанный запрос ещё не получил ответа, поэтому первый ответ здесь — новой проверки.
     const recheckAnswered = page.waitForResponse(isStatusCheck);
+    const earlierCancelled = page.waitForEvent("requestfailed", {
+      predicate: (request) => request === earlierRequest,
+    });
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     // Focus, присоединённый к задержанной проверке, второго запроса не отправил бы.
     await expect.poll(() => statusChecks).toBeGreaterThanOrEqual(2);
@@ -242,16 +253,10 @@ test("reading progress reconciles stale windows and account changes without relo
       "data-reading-action-state",
       "anonymous",
     );
-    const earlierDelivered = page.waitForResponse(isStatusCheck);
+    // The fresh check cancels the old request; its held reply cannot reach the browser (#2274).
+    const cancelled = await earlierCancelled;
+    expect(cancelled.failure()?.errorText).toBe("net::ERR_ABORTED");
     releaseEarlierCheck();
-    await (await earlierDelivered).finished();
-    // Доказательство отсутствия: ответ целиком в странице, кадр после его разбора отрисован.
-    await page.evaluate(
-      () =>
-        new Promise((resolve) => {
-          requestAnimationFrame(resolve);
-        }),
-    );
     await expect(readingState).toHaveAttribute(
       "data-reading-action-state",
       "anonymous",
