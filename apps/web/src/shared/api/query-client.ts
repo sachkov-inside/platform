@@ -13,7 +13,11 @@ function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        gcTime: QUERY_GARBAGE_COLLECTION_TIME_MS,
+        // A server client belongs to one request. A GC timer would retain that request's
+        // async context, including rendered streams, until the browser's 30-minute window.
+        gcTime: environmentManager.isServer()
+          ? Infinity
+          : QUERY_GARBAGE_COLLECTION_TIME_MS,
         staleTime: QUERY_STALE_TIME_MS,
       },
     },
