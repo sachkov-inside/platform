@@ -12,10 +12,10 @@ The manifest and lock own installation; project rules live in root AGENTS.md and
 - `to-spec`, `to-tickets`, `triage`: tracker and ticket location in
   [issue tracker](../../docs/agents/issue-tracker.md); readiness roles and the rejected-request
   record in [triage labels](../../docs/agents/triage-labels.md).
-- `implement-spec`: exploration notes and evidence in
-  [coordinated execution](../../docs/agents/coordinated-execution.md).
-- `setup-matt-pocock-skills`: root AGENTS.md is the only owner-maintained instruction file;
-  `.claude/skills` is an alias of `.agents/skills`.
+- `implement-spec`: [coordinated execution](../../docs/agents/coordinated-execution.md), including
+  the exploration-note and evidence locations.
+- `setup-matt-pocock-skills`: root AGENTS.md owns the shared configuration; `pnpm docs:check`
+  rejects `CLAUDE.md`.
 - `retro`: [owner corrections](../../docs/agents/owner-corrections.md).
 
 ## Provenance and exclusions

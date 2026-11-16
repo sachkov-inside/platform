@@ -31,5 +31,6 @@ integrated worker resources under the cleanup rules.
   [singleton ownership rule](../runbooks/local-stand.md#parallel-worktrees-and-singleton-ownership).
 - Keep exploration notes in the coordinator's worktree under the ignored `.reports/<specification>/`.
 - Keep the task map in Issues and PRs: dependencies, decisions, sessions, resource owners and next
-  actions. On resumption, reconcile the actual state and assign only the remaining work. Resume work
+  actions. Specification status stays in its Issue; review reports and verification evidence go in
+  the final PR. On resumption, reconcile the actual state and assign only the remaining work. Resume work
   the owner paused only on the owner's request.
