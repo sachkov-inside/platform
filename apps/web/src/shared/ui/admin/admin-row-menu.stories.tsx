@@ -148,22 +148,25 @@ export const OpensDialogDesktop: Story = {
     const trigger = within(canvasElement).getByRole("button", {
       name: "Действия с «Анна Смирнова»",
     });
-    await userEvent.click(trigger);
-    const body = within(document.body);
-    await userEvent.click(
-      await body.findByRole("menuitem", { name: "Отозвать доступ" }),
-    );
-    const dialog = await body.findByRole("dialog", {
-      name: "Отозвать доступ к «AI Engineering»?",
-    });
-    await waitFor(() =>
-      expect(
-        within(dialog).getByRole("button", { name: "Отмена" }),
-      ).toHaveFocus(),
-    );
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(dialog).not.toBeVisible());
-    await waitFor(() => expect(trigger).toHaveFocus());
+    // Reopening must restore the same trigger, without a deferred action from the previous cycle.
+    for (const _cycle of [1, 2]) {
+      await userEvent.click(trigger);
+      const body = within(document.body);
+      await userEvent.click(
+        await body.findByRole("menuitem", { name: "Отозвать доступ" }),
+      );
+      const dialog = await body.findByRole("dialog", {
+        name: "Отозвать доступ к «AI Engineering»?",
+      });
+      await waitFor(() =>
+        expect(
+          within(dialog).getByRole("button", { name: "Отмена" }),
+        ).toHaveFocus(),
+      );
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(dialog).not.toBeVisible());
+      await waitFor(() => expect(trigger).toHaveFocus());
+    }
   },
 };
 

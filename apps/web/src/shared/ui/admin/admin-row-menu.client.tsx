@@ -39,6 +39,7 @@ export function AdminRowMenu({
   readonly label: string;
   readonly items: readonly AdminRowMenuItem[];
 }) {
+  const trigger = useRef<HTMLButtonElement>(null);
   const pendingAction = useRef<(() => void) | null>(null);
 
   return (
@@ -47,6 +48,7 @@ export function AdminRowMenu({
         aria-label={label}
         className="admin-row-menu-trigger"
         data-row-action=""
+        ref={trigger}
         title={label}
         type="button"
       >
@@ -57,11 +59,14 @@ export function AdminRowMenu({
           align="end"
           className="z-[70] min-w-48 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-card data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 motion-reduce:animate-none"
           collisionPadding={8}
-          onCloseAutoFocus={() => {
+          onCloseAutoFocus={(event) => {
             const action = pendingAction.current;
             pendingAction.current = null;
-            // Radix сейчас вернёт фокус на «⋯»; действие идёт следом, чтобы диалог запомнил её.
-            if (action !== null) window.setTimeout(action, 0);
+            if (action === null) return;
+            // Restore focus before opening the dialog, within Radix’s close lifecycle.
+            event.preventDefault();
+            trigger.current?.focus();
+            action();
           }}
           sideOffset={4}
         >
