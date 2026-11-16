@@ -540,7 +540,8 @@ Explicit Vitest `--maxWorkers` overrides the automatic budget; `--no-file-parall
 at a time for comparison. The separate serial project retains its one-file limit.
 
 The default test and hook budgets in the same config only stop a stuck run: a test that needs more
-names its own budget, and a flaky test is fixed by its cause, never by raising a budget or re-running.
+names its own budget; [flaky tests](../agents/testing.md#flaky-tests) covers a test that passes only
+with more time.
 
 ## Access checks
 

@@ -1,8 +1,8 @@
 # Testing
 
-Rules for choosing and writing tests. The `tdd`, `to-spec` and `code-review` skills read this
-document as the project's testing contract. How CI selects and runs suites belongs to the
-[CI runbook](../runbooks/continuous-integration.md); what an agent runs locally belongs to
+Rules for choosing and writing tests. This is the project's testing contract; the `tdd`, `to-spec`
+and `code-review` skills reach it through root `AGENTS.md`. How CI selects and runs suites belongs
+to the [CI runbook](../runbooks/continuous-integration.md); what an agent runs locally belongs to
 [AGENTS.md → Commands](../../AGENTS.md#commands).
 
 Every test follows one principle: break the behaviour and the test fails; change only the
@@ -20,7 +20,7 @@ a new test from the sample of its kind.
 | Backend contract | Compiled entrypoints and processes: worker startup, SMTP, bank double over HTTP | Built entrypoints, subprocesses, owned loopback servers, temporary files | External providers as owned loopback responders | [`smtp-transport.test.ts`](../../apps/backend/test/contracts/smtp-transport.test.ts) | `pnpm --filter @inside/backend test:contracts` |
 | Web module | Presentation mapping, query behaviour, BFF route modules, mutation operations | Own modules and schemas in Node | Time; backend and identity through their public adapter, such as `sessionAdapter` | [`billing-subscription-presentation.test.ts`](../../apps/web/test/module/billing-subscription-presentation.test.ts) | `pnpm --filter @inside/web test:module` |
 | Web contract | Web tooling lifecycles, such as the run-scoped Vite cache | Subprocesses, temporary files | External services | [`run-scoped-vite-cache.test.ts`](../../apps/web/test/contracts/run-scoped-vite-cache.test.ts) | `pnpm --filter @inside/web test:contracts` |
-| Browser engine | Behaviour that differs between Chromium and WebKit | Vite dev server, Chromium, WebKit | Time; backend answers from the test | [`browser-facts.test.ts`](../../apps/web/test/browser-engines/browser-facts.test.ts) | `pnpm --filter @inside/web test:browser-engines` |
+| Browser engine | Browser behaviour that a Node module test cannot see: caches between documents, history, SVG and sign-in in a real engine | Vite dev server or a fixture page, Chromium and, where a test asks for it, WebKit | Time; backend answers from the test | [`reader-history.test.ts`](../../apps/web/test/browser-engines/reader-history.test.ts) | `pnpm --filter @inside/web test:browser-engines` |
 | Storybook | A meaningful UI state renders from the production module in its production environment | Chromium through the Vitest browser project | Fetch mocks and fixtures in `apps/web/src/storybook` | [`public-shell.stories.tsx`](../../apps/web/src/_app/ui/public-shell.stories.tsx) | `pnpm test:storybook` |
 | Web E2E | Route behaviour and accessibility on the production build | Production Next.js build, Playwright browser | Backend absent or answered by Playwright route interception | [`routes.spec.ts`](../../apps/web/test/e2e/routes.spec.ts) | `pnpm test:e2e` after `pnpm build` |
 | Navigation | Page transitions, prefetch and loading states on the production build | Production Next.js build, Playwright browser | Backend as `apps/web/test/navigation/fake-backend.mjs` or a per-spec backend | [`authoring-shell.spec.ts`](../../apps/web/test/navigation/authoring-shell.spec.ts) | `pnpm test:navigation` after `pnpm build` |
@@ -28,7 +28,7 @@ a new test from the sample of its kind.
 | Telegram unit and architecture | Bot module logic; table ownership between modules | Own code in process | Time through `CLOCK`; Telegram Bot API and Platform API | [`activation-view.test.ts`](../../apps/telegram/test/unit/activation-view.test.ts) | `pnpm --filter @inside/telegram test` |
 | Telegram integration | Persistence, delivery, queues and workers of the bot | PostgreSQL and RabbitMQ that the session owns, migrations, Kysely | Time through `CLOCK`; Telegram Bot API and Platform API | [`activation-announcement.integration.test.ts`](../../apps/telegram/test/integration/activation-announcement.integration.test.ts) | `pnpm --filter @inside/telegram test:integration` |
 | Telegram contract | Delivery, release workflow, deploy gateway and production smoke shell scripts | Subprocesses, temporary files | External services | [`telegram-delivery.test.ts`](../../apps/telegram/test/contracts/telegram-delivery.test.ts) | `pnpm --filter @inside/telegram test:contracts` |
-| Telegram widget | Widget layout and screens in a browser | Chromium | Widget data from the test | [`trainer-widget-screens.test.ts`](../../apps/telegram/test/widget/trainer-widget-screens.test.ts) | `pnpm --filter @inside/telegram test:widget` |
+| Telegram widget | Widget layout and screens in a browser | Chromium and WebKit | Widget data from the test | [`trainer-widget-screens.test.ts`](../../apps/telegram/test/widget/trainer-widget-screens.test.ts) | `pnpm --filter @inside/telegram test:widget` |
 | Package unit | Shared package logic | Own code in process | None | [`purchase-terms.test.ts`](../../packages/legal/src/purchase-terms.test.ts) | `pnpm --filter @inside/legal test` |
 | Tooling | Root scripts, CI workflow contracts, guardrail checkers with negative fixtures, authoring and practice-review tools | `node:test`, temporary files | Git, network and process doubles | [`deterministic-tests.test.mjs`](../../scripts/deterministic-tests.test.mjs) | `pnpm test:tooling`, `pnpm test:authoring`, `pnpm test:practice-review` |
 | Root contract | Release and deploy shell and CLI contracts | Subprocesses, owned loopback responders, temporary files | External services | [`deployment-workflow-contract.test.mjs`](../../scripts/contracts/deployment-workflow-contract.test.mjs) | `pnpm test:contracts` |
@@ -40,8 +40,9 @@ stands. [Suites outside CI](../runbooks/continuous-integration.md#suites-outside
 
 ## Choosing the kind
 
-Prove each behaviour at the lowest kind that can observe it. Add a higher kind only for what the
-lower one cannot see: a transport, a browser, a process or the whole stack.
+Prove each behaviour with the lowest kind that can observe it, and add a higher kind only for what
+the lower one cannot see: a transport, a browser, a process or the whole stack. Within a kind, call
+the highest public seam that reaches the behaviour.
 
 - A domain rule, calculation or mapping gets a unit test.
 - Backend behaviour that touches persistence, transactions, idempotency or concurrency gets a
@@ -97,16 +98,16 @@ way the code does. When no source defines a value, ask the owner.
 A test replaces only time, randomness and external services. Our own modules, PostgreSQL,
 migrations, Prisma, Kysely and RabbitMQ stay real wherever the kind above lists them.
 
-- Time: a fixed domain instant or a virtual clock shared by producers and consumers. Backend tests
-  use `registerFixedClock` from `apps/backend/test/support/fixed-clock.ts`; Telegram injects `CLOCK`.
-- Randomness: random fixture data stays behind stable case labels.
-- External services: identity providers, the bank, SMTP, Telegram, the other application's API,
-  and git, network and processes in tooling tests. Replace them at their public adapter or port,
-  or with an owned loopback double. Tests never call a live external provider.
+- Time and randomness: backend tests use `registerFixedClock` from
+  `apps/backend/test/support/fixed-clock.ts`; Telegram injects `CLOCK`.
+  [Deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153) hold
+  the rules for clocks, random fixture data, isolation and process cleanup.
+- External services: identity providers, the bank, SMTP, Telegram and the other application's API.
+  For the Web kinds the backend is an external service too: Web reaches it only over HTTP, so a
+  Web test may answer that HTTP itself. Tooling tests also replace git, the network and processes.
+  Replace a service at its public adapter or port, or with an owned loopback double.
 
-[Deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153) hold
-the review rules for clocks, isolation, setup and process cleanup;
-[waiting in tests](../../CODING_STANDARDS.md#waiting-in-tests) holds the rules for barriers.
+[Waiting in tests](../../CODING_STANDARDS.md#waiting-in-tests) holds the rules for barriers.
 
 Known exception: Web module tests replace their own `@/shared` modules with `vi.mock`. On
 2026-11-16, 125 of the 166 `vi.mock(` calls in `apps/web` named an `@/shared` module (counted with
@@ -127,9 +128,11 @@ There is no coverage threshold. Add a test because a behaviour needs it.
 
 ## Placement and naming
 
-Each application keeps its kinds in the directories of the sample paths above; `test/support`
-holds shared helpers, and backend integration setup lives in `apps/backend/test/integration/setup`.
-Application standards name their own helpers and barriers:
+The Vitest and Playwright configurations of each application define which directory holds which
+kind. Backend unit and adapter tests live in `apps/backend/test/unit`, `apps/backend/test/adapters`
+and directly in `apps/backend/test`; Storybook stories live next to their module in
+`apps/web/src`. `test/support` holds shared helpers, and backend integration setup lives in
+`apps/backend/test/integration/setup`. Application standards name their own helpers and barriers:
 [backend](../../apps/backend/CODING_STANDARDS.md#tests-against-real-infrastructure),
 [Web](../../apps/web/CODING_STANDARDS.md#interaction-and-enforcement) and
 [Telegram](../../apps/telegram/CODING_STANDARDS.md#test-review).

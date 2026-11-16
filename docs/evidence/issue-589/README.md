@@ -1,9 +1,8 @@
 # Сквозной набор вне обязательного гейта: #589
 
-Состояние после #1430: у workflow `Nightly full-stack smoke` нет расписания, он запускается только вручную.
-Обязательная задача CI `fullstack` прогоняет `pnpm smoke:fullstack` в merge queue Platform и в проверках
-выпуска ([runbook CI](../../runbooks/continuous-integration.md#manual-full-stack-smoke)). Ниже записаны
-измерения и решение на 06.10.2026, когда полный прогон шёл каждую ночь.
+После #1430 у workflow `Nightly full-stack smoke` нет расписания; текущий порядок описан в
+[runbook CI](../../runbooks/continuous-integration.md#manual-full-stack-smoke). Ниже записаны измерения и
+решение на 06.10.2026, когда полный прогон шёл каждую ночь.
 
 ## Измеренная цена и выбор
 
