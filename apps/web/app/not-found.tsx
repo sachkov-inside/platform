@@ -7,8 +7,9 @@ import { PageNotFound, pageNotFoundTitle } from "@/_pages/route-states";
  * Документ неизвестного адреса получает тот же заголовок, что ставит `<title>` в `PageNotFound`.
  * Без этого в документе стоял бы и заголовок раскладки по умолчанию, а вкладку называл бы тот из
  * двух, чей компонент гидрировался последним (#2213). `<title>` в `PageNotFound` остаётся для
- * `notFound()` из страниц `/authoring`, которые показывает этот же файл: без него их вкладка
- * называлась бы по странице, и это ловит тест `/authoring` в `test/e2e/routes.spec.ts`.
+ * гостя на адресах `/authoring`: `notFound()` из `requireAuthoringEntry` показывает этот же файл в
+ * ответе со статусом 200, и вкладку «Страница не найдена» там проверяет тест «a guest gets the
+ * 404 page and no admin shell on admin addresses (#1879)» в `test/e2e/routes.spec.ts`.
  */
 export const metadata: Metadata = { title: pageNotFoundTitle };
 
