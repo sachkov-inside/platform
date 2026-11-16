@@ -16,7 +16,8 @@ closes them again and keeps the history.
 
 - Owner: «Люди» in the admin navigation (`/authoring/people`), the person's row, then
   «Выдать продукт» at the top of the card.
-- Owner: the row's menu in the people list:
+- Owner: the row's menu in the people list: `O open "$(V address owner /authoring/people)"`,
+  `O wait --text "Без имени и email"`,
   `O find role button click --name "Действия с «Без имени и email»"`,
   `O find role menuitem click --name "Открыть карточку"`; it leads to the same card.
 - Owner: a product's tab «Ученики» (`/authoring/products/<id>?tab=learners`, reached from
@@ -32,7 +33,7 @@ Preconditions: the baseline; the learner holds no product
   `L wait --text "Продолжение для участников"`: the paywall is shown and «Изучено» is disabled.
 - **Open the card.** `O open "$(V address owner /authoring/people)"`,
   `O find role link click --name "Без имени и email"`, `O wait --text "Выдать продукт"`. The card
-  says «У человека пока нет продуктов.»
+  says «У человека пока нет продуктов. Выдать продукт можно кнопкой вверху карточки.»
 - **Grant (`access-grant`).** `O find role button click --name "Выдать продукт"`, `O wait 'dialog[open]'`,
   `O find role radio click --name "Создание Platform Inside"`, `O find role radio click --name "Подарок"`,
   `O click 'dialog[open] button[type=submit]'`, `O wait --text "Доступ выдан."` The card lists
@@ -40,10 +41,10 @@ Preconditions: the baseline; the learner holds no product
   «Выдача … Причина: Подарок».
 - **Learner sees it (`access-open`).** Open the material address in `L` again and
   `L wait --text "Закрытое содержимое для участников."` The paywall region is gone and «Изучено»
-  is enabled. Second view: `L open "$(V address web /account)"`; on the first visit accept the
+  is enabled. Second view: `L open "$(V address learner /account)"`; on the first visit accept the
   terms (`L find role button click --name "Принять условия и продолжить"`, `L wait --text "Личные данные"`)
-  and open it again; `L wait --text "Мои продукты"`. The
-  product is listed with «Доступ открыт».
+  and open it again; `L wait --text "Мои продукты"`. `L snapshot -s main`
+  lists the product with «Доступ открыт».
 - **Revoke (`access-revoke`).** `O find role button click --name "Отозвать доступ к «Создание Platform Inside»"`,
   `O wait 'dialog[open]'`, `O find role radio click --name "Выдано по ошибке"`,
   `O find role button click --name "Отозвать доступ"`, `O wait --text "отозван"`. The card shows

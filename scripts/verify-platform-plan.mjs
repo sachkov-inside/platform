@@ -44,10 +44,53 @@ const foreignBrowserOptions = new Set([
   "--config",
   "--headed",
   "--args",
+  "--engine",
+  "--proxy",
+  "--extension",
 ]);
 
-/** Commands that act on other sessions, or run several commands the guard cannot read. */
-const foreignBrowserCommands = new Set(["kill-all", "connect", "batch"]);
+/**
+ * The page commands a verifier needs. The command comes first, so no global option can precede
+ * it; `batch`, `connect`, `kill-all`, `upgrade` and the rest are refused by absence.
+ */
+const browserCommands = new Set([
+  "open",
+  "snapshot",
+  "read",
+  "get",
+  "find",
+  "click",
+  "dblclick",
+  "fill",
+  "type",
+  "press",
+  "keyboard",
+  "select",
+  "check",
+  "uncheck",
+  "hover",
+  "focus",
+  "scroll",
+  "scrollintoview",
+  "drag",
+  "upload",
+  "wait",
+  "set",
+  "eval",
+  "screenshot",
+  "record",
+  "reload",
+  "back",
+  "forward",
+  "tab",
+  "frame",
+  "dialog",
+  "console",
+  "errors",
+  "network",
+  "cookies",
+  "close",
+]);
 
 /** The only agent-browser setting taken from the caller's environment. */
 const browserNamespaceVariable = "AGENT_BROWSER_NAMESPACE";
@@ -65,9 +108,10 @@ export function verifySessionName(worktree, role) {
       .at(-1)
       ?.toLowerCase()
       .replace(/[^a-z0-9]+/gu, "-")
-      .replace(/^-|-$/gu, "")
-      .slice(0, 24) || "worktree";
-  return `platform-verify-${name}-${lightInstanceName(worktree).id}-${role}`;
+      .slice(0, 12)
+      .replace(/^-|-$/gu, "") || "worktree";
+  // agent-browser puts the name into a Unix socket path, which holds 103 bytes in all.
+  return `verify-${name}-${lightInstanceName(worktree).id}-${role}`;
 }
 
 /**
@@ -79,12 +123,14 @@ export function verifySessionName(worktree, role) {
  * @returns {{ command: string; args: string[]; environment: Record<string, string> }}
  */
 export function browserInvocation({ worktree, role, args, environment }) {
-  if (args.length === 0)
-    throw new Error("Name the agent-browser command to run, such as snapshot");
-  const foreign =
-    args.find((item) =>
-      foreignBrowserOptions.has(item.split("=")[0] ?? item),
-    ) ?? (foreignBrowserCommands.has(args[0] ?? "") ? args[0] : undefined);
+  const command = args[0];
+  if (command === undefined || !browserCommands.has(command))
+    throw new Error(
+      `Start with a page command such as open, snapshot, find, click, wait, screenshot or record${command === undefined ? "" : `, not ${command}`}`,
+    );
+  const foreign = args.find((item) =>
+    foreignBrowserOptions.has(item.split("=")[0] ?? item),
+  );
   if (foreign !== undefined)
     throw new Error(
       `${foreign} leaves this worktree's own session; the helper drives only ${verifySessionName(worktree, role)}`,
@@ -211,9 +257,13 @@ export function listenerOwned(table, listener, supervisor) {
   return false;
 }
 
-/** Functions that act on the server or its sessions even inside a read-only transaction. */
-const actingFunctions =
-  /\b(?:pg_[a-z_]+|set_config|setval|nextval|lo_[a-z_]+|dblink[a-z_]*|query_to_xml[a-z_]*)\s*\(/iu;
+/**
+ * Names of functions that act on the server or its sessions even inside a read-only transaction,
+ * wherever they stand: quoting, a schema prefix or a comment before the bracket hide a call.
+ * System catalogues (`pg_*`) go with them; a side effect is read from the application's tables.
+ */
+const actingNames =
+  /pg_|set_config|setval|nextval|lo_[a-z]|dblink|query_to_xml|\/\*|--/iu;
 
 /**
  * A side-effect check reads rows. The statement must start as a query, name no function that acts
@@ -225,10 +275,10 @@ export function readOnlyStatement(sql) {
   if (
     !/^(?:select|with|table|values|show|explain)\b/iu.test(statement) ||
     statement.includes(";") ||
-    actingFunctions.test(statement)
+    actingNames.test(statement)
   )
     throw new Error(
-      "The database helper runs one reading statement: select, with, table, values, show or explain, without server functions such as pg_*() or setval()",
+      "The database helper runs one reading statement: select, with, table, values, show or explain, over application tables, without pg_* names, sequence or configuration functions, or comments",
     );
   return statement;
 }

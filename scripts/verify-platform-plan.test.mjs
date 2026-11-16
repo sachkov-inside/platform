@@ -23,11 +23,14 @@ const urls = {
 
 test("each worktree and role drives its own browser session", () => {
   const owner = verifySessionName("/work/a", "owner");
-  assert.match(owner, /^platform-verify-a-[0-9a-f]{10}-owner$/u);
-  assert.match(
-    verifySessionName("/Users/x/Worktrees/repo/Plan Verify_skill", "guest"),
-    /^platform-verify-plan-verify-skill-[0-9a-f]{10}-guest$/u,
+  assert.match(owner, /^verify-a-[0-9a-f]{10}-owner$/u);
+  const long = verifySessionName(
+    "/Users/x/Worktrees/repo/Plan Verify_skill-and-more",
+    "learner",
   );
+  assert.match(long, /^verify-plan-verify-[0-9a-f]{10}-learner$/u);
+  // The session name becomes part of a Unix socket path of at most 103 bytes.
+  assert.ok(long.length <= 38, long);
   assert.notEqual(owner, verifySessionName("/work/b", "owner"));
   assert.notEqual(owner, verifySessionName("/work/a", "learner"));
   assert.equal(verifySessionName("/work/a", "owner"), owner);
@@ -92,6 +95,11 @@ test("the browser command refuses to leave its own session", () => {
     ["--headed", "snapshot"],
     ["batch", "close --all"],
     ["connect", "9222"],
+    ["--json", "connect", "9222"],
+    ["--json", "batch", "close --all"],
+    ["upgrade"],
+    ["open", "--proxy", "http://127.0.0.1:1", "http://127.0.0.1/"],
+    ["open", "--engine", "lightpanda", "http://127.0.0.1/"],
     [],
   ])
     assert.throws(
@@ -254,6 +262,10 @@ test("the database helper accepts one reading statement", () => {
     "set default_transaction_read_only = off",
     "select pg_terminate_backend(pid) from pg_stat_activity",
     "select pg_cancel_backend (1)",
+    'select "pg_terminate_backend"(1)',
+    "select pg_terminate_backend/**/(1)",
+    'select pg_catalog."pg_cancel_backend"(1)',
+    "select 1 -- pg",
     "select setval('s', 1)",
     "select set_config('default_transaction_read_only', 'off', false)",
     "\\copy x to stdout",

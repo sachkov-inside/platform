@@ -51,7 +51,7 @@ instance shows the offer only: its bank and mail are switched off.
 - This recipe has not been driven end to end with this harness. Its handles come from
   `apps/web/test/fullstack/buyer-journey.spec.ts`, the bank double's outcome labels and
   [stand accounts](../../../../docs/runbooks/local-stand-accounts.md); only `buy-offer` was observed,
-  on a light instance. Take each handle from a fresh snapshot and correct this file on the first
+  on a light instance. Take each handle from a fresh snapshot and report the corrections on the first
   full run.
 - A purchase is permanent on the stand: an account that bought the product keeps it, and the
   stand's data belongs to the owner. When «Ученик без доступа» already holds the product, report

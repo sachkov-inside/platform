@@ -175,8 +175,8 @@ O close; L close; G close       # each role session this run opened
 pnpm stand:light down           # this worktree's instance and its database
 ```
 
-The helper refuses the options and commands that reach another session or browser, `close --all`
-and `kill-all` among them. Stop a process only through the command that started it, and
+The helper runs page commands in its own sessions only: it refuses `kill-all`, `batch`,
+`connect`, and options such as `--all`, `--session` or `--profile`. Stop a process only through the command that started it, and
 leave the shared stand, its containers and other worktrees' instances running; release a stand
 reservation this run took with `pnpm stand release --worktree "$PWD"`. Run cleanup after a failed
 attempt too. Then confirm the evidence survived: `ls "$(V evidence path)"` lists the artifacts.
