@@ -1,7 +1,8 @@
 # Delivery
 
-Rules for branches, worktrees, pull requests, blockers and handoff. `ship` owns merge and owner
-participation; [ship](ship.md) adds the Platform facts.
+Rules for branches, worktrees, pull requests, blockers and handoff. `ship` owns merge and the
+decision whether the owner is needed ([ship](ship.md)); [human participation](human-review.md) owns the
+rules of owner participation and evidence.
 
 ## Branches and worktrees
 
@@ -31,8 +32,9 @@ After the first push, integrate `origin/main` by merge, not by rebase or force-p
 A defect outside the task that blocks it gets a linked Issue labelled `ready-for-agent`; reuse an
 open one. Fix the blocker first. The task's merge permission covers the fix only when one revert
 undoes it and it touches only tests, CI, docs or scripts outside release and deploy. Otherwise ask.
-`ship` still decides whether the owner must check the fix.
-Work waiting for the owner stays open with the specific decision recorded. When the blocking step
+`ship` still decides whether the owner must accept the fix.
+Work waiting for the owner stays open with the specific decision recorded, asked under
+[Ask the owner](human-review.md#ask-the-owner). When the blocking step
 needs the owner's own hands (a credential, a provider dashboard, a cutover) and no existing script
 covers it (such as
 `pnpm --filter @inside/telegram credentialed-proof:wizard`), prepare it with `wizard`.

@@ -328,6 +328,23 @@ describe("harness routing contract", () => {
     }
   });
 
+  it("requires the human-participation contract from root routing", () => {
+    const root = linkedRepository("human-review-routing-", ["AGENTS.md"]);
+    try {
+      assert.deepEqual(checkHarnessRouting(root), []);
+      const agents = readFileSync(join(root, "AGENTS.md"), "utf8");
+      writeFileSync(
+        join(root, "AGENTS.md"),
+        agents.replaceAll("docs/agents/human-review.md", "#removed"),
+      );
+      assert.deepEqual(checkHarnessRouting(root), [
+        "AGENTS.md: keep the human-participation rules reachable",
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("requires review-stage standards routing from the root and rejects the former implementation gate", () => {
     const root = mkdtempSync(join(tmpdir(), "standards-routing-"));
     try {
@@ -423,7 +440,7 @@ describe("harness routing contract", () => {
       }
       writeFileSync(
         join(root, "AGENTS.md"),
-        "[Corrections](docs/agents/owner-corrections.md)\n[run](.agents/skills/missing/SKILL.md)\n",
+        "[Corrections](docs/agents/owner-corrections.md)\n[Human participation](docs/agents/human-review.md)\n[run](.agents/skills/missing/SKILL.md)\n",
       );
       assert.deepEqual(checkHarnessRouting(root), [
         "AGENTS.md: local pointer does not resolve: .agents/skills/missing/SKILL.md",

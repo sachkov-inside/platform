@@ -22,6 +22,8 @@ use fresh implementers at the ready frontier and fresh integration/review contex
 committed, checked results and integrate current integration-branch changes through permitted
 merges before reporting. Exploration notes follow the project location below. Final independent
 review covers the complete integration diff; confirmed corrections retain that original coverage.
+[Verification](human-review.md#verification) then runs once on the integrated result and covers
+the key scenarios of the specification and its tickets.
 Resolve the specification and tickets through the linked final PR, then clean only owned,
 integrated worker resources under the cleanup rules.
 

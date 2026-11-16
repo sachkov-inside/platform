@@ -202,6 +202,14 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
         "docs/agents/owner-corrections.md",
         "keep explicit owner corrections reachable",
       );
+      // The pinned skills look for the human-participation rules through the root pointer.
+      requireText(
+        failures,
+        path,
+        content,
+        "docs/agents/human-review.md",
+        "keep the human-participation rules reachable",
+      );
     }
     for (const target of extractLocalMarkdownTargets(content)) {
       if (

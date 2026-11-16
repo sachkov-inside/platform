@@ -75,7 +75,7 @@ owner when the intended behaviour or an agreed boundary is unclear.
 | Bug fix | First a test that reproduces the bug and fails, then the fix |
 | Behaviour change | Change the test first and watch it fail, then change the code |
 | Refactoring | Existing tests pass unchanged; pin uncovered behaviour with a test before the refactoring |
-| A sensitive zone | Also the checks of that zone in [ship](ship.md#sensitive-zones) |
+| A consequence trigger | Also the checks of that trigger in [human participation](human-review.md#consequence-triggers) |
 | Guardrail, lint or architecture rule | The check and a negative fixture it rejects |
 | CI, release or deploy script | Its tooling or root contract test and negative fixtures |
 | Documentation only | No test; `pnpm docs:check` |

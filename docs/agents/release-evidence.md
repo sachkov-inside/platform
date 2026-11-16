@@ -1,7 +1,9 @@
 # Verification evidence
 
 Use this policy for completion, release preparation, and deployment handoff. Coverage and source
-identity determine readiness; the machine that ran a check does not.
+identity determine readiness; the machine that ran a check does not. This is the evidence of
+technical acceptance; [human participation](human-review.md#evidence) owns the evidence the owner accepts
+from.
 
 ## Task completion
 
