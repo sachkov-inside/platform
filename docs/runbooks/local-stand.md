@@ -191,6 +191,11 @@ products) or `?as=newcomer` (no name, terms not accepted) in the
 browser; `/sign-out` on the same server removes the session. Use a separate browser context per
 instance: cookies of `127.0.0.1` ignore the port, and each instance names its own cookie.
 
+Before it becomes ready, the fresh isolated instance uploads the overview Material’s synthetic SVG
+and checklist through the real authoring asset API and saves the returned IDs. The shared-stand
+CLI seed does not run this isolated repair. Repeating the isolated adapter reuses the uploads
+and leaves an already consistent document at its current Content Version.
+
 | Need | Use |
 |---|---|
 | An agent checks its own change in a browser, several agents at once | Light instance |

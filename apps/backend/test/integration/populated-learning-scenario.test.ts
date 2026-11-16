@@ -5,9 +5,12 @@ import {
 } from "testcontainers";
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import { z } from "zod";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
-import { registerFixedClock } from "../support/fixed-clock.js";
+import {
+  fixedTestInstant,
+  registerFixedClock,
+} from "../support/fixed-clock.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -21,6 +24,9 @@ import { createApiApplication } from "../../src/entrypoints/api/create-api-appli
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { seedLearningScenario } from "../../../../scenarios/seed-learning.mjs";
 import { scenarioRoles } from "../../../../scenarios/roles.mjs";
+import { seedLegacyMaterialAssets } from "../../../../scenarios/seed-legacy-assets.mjs";
+import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
+import { materialSchema } from "../../src/modules/materials/adapters/nest/material-authoring-http.js";
 
 registerFixedClock();
 let database: TestDatabase;
@@ -127,6 +133,119 @@ afterAll(async () => {
   }
   if (failures.length > 0)
     throw new AggregateError(failures, "Learning scenario cleanup failed");
+});
+
+test("the isolated legacy Material accepts a title-only save with its seeded image and file intact", async () => {
+  const legacy = await database.run(() =>
+    seedLocalDevelopment(database.prisma),
+  );
+  await seedLegacyMaterialAssets({
+    api,
+    databaseName: new URL(database.url).pathname.slice(1),
+    ownerToken,
+  });
+  const response = await fetch(
+    `${api}/authoring/materials/${legacy.materialId}`,
+    {
+      headers: { authorization: `Bearer ${ownerToken}` },
+    },
+  );
+  expect(response.status).toBe(200);
+  const current = materialSchema.parse(await response.json());
+  const nodes = z
+    .object({ content: z.array(z.record(z.string(), z.unknown())) })
+    .parse(current.body.doc).content;
+  const assets = nodes.filter(
+    (node) => node["type"] === "assetImage" || node["type"] === "assetFile",
+  );
+  expect(assets).toHaveLength(2);
+  expect(assets.map((node) => node["type"])).toEqual([
+    "assetImage",
+    "assetFile",
+  ]);
+  const image = z
+    .object({ assetId: z.uuid(), alt: z.string(), caption: z.string() })
+    .parse(assets[0]?.["attrs"]);
+  const file = z
+    .object({ assetId: z.uuid(), label: z.string() })
+    .parse(assets[1]?.["attrs"]);
+  expect(image.alt).toBe("Путь Material от PostgreSQL до Reader");
+  expect(image.caption).toBe("Один vertical production path");
+  expect(file.label).toBe("Reader verification checklist");
+  expect(image.assetId).not.toBe("72000000-0000-4000-8000-000000000030");
+  expect(file.assetId).not.toBe("72000000-0000-4000-8000-000000000031");
+  const fileAddress = `${api}/materials/${legacy.materialId}/assets/${file.assetId}?contentVersion=${current.contentVersion}`;
+  const anonymousDownload = await fetch(fileAddress);
+  expect(anonymousDownload.status).toBe(404);
+  // RustFS checks the signed URL against its real clock; no domain calendar value is asserted here.
+  vi.setSystemTime(vi.getRealSystemTime());
+  try {
+    const storageOwnerToken = await identity.sign(scenarioRoles.owner.subject);
+    const download = await fetch(fileAddress, {
+      headers: { authorization: `Bearer ${storageOwnerToken}` },
+    });
+    expect(download.status).toBe(200);
+    expect(await download.text()).toBe(
+      "Проверка Reader: открыть материал, прочитать текст, скачать файл.\n",
+    );
+  } finally {
+    vi.setSystemTime(fixedTestInstant());
+  }
+  const diagram = await fetch(
+    `${api}/materials/${legacy.materialId}/assets/${image.assetId}/images/640?contentVersion=${current.contentVersion}`,
+    { headers: { authorization: `Bearer ${ownerToken}` } },
+  );
+  expect(diagram.status).toBe(200);
+  expect(diagram.headers.get("content-type")).toContain("image/svg+xml");
+  expect(await diagram.text()).toContain("PostgreSQL");
+  await seedLegacyMaterialAssets({
+    api,
+    databaseName: new URL(database.url).pathname.slice(1),
+    ownerToken,
+  });
+  const repeated = await fetch(
+    `${api}/authoring/materials/${legacy.materialId}`,
+    { headers: { authorization: `Bearer ${ownerToken}` } },
+  );
+  const stable = materialSchema.parse(await repeated.json());
+  expect(stable.contentVersion).toBe(current.contentVersion);
+  expect(stable.body).toEqual(current.body);
+  const { productMemberships, slug: _slug, ...metadata } = current.metadata;
+  const saved = await fetch(`${api}/authoring/materials/${legacy.materialId}`, {
+    method: "PUT",
+    headers: {
+      authorization: `Bearer ${ownerToken}`,
+      "content-type": "application/json",
+      "idempotency-key": "isolated-legacy-title-only-save",
+    },
+    body: JSON.stringify({
+      expectedContentVersion: current.contentVersion,
+      publicationState: current.publicationState,
+      primaryVideoId: current.primaryVideoId,
+      inFeed: current.inFeed,
+      notifyTelegram: false,
+      metadata: {
+        ...metadata,
+        title: "Как устроен Inside Platform: учебная правка",
+        productIds: productMemberships.map(({ productId }) => productId),
+      },
+      body: current.body,
+    }),
+  });
+  expect(saved.status).toBe(200);
+  const reloaded = await fetch(
+    `${api}/authoring/materials/${legacy.materialId}`,
+    {
+      headers: { authorization: `Bearer ${ownerToken}` },
+    },
+  );
+  expect(reloaded.status).toBe(200);
+  const result = materialSchema.parse(await reloaded.json());
+  expect(result.metadata.title).toBe(
+    "Как устроен Inside Platform: учебная правка",
+  );
+  expect(result.body).toEqual(current.body);
+  expect(result.publicationState).toBe("published");
 });
 
 test("the isolated seed publishes populated chapters, an extra reference and an empty upcoming chapter through the real API", async () => {
@@ -425,6 +544,13 @@ test.each([
         databaseName,
         ownerToken: "unused",
         holderToken: "unused",
+      }),
+    ).rejects.toThrow(message);
+    await expect(
+      seedLegacyMaterialAssets({
+        api: target,
+        databaseName,
+        ownerToken: "unused",
       }),
     ).rejects.toThrow(message);
   },
