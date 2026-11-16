@@ -49,10 +49,11 @@ A native subagent is not an independently assigned application session.
    Keep independent authorized work moving while owner decisions are pending.
 7. At required ticket/integration checkpoints, pass checks and follow the project's
    commit/review order. Supply immutable base/head, or an owned pre-commit tree
-   snapshot when required, and requirements to `code-review`. Fix findings in an owned
-   context, rerun affected checks, freeze the corrected revision and re-review with earlier reports. Preserve
-   initial full-diff coverage. Invoke a named skill through the client's mechanism or
-   read its `SKILL.md` and relevant references; a literal Skill tool is not required.
+   snapshot when required, and requirements to one `code-review` run. Use one fresh
+   implementer in an owned context for a single fix pass on blocking defects; optional
+   suggestions may be left with a one-line reason. Rerun affected checks and freeze
+   the corrected revision. Retain the full-diff review report and correction evidence.
+   Invoke a named skill through the client's mechanism or read its `SKILL.md` and relevant references; a literal Skill tool is not required.
 8. Follow root delivery pointers for the verified result, reusing existing drafts.
 9. Clean only owned, integrated child resources with no active writer or unsaved work.
    Follow project rules for retained acceptance trees and unintegrated results.

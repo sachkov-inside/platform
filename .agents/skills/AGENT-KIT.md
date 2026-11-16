@@ -1,7 +1,7 @@
 # Selected Agent Kit skills
 
-Shared source: [KirillSachkov/agent-kit](https://github.com/KirillSachkov/agent-kit/tree/3b5e37249118aff3d3dfb547977939145524d525),
-commit `3b5e37249118aff3d3dfb547977939145524d525`. The [manifest](../skills-manifest.json) selects the existing 25 engineering
+Shared source: [KirillSachkov/agent-kit](https://github.com/KirillSachkov/agent-kit/tree/c66fb95e097380806262888dac95f9c63048aae3),
+commit `c66fb95e097380806262888dac95f9c63048aae3`. The [manifest](../skills-manifest.json) selects the existing 25 engineering
 skills; the [lock](../skills-lock.json) records whole-folder identities, including notices.
 
 Selected skills: `code-review`, `codebase-design`, `diagnosing-bugs`, `domain-modeling`, `grill-with-docs`, `grilling`, `handoff`, `implement`, `implement-spec`, `improve-codebase-architecture`, `pr`, `prototype`, `research`, `retro`, `setup-matt-pocock-skills`, `ship`, `tdd`, `to-questionnaire`, `to-spec`, `to-tickets`, `triage`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`.
@@ -28,7 +28,7 @@ Runtime discovery needs neither Home nor a sibling checkout.
 
 Use the canonical `tools/skills.py` from an explicitly selected Agent Kit clone with Python 3.11+.
 Select named skills at a full commit SHA, preview, install, then check. Follow
-[distribution instructions](https://github.com/KirillSachkov/agent-kit/blob/3b5e37249118aff3d3dfb547977939145524d525/docs/distribution.md).
+[distribution instructions](https://github.com/KirillSachkov/agent-kit/blob/c66fb95e097380806262888dac95f9c63048aae3/docs/distribution.md).
 Never edit locked copies or force replacement. Keep installer backups ignored and retain their
 matching locks; local changes require explicit reconciliation before adoption.
 
