@@ -93,14 +93,13 @@ Choose the kind of evidence for each scenario; one PR mixes them:
 Tests protect against regressions and are not the evidence the owner accepts from. Storybook is a
 workshop: the running application proves the look a user gets.
 
-The verifier keeps the files and their inventory on the machine, outside Git; `verify-platform`
-owns the directory and the report format. For each scenario the inventory gives the kind of
+The verifier's verdict is the inventory of evidence: for each scenario it states the kind of
 evidence, the files, what they show in one line, the source of the data and the change they cover.
-`pr` assembles «Проверено» from that inventory and retells nothing in its own words.
+`verify-platform` owns the evidence directory and the report skeleton; the files are never
+committed. `pr` assembles «Проверено» from that inventory and retells nothing in its own words.
 
 Evidence lives in the PR; a specification keeps it in its final PR. No feature page holds it and
-no script classifies a diff (owner decision 5 of #2206). The repository is public: evidence shows
-only the stand's test data. [PR body](pr.md#attachments) owns how artifacts get into the PR.
+no script classifies a diff (owner decision 5 of #2206). The repository is public: evidence shows only test data. [PR body](pr.md#attachments) owns how artifacts get into the PR.
 
 ## Ask the owner
 
