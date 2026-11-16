@@ -1,9 +1,11 @@
 "use client";
 
 import { CircleAlert } from "lucide-react";
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 // Классы окна и полей (`admin-dialog`, `admin-field`) принадлежат общим модулям админки.
+import { useNativeDialog } from "@/shared/lib/native-dialog.client";
+
 import "@/shared/ui/admin";
 
 /**
@@ -24,34 +26,10 @@ export function AccessDialog({
   readonly open: boolean;
   readonly pending: boolean;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-
-  // Синхронизация с модальным слоем браузера: `showModal` и `close` принадлежат элементу.
-  useLayoutEffect(() => {
-    const element = dialog.current;
-    if (element === null) return;
-    if (open && !element.open) element.showModal();
-    if (!open && element.open) element.close();
-  }, [open]);
+  const dialog = useNativeDialog({ open, pending: pending, onOpenChange });
 
   return (
-    <dialog
-      aria-labelledby={labelledBy}
-      className="admin-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!pending) onOpenChange(false);
-      }}
-      onClose={(event) => {
-        if (open && !event.currentTarget.open) onOpenChange(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        if (!pending) onOpenChange(false);
-      }}
-      ref={dialog}
-    >
+    <dialog aria-labelledby={labelledBy} className="admin-dialog" {...dialog}>
       {open ? children : null}
     </dialog>
   );

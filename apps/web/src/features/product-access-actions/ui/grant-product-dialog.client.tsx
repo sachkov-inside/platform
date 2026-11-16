@@ -1,14 +1,9 @@
 "use client";
 
 import { LoaderCircle } from "lucide-react";
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type RefObject,
-  type SubmitEvent,
-} from "react";
+import { useId, useRef, useState, type Ref, type SubmitEvent } from "react";
+
+import { useDialogInitialFocus } from "@/shared/lib/native-dialog.client";
 
 import {
   encodeAccessReason,
@@ -102,9 +97,7 @@ function GrantForm({
   const noteError =
     !encoded.ok && encoded.error === "note_required" ? "Опишите причину" : null;
 
-  useEffect(() => {
-    firstProduct.current?.focus();
-  }, [catalog.kind]);
+  const focusTarget = useDialogInitialFocus(firstProduct);
 
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -164,7 +157,7 @@ function GrantForm({
         <legend id={productLegendId}>Продукт</legend>
         <CatalogChoices
           catalog={catalog}
-          firstProduct={firstProduct}
+          firstProduct={focusTarget}
           held={held}
           name={`${id}-product`}
           onChange={setProductId}
@@ -298,7 +291,7 @@ function CatalogChoices({
   selected,
 }: {
   readonly catalog: AccessProductCatalogView;
-  readonly firstProduct: RefObject<HTMLInputElement | null>;
+  readonly firstProduct: Ref<HTMLInputElement>;
   readonly held: ReadonlyMap<string, HeldAccess> | null;
   readonly name: string;
   readonly onChange: (productId: string) => void;
