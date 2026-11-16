@@ -5,24 +5,27 @@ real tasks; until then this shape is the working draft.
 
 The PR is a short briefing for the owner, who accepts from evidence and reads no code
 ([human participation](human-review.md)). The `pr` skill's rules apply; Platform orders and names
-its sections as below and moves risk, rollback and the check table under «Подробности». Write in
+its sections as below and moves risk, rollback and the check table under «Подробности», which
+is written for agents. Write in
 plain Russian under `Human-facing text` of root [AGENTS.md](../../AGENTS.md#human-facing-text) and
 keep the domain terms from the glossaries.
 
 ````markdown
-**<статус>.** <причина в несколько слов>
+# <статус>
+
+<причина в несколько слов>
 
 ## От тебя нужно
 
-1. <вопрос «да или нет»>. «Да» <что изменит>.
+1. <один вопрос «да или нет» одним коротким предложением>
 
 ## Что изменилось
 
-<два предложения: что теперь может пользователь и как было раньше>
+<одно-два коротких предложения: что теперь может пользователь>
 
 ## Проверено
 
-- <сценарий одной строкой>: <одно доказательство>
+- <что делает пользователь и что получилось>: <одно доказательство>
 
 Не проверено: <одна строка>.
 Проверить самому: <одна строка>.
@@ -30,8 +33,8 @@ keep the domain terms from the glossaries.
 <details>
 <summary>Подробности</summary>
 
-<risk and rollback, checked head, review base, the check table, review reports and their
-disposition, the classifier's duration and tokens>
+<for agents only: the exact change, commands to reproduce, links to runs, review reports, the
+verdict, risk and rollback, the classifier's duration and tokens>
 
 </details>
 
@@ -40,21 +43,27 @@ Closes #<issue>
 
 ## Sections
 
-- **Status line**: the status [ship](ship.md#owner-attention) set, word for word, then its reason
-  in a few words. No section explains why the owner was called.
-- **От тебя нужно**: one or two yes/no questions, each with what «да» changes: what merges, ships
-  or becomes allowed. Present only when the status calls the owner.
-- **Что изменилось**: what the user can do now and how it was before, with no file or function
-  names.
-- **Проверено**: one line and one piece of evidence per scenario, assembled from the
-  manifest in `.evidence/` and the [evidence sources](human-review.md#evidence). A task with
-  nothing to show gives one line on why, the CI link and the review result.
-- **Не проверено**, **Проверить самому**: one line each; the `local-stand` skill gives the address
-  and the sign-in.
-- **Подробности**: everything else, in one disclosure.
+The owner reads everything outside «Подробности» and nothing inside it.
 
-Leave out a section with nothing to say. The text outside «Подробности» stays under 100 words;
-captions under evidence do not count.
+- **Status**: the status [ship](ship.md#owner-attention) set, word for word, as the top-level
+  heading; its reason is the line under it. No section explains why the owner was called.
+- **От тебя нужно**: one or two yes/no questions. A question is one short sentence with no
+  lead-in and no retelling of the reason, such as «Мержить с бледной первой строкой в невысоком
+  окне (снимок 2)?». Say what «да» changes only when the question does not show it. Present only
+  when the status calls the owner.
+- **Что изменилось**: one or two short sentences on what the user can do now. No mechanics, no
+  file or function names.
+- **Проверено**: one line and one piece of evidence per scenario, taken from the manifest in
+  `.evidence/` and the [evidence sources](human-review.md#evidence). The line says in everyday
+  words what the user does and what came of it. Window sizes, pixels, commits, role names and
+  commands stay out of it; when a size matters, say «в невысоком окне» or «на телефоне». A task
+  with nothing to show gives one line on why, the CI link and the review result.
+- **Не проверено**, **Проверить самому**: one line each, in the same everyday words.
+- **Подробности**: only what an agent needs to continue or recheck the work. Nothing the owner
+  must know or decide goes there.
+
+Leave out a section with nothing to say. The text outside «Подробности» stays under 70 words; the
+scenario lines of «Проверено» and captions under evidence do not count.
 
 An earlier supporting PR uses `Part of #<issue>`; the final delivery PR uses `Closes #<issue>`.
 
