@@ -58,3 +58,51 @@ before/after runtime comparison, retained-heap attribution, stable programme/les
 no unexpected restart or OOM, and preserved stand identity/data. The normal memory caps remain
 provisional. #1327 also still needs a complete guarded local Compose smoke; the code changes
 already merged in #1340 are not a substitute for that runtime proof.
+
+
+## Follow-up on 16 November: request cache GC timers
+
+Kernel evidence from OrbStack confirms a November cgroup OOM for Web container
+`5dcd239006e72565b4a11e0d99d46a8c6ceaa2204800ba77b488609546845c0a`:
+`CONSTRAINT_MEMCG`, Next process 1080417 killed with `anon-rss=6040704kB`.
+This establishes the current failure classification; it does not recover the October kernel history.
+
+The first root-path trace through an internal Error was not sufficient causal evidence.
+After excluding conditional WeakMap edges, the strong retaining path was an active 1,800,000 ms
+Timeout, its `kAsyncContextFrame`, React's `onAllReady`, and the rendered response streams/buffers.
+The timer callback was TanStack Query's `optionalRemove`. Our shared QueryClient explicitly set
+30-minute query GC for both browser and server. Server clients are per-request, so those timers
+kept the request context alive after responses completed. Browser GC needs its existing window;
+server clients need no GC timer. `gcTime: Infinity` disables it without sharing request data.
+
+The new module test first failed with one remaining server timer instead of zero. Both tests pass
+after the fix: server request isolation/no timer, and browser freshness/cache lifetime. In an
+isolated production image, changing the server factory to disable GC timers reduced retained
+memory after 160 requests and expiration of short HTTP deadlines to 69,944,344 bytes JS heap and
+712,989 bytes ArrayBuffers. No experimental Error, V8 or vendor changes are part of the fix.
+
+The existing stand has a custom migration registry. Runtime validation therefore used local
+verification commit `631bec1b6f18a0e868dd0b1daf75b6e7015e7e05`, based on the unchanged stand
+`344b9acd343890f2ee37f2566181db1b2700b52e` plus the QueryClient fix, tests and ADR paragraph
+cherry-picked from PR implementation commit `3d8d0978ac2656948ba3e98b64029991b8730a83`.
+These are separate revisions, not a claim that the stand runs the PR's complete tree.
+The registered controller prepared production-Web without migrations or identity bootstrap.
+
+Authenticated HTTP validation then completed 900 sequential reads over the programme and eight
+real lessons in 62.57 seconds. Every response was 200; lesson bodies contained their article,
+and the representative design lesson contained its expected heading. Web had zero restarts,
+no OOM counters and a sampled peak of 279,769,088 bytes under its unchanged 1 GiB cap.
+The production API and Web retained equal source identity. Existing named volumes and all six
+infrastructure container/image identities remained unchanged. Browser inspection as the learner
+confirmed the actual programme and lesson body at desktop and mobile widths. This is a bounded
+reading proof, not an assertion about every possible workload.
+
+Retain the failed evidence too: before the QueryClient fix, switching to production alone was
+insufficient. A second reading attempt failed after 34 requests with truncated HTTP output and
+a JS heap OOM near 512 MiB. An earlier diagnostic inspector cleanup also caused a native abort
+and automatic recovery. Those attempts are not stability successes. Private heap snapshots and
+full local receipts remain outside Git; only these aggregate findings are shared here.
+
+A full disposable Compose smoke on the earlier healthcheck commit `3f6993637` completed with
+command/cleanup exit 0 and peak disk growth 3,876,634,624 bytes, below 8 GiB. Final-head smoke
+and CI must be refreshed after the QueryClient change before delivery.
