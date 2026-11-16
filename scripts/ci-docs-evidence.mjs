@@ -1,5 +1,6 @@
 // @ts-check
 import { z } from "zod";
+import { ciJobNames } from "./ci-coverage-plan.mjs";
 
 const sha = z.string().regex(/^[a-f0-9]{40}$/u);
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -175,7 +176,7 @@ export function selectDocsEvidence(input) {
     end = Date.parse(run.updated_at);
   if (end < start || end > now || now - end > 24 * 60 * 60 * 1000)
     return { reused: false, reason: "stale-run" };
-  /** @param {string} name */
+  /** @param {string|undefined} name */
   const requiredJob = (name) => {
     const matches = jobs.filter((item) => item.name === name);
     const selected = matches[0];
@@ -192,13 +193,13 @@ export function selectDocsEvidence(input) {
       ? selected
       : undefined;
   };
-  const docs = requiredJob("Documentation contracts"),
-    gate = requiredJob("CI Gate");
+  const docs = requiredJob(ciJobNames["docs"]),
+    gate = requiredJob(ciJobNames["ci-gate"]);
   if (
     docs === undefined ||
     gate === undefined ||
-    requiredJob("Coverage plan (isolated reruns)") === undefined ||
-    requiredJob("Secrets and production advisories") === undefined
+    requiredJob(ciJobNames["plan"]) === undefined ||
+    requiredJob(ciJobNames["security"]) === undefined
   )
     return { reused: false, reason: "provider-jobs" };
   /** @param {z.infer<typeof artifact>} item @param {string} name @param {z.infer<typeof job>} producer */

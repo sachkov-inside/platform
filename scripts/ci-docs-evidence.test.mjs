@@ -5,7 +5,9 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { setTimeout as pause } from "node:timers/promises";
 import { execute, lookupDocsEvidence, runDocsCI } from "./ci-docs-run.mjs";
 import { selectDocsEvidence } from "./ci-docs-evidence.mjs";
 
@@ -510,7 +512,7 @@ for (const ending of ["success", "failure", "timeout", "interruption"]) {
         cwd: root,
         env: process.env,
         signal: cancellation.signal,
-        timeout: 300,
+        timeout: ending === "timeout" ? 3000 : 30000,
       });
       // Install rejection handling immediately, before asynchronous fixture observation.
       const observed = pending.then(
@@ -518,7 +520,23 @@ for (const ending of ["success", "failure", "timeout", "interruption"]) {
         () => "rejected",
       );
       if (ending === "interruption") {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Observe readiness, not elapsed time, before interrupting a live descendant.
+        const deadline = performance.now() + 5000;
+        while (true) {
+          try {
+            await readFile(join(root, "pid"));
+            break;
+          } catch (error) {
+            if (
+              !(error instanceof Error) ||
+              !("code" in error) ||
+              error.code !== "ENOENT" ||
+              performance.now() >= deadline
+            )
+              throw error;
+          }
+          await pause(10);
+        }
         cancellation.abort();
       }
       assert.equal(
@@ -532,3 +550,92 @@ for (const ending of ["success", "failure", "timeout", "interruption"]) {
     }
   });
 }
+
+test("tracked snapshot executes real documentation checks and rejects an unapproved producer", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "docs-real-git-test-"));
+  const root = join(directory, "repository");
+  const source = dirname(dirname(fileURLToPath(import.meta.url)));
+  /** @param {string[]} args */
+  const git = (args) =>
+    execFileSync("git", ["-C", root, ...args], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_CONFIG_NOSYSTEM: "1",
+        GIT_CONFIG_GLOBAL: "/dev/null",
+      },
+    }).trim();
+  /** @param {string} message */
+  const commit = (message) => {
+    git(["add", "."]);
+    git([
+      "-c",
+      "core.hooksPath=/dev/null",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-qm",
+      message,
+    ]);
+    return git(["rev-parse", "HEAD"]);
+  };
+  const output = join(directory, "receipt.json");
+  try {
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(root);
+    const archive = join(directory, "source.tar");
+    execFileSync("git", [
+      "-C",
+      source,
+      "archive",
+      "HEAD",
+      `--output=${archive}`,
+    ]);
+    execFileSync("tar", ["-xf", archive, "-C", root]);
+    git(["init", "-q", "-b", "main"]);
+    git(["config", "user.name", "CI fixture"]);
+    git(["config", "user.email", "ci-fixture@example.test"]);
+    const approved = commit("approved producer");
+    git(["update-ref", "refs/remotes/origin/main", approved]);
+    await writeFile(
+      join(root, "README.md"),
+      (await readFile(join(root, "README.md"), "utf8")) +
+        "\nDocumentation evidence fixture.\n",
+    );
+    const head = commit("ordinary prose");
+    const env = {
+      ...process.env,
+      GITHUB_EVENT_NAME: "pull_request",
+      GITHUB_REPOSITORY: "test/repository",
+      GITHUB_SHA: head,
+    };
+    // A generated instruction file must not contaminate the tracked snapshot.
+    await writeFile(join(root, "CLAUDE.md"), "Untracked generated file.\n");
+    const receipt = await runDocsCI({ root, env, output });
+    assert.equal(receipt.mode, "executed");
+    assert.equal(receipt.context?.sourceSha, head);
+    assert.equal(receipt.context?.trustedProducer, true);
+    await rm(join(root, "CLAUDE.md"));
+    git(["checkout", "-q", "--detach", approved]);
+    await writeFile(
+      join(root, ".ci-fixture-producer"),
+      "later approved executable input\n",
+    );
+    const laterMain = commit("main producer changed independently");
+    git(["update-ref", "refs/remotes/origin/main", laterMain]);
+    git(["checkout", "-q", "--detach", head]);
+    const differentProducer = await runDocsCI({ root, env, output });
+    assert.equal(differentProducer.context?.trustedProducer, false);
+    assert.equal(differentProducer.context?.comparisonBase, approved);
+    await writeFile(
+      join(root, "docs/research/ci-evidence-invalid-fixture.md"),
+      `Invalid ${String.fromCharCode(0x2014)} prose.\n`,
+    );
+    env.GITHUB_SHA = commit("invalid documentation");
+    await rm(output);
+    await assert.rejects(runDocsCI({ root, env, output }), /failed/u);
+    await assert.rejects(readFile(output), { code: "ENOENT" });
+  } finally {
+    await rm(directory, { recursive: true });
+  }
+});

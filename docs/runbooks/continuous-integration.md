@@ -27,7 +27,7 @@ events and selector.
 
 The producer accepts only the current three dependency-free documentation programs and their
 pinned local imports. For this version it archives the tracked source into an owned temporary
-directory, executes those same programs and supplies the captured comparison base explicitly to
+directory, canonicalizes its path before calling their CLI entrypoints, executes those same programs and supplies the captured comparison base explicitly to
 the added-line check. This prevents generated or untracked files from changing the tested inputs.
 The archive is removed on success, failure or interruption. A changed documentation program or
 command is unsupported until its contract is deliberately revised; it runs ordinary `pnpm docs:check`

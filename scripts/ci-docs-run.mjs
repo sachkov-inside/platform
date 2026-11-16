@@ -6,6 +6,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  realpath,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -454,7 +455,9 @@ export async function runDocsCI(options = {}) {
       if (cancellation.signal.aborted)
         throw new Error("Documentation check interrupted");
       if (capture?.contractSupported) {
-        const snapshot = await mkdtemp(join(tmpdir(), "ci-docs-source-"));
+        const snapshot = await realpath(
+          await mkdtemp(join(tmpdir(), "ci-docs-source-")),
+        );
         try {
           const archive = join(snapshot, "source.tar");
           await execute(
