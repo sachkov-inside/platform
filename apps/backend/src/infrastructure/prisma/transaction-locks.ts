@@ -267,6 +267,16 @@ export async function lockProductWaitlistOperation(
     `waitlist-operation:${operationId.toLowerCase()}`,
   );
 }
+/** Product row locks alone cannot serialize one explicit intake ID claimed by different Products. */
+export async function lockProductIntake(
+  transaction: AdvisoryLockTransaction,
+  intakeId: string,
+): Promise<void> {
+  await lockTransactionKey(
+    transaction,
+    `product-intake:${intakeId.toLowerCase()}`,
+  );
+}
 export async function lockProductWaitlistMembership(
   transaction: AdvisoryLockTransaction,
   intakeId: string,

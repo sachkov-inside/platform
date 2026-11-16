@@ -72,6 +72,7 @@ export {
 
 export {
   lockProductWaitlistOperation,
+  lockProductIntake,
   lockProductWaitlistMembership,
 } from "./transaction-locks.js";
 
