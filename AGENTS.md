@@ -31,7 +31,7 @@ testing seams, commit/review order and the no-ticket acceptance record. [PIPELIN
 - Local application review or the shared stand: `.agents/skills/local-stand/SKILL.md`.
 - Interactive browser work: `agent-browser`, headless, in a session named for the task; never the
   owner's browser or `close --all`. Playwright runs only committed automation: `playwright test` and
-  repository scripts.
+  repository scripts and tests.
 - Before review, the Standards reviewer reads `CODING_STANDARDS.md` and the `CODING_STANDARDS.md`
   of each changed application.
 - After an explicit owner correction: follow [owner corrections](docs/agents/owner-corrections.md).
