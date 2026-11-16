@@ -5,6 +5,7 @@ import { AuthoringPeopleView } from "@/_pages/authoring-people/ui/authoring-peop
 import { SalesPaymentsFrame } from "@/_pages/sales-payments/ui/sales-payments-frame";
 import { PaymentsTableView } from "@/features/owner-payments/ui/payments-table.client";
 import { getQueryClient } from "@/shared/api/query-client";
+import { authoringPeopleHref } from "@/shared/routing/authoring";
 import {
   commercePayment,
   commercePeople,
@@ -85,7 +86,7 @@ export const PendingPurchase: Story = {
   },
 };
 export const LinkedLearner: Story = {
-  beforeEach: authoringPageEnvironment("/authoring/people").beforeEach,
+  beforeEach: authoringPageEnvironment(authoringPeopleHref).beforeEach,
   args: { view: "people" },
   play: async ({ canvasElement }) => {
     await expect(
