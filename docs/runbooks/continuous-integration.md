@@ -121,8 +121,10 @@ A run reads caches of its own ref and of `main`, and Application CI itself runs 
 requests and the merge queue. Only runs on `main` therefore save both Playwright caches; pull
 requests and every merge-queue ref only restore them (#2184). `.github/workflows/browser-cache.yml`
 fills them on `main` for each browser set that `ci.yml` requests: after a push that changes the
-lockfile, the setup action, the install script or that workflow, every Monday, and on manual
-dispatch. `release.yml` and `telegram-release.yml` also save them when they call this workflow.
+lockfile, the setup action or that workflow, every Monday, and on manual dispatch.
+`release.yml` and `telegram-release.yml` also save them when they call Application CI on `main`.
+A pull request that updates Playwright and its merge-queue run install the browsers without a
+cache; the next `main` run saves the new version.
 The system packages for those engines come from a second cache of `.deb` files keyed by browsers,
 Playwright version and runner image, because the Ubuntu mirror can stall long enough to cancel the
 job (#827). After a runner image update pull requests restore the previous entry and download only

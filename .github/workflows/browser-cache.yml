@@ -7,11 +7,12 @@ on:
   push:
     branches:
       - main
+    # The cache keys change with the Playwright version in the lockfile, the key format in the
+    # setup action and the browser sets below.
     paths:
       - pnpm-lock.yaml
       - .github/actions/setup-platform/action.yml
       - .github/workflows/browser-cache.yml
-      - scripts/install-playwright-ci.sh
   # A cache entry nobody reads for seven days is evicted; the weekly run recreates it.
   schedule:
     - cron: "41 4 * * 1"
