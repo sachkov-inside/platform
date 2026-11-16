@@ -16,8 +16,9 @@ removes finished ones. Existing `<repo>.worktrees` checkouts of the earlier layo
 
 The primary checkout belongs to the owner. Read it through `git -C` or absolute paths; change it
 only on the owner's request. Keep other sessions' worktrees, branches, containers, volumes, stashes,
-servers and results. Only `pnpm session:cleanup --apply` removes another session's resources, and
-only when its rules prove them disposable.
+servers and results. Only `pnpm session:cleanup --apply`, and `agent-worktree sweep` for
+`.claude/worktrees`, remove another session's resources, and only when their rules prove them
+disposable.
 
 ## Pull requests
 
