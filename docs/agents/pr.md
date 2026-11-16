@@ -66,8 +66,8 @@ The owner reads everything outside «Подробности» and nothing inside
   must know or decide goes there.
 
 Leave out a section with nothing to say. The owner's text stays under 70 words. Count the reason
-line, the questions, «Что изменилось», «Не проверено» and «Проверить самому». Headings, the
-scenario lines of «Проверено», captions under evidence and the `Closes` line do not count.
+line, the questions, «Что изменилось», the scenario lines of «Проверено», «Не проверено» and
+«Проверить самому». Headings, captions under evidence and the `Closes` line do not count.
 
 An earlier supporting PR uses `Part of #<issue>`; the final delivery PR uses `Closes #<issue>`.
 
