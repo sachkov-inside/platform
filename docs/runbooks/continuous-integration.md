@@ -500,6 +500,14 @@ contract protects the separate rerun concurrency expression.
 
 ## Integration suites
 
+The bounded payment/access corpus (#2245) uses seeds `1`, `7`, `42`, `2245` and real
+backend modules with migrated PostgreSQL. Replay one seed with
+`PROPERTY_SEED=42 pnpm --filter @inside/backend test:integration billing-sequences.test.ts lifetime-product-content-access.test.ts`.
+Payment failures report the original trace and a greedy reduced trace (at most 32 fresh-scenario
+replays). The bounds are sampling evidence, not an exhaustive proof; the reducer's negative
+fixture is `test/unit/bounded-sequences.test.ts`. Bank failures stay inside the owned bank double.
+
+
 Integration tests are split into two Vitest projects in `apps/backend/vitest.integration.config.mts`.
 `integration` runs files in parallel against one PostgreSQL container shared by both projects; `createMigratedTestDatabase`
 copies a template migrated once per run, while migration tests start from an empty database with
