@@ -8,7 +8,15 @@ export async function createIsolatedProductIntake(input: {
   readonly databaseUrl: string;
   readonly productId: string;
 }): Promise<void> {
-  const expectedDatabase = new URL(input.databaseUrl).pathname.slice(1);
+  const address = new URL(input.databaseUrl);
+  if (
+    !["postgres:", "postgresql:"].includes(address.protocol) ||
+    !["127.0.0.1", "localhost", "[::1]"].includes(address.hostname)
+  )
+    throw new Error(
+      "Product Intake scenario requires its owned loopback PostgreSQL database",
+    );
+  const expectedDatabase = address.pathname.slice(1);
   if (
     !/^inside_(?:light_[a-f0-9]{10}|test_[a-f0-9]{32})$/u.test(expectedDatabase)
   )

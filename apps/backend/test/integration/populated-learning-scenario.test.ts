@@ -153,7 +153,7 @@ beforeAll(async () => {
   });
 });
 
-test("the learner starts a real Telegram link against its owned external provider", async () => {
+test("the unpaid learner has real linked contacts, explicit waitlist membership and a pending purchase", async () => {
   const token = await identity.sign(scenarioRoles.learner.subject, {
     inside_verified_email: "light-learner@inside.test",
   });
@@ -163,7 +163,23 @@ test("the learner starts a real Telegram link against its owned external provide
     ownerToken,
     productId: seeded.productId,
     buyerToken: token,
-    completeTelegramLink: (deepLink) => telegram.completeLink(deepLink),
+    completeTelegramLink: async (deepLink) => {
+      const completed = await fetch(
+        new URL(
+          "/__scenario/complete",
+          telegram.environment.TELEGRAM_LINKING_ENDPOINT,
+        ),
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${telegram.environment.TELEGRAM_LINKING_SECRET}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ deepLink }),
+        },
+      );
+      expect(completed.status).toBe(200);
+    },
     createIntake: () =>
       createIsolatedProductIntake({
         databaseUrl: database.url,
@@ -186,6 +202,17 @@ test("the learner starts a real Telegram link against its owned external provide
         telegram: "linked",
       },
     ],
+  });
+  const searched = await fetch(
+    `${api}/authoring/people?query=%40synthetic_learner`,
+    {
+      headers: { authorization: `Bearer ${ownerToken}` },
+    },
+  );
+  expect(searched.status).toBe(200);
+  expect(await searched.json()).toMatchObject({
+    nameSearch: "available",
+    items: [{ displayName: "Участник Тестов", username: "synthetic_learner" }],
   });
   const intake = await fetch(
     `${api}/product-waitlists/${seeded.productId}/intake`,
@@ -656,6 +683,37 @@ test.each([
         databaseName,
         ownerToken: "unused",
         holderToken: "unused",
+      }),
+    ).rejects.toThrow(message);
+    await expect(
+      seedCommerceScenario({
+        api: target,
+        databaseName,
+        ownerToken: "unused",
+        buyerToken: "unused",
+        productId: seeded.productId,
+        createIntake: () =>
+          createIsolatedProductIntake({
+            databaseUrl: database.url,
+            productId: seeded.productId,
+          }),
+        completeTelegramLink: async (deepLink) => {
+          const response = await fetch(
+            new URL(
+              "/__scenario/complete",
+              telegram.environment.TELEGRAM_LINKING_ENDPOINT,
+            ),
+            {
+              method: "POST",
+              headers: {
+                authorization: `Bearer ${telegram.environment.TELEGRAM_LINKING_SECRET}`,
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({ deepLink }),
+            },
+          );
+          expect(response.status).toBe(200);
+        },
       }),
     ).rejects.toThrow(message);
     await expect(

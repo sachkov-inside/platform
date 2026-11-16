@@ -47,11 +47,20 @@ test("the instance environment names its own database and ports and drops the ca
   const { shared, mcp, urls, web } = lightEnvironment({
     database: "inside_light_0123456789",
     postgresPort: 5432,
-    ports: { web: 21000, api: 21001, mcp: undefined },
+    ports: {
+      web: 21000,
+      api: 21001,
+      mcp: undefined,
+      bank: 21002,
+      telegram: 21003,
+    },
     identity: { LOGTO_APP_ID: "inside-web-light-0123456789" },
     defaults: { IDENTITY_EMAIL_FINGERPRINT_KEY: "example", PATH: "/example" },
     base: {
       PATH: "/bin",
+      TBANK_CONFIG_JSON: "must-never-be-used",
+      TBANK_CA_FILE: "/real/certificate",
+      TELEGRAM_LINKING_ENDPOINT: "https://must-never-be-used.invalid",
       DATABASE_URL: "postgresql://inside:inside@127.0.0.1:5432/inside",
       COMPOSE_PROJECT_NAME: "inside-platform",
       LOGTO_ENDPOINT: "https://identity.inside.localhost:3301",
@@ -64,6 +73,24 @@ test("the instance environment names its own database and ports and drops the ca
     "postgresql://inside:inside@127.0.0.1:5432/inside_light_0123456789",
   );
   assert.equal(shared["API_PORT"], "21001");
+  assert.equal(shared["TBANK_PROVIDER_MODE"], "test");
+  assert.equal(shared["TBANK_CONFIG_JSON"], undefined);
+  assert.equal(shared["TBANK_CA_FILE"], undefined);
+  assert.equal(shared["TBANK_TEST_API_BASE_URL"], "http://127.0.0.1:21002/v2");
+  assert.equal(shared["TBANK_TEST_PUBLIC_ORIGIN"], "http://127.0.0.1:21002");
+  assert.equal(
+    shared["TBANK_TEST_NOTIFICATION_URL"],
+    "http://127.0.0.1:21001/billing/tbank/notification",
+  );
+  assert.equal(
+    shared["TBANK_TEST_RETURN_URL"],
+    "http://127.0.0.1:21000/payment/return",
+  );
+  assert.equal(
+    shared["TELEGRAM_LINKING_ENDPOINT"],
+    "http://127.0.0.1:21003/integrations/platform/v1/identity-links",
+  );
+
   assert.equal(shared["BACKEND_BASE_URL"], "http://127.0.0.1:21001");
   assert.equal(shared["PUBLIC_SITE_ORIGIN"], "http://127.0.0.1:21000");
   assert.equal(shared["LOGTO_ENDPOINT"], undefined);

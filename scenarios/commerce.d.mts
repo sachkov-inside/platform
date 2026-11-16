@@ -17,3 +17,26 @@ export const commerceScenario: {
     readonly marketing: "stopped";
   };
 };
+
+export const isolatedTelegramSecret: string;
+
+export const commerceFixtureFacts: {
+  readonly operationRef: string;
+  readonly buyerAccountId: string;
+  readonly purchaseRef: string;
+  readonly createdAt: string;
+  readonly buyerEmail: string;
+  readonly priceRevision: number;
+  readonly supportMonths: 3;
+  readonly communityPolicy: "explicit";
+  readonly currency: "RUB";
+  readonly timezone: "Europe/Moscow";
+  readonly kind: "one_time";
+  readonly environment: "local";
+  readonly terminalRef: string;
+  readonly paymentId: string;
+  readonly fiscalization: "pending";
+  readonly access: "awaiting_payment";
+  readonly refundedKopecks: number;
+  readonly refundableKopecks: number;
+};

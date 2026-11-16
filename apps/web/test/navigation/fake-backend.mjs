@@ -46,6 +46,7 @@ import { productLearnersRoute } from "./product-learners-backend.mjs";
 import { salesCatalogRoute } from "./sales-catalog-backend.mjs";
 import { authoringOverviewRoute } from "./authoring-overview-backend.mjs";
 import { learningScenarioRoute } from "./learning-scenario-backend.mjs";
+import { commerceScenarioRoute } from "./commerce-scenario-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -1384,6 +1385,8 @@ const server = createServer(async (request, response) => {
     path: `${url.pathname}${url.search}`,
   });
   await waitNavigationTask(url.pathname);
+  const commerce = await commerceScenarioRoute(request, url, readBody);
+  if (commerce !== null) return send(commerce.status, commerce.value);
   const search = authoringSearchRoute(request, url);
   if (search !== null) return send(search.status, search.value);
   const overview = authoringOverviewRoute(request, url);
