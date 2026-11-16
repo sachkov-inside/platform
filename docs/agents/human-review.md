@@ -46,8 +46,7 @@ is called.
 | Agent authority: `AGENTS.md`, `CODING_STANDARDS.md`, skills, `docs/agents/` and their checks | `pnpm docs:check`; review under the rules on `main` before the change |
 
 Assign a security review also for external input handling, secrets, or uncertain security
-relevance. Missing or conflicting expectations, insufficient evidence and a scenario only a human
-can reach are triggers too.
+relevance.
 
 The independent Spec reviewer compares the requirements, the agreed key scenarios, the complete
 delivered diff and the current evidence. Its report carries notes on what may concern the owner: a
