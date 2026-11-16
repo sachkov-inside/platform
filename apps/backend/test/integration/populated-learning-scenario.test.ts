@@ -40,8 +40,10 @@ let api: string;
 let ownerToken: string;
 let holderToken: string;
 let seeded: Awaited<ReturnType<typeof seedLearningScenario>>;
+const cleanups: (() => Promise<unknown>)[] = [];
 beforeAll(async () => {
   database = await createMigratedTestDatabase();
+  cleanups.push(() => database.dispose());
   storage = await new GenericContainer(
     "ghcr.io/rustfs/rustfs:1.0.5@sha256:b81d16a90ee25bd9511280127ca1471788c6e874cf0f0da759645f46b2dc1d74",
   )
@@ -52,6 +54,7 @@ beforeAll(async () => {
     .withExposedPorts(9000)
     .withWaitStrategy(Wait.forHttp("/health", 9000))
     .start();
+  cleanups.push(() => storage.stop());
   const storageEndpoint = `http://${storage.getHost()}:${String(storage.getMappedPort(9000))}`;
   const client = new S3Client({
     endpoint: storageEndpoint,
@@ -69,6 +72,7 @@ beforeAll(async () => {
     issuer: "https://learning-scenarios.invalid/oidc",
     audience: "https://learning-scenarios.invalid/api",
   });
+  cleanups.push(() => identity.close());
   await bootstrapOwnerAccount(
     database.prisma,
     { issuer: identity.issuer, subject: scenarioRoles.owner.subject },
@@ -94,6 +98,7 @@ beforeAll(async () => {
     }),
     { logger: false },
   );
+  cleanups.push(() => app.close());
 
   await app.listen(0, "127.0.0.1");
   api = await app.getUrl();
@@ -112,10 +117,16 @@ beforeAll(async () => {
   });
 });
 afterAll(async () => {
-  await app.close();
-  await identity.close();
-  await database.dispose();
-  await storage.stop();
+  const failures: unknown[] = [];
+  for (const cleanup of cleanups.reverse()) {
+    try {
+      await cleanup();
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length > 0)
+    throw new AggregateError(failures, "Learning scenario cleanup failed");
 });
 
 test("the isolated seed publishes populated chapters, an extra reference and an empty upcoming chapter through the real API", async () => {

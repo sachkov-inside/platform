@@ -26,7 +26,7 @@ test("the real Product mapper retains populated chapters, access and practice pl
       code: "synthetic-project",
       title: "Учебный пример: покажи результат",
       availability: "available",
-      afterMaterialId: result.items[1]?.materialId,
+      afterMaterialId: "97000000-0000-4000-8000-000000000012",
     },
   ]);
   expect(
