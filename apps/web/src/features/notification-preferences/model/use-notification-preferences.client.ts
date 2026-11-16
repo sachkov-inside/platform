@@ -1,11 +1,11 @@
 "use client";
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
 import {
   notificationPreferencesChanged,
   notificationPreferencesQueryOptions,
-  resetNotificationPreferences,
+  notificationPreferencesQueryKey,
 } from "./notification-preferences-query";
 
 /**
@@ -14,15 +14,11 @@ import {
  * повторного открытия страницы.
  */
 export function useNotificationPreferences() {
-  const queryClient = useQueryClient();
   const query = useQuery(notificationPreferencesQueryOptions());
 
-  useEffect(
-    () =>
-      notificationPreferencesChanged.subscribe(() => {
-        void resetNotificationPreferences(queryClient);
-      }),
-    [queryClient],
+  useAnnouncedRefresh(
+    notificationPreferencesChanged,
+    notificationPreferencesQueryKey,
   );
 
   return query;
