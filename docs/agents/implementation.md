@@ -15,11 +15,15 @@ verification in root AGENTS.md → Commands.
 
 ## Review, verification and delivery
 
-Commit assigned work before `code-review`. Supply immutable base/head and the requirement source
-for independent Standards and Spec review over the complete assigned diff. Fix confirmed
-findings, rerun affected checks, commit and re-review with the earlier reports, preserving original
-full-diff coverage. Settle every technical finding under
-[technical acceptance](human-review.md#two-acceptances). Next comes
-[verification](human-review.md#verification) by a fresh agent and the Spec reviewer's match of its
-verdict, or one line on why the change needs none. Then use `pr` and `ship` under the target branch's [ship contract](ship.md), not proposed
-gate changes on the task branch.
+Commit assigned work before `code-review`. Run it once, with independent Standards and Spec
+reviewers in parallel over the complete assigned diff; supply immutable base/head and the
+requirement source. The implementer fixes every blocking finding, and either fixes each optional
+finding or records a one-line reason for leaving it. Rerun affected checks and commit corrections.
+There is no re-review. This project rule overrides the re-review steps in the pinned `implement`,
+`code-review` and delivery skills until their source updates reach the pinned copies.
+
+Next comes [verification](human-review.md#verification) on the corrected result by a fresh agent,
+or one line on why the change needs none. Hand the original review reports, their dispositions and
+all commits after the reviewed head to the [classifier](ship.md#owner-attention). Then use `pr`
+and `ship` under the target branch's [ship contract](ship.md), with explicit owner decisions for
+this task taking precedence over the existing rule they change.
