@@ -180,7 +180,7 @@ describe("application CI workflow contract", () => {
     );
     assert.match(
       jobBlock("integration-checks"),
-      /part: \[database, enrollments, buyer-journey\]/u,
+      /part: \[database, browser-smokes\]/u,
     );
     assert.match(
       jobBlock("web-e2e-browser"),
@@ -756,9 +756,15 @@ describe("application CI workflow contract", () => {
       jobBlock("integration-checks"),
       /run: pnpm test:integration:parallel$/mu,
     );
+    // Две короткие проверки в браузере идут одной задачей: одна установка вместо двух, и в
+    // запуске на одну задачу меньше ждёт свободного раннера (#2193).
     assert.match(
       jobBlock("integration-checks"),
-      /run: pnpm smoke:enrollments$/mu,
+      /if: \$\{\{ matrix\.part == 'browser-smokes' \}\}\n {8}run: pnpm smoke:enrollments$/mu,
+    );
+    assert.match(
+      jobBlock("integration-checks"),
+      /if: \$\{\{ matrix\.part == 'browser-smokes' \}\}\n {8}run: pnpm smoke:buyer-journey$/mu,
     );
     assert.match(
       jobBlock("integration-serial"),

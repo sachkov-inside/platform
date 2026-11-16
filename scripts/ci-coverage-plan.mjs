@@ -60,8 +60,7 @@ export const ciMatrixJobs = {
     prefix: "Integration checks",
     names: [
       "Integration checks (database)",
-      "Integration checks (enrollments)",
-      "Integration checks (buyer-journey)",
+      "Integration checks (browser-smokes)",
     ],
   },
   "web-e2e": {

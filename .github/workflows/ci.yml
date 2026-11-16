@@ -264,7 +264,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: [database, enrollments, buyer-journey]
+        # Both browser smokes share one job: one setup instead of two and one job fewer waiting
+        # for a runner (#2193). A failed enrollment smoke skips the buyer journey, so the
+        # uploaded test-results belong to the failed smoke.
+        part: [database, browser-smokes]
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -290,10 +293,10 @@ jobs:
         if: ${{ matrix.part == 'database' }}
         run: pnpm test:integration:parallel
       - name: Run enrollment browser and real API smoke
-        if: ${{ matrix.part == 'enrollments' }}
+        if: ${{ matrix.part == 'browser-smokes' }}
         run: pnpm smoke:enrollments
       - name: Run buyer journey from product page to access
-        if: ${{ matrix.part == 'buyer-journey' }}
+        if: ${{ matrix.part == 'browser-smokes' }}
         run: pnpm smoke:buyer-journey
       - name: Upload Playwright diagnostics
         if: ${{ failure() }}
