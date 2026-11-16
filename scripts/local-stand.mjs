@@ -25,12 +25,17 @@ import {
   orbstackStoragePath,
 } from "./local-stand-budget.mjs";
 
+/** Compose project of image builds that run before an operation waits for the stand. */
+export const standPrebuildProject = "inside-platform-prebuild";
+
 /**
- * The caller holds the shared local-setup lock. Refresh only recreates application roles;
+ * The caller holds the shared local-setup lock, except for `buildOnly`. Refresh only recreates application roles;
  * the stand controller verifies ownership and schema/configuration compatibility first.
  * An upgrade is a refresh that also rebuilds infrastructure images, applies forward migrations
  * and replaces changed infrastructure, without seed or identity bootstrap.
- * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; upgrade?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: (expected: string) => Promise<void>}} options
+ * `buildOnly` builds the images a refresh needs under the separate prebuild project and changes
+ * no container; it fills the build cache before the caller waits for the stand, without the lock.
+ * @param {{repositoryRoot: string; pnpmPath: string; productionWeb?: boolean; refresh?: boolean; upgrade?: boolean; buildOnly?: boolean; resumeCold?: boolean; composeOverride?: string; logToStderr?: boolean; dockerHost?: string; onIdentityReady?: (expected: string) => Promise<void>}} options
  */
 export async function launchLocalStand({
   repositoryRoot,
@@ -38,13 +43,14 @@ export async function launchLocalStand({
   productionWeb = false,
   refresh: refreshOnly = false,
   upgrade = false,
+  buildOnly = false,
   resumeCold = false,
   composeOverride,
   logToStderr = false,
   dockerHost,
   onIdentityReady,
 }) {
-  const refresh = refreshOnly || upgrade;
+  const refresh = refreshOnly || upgrade || buildOnly;
   const outputStream = logToStderr ? process.stderr : process.stdout;
   const standDiskPollIntervalMilliseconds = 250;
 
@@ -84,7 +90,7 @@ export async function launchLocalStand({
     ...process.env,
     ...(dockerHost ? { DOCKER_HOST: dockerHost, DOCKER_CONTEXT: "" } : {}),
     ...standPorts,
-    COMPOSE_PROJECT_NAME: "inside-platform",
+    COMPOSE_PROJECT_NAME: buildOnly ? standPrebuildProject : "inside-platform",
   };
   const smokeProject = "inside-platform-smoke";
 
@@ -209,6 +215,18 @@ export async function launchLocalStand({
         ? ["api", "web", "rabbitmq", "logto"]
         : ["api", "rabbitmq", "logto"]) {
       await compose(["build", service]);
+    }
+    if (buildOnly) {
+      // The build cache keeps the layers; the prebuild tags are not needed by any container.
+      for (const image of [
+        `${standPrebuildProject}-backend-development:local`,
+        `${standPrebuildProject}-web-production:local`,
+      ])
+        await run("docker", ["image", "rm", "--no-prune", image], {
+          capture: true,
+          cleanup: true,
+        }).catch(() => undefined);
+      return;
     }
     if (upgrade) {
       // The migration engine refuses a database ledger that is not a prefix of this registry.

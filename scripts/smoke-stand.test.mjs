@@ -183,6 +183,7 @@ describe("smoke stand", () => {
     // Локальные стенды для ручной проверки держат сервер для человека и маршруты не проверяют.
     const manualStands = new Set([
       "editor-local-review.mjs",
+      "stand-light-instance.mjs",
       "telegram-sign-in-local.mjs",
     ]);
     const scripts = (await readdir(new URL(".", import.meta.url))).filter(

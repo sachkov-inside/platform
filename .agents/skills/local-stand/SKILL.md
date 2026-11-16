@@ -1,16 +1,25 @@
 ---
 name: local-stand
-description: Prepare or update the shared local application for an owner-requested task review, work interactively against it, inspect its owner, or release a completed review. Use for local stand operations across worktrees; ordinary code edits and isolated tests do not reserve the stand.
+description: Prepare or update the shared local application for an owner-requested task review, work interactively against it, inspect its owner, or release a completed review; or start a light per-agent instance of this worktree's web and API for a browser check. Use for local stand operations across worktrees; ordinary code edits and isolated tests do not reserve the stand.
 ---
 
 # Shared local stand
 
 Read the [stand runbook](../../../docs/runbooks/local-stand.md) before runtime operations.
+
+For your own browser check of a change, without the owner's review, start a light instance:
+`pnpm stand:light up` (add `--mcp` when the scenario needs MCP; `--dev` only when you edit Web
+and need reload, at about twice the memory), sign in through the printed
+sign-in address, and run `pnpm stand:light down` when the check ends. It needs no reservation and
+runs beside other agents' instances. Use the shared stand below for an owner review, real Logto
+sign-in, mail, payments, workers or production-web speed. The runbook's light instance section
+lists the differences and the memory budget.
 Use the stand controller from one checkout with installed dependencies. Pass the task's absolute
 worktree path when invoking it from that controller checkout. Its status names the registered
 controller; keep using that checkout while its stand state exists.
 
-1. Inspect `pnpm --silent stand status --json`. For `unmanaged`, preserve the runtime and obtain
+1. Inspect `pnpm --silent stand status --json`. It names the reserved worktree, its age and the
+   queue. For `unmanaged`, preserve the runtime and obtain
    its owner's handoff. For `stopped`, continue using the reported reservation; an empty first
    startup needs no handoff.
 2. Map the owner's request:
@@ -35,6 +44,10 @@ controller; keep using that checkout while its stand state exists.
    newer schema or infrastructure on an owner request, run `pnpm stand upgrade --worktree <task>`.
    Apply the runbook's handoff procedure for
    changed identity or an unmanaged runtime.
+
+A mutation that finds the stand busy waits in a queue and prints its position; run it in the
+background so a tool timeout does not end the wait. A reservation whose worktree was deleted is
+released by the next mutation, which reports it.
 
 Inspect command options with `pnpm stand --help`. Use `--production-web` for navigation-speed
 checks; it retains the existing clean-source requirement. Run isolated tests and Storybook without
