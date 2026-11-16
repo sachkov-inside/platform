@@ -118,7 +118,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   const failures: unknown[] = [];
-  for (const cleanup of cleanups.reverse()) {
+  for (const cleanup of cleanups.toReversed()) {
     try {
       await cleanup();
     } catch (error) {
