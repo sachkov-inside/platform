@@ -15,7 +15,7 @@ export default class PaymentMutationReporter implements Reporter {
         return {
           name: test.fullName,
           state: result.state,
-          errors: "errors" in result ? result.errors : [],
+          errors: "errors" in result ? (result.errors ?? []) : [],
         };
       }),
     );

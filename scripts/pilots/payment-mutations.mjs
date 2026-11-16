@@ -94,12 +94,14 @@ async function run(name, command, args) {
   try {
     const exitCode = await Promise.race([
       commandExit(child),
-      new Promise((_, reject) => {
-        deadline = setTimeout(
-          () => reject(new Error(`${name} exceeded 120 seconds`)),
-          120_000,
-        );
-      }),
+      /** @type {Promise<never>} */ (
+        new Promise((_, reject) => {
+          deadline = setTimeout(
+            () => reject(new Error(`${name} exceeded 120 seconds`)),
+            120_000,
+          );
+        })
+      ),
     ]);
     if (exitCode !== null && typeof exitCode !== "number")
       throw new Error("Invalid process result");
