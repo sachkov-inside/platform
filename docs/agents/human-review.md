@@ -22,13 +22,13 @@ When preparing a specification or a task, record with the owner:
 A task with no key scenario says "nothing to show". Tickets inherit the specification's scenarios
 and decisions and add their own. Work without a ticket records them beside its acceptance criteria.
 When the task touches the "always show" list of [owner attention](owner-attention.md), the
-specification's author proposes those as key scenarios. Raise a newly discovered check when its
+specification's author proposes those items as key scenarios. Raise a newly discovered check when its
 decision is needed. An agreed check stays until the owner
 resolves it; an agent cannot waive it.
 
 ## Consequence triggers
 
-Judge what the change does. Its size and the paths it touches decide nothing: a comment in a
+Judge what the change does. The paths it touches decide nothing: a comment in a
 payment module triggers nothing, and a small change elsewhere can change who sees data. A
 consequence brings the checks below; [owner attention](owner-attention.md) owns whether the owner
 is called.
@@ -72,12 +72,9 @@ and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
   follow-up given the verdict and the diff, before `pr`. In the same pass it looks through the
   artifacts for data that is not the stand's test data.
 - **`FAIL`** returns the work to implementation; its fix is reviewed and verified again.
-  **`PASS+NOTES`** carries its notes into the PR, outside any disclosure, and calls the owner.
+  **`PASS+NOTES`** carries its notes into the PR's «Проверено».
 
 ## Evidence
-
-Every task ends with a PR in the briefing form that carries its evidence, whatever the task is.
-A change with nothing to show gives one line on why, the CI link and the review result.
 
 The PR's «Проверено» is assembled from sources the implementer cannot embellish:
 

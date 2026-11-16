@@ -58,8 +58,9 @@ commit/review order and the no-ticket acceptance record. [PIPELINE.md](.agents/s
 
 ## Owner gates
 
-Releases, deployments, publishing, paid actions, credentials and external messages need the
-owner's permission. A merge needs the status «Внимание не требуется» or the owner's «да» in the PR
+[Owner attention](docs/agents/owner-attention.md#only-on-the-owners-command) lists what runs only
+on the owner's command. Publishing, paid actions and external messages need the owner's permission.
+A merge needs the status «Внимание не требуется» or the owner's «да» in the PR
 ([ship](docs/agents/ship.md#owner-attention)). Standing or task-specific permission covers its stated scope until withdrawn;
 follow it without asking again. A resumed session keeps the existing permission for its assigned work.
 Waiting for an answer is never consent.

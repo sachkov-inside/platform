@@ -30,9 +30,8 @@ After the first push, integrate `origin/main` by merge, not by rebase or force-p
 ## Blockers
 
 A defect outside the task that blocks it gets a linked Issue labelled `ready-for-agent`; reuse an
-open one. Fix the blocker first. The task's merge permission covers the fix only when one revert
-undoes it and it touches only tests, CI, docs or scripts outside release and deploy. Otherwise ask.
-`ship` still decides whether the owner must accept the fix.
+open one. Fix the blocker first. The fix is its own change and gets its own
+[owner-attention status](ship.md#owner-attention).
 Work waiting for the owner stays open with the specific decision recorded, asked under
 [Ask the owner](human-review.md#ask-the-owner). When the blocking step
 needs the owner's own hands (a credential, a provider dashboard, a cutover) and no existing script

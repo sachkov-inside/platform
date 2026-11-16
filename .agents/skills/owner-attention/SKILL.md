@@ -14,8 +14,7 @@ The caller hands you facts and none of its own explanations:
 - the commits made after the review;
 - the final facts: the verification verdict, open review findings, CI on the last commit;
 - the plan (specification or task) with what the owner asked to see;
-- the project's conditions file, reached through the owner-attention pointer of the target
-  project's delivery rules.
+- the project's conditions file.
 
 Ask the caller for a missing input. An explanation of why the change is safe is not an input:
 set it aside.

@@ -1,12 +1,13 @@
 # Owner attention
 
 Platform's conditions for the `owner-attention` skill, which decides before a merge whether the
-owner must look. Only the owner changes this file; a new case in the history appears from his
-correction. "Approved" means written in the plan (the specification or task), not said in a chat.
+owner must look. Only the owner changes this file: a change to it is named in the plan as his
+decision, and a new case in the history appears from his correction. Keep it within one page.
 
 ## Always show before the merge
 
-The specification's author proposes these as key scenarios whenever the task touches them.
+Named in the plan as a key scenario, these give «Требуется решение»; missing from the plan, they
+give «Требуется внимание».
 
 - New behaviour for a user.
 - A look of the interface that no approved design contains.
@@ -16,11 +17,15 @@ The specification's author proposes these as key scenarios whenever the task tou
 
 ## Call when the plan does not name it
 
+These give «Требуется внимание».
+
 - A data migration or deletion.
 - A change to a shared contract: API, MCP, Telegram.
 - The text of emails and bot messages.
 
 ## Call when evidence is thin
+
+These give «Требуется внимание».
 
 - A scenario of the plan is not shown.
 - Verification returned notes or failed.
@@ -29,9 +34,18 @@ The specification's author proposes these as key scenarios whenever the task tou
 
 ## Without the owner
 
+With nothing above, these give «Внимание не требуется».
+
 - Documents, tests, CI, tools.
 - A bug fix with a test that failed before the fix.
 - A visible change that follows the plan, up to 5 files.
+
+## Only on the owner's command
+
+No status permits these.
+
+- A deployment to production.
+- A release, a payment, credentials.
 
 ## Cases from history
 

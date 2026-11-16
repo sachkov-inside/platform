@@ -31,7 +31,7 @@ Raw originals and installer backups with matching locks stay ignored, outside co
 | Typechecks/focused tests during product work, final applicable verification level | [Implementation](../agents/implementation.md), root AGENTS.md Commands |
 | Commit before independent Standards/Spec review, correction review, then ship | [Implementation](../agents/implementation.md) |
 | Door/Zone/Proof, always-sensitive zones, exact-result acceptance | [Ship](../agents/ship.md#owner-attention); since #2206 and #2215 the owner-attention status and [owner attention](../agents/owner-attention.md) replace Door/Zone/Proof and the zones |
-| Target-branch gate authority, CI Gate, merge queue, permission and advance acceptance | [Implementation](../agents/implementation.md), [Ship](../agents/ship.md) |
+| Target-branch gate authority, CI Gate, merge queue, permission and advance acceptance (advance acceptance retired by #2215) | [Implementation](../agents/implementation.md), [Ship](../agents/ship.md) |
 | One integration branch/final PR for a whole spec, fresh workers and full integration review | [Coordinated execution](../agents/coordinated-execution.md) |
 | Localized PR shape and risk/presentation pointers | [PR body](../agents/pr.md) |
 | Storybook prototype route, fixtures and owner visual gates | Existing [frontend delivery](../agents/frontend-delivery.md) |
