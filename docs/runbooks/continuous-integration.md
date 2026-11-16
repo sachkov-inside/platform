@@ -501,7 +501,7 @@ copies a template migrated once per run, while migration tests start from an emp
 worker processes or write the machine-wide worker readiness file; they run one at a time, so they
 measure behaviour rather than runner load. `scripts/integration-serial-files.test.mjs` fails when a
 file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
-The pinned Testcontainers 12.2.0 patch (#1315) rejects Docker pull-stream `error`/`errorDetail`
+The pinned Testcontainers 12.2.1 patch (#1315) rejects Docker pull-stream `error`/`errorDetail`
 messages and transport errors, closes a failed pull stream, and inspects the requested image before
 acquisition returns. A completed stream alone does not prove local image availability. The contract
 `apps/backend/test/contracts/postgres-acquisition.test.ts` exercises the real PostgreSQL global setup
@@ -643,8 +643,8 @@ field; check the probe against that tool's contract. An unavailable page alone d
 contract mismatch: inspect the Playwright trace, API/Web output and load samples. Locate the
 source of a `TimeoutError` in its stack: server-side fetch and Playwright actions have different
 budgets. Load samples help investigate its cause, but do not prove it.
-Do not increase budgets or retry tests to get a green run. For a branch failure, open or reopen a
-Platform issue when diagnosis finds a defect.
+Budgets and retries follow [flaky tests](../agents/testing.md#flaky-tests). For a branch failure,
+open or reopen a Platform issue when diagnosis finds a defect.
 
 The [#589 evidence](../evidence/issue-589/README.md) records measured CI cost, the mechanism choice
 and the inventory of probes outside the pull-request gate.
