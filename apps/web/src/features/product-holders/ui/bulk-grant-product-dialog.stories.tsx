@@ -262,6 +262,7 @@ export const SelectionDesktop: Story = {
         "Готово: выдано 1, уже был доступ у 1, доступ отозван у 1.",
       ),
     );
+    await expect(view.getByRole("heading", { level: 2 })).toHaveFocus();
     await expect(within(results).getAllByRole("listitem")).toHaveLength(3);
     await expect(sent).toHaveBeenCalledOnce();
     const [input] = sent.mock.calls[0] ?? [];

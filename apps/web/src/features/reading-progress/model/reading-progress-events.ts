@@ -1,3 +1,4 @@
+import { refreshAnnouncedQueries } from "@/shared/api/announced-query-refresh";
 import { factAnnouncement } from "@/shared/api/fact-announcement";
 import type { QueryClient } from "@tanstack/react-query";
 
@@ -14,30 +15,10 @@ export function lessonOpenedPartsChanges(accountId: string) {
   return factAnnouncement(`inside.lesson-opened-parts.${accountId}.changed`);
 }
 
-const refreshes = new WeakMap<
-  QueryClient,
-  Map<string, { readonly id: string; readonly pending: Promise<void> }>
->();
-
-/** Подписчики одной записи присоединяются к одному перечитыванию. */
 export function refreshReadingProgress(
   cache: QueryClient,
   accountId: string,
   id: string,
 ): Promise<void> {
-  let accounts = refreshes.get(cache);
-  if (accounts === undefined) {
-    accounts = new Map();
-    refreshes.set(cache, accounts);
-  }
-  const previous = accounts.get(accountId);
-  if (previous?.id === id) return previous.pending;
-  const queryKey = ["reading-progress", accountId];
-  const pending = cache
-    .cancelQueries({ queryKey })
-    .then(() =>
-      cache.invalidateQueries({ queryKey }, { cancelRefetch: false }),
-    );
-  accounts.set(accountId, { id, pending });
-  return pending;
+  return refreshAnnouncedQueries(cache, ["reading-progress", accountId], id);
 }

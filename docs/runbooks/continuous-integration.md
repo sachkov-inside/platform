@@ -507,6 +507,15 @@ Payment failures report the original trace and a greedy reduced trace (at most 3
 replays). The bounds are sampling evidence, not an exhaustive proof; the reducer's negative
 fixture is `test/unit/bounded-sequences.test.ts`. Bank failures stay inside the owned bank double.
 
+`pnpm pilot:payment-mutations` is an opt-in five-variant experiment on the payment capture
+predicate (#2251), never a repository-wide CI gate. It tests an archived HEAD in a disposable
+copy with offline dependencies and real isolated PostgreSQL; commit the source to test first.
+The successful seven-case baseline, expected assertion failures, equivalent survivor and uncovered
+refund survivor are described in [the pilot report](../research/2026-11-16-payment-mutation-pilot.md).
+Logs and JSON remain under `.reports/2251/mutations` by default; an optional first argument changes
+the report directory. A missing cached dependency or changed predicate stops the pilot.
+
+
 
 Integration tests are split into two Vitest projects in `apps/backend/vitest.integration.config.mts`.
 `integration` runs files in parallel against one PostgreSQL container shared by both projects; `createMigratedTestDatabase`
@@ -904,3 +913,13 @@ resulting automatic publication on trusted `main`; there is no branch bootstrap,
 After successful anonymous equality checks of each index and every child manifest, including
 amd64/arm64, the application update may select those copies and run its full CI. That update,
 application release and production deployment retain their own owner gates.
+
+## Executable payment/access model
+
+`pnpm pilot:payment-model` explores the finite one-Purchase reference model (#2252) and writes
+`.reports/2252/model.json`. It exits nonzero on a counterexample or a truncated search. The default
+bounds are depth12 and2000states; normal exploration closes before them. The cheap checker and
+negative models run in `scripts/payment-access-model.test.mjs` with normal tooling tests.
+[The model report](../research/2026-11-16-payment-access-model.md) records assumptions, replay traces,
+real-test mapping and the separate audit9 evaluation. The model does not replace PostgreSQL,
+transport, clock/version adapter or multi-Purchase acceptance tests.

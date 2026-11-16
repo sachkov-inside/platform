@@ -1,7 +1,9 @@
 "use client";
 
 import { LoaderCircle } from "lucide-react";
-import { useEffect, useId, useRef, useState, type SubmitEvent } from "react";
+import { useId, useRef, useState, type SubmitEvent } from "react";
+
+import { useDialogInitialFocus } from "@/shared/lib/native-dialog.client";
 
 import {
   ACCESS_REASON_MAX_CHARACTERS,
@@ -59,9 +61,7 @@ function RestoreForm({
   const fieldId = `${id}-reason`;
   const errorId = `${id}-reason-error`;
 
-  useEffect(() => {
-    field.current?.focus();
-  }, []);
+  const focusTarget = useDialogInitialFocus(field);
 
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -92,7 +92,7 @@ function RestoreForm({
           onChange={(event) => {
             setText(event.currentTarget.value);
           }}
-          ref={field}
+          ref={focusTarget}
           required
           value={text}
         />

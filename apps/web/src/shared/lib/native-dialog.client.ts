@@ -1,11 +1,48 @@
 "use client";
 
 import {
+  useCallback,
   useLayoutEffect,
   useRef,
   type KeyboardEvent,
+  type RefCallback,
+  type RefObject,
   type SyntheticEvent,
 } from "react";
+
+const initialFocusTargets = new WeakMap<HTMLDialogElement, HTMLElement>();
+
+/** Register a form's initial target, including forms mounted in an already open modal. */
+export function dialogInitialFocus(element: HTMLElement | null) {
+  if (element === null) return;
+  const dialog = element.closest("dialog");
+  if (dialog === null) return;
+  initialFocusTargets.set(dialog, element);
+  if (dialog.matches(":modal")) element.focus();
+  return () => {
+    if (initialFocusTargets.get(dialog) === element)
+      initialFocusTargets.delete(dialog);
+  };
+}
+
+/** Keep the same element available for validation as well as native modal autofocus. */
+export function useDialogInitialFocus<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+  active = true,
+): RefCallback<T> {
+  return useCallback(
+    (element: T | null) => {
+      ref.current = element;
+      if (element === null) return;
+      const release = active ? dialogInitialFocus(element) : undefined;
+      return () => {
+        release?.();
+        if (ref.current === element) ref.current = null;
+      };
+    },
+    [active, ref],
+  );
+}
 
 /** Owns the native modal layer, dismissal during a command and delayed close events. */
 export function useNativeDialog({
@@ -18,11 +55,14 @@ export function useNativeDialog({
   readonly onOpenChange: (open: boolean) => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  // The modal layer must exist before a child form assigns its initial focus.
+  // Child refs register before the modal opens: https://github.com/sachkov-inside/platform/issues/2255.
   useLayoutEffect(() => {
     const element = ref.current;
     if (element === null) return;
-    if (open && !element.open) element.showModal();
+    if (open && !element.open) {
+      element.showModal();
+      initialFocusTargets.get(element)?.focus();
+    }
     if (!open && element.open) element.close();
   }, [open]);
 

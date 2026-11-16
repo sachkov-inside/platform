@@ -1,9 +1,12 @@
 "use client";
 
 import { CircleAlert, LoaderCircle } from "lucide-react";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
-import { useNativeDialog } from "@/shared/lib/native-dialog.client";
+import {
+  dialogInitialFocus,
+  useNativeDialog,
+} from "@/shared/lib/native-dialog.client";
 import { hasText } from "@/shared/lib/text";
 import { Button } from "@/shared/ui/button";
 
@@ -34,12 +37,7 @@ export function SaleConfirmDialog({
   readonly onConfirm: () => void;
 }) {
   const dialog = useNativeDialog({ open, pending, onOpenChange });
-  const cancel = useRef<HTMLButtonElement>(null);
   const id = useId();
-
-  useEffect(() => {
-    if (open) cancel.current?.focus();
-  }, [open]);
 
   return (
     <dialog
@@ -69,7 +67,7 @@ export function SaleConfirmDialog({
               onClick={() => {
                 onOpenChange(false);
               }}
-              ref={cancel}
+              ref={dialogInitialFocus}
               type="button"
               variant="outline"
             >
