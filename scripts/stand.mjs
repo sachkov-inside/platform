@@ -1,12 +1,17 @@
 // @ts-check
 import { execFileSync } from "node:child_process";
-import { realpath } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
-import { controlStand } from "./stand-controller.mjs";
+import {
+  controlStand,
+  expectedMode,
+  precheckReservation,
+} from "./stand-controller.mjs";
+import { readStandQueue, waitForStandTurn } from "./stand-queue.mjs";
 import { createStandRuntime } from "./stand-runtime.mjs";
 import { readStandSource } from "./stand-source.mjs";
 
@@ -82,41 +87,67 @@ upgrade  Move the running stand forward to this worktree's schema and infrastruc
       directory,
       pnpmPath: pnpmPath ?? "",
     });
-    const result = await controlStand(
-      {
-        command,
-        worktree,
-        ...(values.replace ? { replace: z.uuid().parse(values.replace) } : {}),
-        ...(values.live
-          ? { mode: "live" }
-          : values["production-web"]
-            ? { mode: "production" }
-            : {}),
-      },
-      {
-        directory,
-        controller,
-        ...runtime,
-        acquire: () =>
-          acquireLocalSetupLock(
-            "Another stand operation is running; inspect status and retry when it finishes",
-          ),
-        source: readStandSource,
-        baseline: () => readStandSource(controller),
-      },
-    );
-    if (values.json) process.stdout.write(`${JSON.stringify(result)}\n`);
+    /** @type {import("./stand-controller.mjs").StandRequest} */
+    const request = {
+      command,
+      worktree,
+      ...(values.replace ? { replace: z.uuid().parse(values.replace) } : {}),
+      ...(values.live
+        ? { mode: "live" }
+        : values["production-web"]
+          ? { mode: "production" }
+          : {}),
+    };
+    // Image builds need only the source: they run before the operation joins the queue, so the
+    // stand is held while it is changed, not while the source compiles.
+    if (command === "show" || command === "refresh" || command === "upgrade") {
+      await precheckReservation(request, { directory, worktreeExists });
+      await runtime.inspect();
+      await runtime.prebuild(worktree, await expectedMode(request, directory));
+    }
+    const result = await controlStand(request, {
+      directory,
+      controller,
+      ...runtime,
+      acquire: () =>
+        waitForStandTurn({
+          directory,
+          worktree,
+          command,
+          acquire: () =>
+            acquireLocalSetupLock(
+              "Another stand operation holds the machine-wide lock",
+            ),
+          report: (message) => process.stderr.write(`${message}\n`),
+        }),
+      source: readStandSource,
+      baseline: () => readStandSource(controller),
+      worktreeExists,
+    });
+    const queue = command === "status" ? await readStandQueue(directory) : [];
+    if (values.json)
+      process.stdout.write(
+        `${JSON.stringify(command === "status" ? { ...result, queue } : result)}\n`,
+      );
     else {
       process.stdout.write(`Stand: ${result.status}\n`);
       if (result.source)
         process.stdout.write(
           `Worktree: ${result.source.root}\nSource: ${result.source.head}\nMode: ${result.mode}\n`,
         );
+      if (result.releasedStale)
+        process.stdout.write(
+          `Released reservation ${result.releasedStale.id}: worktree ${result.releasedStale.worktree} no longer exists\n`,
+        );
       process.stdout.write(
         result.reservation
-          ? `Reserved: ${result.reservation.worktree}\nReservation: ${result.reservation.id}\n`
+          ? `Reserved: ${result.reservation.worktree}${result.reservation.worktreeMissing ? " (worktree no longer exists; the next stand operation releases it)" : ""}\nReservation: ${result.reservation.id}\nReserved for: ${result.reservation.ageSeconds === null ? "unknown (taken before reservation times were recorded)" : formatAge(result.reservation.ageSeconds)}\n`
           : "Review reservation: free\n",
       );
+      for (const [index, entry] of queue.entries())
+        process.stdout.write(
+          `Queue ${String(index + 1)}: ${entry.worktree} ${entry.command} (since ${entry.enqueuedAt})\n`,
+        );
       if (result.url) process.stdout.write(`${result.url}\n`);
       process.stdout.write(`Controller: ${result.controller}\n`);
     }
@@ -132,6 +163,26 @@ upgrade  Move the running stand forward to this worktree's schema and infrastruc
     else process.stderr.write(`${message}\n`);
     process.exitCode = 1;
   }
+}
+
+/** @param {string} path */
+async function worktreeExists(path) {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return false;
+    throw error;
+  }
+}
+
+/** @param {number} seconds */
+function formatAge(seconds) {
+  const hours = Math.floor(seconds / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  return hours > 0
+    ? `${String(hours)} h ${String(minutes)} min`
+    : `${String(minutes)} min`;
 }
 
 /** @param {string} root @param {string[]} args */

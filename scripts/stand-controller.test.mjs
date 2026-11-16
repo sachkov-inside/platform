@@ -1,10 +1,16 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { controlStand, requireUnmanagedStand } from "./stand-controller.mjs";
+import { z } from "zod";
+import {
+  controlStand,
+  expectedMode,
+  precheckReservation,
+  requireUnmanagedStand,
+} from "./stand-controller.mjs";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 
 /** @param {import("node:test").TestContext} t */
@@ -683,4 +689,152 @@ test("a failed backup leaves the old schema protected and retakes the backup on 
   );
   assert.equal(resumed.status, "ready");
   assert.deepEqual(events, ["backup:2", "backup:2", "upgrade"]);
+});
+
+test("a reservation records when it was taken and status reports its age", async (t) => {
+  const { dependencies } = await fixture(t);
+  const taken = new Date("2026-11-16T10:00:00.000Z");
+  const shown = await controlStand(
+    { command: "show", worktree: "/fixture/a" },
+    { ...dependencies, now: () => taken },
+  );
+  assert.equal(shown.reservation?.reservedAt, taken.toISOString());
+  const status = await controlStand(
+    { command: "status", worktree: "/fixture/b" },
+    { ...dependencies, now: () => new Date("2026-11-16T12:30:00.000Z") },
+  );
+  assert.equal(status.reservation?.worktree, "/fixture/a");
+  assert.equal(status.reservation?.ageSeconds, 9_000);
+});
+
+test("a reservation whose worktree no longer exists is released by the next stand operation", async (t) => {
+  const { dependencies, preparations } = await fixture(t);
+  /** @type {Set<string>} */
+  const existing = new Set(["/fixture/a", "/fixture/b"]);
+  const withWorktrees = {
+    ...dependencies,
+    worktreeExists: async (/** @type {string} */ path) => existing.has(path),
+  };
+  const first = await controlStand(
+    { command: "show", worktree: "/fixture/a" },
+    withWorktrees,
+  );
+  await assert.rejects(
+    controlStand({ command: "show", worktree: "/fixture/b" }, withWorktrees),
+    /reserved for \/fixture\/a/u,
+  );
+
+  existing.delete("/fixture/a");
+  const status = await controlStand(
+    { command: "status", worktree: "/fixture/b" },
+    withWorktrees,
+  );
+  // Status only reads: the missing worktree is reported, the reservation stays until a mutation.
+  assert.equal(status.reservation?.id, first.reservation?.id);
+  assert.equal(status.reservation?.worktreeMissing, true);
+
+  const second = await controlStand(
+    { command: "show", worktree: "/fixture/b" },
+    withWorktrees,
+  );
+  assert.equal(second.reservation?.worktree, "/fixture/b");
+  assert.deepEqual(second.releasedStale, {
+    id: first.reservation?.id,
+    worktree: "/fixture/a",
+  });
+  assert.equal(preparations(), 2);
+});
+
+test("a reservation of an existing worktree survives without a timer", async (t) => {
+  const { dependencies } = await fixture(t);
+  const withWorktrees = {
+    ...dependencies,
+    worktreeExists: async () => true,
+    now: () => new Date("2030-01-01T00:00:00.000Z"),
+  };
+  await controlStand({ command: "show", worktree: "/fixture/a" }, dependencies);
+  await assert.rejects(
+    controlStand({ command: "show", worktree: "/fixture/b" }, withWorktrees),
+    /reserved for \/fixture\/a/u,
+  );
+});
+
+test("a reservation written before reservation times keeps working and reports no age", async (t) => {
+  const { dependencies } = await fixture(t);
+  const shown = await controlStand(
+    { command: "show", worktree: "/fixture/a" },
+    dependencies,
+  );
+  const path = join(dependencies.directory, "state.json");
+  const state = z
+    .looseObject({
+      reservation: z.looseObject({ reservedAt: z.string().optional() }),
+    })
+    .parse(JSON.parse(await readFile(path, "utf8")));
+  delete state.reservation.reservedAt;
+  await writeFile(path, JSON.stringify(state));
+  const status = await controlStand(
+    { command: "status", worktree: "/fixture/a" },
+    dependencies,
+  );
+  assert.equal(status.reservation?.id, shown.reservation?.id);
+  assert.equal(status.reservation?.ageSeconds, null);
+  const refreshed = await controlStand(
+    { command: "refresh", worktree: "/fixture/a" },
+    dependencies,
+  );
+  assert.equal(refreshed.reservation?.id, shown.reservation?.id);
+});
+
+test("a foreign reservation refuses a mutation before its image builds", async (t) => {
+  const { dependencies } = await fixture(t);
+  const first = await controlStand(
+    { command: "show", worktree: "/fixture/a" },
+    dependencies,
+  );
+  await assert.rejects(
+    precheckReservation(
+      { command: "show", worktree: "/fixture/b" },
+      dependencies,
+    ),
+    /reserved for \/fixture\/a/u,
+  );
+  await precheckReservation(
+    { command: "show", worktree: "/fixture/a" },
+    dependencies,
+  );
+  await precheckReservation(
+    {
+      command: "show",
+      worktree: "/fixture/b",
+      replace: first.reservation?.id ?? "",
+    },
+    dependencies,
+  );
+  await precheckReservation(
+    { command: "show", worktree: "/fixture/b" },
+    { ...dependencies, worktreeExists: async () => false },
+  );
+});
+
+test("a refresh is expected to keep the current preview mode of the same worktree", async (t) => {
+  const { dependencies } = await fixture(t);
+  await controlStand(
+    { command: "show", worktree: "/fixture/a", mode: "production" },
+    dependencies,
+  );
+  assert.equal(
+    await expectedMode(
+      { command: "refresh", worktree: "/fixture/a" },
+      dependencies.directory,
+    ),
+    "production",
+  );
+  assert.equal(
+    await expectedMode(
+      { command: "show", worktree: "/fixture/a" },
+      dependencies.directory,
+    ),
+    "snapshot",
+  );
 });

@@ -269,6 +269,22 @@ export function createStandRuntime({
   }
 
   /**
+   * Builds the images an operation on this source needs without touching the stand, so the
+   * operation's own build under the lock reuses the cache.
+   * @param {string} sourceRoot @param {import("./stand-controller.mjs").StandMode} mode
+   */
+  async function prebuild(sourceRoot, mode) {
+    await launch({
+      repositoryRoot: sourceRoot,
+      pnpmPath,
+      productionWeb: mode === "production",
+      buildOnly: true,
+      logToStderr: true,
+      ...(dockerHost ? { dockerHost } : {}),
+    });
+  }
+
+  /**
    * Dump every stand database cluster before an upgrade changes it. Restoring one is a separate
    * owner-directed operation (docs/runbooks/local-stand.md).
    * @param {import("./stand-controller.mjs").StandSnapshot} snapshot
@@ -299,7 +315,7 @@ export function createStandRuntime({
     return target;
   }
 
-  return { inspect, ready, prepare, backup };
+  return { inspect, ready, prepare, backup, prebuild };
 }
 
 /** @param {string[]} args @param {string} path @param {string | undefined} dockerHost */
