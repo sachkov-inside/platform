@@ -148,7 +148,6 @@ export const OpensDialogDesktop: Story = {
     const trigger = within(canvasElement).getByRole("button", {
       name: "Действия с «Анна Смирнова»",
     });
-    // Reopening must restore the same trigger, without a deferred action from the previous cycle.
     for (const _cycle of [1, 2]) {
       await userEvent.click(trigger);
       const body = within(document.body);
