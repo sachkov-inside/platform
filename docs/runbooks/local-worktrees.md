@@ -18,7 +18,8 @@ pnpm worktree:prepare --task <issue>
 
 The project-owned `.worktree-resources.json` contains argv commands, executed without a shell.
 Preparation installs dependencies with the frozen lockfile; it does not start services, migrate or
-seed a database, create `.env`, or copy credentials. Repeating it reconciles the same dependencies.
+seed a database, create `.env`, or copy credentials. The `finish` commands run at the end of the
+task through `session-cleanup`. Repeating it reconciles the same dependencies.
 The installed optional `agent-worktree` host CLI records successful preparation for the task.
 Without that CLI, the same project command runs preparation and explicitly reports that resource
 tracking is unavailable. No sibling checkout or global host CLI is needed to install dependencies.

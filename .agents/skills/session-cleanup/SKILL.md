@@ -1,9 +1,16 @@
 ---
 name: session-cleanup
-description: "Clean up resources owned by the current task or session before handoff, or when the owner requests cleanup."
+description: "Finish a task after its PR merges and clean up resources owned by the current task or session, or when the owner requests cleanup."
 ---
 
-Cleanup is the writing agent's last step. `pnpm session:cleanup` decides ownership by rules, not by
+The task's last step, after its PR merges, is one command from the task worktree:
+
+```sh
+agent-worktree finish --task <task> --apply --remove-worktree
+```
+
+It runs the project steps in `.worktree-resources.json`, including `pnpm session:cleanup --apply`.
+Steps 1 and 2 below come first. `pnpm session:cleanup` decides ownership by rules, not by
 memory: its plan gives an action and a reason for each worktree and for each process or temporary
 entry it acts on. The rules live in the header of [the script](../../../scripts/session-cleanup.mjs);
 a resource they cannot prove disposable is kept and reported.
@@ -20,14 +27,17 @@ Record an owner review server's port, PID, cwd, source and stop/restart instruct
 The script stops a process only when its worktree is removed or its directory no longer exists.
 If the plan stops a server the owner still needs, skip step 3 and name that server in the handoff.
 
-## 3. Apply
+## 3. Finish
 
-Run `pnpm session:cleanup --apply`. It rechecks each worktree before removal and keeps one that
-changed. A non-zero exit lists the failures; record each one in the handoff.
+Run the `agent-worktree finish` command above. Its `pnpm session:cleanup --apply` step rechecks each
+worktree before removal and keeps one that changed. Record each failed step it reports in the
+handoff. Before the PR merges, or when the owner still needs a server, run only
+`pnpm session:cleanup --apply`.
 
 ## 4. Resolve what the rules keep
 
-- The current worktree stays: a later run removes it after its PR merges.
+- `pnpm session:cleanup` keeps the current worktree; `finish --remove-worktree` removes it once
+  merged, clean and unused.
 - Unpublished commits, local changes and ignored local files stay; record the exact remaining action.
 - Stashes stay. Inspect a safety stash this task created against the merged result before dropping it.
 - Containers and volumes follow [the local stand runbook](../../../docs/runbooks/local-stand.md#stop-and-keep-data);
