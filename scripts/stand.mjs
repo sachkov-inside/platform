@@ -214,7 +214,7 @@ async function releaseIfOwnedElsewhere(
       : "No reservation to release";
     process.stdout.write(
       values.json
-        ? `${JSON.stringify({ status: "left", message })}\n`
+        ? `${JSON.stringify({ status: "unchanged", reservation: current?.reservation ?? null, message })}\n`
         : `${message}\n`,
     );
     return true;
@@ -234,7 +234,17 @@ async function releaseIfOwnedElsewhere(
     worktree,
     ...(values.json ? ["--json"] : []),
   ]);
-  execFileSync(executable, args, { stdio: "inherit" });
+  try {
+    execFileSync(executable, args, { stdio: "inherit" });
+  } catch (error) {
+    // The controller already reported its failure; only pass its exit status on.
+    process.exitCode =
+      error instanceof Error &&
+      "status" in error &&
+      typeof error.status === "number"
+        ? error.status
+        : 1;
+  }
   return true;
 }
 

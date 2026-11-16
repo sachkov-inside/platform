@@ -960,3 +960,31 @@ test("release --if-owned under the lock leaves a reservation taken by another wo
   );
   assert.equal(own.reservation, null);
 });
+
+test("a release is reported as done when Docker is unavailable afterwards", async (t) => {
+  const { dependencies } = await fixture(t);
+  await controlStand({ command: "show", worktree: "/fixture/a" }, dependencies);
+  const result = await controlStand(
+    { command: "release", worktree: "/fixture/a" },
+    {
+      ...dependencies,
+      inspect: async () => {
+        throw new Error("Docker is not running");
+      },
+    },
+  );
+  assert.equal(result.status, "unknown");
+  assert.equal(result.reservation, null);
+  await assert.rejects(
+    controlStand(
+      { command: "status", worktree: "/fixture/a" },
+      {
+        ...dependencies,
+        inspect: async () => {
+          throw new Error("Docker is not running");
+        },
+      },
+    ),
+    /Docker is not running/u,
+  );
+});

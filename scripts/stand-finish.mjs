@@ -41,6 +41,32 @@ export async function finishStand({ steps, run, report }) {
   }
 }
 
+/**
+ * Runs one pnpm step as an owned process tree and stops the whole tree at the time limit.
+ * @param {{ pnpmPath: string; cwd: string; args: string[]; limitMilliseconds: number }} options
+ * @returns {Promise<number | null>} exit status; null after a signal
+ */
+export async function runStep({ pnpmPath, cwd, args, limitMilliseconds }) {
+  const child = spawnOwned(...pnpmInvocation(pnpmPath, args), {
+    cwd,
+    stdio: ["ignore", "inherit", "inherit"],
+  });
+  /** @type {NodeJS.Timeout | undefined} */
+  let timer;
+  /** @type {Promise<never>} */
+  const limit = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error("time limit reached"));
+    }, limitMilliseconds);
+  });
+  try {
+    return await Promise.race([commandExit(child), limit]);
+  } finally {
+    clearTimeout(timer);
+    await stopOwned(child);
+  }
+}
+
 if (
   process.argv[1] !== undefined &&
   realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
@@ -51,26 +77,13 @@ if (
   const worktree = process.env["INIT_CWD"] ?? process.cwd();
   await finishStand({
     steps: standFinishSteps,
-    run: async (args) => {
-      const child = spawnOwned(...pnpmInvocation(pnpmPath, args), {
+    run: (args) =>
+      runStep({
+        pnpmPath,
         cwd: worktree,
-        stdio: ["ignore", "inherit", "inherit"],
-      });
-      /** @type {NodeJS.Timeout | undefined} */
-      let timer;
-      /** @type {Promise<never>} */
-      const limit = new Promise((_, reject) => {
-        timer = setTimeout(() => {
-          reject(new Error("time limit reached"));
-        }, stepTimeLimitMilliseconds);
-      });
-      try {
-        return await Promise.race([commandExit(child), limit]);
-      } finally {
-        clearTimeout(timer);
-        await stopOwned(child);
-      }
-    },
+        args,
+        limitMilliseconds: stepTimeLimitMilliseconds,
+      }),
     report: (message) => process.stderr.write(`Stand finish: ${message}\n`),
   });
 }

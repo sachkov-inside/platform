@@ -119,7 +119,8 @@ export async function controlStand(request, dependencies) {
         previous.reservation = null;
         await writeState(dependencies.directory, previous);
       }
-      return status(dependencies, releasedStale);
+      // The release is written; an unavailable Docker only hides the stand's state.
+      return status(dependencies, releasedStale, { runtimeOptional: true });
     }
     const source = sourceSchema.parse(
       await dependencies.source(request.worktree),
@@ -611,12 +612,20 @@ function controlledRuntime(state, actual) {
  * @param {StandDependencies} dependencies
  * @param {{ id: string; worktree: string }} [releasedStale] the reservation this operation released
  *   because its worktree no longer exists
+ * @param {{ runtimeOptional?: boolean }} [options] report `unknown` instead of failing when the
+ *   runtime cannot be inspected
  */
-async function status(dependencies, releasedStale) {
+async function status(dependencies, releasedStale, options = {}) {
   const state = await readState(dependencies.directory);
-  const snapshot = await dependencies.inspect();
-  let availability = "stopped";
-  if (snapshot.containers.length > 0) {
+  /** @type {StandSnapshot | undefined} */
+  let snapshot;
+  try {
+    snapshot = await dependencies.inspect();
+  } catch (error) {
+    if (!options.runtimeOptional) throw error;
+  }
+  let availability = snapshot === undefined ? "unknown" : "stopped";
+  if (snapshot && snapshot.containers.length > 0) {
     if (!state || !controlledRuntime(state, snapshot))
       availability = "unmanaged";
     else if (state.phase !== "ready") availability = "recovery";
