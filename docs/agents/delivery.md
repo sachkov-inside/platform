@@ -30,7 +30,7 @@ After the first push, integrate `origin/main` by merge, not by rebase or force-p
 ## Blockers
 
 A defect outside the task that blocks it gets a linked Issue labelled `ready-for-agent`; reuse an
-open one. Fix the blocker first. The fix is its own change and gets its own
+open one. Fix the blocker first, in its own PR with its own
 [owner-attention status](ship.md#owner-attention).
 Work waiting for the owner stays open with the specific decision recorded, asked under
 [Ask the owner](human-review.md#ask-the-owner). When the blocking step

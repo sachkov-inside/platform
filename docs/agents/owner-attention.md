@@ -44,7 +44,7 @@ With nothing above, these give «Внимание не требуется».
 
 No status permits these.
 
-- A deployment to production.
+- A deployment to production or a write on the production server.
 - A release, a payment, credentials.
 
 ## Cases from history
