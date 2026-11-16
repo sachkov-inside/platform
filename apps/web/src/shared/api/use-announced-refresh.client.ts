@@ -4,9 +4,9 @@ import { useEffect, useEffectEvent } from "react";
 import type { FactAnnouncement } from "./fact-announcement";
 import { refreshAnnouncedQueries } from "./announced-query-refresh";
 
-/** Keeps queries fresh after an announced write, sharing one read across the document. */
+/** Keeps queries fresh after an announced change, sharing one read across the document. */
 export function useAnnouncedRefresh(
-  announcement: FactAnnouncement | null,
+  announcement: Pick<FactAnnouncement, "subscribe"> | null,
   queryKey: QueryKey,
 ): void {
   const cache = useQueryClient();

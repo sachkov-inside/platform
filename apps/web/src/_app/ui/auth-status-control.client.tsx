@@ -1,7 +1,9 @@
 "use client";
 
 import { z } from "zod";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
+import { browserReturns } from "@/shared/lib/browser-returns.client";
 
 import type { AuthControlState } from "@/widgets/auth-control";
 
@@ -39,57 +41,30 @@ const unavailableStatus: AuthStatusSnapshot = {
  * ответ на запрос, ушедший до выхода в другой вкладке, не держит эту вкладку во входе (#742).
  */
 export function useAuthStatus(): AuthStatusSnapshot {
-  const [status, setStatus] = useState<AuthStatusSnapshot>(initialStatus);
-
-  useEffect(() => {
-    let active = true;
-    let generation = 0;
-    const refresh = () => {
-      const current = ++generation;
-      void loadAuthStatus().then((authoritativeStatus) => {
-        if (!active || generation !== current) return;
-        setStatus((previous) =>
-          sameAuthStatus(previous, authoritativeStatus)
-            ? previous
-            : authoritativeStatus,
-        );
-      });
-    };
-    // Первый `pageshow` приходит вместе с загрузкой, которую уже проверяет монтирование; повторять
-    // проверку нужно, только когда страница вернулась из кеша истории.
-    const refreshRestoredPage = (event: PageTransitionEvent) => {
-      if (event.persisted) refresh();
-    };
-    refresh();
-    window.addEventListener("focus", refresh);
-    window.addEventListener("pageshow", refreshRestoredPage);
-    return () => {
-      active = false;
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("pageshow", refreshRestoredPage);
-    };
-  }, []);
-
-  return status;
+  const queryKey = ["auth-status"] as const;
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => loadAuthStatus(signal),
+    retry: false,
+    // Waiting for reconnect would retain the previous Account snapshot offline (#2274).
+    networkMode: "always",
+    staleTime: Infinity,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  useAnnouncedRefresh(browserReturns, queryKey);
+  // The browser QueryClient outlives a shell mount (#2274).
+  return query.isFetchedAfterMount
+    ? (query.data ?? unavailableStatus)
+    : initialStatus;
 }
 
-/** Снимки равны, когда совпадает каждое их поле: новое поле снимка сравнивается само. */
-function sameAuthStatus(
-  left: AuthStatusSnapshot,
-  right: AuthStatusSnapshot,
-): boolean {
-  const rightFields: ReadonlyMap<string, unknown> = new Map(
-    Object.entries(right),
-  );
-  return Object.entries(left).every(
-    ([key, value]) => rightFields.get(key) === value,
-  );
-}
-
-function loadAuthStatus(): Promise<AuthStatusSnapshot> {
+function loadAuthStatus(signal: AbortSignal): Promise<AuthStatusSnapshot> {
   return fetch("/auth/status", {
     cache: "no-store",
     credentials: "same-origin",
+    signal,
   })
     .then(async (response) => {
       if (!response.ok) {
