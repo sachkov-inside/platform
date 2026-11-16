@@ -204,3 +204,25 @@ test.each(propertySeeds())(
     );
   },
 );
+
+test("PAY_CHECKING before any refusal or confirmation never grants ProductAccess", async () => {
+  await withWorld(async (world) => {
+    const s = await world.scenario();
+    const purchase = value(await s.payments.purchase(s.buyer, s.command));
+    s.setStatus("PAY_CHECKING");
+    value(await s.notify("PAY_CHECKING"));
+    value(await s.payments.reconcile(purchase.purchaseRef));
+    value(await s.payments.recover());
+    expect(
+      await s.grants.readProductAccess(world.owner, {
+        accountId: s.buyer,
+        productId: s.productId,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(
+      value(await s.payments.status(s.buyer, purchase.purchaseRef)),
+    ).toMatchObject({ state: "unknown", access: "awaiting_payment" });
+    expect(value(await s.payments.history(s.buyer))).toHaveLength(1);
+    expect(s.initCalls()).toBe(1);
+  });
+});

@@ -507,6 +507,15 @@ Payment failures report the original trace and a greedy reduced trace (at most 3
 replays). The bounds are sampling evidence, not an exhaustive proof; the reducer's negative
 fixture is `test/unit/bounded-sequences.test.ts`. Bank failures stay inside the owned bank double.
 
+`pnpm pilot:payment-mutations` is an opt-in five-variant experiment on the payment capture
+predicate (#2251), never a repository-wide CI gate. It tests an archived HEAD in a disposable
+copy with offline dependencies and real isolated PostgreSQL; commit the source to test first.
+The successful seven-case baseline, expected assertion failures, equivalent survivor and uncovered
+refund survivor are described in [the pilot report](../research/2026-11-16-payment-mutation-pilot.md).
+Logs and JSON remain under `.reports/2251/mutations` by default; an optional first argument changes
+the report directory. A missing cached dependency or changed predicate stops the pilot.
+
+
 
 Integration tests are split into two Vitest projects in `apps/backend/vitest.integration.config.mts`.
 `integration` runs files in parallel against one PostgreSQL container shared by both projects; `createMigratedTestDatabase`
