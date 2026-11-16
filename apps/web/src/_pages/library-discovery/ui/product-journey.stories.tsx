@@ -2495,3 +2495,44 @@ export const SharedProgrammeKeepsSelectionMobile: Story = {
   ...SharedProgrammeKeepsSelection,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+
+export const AnnouncedPartCounts: Story = {
+  args: {
+    learning: { kind: "guest" },
+    result: {
+      ...result,
+      items: materials.slice(0, 4),
+      chapters: [
+        {
+          id: "counted-programme",
+          name: "Три урока программы",
+          summary: "",
+          materialIds: [
+            "series-material-1",
+            "series-material-2",
+            "series-material-3",
+          ],
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const announcement = () =>
+      canvasElement.querySelector('p[aria-live="polite"]');
+    await expect(announcement()).toHaveTextContent("Программа: 3 материала");
+    await expect(
+      canvasElement.querySelectorAll("[data-route-material]"),
+    ).toHaveLength(3);
+    await openPart(canvasElement, /^Материалы/u);
+    const catalog = canvas.getByRole("region", { name: "Материалы курса" });
+    await expect(within(catalog).getAllByRole("listitem")).toHaveLength(4);
+    await expect(announcement()).toHaveTextContent("Материалы: 4 материала");
+    await openPart(canvasElement, /^Программа/u);
+    await expect(announcement()).toHaveTextContent("Программа: 3 материала");
+  },
+};
+export const AnnouncedPartCountsMobile: Story = {
+  ...AnnouncedPartCounts,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};

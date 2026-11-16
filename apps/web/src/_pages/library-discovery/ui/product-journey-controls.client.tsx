@@ -371,7 +371,9 @@ export function ProductJourneyControls({
             ? part.incomplete
               ? "Не завершён"
               : "Завершён"
-            : formatMaterialCount(visible.length)}
+            : formatMaterialCount(
+                part?.kind === "catalog" ? part.entries.length : visible.length,
+              )}
         </p>
       ) : null}
       <div
