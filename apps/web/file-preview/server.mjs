@@ -8,6 +8,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { createServer } from "vite";
+import { z } from "zod";
 import {
   openPreview,
   previewAsset,
@@ -203,22 +204,27 @@ function previewApi(source) {
   };
 }
 
+const stateRequestSchema = z.object({ materialIds: z.array(z.string()) });
+
 /**
  * The Material IDs a state request names; anything else names none.
  * @param {import("node:http").IncomingMessage} request
  * @returns {Promise<string[]>}
  */
 async function readMaterialIds(request) {
-  /** @type {Buffer[]} */
+  /** @type {Uint8Array[]} */
   const chunks = [];
-  for await (const chunk of request) chunks.push(Buffer.from(chunk));
+  for await (const chunk of request)
+    chunks.push(
+      typeof chunk === "string"
+        ? Buffer.from(chunk)
+        : z.instanceof(Uint8Array).parse(chunk),
+    );
   try {
-    const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    return Array.isArray(body?.materialIds)
-      ? body.materialIds.flatMap((/** @type {unknown} */ id) =>
-          typeof id === "string" ? [id] : [],
-        )
-      : [];
+    const body = stateRequestSchema.safeParse(
+      JSON.parse(Buffer.concat(chunks).toString("utf8")),
+    );
+    return body.success ? body.data.materialIds : [];
   } catch {
     return [];
   }
