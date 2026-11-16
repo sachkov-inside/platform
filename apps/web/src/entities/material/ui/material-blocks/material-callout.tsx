@@ -14,8 +14,6 @@ const codeBlockFill =
 /**
  * Врезка урока. Вид виден словом, значком и цветом подписи на общей песочной подложке без рамки
  * (вариант 1A); цвет берётся из токена вида, а не из собственной палитры блока.
- * Temporary semantic UI for #1196.
- * Replace through #1278 after Storybook acceptance.
  */
 export function MaterialCallout({
   children,

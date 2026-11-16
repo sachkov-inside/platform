@@ -117,6 +117,11 @@ and [Series composition contract](../../docs/specifications/platform-v1.md#serie
 Production modules and their stories own the executable presentation. Token values live in
 [`app/globals.css`](app/globals.css); this document does not override them.
 
+Current acceptance follows the [frontend delivery contract](../../docs/agents/frontend-delivery.md#delivery-contract).
+The historical acceptance notes below preserve the evidence this file recorded under the retired
+separate production visual GO process. They are history, not additional pending gates. They do
+not assert approval of later revisions or global adoption of candidate patterns.
+
 ## Overview
 
 **Creative North Star: "Soft Technical Workshop"**
@@ -203,7 +208,8 @@ from `64rem`. Below that breakpoint a top row names the section and opens search
 appear as tabs under it, and a fixed bottom panel holds «Обзор», «Люди», «Продажи», «Сдачи» and
 «Ещё»; «Ещё» opens a sheet with the remaining sections and the site links. This authoring shell is
 a scoped replacement for the previous admin navigation, not a replacement for public/member
-navigation. Owner production visual GO for the #1717 shell is pending.
+navigation. The historical note here did not record the former separate production visual GO
+for the #1717 shell.
 
 **The Mobile Semantic Order Rule.** Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.
 
@@ -245,8 +251,9 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 
 ### Admin Workspace and Task Navigation
 
-- **Status:** prepared production implementation for issue #1617, following owner-selected A.
-  The three finish corrections are resolved; final owner production visual GO is pending.
+- **Status:** production-owned implementation from issue #1617, following owner-selected A.
+  The three finish corrections are resolved. The historical note here did not record the former
+  separate production visual GO.
 - **World:** warm background/card tokens, graphite text and primary buttons, and restrained orange
   for task selection and focus. The light sidebar inherits `background`, not the dark `sidebar`
   token. No new palette or type family is introduced.
@@ -337,7 +344,7 @@ reading controls keep their own targets and remain above the stretched link.
 ### First Sign-in, Payment Acceptance and Storage Notice
 
 - **Status:** production-owned from issue #658, following the accepted prototype of option A
-  (Workspace #185); owner production visual GO is not yet recorded.
+  (Workspace #185). The former separate production visual GO was not recorded here.
 - **Composition:** `/welcome` — узкая колонка: надпись «Аккаунт создан» (или «Условия
   обновились»), заголовок, одна карточка с кнопкой «Принять условия и продолжить» во всю ширину и
   строкой о принятии под ней. Оплата и возобновление ставят такую же строку прямо под кнопкой.
@@ -349,7 +356,8 @@ reading controls keep their own targets and remain above the stretched link.
 
 ### Account Cabinet Sections
 
-- **Status:** production-owned navigation from issue #494; owner visual GO is not yet recorded.
+- **Status:** production-owned navigation from issue #494. The former separate production visual GO
+  was not recorded here.
 - **Composition:** `/account` разделён на разделы «Профиль», «Аккаунт», «Покупки», «Подписка» и
   «Уведомления». Один и тот же список разделов живёт внутри принятой платформенной оболочки: на
   десктопе — постоянная боковая колонка слева от содержания, на телефоне — раскрывающийся список
@@ -361,7 +369,8 @@ reading controls keep their own targets and remain above the stretched link.
 
 ### Lesson Blocks
 
-- **Status:** production-owned from issue #505; owner visual GO is not yet recorded.
+- **Status:** production-owned from issue #505. The former separate production visual GO was not
+  recorded here.
 - **Composition:** урок собирается из типизированных блоков: врезка с видом и необязательным
   названием, карточка внешнего ресурса, готовый промпт, итоги урока, список терминов и выделенная
   ключевая мысль. Вид блока задаёт платформа: у автора нет собственной вёрстки.
@@ -371,14 +380,14 @@ reading controls keep their own targets and remain above the stretched link.
 - **Surfaces:** читательский маршрут, предпросмотр авторинга и редактор используют одни и те же
   компоненты внешнего вида; редактор повторяет их токенами в своей таблице стилей.
 
-**The Self-Refreshing Data Rule.** Поверхности платформы перечитывают состояние сами: возврат во
-вкладку, восстановление сети и незавершённая банковская операция обновляют данные без действий
-человека. Кнопки «Обновить данные» на продуктовых поверхностях нет; остаётся только честный текст
-о недоступности. Правило владеет `shared/api/self-refreshing-query`.
+Freshness, refresh-on-return and pending-operation polling follow [ADR 0027](../../docs/adr/0027-web-navigation-and-caching.md)
+and the [Web server-state standard](CODING_STANDARDS.md#server-state-and-mutations). They are not
+a visual-system rule; ordinary query freshness and explicitly self-refreshing reads have different policies.
 
 ### Shell Reminders
 
-- **Status:** production-owned from issue #494; owner visual GO is not yet recorded.
+- **Status:** production-owned from issue #494. The former separate production visual GO was not
+  recorded here.
 - **Composition:** пока Telegram не подключён, в шапке рядом с «Аккаунтом» висит тихий значок с
   оранжевой точкой, а на телефоне точка появляется на пункте «Профиль» нижней навигации.
 - **Behaviour:** значок открывает принятое окно подключения поверх текущей страницы и не уводит
@@ -387,7 +396,8 @@ reading controls keep their own targets and remain above the stretched link.
 
 ### Subscription, Checkout and Billing Cabinet
 
-- **Status:** production-owned modules from issue #411; owner visual GO is not yet recorded.
+- **Status:** production-owned modules from issue #411. The former separate production visual GO
+  was not recorded here.
 - **Composition:** витрина показывает тарифы одинаковыми bounded cards на тёплом canvas и
   сохраняет мобильный порядок «тариф → оформление → email»; кабинет и владельческая страница
   используют те же карточные поверхности и тонкие разделители без второго визуального диалекта.
@@ -402,7 +412,9 @@ reading controls keep their own targets and remain above the stretched link.
 ### Task Submissions
 
 - **Status:** production-модуль из #1351 (`6ba65ff2`) переносит принятую композицию A из proof `7c70aa84`.
-  Свежее визуальное ревью дало `ship`; owner production visual GO ещё не получен.
+  Историческое визуальное ревью дало `ship`. Production visual GO записан для
+  [PR #1353](https://github.com/sachkov-inside/platform/pull/1353), merge `91c6b4924c1accf10946dd9875a20412a1f106e8`;
+  эта запись не утверждает приёмку последующих изменений.
 - **Composition:** обычный список сдач, новые сверху; каждая сдача открывает отдельную страницу
   по адресу `/authoring/submissions?submission=<id>`. Возврат сохраняет фильтры и страницу списка.
 - **State:** страница показывает текущее имя ученика и доступную ссылку Telegram, короткий итог
@@ -419,11 +431,14 @@ reading controls keep their own targets and remain above the stretched link.
 
 ### Candidate Authoring Workbench
 
-- **Status:** candidate pattern from issue #38; finish verdict is `ship`, but global adoption awaits owner visual/interaction GO.
+- **Status:** candidate pattern from issue #38; the proof finish verdict is `ship`. Global
+  adoption remains unapproved.
 - **Composition:** sticky author header and metadata → document semantic order; desktop may render the order as two bounded columns.
 - **State:** save and publication facts remain literal; Preview never exposes `contentVersion`, adds unowned transport/security claims or implies publication.
 
-**The Owner Gate Candidate Rule.** Treat the issue #38 authoring layout as reusable evidence to review, not as an approved global mandate, until owner visual/interaction GO is recorded. The version rail is explicitly rejected.
+**The Candidate Direction Rule.** The issue #38 authoring layout is reusable evidence, not an
+approved global mandate. Global adoption needs an owner choice under the
+[prototype contract](../../docs/agents/frontend-delivery.md#prototypes). The version rail is explicitly rejected.
 
 ## Do's and Don'ts
 
@@ -445,6 +460,6 @@ reading controls keep their own targets and remain above the stretched link.
 - **Don't** use JetBrains Mono for long-form prose or ornamental headings.
 - **Don't** explain how a catalog query, pagination boundary or derived relationship works inside ordinary page copy.
 - **Don't** add headings, captions or sentences that restate what the component already shows or narrate a state it can show visually. On every surface, explanatory copy stays only to help a decision or recovery from an empty, unavailable or invalid state (as in [Discovery Copy](#discovery-copy)), and for required legal or commercial terms.
-- **Don't** promote the issue #38 authoring columns to a global pattern before owner visual/interaction GO.
+- **Don't** promote the issue #38 authoring columns to a global pattern without an owner choice.
 - **Don't** expose `contentVersion` or labels such as `v1`, `v2`, `v3` in product UI.
 - **Don't** imply that Preview is published; name the actual publication state.

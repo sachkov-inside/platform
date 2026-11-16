@@ -1860,3 +1860,55 @@ export const InlineVideoInsert: Story = {
     await expect(canvas.getAllByLabelText("Описание видео")).toHaveLength(1);
   },
 };
+
+export const InlineVideoInvalidTime: Story = {
+  args: { initialPresentation: inlineVideoPresentation },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByLabelText("Описание видео");
+    const message = "Укажите названия и время по возрастанию, без повторов.";
+    await expect(canvas.queryByText(message)).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Добавить таймкод" }),
+    );
+    const start = canvas.getByLabelText("Начало главы 2, секунды");
+    await userEvent.clear(start);
+    await expect(await canvas.findByText(message)).toBeVisible();
+    await userEvent.type(start, "60");
+    await waitFor(() =>
+      expect(canvas.queryByText(message)).not.toBeInTheDocument(),
+    );
+  },
+};
+
+export const InlineVideoInvalidTimeMobile: Story = {
+  ...InlineVideoInvalidTime,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+export const InlineVideoReadOnly: Story = {
+  args: {
+    initialPresentation: {
+      ...inlineVideoPresentation,
+      draft: { ...inlineVideoPresentation.draft, readOnly: true },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByLabelText("Описание видео")).toBeDisabled();
+    await expect(
+      canvas.getByLabelText("Начало главы 1, секунды"),
+    ).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", { name: "Добавить таймкод" }),
+    ).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", { name: "Убрать блок видео" }),
+    ).toBeDisabled();
+  },
+};
+
+export const InlineVideoReadOnlyMobile: Story = {
+  ...InlineVideoReadOnly,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};

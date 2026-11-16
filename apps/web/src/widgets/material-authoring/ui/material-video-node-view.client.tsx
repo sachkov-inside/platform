@@ -13,10 +13,6 @@ import { Button } from "@/shared/ui/button";
 const fieldClass =
   "w-full min-w-0 rounded-lg border border-input bg-background min-h-11 px-3 py-2 text-base sm:text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-/**
- * Temporary semantic UI for #1741.
- * Replace through #1744 after Storybook acceptance.
- */
 export function MaterialVideoNodeView({
   node,
   editor,
