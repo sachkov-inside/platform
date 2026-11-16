@@ -176,7 +176,8 @@ function clickTargetAtCentre(target: HTMLElement): Element | null {
 /**
  * Невысокое окно ноутбука, 1280×577 (#2223). Шапка материала и панель редактора закреплены у
  * верхнего края одной и той же прокрутки. Раньше панель ложилась поверх шапки, и клик по центру
- * «Опубликовать» попадал в «На весь экран». Теперь панель встаёт под шапку при любой прокрутке.
+ * «Опубликовать» попадал в «На весь экран». Теперь панель встаёт под шапку. История проходит
+ * прокрутку шагом 8 px, включая крайнее нижнее положение.
  */
 export const ShortWindowHeader: Story = {
   globals: { viewport: { isRotated: false, value: "laptop1280x577" } },
@@ -200,17 +201,29 @@ export const ShortWindowHeader: Story = {
     const fullscreen = page.getByRole("button", { name: "На весь экран" });
     const editorWindow = page.getByRole("dialog", { name: "Редактор статьи" });
 
-    // Каждое положение прокрутки: клик по центру «Опубликовать» попадает в саму кнопку.
-    const covered: number[] = [];
+    const heading = page.getByRole("heading", { level: 1 });
+    const status = within(header).getByRole("status");
+
+    // Прокрутка шагом 8 px и крайнее нижнее положение: центр «Опубликовать», заголовка и статуса
+    // материала принадлежит им самим, а не панели редактора.
+    const covered: string[] = [];
     const lastScrollTop = scroller.scrollHeight - scroller.clientHeight;
-    for (let top = 0; top <= lastScrollTop; top += 8) {
+    const scrollTops = [lastScrollTop];
+    for (let top = 0; top < lastScrollTop; top += 8) scrollTops.push(top);
+    for (const top of scrollTops) {
       scroller.scrollTo({ behavior: "instant", top });
-      if (!publish.contains(clickTargetAtCentre(publish))) covered.push(top);
+      for (const [name, element] of [
+        ["«Опубликовать»", publish],
+        ["заголовок", heading],
+        ["статус", status],
+      ] as const) {
+        if (!element.contains(clickTargetAtCentre(element)))
+          covered.push(`${name} при прокрутке ${String(top)}`);
+      }
     }
-    await expect(
-      covered,
-      "«Опубликовать» закрыта другим элементом при этих положениях прокрутки",
-    ).toEqual([]);
+    await expect(covered, "Шапка материала закрыта другим элементом").toEqual(
+      [],
+    );
 
     // Верх редактора ушёл на 100 px под шапку: панель редактора стоит сразу под ней.
     scroller.scrollTo({ behavior: "instant", top: 0 });

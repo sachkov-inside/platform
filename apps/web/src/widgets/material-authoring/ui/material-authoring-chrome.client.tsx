@@ -19,6 +19,13 @@ import {
 
 const defaultBackLabel = authoringReturnActionLabel(authoringMaterialsRootHref);
 
+/**
+ * Высота закреплённой шапки материала на `main` редактора. Панель редактора читает её в классе
+ * `top-(--material-authoring-header-height,0px)` в `material-document-editor.client.tsx`:
+ * Tailwind собирает классы из литералов, поэтому имя там записано целиком.
+ */
+const headerHeightVariable = "--material-authoring-header-height";
+
 interface MaterialAuthoringChromeProps {
   readonly actions: MaterialAuthoringActions;
   readonly presentation: MaterialAuthoringPresentation;
@@ -37,18 +44,18 @@ export function MaterialAuthoringHeader({
     const element = header.current;
     const scroller = element?.closest<HTMLElement>("[data-material-authoring]");
     if (element === null || scroller === null || scroller === undefined) return;
-    const publish = () => {
+    const syncHeaderHeight = () => {
       scroller.style.setProperty(
-        "--material-authoring-header-height",
+        headerHeightVariable,
         `${String(element.offsetHeight)}px`,
       );
     };
-    publish();
-    const observer = new ResizeObserver(publish);
+    syncHeaderHeight();
+    const observer = new ResizeObserver(syncHeaderHeight);
     observer.observe(element);
     return () => {
       observer.disconnect();
-      scroller.style.removeProperty("--material-authoring-header-height");
+      scroller.style.removeProperty(headerHeightVariable);
     };
   }, []);
   return (
