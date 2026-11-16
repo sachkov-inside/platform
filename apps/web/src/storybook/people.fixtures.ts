@@ -1,3 +1,5 @@
+import { peopleScenario } from "../../../../scenarios/people.mjs";
+import { scenarioRoles } from "../../../../scenarios/roles.mjs";
 import type {
   PersonCard,
   PersonCardState,
@@ -22,23 +24,23 @@ const commandSchema = z.object({ productId: z.string() }).loose();
 export const storyProducts = [
   {
     productId: "96000000-0000-4000-8000-000000000301",
-    name: "AI Engineering: агенты в работе",
-    archived: false,
+    name: peopleScenario.products[0].longName,
+    archived: peopleScenario.products[0].archived,
   },
   {
     productId: "96000000-0000-4000-8000-000000000302",
-    name: "Архитектура приложения и проектирование распределённых систем",
-    archived: false,
+    name: peopleScenario.products[1].longName,
+    archived: peopleScenario.products[1].archived,
   },
   {
     productId: "96000000-0000-4000-8000-000000000303",
-    name: "Инженерная практика",
-    archived: false,
+    name: peopleScenario.products[2].longName,
+    archived: peopleScenario.products[2].archived,
   },
   {
     productId: "96000000-0000-4000-8000-000000000304",
-    name: "Агенты для команды (поток 2025)",
-    archived: true,
+    name: peopleScenario.products[3].longName,
+    archived: peopleScenario.products[3].archived,
   },
 ] as const satisfies readonly AccessProduct[];
 
@@ -47,13 +49,10 @@ const [ai, architecture, practice] = storyProducts;
 export const storyAnnaId = "96000000-0000-4000-8000-000000000401";
 
 const names = [
-  "Анна Петрова",
-  "Константин Константинопольский-Задунайский",
-  "Мария Соколова",
-  "Дмитрий Иванов",
-  "Елена Кузнецова",
-  "Алексей Смирнов",
-] as const;
+  peopleScenario.anna.displayName,
+  peopleScenario.konstantin.displayName,
+  ...peopleScenario.directoryNames.slice(0, 4),
+];
 
 function accountId(index: number): string {
   return `96000000-0000-4000-8000-${String(index + 401).padStart(12, "0")}`;
@@ -61,9 +60,9 @@ function accountId(index: number): string {
 
 export const annaRow: PersonRow = {
   accountId: storyAnnaId,
-  displayName: "Анна Петрова",
-  username: "anna_petrova",
-  email: "anna.petrova@example.test",
+  displayName: peopleScenario.anna.displayName,
+  username: peopleScenario.anna.username,
+  email: peopleScenario.anna.email,
   contactsState: "complete",
   telegram: "linked",
   registeredAt: "2026-09-02T08:00:00.000Z",
@@ -89,7 +88,7 @@ export const noTelegramRow: PersonRow = {
   accountId: accountId(1),
   displayName: null,
   username: null,
-  email: "konstantin.zadunaisky.long.address@example.test",
+  email: peopleScenario.konstantin.email,
   contactsState: "complete",
   telegram: "not_linked",
   registeredAt: "2026-08-14T10:00:00.000Z",
@@ -179,19 +178,19 @@ export function peopleState(
 const owner = {
   kind: "person" as const,
   accountId: "96000000-0000-4000-8000-0000000004ff",
-  label: "Кирилл Сачков",
+  label: scenarioRoles.owner.name,
 };
 
 /** Карточка Анны: все блоки ответили, один продукт открыт, другой отозван. */
 export const annaCard: PersonCard = {
   person: {
     accountId: storyAnnaId,
-    displayName: "Анна Петрова",
-    username: "anna_petrova",
-    email: "anna.petrova@example.test",
+    displayName: peopleScenario.anna.displayName,
+    username: peopleScenario.anna.username,
+    email: peopleScenario.anna.email,
     contactsState: "complete",
     registeredAt: "2026-09-02T08:00:00.000Z",
-    telegramUrl: "https://t.me/anna_petrova",
+    telegramUrl: `https://t.me/${peopleScenario.anna.username}`,
   },
   products: {
     state: "ready",
@@ -333,10 +332,10 @@ export const unavailableBlocksCard: PersonCard = {
   ...annaCard,
   person: {
     ...annaCard.person,
-    displayName: "Константин Константинопольский-Задунайский",
+    displayName: peopleScenario.konstantin.displayName,
     username: null,
     telegramUrl: null,
-    email: "konstantin.zadunaisky.long.address@example.test",
+    email: peopleScenario.konstantin.email,
   },
   payments: { state: "unavailable" },
   learning: { state: "unavailable" },
@@ -351,7 +350,7 @@ export const newcomerCard: PersonCard = {
     accountId: accountId(3),
     displayName: null,
     username: null,
-    email: "buyer.only@example.test",
+    email: peopleScenario.newcomer.email,
     contactsState: "partial",
     registeredAt: "2026-10-25T08:00:00.000Z",
     telegramUrl: null,

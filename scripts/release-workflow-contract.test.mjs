@@ -214,8 +214,8 @@ describe("ordinal release workflow contract", () => {
       () =>
         assertReleasePermissions(
           releaseWorkflow.replace(
-            "    permissions:\n      contents: read\n    uses: ./.github/workflows/ci.yml",
-            "    permissions:\n      contents: read\n      pull-requests: read\n      issues: read\n    uses: ./.github/workflows/ci.yml",
+            "    permissions:\n      contents: read\n      actions: read\n    uses: ./.github/workflows/ci.yml",
+            "    permissions:\n      contents: read\n      actions: read\n      pull-requests: read\n      issues: read\n    uses: ./.github/workflows/ci.yml",
           ),
           releasePermissions,
         ),
@@ -275,7 +275,7 @@ function jobPermissions(workflow, job) {
 /** @type {PermissionPolicy} */
 const releasePermissions = {
   plan: { contents: "read", actions: "read" },
-  ci: { contents: "read" },
+  ci: { contents: "read", actions: "read" },
   "build-images": { contents: "read", packages: "write" },
   finalize: { actions: "read", contents: "write" },
 };
@@ -283,7 +283,7 @@ const releasePermissions = {
 /** @type {PermissionPolicy} */
 const telegramReleasePermissions = {
   plan: { contents: "read", actions: "read" },
-  ci: { contents: "read" },
+  ci: { contents: "read", actions: "read" },
   image: { contents: "read", packages: "write" },
   publish: { contents: "write", actions: "read" },
 };
