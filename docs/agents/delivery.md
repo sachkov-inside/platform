@@ -1,7 +1,7 @@
 # Delivery
 
 Rules for branches, worktrees, pull requests, blockers and handoff. `ship` owns merge and the
-decision whether the owner is needed ([ship](ship.md)); [human participation](human-review.md) owns the
+owner-attention status ([ship](ship.md)); [human participation](human-review.md) owns the
 rules of owner participation and evidence.
 
 ## Branches and worktrees

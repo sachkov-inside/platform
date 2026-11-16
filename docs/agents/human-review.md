@@ -21,15 +21,17 @@ When preparing a specification or a task, record with the owner:
 
 A task with no key scenario says "nothing to show". Tickets inherit the specification's scenarios
 and decisions and add their own. Work without a ticket records them beside its acceptance criteria.
-Raise a newly discovered check when its decision is needed. An agreed check stays until the owner
+When the task touches the "always show" list of [owner attention](owner-attention.md), the
+specification's author proposes those as key scenarios. Raise a newly discovered check when its
+decision is needed. An agreed check stays until the owner
 resolves it; an agent cannot waive it.
 
 ## Consequence triggers
 
 Judge what the change does. Its size and the paths it touches decide nothing: a comment in a
-payment module triggers nothing, and a small change elsewhere can change who sees data. A trigger
-means two things: the change gets the checks below, and the owner inspects or decides the named
-result from evidence.
+payment module triggers nothing, and a small change elsewhere can change who sees data. A
+consequence brings the checks below; [owner attention](owner-attention.md) owns whether the owner
+is called.
 
 | Consequence | Checks when behaviour changes |
 |---|---|
@@ -47,10 +49,10 @@ Assign a security review also for external input handling, secrets, or uncertain
 relevance. Missing or conflicting expectations, insufficient evidence and a scenario only a human
 can reach are triggers too.
 
-Two readers apply the triggers. The implementer applies them in `ship`. The independent Spec
-reviewer applies them separately to the requirements, the agreed key scenarios, the complete
-delivered diff and the current evidence, and reports missed triggers, an unsupported "nothing to
-show" and stale evidence. A trigger either of them finds counts.
+The independent Spec reviewer compares the requirements, the agreed key scenarios, the complete
+delivered diff and the current evidence. Its report carries notes on what may concern the owner: a
+missed consequence, an unsupported "nothing to show", stale evidence. The classifier that
+[ship](ship.md#owner-attention) runs reads those notes.
 
 ## Verification
 
@@ -71,25 +73,37 @@ and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
   follow-up given the verdict and the diff, before `pr`. In the same pass it looks through the
   artifacts for data that is not the stand's test data.
 - **`FAIL`** returns the work to implementation; its fix is reviewed and verified again.
-  **`PASS+NOTES`** carries its notes into the PR, outside any disclosure.
+  **`PASS+NOTES`** carries its notes into the PR, outside any disclosure, and calls the owner.
 
 ## Evidence
 
 Every task ends with a PR in the briefing form that carries its evidence, whatever the task is.
 A change with nothing to show gives one line on why, the CI link and the review result.
 
-The PR's «Как проверено» is assembled from sources the implementer cannot embellish:
+The PR's «Проверено» is assembled from sources the implementer cannot embellish:
 
 - CI results, by link to the run on the delivered head.
-- The verifier's verdict with its video and screenshots.
+- The verifier's verdict with its artifacts.
 - An agent's own observation, labelled «наблюдение агента».
 
-What each kind proves:
+Choose the kind of evidence for each scenario; one PR mixes them:
 
-- A screenshot proves only what is visible. Permissions, money and side effects need evidence at
-  the boundary where they happen: the real backend and database.
-- Tests protect against regressions. They are not the evidence the owner accepts from.
-- Storybook is a workshop. The running application proves the look a user gets.
+- **Video, 10 to 30 seconds**: movement, such as a transition, an animation or an order of actions.
+- **Screenshot**: a look at one moment; two screenshots, before and after, when something existing
+  changes.
+- **Table "action, expected, got"**: what the screen does not show (permissions, money, database
+  records), taken from the real backend and database. A screenshot proves only what is visible.
+- **Numbers before and after**: speed, size, reliability.
+- **One line**: nothing changes for the user.
+
+Tests protect against regressions and are not the evidence the owner accepts from. Storybook is a
+workshop: the running application proves the look a user gets.
+
+The verifier puts the files and their inventory into the `.evidence/` folder at the worktree's
+root, outside Git. For each scenario the inventory names the kind of evidence, the files, what
+they show in one line, the source of the data and the change they cover; `verify-platform` owns
+its exact format. `pr` assembles «Проверено» from the inventory and retells nothing in its own
+words.
 
 Evidence lives in the PR; a specification keeps it in its final PR. No feature page holds it and
 no script classifies a diff (owner decision 5 of #2206). The repository is public: evidence shows

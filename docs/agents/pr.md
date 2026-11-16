@@ -1,46 +1,37 @@
 # PR body
 
-**Pilot version** (#2206, 2026-11-16). The owner approves the final look after a pilot on real
-tasks; until then this shape is the working draft.
+**Pilot version** (#2206 and #2215, 2026-11-16). The owner approves the final look after a pilot on
+real tasks; until then this shape is the working draft.
 
-The PR is a one-minute briefing for the owner, who accepts from evidence and reads no code
-([human participation](human-review.md)). The `pr` skill's shape and rules apply. Platform names
-the skill's four sections in Russian and adds two: «Как это работает теперь» and «Как проверить
-самому». Write in the owner's language (Russian) and keep the domain terms from the glossaries.
-The extended shape in full:
+The PR is a short briefing for the owner, who accepts from evidence and reads no code
+([human participation](human-review.md)). The `pr` skill's rules apply; Platform orders and names
+its sections as below and moves risk, rollback and the check table under «Подробности». Write in
+plain Russian under `Human-facing text` of root [AGENTS.md](../../AGENTS.md#human-facing-text) and
+keep the domain terms from the glossaries.
 
 ````markdown
-## Что изменилось для пользователя
+**<статус>.** <причина в несколько слов>
 
-<the user's new behaviour in two or three sentences; "ничего" for an internal change>
+## От тебя нужно
 
-## Как это работает теперь
+1. <вопрос «да или нет»>. «Да» <что изменит>.
 
-<each key scenario: one line on what the user does and sees, then its screenshot or video>
+## Что изменилось
 
-## Как проверено
+<два предложения: что теперь может пользователь и как было раньше>
 
-- CI: <link to the run on the delivered head, result>
-- Проверка работы: <verdict, who gave it, the change it covers; or one line why none is needed>
-- Наблюдение агента: <what an agent saw itself>
-- Не проверено: <limits, skipped checks, what the evidence does not prove>
+## Проверено
 
-## Как проверить самому
+- <сценарий одной строкой>: <одно доказательство>
 
-<the stand or a light instance, the account, a few steps and the expected result>
-
-## Что нужно от владельца
-
-<"Ничего" with the reason, or one yes/no question per decision>
-
-## Риск и откат
-
-<what can break and for whom; how to undo it, or why it cannot be undone>
+Не проверено: <одна строка>.
+Проверить самому: <одна строка>.
 
 <details>
-<summary>Команды, журналы и ревизии</summary>
+<summary>Подробности</summary>
 
-<checked head, review base, the full check table, review reports and their disposition>
+<risk and rollback, checked head, review base, the check table, review reports and their
+disposition, the classifier's duration and tokens>
 
 </details>
 
@@ -49,19 +40,21 @@ Closes #<issue>
 
 ## Sections
 
-- **Что изменилось для пользователя**: behaviour and consequences, with no inventory of files.
-- **Как это работает теперь**: the key scenarios agreed in the task, each with its artifact. A
-  task with nothing to show says why in one line and drops «Как проверить самому»; its evidence is
-  that line, the CI link and the review result. For an internal
-  change, choose the smallest view with the `pr` skill's `PRESENTATION.md` guidance.
-- **Как проверено**: only the [evidence sources](human-review.md#evidence), each under its own
-  label. Name a check you did not run, a skipped criterion, or a re-run of an unrelated failure.
-- **Как проверить самому**: the `local-stand` skill gives the address and the sign-in.
-- **Что нужно от владельца**: the outcome of [ship](ship.md#owner-acceptance), «не звать» or
-  «звать» with the condition that called the owner, then what he is asked to look at or decide. Ask each decision as one yes/no question in plain Russian and add one sentence on what
-  «да» changes: what merges, ships or becomes allowed. Record here the merge permission and the
-  acceptance the owner already gave, in his words.
-- **Риск и откат**: consequences in everyday words; say when one revert undoes the change.
+- **Status line**: the status [ship](ship.md#owner-attention) set, word for word, then its reason
+  in a few words. No section explains why the owner was called.
+- **От тебя нужно**: one or two yes/no questions, each with what «да» changes: what merges, ships
+  or becomes allowed. Present only when the status calls the owner.
+- **Что изменилось**: what the user can do now and how it was before, with no file or function
+  names.
+- **Проверено**: one line and one piece of evidence per scenario, assembled from the verifier's
+  inventory in `.evidence/` and the [evidence sources](human-review.md#evidence). A task with
+  nothing to show gives one line on why, the CI link and the review result.
+- **Не проверено**, **Проверить самому**: one line each; the `local-stand` skill gives the address
+  and the sign-in.
+- **Подробности**: everything else, in one disclosure.
+
+Leave out a section with nothing to say. The text outside «Подробности» stays under 100 words;
+captions under evidence do not count.
 
 An earlier supporting PR uses `Part of #<issue>`; the final delivery PR uses `Closes #<issue>`.
 
@@ -80,11 +73,9 @@ Attach images and video with `gh pr create --attach`, `gh pr edit --attach` or
 - **Production stays in text.** Describe a production check in words; attach none of its screens.
 - **A second look.** The Spec reviewer looks through the artifacts for foreign data before the
   merge ([verification](human-review.md#verification)).
-- **Local until merged.** Keep the files in the worktree's ignored `ci-artifacts/` folder, outside
-  Git; after the merge the `agent-worktree finish` step of `session-cleanup` removes them with the
-  worktree.
+- **Local until merged.** The files stay in the worktree's ignored `.evidence/` folder; after the
+  merge the `agent-worktree finish` step of `session-cleanup` removes them with the worktree.
 - **Size.** An image and a video are limited to 10 MB each, and one command takes up to 50 files.
-  The verifier records one short video per scenario, never the whole run in one file.
 - **Formats.** PNG, GIF, JPEG and SVG; MP4, MOV and WebM.
 - **Video player.** Reference the video file in the body with image syntax, alone in its
   paragraph, and attach the same file; inside a sentence it becomes a plain link.
