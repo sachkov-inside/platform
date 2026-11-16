@@ -8,7 +8,8 @@ description: Prepare or update the shared local application for an owner-request
 Read the [stand runbook](../../../docs/runbooks/local-stand.md) before runtime operations.
 
 For your own browser check of a change, without the owner's review, start a light instance:
-`pnpm stand:light up` (add `--mcp` when the scenario needs MCP), sign in through the printed
+`pnpm stand:light up` (add `--mcp` when the scenario needs MCP; `--dev` only when you edit Web
+and need reload, at about twice the memory), sign in through the printed
 sign-in address, and run `pnpm stand:light down` when the check ends. It needs no reservation and
 runs beside other agents' instances. Use the shared stand below for an owner review, real Logto
 sign-in, mail, payments, workers or production-web speed. The runbook's light instance section
@@ -46,7 +47,7 @@ controller; keep using that checkout while its stand state exists.
 
 A mutation that finds the stand busy waits in a queue and prints its position; run it in the
 background so a tool timeout does not end the wait. A reservation whose worktree was deleted is
-released by the next mutation; that is not a replacement and needs no owner request.
+released by the next mutation, which reports it.
 
 Inspect command options with `pnpm stand --help`. Use `--production-web` for navigation-speed
 checks; it retains the existing clean-source requirement. Run isolated tests and Storybook without
