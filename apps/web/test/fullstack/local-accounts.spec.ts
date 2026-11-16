@@ -147,6 +147,8 @@ test("local accounts: fresh owner, private draft and real denials survive restar
         (response) => response.url() === `${origin}/auth/status`,
       );
       await retained.bringToFront();
+      // Headless tab activation does not guarantee a Window focus event (#2274).
+      await retained.evaluate(() => window.dispatchEvent(new Event("focus")));
       expect(await (await returnedShellCheck).json()).toMatchObject({
         accountId: state.accountId,
         state: state.state,
