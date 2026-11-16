@@ -144,7 +144,9 @@ test("local accounts: fresh owner, private draft and real denials survive restar
       expect(state.canManageMaterials).toBe(choice === "owner");
       expect(state.state).toBe(choice === "guest" ? "guest" : "authenticated");
       const returnedShellCheck = retained.waitForResponse(
-        (response) => response.url() === `${origin}/auth/status`,
+        async (response) =>
+          response.url() === `${origin}/auth/status` &&
+          (await response.finished()) === null,
       );
       await retained.bringToFront();
       // Headless tab activation does not guarantee a Window focus event (#2274).
