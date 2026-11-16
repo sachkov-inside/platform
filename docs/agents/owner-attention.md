@@ -29,9 +29,13 @@ These give «Требуется внимание».
 These give «Требуется внимание».
 
 - A scenario of the plan is not shown.
-- Verification returned notes or failed.
-- A review finding is open.
+- Verification failed.
+- A review finding or a verifier's note is open, and it is about a consequence for the user, money,
+  access, personal data or an irreversible action. A verifier's note on the look of the interface
+  counts.
 - CI is not green on the last commit.
+
+An open technical review finding never calls the owner.
 
 ## Without the owner
 

@@ -7,7 +7,9 @@ How the owner takes part: what he sees, what he decides, and what agents settle 
 
 - **Technical acceptance** asks whether the change is built correctly. It belongs to the
   implementer, CI and the independent reviewers. The owner takes no part in it and reads no code,
-  in any zone, money and personal data included.
+  in any zone, money and personal data included. Agents settle a technical review finding among
+  themselves: the implementer fixes it, or the reviewer withdraws it as optional with a reason;
+  when they disagree, the implementer fixes it.
 - **Business acceptance** asks whether this is the right thing and whether it works for the user.
   It belongs to the owner, who decides from evidence: video, screenshots, data and a way to check
   himself.

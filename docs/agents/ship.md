@@ -17,7 +17,8 @@ Every task ends with a PR in the [briefing form](pr.md) with its evidence. Run t
 status that opens the PR: «Внимание не требуется», «Требуется решение» or «Требуется внимание».
 
 Run the classifier once per PR and last, when the review, the
-[verification](human-review.md#verification) and CI on the last commit have their final results.
+[verification](human-review.md#verification) and CI on the last commit have their final results
+and no technical review finding is left unsettled.
 Start the `owner-attention` skill as a fresh subagent and hand it the inputs its `SKILL.md` lists;
 the conditions file is [owner attention](owner-attention.md). The Spec reviewer checks the change
 against the task and leaves the notes; the classifier alone sets the status. Run it again when the

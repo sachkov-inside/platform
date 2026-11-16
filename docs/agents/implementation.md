@@ -18,7 +18,8 @@ verification in root AGENTS.md → Commands.
 Commit assigned work before `code-review`. Supply immutable base/head and the requirement source
 for independent Standards and Spec review over the complete assigned diff. Fix confirmed
 findings, rerun affected checks, commit and re-review with the earlier reports, preserving original
-full-diff coverage. List unresolved judgement calls. Next comes
+full-diff coverage. Settle every technical finding under
+[technical acceptance](human-review.md#two-acceptances). Next comes
 [verification](human-review.md#verification) by a fresh agent and the Spec reviewer's match of its
 verdict, or one line on why the change needs none. Then use `pr` and `ship` under the target branch's [ship contract](ship.md), not proposed
 gate changes on the task branch.
