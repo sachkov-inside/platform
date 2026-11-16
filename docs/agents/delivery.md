@@ -31,8 +31,8 @@ open one. Fix the blocker first. The task's merge permission covers the fix only
 undoes it and it touches only tests, CI, docs or scripts outside release and deploy. Otherwise ask.
 `ship` still decides whether the owner must check the fix.
 Work waiting for the owner stays open with the specific decision recorded. When the blocking step
-needs the owner's own hands (a credential, a provider dashboard, a cutover), prepare it with
-`wizard`.
+needs the owner's own hands (a credential, a provider dashboard, a cutover) and no runbook script
+covers it, prepare it with `wizard`.
 
 ## Handoff
 

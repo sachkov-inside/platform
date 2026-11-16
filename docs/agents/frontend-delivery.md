@@ -24,7 +24,8 @@ worktree, read the local stories and review the owned preview through browser to
 fallback.
 
 Design critique, audit or polish of a UI uses `impeccable`, which reads `apps/web/PRODUCT.md` and
-`apps/web/DESIGN.md`. A new visual direction still needs the owner acceptance below.
+`apps/web/DESIGN.md`. A new visual direction still needs the owner's proof acceptance gate and
+production visual gate in the delivery contract below.
 
 ## Prototypes
 

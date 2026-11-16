@@ -5,6 +5,9 @@ public contracts, developer commands, delivery workflows, or agent routing. Each
 one current source. Documentation records decisions, gates and intent; it does not restate what
 code, configs or scripts already show.
 
+Write `AGENTS.md`, `docs/agents/` documents and project-owned skills with `writing-for-agents`;
+Agent Kit copies change only through [AGENT-KIT.md](../../.agents/skills/AGENT-KIT.md).
+
 ## Choose the authority
 
 | Changed fact | Update |
@@ -38,7 +41,7 @@ List the changed durable facts from the final diff, update each in exactly one a
 table above, and name the result in the pull request. Then:
 
 1. Update `AGENTS.md` only when the agent's trigger, routing, rule, verification command, or
-   completion criterion changed. Write an agent document or skill with `writing-for-agents`.
+   completion criterion changed.
 2. Run `pnpm docs:check`, then the focused verification for the changed surface.
 
 Completion means every changed durable fact has one named authority, every local agent pointer
