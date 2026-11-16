@@ -244,7 +244,7 @@ export const Filtered: Story = {
     const page = routeContent(canvasElement);
     await expect(
       page.getByRole("searchbox", {
-        name: "Поиск по имени, @username, email или ID",
+        name: "Поиск по имени в Telegram, @username, email или ID",
       }),
     ).toHaveValue("петрова");
     const chips = page.getByRole("list", { name: "Применённые фильтры" });
@@ -412,11 +412,14 @@ export const Keyboard: Story = {
     const page = routeContent(canvasElement);
     within(canvasElement).getByRole("main").focus();
     await userEvent.tab();
-    await expect(
-      page.getByRole("searchbox", {
-        name: "Поиск по имени, @username, email или ID",
-      }),
-    ).toHaveFocus();
+    const search = page.getByRole("searchbox", {
+      name: "Поиск по имени в Telegram, @username, email или ID",
+    });
+    await expect(search).toHaveFocus();
+    await expect(search).toHaveAttribute(
+      "placeholder",
+      "Имя в Telegram, @username, email или ID",
+    );
     await userEvent.tab();
     await expect(page.getByRole("combobox", { name: "Продукт" })).toHaveFocus();
   },

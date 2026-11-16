@@ -242,12 +242,12 @@ function PeopleFilters({
       }
       resultLabel={filtered ? `Найдено: ${count}` : undefined}
       search={{
-        label: "Поиск по имени, @username, email или ID",
+        label: "Поиск по имени в Telegram, @username, email или ID",
         maxLength: 160,
         onChange: (value) => {
           onQueryChange(withPeopleListFilter(query, "search", value));
         },
-        placeholder: "Имя, @username, email или ID",
+        placeholder: "Имя в Telegram, @username, email или ID",
         value: query.search ?? "",
       }}
     />
