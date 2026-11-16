@@ -16,7 +16,8 @@ vi.mock("next/navigation", async (original) => ({
 const ids = (from: number, to: number) =>
   Array.from(
     { length: to - from + 1 },
-    (_, i) => `material-${String(from + i)}`,
+    (_, i) =>
+      `33333333-3333-4333-8333-${String(from + i + 200).padStart(12, "0")}`,
   );
 
 const plannedSummary =

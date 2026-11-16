@@ -39,9 +39,16 @@ const chapters: readonly ProductChapter[] = [
     id: "chapter-1",
     name: "Первая глава",
     summary: "",
-    materialIds: ["material-1", "material-2", "material-3"],
-    supplementaryMaterialIds: ["material-4"],
-    tasks: [task("lead", null), task("after-2", "material-2")],
+    materialIds: [
+      "33333333-3333-4333-8333-000000000201",
+      "33333333-3333-4333-8333-000000000202",
+      "33333333-3333-4333-8333-000000000203",
+    ],
+    supplementaryMaterialIds: ["33333333-3333-4333-8333-000000000204"],
+    tasks: [
+      task("lead", null),
+      task("after-2", "33333333-3333-4333-8333-000000000202"),
+    ],
   },
   {
     id: "chapter-2",
@@ -53,15 +60,21 @@ const chapters: readonly ProductChapter[] = [
     id: "chapter-3",
     name: "Третья глава",
     summary: "",
-    materialIds: ["material-5", "material-6"],
-    supplementaryMaterialIds: ["material-7", "material-8"],
+    materialIds: [
+      "33333333-3333-4333-8333-000000000205",
+      "33333333-3333-4333-8333-000000000206",
+    ],
+    supplementaryMaterialIds: [
+      "33333333-3333-4333-8333-000000000207",
+      "33333333-3333-4333-8333-000000000208",
+    ],
   },
   {
     id: "chapter-4",
     name: "Ещё одна пустая глава",
     summary: "",
     materialIds: [],
-    supplementaryMaterialIds: ["material-9"],
+    supplementaryMaterialIds: ["33333333-3333-4333-8333-000000000209"],
   },
 ];
 
@@ -127,27 +140,27 @@ describe("Product programme elements handed to the client", () => {
       programmePlacements: [
         placement(
           "10000000-0000-4000-8000-000000000001",
-          "material-1",
+          "33333333-3333-4333-8333-000000000201",
           "chapter-1",
         ),
         placement(
           "10000000-0000-4000-8000-000000000002",
-          "material-2",
+          "33333333-3333-4333-8333-000000000202",
           "chapter-1",
         ),
         placement(
           "10000000-0000-4000-8000-000000000003",
-          "material-1",
+          "33333333-3333-4333-8333-000000000201",
           "chapter-1",
         ),
         placement(
           "10000000-0000-4000-8000-000000000004",
-          "material-5",
+          "33333333-3333-4333-8333-000000000205",
           "chapter-3",
         ),
         placement(
           "10000000-0000-4000-8000-000000000005",
-          "material-3",
+          "33333333-3333-4333-8333-000000000203",
           "chapter-1",
         ),
       ],

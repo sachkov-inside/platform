@@ -1,5 +1,10 @@
 // @ts-check
 import {
+  readingProduct,
+  navigationReadingTopic,
+} from "../../../../scenarios/reading.mjs";
+import { readingHttpMaterials } from "../../../../scenarios/reading-http.mjs";
+import {
   productReaderStateRoute,
   readerProgrammeHoldRoute,
   waitReaderProgrammeResponse,
@@ -54,11 +59,7 @@ const homePinSchema = z
 const [port] = browserTestPorts(["FAKE_BACKEND_PORT"]).map(Number);
 const productId = "11111111-1111-4111-8111-111111111111";
 const productSlug = "navigation-proof";
-const topic = {
-  id: "22222222-2222-4222-8222-222222222222",
-  name: "Переходы",
-  slug: "navigation-topic",
-};
+const topic = navigationReadingTopic;
 const format = { id: "guide", name: "Гайд", slug: "guide" };
 export const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
 
@@ -121,12 +122,7 @@ const products = [
 ];
 
 /** Изолированный состав #1292 не меняет данные прежних navigation scenarios. */
-const performanceProduct = {
-  cover: null,
-  id: "11111111-1111-4111-8111-111111111115",
-  name: "Курс на 120 материалов",
-  slug: "performance-course",
-};
+const performanceProduct = { cover: null, ...readingProduct };
 
 const lessons = [
   {
@@ -259,27 +255,8 @@ function findReaderTitleLesson(key) {
   return undefined;
 }
 
-const performanceLessons = Array.from({ length: 120 }, (_, index) => ({
-  ...performanceTemplate,
-  materialId: `33333333-3333-4333-8333-${String(index + 201).padStart(12, "0")}`,
-  slug: `performance-lesson-${String(index + 1)}`,
-  title: `Материал ${String(index + 1)}`,
-  summary: `Описание материала ${String(index + 1)}.`,
-  publishedAt: new Date(Date.UTC(2026, 5, index + 1)).toISOString(),
-  format:
-    index % 2 === 0 ? { id: "video", name: "Видео", slug: "video" } : format,
-  productMemberships: [
-    {
-      ordinal: index + 1,
-      product: {
-        id: performanceProduct.id,
-        name: performanceProduct.name,
-        slug: performanceProduct.slug,
-      },
-      stepGroup: null,
-    },
-  ],
-}));
+const performanceLessons = readingHttpMaterials("open-course");
+
 const referenceProduct = {
   ...performanceProduct,
   id: "11111111-1111-4111-8111-111111111116",

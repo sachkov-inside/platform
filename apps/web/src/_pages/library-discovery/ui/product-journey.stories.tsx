@@ -794,13 +794,13 @@ export const LargeMaterialCatalogue: Story = {
     await userEvent.type(search, "Описание материала 120");
     await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(1);
     await expect(
-      within(catalogue()).getByRole("heading", { name: "Урок 120" }),
+      within(catalogue()).getByRole("heading", { name: "Материал 120" }),
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Видео" }));
     await expect(canvas.getByText(/Ничего не нашлось/u)).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Тексты" }));
     await expect(
-      canvas.getByRole("heading", { name: "Урок 120" }),
+      canvas.getByRole("heading", { name: "Материал 120" }),
     ).toBeVisible();
     await userEvent.clear(search);
     await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(60);
@@ -816,7 +816,7 @@ export const VideoGuideInVideoFilter: Story = {
       return {
         ...corpus,
         items: corpus.items.map((item) =>
-          item.slug === "material-2"
+          item.slug === "performance-lesson-2"
             ? { ...item, primaryVideoDurationSeconds: 1420 }
             : item,
         ),
@@ -830,12 +830,12 @@ export const VideoGuideInVideoFilter: Story = {
       canvas.getByRole("region", { name: "Материалы курса" });
     await userEvent.click(canvas.getByRole("button", { name: "Видео" }));
     await expect(
-      within(catalogue()).getByRole("heading", { name: "Урок 2" }),
+      within(catalogue()).getByRole("heading", { name: "Материал 2" }),
     ).toBeVisible();
     await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(61);
     await userEvent.click(canvas.getByRole("button", { name: "Тексты" }));
     await expect(
-      within(catalogue()).queryByRole("heading", { name: "Урок 2" }),
+      within(catalogue()).queryByRole("heading", { name: "Материал 2" }),
     ).not.toBeInTheDocument();
   },
 };
@@ -1083,7 +1083,7 @@ export const CatalogueRefreshRestoresMaterial: Story = {
   beforeEach: () => {
     const cleanup = environment.beforeEach();
     mocked(useSearchParams).mockReturnValue(
-      new ReadonlyURLSearchParams("part=materials&at=material-12"),
+      new ReadonlyURLSearchParams("part=materials&at=performance-lesson-12"),
     );
     return () => {
       mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
@@ -1096,14 +1096,14 @@ export const CatalogueRefreshRestoresMaterial: Story = {
     const catalogue = canvas.getByRole("region", { name: "Материалы курса" });
     await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(120);
     await expect(
-      within(catalogue).getByRole("heading", { name: "Урок 12" }),
+      within(catalogue).getByRole("heading", { name: "Материал 12" }),
     ).toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", { name: "Получить новый состав" }),
     );
     await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(121);
     await expect(
-      within(catalogue).getByRole("heading", { name: "Урок 12" }),
+      within(catalogue).getByRole("heading", { name: "Материал 12" }),
     ).toBeInTheDocument();
   },
 };
