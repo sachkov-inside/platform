@@ -6,11 +6,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
-import {
-  controlStand,
-  expectedMode,
-  precheckReservation,
-} from "./stand-controller.mjs";
+import { controlStand, planPrebuild } from "./stand-controller.mjs";
 import { readStandQueue, waitForStandTurn } from "./stand-queue.mjs";
 import { createStandRuntime } from "./stand-runtime.mjs";
 import { readStandSource } from "./stand-source.mjs";
@@ -101,9 +97,15 @@ upgrade  Move the running stand forward to this worktree's schema and infrastruc
     // Image builds need only the source: they run before the operation joins the queue, so the
     // stand is held while it is changed, not while the source compiles.
     if (command === "show" || command === "refresh" || command === "upgrade") {
-      await precheckReservation(request, { directory, worktreeExists });
-      await runtime.inspect();
-      await runtime.prebuild(worktree, await expectedMode(request, directory));
+      const mode = await planPrebuild(
+        request,
+        { directory, worktreeExists },
+        await readStandSource(worktree),
+      );
+      if (mode !== null) {
+        await runtime.inspect();
+        await runtime.prebuild(worktree, mode);
+      }
     }
     const result = await controlStand(request, {
       directory,

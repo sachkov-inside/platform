@@ -7,8 +7,7 @@ import test from "node:test";
 import { z } from "zod";
 import {
   controlStand,
-  expectedMode,
-  precheckReservation,
+  planPrebuild,
   requireUnmanagedStand,
 } from "./stand-controller.mjs";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
@@ -786,55 +785,116 @@ test("a reservation written before reservation times keeps working and reports n
   assert.equal(refreshed.reservation?.id, shown.reservation?.id);
 });
 
-test("a foreign reservation refuses a mutation before its image builds", async (t) => {
-  const { dependencies } = await fixture(t);
+test("a foreign reservation or an incompatible source refuses a mutation before its image builds", async (t) => {
+  const { dependencies, inputs } = await fixture(t);
   const first = await controlStand(
     { command: "show", worktree: "/fixture/a" },
     dependencies,
   );
+  /** @param {string} root */
+  const source = (root) => dependencies.source(root);
   await assert.rejects(
-    precheckReservation(
+    planPrebuild(
       { command: "show", worktree: "/fixture/b" },
       dependencies,
+      await source("/fixture/b"),
     ),
     /reserved for \/fixture\/a/u,
   );
-  await precheckReservation(
-    { command: "show", worktree: "/fixture/a" },
-    dependencies,
+  assert.equal(
+    await planPrebuild(
+      {
+        command: "show",
+        worktree: "/fixture/b",
+        replace: first.reservation?.id ?? "",
+      },
+      dependencies,
+      await source("/fixture/b"),
+    ),
+    "snapshot",
   );
-  await precheckReservation(
-    {
-      command: "show",
-      worktree: "/fixture/b",
-      replace: first.reservation?.id ?? "",
-    },
-    dependencies,
+  assert.equal(
+    await planPrebuild(
+      { command: "show", worktree: "/fixture/b" },
+      { ...dependencies, worktreeExists: async () => false },
+      await source("/fixture/b"),
+    ),
+    "snapshot",
   );
-  await precheckReservation(
-    { command: "show", worktree: "/fixture/b" },
-    { ...dependencies, worktreeExists: async () => false },
+  inputs.schema = "schema-b";
+  await assert.rejects(
+    planPrebuild(
+      { command: "refresh", worktree: "/fixture/a" },
+      dependencies,
+      await source("/fixture/a"),
+    ),
+    /schema or infrastructure differs/u,
+  );
+  assert.equal(
+    await planPrebuild(
+      { command: "upgrade", worktree: "/fixture/a" },
+      dependencies,
+      await source("/fixture/a"),
+    ),
+    "snapshot",
   );
 });
 
-test("a refresh is expected to keep the current preview mode of the same worktree", async (t) => {
-  const { dependencies } = await fixture(t);
+test("no image build runs before the queue when the ready stand already runs this source", async (t) => {
+  const { dependencies, inputs } = await fixture(t);
   await controlStand(
     { command: "show", worktree: "/fixture/a", mode: "production" },
     dependencies,
   );
+  const source = await dependencies.source("/fixture/a");
   assert.equal(
-    await expectedMode(
+    await planPrebuild(
       { command: "refresh", worktree: "/fixture/a" },
-      dependencies.directory,
+      dependencies,
+      source,
     ),
-    "production",
+    null,
   );
   assert.equal(
-    await expectedMode(
+    await planPrebuild(
       { command: "show", worktree: "/fixture/a" },
-      dependencies.directory,
+      dependencies,
+      source,
     ),
     "snapshot",
   );
+  inputs.fingerprint = "source-b";
+  assert.equal(
+    await planPrebuild(
+      { command: "refresh", worktree: "/fixture/a" },
+      dependencies,
+      await dependencies.source("/fixture/a"),
+    ),
+    "production",
+  );
+});
+
+test("a mismatched replacement leaves a stale reservation recorded", async (t) => {
+  const { dependencies } = await fixture(t);
+  await controlStand({ command: "show", worktree: "/fixture/a" }, dependencies);
+  const withMissing = {
+    ...dependencies,
+    worktreeExists: async (/** @type {string} */ path) => path !== "/fixture/a",
+  };
+  await assert.rejects(
+    controlStand(
+      {
+        command: "show",
+        worktree: "/fixture/b",
+        replace: "00000000-0000-4000-8000-000000000000",
+      },
+      withMissing,
+    ),
+    /reservation changed/u,
+  );
+  const status = await controlStand(
+    { command: "status", worktree: "/fixture/b" },
+    withMissing,
+  );
+  assert.equal(status.reservation?.worktree, "/fixture/a");
 });

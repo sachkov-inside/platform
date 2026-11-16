@@ -15,6 +15,7 @@ import {
   readLightState,
   treeResidentKiB,
 } from "./stand-light-plan.mjs";
+import { processAlive } from "./stand-queue.mjs";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -22,16 +23,22 @@ const { values, positionals } = parseArgs({
     worktree: { type: "string" },
     infrastructure: { type: "string" },
     mcp: { type: "boolean" },
+    dev: { type: "boolean" },
     json: { type: "boolean" },
     help: { type: "boolean" },
   },
 });
-const startupBudgetMilliseconds = 10 * 60_000;
+// The supervisor's own budget is 15 minutes; this one also covers its adoption and record.
+const startupBudgetMilliseconds = 16 * 60_000;
 const stopBudgetMilliseconds = 60_000;
+const recordPollMilliseconds = 500;
+const stopPollMilliseconds = 250;
+const dockerCommandMilliseconds = 20_000;
+const gitCommandMilliseconds = 10_000;
 
 if (values.help) {
   process.stdout
-    .write(`Usage: pnpm stand:light [up|status|down] [--worktree PATH] [--mcp] [--infrastructure PROJECT] [--json]
+    .write(`Usage: pnpm stand:light [up|status|down] [--worktree PATH] [--mcp] [--dev] [--infrastructure PROJECT] [--json]
 
 up      Start this worktree's web and API on free ports with their own database in the stand
         PostgreSQL and the synthetic sign-in. Several worktrees run instances side by side.
@@ -39,6 +46,8 @@ status  List the light instances of this repository with their addresses, age an
 down    Stop this worktree's instance and drop its database; nothing else is touched.
 
 --mcp             Also start MCP.
+--dev             Run web through next dev with reload on edits instead of a production build;
+                  it needs more memory.
 --infrastructure  Compose project whose PostgreSQL and object storage the instance uses
                   (default: inside-platform, the shared stand).
 `);
@@ -84,7 +93,7 @@ async function up(directory, worktree) {
   const storage = publishedPort(composeProject, "object-storage", 9000);
   const { id } = lightInstanceName(worktree);
   const previous = await readLightState(directory, id);
-  if (previous && alive(previous.pid))
+  if (previous && processAlive(previous.pid))
     throw new Error(
       `A light instance of this worktree is already running (${previous.urls.web}); run pnpm stand:light down first`,
     );
@@ -111,17 +120,18 @@ async function up(directory, worktree) {
           composeProject,
           postgresPort: postgres,
           mcp: values.mcp ?? false,
+          web: values.dev ? "development" : "production",
         }),
       },
     },
   );
-  supervisor.unref();
-  await log.close();
   // The launched process hands over to a detached copy and exits 0; another status is a crash.
   let crashed = false;
   supervisor.once("exit", (code) => {
     crashed = code !== 0;
   });
+  supervisor.unref();
+  await log.close();
   const deadline = Date.now() + startupBudgetMilliseconds;
   for (;;) {
     const state = await readLightState(directory, id);
@@ -134,7 +144,7 @@ async function up(directory, worktree) {
       else
         process.stdout.write(
           [
-            `Light instance ready in ${seconds.toFixed(0)} s`,
+            `Light instance ready in ${seconds.toFixed(0)} s (web: ${state.web})`,
             `Web: ${state.urls.web}`,
             `API: ${state.urls.api}`,
             ...(state.urls.mcp ? [`MCP: ${state.urls.mcp}`] : []),
@@ -149,12 +159,14 @@ async function up(directory, worktree) {
       return;
     }
     if (state?.phase === "failed" || crashed || Date.now() > deadline) {
-      if (state && alive(state.pid)) process.kill(state.pid, "SIGTERM");
+      if (state && processAlive(state.pid)) process.kill(state.pid, "SIGTERM");
       throw new Error(
         `Light instance did not start: ${state?.failure ?? "startup budget exceeded"}; see ${logPath}, then run pnpm stand:light down`,
       );
     }
-    await new Promise((resolveDelay) => setTimeout(resolveDelay, 500));
+    await new Promise((resolveDelay) =>
+      setTimeout(resolveDelay, recordPollMilliseconds),
+    );
   }
 }
 
@@ -166,12 +178,14 @@ async function down(directory, worktree) {
     process.stdout.write("No light instance for this worktree\n");
     return;
   }
-  if (alive(state.pid)) {
+  if (processAlive(state.pid)) {
     process.kill(state.pid, "SIGTERM");
     const deadline = Date.now() + stopBudgetMilliseconds;
-    while (alive(state.pid) && Date.now() < deadline)
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 250));
-    if (alive(state.pid))
+    while (processAlive(state.pid) && Date.now() < deadline)
+      await new Promise((resolveDelay) =>
+        setTimeout(resolveDelay, stopPollMilliseconds),
+      );
+    if (processAlive(state.pid))
       throw new Error(
         `Light instance supervisor ${String(state.pid)} did not stop`,
       );
@@ -206,7 +220,7 @@ async function status(directory) {
   const processes = processTable();
   const report = states.map((state) => ({
     ...state,
-    running: alive(state.pid),
+    running: processAlive(state.pid),
     residentMiB: Math.round(treeResidentKiB(processes, state.pid) / 1024),
     ageSeconds: Math.floor((Date.now() - Date.parse(state.startedAt)) / 1_000),
   }));
@@ -217,7 +231,7 @@ async function status(directory) {
   if (report.length === 0) process.stdout.write("No light instances\n");
   for (const item of report)
     process.stdout.write(
-      `${item.worktree}: ${item.running ? item.phase : "not running"}, ${item.urls.web}, ${String(Math.floor(item.ageSeconds / 60))} min, ${String(item.residentMiB)} MiB resident\n`,
+      `${item.worktree}: ${item.running ? item.phase : "not running"}${item.failure ? ` (${item.failure})` : ""}, web ${item.web} ${item.urls.web}, ${String(Math.floor(item.ageSeconds / 60))} min, ${String(item.residentMiB)} MiB resident\n`,
     );
 }
 
@@ -241,7 +255,11 @@ function publishedPort(project, service, port) {
     output = execFileSync(
       "docker",
       ["compose", "--project-name", project, "port", service, String(port)],
-      { encoding: "utf8", timeout: 20_000, stdio: ["ignore", "pipe", "pipe"] },
+      {
+        encoding: "utf8",
+        timeout: dockerCommandMilliseconds,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
     ).trim();
   } catch (error) {
     throw new Error(
@@ -257,22 +275,12 @@ function publishedPort(project, service, port) {
   return Number(published);
 }
 
-/** @param {number} pid */
-function alive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return error instanceof Error && "code" in error && error.code === "EPERM";
-  }
-}
-
 /** @param {string} root @param {string[]} args */
 function git(root, args) {
   return execFileSync("git", args, {
     cwd: root,
     encoding: "utf8",
-    timeout: 10_000,
+    timeout: gitCommandMilliseconds,
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
 }

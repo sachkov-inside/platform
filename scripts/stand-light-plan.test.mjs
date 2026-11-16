@@ -41,7 +41,7 @@ test("only a light instance database can be named for teardown", () => {
 });
 
 test("the instance environment names its own database and ports and drops the caller's sign-in", () => {
-  const { shared, mcp, urls } = lightEnvironment({
+  const { shared, mcp, urls, web } = lightEnvironment({
     database: "inside_light_0123456789",
     postgresPort: 5432,
     ports: { web: 21000, api: 21001, mcp: undefined },
@@ -52,7 +52,9 @@ test("the instance environment names its own database and ports and drops the ca
       DATABASE_URL: "postgresql://inside:inside@127.0.0.1:5432/inside",
       COMPOSE_PROJECT_NAME: "inside-platform",
       LOGTO_ENDPOINT: "https://identity.inside.localhost:3301",
+      OBJECT_STORAGE_SIGNED_GET_ENDPOINT: "http://127.0.0.1:29000",
     },
+    webMode: "production",
   });
   assert.equal(
     shared["DATABASE_URL"],
@@ -66,6 +68,12 @@ test("the instance environment names its own database and ports and drops the ca
   assert.equal(shared["PATH"], "/bin");
   assert.equal(shared["IDENTITY_EMAIL_FINGERPRINT_KEY"], "example");
   assert.equal(mcp, undefined);
+  assert.equal(shared["NODE_ENV"], "development");
+  assert.equal(web["NODE_ENV"], "production");
+  assert.equal(
+    web["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
+    "http://127.0.0.1:29000",
+  );
   assert.equal(urls.mcp, undefined);
 });
 
@@ -111,6 +119,7 @@ test("status lists recorded instances and refuses a damaged record", async (t) =
     worktree: "/work/a",
     pid: 4242,
     phase: "ready",
+    web: "production",
     startedAt: "2026-11-16T10:00:00.000Z",
     readyAt: "2026-11-16T10:01:00.000Z",
     database: "inside_light_0123456789",

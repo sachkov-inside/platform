@@ -96,6 +96,10 @@ export async function controlStand(request, dependencies) {
         `Use the registered stand controller at ${previous.controller} with --worktree ${request.worktree}`,
       );
     const recorded = previous?.reservation;
+    if (request.replace !== undefined && request.replace !== recorded?.id)
+      throw new Error(
+        "The reservation changed; read stand status before replacing it",
+      );
     let reservation = recorded;
     /** @type {{ id: string; worktree: string } | undefined} */
     let releasedStale;
@@ -111,10 +115,6 @@ export async function controlStand(request, dependencies) {
       previous.reservation = null;
       await writeState(dependencies.directory, previous);
     }
-    if (request.replace !== undefined && request.replace !== recorded?.id)
-      throw new Error(
-        "The reservation changed; read stand status before replacing it",
-      );
     refuseForeignReservation(request, reservation);
     if (request.command === "release") {
       if (previous) {
@@ -149,16 +149,7 @@ export async function controlStand(request, dependencies) {
           "Initial stand schema and infrastructure must match the controller checkout; prepare a separate handoff for a different baseline",
         );
     }
-    if (previous && previous.source.identity !== source.identity)
-      throw new Error(identityChanged);
-    if (
-      previous &&
-      (previous.source.schema !== source.schema ||
-        previous.source.infrastructure !== source.infrastructure)
-    )
-      throw new Error(
-        "Stand schema or infrastructure differs; keep the current stand and prepare a separate migration or infrastructure handoff",
-      );
+    refuseIncompatibleSource(previous, source);
     const snapshot = snapshotSchema.parse(await dependencies.inspect());
     if (
       snapshot.containers.length > 0 &&
@@ -168,12 +159,7 @@ export async function controlStand(request, dependencies) {
         "Stand is unmanaged or its containers changed ownership; obtain an owner handoff before changing it",
       );
     const mode = selectedMode(request, previous, source.root);
-    const sameSource =
-      previous?.source.root === source.root &&
-      previous.mode === mode &&
-      (mode === "live"
-        ? previous.source.build === source.build
-        : previous.source.fingerprint === source.fingerprint);
+    const sameSource = runsSource(previous, source, mode);
     let applicationReady = false;
     if (snapshot.containers.length > 0 && previous?.health) {
       let health;
@@ -193,11 +179,7 @@ export async function controlStand(request, dependencies) {
     if (
       applicationReady &&
       previous?.phase === "ready" &&
-      previous.source.root === source.root &&
-      previous.mode === mode &&
-      (mode === "live"
-        ? previous.source.build === source.build
-        : previous.source.fingerprint === source.fingerprint) &&
+      sameSource &&
       sameRuntime(previous.receipt, snapshot)
     ) {
       await dependencies.ready(snapshot);
@@ -473,25 +455,40 @@ function refuseForeignReservation(request, reservation) {
 }
 
 /**
- * Refuses a mutation that the controller would refuse for a foreign reservation, before the
- * caller spends minutes on image builds. The controller checks again under the lock.
- * @param {StandRequest} request
- * @param {Pick<StandDependencies, "directory" | "worktreeExists">} dependencies
+ * `show` and `refresh` keep the recorded identity, schema and infrastructure; `upgrade` changes them.
+ * @param {StandState | null} previous @param {StandSource} source
  */
-export async function precheckReservation(request, dependencies) {
-  const reservation = (await readState(dependencies.directory))?.reservation;
+function refuseIncompatibleSource(previous, source) {
+  if (previous && previous.source.identity !== source.identity)
+    throw new Error(identityChanged);
   if (
-    reservation &&
-    dependencies.worktreeExists &&
-    !(await dependencies.worktreeExists(reservation.worktree))
+    previous &&
+    (previous.source.schema !== source.schema ||
+      previous.source.infrastructure !== source.infrastructure)
   )
-    return;
-  refuseForeignReservation(request, reservation);
+    throw new Error(
+      "Stand schema or infrastructure differs; keep the current stand and prepare a separate migration or infrastructure handoff",
+    );
 }
 
 /**
- * The preview mode an operation prepares: the requested one, or for `refresh` of the same
- * worktree the current one.
+ * Whether the recorded stand already runs this source in this mode. Live mode mounts Web sources,
+ * so only the build inputs must match.
+ * @param {StandState | null} previous @param {StandSource} source @param {StandMode} mode
+ */
+function runsSource(previous, source, mode) {
+  return (
+    previous?.source.root === source.root &&
+    previous.mode === mode &&
+    (mode === "live"
+      ? previous.source.build === source.build
+      : previous.source.fingerprint === source.fingerprint)
+  );
+}
+
+/**
+ * The preview mode a mutation prepares: the requested one, or the current one for `refresh` of
+ * the same worktree and for `upgrade`.
  * @param {StandRequest} request @param {StandState | null} previous @param {string} root
  * @returns {StandMode}
  */
@@ -507,13 +504,30 @@ function selectedMode(request, previous, root) {
 }
 
 /**
- * The preview mode a mutation will most likely prepare, read without the lock so that its image
- * builds can start before the operation waits for the stand. The controller decides again under
- * the lock; a different answer only costs a build that the cache did not cover.
- * @param {StandRequest} request @param {string} directory
+ * Decides, without the lock, whether a mutation should build images before it waits for the stand.
+ * It refuses what the controller would refuse for a foreign reservation or an incompatible source,
+ * and returns null when the ready stand already runs this source in this mode. The controller
+ * decides again under the lock; a different answer costs only a build the cache did not cover.
+ * @param {StandRequest} request
+ * @param {Pick<StandDependencies, "directory" | "worktreeExists">} dependencies
+ * @param {StandSource} source
+ * @returns {Promise<StandMode | null>} the mode to build for, or null
  */
-export async function expectedMode(request, directory) {
-  return selectedMode(request, await readState(directory), request.worktree);
+export async function planPrebuild(request, dependencies, source) {
+  const previous = await readState(dependencies.directory);
+  const reservation = previous?.reservation;
+  const stale =
+    reservation &&
+    dependencies.worktreeExists &&
+    !(await dependencies.worktreeExists(reservation.worktree));
+  if (!stale) refuseForeignReservation(request, reservation);
+  if (request.command === "upgrade")
+    return selectedMode(request, previous, source.root);
+  refuseIncompatibleSource(previous, source);
+  const mode = selectedMode(request, previous, source.root);
+  return previous?.phase === "ready" && runsSource(previous, source, mode)
+    ? null
+    : mode;
 }
 
 /** Keep legacy startup from replacing a reserved but stopped controlled stand. @param {string} directory */

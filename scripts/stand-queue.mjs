@@ -9,13 +9,11 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { hostname } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 
 const ticketSchema = z.strictObject({
   pid: z.number().int().positive(),
-  host: z.string(),
   worktree: z.string(),
   command: z.string(),
   enqueuedAt: z.iso.datetime(),
@@ -39,7 +37,7 @@ const pollMilliseconds = 1_000;
 /**
  * Waits for this operation's turn on the shared stand. Operations queue in arrival order; the
  * first one takes the machine-wide lock as soon as no tool outside the queue holds it. A waiter
- * whose process ended on this machine leaves the queue, so a killed session never blocks it.
+ * whose process ended leaves the queue, so a killed session never blocks it.
  *
  * @param {StandTurnOptions} options
  * @returns {Promise<() => Promise<void>>} release of the lock and of the queue place
@@ -69,7 +67,6 @@ export async function waitForStandTurn({
   /** @type {StandQueueEntry} */
   const ticket = {
     pid,
-    host: hostname(),
     worktree,
     command,
     enqueuedAt: new Date().toISOString(),
@@ -144,20 +141,16 @@ export async function readStandQueue(directory) {
 }
 
 /**
- * Removes tickets of ended processes on this machine and unreadable tickets.
+ * Removes tickets of ended processes and unreadable tickets.
  *
  * @param {string} queue
  * @param {(pid: number) => boolean} isAlive
  */
 async function sweep(queue, isAlive) {
-  const host = hostname();
   /** @type {{ name: string; ticket: StandQueueEntry }[]} */
   const kept = [];
   for (const entry of await readTickets(queue)) {
-    if (
-      entry.ticket === undefined ||
-      (entry.ticket.host === host && !isAlive(entry.ticket.pid))
-    ) {
+    if (entry.ticket === undefined || !isAlive(entry.ticket.pid)) {
       await unlink(join(queue, entry.name)).catch(() => undefined);
       continue;
     }
@@ -200,8 +193,12 @@ function lockedElsewhere(error) {
   return cause instanceof Error && "code" in cause && cause.code === "ELOCKED";
 }
 
-/** @param {number} pid */
-function processAlive(pid) {
+/**
+ * Whether a process of this machine still runs. The stand directory lives in the Git common
+ * directory of this machine, so every waiter and instance is a local process.
+ * @param {number} pid
+ */
+export function processAlive(pid) {
   try {
     process.kill(pid, 0);
     return true;

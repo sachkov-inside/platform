@@ -1,7 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
-import { hostname, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
@@ -131,7 +131,7 @@ test("the head of the queue waits for a holder of the machine-wide lock outside 
   assert.deepEqual(await readStandQueue(directory), []);
 });
 
-test("a ticket of a finished process on this machine and an unreadable ticket are removed", async (t) => {
+test("a ticket of a finished process and an unreadable ticket are removed", async (t) => {
   const { wait, directory } = await fixture(t);
   const queue = join(directory, "queue");
   const release = await wait(401, []);
@@ -140,7 +140,6 @@ test("a ticket of a finished process on this machine and an unreadable ticket ar
     join(queue, "000000000000000001-dead.json"),
     JSON.stringify({
       pid: 999_999,
-      host: hostname(),
       worktree: "/fixture/dead",
       command: "show",
       enqueuedAt: new Date(0).toISOString(),

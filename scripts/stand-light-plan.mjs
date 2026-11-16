@@ -3,6 +3,10 @@ import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import {
+  fullStackOfflineServices,
+  fullStackReleaseEnvironment,
+} from "./full-stack-environment.mjs";
 
 /**
  * A light instance is one worktree's web and API (and MCP when asked) running on the host against
@@ -39,6 +43,7 @@ export const lightStateSchema = z.strictObject({
   worktree: z.string(),
   pid: z.number().int().positive(),
   phase: z.enum(["starting", "ready", "failed", "stopping"]),
+  web: z.enum(["production", "development"]),
   startedAt: z.iso.datetime(),
   readyAt: z.iso.datetime().nullable(),
   database: z.string().regex(databasePattern),
@@ -102,6 +107,8 @@ export async function listLightStates(directory) {
  * @param {Record<string, string>} input.identity environment of the synthetic sign-in
  * @param {NodeJS.Dict<string>} input.defaults values of `.env.example`
  * @param {NodeJS.ProcessEnv} input.base the caller's environment
+ * @param {"production" | "development"} input.webMode a production build (`next start`) or
+ *   `next dev`; the production build names the object storage origin in its CSP (ADR 0028)
  */
 export function lightEnvironment({
   database,
@@ -110,6 +117,7 @@ export function lightEnvironment({
   identity,
   defaults,
   base,
+  webMode,
 }) {
   const web = `http://127.0.0.1:${String(ports.web)}`;
   const api = `http://127.0.0.1:${String(ports.api)}`;
@@ -134,28 +142,31 @@ export function lightEnvironment({
     API_PORT: String(ports.api),
     BACKEND_BASE_URL: api,
     PUBLIC_SITE_ORIGIN: web,
-    // The seed sells the guide; API refuses a sale without the bank and the receipt mail. Like the
-    // full-stack run, the instance buys nothing: the bank is unreachable and mail stays local.
-    TBANK_PROVIDER_MODE: "test",
-    TBANK_TEST_API_BASE_URL: "http://127.0.0.1:9/v2",
-    BILLING_CONTACT_ENCRYPTION_KEY:
-      "aW5zaWRlLWxvY2FsLWJpbGxpbmctY29udGFjdC1rZXk=",
-    BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
-    BILLING_CONTACT_SMTP_PORT: "9",
-    BILLING_CONTACT_FROM: "no-reply@inside.localhost",
-    BILLING_CONTACT_SMTP_LOCAL_CAPTURE: "true",
+    ...fullStackOfflineServices,
     KINESCOPE_PROVIDER_MODE: "test",
     LOCAL_SEED_DEMO: "published",
-    PLATFORM_RELEASE_VERSION: "v1",
-    PLATFORM_SOURCE_SHA: "1".repeat(40),
+    ...fullStackReleaseEnvironment,
     OWNER_PERMISSION: "platform:admin",
     NEXT_TELEMETRY_DISABLED: "1",
     HIDE_DEV_INDICATOR: "true",
     ...identity,
   };
+  const storage = new URL(
+    shared["OBJECT_STORAGE_SIGNED_GET_ENDPOINT"]?.trim() ||
+      shared["OBJECT_STORAGE_ENDPOINT"]?.trim() ||
+      "http://127.0.0.1:9000",
+  ).origin;
   return {
     urls: { web, api, mcp },
     shared,
+    web:
+      webMode === "production"
+        ? {
+            ...shared,
+            NODE_ENV: "production",
+            CSP_LOCAL_OBJECT_STORAGE_ORIGIN: storage,
+          }
+        : shared,
     mcp:
       mcp === undefined || ports.mcp === undefined
         ? undefined

@@ -1,7 +1,8 @@
 // @ts-check
 // The supervisor of one light instance. `pnpm stand:light up` starts it detached; it owns the
-// instance's processes and database until SIGTERM from `pnpm stand:light down`.
+// instance's processes, database and release identity file until SIGTERM from `pnpm stand:light down`.
 import { execFileSync, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
@@ -11,6 +12,7 @@ import { parseEnv } from "node:util";
 import { z } from "zod";
 import { composePsql } from "./check-database.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
+import { fullStackRelease } from "./full-stack-environment.mjs";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { pnpmInvocation } from "./pnpm-invocation.mjs";
@@ -23,9 +25,16 @@ import {
   lightSubjects,
 } from "./stand-light-plan.mjs";
 
+const adoptionPollMilliseconds = 50;
+const adoptionBudgetMilliseconds = 10_000;
+const startupBudgetMilliseconds = 15 * 60_000;
+const readinessPollMilliseconds = 500;
+const readinessRequestMilliseconds = 30_000;
+const processStopGraceMilliseconds = 10_000;
+
 // Owned processes stop when any ancestor of their owner exits (owned-process.py). The instance
 // outlives the `up` command, so its supervisor first leaves that ancestry: it starts a copy of
-// itself and exits, and the copy waits until it is adopted by launchd (PID 1).
+// itself and exits, and the copy waits until launchd (PID 1) adopts it.
 if (process.env["STAND_LIGHT_DETACHED"] !== "1") {
   spawn(process.execPath, [fileURLToPath(import.meta.url)], {
     detached: true,
@@ -34,8 +43,16 @@ if (process.env["STAND_LIGHT_DETACHED"] !== "1") {
   }).unref();
   process.exit(0);
 }
-while (process.ppid !== 1)
-  await new Promise((resolve) => setTimeout(resolve, 50));
+const adoptionDeadline = Date.now() + adoptionBudgetMilliseconds;
+while (process.ppid !== 1) {
+  if (Date.now() > adoptionDeadline) {
+    process.stderr.write(
+      "The light instance supervisor was not adopted by launchd; its processes would stop with the caller\n",
+    );
+    process.exit(1);
+  }
+  await pause(adoptionPollMilliseconds);
+}
 
 const configuration = z
   .strictObject({
@@ -45,12 +62,17 @@ const configuration = z
     composeProject: z.string(),
     postgresPort: z.number().int().positive(),
     mcp: z.boolean(),
+    web: z.enum(["production", "development"]),
   })
   .parse(JSON.parse(process.env["STAND_LIGHT_CONFIGURATION"] ?? "null"));
-const startupBudgetMilliseconds = 10 * 60_000;
 const { id, database, appId } = lightInstanceName(configuration.worktree);
 const statePath = join(configuration.directory, `${id}.json`);
-const startedAt = new Date().toISOString();
+const releaseIdentityPath = join(
+  configuration.worktree,
+  "apps/web/release-identity.json",
+);
+const releaseIdentity = `${JSON.stringify(fullStackRelease)}\n`;
+const webAgentsPath = join(configuration.worktree, "apps/web/AGENTS.md");
 const psql = composePsql({
   cwd: configuration.worktree,
   composeProject: configuration.composeProject,
@@ -63,6 +85,9 @@ const closers = [];
 /** @type {Promise<void> | undefined} */
 let stopping;
 let databaseCreated = false;
+let releaseIdentityWritten = false;
+/** @type {string | undefined} */
+let webAgentsText;
 
 /** @type {import("./stand-light-plan.mjs").LightState} */
 const state = {
@@ -71,7 +96,8 @@ const state = {
   worktree: configuration.worktree,
   pid: process.pid,
   phase: "starting",
-  startedAt,
+  web: configuration.web,
+  startedAt: new Date().toISOString(),
   readyAt: null,
   database,
   composeProject: configuration.composeProject,
@@ -94,9 +120,8 @@ try {
     mcp: configuration.mcp ? await reservePort() : undefined,
   };
   const webBaseUrl = `http://127.0.0.1:${String(ports.web)}`;
-  const apiBaseUrl = `http://127.0.0.1:${String(ports.api)}`;
   const identity = await startFullStackIdentity({
-    apiBaseUrl,
+    apiBaseUrl: `http://127.0.0.1:${String(ports.api)}`,
     webBaseUrl,
     appId,
     ...(ports.mcp === undefined
@@ -135,6 +160,7 @@ try {
       await readFile(join(configuration.worktree, ".env.example"), "utf8"),
     ),
     base: process.env,
+    webMode: configuration.web,
   });
   state.urls = {
     web: environment.urls.web,
@@ -151,23 +177,26 @@ try {
   for (const script of ["db:migrate", "db:seed", "release:bootstrap-owner"])
     await runPnpm(["--filter", "@inside/backend", script], environment.shared);
 
-  const webAgents = join(configuration.worktree, "apps/web/AGENTS.md");
-  const webAgentsText = await readFile(webAgents, "utf8");
+  webAgentsText = await readFile(webAgentsPath, "utf8");
   start(["--filter", "@inside/backend", "dev:api"], environment.shared);
-  start(
-    [
-      "--filter",
-      "@inside/web",
-      "dev",
-      "--hostname",
-      "127.0.0.1",
-      "--port",
-      String(ports.web),
-    ],
-    environment.shared,
-  );
   if (environment.mcp)
     start(["--filter", "@inside/backend", "dev:mcp"], environment.mcp);
+  const webAddress = ["--hostname", "127.0.0.1", "--port", String(ports.web)];
+  if (configuration.web === "production") {
+    // The production build requires a release identity beside the application; an interrupted
+    // instance leaves its own file, which it may take again, never another one.
+    if (
+      existsSync(releaseIdentityPath) &&
+      (await readFile(releaseIdentityPath, "utf8")) !== releaseIdentity
+    )
+      throw new Error(`Refusing to replace ${releaseIdentityPath}`);
+    await rm(releaseIdentityPath, { force: true });
+    await writeFile(releaseIdentityPath, releaseIdentity, { mode: 0o444 });
+    releaseIdentityWritten = true;
+    await runPnpm(["--filter", "@inside/web", "build"], environment.web);
+    start(["--filter", "@inside/web", "start", ...webAddress], environment.web);
+  } else
+    start(["--filter", "@inside/web", "dev", ...webAddress], environment.web);
 
   const deadline = Date.now() + startupBudgetMilliseconds;
   await waitFor(`${environment.urls.api}/health`, deadline);
@@ -186,21 +215,17 @@ try {
       `${environment.urls.mcp.replace(/\/mcp$/u, "")}/.well-known/oauth-protected-resource/mcp`,
       deadline,
     );
-  await waitFor(`${environment.urls.web}/_health/ready`, deadline);
-  // `next dev` rewrites the Next.js block of apps/web/AGENTS.md at startup; the checkout keeps
-  // its committed text.
-  if ((await readFile(webAgents, "utf8")) !== webAgentsText)
-    await writeFile(webAgents, webAgentsText);
+  // Web readiness compares release identities, and the host API runs in development mode, as
+  // in the full-stack smoke; API readiness is checked above, so web only has to be alive.
+  await waitFor(`${environment.urls.web}/_health/live`, deadline);
+  await restoreWebAgents();
   state.phase = "ready";
   state.readyAt = new Date().toISOString();
   await writeState();
 } catch (error) {
-  state.phase = "failed";
-  state.failure =
-    error instanceof Error ? error.message : "Light instance failed to start";
-  process.stderr.write(`${state.failure}\n`);
-  await writeState().catch(() => undefined);
-  await stop(1);
+  await fail(
+    error instanceof Error ? error.message : "Light instance failed to start",
+  );
 }
 
 /** @param {string[]} args @param {NodeJS.ProcessEnv} env */
@@ -211,11 +236,10 @@ function start(args, env) {
     stdio: ["ignore", "inherit", "inherit"],
   });
   children.push(child);
+  // An instance with a missing process is not usable: stop the rest and keep the failure.
   child.once("exit", (code) => {
-    if (stopping || state.phase === "stopping") return;
-    state.phase = "failed";
-    state.failure = `${args.join(" ")} exited with ${String(code)}`;
-    void writeState();
+    if (stopping === undefined)
+      void fail(`${args.join(" ")} exited with ${String(code)}`);
   });
 }
 
@@ -235,20 +259,28 @@ async function runPnpm(args, env) {
 /** @param {string} url @param {number} deadline */
 async function waitFor(url, deadline) {
   while (Date.now() < deadline) {
-    if (state.phase === "failed")
-      throw new Error(state.failure ?? "A process exited");
+    if (stopping !== undefined) throw new Error("The instance is stopping");
     try {
       const response = await fetch(url, {
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(readinessRequestMilliseconds),
       });
       await response.body?.cancel();
       if (response.ok) return;
     } catch {
       // Still starting.
     }
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await pause(readinessPollMilliseconds);
   }
   throw new Error(`${url} did not answer within the startup budget`);
+}
+
+/** `next dev` and `next build` rewrite the Next.js block of apps/web/AGENTS.md; keep the committed text. */
+async function restoreWebAgents() {
+  if (
+    webAgentsText !== undefined &&
+    (await readFile(webAgentsPath, "utf8")) !== webAgentsText
+  )
+    await writeFile(webAgentsPath, webAgentsText);
 }
 
 async function writeState() {
@@ -260,9 +292,20 @@ async function writeState() {
   await rename(temporary, statePath);
 }
 
+/** @param {string} failure */
+async function fail(failure) {
+  if (stopping !== undefined) return;
+  state.phase = "failed";
+  state.failure = failure;
+  process.stderr.write(`${failure}\n`);
+  await writeState().catch(() => undefined);
+  await stop(1);
+}
+
 /**
- * Removes the instance's processes, servers, database and record, and nothing else. A failed
- * start keeps its record with the failure until `down`, so the caller can read why.
+ * Removes the instance's processes, servers, database, release identity file and record, and
+ * nothing else. A failed instance keeps its record with the failure until `down`, so the caller
+ * can read why. Every step runs even when an earlier one fails.
  * @param {number} code
  */
 function stop(code) {
@@ -272,14 +315,33 @@ function stop(code) {
       state.phase = "stopping";
       await writeState().catch(() => undefined);
     }
-    await Promise.all(children.map((child) => stopOwned(child, 10_000)));
+    await Promise.allSettled(
+      children.map((child) => stopOwned(child, processStopGraceMilliseconds)),
+    );
     for (const close of closers) await close().catch(() => undefined);
-    if (databaseCreated)
-      psql(
-        `drop database if exists ${assertLightDatabase(database)} with (force)`,
+    let exitCode = code;
+    try {
+      if (databaseCreated)
+        psql(
+          `drop database if exists ${assertLightDatabase(database)} with (force)`,
+        );
+    } catch (error) {
+      exitCode = 1;
+      process.stderr.write(
+        `Dropping ${database} failed; pnpm stand:light down retries it: ${error instanceof Error ? error.message : "unknown error"}\n`,
       );
-    if (!failed) await rm(statePath, { force: true });
-    process.exit(code);
+    }
+    if (releaseIdentityWritten)
+      await rm(releaseIdentityPath, { force: true }).catch(() => undefined);
+    await restoreWebAgents().catch(() => undefined);
+    if (!failed && exitCode === code)
+      await rm(statePath, { force: true }).catch(() => undefined);
+    process.exit(exitCode);
   })();
   return stopping;
+}
+
+/** @param {number} milliseconds */
+function pause(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
