@@ -46,7 +46,7 @@ head. These completion checks do not prove a different application's release sou
    parallel/serial integration and both Compose modes; Telegram includes its complete suite.
    Source evidence does not replace the images' digest/revision/schema verification.
 
-Root AGENTS.md → Commands defines task verification. `pnpm check`, `pnpm check:full` and
+Root AGENTS.md → Commands defines local verification. `pnpm check`, `pnpm check:full` and
 guarded Compose remain development and diagnosis tools. Compose evidence includes shutdown and
 session-owned resources. Independent Standards and Spec reviews remain bound to the reviewed
 change. Manual full-stack investigation remains available; no scheduled run is required for release.
