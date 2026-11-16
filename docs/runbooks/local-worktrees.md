@@ -18,8 +18,8 @@ pnpm worktree:prepare --task <issue>
 
 The project-owned `.worktree-resources.json` contains argv commands, executed without a shell.
 Preparation installs dependencies with the frozen lockfile; it does not start services, migrate or
-seed a database, create `.env`, or copy credentials. The `finish` commands run at the end of the
-task through `session-cleanup`. Repeating it reconciles the same dependencies.
+seed a database, create `.env`, or copy credentials. Repeating it reconciles the same dependencies.
+Its `finish` commands run in the task's last step, described in `session-cleanup`.
 The installed optional `agent-worktree` host CLI records successful preparation for the task.
 Without that CLI, the same project command runs preparation and explicitly reports that resource
 tracking is unavailable. No sibling checkout or global host CLI is needed to install dependencies.
@@ -47,8 +47,8 @@ pnpm worktree:status
 ```
 
 The host CLI allocates a port and records the owned process identity. `--keep` preserves this preview
-when task cleanup runs. Application-specific API origins and callbacks still need the configuration
-above; allocating one port does not configure a complete parallel stack. Use the stand controller
+through mid-task cleanup; the task's last step after merge stops it. Application-specific API
+origins and callbacks still need the configuration above; allocating one port does not configure a complete parallel stack. Use the stand controller
 for a full application presentation and its reservation, rather than registering the shared stand
 as a task-owned process. Testcontainers, Compose resources and other launchers retain their existing
 owners and cleanup procedures.

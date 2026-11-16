@@ -10,8 +10,9 @@ Branch `<type>/<issue>-<slug>` from `origin/main`; a task without an Issue uses 
 Types: `feat`, `fix`, `docs`, `chore`, `research`, `prototype`.
 
 The environment (Orca) creates the session's worktree in `~/Worktrees/<repo>/<task>`; work in it.
-Claude Code's internal worktrees under `.claude/worktrees` are temporary. One writing context owns
-one worktree and stays in it.
+Claude Code's internal worktrees under `.claude/worktrees` are temporary; `agent-worktree sweep`
+removes finished ones. Existing `<repo>.worktrees` checkouts of the earlier layout stay until
+`session-cleanup` removes them. One writing context owns one worktree and stays in it.
 
 The primary checkout belongs to the owner. Read it through `git -C` or absolute paths; change it
 only on the owner's request. Keep other sessions' worktrees, branches, containers, volumes, stashes,
