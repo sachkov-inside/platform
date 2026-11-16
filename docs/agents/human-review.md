@@ -57,7 +57,8 @@ missed consequence, an unsupported "nothing to show", stale evidence. The classi
 
 Verification is its own step, by another agent, at the place root
 [AGENTS.md](../../AGENTS.md#process) gives it in the skill chain. A fresh agent that did not write
-the change runs it the way a user would, through the project skill `verify-platform`, and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
+the change runs it the way a user would, through the project skill
+[`verify-platform`](../../.agents/skills/verify-platform/SKILL.md), and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
 
 - **Required** when user-visible behaviour changes or the task has key scenarios. An internal
   change or documentation needs none, and the PR says so in one line.
@@ -68,7 +69,7 @@ the change runs it the way a user would, through the project skill `verify-platf
 - **Matched by the Spec reviewer.** The independent Spec reviewer confirms that the verdict
   covers the delivered change: in its review when the verdict already exists, otherwise in a short
   follow-up given the verdict and the diff, before `pr`. In the same pass it looks through the
-  artifacts for data that is not the stand's test data.
+  artifacts for data that is not test data.
 - **`FAIL`** returns the work to implementation; its fix is reviewed and verified again.
   **`PASS+NOTES`** carries its notes into the PR's «Проверено».
 
@@ -93,10 +94,11 @@ Choose the kind of evidence for each scenario; one PR mixes them:
 Tests protect against regressions and are not the evidence the owner accepts from. Storybook is a
 workshop: the running application proves the look a user gets.
 
-The verifier's verdict is the inventory of evidence: for each scenario it states the kind of
-evidence, the files, what they show in one line, the source of the data and the change they cover.
-`verify-platform` owns the evidence directory and the report skeleton; the files are never
-committed. `pr` assembles «Проверено» from that inventory and retells nothing in its own words.
+The verifier puts the files and one `manifest.json` into `.evidence/` at the worktree's root,
+outside Git; `verify-platform` owns the folder and the manifest. For each scenario the manifest
+states the kind of evidence, the files, what they show in one line, the source of the data and the
+change they cover. `pr` takes the scenarios of «Проверено» from the manifest and retells nothing in
+its own words.
 
 Evidence lives in the PR; a specification keeps it in its final PR. No feature page holds it and
 no script classifies a diff (owner decision 5 of #2206). The repository is public: evidence shows only test data. [PR body](pr.md#attachments) owns how artifacts get into the PR.
