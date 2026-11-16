@@ -4,13 +4,13 @@ import { CircleAlert, LoaderCircle } from "lucide-react";
 import {
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
   type SubmitEvent,
   type ReactNode,
 } from "react";
 
+import { useNativeDialog } from "@/shared/lib/native-dialog.client";
 import { hasText } from "@/shared/lib/text";
 import { Button } from "@/shared/ui/button";
 
@@ -51,17 +51,8 @@ export interface ReasonDialogProps {
  */
 export function ReasonDialog(props: ReasonDialogProps) {
   const { open, onOpenChange, pending = false, consequence } = props;
-  const dialog = useRef<HTMLDialogElement>(null);
+  const dialog = useNativeDialog({ open, pending, onOpenChange });
   const id = useId();
-
-  // Синхронизация с модальным слоем браузера: `showModal` и `close` принадлежат элементу. Эффект
-  // разметки идёт раньше обычных эффектов формы, поэтому её первый фокус ставится уже в модальном слое.
-  useLayoutEffect(() => {
-    const element = dialog.current;
-    if (element === null) return;
-    if (open && !element.open) element.showModal();
-    if (!open && element.open) element.close();
-  }, [open]);
 
   return (
     <dialog
@@ -70,22 +61,7 @@ export function ReasonDialog(props: ReasonDialogProps) {
       }
       aria-labelledby={`${id}-heading`}
       className="admin-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!pending) onOpenChange(false);
-      }}
-      onClose={(event) => {
-        // Событие close приходит задачей позже: к этому времени диалог могли уже открыть снова.
-        if (open && !event.currentTarget.open) onOpenChange(false);
-      }}
-      onKeyDown={(event) => {
-        // Escape обрабатывается здесь, а не только событием cancel: так он одинаково работает
-        // во всех браузерах и не закрывает диалог посреди выполнения.
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        if (!pending) onOpenChange(false);
-      }}
-      ref={dialog}
+      {...dialog}
     >
       {open ? <ReasonForm {...props} dialogId={id} /> : null}
     </dialog>

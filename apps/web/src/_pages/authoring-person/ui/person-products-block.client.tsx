@@ -59,6 +59,7 @@ function ProductPanel({
   readonly product: PersonCardProduct;
 }) {
   const headingId = `person-product-${product.productId}`;
+  // Keep focus through the async preview: https://github.com/sachkov-inside/platform/issues/2247.
   const preparing = actions.pendingProductId === product.productId;
   return (
     <article
@@ -82,10 +83,11 @@ function ProductPanel({
         {product.access === "active" ? (
           <Button
             aria-busy={preparing}
+            aria-disabled={preparing}
             aria-label={`Отозвать доступ к «${product.name}»`}
-            className="min-h-11 px-4"
-            disabled={preparing}
+            className="min-h-11 px-4 aria-disabled:opacity-50"
             onClick={() => {
+              if (preparing) return;
               actions.revoke(product.productId);
             }}
             type="button"
