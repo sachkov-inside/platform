@@ -58,11 +58,12 @@ existed show an unknown age. Ordinary editing, Storybook and isolated tests do n
 
 A mutation that finds another stand operation running waits in a first-come queue instead of
 failing, and prints its position and the running operation to stderr. `status` lists the queue.
-A waiter whose process ends leaves the queue, even when the system later gives its process ID to
-another process: the ticket records when the waiter's process started. Its first place also waits
-while another tool holds the machine-wide lock (`pnpm local:setup`, identity proofs,
-`pnpm stand:images --apply`). Run a waiting command in the background: an agent's tool timeout
-that kills it gives up its place.
+A waiter whose process ends leaves the queue. The name of its ticket records when its process
+started, so a killed waiter also leaves after the system gives its process ID to another process;
+a ticket of the earlier format, without that time, is checked by the process ID alone. Its first
+place also waits while another tool holds the machine-wide lock (`pnpm local:setup`, identity
+proofs, `pnpm stand:images --apply`). Run a waiting command in the background: an agent's tool
+timeout that kills it gives up its place.
 
 `show`, `refresh` and `upgrade` build the source's application image (`api`, and `web` for
 `--production-web`) before joining the queue, under the separate Compose project

@@ -1,6 +1,13 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -18,7 +25,7 @@ async function fixture(t) {
   const lock = join(directory, "lock");
   /** @type {Set<number>} */
   const alive = new Set();
-  /** @type {Map<number, string>} what the system reports as the start time of each process */
+  /** @type {Map<number, number>} the second the system reports as the start of each process */
   const started = new Map();
   /**
    * @param {number} pid
@@ -26,7 +33,7 @@ async function fixture(t) {
    */
   const wait = (pid, reports) => {
     alive.add(pid);
-    if (!started.has(pid)) started.set(pid, "2026-11-16T10:00:00.000Z");
+    if (!started.has(pid)) started.set(pid, 1_794_823_200);
     return waitForStandTurn({
       directory,
       worktree: `/fixture/${String(pid)}`,
@@ -142,7 +149,7 @@ test("the queue skips a killed waiter whose process ID now belongs to another pr
   assert.match(reports[0] ?? "", /position 3 of 3/u);
 
   // The process ID stays alive, but the system started that process later: it is another process.
-  started.set(602, "2026-11-16T12:30:00.000Z");
+  started.set(602, 1_794_832_200);
   await until(() => reports.some((line) => /position 2 of 2/u.test(line)));
   await releaseFirst();
   const release = await turn;
@@ -158,7 +165,7 @@ test("a ticket written before start times were recorded keeps its place while it
   const queue = join(directory, "queue");
   await mkdir(queue, { recursive: true });
   alive.add(701);
-  started.set(701, "2026-11-16T09:00:00.000Z");
+  started.set(701, 1_794_819_600);
   await writeFile(
     join(queue, "000000000000000001-earlier-format.json"),
     JSON.stringify({
@@ -186,7 +193,7 @@ test("a ticket written before start times were recorded keeps its place while it
 test("a ticket keeps its place when a second reading of its start time differs by one second", async (t) => {
   const { wait, started, directory } = await fixture(t);
   const releaseFirst = await wait(851, []);
-  started.set(851, "2026-11-16T10:00:01.000Z");
+  started.set(851, 1_794_823_201);
   /** @type {string[]} */
   const reports = [];
   const turn = wait(852, reports);
@@ -228,23 +235,25 @@ test("a ticket keeps its place while the start time of its live process cannot b
   )();
 });
 
-test("the system reports one start time for a running process and none for a missing one", () => {
+test("ps reports the start second of a running process and none for a missing one", () => {
   const first = processStartTime(process.pid);
-  assert.match(first ?? "", /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/u);
-  const age = Date.now() - Date.parse(first ?? "");
-  assert.ok(
-    age >= 0 && age < 3_600_000,
-    `start time ${String(first)} is not recent`,
-  );
-  assert.equal(processStartTime(process.pid), first);
+  assert.ok(first !== undefined, "ps did not report the start of this process");
+  assert.ok(Number.isInteger(first) && first > 1_700_000_000, String(first));
+  const second = processStartTime(process.pid);
+  assert.ok(second !== undefined && Math.abs(second - first) <= 2);
   assert.equal(processStartTime(2 ** 30), undefined);
 });
 
-test("status lists the waiting operations without the start time of their processes", async (t) => {
+test("a ticket stays readable for a session that runs the earlier code", async (t) => {
   const { wait, directory } = await fixture(t);
   const release = await wait(901, []);
-  const [entry] = await readStandQueue(directory);
-  assert.deepEqual(Object.keys(entry ?? {}).sort(), [
+  const [name] = await readdir(join(directory, "queue"));
+  assert.match(name ?? "", /^\d{18}-[0-9a-f-]{36}-s1794823200\.json$/u);
+  const body = /** @type {unknown} */ (
+    JSON.parse(await readFile(join(directory, "queue", name ?? ""), "utf8"))
+  );
+  assert.ok(typeof body === "object" && body !== null);
+  assert.deepEqual(Object.keys(body).sort(), [
     "command",
     "enqueuedAt",
     "pid",
