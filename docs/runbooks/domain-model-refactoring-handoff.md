@@ -96,8 +96,7 @@ Prove repeat/concurrent requests, unknown outcomes, rollback, Account isolation,
 moderation. Run mixed-fixture upgrade and restore, checking immutable legal/financial facts and
 personal learning records before and after. A route rename or passing typecheck alone is insufficient.
 
-Complete the project's final product check or permitted exact-head CI evidence, current-head CI,
-merge-queue checks, documentation checks and triggered security/frontend verification. Use the
+Complete the verification in root AGENTS.md → Commands, current-head CI, merge-queue checks, documentation checks and triggered security/frontend verification. Use the
 trusted target policy for classification. A prepared result needs any owner acceptance that policy
 actually requires; finish independent work and present the concrete result before asking for it.
 Existing authorization persists. Ask only for a new material product choice or a real unresolved
