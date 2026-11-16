@@ -15,8 +15,9 @@ zones, Door/Zone/Proof acceptance, merge permission, CI Gate and merge queue pol
 frontend, domain and owner-correction contracts keep their existing owners.
 
 Unselected folders retain project/package ownership: `ai-models-refresh`, `impeccable`,
-`local-stand`, `modern-web-guidance`, `playwright-cli`, `session-cleanup` and
-`vercel-react-best-practices`. Their complete folder identities are unchanged in this migration.
+`local-stand`, `modern-web-guidance`, `session-cleanup` and `vercel-react-best-practices`.
+Their complete folder identities were unchanged in this migration; `playwright-cli` was removed later
+by owner decision (#2194).
 Codex reads `.agents/skills`; Claude's relative `.claude/skills` alias reads the same local copies.
 Runtime discovery needs neither Home nor a sibling checkout.
 

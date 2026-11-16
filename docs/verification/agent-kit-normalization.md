@@ -61,6 +61,8 @@ folder. These are content identities, not assertions of skill correctness.
 | `session-cleanup` | `a3bcf6da87749f27bb4a896834661c6d47be89ff87860b8e3843a38a73edda2e` |
 | `vercel-react-best-practices` | `237a6de4febe7b96179d83aa24256429d7c0cfe6d1ee5a4fd8ff28ca01322dc7` |
 
+`playwright-cli` was later removed by owner decision (#2194).
+
 ## Verification boundary
 
 Canonical installer `check` proves selected source/lock identity. Local Markdown-link validation

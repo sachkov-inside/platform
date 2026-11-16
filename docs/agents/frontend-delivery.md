@@ -20,8 +20,8 @@ port; keep another session's listener on `6006` or any other port.
 
 Use the owned preview's `platform-storybook` MCP endpoint when the runtime can reach it: read
 `get-storybook-story-instructions` before editing stories. If the endpoint belongs to another
-worktree, read the local stories and review the owned preview through browser tools; report that
-fallback.
+worktree, read the local stories and review the owned preview in a browser under the
+[browser rule](../../AGENTS.md#process); report that fallback.
 
 ## Prototypes
 

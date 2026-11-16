@@ -33,4 +33,4 @@ No installed procedure calls the excluded name or requires an `ask` alias.
 ## Outside the pipeline
 
 Platform retains `ai-models-refresh`, `impeccable`, `vercel-react-best-practices`,
-`modern-web-guidance`, `playwright-cli`, `session-cleanup` and `local-stand`.
+`modern-web-guidance`, `session-cleanup` and `local-stand`.
