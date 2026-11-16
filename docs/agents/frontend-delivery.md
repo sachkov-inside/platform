@@ -23,6 +23,9 @@ Use the owned preview's `platform-storybook` MCP endpoint when the runtime can r
 worktree, read the local stories and review the owned preview through browser tools; report that
 fallback.
 
+Design critique, audit or polish of a UI uses `impeccable`, which reads `apps/web/PRODUCT.md` and
+`apps/web/DESIGN.md`. A new visual direction still needs the owner acceptance below.
+
 ## Prototypes
 
 A prototype stays outside production imports and uses fixtures or in-memory state for mutations.

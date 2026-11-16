@@ -11,6 +11,7 @@ Use TDD where possible at pre-agreed seams. Respect owner-agreed seams and criti
 write down the seams under test. Choose remaining seams from acceptance criteria and public
 interfaces. Ask the owner when intended behaviour or an agreed boundary is unclear; routine test
 selection belongs to the implementer. Give each proposed seam one line on what it catches and misses.
+For a bug or regression whose cause is unknown, find the cause with `diagnosing-bugs` before the fix.
 During product implementation, run typechecking and focused test files regularly. Finish with the
 verification level in root AGENTS.md: product checks or documentation checks as applicable.
 
