@@ -61,7 +61,10 @@ function corpusWithTopics() {
         id: reviewTopic,
         name: "Ревью и замечания",
         summary: "",
-        materialIds: ["material-4", "material-3"],
+        materialIds: [
+          "33333333-3333-4333-8333-000000000204",
+          "33333333-3333-4333-8333-000000000203",
+        ],
       },
       {
         id: emptyTopic,
@@ -73,7 +76,10 @@ function corpusWithTopics() {
         id: designTopic,
         name: "Дизайн с агентами",
         summary: "Макеты и прототипы",
-        materialIds: ["material-1", "material-2"],
+        materialIds: [
+          "33333333-3333-4333-8333-000000000201",
+          "33333333-3333-4333-8333-000000000202",
+        ],
       },
     ],
   };
@@ -99,7 +105,7 @@ describe("Product catalogue presentation", () => {
 
   it("names a Material without a cover once, on its title card", () => {
     const html = renderCatalogue(corpusWithTopics());
-    expect(html.match(/>Урок 1<\/a>/gu)).toHaveLength(1);
+    expect(html.match(/>Материал 1<\/a>/gu)).toHaveLength(1);
     expect(html).toContain("data-library-title-card");
   });
 
@@ -133,9 +139,9 @@ describe("Product catalogue presentation", () => {
   });
 
   it("keeps the catalogue return address of a card", () => {
-    navigation.search = "part=materials&at=material-89";
+    navigation.search = "part=materials&at=performance-lesson-89";
     const html = renderCatalogue();
-    expect(html).toContain('data-route-material="material-89"');
-    expect(html).toContain("part%3Dmaterials%26at%3Dmaterial-89");
+    expect(html).toContain('data-route-material="performance-lesson-89"');
+    expect(html).toContain("part%3Dmaterials%26at%3Dperformance-lesson-89");
   });
 });

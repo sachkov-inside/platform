@@ -25,7 +25,8 @@
     "infra/production/logto/*.mjs",
     "infra/identity/logto/security/*.mjs",
     "apps/telegram/scripts/**/*.mjs",
-    "apps/telegram/test/**/*.mjs"
+    "apps/telegram/test/**/*.mjs",
+    "scenarios/**/*.mjs"
   ],
   "exclude": ["**/node_modules/**", "**/fixtures/**"]
 }

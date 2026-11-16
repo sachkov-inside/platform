@@ -1,3 +1,4 @@
+// @ts-check
 // Synthetic domain facts only. Each consumer owns its transport or presentation adapter.
 export const readingProduct = Object.freeze({
   id: "11111111-1111-4111-8111-111111111115",

@@ -1,9 +1,9 @@
+// @ts-check
 import {
   readingProduct,
   navigationReadingTopic,
 } from "../../../../scenarios/reading.mjs";
 import { readingHttpMaterials } from "../../../../scenarios/reading-http.mjs";
-// @ts-check
 import {
   productReaderStateRoute,
   readerProgrammeHoldRoute,
