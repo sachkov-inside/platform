@@ -188,18 +188,26 @@ result.
 
 - **`PASS`**: every scenario of the task was driven, each observed end state and side effect
   matched, nothing else looked wrong.
-- **`PASS+NOTES`**: all defined expectations matched, plus defects or deviations outside the
-  change, or a scenario whose success the task leaves undefined, in the notes.
-- **`FAIL`**: any expected state or side effect was missing or wrong, the doctor could not be made
-  to pass, or a scenario the task needs could not be driven.
+- **`PASS+NOTES`**: observed results match the change, with notes about unrelated defects or
+  coverage unavailable solely because of a stand/light-instance limit outside scenarios the
+  plan asked to show. Mark that coverage «Не проверено»; this verdict does not claim it passed.
+  An unrelated defect gets a linked Issue. A scenario whose success the task leaves undefined
+  also goes into the notes, with the missing criterion explicitly stated.
+- **`FAIL`**: an observed expected state or side effect inside the change is missing or wrong,
+  even if cosmetic or easy to fix. The verifier describes the deviation without accepting it
+  on the owner's behalf. Also fail when a scenario cannot run for a reason other than a stand
+  limit, or a stand limit blocks a scenario the plan explicitly asked to show.
 
-A scenario that could not be checked is added with kind `none`, the failing command in `--shows`
-and the result `FAIL` when the change depends on it; otherwise name it in the notes as not
-exercised. "Could not check" is never a pass. A scenario driven through a different entry point
-does not cover the skipped one. Report a failing scenario as it is, and name a missing seed
-precondition as the reason. A scenario whose success the task leaves undefined goes into the
-manifest with kind `none`, result `PASS+NOTES`, what was observed in `--shows` and a question
-for the task's author in `--notes`. This records the missing criterion, not a passed check.
+The stand-limit exception above takes precedence over missing coverage, including a failed doctor
+or an implementation-derived scenario the plan did not ask to show. Record the exact command and
+output and «Не проверено» in notes, with kind `none`; use `PASS+NOTES` for that scenario and the
+verdict unless another failure requires `FAIL`. This alone does not call the owner. A skipped
+entry point is not covered by driving another one. A missing seed precondition is a stand limit;
+a working stand that exposes wrong behaviour in the change is a failure, never a stand limit.
+
+A scenario whose success the task leaves undefined goes into the manifest with kind `none`,
+result `PASS+NOTES`, what was observed in `--shows` and a question for the task's author in
+`--notes`. This records the missing criterion, not a passed check.
 
 ## 6. Cleanup
 

@@ -23,7 +23,9 @@ When preparing a specification or a task, record with the owner:
 - **Key scenarios**: what the owner wants to see when the work is done, as many as matter.
 - **Advance decisions**: what the owner must decide before the work reaches it.
 
-A task with no key scenario says "nothing to show". Tickets inherit the specification's scenarios
+For a task the owner assigned directly, the task text is the plan. The implementer derives
+checks from it without a separate approval; a scenario explicitly requested by the owner stays
+required. A task with no key scenario says "nothing to show". Tickets inherit the specification's scenarios
 and decisions and add their own. Work without a ticket records them beside its acceptance criteria.
 When the task touches the "always show" list of [owner attention](owner-attention.md), the
 specification's author proposes those items as key scenarios. Raise a newly discovered check when its

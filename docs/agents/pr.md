@@ -35,7 +35,7 @@ keep the domain terms from the glossaries.
 
 <for agents only: the exact change, checked head and review base, commands to reproduce, the
 check table with links to runs, review reports and their disposition, the verdict, rollback, the
-classifier's duration and tokens>
+verification and classification start/end times, duration and tokens (or unavailable)>
 
 </details>
 
@@ -47,7 +47,8 @@ Closes #<issue>
 The owner reads everything outside «Подробности» and nothing inside it.
 
 - **Status**: the status [ship](ship.md#owner-attention) set, word for word, as the top-level
-  heading; its reason is the line under it. No section explains why the owner was called.
+  heading; its reason is the line under it. Before the one final classification a draft uses
+  `# Классификация ожидается`, under [ship](ship.md#owner-attention). No section explains why the owner was called.
 - **От тебя нужно**: one or two yes/no questions. A question is one short sentence with no
   lead-in and no retelling of the reason, such as «Мержить с бледной первой строкой в невысоком
   окне (снимок 2)?». Say what «да» changes only when the question does not show it. Present only
