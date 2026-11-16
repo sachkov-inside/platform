@@ -309,7 +309,7 @@ const scenario = {
   files: [{ path: "grant.webm", shows: "выдача в карточке человека" }],
   shows: "Карточка показывает «Доступ открыт», материал открылся у ученика",
   source: /** @type {const} */ ("light-instance"),
-  covers: "features/product-access.md: access-grant, access-open",
+  covers: "#2211: владелец выдаёт продукт",
   result: /** @type {const} */ ("PASS"),
   notes: null,
 };
