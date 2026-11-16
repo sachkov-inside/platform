@@ -14,6 +14,7 @@ const copyFeedbackMs = 2000;
 export function useCopyText(text: string, onFailure?: () => void) {
   const [state, setState] = useState<CopyTextState>("idle");
   const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const sequence = useRef(0);
   // Stops the failure callback and the reset timer once the control has unmounted.
   const mounted = useRef(true);
 
@@ -21,12 +22,13 @@ export function useCopyText(text: string, onFailure?: () => void) {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      sequence.current += 1;
       clearTimeout(reset.current);
     };
   }, []);
 
-  const finish = (result: "copied" | "failed") => {
-    if (!mounted.current) return;
+  const finish = (attempt: number, result: "copied" | "failed") => {
+    if (!mounted.current || attempt !== sequence.current) return;
     setState(result);
     if (result === "failed") onFailure?.();
     clearTimeout(reset.current);
@@ -36,6 +38,7 @@ export function useCopyText(text: string, onFailure?: () => void) {
   };
 
   const copy = () => {
+    const attempt = ++sequence.current;
     clearTimeout(reset.current);
     // A fresh idle state lets a repeated result reach screen readers again.
     setState("idle");
@@ -44,10 +47,10 @@ export function useCopyText(text: string, onFailure?: () => void) {
       resolve(navigator.clipboard.writeText(text));
     }).then(
       () => {
-        finish("copied");
+        finish(attempt, "copied");
       },
       () => {
-        finish("failed");
+        finish(attempt, "failed");
       },
     );
   };
