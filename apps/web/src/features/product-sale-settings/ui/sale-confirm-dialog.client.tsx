@@ -1,14 +1,9 @@
 "use client";
 
 import { CircleAlert, LoaderCircle } from "lucide-react";
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
+import { useNativeDialog } from "@/shared/lib/native-dialog.client";
 import { hasText } from "@/shared/lib/text";
 import { Button } from "@/shared/ui/button";
 
@@ -38,17 +33,10 @@ export function SaleConfirmDialog({
   readonly error?: string | null;
   readonly onConfirm: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const dialog = useNativeDialog({ open, pending, onOpenChange });
   const cancel = useRef<HTMLButtonElement>(null);
   const id = useId();
 
-  // Модальный слой принадлежит элементу: `showModal` и `close` синхронизируются с `open`.
-  useLayoutEffect(() => {
-    const element = dialog.current;
-    if (element === null) return;
-    if (open && !element.open) element.showModal();
-    if (!open && element.open) element.close();
-  }, [open]);
   useEffect(() => {
     if (open) cancel.current?.focus();
   }, [open]);
@@ -58,19 +46,7 @@ export function SaleConfirmDialog({
       aria-describedby={`${id}-consequence`}
       aria-labelledby={`${id}-heading`}
       className="admin-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!pending) onOpenChange(false);
-      }}
-      onClose={(event) => {
-        if (open && !event.currentTarget.open) onOpenChange(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        if (!pending) onOpenChange(false);
-      }}
-      ref={dialog}
+      {...dialog}
     >
       {open ? (
         <div className="admin-dialog-body">

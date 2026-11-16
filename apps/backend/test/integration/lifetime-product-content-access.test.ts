@@ -3,6 +3,10 @@ import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "vitest";
 import {
+  boundedSequence,
+  propertySeeds,
+} from "../support/bounded-sequences.js";
+import {
   assembleAccounts,
   accountId,
 } from "../../src/modules/accounts/index.js";
@@ -36,7 +40,7 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
       product = randomUUID(),
       otherProduct = randomUUID(),
       topic = randomUUID();
-    const now = new Date("2030-01-31T10:00:00.000Z");
+    let now = new Date("2030-01-31T10:00:00.000Z");
     for (const id of [owner, holder, stranger])
       await db.prisma.account.create({
         data: { id, logtoIssuer: "https://identity.test", logtoSubject: id },
@@ -282,6 +286,226 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
         effect: "deny",
         reason: "membership_required",
       });
+    const materialResource = own[0];
+    if (materialResource?.kind !== "material")
+      throw new Error("Material fixture missing");
+    for (const seed of propertySeeds()) {
+      const choices = boundedSequence(seed, [holder, stranger, "anonymous"], 6);
+      for (const [index, who] of choices.entries()) {
+        const subject =
+          who === "anonymous"
+            ? { kind: "anonymous" as const }
+            : { kind: "account" as const, accountId: accountId(who) };
+        const operations = [...own, ...foreign, materialResource].map(
+          (resource, ordinal) => ({
+            itemId: `seed-${seed}-${index}-${ordinal}`,
+            resource,
+            action:
+              resource.kind === "video"
+                ? ("play" as const)
+                : resource.kind === "asset"
+                  ? ("download" as const)
+                  : ("read" as const),
+          }),
+        );
+        const request = {
+          subject,
+          enforcementPoint: "published_material_read" as const,
+          correlationId: `seed-${seed}`,
+        };
+        const batch = await content.checkAvailabilityMany({
+          ...request,
+          operations,
+        });
+        expect(batch.ok).toBe(true);
+        if (!batch.ok) throw new Error(batch.error.code);
+        expect(batch.items.map((item) => item.itemId)).toEqual(
+          operations.map((item) => item.itemId),
+        );
+        for (const [ordinal, operation] of operations.entries()) {
+          const scalar = await content.authorize({ ...request, ...operation });
+          expect(
+            batch.items[ordinal]?.availability === "available",
+            `seed=${seed}; item=${operation.itemId}`,
+          ).toBe(scalar.effect === "allow");
+          if (who !== holder || (ordinal >= 4 && ordinal < 8))
+            expect(scalar.effect).toBe("deny");
+        }
+        const reversed = await content.checkAvailabilityMany({
+          ...request,
+          operations: [...operations].reverse(),
+        });
+        expect(reversed.ok && [...reversed.items].reverse()).toEqual(
+          batch.items,
+        );
+      }
+    }
+    for (const seed of propertySeeds()) {
+      for (const selectedProduct of boundedSequence(
+        seed,
+        [product, otherProduct],
+        2,
+      )) {
+        const candidate = randomUUID();
+        await db.prisma.account.create({
+          data: {
+            id: candidate,
+            logtoIssuer: "https://identity.test",
+            logtoSubject: candidate,
+          },
+        });
+        const temporary = await grants.issueProductAccess(
+          { source: "manual", actorId: owner },
+          {
+            accountId: candidate,
+            productId: selectedProduct,
+            sourceRef: randomUUID(),
+            issuedAt: now.toISOString(),
+            reason: "Generated rights case",
+          },
+        );
+        if (!temporary.ok) throw new Error(temporary.error.code);
+        for (const [resources, owningProduct] of [
+          [own, product],
+          [foreign, otherProduct],
+        ] as const) {
+          for (const resource of resources) {
+            expect(await authorize(candidate, resource)).toMatchObject({
+              effect: selectedProduct === owningProduct ? "allow" : "deny",
+            });
+            expect(
+              await content.authorize({
+                subject: { kind: "account", accountId: accountId(candidate) },
+                resource,
+                action: resource.kind === "video" ? "download" : "play",
+                enforcementPoint: "material_open",
+                correlationId: `invalid-action-${seed}`,
+              }),
+            ).toMatchObject({
+              effect: "deny",
+              reason: "resource_action_invalid",
+            });
+          }
+        }
+        expect(
+          await grants.revokeProductAccess(owner, {
+            accountId: candidate,
+            productId: selectedProduct,
+            operationId: randomUUID(),
+            expectedRevision: temporary.value.revision,
+            reason: "End generated rights case",
+          }),
+        ).toMatchObject({ ok: true });
+      }
+    }
+    const beforeCalendarBoundary = now;
+    for (const instant of [
+      "2030-12-31T23:59:59.999Z",
+      "2031-01-01T00:00:00.000Z",
+      "2100-01-01T00:00:00.000Z",
+    ]) {
+      now = new Date(instant);
+      for (const resource of own)
+        expect(await authorize(holder, resource)).toMatchObject({
+          effect: "allow",
+          validUntil: null,
+          decidedAt: instant,
+        });
+    }
+    now = beforeCalendarBoundary;
+    for (const seed of propertySeeds()) {
+      for (const [index, state] of boundedSequence(
+        seed,
+        ["draft", "published", "unpublished"] as const,
+        6,
+      ).entries()) {
+        const version = index + 2;
+        now = new Date(now.getTime() + 1);
+        await db.prisma.$transaction(async (tx) => {
+          await tx.material.update({
+            where: { id: materialResource.materialId },
+            data: {
+              publicationState: state,
+              contentVersion: BigInt(version),
+              firstPublishedAt: state === "draft" ? null : now,
+              publishedAt: state === "draft" ? null : now,
+              publishedBy: state === "draft" ? null : owner,
+            },
+          });
+          await tx.publishedMaterial.update({
+            where: { materialId: materialResource.materialId },
+            data: { contentVersion: BigInt(version) },
+          });
+        });
+        for (const resource of own) {
+          if (resource.kind === "productTask")
+            await db.prisma.productTask.update({
+              where: { id: resource.taskId },
+              data: {
+                publicationState:
+                  state === "published" ? "published" : "unpublished",
+              },
+            });
+          expect(await authorize(holder, resource)).toMatchObject({
+            effect: state === "published" ? "allow" : "deny",
+          });
+        }
+        const decision = await authorize(holder, materialResource);
+        expect(decision).toMatchObject({
+          effect: state === "published" ? "allow" : "deny",
+          ...(state === "published" ? { checkedContentVersion: version } : {}),
+          decidedAt: now.toISOString(),
+        });
+      }
+    }
+    for (const resource of own)
+      if (resource.kind === "productTask")
+        await db.prisma.productTask.update({
+          where: { id: resource.taskId },
+          data: { publicationState: "published" },
+        });
+    await db.prisma.$transaction(async (tx) => {
+      await tx.material.update({
+        where: { id: materialResource.materialId },
+        data: {
+          publicationState: "published",
+          contentVersion: 1n,
+          firstPublishedAt: now,
+          publishedAt: now,
+          publishedBy: owner,
+        },
+      });
+      await tx.publishedMaterial.update({
+        where: { materialId: materialResource.materialId },
+        data: { contentVersion: 1n },
+      });
+    });
+    await db.prisma.$executeRawUnsafe(
+      'ALTER TABLE materials."materials" RENAME TO "materials_property_outage"',
+    );
+    try {
+      expect(await authorize(holder, materialResource)).toMatchObject({
+        effect: "deny",
+        reason: "dependency_unavailable",
+      });
+      expect(
+        await content.checkAvailabilityMany({
+          subject: { kind: "account", accountId: accountId(holder) },
+          operations: [
+            { itemId: "outage", resource: materialResource, action: "read" },
+          ],
+          enforcementPoint: "material_open",
+          correlationId: "real-db-outage",
+        }),
+      ).toEqual({
+        ok: true,
+        items: [{ itemId: "outage", availability: "unavailable" }],
+      });
+    } finally {
+      await db.prisma.$executeRawUnsafe(
+        'ALTER TABLE materials."materials_property_outage" RENAME TO "materials"',
+      );
+    }
     await db.prisma.product.update({
       where: { id: product },
       data: { archivedAt: now },

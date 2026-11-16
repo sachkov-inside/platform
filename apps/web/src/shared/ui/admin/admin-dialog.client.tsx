@@ -1,14 +1,9 @@
 "use client";
 
 import { CircleAlert, LoaderCircle, X } from "lucide-react";
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
+import { useNativeDialog } from "@/shared/lib/native-dialog.client";
 import { hasText } from "@/shared/lib/text";
 import { Button } from "@/shared/ui/button";
 
@@ -38,39 +33,17 @@ export function AdminDialog({
   pending = false,
   children,
 }: AdminDialogProps) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const dialog = useNativeDialog({ open, pending, onOpenChange });
   const id = useId();
   const headingId = `${id}-heading`;
   const descriptionId = `${id}-description`;
-
-  // `showModal` и `close` принадлежат элементу: эффект разметки ставит модальный слой раньше,
-  // чем формы внутри ставят свой первый фокус.
-  useLayoutEffect(() => {
-    const element = dialog.current;
-    if (element === null) return;
-    if (open && !element.open) element.showModal();
-    if (!open && element.open) element.close();
-  }, [open]);
 
   return (
     <dialog
       aria-describedby={description === undefined ? undefined : descriptionId}
       aria-labelledby={headingId}
       className="admin-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!pending) onOpenChange(false);
-      }}
-      onClose={(event) => {
-        // Событие close приходит задачей позже: к этому времени диалог могли открыть снова.
-        if (open && !event.currentTarget.open) onOpenChange(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        if (!pending) onOpenChange(false);
-      }}
-      ref={dialog}
+      {...dialog}
     >
       {open ? (
         <div className="admin-dialog-body">
