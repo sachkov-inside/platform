@@ -77,8 +77,8 @@ export function BillingContactPanel({
       // сколько длится перечитывание здесь и остался ли покупатель на этой странице. Свой ответ
       // сбрасывается прямо тут, до показа подтверждённого адреса, и этот путь работает и там,
       // где объявления недоступны.
-      billingContactVerified.announce();
-      await resetBillingContact(queryClient);
+      const id = billingContactVerified.announce();
+      await resetBillingContact(queryClient, id);
     },
   });
 

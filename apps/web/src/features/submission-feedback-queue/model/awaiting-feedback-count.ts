@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
+import { refreshAnnouncedQueries } from "@/shared/api/announced-query-refresh";
 import { factAnnouncement } from "@/shared/api/fact-announcement";
 
 /**
@@ -40,10 +41,14 @@ export const authorFeedbackWritten = factAnnouncement(
   "inside.author-feedback.written",
 );
 
-/** Перечитать счётчик; повторный сброс присоединяется к уже начатому чтению. */
-export function resetAwaitingFeedbackCount(client: QueryClient): Promise<void> {
-  return client.invalidateQueries(
-    { queryKey: awaitingFeedbackCountQueryKey },
-    { cancelRefetch: false },
+/** Перечитать после отзыва, отменив старый ответ; повтор той же записи делит чтение (#2268). */
+export function resetAwaitingFeedbackCount(
+  client: QueryClient,
+  announcementId: string,
+): Promise<void> {
+  return refreshAnnouncedQueries(
+    client,
+    awaitingFeedbackCountQueryKey,
+    announcementId,
   );
 }
