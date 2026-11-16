@@ -242,11 +242,14 @@ export const Filtered: Story = {
   name: "Фильтры применены",
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
-    await expect(
-      page.getByRole("searchbox", {
-        name: "Поиск по имени, @username, email или ID",
-      }),
-    ).toHaveValue("петрова");
+    const search = page.getByRole("searchbox", {
+      name: "Поиск по имени в Telegram, @username, email или ID",
+    });
+    await expect(search).toHaveValue("петрова");
+    await expect(search).toHaveAttribute(
+      "placeholder",
+      "Имя в Telegram, email или ID",
+    );
     const chips = page.getByRole("list", { name: "Применённые фильтры" });
     await expect(
       within(chips)
@@ -414,7 +417,7 @@ export const Keyboard: Story = {
     await userEvent.tab();
     await expect(
       page.getByRole("searchbox", {
-        name: "Поиск по имени, @username, email или ID",
+        name: "Поиск по имени в Telegram, @username, email или ID",
       }),
     ).toHaveFocus();
     await userEvent.tab();

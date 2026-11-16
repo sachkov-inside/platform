@@ -180,7 +180,9 @@ test("the people list keeps search and filters in the address and opens a card",
   await expect(page.getByText("30 человек", { exact: true })).toBeVisible();
 
   await page
-    .getByRole("searchbox", { name: "Поиск по имени, @username, email или ID" })
+    .getByRole("searchbox", {
+      name: "Поиск по имени в Telegram, @username, email или ID",
+    })
     .fill("anna.petrova@example.test");
   await expect(page).toHaveURL(/q=anna\.petrova%40example\.test/u);
   await expect(page.getByText("Найдено: 1 человек")).toBeVisible();
