@@ -64,7 +64,7 @@ no equivalent of `newcomer`. Purchase setup and order are in
 - A list of options stays open until one is chosen; wait for `[role=listbox]` to disappear
   before opening the next list.
 - Material action buttons exist twice, at the top and at the end; `find role` acts on the first.
-  For the second set, scope the lookup to `nav[aria-label="Действия материала"]`.
+  For the second set, scope the lookup to `nav[aria-label="Действия в конце материала"]`.
 - The cookie notice covers controls near the bottom of reader pages and `/account` until
   «Понятно» is pressed; `/authoring` has none.
 - In a window lower than about 720 px the editor's «На весь экран» covers «Опубликовать» and the
