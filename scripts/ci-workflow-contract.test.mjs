@@ -762,6 +762,17 @@ describe("application CI workflow contract", () => {
         ),
       ),
     );
+    assert.throws(() =>
+      assertBrowserEnginesSavedOnlyOnMain(
+        `${setupAction.trimEnd()}
+    - name: Keep browsers for this ref
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-\${{ github.ref }}
+`,
+      ),
+    );
   });
 
   it("fills the main browser cache for every engine set the CI workflow requests", () => {
@@ -1201,7 +1212,7 @@ function jobBlock(job, source = workflow) {
 }
 
 /**
- * Браузеры восстанавливают все запуски, а сохраняет только main (#2184).
+ * Все запуски восстанавливают браузеры из кеша, сохраняет их только main (#2184).
  * @param {string} source
  */
 function assertBrowserEnginesSavedOnlyOnMain(source) {
@@ -1225,6 +1236,8 @@ function assertBrowserEnginesSavedOnlyOnMain(source) {
     /key: playwright-\$\{\{ runner\.os \}\}-\$\{\{ steps\.playwright\.outputs\.version \}\}-\$\{\{ inputs\.browsers \}\}$/mu,
   );
   assert.doesNotMatch(restore, /restore-keys:/u);
+  // Другой шаг с этим путём мог бы сохранить кеш на ветке PR.
+  assert.equal(source.match(/path: ~\/\.cache\/ms-playwright$/gmu)?.length, 2);
   assert.match(save, /uses: actions\/cache\/save@/u);
   for (const block of [restore, save])
     assert.match(block, /path: ~\/\.cache\/ms-playwright$/mu);
