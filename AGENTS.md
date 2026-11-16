@@ -29,6 +29,9 @@ testing seams, commit/review order and the no-ticket acceptance record. [PIPELIN
 - Product context, terminology or ADR placement: [domain](docs/agents/domain.md).
 - Frontend delivery, Storybook review or a prototype: [frontend delivery](docs/agents/frontend-delivery.md).
 - Local application review or the shared stand: `.agents/skills/local-stand/SKILL.md`.
+- Interactive browser work (opening a page, clicking through it, a manual screenshot) uses
+  `agent-browser` headless with its own `--session <task>` name, never the owner's browser; close
+  only that session, never `close --all`. Playwright is only the test runner (`playwright test`).
 - Before review, the Standards reviewer reads `CODING_STANDARDS.md` and the `CODING_STANDARDS.md`
   of each changed application.
 - After an explicit owner correction: follow [owner corrections](docs/agents/owner-corrections.md).

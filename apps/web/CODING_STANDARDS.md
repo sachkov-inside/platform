@@ -228,6 +228,12 @@ These rules require review. An effect count or a passing dependency linter canno
 - Keep Web guardrails and negative fixtures aligned. Use mapping/query tests, Storybook for
   meaningful UI states, and Playwright for route behaviour and accessibility.
 
+## Web platform guidance
+
+- A browser API, compatibility fallback or web performance technique follows its
+  [`modern-web-guidance`](../../.agents/skills/modern-web-guidance/SKILL.md) guide, or the change
+  states why the project pattern differs.
+
 ## Product presentation
 
 Reader controls, the course frame, mobile control density and site animation follow the

@@ -24,6 +24,11 @@ Read the owning ADR before changing:
   public-link entry route, or a guest browser-report handler:
   [ADR 0028](../../docs/adr/0028-web-edge-hardening.md).
 
+## Web platform guidance
+
+Before choosing a browser API, a compatibility fallback or a web performance technique, read the
+matching guide through [`modern-web-guidance`](../../.agents/skills/modern-web-guidance/SKILL.md).
+
 ## Verification
 
 - Test presentation mapping and query behaviour as focused module tests; represent meaningful UI
