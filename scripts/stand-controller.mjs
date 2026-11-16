@@ -56,7 +56,7 @@ const stateSchema = z.strictObject({
  * @typedef {{ source: StandSource; mode: StandMode; generation: string; cold: boolean; resumeCold: boolean; upgrade?: StandSnapshot; recordIdentity: (expected: string) => Promise<void> }} StandOperation
  * `upgrade` carries the pre-upgrade receipt: infrastructure keeps its labels, so Compose replaces services whose configuration changed.
  * @typedef {{ command: "status" | "show" | "refresh" | "release" | "upgrade"; worktree: string; replace?: string; mode?: "snapshot" | "live" | "production" }} StandRequest
- * @typedef {{ directory: string; controller: string; inspect: () => Promise<StandSnapshot>; acquire?: () => Promise<() => Promise<void>>; source?: (root: string) => Promise<StandSource>; baseline?: () => Promise<StandSource>; prepare?: (operation: StandOperation) => Promise<void>; ready?: (snapshot: StandSnapshot) => Promise<{schema: string; url: string}>; backup?: (snapshot: StandSnapshot, generation: string) => Promise<string> }} StandDependencies
+ * @typedef {{ directory: string; controller: string; inspect: () => Promise<StandSnapshot>; acquire?: () => Promise<() => Promise<void>>; source?: (root: string) => Promise<StandSource>; baseline?: () => Promise<StandSource>; prepare?: (operation: StandOperation) => Promise<void>; now?: () => Date; worktreeExists?: (path: string) => Promise<boolean>; ready?: (snapshot: StandSnapshot) => Promise<{schema: string; url: string}>; backup?: (snapshot: StandSnapshot, generation: string) => Promise<string> }} StandDependencies
  */
 
 /** @param {StandRequest} request @param {StandDependencies} dependencies */
@@ -68,6 +68,12 @@ export async function controlStand(request, dependencies) {
   )
     throw new Error("--replace applies to show and upgrade only");
   if (request.command === "status") return status(dependencies);
+  const now = dependencies.now ?? (() => new Date());
+  const reserve = async () => {
+    const reservation = { id: randomUUID(), worktree: request.worktree };
+    await recordReservationTime(dependencies.directory, reservation.id, now());
+    return reservation;
+  };
   if (
     !dependencies.acquire ||
     !dependencies.source ||
@@ -84,31 +90,41 @@ export async function controlStand(request, dependencies) {
       throw new Error(
         `Use the registered stand controller at ${previous.controller} with --worktree ${request.worktree}`,
       );
-    const reservation = previous?.reservation;
-    if (request.replace !== undefined && request.replace !== reservation?.id)
+    const recorded = previous?.reservation;
+    if (request.replace !== undefined && request.replace !== recorded?.id)
       throw new Error(
         "The reservation changed; read stand status before replacing it",
       );
-    if (
-      reservation &&
-      reservation.worktree !== request.worktree &&
-      request.replace !== reservation.id
-    )
-      throw new Error(
-        `Stand is reserved for ${reservation.worktree} (${reservation.id})`,
-      );
+    let reservation = recorded;
+    /** @type {{ id: string; worktree: string } | undefined} */
+    let releasedStale;
+    // A reservation outlives its session by design, but not its worktree: nobody can review it.
+    if (previous && recorded && (await orphaned(recorded, dependencies))) {
+      releasedStale = { id: recorded.id, worktree: recorded.worktree };
+      reservation = null;
+      previous.reservation = null;
+      await writeState(dependencies.directory, previous);
+    }
+    refuseForeignReservation(request, reservation);
     if (request.command === "release") {
       if (previous) {
         previous.reservation = null;
         await writeState(dependencies.directory, previous);
       }
-      return status(dependencies);
+      return status(dependencies, releasedStale);
     }
     const source = sourceSchema.parse(
       await dependencies.source(request.worktree),
     );
     if (request.command === "upgrade")
-      return await upgrade(request, source, previous, dependencies);
+      return await upgrade(
+        request,
+        source,
+        previous,
+        dependencies,
+        reserve,
+        releasedStale,
+      );
     if (previous?.upgrade)
       throw new Error(
         `A stand upgrade is incomplete; rerun pnpm stand upgrade for its source (backup: ${previous.upgrade.backup ?? "not taken"})`,
@@ -123,16 +139,7 @@ export async function controlStand(request, dependencies) {
           "Initial stand schema and infrastructure must match the controller checkout; prepare a separate handoff for a different baseline",
         );
     }
-    if (previous && previous.source.identity !== source.identity)
-      throw new Error(identityChanged);
-    if (
-      previous &&
-      (previous.source.schema !== source.schema ||
-        previous.source.infrastructure !== source.infrastructure)
-    )
-      throw new Error(
-        "Stand schema or infrastructure differs; keep the current stand and prepare a separate migration or infrastructure handoff",
-      );
+    refuseIncompatibleSource(previous, source);
     const snapshot = snapshotSchema.parse(await dependencies.inspect());
     if (
       snapshot.containers.length > 0 &&
@@ -141,17 +148,8 @@ export async function controlStand(request, dependencies) {
       throw new Error(
         "Stand is unmanaged or its containers changed ownership; obtain an owner handoff before changing it",
       );
-    const mode =
-      request.mode ??
-      (request.command === "refresh" && previous?.source.root === source.root
-        ? previous.mode
-        : "snapshot");
-    const sameSource =
-      previous?.source.root === source.root &&
-      previous.mode === mode &&
-      (mode === "live"
-        ? previous.source.build === source.build
-        : previous.source.fingerprint === source.fingerprint);
+    const mode = selectedMode(request, previous, source.root);
+    const sameSource = runsSource(previous, source, mode);
     let applicationReady = false;
     if (snapshot.containers.length > 0 && previous?.health) {
       let health;
@@ -171,21 +169,14 @@ export async function controlStand(request, dependencies) {
     if (
       applicationReady &&
       previous?.phase === "ready" &&
-      previous.source.root === source.root &&
-      previous.mode === mode &&
-      (mode === "live"
-        ? previous.source.build === source.build
-        : previous.source.fingerprint === source.fingerprint) &&
+      sameSource &&
       sameRuntime(previous.receipt, snapshot)
     ) {
       await dependencies.ready(snapshot);
-      previous.reservation = reservation ?? {
-        id: randomUUID(),
-        worktree: request.worktree,
-      };
+      previous.reservation = reservation ?? (await reserve());
       previous.source = source;
       await writeState(dependencies.directory, previous);
-      return status(dependencies);
+      return status(dependencies, releasedStale);
     }
     const cold = snapshot.containers.length === 0 || previous?.health === null;
     /** @type {StandState} */
@@ -197,7 +188,7 @@ export async function controlStand(request, dependencies) {
       reservation:
         reservation?.worktree === request.worktree
           ? reservation
-          : { id: randomUUID(), worktree: request.worktree },
+          : await reserve(),
       source,
       mode,
       receipt: snapshot,
@@ -274,7 +265,7 @@ export async function controlStand(request, dependencies) {
       await writeState(dependencies.directory, state);
       throw error;
     }
-    return status(dependencies);
+    return status(dependencies, releasedStale);
   } finally {
     await release();
   }
@@ -287,8 +278,17 @@ export async function controlStand(request, dependencies) {
  * @param {StandSource} source
  * @param {StandState | null} previous
  * @param {StandDependencies} dependencies
+ * @param {() => Promise<NonNullable<StandState["reservation"]>>} reserve
+ * @param {{ id: string; worktree: string } | undefined} releasedStale
  */
-async function upgrade(request, source, previous, dependencies) {
+async function upgrade(
+  request,
+  source,
+  previous,
+  dependencies,
+  reserve,
+  releasedStale,
+) {
   if (
     !dependencies.backup ||
     !dependencies.prepare ||
@@ -345,7 +345,7 @@ async function upgrade(request, source, previous, dependencies) {
     reservation:
       reservation?.worktree === request.worktree
         ? reservation
-        : { id: randomUUID(), worktree: request.worktree },
+        : await reserve(),
     source,
     mode: request.mode ?? previous.mode,
     receipt: before,
@@ -405,7 +405,7 @@ async function upgrade(request, source, previous, dependencies) {
       error.message = `${error.message}; rerun pnpm stand upgrade to resume (backup: ${marker.backup ?? "not taken"})`;
     throw error;
   }
-  return status(dependencies);
+  return status(dependencies, releasedStale);
 }
 
 /**
@@ -431,6 +431,105 @@ function upgradedRuntime(before, after, generation) {
       after.containers.some((container) => container.service === old.service),
     )
   );
+}
+
+/**
+ * @param {StandRequest} request
+ * @param {StandState["reservation"] | undefined} reservation
+ */
+function refuseForeignReservation(request, reservation) {
+  if (
+    reservation &&
+    reservation.worktree !== request.worktree &&
+    request.replace !== reservation.id
+  )
+    throw new Error(
+      `Stand is reserved for ${reservation.worktree} (${reservation.id})`,
+    );
+}
+
+/**
+ * Whether the reserved worktree no longer exists. Without the check adapter nothing is orphaned.
+ * @param {NonNullable<StandState["reservation"]>} reservation
+ * @param {Pick<StandDependencies, "worktreeExists">} dependencies
+ */
+async function orphaned(reservation, dependencies) {
+  return dependencies.worktreeExists
+    ? !(await dependencies.worktreeExists(reservation.worktree))
+    : false;
+}
+
+/**
+ * `show` and `refresh` keep the recorded identity, schema and infrastructure; `upgrade` changes them.
+ * @param {StandState | null} previous @param {StandSource} source
+ */
+function refuseIncompatibleSource(previous, source) {
+  if (previous && previous.source.identity !== source.identity)
+    throw new Error(identityChanged);
+  if (
+    previous &&
+    (previous.source.schema !== source.schema ||
+      previous.source.infrastructure !== source.infrastructure)
+  )
+    throw new Error(
+      "Stand schema or infrastructure differs; keep the current stand and prepare a separate migration or infrastructure handoff",
+    );
+}
+
+/**
+ * Whether the recorded stand already runs this source in this mode. Live mode mounts Web sources,
+ * so only the build inputs must match.
+ * @param {StandState | null} previous @param {StandSource} source @param {StandMode} mode
+ */
+function runsSource(previous, source, mode) {
+  return (
+    previous?.source.root === source.root &&
+    previous.mode === mode &&
+    (mode === "live"
+      ? previous.source.build === source.build
+      : previous.source.fingerprint === source.fingerprint)
+  );
+}
+
+/**
+ * The preview mode a mutation prepares: the requested one, or the current one for `refresh` of
+ * the same worktree and for `upgrade`.
+ * @param {StandRequest} request @param {StandState | null} previous @param {string} root
+ * @returns {StandMode}
+ */
+function selectedMode(request, previous, root) {
+  return (
+    request.mode ??
+    (request.command === "refresh" && previous?.source.root === root
+      ? previous.mode
+      : request.command === "upgrade" && previous
+        ? previous.mode
+        : "snapshot")
+  );
+}
+
+/**
+ * Decides, without the lock, whether a mutation should build images before it waits for the stand.
+ * It refuses what the controller would refuse for a foreign reservation or an incompatible source,
+ * and returns null when the ready stand already runs this source in this mode. The controller
+ * decides again under the lock; a different answer costs only a build the cache did not cover.
+ * @param {StandRequest} request
+ * @param {Pick<StandDependencies, "directory" | "worktreeExists">} dependencies
+ * @param {StandSource} source
+ * @returns {Promise<StandMode | null>} the mode to build for, or null
+ */
+export async function planPrebuild(request, dependencies, source) {
+  const previous = await readState(dependencies.directory);
+  const reservation = previous?.reservation;
+  if (!reservation || !(await orphaned(reservation, dependencies)))
+    refuseForeignReservation(request, reservation);
+  if (request.command === "upgrade")
+    return selectedMode(request, previous, source.root);
+  refuseIncompatibleSource(previous, source);
+  const mode = selectedMode(request, previous, source.root);
+  return previous?.phase === "ready" && runsSource(previous, source, mode)
+    ? null
+    : mode;
 }
 
 /** Keep legacy startup from replacing a reserved but stopped controlled stand. @param {string} directory */
@@ -488,8 +587,12 @@ function controlledRuntime(state, actual) {
   );
 }
 
-/** @param {StandDependencies} dependencies */
-async function status(dependencies) {
+/**
+ * @param {StandDependencies} dependencies
+ * @param {{ id: string; worktree: string }} [releasedStale] the reservation this operation released
+ *   because its worktree no longer exists
+ */
+async function status(dependencies, releasedStale) {
   const state = await readState(dependencies.directory);
   const snapshot = await dependencies.inspect();
   let availability = "stopped";
@@ -509,14 +612,68 @@ async function status(dependencies) {
       }
     }
   }
+  const reservation = state?.reservation;
+  const reservedAt = reservation
+    ? (await readReservationTimes(dependencies.directory))[reservation.id]
+    : undefined;
+  const now = dependencies.now ?? (() => new Date());
   return {
     status: availability,
-    reservation: state?.reservation ?? null,
+    reservation: reservation
+      ? {
+          ...reservation,
+          reservedAt: reservedAt ?? null,
+          ageSeconds:
+            reservedAt === undefined
+              ? null
+              : Math.max(
+                  0,
+                  Math.floor(
+                    (now().getTime() - Date.parse(reservedAt)) / 1_000,
+                  ),
+                ),
+          worktreeMissing: await orphaned(reservation, dependencies),
+        }
+      : null,
+    ...(releasedStale ? { releasedStale } : {}),
     source: state?.source ?? null,
     mode: state?.mode ?? null,
     controller: state?.controller ?? dependencies.controller,
     url: availability === "ready" ? (state?.health?.url ?? null) : null,
   };
+}
+
+// Reservation times live beside state.json, so state keeps the shape older controllers parse.
+const reservationTimesSchema = z.record(z.uuid(), z.iso.datetime());
+
+/** @param {string} directory @returns {Promise<Record<string, string>>} */
+async function readReservationTimes(directory) {
+  try {
+    return reservationTimesSchema.parse(
+      JSON.parse(
+        await readFile(join(directory, "reservation-times.json"), "utf8"),
+      ),
+    );
+  } catch {
+    // Missing or damaged times only hide the age; they never block the stand.
+    return {};
+  }
+}
+
+/**
+ * Records when a reservation was taken. Only the newest reservation is kept: earlier ones are
+ * released or replaced by then.
+ * @param {string} directory @param {string} id @param {Date} time
+ */
+async function recordReservationTime(directory, id, time) {
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const temporary = join(directory, `reservation-times-${randomUUID()}.tmp`);
+  await writeFile(
+    temporary,
+    `${JSON.stringify({ [id]: time.toISOString() })}\n`,
+    { mode: 0o600, flag: "wx" },
+  );
+  await rename(temporary, join(directory, "reservation-times.json"));
 }
 
 /** @param {string} directory */

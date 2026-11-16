@@ -16,7 +16,11 @@ export default defineConfig({
   testDir: "./test/navigation",
   fullyParallel: false,
   forbidOnly: Boolean(process.env["CI"]),
-  reporter: [["list"]],
+  // Свой HTML-отчёт внутри общей папки: CI выгружает его вместе с отчётом test:e2e (#2187).
+  reporter: [
+    ["list"],
+    ["html", { open: "never", outputFolder: "playwright-report/navigation" }],
+  ],
   // Без повтора и в CI: «Waiting in tests» в корневом CODING_STANDARDS.md (#476).
   retries: 0,
   workers: 1,

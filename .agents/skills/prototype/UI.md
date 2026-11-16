@@ -1,6 +1,8 @@
 # UI Prototype
 
-Generate **several radically different UI variations** on a single route, switchable from a floating bottom bar. The user flips between variants in the browser, picks one (or steals bits from each), then throws the rest away.
+Generate **several radically different UI variations** in the project-selected prototype surface. Follow its placement and isolation rules first: for Storybook, use stories, args or controls, with project fixtures and decorators for app context. Do not add production routes or a custom switcher when stories provide comparison.
+
+The route, URL parameter and floating-bar instructions below are defaults for projects that permit route prototypes. Adapt their comparison and handoff steps to the selected surface. The user flips between variants in the browser, picks one (or steals bits from each), then throws the rest away.
 
 If the question is about logic/state rather than what something looks like, this is the wrong branch. Use [LOGIC.md](LOGIC.md).
 
@@ -97,7 +99,7 @@ Surface the URL (and the `?variant=` keys). The user will flip through whenever 
 
 ### 6. Capture the answer and clean up
 
-Once a variant has won, capture the answer (which variant and why), then capture the prototype the way the [SKILL](SKILL.md) describes. Fold the winner into the real code and retain the remaining variants in the project-selected evidence location:
+Once a variant has won, capture the answer (which variant and why), then capture the prototype the way the [SKILL](SKILL.md) describes. Record the verdict and retain all variants in the project-selected evidence location. Only after the project authorizes production implementation, follow its tests and delivery gates to implement the decision:
 
 - **Sub-shape A**: fold the winner into the existing page; drop the losing variants and the switcher from main.
 - **Sub-shape B**: promote the winning variant to a real route; drop the throwaway route and the switcher from main.

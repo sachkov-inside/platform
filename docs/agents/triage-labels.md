@@ -10,7 +10,8 @@ Use the canonical roles from `mattpocock/skills` without renaming them.
 | `ready-for-human` | `ready-for-human` | Human implementation or judgment is required |
 | `wontfix` | `wontfix` | The work will not be actioned |
 
-A label is context, not an assignment; resolve owner decisions before `ready-for-agent`.
+Resolve owner decisions before `ready-for-agent`. Root [AGENTS.md](../../AGENTS.md#process) owns what
+starts work.
 
 Every triaged issue has exactly one role from this table; a specification or version has none once
 it has sub-issues. `ready-for-human` is only for work a human does. The `wayfinder` skill adds its
@@ -18,8 +19,10 @@ own `wayfinder:*` labels; `production-lock` marks the [production lock](producti
 carries no role. There are no category labels (`bug`, `enhancement`): `triage` sets only
 the role from this table.
 
-These rules replace parts of the pipeline skills:
+These project rules override the pipeline skills:
 
 - `to-spec` publishes the specification without `ready-for-agent`.
-- `to-tickets` removes `ready-for-agent` from the parent after it publishes child tickets.
-- `triage` records a rejected request in its `wontfix` closing comment, not in `.out-of-scope/`.
+- `to-tickets` applies `ready-for-agent` to a fully specified ticket. After publishing it removes
+  `ready-for-agent` from the parent.
+- `triage` keeps the rejected-request record in its `wontfix` closing comment; there is no
+  `.out-of-scope/` directory.

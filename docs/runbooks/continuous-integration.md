@@ -725,10 +725,16 @@ by an Actions run; these local tests do not claim that all browser/container sui
 
 ## Diagnostics and cleanup
 
-PR/queue CI and the manual full-stack smoke upload Playwright traces, screenshots and HTML reports
-only after a failure. The flake hunt retains every sample as described above. Compose jobs
-capture service state and at most the latest 500 log lines before cleanup. Diagnostic artifacts are
-retained for seven days; successful PR CI and full-stack smoke runs store none of them.
+Pull-request CI uploads the Playwright HTML report and `test-results` of each `Web browser (…)`
+and `Full-stack browser (…)` job after a failure and after a passed run, so the owner can take
+evidence from a passed run (#2187). The merge queue and release calls through `workflow_call`
+upload them only after a failure. In `Web browser (…)` the navigation suite writes its own report
+to `playwright-report/navigation` inside the same artifact. Passed runs carry no traces or
+screenshots: Playwright keeps them only for failed tests. Other jobs and the manual full-stack
+smoke upload diagnostics only after a failure; the exceptions are the cache preparation
+observations of `Production checks (cache)`, uploaded after a passed or failed proof, and the
+source evidence of every passing `CI Gate`. The flake hunt retains every sample as described above. Compose jobs capture service state
+and at most the latest 500 log lines before cleanup. CI artifacts are retained for seven days.
 
 The full-stack smoke writes one `fullstack-first-failure` JSON record to the CI log when
 its Playwright reporter signals the first test failure, before cleanup. `capturedAt` records
