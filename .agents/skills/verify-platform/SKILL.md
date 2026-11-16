@@ -149,6 +149,10 @@ A **scenario** is one thing checked. Choose the kind of evidence for each scenar
 | `numbers` | the proof is speed | a CSV or Markdown table «measure, before, after»; the PR shows it as text |
 | `none` | no file may be kept, or nothing can be shown | none; the result in words |
 
+A `numbers` scenario gives each number with its count of runs and their spread: at least five
+runs, before and after alternating, reported as the median. It also shows that the change took
+effect at all.
+
 GitHub attaches at most 10 MB per file, so record one short clip per scenario, never the whole
 run in one file: start the recording right before the action and stop it once the resulting
 state has stood for a few seconds (`O wait 3000`). `record start` keeps the open page. A clip
