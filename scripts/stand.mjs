@@ -92,7 +92,12 @@ upgrade  Move the running stand forward to this worktree's schema and infrastruc
     // registered controller released it.
     const handled =
       values["if-owned"] === true &&
-      (await releaseElsewhere(directory, worktree, controller, pnpmPath ?? ""));
+      (await releaseIfOwnedElsewhere(
+        directory,
+        worktree,
+        controller,
+        pnpmPath ?? "",
+      ));
     if (!handled) {
       const runtime = createStandRuntime({
         directory,
@@ -103,6 +108,7 @@ upgrade  Move the running stand forward to this worktree's schema and infrastruc
         command,
         worktree,
         ...(values.replace ? { replace: z.uuid().parse(values.replace) } : {}),
+        ...(values["if-owned"] ? { ifOwned: true } : {}),
         ...(values.live
           ? { mode: "live" }
           : values["production-web"]
@@ -190,29 +196,43 @@ upgrade  Move the running stand forward to this worktree's schema and infrastruc
 /**
  * `release --if-owned` leaves a foreign or missing reservation alone without Docker or the lock.
  * Mutations run in the registered controller checkout, so a reservation of this worktree is
- * released there on its behalf.
+ * released there on its behalf; the controller checks ownership again under the lock.
  * @param {string} directory @param {string} worktree @param {string} controller
  * @param {string} pnpmPath
  * @returns {Promise<boolean>} true when nothing is left for this process to do
  */
-async function releaseElsewhere(directory, worktree, controller, pnpmPath) {
+async function releaseIfOwnedElsewhere(
+  directory,
+  worktree,
+  controller,
+  pnpmPath,
+) {
   const current = await readReservation(directory);
   if (current?.reservation?.worktree !== worktree) {
+    const message = current?.reservation
+      ? `Reservation belongs to ${current.reservation.worktree}; left in place`
+      : "No reservation to release";
     process.stdout.write(
-      current?.reservation
-        ? `Reservation belongs to ${current.reservation.worktree}; left in place\n`
-        : "No reservation to release\n",
+      values.json
+        ? `${JSON.stringify({ status: "left", message })}\n`
+        : `${message}\n`,
     );
     return true;
   }
   if (current.controller === controller) return false;
+  if (!(await worktreeExists(current.controller)))
+    throw new Error(
+      `The registered stand controller ${current.controller} no longer exists; the reservation stays until the owner hands the stand over`,
+    );
   const [executable, args] = pnpmInvocation(pnpmPath, [
     "--dir",
     current.controller,
     "stand",
     "release",
+    "--if-owned",
     "--worktree",
     worktree,
+    ...(values.json ? ["--json"] : []),
   ]);
   execFileSync(executable, args, { stdio: "inherit" });
   return true;

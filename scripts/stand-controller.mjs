@@ -55,7 +55,8 @@ const stateSchema = z.strictObject({
  * @typedef {z.infer<typeof modeSchema>} StandMode
  * @typedef {{ source: StandSource; mode: StandMode; generation: string; cold: boolean; resumeCold: boolean; upgrade?: StandSnapshot; recordIdentity: (expected: string) => Promise<void> }} StandOperation
  * `upgrade` carries the pre-upgrade receipt: infrastructure keeps its labels, so Compose replaces services whose configuration changed.
- * @typedef {{ command: "status" | "show" | "refresh" | "release" | "upgrade"; worktree: string; replace?: string; mode?: "snapshot" | "live" | "production" }} StandRequest
+ * @typedef {{ command: "status" | "show" | "refresh" | "release" | "upgrade"; worktree: string; replace?: string; ifOwned?: boolean; mode?: "snapshot" | "live" | "production" }} StandRequest
+ * `ifOwned` makes `release` leave another worktree's reservation in place instead of refusing.
  * @typedef {{ directory: string; controller: string; inspect: () => Promise<StandSnapshot>; acquire?: () => Promise<() => Promise<void>>; source?: (root: string) => Promise<StandSource>; baseline?: () => Promise<StandSource>; prepare?: (operation: StandOperation) => Promise<void>; now?: () => Date; worktreeExists?: (path: string) => Promise<boolean>; ready?: (snapshot: StandSnapshot) => Promise<{schema: string; url: string}>; backup?: (snapshot: StandSnapshot, generation: string) => Promise<string> }} StandDependencies
  */
 
@@ -105,6 +106,13 @@ export async function controlStand(request, dependencies) {
       previous.reservation = null;
       await writeState(dependencies.directory, previous);
     }
+    if (
+      request.command === "release" &&
+      request.ifOwned &&
+      reservation &&
+      reservation.worktree !== request.worktree
+    )
+      return status(dependencies, releasedStale);
     refuseForeignReservation(request, reservation);
     if (request.command === "release") {
       if (previous) {

@@ -42,9 +42,12 @@ worktree's Web app/src/public directories into Next's development server. Web ed
 directories need no image build; changes elsewhere require `refresh`. `refresh` retains the mode;
 `show` without a mode freezes the current code for later review. Database contents remain mutable.
 `release` frees the reservation while leaving the application running. `release --if-owned` frees
-only this worktree's reservation and exits 0 when another worktree holds it; from a task worktree
-it asks the registered controller to release. The `finish` steps of `.worktree-resources.json`
-(`agent-worktree finish`) run `pnpm stand:light down` and `pnpm stand release --if-owned`. Reservations have no timer
+only this worktree's reservation, checks ownership again under the lock and exits 0 when another
+worktree holds it; from a task worktree it asks the registered controller to release.
+`pnpm stand:finish`, the `finish` step of `.worktree-resources.json` run by `agent-worktree
+finish`, stops this worktree's light instance and runs `release --if-owned`. It reports a failed
+or a five-minute step as a warning and exits 0; a reservation it leaves is released by the next
+stand operation after the worktree is removed. Reservations have no timer
 and survive session completion. A reservation whose worktree directory no longer exists is released
 by the next `show`, `refresh`, `release` or `upgrade` from any worktree, which reports it; `status`
 only reads and marks such a reservation. `status` shows the reserved worktree and how long ago it

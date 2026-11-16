@@ -938,3 +938,25 @@ test("an unused stand has no reservation to read", async (t) => {
   t.after(() => rm(directory, { recursive: true, force: true }));
   assert.equal(await readReservation(directory), null);
 });
+
+test("release --if-owned under the lock leaves a reservation taken by another worktree in the meantime", async (t) => {
+  const { dependencies } = await fixture(t);
+  const shown = await controlStand(
+    { command: "show", worktree: "/fixture/a" },
+    dependencies,
+  );
+  const result = await controlStand(
+    { command: "release", worktree: "/fixture/b", ifOwned: true },
+    dependencies,
+  );
+  assert.equal(result.reservation?.id, shown.reservation?.id);
+  assert.equal(
+    (await readReservation(dependencies.directory))?.reservation?.worktree,
+    "/fixture/a",
+  );
+  const own = await controlStand(
+    { command: "release", worktree: "/fixture/a", ifOwned: true },
+    dependencies,
+  );
+  assert.equal(own.reservation, null);
+});
