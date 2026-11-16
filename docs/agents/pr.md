@@ -67,15 +67,15 @@ Attach images and video with `gh pr create --attach`, `gh pr edit --attach` or
 - **Public and permanent.** Anyone can open an attachment without signing in, and an agent cannot
   delete it. Look at every file before attaching it.
 - **Test data only.** Record evidence for a PR only where the data is test data, and confirm that
-  the database is the test one before recording. Under `verify-platform` that is a light instance;
+  the database is the test one before recording. Under [`verify-platform`](../../.agents/skills/verify-platform/SKILL.md) that is a light instance;
   keep no file from the shared stand, which holds the owner's data, and give its result in words.
 - **In doubt, leave it out.** When the data on screen may be real, attach nothing: link the CI
   artifact or describe the result in words.
 - **Production stays in text.** Describe a production check in words; attach none of its screens.
-- **A second look.** The Spec reviewer looks through the artifacts for foreign data before the
-  merge ([verification](human-review.md#verification)).
-- **Local, then gone.** The files stay in `.evidence/`, outside Git. After the merge
-  `agent-worktree finish` removes them with the worktree; the copy attached to the PR stays.
+- **A second look.** The Spec reviewer looks through the artifacts for data that is not test
+  data before the merge ([verification](human-review.md#verification)).
+- **Local, then gone.** The files stay in `.evidence/`, outside Git. They go with the worktree
+  when `agent-worktree finish` removes it after the merge; the copy attached to the PR stays.
 - **Size.** An image and a video are limited to 10 MB each, and one command takes up to 50 files.
 - **Formats.** PNG, GIF, JPEG and SVG; MP4, MOV and WebM.
 - **Video player.** Reference the video file in the body with image syntax, alone in its
