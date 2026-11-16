@@ -36,6 +36,7 @@
     "api:check": "pnpm --filter @inside/backend openapi:check && pnpm --filter @inside/web openapi:check",
     "mcp:generate": "pnpm --filter @inside/backend mcp:generate",
     "mcp:check": "pnpm --filter @inside/backend mcp:check",
+    "pilot:payment-model": "node scripts/owned-node.mjs scripts/pilots/payment-access-model.mjs",
     "docs:check": "node scripts/check-agent-documentation.mjs && node scripts/check-materials-documentation.mjs && node scripts/check-new-em-dashes.mjs",
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && { git config core.hooksPath >/dev/null || git config core.hooksPath .githooks; } || true",
     "ci:wait": "node scripts/owned-node.mjs --command python3 -B scripts/ci-wait.py",
