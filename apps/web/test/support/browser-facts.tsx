@@ -90,6 +90,48 @@ function ReadingFacts() {
     </>
   );
 }
+
+function AccountReadingFacts() {
+  const [accountId, setAccountId] = useState<string | null>(
+    "00000000-0000-4000-8000-000000000001",
+  );
+  return (
+    <QueryClientProvider client={client}>
+      <button
+        onClick={() => {
+          setAccountId("00000000-0000-4000-8000-000000000001");
+        }}
+      >
+        Account A
+      </button>
+      <button
+        onClick={() => {
+          setAccountId("00000000-0000-4000-8000-000000000002");
+        }}
+      >
+        Account B
+      </button>
+      <button
+        onClick={() => {
+          setAccountId(null);
+        }}
+      >
+        Guest
+      </button>
+      <output aria-label="Confirmed Account">{accountId ?? "guest"}</output>
+      <ReadingProgressProvider
+        key={accountId ?? "guest"}
+        accountId={accountId}
+        resolved
+      >
+        <SavedBookmarkAction
+          materialId="10000000-0000-4000-8000-000000000001"
+          presentation="reader"
+        />
+      </ReadingProgressProvider>
+    </QueryClientProvider>
+  );
+}
 function CommunityFacts() {
   const [accountId, setAccountId] = useState(
     "00000000-0000-4000-8000-000000000001",
@@ -150,7 +192,9 @@ function ProductAccessFacts() {
 const root = document.getElementById("root");
 if (root === null) throw new Error("Missing browser facts root");
 createRoot(root).render(
-  new URLSearchParams(window.location.search).has("productAccess") ? (
+  new URLSearchParams(window.location.search).has("identity") ? (
+    <AccountReadingFacts />
+  ) : new URLSearchParams(window.location.search).has("productAccess") ? (
     <ProductAccessFacts />
   ) : new URLSearchParams(window.location.search).has("billing") ? (
     <QueryClientProvider client={client}>
