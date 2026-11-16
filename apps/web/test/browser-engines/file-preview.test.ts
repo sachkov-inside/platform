@@ -20,56 +20,92 @@ const server = fileURLToPath(
   new URL("../../file-preview/server.mjs", import.meta.url),
 );
 let directory = "";
-let preview: ChildProcess | undefined;
-let baseURL = "";
+let readOnly: ChildProcess | undefined;
+let edited: ChildProcess | undefined;
+let readOnlyURL = "";
+let editedURL = "";
 let browser: Browser | undefined;
 
-/**
- * The preview runs as Content Studio starts it: `server.mjs --package <export folder> --port 0`,
- * announcing its address on the first line of output.
- */
-beforeAll(async () => {
-  directory = await mkdtemp(join(tmpdir(), "file-preview-browser-"));
-  await writePreviewPackage(join(directory, "exports/first"));
-  const started = (preview = spawn(
-    process.execPath,
-    [server, "--package", join(directory, "exports"), "--port", "0"],
-    {
-      env: {
-        ...process.env,
-        INSIDE_FILE_PREVIEW_CACHE_DIR: join(directory, "vite-cache"),
-      },
-      stdio: ["ignore", "pipe", "inherit"],
+/** The arguments Content Studio starts the preview with: its export folder and any free port. */
+function previewArguments(exports: string) {
+  return [server, "--package", exports, "--port", "0"];
+}
+
+function previewOptions(cache: string) {
+  return {
+    env: {
+      ...process.env,
+      INSIDE_FILE_PREVIEW_CACHE_DIR: join(directory, cache),
     },
-  ));
+    stdio: ["ignore", "pipe", "inherit"] as ["ignore", "pipe", "inherit"],
+  };
+}
+
+/** The address the preview announces on its first line of output. */
+async function announcedAddress(child: ChildProcess): Promise<string> {
+  const output = child.stdout;
+  if (output === null) throw new Error("The preview has no output");
   const line = await new Promise<string>((resolveLine, reject) => {
-    createInterface({ input: started.stdout }).once("line", (first) => {
-      resolveLine(first);
-    });
-    started.once("exit", (code) => {
+    createInterface({ input: output }).once("line", resolveLine);
+    child.once("exit", (code) => {
       reject(new Error(`The preview exited with ${String(code)}`));
     });
   });
   const address = /^Preview: (http:\/\/127\.0\.0\.1:\d+\/)$/u.exec(line)?.[1];
   if (address === undefined)
     throw new Error(`The preview announced no address: ${line}`);
-  baseURL = address;
+  return address;
+}
+
+/** Resolves when the child has exited. */
+function exitOf(child: ChildProcess): Promise<unknown> {
+  return new Promise((resolveExit) => {
+    child.once("exit", resolveExit);
+  });
+}
+
+/**
+ * Two previews: the read-only tests share one, and the reload test owns the other with its own export
+ * folder, which it edits and breaks.
+ */
+beforeAll(async () => {
+  directory = await mkdtemp(join(tmpdir(), "file-preview-browser-"));
+  await writePreviewPackage(join(directory, "read-only/first"));
+  await writePreviewPackage(join(directory, "edited/first"));
+  readOnly = spawn(
+    process.execPath,
+    previewArguments(join(directory, "read-only")),
+    previewOptions("read-only-cache"),
+  );
+  edited = spawn(
+    process.execPath,
+    previewArguments(join(directory, "edited")),
+    previewOptions("edited-cache"),
+  );
+  [readOnlyURL, editedURL] = await Promise.all([
+    announcedAddress(readOnly),
+    announcedAddress(edited),
+  ]);
   browser = await chromium.launch();
 }, 120_000);
 
-/** The preview stops on SIGTERM; the hook's own timeout bounds the wait, and SIGKILL follows. */
+/** A preview stops on SIGTERM; the hook's own timeout bounds the wait, and SIGKILL follows. */
 afterAll(async () => {
   try {
     await browser?.close();
-    if (preview?.exitCode === null) {
-      const exited = new Promise((resolveExit) => {
-        preview?.once("exit", resolveExit);
-      });
-      preview.kill("SIGTERM");
+    if (readOnly?.exitCode === null) {
+      const exited = exitOf(readOnly);
+      readOnly.kill("SIGTERM");
+      await exited;
+    }
+    if (edited?.exitCode === null) {
+      const exited = exitOf(edited);
+      edited.kill("SIGTERM");
       await exited;
     }
   } finally {
-    if (preview?.exitCode === null) preview.kill("SIGKILL");
+    if (readOnly?.exitCode === null) readOnly.kill("SIGKILL");
+    if (edited?.exitCode === null) edited.kill("SIGKILL");
     await rm(directory, { recursive: true, force: true });
   }
 }, 30_000);
@@ -77,7 +113,7 @@ afterAll(async () => {
 test("a lesson opens from the package in the site's reader with its image, code, exercise and video", async () => {
   if (browser === undefined) throw new Error("No browser");
   const page = await browser.newPage();
-  await page.goto(new URL("materials/lesson-one", baseURL).href);
+  await page.goto(new URL("materials/lesson-one", readOnlyURL).href);
   await browserExpect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Как агент работает с проектом",
     { timeout: 60_000 },
@@ -108,7 +144,7 @@ test("a lesson opens from the package in the site's reader with its image, code,
 test("a Task opens as the learner's Task page", async () => {
   if (browser === undefined) throw new Error("No browser");
   const page = await browser.newPage();
-  await page.goto(new URL("products/course/tasks/task-one", baseURL).href);
+  await page.goto(new URL("products/course/tasks/task-one", readOnlyURL).href);
   await browserExpect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Задание 1. Подготовь основу",
     { timeout: 60_000 },
@@ -122,13 +158,13 @@ test("a Task opens as the learner's Task page", async () => {
 test("a new export reloads the open page with the edited lesson, and a broken one shows its cause", async () => {
   if (browser === undefined) throw new Error("No browser");
   const page = await browser.newPage();
-  await page.goto(new URL("materials/lesson-one", baseURL).href);
+  await page.goto(new URL("materials/lesson-one", editedURL).href);
   const heading = page.getByRole("heading", { level: 1 });
   await browserExpect(heading).toHaveText("Как агент работает с проектом", {
     timeout: 60_000,
   });
 
-  await writePreviewPackage(join(directory, "exports/second"), (manifest) => ({
+  await writePreviewPackage(join(directory, "edited/second"), (manifest) => ({
     ...manifest,
     materials: manifest.materials.map((row) =>
       row.sourceId === "lesson-one"
@@ -140,7 +176,7 @@ test("a new export reloads the open page with the edited lesson, and a broken on
     timeout: 30_000,
   });
 
-  await writePreviewPackage(join(directory, "exports/third"), (manifest) => ({
+  await writePreviewPackage(join(directory, "edited/third"), (manifest) => ({
     ...manifest,
     materials: manifest.materials.map((row) => {
       if (row.sourceId !== "lesson-one") return row;
@@ -149,7 +185,7 @@ test("a new export reloads the open page with the edited lesson, and a broken on
     }),
   }));
   await browserExpect(
-    page.getByRole("heading", { name: "Пакет не открывается" }),
+    page.getByRole("heading", { name: "Страница не собирается" }),
   ).toBeVisible({ timeout: 30_000 });
   await browserExpect(
     page.getByText("works/lesson-one.md: unresolved image: absent.png"),

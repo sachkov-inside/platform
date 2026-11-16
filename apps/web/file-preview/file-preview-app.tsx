@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { PublicShell } from "@/_app";
 import {
   MaterialReaderView,
-  readerBodyLinkHref,
+  readerBodyLink,
   resolveProductReaderContext,
 } from "@/_pages/material-reader";
 import { ProductTaskView } from "@/_pages/product-task";
@@ -17,19 +17,19 @@ import {
   homeMaterialReaderReturnTarget,
   parseMaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
-import { ownSectionHref } from "@/shared/routing/reader-course-anchor";
 import {
   productProgrammeHref,
   productTaskHref,
 } from "@/shared/routing/subscription-route";
-import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { proseLinkClassName } from "@/shared/ui/prose-link";
 
 import { FilePreviewIndex } from "./file-preview-index";
 import { previewPageSchema, type PreviewPage } from "./file-preview-page";
 import { PreviewNotice } from "./file-preview-notice";
 
-/** The production learner MCP address, shown in the submission instructions. */
+/**
+ * The production learner MCP address, shown in the submission instructions. The site reads it from
+ * its server configuration, which the preview does not have.
+ */
 const learnerMcpUrl = "https://inside.sachkov.dev/mcp/learning";
 
 type Loaded =
@@ -104,7 +104,9 @@ function PreviewPageView({
     );
   if (page.kind === "task") {
     if (page.page.access !== "open")
-      return <PreviewProblem message="The preview opens every Task page" />;
+      return (
+        <PreviewProblem message="Предпросмотр получил закрытую страницу задания." />
+      );
     const { task } = page.page;
     const returnTo = productTaskHref(task.product.slug, task.code);
     return (
@@ -164,21 +166,9 @@ function LessonPreview({
         });
   return (
     <MaterialReaderView
-      renderLink={(href, label) => {
-        const section = ownSectionHref(href, material.slug);
-        if (section !== undefined)
-          return (
-            <a className={proseLinkClassName} href={section}>
-              {label}
-            </a>
-          );
-        const target = readerBodyLinkHref(productContext, href);
-        return target === undefined ? undefined : (
-          <IntentPrefetchLink className={proseLinkClassName} href={target}>
-            {label}
-          </IntentPrefetchLink>
-        );
-      }}
+      renderLink={(href, label) =>
+        readerBodyLink(href, label, material.slug, productContext)
+      }
       topReadingAction={
         <SavedReadingAction
           compact
@@ -211,10 +201,9 @@ function LessonPreview({
 
 function PreviewProblem({ message }: { readonly message: string }) {
   return (
-    <PreviewNotice title="Пакет не открывается">
+    <PreviewNotice title="Страница не собирается">
       <p className="mt-3 text-body-muted">
-        Предпросмотр покажет страницу, когда файлы исправят. Сайт отказал бы в
-        этом пакете с той же причиной.
+        Предпросмотр покажет её, когда файлы исправят. Причина:
       </p>
       <pre className="mt-4 whitespace-pre-wrap rounded-xl bg-muted p-4 font-mono text-sm">
         {message}

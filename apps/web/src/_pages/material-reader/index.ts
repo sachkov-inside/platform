@@ -18,10 +18,8 @@ export {
   MaterialReaderUnavailable,
 } from "./ui/material-reader-states";
 export { MaterialReaderView } from "./ui/material-reader-view";
-export {
-  readerBodyLinkHref,
-  resolveProductReaderContext,
-} from "./model/product-reader-context";
+export { resolveProductReaderContext } from "./model/product-reader-context";
+export { readerBodyLink } from "./ui/reader-body-link";
 export {
   practiceReviewSetupText,
   type LearnerMcpConnection,

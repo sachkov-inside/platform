@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { createPortal } from "react-dom";
 
+// This module stands in for the slice's entry point (an alias in server.mjs), so it reaches the
+// slice's own module directly.
 import type { MaterialPrimaryVideo as SiteVideo } from "@/features/material-video/ui/material-primary-video.client";
 import { MaterialVideoPlayerView } from "@/features/material-video/ui/material-primary-video.client";
 

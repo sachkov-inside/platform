@@ -13,7 +13,7 @@ From a Platform checkout whose dependencies are installed (`pnpm install`, or
 `pnpm worktree:prepare` in a worktree):
 
 ```bash
-pnpm --dir <platform checkout> preview:files --package <path> [--port <n>] [--host <address>]
+pnpm --dir <platform checkout> preview:files --package <path> [--port <n>]
 ```
 
 The first line of standard output is the address: `Preview: http://127.0.0.1:4400/`. Problems go to
@@ -24,14 +24,16 @@ nothing outside the Vite dependency cache of `apps/web`.
 |---|---|
 | `--package <path>` | Required. A `package.json`, a package directory, or the folder Content Studio exports packages into. In a folder, the package whose `package.json` was written last wins. A relative path is resolved from the directory the command was started in. |
 | `--port <n>` | The port. Without it the preview takes 4400 or the next free port. `0` takes any free port. An explicit busy port is an error. |
-| `--host <address>` | The interface, `127.0.0.1` by default. |
+
+The preview listens on `127.0.0.1` only: it serves the package files and signs the reader in as an
+author.
 
 ## Input
 
 The input is a package exactly as `python3 tools/content.py export-platform` in Content Studio
 writes it: `package.json` in canonical JSON (schema version 1, 2 or 3) and the asset files it names
 beside it. The preview loads it with the same checks as `authoring:release`, so a package the stand
-would refuse shows the same reason in place of the page.
+would refuse shows the reason in place of the page.
 
 ```text
 <export folder>/
@@ -60,8 +62,10 @@ Any other address, including the programme and pages outside the package, shows 
 ## Reload
 
 The preview watches `--package`. When a file under it changes, it reloads the package and every
-open page reloads itself. Content Studio writes each export into a new directory, so a live preview
-of its exports passes the export folder: each new export replaces the shown package.
+open page reloads itself. The preview reads packages, not the authored Markdown: the caller
+re-exports when a source file changes. Content Studio writes each export into a new directory, so
+`studio preview` exports into one folder on every save and passes that folder; each new export
+replaces the shown package.
 
 ## What differs from the site
 

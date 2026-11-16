@@ -132,7 +132,7 @@ test("a lesson becomes the reader's blocks with a sized local image, code, an ex
     {
       ordinal: 1,
       product: {
-        id: lesson.course?.reference.id,
+        id: "e416dbeb-80d8-48e2-afc6-e8244ae88f82",
         name: "Курс про агентов",
         slug: "course",
       },
@@ -152,13 +152,14 @@ test("a lesson of a course carries the course programme, with its Task after the
   );
   const [chapter] = course.chapters;
   assert.equal(chapter?.name, "Подготовка проекта");
-  assert.deepEqual(
-    chapter?.materialIds,
-    course.items.map((item) => item.materialId),
-  );
+  // Platform identities derive from the source namespace and ID, as on import.
+  assert.deepEqual(chapter?.materialIds, [
+    "dd076d94-2b8d-415f-a9c4-605b756a6b36",
+    "4da887ef-f722-4ddb-a51b-8f86bbf36a94",
+  ]);
   assert.deepEqual(
     chapter?.tasks?.map((task) => [task.code, task.afterMaterialId]),
-    [["task-one", course.items[0]?.materialId]],
+    [["task-one", "dd076d94-2b8d-415f-a9c4-605b756a6b36"]],
   );
 });
 
@@ -203,7 +204,7 @@ test("a Task becomes the learner's open Task page with its page body and chapter
   );
   assert.deepEqual(task.page.relatedMaterials, [
     {
-      materialId: task.course.items[0]?.materialId,
+      materialId: "dd076d94-2b8d-415f-a9c4-605b756a6b36",
       slug: "lesson-one",
       title: "Как агент работает с проектом",
       availability: "available",

@@ -10,6 +10,7 @@ import {
   mapMaterialBlockChildren,
   renderMaterialBlocks,
 } from "@inside/material-blocks";
+import { materialFormatPresentation } from "../../apps/backend/src/modules/materials/domain/material-format.ts";
 import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { loadPackage } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
@@ -56,9 +57,6 @@ import { convertMarkdown, sourceUuid } from "./markdown.mjs";
  *   }[];
  * }} PreviewCourse
  */
-
-/** Formats as the reader names them (apps/backend material-format.ts). */
-const formatNames = { video: "Видео", guide: "Гайд", note: "Заметка" };
 
 /**
  * The package a path names: a `package.json`, a package directory, or the export folder Content
@@ -168,7 +166,9 @@ export async function previewMaterial(preview, sourceId) {
       cover: null,
       difficulty: row.difficulty,
       outcomes: row.outcomes ?? [],
-      format: { name: formatNames[row.kind], slug: row.kind },
+      format: (({ name, slug }) => ({ name, slug }))(
+        materialFormatPresentation(row.kind),
+      ),
       materialId: materialId(manifest, row.sourceId),
       // A draft has no publication; the reader shows today's date in its place.
       publishedAt: new Date().toISOString(),

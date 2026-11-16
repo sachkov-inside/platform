@@ -19,19 +19,20 @@ import {
 /** @typedef {import("../../../tools/authoring/file-preview.mjs").Preview} Preview */
 /** @typedef {import("node:http").ServerResponse} Response */
 
-const usage = `Usage: pnpm preview:files --package PATH [--port N] [--host HOST]
+const usage = `Usage: pnpm preview:files --package PATH [--port N]
 
 Shows lessons and Task pages of a Content package as sachkov.dev renders them, and reloads the page
 when the package changes. PATH is a package.json, a package directory, or the folder Content Studio
 exports packages into; in a folder the most recently written package wins.
 
---port  Port to listen on; 0 takes any free port. Without it the preview takes 4400 or the
+--port  Port on 127.0.0.1; 0 takes any free port. Without it the preview takes 4400 or the
         next free port.
---host  Interface to listen on (default 127.0.0.1).
 
-The first line of output is the preview address: "Preview: http://HOST:PORT/".`;
+The first line of output is the preview address: "Preview: http://127.0.0.1:PORT/".`;
 
 const defaultPort = 4400;
+/** Only this machine reaches the preview: it serves the package files and an author's session. */
+const host = "127.0.0.1";
 /** The account of the preview reader; no account exists behind it. */
 const previewAccountId = "00000000-0000-4000-8000-000000002221";
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -81,23 +82,41 @@ function sendJson(response, status, body) {
  */
 async function pageAt(preview, pathname) {
   const material = /^\/materials\/([^/]+)\/?$/u.exec(pathname)?.[1];
-  if (material !== undefined)
-    return (
-      (await previewMaterial(preview, decodeURIComponent(material))) ?? {
-        kind: "missing",
-        index: previewIndex(preview),
-      }
-    );
   const task = /^\/products\/[^/]+\/tasks\/([^/]+)\/?$/u.exec(pathname)?.[1];
-  if (task !== undefined)
-    return (
-      (await previewTask(preview, decodeURIComponent(task))) ?? {
-        kind: "missing",
-        index: previewIndex(preview),
-      }
-    );
-  return { kind: "index", index: previewIndex(preview) };
+  const page =
+    material !== undefined
+      ? await previewMaterial(preview, decodeURIComponent(material))
+      : task !== undefined
+        ? await previewTask(preview, decodeURIComponent(task))
+        : null;
+  if (page !== null) return page;
+  return {
+    kind: material === undefined && task === undefined ? "index" : "missing",
+    index: previewIndex(preview),
+  };
 }
+
+/**
+ * The state of each asked Material for a reader who has studied and saved nothing, by the route
+ * the Reader asks.
+ * @type {Readonly<Record<string, (materialId: string) => object>>}
+ */
+const emptyStates = {
+  "/api/reading-progress/states": (materialId) => ({
+    materialId,
+    isRead: false,
+    readAt: null,
+    updatedAt: null,
+    version: 0,
+    updateNote: null,
+    openedParts: null,
+  }),
+  "/api/bookmarks/states": (materialId) => ({
+    materialId,
+    bookmarked: false,
+    bookmarkedAt: null,
+  }),
+};
 
 /**
  * Answers the requests the Reader makes to Platform: its page data, the package's image files, the
@@ -164,30 +183,15 @@ function previewApi(source) {
             accountId: previewAccountId,
             canManageMaterials: true,
           });
-        // A reader who has not studied or saved anything yet: each asked Material is unread and unsaved.
-        if (
-          request.method === "POST" &&
-          (url.pathname === "/api/reading-progress/states" ||
-            url.pathname === "/api/bookmarks/states")
-        ) {
-          const materialIds = await readMaterialIds(request);
+        const emptyState =
+          request.method === "POST" && Object.hasOwn(emptyStates, url.pathname)
+            ? emptyStates[url.pathname]
+            : undefined;
+        if (emptyState !== undefined)
           return sendJson(response, 200, {
             kind: "ready",
-            states: materialIds.map((materialId) =>
-              url.pathname === "/api/bookmarks/states"
-                ? { materialId, bookmarked: false, bookmarkedAt: null }
-                : {
-                    materialId,
-                    isRead: false,
-                    readAt: null,
-                    updatedAt: null,
-                    version: 0,
-                    updateNote: null,
-                    openedParts: null,
-                  },
-            ),
+            states: (await readMaterialIds(request)).map(emptyState),
           });
-        }
         if (
           url.pathname.startsWith("/api/") ||
           url.pathname.startsWith("/auth/")
@@ -222,13 +226,9 @@ async function readMaterialIds(request) {
 
 /**
  * Starts the preview and resolves with its address once it listens.
- * @param {{ readonly packagePath: string; readonly port?: number | undefined; readonly host?: string }} options
+ * @param {{ readonly packagePath: string; readonly port?: number | undefined }} options
  */
-export async function startFilePreview({
-  packagePath,
-  port,
-  host = "127.0.0.1",
-}) {
+async function startFilePreview({ packagePath, port }) {
   const watched = resolve(packagePath);
   const source = packageSource(watched);
   const loaded = await source.current();
@@ -276,7 +276,7 @@ export async function startFilePreview({
         },
         {
           find: "server-only",
-          replacement: resolve(webRoot, "test/support/server-only.ts"),
+          replacement: resolve(previewRoot, "server-only.ts"),
         },
       ],
     },
@@ -315,7 +315,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     options: {
       package: { type: "string" },
       port: { type: "string" },
-      host: { type: "string" },
       help: { type: "boolean" },
     },
   });
@@ -335,7 +334,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       values.package,
     ),
     port,
-    ...(values.host === undefined ? {} : { host: values.host }),
   });
   process.stdout.write(`Preview: ${preview.url}\n`);
   if (preview.initialError !== undefined)
