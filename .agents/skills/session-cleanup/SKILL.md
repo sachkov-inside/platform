@@ -3,47 +3,47 @@ name: session-cleanup
 description: "Finish a task after its PR merges and clean up resources owned by the current task or session, or when the owner requests cleanup."
 ---
 
-After the PR merges, the task's last step runs from the task worktree:
+Report from the existing worktree before anyone removes it. The running session never removes
+its own worktree. This project procedure overrides the machine's generic final-command recipe.
 
-```sh
-agent-worktree finish --task <task> --apply --remove-worktree
-```
+## 1. Inspect ownership
 
-It runs the project steps in `.worktree-resources.json`, stops the task's processes, previews
-included, and removes the worktree only when nothing failed or stayed. Before the merge, or when
-`agent-worktree` is not installed or has no prepared task here, `pnpm session:cleanup --apply` is
-the last step instead.
+Read `agent-worktree status` and, if useful, the read-only `pnpm session:cleanup` plan. The latter
+is a repository-wide inventory, not a task-scoped cleanup command. Its `--apply` can remove
+another session's resources; it is not a fallback for an unprepared environment-created worktree.
+Do not run it to finish this task, directly or through a project finish hook.
 
-`pnpm session:cleanup` decides ownership by rules, not by memory: its plan gives an action and a
-reason for each worktree and for each process or temporary entry it acts on. The rules live in the
-header of [the script](../../../scripts/session-cleanup.mjs); a resource they cannot prove
-disposable is kept and reported.
+## 2. Stop this task's resources
 
-## 1. Read the plan
+Stop only services this task started, through their owning command (`pnpm stand:light down`,
+a named browser session, `agent-worktree stop --name <name>`). Preserve a preview the owner still
+needs and record its port, PID, cwd, source and stop/restart instructions. Containers and volumes
+follow the [local stand runbook](../../../docs/runbooks/local-stand.md#stop-and-keep-data).
 
-Run `pnpm session:cleanup` from the task worktree. It changes nothing. Read every `remove`, `prune`
-and `stop` line, and every `keep` reason for this task's worktree and processes. A warning means the
-plan kept resources it could not check; start the named tool, such as Docker, and run it again.
+`agent-worktree finish` requires a task receipt from `prepare` and executes project finish hooks.
+Before using it, inspect `.worktree-resources.json`: if a hook invokes repository-wide cleanup,
+leave finish pending and report the tool gap. Do not create a new receipt merely to bypass
+«no prepared task». Never pass `--remove-worktree` from the active session.
 
-## 2. Protect what the owner still needs
+## 3. Report, then exit
 
-Record an owner review server's port, PID, cwd, source and stop/restart instructions in the handoff.
-If the owner still needs a server of this task, skip step 3 and name that server in the handoff.
+Report PR and merged commit (or the pending gate), checks, stopped resources and each retained
+resource with its owner and reason. Include the exact worktree path, branch and any task receipt.
+Keep unpublished commits, changes, ignored files, evidence and stashes until their contents are
+preserved or their owner explicitly disposes of them. Send `worker_done` when dispatched, or the
+final response otherwise, then exit the writing session. An open PR retains its worktree.
 
-## 3. Finish
+## 4. Remove from outside
 
-Run the last step above. A failed step or a kept resource leaves the worktree in place; record each
-one from its report in the handoff.
-
-## 4. Resolve what the rules keep
-
-- Unpublished commits, local changes and ignored local files stay; record the exact remaining action.
-- Stashes stay. Inspect a safety stash this task created against the merged result before dropping it.
-- Containers and volumes follow [the local stand runbook](../../../docs/runbooks/local-stand.md#stop-and-keep-data);
-  the script only reports them.
-- Resources outside the script's rules, such as a task-owned Compose project, go through their owners.
+After the report, the coordinator or owner confirms the writing session and task processes have
+exited, the PR merged, the worktree is clean and retained files/results have been preserved. They
+remove this exact worktree through Orca from a different context. Follow the installed `orca-cli`
+skill and inspect the selected worktree before removal; an idle chat alone does not prove exit.
+A prepared task may instead finish from a separate cleanup context only if the tool supports
+that target and its finish hooks are task-scoped. A missing receipt or missing external-target
+support is a tool gap: report it, retain the worktree and use Orca after session exit.
 
 ## Done when
 
-The last step's report shows the worktree removed, or the handoff names each failed step, kept resource
-and remaining worktree with its owner and reason.
+The final report names every retained resource and the coordinator or owner responsible for
+later removal. Worktree deletion happens after this session finishes, not as its last command.

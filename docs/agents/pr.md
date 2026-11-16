@@ -88,7 +88,8 @@ Attach images and video with `gh pr create --attach`, `gh pr edit --attach` or
 - **A second look.** The Spec reviewer looks through the artifacts for data that is not test
   data before the merge ([verification](human-review.md#verification)).
 - **Local, then gone.** The files stay in `.evidence/`, outside Git. They go with the worktree
-  when `agent-worktree finish` removes it after the merge; the copy attached to the PR stays.
+  when the coordinator or owner removes it after merge and session exit under
+  [session-cleanup](../../.agents/skills/session-cleanup/SKILL.md); the PR attachment stays.
 - **Size.** An image and a video are limited to 10 MB each, and one command takes up to 50 files.
 - **Formats.** PNG, GIF, JPEG and SVG; MP4, MOV and WebM.
 - **Video player.** Reference the video file in the body with image syntax, alone in its
