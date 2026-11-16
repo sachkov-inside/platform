@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 
+import { refreshAnnouncedQueries } from "@/shared/api/announced-query-refresh";
 import { factAnnouncement } from "@/shared/api/fact-announcement";
 import {
   selfRefreshingRead,
@@ -38,17 +39,14 @@ export function billingContactQueryOptions() {
   };
 }
 
-/**
- * Забыть прежний ответ о контакте и перечитать его. Один жест для всех причин сброса.
- *
- * Причин две, и в обычном браузере они приходят вместе: поверхность подтвердила адрес сама и она
- * же слышит своё объявление. Начатое перечитывание не отменяется, поэтому второй сброс
- * присоединяется к нему, а не начинает новый запрос: сколько бы поверхностей ни слушало, чтение
- * одно.
- */
-export function resetBillingContact(client: QueryClient): Promise<void> {
-  return client.invalidateQueries(
-    { queryKey: billingContactQueryKey },
-    { cancelRefetch: false },
+/** Перечитать после записи, отменив старый ответ; все слушатели одной записи делят чтение (#2268). */
+export function resetBillingContact(
+  client: QueryClient,
+  announcementId: string,
+): Promise<void> {
+  return refreshAnnouncedQueries(
+    client,
+    billingContactQueryKey,
+    announcementId,
   );
 }
