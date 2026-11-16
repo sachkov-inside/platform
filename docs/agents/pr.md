@@ -46,8 +46,8 @@ Closes #<issue>
   or becomes allowed. Present only when the status calls the owner.
 - **Что изменилось**: what the user can do now and how it was before, with no file or function
   names.
-- **Проверено**: one line and one piece of evidence per scenario, assembled from the verifier's
-  inventory and the [evidence sources](human-review.md#evidence). A task with
+- **Проверено**: one line and one piece of evidence per scenario, assembled from the
+  manifest in `.evidence/` and the [evidence sources](human-review.md#evidence). A task with
   nothing to show gives one line on why, the CI link and the review result.
 - **Не проверено**, **Проверить самому**: one line each; the `local-stand` skill gives the address
   and the sign-in.
@@ -68,13 +68,14 @@ Attach images and video with `gh pr create --attach`, `gh pr edit --attach` or
   delete it. Look at every file before attaching it.
 - **Test data only.** Record evidence for a PR only where the data is test data, and confirm that
   the database is the test one before recording. Under `verify-platform` that is a light instance;
-  evidence from the shared stand, which holds the owner's data, stays on the machine.
+  keep no file from the shared stand, which holds the owner's data, and give its result in words.
 - **In doubt, leave it out.** When the data on screen may be real, attach nothing: link the CI
   artifact or describe the result in words.
 - **Production stays in text.** Describe a production check in words; attach none of its screens.
 - **A second look.** The Spec reviewer looks through the artifacts for foreign data before the
   merge ([verification](human-review.md#verification)).
-- **Never committed.** The files stay in the verifier's evidence directory on the machine.
+- **Local, then gone.** The files stay in `.evidence/`, outside Git. After the merge
+  `agent-worktree finish` removes them with the worktree; the copy attached to the PR stays.
 - **Size.** An image and a video are limited to 10 MB each, and one command takes up to 50 files.
 - **Formats.** PNG, GIF, JPEG and SVG; MP4, MOV and WebM.
 - **Video player.** Reference the video file in the body with image syntax, alone in its
