@@ -1,5 +1,7 @@
 // @ts-check
 import { z } from "zod";
+import { peopleScenario } from "../../../../scenarios/people.mjs";
+import { scenarioRoles } from "../../../../scenarios/roles.mjs";
 
 // Command bodies the web BFF sends; a malformed body fails the request.
 const commandSchema = z
@@ -34,66 +36,28 @@ const commandSchema = z
  *   changes one access revision as another session would, to provoke `revision_conflict`.
  */
 export const people = [
-  {
-    accountId: "d1210000-0000-4000-8000-000000000001",
-    displayName: "Анна Петрова",
-    username: "anna_petrova",
-    email: "anna.petrova@example.test",
-    contactsState: "complete",
-  },
-  {
-    accountId: "d1210000-0000-4000-8000-000000000002",
-    displayName: "Константин Константинопольский-Задунайский",
-    username: null,
-    email: "konstantin.zadunaisky.long.address@example.test",
-    contactsState: "complete",
-  },
-  {
-    accountId: "d1210000-0000-4000-8000-000000000003",
-    displayName: null,
-    username: null,
-    email: "buyer.only@example.test",
-    contactsState: "partial",
-  },
-];
+  peopleScenario.anna,
+  peopleScenario.konstantin,
+  peopleScenario.newcomer,
+].map((person, index) => ({
+  accountId: `d1210000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+  ...person,
+}));
 
-/** The Product choices: two current Products, one more and an archived one. */
-export const peopleProducts = [
-  {
-    productId: "c0110000-0000-4000-8000-000000000101",
-    name: "AI Engineering: агенты в работе",
-    archived: false,
-  },
-  {
-    productId: "c0110000-0000-4000-8000-000000000102",
-    name: "Архитектура приложения",
-    archived: false,
-  },
-  {
-    productId: "c0110000-0000-4000-8000-000000000103",
-    name: "Инженерная практика",
-    archived: false,
-  },
-  {
-    productId: "c0110000-0000-4000-8000-000000000104",
-    name: "Агенты для команды (поток 2025)",
-    archived: true,
-  },
-];
+/** Contract IDs differ from Storybook; the Product facts are shared. */
+export const peopleProducts = peopleScenario.products.map((product, index) => ({
+  productId: `c0110000-0000-4000-8000-${String(index + 101).padStart(12, "0")}`,
+  name: product.name,
+  archived: product.archived,
+}));
+
 const [aiProduct, architectureProduct, practiceProduct] = peopleProducts;
 const ownerActor = {
   kind: "person",
   accountId: "d1210000-0000-4000-8000-0000000000ff",
-  label: "Кирилл Сачков",
+  label: scenarioRoles.owner.name,
 };
-const firstNames = [
-  "Мария Соколова",
-  "Дмитрий Иванов",
-  "Елена Кузнецова",
-  "Алексей Смирнов",
-  "Ольга Попова",
-  "Сергей Васильев",
-];
+const firstNames = peopleScenario.directoryNames;
 
 /** Every person of the list: the three named ones first, then a long tail for paging. */
 const directory = [

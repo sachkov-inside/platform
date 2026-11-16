@@ -1,3 +1,8 @@
+import {
+  paymentFacts,
+  paymentScenario,
+} from "../../../../scenarios/payments.mjs";
+import { peopleScenario } from "../../../../scenarios/people.mjs";
 import type { PriceSnapshot } from "@/entities/subscription";
 import type {
   PaymentPage,
@@ -13,71 +18,51 @@ function uuid(group: string, index: number): string {
   return `${group}-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
 
-export const paymentProducts: readonly PaymentProduct[] = [
-  { id: uuid("71000000", 1), name: "AI Engineering: от промпта до продакшна" },
-  { id: uuid("71000000", 2), name: "Разработка с агентами" },
-  { id: uuid("71000000", 3), name: "Архитектура и проектирование систем" },
-  { id: uuid("71000000", 4), name: "Тестирование через поведение" },
-  { id: uuid("71000000", 5), name: "Код-ревью с агентом: практикум" },
-];
+export const paymentProducts: readonly PaymentProduct[] =
+  paymentScenario.products.map((product, index) => ({
+    id: uuid("71000000", index + 1),
+    name: product.name,
+  }));
 
 function snapshot(
   product: PaymentProduct,
   priceKopecks: number,
 ): PriceSnapshot {
   return {
-    product: { id: product.id, name: product.name, priceRevision: 3 },
+    product: {
+      id: product.id,
+      name: product.name,
+      priceRevision: paymentScenario.storybook.priceRevision,
+    },
     offer: {
       id: uuid("71000000", 101),
-      revision: 1,
+      ...paymentScenario.offer,
+      benefits: [...paymentScenario.offer.benefits],
       name: product.name,
-      benefits: ["materials"],
-      archived: false,
-      published: true,
     },
     paymentOption: {
       id: uuid("71000000", 201),
-      revision: 1,
+      ...paymentScenario.option,
       offerId: uuid("71000000", 101),
-      mode: "one_time",
-      months: 12,
       priceKopecks,
-      archived: false,
     },
     promotion: null,
-    currency: "RUB",
-    timezone: "Europe/Moscow",
+    currency: paymentScenario.currency,
+    timezone: paymentScenario.timezone,
     firstPriceKopecks: priceKopecks,
     renewalPriceKopecks: priceKopecks,
   };
 }
-
-const states = [
-  "confirmed",
-  "confirmed",
-  "pending",
-  "unknown",
-  "failed",
-  "confirmed",
-  "authorized",
-  "sent",
-] as const;
-const accesses = ["ready", "preparing", "review_required"] as const;
-const prices = [1_990_000, 4_990_000, 990_000, 2_490_000] as const;
 
 /** Платёж номер `index`: состояние, продукт и сумма меняются по кругу. */
 export function ownerPayment(
   index: number,
   overrides: Partial<PaymentView> = {},
 ): PaymentView {
-  const state = states[index % states.length] ?? "confirmed";
-  const product =
-    paymentProducts[index % paymentProducts.length] ?? paymentProducts[0];
+  const facts = paymentFacts(index, "storybook");
+  const product = paymentProducts[index % paymentProducts.length];
   if (product === undefined) throw new Error("No fixture product");
-  const amountKopecks = prices[index % prices.length] ?? 990_000;
-  const createdAt = new Date(
-    Date.UTC(2026, 9, 24, 11, 5) - index * 5 * 3_600_000,
-  ).toISOString();
+  const { state, amountKopecks, occurredAt: createdAt } = facts;
   return {
     purchaseRef: uuid("72000000", index + 1),
     accountId: `${String(3 + (index % 6)).repeat(8)}-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
@@ -86,21 +71,18 @@ export function ownerPayment(
     subscriptionRef: null,
     periodIndex: null,
     amountKopecks,
-    environment: "production",
-    terminalRef: "1700000000001",
-    paymentId: String(7_100_000_000 + index),
+    environment: facts.environment,
+    terminalRef: facts.terminalRef,
+    paymentId: facts.bankPaymentId,
     snapshot: snapshot(product, amountKopecks),
     fiscalization: state === "confirmed" ? "confirmed" : "pending",
     confirmedAt: state === "confirmed" ? createdAt : null,
     periodEndsAt: null,
     createdAt,
     updatedAt: createdAt,
-    access:
-      state === "confirmed"
-        ? (accesses[index % accesses.length] ?? "ready")
-        : "awaiting_payment",
-    refundedKopecks: 0,
-    refundableKopecks: state === "confirmed" ? amountKopecks : 0,
+    access: facts.access,
+    refundedKopecks: facts.refundedKopecks,
+    refundableKopecks: facts.refundableKopecks,
     ...overrides,
   };
 }
@@ -194,11 +176,11 @@ export const unknownPaymentPage: PaymentPage = {
 };
 
 const buyerNames = [
-  "Анна Петрова",
-  "Константин Константинопольский-Задунайский",
+  peopleScenario.anna.displayName,
+  peopleScenario.konstantin.displayName,
   null,
-  "Мария Иванова",
-  "Илья Кузнецов",
+  peopleScenario.paymentBuyerNames[0],
+  peopleScenario.paymentBuyerNames[1],
 ] as const;
 
 /**
@@ -215,7 +197,7 @@ export function ownerPaymentBuyers(count: number): StoryPerson[] {
             {
               accountId: ownerPayment(index).accountId,
               displayName: buyerNames[index % buyerNames.length] ?? null,
-              username: index === 0 ? "anna_petrova" : null,
+              username: index === 0 ? peopleScenario.anna.username : null,
               email:
                 index === 0 ? null : `buyer${String(index + 1)}@example.test`,
               contactsState: "complete",
