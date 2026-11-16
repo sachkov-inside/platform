@@ -10,6 +10,8 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { z } from "zod";
+import { scenarioRoles } from "../scenarios/roles.mjs";
+import { seedLearningScenario } from "../scenarios/seed-learning.mjs";
 import { composePsql } from "./check-database.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 import { fullStackRelease } from "./full-stack-environment.mjs";
@@ -205,6 +207,15 @@ try {
   await seedLightRoles({
     api: environment.urls.api,
     createAccessToken: (subject) => identity.createAccessToken(subject),
+  });
+  await seedLearningScenario({
+    api: environment.urls.api,
+    databaseName: database,
+    ownerToken: (await identity.createAccessToken(scenarioRoles.owner.subject))
+      .token,
+    holderToken: (
+      await identity.createAccessToken(scenarioRoles.holder.subject)
+    ).token,
   });
   if (environment.urls.mcp)
     await waitFor(

@@ -565,7 +565,7 @@ export const SignedInReturns: Story = {
     );
     if (reply === null) throw new Error("The reply is missing");
     await waitFor(() =>
-      expect(within(reply).getByText("Кирилл Сачков")).toBeVisible(),
+      expect(within(reply).getByText("Покупатель Тестов")).toBeVisible(),
     );
     await userEvent.click(canvas.getByRole("button", { name: "Пропустить" }));
     await waitFor(() => expect(saved).toEqual([3]));

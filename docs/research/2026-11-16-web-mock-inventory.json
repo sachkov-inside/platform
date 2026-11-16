@@ -1,8 +1,8 @@
 {
   "base": "6979ea42a8365619f3a369162ffa7202bbb653c5",
-  "total": 166,
-  "internal": 136,
-  "shared": 125,
+  "total": 164,
+  "internal": 135,
+  "shared": 124,
   "entries": [
     {
       "file": "apps/web/test/contracts/run-scoped-vite-cache.test.ts",
@@ -983,22 +983,30 @@
       "module": "@/shared/config/index.server"
     },
     {
-      "file": "apps/web/test/support/next-cache.ts",
-      "line": 4,
-      "method": "mock",
-      "module": "@/shared/api/catalog-cache.server"
-    },
-    {
       "file": "apps/web/test/support/request-scope.ts",
       "line": 9,
       "method": "mock",
       "module": "next/server"
-    },
-    {
-      "file": "apps/web/vitest.config.mts",
-      "line": 38,
-      "method": "mock",
-      "module": "next/headers"
     }
-  ]
+  ],
+  "previousTextualScan": {
+    "total": 166,
+    "internal": 136,
+    "shared": 125,
+    "excludedComments": [
+      {
+        "file": "apps/web/test/support/next-cache.ts",
+        "line": 4,
+        "method": "mock",
+        "module": "@/shared/api/catalog-cache.server"
+      },
+      {
+        "file": "apps/web/vitest.config.mts",
+        "line": 38,
+        "method": "mock",
+        "module": "next/headers"
+      }
+    ]
+  },
+  "method": "Direct vi.mock CallExpression entries, excluding comments; aliases, spies and manual substitutes still require audit2 inventory"
 }

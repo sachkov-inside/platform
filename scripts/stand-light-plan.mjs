@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { scenarioRoles } from "../scenarios/roles.mjs";
 import {
   fullStackOfflineServices,
   fullStackReleaseEnvironment,
@@ -190,19 +191,7 @@ export function lightEnvironment({
  * gives the product with the closed material of the seed. The runbook's light instance section
  * lists the roles for people; the `verify-platform` skill says which role suits which scenario.
  */
-export const lightRoles = {
-  owner: { subject: "fullstack-owner", name: "Владелец Тестов" },
-  holder: {
-    subject: "light-holder",
-    name: "Покупатель Тестов",
-    /** «Создание Platform Inside» of `seed-local-development.ts`. */
-    productId: "72000000-0000-4000-8000-000000000007",
-  },
-  /** An ordinary member with a ready profile and no products. */
-  learner: { subject: "light-learner", name: "Участник Тестов" },
-  /** A new person: no name and no accepted terms, so the first sign-in is still to be driven. */
-  newcomer: { subject: "light-newcomer", name: null },
-};
+export const lightRoles = scenarioRoles;
 
 /** Every key of `lightRoles`, in order; a test keeps the two together. */
 export const lightRoleNames = /** @type {const} */ ([
