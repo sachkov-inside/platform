@@ -22,8 +22,7 @@ function escape(value) {
     .replaceAll(">", "&gt;");
 }
 
-/** Temporary semantic UI for #1641. Replace through #1642 after Storybook acceptance.
- * @param {{ choice: string; returnTo: string }} view */
+/** @param {{ choice: string; returnTo: string }} view */
 export function localAccountsContent(view) {
   return `<main><h1>Аккаунт локального стенда</h1><p>Сейчас: <strong>${escape(profiles.find(([key]) => key === view.choice)?.[1] ?? "Гость")}</strong>.</p><p>Выбор сохранится в этом браузере. В новом контексте стенд откроется от владельца.</p><form method="post" action="/__local/accounts"><input type="hidden" name="returnTo" value="${escape(view.returnTo)}"><fieldset><legend>От чьего лица проверять Platform</legend>${profiles.map(([key = "", label = "", description = ""]) => `<label><input type="radio" name="choice" value="${key}"${key === view.choice ? " checked" : ""}><span><strong>${label}</strong><small>${description}</small></span></label>`).join("")}</fieldset><button type="submit">Выбрать аккаунт</button></form><p><a href="${escape(view.returnTo)}">Вернуться без изменений</a></p><p>Меняется только проверочная сессия. Контент, покупки и сохранённый прогресс остаются на месте.</p></main>`;
 }

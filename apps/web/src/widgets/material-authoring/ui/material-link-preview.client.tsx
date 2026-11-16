@@ -10,10 +10,6 @@ import { SITE_NAME, SocialCardArtwork } from "@/shared/link-preview";
 import { presentText } from "@/shared/lib/text";
 import { Button } from "@/shared/ui/button";
 
-/**
- * Temporary semantic UI for #1546.
- * Replace through #1547 after Storybook acceptance.
- */
 export interface MaterialLinkPreviewProps {
   readonly title: string;
   readonly description: string;

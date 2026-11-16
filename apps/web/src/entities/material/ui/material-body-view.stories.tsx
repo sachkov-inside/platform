@@ -137,6 +137,18 @@ export const CollapsibleCallouts: Story = {
     await expect(canvas.getByText("Ссылка внутри совета")).not.toBeVisible();
     await userEvent.click(summary);
     await expect(canvas.getByText("Ссылка внутри совета")).toBeVisible();
+    const { userEvent: browserUserEvent } =
+      await import("@vitest/browser/context");
+    summary.focus();
+    await expect(summary).toHaveFocus();
+    await browserUserEvent.keyboard("{Enter}");
+    await expect(canvas.getByText("Ссылка внутри совета")).not.toBeVisible();
+    await browserUserEvent.keyboard(" ");
+    await expect(canvas.getByText("Ссылка внутри совета")).toBeVisible();
+    await browserUserEvent.tab();
+    await expect(
+      canvas.getByRole("link", { name: "Ссылка внутри совета" }),
+    ).toHaveFocus();
   },
 };
 export const CollapsibleCalloutsMobile: Story = {

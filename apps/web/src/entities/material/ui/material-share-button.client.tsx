@@ -7,10 +7,6 @@ import { cn } from "@/shared/lib/utils";
 import { materialPath } from "@/shared/routing/public-page-path";
 import { Button } from "@/shared/ui/button";
 
-/**
- * Temporary semantic UI for #1553.
- * Replace through #1554 after Storybook acceptance.
- */
 export interface MaterialShareButtonProps {
   readonly slug: string;
   readonly title: string;
