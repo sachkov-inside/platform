@@ -1,0 +1,1004 @@
+{
+  "base": "6979ea42a8365619f3a369162ffa7202bbb653c5",
+  "total": 166,
+  "internal": 136,
+  "shared": 125,
+  "entries": [
+    {
+      "file": "apps/web/test/contracts/run-scoped-vite-cache.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "@storybook/addon-vitest/vitest-plugin"
+    },
+    {
+      "file": "apps/web/test/module/admin-overview.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/auth-routes.test.ts",
+      "line": 40,
+      "method": "mock",
+      "module": "next/headers"
+    },
+    {
+      "file": "apps/web/test/module/auth-routes.test.ts",
+      "line": 66,
+      "method": "mock",
+      "module": "next/server"
+    },
+    {
+      "file": "apps/web/test/module/auth-routes.test.ts",
+      "line": 71,
+      "method": "mock",
+      "module": "@logto/next/server-actions"
+    },
+    {
+      "file": "apps/web/test/module/auth-routes.test.ts",
+      "line": 79,
+      "method": "mock",
+      "module": "@/shared/auth/audience-bound-logto-client.server"
+    },
+    {
+      "file": "apps/web/test/module/auth-routes.test.ts",
+      "line": 85,
+      "method": "mock",
+      "module": "@/shared/auth/complete-platform-sign-in.server"
+    },
+    {
+      "file": "apps/web/test/module/auth-routes.test.ts",
+      "line": 89,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/auth-routes.test.ts",
+      "line": 117,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/auth-routes.test.ts",
+      "line": 122,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/authenticated-read-capabilities.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/authenticated-read-dependencies.test.ts",
+      "line": 8,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/authenticated-read-dependencies.test.ts",
+      "line": 12,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/authenticated-read.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/authoring-entry.test.ts",
+      "line": 8,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/authoring-entry.test.ts",
+      "line": 11,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/authoring-materials.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/authoring-people.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/authoring-person-bff.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/authoring-write-expires-catalog.test.ts",
+      "line": 9,
+      "method": "mock",
+      "module": "next/cache"
+    },
+    {
+      "file": "apps/web/test/module/authoring-write-expires-catalog.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/authoring-write-expires-catalog.test.ts",
+      "line": 17,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/authoring-write-expires-catalog.test.ts",
+      "line": 21,
+      "method": "mock",
+      "module": "@/shared/auth/optional-platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/billing-checkout-bff.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/billing-checkout-bff.test.ts",
+      "line": 29,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/billing-checkout-bff.test.ts",
+      "line": 36,
+      "method": "mock",
+      "module": "@/shared/auth/optional-platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/billing-contact-bff.test.ts",
+      "line": 9,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/billing-contact-bff.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/bookmarks-bff.test.ts",
+      "line": 11,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/bookmarks-bff.test.ts",
+      "line": 17,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/client-report-limits.test.ts",
+      "line": 3,
+      "method": "mock",
+      "module": "next/server"
+    },
+    {
+      "file": "apps/web/test/module/client-report-limits.test.ts",
+      "line": 5,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/client-telemetry-bff.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "next/server"
+    },
+    {
+      "file": "apps/web/test/module/client-telemetry-bff.test.ts",
+      "line": 6,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/cohort-waitlist-composition.test.ts",
+      "line": 10,
+      "method": "mock",
+      "module": "@/widgets/product-reader-state/index.server"
+    },
+    {
+      "file": "apps/web/test/module/cohort-waitlist-composition.test.ts",
+      "line": 13,
+      "method": "mock",
+      "module": "@/entities/material"
+    },
+    {
+      "file": "apps/web/test/module/cohort-waitlist-composition.test.ts",
+      "line": 16,
+      "method": "mock",
+      "module": "@/features/account-access"
+    },
+    {
+      "file": "apps/web/test/module/communication-tracking.test.ts",
+      "line": 3,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/complete-platform-sign-in.test.ts",
+      "line": 12,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/content-covers-bff.test.ts",
+      "line": 15,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/content-covers-bff.test.ts",
+      "line": 25,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/content-covers-bff.test.ts",
+      "line": 30,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/content-covers-bff.test.ts",
+      "line": 34,
+      "method": "mock",
+      "module": "@/shared/auth/same-origin-mutation.server"
+    },
+    {
+      "file": "apps/web/test/module/content-covers-bff.test.ts",
+      "line": 39,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/course-activation-rules.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/course-activation-rules.test.ts",
+      "line": 10,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/course-film-loading.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/features/ai-engineering-course/model/course-film"
+    },
+    {
+      "file": "apps/web/test/module/course-film-loading.test.ts",
+      "line": 15,
+      "method": "mock",
+      "module": "@/features/ai-engineering-course/model/course-film-v2"
+    },
+    {
+      "file": "apps/web/test/module/course-glossary.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/course-roadmap-programme.test.ts",
+      "line": 10,
+      "method": "mock",
+      "module": "next/navigation"
+    },
+    {
+      "file": "apps/web/test/module/exercise-attempts-bff.test.ts",
+      "line": 9,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/exercise-attempts-bff.test.ts",
+      "line": 13,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/home-course-action.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/widgets/product-reader-state/index.server"
+    },
+    {
+      "file": "apps/web/test/module/home-offer-terms.test.ts",
+      "line": 10,
+      "method": "mock",
+      "module": "server-only"
+    },
+    {
+      "file": "apps/web/test/module/home-offer-terms.test.ts",
+      "line": 11,
+      "method": "mock",
+      "module": "@/features/billing-checkout.terms.server"
+    },
+    {
+      "file": "apps/web/test/module/home-offer-terms.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "@/_pages/home/api/public-home.public-cache.server"
+    },
+    {
+      "file": "apps/web/test/module/home-pin.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/home-pin.test.ts",
+      "line": 12,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/inline-artifact.test.ts",
+      "line": 8,
+      "method": "mock",
+      "module": "next/server"
+    },
+    {
+      "file": "apps/web/test/module/inline-artifact.test.ts",
+      "line": 10,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/lesson-opened-parts-bff.test.ts",
+      "line": 6,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/lesson-opened-parts-bff.test.ts",
+      "line": 9,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/lesson-opened-parts-bff.test.ts",
+      "line": 13,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/lesson-opened-parts-bff.test.ts",
+      "line": 16,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/lesson-rating-bff.test.ts",
+      "line": 11,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/lesson-rating-bff.test.ts",
+      "line": 17,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/load-task-submissions.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/logto-bff.test.ts",
+      "line": 24,
+      "method": "mock",
+      "module": "@logto/next/server-actions"
+    },
+    {
+      "file": "apps/web/test/module/logto-bff.test.ts",
+      "line": 28,
+      "method": "mock",
+      "module": "next/headers"
+    },
+    {
+      "file": "apps/web/test/module/logto-refresh-grant.test.ts",
+      "line": 23,
+      "method": "mock",
+      "module": "next/headers"
+    },
+    {
+      "file": "apps/web/test/module/logto-refresh-grant.test.ts",
+      "line": 38,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/logto-refresh-grant.test.ts",
+      "line": 60,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/logto-sdk-callback.test.ts",
+      "line": 9,
+      "method": "mock",
+      "module": "server-only"
+    },
+    {
+      "file": "apps/web/test/module/logto-sign-in-callback.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "next/headers"
+    },
+    {
+      "file": "apps/web/test/module/material-assets-bff.test.ts",
+      "line": 15,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/material-assets-bff.test.ts",
+      "line": 24,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/material-authoring-operations.test.ts",
+      "line": 11,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/material-authoring-operations.test.ts",
+      "line": 16,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/material-authoring.test.ts",
+      "line": 9,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/material-task-workspace.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "next/server"
+    },
+    {
+      "file": "apps/web/test/module/material-task-workspace.test.ts",
+      "line": 8,
+      "method": "mock",
+      "module": "@/shared/auth/optional-platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/material-task-workspace.test.ts",
+      "line": 11,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/material-task-workspace.test.ts",
+      "line": 15,
+      "method": "mock",
+      "module": "@/features/product-task-submission/api/load-product-task.server"
+    },
+    {
+      "file": "apps/web/test/module/material-videos-bff.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/material-videos-bff.test.ts",
+      "line": 23,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/material-videos-bff.test.ts",
+      "line": 28,
+      "method": "mock",
+      "module": "@/shared/auth/optional-platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/material-videos-bff.test.ts",
+      "line": 32,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/material-videos-bff.test.ts",
+      "line": 36,
+      "method": "mock",
+      "module": "@/shared/auth/same-origin-mutation.server"
+    },
+    {
+      "file": "apps/web/test/module/material-videos-bff.test.ts",
+      "line": 41,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/mutation-operation-routes.test.ts",
+      "line": 13,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/mutation-operation.test.ts",
+      "line": 10,
+      "method": "mock",
+      "module": "next/cache"
+    },
+    {
+      "file": "apps/web/test/module/mutation-operation.test.ts",
+      "line": 15,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/notification-preferences-bff.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/notification-preferences-bff.test.ts",
+      "line": 11,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/optional-platform-access-token.test.ts",
+      "line": 9,
+      "method": "mock",
+      "module": "@logto/next/server-actions"
+    },
+    {
+      "file": "apps/web/test/module/optional-platform-access-token.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "next/headers"
+    },
+    {
+      "file": "apps/web/test/module/owner-payments-bff.test.ts",
+      "line": 8,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/owner-payments-bff.test.ts",
+      "line": 12,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/personal-home-bff.test.ts",
+      "line": 8,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/personal-home-bff.test.ts",
+      "line": 13,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/personal-home-bff.test.ts",
+      "line": 17,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/personal-home-bff.test.ts",
+      "line": 20,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-access-bff.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-access-bff.test.ts",
+      "line": 11,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/product-artifacts-bff.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-artifacts-bff.test.ts",
+      "line": 26,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/product-artifacts-bff.test.ts",
+      "line": 31,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/product-artifacts-bff.test.ts",
+      "line": 35,
+      "method": "mock",
+      "module": "@/shared/auth/same-origin-mutation.server"
+    },
+    {
+      "file": "apps/web/test/module/product-artifacts-bff.test.ts",
+      "line": 40,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-cohort-scope.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-cohort-scope.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-holders.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-holders.test.ts",
+      "line": 8,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/product-journey-keys.test.ts",
+      "line": 17,
+      "method": "mock",
+      "module": "next/navigation"
+    },
+    {
+      "file": "apps/web/test/module/product-sale-settings.test.ts",
+      "line": 10,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-sale-settings.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/product-sale.test.ts",
+      "line": 11,
+      "method": "mock",
+      "module": "server-only"
+    },
+    {
+      "file": "apps/web/test/module/product-sale.test.ts",
+      "line": 12,
+      "method": "mock",
+      "module": "next/cache"
+    },
+    {
+      "file": "apps/web/test/module/product-sale.test.ts",
+      "line": 17,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-sale.test.ts",
+      "line": 22,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-task-assets-bff.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-task-assets-bff.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-task-submission-bff.test.ts",
+      "line": 8,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-task-submission-bff.test.ts",
+      "line": 15,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/product-task-submission-bff.test.ts",
+      "line": 19,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/product-task-submission-bff.test.ts",
+      "line": 22,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-waitlist-bff.test.ts",
+      "line": 17,
+      "method": "mock",
+      "module": "next/headers"
+    },
+    {
+      "file": "apps/web/test/module/product-waitlist-bff.test.ts",
+      "line": 32,
+      "method": "mock",
+      "module": "next/server"
+    },
+    {
+      "file": "apps/web/test/module/product-waitlist-bff.test.ts",
+      "line": 36,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/product-waitlist-bff.test.ts",
+      "line": 43,
+      "method": "mock",
+      "module": "@/shared/auth/optional-platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/product-waitlist-bff.test.ts",
+      "line": 46,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/profile-avatar.test.ts",
+      "line": 23,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/profile-avatar.test.ts",
+      "line": 28,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/profile-avatar.test.ts",
+      "line": 32,
+      "method": "mock",
+      "module": "@/shared/auth/same-origin-mutation.server"
+    },
+    {
+      "file": "apps/web/test/module/profile-avatar.test.ts",
+      "line": 37,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/profile-avatar.test.ts",
+      "line": 47,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/public-product-offer-terms.test.ts",
+      "line": 9,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/public-product-offer-terms.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/public-sitemap-response.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/features/public-site-index/api/get-public-sitemap-chunks"
+    },
+    {
+      "file": "apps/web/test/module/reader-history-boundary.test.ts",
+      "line": 14,
+      "method": "mock",
+      "module": "@/shared/ui/reader-history.client"
+    },
+    {
+      "file": "apps/web/test/module/reading-progress-bff.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/reading-progress-bff.test.ts",
+      "line": 11,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/reading-progress-bff.test.ts",
+      "line": 15,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/reading-progress-bff.test.ts",
+      "line": 18,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/sales-catalog-bff.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/sales-catalog-bff.test.ts",
+      "line": 10,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/series-journey-catalog.test.ts",
+      "line": 10,
+      "method": "mock",
+      "module": "next/navigation"
+    },
+    {
+      "file": "apps/web/test/module/series-order-routes.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/series-order-routes.test.ts",
+      "line": 8,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/series-order.test.ts",
+      "line": 3,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/sign-in-callback-once.test.ts",
+      "line": 16,
+      "method": "mock",
+      "module": "next/headers"
+    },
+    {
+      "file": "apps/web/test/module/task-submissions-identity.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/task-submissions-live-read.test.ts",
+      "line": 3,
+      "method": "mock",
+      "module": "@/shared/auth/session-adapter.server"
+    },
+    {
+      "file": "apps/web/test/module/task-submissions-live-read.test.ts",
+      "line": 7,
+      "method": "mock",
+      "module": "@/_pages/product-task/api/load-product-task.server"
+    },
+    {
+      "file": "apps/web/test/module/task-submissions.test.ts",
+      "line": 8,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/task-submissions.test.ts",
+      "line": 15,
+      "method": "mock",
+      "module": "@/shared/auth/platform-access-token.server"
+    },
+    {
+      "file": "apps/web/test/module/task-submissions.test.ts",
+      "line": 19,
+      "method": "mock",
+      "module": "@/shared/auth/logto-bff-config.server"
+    },
+    {
+      "file": "apps/web/test/module/task-submissions.test.ts",
+      "line": 22,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/terms-acceptance.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "server-only"
+    },
+    {
+      "file": "apps/web/test/module/terms-acceptance.test.ts",
+      "line": 5,
+      "method": "mock",
+      "module": "@/shared/api/backend/index.server"
+    },
+    {
+      "file": "apps/web/test/module/web-telemetry-forwarding.test.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "next/server"
+    },
+    {
+      "file": "apps/web/test/module/web-telemetry-forwarding.test.ts",
+      "line": 9,
+      "method": "mock",
+      "module": "@/shared/auth/index.server"
+    },
+    {
+      "file": "apps/web/test/module/web-telemetry-forwarding.test.ts",
+      "line": 16,
+      "method": "mock",
+      "module": "@/shared/config/index.server"
+    },
+    {
+      "file": "apps/web/test/support/next-cache.ts",
+      "line": 4,
+      "method": "mock",
+      "module": "@/shared/api/catalog-cache.server"
+    },
+    {
+      "file": "apps/web/test/support/request-scope.ts",
+      "line": 9,
+      "method": "mock",
+      "module": "next/server"
+    },
+    {
+      "file": "apps/web/vitest.config.mts",
+      "line": 38,
+      "method": "mock",
+      "module": "next/headers"
+    }
+  ]
+}

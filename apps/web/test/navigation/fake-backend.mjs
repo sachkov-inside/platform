@@ -1,3 +1,5 @@
+import { readingProduct } from "../../../../scenarios/reading.mjs";
+import { readingHttpMaterials } from "../../../../scenarios/reading-http.mjs";
 // @ts-check
 import {
   productReaderStateRoute,
@@ -121,12 +123,7 @@ const products = [
 ];
 
 /** Изолированный состав #1292 не меняет данные прежних navigation scenarios. */
-const performanceProduct = {
-  cover: null,
-  id: "11111111-1111-4111-8111-111111111115",
-  name: "Курс на 120 материалов",
-  slug: "performance-course",
-};
+const performanceProduct = { cover: null, ...readingProduct };
 
 const lessons = [
   {
@@ -259,27 +256,8 @@ function findReaderTitleLesson(key) {
   return undefined;
 }
 
-const performanceLessons = Array.from({ length: 120 }, (_, index) => ({
-  ...performanceTemplate,
-  materialId: `33333333-3333-4333-8333-${String(index + 201).padStart(12, "0")}`,
-  slug: `performance-lesson-${String(index + 1)}`,
-  title: `Материал ${String(index + 1)}`,
-  summary: `Описание материала ${String(index + 1)}.`,
-  publishedAt: new Date(Date.UTC(2026, 5, index + 1)).toISOString(),
-  format:
-    index % 2 === 0 ? { id: "video", name: "Видео", slug: "video" } : format,
-  productMemberships: [
-    {
-      ordinal: index + 1,
-      product: {
-        id: performanceProduct.id,
-        name: performanceProduct.name,
-        slug: performanceProduct.slug,
-      },
-      stepGroup: null,
-    },
-  ],
-}));
+const performanceLessons = readingHttpMaterials();
+
 const referenceProduct = {
   ...performanceProduct,
   id: "11111111-1111-4111-8111-111111111116",

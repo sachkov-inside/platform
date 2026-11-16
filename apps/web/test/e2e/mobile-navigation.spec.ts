@@ -1,38 +1,9 @@
+import { readingInterceptionCatalog } from "../support/reading-interception";
 import { expectImmediateMobileNavigation } from "../support/immediate-mobile-navigation";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-const catalog = {
-  kind: "ready",
-  facets: {
-    formats: [],
-    products: [],
-    topics: [
-      {
-        id: "platform",
-        slug: "platform",
-        name: "Platform",
-        count: 18,
-        summary: null,
-      },
-    ],
-  },
-  items: Array.from({ length: 18 }, (_, index) => ({
-    access: "free",
-    availability: "available",
-    format: "Гайд",
-    formatSlug: "guide",
-    productMemberships: [],
-    slug: `navigation-${String(index)}`,
-    summary: "Материал для проверки возврата к чтению.",
-    tags: [],
-    title: `Навигация ${String(index + 1)}`,
-    topic: "Platform",
-    topicSlug: "platform",
-  })),
-  nextCursor: null,
-  totalCount: 18,
-};
+const catalog = readingInterceptionCatalog();
 
 const materialCatalogRequests = /\/api\/(?:home|library)\/materials(?:\?|$)/u;
 
@@ -91,7 +62,7 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
   // Поиска на Главной нет: состояние ленты, которое помнит вкладка, — выбранная тема.
   await page.goto("/?topic=platform");
   await expect(
-    page.getByRole("heading", { name: "Навигация 1", exact: true }),
+    page.getByRole("heading", { name: "Материал 1", exact: true }),
   ).toBeVisible();
   await expect(topicChip(page, "Platform")).toHaveAttribute(
     "aria-pressed",
@@ -151,7 +122,7 @@ test("Home feed data is prefetched before the first tab visit", async ({
   await expect.poll(() => requests).toBe(1);
   await homeLink(page).click();
   await expect(
-    page.getByRole("heading", { name: "Навигация 1", exact: true }),
+    page.getByRole("heading", { name: "Материал 1", exact: true }),
   ).toBeVisible();
   expect(requests).toBe(1);
 });
@@ -281,7 +252,7 @@ test("native Back preserves the latest Home feed filter and scroll for the next 
   await page.goto("/account");
   await homeLink(page).click();
   await expect(
-    page.getByRole("heading", { name: "Навигация 1", exact: true }),
+    page.getByRole("heading", { name: "Материал 1", exact: true }),
   ).toBeVisible();
   await topicChip(page, "Platform").click();
   await expect(page).toHaveURL(/topic=platform/u);
@@ -295,10 +266,10 @@ test("native Back preserves the latest Home feed filter and scroll for the next 
   await expect(feed.getByRole("status")).toHaveText("Материалов: 18");
   await expect(feed.getByRole("article")).toHaveCount(18);
   await expect(
-    feed.getByRole("link", { name: "Навигация 18", exact: true }),
+    feed.getByRole("link", { name: "Материал 18", exact: true }),
   ).toHaveAttribute(
     "href",
-    "/materials/navigation-17?from=%2F%3Ftopic%3Dplatform",
+    "/materials/performance-lesson-18?from=%2F%3Ftopic%3Dplatform",
   );
   // Позицию ленты приложение записывает по событию scroll, а браузер доставляет его в следующем кадре:
   // «Назад» в том же кадре уносит несохранённую позицию (#735). Событие рассылается всем обработчикам
@@ -452,7 +423,7 @@ test("external Home query changes update the selected topic and remove retired f
   );
   await page.goto("/?topic=platform&format=note&q=навигация");
   await expect(
-    page.getByRole("heading", { name: "Навигация 1", exact: true }),
+    page.getByRole("heading", { name: "Материал 1", exact: true }),
   ).toBeVisible();
   await expect(topicChip(page, "Platform")).toHaveAttribute(
     "aria-pressed",
