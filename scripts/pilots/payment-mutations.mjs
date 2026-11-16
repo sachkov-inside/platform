@@ -30,36 +30,48 @@ const mutants = [
     name: "authorized-as-capture",
     expression: 'payment.Status === "AUTHORIZED" || refunded',
     expected: "killed",
+    expectedFailed: 2,
     meaning: "grant on authorization without capture",
   },
   {
     name: "ignore-capture",
     expression: "false",
     expected: "killed",
+    expectedFailed: 2,
     meaning: "never fulfill a captured payment",
   },
   {
     name: "unknown-as-capture",
     expression: `${decision} || payment.Status === "PAY_CHECKING"`,
     expected: "killed",
+    expectedFailed: 1,
     meaning: "grant on an undecided payment",
   },
   {
     name: "equivalent-order",
     expression: 'refunded || payment.Status === "CONFIRMED"',
     expected: "survived",
+    expectedFailed: 0,
     meaning: "equivalent: reorder pure boolean operands",
   },
   {
     name: "ignore-refund-proof",
     expression: 'payment.Status === "CONFIRMED"',
     expected: "survived",
+    expectedFailed: 0,
     meaning: "coverage gap: refund can prove capture before CONFIRMED delivery",
   },
 ];
 /** @type {Array<Record<string, unknown>>} */
 const results = [];
+const interruption = new AbortController();
+process.once("SIGINT", () => interruption.abort());
+process.once("SIGTERM", () => interruption.abort());
 const startedAt = new Date().toISOString();
+await writeFile(
+  join(output, "run.json"),
+  JSON.stringify({ head, sandbox, startedAt }, null, 2),
+);
 
 /** @param {string} name @param {string} command @param {string[]} args */
 async function run(name, command, args) {
@@ -67,15 +79,33 @@ async function run(name, command, args) {
   const log = createWriteStream(join(output, `${name}.log`));
   const child = spawnOwned(command, args, {
     cwd: sandbox,
-    env: { ...process.env, PROPERTY_SEED: "42" },
+    env: {
+      ...process.env,
+      PROPERTY_SEED: "42",
+      PAYMENT_MUTATION_ERRORS_PATH: join(output, `${name}.errors.json`),
+    },
+    signal: interruption.signal,
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout?.pipe(log, { end: false });
   child.stderr?.pipe(log, { end: false });
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let deadline;
   try {
-    const exitCode = await commandExit(child);
+    const exitCode = await Promise.race([
+      commandExit(child),
+      new Promise((_, reject) => {
+        deadline = setTimeout(
+          () => reject(new Error(`${name} exceeded 120 seconds`)),
+          120_000,
+        );
+      }),
+    ]);
+    if (exitCode !== null && typeof exitCode !== "number")
+      throw new Error("Invalid process result");
     return { exitCode, durationMs: Math.round(performance.now() - started) };
   } finally {
+    clearTimeout(deadline);
     await stopOwned(child);
     await Promise.all(
       [child.stdout, child.stderr]
@@ -90,11 +120,14 @@ async function run(name, command, args) {
 async function probe(name) {
   const report = join(output, `${name}.json`);
   await rm(report, { force: true });
+  const errorsPath = join(output, `${name}.errors.json`);
+  await rm(errorsPath, { force: true });
   const processResult = await run(name, "pnpm", [
     "--filter",
     "@inside/backend",
     "test:integration",
     "billing-sequences.test.ts",
+    "--reporter=./test/support/payment-mutation-reporter.ts",
     "--reporter=default",
     "--reporter=json",
     `--outputFile=${report}`,
@@ -113,13 +146,23 @@ async function probe(name) {
     })
     .parse(JSON.parse(await readFile(report, "utf8")));
   const failedTests = data.numFailedTests;
-  const humanLog = await readFile(join(output, `${name}.log`), "utf8");
+  const errors = z
+    .object({
+      tests: z.array(
+        z.object({ state: z.string(), errors: z.array(z.unknown()) }),
+      ),
+      suiteErrors: z.array(z.unknown()),
+    })
+    .parse(JSON.parse(await readFile(errorsPath, "utf8")));
   const status = classifyMutationResult({
     exitCode: processResult.exitCode,
-    passed: data.numPassedTests,
-    failed: failedTests,
-    log: humanLog,
+    ...errors,
   });
+  if (
+    errors.tests.filter((test) => test.state === "failed").length !==
+    failedTests
+  )
+    throw new Error("Reporter counts disagree");
   return {
     name,
     status,
@@ -167,10 +210,14 @@ try {
     results.push({
       ...result,
       expected: mutant.expected,
+      expectedFailed: mutant.expectedFailed,
       meaning: mutant.meaning,
     });
     await writeFile(join(sandbox, source), original);
-    if (result.status !== mutant.expected)
+    if (
+      result.status !== mutant.expected ||
+      result.failedTests !== mutant.expectedFailed
+    )
       throw new Error(`Unexpected ${mutant.name}: ${result.status}`);
   }
 } finally {
@@ -191,5 +238,9 @@ try {
     ),
   );
   await rm(sandbox, { recursive: true, force: true });
+  await writeFile(
+    join(output, "cleanup.json"),
+    JSON.stringify({ sandbox, removed: true }),
+  );
 }
 console.log(`Mutation pilot complete: ${join(output, "summary.json")}`);

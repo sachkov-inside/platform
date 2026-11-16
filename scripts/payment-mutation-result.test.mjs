@@ -2,52 +2,91 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { classifyMutationResult } from "./pilots/mutation-result.mjs";
+const passed = { state: "passed", errors: [] };
+const assertion = { name: "AssertionError", message: "expected no access" };
+const failed = { state: "failed", errors: [assertion] };
+const baseline = {
+  exitCode: 0,
+  tests: Array.from({ length: 7 }, () => passed),
+  suiteErrors: [],
+};
 
-test("seven passing tests survive; a smaller corpus is invalid", () => {
+test("seven completed passes survive; an incomplete corpus is invalid", () => {
+  assert.equal(classifyMutationResult(baseline), "survived");
   assert.equal(
-    classifyMutationResult({ exitCode: 0, passed: 7, failed: 0, log: "" }),
-    "survived",
-  );
-  assert.equal(
-    classifyMutationResult({ exitCode: 0, passed: 5, failed: 0, log: "" }),
+    classifyMutationResult({ ...baseline, tests: baseline.tests.slice(1) }),
     "invalid",
   );
 });
 
-test("an assertion counterexample kills a mutant", () => {
-  assert.equal(
-    classifyMutationResult({
-      exitCode: 1,
-      passed: 5,
-      failed: 2,
-      log: "Caused by: AssertionError: access was granted",
-    }),
-    "killed",
-  );
+test("direct and wrapped assertions kill the mutant", () => {
+  for (const error of [
+    assertion,
+    { name: "Error", message: "PROPERTY_SEED=42; trace=[]", cause: assertion },
+  ])
+    assert.equal(
+      classifyMutationResult({
+        ...baseline,
+        exitCode: 1,
+        tests: [
+          ...baseline.tests.slice(1),
+          { state: "failed", errors: [error] },
+        ],
+      }),
+      "killed",
+    );
 });
 
-test("a direct assertion failure also kills a mutant", () => {
-  assert.equal(
-    classifyMutationResult({
-      exitCode: 1,
-      passed: 6,
-      failed: 1,
-      log: "AssertionError: access was granted",
-    }),
-    "killed",
-  );
-});
-
-test("setup errors, killed processes and timeouts never count as a kill", () => {
-  for (const input of [
-    { exitCode: 1, passed: 0, failed: 0, log: "Database setup failed" },
-    { exitCode: null, passed: 5, failed: 2, log: "Caused by: AssertionError" },
+test("process termination, suite failures and timeouts never kill a mutant", () => {
+  for (const result of [
+    { ...baseline, exitCode: 143, tests: [...baseline.tests.slice(1), failed] },
     {
+      ...baseline,
+      exitCode: null,
+      tests: [...baseline.tests.slice(1), failed],
+    },
+    {
+      ...baseline,
       exitCode: 1,
-      passed: 5,
-      failed: 2,
-      log: "Caused by: AssertionError\nTest timed out",
+      suiteErrors: [{ name: "Error", message: "Database connection refused" }],
+    },
+    {
+      ...baseline,
+      exitCode: 1,
+      tests: [
+        ...baseline.tests.slice(1),
+        {
+          state: "failed",
+          errors: [{ name: "Error", message: "Test timed out" }],
+        },
+      ],
     },
   ])
-    assert.equal(classifyMutationResult(input), "invalid");
+    assert.equal(classifyMutationResult(result), "invalid");
+});
+
+test("an assertion cannot hide a second database failure or a broken cause", () => {
+  for (const errors of [
+    [{ name: "Error", message: "Database connection refused" }],
+    [
+      {
+        name: "Error",
+        message: "PROPERTY_SEED=42",
+        cause: { name: "Error", message: "connection refused" },
+      },
+    ],
+    [],
+  ])
+    assert.equal(
+      classifyMutationResult({
+        ...baseline,
+        exitCode: 1,
+        tests: [
+          ...baseline.tests.slice(2),
+          failed,
+          { state: "failed", errors },
+        ],
+      }),
+      "invalid",
+    );
 });
