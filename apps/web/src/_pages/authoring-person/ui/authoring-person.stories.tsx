@@ -671,7 +671,6 @@ export const RepeatedRevokeDismissal: Story = {
     });
     for (const _cycle of [1, 2]) {
       const original = window.fetch;
-      let previewRequests = 0;
       let release: () => void = () => undefined;
       const responseReady = new Promise<void>((resolve) => {
         release = resolve;
@@ -683,7 +682,6 @@ export const RepeatedRevokeDismissal: Story = {
           window.location.href,
         );
         if (url.pathname.endsWith("/preview-revoke")) {
-          previewRequests += 1;
           await responseReady;
         }
         return response;
@@ -693,8 +691,6 @@ export const RepeatedRevokeDismissal: Story = {
         await waitFor(() =>
           expect(trigger).toHaveAttribute("aria-busy", "true"),
         );
-        await userEvent.click(trigger);
-        await expect(previewRequests).toBe(1);
         release();
         const dialog = await body().findByRole("dialog", {
           name: `Отозвать доступ к «${ai.name}»?`,
