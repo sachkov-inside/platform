@@ -9,14 +9,16 @@ Before an assignment, check remote branches and linked open PRs; reuse a matchin
 Branch `<type>/<issue>-<slug>` from `origin/main`; a task without an Issue uses `<type>/<slug>`.
 Types: `feat`, `fix`, `docs`, `chore`, `research`, `prototype`.
 
-Use the environment-provided isolated worktree. A CLI session without one creates
-`<parent>/<repo>.worktrees/<task>`; [REPOSITORIES.md](../../REPOSITORIES.md) owns the layout.
-One writing context owns one worktree and stays in it.
+The environment (Orca) creates the session's worktree in `~/Worktrees/<repo>/<task>`; work in it.
+Claude Code's internal worktrees under `.claude/worktrees` are temporary; `agent-worktree sweep`
+removes finished ones. Existing `<repo>.worktrees` checkouts of the earlier layout stay until
+`session-cleanup` removes them. One writing context owns one worktree and stays in it.
 
 The primary checkout belongs to the owner. Read it through `git -C` or absolute paths; change it
 only on the owner's request. Keep other sessions' worktrees, branches, containers, volumes, stashes,
-servers and results. Only `pnpm session:cleanup --apply` removes another session's resources, and
-only when its rules prove them disposable.
+servers and results. Only `pnpm session:cleanup --apply`, and `agent-worktree sweep` for
+`.claude/worktrees`, remove another session's resources, and only when their rules prove them
+disposable.
 
 ## Pull requests
 
@@ -38,6 +40,8 @@ covers it (such as
 ## Handoff
 
 State the result, the actual checks with exit codes, limits and the next action; link the PR.
-A local preview update needs only its URL, scope and checks. When the task ends, run
-`session-cleanup`. Keep an owner review server while the owner needs it, and record its port, PID,
-working directory and how to stop it.
+A local preview update needs only its URL, scope and checks. Keep an owner review server while
+the owner needs it, and record its port, PID, working directory and how to stop it.
+
+After the PR merges, the task's last step is the `agent-worktree finish` command of
+[session-cleanup](../../.agents/skills/session-cleanup/SKILL.md).

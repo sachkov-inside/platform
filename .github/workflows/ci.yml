@@ -232,8 +232,10 @@ jobs:
           browsers: chromium
       - name: Build once and run browser checks on it
         run: pnpm check:web-e2e --project=${{ matrix.project }}
-      - name: Upload Playwright diagnostics
-        if: ${{ failure() }}
+      # A passed pull-request run keeps its reports as evidence for the owner; the merge queue
+      # and release calls keep them only after a failure (#2187).
+      - name: Upload Playwright report and results
+        if: ${{ failure() || (success() && github.event_name == 'pull_request') }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-e2e-playwright-${{ matrix.project }}-${{ github.run_attempt }}
@@ -587,8 +589,10 @@ jobs:
       - name: Capture infrastructure diagnostics
         if: ${{ failure() }}
         run: bash scripts/compose-failure-diagnostics.sh ci-artifacts/fullstack docker compose
-      - name: Upload failure diagnostics
-        if: ${{ failure() }}
+      # A passed pull-request run keeps its reports as evidence for the owner; the merge queue
+      # and release calls keep them only after a failure (#2187).
+      - name: Upload Playwright report and diagnostics
+        if: ${{ failure() || (success() && github.event_name == 'pull_request') }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fullstack-diagnostics-${{ matrix.project }}-${{ matrix.shard }}-${{ github.run_attempt }}

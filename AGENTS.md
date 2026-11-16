@@ -29,7 +29,8 @@ commit/review order and the no-ticket acceptance record. [PIPELINE.md](.agents/s
   Readiness labels: [triage labels](docs/agents/triage-labels.md).
 - Product context, terminology or ADR placement: [domain](docs/agents/domain.md).
 - Frontend delivery, Storybook review or a prototype: [frontend delivery](docs/agents/frontend-delivery.md).
-- Local application review or the shared stand: `.agents/skills/local-stand/SKILL.md`.
+- Local application review, the shared stand or a light per-agent instance:
+  `.agents/skills/local-stand/SKILL.md`.
 - Interactive browser work: `agent-browser`, headless, in a session named for the task; never the
   owner's browser or `close --all`. Playwright runs only committed automation: `playwright test` and
   repository scripts and tests.

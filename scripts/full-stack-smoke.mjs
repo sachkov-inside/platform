@@ -22,6 +22,11 @@ import {
 import { seedFullStackTaskC } from "./full-stack-task-c.mjs";
 import { seedFullStackTask } from "./full-stack-task.mjs";
 import {
+  fullStackOfflineServices,
+  fullStackRelease,
+  fullStackReleaseEnvironment,
+} from "./full-stack-environment.mjs";
+import {
   fullStackBrowserCommand,
   fullStackTestArguments,
 } from "./full-stack-options.mjs";
@@ -66,17 +71,9 @@ const mcpPort = process.env["FULLSTACK_MCP_PORT"] ?? "3002";
 const mcpServerUrl = `http://127.0.0.1:${mcpPort}/mcp`;
 const childEnvironment = { ...process.env };
 childEnvironment["NODE_ENV"] ??= "development";
-// Сид включает продажу руководства, а API и billing отказываются стартовать с продажей без банка и
-// адреса для чеков. Прогон ничего не покупает, поэтому ему хватает локального контура стенда:
-// двойник банка по недостижимому адресу и перехват писем. Явные значения окружения важнее.
-childEnvironment["TBANK_PROVIDER_MODE"] ??= "test";
-childEnvironment["TBANK_TEST_API_BASE_URL"] ??= "http://127.0.0.1:9/v2";
-childEnvironment["BILLING_CONTACT_ENCRYPTION_KEY"] ??=
-  "aW5zaWRlLWxvY2FsLWJpbGxpbmctY29udGFjdC1rZXk=";
-childEnvironment["BILLING_CONTACT_SMTP_HOST"] ??= "127.0.0.1";
-childEnvironment["BILLING_CONTACT_SMTP_PORT"] ??= "9";
-childEnvironment["BILLING_CONTACT_FROM"] ??= "no-reply@inside.localhost";
-childEnvironment["BILLING_CONTACT_SMTP_LOCAL_CAPTURE"] ??= "true";
+// Банк и почта прогона описаны в `full-stack-environment.mjs`. Явные значения окружения важнее.
+for (const [name, value] of Object.entries(fullStackOfflineServices))
+  childEnvironment[name] ??= value;
 // Хранилище прогона — локальное хранилище Compose; адрес закреплён здесь, а не взят молча из
 // значения backend по умолчанию, потому что по нему же строится CSP сборки web ниже.
 childEnvironment["OBJECT_STORAGE_ENDPOINT"] =
@@ -129,8 +126,7 @@ Object.assign(childEnvironment, {
   // The smoke reads the published demonstration catalogue in its own check database.
   LOCAL_SEED_DEMO: "published",
   OWNER_PERMISSION: stackAuthorPermission,
-  PLATFORM_RELEASE_VERSION: "v1",
-  PLATFORM_SOURCE_SHA: "1".repeat(40),
+  ...fullStackReleaseEnvironment,
 });
 const learningMcpUrl = `${mcpServerUrl}/learning`;
 const fullStackIdentity = await startFullStackIdentity({
@@ -165,14 +161,9 @@ const webReleaseIdentityPath = resolve(
 if (existsSync(webReleaseIdentityPath)) {
   throw new Error(`Refusing to replace ${webReleaseIdentityPath}`);
 }
-writeFileSync(
-  webReleaseIdentityPath,
-  `${JSON.stringify({
-    release: "v1",
-    sourceSha: "1".repeat(40),
-  })}\n`,
-  { mode: 0o444 },
-);
+writeFileSync(webReleaseIdentityPath, `${JSON.stringify(fullStackRelease)}\n`, {
+  mode: 0o444,
+});
 /**
  * @typedef {import("./full-stack-diagnostics.mjs").DiagnosticProcessEntry} ProcessEntry
  */
