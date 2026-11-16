@@ -476,10 +476,13 @@ function MaterialDocumentEditorView({
       className={
         expanded
           ? "fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto border-0 bg-card p-0 text-foreground backdrop:bg-black/40"
-          : "relative m-0 mt-5 block w-full min-w-0 max-w-none overflow-visible rounded-2xl border border-border bg-card p-0 text-foreground"
+          : "relative isolate m-0 mt-5 block w-full min-w-0 max-w-none overflow-visible rounded-2xl border border-border bg-card p-0 text-foreground"
       }
     >
-      <div className="sticky top-0 z-30 flex min-h-12 flex-wrap items-center justify-end gap-1 rounded-t-2xl bg-card/95 px-3 py-1">
+      {/* В странице панель встаёт под закреплённую шапку материала, на весь экран шапки нет. */}
+      <div
+        className={`sticky z-30 flex min-h-12 flex-wrap items-center justify-end gap-1 rounded-t-2xl bg-card/95 px-3 py-1 ${expanded ? "top-0" : "top-(--material-authoring-header-height,0px)"}`}
+      >
         <div className="mr-auto flex min-w-0 flex-wrap items-center gap-1">
           {toolbarState?.table === true ? (
             <div className="flex gap-1" role="toolbar" aria-label="Таблица">

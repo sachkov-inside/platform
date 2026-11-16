@@ -164,6 +164,83 @@ export const EditingMobile: Story = {
   },
 };
 
+/** Элемент, в который попадёт клик по центру `target`. */
+function clickTargetAtCentre(target: HTMLElement): Element | null {
+  const box = target.getBoundingClientRect();
+  return document.elementFromPoint(
+    box.left + box.width / 2,
+    box.top + box.height / 2,
+  );
+}
+
+/**
+ * Невысокое окно ноутбука, 1280×577 (#2223). Шапка материала и панель редактора закреплены у
+ * верхнего края одной и той же прокрутки. Раньше панель ложилась поверх шапки, и клик по центру
+ * «Опубликовать» попадал в «На весь экран». Теперь панель встаёт под шапку при любой прокрутке.
+ */
+export const ShortWindowHeader: Story = {
+  globals: { viewport: { isRotated: false, value: "laptop1280x577" } },
+  name: "Невысокое окно · шапка поверх редактора",
+  parameters: {
+    viewport: {
+      options: {
+        laptop1280x577: {
+          name: "Laptop 1280 × 577",
+          styles: { height: "577px", width: "1280px" },
+          type: "desktop",
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const scroller = within(canvasElement).getByRole("main");
+    const page = within(scroller);
+    const header = page.getByRole("banner");
+    const publish = page.getByRole("button", { name: "Опубликовать" });
+    const fullscreen = page.getByRole("button", { name: "На весь экран" });
+    const editorWindow = page.getByRole("dialog", { name: "Редактор статьи" });
+
+    // Каждое положение прокрутки: клик по центру «Опубликовать» попадает в саму кнопку.
+    const covered: number[] = [];
+    const lastScrollTop = scroller.scrollHeight - scroller.clientHeight;
+    for (let top = 0; top <= lastScrollTop; top += 8) {
+      scroller.scrollTo({ behavior: "instant", top });
+      if (!publish.contains(clickTargetAtCentre(publish))) covered.push(top);
+    }
+    await expect(
+      covered,
+      "«Опубликовать» закрыта другим элементом при этих положениях прокрутки",
+    ).toEqual([]);
+
+    // Верх редактора ушёл на 100 px под шапку: панель редактора стоит сразу под ней.
+    scroller.scrollTo({ behavior: "instant", top: 0 });
+    scroller.scrollTo({
+      behavior: "instant",
+      top:
+        editorWindow.getBoundingClientRect().top -
+        header.getBoundingClientRect().bottom +
+        100,
+    });
+    const headerBottom = header.getBoundingClientRect().bottom;
+    await expect(
+      editorWindow.getBoundingClientRect().top,
+      "Страница не прокрутилась: проверка панели редактора ничего не видит",
+    ).toBeLessThan(headerBottom - 99);
+    await expect(
+      fullscreen.getBoundingClientRect().top,
+      "«На весь экран» заехала под шапку материала",
+    ).toBeGreaterThanOrEqual(headerBottom);
+    await expect(
+      fullscreen.getBoundingClientRect().top,
+      "Панель редактора не закрепилась под шапкой материала",
+    ).toBeLessThan(headerBottom + 48);
+    await expect(
+      fullscreen.contains(clickTargetAtCentre(fullscreen)),
+      "«На весь экран» закрыта другим элементом",
+    ).toBe(true);
+  },
+};
+
 /** Содержимое маршрута стоит первым в порядке обхода, за ним — возврат и предпросмотр. */
 export const KeyboardOrder: Story = {
   name: "Порядок обхода с клавиатуры",
