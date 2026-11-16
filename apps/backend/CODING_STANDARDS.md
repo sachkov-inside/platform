@@ -191,7 +191,7 @@ not dependency wiring.
 - Apply root [waiting rules](../../CODING_STANDARDS.md#waiting-in-tests) and
   [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
 - Inherit configured integration test and hook budgets. An explicit override names its real boundary
-  and cannot be below the suite default; retries or a larger budget do not repair a failed test.
+  and cannot be below the suite default; see [flaky tests](../../docs/agents/testing.md#flaky-tests).
   [`scripts/integration-test-budgets.test.mjs`](../../scripts/integration-test-budgets.test.mjs)
   checks overrides against the owning integration configuration.
 

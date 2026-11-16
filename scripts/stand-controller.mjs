@@ -55,7 +55,8 @@ const stateSchema = z.strictObject({
  * @typedef {z.infer<typeof modeSchema>} StandMode
  * @typedef {{ source: StandSource; mode: StandMode; generation: string; cold: boolean; resumeCold: boolean; upgrade?: StandSnapshot; recordIdentity: (expected: string) => Promise<void> }} StandOperation
  * `upgrade` carries the pre-upgrade receipt: infrastructure keeps its labels, so Compose replaces services whose configuration changed.
- * @typedef {{ command: "status" | "show" | "refresh" | "release" | "upgrade"; worktree: string; replace?: string; mode?: "snapshot" | "live" | "production" }} StandRequest
+ * @typedef {{ command: "status" | "show" | "refresh" | "release" | "upgrade"; worktree: string; replace?: string; ifOwned?: boolean; mode?: "snapshot" | "live" | "production" }} StandRequest
+ * `ifOwned` makes `release` leave another worktree's reservation in place instead of refusing.
  * @typedef {{ directory: string; controller: string; inspect: () => Promise<StandSnapshot>; acquire?: () => Promise<() => Promise<void>>; source?: (root: string) => Promise<StandSource>; baseline?: () => Promise<StandSource>; prepare?: (operation: StandOperation) => Promise<void>; now?: () => Date; worktreeExists?: (path: string) => Promise<boolean>; ready?: (snapshot: StandSnapshot) => Promise<{schema: string; url: string}>; backup?: (snapshot: StandSnapshot, generation: string) => Promise<string> }} StandDependencies
  */
 
@@ -105,13 +106,21 @@ export async function controlStand(request, dependencies) {
       previous.reservation = null;
       await writeState(dependencies.directory, previous);
     }
+    if (
+      request.command === "release" &&
+      request.ifOwned &&
+      reservation &&
+      reservation.worktree !== request.worktree
+    )
+      return status(dependencies, releasedStale);
     refuseForeignReservation(request, reservation);
     if (request.command === "release") {
       if (previous) {
         previous.reservation = null;
         await writeState(dependencies.directory, previous);
       }
-      return status(dependencies, releasedStale);
+      // The release is written; an unavailable Docker only hides the stand's state.
+      return status(dependencies, releasedStale, { runtimeOptional: true });
     }
     const source = sourceSchema.parse(
       await dependencies.source(request.worktree),
@@ -532,6 +541,18 @@ export async function planPrebuild(request, dependencies, source) {
     : mode;
 }
 
+/**
+ * The current reservation and the registered controller, read without the lock. `release
+ * --if-owned` uses it to leave a foreign reservation alone without touching Docker.
+ * @param {string} directory
+ */
+export async function readReservation(directory) {
+  const state = await readState(directory);
+  return state
+    ? { reservation: state.reservation, controller: state.controller }
+    : null;
+}
+
 /** Keep legacy startup from replacing a reserved but stopped controlled stand. @param {string} directory */
 export async function requireUnmanagedStand(directory) {
   const state = await readState(directory);
@@ -591,12 +612,20 @@ function controlledRuntime(state, actual) {
  * @param {StandDependencies} dependencies
  * @param {{ id: string; worktree: string }} [releasedStale] the reservation this operation released
  *   because its worktree no longer exists
+ * @param {{ runtimeOptional?: boolean }} [options] report `unknown` instead of failing when the
+ *   runtime cannot be inspected
  */
-async function status(dependencies, releasedStale) {
+async function status(dependencies, releasedStale, options = {}) {
   const state = await readState(dependencies.directory);
-  const snapshot = await dependencies.inspect();
-  let availability = "stopped";
-  if (snapshot.containers.length > 0) {
+  /** @type {StandSnapshot | undefined} */
+  let snapshot;
+  try {
+    snapshot = await dependencies.inspect();
+  } catch (error) {
+    if (!options.runtimeOptional) throw error;
+  }
+  let availability = snapshot === undefined ? "unknown" : "stopped";
+  if (snapshot && snapshot.containers.length > 0) {
     if (!state || !controlledRuntime(state, snapshot))
       availability = "unmanaged";
     else if (state.phase !== "ready") availability = "recovery";
