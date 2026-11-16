@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { legacyAssetsScenario } from "../../../../scenarios/legacy-assets.mjs";
 import { isDeepStrictEqual } from "node:util";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
@@ -22,7 +23,8 @@ const demoHarnessProductId = "72000000-0000-4000-8000-000000000295";
 const demoStepsProductId = "72000000-0000-4000-8000-000000000298";
 const demoStepsSharedProductId = "72000000-0000-4000-8000-000000000299";
 const demoReviewProductId = "72000000-0000-4000-8000-000000000296";
-const slug = "kak-ustroen-inside-platform";
+const slug = legacyAssetsScenario.slug;
+const [overviewImage, overviewFile] = legacyAssetsScenario.assets;
 const membershipSlug = "developer-pipeline-bez-poteri-konteksta";
 const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
 const videoFormatId = "video";
@@ -300,18 +302,18 @@ export async function seedLocalDevelopment(
           {
             type: "assetImage",
             attrs: {
-              nodeId: "72000000-0000-4000-8000-000000000025",
-              assetId: "72000000-0000-4000-8000-000000000030",
-              alt: "Путь Material от PostgreSQL до Reader",
-              caption: "Один vertical production path",
+              nodeId: overviewImage.nodeId,
+              assetId: overviewImage.legacyAssetId,
+              alt: overviewImage.alt,
+              caption: overviewImage.caption,
             },
           },
           {
             type: "assetFile",
             attrs: {
-              nodeId: "72000000-0000-4000-8000-000000000026",
-              assetId: "72000000-0000-4000-8000-000000000031",
-              label: "Reader verification checklist",
+              nodeId: overviewFile.nodeId,
+              assetId: overviewFile.legacyAssetId,
+              label: overviewFile.label,
             },
           },
         ],
