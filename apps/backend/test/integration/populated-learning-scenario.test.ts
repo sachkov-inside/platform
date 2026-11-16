@@ -27,6 +27,13 @@ import { scenarioRoles } from "../../../../scenarios/roles.mjs";
 import { seedLegacyMaterialAssets } from "../../../../scenarios/seed-legacy-assets.mjs";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { materialSchema } from "../../src/modules/materials/adapters/nest/material-authoring-http.js";
+import { startIsolatedTelegramProvider } from "../../src/development/start-isolated-telegram-provider.js";
+import { seedCommerceScenario } from "../../../../scenarios/seed-commerce.mjs";
+import { createIsolatedProductIntake } from "../../src/development/create-isolated-product-intake.js";
+import { reservePort } from "../../../../scripts/smoke-stand.mjs";
+import { startLocalBankDouble } from "../../src/development/bank-double/start-local-bank-double.js";
+import { localTbankConfig } from "../../src/config/tbank-config.js";
+import { fullStackOfflineServices } from "../../../../scripts/full-stack-environment.mjs";
 
 registerFixedClock();
 let database: TestDatabase;
@@ -46,6 +53,7 @@ let api: string;
 let ownerToken: string;
 let holderToken: string;
 let seeded: Awaited<ReturnType<typeof seedLearningScenario>>;
+let telegram: Awaited<ReturnType<typeof startIsolatedTelegramProvider>>;
 const cleanups: (() => Promise<unknown>)[] = [];
 beforeAll(async () => {
   database = await createMigratedTestDatabase();
@@ -85,6 +93,25 @@ beforeAll(async () => {
     "platform:admin",
   );
   ownerToken = await identity.sign(scenarioRoles.owner.subject);
+  telegram = await startIsolatedTelegramProvider({
+    databaseName: new URL(database.url).pathname.slice(1),
+  });
+  cleanups.push(() => telegram.close());
+  const apiPort = await reservePort();
+  const bankPort = await reservePort();
+  const bankEnvironment = {
+    TBANK_PROVIDER_MODE: "test",
+    TBANK_TEST_API_BASE_URL: `http://127.0.0.1:${String(bankPort)}/v2`,
+    TBANK_TEST_PUBLIC_ORIGIN: `http://127.0.0.1:${String(bankPort)}`,
+    TBANK_TEST_NOTIFICATION_URL: `http://127.0.0.1:${String(apiPort)}/billing/tbank/notification`,
+    TBANK_TEST_RETURN_URL: `http://127.0.0.1:${String(apiPort)}/payment/return`,
+  };
+  const bank = await startLocalBankDouble({
+    config: localTbankConfig(bankEnvironment),
+    host: "127.0.0.1",
+    port: bankPort,
+  });
+  cleanups.push(() => bank.close());
   app = await createApiApplication(
     parsePlatformConfig({
       OBJECT_STORAGE_ENDPOINT: storageEndpoint,
@@ -101,12 +128,15 @@ beforeAll(async () => {
       LOGTO_JWKS_URL: identity.jwksUrl,
       IDENTITY_EMAIL_FINGERPRINT_KEY:
         "synthetic-learning-email-fingerprint-key",
+      ...telegram.environment,
+      ...fullStackOfflineServices,
+      ...bankEnvironment,
     }),
     { logger: false },
   );
   cleanups.push(() => app.close());
 
-  await app.listen(0, "127.0.0.1");
+  await app.listen(apiPort, "127.0.0.1");
   api = await app.getUrl();
   holderToken = await identity.sign(scenarioRoles.holder.subject, {
     inside_verified_email: "light-holder@inside.test",
@@ -120,6 +150,88 @@ beforeAll(async () => {
     databaseName: new URL(database.url).pathname.slice(1),
     ownerToken,
     holderToken,
+  });
+});
+
+test("the learner starts a real Telegram link against its owned external provider", async () => {
+  const token = await identity.sign(scenarioRoles.learner.subject, {
+    inside_verified_email: "light-learner@inside.test",
+  });
+  await seedCommerceScenario({
+    api,
+    databaseName: new URL(database.url).pathname.slice(1),
+    ownerToken,
+    productId: seeded.productId,
+    buyerToken: token,
+    completeTelegramLink: (deepLink) => telegram.completeLink(deepLink),
+    createIntake: () =>
+      createIsolatedProductIntake({
+        databaseUrl: database.url,
+        productId: seeded.productId,
+      }),
+  });
+  const people = await fetch(
+    `${api}/authoring/people?query=light-learner%40inside.test`,
+    {
+      headers: { authorization: `Bearer ${ownerToken}` },
+    },
+  );
+  expect(people.status).toBe(200);
+  expect(await people.json()).toMatchObject({
+    items: [
+      {
+        displayName: "Участник Тестов",
+        username: "synthetic_learner",
+        contactsState: "complete",
+        telegram: "linked",
+      },
+    ],
+  });
+  const intake = await fetch(
+    `${api}/product-waitlists/${seeded.productId}/intake`,
+  );
+  expect(intake.status).toBe(200);
+  expect(await intake.json()).toEqual({
+    intakeId: "97000000-0000-4000-8000-000000000301",
+    name: "Учебный набор: следующий проект",
+  });
+  const membership = await fetch(
+    `${api}/product-waitlists/${seeded.productId}/membership`,
+    {
+      headers: { authorization: `Bearer ${token}` },
+    },
+  );
+  expect(membership.status).toBe(200);
+  expect(await membership.json()).toEqual({
+    intakeId: "97000000-0000-4000-8000-000000000301",
+    name: "Учебный набор: следующий проект",
+    active: true,
+  });
+  const payments = await fetch(`${api}/billing/admin`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${ownerToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      operationId: "97000000-0000-4000-8000-000000000601",
+      operation: "payments.list",
+      productId: seeded.productId,
+    }),
+  });
+  expect(payments.status).toBe(200);
+  expect(await payments.json()).toMatchObject({
+    result: {
+      outcome: "payments",
+      items: [
+        {
+          amountKopecks: 1_490_000,
+          state: "pending",
+          access: "awaiting_payment",
+          snapshot: { product: { name: "Учебный курс: от идеи к выпуску" } },
+        },
+      ],
+    },
   });
 });
 afterAll(async () => {
