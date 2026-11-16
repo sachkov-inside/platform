@@ -3,14 +3,17 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Check, CircleAlert, LoaderCircle, X } from "lucide-react";
 import {
-  useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
   type SubmitEvent,
 } from "react";
+
+import {
+  dialogInitialFocus,
+  useNativeDialog,
+} from "@/shared/lib/native-dialog.client";
 
 import {
   personLabel,
@@ -83,36 +86,16 @@ const peopleForms = ["человеку", "людям", "людям"] as const;
  */
 export function BulkGrantProductDialog(props: BulkGrantProductDialogProps) {
   const { open, onOpenChange } = props;
-  const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
   const [busy, setBusy] = useState(false);
-
-  // Синхронизация с модальным слоем браузера, как у `ReasonDialog`.
-  useLayoutEffect(() => {
-    const element = dialog.current;
-    if (element === null) return;
-    if (open && !element.open) element.showModal();
-    if (!open && element.open) element.close();
-  }, [open]);
+  const dialog = useNativeDialog({ open, pending: busy, onOpenChange });
 
   return (
     <dialog
       aria-describedby={`${id}-description`}
       aria-labelledby={`${id}-heading`}
       className="admin-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onOpenChange(false);
-      }}
-      onClose={(event) => {
-        if (open && !event.currentTarget.open) onOpenChange(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        if (!busy) onOpenChange(false);
-      }}
-      ref={dialog}
+      {...dialog}
     >
       {open ? <GrantForm {...props} dialogId={id} onBusy={setBusy} /> : null}
     </dialog>
@@ -626,11 +609,6 @@ function GrantResults({
   readonly onRetry: () => void;
   readonly onClose: () => void;
 }) {
-  const heading = useRef<HTMLHeadingElement>(null);
-  // Форма выдачи ушла вместе с фокусом: он переходит на заголовок итога внутри диалога.
-  useEffect(() => {
-    heading.current?.focus();
-  }, []);
   const failed = failedAccountIds(run.results);
   const counts = { issued: 0, already_active: 0, revoked: 0, error: 0 };
   for (const result of run.results.values()) counts[result.outcome] += 1;
@@ -654,7 +632,12 @@ function GrantResults({
   return (
     <div className="admin-dialog-body">
       <div>
-        <h2 className="outline-none" id={headingId} ref={heading} tabIndex={-1}>
+        <h2
+          className="outline-none"
+          id={headingId}
+          ref={dialogInitialFocus}
+          tabIndex={-1}
+        >
           {title}
         </h2>
         <p

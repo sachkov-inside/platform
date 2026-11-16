@@ -2,7 +2,6 @@
 
 import { CircleAlert, LoaderCircle } from "lucide-react";
 import {
-  useEffect,
   useId,
   useRef,
   useState,
@@ -10,7 +9,11 @@ import {
   type ReactNode,
 } from "react";
 
-import { useNativeDialog } from "@/shared/lib/native-dialog.client";
+import {
+  dialogInitialFocus,
+  useDialogInitialFocus,
+  useNativeDialog,
+} from "@/shared/lib/native-dialog.client";
 import { hasText } from "@/shared/lib/text";
 import { Button } from "@/shared/ui/button";
 
@@ -90,7 +93,6 @@ function ReasonForm({
   const reasonErrorId = `${id}-reason-error`;
   const noteId = `${id}-note`;
   const noteErrorId = `${id}-note-error`;
-  const cancel = useRef<HTMLButtonElement>(null);
   const firstReason = useRef<HTMLInputElement>(null);
   const note = useRef<HTMLTextAreaElement>(null);
   const [reason, setReason] = useState("");
@@ -104,11 +106,10 @@ function ReasonForm({
   const shownReasonError = submitted ? reasonError : null;
   const shownNoteError = submitted ? noteError : null;
 
-  // Первый фокус после `showModal`: у опасного действия это безопасная «Отмена».
-  useEffect(() => {
-    if (tone === "danger") cancel.current?.focus();
-    else firstReason.current?.focus();
-  }, [tone]);
+  const focusFirstReason = useDialogInitialFocus(
+    firstReason,
+    tone !== "danger",
+  );
 
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -159,7 +160,7 @@ function ReasonForm({
               onChange={() => {
                 setReason(option.value);
               }}
-              ref={index === 0 ? firstReason : undefined}
+              ref={index === 0 ? focusFirstReason : undefined}
               type="radio"
               value={option.value}
             />
@@ -205,7 +206,7 @@ function ReasonForm({
           onClick={() => {
             onOpenChange(false);
           }}
-          ref={cancel}
+          ref={tone === "danger" ? dialogInitialFocus : undefined}
           type="button"
           variant="outline"
         >

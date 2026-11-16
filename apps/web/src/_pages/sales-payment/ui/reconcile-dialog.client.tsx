@@ -1,7 +1,12 @@
 "use client";
 
 import { CircleAlert, LoaderCircle } from "lucide-react";
-import { useEffect, useId, useLayoutEffect, useRef } from "react";
+import { useId } from "react";
+
+import {
+  dialogInitialFocus,
+  useNativeDialog,
+} from "@/shared/lib/native-dialog.client";
 
 import { hasText } from "@/shared/lib/text";
 import { Button } from "@/shared/ui/button";
@@ -26,39 +31,15 @@ export function ReconcileDialog({
   readonly onOpenChange: (open: boolean) => void;
   readonly onConfirm: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const confirm = useRef<HTMLButtonElement>(null);
+  const dialog = useNativeDialog({ open, pending: pending, onOpenChange });
   const id = useId();
-
-  // Модальный слой принадлежит элементу: `showModal` и `close` идут вместе с `open`.
-  useLayoutEffect(() => {
-    const element = dialog.current;
-    if (element === null) return;
-    if (open && !element.open) element.showModal();
-    if (!open && element.open) element.close();
-  }, [open]);
-  useEffect(() => {
-    if (open) confirm.current?.focus();
-  }, [open]);
 
   return (
     <dialog
       aria-describedby={`${id}-consequence`}
       aria-labelledby={`${id}-heading`}
       className="admin-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!pending) onOpenChange(false);
-      }}
-      onClose={(event) => {
-        if (open && !event.currentTarget.open) onOpenChange(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape") return;
-        event.preventDefault();
-        if (!pending) onOpenChange(false);
-      }}
-      ref={dialog}
+      {...dialog}
     >
       {open ? (
         <form
@@ -98,7 +79,7 @@ export function ReconcileDialog({
               aria-busy={pending}
               className="min-h-11 px-4"
               disabled={pending}
-              ref={confirm}
+              ref={dialogInitialFocus}
               type="submit"
             >
               {pending ? (
