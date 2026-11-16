@@ -102,8 +102,8 @@ workshop: the running application proves the look a user gets.
 The verifier puts the files and one `manifest.json` into `.evidence/` at the worktree's root,
 outside Git; `verify-platform` owns the folder and the manifest. For each scenario the manifest
 states the kind of evidence, the files, what they show in one line, the source of the data and the
-change they cover. `pr` takes the scenarios of «Проверено» from the manifest and retells nothing in
-its own words.
+change they cover. `pr` takes the scenarios of «Проверено» from the manifest, puts each into the
+everyday words of [PR body](pr.md#sections) and adds no claim the manifest lacks.
 
 Evidence lives in the PR; a specification keeps it in its final PR. No feature page holds it and
 no script classifies a diff (owner decision 5 of #2206). The repository is public: evidence shows only test data. [PR body](pr.md#attachments) owns how artifacts get into the PR.

@@ -38,7 +38,7 @@ Return three things and nothing else:
 
 1. The status, word for word.
 2. The reason in a few words.
-3. The text of «От тебя нужно»: one or two yes/no questions, each with what «да» changes. Leave
-   it out for «Внимание не требуется».
+3. The text of «От тебя нужно»: one or two yes/no questions, each one short sentence. Add what
+   «да» changes only when the question does not show it. Leave it out for «Внимание не требуется».
 
 One run per PR. The caller runs you again only when the task's code changes after your decision.
