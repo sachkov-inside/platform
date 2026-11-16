@@ -9,15 +9,12 @@ import {
   withDeferredTaskStatuses,
 } from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
-import { proseLinkClassName } from "@/shared/ui/prose-link";
 import {
   anchoredMaterialHref,
-  ownSectionHref,
   parseReaderCourseAnchor,
   parseReaderPlacementId,
   type ReaderCourseAnchor,
 } from "@/shared/routing/reader-course-anchor";
-import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { ReaderInlineArtifact } from "@/features/product-artifacts.server";
 import {
   InlineArtifactDownload,
@@ -63,7 +60,6 @@ import type {
   PublicMaterialResult,
 } from "../model/material-reader-view";
 import {
-  readerBodyLinkHref,
   resolveProductReaderContext,
   type ProductReaderContext,
 } from "../model/product-reader-context";
@@ -81,6 +77,7 @@ import {
 } from "./material-reader-states";
 import { FreeLessonAccess } from "./free-lesson-access";
 import { MaterialReaderView } from "./material-reader-view";
+import { readerBodyLink } from "./reader-body-link";
 import { FreeLessonPurchaseCall } from "./free-lesson-purchase-call.server";
 
 type ResolvedMaterial = Extract<
@@ -463,22 +460,13 @@ async function ResolvedMaterialReader({
       <MaterialReaderView
         renderLink={(href, label) => {
           const reference = readInlineArtifactReference(href);
-          if (reference === undefined) {
-            // Раздел этого же материала остаётся переходом внутри страницы.
-            const section = ownSectionHref(href, result.material.slug);
-            if (section !== undefined)
-              return (
-                <a className={proseLinkClassName} href={section}>
-                  {label}
-                </a>
-              );
-            const target = readerBodyLinkHref(productContext, href);
-            return target === undefined ? undefined : (
-              <IntentPrefetchLink className={proseLinkClassName} href={target}>
-                {label}
-              </IntentPrefetchLink>
+          if (reference === undefined)
+            return readerBodyLink(
+              href,
+              label,
+              result.material.slug,
+              productContext,
             );
-          }
           return (
             <Suspense
               fallback={

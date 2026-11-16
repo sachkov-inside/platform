@@ -35,7 +35,7 @@ keep the domain terms from the glossaries.
 
 <for agents only: the exact change, checked head and review base, commands to reproduce, the
 check table with links to runs, review reports and their disposition, the verdict, rollback, the
-classifier's duration and tokens>
+verification and classification start/end times, duration and tokens (or unavailable)>
 
 </details>
 
@@ -47,7 +47,8 @@ Closes #<issue>
 The owner reads everything outside «Подробности» and nothing inside it.
 
 - **Status**: the status [ship](ship.md#owner-attention) set, word for word, as the top-level
-  heading; its reason is the line under it. No section explains why the owner was called.
+  heading; its reason is the line under it. Before the one final classification a draft uses
+  `# Классификация ожидается`, under [ship](ship.md#owner-attention). No section explains why the owner was called.
 - **От тебя нужно**: one or two yes/no questions. A question is one short sentence with no
   lead-in and no retelling of the reason, such as «Мержить с бледной первой строкой в невысоком
   окне (снимок 2)?». Say what «да» changes only when the question does not show it. Present only
@@ -88,7 +89,8 @@ Attach images and video with `gh pr create --attach`, `gh pr edit --attach` or
 - **A second look.** The fresh verifier looks through the artifacts for data that is not test
   data before attaching them ([verification](human-review.md#verification)).
 - **Local, then gone.** The files stay in `.evidence/`, outside Git. They go with the worktree
-  when `agent-worktree finish` removes it after the merge; the copy attached to the PR stays.
+  when the coordinator or owner removes it after merge and session exit under
+  [session-cleanup](../../.agents/skills/session-cleanup/SKILL.md); the PR attachment stays.
 - **Size.** An image and a video are limited to 10 MB each, and one command takes up to 50 files.
 - **Formats.** PNG, GIF, JPEG and SVG; MP4, MOV and WebM.
 - **Video player.** Reference the video file in the body with image syntax, alone in its

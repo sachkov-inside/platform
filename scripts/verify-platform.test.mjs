@@ -96,7 +96,7 @@ test("an evidence run builds a manifest the report is made from", async (context
     "--shows",
     "Карточка показывает «Доступ открыт»",
     "--covers",
-    "features/product-access.md: access-grant",
+    "#2211: владелец выдаёт продукт",
     "--result",
     "PASS",
   ]);

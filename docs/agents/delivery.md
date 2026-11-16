@@ -10,6 +10,23 @@ Before an assignment, check remote branches and linked open PRs; reuse a matchin
 Branch `<type>/<issue>-<slug>` from `origin/main`; a task without an Issue uses `<type>/<slug>`.
 Types: `feat`, `fix`, `docs`, `chore`, `research`, `prototype`.
 
+In the clean environment-created worktree, create the project-named branch without tracking
+`origin/main` (replace the example name consistently):
+
+```sh
+git fetch origin
+git switch --no-track -c docs/pilot-fixes origin/main
+git config --local branch.docs/pilot-fixes.pushRemote origin
+# After committing:
+git push --set-upstream origin HEAD:refs/heads/docs/pilot-fixes
+```
+
+The explicit destination also works when `push.default=upstream`. Check `git branch -vv` before
+pushing: before the first push this branch has no upstream; afterwards it tracks its own remote
+branch. Reuse an existing matching task branch instead of creating it again. Preserve any work
+already on the environment branch before switching; a dirty worktree or unpublished task commits
+are not permission to reset them.
+
 The environment (Orca) creates the session's worktree in `~/Worktrees/<repo>/<task>`; work in it.
 Claude Code's internal worktrees under `.claude/worktrees` are temporary; `agent-worktree sweep`
 removes finished ones. Existing `<repo>.worktrees` checkouts of the earlier layout stay until
@@ -17,9 +34,10 @@ removes finished ones. Existing `<repo>.worktrees` checkouts of the earlier layo
 
 The primary checkout belongs to the owner. Read it through `git -C` or absolute paths; change it
 only on the owner's request. Keep other sessions' worktrees, branches, containers, volumes, stashes,
-servers and results. Only `pnpm session:cleanup --apply`, and `agent-worktree sweep` for
-`.claude/worktrees`, remove another session's resources, and only when their rules prove them
-disposable.
+servers and results. The coordinator or owner may remove this task's exact worktree through
+Orca after its writing session exits and the [cleanup checks](../../.agents/skills/session-cleanup/SKILL.md)
+prove it disposable. Repository-wide `pnpm session:cleanup --apply` and `agent-worktree sweep`
+for `.claude/worktrees` belong to separately assigned cleanup, not routine task completion.
 
 ## Pull requests
 
@@ -44,5 +62,7 @@ State the result, the actual checks with exit codes, limits and the next action;
 A local preview update needs only its URL, scope and checks. Keep an owner review server while
 the owner needs it, and record its port, PID, working directory and how to stop it.
 
-After the PR merges, the task's last step is the `agent-worktree finish` command of
-[session-cleanup](../../.agents/skills/session-cleanup/SKILL.md).
+After merge, stop only this task's resources and report the result while the worktree still
+exists. The session never removes its own running worktree. After its final report and session
+exit, the coordinator or owner removes the worktree through Orca, with ownership and preservation
+checks from [session-cleanup](../../.agents/skills/session-cleanup/SKILL.md).

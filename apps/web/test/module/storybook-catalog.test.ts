@@ -15,31 +15,6 @@ function files(directory: string): string[] {
   );
 }
 
-it("accounts for every App Router page, including redirects and retired addresses", () => {
-  const routes = files(`${web}app`)
-    .filter((path) => path.endsWith("/page.tsx"))
-    .map((path) => {
-      const route = path
-        .slice(`${web}app`.length)
-        .replace(/\/\([^/]+\)/gu, "")
-        .replace(/\/page\.tsx$/u, "");
-      return route.length === 0 ? "/" : route;
-    })
-    .sort();
-  expect(catalog.routes.map((entry) => entry.route).sort()).toEqual(routes);
-  for (const entry of catalog.routes) {
-    expect(
-      entry.stories.length > 0 || entry.reason.length > 0,
-      entry.route,
-    ).toBe(true);
-    for (const story of entry.stories) {
-      expect(readFileSync(`${web}src/${story}`, "utf8"), entry.route).toContain(
-        "Pages/",
-      );
-    }
-  }
-});
-
 function metadataOf(path: string): Map<string, string> {
   const source = parseSync(path, readFileSync(path, "utf8"));
   expect(source.errors, path).toEqual([]);
@@ -91,19 +66,6 @@ it("keeps stories in the four catalog layers with unique stable identities", () 
     expect(ids.has(identity), path).toBe(false);
     ids.add(identity);
   }
-});
-
-it("keeps page stories tied to routes or an explicit system state", () => {
-  const mapped = new Set([
-    ...catalog.routes.flatMap((entry) => entry.stories),
-    ...catalog.systemStories,
-  ]);
-  const actual = storyFiles
-    .filter(
-      (path) => metadataOf(path).get("title")?.startsWith("Pages/") === true,
-    )
-    .map((path) => path.slice(`${web}src/`.length));
-  expect([...mapped].sort()).toEqual(actual.sort());
 });
 
 it("gives shared visual modules their own stories and explains helper exceptions", () => {

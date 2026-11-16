@@ -31,6 +31,11 @@ procedures; open the one that matches the task.
 - [Host Node.js fallback and MCP authoring](local-host-fallback.md): host processes, MCP tools,
   host smokes and the owned-process supervisor.
 
+## Content preview
+
+- [Light file preview](file-preview.md): `pnpm preview:files` shows a lesson or Task page of a
+  local Content package as the site renders it, without a backend or Docker.
+
 ## Acceptance stands
 
 - [Local editor acceptance](local-acceptance-editor.md): isolated `pnpm editor:local` runtime.
