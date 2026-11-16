@@ -4,6 +4,7 @@ import {
   expect as browserExpect,
   type Browser,
   type Page,
+  type Request,
 } from "@playwright/test";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -117,17 +118,19 @@ test("auth begins unresolved and keeps known status during a newer return check"
   }
 }, 30_000);
 
-test("the latest auth return wins over a late pre-sign-out reply", async () => {
+test("a newer auth return cancels the pending check before accepting guest", async () => {
   const context = await runningBrowser().newContext();
   const held = barrier();
   const started = barrier();
   const delivered = barrier();
   let reads = 0;
+  let previousRequest: Request | undefined;
   try {
     const page = await context.newPage();
     await page.route("**/auth/status", async (route) => {
       const number = ++reads;
       if (number === 2) {
+        previousRequest = route.request();
         started.release();
         await held.pending;
       }
@@ -143,6 +146,11 @@ test("the latest auth return wins over a late pre-sign-out reply", async () => {
     await started.pending;
     await page.getByRole("button", { name: "Return focus" }).click();
     await status(page, "guest");
+    const previous = previousRequest;
+    if (previous === undefined) throw new Error("Missing pending auth request");
+    await browserExpect
+      .poll(() => previous.failure()?.errorText)
+      .toBe("net::ERR_ABORTED");
     held.release();
     await delivered.pending;
     await status(page, "guest");

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
-import { browserReturns } from "@/shared/lib/browser-returns.client";
+import { browserReturns } from "../lib/auth-status-returns.client";
 
 import type { AuthControlState } from "@/widgets/auth-control";
 

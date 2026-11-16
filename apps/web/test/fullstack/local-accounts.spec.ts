@@ -99,6 +99,23 @@ test("local accounts: fresh owner, private draft and real denials survive restar
       state: "authenticated",
       canManageMaterials: true,
     });
+    const retained = await context.newPage();
+    const firstShellCheck = retained.waitForResponse(
+      (response) => response.url() === `${origin}/auth/status`,
+    );
+    await retained.goto(`${origin}/`);
+    expect(await (await firstShellCheck).json()).toMatchObject({
+      state: "authenticated",
+      canManageMaterials: true,
+    });
+    await expect(
+      retained.getByRole("link", {
+        name: "Редактор",
+        exact: true,
+        includeHidden: true,
+      }),
+    ).toHaveCount(1);
+    await page.bringToFront();
     const ids = new Set<string>();
     for (const [choice, label] of [
       ["learner-with-access", "Ученик с доступом"],
@@ -126,6 +143,34 @@ test("local accounts: fresh owner, private draft and real denials survive restar
         );
       expect(state.canManageMaterials).toBe(choice === "owner");
       expect(state.state).toBe(choice === "guest" ? "guest" : "authenticated");
+      const returnedShellCheck = retained.waitForResponse(
+        (response) => response.url() === `${origin}/auth/status`,
+      );
+      await retained.bringToFront();
+      expect(await (await returnedShellCheck).json()).toMatchObject({
+        accountId: state.accountId,
+        state: state.state,
+        canManageMaterials: choice === "owner",
+      });
+      await expect(
+        retained.getByRole("link", {
+          name: "Редактор",
+          exact: true,
+          includeHidden: true,
+        }),
+      ).toHaveCount(choice === "owner" ? 1 : 0);
+      if (choice === "guest")
+        await expect(
+          retained.getByRole("button", {
+            name: "Войти через Telegram",
+            exact: true,
+          }),
+        ).toBeVisible();
+      else
+        await expect(
+          retained.getByRole("button", { name: "Аккаунт", exact: true }),
+        ).toBeVisible();
+      await page.bringToFront();
       if (choice.startsWith("learner"))
         ids.add(z.string().parse(state.accountId));
       const authoring = await context.request.get(
