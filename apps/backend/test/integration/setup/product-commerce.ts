@@ -223,6 +223,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       timeout = false,
       formAddress = "https://securepay.tinkoff.ru/test",
       stateCalls = 0,
+      stateFailures = 0,
       cancelFailures = 0,
       initGate: BankGate | undefined,
       stateGate: BankGate | undefined,
@@ -340,6 +341,10 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       }
       if (url.endsWith("/GetState")) {
         stateCalls++;
+        if (stateFailures > 0) {
+          stateFailures--;
+          return new Response(null, { status: 503 });
+        }
         if (stateGate !== undefined) {
           stateGate.arrived();
           await stateGate.released;
@@ -418,6 +423,9 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       notify,
       initCalls: () => initCalls,
       stateCalls: () => stateCalls,
+      failState: (count = 1) => {
+        stateFailures = count;
+      },
       paymentId: () => paymentId,
       loseInit: () => {
         timeout = true;

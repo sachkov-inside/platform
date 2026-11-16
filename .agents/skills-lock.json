@@ -3,175 +3,175 @@
   "skills": {
     ".agents/skills/grill-with-docs": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "grill-with-docs",
       "destination": ".agents/skills/grill-with-docs",
       "sha256": "e6ac94643625fff61b2d8ff74dfeb10b2ce7266c953c7bec074d03a99195e1c4"
     },
     ".agents/skills/grilling": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "grilling",
       "destination": ".agents/skills/grilling",
       "sha256": "e22905a98c7dcfbdd28cfcb2e9efe003e45567a4a2616575ce1e23c5356317d3"
     },
     ".agents/skills/handoff": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "handoff",
       "destination": ".agents/skills/handoff",
       "sha256": "315d52ddb331316e4e1525f8cfa725a44aa4a6d55cbaf89230cf6779256c898f"
     },
     ".agents/skills/prototype": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "prototype",
       "destination": ".agents/skills/prototype",
       "sha256": "c7c83cafc1d790fe2b0845871d5072237853e4e16a10f0a0596fbd837763e30f"
     },
     ".agents/skills/research": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "research",
       "destination": ".agents/skills/research",
       "sha256": "ab150e89da96f9fe004705c9c28407e0838285e63a7a14176a563797cb44b94e"
     },
     ".agents/skills/retro": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "retro",
       "destination": ".agents/skills/retro",
       "sha256": "f7589004b3bcc992f79dbee59a73ff1f0ec6587f4cf05bd4373baca12d5d8449"
     },
     ".agents/skills/to-questionnaire": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "to-questionnaire",
       "destination": ".agents/skills/to-questionnaire",
       "sha256": "f287eb8f35b9168aa8a8a38122c5ded31611202f687f5eb4b5e742041665bef7"
     },
     ".agents/skills/wayfinder": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "wayfinder",
       "destination": ".agents/skills/wayfinder",
       "sha256": "98451911804a8e31fbd40727052d7564f55ba826118731ed77664806ba3e258a"
     },
     ".agents/skills/writing-for-agents": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "writing-for-agents",
       "destination": ".agents/skills/writing-for-agents",
       "sha256": "6b1b3babb2c8b683a0ccc23544ddf18459985aa414f4ddd1b7c5c3a8b8009907"
     },
     ".agents/skills/code-review": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "code-review",
       "destination": ".agents/skills/code-review",
-      "sha256": "06d387653fc64ce36dc78a03408177395c55ca50081ecfd1827fda02ad3d51bd"
+      "sha256": "0e2d80184e819a5c8cfec2110969bfb9b713254bd0b60888379f4393fac5d677"
     },
     ".agents/skills/codebase-design": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "codebase-design",
       "destination": ".agents/skills/codebase-design",
       "sha256": "1b2e98227e5126622aebdff7f5ac0bc02e4ddd6d83e0bf084fa0aa999f285da3"
     },
     ".agents/skills/diagnosing-bugs": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "diagnosing-bugs",
       "destination": ".agents/skills/diagnosing-bugs",
       "sha256": "26e74f6de18b5c957a9a568f7719bac0572a36f4acd363f97bdf342af35c9c08"
     },
     ".agents/skills/domain-modeling": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "domain-modeling",
       "destination": ".agents/skills/domain-modeling",
       "sha256": "e351db6b68ae28d508aa7c17be10a7f9783e3c93750f1e6b1eeaf82a010a55fa"
     },
     ".agents/skills/implement": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "implement",
       "destination": ".agents/skills/implement",
-      "sha256": "95b6a07f828b4a0f0ecc231ecf09f630b55b74f330f44f1b0f3e4f0dcca78eda"
+      "sha256": "1a64bcce3d12ee1fe9a04877ec75afc2602077a078aa7087727c652d4b6e34e9"
     },
     ".agents/skills/implement-spec": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "implement-spec",
       "destination": ".agents/skills/implement-spec",
-      "sha256": "dc201fc29a83bb667ebf8713afa8928fe0e053d5bdfe6d7c68baad5b6600159e"
+      "sha256": "842f98d61e909fe68fbd43ab2d5381ade74fd4ec44e31b891a7d9e63060682f2"
     },
     ".agents/skills/improve-codebase-architecture": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "improve-codebase-architecture",
       "destination": ".agents/skills/improve-codebase-architecture",
       "sha256": "c4d4a975a0cdf1fcb9eb2d8afe3e9beb6ddabc99f70c14309f18ae93d930b60e"
     },
     ".agents/skills/pr": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "pr",
       "destination": ".agents/skills/pr",
       "sha256": "9ca49ce2a1ec8b9e065254dcf87500985621b3cb9fb6a0d52bec642ca5ee4728"
     },
     ".agents/skills/setup-matt-pocock-skills": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "setup-matt-pocock-skills",
       "destination": ".agents/skills/setup-matt-pocock-skills",
       "sha256": "70bfea1521e76c3157b729948e92a391b5b9cd8fb53df98c5e8c2812b8785140"
     },
     ".agents/skills/ship": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "ship",
       "destination": ".agents/skills/ship",
       "sha256": "2dafe2d080a9d92ff5392fe891a1c164c98a242c3cb29109db2604db70675e04"
     },
     ".agents/skills/tdd": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "tdd",
       "destination": ".agents/skills/tdd",
       "sha256": "8ea0f80d2931857272cfdb154dbe4a1fa7a148c6445ae5aa9fc7cc2ef0d45be9"
     },
     ".agents/skills/to-spec": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "to-spec",
       "destination": ".agents/skills/to-spec",
       "sha256": "c9a773de70a9ecdb1ecee76a6c2bc1388c654f342129f5a172817f3e2cd89bcd"
     },
     ".agents/skills/to-tickets": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "to-tickets",
       "destination": ".agents/skills/to-tickets",
       "sha256": "497d63f16449fa2006618e2b1982e2ed53295fbd7ca5a0aa16526d699281182d"
     },
     ".agents/skills/triage": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "triage",
       "destination": ".agents/skills/triage",
       "sha256": "de1973e8e6c3353f330fcfb3e69c34d6c63e5360083c2d5ff62574ae5a12c6df"
     },
     ".agents/skills/wait-what": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "wait-what",
       "destination": ".agents/skills/wait-what",
       "sha256": "c71e2b52a65872d36d13895ba5ba7889f35ec52662d6ccb27d95f66eaaa3351a"
     },
     ".agents/skills/wizard": {
       "provider": "agent-kit",
-      "ref": "3b5e37249118aff3d3dfb547977939145524d525",
+      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
       "skill": "wizard",
       "destination": ".agents/skills/wizard",
       "sha256": "32f12848549004fa77a98fa31300bcbc5272cea20ff879bd8406faa8b22cd345"
