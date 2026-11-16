@@ -532,6 +532,18 @@ export async function planPrebuild(request, dependencies, source) {
     : mode;
 }
 
+/**
+ * The current reservation and the registered controller, read without the lock. `release
+ * --if-owned` uses it to leave a foreign reservation alone without touching Docker.
+ * @param {string} directory
+ */
+export async function readReservation(directory) {
+  const state = await readState(directory);
+  return state
+    ? { reservation: state.reservation, controller: state.controller }
+    : null;
+}
+
 /** Keep legacy startup from replacing a reserved but stopped controlled stand. @param {string} directory */
 export async function requireUnmanagedStand(directory) {
   const state = await readState(directory);

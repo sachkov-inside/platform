@@ -8,6 +8,7 @@ import { z } from "zod";
 import {
   controlStand,
   planPrebuild,
+  readReservation,
   requireUnmanagedStand,
 } from "./stand-controller.mjs";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
@@ -902,4 +903,38 @@ test("a mismatched replacement leaves a stale reservation recorded", async (t) =
     withMissing,
   );
   assert.equal(status.reservation?.worktree, "/fixture/a");
+});
+
+test("release from another worktree keeps the reservation and names its owner", async (t) => {
+  const { dependencies } = await fixture(t);
+  const shown = await controlStand(
+    { command: "show", worktree: "/fixture/a" },
+    dependencies,
+  );
+  await assert.rejects(
+    controlStand({ command: "release", worktree: "/fixture/b" }, dependencies),
+    /reserved for \/fixture\/a/u,
+  );
+  assert.deepEqual(await readReservation(dependencies.directory), {
+    reservation: shown.reservation && {
+      id: shown.reservation.id,
+      worktree: "/fixture/a",
+    },
+    controller: "/fixture/controller",
+  });
+  const released = await controlStand(
+    { command: "release", worktree: "/fixture/a" },
+    dependencies,
+  );
+  assert.equal(released.reservation, null);
+  assert.deepEqual(await readReservation(dependencies.directory), {
+    reservation: null,
+    controller: "/fixture/controller",
+  });
+});
+
+test("an unused stand has no reservation to read", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "stand-controller-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  assert.equal(await readReservation(directory), null);
 });
