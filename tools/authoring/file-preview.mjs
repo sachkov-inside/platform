@@ -158,6 +158,7 @@ export async function previewMaterial(preview, sourceId) {
   );
   const product = productOf(manifest, sourceId);
   const course = product === undefined ? null : courseOf(manifest, product);
+  const format = materialFormatPresentation(row.kind);
   return {
     kind: /** @type {const} */ ("material"),
     material: {
@@ -166,9 +167,7 @@ export async function previewMaterial(preview, sourceId) {
       cover: null,
       difficulty: row.difficulty,
       outcomes: row.outcomes ?? [],
-      format: (({ name, slug }) => ({ name, slug }))(
-        materialFormatPresentation(row.kind),
-      ),
+      format: { name: format.name, slug: format.slug },
       materialId: materialId(manifest, row.sourceId),
       // A draft has no publication; the reader shows today's date in its place.
       publishedAt: new Date().toISOString(),
