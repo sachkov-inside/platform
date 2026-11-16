@@ -756,8 +756,13 @@ describe("application CI workflow contract", () => {
       jobBlock("integration-checks"),
       /run: pnpm test:integration:parallel$/mu,
     );
-    // Две короткие проверки в браузере идут одной задачей: одна установка вместо двух, и в
-    // запуске на одну задачу меньше ждёт свободного раннера (#2193).
+    // Обе проверки в браузере идут одной задачей (#2193); упавшая enrollments пропускает
+    // buyer-journey, и test-results остаются от упавшей.
+    const integrationChecks = jobBlock("integration-checks");
+    assert.ok(
+      integrationChecks.indexOf("run: pnpm smoke:enrollments") <
+        integrationChecks.indexOf("run: pnpm smoke:buyer-journey"),
+    );
     assert.match(
       jobBlock("integration-checks"),
       /if: \$\{\{ matrix\.part == 'browser-smokes' \}\}\n {8}run: pnpm smoke:enrollments$/mu,
