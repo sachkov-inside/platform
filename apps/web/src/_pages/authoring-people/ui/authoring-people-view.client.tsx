@@ -247,7 +247,7 @@ function PeopleFilters({
         onChange: (value) => {
           onQueryChange(withPeopleListFilter(query, "search", value));
         },
-        placeholder: "Имя в Telegram, @username, email или ID",
+        placeholder: "Имя в Telegram, email или ID",
         value: query.search ?? "",
       }}
     />

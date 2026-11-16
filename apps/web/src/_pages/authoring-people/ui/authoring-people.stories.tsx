@@ -248,7 +248,7 @@ export const Filtered: Story = {
     await expect(search).toHaveValue("петрова");
     await expect(search).toHaveAttribute(
       "placeholder",
-      "Имя в Telegram, @username, email или ID",
+      "Имя в Telegram, email или ID",
     );
     const chips = page.getByRole("list", { name: "Применённые фильтры" });
     await expect(
