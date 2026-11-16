@@ -20,14 +20,16 @@ the closed materials open, and the owner sees the payment.
 
 ## Driving it with agent-browser
 
-Preconditions: the **shared stand**, reserved for this worktree and `ready` on this commit
+Preconditions: the owner's request to buy on the stand for this verification, because the
+purchase stays in the owner's data; the **shared stand**, reserved for this worktree and `ready` on this commit
 ([SKILL.md](../SKILL.md), Launch); its bank double at `http://127.0.0.1:8090` and mail capture at
 `http://127.0.0.1:8025`; the profile «Ученик без доступа» does not hold the product. A light
 instance shows the offer only: its bank and mail are switched off.
 
 - **Role.** `L open http://127.0.0.1:3000/__local/accounts`,
   `L find role radio click --name "Ученик без доступа"`, `L find role button click --name "Выбрать аккаунт"`.
-- **Offer (`buy-offer`).** `L open http://127.0.0.1:3000/products/<slug>/buy`. The steps list reads
+- **Offer (`buy-offer`).** Open a product on sale from the stand's home and follow its buy action
+  to `/products/<its slug>/buy`; the stand's catalogue is the owner's, so the map names no slug. The steps list reads
   «Вход», «Оплата», «Доступ»; the form «Оплата продукта» shows the price, «Разовая оплата», the
   disclosure «Условия и документы покупки» and the button «Оплатить <сумма> ₽» with
   «Нажимая «Оплатить», вы принимаете оферту разовой покупки.» A light instance proves this step for

@@ -27,17 +27,30 @@ const proxyVariables = new Set([
   "no_proxy",
 ]);
 
-/** Options and commands that would reach a browser other than this session's own. */
-const foreignBrowserArguments = new Set([
+/** Options that would reach, or launch, a browser other than this session's own. */
+const foreignBrowserOptions = new Set([
   "--session",
+  "--session-name",
   "--namespace",
   "--all",
   "--cdp",
   "--auto-connect",
   "--profile",
-  "kill-all",
-  "connect",
+  "--provider",
+  "-p",
+  "--state",
+  "--restore",
+  "--executable-path",
+  "--config",
+  "--headed",
+  "--args",
 ]);
+
+/** Commands that act on other sessions, or run several commands the guard cannot read. */
+const foreignBrowserCommands = new Set(["kill-all", "connect", "batch"]);
+
+/** The only agent-browser setting taken from the caller's environment. */
+const browserNamespaceVariable = "AGENT_BROWSER_NAMESPACE";
 
 /**
  * One browser session per worktree and role: each has its own cookies, so the owner and the
@@ -46,7 +59,15 @@ const foreignBrowserArguments = new Set([
  * @param {VerifyRole} role
  */
 export function verifySessionName(worktree, role) {
-  return `platform-verify-${lightInstanceName(worktree).id}-${role}`;
+  const name =
+    worktree
+      .split("/")
+      .at(-1)
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]+/gu, "-")
+      .replace(/^-|-$/gu, "")
+      .slice(0, 24) || "worktree";
+  return `platform-verify-${name}-${lightInstanceName(worktree).id}-${role}`;
 }
 
 /**
@@ -60,16 +81,24 @@ export function verifySessionName(worktree, role) {
 export function browserInvocation({ worktree, role, args, environment }) {
   if (args.length === 0)
     throw new Error("Name the agent-browser command to run, such as snapshot");
-  const foreign = args.find((item) => foreignBrowserArguments.has(item));
+  const foreign =
+    args.find((item) =>
+      foreignBrowserOptions.has(item.split("=")[0] ?? item),
+    ) ?? (foreignBrowserCommands.has(args[0] ?? "") ? args[0] : undefined);
   if (foreign !== undefined)
     throw new Error(
       `${foreign} leaves this worktree's own session; the helper drives only ${verifySessionName(worktree, role)}`,
     );
-  const namespace = environment["AGENT_BROWSER_NAMESPACE"]?.trim();
+  const namespace = environment[browserNamespaceVariable]?.trim();
   /** @type {Record<string, string>} */
   const kept = {};
   for (const [key, value] of Object.entries(environment))
-    if (value !== undefined && !proxyVariables.has(key.toLowerCase()))
+    // Other AGENT_BROWSER_* settings could attach the session to another browser or profile.
+    if (
+      value !== undefined &&
+      !proxyVariables.has(key.toLowerCase()) &&
+      !key.startsWith("AGENT_BROWSER_")
+    )
       kept[key] = value;
   return {
     command: "agent-browser",
@@ -112,9 +141,12 @@ export function webBuildInput(path) {
   return (
     path.startsWith("apps/web/") ||
     path.startsWith("packages/") ||
+    path.startsWith("patches/") ||
     path === "pnpm-lock.yaml" ||
+    path === "pnpm-workspace.yaml" ||
     path === "package.json" ||
-    path === ".env.example"
+    path === ".env.example" ||
+    /^tsconfig[^/]*\.json$/u.test(path)
   );
 }
 
@@ -126,7 +158,7 @@ export function webBuildInput(path) {
  * @param {string} input.startedAt ISO time the instance started
  * @param {number} input.headMovedAtMs when HEAD last changed
  * @param {readonly { path: string; modifiedAtMs: number | null }[]} input.changedFiles files that
- *   differ from HEAD; a deleted file has no modification time
+ *   differ from HEAD or were written after the start; a deleted file has no modification time
  * @returns {{ ok: boolean; detail: string }}
  */
 export function sourceFreshness({
@@ -179,19 +211,24 @@ export function listenerOwned(table, listener, supervisor) {
   return false;
 }
 
+/** Functions that act on the server or its sessions even inside a read-only transaction. */
+const actingFunctions =
+  /\b(?:pg_[a-z_]+|set_config|setval|nextval|lo_[a-z_]+|dblink[a-z_]*|query_to_xml[a-z_]*)\s*\(/iu;
+
 /**
- * A side-effect check reads; it never repairs. The transaction is read-only as well, so a
- * data-modifying `with` fails in PostgreSQL.
+ * A side-effect check reads rows. The statement must start as a query, name no function that acts
+ * on the server, and runs in a read-only transaction, where a data-modifying `with` fails.
  * @param {string} sql
  */
 export function readOnlyStatement(sql) {
   const statement = sql.trim().replace(/;\s*$/u, "");
   if (
     !/^(?:select|with|table|values|show|explain)\b/iu.test(statement) ||
-    statement.includes(";")
+    statement.includes(";") ||
+    actingFunctions.test(statement)
   )
     throw new Error(
-      "The database helper runs one reading statement: select, with, table, values, show or explain",
+      "The database helper runs one reading statement: select, with, table, values, show or explain, without server functions such as pg_*() or setval()",
     );
   return statement;
 }

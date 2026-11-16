@@ -34,6 +34,7 @@ import {
   readOnlyStatement,
   sourceFreshness,
   verifyRoles,
+  webBuildInput,
 } from "./verify-platform-plan.mjs";
 
 const usage = `Usage: node scripts/verify-platform.mjs <command> [--worktree PATH]
@@ -82,19 +83,23 @@ const separator = process.argv.indexOf("--");
 const own =
   separator === -1 ? process.argv.slice(2) : process.argv.slice(2, separator);
 const passed = separator === -1 ? [] : process.argv.slice(separator + 1);
-const { values, positionals } = parseArgs({
-  args: own,
-  allowPositionals: true,
-  options: {
-    worktree: { type: "string" },
-    role: { type: "string" },
-    label: { type: "string" },
-    json: { type: "boolean" },
-    help: { type: "boolean" },
-  },
-});
+/** @type {{ worktree?: string; role?: string; label?: string; json?: boolean; help?: boolean }} */
+let values = {};
+/** @type {string[]} */
+let positionals = [];
 
 try {
+  ({ values, positionals } = parseArgs({
+    args: own,
+    allowPositionals: true,
+    options: {
+      worktree: { type: "string" },
+      role: { type: "string" },
+      label: { type: "string" },
+      json: { type: "boolean" },
+      help: { type: "boolean" },
+    },
+  }));
   const command = positionals[0];
   if (values.help || command === undefined) process.stdout.write(usage);
   else {
@@ -182,7 +187,13 @@ async function doctor(context) {
         web: state.web,
         startedAt: state.startedAt,
         headMovedAtMs: headMovedAtMs(context.worktree),
-        changedFiles: changedFiles(context.worktree),
+        changedFiles: [
+          ...changedFiles(context.worktree),
+          ...buildInputsWrittenSince(
+            context.worktree,
+            Date.parse(state.startedAt),
+          ),
+        ],
       }),
     });
     const table = processTable();
@@ -241,11 +252,13 @@ async function apiHealth(api) {
   const response = await fetch(`${api}/health`, {
     signal: AbortSignal.timeout(requestMilliseconds),
   });
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error(`/health answered HTTP ${String(response.status)}`);
+  }
   const health = apiHealthSchema.parse(await response.json());
-  if (!response.ok || health.status !== "ready")
-    throw new Error(
-      `status ${health.status}, database ${health.database} (HTTP ${String(response.status)})`,
-    );
+  if (health.status !== "ready")
+    throw new Error(`status ${health.status}, database ${health.database}`);
   return `ready, database ${health.database}`;
 }
 
@@ -289,6 +302,10 @@ async function signInValid(urls, role) {
     headers: { cookie },
     signal: AbortSignal.timeout(requestMilliseconds),
   });
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error(`/auth/status answered HTTP ${String(response.status)}`);
+  }
   const status = authStatusSchema.parse(await response.json());
   const expected = role === "owner";
   if (
@@ -361,9 +378,12 @@ async function sql(context) {
     { stdio: "inherit", timeout: commandMilliseconds },
   );
   if (result.error)
-    throw new Error(`docker did not run: ${result.error.message}`, {
-      cause: result.error,
-    });
+    throw new Error(
+      `The database query did not finish: ${result.error.message}`,
+      {
+        cause: result.error,
+      },
+    );
   process.exitCode = result.status ?? 1;
 }
 
@@ -402,20 +422,17 @@ async function evidence(context) {
     patchId:
       base === null || base === commit
         ? null
-        : (execFileSync("git", ["patch-id", "--stable"], {
+        : execFileSync("git", ["patch-id", "--stable"], {
             cwd: context.worktree,
             encoding: "utf8",
             input: gitBuffer(context.worktree, ["diff", base, "HEAD"]),
             timeout: commandMilliseconds,
-          }).split(" ")[0] ?? null),
+          }).split(" ")[0] || null,
     uncommittedFiles: uncommitted,
     uncommittedDiffSha256:
       uncommitted.length === 0
         ? null
-        : createHash("sha256")
-            .update(gitBuffer(context.worktree, ["diff", "HEAD"]))
-            .update(uncommitted.join("\n"))
-            .digest("hex"),
+        : await uncommittedDigest(context.worktree, uncommitted),
     label: values.label ?? null,
     startedAt: new Date().toISOString(),
   };
@@ -473,6 +490,50 @@ async function report(context) {
       "",
     ].join("\n"),
   );
+}
+
+/**
+ * One digest over the tracked diff and the content of every changed or untracked file.
+ * @param {string} worktree @param {readonly string[]} paths
+ */
+async function uncommittedDigest(worktree, paths) {
+  const hash = createHash("sha256").update(
+    gitBuffer(worktree, ["diff", "HEAD"]),
+  );
+  for (const path of paths) {
+    hash.update(`\0${path}\0`);
+    const absolute = join(worktree, path);
+    if (existsSync(absolute) && statSync(absolute).isFile())
+      hash.update(await readFile(absolute));
+  }
+  return hash.digest("hex");
+}
+
+/**
+ * Tracked build inputs written after the instance started. This also catches an edit that was
+ * built in and then reverted: the file equals HEAD again, but web was built from the edit.
+ * The instance itself rewrites `apps/web/AGENTS.md` and `next-env.d.ts` while it starts.
+ * @param {string} worktree @param {number} startedAtMs
+ * @returns {{ path: string; modifiedAtMs: number | null }[]}
+ */
+function buildInputsWrittenSince(worktree, startedAtMs) {
+  /** @type {{ path: string; modifiedAtMs: number | null }[]} */
+  const files = [];
+  for (const path of gitBuffer(worktree, ["ls-files", "-z"])
+    .toString("utf8")
+    .split("\0")) {
+    if (
+      !webBuildInput(path) ||
+      path === "apps/web/AGENTS.md" ||
+      path === "apps/web/next-env.d.ts"
+    )
+      continue;
+    const absolute = join(worktree, path);
+    if (!existsSync(absolute)) continue;
+    const modifiedAtMs = statSync(absolute).mtimeMs;
+    if (modifiedAtMs > startedAtMs) files.push({ path, modifiedAtMs });
+  }
+  return files;
 }
 
 /** When HEAD last changed: a commit, checkout, merge or reset. */

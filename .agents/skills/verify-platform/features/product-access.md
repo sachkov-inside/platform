@@ -16,8 +16,9 @@ closes them again and keeps the history.
 
 - Owner: «Люди» in the admin navigation (`/authoring/people`), the person's row, then
   «Выдать продукт» at the top of the card.
-- Owner: the row's «Действия с «…»» menu in the people list, item «Открыть карточку»; it leads
-  to the same card.
+- Owner: the row's menu in the people list:
+  `O find role button click --name "Действия с «Без имени и email»"`,
+  `O find role menuitem click --name "Открыть карточку"`; it leads to the same card.
 - Owner: a product's tab «Ученики» (`/authoring/products/<id>?tab=learners`, reached from
   «Продукты»), then «Выдать продукт» *(not yet driven)*.
 - Learner: the closed material's address, and «Мои продукты» on `/account`.
@@ -40,7 +41,8 @@ Preconditions: the baseline; the learner holds no product
 - **Learner sees it (`access-open`).** Open the material address in `L` again and
   `L wait --text "Закрытое содержимое для участников."` The paywall region is gone and «Изучено»
   is enabled. Second view: `L open "$(V address web /account)"`; on the first visit accept the
-  terms («Принять условия и продолжить») and open it again; `L wait --text "Мои продукты"`. The
+  terms (`L find role button click --name "Принять условия и продолжить"`, `L wait --text "Личные данные"`)
+  and open it again; `L wait --text "Мои продукты"`. The
   product is listed with «Доступ открыт».
 - **Revoke (`access-revoke`).** `O find role button click --name "Отозвать доступ к «Создание Platform Inside»"`,
   `O wait 'dialog[open]'`, `O find role radio click --name "Выдано по ошибке"`,
@@ -69,6 +71,7 @@ Preconditions: the baseline; the learner holds no product
 - The restore dialog was not driven when this file was written; take its controls from a snapshot.
 - The product-side dialog «Выдать «<продукт>»» finds the person through «Найти человека», and the
   seeded learner has no name or email; search by the ID from the card's «Скопировать ID».
+- History lines name the acting owner «Аккаунт без имени и email», the same label the learner has.
 - The page shows a reason in guillemets; the page text read by `get text` or `wait --text` has
   none.
 - Telegram group membership follows product access on the shared stand only; the light instance

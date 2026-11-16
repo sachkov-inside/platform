@@ -24,7 +24,6 @@
     "local:stand": "node scripts/local-stand.mjs",
     "stand": "node scripts/stand.mjs",
     "stand:light": "node scripts/stand-light.mjs",
-    "verify:platform": "node scripts/verify-platform.mjs",
     "stand:kinescope": "node scripts/stand-kinescope.mjs",
     "stand:images": "node scripts/stand-images.mjs",
     "local:accounts:bootstrap": "NODE_EXTRA_CA_CERTS=.identity-proof/tls/certificate.pem node scripts/local-accounts-bootstrap.mjs",

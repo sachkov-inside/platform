@@ -30,6 +30,7 @@ function run(directory, args) {
   return spawnSync(process.execPath, [helper, ...args], {
     cwd: directory,
     encoding: "utf8",
+    timeout: 60_000,
     env: { ...process.env, INIT_CWD: directory },
   });
 }
@@ -109,4 +110,7 @@ test("the browser command refuses to act outside its session", async (context) =
   assert.match(result.stderr, /own session/u);
   const role = run(directory, ["browser", "--role", "admin", "--", "snapshot"]);
   assert.equal(role.status, 1);
+  const option = run(directory, ["doctor", "--unknown"]);
+  assert.equal(option.status, 1);
+  assert.doesNotMatch(option.stderr, /\n\s+at /u);
 });

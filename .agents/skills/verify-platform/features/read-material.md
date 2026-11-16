@@ -16,8 +16,10 @@ bookmarks and marks it read; a closed material shows a paywall to anyone without
 - A link in the home feed at `/`.
 - A direct address `/materials/<slug>`.
 - A product's programme: `L open "$(V address web /products/platform-inside)"`,
-  `L find role link click --name "Открыть программу"`, `L wait --url "**/programme"`, then the link
-  «Как устроен Inside Platform» (free) or «Developer Pipeline без потери контекста» (closed).
+  `L find role link click --name "Открыть программу"`, `L wait --text "Как устроен Inside Platform"`,
+  then a programme link. «Developer Pipeline без потери контекста» shows the paywall. «Как устроен
+  Inside Platform» shows the gate «Бесплатный урок» with «Подключить Telegram» to the seeded
+  learner (`L wait --text "Бесплатный урок"`), because the learner has no Telegram.
 - «Закладки» in the main navigation, for saved materials.
 
 ## Driving it with agent-browser
@@ -35,6 +37,7 @@ Preconditions: the baseline; the learner has no bookmarks and no read marks.
 - **Mark read (`read-mark`).** Back on the material (`L find role link click --name "Проверяемая поставка"`
   from `/bookmarks`), `L find role button click --name "Прочитано"`,
   `L wait --text "Отметка сохранена"`. The status reads «Отметка сохранена. Нажмите, чтобы снять её.»
+  Second view: `L reload`; the status still reads so. The button keeps its name.
 - **Side effects.**
   `V sql "select m.slug from bookmarks.bookmarked_materials b join materials.published_materials m using (material_id)"`
   returns `proveryaemaya-postavka`;
@@ -57,4 +60,6 @@ Preconditions: the baseline; the learner has no bookmarks and no read marks.
   «Конец урока» before reading the page.
 - The cookie notice overlays the bottom of the page and makes clicks there fail as covered until
   «Понятно» is pressed.
+- After going back, the programme address carries a query (`?atPlacement=…`); wait for text,
+  not for `**/programme`.
 - Video playback is not covered: the light instance runs the video provider in test mode.

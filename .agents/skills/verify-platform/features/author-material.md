@@ -43,8 +43,9 @@ session to 1440×900 right after its first `open`.
   `O wait --text "Снять с публикации"`. The publish button is now «Снять с публикации» and the
   status starts with «Опубликован».
 - **Readers (`author-visible`).** `G open "$(V address web /materials/proverka-verify-platform)"`,
-  `G wait --text "Текст проверки verify-platform."`; then `G open "$(V address web /)"`: the first
-  link in the region «Материалы» is «Проверка verify-platform».
+  `G wait --text "Текст проверки verify-platform."`; then `G open "$(V address web /)"`,
+  `G wait --text "Проверка verify-platform"`: the first link in the region «Материалы» is
+  «Проверка verify-platform».
 - **Side effects.**
   `V sql "select slug, access, in_feed from materials.published_materials where title = 'Проверка verify-platform'"`
   returns `proverka-verify-platform,free,t`.
@@ -57,6 +58,10 @@ session to 1440×900 right after its first `open`.
   refused as covered. Keep 1440×900 and scroll to the top.
 - The words after «Черновик ·» and «Опубликован ·» are a save indicator («Сохранено сейчас»,
   «Не сохранено», «Без изменений») that changes within seconds; do not assert on them.
+- `wait --text "Сохранено"` also matches an earlier save; it paces the run and proves nothing.
+- The home feed can lag a few seconds behind a publication; reopen `/` before reporting a miss.
+- Both driven entry points end in the same editor. Driving the whole journey through each needs
+  two titles; the second material's slug gets the suffix `-2`.
 - The slug is the transliterated title; a second material with the same title gets another slug.
 - Cover, video, link card and the «Доступ» choice are not covered by this recipe. Video upload
   needs the provider and runs in test mode on a light instance.

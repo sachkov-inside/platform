@@ -12,8 +12,8 @@ verdict and cleanup.
 - The shell functions `V`, `O`, `L` and `G` from [SKILL.md](../SKILL.md), step 3: the helper and
   the owner, learner and guest browser sessions. `V sql` reads the instance's database, and
   addresses come from `V address <owner|learner|web> <path>`.
-- Each role's session is set to 1440×900 after its first `open`, and its cookie notice is
-  dismissed with «Понятно».
+- Each role's session is set to 1440×900 after its first `open`. Reader pages show a cookie notice
+  until «Понятно» is pressed; admin pages have none.
 
 Seed facts the recipes rely on:
 
@@ -24,7 +24,7 @@ Seed facts the recipes rely on:
 | A free material in the home feed | «Проверяемая поставка», `/materials/proveryaemaya-postavka` |
 | The learner in the owner's lists | «Без имени и email» |
 | Authoring topic and formats | topic «Платформа» (reader pages show it as «Platform»); formats «Видео», «Гайд», «Заметка» |
-| A product programme with a free and a closed material | `/products/platform-inside/programme`: «Как устроен Inside Platform» (free), «Developer Pipeline без потери контекста» (closed) |
+| A product programme | `/products/platform-inside/programme`: «Как устроен Inside Platform» (a free lesson, open to accounts with Telegram connected) and «Developer Pipeline без потери контекста» (closed) |
 
 ## Driving conventions
 
@@ -32,11 +32,11 @@ Seed facts the recipes rely on:
   mutates needs no restore: `pnpm stand:light down` drops the database.
 - Treat every quoted name as literal. Wait for the stated result before the next action.
 - A mutation is proven by its row and by a second view, as each recipe names them.
-- When a precondition is missing, report the failed step and the unmet precondition, and add the
-  reason to the feature's Gotchas. Never weaken a journey to make it pass.
+- When a precondition is missing, report the failed step and the unmet precondition; the reason
+  then goes into the feature's Gotchas in a PR. Never weaken a journey to make it pass.
 - A journey skipped at one entry point is not verified through another. Entry points marked
-  *(not yet driven)* have no steps: drive them from fresh snapshots and add the steps here, or
-  report them as not exercised.
+  *(not yet driven)* have no steps: drive them from fresh snapshots and report the steps that
+  worked, or report them as not exercised.
 - Assert on text that stays: a heading, a button's new name, a row. A save status such as
   «Сохранено сейчас» changes within seconds.
 

@@ -23,7 +23,11 @@ const urls = {
 
 test("each worktree and role drives its own browser session", () => {
   const owner = verifySessionName("/work/a", "owner");
-  assert.match(owner, /^platform-verify-[0-9a-f]{10}-owner$/u);
+  assert.match(owner, /^platform-verify-a-[0-9a-f]{10}-owner$/u);
+  assert.match(
+    verifySessionName("/Users/x/Worktrees/repo/Plan Verify_skill", "guest"),
+    /^platform-verify-plan-verify-skill-[0-9a-f]{10}-guest$/u,
+  );
   assert.notEqual(owner, verifySessionName("/work/b", "owner"));
   assert.notEqual(owner, verifySessionName("/work/a", "learner"));
   assert.equal(verifySessionName("/work/a", "owner"), owner);
@@ -39,6 +43,8 @@ test("the browser command names the session and drops the proxy for loopback", (
       HTTP_PROXY: "http://127.0.0.1:10808",
       https_proxy: "http://127.0.0.1:10808",
       AGENT_BROWSER_NAMESPACE: "agents",
+      AGENT_BROWSER_AUTO_CONNECT: "1",
+      AGENT_BROWSER_PROFILE: "Default",
     },
   });
   assert.equal(invocation.command, "agent-browser");
@@ -55,6 +61,9 @@ test("the browser command names the session and drops the proxy for loopback", (
   assert.equal(invocation.environment["PATH"], "/bin");
   assert.equal(invocation.environment["HTTP_PROXY"], undefined);
   assert.equal(invocation.environment["https_proxy"], undefined);
+  assert.equal(invocation.environment["AGENT_BROWSER_AUTO_CONNECT"], undefined);
+  assert.equal(invocation.environment["AGENT_BROWSER_PROFILE"], undefined);
+  assert.equal(invocation.environment["AGENT_BROWSER_NAMESPACE"], undefined);
   const plain = browserInvocation({
     worktree: "/work/a",
     role: "owner",
@@ -73,6 +82,16 @@ test("the browser command refuses to leave its own session", () => {
     ["--cdp", "9222", "snapshot"],
     ["--auto-connect", "snapshot"],
     ["--profile", "Default", "open", "http://127.0.0.1/"],
+    ["--profile=Default", "open", "http://127.0.0.1/"],
+    ["-p", "browserbase", "open", "http://127.0.0.1/"],
+    ["--state", "auth.json", "open", "http://127.0.0.1/"],
+    ["--session-name", "other", "snapshot"],
+    ["--restore", "open", "http://127.0.0.1/"],
+    ["--executable-path", "/Applications/Google Chrome.app", "snapshot"],
+    ["--args", "--remote-debugging-port=9222", "snapshot"],
+    ["--headed", "snapshot"],
+    ["batch", "close --all"],
+    ["connect", "9222"],
     [],
   ])
     assert.throws(
@@ -85,6 +104,15 @@ test("the browser command refuses to leave its own session", () => {
         }),
       /own session|command/u,
     );
+  // A value that merely equals a command name is the caller's text, not a command.
+  assert.doesNotThrow(() =>
+    browserInvocation({
+      worktree: "/work/a",
+      role: "owner",
+      args: ["find", "role", "button", "click", "--name", "connect"],
+      environment: {},
+    }),
+  );
 });
 
 test("addresses sign a role in or point at the instance", () => {
@@ -163,6 +191,10 @@ test("changes outside the web build leave the instance fresh", () => {
   });
   assert.equal(result.ok, true);
   for (const path of [
+    "tsconfig.base.json",
+    "tsconfig.next-app.json",
+    "pnpm-workspace.yaml",
+    "patches/a.patch",
     "apps/web/src/a.tsx",
     "packages/contracts/index.ts",
     "pnpm-lock.yaml",
@@ -220,6 +252,10 @@ test("the database helper accepts one reading statement", () => {
     "delete from accounts.accounts",
     "select 1; drop table x",
     "set default_transaction_read_only = off",
+    "select pg_terminate_backend(pid) from pg_stat_activity",
+    "select pg_cancel_backend (1)",
+    "select setval('s', 1)",
+    "select set_config('default_transaction_read_only', 'off', false)",
     "\\copy x to stdout",
     "",
   ])
