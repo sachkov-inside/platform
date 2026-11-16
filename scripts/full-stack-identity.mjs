@@ -14,12 +14,16 @@ import { exportJWK, generateKeyPair, SignJWT } from "jose";
  * `learningResource` is the learner MCP resource (#948). A refresh grant that names it receives a
  * token for that audience with the `learning:read` scope, as Logto issues it to a learner's agent.
  *
- * @param {{ apiBaseUrl: string; webBaseUrl: string; learningResource?: string; now?: () => number }} endpoints
+ * `appId` names the web application and so its session cookie; parallel instances on one host
+ * give each web its own name, because cookies of `127.0.0.1` do not depend on the port.
+ *
+ * @param {{ apiBaseUrl: string; webBaseUrl: string; learningResource?: string; appId?: string; now?: () => number }} endpoints
  */
 export async function startFullStackIdentity({
   apiBaseUrl,
   webBaseUrl,
   learningResource,
+  appId = "inside-web-fullstack",
   now = Date.now,
 }) {
   const fullStackAccessTokenTtlSeconds = 300;
@@ -27,7 +31,6 @@ export async function startFullStackIdentity({
   const subject = "fullstack-owner";
   const memberSubject = "fullstack-member";
   const audience = apiBaseUrl;
-  const appId = "inside-web-fullstack";
   const learningScope = "learning:read";
   const cookieSecret = "inside-fullstack-cookie-secret-key";
   const keyPair = await generateKeyPair("ES384");

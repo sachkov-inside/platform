@@ -45,7 +45,7 @@ export function ensureCheckDatabase({
   composeProject = composeProjectName(environment),
   run = execFileSync,
 } = {}) {
-  const psql = checkPsql({ cwd, composeProject, run });
+  const psql = composePsql({ cwd, composeProject, run });
   if (
     psql(`select 1 from pg_database where datname = '${checkDatabaseName}'`) !==
     "1"
@@ -63,16 +63,17 @@ export function resetCheckDatabase({
   composeProject = composeProjectName(environment),
   run = execFileSync,
 } = {}) {
-  const psql = checkPsql({ cwd, composeProject, run });
+  const psql = composePsql({ cwd, composeProject, run });
   psql(`drop database if exists ${checkDatabaseName} with (force)`);
   psql(`create database ${checkDatabaseName}`);
 }
 
 /**
+ * Runs SQL as `inside` in the PostgreSQL service of a Compose project.
  * @param {{ cwd: string | undefined; composeProject: string; run: RunCommand }} options
  * @returns {(sql: string) => string}
  */
-function checkPsql({ cwd, composeProject, run }) {
+export function composePsql({ cwd, composeProject, run }) {
   return (sql) => {
     try {
       return run(
