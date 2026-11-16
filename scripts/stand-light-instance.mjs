@@ -12,6 +12,7 @@ import { parseEnv } from "node:util";
 import { z } from "zod";
 import { scenarioRoles } from "../scenarios/roles.mjs";
 import { seedLearningScenario } from "../scenarios/seed-learning.mjs";
+import { seedLegacyMaterialAssets } from "../scenarios/seed-legacy-assets.mjs";
 import { composePsql } from "./check-database.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 import { fullStackRelease } from "./full-stack-environment.mjs";
@@ -207,6 +208,12 @@ try {
   await seedLightRoles({
     api: environment.urls.api,
     createAccessToken: (subject) => identity.createAccessToken(subject),
+  });
+  await seedLegacyMaterialAssets({
+    api: environment.urls.api,
+    databaseName: database,
+    ownerToken: (await identity.createAccessToken(scenarioRoles.owner.subject))
+      .token,
   });
   await seedLearningScenario({
     api: environment.urls.api,
