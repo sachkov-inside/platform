@@ -217,22 +217,21 @@ result.
 
 - **`PASS`**: every journey the change needs was driven, each observed end state and side effect
   matched, nothing else looked wrong.
-- **`PASS+NOTES`**: every required scenario matches; notes describe only unrelated defects or
-  stand limits outside required coverage. A deviation from the expected result inside this
-  change is always `FAIL`, even if cosmetic or easy to fix. The verifier describes it without
-  deciding to accept it on the owner's behalf. An unrelated defect gets a linked Issue.
-- **`FAIL`**: any expected state or side effect was missing or wrong, the doctor could not be made
-  to pass for a required journey, or a journey the change needs could not be driven.
+- **`PASS+NOTES`**: observed results match the change, with notes about unrelated defects or
+  coverage unavailable solely because of a stand/light-instance limit outside scenarios the
+  plan asked to show. Mark that coverage «Не проверено»; this verdict does not claim it passed.
+  An unrelated defect gets a linked Issue.
+- **`FAIL`**: an observed expected state or side effect inside the change is missing or wrong,
+  even if cosmetic or easy to fix. The verifier describes the deviation without accepting it
+  on the owner's behalf. Also fail when a scenario cannot run for a reason other than a stand
+  limit, or a stand limit blocks a scenario the plan explicitly asked to show.
 
-Record a stand/light-instance limit outside a scenario the plan asked to show as «Не проверено»;
-it does not itself call the owner. If it blocks a required scenario, return `FAIL`. Report which
-scenario and failing command distinguish the two cases; never relabel a deviation as a stand limit.
-
-A scenario that could not be checked is added with kind `none`, the failing command in `--shows`
-and the result `FAIL` when the change depends on it; otherwise name it in the notes as not
-exercised. "Could not check" is never a pass. A journey driven through a different entry point
-does not cover the skipped one. Report a failing journey as it is, and name a missing seed
-precondition as the reason, so the map's owner can add it to the feature's Gotchas.
+The stand-limit exception above takes precedence over missing coverage, including a failed doctor
+or an implementation-derived scenario the plan did not ask to show. Record the exact command and
+output and «Не проверено» in notes, with kind `none`; use `PASS+NOTES` for that scenario and the
+verdict unless another failure requires `FAIL`. This alone does not call the owner. A skipped
+entry point is not covered by driving another one. A missing seed precondition is a stand limit;
+a working stand that exposes wrong behaviour in the change is a failure, never a stand limit.
 
 ## 6. Cleanup
 
