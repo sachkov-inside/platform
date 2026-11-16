@@ -24,8 +24,9 @@ const pollMilliseconds = 1_000;
 // as the earlier code wrote it: worktrees run their own copy of this script, and the earlier copy
 // removes a ticket whose body has a field it does not know.
 const startSecondPattern = /-s(\d+)\.json$/u;
-// Older `ps` builds derive the start time from the uptime, so two readings of one process can
-// differ by a second. A reused process ID starts far later than that.
+// Two readings of one process may differ by a second where `ps` computes the start time from the
+// current time and the uptime. A process that reuses the ID within this tolerance is taken for the
+// waiter; `waiterRuns` lists that case.
 const startTimeToleranceSeconds = 2;
 const startTimeReadTimeoutMilliseconds = 5_000;
 

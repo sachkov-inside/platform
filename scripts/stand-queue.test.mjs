@@ -207,7 +207,7 @@ test("a ticket keeps its place when a second reading of its start time differs b
 });
 
 test("a ticket keeps its place while the start time of its live process cannot be read", async (t) => {
-  const { wait, alive, started, directory } = await fixture(t);
+  const { wait, started, directory } = await fixture(t);
   const releaseFirst = await wait(801, []);
   /** @type {string[]} */
   const reports = [];
@@ -224,7 +224,6 @@ test("a ticket keeps its place while the start time of its live process cannot b
   await until(() => later.length > 0);
   assert.match(later[0] ?? "", /position 3 of 3.*\/fixture\/801 show/u);
   assert.equal(granted, false);
-  assert.equal(alive.has(801), true);
   assert.equal((await readStandQueue(directory)).length, 3);
   await releaseFirst();
   await (
@@ -235,6 +234,9 @@ test("a ticket keeps its place while the start time of its live process cannot b
   )();
 });
 
+// The one test on the real `ps`: two synchronous reads of this process and one of an absent ID.
+// `ps` owns no state to clean up, and each read fails after the 5 seconds
+// `processStartTime` allows it.
 test("ps reports the start second of a running process and none for a missing one", () => {
   const first = processStartTime(process.pid);
   assert.ok(first !== undefined, "ps did not report the start of this process");
@@ -244,7 +246,7 @@ test("ps reports the start second of a running process and none for a missing on
   assert.equal(processStartTime(2 ** 30), undefined);
 });
 
-test("a ticket stays readable for a session that runs the earlier code", async (t) => {
+test("a ticket keeps the four fields of the earlier format and carries the start second in its name", async (t) => {
   const { wait, directory } = await fixture(t);
   const release = await wait(901, []);
   const [name] = await readdir(join(directory, "queue"));
