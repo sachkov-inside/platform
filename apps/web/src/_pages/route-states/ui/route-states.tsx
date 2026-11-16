@@ -4,6 +4,9 @@ import Link from "next/link";
 import { Button } from "@/shared/ui/button";
 import { StatusPanel } from "@/shared/ui/status-panel";
 
+/** Название экрана и вкладки «страница не найдена»: его же берёт `metadata` корневого `not-found`. */
+export const pageNotFoundTitle = "Страница не найдена";
+
 /**
  * Адреса нет на площадке или документ по нему больше не открывается. Главная — она же каталог,
  * поэтому возврат один.
@@ -11,7 +14,7 @@ import { StatusPanel } from "@/shared/ui/status-panel";
 export function PageNotFound() {
   return (
     <>
-      <title>Страница не найдена · sachkov.dev</title>
+      <title>{`${pageNotFoundTitle} · sachkov.dev`}</title>
       <StatusPanel
         action={
           <Button asChild size="lg">
@@ -24,7 +27,7 @@ export function PageNotFound() {
         icon={<SearchX aria-hidden="true" />}
         message="Проверьте адрес или найдите материал на главной."
         state={{ "data-route-state": "not-found" }}
-        title="Страница не найдена"
+        title={pageNotFoundTitle}
       />
     </>
   );
