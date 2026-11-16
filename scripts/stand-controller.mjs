@@ -37,12 +37,7 @@ const stateSchema = z.strictObject({
   phase: z.enum(["preparing", "ready", "failed"]),
   generation: z.uuid(),
   reservation: z
-    .strictObject({
-      id: z.uuid(),
-      worktree: z.string(),
-      // Absent in reservations taken before the controller recorded the time.
-      reservedAt: z.iso.datetime().optional(),
-    })
+    .strictObject({ id: z.uuid(), worktree: z.string() })
     .nullable(),
   source: sourceSchema,
   mode: modeSchema,
@@ -74,11 +69,11 @@ export async function controlStand(request, dependencies) {
     throw new Error("--replace applies to show and upgrade only");
   if (request.command === "status") return status(dependencies);
   const now = dependencies.now ?? (() => new Date());
-  const reserve = () => ({
-    id: randomUUID(),
-    worktree: request.worktree,
-    reservedAt: now().toISOString(),
-  });
+  const reserve = async () => {
+    const reservation = { id: randomUUID(), worktree: request.worktree };
+    await recordReservationTime(dependencies.directory, reservation.id, now());
+    return reservation;
+  };
   if (
     !dependencies.acquire ||
     !dependencies.source ||
@@ -104,12 +99,7 @@ export async function controlStand(request, dependencies) {
     /** @type {{ id: string; worktree: string } | undefined} */
     let releasedStale;
     // A reservation outlives its session by design, but not its worktree: nobody can review it.
-    if (
-      previous &&
-      recorded &&
-      dependencies.worktreeExists &&
-      !(await dependencies.worktreeExists(recorded.worktree))
-    ) {
+    if (previous && recorded && (await orphaned(recorded, dependencies))) {
       releasedStale = { id: recorded.id, worktree: recorded.worktree };
       reservation = null;
       previous.reservation = null;
@@ -183,7 +173,7 @@ export async function controlStand(request, dependencies) {
       sameRuntime(previous.receipt, snapshot)
     ) {
       await dependencies.ready(snapshot);
-      previous.reservation = reservation ?? reserve();
+      previous.reservation = reservation ?? (await reserve());
       previous.source = source;
       await writeState(dependencies.directory, previous);
       return status(dependencies, releasedStale);
@@ -196,7 +186,9 @@ export async function controlStand(request, dependencies) {
       phase: "preparing",
       generation: randomUUID(),
       reservation:
-        reservation?.worktree === request.worktree ? reservation : reserve(),
+        reservation?.worktree === request.worktree
+          ? reservation
+          : await reserve(),
       source,
       mode,
       receipt: snapshot,
@@ -286,7 +278,7 @@ export async function controlStand(request, dependencies) {
  * @param {StandSource} source
  * @param {StandState | null} previous
  * @param {StandDependencies} dependencies
- * @param {() => NonNullable<StandState["reservation"]>} reserve
+ * @param {() => Promise<NonNullable<StandState["reservation"]>>} reserve
  * @param {{ id: string; worktree: string } | undefined} releasedStale
  */
 async function upgrade(
@@ -351,7 +343,9 @@ async function upgrade(
     phase: "preparing",
     generation: randomUUID(),
     reservation:
-      reservation?.worktree === request.worktree ? reservation : reserve(),
+      reservation?.worktree === request.worktree
+        ? reservation
+        : await reserve(),
     source,
     mode: request.mode ?? previous.mode,
     receipt: before,
@@ -455,6 +449,17 @@ function refuseForeignReservation(request, reservation) {
 }
 
 /**
+ * Whether the reserved worktree no longer exists. Without the check adapter nothing is orphaned.
+ * @param {NonNullable<StandState["reservation"]>} reservation
+ * @param {Pick<StandDependencies, "worktreeExists">} dependencies
+ */
+async function orphaned(reservation, dependencies) {
+  return dependencies.worktreeExists
+    ? !(await dependencies.worktreeExists(reservation.worktree))
+    : false;
+}
+
+/**
  * `show` and `refresh` keep the recorded identity, schema and infrastructure; `upgrade` changes them.
  * @param {StandState | null} previous @param {StandSource} source
  */
@@ -516,11 +521,8 @@ function selectedMode(request, previous, root) {
 export async function planPrebuild(request, dependencies, source) {
   const previous = await readState(dependencies.directory);
   const reservation = previous?.reservation;
-  const stale =
-    reservation &&
-    dependencies.worktreeExists &&
-    !(await dependencies.worktreeExists(reservation.worktree));
-  if (!stale) refuseForeignReservation(request, reservation);
+  if (!reservation || !(await orphaned(reservation, dependencies)))
+    refuseForeignReservation(request, reservation);
   if (request.command === "upgrade")
     return selectedMode(request, previous, source.root);
   refuseIncompatibleSource(previous, source);
@@ -611,7 +613,9 @@ async function status(dependencies, releasedStale) {
     }
   }
   const reservation = state?.reservation;
-  const reservedAt = reservation?.reservedAt;
+  const reservedAt = reservation
+    ? (await readReservationTimes(dependencies.directory))[reservation.id]
+    : undefined;
   const now = dependencies.now ?? (() => new Date());
   return {
     status: availability,
@@ -628,9 +632,7 @@ async function status(dependencies, releasedStale) {
                     (now().getTime() - Date.parse(reservedAt)) / 1_000,
                   ),
                 ),
-          worktreeMissing: dependencies.worktreeExists
-            ? !(await dependencies.worktreeExists(reservation.worktree))
-            : false,
+          worktreeMissing: await orphaned(reservation, dependencies),
         }
       : null,
     ...(releasedStale ? { releasedStale } : {}),
@@ -639,6 +641,39 @@ async function status(dependencies, releasedStale) {
     controller: state?.controller ?? dependencies.controller,
     url: availability === "ready" ? (state?.health?.url ?? null) : null,
   };
+}
+
+// Reservation times live beside state.json, so state keeps the shape older controllers parse.
+const reservationTimesSchema = z.record(z.uuid(), z.iso.datetime());
+
+/** @param {string} directory @returns {Promise<Record<string, string>>} */
+async function readReservationTimes(directory) {
+  try {
+    return reservationTimesSchema.parse(
+      JSON.parse(
+        await readFile(join(directory, "reservation-times.json"), "utf8"),
+      ),
+    );
+  } catch {
+    // Missing or damaged times only hide the age; they never block the stand.
+    return {};
+  }
+}
+
+/**
+ * Records when a reservation was taken. Only the newest reservation is kept: earlier ones are
+ * released or replaced by then.
+ * @param {string} directory @param {string} id @param {Date} time
+ */
+async function recordReservationTime(directory, id, time) {
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const temporary = join(directory, `reservation-times-${randomUUID()}.tmp`);
+  await writeFile(
+    temporary,
+    `${JSON.stringify({ [id]: time.toISOString() })}\n`,
+    { mode: 0o600, flag: "wx" },
+  );
+  await rename(temporary, join(directory, "reservation-times.json"));
 }
 
 /** @param {string} directory */

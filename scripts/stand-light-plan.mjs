@@ -14,6 +14,9 @@ import {
  * `inside_light_<id>`, in the stand PostgreSQL; teardown removes exactly these.
  */
 
+/** How long `up` lets the supervisor migrate, seed, build and start before it gives up. */
+export const lightStartupBudgetMilliseconds = 15 * 60_000;
+
 const databasePattern = /^inside_light_[0-9a-f]{10}$/u;
 
 /** @param {string} worktree the real path of the worktree */
@@ -151,11 +154,12 @@ export function lightEnvironment({
     HIDE_DEV_INDICATOR: "true",
     ...identity,
   };
-  const storage = new URL(
+  const storageEndpoint =
     shared["OBJECT_STORAGE_SIGNED_GET_ENDPOINT"]?.trim() ||
-      shared["OBJECT_STORAGE_ENDPOINT"]?.trim() ||
-      "http://127.0.0.1:9000",
-  ).origin;
+    shared["OBJECT_STORAGE_ENDPOINT"]?.trim();
+  if (!storageEndpoint)
+    throw new Error("The light instance needs the object storage endpoint");
+  const storage = new URL(storageEndpoint).origin;
   return {
     urls: { web, api, mcp },
     shared,

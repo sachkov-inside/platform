@@ -22,12 +22,12 @@ import {
   lightEnvironment,
   lightInstanceName,
   lightSignInHandler,
+  lightStartupBudgetMilliseconds,
   lightSubjects,
 } from "./stand-light-plan.mjs";
 
 const adoptionPollMilliseconds = 50;
 const adoptionBudgetMilliseconds = 10_000;
-const startupBudgetMilliseconds = 15 * 60_000;
 const readinessPollMilliseconds = 500;
 const readinessRequestMilliseconds = 30_000;
 const processStopGraceMilliseconds = 10_000;
@@ -36,6 +36,7 @@ const processStopGraceMilliseconds = 10_000;
 // outlives the `up` command, so its supervisor first leaves that ancestry: it starts a copy of
 // itself and exits, and the copy waits until launchd (PID 1) adopts it.
 if (process.env["STAND_LIGHT_DETACHED"] !== "1") {
+  // deterministic-test-allow process-cleanup: the detached copy is the instance supervisor itself; it stops its owned tree on SIGTERM from `pnpm stand:light down`.
   spawn(process.execPath, [fileURLToPath(import.meta.url)], {
     detached: true,
     stdio: "inherit",
@@ -198,7 +199,7 @@ try {
   } else
     start(["--filter", "@inside/web", "dev", ...webAddress], environment.web);
 
-  const deadline = Date.now() + startupBudgetMilliseconds;
+  const deadline = Date.now() + lightStartupBudgetMilliseconds;
   await waitFor(`${environment.urls.api}/health`, deadline);
   // The learner signs in without the web callback that establishes an Account on first sign-in.
   const learner = await identity.createAccessToken(lightSubjects.learner);

@@ -28,26 +28,34 @@ async function fixture(t) {
       report: (message) => reports.push(message),
       pid,
       isAlive: (candidate) => alive.has(candidate),
-      pause: () => new Promise((resolve) => setTimeout(resolve, 5)),
+      pause,
     });
   };
   return { directory, lock, alive, wait };
 }
 
+const pollAttempts = 2_000;
+const pollMilliseconds = 5;
+
+function pause() {
+  // deterministic-test-allow duration-wait: polling a fact (the queue directory and reports of real waiters); the attempt bound only fails a stuck queue.
+  return new Promise((resolve) => setTimeout(resolve, pollMilliseconds));
+}
+
 /** @param {string} directory @param {number} length */
 async function untilQueued(directory, length) {
-  for (let attempt = 0; attempt < 400; attempt += 1) {
+  for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
     if ((await readStandQueue(directory)).length === length) return;
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    await pause();
   }
   throw new Error("Queue did not reach the expected length");
 }
 
 /** @param {() => boolean} condition */
 async function until(condition) {
-  for (let attempt = 0; attempt < 400; attempt += 1) {
+  for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
     if (condition()) return;
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    await pause();
   }
   throw new Error("Condition was not reached");
 }

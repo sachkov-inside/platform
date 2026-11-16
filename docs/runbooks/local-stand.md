@@ -45,7 +45,8 @@ directories need no image build; changes elsewhere require `refresh`. `refresh` 
 and survive session completion. A reservation whose worktree directory no longer exists is released
 by the next `show`, `refresh`, `release` or `upgrade` from any worktree, which reports it; `status`
 only reads and marks such a reservation. `status` shows the reserved worktree and how long ago it
-was reserved; reservations taken before this record existed show an unknown age. Ordinary editing,
+was reserved, from `reservation-times.json` beside the state; reservations taken before this file
+existed show an unknown age. Ordinary editing,
 Storybook and isolated tests do not reserve it.
 
 A mutation that finds another stand operation running waits in a first-come queue instead of
@@ -60,7 +61,7 @@ waiting command in the background: an agent's tool timeout that kills it gives u
 layers stay in the build cache. The build under the lock then reuses the cache, so the stand is held
 while it is changed, not while the source compiles. On 2026-11-16 the build under the lock took
 25 s after the early build, against 111 s without it; image export and unpacking took 18.6 s of the
-25 s. An `upgrade` still builds `rabbitmq` and `logto` under the lock. A foreign reservation or a
+25 s. An `upgrade` and a first cold start still build `rabbitmq` and `logto` under the lock. A foreign reservation or a
 different schema, infrastructure or identity refuses the command before the early build. When the
 ready stand already runs this source in this mode, the command skips the early build.
 
@@ -194,10 +195,12 @@ How it works:
    Web edits need `down` and `up`. `--dev` runs `next dev` instead, which reloads Web edits and
    needs more memory. Ports come from the reserved range 20000–29999.
 4. `down` stops the supervisor, which stops its processes and drops its database. After a crash,
-   `down` drops the leftover database and record. Nothing else is touched.
+   `down` drops the leftover database, record and release identity file, and warns when
+   `apps/web/AGENTS.md` differs from the commit. Nothing else is touched.
 
 The record and log live in `inside-platform-stand/light/` under the shared Git common directory.
-One instance runs per worktree. Uploaded files go to the stand's local buckets. Payments, mail,
+One instance runs per worktree. `pnpm smoke:fullstack` in the same worktree refuses while an
+instance runs, because both own `apps/web/release-identity.json` and `apps/web/.next`. Uploaded files go to the stand's local buckets. Payments, mail,
 notifications and background workers do not run. The production build writes
 `apps/web/release-identity.json` for the life of the instance. `next dev` and `next build` rewrite
 the Next.js block of `apps/web/AGENTS.md`; the instance restores the committed text once web is

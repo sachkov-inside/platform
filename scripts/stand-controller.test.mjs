@@ -758,20 +758,25 @@ test("a reservation of an existing worktree survives without a timer", async (t)
   );
 });
 
-test("a reservation written before reservation times keeps working and reports no age", async (t) => {
+test("state keeps the reservation shape older controllers read, and a missing time reports no age", async (t) => {
   const { dependencies } = await fixture(t);
   const shown = await controlStand(
     { command: "show", worktree: "/fixture/a" },
     dependencies,
   );
-  const path = join(dependencies.directory, "state.json");
+  // Older checkouts and a revert parse the reservation strictly as { id, worktree }.
   const state = z
     .looseObject({
-      reservation: z.looseObject({ reservedAt: z.string().optional() }),
+      reservation: z.strictObject({ id: z.uuid(), worktree: z.string() }),
     })
-    .parse(JSON.parse(await readFile(path, "utf8")));
-  delete state.reservation.reservedAt;
-  await writeFile(path, JSON.stringify(state));
+    .parse(
+      JSON.parse(
+        await readFile(join(dependencies.directory, "state.json"), "utf8"),
+      ),
+    );
+  assert.equal(state.reservation.id, shown.reservation?.id);
+
+  await rm(join(dependencies.directory, "reservation-times.json"));
   const status = await controlStand(
     { command: "status", worktree: "/fixture/a" },
     dependencies,

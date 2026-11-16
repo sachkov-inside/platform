@@ -1,16 +1,19 @@
 // @ts-check
 import { execFileSync, spawn } from "node:child_process";
-import { mkdir, open, realpath, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, open, readFile, realpath, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import { composePsql } from "./check-database.mjs";
+import { fullStackRelease } from "./full-stack-environment.mjs";
 import {
   assertLightDatabase,
   lightDirectory,
   lightInstanceName,
+  lightStartupBudgetMilliseconds,
   listLightStates,
   readLightState,
   treeResidentKiB,
@@ -28,8 +31,8 @@ const { values, positionals } = parseArgs({
     help: { type: "boolean" },
   },
 });
-// The supervisor's own budget is 15 minutes; this one also covers its adoption and record.
-const startupBudgetMilliseconds = 16 * 60_000;
+// The supervisor's own budget plus its adoption and record.
+const startupBudgetMilliseconds = lightStartupBudgetMilliseconds + 60_000;
 const stopBudgetMilliseconds = 60_000;
 const recordPollMilliseconds = 500;
 const stopPollMilliseconds = 250;
@@ -102,6 +105,7 @@ async function up(directory, worktree) {
   const logPath = join(directory, `${id}.log`);
   const log = await open(logPath, "w", 0o600);
   const started = performance.now();
+  // deterministic-test-allow process-cleanup: the detached instance supervisor outlives this command by design; `pnpm stand:light down` stops it and its owned tree, verified by the two-instance teardown run.
   const supervisor = spawn(
     process.execPath,
     [join(dirname(fileURLToPath(import.meta.url)), "stand-light-instance.mjs")],
@@ -164,9 +168,7 @@ async function up(directory, worktree) {
         `Light instance did not start: ${state?.failure ?? "startup budget exceeded"}; see ${logPath}, then run pnpm stand:light down`,
       );
     }
-    await new Promise((resolveDelay) =>
-      setTimeout(resolveDelay, recordPollMilliseconds),
-    );
+    await pause(recordPollMilliseconds);
   }
 }
 
@@ -182,9 +184,7 @@ async function down(directory, worktree) {
     process.kill(state.pid, "SIGTERM");
     const deadline = Date.now() + stopBudgetMilliseconds;
     while (processAlive(state.pid) && Date.now() < deadline)
-      await new Promise((resolveDelay) =>
-        setTimeout(resolveDelay, stopPollMilliseconds),
-      );
+      await pause(stopPollMilliseconds);
     if (processAlive(state.pid))
       throw new Error(
         `Light instance supervisor ${String(state.pid)} did not stop`,
@@ -205,13 +205,34 @@ async function down(directory, worktree) {
  */
 async function removeLeftovers(directory, state) {
   composePsql({
-    cwd: state.worktree,
+    // The worktree may be deleted already; Compose selects the project by name.
+    cwd: undefined,
     composeProject: state.composeProject,
     run: execFileSync,
   })(
     `drop database if exists ${assertLightDatabase(state.database)} with (force)`,
   );
   await rm(join(directory, `${state.id}.json`), { force: true });
+  if (!existsSync(state.worktree)) return;
+  // A crashed supervisor also leaves the release identity it wrote; another file stays.
+  const identity = join(state.worktree, "apps/web/release-identity.json");
+  if (
+    existsSync(identity) &&
+    (await readFile(identity, "utf8")) ===
+      `${JSON.stringify(fullStackRelease)}\n`
+  )
+    await rm(identity, { force: true });
+  if (
+    git(state.worktree, ["status", "--porcelain", "--", "apps/web/AGENTS.md"])
+  )
+    process.stderr.write(
+      "apps/web/AGENTS.md differs from the commit; next may have rewritten its Next.js block before the crash. Check it with git diff.\n",
+    );
+}
+
+/** @param {number} milliseconds */
+function pause(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 /** @param {string} directory */
