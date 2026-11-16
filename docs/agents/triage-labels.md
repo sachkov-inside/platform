@@ -10,7 +10,7 @@ Use the canonical roles from `mattpocock/skills` without renaming them.
 | `ready-for-human` | `ready-for-human` | Human implementation or judgment is required |
 | `wontfix` | `wontfix` | The work will not be actioned |
 
-A label is context, not an assignment; resolve owner decisions before `ready-for-agent`.
+Resolve owner decisions before `ready-for-agent`. What starts work: root [AGENTS.md](../../AGENTS.md#process).
 
 Every triaged issue has exactly one role from this table; a specification or version has none once
 it has sub-issues. `ready-for-human` is only for work a human does. The `wayfinder` skill adds its
