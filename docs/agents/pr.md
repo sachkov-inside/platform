@@ -4,9 +4,9 @@
 real tasks; until then this shape is the working draft.
 
 The PR is a short briefing for the owner, who accepts from evidence and reads no code
-([human participation](human-review.md)). The `pr` skill's rules apply; Platform orders and names
-its sections as below and moves risk, rollback and the check table under «Подробности», which
-is written for agents. Write in
+([human participation](human-review.md)). The `pr` skill's rules apply with three Platform changes:
+the status is a `#` heading, the sections are ordered and named as below, and the check table,
+rollback and review reports move under «Подробности», which is written for agents. Write in
 plain Russian under `Human-facing text` of root [AGENTS.md](../../AGENTS.md#human-facing-text) and
 keep the domain terms from the glossaries.
 
@@ -33,8 +33,9 @@ keep the domain terms from the glossaries.
 <details>
 <summary>Подробности</summary>
 
-<for agents only: the exact change, commands to reproduce, links to runs, review reports, the
-verdict, risk and rollback, the classifier's duration and tokens>
+<for agents only: the exact change, checked head and review base, commands to reproduce, the
+check table with links to runs, review reports and their disposition, the verdict, rollback, the
+classifier's duration and tokens>
 
 </details>
 
@@ -58,12 +59,15 @@ The owner reads everything outside «Подробности» and nothing inside
   words what the user does and what came of it. Window sizes, pixels, commits, role names and
   commands stay out of it; when a size matters, say «в невысоком окне» or «на телефоне». A task
   with nothing to show gives one line on why, the CI link and the review result.
-- **Не проверено**, **Проверить самому**: one line each, in the same everyday words.
+- **Не проверено**, **Проверить самому**: one line each, in the same everyday words; the
+  `local-stand` skill prepares the stand the owner opens. A risk the owner must know is a question
+  in «От тебя нужно» or the line «Не проверено».
 - **Подробности**: only what an agent needs to continue or recheck the work. Nothing the owner
   must know or decide goes there.
 
-Leave out a section with nothing to say. The text outside «Подробности» stays under 70 words; the
-scenario lines of «Проверено» and captions under evidence do not count.
+Leave out a section with nothing to say. The owner's text stays under 70 words. Count the reason
+line, the questions, «Что изменилось», «Не проверено» and «Проверить самому». Headings, the
+scenario lines of «Проверено», captions under evidence and the `Closes` line do not count.
 
 An earlier supporting PR uses `Part of #<issue>`; the final delivery PR uses `Closes #<issue>`.
 
