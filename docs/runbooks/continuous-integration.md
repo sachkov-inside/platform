@@ -726,8 +726,8 @@ upload them only after a failure. In `Web browser (…)` the navigation suite wr
 to `playwright-report/navigation` inside the same artifact. Passed runs carry no traces or
 screenshots: Playwright keeps them only for failed tests. Other jobs and the manual full-stack
 smoke upload diagnostics only after a failure; the exceptions are the cache preparation
-observations of `Production checks (cache)` and the source evidence of `CI Gate`, which every run
-keeps. The flake hunt retains every sample as described above. Compose jobs capture service state
+observations of `Production checks (cache)`, uploaded after a passed or failed proof, and the
+source evidence of every passing `CI Gate`. The flake hunt retains every sample as described above. Compose jobs capture service state
 and at most the latest 500 log lines before cleanup. CI artifacts are retained for seven days.
 
 The full-stack smoke writes one `fullstack-first-failure` JSON record to the CI log when
