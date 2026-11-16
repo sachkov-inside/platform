@@ -50,9 +50,10 @@ pnpm worktree:status
 The host CLI allocates a port and records the owned process identity. `--keep` preserves this preview
 through `pnpm worktree:cleanup`; the task's last step after merge stops it. Application-specific
 API origins and callbacks still need the configuration above; allocating one port does not
-configure a complete parallel stack. Use the stand controller for a full application presentation and its reservation, rather than registering the shared stand
-as a task-owned process. Testcontainers, Compose resources and other launchers retain their existing
-owners and cleanup procedures.
+configure a complete parallel stack. Use the stand controller for a full application presentation
+and its reservation, rather than registering the shared stand as a task-owned process.
+Testcontainers, Compose resources and other launchers retain their existing owners and cleanup
+procedures.
 
 Keep the task/PR handoff's port, PID, cwd, source commit, purpose and stop/restart instructions current.
 Do not include secrets, tokens, environment contents or secret-bearing command arguments in the
