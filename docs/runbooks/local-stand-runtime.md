@@ -39,6 +39,13 @@ Docker restarts unexpected exits after successful startup; an explicit stop rema
 An unhealthy probe alone does not restart the container. These local settings do not change
 the release Web's existing 512 MiB deployment cap or other local services.
 
+Web's local health probe calls `/_health/ready`, which checks API readiness and matching release
+identity. It does not render the public homepage every two seconds. The HTTP deadline is four
+seconds, below Compose's five-second probe timeout. This removes recurring page rendering from
+an idle stand; it does not establish a cause or a complete fix for #1332. The observed growth,
+isolated diagnostic limits and remaining runtime checks are recorded in
+[the incident evidence](../evidence/issue-1332/README.md).
+
 Before applying these settings to an existing shared stand, its owner must announce the restart.
 Record the current Web `memory.current` and guest `MemAvailable`, then choose the runtime limits
 for the planned workload. Measure production Web's peak and VM headroom through startup and
