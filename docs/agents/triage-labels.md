@@ -10,7 +10,8 @@ Use the canonical roles from `mattpocock/skills` without renaming them.
 | `ready-for-human` | `ready-for-human` | Human implementation or judgment is required |
 | `wontfix` | `wontfix` | The work will not be actioned |
 
-Resolve owner decisions before `ready-for-agent`. Root [AGENTS.md](../../AGENTS.md#process) owns what
+Resolve owner decisions and record the
+[key scenarios](human-review.md#agree-in-the-specification) before `ready-for-agent`. Root [AGENTS.md](../../AGENTS.md#process) owns what
 starts work.
 
 Every triaged issue has exactly one role from this table; a specification or version has none once

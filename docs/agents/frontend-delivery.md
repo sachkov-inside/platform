@@ -1,7 +1,8 @@
 # Frontend delivery
 
-Storybook is the executable UI review surface of `apps/web`, not a second application or data
-path.
+Storybook is the workshop of `apps/web`: the executable UI review surface, not a second
+application or data path. The running application proves the look a user gets
+([human review](human-review.md#evidence)).
 
 For Home, Library, Series or Reader changes, read the current
 [product navigation contract](../product/platform-mvp-brief.md#поиск-и-навигация),
@@ -130,8 +131,9 @@ outside `apps/web`, such as the Telegram sign-in page of the identity service.
 
 ## Interface evidence
 
-Issue evidence follows [Snapshots as issue evidence](../runbooks/local-verification.md#snapshots-as-issue-evidence).
-Two recurring traps affect what a snapshot shows:
+[Human review](human-review.md#evidence) owns what counts as evidence and [PR body](pr.md#attachments)
+how it reaches the PR; [Snapshots as issue evidence](../runbooks/local-verification.md#snapshots-as-issue-evidence)
+owns where a run writes snapshots. Two recurring traps affect what a snapshot shows:
 
 - From the `lg` breakpoint the application shell scrolls `[data-application-content]`, and the
   authoring shell scrolls `#authoring-content` from `md`, so a Playwright `fullPage` capture above

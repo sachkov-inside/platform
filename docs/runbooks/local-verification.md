@@ -160,14 +160,15 @@ UPDATE_EVIDENCE=issue-529 pnpm smoke:fullstack
 ```
 
 Only `docs/evidence/issue-529` is written; snapshots of every other scenario in the same run still
-go to the artifacts directory. Review the result and commit it with the work it belongs to. A
-misspelled folder fails the run instead of quietly writing nowhere you would look.
+go to the artifacts directory. A misspelled folder fails the run instead of quietly writing nowhere
+you would look. Commit a snapshot only when a run reads it. Evidence for the owner is attached to
+the PR under [PR body](../agents/pr.md#attachments); earlier committed evidence stays as it is.
 
 `UPDATE_EVIDENCE` chooses the destination, not whether a snapshot is taken. Some suites still take
 theirs only behind their own switch: `CAPTURE_EVIDENCE=1` for the authoring walkthroughs,
 `CAPTURE_TELEGRAM_EVIDENCE=1` for the Telegram sign-in states, and the per-issue
 `CAPTURE_ISSUE_NNN_EVIDENCE=1` used by the Reader scenarios. Set both when you want a fresh
-snapshot committed.
+snapshot in the chosen folder.
 
 `pnpm evidence:web` selects `evidence.spec.ts` for desktop and mobile Chromium. It uses the same
 production launcher as `test:e2e`, with test Logto settings, a temporary release identity and the

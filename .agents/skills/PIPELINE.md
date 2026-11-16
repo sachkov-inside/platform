@@ -8,6 +8,8 @@ The manifest and lock own installation; project rules live in root AGENTS.md and
 
 - `implement`, `tdd`, `code-review`: [implementation](../../docs/agents/implementation.md).
 - `ship`: [ship](../../docs/agents/ship.md). `pr`: [PR body](../../docs/agents/pr.md).
+- Human participation for `to-spec`, `to-tickets`, `code-review`, `pr`, `implement-spec` and
+  `ship`: [human review](../../docs/agents/human-review.md).
 - `prototype`: [frontend delivery](../../docs/agents/frontend-delivery.md#prototypes).
 - `to-spec`, `to-tickets`, `triage`: tracker and ticket location in
   [issue tracker](../../docs/agents/issue-tracker.md); readiness roles and the rejected-request

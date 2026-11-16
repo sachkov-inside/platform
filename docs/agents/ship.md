@@ -1,6 +1,7 @@
 # Ship
 
-Platform facts for the `ship` skill: merge, advance acceptance, sensitive zones and their checks.
+Platform facts for the `ship` skill: merge, the decision whether the owner is needed, and advance
+acceptance. [Human review](human-review.md) owns the rules this decision applies.
 
 ## Merge
 
@@ -10,48 +11,34 @@ merge-queue CI stay required.
 
 ## Owner acceptance
 
-After independent review and required green CI, answer all three questions on the delivered head:
+After independent review, required green CI and the
+[verification](human-review.md#verification) the change requires, apply the
+[consequence triggers](human-review.md#consequence-triggers) to the delivered change and run the
+checks of every trigger that applies. Add the triggers the Spec reviewer reported.
 
-- **Door:** can one revert undo the change with nothing lost, with no later work built on it?
-  Data migrations, sent messages, releases, public contracts and new architecture are one-way doors.
-- **Zone:** does the behaviour change stay outside the sensitive zones below?
-- **Proof:** does evidence cover every acceptance criterion without human judgement?
-  An open review finding, a product choice outside the agreed result, or new visual design/UX
-  means no.
+The change needs no owner acceptance when all four hold:
 
-Three yes answers need no owner check. Otherwise name the concrete result or decision for the
-owner in the PR and handoff, with the full delivered SHA. Recorded acceptance of that exact thing
-in the assignment or earlier conversation satisfies its question; apply advance acceptance below
-only within its scope. Owner acceptance is inspection or a decision, not a code review.
-Merge only with recorded merge permission and all owner checks satisfied. Otherwise mark the
-reviewed, green PR ready for review and stop at that concrete remaining gate. Report CI state,
-the three answers and the owner's next action. Production permission remains separate.
+- behaviour does not change for users;
+- the task says there is nothing to show;
+- no consequence trigger applies;
+- the independent review agrees: no open finding and no missed trigger.
+
+Otherwise the owner accepts from evidence. Name the concrete result or decision for the owner in
+the PR and handoff, with the full delivered SHA. Recorded acceptance of that exact thing in the
+assignment or earlier conversation satisfies it; apply advance acceptance below only within its
+scope. Owner acceptance is an inspection or a decision from evidence, never a code review.
+
+Merge permission is a separate condition: merge only with recorded merge permission and every
+owner acceptance satisfied. Otherwise mark the reviewed, green PR ready for review and stop at that
+concrete remaining gate. Report CI state, the conditions that failed and the owner's next action.
+Releases, deployments, production writes, payments and credentials stay with the owner whatever
+the four conditions say.
 
 ## Advance acceptance
 
 Owner decision 1 (2026-10-22): an assignment to finish through merge, such as «сделай всё до конца»,
 accepts the prepared result in advance, except production, money and legal effects; standing
 merge permission alone is not such an assignment.
-
-## Sensitive zones
-
-The baseline zones are money, auth and permissions, production data, personal data, secrets,
-legal text, CI and release workflows, and agent instructions (`AGENTS.md`, `WORKFLOW.md`, skills
-and `docs/agents/`). The table adds Platform paths and checks. Classify the actual behaviour change: a comment in a
-sensitive module stays outside the zone, and a small change elsewhere can enter it.
-
-| Zone | Paths | Checks when behaviour changes |
-|---|---|---|
-| Accounts, sessions, permissions, content access | `apps/backend/src/modules/{identity-principals,accounts,account-rights,content-access}`, `apps/web/src/shared/auth`, `apps/web/src/features/account-*`, `apps/telegram/src/security` | Positive and negative authorization scenarios, Account isolation, direct and delegated access; separate security review |
-| Money: purchases, grants, subscriptions | `apps/backend/src/modules/{billing,products,telegram-membership}`, `apps/web/src/features/{billing-*,payment-links,owner-payments,product-order,product-sale-settings}`, `apps/web/src/entities/subscription*` | Buyer and access contracts; repeated and concurrent events, transactional effects and recovery when affected; security review when trust or permissions change |
-| Persistent data and jobs | `apps/backend/src/migrations`, `apps/backend/prisma`, `apps/telegram/src/database` | Integration tests on real persistence; migration compatibility, rollback or stated irreversibility; retry, concurrency and crash recovery when affected |
-| External REST, MCP and provider boundaries | `apps/backend/openapi`, `apps/backend/mcp`, `apps/backend/src/**/*.controller.ts`, `apps/web/src/shared/api`, `apps/telegram/src/adapters` | Schema and transport contracts, input validation, negative permission scenarios; security review for a new or changed trust boundary |
-| Legal text, publication, personal data | `docs/legal`, `apps/web/src/features/{terms-acceptance,accepted-documents,account-profile-editor,client-telemetry}`, `apps/web/src/entities/{legal-document,account-profile}`, `apps/backend/src/modules/{member-profiles,account-profiles,web-telemetry}` | The owning product or legal contract; the owner's decision before the protected action |
-| CI, release, deployment | `.github/workflows`, `scripts/*release*`, `scripts/production-*`, `apps/backend/src/release`, `infra`, `apps/telegram/infra` | The delivery contract tests in `scripts/*.test.mjs`, their negative fixtures and recovery proof; security review when trust or credentials change |
-| Agent instructions | `AGENTS.md`, `CODING_STANDARDS.md`, `docs/agents`, `.agents/skills`, `scripts/check-agent-documentation.mjs` | `pnpm docs:check`; review under the rules on `main` before the change |
-
-Assign a security review also for external input handling, secrets, or uncertain security relevance.
-Visual work keeps the owner acceptance gates of [frontend delivery](frontend-delivery.md).
 
 ## CI failures
 

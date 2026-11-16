@@ -10,8 +10,9 @@ Selected skills: `code-review`, `codebase-design`, `diagnosing-bugs`, `domain-mo
 
 Portable procedures come from pinned Agent Kit copies. Root [AGENTS.md](../../AGENTS.md) and
 [project contracts](../../docs/agents/implementation.md) own starts, worktree mode, testing seams,
-commit-before-review order and delivery. [Ship](../../docs/agents/ship.md) owns baseline sensitive
-zones, Door/Zone/Proof acceptance, merge permission, CI Gate and merge queue policy. Tracker,
+commit-before-review order and delivery. [Human review](../../docs/agents/human-review.md) owns owner
+participation, consequence triggers and evidence. [Ship](../../docs/agents/ship.md) owns the
+decision whether the owner is needed, CI Gate and merge queue policy. Tracker,
 frontend, domain and owner-correction contracts keep their existing owners.
 
 Unselected folders retain project/package ownership: `ai-models-refresh`, `impeccable`,
