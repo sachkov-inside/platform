@@ -1,5 +1,10 @@
 // @ts-check
 import { z } from "zod";
+import {
+  navigationPaymentProducts,
+  paymentFacts,
+  paymentScenario,
+} from "../../../../scenarios/payments.mjs";
 
 /**
  * Платежи владельца в навигационном наборе (#1718): изолированный HTTP-стенд в форме контракта Nest
@@ -9,29 +14,21 @@ import { z } from "zod";
  */
 
 const operationRef = "78000000-0000-4000-8000-000000000001";
+const paymentProductsByKey = new Map(
+  navigationPaymentProducts.map((product, at) => [
+    product.key,
+    {
+      id: `78000000-0000-4000-8000-${(241 + at).toString(16).padStart(12, "0")}`,
+      title: product.shortName,
+    },
+  ]),
+);
 const salesPaymentsFixture = Object.freeze({
-  products: [
-    {
-      id: "78000000-0000-4000-8000-0000000000f1",
-      title: "Разработка с агентами",
-    },
-    {
-      id: "78000000-0000-4000-8000-0000000000f2",
-      title: "Архитектура и проектирование систем",
-    },
-    { id: "78000000-0000-4000-8000-0000000000f3", title: "AI Engineering" },
-  ],
+  products: [...paymentProductsByKey.values()],
   /** Платёж, итог которого банк не сообщил: его сверяет набор. */
   unknownRef: "78000000-0000-4000-8000-000000000101",
-  orderEmail: "buyer.order@example.test",
+  orderEmail: paymentScenario.orderEmail,
 });
-const states = /** @type {const} */ ([
-  "confirmed",
-  "pending",
-  "failed",
-  "confirmed",
-  "sent",
-]);
 const pageLimit = 100;
 
 /** @param {number} index */
@@ -39,18 +36,12 @@ function ref(index) {
   return `78000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
 
-/**
- * @param {number} index
- * @param {string} state
- * @param {string} createdAt
- */
-function payment(index, state, createdAt) {
-  const product =
-    salesPaymentsFixture.products[
-      index % salesPaymentsFixture.products.length
-    ] ?? salesPaymentsFixture.products[0];
+/** @param {number} index */
+function payment(index) {
+  const facts = paymentFacts(index, "navigation");
+  const product = paymentProductsByKey.get(facts.product.key);
   if (product === undefined) throw new Error("No fixture product");
-  const amountKopecks = 990_000 + (index % 4) * 500_000;
+  const { amountKopecks, state, occurredAt: createdAt } = facts;
   return {
     purchaseRef:
       index === 0 ? salesPaymentsFixture.unknownRef : ref(index + 200),
@@ -60,31 +51,30 @@ function payment(index, state, createdAt) {
     subscriptionRef: null,
     periodIndex: null,
     amountKopecks,
-    environment: "demo",
-    terminalRef: "1700000000001DEMO",
-    paymentId: String(7_200_000_000 + index),
+    environment: facts.environment,
+    terminalRef: facts.terminalRef,
+    paymentId: facts.bankPaymentId,
     snapshot: {
-      product: { id: product.id, name: product.title, priceRevision: 2 },
+      product: {
+        id: product.id,
+        name: product.title,
+        priceRevision: facts.priceRevision,
+      },
       offer: {
         id: ref(900),
-        revision: 1,
+        ...paymentScenario.offer,
+        benefits: [...paymentScenario.offer.benefits],
         name: product.title,
-        benefits: ["materials"],
-        archived: false,
-        published: true,
       },
       paymentOption: {
         id: ref(901),
-        revision: 1,
+        ...paymentScenario.option,
         offerId: ref(900),
-        mode: "one_time",
-        months: 12,
         priceKopecks: amountKopecks,
-        archived: false,
       },
       promotion: null,
-      currency: "RUB",
-      timezone: "Europe/Moscow",
+      currency: paymentScenario.currency,
+      timezone: paymentScenario.timezone,
       firstPriceKopecks: amountKopecks,
       renewalPriceKopecks: amountKopecks,
     },
@@ -93,29 +83,16 @@ function payment(index, state, createdAt) {
     periodEndsAt: null,
     createdAt,
     updatedAt: createdAt,
-    access: state === "confirmed" ? "ready" : "awaiting_payment",
-    refundedKopecks: state === "unknown" ? null : 0,
-    refundableKopecks:
-      state === "confirmed" ? amountKopecks : state === "unknown" ? null : 0,
+    access: facts.access,
+    refundedKopecks: facts.refundedKopecks,
+    refundableKopecks: facts.refundableKopecks,
   };
 }
 
 /** 60 платежей, по одному в шесть часов с 24.10.2026 14:00 МСК назад; первый ждёт сверки. */
 function initialPayments() {
-  const rows = Array.from({ length: 60 }, (_, index) =>
-    payment(
-      index,
-      index === 0 ? "unknown" : (states[index % states.length] ?? "confirmed"),
-      new Date(
-        Date.parse("2026-10-24T11:00:00.000Z") - index * 6 * 3_600_000,
-      ).toISOString(),
-    ),
-  );
-  // Выдача этого подтверждённого платежа ещё готовится (#1719).
-  return rows.map((row) =>
-    row.purchaseRef === fulfillmentIncompleteRef
-      ? { ...row, access: "preparing" }
-      : row,
+  return Array.from({ length: paymentScenario.navigation.count }, (_, index) =>
+    payment(index),
   );
 }
 
