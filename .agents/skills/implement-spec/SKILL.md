@@ -9,7 +9,10 @@ approved spec, tickets, criteria, blockers and human checkpoints. An authorized
 spec run covers its agreed child tasks, not new requirements.
 
 The goal is the assigned spec delivered in the project's selected mode: ticket
-PRs or an approved integration branch. Record an immutable review base against
+PRs, an approved integration branch, or main-checkout delivery. Keep spec status,
+review reports and verification evidence in the project-selected ticket, PR,
+integration record or main-checkout evidence location; do not create a PR or branch
+solely to hold evidence. Record an immutable review base against
 the intended target. This procedure does not choose another acceptance mode.
 
 Tickets form a **task graph** with blocking relationships and a ready **frontier**.
@@ -22,8 +25,11 @@ A native subagent is not an independently assigned application session.
 
 1. Read the spec and ticket graph. Resolve dependency and acceptance conditions.
 2. If exploration is needed, a fresh exploration subagent can write scoped notes
-   outside the repo, accessible to later workers. Read-only exploration does not
-   start another implementation beyond the approved graph.
+   at the location selected by the target project's exploration and evidence policy,
+   accessible to later workers. If placement is unresolved, obtain the missing
+   project decision before writing notes; do not assume an inside- or outside-repo
+   location. Read-only exploration does not start another implementation beyond
+   the approved graph.
 3. Prepare the owned execution context under project policy. In integration mode,
    prepare its branch/worktree and draft at the required point. In ticket-PR mode,
    each ticket follows its own delivery and dependency-merge gates. A main-checkout

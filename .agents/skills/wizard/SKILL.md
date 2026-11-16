@@ -1,6 +1,6 @@
 ---
 name: wizard
-description: Generate an interactive bash wizard that walks a human through steps only they can perform. Use when provisioning infrastructure, setting up credentials or CI secrets, walking an unfamiliar third-party dashboard, or running a one-off migration or cutover. Don't invoke this for steps the agent can perform itself.
+description: "Generate a bash wizard for human-only setup, credentials, dashboard steps or cutovers. Use only when the agent cannot perform the required steps itself."
 ---
 
 # Wizard
@@ -15,7 +15,7 @@ A wizard is ephemeral by default: built for one run, saved to a scratch or `scri
 
 ### 1. Scope the procedure
 
-Work out every manual step the human must take and every value that gets captured along the way. Read the repo first, don't ask cold:
+Include only steps the agent cannot perform with its authorized tools and access; complete agent-executable work directly. Infrastructure, migrations and cutovers qualify only where a human must act. Work out every manual step the human must take and every value that gets captured along the way. Read the repo first, don't ask cold:
 
 - For setup: read authorized non-secret schemas/examples, `README`, `docker-compose*`, framework config and `.github/workflows/*` to discover required variable names. Existing credential values remain unread unless the assignment and project policy authorize access; otherwise the human supplies them through the generated wizard. A `secrets.*` / `vars.*` reference identifies a value the wizard may need to collect.
 - For a migration or transition: the current state, the target state, and the irreversible actions between them.

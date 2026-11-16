@@ -103,11 +103,11 @@ Let them edit before writing.
 
 **Pick the file to edit:**
 
-- If `CLAUDE.md` exists, edit it.
-- Else if `AGENTS.md` exists, edit it.
-- If neither exists, ask the user which one to create; don't pick for them.
+- Resolve the canonical instruction owner from the project's existing policy and include/alias pointers, regardless of client or filename. Edit the shared owner once; preserve client wrappers.
+- If both files exist with independent or conflicting ownership and no declared authority, ask which owns the shared configuration before writing. Do not choose by filename precedence.
+- If only one exists, use its declared owner. If neither exists, ask which file to create.
 
-Never create `AGENTS.md` when `CLAUDE.md` already exists (or vice versa); always edit the one that's already there.
+Do not create a parallel authority file or duplicate shared configuration.
 
 If an `## Agent skills` block exists, update it in place. When equivalent pointers already exist elsewhere, update those instead.
 Preserve the current navigation structure and surrounding policies. When CLAUDE.md points to AGENTS.md, edit the shared target once.
