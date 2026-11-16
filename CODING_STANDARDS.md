@@ -124,14 +124,17 @@ state, not only a running process or copied file.
 
 ## Comments
 
-Move an invariant into a test or a type. Its reason stays as a short comment with a link. The
-comments that remain:
+Move an invariant into a test or a type. Its reason stays beside the code as a short comment with
+a link. Other comments that remain:
 
 - a licence;
 - behaviour forced by an external dependency;
 - documentation of a public API;
 - a link to the issue or decision whose constraint the code cannot express;
 - a tool directive with its reason.
+
+Review applies this to the lines a change adds. No check enforces it, and existing comments wait
+for their own cleanup task (owner decision, 2026-11-16).
 
 ## Text that describes the system
 

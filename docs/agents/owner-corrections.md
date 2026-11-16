@@ -15,9 +15,10 @@ owner-invoked; this contract does not invoke it.
    [authority table](documentation-maintenance.md#choose-the-authority). A mechanically detectable
    failure gets a check that rejects the violation and accepts a valid case. A one-case correction
    can close through code and its focused test alone. Permanent prose needs a reusable criterion.
-   Anchor the fix at the highest level available, in this order: architecture, types, a lint rule
-   with a hint, a test, and a document last. A new check fails on that same past mistake. An
-   exception from a check carries its reason and an end date.
+   Among durable changes, anchor the fix at the highest level available, in this order:
+   architecture, types, a lint rule with a hint, a test, and a document last. A new check fails on
+   that same past mistake. An exception from a check carries its reason and its term: an end date
+   or the open issue that ends it.
 4. Run `pnpm docs:check` when documentation changes, then the task's own checks and review.
 5. In the handoff, name the correction, its scope, the changed rule or check, and the verification.
    Other branches receive the requirement only after they merge the change.

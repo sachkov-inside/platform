@@ -47,7 +47,7 @@ is called.
 
 Assign a security review also for external input handling, secrets, or uncertain security
 relevance. For a money or permissions consequence, a security review finding carries the command
-and its output; an unproven finding is labelled an assumption.
+that reproduces it and its output; an unproven finding is labelled an assumption.
 
 The independent Spec reviewer compares the requirements, the agreed key scenarios, the complete
 delivered diff and the current evidence. Its report carries notes on what may concern the owner: a

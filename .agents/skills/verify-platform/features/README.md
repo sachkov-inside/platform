@@ -55,9 +55,10 @@ changes a label, route or seed fact, change the file in the same PR.
 ## Auditing the map
 
 On an assignment to audit the map, one code reader per feature compares its feature file with the
-code, then one live pass drives the whole map. Each feature ends in one outcome: clean, changed or
-blocked. The audit edits only this skill's folder and leaves product code alone. Search separately
-for user-facing surfaces of recent changes that the map lacks.
+code, then one live pass drives the whole map. Each feature ends in one outcome: clean, changed, or
+blocked when the pass could not reach it. The audit edits only this skill's folder and leaves
+product code alone. Search separately for user-facing surfaces that changes merged since the last
+audit added and the map lacks.
 
 ## Features
 
