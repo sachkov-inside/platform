@@ -127,9 +127,15 @@ test("неизвестный адрес отвечает 404 по-русски �
     "Страница не найдена",
   );
   await expect(page).toHaveTitle("Страница не найдена · sachkov.dev");
-  // Вкладку называет первый `<title>`, а первым становится тот, что гидрировался последним.
-  // Поэтому другого заголовка в документе 404 быть не должно (#2213).
-  expect(new Set(await page.locator("head > title").allTextContents())).toEqual(
+  // Вкладку называет первый `<title>` документа, а первым становится тот, чей компонент
+  // гидрировался последним. Поэтому у всех `<title>` документа 404 один текст (#2213).
+  const documentTitles = await page.evaluate(() =>
+    Array.from(
+      document.querySelectorAll("title:not(svg title)"),
+      (title) => title.textContent,
+    ),
+  );
+  expect(new Set(documentTitles)).toEqual(
     new Set(["Страница не найдена · sachkov.dev"]),
   );
   await expect(page.getByText("This page could not be found")).toHaveCount(0);
