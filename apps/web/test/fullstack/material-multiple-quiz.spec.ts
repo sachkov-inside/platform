@@ -131,8 +131,21 @@ test("multiple-answer quiz survives real document admission, published Reader an
     ),
   ).toBe(true);
   await page.reload();
+  // Вернувшись в урок, человек видит свой последний ответ и результат (interactive-lessons-v1, §2).
+  // Сервер отдаёт попытки после гидратации: до этого квиз пуст, и проверка пустого квиза
+  // зависела от того, успеет ли она раньше ответа (#2197).
+  await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
   await expect(quiz.getByRole("checkbox")).toHaveCount(8);
-  await expect(quiz.getByRole("checkbox").first()).not.toBeChecked();
-  await expect(quiz.getByRole("button", { name: "Проверить" })).toBeDisabled();
-  await expect(quiz.locator("[data-quiz-feedback]")).toHaveCount(0);
+  for (const id of ["accounts", "projects", "github", "agent", "teams"])
+    await expect(
+      quiz.getByRole("checkbox", { name: `Возможность ${id}`, exact: true }),
+    ).toBeChecked();
+  for (const id of ["cloud", "budgets", "rag"])
+    await expect(
+      quiz.getByRole("checkbox", { name: `Возможность ${id}`, exact: true }),
+    ).not.toBeChecked();
+  await expect(quiz.getByRole("button", { name: "Проверить" })).toHaveCount(0);
+  await expect(
+    quiz.getByRole("button", { name: "Ответить ещё раз" }),
+  ).toBeVisible();
 });
