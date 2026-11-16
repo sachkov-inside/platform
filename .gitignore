@@ -8,7 +8,6 @@ config/production/foundation/*.env
 .impeccable/review/
 .identity-proof
 ci-artifacts/
-.evidence/
 .playwright-cli/
 .reports/
 playwright-report/

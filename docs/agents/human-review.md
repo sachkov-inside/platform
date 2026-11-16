@@ -57,9 +57,7 @@ missed consequence, an unsupported "nothing to show", stale evidence. The classi
 
 Verification is its own step, by another agent, at the place root
 [AGENTS.md](../../AGENTS.md#process) gives it in the skill chain. A fresh agent that did not write
-the change runs it the way a user would, through the project skill `verify-platform` (not installed
-as of 2026-11-16, #2206; until it is, the fresh agent runs the key scenarios with `local-stand`),
-and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
+the change runs it the way a user would, through the project skill `verify-platform`, and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
 
 - **Required** when user-visible behaviour changes or the task has key scenarios. An internal
   change or documentation needs none, and the PR says so in one line.
@@ -95,11 +93,10 @@ Choose the kind of evidence for each scenario; one PR mixes them:
 Tests protect against regressions and are not the evidence the owner accepts from. Storybook is a
 workshop: the running application proves the look a user gets.
 
-The verifier puts the files and their inventory into the `.evidence/` folder at the worktree's
-root, outside Git. For each scenario the inventory names the kind of evidence, the files, what
-they show in one line, the source of the data and the change they cover; `verify-platform` owns
-its exact format. `pr` assembles «Проверено» from the inventory and retells nothing in its own
-words.
+The verifier keeps the files and their inventory on the machine, outside Git; `verify-platform`
+owns the directory and the report format. For each scenario the inventory gives the kind of
+evidence, the files, what they show in one line, the source of the data and the change they cover.
+`pr` assembles «Проверено» from that inventory and retells nothing in its own words.
 
 Evidence lives in the PR; a specification keeps it in its final PR. No feature page holds it and
 no script classifies a diff (owner decision 5 of #2206). The repository is public: evidence shows

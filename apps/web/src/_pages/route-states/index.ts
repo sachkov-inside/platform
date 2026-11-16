@@ -1,5 +1,6 @@
 export {
   PageNotFound,
+  pageNotFoundTitle,
   PageUnexpectedError,
   StandalonePageError,
 } from "./ui/route-states";

@@ -127,6 +127,17 @@ test("неизвестный адрес отвечает 404 по-русски �
     "Страница не найдена",
   );
   await expect(page).toHaveTitle("Страница не найдена · sachkov.dev");
+  // Вкладку называет первый `<title>` документа, а первым становится тот, чей компонент
+  // гидрировался последним. Поэтому у всех `<title>` документа 404 один текст (#2213).
+  const documentTitles = await page.evaluate(() =>
+    Array.from(
+      document.querySelectorAll("title:not(svg title)"),
+      (title) => title.textContent,
+    ),
+  );
+  expect(new Set(documentTitles)).toEqual(
+    new Set(["Страница не найдена · sachkov.dev"]),
+  );
   await expect(page.getByText("This page could not be found")).toHaveCount(0);
   await expect(
     getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
@@ -137,6 +148,7 @@ test("неизвестный адрес отвечает 404 по-русски �
 
   await page.getByRole("link", { name: "На главную" }).click();
   await expect(page).toHaveURL(/\/$/u);
+  await expect(page).toHaveTitle("Главная · sachkov.dev");
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])

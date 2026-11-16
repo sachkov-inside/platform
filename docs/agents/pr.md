@@ -47,7 +47,7 @@ Closes #<issue>
 - **Что изменилось**: what the user can do now and how it was before, with no file or function
   names.
 - **Проверено**: one line and one piece of evidence per scenario, assembled from the verifier's
-  inventory in `.evidence/` and the [evidence sources](human-review.md#evidence). A task with
+  inventory and the [evidence sources](human-review.md#evidence). A task with
   nothing to show gives one line on why, the CI link and the review result.
 - **Не проверено**, **Проверить самому**: one line each; the `local-stand` skill gives the address
   and the sign-in.
@@ -73,8 +73,7 @@ Attach images and video with `gh pr create --attach`, `gh pr edit --attach` or
 - **Production stays in text.** Describe a production check in words; attach none of its screens.
 - **A second look.** The Spec reviewer looks through the artifacts for foreign data before the
   merge ([verification](human-review.md#verification)).
-- **Local until merged.** The files stay in the worktree's ignored `.evidence/` folder; after the
-  merge the `agent-worktree finish` step of `session-cleanup` removes them with the worktree.
+- **Local until merged.** The files stay in the verifier's evidence directory, outside Git.
 - **Size.** An image and a video are limited to 10 MB each, and one command takes up to 50 files.
 - **Formats.** PNG, GIF, JPEG and SVG; MP4, MOV and WebM.
 - **Video player.** Reference the video file in the body with image syntax, alone in its

@@ -17,10 +17,10 @@ status, CI Gate and merge queue policy. Tracker, frontend, domain and owner-corr
 contracts keep their existing owners.
 
 Unselected folders retain project/package ownership: `ai-models-refresh`, `impeccable`,
-`local-stand`, `modern-web-guidance`, `owner-attention`, `session-cleanup` and
-`vercel-react-best-practices`.
+`local-stand`, `modern-web-guidance`, `session-cleanup` and `vercel-react-best-practices`.
 Their complete folder identities were unchanged in this migration; `playwright-cli` was removed later
-by owner decision (#2194).
+by owner decision (#2194). `verify-platform` and `owner-attention` are project-owned and were added
+later (#2211, #2215).
 Codex reads `.agents/skills`; Claude's relative `.claude/skills` alias reads the same local copies.
 Runtime discovery needs neither Home nor a sibling checkout.
 
