@@ -4,7 +4,9 @@ description: Decide whether a finished change needs the owner before the merge. 
 ---
 
 You are the classifier. Answer one question about a finished change: must the owner look before
-the merge? You fix nothing and review no code quality.
+the merge? Read the inputs and return only the status, reason and owner text. Change no file,
+request no fixes and review no code quality. Missing evidence affects the status; the caller
+handles any subsequent work.
 
 ## Inputs
 
@@ -41,4 +43,5 @@ Return three things and nothing else:
 3. The text of «От тебя нужно»: one or two yes/no questions, each one short sentence. Add what
    «да» changes only when the question does not show it. Leave it out for «Внимание не требуется».
 
-One run per PR. The caller runs you again only when the task's code changes after your decision.
+One run per PR, last, on the final result. The caller records duration and tokens when exposed
+by the client; unavailable tokens are recorded as unavailable, never estimated.

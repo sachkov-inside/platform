@@ -217,9 +217,16 @@ result.
 
 - **`PASS`**: every journey the change needs was driven, each observed end state and side effect
   matched, nothing else looked wrong.
-- **`PASS+NOTES`**: the same, plus defects or deviations outside the change, in the notes.
+- **`PASS+NOTES`**: every required scenario matches; notes describe only unrelated defects or
+  stand limits outside required coverage. A deviation from the expected result inside this
+  change is always `FAIL`, even if cosmetic or easy to fix. The verifier describes it without
+  deciding to accept it on the owner's behalf. An unrelated defect gets a linked Issue.
 - **`FAIL`**: any expected state or side effect was missing or wrong, the doctor could not be made
-  to pass, or a journey the change needs could not be driven.
+  to pass for a required journey, or a journey the change needs could not be driven.
+
+Record a stand/light-instance limit outside a scenario the plan asked to show as «Не проверено»;
+it does not itself call the owner. If it blocks a required scenario, return `FAIL`. Report which
+scenario and failing command distinguish the two cases; never relabel a deviation as a stand limit.
 
 A scenario that could not be checked is added with kind `none`, the failing command in `--shows`
 and the result `FAIL` when the change depends on it; otherwise name it in the notes as not

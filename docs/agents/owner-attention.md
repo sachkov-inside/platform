@@ -10,7 +10,7 @@ correction. Keep it within one page.
 Named in the plan as a key scenario, these give «Требуется решение»; missing from the plan, they
 give «Требуется внимание».
 
-- New behaviour for a user.
+- New behaviour for a user, except the small planned visible change below.
 - A look of the interface that no approved design contains.
 - Money: price, renewal, refund, paid access.
 - Access: who enters a section and what they see there.
@@ -28,10 +28,15 @@ These give «Требуется внимание».
 
 These give «Требуется внимание».
 
-- A scenario of the plan is not shown.
+- A scenario the plan asked to show is not shown. For an owner-assigned task, its text is the
+  plan; implementation-derived scenarios need no separate approval.
 - Verification failed.
-- An unresolved review finding or verifier's note about a consequence for the user, money, access,
-  personal data or an irreversible action. A verifier's note on the look of the interface counts.
+- An unresolved review finding about a consequence for the user, money, access, personal data or
+  an irreversible action; or a verifier's note about the change itself or its consequence for users.
+  A note on the changed interface counts. An unrelated defect becomes a linked Issue, not a call.
+- A stand or light-instance limit is recorded as «Не проверено», without calling the owner,
+  unless it prevents a scenario the plan asked to show. For example, an unavailable Telegram
+  response outside those scenarios is a limit, not failed verification of the change.
 - CI is not green on the last commit.
 
 A technical review finding stays with the agents
@@ -43,7 +48,9 @@ With nothing above, these give «Внимание не требуется».
 
 - Documents, tests, CI, tools.
 - A bug fix with a test that failed before the fix.
-- A visible change that follows the plan, up to 5 files.
+- A visible change that follows the plan, up to 5 files. This exception takes precedence over
+  «New behaviour for a user» only. An explicit key scenario, money, access, personal data, legal
+  texts, an interface without approved design and thin evidence still call the owner.
 
 ## Only on the owner's command
 

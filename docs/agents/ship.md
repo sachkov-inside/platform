@@ -12,7 +12,9 @@ merge-queue CI stay required.
 
 ## Owner attention
 
-Every task ends with a PR in the [briefing form](pr.md) with its evidence. Run the checks of every
+Open a draft after the first push, in the [briefing form](pr.md). Until classification its first
+line is `# Классификация ожидается`, with no attention label and no merge permission.
+Every task ends with that PR and its evidence. Run the checks of every
 [consequence](human-review.md#consequence-triggers) the change has. Then a classifier sets the
 status that opens the PR: «Внимание не требуется», «Требуется решение» or «Требуется внимание».
 
@@ -21,18 +23,25 @@ Run the classifier once per PR and last, when the review, the
 and no technical review finding is left unsettled.
 Start the `owner-attention` skill as a fresh subagent and hand it the inputs its `SKILL.md` lists;
 the conditions file is [owner attention](owner-attention.md). The Spec reviewer checks the change
-against the task and leaves the notes; the classifier alone sets the status. Run it again when the
-task's code changes after its decision; a merge of `origin/main` without conflicts needs no new
-run. No CI check stands on top of the status. During the pilot (#2215) record the classifier's
-duration and tokens in the PR under «Подробности».
+against the task and leaves the notes; the classifier alone sets the status. It reads and returns
+only a status, a reason and the owner text, changes no file and requests no fixes. The caller
+replaces the draft heading and applies the status label. Finish all task edits before the one
+classification; do not use the classifier as a repair/review loop. A later task edit invalidates
+the status and merge permission: restore the pending heading and hand off the changed scope as
+new work. A conflict-free merge of `origin/main` that preserves the task diff keeps the status.
+No CI check stands on top of it. Record verification and classification start/end times, duration
+and tokens in «Подробности»; say when the client does not expose tokens, without estimates.
 
 ### What the status permits
 
 «Внимание не требуется» is the owner's standing permission to merge that task; quote nothing from
 a chat. The other two statuses wait for the owner's explicit «да» in the PR: mark the PR ready
 for review, stop, and report the status and his next action. An assignment to finish the
-work does not replace that «да». The status is a rule, not a GitHub lock: agents work under the
-owner's GitHub account.
+work does not replace that «да». His own PR comment counts, and so do his words relayed by the
+coordinator and recorded in a PR comment naming that source (session, date and words). The comment
+must approve this PR's result; a task assignment or approval of the rule change is insufficient.
+The status is a rule, not a GitHub lock: agents work under the owner's GitHub account, so the
+comment's GitHub author cannot distinguish his words from an agent's.
 
 ### What merged without the owner
 
