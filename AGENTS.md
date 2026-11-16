@@ -38,9 +38,11 @@ testing seams, commit/review order and the no-ticket acceptance record. [PIPELIN
 
 ## Commands
 
-- Product change: `pnpm check` on the final head, or exact-head CI under the
-  [verification evidence policy](docs/agents/release-evidence.md).
-- Documentation-only change: `pnpm docs:check` and focused checks; application suites are not a local gate.
+- Verification: locally an agent runs the focused tests of the changed code and the static checks
+  that cover it (for example typecheck, lint, `pnpm format:check`, `pnpm docs:check`). The full
+  suite runs in PR CI on the exact final head under the
+  [verification evidence policy](docs/agents/release-evidence.md). The whole `pnpm check` and
+  `pnpm check:full` are not local gates; run them or one stage only to reproduce or diagnose a failure.
 - Docker with Compose runs the primary development stack; host Node.js and pnpm are an optional
   fallback pinned in `.node-version` and `packageManager`.
 - Before any repository Compose command, including the Compose smoke, read the
