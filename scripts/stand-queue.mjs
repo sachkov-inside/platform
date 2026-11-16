@@ -1,4 +1,5 @@
 // @ts-check
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { unlinkSync } from "node:fs";
 import {
@@ -17,11 +18,18 @@ const ticketSchema = z.strictObject({
   worktree: z.string(),
   command: z.string(),
   enqueuedAt: z.iso.datetime(),
+  // When the system started the waiter's process. Absent in tickets of sessions that run the
+  // earlier code and when the system could not tell.
+  startedAt: z.iso.datetime().optional(),
 });
 const pollMilliseconds = 1_000;
+// Older `ps` builds derive the start time from the uptime, so two readings of one process can
+// differ by a second. A reused process ID starts far later than that.
+const startTimeToleranceMilliseconds = 2_000;
 
 /**
- * @typedef {z.infer<typeof ticketSchema>} StandQueueEntry
+ * @typedef {z.infer<typeof ticketSchema>} StandQueueTicket
+ * @typedef {Omit<StandQueueTicket, "startedAt">} StandQueueEntry
  * @typedef {object} StandTurnOptions
  * @property {string} directory the stand state directory shared by every worktree
  * @property {string} worktree the worktree the operation serves, shown to later waiters
@@ -31,13 +39,16 @@ const pollMilliseconds = 1_000;
  * @property {(message: string) => void} report receives every change of the waiter's position
  * @property {number} [pid] only tests pass another process ID
  * @property {(pid: number) => boolean} [isAlive]
+ * @property {(pid: number) => string | undefined} [startTime] when the system started the process,
+ *   as an ISO date-time; `undefined` when it cannot tell
  * @property {() => Promise<void>} [pause]
  */
 
 /**
  * Waits for this operation's turn on the shared stand. Operations queue in arrival order; the
  * first one takes the machine-wide lock as soon as no tool outside the queue holds it. A waiter
- * whose process ended leaves the queue, so a killed session never blocks it.
+ * whose process ended leaves the queue, so a killed session never blocks it, even after the
+ * system gave its process ID to another process.
  *
  * @param {StandTurnOptions} options
  * @returns {Promise<() => Promise<void>>} release of the lock and of the queue place
@@ -50,6 +61,7 @@ export async function waitForStandTurn({
   report,
   pid = process.pid,
   isAlive = processAlive,
+  startTime = processStartTime,
   pause = () =>
     new Promise((resolve) => {
       setTimeout(resolve, pollMilliseconds);
@@ -64,12 +76,14 @@ export async function waitForStandTurn({
   );
   const name = `${String(arrival).padStart(18, "0")}-${randomUUID()}.json`;
   const path = join(queue, name);
-  /** @type {StandQueueEntry} */
+  const startedAt = startTime(pid);
+  /** @type {StandQueueTicket} */
   const ticket = {
     pid,
     worktree,
     command,
     enqueuedAt: new Date().toISOString(),
+    ...(startedAt === undefined ? {} : { startedAt }),
   };
   const temporary = join(queue, `.${name}.tmp`);
   await writeFile(temporary, JSON.stringify(ticket), {
@@ -88,7 +102,7 @@ export async function waitForStandTurn({
   let reported = "";
   try {
     for (;;) {
-      const entries = await sweep(queue, isAlive);
+      const entries = await sweep(queue, isAlive, startTime);
       const position = entries.findIndex((entry) => entry.name === name) + 1;
       if (position === 0)
         throw new Error(
@@ -137,7 +151,11 @@ export async function waitForStandTurn({
  */
 export async function readStandQueue(directory) {
   const entries = await readTickets(join(directory, "queue"));
-  return entries.flatMap((entry) => (entry.ticket ? [entry.ticket] : []));
+  return entries.flatMap((entry) => {
+    if (!entry.ticket) return [];
+    const { startedAt: _startedAt, ...shown } = entry.ticket;
+    return [shown];
+  });
 }
 
 /**
@@ -145,18 +163,43 @@ export async function readStandQueue(directory) {
  *
  * @param {string} queue
  * @param {(pid: number) => boolean} isAlive
+ * @param {(pid: number) => string | undefined} startTime
  */
-async function sweep(queue, isAlive) {
-  /** @type {{ name: string; ticket: StandQueueEntry }[]} */
+async function sweep(queue, isAlive, startTime) {
+  /** @type {{ name: string; ticket: StandQueueTicket }[]} */
   const kept = [];
   for (const entry of await readTickets(queue)) {
-    if (entry.ticket === undefined || !isAlive(entry.ticket.pid)) {
+    if (
+      entry.ticket === undefined ||
+      !waiterRuns(entry.ticket, isAlive, startTime)
+    ) {
       await unlink(join(queue, entry.name)).catch(() => undefined);
       continue;
     }
     kept.push({ name: entry.name, ticket: entry.ticket });
   }
   return kept;
+}
+
+/**
+ * Whether the process that wrote the ticket still runs. A live process ID is not enough: after the
+ * waiter was killed the system may give its ID to another process, which started at another time.
+ * A ticket without a start time, or a process whose start time cannot be read, falls back to the
+ * process ID alone.
+ *
+ * @param {StandQueueTicket} ticket
+ * @param {(pid: number) => boolean} isAlive
+ * @param {(pid: number) => string | undefined} startTime
+ */
+function waiterRuns(ticket, isAlive, startTime) {
+  if (!isAlive(ticket.pid)) return false;
+  if (ticket.startedAt === undefined) return true;
+  const current = startTime(ticket.pid);
+  if (current === undefined) return true;
+  return (
+    Math.abs(Date.parse(current) - Date.parse(ticket.startedAt)) <=
+    startTimeToleranceMilliseconds
+  );
 }
 
 /** @param {string} queue */
@@ -169,7 +212,7 @@ async function readTickets(queue) {
       return [];
     throw error;
   }
-  /** @type {{ name: string; ticket: StandQueueEntry | undefined }[]} */
+  /** @type {{ name: string; ticket: StandQueueTicket | undefined }[]} */
   const entries = [];
   for (const name of names.filter((item) => item.endsWith(".json")).sort()) {
     try {
@@ -206,4 +249,28 @@ export function processAlive(pid) {
     // EPERM: the process exists but belongs to another user.
     return error instanceof Error && "code" in error && error.code === "EPERM";
   }
+}
+
+/**
+ * When the system started a process of this machine, as an ISO date-time; `undefined` when the
+ * process does not exist or `ps` cannot tell. Together with the process ID it names one process:
+ * the system reuses the ID, never the pair.
+ * @param {number} pid
+ * @returns {string | undefined}
+ */
+export function processStartTime(pid) {
+  let output;
+  try {
+    // A fixed locale and time zone make sessions with different environments read the same text.
+    output = execFileSync("ps", ["-o", "lstart=", "-p", String(pid)], {
+      encoding: "utf8",
+      env: { ...process.env, LC_ALL: "C", TZ: "UTC" },
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 5_000,
+    });
+  } catch {
+    return undefined;
+  }
+  const started = Date.parse(`${output.trim()} UTC`);
+  return Number.isNaN(started) ? undefined : new Date(started).toISOString();
 }
