@@ -1,4 +1,5 @@
 // @ts-check
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { unlinkSync } from "node:fs";
 import {
@@ -19,6 +20,15 @@ const ticketSchema = z.strictObject({
   enqueuedAt: z.iso.datetime(),
 });
 const pollMilliseconds = 1_000;
+// The file name of a ticket ends with the second its waiter's process started. The JSON body stays
+// as the earlier code wrote it: worktrees run their own copy of this script, and the earlier copy
+// removes a ticket whose body has a field it does not know.
+const startSecondPattern = /-s(\d+)\.json$/u;
+// Two readings of one process may differ by a second where `ps` computes the start time from the
+// current time and the uptime. A process that reuses the ID within this tolerance is taken for the
+// waiter; `waiterRuns` lists that case.
+const startTimeToleranceSeconds = 2;
+const startTimeReadTimeoutMilliseconds = 5_000;
 
 /**
  * @typedef {z.infer<typeof ticketSchema>} StandQueueEntry
@@ -31,13 +41,17 @@ const pollMilliseconds = 1_000;
  * @property {(message: string) => void} report receives every change of the waiter's position
  * @property {number} [pid] only tests pass another process ID
  * @property {(pid: number) => boolean} [isAlive]
+ * @property {(pid: number) => number | undefined} [startTime] the second the system started the
+ *   process, counted from the Unix epoch; `undefined` when it cannot tell
  * @property {() => Promise<void>} [pause]
  */
 
 /**
  * Waits for this operation's turn on the shared stand. Operations queue in arrival order; the
  * first one takes the machine-wide lock as soon as no tool outside the queue holds it. A waiter
- * whose process ended leaves the queue, so a killed session never blocks it.
+ * whose process ended leaves the queue, so a killed session does not block it. Once the system
+ * gives the process ID of a killed waiter to another process, the start time in the ticket's name
+ * tells the two apart; {@link waiterRuns} names the cases that fall back to the process ID alone.
  *
  * @param {StandTurnOptions} options
  * @returns {Promise<() => Promise<void>>} release of the lock and of the queue place
@@ -50,6 +64,7 @@ export async function waitForStandTurn({
   report,
   pid = process.pid,
   isAlive = processAlive,
+  startTime = processStartTime,
   pause = () =>
     new Promise((resolve) => {
       setTimeout(resolve, pollMilliseconds);
@@ -62,7 +77,8 @@ export async function waitForStandTurn({
   const arrival = Math.round(
     (performance.timeOrigin + performance.now()) * 1_000,
   );
-  const name = `${String(arrival).padStart(18, "0")}-${randomUUID()}.json`;
+  const startSecond = startTime(pid);
+  const name = `${String(arrival).padStart(18, "0")}-${randomUUID()}${startSecond === undefined ? "" : `-s${String(startSecond)}`}.json`;
   const path = join(queue, name);
   /** @type {StandQueueEntry} */
   const ticket = {
@@ -88,7 +104,7 @@ export async function waitForStandTurn({
   let reported = "";
   try {
     for (;;) {
-      const entries = await sweep(queue, isAlive);
+      const entries = await sweep(queue, isAlive, startTime);
       const position = entries.findIndex((entry) => entry.name === name) + 1;
       if (position === 0)
         throw new Error(
@@ -145,18 +161,43 @@ export async function readStandQueue(directory) {
  *
  * @param {string} queue
  * @param {(pid: number) => boolean} isAlive
+ * @param {(pid: number) => number | undefined} startTime
  */
-async function sweep(queue, isAlive) {
+async function sweep(queue, isAlive, startTime) {
   /** @type {{ name: string; ticket: StandQueueEntry }[]} */
   const kept = [];
   for (const entry of await readTickets(queue)) {
-    if (entry.ticket === undefined || !isAlive(entry.ticket.pid)) {
+    if (
+      entry.ticket === undefined ||
+      !waiterRuns(entry.name, entry.ticket.pid, isAlive, startTime)
+    ) {
       await unlink(join(queue, entry.name)).catch(() => undefined);
       continue;
     }
     kept.push({ name: entry.name, ticket: entry.ticket });
   }
   return kept;
+}
+
+/**
+ * Whether the process that wrote the ticket still runs. A live process ID is not enough: after the
+ * waiter was killed the system may give its ID to another process, which started at another time.
+ * Three cases fall back to the process ID alone: a ticket whose name has no start time (written by
+ * the earlier code, or `ps` could not tell), a process whose start time cannot be read now, and a
+ * process that started within the tolerance of the recorded second.
+ *
+ * @param {string} name the ticket's file name
+ * @param {number} pid
+ * @param {(pid: number) => boolean} isAlive
+ * @param {(pid: number) => number | undefined} startTime
+ */
+function waiterRuns(name, pid, isAlive, startTime) {
+  if (!isAlive(pid)) return false;
+  const recorded = startSecondPattern.exec(name)?.[1];
+  if (recorded === undefined) return true;
+  const current = startTime(pid);
+  if (current === undefined) return true;
+  return Math.abs(current - Number(recorded)) <= startTimeToleranceSeconds;
 }
 
 /** @param {string} queue */
@@ -206,4 +247,28 @@ export function processAlive(pid) {
     // EPERM: the process exists but belongs to another user.
     return error instanceof Error && "code" in error && error.code === "EPERM";
   }
+}
+
+/**
+ * The second the system started a process of this machine, counted from the Unix epoch;
+ * `undefined` when the process does not exist or `ps` cannot tell. Together with the process ID it
+ * names one process: the system reuses the ID, not the pair.
+ * @param {number} pid
+ * @returns {number | undefined}
+ */
+export function processStartTime(pid) {
+  let output;
+  try {
+    // A fixed locale and time zone make sessions with different environments read the same text.
+    output = execFileSync("ps", ["-o", "lstart=", "-p", String(pid)], {
+      encoding: "utf8",
+      env: { ...process.env, LC_ALL: "C", TZ: "UTC" },
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: startTimeReadTimeoutMilliseconds,
+    });
+  } catch {
+    return undefined;
+  }
+  const started = Date.parse(`${output.trim()} UTC`);
+  return Number.isNaN(started) ? undefined : started / 1_000;
 }
