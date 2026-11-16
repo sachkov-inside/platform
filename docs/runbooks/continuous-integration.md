@@ -904,3 +904,13 @@ resulting automatic publication on trusted `main`; there is no branch bootstrap,
 After successful anonymous equality checks of each index and every child manifest, including
 amd64/arm64, the application update may select those copies and run its full CI. That update,
 application release and production deployment retain their own owner gates.
+
+## Executable payment/access model
+
+`pnpm pilot:payment-model` explores the finite one-Purchase reference model (#2252) and writes
+`.reports/2252/model.json`. It exits nonzero on a counterexample or a truncated search. The default
+bounds are depth12 and2000states; normal exploration closes before them. The cheap checker and
+negative models run in `scripts/payment-access-model.test.mjs` with normal tooling tests.
+[The model report](../research/2026-11-16-payment-access-model.md) records assumptions, replay traces,
+real-test mapping and the separate audit9 evaluation. The model does not replace PostgreSQL,
+transport, clock/version adapter or multi-Purchase acceptance tests.
