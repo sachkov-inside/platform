@@ -183,6 +183,15 @@ async function down(directory, worktree) {
   const { id } = lightInstanceName(worktree);
   const state = await readLightState(directory, id);
   if (!state) {
+    // A deleted worktree has no checkout to resolve; a wrong path must not look like success.
+    if (!existsSync(worktree)) {
+      const known = (await listLightStates(directory)).map(
+        (item) => item.worktree,
+      );
+      throw new Error(
+        `No light instance for ${worktree}; recorded worktrees: ${known.join(", ") || "none"}`,
+      );
+    }
     process.stdout.write("No light instance for this worktree\n");
     return;
   }
