@@ -7,7 +7,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { setTimeout as pause } from "node:timers/promises";
+import { watch, readFileSync } from "node:fs";
 import { execute, lookupDocsEvidence, runDocsCI } from "./ci-docs-run.mjs";
 import { selectDocsEvidence } from "./ci-docs-evidence.mjs";
 
@@ -502,11 +502,22 @@ for (const ending of ["success", "failure", "timeout", "interruption"]) {
   test(`owned documentation process stops descendants after ${ending}`, async () => {
     const root = await mkdtemp(join(tmpdir(), "docs-process-test-"));
     const cancellation = new AbortController();
+    /** @type {import("node:fs").FSWatcher|undefined} */
+    let watcher;
     try {
+      watcher = watch(root, (_event, filename) => {
+        if (ending !== "interruption" || filename !== "pid") return;
+        try {
+          const pid = Number(readFileSync(join(root, "pid"), "utf8"));
+          if (Number.isSafeInteger(pid) && pid > 0) cancellation.abort();
+        } catch {
+          /* Ignore unrelated filesystem events before the atomic PID commit. */
+        }
+      });
       const file = join(root, "child.mjs");
       await writeFile(
         file,
-        `import {spawn} from 'node:child_process';import{writeFileSync}from'node:fs';const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});writeFileSync(process.argv[2],String(child.pid));${ending === "success" ? "process.exit(0)" : ending === "failure" ? "process.exit(17)" : "setInterval(()=>{},1000)"};`,
+        `import {spawn} from 'node:child_process';import{writeFileSync,renameSync}from'node:fs';const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});writeFileSync(process.argv[2]+'.tmp',String(child.pid));renameSync(process.argv[2]+'.tmp',process.argv[2]);${ending === "success" ? "process.exit(0)" : ending === "failure" ? "process.exit(17)" : "setInterval(()=>{},1000)"};`,
       );
       const pending = execute(process.execPath, [file, join(root, "pid")], {
         cwd: root,
@@ -519,33 +530,16 @@ for (const ending of ["success", "failure", "timeout", "interruption"]) {
         () => "success",
         () => "rejected",
       );
-      if (ending === "interruption") {
-        // Observe readiness, not elapsed time, before interrupting a live descendant.
-        const deadline = performance.now() + 5000;
-        while (true) {
-          try {
-            await readFile(join(root, "pid"));
-            break;
-          } catch (error) {
-            if (
-              !(error instanceof Error) ||
-              !("code" in error) ||
-              error.code !== "ENOENT" ||
-              performance.now() >= deadline
-            )
-              throw error;
-          }
-          await pause(10);
-        }
-        cancellation.abort();
-      }
       assert.equal(
         await observed,
         ending === "success" ? "success" : "rejected",
       );
+      if (ending === "interruption")
+        assert.equal(cancellation.signal.aborted, true);
       const pid = Number(await readFile(join(root, "pid"), "utf8"));
       assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
     } finally {
+      watcher?.close();
       await rm(root, { recursive: true });
     }
   });
