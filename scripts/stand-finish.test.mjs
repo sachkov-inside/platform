@@ -21,7 +21,7 @@ test("a failing or hanging step is reported and the next step still runs", async
   const ran = [];
   /** @type {string[]} */
   const reports = [];
-  await finishStand({
+  const code = await finishStand({
     steps: [
       { name: "first", args: ["first"] },
       { name: "second", args: ["second"] },
@@ -35,6 +35,7 @@ test("a failing or hanging step is reported and the next step still runs", async
     },
     report: (message) => reports.push(message),
   });
+  assert.equal(code, 1);
   assert.deepEqual(ran, [["first"], ["second"], ["third"]]);
   assert.equal(reports.length, 2);
   assert.match(reports[0] ?? "", /^first: exited with 1/u);
@@ -75,4 +76,29 @@ if (process.argv[2] === "hang") {
   );
   const pid = Number(await readFile(join(directory, "pid"), "utf8"));
   assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+});
+
+test("task finish adapter only invokes task-scoped stand release", async () => {
+  /** @type {unknown} */
+  const config = JSON.parse(
+    await readFile(
+      new URL("../.worktree-resources.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.ok(
+    typeof config === "object" && config !== null && "finish" in config,
+  );
+  assert.deepEqual(config.finish, [["pnpm", "stand:finish"]]);
+});
+
+test("successful stand release returns success", async () => {
+  assert.equal(
+    await finishStand({
+      steps: standFinishSteps,
+      run: async () => 0,
+      report: assert.fail,
+    }),
+    0,
+  );
 });

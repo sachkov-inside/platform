@@ -20,10 +20,9 @@ a named browser session, `agent-worktree stop --name <name>`). Preserve a previe
 needs and record its port, PID, cwd, source and stop/restart instructions. Containers and volumes
 follow the [local stand runbook](../../../docs/runbooks/local-stand.md#stop-and-keep-data).
 
-`agent-worktree finish` requires a task receipt from `prepare` and executes project finish hooks.
-Before using it, inspect `.worktree-resources.json`: if a hook invokes repository-wide cleanup,
-leave finish pending and report the tool gap. Do not create a new receipt merely to bypass
-«no prepared task». Never pass `--remove-worktree` from the active session.
+Platform's finish adapter runs only `pnpm stand:finish`. It preserves the light-instance and
+shared-stand ownership checks; a failure returns nonzero and keeps worktree removal pending.
+Use the standalone owning commands above while this writing session is still active.
 
 ## 3. Report, then exit
 
@@ -35,13 +34,16 @@ final response otherwise, then exit the writing session. An open PR retains its 
 
 ## 4. Remove from outside
 
-After the report, the coordinator or owner confirms the writing session and task processes have
-exited, the PR merged, the worktree is clean and retained files/results have been preserved. They
-remove this exact worktree through Orca from a different context. Follow the installed `orca-cli`
-skill and inspect the selected worktree before removal; an idle chat alone does not prove exit.
-A prepared task may instead finish from a separate cleanup context only if the tool supports
-that target and its finish hooks are task-scoped. A missing receipt or missing external-target
-support is a tool gap: report it, retain the worktree and use Orca after session exit.
+After the report, the coordinator or owner confirms writer exit, merged exact HEAD and captured
+retained files. From a different context, use the canonical Home `agent-worktree finish` with
+explicit task, worktree, repository and fresh completion evidence. For an environment-created
+Orca worktree without `prepare`, first use its explicit identity-only `adopt` operation. Follow
+Home `machine/docs/cleanup.md` for the receipt contract and supported native route; do not copy
+or invent ownership records. Start with dry-run and inspect every retained reason before apply.
+
+Unknown liveness, missing provenance, ignored evidence and retained resources keep the worktree.
+Report the reason to the coordinator; there is no repository-wide cleanup fallback. Removal uses
+the exact validated Orca identity after session exit. This session remains in its retained worktree.
 
 ## Done when
 

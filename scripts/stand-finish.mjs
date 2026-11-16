@@ -1,9 +1,8 @@
 // @ts-check
 // `pnpm stand:finish`: the stand part of `agent-worktree finish` (the `finish` steps of
 // `.worktree-resources.json`). It stops this worktree's light instance and releases the shared
-// stand reservation only when this worktree holds it. A failed or hanging step is reported and
-// the command still exits 0, so the worktree cleanup goes on; a reservation left behind is
-// released by the next stand operation once the worktree directory is gone.
+// stand reservation only when this worktree holds it. A failed or hanging step is reported;
+// the other release step still runs and the command returns failure so the worktree is retained.
 import { realpathSync } from "node:fs";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -26,19 +25,24 @@ export const standFinishSteps = Object.freeze([
  * @param {(message: string) => void} options.report
  */
 export async function finishStand({ steps, run, report }) {
+  let status = 0;
   for (const step of steps) {
     try {
       const code = await run(step.args);
-      if (code !== 0)
+      if (code !== 0) {
+        status = 1;
         report(
           `${step.name}: exited with ${String(code)}; finish continues, see the output above`,
         );
+      }
     } catch (error) {
+      status = 1;
       report(
         `${step.name}: ${error instanceof Error ? error.message : "failed"}; finish continues`,
       );
     }
   }
+  return status;
 }
 
 /**
@@ -75,7 +79,7 @@ if (
   if (pnpmPath === undefined)
     throw new Error("Run the stand finish through pnpm stand:finish");
   const worktree = process.env["INIT_CWD"] ?? process.cwd();
-  await finishStand({
+  process.exitCode = await finishStand({
     steps: standFinishSteps,
     run: (args) =>
       runStep({
