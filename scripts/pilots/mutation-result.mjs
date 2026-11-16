@@ -10,7 +10,7 @@ export function classifyMutationResult({ exitCode, passed, failed, log }) {
   if (
     exitCode !== 0 &&
     failed > 0 &&
-    log.includes("Caused by: AssertionError") &&
+    log.includes("AssertionError") &&
     !/Test timed out|Hook timed out|Unhandled Error/u.test(log)
   )
     return "killed";

@@ -26,6 +26,18 @@ test("an assertion counterexample kills a mutant", () => {
   );
 });
 
+test("a direct assertion failure also kills a mutant", () => {
+  assert.equal(
+    classifyMutationResult({
+      exitCode: 1,
+      passed: 6,
+      failed: 1,
+      log: "AssertionError: access was granted",
+    }),
+    "killed",
+  );
+});
+
 test("setup errors, killed processes and timeouts never count as a kill", () => {
   for (const input of [
     { exitCode: 1, passed: 0, failed: 0, log: "Database setup failed" },
