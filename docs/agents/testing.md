@@ -51,8 +51,7 @@ the highest public seam that reaches the behaviour.
   acceptance.
 - A subprocess, compiled entrypoint or owned loopback provider gets a contract test.
 - Web presentation mapping, query behaviour and mutation operations get Web module tests.
-- A meaningful UI state gets a Storybook story; [frontend delivery](frontend-delivery.md#catalog-stays-in-sync)
-  says which surfaces need stories.
+- A UI state that [frontend delivery](frontend-delivery.md#stories) names gets a Storybook story.
 - Route behaviour and accessibility get a Web E2E test; page transitions and prefetch get a
   navigation test.
 - A change to a backend contract the Web uses, to a BFF route, to query ownership or to a

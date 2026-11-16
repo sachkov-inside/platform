@@ -45,7 +45,7 @@ is called.
 | A business rule, a shared contract (REST, MCP, a provider boundary) or architecture that sets a new pattern | Schema and transport contracts, input validation, negative permission scenarios; security review for a new or changed trust boundary |
 | A sent message or another external effect that cannot be recalled | The owner's permission before the action, under [Owner gates](../../AGENTS.md#owner-gates) |
 | Legal text, publication, personal data | The owning product or legal contract; the owner's decision before the protected action |
-| A user journey, interaction or message whose meaning needs judgement | The [verification](#verification) verdict on the running application; visual work keeps the gates of [frontend delivery](frontend-delivery.md#delivery-contract) |
+| A user journey, interaction or message whose meaning needs judgement | The [verification](#verification) verdict on the running application; a new visual direction starts from the owner's choice of a prototype under [frontend delivery](frontend-delivery.md#delivery-contract) |
 | CI, release controls, deployment | The delivery contract tests in `scripts/*.test.mjs`, their negative fixtures and recovery proof; security review when trust or credentials change |
 | Agent authority: `AGENTS.md`, `CODING_STANDARDS.md`, skills, `docs/agents/` and their checks | `pnpm docs:check`; review under the rules on `main` before the change |
 
