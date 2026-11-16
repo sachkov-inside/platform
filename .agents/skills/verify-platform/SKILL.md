@@ -10,7 +10,8 @@ You verify a change you did not write, in the running application, as its user. 
 `node scripts/verify-platform.mjs` (`--help` lists its commands), run from the worktree root.
 
 Pick the journeys from the [feature map](features/README.md): the features the change touches,
-and each entry point the map lists for them.
+and each entry point the map lists for them. An entry point the map marks as not yet driven has no
+recipe: drive it from fresh snapshots and add its steps to the map, or report it as not exercised.
 
 ## 1. Launch
 
@@ -57,18 +58,22 @@ Every browser command goes through the helper. It runs `agent-browser` in this w
 headless session for the role, and adds the launch settings a loopback page needs on this machine.
 
 ```bash
-V="node scripts/verify-platform.mjs"
-$V browser --role owner -- open "$($V address owner /authoring/people)"   # sign in and open
-$V browser --role owner -- set viewport 1440 900                          # once per session
-$V browser --role owner -- snapshot -i -s main
-$V browser --role owner -- find role button click --name "Выдать продукт"
-$V browser --role owner -- wait --text "Доступ выдан."
+V() { node scripts/verify-platform.mjs "$@"; }     # define these in every shell command
+O() { V browser --role owner -- "$@"; }
+L() { V browser --role learner -- "$@"; }
+G() { V browser --role guest -- "$@"; }
+
+O open "$(V address owner /authoring/people)"      # sign in as owner and open the page
+O set viewport 1440 900                            # once per session, after its first open
+O snapshot -i -s main
+O find role button click --name "Выдать продукт"
+O wait --text "Доступ выдан."
 ```
 
 - **Roles.** `owner` has `platform:admin` and opens `/authoring`; `learner` is an account with no
-  products; `guest` never signs in (`$V address web /path`). Each role is its own session with its
-  own cookies, so they stay signed in side by side. `$V address sign-out /` ends a session's
-  sign-in. In zsh call `$V` as `${=V}` or type the command in full.
+  products; `guest` never signs in (`V address web /path`). Each role is its own session with its
+  own cookies, so they stay signed in side by side. `V address sign-out /` ends a session's
+  sign-in.
 - **Namespace.** When the machine's `agent-browser` rules name a namespace, export it as
   `AGENT_BROWSER_NAMESPACE` in each command; the helper passes it on.
 - **Handles.** Act on roles and accessible names (`find role … --name`, `find label …`), or on a
@@ -79,8 +84,12 @@ $V browser --role owner -- wait --text "Доступ выдан."
   `wait --url`), then snapshot. Pages render a loading shell first («Загрузка …», «Загружаем …»).
 - **Viewport.** Set 1440×900. In the default short window the material editor's toolbar overlaps
   «Опубликовать».
-- **First visit.** A learner's first protected page shows «Добро пожаловать»; press
-  «Принять условия и продолжить». The cookie notice button is «Понятно».
+- **First visit.** The learner's first open of `/account` shows «Добро пожаловать» in place of
+  the cabinet; press «Принять условия и продолжить», then open the address again. Public pages,
+  materials and `/bookmarks` do not ask. Dismiss the cookie notice with «Понятно» once per
+  session: it covers controls near the bottom of the page.
+- **Output.** `agent-browser` prints a notice that its Chrome is behind the stable release on
+  each launch; it does not affect the run.
 - **Routes.** Reader: `/`, `/materials/<slug>`, `/products/<slug>`, `/products/<slug>/buy`,
   `/bookmarks`, `/account`. Owner: `/authoring`, `/authoring/materials`, `/authoring/products`,
   `/authoring/people`, `/authoring/sales/payments`. The feature files carry the rest.
@@ -90,8 +99,8 @@ If `agent-browser` cannot do a step, report the exact failing command; do not sw
 ## 4. Evidence
 
 ```bash
-E="$(node scripts/verify-platform.mjs evidence start)"   # once per run; prints the directory
-node scripts/verify-platform.mjs evidence path           # the same directory, in a later shell
+E="$(V evidence start)"   # once per run; prints the directory
+E="$(V evidence path)"    # the same directory, in every later shell command
 ```
 
 The directory lives under the repository's shared Git directory
@@ -105,18 +114,19 @@ worktree, with `run.json` naming the commit and patch. Proof standards:
   and of the resulting state, with the page identity visible.
 
   ```bash
-  $V browser --role owner -- record start "$E/owner-grant.webm" --cursor
-  $V browser --role owner -- screenshot "$E/01-owner-before.png"
+  O record start "$E/owner-grant.webm" --cursor
+  O screenshot "$E/01-owner-before.png"
   # … the journey …
-  $V browser --role owner -- screenshot "$E/02-owner-granted.png"
-  $V browser --role owner -- record stop
+  O screenshot "$E/02-owner-granted.png"
+  O record stop
   ```
 
-  A recording belongs to one session; a journey with two roles records each role's part.
+  A recording belongs to one session; a journey with two roles records each role's part. Open
+  at least one screenshot per journey and confirm it shows the claimed state.
 - **Side effects.** Next to what the page shows, read what the action wrote, and save it:
 
   ```bash
-  $V sql "select product_id, revoked_at, revision from account_rights.product_access" \
+  V sql "select product_id, revoked_at, revision from account_rights.product_access" \
     | tee "$E/03-product-access.csv"
   ```
 
@@ -133,7 +143,7 @@ worktree, with `run.json` naming the commit and patch. Proof standards:
 
 ## 5. Verdict
 
-`node scripts/verify-platform.mjs report` prints the skeleton with the commit, the patch and every
+`V report` prints the skeleton with the commit, the patch and every
 artifact with its size and digest. Fill it and return it as the result.
 
 - **`PASS`**: every journey the change needs was driven, each observed end state and side effect
@@ -153,16 +163,16 @@ one. Report a failing journey as it is; a missing seed precondition goes to the 
 Stop what this run started, by the handle it was started with:
 
 ```bash
-$V browser --role owner -- close       # each role session this run opened
-$V browser --role learner -- close
-pnpm stand:light down                  # this worktree's instance and its database
+O close; L close; G close       # each role session this run opened
+pnpm stand:light down           # this worktree's instance and its database
 ```
 
 The helper refuses `close --all`, `kill-all` and other sessions. Never stop a process by name, and
 leave the shared stand, its containers and other worktrees' instances running; release a stand
 reservation this run took with `pnpm stand release --worktree "$PWD"`. Run cleanup after a failed
-attempt too. Then confirm the evidence survived: `ls "$(node scripts/verify-platform.mjs evidence path)"`
-lists the artifacts, and `pnpm stand:light status` no longer lists this worktree.
+attempt too. Then confirm the evidence survived: `ls "$(V evidence path)"` lists the artifacts.
+`pnpm stand:light status` no longer has a line for this worktree; lines of other worktrees are
+their instances and stay.
 
 ## Helpers
 

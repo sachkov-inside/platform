@@ -9,10 +9,11 @@ verdict and cleanup.
 - A light instance of this worktree, started by this run, with a passing doctor. Its database is
   fresh on every `up`: the seeded demonstration catalogue, an owner and one learner with no
   products.
-- `V="node scripts/verify-platform.mjs"`; `O` means `$V browser --role owner --`, `L` means
-  `$V browser --role learner --`, `G` means `$V browser --role guest --`, and `$V sql` reads the
-  instance's database. Addresses come from `$V address <owner|learner|web> <path>`.
-- Each role's session is set to 1440×900 once.
+- The shell functions `V`, `O`, `L` and `G` from [SKILL.md](../SKILL.md), step 3: the helper and
+  the owner, learner and guest browser sessions. `V sql` reads the instance's database, and
+  addresses come from `V address <owner|learner|web> <path>`.
+- Each role's session is set to 1440×900 after its first `open`, and its cookie notice is
+  dismissed with «Понятно».
 
 Seed facts the recipes rely on:
 
@@ -22,7 +23,8 @@ Seed facts the recipes rely on:
 | Its product | «Создание Platform Inside», `/products/platform-inside`, price 30 ₽ |
 | A free material in the home feed | «Проверяемая поставка», `/materials/proveryaemaya-postavka` |
 | The learner in the owner's lists | «Без имени и email» |
-| Authoring topic and formats | topic «Платформа»; formats «Видео», «Гайд», «Заметка» |
+| Authoring topic and formats | topic «Платформа» (reader pages show it as «Platform»); formats «Видео», «Гайд», «Заметка» |
+| A product programme with a free and a closed material | `/products/platform-inside/programme`: «Как устроен Inside Platform» (free), «Developer Pipeline без потери контекста» (closed) |
 
 ## Driving conventions
 
@@ -32,7 +34,11 @@ Seed facts the recipes rely on:
 - A mutation is proven by its row and by a second view, as each recipe names them.
 - When a precondition is missing, report the failed step and the unmet precondition, and add the
   reason to the feature's Gotchas. Never weaken a journey to make it pass.
-- A journey skipped at one entry point is not verified through another.
+- A journey skipped at one entry point is not verified through another. Entry points marked
+  *(not yet driven)* have no steps: drive them from fresh snapshots and add the steps here, or
+  report them as not exercised.
+- Assert on text that stays: a heading, a button's new name, a row. A save status such as
+  «Сохранено сейчас» changes within seconds.
 
 ## Feature entry contract
 

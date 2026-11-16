@@ -16,42 +16,46 @@ closes them again and keeps the history.
 
 - Owner: «Люди» in the admin navigation (`/authoring/people`), the person's row, then
   «Выдать продукт» at the top of the card.
-- Owner: the row's «Действия с «…»» menu in the people list.
-- Owner: a product's learners tab, `/authoring/products/<id>?tab=learners`.
+- Owner: the row's «Действия с «…»» menu in the people list, item «Открыть карточку»; it leads
+  to the same card.
+- Owner: a product's tab «Ученики» (`/authoring/products/<id>?tab=learners`, reached from
+  «Продукты»), then «Выдать продукт» *(not yet driven)*.
 - Learner: the closed material's address, and «Мои продукты» on `/account`.
 
 ## Driving it with agent-browser
 
 Preconditions: the baseline; the learner holds no product
-(`$V sql "select count(*) from account_rights.product_access"` returns `0`).
+(`V sql "select count(*) from account_rights.product_access"` returns `0`).
 
-- **Before (`access-closed`).** `L open "$($V address learner /materials/developer-pipeline-bez-poteri-konteksta)"`.
-  If «Добро пожаловать» appears, `L find role button click --name "Принять условия и продолжить"`
-  and open the address again. `L wait --text "Продолжение для участников"`: the paywall is shown.
-- **Open the card.** `O open "$($V address owner /authoring/people)"`,
+- **Before (`access-closed`).** `L open "$(V address learner /materials/developer-pipeline-bez-poteri-konteksta)"`,
+  `L wait --text "Продолжение для участников"`: the paywall is shown and «Изучено» is disabled.
+- **Open the card.** `O open "$(V address owner /authoring/people)"`,
   `O find role link click --name "Без имени и email"`, `O wait --text "Выдать продукт"`. The card
   says «У человека пока нет продуктов.»
 - **Grant (`access-grant`).** `O find role button click --name "Выдать продукт"`, `O wait 'dialog[open]'`,
   `O find role radio click --name "Создание Platform Inside"`, `O find role radio click --name "Подарок"`,
   `O click 'dialog[open] button[type=submit]'`, `O wait --text "Доступ выдан."` The card lists
   «Создание Platform Inside» with «Доступ открыт», «Выдача владельцем» and the history line
-  «Выдача … Причина: «Подарок»».
+  «Выдача … Причина: Подарок».
 - **Learner sees it (`access-open`).** Open the material address in `L` again and
   `L wait --text "Закрытое содержимое для участников."` The paywall region is gone and «Изучено»
-  is enabled. `/account` lists the product under «Мои продукты» with «Доступ открыт».
+  is enabled. Second view: `L open "$(V address web /account)"`; on the first visit accept the
+  terms («Принять условия и продолжить») and open it again; `L wait --text "Мои продукты"`. The
+  product is listed with «Доступ открыт».
 - **Revoke (`access-revoke`).** `O find role button click --name "Отозвать доступ к «Создание Platform Inside»"`,
   `O wait 'dialog[open]'`, `O find role radio click --name "Выдано по ошибке"`,
   `O find role button click --name "Отозвать доступ"`, `O wait --text "отозван"`. The card shows
   «Доступ отозван», the button «Восстановить доступ к «Создание Platform Inside»» and a second
-  history line «Отзыв … Причина: «Выдано по ошибке»».
+  history line «Отзыв … Причина: Выдано по ошибке».
 - **Learner loses it (`access-closed`).** Open the material address in `L` again and
-  `L wait --text "Продолжение для участников"`.
+  `L wait --text "Продолжение для участников"`. `/account` keeps the product under
+  «Мои продукты» with «Доступ отозван».
 - **Restore (`access-restore`).** `O find role button click --name "Восстановить доступ к «Создание Platform Inside»"`,
   complete the dialog, and check the learner's material opens again.
 - **Side effects.**
-  `$V sql "select p.slug, a.revoked_at is not null as revoked, a.revision from account_rights.product_access a join products.products p on p.id = a.product_id"`
+  `V sql "select p.slug, a.revoked_at is not null as revoked, a.revision from account_rights.product_access a join products.products p on p.id = a.product_id"`
   returns `platform-inside,f,1` after the grant and `platform-inside,t,2` after the revoke;
-  `$V sql "select kind, reason from account_rights.product_access_actions order by recorded_at"`
+  `V sql "select kind, reason from account_rights.product_access_actions order by recorded_at"`
   returns one row per action with its reason.
 
 ## Gotchas
@@ -63,5 +67,9 @@ Preconditions: the baseline; the learner holds no product
   changes the card and the rows but opens nothing new to read.
 - The learner's page does not update by itself; open the address again after each owner action.
 - The restore dialog was not driven when this file was written; take its controls from a snapshot.
+- The product-side dialog «Выдать «<продукт>»» finds the person through «Найти человека», and the
+  seeded learner has no name or email; search by the ID from the card's «Скопировать ID».
+- The page shows a reason in guillemets; the page text read by `get text` or `wait --text` has
+  none.
 - Telegram group membership follows product access on the shared stand only; the light instance
   runs no workers.
