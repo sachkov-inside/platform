@@ -21,7 +21,9 @@ Prepare its draft after the first integrated child commit. Treat tickets as a de
 use fresh implementers at the ready frontier and fresh integration/review contexts. Workers return
 committed, checked results and integrate current integration-branch changes through permitted
 merges before reporting. Exploration notes follow the project location below. Final independent
-review covers the complete integration diff; confirmed corrections retain that original coverage.
+review runs once over the complete integration diff, with two reviewers in parallel. The
+implementer settles findings under [implementation](implementation.md#review-verification-and-delivery),
+without re-review; verification covers corrections and the classifier receives post-review commits.
 [Verification](human-review.md#verification) then runs once on the integrated result and covers
 the key scenarios of the specification and its tickets.
 Resolve the specification and tickets through the linked final PR, then clean only owned,

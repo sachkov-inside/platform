@@ -10,8 +10,8 @@ How the owner takes part: what he sees, what he decides, and what agents settle 
   in any zone, money and personal data included. A finding is technical when it is about how
   the change is built; a finding about what the user gets (a consequence for the user, money,
   access, personal data, an irreversible action, the look of the interface) is not, and in doubt
-  it is not. Agents settle a technical finding among themselves: the implementer fixes it, or the
-  reviewer withdraws it as optional with a reason; when they disagree, the implementer fixes it.
+  it is not. The implementer fixes blocking findings and either fixes optional findings or records a one-line
+  reason for leaving them, under [implementation](implementation.md#review-verification-and-delivery).
 - **Business acceptance** asks whether this is the right thing and whether it works for the user.
   It belongs to the owner, who decides from evidence: video, screenshots, data and a way to check
   himself.
@@ -71,12 +71,12 @@ the change runs it the way a user would, through the project skill
 - **Bound to the task's change, not to a commit.** Compare by `git patch-id` or by the diff against
   the base. An edit to the task's code after the verdict needs a new verdict. A merge of
   `origin/main` without conflicts in the files the task touches keeps it.
-- **Matched by the Spec reviewer.** The independent Spec reviewer confirms that the verdict
-  covers the delivered change: in its review when the verdict already exists, otherwise in a short
-  follow-up given the verdict and the diff, before `pr`. In the same pass it looks through the
-  artifacts for data that is not test data.
-- **`FAIL`** returns the work to implementation; its fix is reviewed and verified again.
-  **`PASS+NOTES`** carries its notes into the PR's «Проверено».
+- **Matched by the verifier.** The fresh verifier records the corrected head and covered change,
+  checks the key scenarios and looks through artifacts for data that is not test data. The
+  classifier receives that verdict, the original Spec notes and all post-review commits; this
+  requires no follow-up Spec review.
+- **`FAIL`** returns the work to implementation; rerun affected checks and verification on the fix,
+  without another code review. **`PASS+NOTES`** carries its notes into the PR's «Проверено».
 
 ## Evidence
 
