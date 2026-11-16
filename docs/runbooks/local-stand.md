@@ -21,6 +21,9 @@ The fixed `inside-platform` Compose project, host ports and volumes are shared b
 one machine. The controller serializes mutations and keeps a durable review reservation separately
 from the calling session. Its commands are listed by `pnpm stand --help`.
 
+An agent that only needs its own web and API for a browser check uses a
+[light instance](#light-instance-per-agent) instead; several of them run side by side.
+
 For an application review, use [the project skill](../../.agents/skills/local-stand/SKILL.md).
 One checkout supplies the controller code; use `--worktree <absolute-path>` to select task source
 from another worktree. `status` names the registered controller checkout. Keep that checkout and
@@ -39,7 +42,23 @@ worktree's Web app/src/public directories into Next's development server. Web ed
 directories need no image build; changes elsewhere require `refresh`. `refresh` retains the mode;
 `show` without a mode freezes the current code for later review. Database contents remain mutable.
 `release` frees the reservation while leaving the application running. Reservations have no timer
-and survive session completion. Ordinary editing, Storybook and isolated tests do not reserve it.
+and survive session completion. A reservation whose worktree directory no longer exists is released
+by the next `show`, `refresh`, `release` or `upgrade` from any worktree, which reports it; `status`
+only reads and marks such a reservation. `status` shows the reserved worktree and how long ago it
+was reserved; reservations taken before this record existed show an unknown age. Ordinary editing,
+Storybook and isolated tests do not reserve it.
+
+A mutation that finds another stand operation running waits in a first-come queue instead of
+failing, and prints its position and the running operation to stderr. `status` lists the queue.
+A waiter whose process ends leaves the queue. Its first place also waits while another tool holds
+the machine-wide lock (`pnpm local:setup`, identity proofs, `pnpm stand:images --apply`). Run a
+waiting command in the background: an agent's tool timeout that kills it gives up its place.
+
+`show`, `refresh` and `upgrade` build the source's images before joining the queue, under the
+separate Compose project `inside-platform-prebuild`, with the stand's disk budget; the build tags are
+removed afterwards and the layers stay in the build cache. The build under the lock then reuses the
+cache, so the stand is held while it is changed, not while the source compiles. A foreign
+reservation refuses the command before this build.
 
 An explicit owner request to show a different task permits `show --replace <reservation-id>`.
 Read the current ID from status. A changed ID refuses replacement. Other worktrees otherwise
@@ -132,6 +151,63 @@ Playwright does not use Compose. The Playwright checks of `pnpm check` take free
 reserved range of `scripts/smoke-stand.mjs` (#896), so checks in two worktrees run side by side.
 `PLAYWRIGHT_PORT`, `NAVIGATION_WEB_PORT` and `FAKE_BACKEND_PORT` set a port explicitly.
 [Heavy-check admission](local-heavy-checks.md) limits concurrent checks; it grants no stand ownership.
+
+## Light instance per agent
+
+A light instance runs one worktree's web and API on the host, against the shared stand's PostgreSQL
+and object storage, with its own database, free loopback ports and the synthetic sign-in of the
+full-stack checks. It needs no reservation and no queue.
+
+```bash
+pnpm stand:light up          # add --mcp for MCP
+pnpm stand:light status
+pnpm stand:light down
+```
+
+`up` prints the web, API and sign-in addresses. Open
+`<sign-in>?as=owner&next=/path` (owner with `platform:admin`) or `?as=learner` (no rights) in the
+browser; `/sign-out` on the same server removes the session. Use a separate browser context per
+instance: cookies of `127.0.0.1` ignore the port, and each instance names its own cookie.
+
+| Need | Use |
+|---|---|
+| An agent checks its own change in a browser, several agents at once | Light instance |
+| Real Logto sign-in, mail codes, the bank double, workers, RabbitMQ, the owner's data | Full stand (`pnpm stand show`) |
+| An owner review that stays open after the session | Full stand |
+| Navigation speed of the production build | Full stand with `--production-web` |
+
+How it works:
+
+1. `up` reads the published PostgreSQL and object storage ports of the Compose project
+   `inside-platform` (`--infrastructure <project>` selects another one) and refuses when they are
+   not running. It never starts or changes containers.
+2. A detached supervisor creates `inside_light_<id>`, where `<id>` derives from the worktree path,
+   then migrates it, seeds the published demonstration catalogue and bootstraps the owner. Every
+   `up` starts from a fresh database.
+3. It starts the backend's `dev:api` and Web's `next dev` from this worktree, with environment from
+   `.env.example`, the caller's environment, and the instance's own database, ports and sign-in.
+   Source edits reload as in host development. Ports come from the reserved range 20000–29999.
+4. `down` stops the supervisor, which stops its processes and drops its database. After a crash,
+   `down` drops the leftover database and record. Nothing else is touched.
+
+The record and log live in `inside-platform-stand/light/` under the shared Git common directory.
+One instance runs per worktree. Uploaded files go to the stand's local buckets. Payments, mail,
+notifications and background workers do not run. `next dev` rewrites the Next.js block of
+`apps/web/AGENTS.md` at startup; the instance restores the committed text once web is ready.
+
+### Memory budget
+
+Measured on 2026-11-16 on a Mac with 24 GiB, of which the OrbStack VM takes 12 GiB:
+
+- The full stand uses about 2.4 GiB inside the VM in production-web mode.
+- A light instance runs on the Mac itself, outside the VM. It became ready in 7–9 s, migration and
+  seed included. Its resident memory was 0.5–2.3 GiB: `next dev` holds up to 1.8 GiB after it
+  compiles pages without a Turbopack cache in `apps/web/.next`, the API about 0.4 GiB.
+- Two instances in two worktrees ran at the same time; each passed a browser scenario (guest
+  refused on `/authoring`, owner signed in and saw it).
+
+Plan for 2.5 GiB of Mac memory per instance. `pnpm stand:light status` shows the resident memory of
+each instance's process tree.
 
 ## Start from a fresh clone
 

@@ -176,7 +176,9 @@ async function down(directory, worktree) {
         `Light instance supervisor ${String(state.pid)} did not stop`,
       );
   }
-  await removeLeftovers(directory, state);
+  // A supervisor that stopped cleanly removed its record and database; a crashed one left them.
+  if (await readLightState(directory, state.id))
+    await removeLeftovers(directory, state);
   process.stdout.write(
     `Stopped light instance ${state.id}; dropped ${state.database}\n`,
   );

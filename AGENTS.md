@@ -28,7 +28,8 @@ testing seams, commit/review order and the no-ticket acceptance record. [PIPELIN
   Readiness labels: [triage labels](docs/agents/triage-labels.md).
 - Product context, terminology or ADR placement: [domain](docs/agents/domain.md).
 - Frontend delivery, Storybook review or a prototype: [frontend delivery](docs/agents/frontend-delivery.md).
-- Local application review or the shared stand: `.agents/skills/local-stand/SKILL.md`.
+- Local application review, the shared stand or a light per-agent instance:
+  `.agents/skills/local-stand/SKILL.md`.
 - Before review, the Standards reviewer reads `CODING_STANDARDS.md` and the `CODING_STANDARDS.md`
   of each changed application.
 - After an explicit owner correction: follow [owner corrections](docs/agents/owner-corrections.md).
