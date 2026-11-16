@@ -35,8 +35,9 @@ result from evidence.
 |---|---|
 | Permissions, identity, sessions, data visibility or access revocation | Positive and negative authorization scenarios, Account isolation, direct and delegated access; a separate security review |
 | Money: purchases, grants, subscriptions | Buyer and access contracts; repeated and concurrent events, transactional effects and recovery when affected; security review when trust or permissions change |
-| Destructive or irreversible data changes, sent messages and other external effects that cannot be recalled, persistent data and jobs | Integration tests on real persistence; migration compatibility, rollback or stated irreversibility; retry, concurrency and crash recovery when affected |
+| Destructive or irreversible data changes, persistent data and jobs | Integration tests on real persistence; migration compatibility, rollback or stated irreversibility; retry, concurrency and crash recovery when affected |
 | A business rule, a shared contract (REST, MCP, a provider boundary) or architecture that sets a new pattern | Schema and transport contracts, input validation, negative permission scenarios; security review for a new or changed trust boundary |
+| A sent message or another external effect that cannot be recalled | The owner's permission before the action, under [Owner gates](../../AGENTS.md#owner-gates) |
 | Legal text, publication, personal data | The owning product or legal contract; the owner's decision before the protected action |
 | A user journey, interaction or message whose meaning needs judgement | The [verification](#verification) verdict on the running application; visual work keeps the gates of [frontend delivery](frontend-delivery.md#delivery-contract) |
 | CI, release controls, deployment | The delivery contract tests in `scripts/*.test.mjs`, their negative fixtures and recovery proof; security review when trust or credentials change |

@@ -440,7 +440,7 @@ describe("harness routing contract", () => {
       }
       writeFileSync(
         join(root, "AGENTS.md"),
-        "[Corrections](docs/agents/owner-corrections.md)\n[Human review](docs/agents/human-review.md)\n[run](.agents/skills/missing/SKILL.md)\n",
+        "[Corrections](docs/agents/owner-corrections.md)\n[Human participation](docs/agents/human-review.md)\n[run](.agents/skills/missing/SKILL.md)\n",
       );
       assert.deepEqual(checkHarnessRouting(root), [
         "AGENTS.md: local pointer does not resolve: .agents/skills/missing/SKILL.md",

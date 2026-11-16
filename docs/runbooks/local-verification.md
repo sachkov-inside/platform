@@ -162,7 +162,9 @@ UPDATE_EVIDENCE=issue-529 pnpm smoke:fullstack
 Only `docs/evidence/issue-529` is written; snapshots of every other scenario in the same run still
 go to the artifacts directory. A misspelled folder fails the run instead of quietly writing nowhere
 you would look. Commit a snapshot only when a run reads it. Evidence for the owner is attached to
-the PR under [PR body](../agents/pr.md#attachments); earlier committed evidence stays as it is.
+the PR under [PR body](../agents/pr.md#attachments), and
+[human participation](../agents/human-review.md#evidence) owns what counts as evidence; earlier
+committed evidence stays as it is.
 
 `UPDATE_EVIDENCE` chooses the destination, not whether a snapshot is taken. Some suites still take
 theirs only behind their own switch: `CAPTURE_EVIDENCE=1` for the authoring walkthroughs,

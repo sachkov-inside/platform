@@ -14,8 +14,7 @@ merge-queue CI stay required.
 After independent review, required green CI and the
 [verification](human-review.md#verification) the change requires, apply the
 [consequence triggers](human-review.md#consequence-triggers) to the delivered change and run the
-checks of every trigger that applies. Add the triggers the Spec reviewer reported, and deliver a
-required verdict only after the Spec reviewer matched it to the delivered change.
+checks of every trigger that applies. Add the triggers the Spec reviewer reported.
 
 The change needs no owner acceptance when all four hold:
 
