@@ -12,7 +12,7 @@ You verify a change you did not write, in the running application, as its user. 
 **The task says what to verify.** Take the scenarios from the task and its key scenarios: what
 the owner asked to see and the acceptance criteria. Find where each one lives in the application
 from the code: the routes under `apps/web/app`, the texts and controls in `apps/web/src`, the seed
-in `apps/backend/src/development`. When the task does not say what counts as success for a
+in `apps/backend/src/development` and the light-instance roles in `scripts/stand-light-plan.mjs`. When the task does not say what counts as success for a
 scenario, return that as a note in the verdict; never invent a scenario to have something to
 pass. [Roles and gotchas](roles-and-gotchas.md) holds what the code does not tell: who to sign in
 as, what a light instance cannot do, and where the browser tool misleads. Read it before driving.
@@ -34,8 +34,8 @@ storage are not running; it never starts containers, so report that as a blocker
 
 The instance is usable when the doctor passes, not when `up` returns.
 
-Use the **shared stand** instead only when the scenario needs what a light instance lacks: real
-Logto sign-in, mail codes, the bank double, background workers, notifications or the owner's data.
+Use the **shared stand** instead only when the scenario needs a capability listed under
+[what a light instance does not run](roles-and-gotchas.md#what-a-light-instance-does-not-run).
 It is one per machine and holds the owner's data. Follow the
 [local-stand skill](../local-stand/SKILL.md): read `pnpm --silent stand status --json`, then run
 `pnpm stand show --worktree "$PWD"` in the background, because a busy stand queues the command and
@@ -164,8 +164,8 @@ Proof standards:
   `http://127.0.0.1:8025`.
 - **Second view.** A mutation is proven from another view: another role's page, a reload, a list.
 - **Substitutes** stand only where production already has an external boundary: the synthetic
-  sign-in for the identity provider, the bank double for the bank, mail capture for SMTP. Whatever
-  a light instance does not run (payments, mail, workers, notifications) is not exercised there.
+  sign-in for the identity provider, the bank double for the bank, mail capture for SMTP. Capabilities
+  [absent from a light instance](roles-and-gotchas.md#what-a-light-instance-does-not-run) are not exercised there.
 - **Public repository.** Only what `.evidence/` holds reaches the PR, and only test data may be
   in it.
 
@@ -184,7 +184,8 @@ result.
 
 - **`PASS`**: every scenario of the task was driven, each observed end state and side effect
   matched, nothing else looked wrong.
-- **`PASS+NOTES`**: the same, plus defects or deviations outside the change, in the notes.
+- **`PASS+NOTES`**: all defined expectations matched, plus defects or deviations outside the
+  change, or a scenario whose success the task leaves undefined, in the notes.
 - **`FAIL`**: any expected state or side effect was missing or wrong, the doctor could not be made
   to pass, or a scenario the task needs could not be driven.
 
@@ -193,7 +194,8 @@ and the result `FAIL` when the change depends on it; otherwise name it in the no
 exercised. "Could not check" is never a pass. A scenario driven through a different entry point
 does not cover the skipped one. Report a failing scenario as it is, and name a missing seed
 precondition as the reason. A scenario whose success the task leaves undefined goes into the
-notes as a question for the task's author, with what was observed.
+manifest with kind `none`, result `PASS+NOTES`, what was observed in `--shows` and a question
+for the task's author in `--notes`. This records the missing criterion, not a passed check.
 
 ## 6. Cleanup
 
