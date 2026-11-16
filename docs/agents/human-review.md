@@ -7,9 +7,11 @@ How the owner takes part: what he sees, what he decides, and what agents settle 
 
 - **Technical acceptance** asks whether the change is built correctly. It belongs to the
   implementer, CI and the independent reviewers. The owner takes no part in it and reads no code,
-  in any zone, money and personal data included. Agents settle a technical review finding among
-  themselves: the implementer fixes it, or the reviewer withdraws it as optional with a reason;
-  when they disagree, the implementer fixes it.
+  in any zone, money and personal data included. A finding is technical when it is about how
+  the change is built; a finding about what the user gets (a consequence for the user, money,
+  access, personal data, an irreversible action, the look of the interface) is not, and in doubt
+  it is not. Agents settle a technical finding among themselves: the implementer fixes it, or the
+  reviewer withdraws it as optional with a reason; when they disagree, the implementer fixes it.
 - **Business acceptance** asks whether this is the right thing and whether it works for the user.
   It belongs to the owner, who decides from evidence: video, screenshots, data and a way to check
   himself.
@@ -107,8 +109,8 @@ no script classifies a diff (owner decision 5 of #2206). The repository is publi
 
 ## Ask the owner
 
-Ask when expected behaviour is missing or contradictory, requirements must change, a finding needs
-a disputed decision, authority is insufficient, or an agreed check is due. Ask one concrete
+Ask when expected behaviour is missing or contradictory, requirements must change, a finding that is not technical needs
+a decision, authority is insufficient, or an agreed check is due. Ask one concrete
 question with a recommended answer and what it changes, under the choice rule of root
 [AGENTS.md](../../AGENTS.md#human-facing-text). Link the issue or PR and the evidence, and name the
 work that waits. Record the question in that issue or PR, pause the affected work and continue
