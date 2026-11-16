@@ -1,0 +1,256 @@
+// @ts-check
+import { lightInstanceName } from "./stand-light-plan.mjs";
+
+/**
+ * Decisions of the `verify-platform` helper: which browser session a verifier drives, whether a
+ * light instance is worth driving, what may be read from its database and where evidence goes.
+ * `verify-platform.mjs` gathers the facts and runs the commands.
+ */
+
+/** @typedef {"owner" | "learner" | "guest"} VerifyRole */
+
+/** @type {readonly VerifyRole[]} */
+export const verifyRoles = ["owner", "learner", "guest"];
+
+/**
+ * Chrome for Testing 154 on macOS 27 binds a random local port before connecting and then fails
+ * every connection to 127.0.0.1 with ERR_ADDRESS_INVALID (os error 49). Naming the feature list
+ * replaces agent-browser's own `--disable-features=Translate`, so it is repeated here.
+ */
+const browserLaunchArguments =
+  "--disable-features=Translate,TcpPortRandomizationMac";
+
+const proxyVariables = new Set([
+  "http_proxy",
+  "https_proxy",
+  "all_proxy",
+  "no_proxy",
+]);
+
+/** Options and commands that would reach a browser other than this session's own. */
+const foreignBrowserArguments = new Set([
+  "--session",
+  "--namespace",
+  "--all",
+  "--cdp",
+  "--auto-connect",
+  "--profile",
+  "kill-all",
+  "connect",
+]);
+
+/**
+ * One browser session per worktree and role: each has its own cookies, so the owner and the
+ * learner stay signed in side by side and two worktrees never share a page.
+ * @param {string} worktree the real path of the worktree
+ * @param {VerifyRole} role
+ */
+export function verifySessionName(worktree, role) {
+  return `platform-verify-${lightInstanceName(worktree).id}-${role}`;
+}
+
+/**
+ * @param {object} input
+ * @param {string} input.worktree
+ * @param {VerifyRole} input.role
+ * @param {readonly string[]} input.args the agent-browser command and its arguments
+ * @param {NodeJS.Dict<string>} input.environment
+ * @returns {{ command: string; args: string[]; environment: Record<string, string> }}
+ */
+export function browserInvocation({ worktree, role, args, environment }) {
+  if (args.length === 0)
+    throw new Error("Name the agent-browser command to run, such as snapshot");
+  const foreign = args.find((item) => foreignBrowserArguments.has(item));
+  if (foreign !== undefined)
+    throw new Error(
+      `${foreign} leaves this worktree's own session; the helper drives only ${verifySessionName(worktree, role)}`,
+    );
+  const namespace = environment["AGENT_BROWSER_NAMESPACE"]?.trim();
+  /** @type {Record<string, string>} */
+  const kept = {};
+  for (const [key, value] of Object.entries(environment))
+    if (value !== undefined && !proxyVariables.has(key.toLowerCase()))
+      kept[key] = value;
+  return {
+    command: "agent-browser",
+    args: [
+      ...(namespace ? ["--namespace", namespace] : []),
+      "--session",
+      verifySessionName(worktree, role),
+      "--args",
+      browserLaunchArguments,
+      ...args,
+    ],
+    environment: kept,
+  };
+}
+
+/**
+ * @param {{ web: string; api: string; signIn: string | null }} urls addresses of the instance
+ * @param {"owner" | "learner" | "sign-out" | "web" | "api"} target
+ * @param {string} path a path of this instance, starting with one slash
+ */
+export function addressFor(urls, target, path) {
+  if (!/^\/(?![/\\])/u.test(path))
+    throw new Error(`${path} is not a path of this instance; start it with /`);
+  if (target === "web" || target === "api")
+    return `${urls[target].replace(/\/$/u, "")}${path}`;
+  if (urls.signIn === null)
+    throw new Error("The instance has no sign-in address yet");
+  const next = encodeURIComponent(path);
+  return target === "sign-out"
+    ? `${urls.signIn.replace(/\/sign-in$/u, "/sign-out")}?next=${next}`
+    : `${urls.signIn}?as=${target}&next=${next}`;
+}
+
+/**
+ * What `next build` reads: the web application, the workspace packages and the dependency set.
+ * The API reloads its own source, and documents, skills and root scripts reach neither.
+ * @param {string} path a repository path
+ */
+export function webBuildInput(path) {
+  return (
+    path.startsWith("apps/web/") ||
+    path.startsWith("packages/") ||
+    path === "pnpm-lock.yaml" ||
+    path === "package.json" ||
+    path === ".env.example"
+  );
+}
+
+/**
+ * The production build of web is made once, at `up`; the API reloads. A commit, checkout or edit
+ * after the start therefore leaves web showing older source than the verdict would name.
+ * @param {object} input
+ * @param {"production" | "development"} input.web
+ * @param {string} input.startedAt ISO time the instance started
+ * @param {number} input.headMovedAtMs when HEAD last changed
+ * @param {readonly { path: string; modifiedAtMs: number | null }[]} input.changedFiles files that
+ *   differ from HEAD; a deleted file has no modification time
+ * @returns {{ ok: boolean; detail: string }}
+ */
+export function sourceFreshness({
+  web,
+  startedAt,
+  headMovedAtMs,
+  changedFiles,
+}) {
+  if (web === "development")
+    return { ok: true, detail: "next dev reloads source edits" };
+  const started = Date.parse(startedAt);
+  if (headMovedAtMs > started)
+    return {
+      ok: false,
+      detail:
+        "HEAD moved after the instance started; restart it with pnpm stand:light down and up",
+    };
+  const built = changedFiles.filter((file) => webBuildInput(file.path));
+  const later = built
+    .filter((file) => file.modifiedAtMs === null || file.modifiedAtMs > started)
+    .map((file) => file.path);
+  if (later.length > 0)
+    return {
+      ok: false,
+      detail: `changed after the instance started: ${later.slice(0, 5).join(", ")}${later.length > 5 ? ` and ${String(later.length - 5)} more` : ""}; restart it with pnpm stand:light down and up`,
+    };
+  return {
+    ok: true,
+    detail:
+      built.length === 0
+        ? "web is built from HEAD; no uncommitted change reaches the build"
+        : `web is built from HEAD plus ${String(built.length)} uncommitted file(s), all older than the start`,
+  };
+}
+
+/**
+ * @param {readonly { pid: number; ppid: number }[]} table
+ * @param {number | undefined} listener the process listening on the port
+ * @param {number} supervisor the instance supervisor
+ */
+export function listenerOwned(table, listener, supervisor) {
+  const seen = new Set();
+  let pid = listener;
+  while (pid !== undefined && !seen.has(pid)) {
+    if (pid === supervisor) return true;
+    seen.add(pid);
+    const current = pid;
+    pid = table.find((row) => row.pid === current)?.ppid;
+  }
+  return false;
+}
+
+/**
+ * A side-effect check reads; it never repairs. The transaction is read-only as well, so a
+ * data-modifying `with` fails in PostgreSQL.
+ * @param {string} sql
+ */
+export function readOnlyStatement(sql) {
+  const statement = sql.trim().replace(/;\s*$/u, "");
+  if (
+    !/^(?:select|with|table|values|show|explain)\b/iu.test(statement) ||
+    statement.includes(";")
+  )
+    throw new Error(
+      "The database helper runs one reading statement: select, with, table, values, show or explain",
+    );
+  return statement;
+}
+
+/**
+ * @param {{ now: Date; branch: string; commit: string }} input
+ */
+export function evidenceRunName({ now, branch, commit }) {
+  const time = now
+    .toISOString()
+    .replace(/\.\d+Z$/u, "Z")
+    .replace(/[-:]/gu, "");
+  const label =
+    branch
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/gu, "-")
+      .replace(/^-|-$/gu, "")
+      .slice(0, 60) || "detached";
+  return `${time}-${label}-${commit.slice(0, 7)}`;
+}
+
+/**
+ * @param {readonly { name: string; ok: boolean; detail: string }[]} checks
+ * @returns {{ ok: boolean; text: string }}
+ */
+export function doctorReport(checks) {
+  const ok = checks.length > 0 && checks.every((check) => check.ok);
+  return {
+    ok,
+    text: [
+      ...checks.map(
+        (check) =>
+          `${check.ok ? "ok    " : "FAIL  "}${check.name}: ${check.detail}`,
+      ),
+      ok
+        ? "The instance is worth driving."
+        : "Do not drive this instance: fix the failed checks first.",
+    ].join("\n"),
+  };
+}
+
+/** @param {number} bytes */
+function size(bytes) {
+  if (bytes < 1024) return `${String(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+/**
+ * @param {readonly { path: string; bytes: number; sha256: string }[]} files
+ */
+export function artifactTable(files) {
+  if (files.length === 0) return "No artifacts.";
+  return [
+    "| Artifact | Size | SHA-256 |",
+    "|---|---|---|",
+    ...files.map(
+      (file) =>
+        `| \`${file.path}\` | ${size(file.bytes)} | \`${file.sha256.slice(0, 12)}\` |`,
+    ),
+  ].join("\n");
+}

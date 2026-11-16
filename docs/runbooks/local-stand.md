@@ -168,6 +168,10 @@ pnpm stand:light status
 pnpm stand:light down
 ```
 
+The [verify-platform skill](../../.agents/skills/verify-platform/SKILL.md) drives an instance as a
+user and records evidence; its helper `node scripts/verify-platform.mjs doctor` tells whether a
+running instance is worth driving.
+
 `up` prints the web, API and sign-in addresses. Open
 `<sign-in>?as=owner&next=/path` (owner with `platform:admin`) or `?as=learner` (no rights) in the
 browser; `/sign-out` on the same server removes the session. Use a separate browser context per

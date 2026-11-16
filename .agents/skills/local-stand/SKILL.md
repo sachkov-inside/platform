@@ -13,7 +13,8 @@ and need reload, at about twice the memory), sign in through the printed
 sign-in address, and run `pnpm stand:light down` when the check ends. It needs no reservation and
 runs beside other agents' instances. Use the shared stand below for an owner review, real Logto
 sign-in, mail, payments, workers or production-web speed. The runbook's light instance section
-lists the differences and the memory budget.
+lists the differences and the memory budget. To verify a change there as its user and return a
+verdict with evidence, follow [verify-platform](../verify-platform/SKILL.md).
 Use the stand controller from one checkout with installed dependencies. Pass the task's absolute
 worktree path when invoking it from that controller checkout. Its status names the registered
 controller; keep using that checkout while its stand state exists.

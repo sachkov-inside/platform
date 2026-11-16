@@ -17,7 +17,7 @@ frontend, domain and owner-correction contracts keep their existing owners.
 Unselected folders retain project/package ownership: `ai-models-refresh`, `impeccable`,
 `local-stand`, `modern-web-guidance`, `session-cleanup` and `vercel-react-best-practices`.
 Their complete folder identities were unchanged in this migration; `playwright-cli` was removed later
-by owner decision (#2194).
+by owner decision (#2194). `verify-platform` is project-owned and was added later (#2211).
 Codex reads `.agents/skills`; Claude's relative `.claude/skills` alias reads the same local copies.
 Runtime discovery needs neither Home nor a sibling checkout.
 
