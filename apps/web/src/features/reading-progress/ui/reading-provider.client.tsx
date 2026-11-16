@@ -2,6 +2,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -14,10 +15,8 @@ import {
 import { clearOtherReadingAccounts } from "../model/reading-cache";
 import { getReadingStates } from "../api/reading.browser";
 import { createReadingStateBatcher } from "../model/reading-state-batcher";
-import {
-  readingProgressChanges,
-  refreshReadingProgress,
-} from "../model/reading-progress-events";
+import { readingProgressChanges } from "../model/reading-progress-events";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
 /** One account-scoped reader shared by visible Material cards and Reader: cached per Material, read in batches. */
 export function ReadingProgressProvider({
@@ -62,12 +61,14 @@ export function ReadingProgressProvider({
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ["reading-progress"] });
   }, [queryClient]);
-  useEffect(() => {
-    if (!resolved || accountId === null) return;
-    return readingProgressChanges(accountId).subscribe((id) => {
-      void refreshReadingProgress(queryClient, accountId, id);
-    });
-  }, [accountId, resolved, queryClient]);
+  const changes = useMemo(
+    () =>
+      !resolved || accountId === null
+        ? null
+        : readingProgressChanges(accountId),
+    [accountId, resolved],
+  );
+  useAnnouncedRefresh(changes, ["reading-progress", accountId]);
   useEffect(() => {
     if (resolved) clearOtherReadingAccounts(queryClient, accountId);
   }, [accountId, queryClient, resolved]);

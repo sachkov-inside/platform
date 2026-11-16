@@ -1,15 +1,12 @@
 "use client";
-
-import { useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { bookmarkChanges, refreshBookmarks } from "./bookmark-events";
+import { useMemo } from "react";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
+import { bookmarkChanges } from "./bookmark-events";
 
 export function useBookmarkChanges(accountId: string | null) {
-  const cache = useQueryClient();
-  useEffect(() => {
-    if (accountId === null) return;
-    return bookmarkChanges(accountId).subscribe((announcementId) => {
-      void refreshBookmarks(cache, accountId, announcementId);
-    });
-  }, [accountId, cache]);
+  const changes = useMemo(
+    () => (accountId === null ? null : bookmarkChanges(accountId)),
+    [accountId],
+  );
+  useAnnouncedRefresh(changes, ["bookmarks", accountId]);
 }
