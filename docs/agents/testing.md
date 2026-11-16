@@ -79,6 +79,17 @@ owner when the intended behaviour or an agreed boundary is unclear.
 | CI, release or deploy script | Its tooling or root contract test and negative fixtures |
 | Documentation only | No test; `pnpm docs:check` |
 
+## Independent red evidence
+
+For a bug fix, the implementer records the failing-before and passing-after commands, immutable
+base/fixed commits and outputs. Reviewers remain read-only. A fresh verifier confirms the red
+result by running the new regression test against the base implementation in an isolated,
+task-owned test context, then the same test against the fixed implementation. It records both
+results and distinguishes the expected assertion failure from setup or dependency failures.
+This evidence check is needed even when application verification is unnecessary. If the base
+cannot run, record «Не проверено»; the classifier cannot use the independently proven bug-fix
+exemption. Never check out the base in another agent's active worktree.
+
 ## Where expected values come from
 
 Take expected values from the first source that defines them:
