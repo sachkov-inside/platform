@@ -227,7 +227,9 @@ the first failed job log before re-running it.
 
 ## Current verification
 
-From the root, with the owned infrastructure URLs exported above:
+PR CI runs the checks that the change selects on the exact head
+([Continuous integration](../../docs/runbooks/continuous-integration.md)). To reproduce them
+locally, run from the root with the owned infrastructure URLs exported above:
 
 ```bash
 pnpm --filter @inside/telegram check:full
