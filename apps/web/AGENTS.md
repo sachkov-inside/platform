@@ -26,8 +26,11 @@ Read the owning ADR before changing:
 
 ## Web platform guidance
 
-Before choosing a browser API, a compatibility fallback or a web performance technique, read the
-matching guide through [`modern-web-guidance`](../../.agents/skills/modern-web-guidance/SKILL.md).
+Before frontend work adds a web platform feature new to this codebase (an HTML element, a CSS
+feature, a browser API, a form or accessibility pattern), a compatibility fallback or a web
+performance technique, read the matching guide through
+[`modern-web-guidance`](../../.agents/skills/modern-web-guidance/SKILL.md). Changes that follow an
+existing project pattern need no guide.
 
 ## Verification
 

@@ -230,9 +230,8 @@ These rules require review. An effect count or a passing dependency linter canno
 
 ## Web platform guidance
 
-- A browser API, compatibility fallback or web performance technique follows its
-  [`modern-web-guidance`](../../.agents/skills/modern-web-guidance/SKILL.md) guide, or the change
-  states why the project pattern differs.
+- Review a change that [Web platform guidance](AGENTS.md#web-platform-guidance) covers against
+  its guide; a departure from the guide states its reason.
 
 ## Product presentation
 
