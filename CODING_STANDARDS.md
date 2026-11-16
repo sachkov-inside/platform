@@ -67,16 +67,14 @@ pauses would reject correct tests; the ban on network-idle waits below has its o
   outcome. A pause and an advanced virtual clock start work; neither observes it.
 - Wait for the fact the current step produces. A barrier the previous state already satisfies proves
   nothing and leaves the assertion racing the change it was meant to follow.
-- Bound a barrier with a budget that only stops a stuck run. Neither raising that budget nor
-  re-running the check repairs a flaky test; both hide the cause the failure was pointing at.
+- Bound a barrier with a budget that only stops a stuck run. [Flaky tests](docs/agents/testing.md#flaky-tests)
+  says why a larger budget or a re-run does not repair a test.
 - Read the fact without depending on the order of rows that share a sort key: such a read answers
   from an arbitrary row and turns a correct assertion into a coin toss.
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
 
-Browser suites fail on the first attempt, including CI. The
-[Playwright configuration contract](scripts/playwright-specs-load.test.mjs) rejects retries;
-[quiet-window checks](scripts/quiet-window-waits.test.mjs) reject `networkidle` waits.
+[Quiet-window checks](scripts/quiet-window-waits.test.mjs) reject `networkidle` waits.
 The nearest standard names surface-specific helpers and barriers.
 
 ## Deterministic test contracts (#1153)

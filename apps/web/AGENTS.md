@@ -34,8 +34,8 @@ existing project pattern need no guide.
 
 ## Verification
 
-- Test presentation mapping and query behaviour as focused module tests; represent meaningful UI
-  states in Storybook; use Playwright for route behaviour and accessibility.
+- [Testing](../../docs/agents/testing.md) says which kind of test a Web change needs and what it
+  may replace.
 - Check page transitions on a production build: `pnpm --filter @inside/web test:navigation`.
 - Run the full-stack Playwright path, `pnpm smoke:fullstack`, when a backend contract, BFF route,
   query ownership, or production data flow changes.

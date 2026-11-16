@@ -35,9 +35,7 @@ Read the owning document before changing:
 
 ## Verification
 
-- Pure domain and `MaterialBody` behaviour uses unit tests.
-- Application persistence, transactions, constraints, rollback, idempotency, and concurrency use
-  capability interfaces against real PostgreSQL; fake only genuinely variable external ports.
-- Transport adapters keep focused mapping tests separate from application acceptance.
+- [Testing](../../docs/agents/testing.md) says which kind of test a backend change needs and what
+  it may replace.
 - Run `pnpm test:integration` when PostgreSQL behaviour, migrations, Prisma mappings, or
   transaction semantics may have changed.

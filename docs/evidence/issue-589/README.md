@@ -1,5 +1,9 @@
 # Сквозной набор вне обязательного гейта: #589
 
+После #1430 у workflow `Nightly full-stack smoke` нет расписания; текущий порядок описан в
+[runbook CI](../../runbooks/continuous-integration.md#manual-full-stack-smoke). Ниже записаны измерения и
+решение на 06.10.2026, когда полный прогон шёл каждую ночь.
+
 ## Измеренная цена и выбор
 
 Измерены три успешных прогона `Nightly full-stack smoke` на GitHub-hosted `ubuntu-24.04`.
@@ -23,7 +27,7 @@
 | Загрузка конфигураций Playwright из `apps/web` в `unit` | `scripts/playwright-specs-load.test.mjs`, введённый #604, вызывает `--list` и требует непустой список; осознанный отказ `ENV is required` допускается | Сохранить существующий дешёвый сторож |
 
 Текущий порядок уведомления и разбора сбоя принадлежит
-[runbook CI](../../runbooks/continuous-integration.md#nightly-full-stack-smoke).
+[runbook CI](../../runbooks/continuous-integration.md#manual-full-stack-smoke).
 Набор не повторяет упавшие тесты. Нагрузка runner записывается через `vmstat`; она помогает
 разобрать истечение бюджета, но сама по себе не доказывает причину ошибки.
 
