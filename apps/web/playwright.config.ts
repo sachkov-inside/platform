@@ -19,6 +19,7 @@ export default defineConfig({
         "legal.spec.ts",
         "link-indexing.spec.ts",
         "mobile-navigation.spec.ts",
+        "learning-scenario.spec.ts",
         "subscription.spec.ts",
         "retired-commerce.spec.ts",
       ],

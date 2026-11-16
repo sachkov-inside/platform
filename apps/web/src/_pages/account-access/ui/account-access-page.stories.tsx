@@ -122,7 +122,7 @@ export const WithProducts: Story = {
     ).not.toBeInTheDocument();
     await expect(
       await canvas.findByRole("textbox", { name: "Имя" }),
-    ).toHaveValue("Кирилл Сачков");
+    ).toHaveValue("Покупатель Тестов");
     await expect(
       canvas.queryByRole("textbox", { name: /О себе/ }),
     ).not.toBeInTheDocument();
@@ -170,7 +170,7 @@ export const TelegramOnly: Story = {
     const canvas = within(canvasElement);
     await expect(
       await canvas.findByRole("textbox", { name: "Имя" }),
-    ).toHaveValue("Кирилл Сачков");
+    ).toHaveValue("Покупатель Тестов");
     await expect(
       await canvas.findByRole("heading", { name: "Telegram" }),
     ).toBeVisible();

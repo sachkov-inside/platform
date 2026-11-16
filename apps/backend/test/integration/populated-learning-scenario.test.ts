@@ -1,0 +1,420 @@
+import {
+  GenericContainer,
+  Wait,
+  type StartedTestContainer,
+} from "testcontainers";
+import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
+import { z } from "zod";
+import { afterAll, beforeAll, expect, test } from "vitest";
+import type { NestFastifyApplication } from "@nestjs/platform-fastify";
+import { registerFixedClock } from "../support/fixed-clock.js";
+import {
+  createMigratedTestDatabase,
+  type TestDatabase,
+} from "./setup/test-database.js";
+import {
+  startTestIdentityIssuer,
+  type TestIdentityIssuer,
+} from "./setup/test-identity-issuer.js";
+import { bootstrapOwnerAccount } from "../../src/modules/accounts/index.js";
+import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
+import { parsePlatformConfig } from "../../src/config/platform-config.js";
+import { seedLearningScenario } from "../../../../scenarios/seed-learning.mjs";
+import { scenarioRoles } from "../../../../scenarios/roles.mjs";
+
+registerFixedClock();
+let database: TestDatabase;
+let storage: StartedTestContainer;
+const storageCredentials = {
+  accessKeyId: "synthetic-learning-access-key",
+  secretAccessKey: "synthetic-learning-secret-key",
+};
+const storageBuckets = {
+  public: "synthetic-learning-public",
+  protected: "synthetic-learning-protected",
+  quarantine: "synthetic-learning-quarantine",
+};
+let identity: TestIdentityIssuer;
+let app: NestFastifyApplication;
+let api: string;
+let ownerToken: string;
+let holderToken: string;
+let seeded: Awaited<ReturnType<typeof seedLearningScenario>>;
+beforeAll(async () => {
+  database = await createMigratedTestDatabase();
+  storage = await new GenericContainer(
+    "ghcr.io/rustfs/rustfs:1.0.5@sha256:b81d16a90ee25bd9511280127ca1471788c6e874cf0f0da759645f46b2dc1d74",
+  )
+    .withEnvironment({
+      RUSTFS_ACCESS_KEY: storageCredentials.accessKeyId,
+      RUSTFS_SECRET_KEY: storageCredentials.secretAccessKey,
+    })
+    .withExposedPorts(9000)
+    .withWaitStrategy(Wait.forHttp("/health", 9000))
+    .start();
+  const storageEndpoint = `http://${storage.getHost()}:${String(storage.getMappedPort(9000))}`;
+  const client = new S3Client({
+    endpoint: storageEndpoint,
+    region: "us-east-1",
+    credentials: storageCredentials,
+    forcePathStyle: true,
+  });
+  try {
+    for (const Bucket of Object.values(storageBuckets))
+      await client.send(new CreateBucketCommand({ Bucket }));
+  } finally {
+    client.destroy();
+  }
+  identity = await startTestIdentityIssuer({
+    issuer: "https://learning-scenarios.invalid/oidc",
+    audience: "https://learning-scenarios.invalid/api",
+  });
+  await bootstrapOwnerAccount(
+    database.prisma,
+    { issuer: identity.issuer, subject: scenarioRoles.owner.subject },
+    "platform:admin",
+  );
+  ownerToken = await identity.sign(scenarioRoles.owner.subject);
+  app = await createApiApplication(
+    parsePlatformConfig({
+      OBJECT_STORAGE_ENDPOINT: storageEndpoint,
+      OBJECT_STORAGE_ACCESS_KEY_ID: storageCredentials.accessKeyId,
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: storageCredentials.secretAccessKey,
+      OBJECT_STORAGE_PUBLIC_BUCKET: storageBuckets.public,
+      OBJECT_STORAGE_PROTECTED_BUCKET: storageBuckets.protected,
+      OBJECT_STORAGE_QUARANTINE_BUCKET: storageBuckets.quarantine,
+      OBJECT_STORAGE_FORCE_PATH_STYLE: "true",
+      NODE_ENV: "test",
+      DATABASE_URL: database.url,
+      LOGTO_ISSUER: identity.issuer,
+      LOGTO_AUDIENCE: identity.audience,
+      LOGTO_JWKS_URL: identity.jwksUrl,
+      IDENTITY_EMAIL_FINGERPRINT_KEY:
+        "synthetic-learning-email-fingerprint-key",
+    }),
+    { logger: false },
+  );
+
+  await app.listen(0, "127.0.0.1");
+  api = await app.getUrl();
+  holderToken = await identity.sign(scenarioRoles.holder.subject, {
+    inside_verified_email: "light-holder@inside.test",
+  });
+  await fetch(`${api}/accounts`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${holderToken}` },
+  });
+  seeded = await seedLearningScenario({
+    api,
+    databaseName: new URL(database.url).pathname.slice(1),
+    ownerToken,
+    holderToken,
+  });
+});
+afterAll(async () => {
+  await app.close();
+  await identity.close();
+  await database.dispose();
+  await storage.stop();
+});
+
+test("the isolated seed publishes populated chapters, an extra reference and an empty upcoming chapter through the real API", async () => {
+  const response = await fetch(`${api}/library/products/synthetic-learning`);
+  expect(response.status).toBe(200);
+  const result = z
+    .object({
+      items: z.array(
+        z.object({ materialId: z.string(), title: z.string() }).loose(),
+      ),
+      chapters: z.array(
+        z
+          .object({
+            name: z.string(),
+            materialIds: z.array(z.string()),
+            supplementaryMaterialIds: z.array(z.string()).optional(),
+          })
+          .loose(),
+      ),
+    })
+    .loose()
+    .parse(await response.json());
+  const title = new Map(
+    result.items.map((item) => [item.materialId, item.title]),
+  );
+  expect(
+    result.chapters.map((chapter) => ({
+      name: chapter.name,
+      lessons: chapter.materialIds.map((id) => title.get(id)),
+      supplementary:
+        chapter.supplementaryMaterialIds?.map((id) => title.get(id)) ?? [],
+    })),
+  ).toEqual([
+    {
+      name: "Начало учебного проекта",
+      lessons: [
+        "Учебный пример: первый шаг",
+        "Учебный пример: работа над проектом",
+      ],
+      supplementary: ["Учебный пример: памятка"],
+    },
+    {
+      name: "Выпуск учебного проекта",
+      lessons: ["Учебный пример: проверка выпуска"],
+      supplementary: [],
+    },
+    { name: "Следующая учебная глава", lessons: [], supplementary: [] },
+  ]);
+});
+
+test("the holder has a completed lesson, a started lesson and a bookmark while a learner has no ProductAccess", async () => {
+  const catalogue = z
+    .object({
+      items: z.array(
+        z
+          .object({
+            materialId: z.string(),
+            title: z.string(),
+            slug: z.string(),
+            access: z.enum(["free", "closed"]),
+          })
+          .loose(),
+      ),
+    })
+    .loose()
+    .parse(
+      await (await fetch(`${api}/library/products/synthetic-learning`)).json(),
+    );
+  const names = new Map(
+    catalogue.items.map((item) => [item.materialId, item.title]),
+  );
+  const states = await fetch(`${api}/reading-activity/materials/query`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${holderToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      materialIds: catalogue.items.map((item) => item.materialId),
+    }),
+  });
+  expect(states.status).toBe(200);
+  const parsed = z
+    .array(
+      z
+        .object({
+          materialId: z.string(),
+          isRead: z.boolean(),
+          openedParts: z.number().nullable(),
+        })
+        .loose(),
+    )
+    .parse(await states.json());
+  expect(
+    parsed
+      .filter((item) => item.isRead)
+      .map((item) => names.get(item.materialId)),
+  ).toEqual(["Учебный пример: первый шаг"]);
+  expect(
+    parsed
+      .filter((item) => item.openedParts !== null)
+      .map((item) => ({
+        title: names.get(item.materialId),
+        openedParts: item.openedParts,
+      })),
+  ).toEqual([{ title: "Учебный пример: работа над проектом", openedParts: 1 }]);
+  const bookmarks = await fetch(`${api}/bookmarks/query`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${holderToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ first: 12 }),
+  });
+  expect(bookmarks.status).toBe(200);
+  expect(await bookmarks.json()).toMatchObject({
+    items: [{ title: "Учебный пример: работа над проектом" }],
+    nextCursor: null,
+  });
+  const paid = catalogue.items.find(
+    (item) => item.title === "Учебный пример: работа над проектом",
+  );
+  if (paid === undefined) throw new Error("Expected paid learning lesson");
+  const learnerToken = await identity.sign(scenarioRoles.learner.subject, {
+    inside_verified_email: "light-learner@inside.test",
+  });
+  const account = await fetch(`${api}/accounts`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${learnerToken}` },
+  });
+  expect(account.status).toBe(201);
+  const denied = await fetch(`${api}/materials/${paid.slug}`, {
+    headers: { authorization: `Bearer ${learnerToken}` },
+  });
+  expect(denied.status).toBe(200);
+  const teaser: unknown = await denied.json();
+  expect(teaser).toMatchObject({
+    kind: "teaser",
+    access: { availability: "locked" },
+  });
+  expect(teaser).not.toHaveProperty("body");
+  expect(JSON.stringify(teaser)).not.toContain(
+    "Покажи результат учебного шага",
+  );
+  const allowed = await fetch(`${api}/materials/${paid.slug}`, {
+    headers: { authorization: `Bearer ${holderToken}` },
+  });
+  expect(allowed.status).toBe(200);
+  expect(await allowed.text()).toContain("Покажи результат учебного шага");
+});
+
+test("the Product dictionary names the term introduced in its readable lesson", async () => {
+  const response = await fetch(
+    `${api}/library/products/synthetic-learning/glossary`,
+    { headers: { authorization: `Bearer ${holderToken}` } },
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    terms: [
+      {
+        id: "synthetic-result",
+        title: "Учебный результат",
+        lesson: { title: "Учебный пример: первый шаг" },
+      },
+    ],
+  });
+});
+
+test("the holder reads the current Task Version, its submission and AuthorFeedback separately from an outdated submission", async () => {
+  const page = await fetch(
+    `${api}/library/products/synthetic-learning/tasks/synthetic-project`,
+    { headers: { authorization: `Bearer ${holderToken}` } },
+  );
+  expect(page.status).toBe(200);
+  expect(await page.json()).toMatchObject({
+    access: "open",
+    task: { version: 2, title: "Учебный пример: покажи результат" },
+  });
+  const response = await fetch(
+    `${api}/accounts/current/product-tasks/synthetic-project/submissions`,
+    { headers: { authorization: `Bearer ${holderToken}` } },
+  );
+  expect(response.status).toBe(200);
+  const history = z
+    .object({
+      currentVersion: z.number(),
+      submissions: z.array(
+        z
+          .object({
+            taskVersion: z.number(),
+            note: z.string(),
+            authorFeedback: z
+              .object({
+                comment: z.string().nullable(),
+                reviewedAt: z.string().nullable(),
+              })
+              .nullable(),
+          })
+          .loose(),
+      ),
+    })
+    .loose()
+    .parse(await response.json());
+  expect(history.currentVersion).toBe(2);
+  expect(history.submissions.map((item) => item.taskVersion).sort()).toEqual([
+    1, 2,
+  ]);
+  expect(
+    history.submissions.find((item) => item.taskVersion === 2),
+  ).toMatchObject({
+    note: "Учебный результат проверен по инструкции.",
+    authorFeedback: {
+      comment: "Учебный результат понятен. Добавь пример входных данных.",
+    },
+  });
+  expect(
+    typeof history.submissions.find((item) => item.taskVersion === 2)
+      ?.authorFeedback?.reviewedAt,
+  ).toBe("string");
+  expect(
+    history.submissions.find((item) => item.taskVersion === 1),
+  ).toMatchObject({
+    note: "Первая учебная попытка до изменения задания.",
+    authorFeedback: null,
+  });
+});
+
+test("the populated product offers a real downloadable synthetic artifact", async () => {
+  const response = await fetch(
+    `${api}/products/${seeded.productId}/artifacts`,
+    { headers: { authorization: `Bearer ${holderToken}` } },
+  );
+  expect(response.status).toBe(200);
+  const result = z
+    .object({
+      artifacts: z.array(
+        z
+          .object({
+            artifactId: z.string(),
+            title: z.string(),
+            availability: z.string(),
+            content: z
+              .object({ kind: z.string(), filename: z.string() })
+              .loose(),
+          })
+          .loose(),
+      ),
+    })
+    .parse(await response.json());
+  expect(result.artifacts).toMatchObject([
+    {
+      title: "Учебный пример: шаблон результата",
+      availability: "available",
+      content: { kind: "file", filename: "synthetic-result.txt" },
+    },
+  ]);
+  const artifact = result.artifacts[0];
+  expect(artifact).toBeDefined();
+  const download = await fetch(
+    `${api}/products/${seeded.productId}/artifacts/${artifact?.artifactId}/file?version=1`,
+    { headers: { authorization: `Bearer ${holderToken}` } },
+  );
+  expect(download.status).toBe(200);
+  expect(await download.text()).toBe(
+    "Учебный результат: первый шаг и повторяемая проверка.\n",
+  );
+});
+
+test.each([
+  {
+    api: "https://example.invalid",
+    databaseName: "inside_test_" + "a".repeat(32),
+    message: "owned loopback API",
+  },
+  {
+    api: "http://127.0.0.1:9",
+    databaseName: "inside",
+    message: "isolated instance database",
+  },
+  {
+    api: "http://127.0.0.1:9",
+    databaseName: "inside_checks",
+    message: "isolated instance database",
+  },
+  {
+    api: "http://127.0.0.1:9/production",
+    databaseName: "inside_light_0123456789",
+    message: "owned loopback API",
+  },
+])(
+  "the seed refuses a non-isolated target before its first write: $api $databaseName",
+  async ({ api: target, databaseName, message }) => {
+    await expect(
+      seedLearningScenario({
+        api: target,
+        databaseName,
+        ownerToken: "unused",
+        holderToken: "unused",
+      }),
+    ).rejects.toThrow(message);
+  },
+);

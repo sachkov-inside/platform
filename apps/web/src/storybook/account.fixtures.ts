@@ -1,3 +1,4 @@
+import { scenarioRoles } from "../../../../scenarios/roles.mjs";
 import type { PrivateAccountProfile } from "@/entities/account-profile";
 import type { AccountTelegramMembership } from "@/features/account-access";
 
@@ -47,7 +48,7 @@ export const memberProfile = {
   avatar: null,
   bio: "Развиваю инженерные команды и изучаю agent-first delivery.",
   createdAt: "2026-08-30T10:00:00.000Z",
-  displayName: "Кирилл Сачков",
+  displayName: scenarioRoles.holder.name,
   status: "active",
   updatedAt: "2026-08-30T10:00:00.000Z",
   version: 3,

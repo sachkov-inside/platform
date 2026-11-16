@@ -45,6 +45,7 @@ import { peopleRoute } from "./people-backend.mjs";
 import { productLearnersRoute } from "./product-learners-backend.mjs";
 import { salesCatalogRoute } from "./sales-catalog-backend.mjs";
 import { authoringOverviewRoute } from "./authoring-overview-backend.mjs";
+import { learningScenarioRoute } from "./learning-scenario-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -533,6 +534,8 @@ function collection(entitled) {
  * @returns {JsonResult | ImageResult | undefined}
  */
 function route(method, url, entitled) {
+  const learning = learningScenarioRoute(method, url, entitled);
+  if (learning !== undefined) return learning;
   const taskNavigation = navigationTaskRoute(url, entitled);
   if (taskNavigation !== undefined) return taskNavigation;
   const path = url.pathname;
