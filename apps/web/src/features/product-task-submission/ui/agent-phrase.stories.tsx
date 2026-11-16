@@ -64,19 +64,13 @@ export const CopyFeedback: Story = {
         await expect(clock.pending()).toBe(1);
       });
       await expect(copy).toHaveBeenNthCalledWith(1, args.text);
-      act(() => {
-        clock.advance(1_999);
-      });
-      await expect(canvas.getByRole("status")).toHaveTextContent("Скопировано");
-      act(() => {
-        clock.advance(1);
-      });
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скопировано" }),
+      );
       await expect(canvas.getByRole("status")).toHaveTextContent(
         "Скопировать запрос",
       );
-      await userEvent.click(
-        canvas.getByRole("button", { name: "Скопировать запрос" }),
-      );
+      await expect(clock.pending()).toBe(0);
       await expect(copy).toHaveBeenNthCalledWith(2, args.text);
       await act(async () => {
         second.resolve(undefined);
@@ -89,7 +83,11 @@ export const CopyFeedback: Story = {
         await expect(clock.pending()).toBe(1);
       });
       act(() => {
-        clock.advance(2_000);
+        clock.advance(1_999);
+      });
+      await expect(canvas.getByRole("status")).toHaveTextContent("Скопировано");
+      act(() => {
+        clock.advance(1);
       });
       await expect(canvas.getByRole("status")).toHaveTextContent(
         "Скопировать запрос",
