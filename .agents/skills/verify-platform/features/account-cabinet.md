@@ -20,7 +20,8 @@ the name, the Telegram connection, the products they hold and the accepted docum
 ## Driving it with agent-browser
 
 Preconditions: the baseline; the learner has not accepted the terms
-(`V sql "select count(*) from accounts.legal_acceptances"` returns `0`).
+(`V sql "select count(*) from accounts.legal_acceptances where account_id = '$(V account learner)'"`
+returns `0`; the owner and the holder accepted them at seed).
 
 - **Terms (`account-terms`).** `L open "$(V address learner /account)"`. A dialog
   «Добро пожаловать» links «условия использования» and «политике персональных данных».
@@ -30,16 +31,20 @@ Preconditions: the baseline; the learner has not accepted the terms
   `L find role button click --name "Сохранить имя"`, `L wait --text "Имя сохранено."` Second view:
   open `/account` again; «Проверяющий Ученик» stands under the heading «Личный кабинет» in place of «Участник», and
   the field keeps the value.
-- **Products (`account-products`).** With no products the page has no region «Мои продукты». After
+- **Products (`account-products`).** With no products the page has no region «Мои продукты».
+  The holder has one: `H open "$(V address holder /account)"`, `H wait --text "Мои продукты"`;
+  `H snapshot -s main` shows «Покупатель Тестов» under the heading and «Создание Platform Inside»
+  with «Доступ открыт». After
   the owner grants one ([product access](product-access.md)) it lists the product with
   «Доступ открыт» and «Открыть продукт»; after a revoke, «Доступ отозван».
 - **Sign out (`account-sign-out`).** `L find role button click --name "Выйти из аккаунта"`,
   `L wait --text "Войти через Telegram"`. The address is `/?authentication=logout-incomplete`, and
   `/account` then reads «Войдите, чтобы открыть личный кабинет.»
 - **Side effects.**
-  `V sql "select kind, document_version, screen, button_label from accounts.legal_acceptances"`
+  `V sql "select kind, document_version, screen, button_label from accounts.legal_acceptances where account_id = '$(V account learner)'"`
   returns `terms,1,first-sign-in,Принять условия и продолжить`;
-  `V sql "select display_name from account_profiles.profiles"` returns `Проверяющий Ученик`.
+  `V sql "select display_name from account_profiles.profiles where account_id = '$(V account learner)'"`
+  returns `Проверяющий Ученик`.
 
 ## Gotchas
 

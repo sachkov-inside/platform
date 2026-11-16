@@ -1,7 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -58,48 +58,95 @@ test("the doctor refuses a worktree without an instance", async (context) => {
   }
 });
 
-test("an evidence run records the commit and lists its artifacts", async (context) => {
+test("an evidence run builds a manifest the report is made from", async (context) => {
   const { directory, git } = await repository();
   context.after(() => rm(directory, { recursive: true, force: true }));
   const missing = run(directory, ["evidence", "path"]);
   assert.equal(missing.status, 1);
   assert.match(missing.stderr, /No evidence run/u);
 
-  await writeFile(join(directory, "a.txt"), "second\n");
-  const started = run(directory, ["evidence", "start", "--label", "probe"]);
+  const started = run(directory, ["evidence", "start"]);
   assert.equal(started.status, 0, started.stderr);
   const evidence = started.stdout.trim();
-  const commit = git(["rev-parse", "HEAD"]).trim();
-  assert.match(
-    evidence,
-    new RegExp(
-      `/\\.git/inside-platform-stand/verify/\\d{8}T\\d{6}Z-feat-1-change-${commit.slice(0, 7)}$`,
-      "u",
-    ),
-  );
+  assert.equal(evidence, join(await realpath(directory), ".evidence"));
   assert.equal(run(directory, ["evidence", "path"]).stdout.trim(), evidence);
-  const record = z
-    .object({
-      commit: z.string(),
-      uncommittedFiles: z.array(z.string()),
-      uncommittedDiffSha256: z.string(),
-    })
-    .parse(JSON.parse(await readFile(join(evidence, "run.json"), "utf8")));
-  assert.equal(record.commit, commit);
-  assert.deepEqual(record.uncommittedFiles, ["a.txt"]);
-  assert.match(record.uncommittedDiffSha256, /^[0-9a-f]{64}$/u);
+  // The same commit continues its run.
+  assert.equal(run(directory, ["evidence", "start"]).status, 0);
 
   await writeFile(join(evidence, "01-before.png"), "image");
+  const added = run(directory, [
+    "evidence",
+    "add",
+    "--title",
+    "Владелец выдаёт продукт",
+    "--kind",
+    "screenshot",
+    "--file",
+    "01-before.png::карточка до выдачи",
+    "--shows",
+    "Карточка показывает «Доступ открыт»",
+    "--covers",
+    "features/product-access.md: access-grant",
+    "--result",
+    "PASS",
+  ]);
+  assert.equal(added.status, 0, added.stderr);
+  assert.match(added.stdout, /Added scenario s01/u);
+  const noFile = run(directory, [
+    "evidence",
+    "add",
+    "--title",
+    "Без файла",
+    "--kind",
+    "video",
+    "--shows",
+    "x",
+    "--covers",
+    "y",
+    "--result",
+    "PASS",
+  ]);
+  assert.equal(noFile.status, 1);
+  assert.match(noFile.stderr, /needs at least one file/u);
+
+  const unfinished = run(directory, ["evidence", "check"]);
+  assert.equal(unfinished.status, 1);
+  assert.match(unfinished.stdout, /the run has no verdict/u);
+  assert.equal(run(directory, ["evidence", "verdict", "PASS"]).status, 0);
+  const complete = run(directory, ["evidence", "check"]);
+  assert.equal(complete.status, 0, complete.stdout);
+  assert.match(complete.stdout, /1 scenario\(s\), verdict PASS/u);
+
+  const commit = git(["rev-parse", "HEAD"]).trim();
+  const manifest = z
+    .object({
+      version: z.literal(1),
+      commit: z.string(),
+      verdict: z.string(),
+      scenarios: z.array(
+        z.object({ id: z.string(), source: z.string(), kind: z.string() }),
+      ),
+    })
+    .parse(JSON.parse(await readFile(join(evidence, "manifest.json"), "utf8")));
+  assert.equal(manifest.commit, commit);
+  assert.deepEqual(manifest.scenarios, [
+    { id: "s01", source: "light-instance", kind: "screenshot" },
+  ]);
   const report = run(directory, ["report"]);
   assert.equal(report.status, 0, report.stderr);
-  assert.match(report.stdout, /^Verdict: <PASS \| PASS\+NOTES \| FAIL>$/mu);
-  assert.match(report.stdout, new RegExp(`Commit: \`${commit}\``, "u"));
-  assert.match(report.stdout, /Uncommitted: 1 file\(s\)/u);
+  assert.match(report.stdout, /^Verdict: PASS$/mu);
   assert.match(
     report.stdout,
-    /\| `01-before\.png` \| 5 B \| `[0-9a-f]{12}` \|/u,
+    /\| s01 \| Владелец выдаёт продукт \| screenshot \|/u,
   );
-  assert.doesNotMatch(report.stdout, /run\.json/u);
+
+  await writeFile(join(directory, "a.txt"), "second\n");
+  git(["commit", "--quiet", "--all", "--message", "second"]);
+  const stale = run(directory, ["evidence", "start"]);
+  assert.equal(stale.status, 1);
+  assert.match(stale.stderr, /start over with: evidence start --reset/u);
+  assert.equal(run(directory, ["evidence", "start", "--reset"]).status, 0);
+  assert.equal(run(directory, ["evidence", "check"]).status, 1);
 });
 
 test("the browser command refuses to act outside its session", async (context) => {

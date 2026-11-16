@@ -2,12 +2,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  addScenario,
   addressFor,
-  artifactTable,
   browserInvocation,
   doctorReport,
-  evidenceRunName,
   listenerOwned,
+  manifestProblems,
+  manifestReport,
+  manifestSchema,
+  newManifest,
   readOnlyStatement,
   sourceFreshness,
   verifySessionName,
@@ -127,6 +130,10 @@ test("addresses sign a role in or point at the instance", () => {
   assert.equal(
     addressFor(urls, "owner", "/authoring/people"),
     "http://127.0.0.1:57150/sign-in?as=owner&next=%2Fauthoring%2Fpeople",
+  );
+  assert.equal(
+    addressFor(urls, "holder", "/account"),
+    "http://127.0.0.1:57150/sign-in?as=holder&next=%2Faccount",
   );
   assert.equal(
     addressFor(urls, "learner", "/"),
@@ -274,25 +281,6 @@ test("the database helper accepts one reading statement", () => {
     assert.throws(() => readOnlyStatement(sql), /one reading statement/u);
 });
 
-test("a run directory name carries time, branch and commit", () => {
-  assert.equal(
-    evidenceRunName({
-      now: new Date("2026-11-16T14:30:44.962Z"),
-      branch: "feat/2211-verify-platform-skill",
-      commit: "5ee19bba09148cb474f9a0d83f3f7f5bf321e048",
-    }),
-    "20261116T143044Z-feat-2211-verify-platform-skill-5ee19bb",
-  );
-  assert.equal(
-    evidenceRunName({
-      now: new Date("2026-11-16T14:30:44.962Z"),
-      branch: "",
-      commit: "5ee19bba09148cb474f9a0d83f3f7f5bf321e048",
-    }),
-    "20261116T143044Z-detached-5ee19bb",
-  );
-});
-
 test("the doctor fails when any check fails and says which", () => {
   const good = doctorReport([
     { name: "process", ok: true, detail: "supervisor 100 is running" },
@@ -311,19 +299,124 @@ test("the doctor fails when any check fails and says which", () => {
   assert.equal(doctorReport([]).ok, false);
 });
 
-test("the artifact table lists every file with size and digest", () => {
-  const table = artifactTable([
-    { path: "owner/01-before.png", bytes: 2048, sha256: "a".repeat(64) },
-    { path: "owner/grant.webm", bytes: 1_572_864, sha256: "b".repeat(64) },
-  ]);
-  assert.equal(
-    table,
-    [
-      "| Artifact | Size | SHA-256 |",
-      "|---|---|---|",
-      `| \`owner/01-before.png\` | 2.0 KiB | \`${"a".repeat(12)}\` |`,
-      `| \`owner/grant.webm\` | 1.5 MiB | \`${"b".repeat(12)}\` |`,
-    ].join("\n"),
+const scenario = {
+  title: "Владелец выдаёт продукт, ученик видит закрытый материал",
+  kind: /** @type {const} */ ("video"),
+  files: [{ path: "grant.webm", shows: "выдача в карточке человека" }],
+  shows: "Карточка показывает «Доступ открыт», материал открылся у ученика",
+  source: /** @type {const} */ ("light-instance"),
+  covers: "features/product-access.md: access-grant, access-open",
+  result: /** @type {const} */ ("PASS"),
+  notes: null,
+};
+const run = {
+  commit: "5ee19bba09148cb474f9a0d83f3f7f5bf321e048",
+  branch: "feat/1-change",
+  base: "1111111111111111111111111111111111111111",
+  patchId: "2222222222222222222222222222222222222222",
+  uncommittedFiles: [],
+  uncommittedDiffSha256: null,
+  startedAt: "2026-11-16T15:00:00.000Z",
+};
+
+test("a manifest collects scenarios under unique ids", () => {
+  let manifest = newManifest(run);
+  assert.equal(manifest.version, 1);
+  assert.equal(manifest.verdict, null);
+  manifest = addScenario(manifest, scenario);
+  manifest = addScenario(manifest, { ...scenario, kind: "none", files: [] });
+  assert.deepEqual(
+    manifest.scenarios.map((item) => item.id),
+    ["s01", "s02"],
   );
-  assert.equal(artifactTable([]), "No artifacts.");
+  assert.equal(
+    manifestSchema.parse(manifest).scenarios[0]?.title,
+    scenario.title,
+  );
+  assert.throws(
+    () => addScenario(manifest, { ...scenario, title: "две\nстроки" }),
+    /one line/u,
+  );
+  assert.throws(
+    () => addScenario(manifest, { ...scenario, files: [] }),
+    /needs at least one file/u,
+  );
+  assert.throws(
+    () => addScenario(manifest, { ...scenario, kind: "none" }),
+    /takes no files/u,
+  );
+  assert.throws(
+    () =>
+      addScenario(manifest, {
+        ...scenario,
+        files: [{ path: "../outside.png", shows: "x" }],
+      }),
+    /inside \.evidence/u,
+  );
+});
+
+test("a manifest is checked against its files and GitHub's attachment limit", () => {
+  const manifest = {
+    ...addScenario(newManifest(run), scenario),
+    verdict: /** @type {const} */ ("PASS"),
+  };
+  const megabyte = 1024 * 1024;
+  assert.deepEqual(
+    manifestProblems(manifest, {
+      "grant.webm": { bytes: 2 * megabyte, seconds: 20 },
+    }),
+    [],
+  );
+  assert.deepEqual(manifestProblems(manifest, {}), [
+    "s01: grant.webm does not exist in .evidence",
+  ]);
+  assert.deepEqual(
+    manifestProblems(manifest, {
+      "grant.webm": { bytes: 11 * megabyte, seconds: 45 },
+    }),
+    [
+      "s01: grant.webm is 11.0 MiB; GitHub attaches at most 10 MiB",
+      "s01: grant.webm lasts 45 s; record one clip of 10–30 s per scenario",
+    ],
+  );
+  assert.deepEqual(
+    manifestProblems(
+      { ...manifest, verdict: null },
+      { "grant.webm": { bytes: megabyte, seconds: null } },
+    ),
+    [
+      "s01: the length of grant.webm is unknown; install ffprobe or check it by hand",
+      "the run has no verdict; set it with: evidence verdict <PASS|PASS+NOTES|FAIL>",
+    ],
+  );
+  const failed = addScenario(manifest, {
+    ...scenario,
+    kind: "none",
+    files: [],
+    result: "FAIL",
+  });
+  assert.deepEqual(
+    manifestProblems(failed, { "grant.webm": { bytes: 1, seconds: 12 } }),
+    ["the verdict is PASS but scenario s02 is FAIL"],
+  );
+  assert.deepEqual(manifestProblems({ ...manifest, scenarios: [] }, {}), [
+    "the run has no scenarios",
+  ]);
+});
+
+test("the report is built from the manifest alone", () => {
+  const manifest = {
+    ...addScenario(newManifest(run), scenario),
+    verdict: /** @type {const} */ ("PASS+NOTES"),
+    notes: "Список «Люди» не показывает имя из кабинета.",
+  };
+  const text = manifestReport(manifest);
+  assert.match(text, /^Verdict: PASS\+NOTES$/mu);
+  assert.match(text, /Commit: `5ee19bba09148cb474f9a0d83f3f7f5bf321e048`/u);
+  assert.match(text, /patch-id `2{40}`/u);
+  assert.match(text, /Notes: Список «Люди»/u);
+  assert.match(
+    text,
+    /\| s01 \| Владелец выдаёт продукт, ученик видит закрытый материал \| video \| `grant\.webm` \| light-instance \| PASS \|/u,
+  );
 });

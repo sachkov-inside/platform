@@ -53,7 +53,7 @@ node scripts/verify-platform.mjs doctor      # exit 0 only when every check pass
 Read-only. It checks that the supervisor is alive and `ready`, that HEAD has not moved and no web
 build input was written since the instance started, that the web and API ports are held by this instance's own
 processes, that the API reaches its database and the home feed serves seeded materials, and that
-the owner signs in with authoring rights and the learner without. Run it before the first drive
+the owner signs in with authoring rights and the holder and the learner without. Run it before the first drive
 and again whenever a page looks wrong. A failed check names its fix; drive nothing until all pass.
 
 ## 3. Drive
@@ -64,6 +64,7 @@ headless session for the role, and adds the launch settings a loopback page need
 ```bash
 V() { node scripts/verify-platform.mjs "$@"; }     # define these in every shell command
 O() { V browser --role owner -- "$@"; }
+H() { V browser --role holder -- "$@"; }
 L() { V browser --role learner -- "$@"; }
 G() { V browser --role guest -- "$@"; }
 
@@ -74,10 +75,20 @@ O find role button click --name "Выдать продукт"
 O wait --text "Доступ выдан."
 ```
 
-- **Roles.** `owner` has `platform:admin` and opens `/authoring`; `learner` is an account with no
-  products; `guest` never signs in (`V address web /path`). Each role is its own session with its
-  own cookies, so they stay signed in side by side. `V address sign-out /` ends a session's
-  sign-in.
+- **Roles.** A light instance seeds the same people on every `up`, under names nobody bears, so
+  a screenshot shows no real person. The product has one permission, `platform:admin`; there is
+  no separate author or operator.
+
+  | Role | Who | Sign in |
+  |---|---|---|
+  | `owner` | «Владелец Тестов», `platform:admin`: authoring and all admin pages | `O open "$(V address owner /authoring)"` |
+  | `holder` | «Покупатель Тестов», holds «Создание Platform Inside»: a buyer after the purchase | `H open "$(V address holder /account)"` |
+  | `learner` | a new person: no name, no products, terms not accepted | `L open "$(V address learner /)"` |
+  | `guest` | nobody signed in | `G open "$(V address web /)"` |
+
+  Each role is its own session with its own cookies, so they stay signed in side by side.
+  `V account <role>` prints a role's Account ID. On the shared stand the roles are the profiles
+  of `/__local/accounts` named in step 1.
 - **Namespace.** When the machine's `agent-browser` rules name a namespace, export it as
   `AGENT_BROWSER_NAMESPACE` in each command; the helper passes it on.
 - **Handles.** Act on roles and accessible names (`find role … --name`, `find label …`), or on a
@@ -105,73 +116,103 @@ command and its output.
 ## 4. Evidence
 
 ```bash
-E="$(V evidence start)"   # once per run; prints the directory
+E="$(V evidence start)"   # once per run: creates .evidence/ and manifest.json for this commit
 E="$(V evidence path)"    # the same directory, in every later shell command
 ```
 
-The directory lives under the repository's shared Git directory
-(`<git-common-dir>/inside-platform-stand/verify/<time>-<branch or detached>-<commit>/`), outside every
-worktree, with `run.json` naming the commit and patch. Proof standards:
+Evidence lives in `.evidence/` in the worktree root, outside Git: the files and one
+`manifest.json` that lists the scenarios. The manifest is self-sufficient: the PR is written
+from it and its files are attached from it. A run of an earlier commit is replaced with
+`V evidence start --reset`.
+
+**Before recording, make sure the data is test data.** A light instance with a passing doctor
+is: its database is this run's seed. On the shared stand, look at the page first. When a screen
+may show a real person, a real purchase or unpublished material, keep no file: add the scenario
+with kind `none` and say the result in words.
+
+A **scenario** is one thing checked. Choose the kind of evidence for each scenario separately:
+
+| Kind | When | Files |
+|---|---|---|
+| `video` | the proof is motion: a journey, a transition | one clip of 10–30 s |
+| `screenshot` | the proof is how a page looks at one moment | one; two (before, after) when an existing view changes |
+| `table` | the proof is not on screen: rows written, a request and its answer | a CSV or Markdown table «action, expected, got» from the running server |
+| `numbers` | the proof is speed | the measurements before and after |
+| `none` | no file may be kept, or nothing can be shown | none; the result in words |
+
+GitHub attaches at most 10 MiB per file, so record one short clip per scenario, never the whole
+run in one file: start the recording right before the action and stop it at the resulting state.
+
+```bash
+O record start "$E/grant.webm" --cursor
+# … the action and its result …
+O record stop
+O screenshot "$E/granted.png"
+V sql "select p.slug, a.revoked_at is not null as revoked from account_rights.product_access a
+       join products.products p on p.id = a.product_id" | tee "$E/access-rows.csv"
+
+V evidence add --title "Владелец выдаёт продукт, ученик видит закрытый материал" \
+  --kind video --file "grant.webm::выдача в карточке человека и открытый материал у ученика" \
+  --shows "Карточка показывает «Доступ открыт», материал открылся" \
+  --covers "features/product-access.md: access-grant, access-open" --result PASS
+V evidence add --title "Выдача записана в базе" --kind table \
+  --file "access-rows.csv::строка product_access после выдачи" \
+  --shows "platform-inside, не отозван" --covers "access-grant" --result PASS
+```
+
+`--source` is `light-instance` by default; pass `stand-test-data` for the shared stand. Each
+scenario carries its own result. A recording belongs to one session; a scenario with two roles
+records the role where the result appears, or adds a file per role.
+
+Proof standards:
 
 - **Real user path.** Reach the feature through the pages and controls a user has. Calling an API
   route, a setter or a test-only endpoint proves nothing about the feature. The synthetic sign-in
   address is the only shortcut: it stands where production has the external identity provider.
-- **Action and result.** Record a video of each journey and take a screenshot before the action
-  and of the resulting state. A headless screenshot has no address bar: name the file after the
-  role and state, and note `get url` beside it when two pages look alike.
-
-  ```bash
-  O record start "$E/owner-grant.webm" --cursor
-  O screenshot "$E/01-owner-before.png"
-  # … the journey …
-  O screenshot "$E/02-owner-granted.png"
-  O record stop
-  ```
-
-  A recording belongs to one session; a journey with two roles records each role's part. Open
-  at least one screenshot per journey and confirm it shows the claimed state.
-- **Side effects.** Next to what the page shows, read what the action wrote, and save it:
-
-  ```bash
-  V sql "select product_id, revoked_at, revision from account_rights.product_access" \
-    | tee "$E/03-product-access.csv"
-  ```
-
-  `sql` runs one reading statement in the light instance's database. Each feature file names its
-  rows. On the shared stand read side effects from the owner pages and the mail capture at
+- **Action and result.** A clip or a pair of screenshots shows the action and the resulting state.
+  A headless screenshot has no address bar: name the file after the role and state. Open at least
+  one file per scenario and confirm it shows what the manifest says.
+- **Side effects.** Next to what the page shows, read what the action wrote. `V sql` runs one
+  reading statement in the light instance's database; each feature file names its rows. On the
+  shared stand read side effects from the owner pages and the mail capture at
   `http://127.0.0.1:8025`.
 - **Second view.** A mutation is proven from another view: another role's page, a reload, a list.
 - **Substitutes** stand only where production already has an external boundary: the synthetic
   sign-in for the identity provider, the bank double for the bank, mail capture for SMTP. Whatever
   a light instance does not run (payments, mail, workers, notifications) is not exercised there.
-- **Public repository.** A light instance holds only seed data, and only that may reach a PR or
-  an Issue. Evidence from the shared stand stays on the machine: it can show the owner's accounts,
-  purchases and unpublished materials.
+- **Public repository.** Only what `.evidence/` holds reaches the PR, and only test data may be
+  in it.
 
 ## 5. Verdict
 
-`V report` prints the skeleton with the commit, the patch and every
-artifact with its size and digest. Fill it and return it as the result.
+```bash
+V evidence verdict PASS+NOTES --notes "Список «Люди» не показывает имя из кабинета."
+V evidence check      # exit 0 only when the manifest is complete
+V report              # the verdict, commit, patch and scenarios, from the manifest
+```
+
+`evidence check` requires every named file to exist, to be at most 10 MiB, every clip to last
+10–30 s, and the verdict to agree with the scenarios. Return the output of `V report` as the
+result.
 
 - **`PASS`**: every journey the change needs was driven, each observed end state and side effect
   matched, nothing else looked wrong.
-- **`PASS+NOTES`**: the same, plus defects or deviations outside the change, listed.
+- **`PASS+NOTES`**: the same, plus defects or deviations outside the change, in the notes.
 - **`FAIL`**: any expected state or side effect was missing or wrong, the doctor could not be made
   to pass, or a journey the change needs could not be driven.
 
-State what was exercised (feature file, sub-feature IDs, entry points), what was not and why, and
-each side effect with the rows it returned. "Could not check" is never a pass: an unreachable
-journey is reported under not exercised with the failing command, and fails the verdict when the
-change depends on it. A journey driven through a different entry point does not cover the skipped
-one. Report a failing journey as it is, and name a missing seed precondition as the reason, so the
-map's owner can add it to the feature's Gotchas.
+A scenario that could not be checked is added with kind `none`, the failing command in `--shows`
+and the result `FAIL` when the change depends on it; otherwise name it in the notes as not
+exercised. "Could not check" is never a pass. A journey driven through a different entry point
+does not cover the skipped one. Report a failing journey as it is, and name a missing seed
+precondition as the reason, so the map's owner can add it to the feature's Gotchas.
 
 ## 6. Cleanup
 
 Stop what this run started, by the handle it was started with:
 
 ```bash
-O close; L close; G close       # each role session this run opened
+O close; H close; L close; G close   # each role session this run opened
 pnpm stand:light down           # this worktree's instance and its database
 ```
 
@@ -179,13 +220,14 @@ The helper runs page commands in its own sessions only: it refuses `kill-all`, `
 `connect`, and options such as `--all`, `--session` or `--profile`. Stop a process only through the command that started it, and
 leave the shared stand, its containers and other worktrees' instances running; release a stand
 reservation this run took with `pnpm stand release --worktree "$PWD"`. Run cleanup after a failed
-attempt too. Then confirm the evidence survived: `ls "$(V evidence path)"` lists the artifacts.
+attempt too. Then confirm the evidence survived: `V evidence check` still passes.
 `pnpm stand:light status` no longer has a line for this worktree; lines of other worktrees are
-their instances and stay.
+their instances and stay. `.evidence/` stays until its files are attached to the PR; it goes with
+the worktree.
 
 ## Helpers
 
 [`scripts/verify-platform.mjs`](../../../scripts/verify-platform.mjs) is executable and
-`--help` lists its commands: `doctor`, `address`, `browser`, `sql`, `evidence start`,
-`evidence path` and `report`, each shown in the steps above. Its decisions live in
+`--help` lists its commands: `doctor`, `address`, `account`, `browser`, `sql`, `evidence start`, `path`,
+`add`, `verdict`, `check` and `report`, each shown in the steps above. Its decisions live in
 `scripts/verify-platform-plan.mjs`; `scripts/verify-platform*.test.mjs` test both.

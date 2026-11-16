@@ -17,7 +17,7 @@ closes them again and keeps the history.
 - Owner: «Люди» in the admin navigation (`/authoring/people`), the person's row, then
   «Выдать продукт» at the top of the card.
 - Owner: the row's menu in the people list: `O open "$(V address owner /authoring/people)"`,
-  `O wait --text "Без имени и email"`,
+  `O find role searchbox fill "$(V account learner)"`, `O wait --text "Без имени и email"`,
   `O find role button click --name "Действия с «Без имени и email»"`,
   `O find role menuitem click --name "Открыть карточку"`; it leads to the same card.
 - Owner: a product's tab «Ученики» (`/authoring/products/<id>?tab=learners`, reached from
@@ -27,12 +27,14 @@ closes them again and keeps the history.
 ## Driving it with agent-browser
 
 Preconditions: the baseline; the learner holds no product
-(`V sql "select count(*) from account_rights.product_access"` returns `0`).
+(`V sql "select count(*) from account_rights.product_access where account_id = '$(V account learner)'"`
+returns `0`). The holder's seeded product is another person's row.
 
 - **Before (`access-closed`).** `L open "$(V address learner /materials/developer-pipeline-bez-poteri-konteksta)"`,
   `L wait --text "Продолжение для участников"`: the paywall is shown and «Изучено» is disabled.
 - **Open the card.** `O open "$(V address owner /authoring/people)"`,
-  `O find role link click --name "Без имени и email"`, `O wait --text "Выдать продукт"`. The card
+  `O find role searchbox fill "$(V account learner)"`, `O wait --text "Без продуктов"`; one row is
+  left. `O find role link click --name "Без имени и email"`, `O wait --text "Выдать продукт"`. The card
   says «У человека пока нет продуктов. Выдать продукт можно кнопкой вверху карточки.»
 - **Grant (`access-grant`).** `O find role button click --name "Выдать продукт"`, `O wait 'dialog[open]'`,
   `O find role radio click --name "Создание Platform Inside"`, `O find role radio click --name "Подарок"`,
@@ -56,9 +58,9 @@ Preconditions: the baseline; the learner holds no product
 - **Restore (`access-restore`).** `O find role button click --name "Восстановить доступ к «Создание Platform Inside»"`,
   complete the dialog, and check the learner's material opens again.
 - **Side effects.**
-  `V sql "select p.slug, a.revoked_at is not null as revoked, a.revision from account_rights.product_access a join products.products p on p.id = a.product_id"`
+  `V sql "select p.slug, a.revoked_at is not null as revoked, a.revision from account_rights.product_access a join products.products p on p.id = a.product_id where a.account_id = '$(V account learner)'"`
   returns `platform-inside,f,1` after the grant and `platform-inside,t,2` after the revoke;
-  `V sql "select kind, reason from account_rights.product_access_actions order by recorded_at"`
+  `V sql "select kind, reason from account_rights.product_access_actions where account_id = '$(V account learner)' order by recorded_at"`
   returns one row per action with its reason.
 
 ## Gotchas
@@ -73,6 +75,8 @@ Preconditions: the baseline; the learner holds no product
 - The product-side dialog «Выдать «<продукт>»» finds the person through «Найти человека», and the
   seeded learner has no name or email; search by the ID from the card's «Скопировать ID».
 - History lines name the acting owner «Аккаунт без имени и email», the same label the learner has.
+- Without the search the list has two rows with the same name, and a click by name takes the
+  first.
 - The page shows a reason in guillemets; the page text read by `get text` or `wait --text` has
   none.
 - Telegram group membership follows product access on the shared stand only; the light instance

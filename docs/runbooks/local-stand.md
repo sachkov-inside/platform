@@ -181,7 +181,9 @@ user and records evidence; its helper `node scripts/verify-platform.mjs doctor` 
 running instance is worth driving.
 
 `up` prints the web, API and sign-in addresses. Open
-`<sign-in>?as=owner&next=/path` (owner with `platform:admin`) or `?as=learner` (no rights) in the
+`<sign-in>?as=owner&next=/path` (owner «Владелец Тестов» with `platform:admin`), `?as=holder`
+(«Покупатель Тестов», holds «Создание Platform Inside») or `?as=learner` (a new person: no name,
+no products, terms not accepted) in the
 browser; `/sign-out` on the same server removes the session. Use a separate browser context per
 instance: cookies of `127.0.0.1` ignore the port, and each instance names its own cookie.
 
@@ -198,7 +200,10 @@ How it works:
    `inside-platform` (`--infrastructure <project>` selects another one) and refuses when they are
    not running. It never starts or changes containers.
 2. A detached supervisor creates `inside_light_<id>`, where `<id>` derives from the worktree path,
-   then migrates it, seeds the published demonstration catalogue and bootstraps the owner. Every
+   then migrates it, seeds the published demonstration catalogue and bootstraps the owner. Once
+   the API answers it establishes the role Accounts through the API: the owner and the holder
+   accept the current terms and get their fictional names, and the owner grants the holder the
+   seeded product. Every
    `up` starts from a fresh database.
 3. It starts the backend's `dev:api` from this worktree and builds and starts Web in production
    mode (`next build`, `next start`), with environment from `.env.example`, the caller's

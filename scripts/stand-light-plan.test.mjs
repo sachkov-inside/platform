@@ -9,7 +9,9 @@ import {
   assertLightDatabase,
   lightEnvironment,
   lightInstanceName,
+  lightRoles,
   lightSignInHandler,
+  seedLightRoles,
   listLightStates,
   treeResidentKiB,
 } from "./stand-light-plan.mjs";
@@ -96,6 +98,7 @@ test("sign-in sets the instance's session cookie and opens only a path of its we
   );
 
   assert.equal((await signIn("GET", "/sign-in?as=learner")).status, 302);
+  assert.equal((await signIn("GET", "/sign-in?as=holder")).status, 302);
   assert.equal((await signIn("GET", "/sign-in?as=admin")).status, 404);
   assert.equal((await signIn("GET", "/sign-in?next=//evil.test")).status, 400);
   assert.equal((await signIn("GET", "/sign-in?next=/\\evil.test")).status, 400);
@@ -150,4 +153,81 @@ test("instance memory counts the supervisor and every descendant, not other proc
   ];
   assert.equal(treeResidentKiB(table, 10), 600);
   assert.equal(treeResidentKiB(table, 99), 0);
+});
+
+test("named roles accept the terms, get a fictional name, and the holder its product", async () => {
+  /** @type {{ call: string; body: unknown }[]} */
+  const calls = [];
+  const terms = "/accounts/current/legal-acceptances/terms";
+  await seedLightRoles({
+    api: "http://127.0.0.1:1",
+    createAccessToken: (subject) =>
+      Promise.resolve({ token: `token:${subject ?? ""}`, expiresAt: 0 }),
+    operationId: () => "33333333-3333-4333-8333-333333333333",
+    request: (url, init) => {
+      const subject = init.headers.authorization.replace("Bearer token:", "");
+      const path = new URL(url).pathname;
+      calls.push({
+        call: `${subject} ${init.method} ${path}`,
+        body:
+          init.body === undefined
+            ? undefined
+            : /** @type {unknown} */ (JSON.parse(init.body)),
+      });
+      const answer =
+        path === "/accounts"
+          ? { account: { accountId: "11111111-1111-4111-8111-111111111111" } }
+          : path === terms
+            ? { document: { version: "1", digest: "d".repeat(64) } }
+            : {};
+      return Promise.resolve(
+        new Response(JSON.stringify(answer), {
+          status: init.method === "GET" ? 200 : 201,
+        }),
+      );
+    },
+  });
+  const accepted = {
+    operationId: "33333333-3333-4333-8333-333333333333",
+    version: "1",
+    digest: "d".repeat(64),
+    buttonLabel: "Light instance role setup",
+  };
+  assert.deepEqual(calls, [
+    { call: "light-holder POST /accounts", body: undefined },
+    { call: "light-learner POST /accounts", body: undefined },
+    { call: `fullstack-owner GET ${terms}`, body: undefined },
+    { call: `fullstack-owner POST ${terms}`, body: accepted },
+    {
+      call: "fullstack-owner POST /account/profile",
+      body: { displayName: "Владелец Тестов" },
+    },
+    { call: `light-holder GET ${terms}`, body: undefined },
+    { call: `light-holder POST ${terms}`, body: accepted },
+    {
+      call: "light-holder POST /account/profile",
+      body: { displayName: "Покупатель Тестов" },
+    },
+    {
+      call: "fullstack-owner POST /admin/access/products/issue",
+      body: {
+        accountId: "11111111-1111-4111-8111-111111111111",
+        productId: lightRoles.holder.productId,
+        reason: "Тестовый набор ролей лёгкого экземпляра",
+        sourceRef: "stand-light:holder",
+      },
+    },
+  ]);
+  assert.equal(lightRoles.learner.name, null);
+});
+
+test("a refused role request stops the instance with the request named", async () => {
+  await assert.rejects(
+    seedLightRoles({
+      api: "http://127.0.0.1:1",
+      createAccessToken: () => Promise.resolve({ token: "t", expiresAt: 0 }),
+      request: () => Promise.resolve(new Response("{}", { status: 403 })),
+    }),
+    /POST \/accounts for holder returned HTTP 403/u,
+  );
 });
