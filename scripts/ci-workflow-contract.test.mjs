@@ -925,41 +925,53 @@ describe("application CI workflow contract", () => {
   });
 
   it("keeps Web E2E recordings and HTML call logs separate for each CI attempt", () => {
-    const webE2E = jobBlock("web-e2e-browser");
-    const upload = webE2E.slice(
-      webE2E.indexOf("      - name: Upload Playwright report and results\n"),
+    const upload = playwrightUpload(
+      jobBlock("web-e2e-browser"),
+      "Upload Playwright report and results",
     );
-    // Отчёт успешного запуска служит доказательством для владельца (#2187).
-    assert.match(upload, /^ {8}if: \$\{\{ !cancelled\(\) \}\}$/mu);
-    assert.match(upload, /uses: actions\/upload-artifact@/u);
+    assertUploadsFailuresAndPassedPullRequests(upload);
     assert.match(
       upload,
       /name: web-e2e-playwright-\$\{\{ matrix\.project \}\}-\$\{\{ github\.run_attempt \}\}/u,
     );
-    assert.match(upload, /^ {12}apps\/web\/playwright-report$/mu);
-    assert.match(upload, /^ {12}apps\/web\/test-results$/mu);
     assert.doesNotMatch(upload, /overwrite: true/u);
   });
 
-  it("keeps full-stack Playwright reports of passed and failed runs for each attempt", () => {
+  it("keeps full-stack Playwright reports of failed and passed pull-request runs for each attempt", () => {
     const job = jobBlock("fullstack-browser");
-    const upload = job.slice(
-      job.indexOf("      - name: Upload Playwright report and results\n"),
-      job.indexOf("      - name: Remove infrastructure\n"),
+    const upload = playwrightUpload(
+      job,
+      "Upload Playwright report and diagnostics",
     );
-    assert.match(upload, /^ {8}if: \$\{\{ !cancelled\(\) \}\}$/mu);
-    assert.match(upload, /uses: actions\/upload-artifact@/u);
+    assertUploadsFailuresAndPassedPullRequests(upload);
     assert.match(
       upload,
       /name: fullstack-diagnostics-\$\{\{ matrix\.project \}\}-\$\{\{ matrix\.shard \}\}-\$\{\{ github\.run_attempt \}\}/u,
     );
-    assert.match(upload, /^ {12}apps\/web\/playwright-report$/mu);
-    assert.match(upload, /^ {12}apps\/web\/test-results$/mu);
-    assert.match(upload, /retention-days: 7/u);
     assert.match(
       job,
       /- name: Capture infrastructure diagnostics\n {8}if: \$\{\{ failure\(\) \}\}/u,
     );
+  });
+
+  it("rejects report uploads after cancellation or outside pull requests", () => {
+    const upload = playwrightUpload(
+      jobBlock("web-e2e-browser"),
+      "Upload Playwright report and results",
+    );
+    const condition =
+      "if: ${{ failure() || (success() && github.event_name == 'pull_request') }}";
+    assert.ok(upload.includes(condition));
+    for (const replacement of [
+      "if: ${{ always() }}",
+      "if: ${{ !cancelled() }}",
+      "if: ${{ failure() }}",
+    ])
+      assert.throws(() =>
+        assertUploadsFailuresAndPassedPullRequests(
+          upload.replace(condition, replacement),
+        ),
+      );
   });
 
   it("gives the Web navigation suite its own HTML report inside the uploaded folder", () => {
@@ -969,7 +981,7 @@ describe("application CI workflow contract", () => {
     );
     assert.match(
       navigation,
-      /\["html", \{ open: "never", outputFolder: "playwright-report\/navigation" \}\]/u,
+      /\[\s*"html",\s*\{[^}]*outputFolder:\s*"playwright-report\/navigation"[^}]*\}\s*\]/u,
     );
   });
 
@@ -1165,6 +1177,33 @@ function jobBlock(job, source = workflow) {
   const remainder = source.slice(bodyStart);
   const end = remainder.search(/^ {2}[a-z][a-z0-9-]*:\n/mu);
   return marker + (end === -1 ? remainder : remainder.slice(0, end));
+}
+
+/**
+ * @param {string} job
+ * @param {string} name
+ */
+function playwrightUpload(job, name) {
+  const start = job.indexOf(`      - name: ${name}\n`);
+  assert.notEqual(start, -1, `job must have step ${name}`);
+  const next = job.indexOf("\n      - name: ", start + 1);
+  return job.slice(start, next === -1 ? undefined : next);
+}
+
+/**
+ * Отчёт прошедшего PR служит доказательством для владельца; merge queue и выпуск, который
+ * вызывает CI через workflow_call, выгружают его только после падения (#2187).
+ * @param {string} upload
+ */
+function assertUploadsFailuresAndPassedPullRequests(upload) {
+  assert.match(
+    upload,
+    /^ {8}if: \$\{\{ failure\(\) \|\| \(success\(\) && github\.event_name == 'pull_request'\) \}\}$/mu,
+  );
+  assert.match(upload, /uses: actions\/upload-artifact@/u);
+  assert.match(upload, /^ {12}apps\/web\/playwright-report$/mu);
+  assert.match(upload, /^ {12}apps\/web\/test-results$/mu);
+  assert.match(upload, /retention-days: 7$/mu);
 }
 
 /** @param {string} value */
