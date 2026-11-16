@@ -574,9 +574,35 @@ describe("application CI workflow contract", () => {
 
   it("keeps the workflow read-only and independent of secrets", () => {
     assert.equal(topLevelBlock("permissions").trim(), "contents: read");
-    assert.doesNotMatch(workflow, /^ {4}permissions:/mu);
+    assert.equal(workflow.match(/^ {4}permissions:/gmu)?.length, 1);
+    assert.match(
+      jobBlock("docs"),
+      /permissions:\n {6}contents: read\n {6}actions: read/u,
+    );
     assert.doesNotMatch(workflow, /secrets\./u);
     assert.doesNotMatch(workflow, /packages:\s*write/u);
+  });
+
+  it("verifies documentation evidence inside the required job with a fresh setup and ordinary fallback", () => {
+    const docs = jobBlock("docs");
+    assert.match(docs, /fetch-depth: 0/u);
+    assert.match(docs, /persist-credentials: false/u);
+    assert.match(docs, /run: node scripts\/ci-docs-run\.mjs/u);
+    assert.match(docs, /GH_TOKEN: \$\{\{ github.token \}\}/u);
+    assert.ok(
+      docs.indexOf("uses: ./.github/actions/setup-platform") <
+        docs.indexOf("run: node scripts/ci-docs-run.mjs"),
+    );
+    assert.match(
+      docs,
+      /name: ci-docs-evidence-\$\{\{ github.run_attempt \}\}/u,
+    );
+    assert.match(
+      docs,
+      /path: ci-artifacts\/docs-evidence\/docs-evidence.json/u,
+    );
+    assert.match(docs, /if-no-files-found: error/u);
+    assert.doesNotMatch(jobBlock("ci-gate"), /ci-docs-run|actions: read/u);
   });
 
   it("pins every action to a release commit", () => {
@@ -915,9 +941,9 @@ describe("application CI workflow contract", () => {
   it("retains bounded failure diagnostics and source evidence for seven days", () => {
     assert.equal(
       workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
-      10,
+      11,
     );
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 10);
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 11);
     assert.equal(
       workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
       8,

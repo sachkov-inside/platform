@@ -13,6 +13,66 @@ reusable path uses that SHA, so a moving branch cannot change the candidate duri
 pushes do not start application CI; the protected `main` branch accepts changes only through the
 merge queue with a successful `CI Gate`.
 
+## Documentation evidence in the merge queue
+
+Only an ordinary-prose plan consisting of `docs` supports PR-to-queue reuse (#2266, Home22 plan3.6).
+`scripts/ci-docs-run.mjs` runs inside the required Documentation contracts job, after the existing
+fresh setup. Only this job requests `actions: read` alongside `contents: read`; the two reusable
+release callers forward that read permission to CI without granting review, publication or mutation
+rights. It either verifies completed evidence or executes all three existing `docs:check`
+programs. Security, Coverage plan and CI Gate always execute. Gate dependencies, coverage
+selection, branch protection and every application stage are unchanged. A targeted PR subset
+cannot supply missing full-Platform queue coverage. Release evidence keeps its existing trusted
+events and selector.
+
+The producer accepts only the current three dependency-free documentation programs and their
+pinned local imports. For this version it archives the tracked source into an owned temporary
+directory, executes those same programs and supplies the captured comparison base explicitly to
+the added-line check. This prevents generated or untracked files from changing the tested inputs.
+The archive is removed on success, failure or interruption. A changed documentation program or
+command is unsupported until its contract is deliberately revised; it runs ordinary `pnpm docs:check`
+and cannot donate evidence. Other local use of `pnpm docs:check` is unchanged.
+
+Both executions capture the whole Git tree, actual checkout SHA, comparison base and exact checked
+diff, plus a producer digest covering every tracked non-prose input. That digest must equal the
+approved `origin/main` closure. Workflow/action revisions, lockfile, package commands, toolchain,
+service configuration, scripts and runtime Markdown therefore remain significant. Prose cannot
+change executable producer code. The environment identity binds the actual Node and Git binaries,
+Node/Git/kernel versions, hosted Ubuntu image revision, architecture, relevant process environment
+and Git configuration. Checkout's HTTP authorization header is excluded because these local Git
+operations perform no network access. Only a complete GitHub-hosted Linux x64 environment with
+the pinned Node version can donate or consume evidence. A different image or other fingerprint
+runs the checks again.
+
+The lookup reads at most ten successful PR workflow runs, forty provider responses and sixty
+seconds, with per-command time/output bounds. It reads no logs and writes no provider checks.
+A donor must be a completed successful same-repository `ci.yml` PR into `main`, no older than
+24 hours, with the same tree at both the provider head and actual synthetic checkout. Its checkout
+parents must be the captured base and provider PR head. The producer closure, environment,
+comparison base/diff and required coverage must match the consumer. Matching commit SHA alone
+is insufficient; different synthetic commit SHAs are allowed when all these inputs match.
+
+The attempt-specific provider jobs for Documentation contracts, Coverage plan, Security and CI Gate
+must each be uniquely present and successful. Two nonexpired, bounded artifacts
+(`ci-docs-evidence-<attempt>` and `ci-source-evidence-<attempt>`) must belong to that run/head and
+have creation times inside their producing jobs. Their downloaded ZIP SHA-256 must match the
+provider digest. JSON is parsed as data; downloaded content is never executed. The source receipt
+must independently show selected and successful coverage exactly `docs`. The provider's current
+attempt is rechecked after observation. Receipts produced by reuse cannot donate again.
+
+Any missing, old-format, partial, pending, cancelled, failed, expired, oversized or inconsistent
+evidence, API failure or observation budget exhaustion returns to ordinary execution. No skipped
+or unavailable check becomes a pass. The docs artifact and job summary record the decision,
+source run/attempt/job/artifact IDs, tree, lookup time and executed-check time. The donor's measured
+check duration is reported separately; it is not a claim of net time saved, since setup and lookup
+still cost time. Existing queue source evidence retains the required completed docs job.
+
+This first supported path deliberately excludes application matrices, contracts and security.
+Historical PR2256/2257 and their queues used different trees, and old source artifacts lacked an
+environment identity. Docker/browser/service inputs and event-specific image smoke also prevent
+safe broad reuse from those receipts. Such stages execute normally. Expanding reuse requires a
+separate measured contract for their actual environment and complete required coverage.
+
 ## Wait for pull request CI
 
 Wait for the current head of a pull request with one command instead of repeated `gh run` calls:
@@ -839,7 +899,7 @@ images. It embeds a synthetic release identity, supplies the exact local image I
 Compose, and proves fresh/upgrade/N-1 migrations, `pg-boss` resume, release/schema readiness,
 worker drain/no-overlap, TLS and positive/negative routes without application or provider writes.
 Pull-request CI does not publish packages, use GHCR permissions, deploy to a server or read
-production configuration. `.github/workflows/release.yml` calls CI with read-only contents access,
+production configuration. `.github/workflows/release.yml` calls CI with read-only contents and Actions access,
 for missing coverage, then publishes packages in a separately permissioned matrix job. The reusable release call skips
 the release-image smoke already proved by pull-request CI, so its publish job builds each candidate
 image only once. Release finalization receives only non-secret image identity artifacts from the
