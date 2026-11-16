@@ -37,7 +37,10 @@ for (const mode of ["normal", "lost", "unavailable", "unreachable"] as const) {
     async (seed) => {
       await checkSequence(
         seed,
-        boundedSequence(seed, actions, 12),
+        [
+          ...(seed % 2 === 0 ? ["bank-confirms" as const] : []),
+          ...boundedSequence(seed, actions, 12),
+        ],
         async (steps: readonly Step[]) =>
           withWorld(async (world) => {
             const s = await world.scenario();
