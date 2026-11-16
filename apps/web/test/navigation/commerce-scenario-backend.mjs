@@ -48,19 +48,6 @@ export async function commerceScenarioRoute(request, url, readBody) {
           ],
         },
       };
-    if (url.pathname === "/authoring/people/product-choices")
-      return {
-        status: 200,
-        value: {
-          items: [
-            {
-              productId: facts.product.id,
-              name: facts.product.name,
-              archived: false,
-            },
-          ],
-        },
-      };
   }
   if (url.pathname === "/billing/admin" && request.method === "POST") {
     const command = z

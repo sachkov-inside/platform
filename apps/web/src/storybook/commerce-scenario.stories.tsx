@@ -85,8 +85,15 @@ export const PendingPurchase: Story = {
   },
 };
 export const LinkedLearner: Story = {
+  beforeEach: authoringPageEnvironment("/authoring/people").beforeEach,
   args: { view: "people" },
   play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("link", {
+        name: "Люди",
+        current: "page",
+      }),
+    ).toBeVisible();
     await expect(
       within(within(canvasElement).getByRole("table")).getByText(
         "Участник Тестов",
