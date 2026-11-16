@@ -46,8 +46,7 @@ and survive session completion. A reservation whose worktree directory no longer
 by the next `show`, `refresh`, `release` or `upgrade` from any worktree, which reports it; `status`
 only reads and marks such a reservation. `status` shows the reserved worktree and how long ago it
 was reserved, from `reservation-times.json` beside the state; reservations taken before this file
-existed show an unknown age. Ordinary editing,
-Storybook and isolated tests do not reserve it.
+existed show an unknown age. Ordinary editing, Storybook and isolated tests do not reserve it.
 
 A mutation that finds another stand operation running waits in a first-come queue instead of
 failing, and prints its position and the running operation to stderr. `status` lists the queue.
@@ -196,11 +195,14 @@ How it works:
    needs more memory. Ports come from the reserved range 20000–29999.
 4. `down` stops the supervisor, which stops its processes and drops its database. After a crash,
    `down` drops the leftover database, record and release identity file, and warns when
-   `apps/web/AGENTS.md` differs from the commit. Nothing else is touched.
+   `apps/web/AGENTS.md` differs from the commit. Nothing else is touched. For a deleted worktree,
+   run `pnpm stand:light down --worktree <its former path>` from another checkout; `status` lists
+   that path.
 
 The record and log live in `inside-platform-stand/light/` under the shared Git common directory.
-One instance runs per worktree. `pnpm smoke:fullstack` in the same worktree refuses while an
-instance runs, because both own `apps/web/release-identity.json` and `apps/web/.next`. Uploaded files go to the stand's local buckets. Payments, mail,
+One instance runs per worktree. Do not run `pnpm smoke:fullstack` in a worktree with a running
+instance: both use `apps/web/.next`. In the default mode the smoke refuses on the instance's
+`apps/web/release-identity.json`; with `--dev` nothing stops it. Uploaded files go to the stand's local buckets. Payments, mail,
 notifications and background workers do not run. The production build writes
 `apps/web/release-identity.json` for the life of the instance. `next dev` and `next build` rewrite
 the Next.js block of `apps/web/AGENTS.md`; the instance restores the committed text once web is

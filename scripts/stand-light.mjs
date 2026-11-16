@@ -62,11 +62,17 @@ down    Stop this worktree's instance and drop its database; nothing else is tou
     const requested = resolve(
       values.worktree ?? process.env["INIT_CWD"] ?? process.cwd(),
     );
-    const worktree = await realpath(
-      git(requested, ["rev-parse", "--show-toplevel"]),
-    );
+    // `down` also stops the instance of a deleted worktree: its record keeps the real path, and the
+    // records live in the common Git directory that this script's checkout shares.
+    const deleted = command === "down" && !existsSync(requested);
+    const worktree = deleted
+      ? requested
+      : await realpath(git(requested, ["rev-parse", "--show-toplevel"]));
+    const checkout = deleted
+      ? dirname(dirname(fileURLToPath(import.meta.url)))
+      : worktree;
     const common = await realpath(
-      resolve(worktree, git(worktree, ["rev-parse", "--git-common-dir"])),
+      resolve(checkout, git(checkout, ["rev-parse", "--git-common-dir"])),
     );
     const directory = lightDirectory(join(common, "inside-platform-stand"));
     if (command === "status") await status(directory);

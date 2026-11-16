@@ -75,7 +75,8 @@ const releaseIdentityPath = join(
 const releaseIdentity = `${JSON.stringify(fullStackRelease)}\n`;
 const webAgentsPath = join(configuration.worktree, "apps/web/AGENTS.md");
 const psql = composePsql({
-  cwd: configuration.worktree,
+  // The worktree may be deleted while the instance runs; Compose selects the project by name.
+  cwd: undefined,
   composeProject: configuration.composeProject,
   run: execFileSync,
 });
