@@ -235,7 +235,7 @@ test("a ticket keeps its place while the start time of its live process cannot b
 });
 
 // The one test on the real `ps`: two synchronous reads of this process and one of an absent ID.
-// `ps` owns no state to clean up, and each read fails after the 5 seconds
+// `ps` owns no state to clean up, and each read returns within the 5 seconds
 // `processStartTime` allows it.
 test("ps reports the start second of a running process and none for a missing one", () => {
   const first = processStartTime(process.pid);
