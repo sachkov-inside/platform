@@ -19,6 +19,10 @@ export {
 } from "./ui/material-reader-states";
 export { MaterialReaderView } from "./ui/material-reader-view";
 export {
+  readerBodyLinkHref,
+  resolveProductReaderContext,
+} from "./model/product-reader-context";
+export {
   practiceReviewSetupText,
   type LearnerMcpConnection,
 } from "./model/practice-review-setup";
