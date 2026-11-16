@@ -23,7 +23,7 @@ import {
   lightInstanceName,
   lightSignInHandler,
   lightStartupBudgetMilliseconds,
-  lightSubjects,
+  seedLightRoles,
 } from "./stand-light-plan.mjs";
 
 const adoptionPollMilliseconds = 50;
@@ -202,16 +202,10 @@ try {
 
   const deadline = Date.now() + lightStartupBudgetMilliseconds;
   await waitFor(`${environment.urls.api}/health`, deadline);
-  // The learner signs in without the web callback that establishes an Account on first sign-in.
-  const learner = await identity.createAccessToken(lightSubjects.learner);
-  const established = await fetch(`${environment.urls.api}/accounts`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${learner.token}` },
+  await seedLightRoles({
+    api: environment.urls.api,
+    createAccessToken: (subject) => identity.createAccessToken(subject),
   });
-  if (established.status !== 201)
-    throw new Error(
-      `Learner Account establishment returned HTTP ${String(established.status)}`,
-    );
   if (environment.urls.mcp)
     await waitFor(
       `${environment.urls.mcp.replace(/\/mcp$/u, "")}/.well-known/oauth-protected-resource/mcp`,

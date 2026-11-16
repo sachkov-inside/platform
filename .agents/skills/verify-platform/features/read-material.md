@@ -10,6 +10,7 @@ bookmarks and marks it read; a closed material shows a paywall to anyone without
 - `read-mark` marks the material read.
 - `read-closed` shows the paywall in place of a closed material's body.
 - `read-guest` lets a guest read a free material.
+- `read-holder` shows a closed material's body to a person who holds its product.
 
 ## How to get to it (user POV)
 
@@ -47,6 +48,9 @@ Preconditions: the baseline; the learner has no bookmarks and no read marks.
   `L wait --text "Продолжение для участников"`. The region shows «Этот материал доступен участникам
   курса.» and the link «Приобрести курс»; the buttons «Сохранить, закладка недоступна» and
   «Изучено» are disabled; the text «Закрытое содержимое для участников.» is absent.
+- **Holder (`read-holder`).** `H open "$(V address holder /materials/developer-pipeline-bez-poteri-konteksta)"`,
+  `H wait --text "Закрытое содержимое для участников."` The paywall region is absent and
+  «Изучено» is enabled.
 - **Guest (`read-guest`).** `G open "$(V address web /materials/proveryaemaya-postavka)"`,
   `G wait --text "Конец урока"`. The body is readable without sign-in.
 

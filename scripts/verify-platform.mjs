@@ -5,15 +5,9 @@
 // changes an instance.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, statSync } from "node:fs";
-import {
-  mkdir,
-  readFile,
-  readdir,
-  realpath,
-  writeFile,
-} from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
+import { existsSync, lstatSync, statSync } from "node:fs";
+import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import process from "node:process";
 import { parseArgs } from "node:util";
 import { z } from "zod";
@@ -25,15 +19,24 @@ import {
 } from "./stand-light-plan.mjs";
 import { processAlive } from "./stand-queue.mjs";
 import {
+  addScenario,
   addressFor,
-  artifactTable,
+  addressTargetSchema,
   browserInvocation,
   doctorReport,
-  evidenceRunName,
+  evidenceKindSchema,
+  evidenceSourceSchema,
+  isClip,
   listenerOwned,
+  manifestProblems,
+  manifestReport,
+  manifestSchema,
+  newManifest,
   readOnlyStatement,
+  signedInRoleSchema,
   sourceFreshness,
-  verifyRoles,
+  verdictSchema,
+  verifyRoleSchema,
   webBuildInput,
 } from "./verify-platform-plan.mjs";
 
@@ -41,32 +44,32 @@ const usage = `Usage: node scripts/verify-platform.mjs <command> [--worktree PAT
 
 doctor [--json]                 Read-only: is this worktree's light instance worth driving?
                                 Exit 0 only when every check passes.
-address <target> [path]         Print an address. Targets: owner, learner (sign in and open the
-                                path), sign-out, web, api.
+address <target> [path]         Print an address. Targets: owner, holder, learner, newcomer (sign
+                                in and open the path), sign-out, web, api.
 browser [--role ROLE] -- ARGS   Run agent-browser in this worktree's own session for the role
-                                (owner by default; learner, guest).
+                                (owner by default; holder, learner, newcomer, guest).
 sql "<select ...>"              Run one reading statement in the instance's database; prints CSV.
-evidence start [--label TEXT]   Create this run's evidence directory, record commit and patch,
-                                print the path.
-evidence path                   Print the current run's evidence directory.
-report                          Print the verdict skeleton with the artifact list of the run.
+account <role>                  Print the Account ID of a signed-in role of this instance.
+evidence start [--reset]        Create .evidence/ in the worktree root with manifest.json for
+                                this commit and print its path. --reset empties an earlier run.
+evidence path                   Print the evidence directory.
+evidence add --title T --kind video|screenshot|table|numbers|none
+             [--file "NAME::what it shows"]... --shows S --covers C --result PASS|PASS+NOTES|FAIL
+             [--source light-instance|stand-test-data] [--notes N]
+                                Add one scenario to the manifest; files are names in .evidence/.
+evidence verdict <PASS|PASS+NOTES|FAIL> [--notes N]
+                                Set the verdict of the run.
+evidence check                  Exit 0 only when the manifest is complete: it is of this commit,
+                                has scenarios, files fit their kind, exist and are at most
+                                10 MB, a clip lasts at most 30 s, and the verdict is set, has
+                                its notes and agrees with the scenarios.
+report                          Print the verdict and scenarios from the manifest.
 `;
 
 const commandMilliseconds = 20_000;
 const requestMilliseconds = 10_000;
-const roleSchema = z.enum(verifyRoles);
-const runSchema = z.object({
-  directory: z.string(),
-  commit: z.string(),
-  branch: z.string(),
-  base: z.string().nullable(),
-  patchId: z.string().nullable(),
-  uncommittedFiles: z.array(z.string()),
-  uncommittedDiffSha256: z.string().nullable(),
-  label: z.string().nullable(),
-  startedAt: z.string(),
-});
 const authStatusSchema = z.object({
+  accountId: z.string().nullable(),
   state: z.string(),
   canManageMaterials: z.boolean(),
 });
@@ -83,7 +86,7 @@ const separator = process.argv.indexOf("--");
 const own =
   separator === -1 ? process.argv.slice(2) : process.argv.slice(2, separator);
 const passed = separator === -1 ? [] : process.argv.slice(separator + 1);
-/** @type {{ worktree?: string; role?: string; label?: string; json?: boolean; help?: boolean }} */
+/** @type {{ worktree?: string; role?: string; json?: boolean; help?: boolean; reset?: boolean; title?: string; kind?: string; file?: string[]; shows?: string; covers?: string; result?: string; source?: string; notes?: string }} */
 let values = {};
 /** @type {string[]} */
 let positionals = [];
@@ -95,7 +98,15 @@ try {
     options: {
       worktree: { type: "string" },
       role: { type: "string" },
-      label: { type: "string" },
+      reset: { type: "boolean" },
+      title: { type: "string" },
+      kind: { type: "string" },
+      file: { type: "string", multiple: true },
+      shows: { type: "string" },
+      covers: { type: "string" },
+      result: { type: "string" },
+      source: { type: "string" },
+      notes: { type: "string" },
       json: { type: "boolean" },
       help: { type: "boolean" },
     },
@@ -106,6 +117,7 @@ try {
     const context = await resolveContext();
     if (command === "doctor") await doctor(context);
     else if (command === "address") await address(context);
+    else if (command === "account") await account(context);
     else if (command === "browser") browser(context);
     else if (command === "sql") await sql(context);
     else if (command === "evidence") await evidence(context);
@@ -211,7 +223,7 @@ async function doctor(context) {
     }
     checks.push(await check("api health", () => apiHealth(state.urls.api)));
     checks.push(await check("web", () => webUsable(state.urls.web)));
-    for (const role of /** @type {const} */ (["owner", "learner"]))
+    for (const role of signedInRoleSchema.options)
       checks.push(
         await check(`${role} sign-in`, () => signInValid(state.urls, role)),
       );
@@ -284,10 +296,11 @@ async function webUsable(web) {
 }
 
 /**
+ * What web says about a browser that signed in as the role.
  * @param {{ web: string; api: string; signIn: string | null }} urls
- * @param {"owner" | "learner"} role
+ * @param {z.infer<typeof signedInRoleSchema>} role
  */
-async function signInValid(urls, role) {
+async function signedInStatus(urls, role) {
   const signIn = await fetch(addressFor(urls, role, "/"), {
     redirect: "manual",
     signal: AbortSignal.timeout(requestMilliseconds),
@@ -306,7 +319,15 @@ async function signInValid(urls, role) {
     await response.body?.cancel();
     throw new Error(`/auth/status answered HTTP ${String(response.status)}`);
   }
-  const status = authStatusSchema.parse(await response.json());
+  return authStatusSchema.parse(await response.json());
+}
+
+/**
+ * @param {{ web: string; api: string; signIn: string | null }} urls
+ * @param {z.infer<typeof signedInRoleSchema>} role
+ */
+async function signInValid(urls, role) {
+  const status = await signedInStatus(urls, role);
   const expected = role === "owner";
   if (
     status.state !== "authenticated" ||
@@ -319,10 +340,20 @@ async function signInValid(urls, role) {
 }
 
 /** @param {Context} context */
+async function account(context) {
+  const role = signedInRoleSchema.parse(positionals[1]);
+  const status = await signedInStatus(
+    (await instanceState(context)).urls,
+    role,
+  );
+  if (status.accountId === null)
+    throw new Error(`web sees ${role} as ${status.state}, without an Account`);
+  process.stdout.write(`${status.accountId}\n`);
+}
+
+/** @param {Context} context */
 async function address(context) {
-  const target = z
-    .enum(["owner", "learner", "sign-out", "web", "api"])
-    .parse(positionals[1]);
+  const target = addressTargetSchema.parse(positionals[1]);
   const state = await instanceState(context);
   process.stdout.write(
     `${addressFor(state.urls, target, positionals[2] ?? "/")}\n`,
@@ -333,7 +364,7 @@ async function address(context) {
 function browser(context) {
   const invocation = browserInvocation({
     worktree: context.worktree,
-    role: roleSchema.parse(values.role ?? "owner"),
+    role: verifyRoleSchema.parse(values.role ?? "owner"),
     args: passed.length > 0 ? passed : positionals.slice(1),
     environment: process.env,
   });
@@ -387,37 +418,131 @@ async function sql(context) {
   process.exitCode = result.status ?? 1;
 }
 
+/**
+ * `.evidence` in the worktree root. A symbolic link there would send files elsewhere.
+ * @param {Context} context
+ */
+function evidenceDirectory(context) {
+  const directory = join(context.worktree, ".evidence");
+  if (lstatSync(directory, { throwIfNoEntry: false })?.isSymbolicLink())
+    throw new Error(
+      `${directory} is a symbolic link; evidence needs a directory`,
+    );
+  return directory;
+}
+
+/** @param {Context} context */
+async function readManifest(context) {
+  const path = join(evidenceDirectory(context), "manifest.json");
+  if (!existsSync(path))
+    throw new Error(
+      "No evidence run in this worktree; create one with: node scripts/verify-platform.mjs evidence start",
+    );
+  return manifestSchema.parse(JSON.parse(await readFile(path, "utf8")));
+}
+
+/** @param {Context} context @param {import("./verify-platform-plan.mjs").Manifest} manifest */
+async function writeManifest(context, manifest) {
+  await writeFile(
+    join(evidenceDirectory(context), "manifest.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+}
+
 /** @param {Context} context */
 async function evidence(context) {
-  const root = join(context.standDirectory, "verify");
-  const pointer = join(root, `current-${context.id}.json`);
-  const action = z.enum(["start", "path"]).parse(positionals[1]);
-  if (action === "path") {
-    process.stdout.write(`${(await currentRun(context)).directory}\n`);
-    return;
-  }
-  const commit = git(context.worktree, ["rev-parse", "HEAD"]);
-  const branch = git(context.worktree, ["branch", "--show-current"]);
-  const directory = join(
-    root,
-    evidenceRunName({ now: new Date(), branch, commit }),
-  );
-  if (existsSync(directory))
-    throw new Error(
-      `${directory} already exists; start the next run a second later`,
+  const directory = evidenceDirectory(context);
+  const action = z
+    .enum(["start", "path", "add", "verdict", "check"])
+    .parse(positionals[1]);
+  if (action === "start") await startEvidence(context);
+  else if (action === "path") {
+    await readManifest(context);
+    process.stdout.write(`${directory}\n`);
+  } else if (action === "add") {
+    const manifest = await readManifest(context);
+    const next = addScenario(manifest, {
+      title: values.title ?? "",
+      kind: evidenceKindSchema.parse(values.kind),
+      files: (values.file ?? []).map((item) => {
+        const separator = item.indexOf("::");
+        return separator === -1
+          ? { path: item, shows: "" }
+          : {
+              path: item.slice(0, separator),
+              shows: item.slice(separator + 2),
+            };
+      }),
+      shows: values.shows ?? "",
+      source: evidenceSourceSchema.parse(values.source ?? "light-instance"),
+      covers: values.covers ?? "",
+      result: verdictSchema.parse(values.result),
+      notes: values.notes ?? null,
+    });
+    await writeManifest(context, next);
+    process.stdout.write(`Added scenario ${next.scenarios.at(-1)?.id ?? ""}\n`);
+  } else if (action === "verdict") {
+    await writeManifest(context, {
+      ...(await readManifest(context)),
+      verdict: verdictSchema.parse(positionals[2]),
+      notes: values.notes ?? null,
+    });
+  } else {
+    const manifest = await readManifest(context);
+    /** @type {Record<string, { bytes: number; seconds: number | null }>} */
+    const facts = {};
+    for (const { path } of manifest.scenarios.flatMap((item) => item.files)) {
+      const absolute = join(directory, path);
+      // A link, the file's own or a directory's on the way, would have the check read outside
+      // .evidence.
+      const entry = lstatSync(absolute, { throwIfNoEntry: false });
+      if (
+        entry?.isFile() &&
+        (await realpath(absolute)) === join(await realpath(directory), path)
+      )
+        facts[path] = { bytes: entry.size, seconds: clipLength(absolute) };
+    }
+    const head = git(context.worktree, ["rev-parse", "HEAD"]);
+    const uncommitted = changedFiles(context.worktree).map((file) => file.path);
+    const digest =
+      uncommitted.length === 0
+        ? null
+        : await uncommittedDigest(context.worktree, uncommitted);
+    const problems = [
+      ...(manifest.commit === head
+        ? []
+        : [
+            `the manifest is of ${manifest.commit.slice(0, 12)}, HEAD is ${head.slice(0, 12)}; verify this commit after: evidence start --reset`,
+          ]),
+      ...(manifest.commit !== head || manifest.uncommittedDiffSha256 === digest
+        ? []
+        : [
+            "the uncommitted changes differ from the ones the run started with; verify them after: evidence start --reset",
+          ]),
+      ...manifestProblems(manifest, facts),
+    ];
+    process.stdout.write(
+      problems.length === 0
+        ? `The manifest is complete: ${String(manifest.scenarios.length)} scenario(s), verdict ${manifest.verdict ?? ""}\n`
+        : `${problems.join("\n")}\n`,
     );
-  await mkdir(directory, { recursive: true, mode: 0o700 });
+    if (problems.length > 0) process.exitCode = 1;
+  }
+}
+
+/** @param {Context} context */
+async function startEvidence(context) {
+  const directory = evidenceDirectory(context);
+  const commit = git(context.worktree, ["rev-parse", "HEAD"]);
   const base = optionalGit(context.worktree, [
     "merge-base",
     "origin/main",
     "HEAD",
   ]);
   const uncommitted = changedFiles(context.worktree).map((file) => file.path);
-  /** @type {z.infer<typeof runSchema>} */
   const run = {
-    directory,
     commit,
-    branch,
+    branch: git(context.worktree, ["branch", "--show-current"]),
     base,
     patchId:
       base === null || base === commit
@@ -433,63 +558,45 @@ async function evidence(context) {
       uncommitted.length === 0
         ? null
         : await uncommittedDigest(context.worktree, uncommitted),
-    label: values.label ?? null,
     startedAt: new Date().toISOString(),
   };
-  const text = `${JSON.stringify(run, null, 2)}\n`;
-  await writeFile(join(directory, "run.json"), text, { mode: 0o600 });
-  await writeFile(pointer, text, { mode: 0o600 });
+  // --reset empties the directory whatever it holds, a broken manifest included.
+  if (values.reset) await rm(directory, { recursive: true, force: true });
+  else if (existsSync(join(directory, "manifest.json"))) {
+    const earlier = await readManifest(context);
+    if (
+      earlier.commit !== commit ||
+      earlier.uncommittedDiffSha256 !== run.uncommittedDiffSha256
+    )
+      throw new Error(
+        `.evidence holds a run of ${earlier.commit.slice(0, 12)}${earlier.commit === commit ? " with other uncommitted changes" : ""}; start over with: evidence start --reset`,
+      );
+    process.stdout.write(`${directory}\n`);
+    return;
+  }
+  await mkdir(directory, { recursive: true });
+  await writeManifest(context, newManifest(run));
   process.stdout.write(`${directory}\n`);
 }
 
-/** @param {Context} context */
-async function currentRun(context) {
-  const pointer = join(
-    context.standDirectory,
-    "verify",
-    `current-${context.id}.json`,
+/** The length of a clip in seconds, or null when ffprobe cannot tell. */
+/** @param {string} path */
+function clipLength(path) {
+  if (!isClip(path)) return null;
+  const result = spawnSync(
+    "ffprobe",
+    ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+    { encoding: "utf8", timeout: commandMilliseconds },
   );
-  if (!existsSync(pointer))
-    throw new Error(
-      "No evidence run for this worktree; create one with: node scripts/verify-platform.mjs evidence start",
-    );
-  return runSchema.parse(JSON.parse(await readFile(pointer, "utf8")));
+  const seconds = Number(result.stdout.trim());
+  return result.status === 0 && Number.isFinite(seconds) && seconds > 0
+    ? seconds
+    : null;
 }
 
 /** @param {Context} context */
 async function report(context) {
-  const run = await currentRun(context);
-  const names = (await readdir(run.directory, { recursive: true })).sort();
-  /** @type {{ path: string; bytes: number; sha256: string }[]} */
-  const files = [];
-  for (const name of names) {
-    const path = join(run.directory, name);
-    if (!statSync(path).isFile() || name === "run.json") continue;
-    files.push({
-      path: relative(run.directory, path),
-      bytes: statSync(path).size,
-      sha256: createHash("sha256")
-        .update(await readFile(path))
-        .digest("hex"),
-    });
-  }
-  process.stdout.write(
-    [
-      "Verdict: <PASS | PASS+NOTES | FAIL>",
-      "",
-      `- Commit: \`${run.commit}\` on \`${run.branch || "detached HEAD"}\``,
-      `- Patch: ${run.base === null ? "base origin/main is unknown" : run.patchId === null ? `no commits beyond \`${run.base}\`` : `\`${run.base.slice(0, 12)}..${run.commit.slice(0, 12)}\`, patch-id \`${run.patchId}\``}`,
-      `- Uncommitted: ${run.uncommittedFiles.length === 0 ? "none" : `${String(run.uncommittedFiles.length)} file(s), diff sha256 \`${run.uncommittedDiffSha256 ?? ""}\`: ${run.uncommittedFiles.join(", ")}`}`,
-      `- Evidence: \`${run.directory}\``,
-      "- Exercised: <feature file, sub-feature IDs, entry points>",
-      "- Side effects checked: <query and the rows it returned>",
-      "- Not exercised: <what was left out and why>",
-      "- Notes: <defects, deviations, anything the owner should look at>",
-      "",
-      artifactTable(files),
-      "",
-    ].join("\n"),
-  );
+  process.stdout.write(`${manifestReport(await readManifest(context))}\n`);
 }
 
 /**

@@ -57,7 +57,8 @@ instance shows the offer only: its bank and mail are switched off.
   stand's data belongs to the owner. When «Ученик без доступа» already holds the product, report
   the journey as not exercised with that reason; granting or revoking on the owner's stand to
   make room needs the owner's request.
-- Evidence from the shared stand stays on the machine and out of the PR.
+- The shared stand gives no evidence files: add its scenarios with kind `none` and the result in
+  words ([SKILL.md](../SKILL.md), Evidence).
 - Other bank double outcomes are «Покупатель отменил», «Истёк срок оплаты» and
   «Непонятный ответ банка»; the last one must leave the attempt for reconciliation.
 - Close the Telegram connection dialog if it appears; a local purchase does not need it.

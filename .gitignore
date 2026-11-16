@@ -8,6 +8,8 @@ config/production/foundation/*.env
 .impeccable/review/
 .identity-proof
 ci-artifacts/
+# Evidence of a verify-platform run: files and manifest.json, attached to the PR, never committed.
+.evidence/
 .playwright-cli/
 .reports/
 playwright-report/

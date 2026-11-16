@@ -1,5 +1,5 @@
 // @ts-check
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
@@ -183,14 +183,126 @@ export function lightEnvironment({
   };
 }
 
-/** Subjects a browser can sign in as. The owner has `platform:admin`; the learner has no rights. */
-export const lightSubjects = {
-  owner: "fullstack-owner",
-  learner: "light-learner",
+/**
+ * The roles a browser can sign in as, with names nobody bears, so a screenshot shows no real
+ * person. The product has one permission, `platform:admin`: the owner is also the author. The
+ * holder stands for a buyer after the purchase: payments do not run here, so the owner's grant
+ * gives the product with the closed material of the seed. The runbook's light instance section
+ * lists the roles for people; the `verify-platform` skill says which role suits which scenario.
+ */
+export const lightRoles = {
+  owner: { subject: "fullstack-owner", name: "Владелец Тестов" },
+  holder: {
+    subject: "light-holder",
+    name: "Покупатель Тестов",
+    /** «Создание Platform Inside» of `seed-local-development.ts`. */
+    productId: "72000000-0000-4000-8000-000000000007",
+  },
+  /** An ordinary member with a ready profile and no products. */
+  learner: { subject: "light-learner", name: "Участник Тестов" },
+  /** A new person: no name and no accepted terms, so the first sign-in is still to be driven. */
+  newcomer: { subject: "light-newcomer", name: null },
 };
 
+/** Every key of `lightRoles`, in order; a test keeps the two together. */
+export const lightRoleNames = /** @type {const} */ ([
+  "owner",
+  "holder",
+  "learner",
+  "newcomer",
+]);
+
+/** @typedef {keyof typeof lightRoles} LightRole */
+
+/** @param {string} role @returns {role is LightRole} */
+export function isLightRole(role) {
+  return Object.hasOwn(lightRoles, role);
+}
+
+const accountSchema = z.object({
+  account: z.object({ accountId: z.string() }),
+});
+const termsSchema = z.object({
+  document: z.object({ version: z.string(), digest: z.string() }),
+});
+
 /**
- * Signs a browser in with the synthetic identity: `GET /sign-in?as=owner|learner&next=/path`
+ * Establishes the role Accounts through the API a signed-in person uses: the learner and the
+ * other roles sign in without the web callback that creates an Account on first sign-in. A name needs
+ * accepted terms, so the named roles accept the current edition; the acceptance lives in the
+ * instance's disposable database.
+ *
+ * @param {object} input
+ * @param {string} input.api the API address
+ * @param {(subject?: string) => Promise<{ token: string; expiresAt: number }>} input.createAccessToken
+ * @param {(url: string, init: { method: string; headers: { authorization: string; "content-type"?: string }; body?: string }) => Promise<Response>} [input.request]
+ * @param {() => string} [input.operationId]
+ */
+export async function seedLightRoles({
+  api,
+  createAccessToken,
+  request = (url, init) =>
+    fetch(url, { ...init, signal: AbortSignal.timeout(30_000) }),
+  operationId = randomUUID,
+}) {
+  /**
+   * @param {LightRole} role @param {"GET" | "POST"} method @param {string} path
+   * @param {unknown} [body]
+   */
+  const call = async (role, method, path, body) => {
+    const { token } = await createAccessToken(lightRoles[role].subject);
+    const response = await request(`${api}${path}`, {
+      method,
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...(body === undefined ? {} : { "content-type": "application/json" }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new Error(
+        `${method} ${path} for ${role} returned HTTP ${String(response.status)}`,
+      );
+    }
+    return response;
+  };
+  const holder = accountSchema.parse(
+    await (await call("holder", "POST", "/accounts")).json(),
+  ).account.accountId;
+  for (const role of /** @type {const} */ (["learner", "newcomer"]))
+    await (await call(role, "POST", "/accounts")).body?.cancel();
+  for (const role of lightRoleNames) {
+    const { name } = lightRoles[role];
+    if (name === null) continue;
+    const terms = "/accounts/current/legal-acceptances/terms";
+    const { document } = termsSchema.parse(
+      await (await call(role, "GET", terms)).json(),
+    );
+    await (
+      await call(role, "POST", terms, {
+        operationId: operationId(),
+        version: document.version,
+        digest: document.digest,
+        buttonLabel: "Light instance role setup",
+      })
+    ).body?.cancel();
+    await (
+      await call(role, "POST", "/account/profile", { displayName: name })
+    ).body?.cancel();
+  }
+  await (
+    await call("owner", "POST", "/admin/access/products/issue", {
+      accountId: holder,
+      productId: lightRoles.holder.productId,
+      reason: "Тестовый набор ролей лёгкого экземпляра",
+      sourceRef: "stand-light:holder",
+    })
+  ).body?.cancel();
+}
+
+/**
+ * Signs a browser in with the synthetic identity: `GET /sign-in?as=<role>&next=/path`
  * sets the session cookie and opens the path on web. Cookies of `127.0.0.1` ignore the port, so
  * the cookie set here reaches web. `GET /sign-out` removes it.
  *
@@ -219,12 +331,9 @@ export function lightSignInHandler(identity, webBaseUrl) {
         },
       };
     const role = parsed.searchParams.get("as") ?? "owner";
-    if (
-      parsed.pathname !== "/sign-in" ||
-      !(role === "owner" || role === "learner")
-    )
+    if (parsed.pathname !== "/sign-in" || !isLightRole(role))
       return { status: 404, headers: {} };
-    const subject = lightSubjects[role];
+    const subject = lightRoles[role].subject;
     const access = await identity.createAccessToken(subject);
     const cookie = await identity.createSession({ ...access, subject });
     return {
