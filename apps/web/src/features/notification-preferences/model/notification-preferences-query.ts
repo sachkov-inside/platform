@@ -1,5 +1,3 @@
-import type { QueryClient } from "@tanstack/react-query";
-
 import { factAnnouncement } from "@/shared/api/fact-announcement";
 import {
   selfRefreshingRead,
@@ -18,19 +16,6 @@ export const notificationPreferencesQueryKey = [
 export const notificationPreferencesChanged = factAnnouncement(
   "inside.account.notification-preferences.changed",
 );
-
-/**
- * Забыть прежний ответ о настройках и перечитать его. Начатое перечитывание не отменяется, поэтому
- * повторный сброс присоединяется к нему, а не начинает новый запрос.
- */
-export function resetNotificationPreferences(
-  client: QueryClient,
-): Promise<void> {
-  return client.invalidateQueries(
-    { queryKey: notificationPreferencesQueryKey },
-    { cancelRefetch: false },
-  );
-}
 
 /** Один владелец настроек каналов в браузере: раздел читает и пишет тот же ключ. */
 export function notificationPreferencesQueryOptions() {

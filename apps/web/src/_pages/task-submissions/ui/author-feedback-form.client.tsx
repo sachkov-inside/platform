@@ -55,8 +55,8 @@ export function AuthorFeedbackForm({
     mutationFn: (input: SaveAuthorFeedbackInput) => saveAuthorFeedback(input),
     onSuccess: (outcome) => {
       if (outcome.kind === "saved") {
-        authorFeedbackWritten.announce();
-        void resetAwaitingFeedbackCount(queryClient);
+        const id = authorFeedbackWritten.announce();
+        void resetAwaitingFeedbackCount(queryClient, id);
       }
       update((current) =>
         outcome.kind === "saved"

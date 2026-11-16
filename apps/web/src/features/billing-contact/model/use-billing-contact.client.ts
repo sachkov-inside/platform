@@ -1,11 +1,11 @@
 "use client";
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
 import {
   billingContactQueryOptions,
   billingContactVerified,
-  resetBillingContact,
+  billingContactQueryKey,
 } from "./billing-contact-query";
 
 /**
@@ -19,16 +19,9 @@ export function useBillingContact({
   /** `false` — сервер уже знает, что человек не вошёл: контакт читать незачем. */
   readonly enabled?: boolean;
 } = {}) {
-  const queryClient = useQueryClient();
   const query = useQuery({ ...billingContactQueryOptions(), enabled });
 
-  useEffect(
-    () =>
-      billingContactVerified.subscribe(() => {
-        void resetBillingContact(queryClient);
-      }),
-    [queryClient],
-  );
+  useAnnouncedRefresh(billingContactVerified, billingContactQueryKey);
 
   return query;
 }

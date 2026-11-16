@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 import { factAnnouncement } from "@/shared/api/fact-announcement";
 import { accountPresentationBrowserQueryOptions } from "../api/account-presentation-query.browser";
 import { accountPresentationQueryKey } from "./account-presentation-query";
@@ -13,20 +13,10 @@ export const accountProfileChanged = factAnnouncement(
 export function useAccountPresentation({
   enabled = true,
 }: { readonly enabled?: boolean } = {}) {
-  const client = useQueryClient();
   const query = useQuery({
     ...accountPresentationBrowserQueryOptions(),
     enabled,
   });
-  useEffect(
-    () =>
-      accountProfileChanged.subscribe(() => {
-        void client.invalidateQueries(
-          { queryKey: accountPresentationQueryKey() },
-          { cancelRefetch: false },
-        );
-      }),
-    [client],
-  );
+  useAnnouncedRefresh(accountProfileChanged, accountPresentationQueryKey());
   return query;
 }
