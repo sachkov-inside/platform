@@ -1,8 +1,9 @@
 # Owner attention
 
 Platform's conditions for the `owner-attention` skill, which decides before a merge whether the
-owner must look. Only the owner changes this file: a change to it is named in the plan as his
-decision, and a new case in the history appears from his correction. Keep it within one page.
+owner must look. Only the owner changes this file: the plan names a change to it as his decision, and a change the
+plan does not name gives «Требуется внимание». A new case in the history appears from his
+correction. Keep it within one page.
 
 ## Always show before the merge
 
@@ -45,7 +46,7 @@ With nothing above, these give «Внимание не требуется».
 No status permits these.
 
 - A deployment to production or a write on the production server.
-- A release, a payment, credentials.
+- A release, a real payment, credentials.
 
 ## Cases from history
 

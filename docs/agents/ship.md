@@ -28,8 +28,8 @@ duration and tokens in the PR under «Подробности».
 ### What the status permits
 
 «Внимание не требуется» is the owner's standing permission to merge that task; quote nothing from
-a chat. The other two statuses wait for the owner's explicit «да» in the PR: mark the green PR
-ready for review, stop, and report the status and his next action. An assignment to finish the
+a chat. The other two statuses wait for the owner's explicit «да» in the PR: mark the PR ready
+for review, stop, and report the status and his next action. An assignment to finish the
 work does not replace that «да». The status is a rule, not a GitHub lock: agents work under the
 owner's GitHub account.
 

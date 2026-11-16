@@ -31,7 +31,7 @@ Agent Kit copies change only through [AGENT-KIT.md](../../.agents/skills/AGENT-K
 | The owner-attention status, what it permits, its labels and measurement | [Ship](ship.md) |
 | Conditions that call the owner before a merge | [Owner attention](owner-attention.md); only the owner changes it |
 | PR body shape and attachments | [PR body](pr.md) |
-| Owner gates | Root `AGENTS.md`, section `Owner gates` |
+| Owner gates | Root `AGENTS.md`, section `Owner gates`; the list of what runs only on the owner's command in [owner attention](owner-attention.md#only-on-the-owners-command) |
 | Pipeline skill | Selected shared folders use Agent Kit through the manifest; retained project variants keep their recorded source. `.agents/skills/AGENT-KIT.md` and `PIPELINE.md` record the split |
 
 Code, schemas, generated contracts, and tests may be the complete authority for a local
