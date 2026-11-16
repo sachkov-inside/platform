@@ -16,7 +16,7 @@ export function readingInterceptionCatalog() {
     items: materials.map((material) => ({
       materialId: material.materialId,
       access: material.access,
-      availability: material.access === "free" ? "available" : "locked",
+      availability: "available",
       format: material.format === "video" ? "Видео" : "Гайд",
       formatSlug: material.format,
       productMemberships: [],
