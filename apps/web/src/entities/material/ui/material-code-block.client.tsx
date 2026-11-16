@@ -4,9 +4,12 @@ import { Check, Copy } from "lucide-react";
 import { Fragment, useRef } from "react";
 
 import { cn } from "@/shared/lib/utils";
+import {
+  type CopyTextState,
+  useCopyText,
+} from "@/shared/lib/use-copy-text.client";
 import { Button } from "@/shared/ui/button";
 import type { HighlightedCode } from "../model/code-highlight";
-import { type CopyTextState, useCopyText } from "./use-copy-text.client";
 
 const statusText: Readonly<Record<CopyTextState, string>> = {
   copied: "Код скопирован",

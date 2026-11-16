@@ -1,13 +1,14 @@
 "use client";
 
 import { Check, Copy } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  type CopyTextState,
+  useCopyText,
+} from "@/shared/lib/use-copy-text.client";
 
 import { Button } from "@/shared/ui/button";
 
-type CopyState = "idle" | "copied" | "failed";
-
-const labels: Record<CopyState, string> = {
+const labels: Record<CopyTextState, string> = {
   idle: "Скопировать запрос",
   copied: "Скопировано",
   failed: "Не удалось скопировать",
@@ -15,14 +16,7 @@ const labels: Record<CopyState, string> = {
 
 /** The phrase for the learner's agent; it wraps instead of scrolling, since it is one sentence. */
 export function AgentPhrase({ text }: { readonly text: string }) {
-  const [state, setState] = useState<CopyState>("idle");
-  const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(
-    () => () => {
-      clearTimeout(reset.current);
-    },
-    [],
-  );
+  const { copy, state } = useCopyText(text);
   return (
     <div
       className="grid gap-5 rounded-xl bg-foreground p-6 text-card"
@@ -34,22 +28,7 @@ export function AgentPhrase({ text }: { readonly text: string }) {
       <Button
         aria-label={labels[state]}
         className="min-h-11 w-fit max-w-full whitespace-normal rounded-lg bg-card px-4 text-foreground hover:bg-card/90"
-        onClick={() => {
-          clearTimeout(reset.current);
-          void navigator.clipboard
-            .writeText(text)
-            .then(() => {
-              setState("copied");
-            })
-            .catch(() => {
-              setState("failed");
-            })
-            .finally(() => {
-              reset.current = setTimeout(() => {
-                setState("idle");
-              }, 2000);
-            });
-        }}
+        onClick={copy}
         type="button"
       >
         {state === "copied" ? (
