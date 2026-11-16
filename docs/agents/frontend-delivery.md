@@ -1,8 +1,8 @@
 # Frontend delivery
 
 Storybook is the workshop of `apps/web`: the executable UI review surface, not a second
-application or data path. The running application proves the look a user gets
-([human review](human-review.md#evidence)).
+application or data path. [Human participation](human-review.md#evidence) owns what proves the
+look a user gets.
 
 For Home, Library, Series or Reader changes, read the current
 [product navigation contract](../product/platform-mvp-brief.md#поиск-и-навигация),
@@ -74,7 +74,7 @@ Choose the path from the catalog you inspected:
 
    Before handoff, pass a separate **production visual gate**: capture responsive and accessibility
    evidence for the exact production-owned implementation in both Storybook and the live route,
-   keep that evidence in the production ticket or linked pull request, resolve every owner
+   keep that evidence in the linked pull request, resolve every owner
    annotation, and record a new owner visual GO. The earlier proof acceptance is a prerequisite;
    it does not approve the promoted implementation. Production visual GO is not merge GO; the merge
    follows `ship`. When every accepted-proof condition passes, the one ticket closes the
@@ -131,7 +131,7 @@ outside `apps/web`, such as the Telegram sign-in page of the identity service.
 
 ## Interface evidence
 
-[Human review](human-review.md#evidence) owns what counts as evidence and [PR body](pr.md#attachments)
+[Human participation](human-review.md#evidence) owns what counts as evidence and [PR body](pr.md#attachments)
 how it reaches the PR; [Snapshots as issue evidence](../runbooks/local-verification.md#snapshots-as-issue-evidence)
 owns where a run writes snapshots. Two recurring traps affect what a snapshot shows:
 

@@ -27,7 +27,7 @@ Agent Kit copies change only through [AGENT-KIT.md](../../.agents/skills/AGENT-K
 | MCP tool set | The registering module and the generated `apps/backend/mcp/tool-surface.json`; `pnpm mcp:check` owns drift detection |
 | Development, test, run, configuration, or deployment procedure | The owning README or runbook; keep exact executable commands in package/config files |
 | Agent trigger, routing, delivery, verification, or completion rule | The nearest `AGENTS.md` or `docs/agents/` contract; do not copy product/domain explanations into agent files |
-| Owner participation: the two acceptances, consequence triggers and their checks, verification, evidence | [Human review](human-review.md) |
+| Owner participation: the two acceptances, consequence triggers and their checks, verification, evidence | [Human participation](human-review.md) |
 | Whether the owner is needed, merge without the owner, advance acceptance | [Ship](ship.md) |
 | PR body shape and attachments | [PR body](pr.md) |
 | Owner gates, including merge permission | Root `AGENTS.md`, section `Owner gates` |

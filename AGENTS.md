@@ -19,8 +19,8 @@ Implementation runs the skill chain `implement` → `tdd` → `code-review` → 
 testing seams, commit/review order and the no-ticket acceptance record. [PIPELINE.md](.agents/skills/PIPELINE.md) records the skills' source.
 
 - Branches, worktrees, pull requests, blockers and handoff: [delivery](docs/agents/delivery.md).
-- Human participation (what the owner sees and decides, key scenarios in a specification,
-  consequence triggers, verification and evidence): [human review](docs/agents/human-review.md).
+- Human participation: owner acceptance, key scenarios of a specification, verification and
+  evidence: [human participation](docs/agents/human-review.md).
 - Merge, whether the owner is needed and advance acceptance: [ship](docs/agents/ship.md).
   PR body: [pr](docs/agents/pr.md).
 - Release, deployment, rollback or a write on the production server: take the

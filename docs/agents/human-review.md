@@ -1,4 +1,4 @@
-# Human review
+# Human participation
 
 How the owner takes part: what he sees, what he decides, and what agents settle without him.
 [Ship](ship.md) applies these rules at delivery; [PR body](pr.md) presents the result.
@@ -35,12 +35,12 @@ result from evidence.
 |---|---|
 | Permissions, identity, sessions, data visibility or access revocation | Positive and negative authorization scenarios, Account isolation, direct and delegated access; a separate security review |
 | Money: purchases, grants, subscriptions | Buyer and access contracts; repeated and concurrent events, transactional effects and recovery when affected; security review when trust or permissions change |
-| Destructive or irreversible data changes, persistent data and jobs | Integration tests on real persistence; migration compatibility, rollback or stated irreversibility; retry, concurrency and crash recovery when affected |
+| Destructive or irreversible data changes, sent messages and other external effects that cannot be recalled, persistent data and jobs | Integration tests on real persistence; migration compatibility, rollback or stated irreversibility; retry, concurrency and crash recovery when affected |
 | A business rule, a shared contract (REST, MCP, a provider boundary) or architecture that sets a new pattern | Schema and transport contracts, input validation, negative permission scenarios; security review for a new or changed trust boundary |
 | Legal text, publication, personal data | The owning product or legal contract; the owner's decision before the protected action |
 | A user journey, interaction or message whose meaning needs judgement | The [verification](#verification) verdict on the running application; visual work keeps the gates of [frontend delivery](frontend-delivery.md#delivery-contract) |
 | CI, release controls, deployment | The delivery contract tests in `scripts/*.test.mjs`, their negative fixtures and recovery proof; security review when trust or credentials change |
-| Agent authority: `AGENTS.md`, skills, `docs/agents/` and their checks | `pnpm docs:check`; review under the rules on `main` before the change |
+| Agent authority: `AGENTS.md`, `CODING_STANDARDS.md`, skills, `docs/agents/` and their checks | `pnpm docs:check`; review under the rules on `main` before the change |
 
 Assign a security review also for external input handling, secrets, or uncertain security
 relevance. Missing or conflicting expectations, insufficient evidence and a scenario only a human
@@ -53,10 +53,11 @@ show" and stale evidence. A trigger either of them finds counts.
 
 ## Verification
 
-Verification is its own step, by another agent: `implement` → `tdd` → `code-review` →
-verification → `pr` → `ship`. A fresh agent that did not write the change runs it the way a user
-would, through the project skill `verify-platform`, and returns a verdict with artifacts:
-`PASS`, `PASS+NOTES` or `FAIL`.
+Verification is its own step, by another agent, at the place root
+[AGENTS.md](../../AGENTS.md#process) gives it in the skill chain. A fresh agent that did not write
+the change runs it the way a user would, through the project skill `verify-platform` (not installed
+as of 2026-11-16, #2206; until it is, the fresh agent runs the key scenarios with `local-stand`),
+and returns a verdict with artifacts: `PASS`, `PASS+NOTES` or `FAIL`.
 
 - **Required** when user-visible behaviour changes or the task has key scenarios. An internal
   change or documentation needs none, and the PR says so in one line.
@@ -64,8 +65,9 @@ would, through the project skill `verify-platform`, and returns a verdict with a
 - **Bound to the task's change, not to a commit.** Compare by `git patch-id` or by the diff against
   the base. An edit to the task's code after the verdict needs a new verdict. A merge of
   `origin/main` without conflicts in the files the task touches keeps it.
-- **Checked twice.** `ship` confirms that the verdict matches the delivered change. A Spec
-  review that runs after a verdict, such as a re-review of corrections, confirms the same.
+- **Matched by the Spec reviewer.** The independent Spec reviewer confirms that the verdict
+  covers the delivered change: in its review when the verdict already exists, otherwise in a short
+  follow-up given the verdict and the diff, before `pr`.
 - **`FAIL`** returns the work to implementation; its fix is reviewed and verified again.
   **`PASS+NOTES`** carries its notes into the PR, outside any disclosure.
 
@@ -84,9 +86,9 @@ What each kind proves:
 - Tests protect against regressions. They are not the evidence the owner accepts from.
 - Storybook is a workshop. The running application proves the look a user gets.
 
-Evidence lives in the PR; a specification keeps it in its final PR. There is no separate feature
-page and no script that classifies a diff. The repository is public: evidence shows only the
-stand's test data. [PR body](pr.md#attachments) owns how artifacts get into the PR.
+Evidence lives in the PR; a specification keeps it in its final PR. No feature page holds it and
+no script classifies a diff (owner decision 5 of #2206). The repository is public: evidence shows
+only the stand's test data. [PR body](pr.md#attachments) owns how artifacts get into the PR.
 
 ## Ask the owner
 

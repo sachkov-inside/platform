@@ -1,12 +1,13 @@
 # PR body
 
-**Pilot version.** The owner approves the final look after a pilot on real tasks; until then
-this shape is the working draft.
+**Pilot version** (#2206, 2026-11-16). The owner approves the final look after a pilot on real
+tasks; until then this shape is the working draft.
 
 The PR is a one-minute briefing for the owner, who accepts from evidence and reads no code
-([human review](human-review.md)). The `pr` skill's template and rules apply; this document adds
-the Platform sections and their order. Write in the owner's language (Russian) and keep the domain
-terms from the glossaries.
+([human participation](human-review.md)). The `pr` skill's shape and rules apply. Platform names
+the skill's four sections in Russian and adds two: «Как это работает теперь» and «Как проверить
+самому». Write in the owner's language (Russian) and keep the domain terms from the glossaries.
+The extended shape in full:
 
 ````markdown
 ## Что изменилось для пользователя
@@ -82,4 +83,5 @@ Attach images and video with `gh pr create --attach`, `gh pr edit --attach` or
 
 Larger reports and traces go by link to the CI run's artifacts. That link needs a GitHub sign-in,
 downloads an archive and expires with the artifact's retention, so the briefing never depends on
-it alone. Evidence for the owner stays out of the tree: commit only files a run reads.
+it alone. Evidence for the owner stays out of the tree
+([snapshots](../runbooks/local-verification.md#snapshots-as-issue-evidence)).

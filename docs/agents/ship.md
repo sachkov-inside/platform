@@ -1,7 +1,7 @@
 # Ship
 
 Platform facts for the `ship` skill: merge, the decision whether the owner is needed, and advance
-acceptance. [Human review](human-review.md) owns the rules this decision applies.
+acceptance. [Human participation](human-review.md) owns the rules this decision applies.
 
 ## Merge
 
@@ -14,7 +14,8 @@ merge-queue CI stay required.
 After independent review, required green CI and the
 [verification](human-review.md#verification) the change requires, apply the
 [consequence triggers](human-review.md#consequence-triggers) to the delivered change and run the
-checks of every trigger that applies. Add the triggers the Spec reviewer reported.
+checks of every trigger that applies. Add the triggers the Spec reviewer reported, and deliver a
+required verdict only after the Spec reviewer matched it to the delivered change.
 
 The change needs no owner acceptance when all four hold:
 
@@ -26,7 +27,7 @@ The change needs no owner acceptance when all four hold:
 Otherwise the owner accepts from evidence. Name the concrete result or decision for the owner in
 the PR and handoff, with the full delivered SHA. Recorded acceptance of that exact thing in the
 assignment or earlier conversation satisfies it; apply advance acceptance below only within its
-scope. Owner acceptance is an inspection or a decision from evidence, never a code review.
+scope.
 
 Merge permission is a separate condition: merge only with recorded merge permission and every
 owner acceptance satisfied. Otherwise mark the reviewed, green PR ready for review and stop at that
