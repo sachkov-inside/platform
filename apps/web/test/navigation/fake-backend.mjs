@@ -1,4 +1,7 @@
-import { readingProduct } from "../../../../scenarios/reading.mjs";
+import {
+  readingProduct,
+  navigationReadingTopic,
+} from "../../../../scenarios/reading.mjs";
 import { readingHttpMaterials } from "../../../../scenarios/reading-http.mjs";
 // @ts-check
 import {
@@ -56,11 +59,7 @@ const homePinSchema = z
 const [port] = browserTestPorts(["FAKE_BACKEND_PORT"]).map(Number);
 const productId = "11111111-1111-4111-8111-111111111111";
 const productSlug = "navigation-proof";
-const topic = {
-  id: "22222222-2222-4222-8222-222222222222",
-  name: "Переходы",
-  slug: "navigation-topic",
-};
+const topic = navigationReadingTopic;
 const format = { id: "guide", name: "Гайд", slug: "guide" };
 export const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
 
@@ -256,7 +255,7 @@ function findReaderTitleLesson(key) {
   return undefined;
 }
 
-const performanceLessons = readingHttpMaterials();
+const performanceLessons = readingHttpMaterials("open-course");
 
 const referenceProduct = {
   ...performanceProduct,

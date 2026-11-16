@@ -13,3 +13,8 @@ export const readingMaterials: readonly Readonly<{
   format: "video" | "guide";
   publishedAt: string;
 }>[];
+
+export const openReadingMaterials: readonly ((typeof readingMaterials)[number] & {
+  readonly access: "free";
+})[];
+export const navigationReadingTopic: typeof readingTopic;

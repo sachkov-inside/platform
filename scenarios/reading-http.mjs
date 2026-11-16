@@ -1,7 +1,17 @@
-import { readingMaterials, readingProduct, readingTopic } from "./reading.mjs";
+import {
+  readingMaterials,
+  openReadingMaterials,
+  navigationReadingTopic,
+  readingProduct,
+  readingTopic,
+} from "./reading.mjs";
 
-export function readingHttpMaterials() {
-  return readingMaterials.map((material, index) => ({
+/** @param {"preview" | "open-course"} [scenario] */
+export function readingHttpMaterials(scenario = "preview") {
+  const materials =
+    scenario === "preview" ? readingMaterials : openReadingMaterials;
+  const topic = scenario === "preview" ? readingTopic : navigationReadingTopic;
+  return materials.map((material, index) => ({
     ...material,
     availability: material.access === "free" ? "available" : "locked",
     contentVersion: 1,
@@ -18,6 +28,6 @@ export function readingHttpMaterials() {
       { ordinal: index + 1, product: { ...readingProduct }, stepGroup: null },
     ],
     tags: [],
-    topic: { ...readingTopic },
+    topic: { ...topic },
   }));
 }

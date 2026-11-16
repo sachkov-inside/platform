@@ -5,7 +5,7 @@ export const readingProduct = Object.freeze({
   slug: "performance-course",
 });
 export const readingTopic = Object.freeze({
-  id: "22222222-2222-4222-8222-222222222222",
+  id: "22222222-2222-4222-8222-222222222223",
   name: "Platform",
   slug: "platform",
 });
@@ -22,3 +22,15 @@ export const readingMaterials = Object.freeze(
     }),
   ),
 );
+
+// The navigation performance course and scroll feed were always public; the preview
+// deliberately retains locked lessons. These are distinct scenarios, not role authorization.
+export const openReadingMaterials = readingMaterials.map((material) => ({
+  ...material,
+  access: "free",
+}));
+export const navigationReadingTopic = Object.freeze({
+  id: "22222222-2222-4222-8222-222222222222",
+  name: "Переходы",
+  slug: "navigation-topic",
+});

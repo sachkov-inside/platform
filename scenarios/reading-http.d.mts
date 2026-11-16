@@ -1,6 +1,8 @@
 import { readingMaterials, readingProduct, readingTopic } from "./reading.mjs";
 type Material = (typeof readingMaterials)[number];
-export function readingHttpMaterials(): (Omit<Material, "format"> & {
+export function readingHttpMaterials(
+  scenario?: "preview" | "open-course",
+): (Omit<Material, "format"> & {
   availability: "available" | "locked" | "unavailable";
   contentVersion: number;
   cover: null;

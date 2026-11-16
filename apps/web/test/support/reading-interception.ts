@@ -1,11 +1,11 @@
 import {
-  readingMaterials,
+  openReadingMaterials,
   readingTopic,
 } from "../../../../scenarios/reading.mjs";
 
 /** BFF presentation for the mobile scroll scenario; its viewport needs eighteen cards. */
 export function readingInterceptionCatalog() {
-  const materials = readingMaterials.slice(0, 18);
+  const materials = openReadingMaterials.slice(0, 18);
   return {
     kind: "ready",
     facets: {
