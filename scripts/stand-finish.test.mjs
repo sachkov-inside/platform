@@ -68,7 +68,8 @@ if (process.argv[2] === "hang") {
       pnpmPath: fakePnpm,
       cwd: directory,
       args: ["hang"],
-      limitMilliseconds: 1_000,
+      // Covers the start of the Python supervisor and Node before the child writes its PID.
+      limitMilliseconds: 5_000,
     }),
     /time limit reached/u,
   );
