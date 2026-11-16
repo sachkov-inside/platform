@@ -31,6 +31,7 @@ controller; keep using that checkout while its stand state exists.
    - Finish interactive work and leave it for later review: use `show` without `--live` to freeze
      the current source. The snapshot freezes code, not database contents.
    - Finish a review and make the stand available: `pnpm stand release --worktree <task>`.
+     `agent-worktree finish` runs `pnpm stand:finish`: light instance down, own reservation released.
      Release keeps the application and its data running.
 3. A foreign reservation stays in place. An explicit owner request to show a different task permits
    `show --replace <current-reservation-id> --worktree <new-task>`. This ID detects concurrent
