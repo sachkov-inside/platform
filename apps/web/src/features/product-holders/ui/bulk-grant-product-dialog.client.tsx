@@ -467,7 +467,7 @@ function PeopleSearch({
           // Enter в поиске не отправляет форму выдачи.
           if (event.key === "Enter") event.preventDefault();
         }}
-        placeholder="Имя в Telegram, @username, email или ID"
+        placeholder="Имя, @username, email или ID"
         type="search"
         value={query}
       />

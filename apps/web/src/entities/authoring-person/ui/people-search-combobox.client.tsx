@@ -121,7 +121,7 @@ export function PeopleSearchCombobox({
               : undefined
           }
           aria-describedby={`${id}-hint`}
-          placeholder="Имя в Telegram, @username, email или ID"
+          placeholder="Имя, @username, email или ID"
           value={text}
           onChange={(event) => {
             setText(event.currentTarget.value);
