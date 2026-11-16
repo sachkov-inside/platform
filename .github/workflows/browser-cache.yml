@@ -1,0 +1,48 @@
+name: Browser engine cache
+
+# Application CI runs only for pull requests and the merge queue, and a run reads caches of its own
+# ref and of main. This workflow saves the Playwright browser engines and their system packages on
+# main, so every pull request and merge-queue ref restores them (#2184).
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - pnpm-lock.yaml
+      - .github/actions/setup-platform/action.yml
+      - .github/workflows/browser-cache.yml
+      - scripts/install-playwright-ci.sh
+  # A cache entry nobody reads for seven days is evicted; the weekly run recreates it.
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-browser-cache
+  cancel-in-progress: false
+
+jobs:
+  browser-engines:
+    name: Save browser engines (${{ matrix.browsers }})
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each `browsers:` value requested in ci.yml has its own cache key.
+        browsers:
+          - chromium
+          - "chromium webkit"
+    steps:
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install and save browser engines
+        uses: ./.github/actions/setup-platform
+        with:
+          browsers: ${{ matrix.browsers }}

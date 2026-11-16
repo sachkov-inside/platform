@@ -108,7 +108,7 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 `.github/actions/setup-platform` owns the shared setup: the checked official Docker Compose plugin,
 pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact
-Playwright version. `setup-node` caches the pnpm package store. A separate exact-key cache retains
+Playwright version and browser set. `setup-node` caches the pnpm package store. A separate exact-key cache retains
 pnpm's registry metadata and policy-bound lockfile verification records; pnpm itself checks whether
 a cached verdict still matches the lockfile and active policies. Its key binds the lockfile,
 workspace policy, root manifest (including pnpm version), npm configuration, Node pin and setup
@@ -117,12 +117,16 @@ forced-shutdown grace: pnpm's request timeout bounds
 inactivity and cannot stop a response that keeps trickling bytes (#1763). A deadline failure fails
 the job; it neither skips dependency policies nor starts tests with a partial installation.
 
-The Playwright browser cache is keyed by the exact Playwright version. The system packages for those engines come from a second cache of `.deb`
-files keyed by browsers, Playwright version and runner image, because the Ubuntu mirror can stall
-long enough to cancel the job (#827). Only runs on `main` save that cache: `release.yml` and
-`telegram-release.yml` call this workflow there. Pull requests and the merge queue only restore it.
-After a runner image update they restore the previous entry and download only the changed packages
-until the next release saves a new one.
+A run reads caches of its own ref and of `main`, and Application CI itself runs only for pull
+requests and the merge queue. Only runs on `main` therefore save both Playwright caches; pull
+requests and every merge-queue ref only restore them (#2184). `.github/workflows/browser-cache.yml`
+fills them on `main` for each browser set that `ci.yml` requests: after a push that changes the
+lockfile, the setup action, the install script or that workflow, every Monday, and on manual
+dispatch. `release.yml` and `telegram-release.yml` also save them when they call this workflow.
+The system packages for those engines come from a second cache of `.deb` files keyed by browsers,
+Playwright version and runner image, because the Ubuntu mirror can stall long enough to cancel the
+job (#827). After a runner image update pull requests restore the previous entry and download only
+the changed packages until the next run on `main` saves a new one.
 
 The archive cache does not skip apt index updates. `scripts/install-playwright-ci.sh` bounds
 system-package installation to 180 seconds per attempt, then kills the whole process group as root.

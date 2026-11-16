@@ -646,12 +646,7 @@ describe("application CI workflow contract", () => {
       setupAction,
       /run: timeout --signal=TERM --kill-after=10s 4m pnpm install --frozen-lockfile$/mu,
     );
-    assert.match(setupAction, /uses: actions\/cache@/u);
     assert.match(setupAction, /path: ~\/\.cache\/ms-playwright$/mu);
-    assert.match(
-      setupAction,
-      /key: playwright-.*steps\.playwright\.outputs\.version/u,
-    );
     assert.match(
       setupAction,
       /bash scripts\/install-playwright-ci\.sh \$BROWSERS$/mu,
@@ -743,6 +738,96 @@ describe("application CI workflow contract", () => {
       save,
       /key: \$\{\{ steps\.system-packages\.outputs\.cache-primary-key \}\}$/mu,
     );
+  });
+
+  // Запуск видит кеш своей ветки и main. Копии на ветках PR и очереди не находились следующими
+  // запусками очереди и занимали почти весь лимит кеша (#2184).
+  it("restores Playwright browser engines everywhere and saves them only on main", () => {
+    const step = (/** @type {string} */ name) => {
+      const start = setupAction.indexOf(`- name: ${name}\n`);
+      assert.notEqual(start, -1, `setup action must have step ${name}`);
+      const next = setupAction.indexOf("\n    - name: ", start + 1);
+      return setupAction.slice(start, next === -1 ? undefined : next);
+    };
+    const restore = step("Restore Playwright browser engines");
+    const install = step("Install browser engines and system dependencies");
+    const save = step("Save Playwright browser engines");
+
+    assert.ok(
+      setupAction.indexOf(restore) < setupAction.indexOf(install) &&
+        setupAction.indexOf(install) < setupAction.indexOf(save),
+      "browser engines must be restored before the install and saved after it",
+    );
+    assert.doesNotMatch(
+      setupAction,
+      /uses: actions\/cache@[^\n]*\n[^-]*ms-playwright/u,
+    );
+    assert.match(restore, /^ {6}id: browser-engines$/mu);
+    assert.match(restore, /uses: actions\/cache\/restore@/u);
+    assert.match(
+      restore,
+      /key: playwright-\$\{\{ runner\.os \}\}-\$\{\{ steps\.playwright\.outputs\.version \}\}-\$\{\{ inputs\.browsers \}\}$/mu,
+    );
+    assert.doesNotMatch(restore, /restore-keys:/u);
+    assert.match(save, /uses: actions\/cache\/save@/u);
+    for (const block of [restore, save])
+      assert.match(block, /path: ~\/\.cache\/ms-playwright$/mu);
+    assert.match(
+      save,
+      /^ {6}if: \$\{\{ inputs\.browsers != '' && github\.ref == 'refs\/heads\/main' && steps\.browser-engines\.outputs\.cache-hit != 'true' \}\}$/mu,
+    );
+    assert.match(
+      save,
+      /key: \$\{\{ steps\.browser-engines\.outputs\.cache-primary-key \}\}$/mu,
+    );
+  });
+
+  it("fills the main browser cache for every engine set the CI workflow requests", () => {
+    const cacheWorkflow = readFileSync(
+      resolve(repositoryRoot, ".github/workflows/browser-cache.yml"),
+      "utf8",
+    );
+    const triggers = topLevelBlock("on", cacheWorkflow);
+    assert.match(triggers, /^ {2}push:\n {4}branches:\n {6}- main$/mu);
+    for (const path of [
+      "pnpm-lock.yaml",
+      ".github/actions/setup-platform/action.yml",
+      ".github/workflows/browser-cache.yml",
+      "scripts/install-playwright-ci.sh",
+    ])
+      assert.ok(
+        triggers.includes(`      - ${path}\n`),
+        `push paths include ${path}`,
+      );
+    assert.match(triggers, /^ {2}schedule:$/mu);
+    assert.match(triggers, /^ {2}workflow_dispatch:$/mu);
+    assert.doesNotMatch(triggers, /pull_request|merge_group|workflow_call/u);
+    assert.equal(
+      topLevelBlock("permissions", cacheWorkflow).trim(),
+      "contents: read",
+    );
+    assert.doesNotMatch(cacheWorkflow, /secrets\.|permissions:\n {6}/u);
+    const job = jobBlock("browser-engines", cacheWorkflow);
+    assert.match(
+      job,
+      /^ {4}if: \$\{\{ github\.ref == 'refs\/heads\/main' \}\}$/mu,
+    );
+    assert.match(job, /^ {4}runs-on: ubuntu-24\.04$/mu);
+    assert.match(
+      job,
+      /uses: \.\/\.github\/actions\/setup-platform\n {8}with:\n {10}browsers: \$\{\{ matrix\.browsers \}\}$/mu,
+    );
+    const requested = new Set(
+      [...workflow.matchAll(/^ +browsers: (.+)$/gmu)].map(([, value]) => value),
+    );
+    const matrix = job.match(/^ {8}browsers:\n((?: {10}- .+\n)+)/mu)?.[1] ?? "";
+    const filled = new Set(
+      [...matrix.matchAll(/^ {10}- "?([^"\n]+)"?$/gmu)].map(
+        ([, value]) => value,
+      ),
+    );
+    assert.ok(requested.size > 0);
+    assert.deepEqual([...filled].sort(), [...requested].sort());
   });
 
   it("runs every required job on pinned GitHub-hosted runners", () => {
