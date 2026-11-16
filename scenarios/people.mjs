@@ -1,5 +1,5 @@
 // @ts-check
-/** Fictional people shared by owner stories, navigation and isolated seed adapters. */
+/** Fictional people shared by owner stories and navigation adapters. */
 export const peopleScenario = {
   anna: {
     displayName: "Анна Петрова",

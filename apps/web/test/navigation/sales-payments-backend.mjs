@@ -14,11 +14,17 @@ import {
  */
 
 const operationRef = "78000000-0000-4000-8000-000000000001";
+const paymentProductsByKey = new Map(
+  navigationPaymentProducts.map((product, at) => [
+    product.key,
+    {
+      id: `78000000-0000-4000-8000-${(241 + at).toString(16).padStart(12, "0")}`,
+      title: product.shortName,
+    },
+  ]),
+);
 const salesPaymentsFixture = Object.freeze({
-  products: navigationPaymentProducts.map((product, at) => ({
-    id: `78000000-0000-4000-8000-${(241 + at).toString(16).padStart(12, "0")}`,
-    title: product.shortName,
-  })),
+  products: [...paymentProductsByKey.values()],
   /** Платёж, итог которого банк не сообщил: его сверяет набор. */
   unknownRef: "78000000-0000-4000-8000-000000000101",
   orderEmail: paymentScenario.orderEmail,
@@ -33,8 +39,7 @@ function ref(index) {
 /** @param {number} index */
 function payment(index) {
   const facts = paymentFacts(index, "navigation");
-  const product =
-    salesPaymentsFixture.products[index % salesPaymentsFixture.products.length];
+  const product = paymentProductsByKey.get(facts.product.key);
   if (product === undefined) throw new Error("No fixture product");
   const { amountKopecks, state, occurredAt: createdAt } = facts;
   return {

@@ -18,11 +18,15 @@ function uuid(group: string, index: number): string {
   return `${group}-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
 
-export const paymentProducts: readonly PaymentProduct[] =
-  paymentScenario.products.map((product, index) => ({
-    id: uuid("71000000", index + 1),
-    name: product.name,
-  }));
+const paymentProductsByKey = new Map(
+  paymentScenario.products.map((product, index) => [
+    product.key,
+    { id: uuid("71000000", index + 1), name: product.name },
+  ]),
+);
+export const paymentProducts: readonly PaymentProduct[] = [
+  ...paymentProductsByKey.values(),
+];
 
 function snapshot(
   product: PaymentProduct,
@@ -60,7 +64,7 @@ export function ownerPayment(
   overrides: Partial<PaymentView> = {},
 ): PaymentView {
   const facts = paymentFacts(index, "storybook");
-  const product = paymentProducts[index % paymentProducts.length];
+  const product = paymentProductsByKey.get(facts.product.key);
   if (product === undefined) throw new Error("No fixture product");
   const { state, amountKopecks, occurredAt: createdAt } = facts;
   return {
