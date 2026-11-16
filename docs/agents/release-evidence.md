@@ -12,6 +12,14 @@ both the reviewed head and the actual CI checkout SHA, including GitHub syntheti
 that provider binding; a synthetic checkout does not require duplicate local runs on the branch
 head. These completion checks do not prove a different application's release source.
 
+For a docs-only merge-queue plan, the required Documentation contracts job may validate completed
+PR evidence instead of executing the same checks again. Admission requires the identical tracked
+tree, comparison base/diff, approved producer and test environment, plus independent provider
+run/attempt/job and artifact-digest validation. Missing or unverifiable evidence executes the
+ordinary checks. Security, coverage planning and CI Gate remain fresh; all other coverage keeps
+its existing execution. The [CI runbook](../runbooks/continuous-integration.md#documentation-evidence-in-the-merge-queue)
+owns this bounded contract. It does not extend the trusted release events below.
+
 ## Release evidence
 
 1. The owner's release command freezes one main commit. GitHub `workflow_dispatch` binds that
