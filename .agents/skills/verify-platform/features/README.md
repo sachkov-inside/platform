@@ -52,14 +52,6 @@ the exact command and the observable result) and `Gotchas`. Keep implementation 
 paths, stable handles, required state, commands and observable proof. When the application
 changes a label, route or seed fact, change the file in the same PR.
 
-## Auditing the map
-
-On an assignment to audit the map, one code reader per feature compares its feature file with the
-code, then one live pass drives the whole map. Each feature ends in one outcome: clean, changed, or
-blocked when the pass could not reach it. The audit edits only this skill's folder and leaves
-product code alone. Search separately for user-facing surfaces the map lacks, in the changes
-merged since this folder last changed (`git log` of the folder gives the date).
-
 ## Features
 
 - [Read a material](read-material.md): home feed, reading, bookmark, read mark, the closed
