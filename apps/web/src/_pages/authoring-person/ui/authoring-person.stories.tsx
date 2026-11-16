@@ -661,3 +661,62 @@ function loadsInPlace({ globals, width }: StoryViewport): Story {
 
 export const LoadsInPlace: Story = loadsInPlace(desktop);
 export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);
+
+export const RepeatedRevokeDismissal: Story = {
+  globals: desktop.globals,
+  name: "Повторное открытие отзыва возвращает фокус",
+  play: async ({ canvasElement }) => {
+    const trigger = panel(canvasElement, ai.name).getByRole("button", {
+      name: `Отозвать доступ к «${ai.name}»`,
+    });
+    for (const _cycle of [1, 2]) {
+      const original = window.fetch;
+      let previewRequests = 0;
+      let release: () => void = () => undefined;
+      const responseReady = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      window.fetch = async (input, init) => {
+        const response = await original(input, init);
+        const url = new URL(
+          input instanceof Request ? input.url : String(input),
+          window.location.href,
+        );
+        if (url.pathname.endsWith("/preview-revoke")) {
+          previewRequests += 1;
+          await responseReady;
+        }
+        return response;
+      };
+      try {
+        await userEvent.click(trigger);
+        await waitFor(() =>
+          expect(trigger).toHaveAttribute("aria-busy", "true"),
+        );
+        await userEvent.click(trigger);
+        await expect(previewRequests).toBe(1);
+        release();
+        const dialog = await body().findByRole("dialog", {
+          name: `Отозвать доступ к «${ai.name}»?`,
+        });
+        await waitFor(() =>
+          expect(
+            within(dialog).getByRole("button", { name: "Отмена" }),
+          ).toHaveFocus(),
+        );
+        await userEvent.keyboard("{Escape}");
+        await waitFor(() => expect(dialog).not.toBeVisible());
+        await waitFor(() => expect(trigger).toHaveFocus());
+      } finally {
+        release();
+        window.fetch = original;
+      }
+    }
+  },
+};
+
+export const RepeatedRevokeDismissalMobile: Story = {
+  ...RepeatedRevokeDismissal,
+  name: "Повторное открытие отзыва возвращает фокус на телефоне",
+  globals: mobile.globals,
+};
