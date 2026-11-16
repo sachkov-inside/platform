@@ -99,6 +99,7 @@ test("sign-in sets the instance's session cookie and opens only a path of its we
 
   assert.equal((await signIn("GET", "/sign-in?as=learner")).status, 302);
   assert.equal((await signIn("GET", "/sign-in?as=holder")).status, 302);
+  assert.equal((await signIn("GET", "/sign-in?as=newcomer")).status, 302);
   assert.equal((await signIn("GET", "/sign-in?as=admin")).status, 404);
   assert.equal((await signIn("GET", "/sign-in?next=//evil.test")).status, 400);
   assert.equal((await signIn("GET", "/sign-in?next=/\\evil.test")).status, 400);
@@ -196,6 +197,7 @@ test("named roles accept the terms, get a fictional name, and the holder its pro
   assert.deepEqual(calls, [
     { call: "light-holder POST /accounts", body: undefined },
     { call: "light-learner POST /accounts", body: undefined },
+    { call: "light-newcomer POST /accounts", body: undefined },
     { call: `fullstack-owner GET ${terms}`, body: undefined },
     { call: `fullstack-owner POST ${terms}`, body: accepted },
     {
@@ -208,6 +210,12 @@ test("named roles accept the terms, get a fictional name, and the holder its pro
       call: "light-holder POST /account/profile",
       body: { displayName: "Покупатель Тестов" },
     },
+    { call: `light-learner GET ${terms}`, body: undefined },
+    { call: `light-learner POST ${terms}`, body: accepted },
+    {
+      call: "light-learner POST /account/profile",
+      body: { displayName: "Участник Тестов" },
+    },
     {
       call: "fullstack-owner POST /admin/access/products/issue",
       body: {
@@ -218,7 +226,7 @@ test("named roles accept the terms, get a fictional name, and the holder its pro
       },
     },
   ]);
-  assert.equal(lightRoles.learner.name, null);
+  assert.equal(lightRoles.newcomer.name, null);
 });
 
 test("a refused role request stops the instance with the request named", async () => {

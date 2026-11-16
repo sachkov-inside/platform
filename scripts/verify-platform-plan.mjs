@@ -1,6 +1,6 @@
 // @ts-check
 import { z } from "zod";
-import { lightInstanceName } from "./stand-light-plan.mjs";
+import { lightInstanceName, lightRoleNames } from "./stand-light-plan.mjs";
 
 /**
  * Decisions of the `verify-platform` helper: which browser session a verifier drives, whether a
@@ -8,10 +8,19 @@ import { lightInstanceName } from "./stand-light-plan.mjs";
  * `verify-platform.mjs` gathers the facts and runs the commands.
  */
 
-/** @typedef {"owner" | "holder" | "learner" | "guest"} VerifyRole */
+/** A role that signs in on a light instance. */
+export const signedInRoleSchema = z.enum(lightRoleNames);
+/** A browser session: a signed-in role, or the guest who never signs in. */
+export const verifyRoleSchema = z.enum([...lightRoleNames, "guest"]);
+/** What `address` can point at. */
+export const addressTargetSchema = z.enum([
+  ...lightRoleNames,
+  "sign-out",
+  "web",
+  "api",
+]);
 
-/** @type {readonly VerifyRole[]} */
-export const verifyRoles = ["owner", "holder", "learner", "guest"];
+/** @typedef {z.infer<typeof verifyRoleSchema>} VerifyRole */
 
 /**
  * Chrome for Testing 154 on macOS 27 binds a random local port before connecting and then fails
@@ -163,7 +172,7 @@ export function browserInvocation({ worktree, role, args, environment }) {
 
 /**
  * @param {{ web: string; api: string; signIn: string | null }} urls addresses of the instance
- * @param {"owner" | "holder" | "learner" | "sign-out" | "web" | "api"} target
+ * @param {z.infer<typeof addressTargetSchema>} target
  * @param {string} path a path of this instance, starting with one slash
  */
 export function addressFor(urls, target, path) {
@@ -306,17 +315,34 @@ export function doctorReport(checks) {
 
 /** @param {number} bytes */
 function size(bytes) {
-  if (bytes < 1024) return `${String(bytes)} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+  if (bytes < 1000) return `${String(bytes)} B`;
+  if (bytes < 1_000_000) return `${(bytes / 1000).toFixed(1)} kB`;
+  return `${(bytes / 1_000_000).toFixed(1)} MB`;
 }
 
-/** GitHub attaches an image or a video of at most 10 MiB to a pull request. */
-const attachmentBytes = 10 * 1024 * 1024;
-const clipSeconds = { shortest: 10, longest: 30 };
-const videoFile = /\.(?:webm|mp4|mov)$/iu;
+/** GitHub attaches an image or a video of at most 10 MB to a pull request. */
+const attachmentBytes = 10_000_000;
+/** One clip per scenario; 10–30 s is the aim, and longer than this is a whole run in one file. */
+const longestClipSeconds = 30;
 
-const verdictSchema = z.enum(["PASS", "PASS+NOTES", "FAIL"]);
+/** @param {string} path */
+export function isClip(path) {
+  return /\.(?:webm|mp4|mov)$/iu.test(path);
+}
+
+export const verdictSchema = z.enum(["PASS", "PASS+NOTES", "FAIL"]);
+/** A clip for motion, a screenshot for one moment, a table for what no screen shows, numbers for speed. */
+export const evidenceKindSchema = z.enum([
+  "video",
+  "screenshot",
+  "table",
+  "numbers",
+  "none",
+]);
+export const evidenceSourceSchema = z.enum([
+  "light-instance",
+  "stand-test-data",
+]);
 const oneLine = z
   .string()
   .trim()
@@ -326,8 +352,7 @@ const scenarioSchema = z.strictObject({
   id: z.string().regex(/^s\d{2,}$/u),
   /** What was checked, in one line. */
   title: oneLine,
-  /** A clip for motion, a screenshot for one moment, a table for what no screen shows, numbers for speed. */
-  kind: z.enum(["video", "screenshot", "table", "numbers", "none"]),
+  kind: evidenceKindSchema,
   files: z.array(
     z.strictObject({
       /** A file inside `.evidence`. */
@@ -343,7 +368,7 @@ const scenarioSchema = z.strictObject({
   ),
   /** What the evidence shows, or the result in words when no file is kept. */
   shows: oneLine,
-  source: z.enum(["light-instance", "stand-test-data"]),
+  source: evidenceSourceSchema,
   /** The change this scenario covers. */
   covers: oneLine,
   result: verdictSchema,
@@ -383,25 +408,36 @@ export function newManifest(run) {
  * @returns {Manifest}
  */
 export function addScenario(manifest, input) {
-  if (/[\r\n]/u.test(input.title))
-    throw new Error("A scenario title is one line");
-  if (input.kind === "none" && input.files.length > 0)
-    throw new Error(
-      "A scenario of kind none takes no files; say the result in --shows",
-    );
-  if (input.kind !== "none" && input.files.length === 0)
-    throw new Error(`A scenario of kind ${input.kind} needs at least one file`);
   const parsed = scenarioSchema.safeParse({
     ...input,
     id: `s${String(manifest.scenarios.length + 1).padStart(2, "0")}`,
   });
   if (!parsed.success)
     throw new Error(
-      parsed.error.issues.some((issue) => issue.message.includes(".evidence"))
-        ? "A scenario file is a path inside .evidence"
-        : `The scenario is incomplete: ${parsed.error.issues.map((issue) => `${issue.path.join(".")} ${issue.message}`).join("; ")}`,
+      `The scenario is incomplete: ${parsed.error.issues.map((issue) => `${issue.path.join(".")} ${issue.message}`).join("; ")}`,
     );
+  const mismatch = kindMismatch(parsed.data);
+  if (mismatch !== undefined) throw new Error(mismatch);
   return { ...manifest, scenarios: [...manifest.scenarios, parsed.data] };
+}
+
+/**
+ * @param {Pick<z.infer<typeof scenarioSchema>, "kind" | "files">} scenario
+ * @returns {string | undefined} why the files do not fit the kind of evidence
+ */
+function kindMismatch({ kind, files }) {
+  if (kind === "none")
+    return files.length > 0
+      ? "a scenario of kind none takes no files; say the result in --shows"
+      : undefined;
+  if (files.length === 0)
+    return `a scenario of kind ${kind} needs at least one file`;
+  const clips = files.filter((file) => isClip(file.path)).length;
+  if (kind === "video" && clips !== files.length)
+    return "a scenario of kind video takes clips: .webm, .mp4 or .mov";
+  if (kind !== "video" && clips > 0)
+    return `a scenario of kind ${kind} takes no clip; use kind video for it`;
+  return undefined;
 }
 
 /**
@@ -414,30 +450,36 @@ export function manifestProblems(manifest, files) {
   /** @type {string[]} */
   const problems = [];
   if (manifest.scenarios.length === 0) return ["the run has no scenarios"];
-  for (const item of manifest.scenarios)
+  const ids = new Set();
+  for (const item of manifest.scenarios) {
+    if (ids.has(item.id)) problems.push(`${item.id}: the id is used twice`);
+    ids.add(item.id);
+    const mismatch = kindMismatch(item);
+    if (mismatch !== undefined) problems.push(`${item.id}: ${mismatch}`);
+    if (item.result !== "PASS" && !item.notes && !manifest.notes)
+      problems.push(`${item.id}: the result ${item.result} needs notes`);
     for (const { path } of item.files) {
       const fact = files[path];
       if (fact === undefined) {
-        problems.push(`${item.id}: ${path} does not exist in .evidence`);
+        problems.push(`${item.id}: ${path} is not a file in .evidence`);
         continue;
       }
+      if (fact.bytes === 0) problems.push(`${item.id}: ${path} is empty`);
       if (fact.bytes > attachmentBytes)
         problems.push(
-          `${item.id}: ${path} is ${size(fact.bytes)}; GitHub attaches at most 10 MiB`,
+          `${item.id}: ${path} is ${size(fact.bytes)}; GitHub attaches at most 10 MB`,
         );
-      if (!videoFile.test(path)) continue;
+      if (!isClip(path)) continue;
       if (fact.seconds === null)
         problems.push(
           `${item.id}: the length of ${path} is unknown; install ffprobe or check it by hand`,
         );
-      else if (
-        fact.seconds < clipSeconds.shortest ||
-        fact.seconds > clipSeconds.longest
-      )
+      else if (fact.seconds > longestClipSeconds)
         problems.push(
-          `${item.id}: ${path} lasts ${String(Math.round(fact.seconds))} s; record one clip of 10–30 s per scenario`,
+          `${item.id}: ${path} lasts ${String(Math.round(fact.seconds))} s; record one clip of at most ${String(longestClipSeconds)} s per scenario`,
         );
     }
+  }
   if (manifest.verdict === null)
     problems.push(
       "the run has no verdict; set it with: evidence verdict <PASS|PASS+NOTES|FAIL>",
@@ -452,6 +494,8 @@ export function manifestProblems(manifest, files) {
       problems.push(
         `the verdict is ${manifest.verdict} but scenario ${worse.id} is ${worse.result}`,
       );
+    if (manifest.verdict !== "PASS" && !manifest.notes)
+      problems.push(`the verdict ${manifest.verdict} needs notes`);
   }
   return problems;
 }

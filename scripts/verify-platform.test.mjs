@@ -1,7 +1,15 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import {
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -20,7 +28,9 @@ async function repository() {
   git(["config", "user.email", "verifier@inside.localhost"]);
   git(["config", "user.name", "Verifier"]);
   await writeFile(join(directory, "a.txt"), "first\n");
-  git(["add", "a.txt"]);
+  // As in this repository: evidence is never part of the change under verification.
+  await writeFile(join(directory, ".gitignore"), ".evidence/\n");
+  git(["add", "a.txt", ".gitignore"]);
   git(["commit", "--quiet", "--message", "first"]);
   return { directory, git };
 }
@@ -92,6 +102,7 @@ test("an evidence run builds a manifest the report is made from", async (context
   ]);
   assert.equal(added.status, 0, added.stderr);
   assert.match(added.stdout, /Added scenario s01/u);
+  // PASS needs no notes; the manifest is complete with one scenario.
   const noFile = run(directory, [
     "evidence",
     "add",
@@ -141,12 +152,50 @@ test("an evidence run builds a manifest the report is made from", async (context
   );
 
   await writeFile(join(directory, "a.txt"), "second\n");
+  const edited = run(directory, ["evidence", "start"]);
+  assert.equal(edited.status, 1);
+  assert.match(edited.stderr, /other uncommitted changes/u);
   git(["commit", "--quiet", "--all", "--message", "second"]);
+  const moved = run(directory, ["evidence", "check"]);
+  assert.equal(moved.status, 1);
+  assert.match(moved.stdout, /the manifest is of [0-9a-f]{12}, HEAD is/u);
   const stale = run(directory, ["evidence", "start"]);
   assert.equal(stale.status, 1);
   assert.match(stale.stderr, /start over with: evidence start --reset/u);
+  // A broken manifest and stray files do not stop a reset.
+  await writeFile(join(evidence, "manifest.json"), "{");
   assert.equal(run(directory, ["evidence", "start", "--reset"]).status, 0);
+  assert.equal(existsSync(join(evidence, "01-before.png")), false);
   assert.equal(run(directory, ["evidence", "check"]).status, 1);
+
+  // A link is not evidence: the check does not follow it out of .evidence.
+  await writeFile(join(directory, "outside.png"), "image");
+  await symlink(join(directory, "outside.png"), join(evidence, "link.png"));
+  const linked = run(directory, [
+    "evidence",
+    "add",
+    "--title",
+    "Ссылка наружу",
+    "--kind",
+    "screenshot",
+    "--file",
+    "link.png::снимок :: с двоеточиями",
+    "--shows",
+    "x",
+    "--covers",
+    "y",
+    "--result",
+    "PASS",
+  ]);
+  assert.equal(linked.status, 0, linked.stderr);
+  assert.match(
+    await readFile(join(evidence, "manifest.json"), "utf8"),
+    /снимок :: с двоеточиями/u,
+  );
+  assert.match(
+    run(directory, ["evidence", "check"]).stdout,
+    /link\.png is not a file in \.evidence/u,
+  );
 });
 
 test("the browser command refuses to act outside its session", async (context) => {

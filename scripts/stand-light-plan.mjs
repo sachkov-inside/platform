@@ -187,7 +187,8 @@ export function lightEnvironment({
  * The roles a browser can sign in as, with names nobody bears, so a screenshot shows no real
  * person. The product has one permission, `platform:admin`: the owner is also the author. The
  * holder stands for a buyer after the purchase: payments do not run here, so the owner's grant
- * gives the product with the closed material of the seed.
+ * gives the product with the closed material of the seed. The runbook's light instance section
+ * lists the roles for people; the `verify-platform` skill says which role suits which scenario.
  */
 export const lightRoles = {
   owner: { subject: "fullstack-owner", name: "Владелец Тестов" },
@@ -197,9 +198,14 @@ export const lightRoles = {
     /** «Создание Platform Inside» of `seed-local-development.ts`. */
     productId: "72000000-0000-4000-8000-000000000007",
   },
+  /** An ordinary member with a ready profile and no products. */
+  learner: { subject: "light-learner", name: "Участник Тестов" },
   /** A new person: no name and no accepted terms, so the first sign-in is still to be driven. */
-  learner: { subject: "light-learner", name: null },
+  newcomer: { subject: "light-newcomer", name: null },
 };
+
+/** @type {readonly LightRole[]} */
+export const lightRoleNames = ["owner", "holder", "learner", "newcomer"];
 
 /** @typedef {keyof typeof lightRoles} LightRole */
 
@@ -217,7 +223,7 @@ const termsSchema = z.object({
 
 /**
  * Establishes the role Accounts through the API a signed-in person uses: the learner and the
- * holder sign in without the web callback that creates an Account on first sign-in. A name needs
+ * other roles sign in without the web callback that creates an Account on first sign-in. A name needs
  * accepted terms, so the named roles accept the current edition; the acceptance lives in the
  * instance's disposable database.
  *
@@ -230,7 +236,8 @@ const termsSchema = z.object({
 export async function seedLightRoles({
   api,
   createAccessToken,
-  request = (url, init) => fetch(url, init),
+  request = (url, init) =>
+    fetch(url, { ...init, signal: AbortSignal.timeout(30_000) }),
   operationId = randomUUID,
 }) {
   /**
@@ -258,8 +265,11 @@ export async function seedLightRoles({
   const holder = accountSchema.parse(
     await (await call("holder", "POST", "/accounts")).json(),
   ).account.accountId;
-  await (await call("learner", "POST", "/accounts")).body?.cancel();
-  for (const role of /** @type {const} */ (["owner", "holder"])) {
+  for (const role of /** @type {const} */ (["learner", "newcomer"]))
+    await (await call(role, "POST", "/accounts")).body?.cancel();
+  for (const role of lightRoleNames) {
+    const { name } = lightRoles[role];
+    if (name === null) continue;
     const terms = "/accounts/current/legal-acceptances/terms";
     const { document } = termsSchema.parse(
       await (await call(role, "GET", terms)).json(),
@@ -273,9 +283,7 @@ export async function seedLightRoles({
       })
     ).body?.cancel();
     await (
-      await call(role, "POST", "/account/profile", {
-        displayName: lightRoles[role].name,
-      })
+      await call(role, "POST", "/account/profile", { displayName: name })
     ).body?.cancel();
   }
   await (
@@ -289,7 +297,7 @@ export async function seedLightRoles({
 }
 
 /**
- * Signs a browser in with the synthetic identity: `GET /sign-in?as=owner|holder|learner&next=/path`
+ * Signs a browser in with the synthetic identity: `GET /sign-in?as=<role>&next=/path`
  * sets the session cookie and opens the path on web. Cookies of `127.0.0.1` ignore the port, so
  * the cookie set here reaches web. `GET /sign-out` removes it.
  *

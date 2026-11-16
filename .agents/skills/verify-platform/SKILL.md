@@ -53,7 +53,7 @@ node scripts/verify-platform.mjs doctor      # exit 0 only when every check pass
 Read-only. It checks that the supervisor is alive and `ready`, that HEAD has not moved and no web
 build input was written since the instance started, that the web and API ports are held by this instance's own
 processes, that the API reaches its database and the home feed serves seeded materials, and that
-the owner signs in with authoring rights and the holder and the learner without. Run it before the first drive
+the owner signs in with authoring rights and the other roles without. Run it before the first drive
 and again whenever a page looks wrong. A failed check names its fix; drive nothing until all pass.
 
 ## 3. Drive
@@ -66,6 +66,7 @@ V() { node scripts/verify-platform.mjs "$@"; }     # define these in every shell
 O() { V browser --role owner -- "$@"; }
 H() { V browser --role holder -- "$@"; }
 L() { V browser --role learner -- "$@"; }
+N() { V browser --role newcomer -- "$@"; }
 G() { V browser --role guest -- "$@"; }
 
 O open "$(V address owner /authoring/people)"      # sign in as owner and open the page
@@ -79,16 +80,19 @@ O wait --text "Доступ выдан."
   a screenshot shows no real person. The product has one permission, `platform:admin`; there is
   no separate author or operator.
 
-  | Role | Who | Sign in |
+  | Role | Who | Take it for |
   |---|---|---|
-  | `owner` | «Владелец Тестов», `platform:admin`: authoring and all admin pages | `O open "$(V address owner /authoring)"` |
-  | `holder` | «Покупатель Тестов», holds «Создание Platform Inside»: a buyer after the purchase | `H open "$(V address holder /account)"` |
-  | `learner` | a new person: no name, no products, terms not accepted | `L open "$(V address learner /)"` |
-  | `guest` | nobody signed in | `G open "$(V address web /)"` |
+  | `owner` | «Владелец Тестов», `platform:admin` | authoring and every admin page; the owner is the author |
+  | `holder` | «Покупатель Тестов», holds «Создание Platform Inside» | what a buyer sees after the purchase |
+  | `learner` | «Участник Тестов», a ready profile, no products | an ordinary member: reading, bookmarks, receiving a product |
+  | `newcomer` | no name, terms not accepted | the first sign-in and an empty profile |
+  | `guest` | nobody signed in | public pages |
 
-  Each role is its own session with its own cookies, so they stay signed in side by side.
-  `V account <role>` prints a role's Account ID. On the shared stand the roles are the profiles
-  of `/__local/accounts` named in step 1.
+  Sign in with `O open "$(V address owner /authoring)"`, and likewise `H`/`holder`, `L`/`learner`,
+  `N`/`newcomer`; the guest opens `G open "$(V address web /)"`. A role's name stands on its
+  `/account`. Each role is its own session with its own cookies, so they stay signed in side by
+  side. `V account <role>` prints a role's Account ID. On the shared stand the roles are the
+  profiles of `/__local/accounts` named in step 1; they carry no fictional names yet (#2218).
 - **Namespace.** When the machine's `agent-browser` rules name a namespace, export it as
   `AGENT_BROWSER_NAMESPACE` in each command; the helper passes it on.
 - **Handles.** Act on roles and accessible names (`find role … --name`, `find label …`), or on a
@@ -99,10 +103,11 @@ O wait --text "Доступ выдан."
   `wait --url`), then snapshot. Pages render a loading shell first («Загрузка …», «Загружаем …»).
 - **Viewport.** Set 1440×900. In the default short window the material editor's toolbar overlaps
   «Опубликовать».
-- **First visit.** The learner's first open of `/account` shows «Добро пожаловать» in place of
-  the cabinet; press «Принять условия и продолжить», then open the address again. Public pages,
-  materials and `/bookmarks` do not ask. Dismiss the cookie notice with «Понятно» once per
-  session: it covers controls near the bottom of the page.
+- **First visit.** The newcomer's first open of `/account` shows «Добро пожаловать» in place of
+  the cabinet (`snapshot -s main` returns the dialog); press «Принять условия и продолжить», then
+  open the address again. Public pages, materials and `/bookmarks` do not ask. Reader pages and
+  `/account` show a cookie notice in every session until «Понятно» is pressed: it covers controls
+  near the bottom of the page.
 - **Output.** `agent-browser` prints a notice that its Chrome is behind the stable release on
   each launch; it does not affect the run. `wait --text` prints the matched text. `snapshot -i`
   lists controls only; read a status line from `snapshot -s main`.
@@ -126,22 +131,26 @@ from it and its files are attached from it. A run of an earlier commit is replac
 `V evidence start --reset`.
 
 **Before recording, make sure the data is test data.** A light instance with a passing doctor
-is: its database is this run's seed. On the shared stand, look at the page first. When a screen
-may show a real person, a real purchase or unpublished material, keep no file: add the scenario
-with kind `none` and say the result in words.
+is: its database is this run's seed (the seeded materials carry the site's own name and author
+picture, which are public). The shared stand holds the owner's accounts, purchases and
+unpublished materials, and its roles have no fictional names (#2218): keep no file from it. Add
+the scenario with `--source stand-test-data`, kind `none`, and say the result in words. The same
+holds for any screen you doubt.
 
 A **scenario** is one thing checked. Choose the kind of evidence for each scenario separately:
 
 | Kind | When | Files |
 |---|---|---|
-| `video` | the proof is motion: a journey, a transition | one clip of 10–30 s |
+| `video` | the proof is motion: a journey, a transition | one clip, 10–30 s as the aim, 30 s at most |
 | `screenshot` | the proof is how a page looks at one moment | one; two (before, after) when an existing view changes |
-| `table` | the proof is not on screen: rows written, a request and its answer | a CSV or Markdown table «action, expected, got» from the running server |
-| `numbers` | the proof is speed | the measurements before and after |
+| `table` | the proof is not on screen: rows written, a request and its answer | a CSV or Markdown table «action, expected, got» from the running server; the PR shows it as text |
+| `numbers` | the proof is speed | a CSV or Markdown table «measure, before, after»; the PR shows it as text |
 | `none` | no file may be kept, or nothing can be shown | none; the result in words |
 
-GitHub attaches at most 10 MiB per file, so record one short clip per scenario, never the whole
-run in one file: start the recording right before the action and stop it at the resulting state.
+GitHub attaches at most 10 MB per file, so record one short clip per scenario, never the whole
+run in one file: start the recording right before the action and stop it once the resulting
+state has stood for a few seconds (`O wait 3000`). A scenario's second view on another page is a
+scenario of its own. `V evidence check` reads clip lengths with `ffprobe`.
 
 ```bash
 O record start "$E/grant.webm" --cursor
@@ -160,8 +169,9 @@ V evidence add --title "Выдача записана в базе" --kind table 
   --shows "platform-inside, не отозван" --covers "access-grant" --result PASS
 ```
 
-`--source` is `light-instance` by default; pass `stand-test-data` for the shared stand. Each
-scenario carries its own result. A recording belongs to one session; a scenario with two roles
+`--source` is `light-instance` by default. Each scenario carries its own result, and a result
+other than `PASS` carries `--notes`. A file belongs to one scenario; files left out of the
+manifest are not evidence. A recording belongs to one session; a scenario with two roles
 records the role where the result appears, or adds a file per role.
 
 Proof standards:
@@ -191,8 +201,9 @@ V evidence check      # exit 0 only when the manifest is complete
 V report              # the verdict, commit, patch and scenarios, from the manifest
 ```
 
-`evidence check` requires every named file to exist, to be at most 10 MiB, every clip to last
-10–30 s, and the verdict to agree with the scenarios. Return the output of `V report` as the
+`evidence check` requires the manifest to be of the current commit, every file to fit its
+scenario's kind, to exist and to be at most 10 MB, every clip to last at most 30 s, and the
+verdict to agree with the scenarios and to carry notes unless it is `PASS`. Return the output of `V report` as the
 result.
 
 - **`PASS`**: every journey the change needs was driven, each observed end state and side effect
@@ -212,7 +223,7 @@ precondition as the reason, so the map's owner can add it to the feature's Gotch
 Stop what this run started, by the handle it was started with:
 
 ```bash
-O close; H close; L close; G close   # each role session this run opened
+O close; H close; L close; N close; G close   # each role session this run opened
 pnpm stand:light down           # this worktree's instance and its database
 ```
 

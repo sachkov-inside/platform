@@ -136,6 +136,10 @@ test("addresses sign a role in or point at the instance", () => {
     "http://127.0.0.1:57150/sign-in?as=holder&next=%2Faccount",
   );
   assert.equal(
+    addressFor(urls, "newcomer", "/account"),
+    "http://127.0.0.1:57150/sign-in?as=newcomer&next=%2Faccount",
+  );
+  assert.equal(
     addressFor(urls, "learner", "/"),
     "http://127.0.0.1:57150/sign-in?as=learner&next=%2F",
   );
@@ -349,9 +353,21 @@ test("a manifest collects scenarios under unique ids", () => {
     () =>
       addScenario(manifest, {
         ...scenario,
+        files: [{ path: "grant.png", shows: "x" }],
+      }),
+    /kind video takes clips/u,
+  );
+  assert.throws(
+    () => addScenario(manifest, { ...scenario, kind: "screenshot" }),
+    /takes no clip/u,
+  );
+  assert.throws(
+    () =>
+      addScenario(manifest, {
+        ...scenario,
         files: [{ path: "../outside.png", shows: "x" }],
       }),
-    /inside \.evidence/u,
+    /stay inside \.evidence/u,
   );
 });
 
@@ -360,44 +376,68 @@ test("a manifest is checked against its files and GitHub's attachment limit", ()
     ...addScenario(newManifest(run), scenario),
     verdict: /** @type {const} */ ("PASS"),
   };
-  const megabyte = 1024 * 1024;
+  const megabyte = 1_000_000;
   assert.deepEqual(
     manifestProblems(manifest, {
-      "grant.webm": { bytes: 2 * megabyte, seconds: 20 },
+      "grant.webm": { bytes: 2 * megabyte, seconds: 7 },
     }),
     [],
   );
   assert.deepEqual(manifestProblems(manifest, {}), [
-    "s01: grant.webm does not exist in .evidence",
+    "s01: grant.webm is not a file in .evidence",
   ]);
   assert.deepEqual(
     manifestProblems(manifest, {
-      "grant.webm": { bytes: 11 * megabyte, seconds: 45 },
+      "grant.webm": { bytes: 10 * megabyte + 1, seconds: 45 },
     }),
     [
-      "s01: grant.webm is 11.0 MiB; GitHub attaches at most 10 MiB",
-      "s01: grant.webm lasts 45 s; record one clip of 10–30 s per scenario",
+      "s01: grant.webm is 10.0 MB; GitHub attaches at most 10 MB",
+      "s01: grant.webm lasts 45 s; record one clip of at most 30 s per scenario",
     ],
   );
   assert.deepEqual(
     manifestProblems(
       { ...manifest, verdict: null },
-      { "grant.webm": { bytes: megabyte, seconds: null } },
+      { "grant.webm": { bytes: 0, seconds: null } },
     ),
     [
+      "s01: grant.webm is empty",
       "s01: the length of grant.webm is unknown; install ffprobe or check it by hand",
       "the run has no verdict; set it with: evidence verdict <PASS|PASS+NOTES|FAIL>",
     ],
   );
+  const clip = { "grant.webm": { bytes: 1, seconds: 12 } };
   const failed = addScenario(manifest, {
     ...scenario,
     kind: "none",
     files: [],
     result: "FAIL",
+    notes: "кнопка не нажимается",
   });
+  assert.deepEqual(manifestProblems(failed, clip), [
+    "the verdict is PASS but scenario s02 is FAIL",
+  ]);
   assert.deepEqual(
-    manifestProblems(failed, { "grant.webm": { bytes: 1, seconds: 12 } }),
-    ["the verdict is PASS but scenario s02 is FAIL"],
+    manifestProblems({ ...manifest, verdict: "PASS+NOTES" }, clip),
+    ["the verdict PASS+NOTES needs notes"],
+  );
+  assert.deepEqual(
+    manifestProblems(
+      {
+        ...manifest,
+        verdict: "FAIL",
+        notes: "doctor не прошёл",
+        scenarios: [
+          { ...scenario, id: "s01", kind: "screenshot" },
+          { ...scenario, id: "s01", kind: "none", files: [], result: "FAIL" },
+        ],
+      },
+      clip,
+    ),
+    [
+      "s01: a scenario of kind screenshot takes no clip; use kind video for it",
+      "s01: the id is used twice",
+    ],
   );
   assert.deepEqual(manifestProblems({ ...manifest, scenarios: [] }, {}), [
     "the run has no scenarios",

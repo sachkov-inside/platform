@@ -5,7 +5,7 @@
 // changes an instance.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, lstatSync, statSync } from "node:fs";
 import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import process from "node:process";
@@ -21,16 +21,22 @@ import { processAlive } from "./stand-queue.mjs";
 import {
   addScenario,
   addressFor,
+  addressTargetSchema,
   browserInvocation,
   doctorReport,
+  evidenceKindSchema,
+  evidenceSourceSchema,
+  isClip,
   listenerOwned,
   manifestProblems,
   manifestReport,
   manifestSchema,
   newManifest,
   readOnlyStatement,
+  signedInRoleSchema,
   sourceFreshness,
-  verifyRoles,
+  verdictSchema,
+  verifyRoleSchema,
   webBuildInput,
 } from "./verify-platform-plan.mjs";
 
@@ -38,12 +44,12 @@ const usage = `Usage: node scripts/verify-platform.mjs <command> [--worktree PAT
 
 doctor [--json]                 Read-only: is this worktree's light instance worth driving?
                                 Exit 0 only when every check passes.
-address <target> [path]         Print an address. Targets: owner, holder, learner (sign in and
-                                open the path), sign-out, web, api.
+address <target> [path]         Print an address. Targets: owner, holder, learner, newcomer (sign
+                                in and open the path), sign-out, web, api.
 browser [--role ROLE] -- ARGS   Run agent-browser in this worktree's own session for the role
-                                (owner by default; holder, learner, guest).
+                                (owner by default; holder, learner, newcomer, guest).
 sql "<select ...>"              Run one reading statement in the instance's database; prints CSV.
-account <owner|holder|learner>  Print the Account ID of a role of this instance.
+account <role>                  Print the Account ID of a signed-in role of this instance.
 evidence start [--reset]        Create .evidence/ in the worktree root with manifest.json for
                                 this commit and print its path. --reset empties an earlier run.
 evidence path                   Print the evidence directory.
@@ -53,14 +59,15 @@ evidence add --title T --kind video|screenshot|table|numbers|none
                                 Add one scenario to the manifest; files are names in .evidence/.
 evidence verdict <PASS|PASS+NOTES|FAIL> [--notes N]
                                 Set the verdict of the run.
-evidence check                  Exit 0 only when the manifest is complete: files exist, each is
-                                at most 10 MiB, each clip lasts 10–30 s, the verdict is set.
+evidence check                  Exit 0 only when the manifest is complete: it is of this commit,
+                                has scenarios, files fit their kind, exist and are at most
+                                10 MB, a clip lasts at most 30 s, and the verdict is set, has
+                                its notes and agrees with the scenarios.
 report                          Print the verdict and scenarios from the manifest.
 `;
 
 const commandMilliseconds = 20_000;
 const requestMilliseconds = 10_000;
-const roleSchema = z.enum(verifyRoles);
 const authStatusSchema = z.object({
   accountId: z.string().nullable(),
   state: z.string(),
@@ -216,7 +223,7 @@ async function doctor(context) {
     }
     checks.push(await check("api health", () => apiHealth(state.urls.api)));
     checks.push(await check("web", () => webUsable(state.urls.web)));
-    for (const role of /** @type {const} */ (["owner", "holder", "learner"]))
+    for (const role of signedInRoleSchema.options)
       checks.push(
         await check(`${role} sign-in`, () => signInValid(state.urls, role)),
       );
@@ -291,7 +298,7 @@ async function webUsable(web) {
 /**
  * What web says about a browser that signed in as the role.
  * @param {{ web: string; api: string; signIn: string | null }} urls
- * @param {"owner" | "holder" | "learner"} role
+ * @param {z.infer<typeof signedInRoleSchema>} role
  */
 async function signedInStatus(urls, role) {
   const signIn = await fetch(addressFor(urls, role, "/"), {
@@ -317,7 +324,7 @@ async function signedInStatus(urls, role) {
 
 /**
  * @param {{ web: string; api: string; signIn: string | null }} urls
- * @param {"owner" | "holder" | "learner"} role
+ * @param {z.infer<typeof signedInRoleSchema>} role
  */
 async function signInValid(urls, role) {
   const status = await signedInStatus(urls, role);
@@ -334,7 +341,7 @@ async function signInValid(urls, role) {
 
 /** @param {Context} context */
 async function account(context) {
-  const role = z.enum(["owner", "holder", "learner"]).parse(positionals[1]);
+  const role = signedInRoleSchema.parse(positionals[1]);
   const status = await signedInStatus(
     (await instanceState(context)).urls,
     role,
@@ -346,9 +353,7 @@ async function account(context) {
 
 /** @param {Context} context */
 async function address(context) {
-  const target = z
-    .enum(["owner", "holder", "learner", "sign-out", "web", "api"])
-    .parse(positionals[1]);
+  const target = addressTargetSchema.parse(positionals[1]);
   const state = await instanceState(context);
   process.stdout.write(
     `${addressFor(state.urls, target, positionals[2] ?? "/")}\n`,
@@ -359,7 +364,7 @@ async function address(context) {
 function browser(context) {
   const invocation = browserInvocation({
     worktree: context.worktree,
-    role: roleSchema.parse(values.role ?? "owner"),
+    role: verifyRoleSchema.parse(values.role ?? "owner"),
     args: passed.length > 0 ? passed : positionals.slice(1),
     environment: process.env,
   });
@@ -413,9 +418,17 @@ async function sql(context) {
   process.exitCode = result.status ?? 1;
 }
 
-/** @param {Context} context */
+/**
+ * `.evidence` in the worktree root. A symbolic link there would send files elsewhere.
+ * @param {Context} context
+ */
 function evidenceDirectory(context) {
-  return join(context.worktree, ".evidence");
+  const directory = join(context.worktree, ".evidence");
+  if (lstatSync(directory, { throwIfNoEntry: false })?.isSymbolicLink())
+    throw new Error(
+      `${directory} is a symbolic link; evidence needs a directory`,
+    );
+  return directory;
 }
 
 /** @param {Context} context */
@@ -450,19 +463,20 @@ async function evidence(context) {
     const manifest = await readManifest(context);
     const next = addScenario(manifest, {
       title: values.title ?? "",
-      kind: z
-        .enum(["video", "screenshot", "table", "numbers", "none"])
-        .parse(values.kind),
+      kind: evidenceKindSchema.parse(values.kind),
       files: (values.file ?? []).map((item) => {
-        const [path = "", shows = ""] = item.split("::");
-        return { path, shows };
+        const separator = item.indexOf("::");
+        return separator === -1
+          ? { path: item, shows: "" }
+          : {
+              path: item.slice(0, separator),
+              shows: item.slice(separator + 2),
+            };
       }),
       shows: values.shows ?? "",
-      source: z
-        .enum(["light-instance", "stand-test-data"])
-        .parse(values.source ?? "light-instance"),
+      source: evidenceSourceSchema.parse(values.source ?? "light-instance"),
       covers: values.covers ?? "",
-      result: z.enum(["PASS", "PASS+NOTES", "FAIL"]).parse(values.result),
+      result: verdictSchema.parse(values.result),
       notes: values.notes ?? null,
     });
     await writeManifest(context, next);
@@ -470,7 +484,7 @@ async function evidence(context) {
   } else if (action === "verdict") {
     await writeManifest(context, {
       ...(await readManifest(context)),
-      verdict: z.enum(["PASS", "PASS+NOTES", "FAIL"]).parse(positionals[2]),
+      verdict: verdictSchema.parse(positionals[2]),
       notes: values.notes ?? null,
     });
   } else {
@@ -479,13 +493,20 @@ async function evidence(context) {
     const facts = {};
     for (const { path } of manifest.scenarios.flatMap((item) => item.files)) {
       const absolute = join(directory, path);
-      if (existsSync(absolute) && statSync(absolute).isFile())
-        facts[path] = {
-          bytes: statSync(absolute).size,
-          seconds: clipSeconds(absolute),
-        };
+      // A link would have the check read a file outside .evidence.
+      const entry = lstatSync(absolute, { throwIfNoEntry: false });
+      if (entry?.isFile())
+        facts[path] = { bytes: entry.size, seconds: clipLength(absolute) };
     }
-    const problems = manifestProblems(manifest, facts);
+    const head = git(context.worktree, ["rev-parse", "HEAD"]);
+    const problems = [
+      ...(manifest.commit === head
+        ? []
+        : [
+            `the manifest is of ${manifest.commit.slice(0, 12)}, HEAD is ${head.slice(0, 12)}; verify this commit after: evidence start --reset`,
+          ]),
+      ...manifestProblems(manifest, facts),
+    ];
     process.stdout.write(
       problems.length === 0
         ? `The manifest is complete: ${String(manifest.scenarios.length)} scenario(s), verdict ${manifest.verdict ?? ""}\n`
@@ -499,55 +520,55 @@ async function evidence(context) {
 async function startEvidence(context) {
   const directory = evidenceDirectory(context);
   const commit = git(context.worktree, ["rev-parse", "HEAD"]);
-  if (existsSync(join(directory, "manifest.json"))) {
-    const earlier = await readManifest(context);
-    if (!values.reset) {
-      if (earlier.commit !== commit)
-        throw new Error(
-          `.evidence holds a run of ${earlier.commit.slice(0, 12)}; start over with: evidence start --reset`,
-        );
-      process.stdout.write(`${directory}\n`);
-      return;
-    }
-    await rm(directory, { recursive: true });
-  }
-  await mkdir(directory, { recursive: true });
   const base = optionalGit(context.worktree, [
     "merge-base",
     "origin/main",
     "HEAD",
   ]);
   const uncommitted = changedFiles(context.worktree).map((file) => file.path);
-  await writeManifest(
-    context,
-    newManifest({
-      commit,
-      branch: git(context.worktree, ["branch", "--show-current"]),
-      base,
-      patchId:
-        base === null || base === commit
-          ? null
-          : execFileSync("git", ["patch-id", "--stable"], {
-              cwd: context.worktree,
-              encoding: "utf8",
-              input: gitBuffer(context.worktree, ["diff", base, "HEAD"]),
-              timeout: commandMilliseconds,
-            }).split(" ")[0] || null,
-      uncommittedFiles: uncommitted,
-      uncommittedDiffSha256:
-        uncommitted.length === 0
-          ? null
-          : await uncommittedDigest(context.worktree, uncommitted),
-      startedAt: new Date().toISOString(),
-    }),
-  );
+  const run = {
+    commit,
+    branch: git(context.worktree, ["branch", "--show-current"]),
+    base,
+    patchId:
+      base === null || base === commit
+        ? null
+        : execFileSync("git", ["patch-id", "--stable"], {
+            cwd: context.worktree,
+            encoding: "utf8",
+            input: gitBuffer(context.worktree, ["diff", base, "HEAD"]),
+            timeout: commandMilliseconds,
+          }).split(" ")[0] || null,
+    uncommittedFiles: uncommitted,
+    uncommittedDiffSha256:
+      uncommitted.length === 0
+        ? null
+        : await uncommittedDigest(context.worktree, uncommitted),
+    startedAt: new Date().toISOString(),
+  };
+  // --reset empties the directory whatever it holds, a broken manifest included.
+  if (values.reset) await rm(directory, { recursive: true, force: true });
+  else if (existsSync(join(directory, "manifest.json"))) {
+    const earlier = await readManifest(context);
+    if (
+      earlier.commit !== commit ||
+      earlier.uncommittedDiffSha256 !== run.uncommittedDiffSha256
+    )
+      throw new Error(
+        `.evidence holds a run of ${earlier.commit.slice(0, 12)}${earlier.commit === commit ? " with other uncommitted changes" : ""}; start over with: evidence start --reset`,
+      );
+    process.stdout.write(`${directory}\n`);
+    return;
+  }
+  await mkdir(directory, { recursive: true });
+  await writeManifest(context, newManifest(run));
   process.stdout.write(`${directory}\n`);
 }
 
 /** The length of a clip in seconds, or null when ffprobe cannot tell. */
 /** @param {string} path */
-function clipSeconds(path) {
-  if (!/\.(?:webm|mp4|mov)$/iu.test(path)) return null;
+function clipLength(path) {
+  if (!isClip(path)) return null;
   const result = spawnSync(
     "ffprobe",
     ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],

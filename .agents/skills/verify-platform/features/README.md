@@ -8,14 +8,15 @@ verdict and cleanup.
 
 - A light instance of this worktree, started by this run, with a passing doctor. Its database is
   fresh on every `up`: the seeded demonstration catalogue and the roles of
-  [SKILL.md](../SKILL.md), step 3: the owner «Владелец Тестов», the holder «Покупатель Тестов»
-  with «Создание Platform Inside», and a new learner with no name, no products and no accepted
+  [SKILL.md](../SKILL.md), step 3: the owner, the holder with «Создание Platform Inside», the
+  learner with a ready profile and no products, and the newcomer with no name and no accepted
   terms.
-- The shell functions `V`, `O`, `H`, `L` and `G` from SKILL.md: the helper and the owner, holder,
-  learner and guest browser sessions. `V sql` reads the instance's database, `V account <role>`
-  prints a role's Account ID, and addresses come from `V address <owner|holder|learner|web> <path>`.
-- Each role's session is set to 1440×900 after its first `open`. Reader pages show a cookie notice
-  until «Понятно» is pressed; admin pages have none.
+- The shell functions `V`, `O`, `H`, `L`, `N` and `G` from SKILL.md: the helper and the owner,
+  holder, learner, newcomer and guest browser sessions. `V sql` reads the instance's database,
+  `V account <role>` prints a role's Account ID, and addresses come from
+  `V address <role|web> <path>`.
+- Each role's session is set to 1440×900 after its first `open`. Reader pages and `/account` show
+  a cookie notice until «Понятно» is pressed; `/authoring` pages have none.
 
 Seed facts the recipes rely on:
 
@@ -24,7 +25,7 @@ Seed facts the recipes rely on:
 | The one closed material | «Developer Pipeline без потери контекста», `/materials/developer-pipeline-bez-poteri-konteksta`, body «Закрытое содержимое для участников.» |
 | Its product | «Создание Platform Inside», `/products/platform-inside`, price 30 ₽ |
 | A free material in the home feed | «Проверяемая поставка», `/materials/proveryaemaya-postavka` |
-| People in the owner's lists | two rows named «Без имени и email» (the list names a person by Telegram or email): the holder with «Создание Platform Inside», the learner with «Без продуктов». Search by `V account <role>` to get one row |
+| People in the owner's lists | three rows named «Без имени и email» (the list names a person by Telegram or email, never by the profile name): the holder with «Создание Platform Inside», the learner and the newcomer with «Без продуктов». Search by `V account <role>` and wait for one row |
 | Authoring topic and formats | topic «Платформа» (reader pages show it as «Platform»); formats «Видео», «Гайд», «Заметка» |
 | A product programme | `/products/platform-inside/programme`: «Как устроен Inside Platform» (a free lesson, open to accounts with Telegram connected) and «Developer Pipeline без потери контекста» (closed) |
 

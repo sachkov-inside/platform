@@ -182,8 +182,8 @@ running instance is worth driving.
 
 `up` prints the web, API and sign-in addresses. Open
 `<sign-in>?as=owner&next=/path` (owner «Владелец Тестов» with `platform:admin`), `?as=holder`
-(«Покупатель Тестов», holds «Создание Platform Inside») or `?as=learner` (a new person: no name,
-no products, terms not accepted) in the
+(«Покупатель Тестов», holds «Создание Platform Inside»), `?as=learner` («Участник Тестов», no
+products) or `?as=newcomer` (no name, terms not accepted) in the
 browser; `/sign-out` on the same server removes the session. Use a separate browser context per
 instance: cookies of `127.0.0.1` ignore the port, and each instance names its own cookie.
 
@@ -201,7 +201,7 @@ How it works:
    not running. It never starts or changes containers.
 2. A detached supervisor creates `inside_light_<id>`, where `<id>` derives from the worktree path,
    then migrates it, seeds the published demonstration catalogue and bootstraps the owner. Once
-   the API answers it establishes the role Accounts through the API: the owner and the holder
+   the API answers it establishes the role Accounts through the API: the named roles
    accept the current terms and get their fictional names, and the owner grants the holder the
    seeded product. Every
    `up` starts from a fresh database.
