@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { lessonInteractions } from "../../../../scenarios/lesson-interactions.mjs";
 import { realBffSession } from "../support/real-bff-session";
 const ratingReplies = vi.fn<(request: Request) => Promise<Response>>();
 const statsReplies = vi.fn<(request: Request) => Promise<Response>>();
@@ -20,7 +21,7 @@ const handleSetLessonRating = (request: Request) =>
   session(() => realHandleSetLessonRating(request));
 const handleLessonStatistics = (request: Request) =>
   session(() => realHandleLessonStatistics(request));
-const materialId = "6d155605-f852-461a-bdeb-df68b0b441c4";
+const materialId = lessonInteractions.materialId;
 
 function request(
   path: string,
@@ -145,32 +146,11 @@ it("reads the reader's own rating", async () => {
   expect(await response.json()).toEqual({ kind: "ready", rating: "dislike" });
 });
 
-const statistics = {
-  exercises: [
-    {
-      exerciseId: "rag-wrong-platform",
-      kind: "quiz",
-      versions: [
-        {
-          fingerprint: "669258ca11c32c41",
-          firstAnsweredAt: "2026-11-13T09:00:00.000Z",
-          respondents: 4,
-          firstTryCorrect: 1,
-          firstTryDontKnow: 1,
-          mostFrequentMistake: {
-            kind: "options",
-            optionIds: ["embed"],
-            count: 2,
-          },
-        },
-      ],
-    },
-  ],
-};
+const statistics = { exercises: lessonInteractions.module.statistics };
 
 it("joins exercise statistics and rating counts for an author", async () => {
   statsReplies.mockResolvedValueOnce(ok(statistics));
-  countReplies.mockResolvedValueOnce(ok({ likes: 3, dislikes: 1 }));
+  countReplies.mockResolvedValueOnce(ok(lessonInteractions.module.ratings));
   const response = await handleLessonStatistics(
     request("/api/authoring/lesson-statistics", { materialId }),
   );
@@ -181,7 +161,26 @@ it("joins exercise statistics and rating counts for an author", async () => {
   expectBackendRequest("GET", `/authoring/materials/${materialId}/ratings`);
   expect(await response.json()).toEqual({
     kind: "ready",
-    exercises: statistics.exercises,
+    exercises: [
+      {
+        exerciseId: "rag-wrong-platform",
+        kind: "quiz",
+        versions: [
+          {
+            fingerprint: "669258ca11c32c41",
+            firstAnsweredAt: "2026-11-13T09:00:00.000Z",
+            respondents: 4,
+            firstTryCorrect: 1,
+            firstTryDontKnow: 1,
+            mostFrequentMistake: {
+              kind: "options",
+              optionIds: ["embed"],
+              count: 2,
+            },
+          },
+        ],
+      },
+    ],
     ratings: { likes: 3, dislikes: 1 },
   });
 });
