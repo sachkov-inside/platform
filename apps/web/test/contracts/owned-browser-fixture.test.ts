@@ -19,55 +19,59 @@ function isRunning(pid: number): boolean {
   return state !== "" && !state.startsWith("Z");
 }
 
-for (const ending of ["SDK deadline", "shutdown while starting"] as const) {
-  test(`the owned fixture terminates its never-ready engine before ${ending} cleanup returns`, async ({
-    onTestFinished,
-  }) => {
-    const creating = mkdtemp(join(tmpdir(), "inside-owned-browser-fixture-"));
-    const cleanup: { fixture?: ReturnType<typeof createOwnedBrowserFixture> } =
-      {};
-    onTestFinished(async () => {
-      try {
-        await cleanup.fixture?.close();
-      } finally {
-        const directory = await creating.catch(() => undefined);
-        if (directory !== undefined)
-          await rm(directory, { recursive: true, force: true });
+for (const name of ["term-deck", "reader-history"] as const)
+  for (const ending of ["SDK deadline", "shutdown while starting"] as const) {
+    test(`${name} fixture terminates its never-ready engine before ${ending} cleanup returns`, async ({
+      onTestFinished,
+    }) => {
+      const creating = mkdtemp(join(tmpdir(), "inside-owned-browser-fixture-"));
+      const cleanup: {
+        fixture?: ReturnType<typeof createOwnedBrowserFixture>;
+      } = {};
+      onTestFinished(async () => {
+        try {
+          await cleanup.fixture?.close();
+        } finally {
+          const directory = await creating.catch(() => undefined);
+          if (directory !== undefined)
+            await rm(directory, { recursive: true, force: true });
+        }
+      });
+      const directory = await creating;
+      const marker = join(directory, "engine.pid");
+      const executable = join(directory, "never-ready-browser.sh");
+      await writeFile(
+        executable,
+        `#!/bin/sh\ntrap '' TERM\nprintf '%s' "$$" > '${marker}.tmp'\nmv '${marker}.tmp' '${marker}'\nexec /bin/sleep 600\n`,
+        { mode: 0o700 },
+      );
+      const fixture = createOwnedBrowserFixture(name, {
+        startupTimeoutMs: 20_000,
+        browserLaunchTimeoutMs: ending === "SDK deadline" ? 1_000 : 30_000,
+        browserExecutablePath: executable,
+      });
+      cleanup.fixture = fixture;
+      const outcome = fixture.start().catch((error: unknown) => error);
+      if (ending === "SDK deadline") {
+        const failure = await outcome;
+        expect(failure).toBeInstanceOf(Error);
+        if (failure instanceof Error)
+          expect(failure.message).toContain("Timeout 1000ms exceeded");
+        expect(existsSync(marker)).toBe(true);
+      } else {
+        await expect
+          .poll(() => existsSync(marker), { timeout: 20_000 })
+          .toBe(true);
       }
-    });
-    const directory = await creating;
-    const marker = join(directory, "engine.pid");
-    const executable = join(directory, "never-ready-browser.sh");
-    await writeFile(
-      executable,
-      `#!/bin/sh\ntrap '' TERM\nprintf '%s' "$$" > '${marker}.tmp'\nmv '${marker}.tmp' '${marker}'\nexec /bin/sleep 600\n`,
-      { mode: 0o700 },
-    );
-    const fixture = createOwnedBrowserFixture("term-deck", {
-      startupTimeoutMs: 20_000,
-      browserLaunchTimeoutMs: ending === "SDK deadline" ? 1_000 : 30_000,
-      browserExecutablePath: executable,
-    });
-    cleanup.fixture = fixture;
-    const outcome = fixture.start().catch((error: unknown) => error);
-    if (ending === "SDK deadline") {
-      const failure = await outcome;
-      expect(failure).toBeInstanceOf(Error);
-      if (failure instanceof Error)
-        expect(failure.message).toContain("Timeout 1000ms exceeded");
-      expect(existsSync(marker)).toBe(true);
-    } else {
-      await expect
-        .poll(() => existsSync(marker), { timeout: 20_000 })
-        .toBe(true);
-    }
-    const original = await readFile(marker, "utf8");
-    const pid = z.coerce.number().int().positive().parse(original);
-    await fixture.close();
-    await expect(outcome).resolves.toBeInstanceOf(Error);
-    expect(isRunning(pid)).toBe(false);
-    await expect(fixture.start()).rejects.toThrow("Browser fixture is closed");
-    expect(await readFile(marker, "utf8")).toBe(original);
-    expect(isRunning(pid)).toBe(false);
-  }, 30_000);
-}
+      const original = await readFile(marker, "utf8");
+      const pid = z.coerce.number().int().positive().parse(original);
+      await fixture.close();
+      await expect(outcome).resolves.toBeInstanceOf(Error);
+      expect(isRunning(pid)).toBe(false);
+      await expect(fixture.start()).rejects.toThrow(
+        "Browser fixture is closed",
+      );
+      expect(await readFile(marker, "utf8")).toBe(original);
+      expect(isRunning(pid)).toBe(false);
+    }, 30_000);
+  }
