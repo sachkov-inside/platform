@@ -587,6 +587,8 @@ export function testSubstituteViolations(
       (value.source === "storybook/test" && value.name === "sb")
     )
       apis.add(symbol);
+    if (value.source === "storybook/test" && value.name === "spyOn")
+      methods.set(symbol, "spyOn");
     if (
       ["vitest", "storybook/test"].includes(value.source) &&
       value.name === "mocked"

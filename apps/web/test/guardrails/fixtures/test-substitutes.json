@@ -377,6 +377,18 @@
       "file": "test/module/substitution.test.ts",
       "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({loaded:vi.fn()})); Object.assign(state,{loaded:()=>{throw new Error(\"replacement\")}}); vi.mock(\"@/shared/auth/index.server\",async original=>{const module=await original();state.loaded(\"actual\");return module;});",
       "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "storybook direct own replacement",
+      "file": "src/example.stories.tsx",
+      "source": "import {spyOn} from \"storybook/test\"; import {sessionAdapter} from \"@/shared/auth/session-adapter.server\"; spyOn(sessionAdapter,\"accessToken\").mockReturnValue(\"fake\");",
+      "diagnostic": "tests cannot replace own or SDK behavior through a spy or mocked view"
+    },
+    {
+      "name": "storybook imported alias own replacement",
+      "file": "src/example.stories.tsx",
+      "source": "import {spyOn as observe} from \"storybook/test\"; import {sessionAdapter} from \"@/shared/auth/session-adapter.server\"; const observed=observe(sessionAdapter,\"accessToken\"); observed.mockImplementation(()=>\"fake\");",
+      "diagnostic": "tests cannot replace own or SDK behavior through a spy or mocked view"
     }
   ],
   "accepted": [
@@ -534,6 +546,16 @@
       "name": "transparent observer alias only clears",
       "file": "test/module/observation.test.ts",
       "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({loaded:vi.fn()})); const alias=state.loaded; alias.mockClear(); vi.mock(\"@/shared/auth/index.server\",async original=>{const module=await original();state.loaded(\"actual\");return module;});"
+    },
+    {
+      "name": "storybook direct observing own call",
+      "file": "src/example.stories.tsx",
+      "source": "import {spyOn} from \"storybook/test\"; import {sessionAdapter} from \"@/shared/auth/session-adapter.server\"; const observation=spyOn(sessionAdapter,\"accessToken\"); const returned=observation.mock.results[0]?.value;"
+    },
+    {
+      "name": "storybook imported alias observing own call",
+      "file": "src/example.stories.tsx",
+      "source": "import {spyOn as observe} from \"storybook/test\"; import {sessionAdapter} from \"@/shared/auth/session-adapter.server\"; const observation=observe(sessionAdapter,\"accessToken\"); const returned=observation.mock.results[0]?.value;"
     }
   ]
 }
