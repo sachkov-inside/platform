@@ -1,22 +1,36 @@
-import { beforeEach, expect, it, vi } from "vitest";
-
-const session = vi.hoisted(() => ({ accessToken: vi.fn() }));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: { accessToken: session.accessToken },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-import { loadTaskSubmissions } from "@/_pages/task-submissions/api/load-task-submissions.server";
-import { LogtoSessionUnavailableError } from "@/shared/auth/session-adapter.server";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { realBffSession } from "../support/real-bff-session";
+import {
+  interceptIdentityOutage,
+  expectIdentityOutage,
+} from "../support/identity-http";
+let backendRequests: Request[] = [];
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+import { loadTaskSubmissions as realLoadTaskSubmissions } from "@/_pages/task-submissions/api/load-task-submissions.server";
 import {
   reviewedSubmissions,
   submissionsProductId,
   submissionsSecondChapter,
 } from "@/storybook/task-submissions.fixtures";
 
-beforeEach(() => {
-  session.accessToken.mockReset();
-  session.accessToken.mockResolvedValue("author-token");
-  vi.stubEnv("BACKEND_BASE_URL", "https://backend.test");
+const loadTaskSubmissions = (
+  ...args: Parameters<typeof realLoadTaskSubmissions>
+) => scope(() => realLoadTaskSubmissions(...args));
+beforeEach(async () => {
+  backendRequests = [];
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  scope = await realBffSession("author-token");
+});
+afterEach(() => {
+  vi.useRealTimers();
+  for (const request of backendRequests) {
+    expect(new URL(request.url).origin).toBe(
+      "https://platform-api.example.test",
+    );
+    expect(request.method).toBe("GET");
+    expect(request.headers.get("authorization")).toBe("Bearer author-token");
+  }
 });
 
 it.each([
@@ -26,34 +40,31 @@ it.each([
 ] as const)(
   "closes backend HTTP %i without exposing submissions (#967)",
   async (status, kind) => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => Promise.resolve(new Response(null, { status }))),
-    );
+    stubBackend(vi.fn(() => Promise.resolve(new Response(null, { status }))));
     expect(await loadTaskSubmissions({}, undefined)).toEqual({ kind });
   },
 );
 
 it("distinguishes an expired session from identity failure without reading submissions (#967)", async () => {
   const fetch = vi.fn();
-  vi.stubGlobal("fetch", fetch);
-  session.accessToken.mockRejectedValueOnce(new LogtoSessionUnavailableError());
+  stubBackend(fetch);
+  scope = await realBffSession(null);
   expect(await loadTaskSubmissions({}, undefined)).toEqual({
     kind: "unauthorized",
   });
-  session.accessToken.mockRejectedValueOnce(
-    new Error("private identity failure"),
-  );
+  expect(fetch).not.toHaveBeenCalled();
+  scope = await realBffSession({ refreshToken: "failed-author-task-identity" });
+  const identity = interceptIdentityOutage();
   expect(await loadTaskSubmissions({}, undefined)).toEqual({
     kind: "unavailable",
   });
   expect(fetch).not.toHaveBeenCalled();
+  expectIdentityOutage(identity);
 });
 
 it("drops a foreign chapter/task and pagination before returning the list the filters describe (#967)", async () => {
   const urls: string[] = [];
-  vi.stubGlobal(
-    "fetch",
+  stubBackend(
     vi.fn((input: RequestInfo | URL) => {
       urls.push(input instanceof Request ? input.url : input.toString());
       return Promise.resolve(Response.json(reviewedSubmissions));
@@ -70,8 +81,8 @@ it("drops a foreign chapter/task and pagination before returning the list the fi
   expect(outcome).toMatchObject({
     kind: "ready",
     selection: {
-      productId: submissionsProductId,
-      chapterId: submissionsSecondChapter,
+      productId: "00000000-0000-4000-8000-000000000948",
+      chapterId: "00000000-0000-4000-8000-000000000950",
     },
     continued: false,
     cursor: undefined,
@@ -89,7 +100,7 @@ it("recovers a malformed cursor at the newest page and rejects malformed respons
     .fn()
     .mockResolvedValueOnce(new Response(null, { status: 400 }))
     .mockResolvedValueOnce(Response.json(reviewedSubmissions));
-  vi.stubGlobal("fetch", fetch);
+  stubBackend(fetch);
   expect(await loadTaskSubmissions({}, "broken")).toMatchObject({
     kind: "ready",
     continued: false,
@@ -115,7 +126,7 @@ it("reads a selected submission outside the cursor page and preserves the return
       }),
     ),
   );
-  vi.stubGlobal("fetch", fetch);
+  stubBackend(fetch);
   expect(await loadTaskSubmissions({}, "page-2", id)).toMatchObject({
     kind: "ready",
     cursor: "page-2",
@@ -130,7 +141,7 @@ it("a malformed or missing selected submission does not fall back to an unrelate
   const fetch = vi.fn(() =>
     Promise.resolve(Response.json({ ...reviewedSubmissions, submissions: [] })),
   );
-  vi.stubGlobal("fetch", fetch);
+  stubBackend(fetch);
   expect(await loadTaskSubmissions({}, undefined, "broken")).toEqual({
     kind: "not_found",
   });
@@ -147,8 +158,7 @@ it("a malformed or missing selected submission does not fall back to an unrelate
 
 it("sends the feedback filter with list reads and the cursor, and none for «все сдачи» (#1717)", async () => {
   const urls: URL[] = [];
-  vi.stubGlobal(
-    "fetch",
+  stubBackend(
     vi.fn((input: RequestInfo | URL) => {
       urls.push(
         new URL(input instanceof Request ? input.url : input.toString()),
@@ -175,8 +185,7 @@ it("sends the feedback filter with list reads and the cursor, and none for «в�
 it("opens a submission chosen in the «без комментария» view after it was commented (#1717)", async () => {
   const id = "30000000-0000-4000-8000-000000000002";
   const urls: URL[] = [];
-  vi.stubGlobal(
-    "fetch",
+  stubBackend(
     vi.fn((input: RequestInfo | URL) => {
       urls.push(
         new URL(input instanceof Request ? input.url : input.toString()),
@@ -201,8 +210,7 @@ it("opens a submission chosen in the «без комментария» view afte
 
 it("keeps the feedback choice when a stale address falls back to the whole list (#1717)", async () => {
   const urls: URL[] = [];
-  vi.stubGlobal(
-    "fetch",
+  stubBackend(
     vi
       .fn()
       .mockImplementationOnce((input: RequestInfo | URL) => {
@@ -224,3 +232,11 @@ it("keeps the feedback choice when a stale address falls back to the whole list 
   expect(urls[1]?.searchParams.get("feedback")).toBe("given");
   expect(urls[1]?.searchParams.has("cursor")).toBe(false);
 });
+
+function stubBackend(reply: typeof globalThis.fetch): void {
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = new Request(input, init);
+    backendRequests.push(request.clone());
+    return reply(request);
+  });
+}
