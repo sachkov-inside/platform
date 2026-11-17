@@ -1161,7 +1161,7 @@ for (const scanRoot of scanRoots) {
 }
 
 const parsedFiles = new Map(
-  [...new Set(scanRoots.flatMap(sourceFiles))].map((file) => {
+  [...new Set(scanRoots.flatMap((root) => sourceFiles(root)))].map((file) => {
     const { errors, program } = parseSync(file, readFileSync(file, "utf8"));
     const [firstError] = errors;
     if (firstError !== undefined) {
