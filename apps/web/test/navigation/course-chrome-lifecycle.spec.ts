@@ -126,6 +126,11 @@ test("a changed persisted choice remains authoritative after a hidden menu and r
       "data-course-menu-native-probe",
       "true",
     );
+    // The retained menu has released its listener, so the hidden choice has not been rewritten.
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-course-menu",
+      "collapsed",
+    );
     await page.goBack();
     await expect(page).toHaveURL(lesson);
     await expect(collapse).toBeVisible();
