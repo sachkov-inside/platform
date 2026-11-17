@@ -1,53 +1,22 @@
-import { beforeEach, expect, it, vi } from "vitest";
-
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  readerToken: vi.fn(),
-  offers: vi.fn(),
-  quote: vi.fn(),
-  consents: vi.fn(),
-  purchase: vi.fn(),
-  status: vi.fn(),
-  current: vi.fn(),
-  cancel: vi.fn(),
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestBillingOffers: fakes.offers,
-  requestBillingQuote: fakes.quote,
-  requestBillingConsents: fakes.consents,
-  requestBillingPurchase: fakes.purchase,
-  requestBillingPurchaseStatus: fakes.status,
-  requestCurrentBilling: fakes.current,
-  requestCancelBillingRenewal: fakes.cancel,
-  requestResumeBillingRenewal: vi.fn(),
-  requestBillingChangeQuote: vi.fn(),
-  requestBillingChange: vi.fn(),
-  requestCancelBillingChange: vi.fn(),
-  requestChangeBillingMethod: vi.fn(),
-  requestRevokeBillingMethod: vi.fn(),
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/auth/optional-platform-access-token.server", () => ({
-  getOptionalPlatformAccessToken: fakes.readerToken,
-}));
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { realBffSession } from "../support/real-bff-session";
+import { interceptBackendHttp } from "../support/backend-http";
+import {
+  interceptIdentityOutage,
+  expectIdentityOutage,
+} from "../support/identity-http";
 
 import {
-  handleBillingPurchase,
-  handleBillingPurchaseStatus,
-  handleBillingQuote,
+  handleBillingPurchase as realBillingPurchase,
+  handleBillingPurchaseStatus as realBillingPurchaseStatus,
+  handleBillingQuote as realBillingQuote,
 } from "@/features/billing-checkout.server";
 import {
   loadBillingOffers,
   loadViewerBillingOffers,
 } from "@/entities/subscription.server";
-import { handleBillingConsents } from "@/entities/subscription.server";
-import { handleCurrentBilling } from "@/features/billing-subscription.server";
+import { handleBillingConsents as realBillingConsents } from "@/entities/subscription.server";
+import { handleCurrentBilling as realCurrentBilling } from "@/features/billing-subscription.server";
 import {
   accessGrounds,
   materialsOffer,
@@ -71,61 +40,123 @@ function command(url: string, input: unknown, requestOrigin = origin): Request {
     body: JSON.stringify(input),
   });
 }
-const ok = (body: unknown) => ({ ok: true, body, response: new Response() });
-const problem = (code: string, status: number) => ({
-  ok: false,
-  problem: { code },
-  response: new Response(null, { status }),
+interface BackendReply {
+  method: string;
+  path: string;
+  body: unknown;
+  status: number;
+}
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+let replies: BackendReply[];
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+function reply(
+  method: string,
+  path: string,
+  body: unknown,
+  status = 200,
+): void {
+  replies.push({ method, path, body, status });
+}
+function outgoing(index = 0): Request {
+  const request = backend.mock.calls[index]?.[0];
+  if (request === undefined)
+    throw new Error("Expected external backend request");
+  return request;
+}
+const handleBillingQuote = (request: Request) =>
+  scope(() => realBillingQuote(request));
+const handleBillingPurchase = (request: Request) =>
+  scope(() => realBillingPurchase(request));
+const handleBillingPurchaseStatus = (request: Request) =>
+  scope(() => realBillingPurchaseStatus(request));
+const handleBillingConsents = (request: Request) =>
+  scope(() => realBillingConsents(request));
+const handleCurrentBilling = () => scope(() => realCurrentBilling());
+let expectedToken: string | null;
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+  scope = await realBffSession();
+  replies = [];
+  expectedToken = "trusted-token";
+  backend.mockReset();
+  backend.mockImplementation(() => {
+    const next = replies[backend.mock.calls.length - 1];
+    if (next === undefined) throw new Error("Unexpected backend request");
+    return Promise.resolve(Response.json(next.body, { status: next.status }));
+  });
+  interceptBackendHttp(backend);
 });
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
-  fakes.readerToken.mockResolvedValue(undefined);
+afterEach(() => {
+  try {
+    expect(backend).toHaveBeenCalledTimes(replies.length);
+    replies.forEach((expected, index) => {
+      const request = outgoing(index);
+      expect(request.method).toBe(expected.method);
+      expect(request.url).toBe(
+        `https://platform-api.example.test${expected.path}`,
+      );
+      expect(request.headers.get("authorization")).toBe(
+        expectedToken === null ? null : `Bearer ${expectedToken}`,
+      );
+      if (expected.method === "GET") expect(request.body).toBeNull();
+    });
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it("дочитывает каталог по курсору и не обрывает его молча", async () => {
   const cursor = "50000000-0000-4000-8000-000000000001";
-  fakes.offers
-    .mockResolvedValueOnce(ok({ items: [materialsOffer], nextCursor: cursor }))
-    .mockResolvedValueOnce(ok({ items: [supportOffer], nextCursor: null }));
+  expectedToken = null;
+  reply("GET", "/billing/product-prices?limit=50", {
+    items: [materialsOffer],
+    nextCursor: cursor,
+  });
+  reply("GET", `/billing/product-prices?limit=50&cursor=${cursor}`, {
+    items: [supportOffer],
+    nextCursor: null,
+  });
   expect(await loadBillingOffers()).toEqual({
     kind: "ready",
     offers: [materialsOffer, supportOffer],
   });
-  expect(fakes.offers).toHaveBeenNthCalledWith(1, { limit: 50 }, undefined);
-  expect(fakes.offers).toHaveBeenNthCalledWith(
-    2,
-    { limit: 50, cursor },
-    undefined,
-  );
 });
 
 it("читает каталог от имени вошедшего покупателя: Offer с ограничением допуска решает сервер", async () => {
-  fakes.readerToken.mockResolvedValue("reader-token");
-  fakes.offers.mockResolvedValue(
-    ok({ items: [materialsOffer], nextCursor: null }),
-  );
-  expect(await loadViewerBillingOffers()).toEqual({
+  scope = await realBffSession("reader-token");
+  expectedToken = "reader-token";
+  reply("GET", "/billing/product-prices?limit=50", {
+    items: [materialsOffer],
+    nextCursor: null,
+  });
+  expect(await scope(() => loadViewerBillingOffers())).toEqual({
     kind: "ready",
     offers: [materialsOffer],
   });
-  expect(fakes.offers).toHaveBeenCalledWith({ limit: 50 }, "reader-token");
 });
 
 it("сбой чтения сессии не выдаётся за гостевую витрину", async () => {
-  fakes.readerToken.mockRejectedValue(new Error("refresh failed"));
-  await expect(loadViewerBillingOffers()).rejects.toThrow("refresh failed");
-  expect(fakes.offers).not.toHaveBeenCalled();
+  scope = await realBffSession({ refreshToken: "expired-checkout-refresh" });
+  const identity = interceptIdentityOutage();
+  await expect(scope(() => loadViewerBillingOffers())).rejects.toThrow();
+  expectIdentityOutage(identity);
+  expect(backend).not.toHaveBeenCalled();
 });
 
 it("сообщает о недоступности каталога, а не показывает пустую витрину", async () => {
-  fakes.offers.mockResolvedValue(problem("dependency_unavailable", 503));
+  expectedToken = null;
+  reply(
+    "GET",
+    "/billing/product-prices?limit=50",
+    { code: "dependency_unavailable" },
+    503,
+  );
   expect(await loadBillingOffers()).toEqual({ kind: "unavailable" });
 });
 
 it("сохраняет расчёт под собственным operationId и не передаёт пустой промокод", async () => {
-  fakes.quote.mockResolvedValue(ok(savedQuote));
+  reply("POST", "/accounts/current/billing/quote", savedQuote);
   const response = await handleBillingQuote(
     command("/api/account/billing/quote", {
       operationId,
@@ -134,18 +165,18 @@ it("сохраняет расчёт под собственным operationId и
     }),
   );
   expect(await response.json()).toEqual({ ok: true, value: savedQuote });
-  expect(fakes.quote).toHaveBeenCalledWith(
-    {
-      operationId,
-      productId: supportOffer.paymentOption.id,
-      priceRevision: supportOffer.paymentOption.revision,
-    },
-    "trusted-token",
-  );
+  expect(await outgoing().json()).toEqual({
+    operationId,
+    productId: supportOffer.paymentOption.id,
+    priceRevision: supportOffer.paymentOption.revision,
+  });
 });
 
 it("передаёт принятые кнопкой документы, её подпись, экран и контекст расчёта", async () => {
-  fakes.consents.mockResolvedValue(ok({ ok: true, evidenceRefs: evidence }));
+  reply("POST", "/accounts/current/billing/consents", {
+    ok: true,
+    evidenceRefs: evidence,
+  });
   await handleBillingConsents(
     command("/api/account/billing/consents", {
       operationId,
@@ -162,29 +193,31 @@ it("передаёт принятые кнопкой документы, её п
       ],
     }),
   );
-  expect(fakes.consents).toHaveBeenCalledWith(
-    {
-      operationId,
-      contextRef: savedQuote.quoteRef,
-      screen: "checkout",
-      buttonLabel: "Оплатить 2 500 ₽",
-      documents: [
-        {
-          kind: "terms",
-          documentId: "offer",
-          version: "2026-09-01",
-          digest: "a".repeat(64),
-          accepted: true,
-        },
-      ],
-    },
-    "trusted-token",
-  );
+  expect(await outgoing().json()).toEqual({
+    operationId,
+    contextRef: savedQuote.quoteRef,
+    screen: "checkout",
+    buttonLabel: "Оплатить 2 500 ₽",
+    documents: [
+      {
+        kind: "terms",
+        documentId: "offer",
+        version: "2026-09-01",
+        digest: "a".repeat(64),
+        accepted: true,
+      },
+    ],
+  });
 });
 
 it("передаёт браузеру смену редакции оферты, а не недоступность", async () => {
   // Сервер отказывает в согласии на редакцию, которая уже не действует.
-  fakes.consents.mockResolvedValue(problem("document_changed", 409));
+  reply(
+    "POST",
+    "/accounts/current/billing/consents",
+    { code: "document_changed" },
+    409,
+  );
   const response = await handleBillingConsents(
     command("/api/account/billing/consents", {
       operationId,
@@ -209,7 +242,12 @@ it("передаёт браузеру смену редакции оферты, 
 });
 
 it("переносит ожидаемый исход покупки без потери смысла", async () => {
-  fakes.purchase.mockResolvedValue(problem("existing_access", 409));
+  reply(
+    "POST",
+    "/accounts/current/billing/purchase",
+    { code: "existing_access" },
+    409,
+  );
   const response = await handleBillingPurchase(
     command("/api/account/billing/purchase", {
       operationId,
@@ -223,7 +261,7 @@ it("переносит ожидаемый исход покупки без по�
 });
 
 it("передаёт нормализованный email заказа без подтверждённого контакта", async () => {
-  fakes.purchase.mockResolvedValue(ok(pendingPurchase));
+  reply("POST", "/accounts/current/billing/purchase", pendingPurchase);
   const input = {
     operationId,
     quoteRef: savedQuote.quoteRef,
@@ -238,11 +276,10 @@ it("передаёт нормализованный email заказа без п
       )
     ).json(),
   ).toEqual({ ok: true, value: pendingPurchase });
-  expect(fakes.purchase).toHaveBeenCalledWith(
-    { ...input, email: "buyer@example.test" },
-    "trusted-token",
-  );
-  fakes.purchase.mockClear();
+  expect(await outgoing().json()).toEqual({
+    ...input,
+    email: "buyer@example.test",
+  });
   expect(
     await (
       await handleBillingPurchase(
@@ -250,7 +287,7 @@ it("передаёт нормализованный email заказа без п
       )
     ).json(),
   ).toEqual({ ok: false, code: "invalid_request" });
-  expect(fakes.purchase).not.toHaveBeenCalled();
+  expect(backend).toHaveBeenCalledOnce();
 });
 
 it("отклоняет неполную команду покупки до обращения к бэкенду", async () => {
@@ -264,13 +301,13 @@ it("отклоняет неполную команду покупки до об�
     }),
   );
   expect(await response.json()).toEqual({ ok: false, code: "invalid_request" });
-  expect(fakes.purchase).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
 
 it("пропускает разовую покупку с одним согласием: её оферта — единственный обязательный документ", async () => {
   // Прежняя нижняя граница в два свидетельства осталась от времён, когда продавалась только
   // подписка. Разовой покупке нужна одна оферта, и команда с ней доходит до приложения.
-  fakes.purchase.mockResolvedValue(ok(pendingPurchase));
+  reply("POST", "/accounts/current/billing/purchase", pendingPurchase);
 
   const response = await handleBillingPurchase(
     command("/api/account/billing/purchase", {
@@ -283,7 +320,7 @@ it("пропускает разовую покупку с одним согла�
   );
 
   expect(await response.json()).toEqual({ ok: true, value: pendingPurchase });
-  expect(fakes.purchase).toHaveBeenCalled();
+  expect(backend).toHaveBeenCalled();
 });
 
 it("не выполняет команду с чужого источника", async () => {
@@ -295,21 +332,22 @@ it("не выполняет команду с чужого источника", 
     ),
   );
   expect(response.status).toBe(403);
-  expect(fakes.purchase).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
 
 it("читает состояние покупки только по собственной ссылке", async () => {
-  fakes.status.mockResolvedValue(ok(pendingPurchase));
+  reply(
+    "GET",
+    `/accounts/current/billing/purchases/${pendingPurchase.purchaseRef}`,
+    pendingPurchase,
+  );
   const found = await handleBillingPurchaseStatus(
     new Request(
       `${origin}/api/account/billing/purchase-status?purchaseRef=${pendingPurchase.purchaseRef}`,
     ),
   );
   expect(await found.json()).toEqual({ ok: true, value: pendingPurchase });
-  expect(fakes.status).toHaveBeenCalledWith(
-    pendingPurchase.purchaseRef,
-    "trusted-token",
-  );
+  expect(backend).toHaveBeenCalledOnce();
 
   const missing = await handleBillingPurchaseStatus(
     new Request(`${origin}/api/account/billing/purchase-status`),
@@ -319,13 +357,11 @@ it("читает состояние покупки только по собст�
 });
 
 it("отвечает 401 на собственный read без действующей сессии", async () => {
-  const { LogtoSessionUnavailableError } =
-    await import("@/shared/auth/session-adapter.server");
-  fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
+  scope = await realBffSession(null);
   const response = await handleCurrentBilling();
   expect(response.status).toBe(401);
   expect(await response.json()).toEqual({ kind: "authentication_required" });
-  expect(fakes.current).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
 
 it("возвращает Product Access, основания, оплаты и поводы одним конвертом", async () => {
@@ -335,7 +371,7 @@ it("возвращает Product Access, основания, оплаты и п�
     access: { grounds: accessGrounds },
     payments: ownPayments,
   };
-  fakes.current.mockResolvedValue(ok(envelope));
+  reply("GET", "/accounts/current/billing", envelope);
   const response = await handleCurrentBilling();
   expect(await response.json()).toEqual({ ok: true, value: envelope });
 });
@@ -347,10 +383,9 @@ it("private quote forwards only the link authority, never an amount from the bro
     priceRevision: 1,
     paymentLinkId: "69000000-0000-4000-8000-000000001450",
   };
-  fakes.quote.mockResolvedValue(ok(savedQuote));
+  reply("POST", "/accounts/current/billing/quote", savedQuote);
   await handleBillingQuote(command("/api/account/billing/quote", input));
-  expect(fakes.quote).toHaveBeenLastCalledWith(input, "trusted-token");
-  fakes.quote.mockClear();
+  expect(await outgoing().json()).toEqual(input);
   const rejected = await handleBillingQuote(
     command("/api/account/billing/quote", { ...input, firstPriceKopecks: 100 }),
   );
@@ -358,5 +393,5 @@ it("private quote forwards only the link authority, never an amount from the bro
     ok: false,
     code: "invalid_request",
   });
-  expect(fakes.quote).not.toHaveBeenCalled();
+  expect(backend).toHaveBeenCalledOnce();
 });

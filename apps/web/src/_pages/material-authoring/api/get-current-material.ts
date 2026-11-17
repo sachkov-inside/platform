@@ -27,6 +27,7 @@ const currentMaterialSchema = z
   .object({
     source: z
       .object({
+        commit: z.hash("sha1").optional(),
         id: z.string(),
         path: z.string(),
         revision: z.hash("sha256"),
