@@ -13,7 +13,9 @@ const cookieSecret = "web-module-integration-cookie-secret";
 const audience = "https://platform-api.example.test";
 
 /** Real encrypted provider session and Next request storage, without replacing Web auth modules. */
-export async function realBffSession(token: string | null = "trusted-token") {
+export async function realBffSession(
+  token: string | null | { readonly refreshToken: string } = "trusted-token",
+) {
   vi.stubEnv("WEB_BASE_URL", "https://inside.example.test");
   vi.stubEnv("BACKEND_BASE_URL", audience);
   vi.stubEnv("LOGTO_ENDPOINT", "https://identity.example.test");
@@ -27,9 +29,17 @@ export async function realBffSession(token: string | null = "trusted-token") {
       : await wrapSession(
           {
             [PersistKey.IdToken]: "synthetic-provider-id-token",
-            [PersistKey.AccessToken]: JSON.stringify({
-              [`@${audience}`]: { token, scope: "", expiresAt: 4_102_444_800 },
-            }),
+            ...(typeof token === "string"
+              ? {
+                  [PersistKey.AccessToken]: JSON.stringify({
+                    [`@${audience}`]: {
+                      token,
+                      scope: "",
+                      expiresAt: 4_102_444_800,
+                    },
+                  }),
+                }
+              : { [PersistKey.RefreshToken]: token.refreshToken }),
           },
           cookieSecret,
         );

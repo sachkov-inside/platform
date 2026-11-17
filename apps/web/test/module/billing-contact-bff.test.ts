@@ -1,29 +1,21 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { UnsecuredJWT } from "jose";
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  read: vi.fn(),
-  start: vi.fn(),
-  confirm: vi.fn(),
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestBillingContact: fakes.read,
-  requestStartBillingContact: fakes.start,
-  requestConfirmBillingContact: fakes.confirm,
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
+import { realBffSession } from "../support/real-bff-session";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import {
-  handleStartBillingContact,
-  handleConfirmBillingContact,
-  handleReadBillingContact,
+  handleStartBillingContact as realStart,
+  handleConfirmBillingContact as realConfirm,
+  handleReadBillingContact as realRead,
 } from "@/features/billing-contact.server";
+const handleStartBillingContact = (request: Request) =>
+  session(() => realStart(request));
+const handleConfirmBillingContact = (request: Request) =>
+  session(() => realConfirm(request));
+const handleReadBillingContact = () => session(() => realRead());
+
 const operationId = "20000000-0000-4000-8000-000000000001";
 const challengeRef = "30000000-0000-4000-8000-000000000001";
 function request(
@@ -39,21 +31,24 @@ function request(
     },
   );
 }
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-09-08T10:00:00Z"));
+  session = await realBffSession();
+  vi.stubGlobal("fetch", backend);
 });
+
+afterEach(() => vi.useRealTimers());
 
 it("prefills the authenticated email without creating a verified billing contact", async () => {
   const token = new UnsecuredJWT({
     inside_verified_email: "login@example.test",
   }).encode();
-  fakes.token.mockResolvedValue(token);
-  fakes.read.mockResolvedValue({
-    ok: true,
-    body: { ok: true, contact: null, documents: [] },
-    response: new Response(),
-  });
+  session = await realBffSession(token);
+  backend.mockResolvedValueOnce(
+    Response.json({ ok: true, contact: null, documents: [] }),
+  );
   const response = await handleReadBillingContact();
   expect(await response.json()).toEqual({
     ok: true,
@@ -61,9 +56,8 @@ it("prefills the authenticated email without creating a verified billing contact
     documents: [],
     initialEmail: "login@example.test",
   });
-  expect(fakes.read).toHaveBeenCalledWith(token);
-  expect(fakes.start).not.toHaveBeenCalled();
-  expect(fakes.confirm).not.toHaveBeenCalled();
+  expectBackendRequest(0, "GET", "", token);
+  expect(backend).toHaveBeenCalledOnce();
 });
 it("preserves command identity, validates results and uses the authenticated token", async () => {
   const result = {
@@ -72,11 +66,7 @@ it("preserves command identity, validates results and uses the authenticated tok
     delivery: "unknown",
     expiresAt: "2026-09-08T12:00:00.000Z",
   };
-  fakes.start.mockResolvedValue({
-    ok: true,
-    body: result,
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(Response.json(result));
   const response = await handleStartBillingContact(
     request({
       operationId,
@@ -85,16 +75,13 @@ it("preserves command identity, validates results and uses the authenticated tok
     }),
   );
   expect(await response.json()).toEqual(result);
-  expect(fakes.start).toHaveBeenCalledWith(
-    { operationId, email: "buyer@example.test", expectedRevision: 0 },
-    "trusted-token",
-  );
-  expect(response.headers.get("cache-control")).toBe("no-store, private");
-  fakes.confirm.mockResolvedValue({
-    ok: true,
-    body: { ok: true, revision: 1 },
-    response: new Response(),
+  expect(await expectBackendRequest(0, "POST", "/start").json()).toEqual({
+    operationId,
+    email: "buyer@example.test",
+    expectedRevision: 0,
   });
+  expect(response.headers.get("cache-control")).toBe("no-store, private");
+  backend.mockResolvedValueOnce(Response.json({ ok: true, revision: 1 }));
   expect(
     await (
       await handleConfirmBillingContact(
@@ -102,12 +89,14 @@ it("preserves command identity, validates results and uses the authenticated tok
       )
     ).json(),
   ).toEqual({ ok: true, revision: 1 });
-  expect(fakes.confirm).toHaveBeenCalledWith(
-    { operationId, challengeRef, code: "123456" },
-    "trusted-token",
-  );
+  expect(await expectBackendRequest(1, "POST", "/confirm").json()).toEqual({
+    operationId,
+    challengeRef,
+    code: "123456",
+  });
 });
 it("rejects cross-origin mutations and injected Account IDs before backend calls", async () => {
+  const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
   expect(
     (await handleStartBillingContact(request({}, "https://outside.test")))
       .status,
@@ -124,16 +113,12 @@ it("rejects cross-origin mutations and injected Account IDs before backend calls
       )
     ).json(),
   ).toEqual({ ok: false, code: "invalid_input" });
-  expect(fakes.start).not.toHaveBeenCalled();
-  expect(fakes.token).toHaveBeenCalledTimes(1);
+  expect(backend).not.toHaveBeenCalled();
+  expect(tokenReads).toHaveBeenCalledTimes(1);
 });
 it("never maps malformed or failed provider responses to confirmation", async () => {
-  fakes.confirm
-    .mockResolvedValueOnce({
-      ok: true,
-      body: { ok: true },
-      response: new Response(),
-    })
+  backend
+    .mockResolvedValueOnce(Response.json({ ok: true }))
     .mockRejectedValueOnce(new Error("lost"));
   for (let index = 0; index < 2; index++)
     expect(
@@ -143,11 +128,12 @@ it("never maps malformed or failed provider responses to confirmation", async ()
         )
       ).json(),
     ).toEqual({ ok: false, code: "unavailable" });
-  fakes.start.mockResolvedValue({
-    ok: false,
-    problem: { code: "rate_limited", email: "private@example.test" },
-    response: new Response(null, { status: 429 }),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json(
+      { code: "rate_limited", email: "private@example.test" },
+      { status: 429 },
+    ),
+  );
   expect(
     await (
       await handleStartBillingContact(
@@ -161,11 +147,14 @@ it("never maps malformed or failed provider responses to confirmation", async ()
   ).toEqual({ ok: false, code: "rate_limited" });
 });
 it("only returns the contact presentation with no-store", async () => {
-  fakes.read.mockResolvedValue({
-    ok: true,
-    body: { ok: true, contact: null, documents: [], internal: "hidden" },
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json({
+      ok: true,
+      contact: null,
+      documents: [],
+      internal: "hidden",
+    }),
+  );
   const response = await handleReadBillingContact();
   // Каталог применимых документов входит в тот же ответ: его редакции нужны checkout #411.
   expect(await response.json()).toEqual({
@@ -177,11 +166,9 @@ it("only returns the contact presentation with no-store", async () => {
 });
 
 it("maps an unknown backend code to the bounded unavailable outcome", async () => {
-  fakes.start.mockResolvedValue({
-    ok: false,
-    problem: { code: "new_unsupported_error" },
-    response: new Response(null, { status: 409 }),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json({ code: "new_unsupported_error" }, { status: 409 }),
+  );
   expect(
     await (
       await handleStartBillingContact(
@@ -207,14 +194,28 @@ it("keeps the exact document editions the checkout must present", async () => {
       text: "Текст",
     },
   ];
-  fakes.read.mockResolvedValue({
-    ok: true,
-    body: { ok: true, contact: null, documents, secret: "hidden" },
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json({ ok: true, contact: null, documents, secret: "hidden" }),
+  );
   expect(await (await handleReadBillingContact()).json()).toEqual({
     ok: true,
     contact: null,
     documents,
   });
 });
+
+function expectBackendRequest(
+  index: number,
+  method: string,
+  suffix: string,
+  token = "trusted-token",
+): Request {
+  const request = backend.mock.calls[index]?.[0];
+  if (request === undefined) throw new Error("Expected backend request");
+  expect(request.method).toBe(method);
+  expect(request.url).toBe(
+    `https://platform-api.example.test/accounts/current/billing/contact${suffix}`,
+  );
+  expect(request.headers.get("authorization")).toBe(`Bearer ${token}`);
+  return request;
+}

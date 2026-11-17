@@ -1,25 +1,16 @@
-import { beforeEach, expect, it, vi } from "vitest";
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  read: vi.fn(),
-  change: vi.fn(),
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestNotificationPreferences: fakes.read,
-  requestChangeNotificationPreferences: fakes.change,
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { realBffSession } from "../support/real-bff-session";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import {
-  handleChangeNotificationPreferences,
-  handleReadNotificationPreferences,
+  handleChangeNotificationPreferences as realChange,
+  handleReadNotificationPreferences as realRead,
 } from "@/features/notification-preferences.server";
+
+const handleChangeNotificationPreferences = (request: Request) =>
+  session(() => realChange(request));
+const handleReadNotificationPreferences = () => session(() => realRead());
 
 const operationId = "20000000-0000-4000-8000-000000000001";
 
@@ -37,17 +28,20 @@ function changeRequest(
   );
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+  session = await realBffSession();
+  vi.stubGlobal("fetch", backend);
 });
 
+afterEach(() => vi.useRealTimers());
+
 it("отдаёт собственные настройки каналов и закрывает их от кеша", async () => {
-  fakes.read.mockResolvedValue({
-    ok: true,
-    body: { revision: 3, email: true, telegram: false },
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json({ revision: 3, email: true, telegram: false }),
+  );
 
   const response = await handleReadNotificationPreferences();
 
@@ -55,19 +49,17 @@ it("отдаёт собственные настройки каналов и з�
     ok: true,
     preferences: { revision: 3, email: true, telegram: false },
   });
-  expect(fakes.read).toHaveBeenCalledWith("trusted-token");
+  expectBackendRequest("GET");
   expect(response.headers.get("cache-control")).toBe("no-store, private");
 });
 
 it("сохраняет ожидаемую revision и ссылку на операцию", async () => {
-  fakes.change.mockResolvedValue({
-    ok: true,
-    body: {
+  backend.mockResolvedValueOnce(
+    Response.json({
       ok: true,
       preferences: { revision: 4, email: true, telegram: true },
-    },
-    response: new Response(),
-  });
+    }),
+  );
 
   const response = await handleChangeNotificationPreferences(
     changeRequest({
@@ -82,18 +74,19 @@ it("сохраняет ожидаемую revision и ссылку на опер
     ok: true,
     preferences: { revision: 4, email: true, telegram: true },
   });
-  expect(fakes.change).toHaveBeenCalledWith(
-    { operationId, expectedRevision: 3, email: true, telegram: true },
-    "trusted-token",
-  );
+  const sent = expectBackendRequest("POST");
+  expect(await sent.json()).toEqual({
+    operationId,
+    expectedRevision: 3,
+    email: true,
+    telegram: true,
+  });
 });
 
 it("возвращает конфликт ревизии как закрытый исход, а не как успех", async () => {
-  fakes.change.mockResolvedValue({
-    ok: false,
-    problem: { code: "revision_conflict" },
-    response: new Response(null, { status: 409 }),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json({ code: "revision_conflict" }, { status: 409 }),
+  );
 
   const response = await handleChangeNotificationPreferences(
     changeRequest({
@@ -116,7 +109,7 @@ it("отклоняет неполную команду до похода в back
   );
 
   expect(await response.json()).toEqual({ ok: false, code: "invalid_input" });
-  expect(fakes.change).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
 
 it("не выполняет команду с чужого origin", async () => {
@@ -133,5 +126,17 @@ it("не выполняет команду с чужого origin", async () => 
   );
 
   expect(response.status).toBe(403);
-  expect(fakes.change).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
+
+function expectBackendRequest(method: string): Request {
+  expect(backend).toHaveBeenCalledOnce();
+  const request = backend.mock.calls[0]?.[0];
+  if (request === undefined) throw new Error("Expected backend request");
+  expect(request.method).toBe(method);
+  expect(request.url).toBe(
+    "https://platform-api.example.test/accounts/current/notifications/preferences",
+  );
+  expect(request.headers.get("authorization")).toBe("Bearer trusted-token");
+  return request;
+}
