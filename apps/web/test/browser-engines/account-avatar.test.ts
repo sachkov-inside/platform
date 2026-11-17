@@ -60,9 +60,16 @@ for (const engine of ["chromium", "webkit"]) {
     const browser = browsers.get(engine);
     if (browser === undefined) throw new Error("Missing avatar browser");
     const page = await browser.newPage();
-    await page.goto(url);
-    await ui(page.getByRole("button", { name: "Добавить фото" })).toBeVisible();
-    return page;
+    try {
+      await page.goto(url);
+      await ui(
+        page.getByRole("button", { name: "Добавить фото" }),
+      ).toBeVisible();
+      return page;
+    } catch (error) {
+      await page.close();
+      throw error;
+    }
   }
 
   test(`${engine}: leaving before native image decoding releases its acquired URL inside teardown`, async () => {
