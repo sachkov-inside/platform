@@ -122,6 +122,65 @@ export const UnpricedDesktop: Story = {
 };
 export const UnpricedMobile: Story = { ...UnpricedDesktop, ...mobile };
 
+export const PriceWriteRefreshesOnce: Story = {
+  ...desktop,
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    const amount = await page.findByRole("textbox", { name: "Цена, ₽" });
+    const backend = window.fetch;
+    const facts = listenToSaleFacts();
+    const held = Promise.withResolvers<undefined>();
+    let reads = 0;
+    window.fetch = async (input, init) => {
+      const path = new URL(
+        input instanceof Request ? input.url : String(input),
+        window.location.origin,
+      ).pathname;
+      if (path === "/api/authoring/billing/product-prices/read") {
+        reads++;
+        if (reads === 1) await held.promise;
+      }
+      return backend(input, init);
+    };
+    try {
+      await userEvent.clear(amount);
+      await userEvent.type(amount, "9900");
+      await userEvent.click(
+        page.getByRole("button", { name: "Сохранить цену" }),
+      );
+      await waitFor(async () => {
+        await expect(facts.heard()).toEqual({
+          "inside.owner.price-catalog.changed": 1,
+          "inside.owner.product-sale.changed": 1,
+        });
+      });
+      await waitFor(async () => {
+        await expect(
+          page.getByRole("button", { name: "Сохранить цену" }),
+        ).toHaveAttribute("aria-busy", "false");
+      });
+      await expect(
+        page.getByRole("button", { name: "Сохранить цену" }),
+      ).toBeEnabled();
+      held.resolve(undefined);
+      await waitFor(async () => {
+        const save = page.getByRole("button", { name: "Сохранить цену" });
+        await expect(save).toHaveAttribute("aria-busy", "false");
+        await expect(save).toBeDisabled();
+        await expect(
+          page.getByRole("textbox", { name: "Цена, ₽" }),
+        ).toHaveValue("9\u00a0900");
+      });
+      await expect(reads).toBe(1);
+      await expect(page.getByText("Цена сохранена.")).toBeVisible();
+    } finally {
+      held.resolve(undefined);
+      window.fetch = backend;
+      facts.close();
+    }
+  },
+};
+
 /** Цена есть, продажи закрыты: оплата не принимается, полученный доступ сохраняется. */
 export const ClosedDesktop: Story = {
   ...desktop,

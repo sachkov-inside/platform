@@ -626,6 +626,31 @@ test("the holder reads the current Task Version, its submission and AuthorFeedba
   });
 });
 
+test("the extra lesson links to the current synthetic artifact file without a pinned version", async () => {
+  const catalogue = z
+    .object({
+      items: z.array(z.object({ title: z.string(), slug: z.string() })),
+    })
+    .parse(
+      await (await fetch(`${api}/library/products/synthetic-learning`)).json(),
+    );
+  const reference = catalogue.items.find(
+    ({ title }) => title === "Учебный пример: памятка",
+  );
+  if (reference === undefined) throw new Error("Expected supplementary lesson");
+  const response = await fetch(`${api}/materials/${reference.slug}`, {
+    headers: { authorization: `Bearer ${holderToken}` },
+  });
+  expect(response.status).toBe(200);
+  const body = await response.text();
+  expect(body).toContain("Скачать шаблон результата (.txt)");
+  expect(body).toContain(
+    `/api/products/${seeded.productId}/artifact-sources/synthetic-scenarios%3Aresult/file`,
+  );
+  expect(body).not.toContain("artifact:result");
+  expect(body).not.toContain("?version=");
+});
+
 test("the populated product offers a real downloadable synthetic artifact", async () => {
   const response = await fetch(
     `${api}/products/${seeded.productId}/artifacts`,

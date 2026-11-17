@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
 import { readOwnerPriceCatalog } from "../api/owner-price-catalog.browser";
 import { BillingReadError } from "./billing-read-error";
@@ -15,8 +16,8 @@ import { ownerPriceCatalogQueryKey } from "./owner-price-catalog";
  * недоступность видны сразу: чтение не повторяется молча.
  */
 export function useOwnerPriceCatalog() {
-  const queryClient = useQueryClient();
-  const query = useQuery({
+  useAnnouncedRefresh(ownerPriceCatalogChanged, ownerPriceCatalogQueryKey);
+  return useQuery({
     queryKey: ownerPriceCatalogQueryKey,
     queryFn: async () => {
       const result = await readOwnerPriceCatalog();
@@ -25,17 +26,4 @@ export function useOwnerPriceCatalog() {
     },
     retry: false,
   });
-
-  useEffect(
-    () =>
-      ownerPriceCatalogChanged.subscribe(() => {
-        void queryClient.invalidateQueries(
-          { queryKey: ownerPriceCatalogQueryKey },
-          { cancelRefetch: false },
-        );
-      }),
-    [queryClient],
-  );
-
-  return query;
 }
