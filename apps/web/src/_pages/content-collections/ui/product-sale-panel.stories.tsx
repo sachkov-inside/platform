@@ -1,6 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
+import { PaymentLinksPanel } from "@/features/payment-links";
+import {
+  storyPaymentLinks,
+  storyPriceSnapshot,
+} from "@/storybook/sales-catalog.fixtures";
+import { z } from "zod";
+
 import { ProductSalePanel } from "@/features/product-sale-settings";
 import { factAnnouncement } from "@/shared/api/fact-announcement";
 import { getQueryClient } from "@/shared/api/query-client";
@@ -446,3 +453,154 @@ export const ForbiddenDesktop: Story = {
   },
 };
 export const ForbiddenMobile: Story = { ...ForbiddenDesktop, ...mobile };
+
+function delayedLinksAfterPriceArchive() {
+  const firstRead = Promise.withResolvers<undefined>();
+  const release = Promise.withResolvers<undefined>();
+  const firstFinished = Promise.withResolvers<undefined>();
+  const sale = productSaleBff({
+    price: runningPrice,
+    salesState: runningState,
+  });
+  const originalLink = storyPaymentLinks(1)[0];
+  if (originalLink === undefined)
+    throw new Error("Missing canonical payment link");
+  const priceFacts = {
+    id: saleProductId,
+    name: saleProductName,
+    priceKopecks: runningPrice.priceKopecks,
+  };
+  const snapshot = storyPriceSnapshot(priceFacts);
+  const link = {
+    ...originalLink,
+    snapshot: storyPriceSnapshot(
+      priceFacts,
+      runningPrice.priceKopecks,
+      originalLink.id,
+    ),
+  };
+  let archived = false;
+  let reads = 0;
+  const fetch: Parameters<typeof fetchBeforeRender>[0] = async (
+    input,
+    init,
+  ) => {
+    const path = new URL(
+      input instanceof Request ? input.url : String(input),
+      window.location.origin,
+    ).pathname;
+    if (path === "/api/authoring/billing/catalog")
+      return Response.json({
+        ok: true,
+        value: {
+          items: archived ? [] : [snapshot],
+          archivedProductIds: archived ? [saleProductId] : [],
+        },
+      });
+    if (path === "/api/authoring/billing/payment-links/list") {
+      reads += 1;
+      const reply = Response.json({
+        ok: true,
+        value: {
+          operationRef: originalLink.id,
+          result: {
+            outcome: "paymentLinks",
+            items: [{ ...link, state: archived ? "changed" : "active" }],
+            nextCursor: null,
+          },
+        },
+      });
+      if (reads === 1) {
+        firstRead.resolve(undefined);
+        await release.promise;
+        firstFinished.resolve(undefined);
+      }
+      return reply;
+    }
+    const reply = await sale(input, init);
+    if (path === "/api/authoring/billing/product-prices/archive") {
+      const success = z
+        .object({ ok: z.literal(true) })
+        .safeParse(await reply.clone().json());
+      if (success.success) archived = true;
+    }
+    return reply;
+  };
+  return {
+    fetch,
+    firstRead: firstRead.promise,
+    release: () => {
+      release.resolve(undefined);
+    },
+    firstFinished: firstFinished.promise,
+    reads: () => reads,
+  };
+}
+
+let priceArchiveLinks:
+  ReturnType<typeof delayedLinksAfterPriceArchive> | undefined;
+export const PriceArchiveOutrunsOldLinkRead: Story = {
+  ...desktop,
+  args: { paymentLinks: <PaymentLinksPanel productId={saleProductId} /> },
+  beforeEach: [
+    environment.beforeEach,
+    () => {
+      getQueryClient().clear();
+      const scenario = delayedLinksAfterPriceArchive();
+      priceArchiveLinks = scenario;
+      const restore = fetchBeforeRender(scenario.fetch)();
+      return () => {
+        scenario.release();
+        restore();
+        if (priceArchiveLinks === scenario) priceArchiveLinks = undefined;
+      };
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const scenario = priceArchiveLinks;
+    if (scenario === undefined)
+      throw new Error("Missing current link-read scenario");
+    const page = routeContent(canvasElement);
+    const facts = listenToSaleFacts();
+    try {
+      await scenario.firstRead;
+      await userEvent.click(
+        await page.findByRole("button", {
+          name: `Действия с ценой «${saleProductName}»`,
+        }),
+      );
+      const body = within(canvasElement.ownerDocument.body);
+      await userEvent.click(
+        await body.findByRole("menuitem", { name: "Архивировать цену" }),
+      );
+      const dialog = await body.findByRole("dialog", {
+        name: "Архивировать цену?",
+      });
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Архивировать цену" }),
+      );
+      await expect(
+        await page.findByText("Цена в архиве", { selector: ".admin-badge" }),
+      ).toBeVisible();
+      await waitFor(() =>
+        expect(facts.heard()).toEqual({
+          "inside.owner.price-catalog.changed": 1,
+          "inside.owner.product-sale.changed": 1,
+        }),
+      );
+      await waitFor(() => expect(scenario.reads()).toBe(2));
+      const table = await page.findByRole("table", {
+        name: "Ссылки на оплату, новые сверху",
+      });
+      await expect(within(table).getByText("Продажа закрыта")).toBeVisible();
+      scenario.release();
+      await scenario.firstFinished;
+      await expect(within(table).getByText("Продажа закрыта")).toBeVisible();
+      await expect(within(table).queryByText("Готова к оплате")).toBeNull();
+    } finally {
+      scenario.release();
+      await scenario.firstFinished;
+      facts.close();
+    }
+  },
+};
