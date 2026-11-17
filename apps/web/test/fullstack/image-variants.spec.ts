@@ -61,6 +61,54 @@ async function verifyDiagram(
     "src",
     new RegExp(narrow ? ids.tallDark : ids.wideDark, "u"),
   );
+  await expect
+    .poll(() =>
+      dialog
+        .getByRole("img")
+        .evaluate(
+          (node: HTMLImageElement) => node.complete && node.naturalWidth > 0,
+        ),
+    )
+    .toBe(true);
+  const stage = dialog.getByTestId("image-viewer-stage");
+  const box = await stage.boundingBox();
+  if (box === null) throw new Error("Missing viewer stage geometry");
+  const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const scale = dialog.locator("output");
+  await expect(scale).toHaveText("100%");
+  await page.mouse.move(center.x, center.y);
+  await page.mouse.wheel(0, -100);
+  await expect(scale).toHaveText("122%");
+  await page.keyboard.press("0");
+  await expect(scale).toHaveText("100%");
+
+  // Chromium delivers real touch/pointer events and capture; no own-module or browser API double.
+  const touch = await page.context().newCDPSession(page);
+  try {
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [
+        { id: 1, x: center.x - 40, y: center.y },
+        { id: 2, x: center.x + 40, y: center.y },
+      ],
+    });
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        { id: 1, x: center.x - 80, y: center.y },
+        { id: 2, x: center.x + 80, y: center.y },
+      ],
+    });
+    await expect(scale).toHaveText("200%");
+  } finally {
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await touch.detach();
+  }
+  await page.keyboard.press("0");
+  await expect(scale).toHaveText("100%");
   await dialog.getByRole("button", { name: "Закрыть" }).click();
   await figure.evaluate((node) => {
     node.classList.remove("dark");
