@@ -3,7 +3,8 @@
 This stable document path now describes the current `inside-communications-v2` transport.
 Communication Sequence and Sequence Participation are the current business and storage names.
 The runtime owners are `CommunicationSequences`, `SequenceScheduler` and `sequence-timeline`;
-owner interfaces say «Последовательности». Current management operations use `sequences.*`,
+owner interfaces say «Воронки». This is the author-facing name of a Communication Sequence,
+not a second domain object or the Sales Funnel report. Current management operations use `sequences.*`,
 `sequenceId` and `sequenceIds`. Current storage uses `communication_sequences` and
 `communication_participations`; migration `037-canonical-communication-sequences` archives
 original author state before converting recognized machine fields. Authored text, UUIDs, step and

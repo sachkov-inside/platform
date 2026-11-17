@@ -152,7 +152,7 @@ describe("stored author session", () => {
     const state: AuthorState = {
       ...stateWith([{ kind: "seq:list" }, { kind: "home" }]),
       menu: {
-        text: "Последовательности",
+        text: "Воронки",
         buttons: [["В меню", { kind: "home" }]],
       },
       prompt: { kind: "button-url", buttonTitle: "Купить" },
@@ -260,7 +260,7 @@ describe("stored author session", () => {
       sequenceAuthor: {
         sequence: {
           sequenceId: broadcastId,
-          name: "Новая последовательность",
+          name: "Новая воронка",
           isDefault: false,
           entryResponse: { stepId: broadcastId, parts: [part] },
           steps: [{ stepId: broadcastId, delaySeconds: 60, parts: [] }],

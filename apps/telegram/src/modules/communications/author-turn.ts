@@ -296,7 +296,7 @@ export interface Transition {
 
 export const HOME: AuthorButton[] = [
   ["Рассылки", { kind: "broadcasts" }],
-  ["Последовательности", { kind: "seq:list" }],
+  ["Воронки", { kind: "seq:list" }],
   ["Статистика", { kind: "overview" }],
 ];
 const BACK_HOME: AuthorButton[] = [["В меню", { kind: "home" }]];
