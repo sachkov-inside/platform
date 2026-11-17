@@ -1,4 +1,5 @@
 // @ts-check
+import { authoringScenario } from "../../../../scenarios/authoring.mjs";
 import { z } from "zod";
 
 /**
@@ -51,9 +52,9 @@ function initialCollections() {
   });
   return [
     collection({
-      id: "c0110000-0000-4000-8000-000000000001",
+      id: authoringScenario.products.architecture.id,
       kind: "product",
-      name: "Архитектура приложения",
+      name: authoringScenario.products.architecture.name,
       slug: "navigation-architecture",
       materialCount: 6,
       publishedMaterialCount: 5,
@@ -66,18 +67,18 @@ function initialCollections() {
       },
     }),
     collection({
-      id: "c0110000-0000-4000-8000-000000000002",
+      id: authoringScenario.products.database.id,
       kind: "product",
-      name: "Работа с базой данных",
+      name: authoringScenario.products.database.name,
       slug: "navigation-database",
       holderCount: 37,
     }),
     collection({
-      id: "c0110000-0000-4000-8000-000000000003",
+      id: authoringScenario.products.legacy.id,
       kind: "product",
-      name: "Прежнее руководство по развёртыванию",
+      name: authoringScenario.products.legacy.name,
       slug: "navigation-legacy",
-      archived: true,
+      archived: authoringScenario.products.legacy.archived,
       publishedMaterialCount: 0,
     }),
     collection({
@@ -107,7 +108,7 @@ function initialCollections() {
 }
 
 let collections = initialCollections();
-const pinnedProductId = "c0110000-0000-4000-8000-000000000001";
+const pinnedProductId = authoringScenario.products.architecture.id;
 
 /**
  * @param {import("node:http").IncomingMessage} request

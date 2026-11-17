@@ -1,4 +1,5 @@
 // @ts-check
+import { authoringScenario } from "../../../../scenarios/authoring.mjs";
 
 import { people } from "./people-backend.mjs";
 
@@ -10,22 +11,22 @@ import { people } from "./people-backend.mjs";
  */
 const products = [
   {
-    archived: false,
-    id: "c0110000-0000-4000-8000-000000000001",
-    name: "Архитектура приложения",
+    archived: authoringScenario.products.architecture.archived,
+    id: authoringScenario.products.architecture.id,
+    name: authoringScenario.products.architecture.name,
   },
   {
-    archived: true,
-    id: "c0110000-0000-4000-8000-000000000003",
-    name: "Прежнее руководство по развёртыванию",
+    archived: authoringScenario.products.legacy.archived,
+    id: authoringScenario.products.legacy.id,
+    name: authoringScenario.products.legacy.name,
   },
 ];
 const materials = [
   {
-    id: "97000000-0000-4000-8000-000000000001",
-    publicationState: "unpublished",
-    title: "Ревью кода с агентом",
-    topic: "Разработка с агентами",
+    id: authoringScenario.reviewMaterial.id,
+    publicationState: authoringScenario.reviewMaterial.publicationState,
+    title: authoringScenario.reviewMaterial.title,
+    topic: authoringScenario.agentTopic.name,
   },
 ];
 
