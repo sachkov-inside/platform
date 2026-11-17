@@ -1,3 +1,9 @@
+import {
+  salesCatalogueScenario,
+  salesProductFacts,
+  salesPromotionFact,
+  type SalesPromotionKey,
+} from "../../../../scenarios/sales-catalogue.mjs";
 import { productCapability } from "@inside/access-capabilities";
 
 import type { PaymentLink, PriceSnapshot } from "@/entities/subscription";
@@ -21,24 +27,13 @@ interface StoryProduct {
   readonly priceKopecks: number;
 }
 
-export const storyProducts: readonly StoryProduct[] = [
-  { id: id("98000000", 1), name: "AI Engineering", priceKopecks: 2_990_000 },
-  {
-    id: id("98000000", 2),
-    name: "Агентная разработка: от первого агента до команды агентов",
-    priceKopecks: 1_990_000,
-  },
-  {
-    id: id("98000000", 3),
-    name: "Архитектура систем",
-    priceKopecks: 3_900_000,
-  },
-  ...Array.from({ length: 22 }, (_, index) => ({
-    id: id("98000000", index + 11),
-    name: `Практикум по инженерии ${String(index + 1).padStart(2, "0")}`,
-    priceKopecks: 990_000 + index * 10_000,
-  })),
-];
+export const storyProducts: readonly StoryProduct[] = salesProductFacts(
+  "story",
+).map((fact) => ({
+  id: id("98000000", fact.index),
+  name: fact.name,
+  priceKopecks: fact.priceKopecks,
+}));
 
 function product(index: number): StoryProduct {
   const found = storyProducts[index];
@@ -54,7 +49,11 @@ export function storyPriceSnapshot(
 ): PriceSnapshot {
   const offerId = item.id.replace(/^98/u, "99");
   return {
-    product: { id: item.id, name: item.name, priceRevision: 2 },
+    product: {
+      id: item.id,
+      name: item.name,
+      priceRevision: salesCatalogueScenario.storyPriceRevision,
+    },
     offer: {
       id: offerId,
       revision: 1,
@@ -112,7 +111,8 @@ export function storyPaymentLinks(count: number): readonly PaymentLink[] {
       revision: 1,
       state: linkStates[index % linkStates.length] ?? "active",
       createdAt: new Date(
-        Date.UTC(2026, 9, 26, 9) - index * 5 * 3_600_000,
+        Date.parse(salesCatalogueScenario.linkCreatedEpoch) -
+          index * 5 * 3_600_000,
       ).toISOString(),
       expiresAt:
         index % 3 === 1
@@ -127,38 +127,19 @@ export function storyPaymentLinks(count: number): readonly PaymentLink[] {
   });
 }
 
-/** Скидки владельца: действующая на два продукта, на все продукты, запланированная, исчерпанная и завершённая. */
+function storyPromotion(key: SalesPromotionKey): PromotionListItem {
+  const { index, productIndexes, ...fact } = salesPromotionFact(key, "story");
+  return {
+    id: id("98200000", index),
+    ...fact,
+    productIds: productIndexes.map((at) => product(at).id),
+  };
+}
+
+/** Скидки владельца: действующая на три продукта, на все продукты, запланированная, исчерпанная и завершённая. */
 export const storyPromotions: readonly PromotionListItem[] = [
-  {
-    id: id("98200000", 1),
-    revision: 3,
-    name: "Осенняя скидка на AI Engineering и агентную разработку",
-    percent: 20,
-    code: "AUTUMN",
-    startsAt: "2026-09-30T21:00:00.000Z",
-    endsAt: "2098-12-31T21:00:00.000Z",
-    productIds: [product(0).id, product(1).id, product(2).id],
-    usageLimit: 50,
-    archived: false,
-    usedCount: 12,
-    questionnaire: false,
-    legacy: false,
-  },
-  {
-    id: id("98200000", 2),
-    revision: 1,
-    name: "Скидка выпускникам",
-    percent: 10,
-    code: null,
-    startsAt: "2026-08-31T21:00:00.000Z",
-    endsAt: "2098-12-31T21:00:00.000Z",
-    productIds: [],
-    usageLimit: null,
-    archived: false,
-    usedCount: 1_240,
-    questionnaire: false,
-    legacy: false,
-  },
+  storyPromotion("autumn"),
+  storyPromotion("alumni"),
   {
     id: id("98200000", 3),
     revision: 1,
@@ -208,21 +189,7 @@ export const storyPromotions: readonly PromotionListItem[] = [
 
 /** Архивные скидки: прежняя область без продуктов и архивная скидка на все продукты. */
 export const storyArchivedPromotions: readonly PromotionListItem[] = [
-  {
-    id: id("98200000", 11),
-    revision: 2,
-    name: "Скидка подписчикам Tribute",
-    percent: 30,
-    code: null,
-    startsAt: "2024-12-31T21:00:00.000Z",
-    endsAt: "2025-02-28T21:00:00.000Z",
-    productIds: [],
-    usageLimit: null,
-    archived: true,
-    usedCount: 61,
-    questionnaire: false,
-    legacy: true,
-  },
+  storyPromotion("tribute"),
   {
     id: id("98200000", 12),
     revision: 3,
@@ -246,13 +213,16 @@ export const storyRespondents: RespondentsView = {
   purchased: 21,
   respondents: Array.from({ length: 64 }, (_, index) => ({
     username:
-      ["anna_dev", "kirill_codes", "olga_qa", "maxim_platform_engineering"][
-        index % 4
-      ]?.concat(index < 4 ? "" : `_${String(index)}`) ?? "respondent",
+      salesCatalogueScenario.respondentUsernames[index % 4]?.concat(
+        index < 4 ? "" : `_${String(index)}`,
+      ) ?? "respondent",
     issuedAt:
       index % 3 === 2
         ? null
-        : new Date(Date.UTC(2026, 4, 12, 9) + index * 3_600_000).toISOString(),
+        : new Date(
+            Date.parse(salesCatalogueScenario.firstRespondentIssuedAt) +
+              index * 3_600_000,
+          ).toISOString(),
     purchased: index % 3 === 0,
   })),
 };
@@ -382,7 +352,7 @@ export function salesCatalogFetch(fixture: SalesCatalogFixture): MutationFetch {
             id: linkId,
             revision: 1,
             state: "active",
-            createdAt: "2026-10-27T09:00:00.000Z",
+            createdAt: salesCatalogueScenario.actionCreatedEpoch,
             expiresAt:
               typeof body["expiresAt"] === "string" ? body["expiresAt"] : null,
             snapshot: storyPriceSnapshot(item, amount, linkId),
