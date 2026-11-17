@@ -1,85 +1,77 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({
-  glossary: vi.fn(),
-  BackendConnectionError: class extends Error {},
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  BackendConnectionError: fakes.BackendConnectionError,
-  requestCourseGlossary: fakes.glossary,
-}));
+import { learningScenario as facts } from "../../../../scenarios/learning.mjs";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
 
 import { loadCourseGlossary } from "@/_pages/course-glossary/api/load-course-glossary.server";
 
+const lesson = facts.lessons.find(
+  (candidate) => candidate.key === facts.glossary.introducedIn,
+);
+if (lesson === undefined) throw new Error("Missing canonical glossary lesson");
 const body = {
-  product: { slug: "ddd", name: "DDD" },
+  product: { slug: facts.product.slug, name: facts.product.name },
   terms: [
     {
-      id: "bounded-context",
-      title: "Ограниченный контекст",
-      englishTitle: "Bounded context",
-      shortDefinition: "Граница одного смысла слов модели.",
-      fullDefinition: "Часть системы со своей моделью.",
-      lesson: { slug: "ddd-intro", title: "Введение" },
+      id: facts.glossary.id,
+      title: facts.glossary.title,
+      englishTitle: facts.glossary.englishTitle,
+      shortDefinition: facts.glossary.shortDefinition,
+      fullDefinition: facts.glossary.fullDefinition,
+      lesson: { slug: lesson.slug, title: lesson.title },
     },
   ],
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  backend.mockReset();
+  vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+  vi.stubGlobal("fetch", backend);
 });
 
 it("reads the course Glossary as the signed-in reader", async () => {
-  fakes.glossary.mockResolvedValue({
-    ok: true,
-    body,
-    response: new Response(),
-  });
-  expect(await loadCourseGlossary("ddd", "reader-token")).toEqual({
+  backend.mockResolvedValueOnce(Response.json(body));
+  expect(await loadCourseGlossary(facts.product.slug, "reader-token")).toEqual({
     kind: "ready",
     ...body,
   });
-  expect(fakes.glossary).toHaveBeenCalledWith("ddd", {
-    accessToken: "reader-token",
-  });
+  const sent = expectBackendRequest();
+  expect(sent.headers.get("authorization")).toBe("Bearer reader-token");
 });
 
 it("reads it as a guest without a token", async () => {
-  fakes.glossary.mockResolvedValue({
-    ok: true,
-    body: { ...body, terms: [] },
-    response: new Response(),
-  });
-  expect(await loadCourseGlossary("ddd", undefined)).toMatchObject({
-    kind: "ready",
-    terms: [],
-  });
-  expect(fakes.glossary).toHaveBeenCalledWith("ddd", {});
+  backend.mockResolvedValueOnce(Response.json({ ...body, terms: [] }));
+  expect(await loadCourseGlossary(facts.product.slug, undefined)).toMatchObject(
+    {
+      kind: "ready",
+      terms: [],
+    },
+  );
+  expect(expectBackendRequest().headers.has("authorization")).toBe(false);
 });
 
 it("tells an unknown course from a failed backend", async () => {
-  fakes.glossary.mockResolvedValueOnce({
-    ok: false,
-    problem: null,
-    response: new Response(null, { status: 404 }),
-  });
+  backend.mockResolvedValueOnce(new Response(null, { status: 404 }));
   expect(await loadCourseGlossary("missing", undefined)).toEqual({
     kind: "not-found",
   });
-  fakes.glossary.mockResolvedValueOnce({
-    ok: false,
-    problem: null,
-    response: new Response(null, { status: 503 }),
-  });
-  expect(await loadCourseGlossary("ddd", undefined)).toEqual({
+  backend.mockResolvedValueOnce(new Response(null, { status: 503 }));
+  expect(await loadCourseGlossary(facts.product.slug, undefined)).toEqual({
     kind: "unavailable",
   });
-  fakes.glossary.mockResolvedValueOnce({
-    ok: true,
-    body: { product: body.product },
-    response: new Response(),
-  });
-  expect(await loadCourseGlossary("ddd", undefined)).toEqual({
+  backend.mockResolvedValueOnce(Response.json({ product: body.product }));
+  expect(await loadCourseGlossary(facts.product.slug, undefined)).toEqual({
     kind: "unavailable",
   });
 });
+
+function expectBackendRequest(): Request {
+  expect(backend).toHaveBeenCalledOnce();
+  const request = backend.mock.calls[0]?.[0];
+  if (request === undefined) throw new Error("Expected backend request");
+  expect(request.method).toBe("GET");
+  expect(request.url).toBe(
+    "https://platform-api.example.test/library/products/synthetic-learning/glossary",
+  );
+  return request;
+}

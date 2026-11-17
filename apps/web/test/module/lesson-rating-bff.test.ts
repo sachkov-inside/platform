@@ -1,33 +1,25 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  read: vi.fn(),
-  rate: vi.fn(),
-  statistics: vi.fn(),
-  counts: vi.fn(),
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestLessonRating: fakes.read,
-  requestRateLesson: fakes.rate,
-  requestExerciseStatistics: fakes.statistics,
-  requestLessonRatingCounts: fakes.counts,
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
-}));
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
+const ratingReplies = vi.fn<(request: Request) => Promise<Response>>();
+const statsReplies = vi.fn<(request: Request) => Promise<Response>>();
+const countReplies = vi.fn<(request: Request) => Promise<Response>>();
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import {
-  handleLessonRating,
-  handleSetLessonRating,
+  handleLessonRating as realHandleLessonRating,
+  handleSetLessonRating as realHandleSetLessonRating,
 } from "@/features/lesson-rating.server";
-import { handleLessonStatistics } from "@/features/lesson-statistics.server";
+import { handleLessonStatistics as realHandleLessonStatistics } from "@/features/lesson-statistics.server";
 
+const handleLessonRating = (request: Request) =>
+  session(() => realHandleLessonRating(request));
+const handleSetLessonRating = (request: Request) =>
+  session(() => realHandleSetLessonRating(request));
+const handleLessonStatistics = (request: Request) =>
+  session(() => realHandleLessonStatistics(request));
 const materialId = "6d155605-f852-461a-bdeb-df68b0b441c4";
 
 function request(
@@ -43,19 +35,35 @@ function request(
   });
 }
 
-const ok = (body: unknown) => ({ ok: true, body, response: new Response() });
-const failed = (status: number) => ({
-  ok: false,
-  problem: null,
-  response: new Response(null, { status }),
-});
+const ok = (body: unknown) => Response.json(body);
+const failed = (status: number) => new Response(null, { status });
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
+beforeEach(async () => {
+  for (const reply of [backend, ratingReplies, statsReplies, countReplies])
+    reply.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  session = await realBffSession();
+  backend.mockImplementation((request) => {
+    const url = new URL(request.url);
+    if (url.origin !== "https://platform-api.example.test")
+      throw new Error(`Unexpected origin ${url.origin}`);
+    if (url.pathname === `/lesson-ratings/materials/${materialId}`)
+      return ratingReplies(request);
+    if (
+      url.pathname === `/authoring/materials/${materialId}/exercise-statistics`
+    )
+      return statsReplies(request);
+    if (url.pathname === `/authoring/materials/${materialId}/ratings`)
+      return countReplies(request);
+    throw new Error(`Unexpected backend URL ${request.url}`);
+  });
+  vi.stubGlobal("fetch", backend);
 });
+afterEach(() => vi.useRealTimers());
 
 it("rejects a cross-origin rating before authentication or backend calls", async () => {
+  const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
   const response = await handleSetLessonRating(
     request(
       "/api/lesson-ratings/rating",
@@ -65,12 +73,12 @@ it("rejects a cross-origin rating before authentication or backend calls", async
     ),
   );
   expect(response.status).toBe(403);
-  expect(fakes.token).not.toHaveBeenCalled();
-  expect(fakes.rate).not.toHaveBeenCalled();
+  expect(tokenReads).not.toHaveBeenCalled();
+  expect(ratingReplies).not.toHaveBeenCalled();
 });
 
 it("sets and removes the rating for the session's Account and drops a posted identity", async () => {
-  fakes.rate.mockResolvedValueOnce(ok({ rating: "like" }));
+  ratingReplies.mockResolvedValueOnce(ok({ rating: "like" }));
   const liked = await handleSetLessonRating(
     request(
       "/api/lesson-ratings/rating",
@@ -78,20 +86,22 @@ it("sets and removes the rating for the session's Account and drops a posted ide
       "PUT",
     ),
   );
-  expect(fakes.rate).toHaveBeenCalledWith(
-    { materialId, rating: "like" },
-    "trusted-token",
-  );
+  expect(
+    await expectBackendRequest(
+      "PUT",
+      `/lesson-ratings/materials/${materialId}`,
+    ).json(),
+  ).toEqual({ rating: "like" });
   expect(await liked.json()).toEqual({ kind: "ready", rating: "like" });
 
-  fakes.rate.mockResolvedValueOnce(ok({ rating: null }));
+  ratingReplies.mockResolvedValueOnce(ok({ rating: null }));
   const cleared = await handleSetLessonRating(
     request("/api/lesson-ratings/rating", { materialId, rating: null }, "PUT"),
   );
-  expect(fakes.rate).toHaveBeenLastCalledWith(
-    { materialId, rating: null },
-    "trusted-token",
-  );
+  expect(
+    expectBackendRequest("DELETE", `/lesson-ratings/materials/${materialId}`)
+      .body,
+  ).toBeNull();
   expect(await cleared.json()).toEqual({ kind: "ready", rating: null });
 });
 
@@ -104,7 +114,7 @@ it("refuses a rating outside like and dislike without a backend call", async () 
     ),
   );
   expect(await response.json()).toEqual({ kind: "invalid_input" });
-  expect(fakes.rate).not.toHaveBeenCalled();
+  expect(ratingReplies).not.toHaveBeenCalled();
 });
 
 it("maps backend refusals of a rating to rejected, sign-in and unavailable outcomes", async () => {
@@ -114,7 +124,7 @@ it("maps backend refusals of a rating to rejected, sign-in and unavailable outco
     [401, "unauthorized"],
     [503, "unavailable"],
   ] as const) {
-    fakes.rate.mockResolvedValueOnce(failed(status));
+    ratingReplies.mockResolvedValueOnce(failed(status));
     const response = await handleSetLessonRating(
       request(
         "/api/lesson-ratings/rating",
@@ -127,11 +137,11 @@ it("maps backend refusals of a rating to rejected, sign-in and unavailable outco
 });
 
 it("reads the reader's own rating", async () => {
-  fakes.read.mockResolvedValueOnce(ok({ rating: "dislike" }));
+  ratingReplies.mockResolvedValueOnce(ok({ rating: "dislike" }));
   const response = await handleLessonRating(
     request("/api/lesson-ratings/query", { materialId }),
   );
-  expect(fakes.read).toHaveBeenCalledWith(materialId, "trusted-token");
+  expectBackendRequest("GET", `/lesson-ratings/materials/${materialId}`);
   expect(await response.json()).toEqual({ kind: "ready", rating: "dislike" });
 });
 
@@ -159,13 +169,16 @@ const statistics = {
 };
 
 it("joins exercise statistics and rating counts for an author", async () => {
-  fakes.statistics.mockResolvedValueOnce(ok(statistics));
-  fakes.counts.mockResolvedValueOnce(ok({ likes: 3, dislikes: 1 }));
+  statsReplies.mockResolvedValueOnce(ok(statistics));
+  countReplies.mockResolvedValueOnce(ok({ likes: 3, dislikes: 1 }));
   const response = await handleLessonStatistics(
     request("/api/authoring/lesson-statistics", { materialId }),
   );
-  expect(fakes.statistics).toHaveBeenCalledWith(materialId, "trusted-token");
-  expect(fakes.counts).toHaveBeenCalledWith(materialId, "trusted-token");
+  expectBackendRequest(
+    "GET",
+    `/authoring/materials/${materialId}/exercise-statistics`,
+  );
+  expectBackendRequest("GET", `/authoring/materials/${materialId}/ratings`);
   expect(await response.json()).toEqual({
     kind: "ready",
     exercises: statistics.exercises,
@@ -174,17 +187,32 @@ it("joins exercise statistics and rating counts for an author", async () => {
 });
 
 it("reports a refused author as forbidden and a failed owner as unavailable", async () => {
-  fakes.statistics.mockResolvedValueOnce(failed(403));
-  fakes.counts.mockResolvedValueOnce(failed(403));
+  statsReplies.mockResolvedValueOnce(failed(403));
+  countReplies.mockResolvedValueOnce(failed(403));
   const forbidden = await handleLessonStatistics(
     request("/api/authoring/lesson-statistics", { materialId }),
   );
   expect(await forbidden.json()).toEqual({ kind: "forbidden" });
 
-  fakes.statistics.mockResolvedValueOnce(ok(statistics));
-  fakes.counts.mockResolvedValueOnce(failed(503));
+  statsReplies.mockResolvedValueOnce(ok(statistics));
+  countReplies.mockResolvedValueOnce(failed(503));
   const unavailable = await handleLessonStatistics(
     request("/api/authoring/lesson-statistics", { materialId }),
   );
   expect(await unavailable.json()).toEqual({ kind: "unavailable" });
 });
+
+function expectBackendRequest(method: string, path: string): Request {
+  const requests = backend.mock.calls
+    .map(([request]) => request)
+    .filter(
+      (request) =>
+        request.method === method &&
+        request.url === `https://platform-api.example.test${path}`,
+    );
+  expect(requests).toHaveLength(1);
+  const request = requests[0];
+  if (request === undefined) throw new Error("Expected backend request");
+  expect(request.headers.get("authorization")).toBe("Bearer trusted-token");
+  return request;
+}
