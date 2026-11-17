@@ -109,10 +109,25 @@ export const ReleasesHiddenModal: Story = {
     hide.click();
     await expect(dialog).not.toBeVisible();
     await expect(dialog.isConnected).toBe(true);
-    await expect(dialog.matches(":modal")).toBe(false);
-    await expect(dialog.open).toBe(false);
+    await expect({
+      phase: "hidden before native close acknowledgement",
+      modal: dialog.matches(":modal"),
+      open: dialog.open,
+    }).toEqual({
+      phase: "hidden before native close acknowledgement",
+      modal: false,
+      open: false,
+    });
     await waitFor(() => expect(closes).toHaveTextContent("2"));
-    await expect(dialog.matches(":modal")).toBe(false);
+    await expect({
+      phase: "hidden after native close acknowledgement",
+      modal: dialog.matches(":modal"),
+      open: dialog.open,
+    }).toEqual({
+      phase: "hidden after native close acknowledgement",
+      modal: false,
+      open: false,
+    });
     show.click();
     await waitFor(() => expect(dialog.matches(":modal")).toBe(true));
     await expect(canvas.getByRole("dialog", { name: "Добро пожаловать" })).toBe(
