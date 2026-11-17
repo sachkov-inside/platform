@@ -51,8 +51,8 @@ export interface ProductAccessActionsInput {
   readonly personTitle: string;
   /** Продукты по карточке; `null`, если блок продуктов не прочитался. */
   readonly products: readonly AccessCardProduct[] | null;
-  /** Сервер принял запись: страница перечитывает карточку и список людей. */
-  readonly onWritten: () => void;
+  /** Передаёт ID принятой записи для общего перечитывания карточки и списка (#2379). */
+  readonly onWritten: (announcementId: string) => void;
   /** «Обновить данные» после конфликта ревизии: страница перечитывает карточку. */
   readonly onRefresh: () => Promise<unknown>;
 }
@@ -121,8 +121,8 @@ export function useProductAccessActions({
 
   const written = (message: string) => {
     setNotice({ kind: "done", message });
-    announceEnrollmentChange();
-    onWritten();
+    const announcementId = announceEnrollmentChange();
+    onWritten(announcementId);
   };
   /** Отказ внутри окна; устаревшая карточка закрывает окно и говорит над продуктами. */
   const refused = (code: BillingFailureCode, close: () => void) => {

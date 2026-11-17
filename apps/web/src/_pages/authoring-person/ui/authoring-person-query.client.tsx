@@ -2,6 +2,8 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { refreshAnnouncedQueries } from "@/shared/api/announced-query-refresh";
+
 import { peopleAccessReadsQueryKey } from "@/entities/authoring-person";
 import { useAccessChangeRefresh } from "@/features/product-access-actions";
 
@@ -31,10 +33,11 @@ export function AuthoringPersonQuery({
       onRetry={() => {
         void card.refetch();
       }}
-      onWritten={() => {
-        void client.invalidateQueries(
-          { queryKey: peopleAccessReadsQueryKey },
-          { cancelRefetch: false },
+      onWritten={(announcementId) => {
+        void refreshAnnouncedQueries(
+          client,
+          peopleAccessReadsQueryKey,
+          announcementId,
         );
       }}
       state={state}

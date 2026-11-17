@@ -614,3 +614,38 @@ test("an enrollment announcement replaces the People read held before a grant in
     await card.close();
   }
 });
+
+test("one local card grant shares one People reread with its announcement (#2379)", async ({
+  baseURL,
+  context,
+  page,
+}) => {
+  await signIn(context, baseURL);
+  await openCard(page, anna.accountId, anna.name);
+  await expect(
+    productPanel(page, products.ai.name).getByText("Доступ открыт"),
+  ).toBeVisible();
+  let reads = 0;
+  await page.route(
+    `**/api/authoring/people/${anna.accountId}`,
+    async (route) => {
+      reads++;
+      await route.continue();
+    },
+  );
+  await page
+    .getByRole("button", { name: "Выдать продукт", exact: true })
+    .click();
+  const grant = page.getByRole("dialog", { name: "Выдать продукт" });
+  await grant.getByRole("radio", { name: products.practice.name }).check();
+  await grant.getByRole("radio", { name: "Подарок" }).check();
+  await grant
+    .getByRole("button", { name: "Выдать продукт", exact: true })
+    .click();
+  await expect(page.getByText("Доступ выдан.")).toBeVisible();
+  await expect(grant).toBeHidden();
+  await expect(
+    productPanel(page, products.practice.name).getByText("Доступ открыт"),
+  ).toBeVisible();
+  expect(reads).toBe(1);
+});
