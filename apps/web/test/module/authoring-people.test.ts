@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { expectOwnerReadRequest } from "../support/owner-read-request";
 import { realBffSession } from "../support/real-bff-session";
 const backend = vi.fn<(request: Request) => Promise<Response>>();
 let session: Awaited<ReturnType<typeof realBffSession>>;
@@ -118,13 +119,17 @@ describe("people list BFF", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toMatchObject({ kind: "ready", total: 1 });
-    expectRequest("/authoring/people", {
-      limit: "25",
-      query: "anna",
-      productId,
-      state: "active",
-      cursor: "o:25",
-    });
+    expectOwnerReadRequest(
+      backend.mock.calls.at(-1)?.[0],
+      "/authoring/people",
+      {
+        limit: "25",
+        query: "anna",
+        productId,
+        state: "active",
+        cursor: "o:25",
+      },
+    );
   });
   it("refuses with 403 and no personal data, and reads a malformed body as a failed dependency", async () => {
     backend.mockResolvedValueOnce(
@@ -192,7 +197,11 @@ describe("person card BFF", () => {
     const ready = await handlePersonCardRequest(annaCard.person.accountId);
     expect(ready.status).toBe(200);
     expect(await ready.json()).toEqual({ kind: "ready", card: annaCard });
-    expectRequest(`/authoring/people/${annaCard.person.accountId}`, {});
+    expectOwnerReadRequest(
+      backend.mock.calls.at(-1)?.[0],
+      `/authoring/people/${annaCard.person.accountId}`,
+      {},
+    );
     const missing = await handlePersonCardRequest(
       "96000000-0000-4000-8000-0000000009ff",
     );
@@ -291,7 +300,11 @@ describe("product choices BFF", () => {
         { productId, name: "Яндекс-практикум", archived: true },
       ],
     });
-    expectRequest("/authoring/people/product-choices", {});
+    expectOwnerReadRequest(
+      backend.mock.calls.at(-1)?.[0],
+      "/authoring/people/product-choices",
+      {},
+    );
     backend.mockResolvedValueOnce(
       Response.json({ code: "forbidden" }, { status: 403 }),
     );
@@ -357,16 +370,3 @@ describe("«Люди» search group", () => {
     ).toEqual({ kind: "people", state: "unavailable" });
   });
 });
-
-function expectRequest(path: string, query: Readonly<Record<string, string>>) {
-  const request = backend.mock.calls.at(-1)?.[0];
-  if (request === undefined)
-    throw new Error("Expected owner People HTTP request");
-  const url = new URL(request.url);
-  expect(url.origin + url.pathname).toBe(
-    `https://platform-api.example.test${path}`,
-  );
-  expect(request.method).toBe("GET");
-  expect(Object.fromEntries(url.searchParams)).toEqual(query);
-  expect(request.headers.get("authorization")).toBe("Bearer owner-token");
-}
