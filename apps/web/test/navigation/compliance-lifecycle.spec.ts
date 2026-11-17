@@ -2,6 +2,99 @@ import { expect, test } from "@playwright/test";
 
 const noticeKey = "inside.storage-notice.v1";
 
+async function welcomeCookie(baseURL: string) {
+  const port = process.env["FAKE_BACKEND_PORT"];
+  if (port === undefined) throw new Error("Missing navigation backend port");
+  const { wrapSession } = await import("@logto/node");
+  const value = await wrapSession(
+    {
+      accessToken: JSON.stringify({
+        [`@http://127.0.0.1:${port}`]: {
+          // deterministic-test-allow wall-clock: The real Web/Logto session boundary validates this synthetic session against the live clock.
+          expiresAt: Math.floor(Date.now() / 1_000) + 3_600,
+          scope: "",
+          token: "compliance-lifetime-owner",
+        },
+      }),
+      idToken: "compliance.id.token",
+      refreshToken: "compliance-refresh-token",
+    },
+    "inside-navigation-logto-cookie-secret-key",
+  );
+  return {
+    httpOnly: true,
+    name: "logto_inside-web-navigation",
+    sameSite: "Lax" as const,
+    url: baseURL,
+    value,
+  };
+}
+
+// This fixture deliberately has no legal-acceptance API. It exercises the real unavailable route,
+// not the accepted/newcomer backend flow, which requires the independent real application check.
+test("welcome remains visible in server HTML without JavaScript", async ({
+  browser,
+  baseURL,
+}, info) => {
+  if (baseURL === undefined) throw new Error("Missing navigation Web URL");
+  const context = await browser.newContext({
+    baseURL,
+    javaScriptEnabled: false,
+    viewport: info.project.use.viewport,
+  });
+  try {
+    await context.addCookies([await welcomeCookie(baseURL)]);
+    const page = await context.newPage();
+    await page.goto("/welcome");
+    const dialog = page.getByRole("dialog", { name: "Добро пожаловать" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute("open", "");
+    expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(
+      false,
+    );
+    await expect(dialog.getByRole("alert")).toHaveText(
+      "Не удалось загрузить условия. Обновите страницу позже.",
+    );
+    await expect(
+      dialog.getByRole("link", { name: "На главную" }),
+    ).toHaveAttribute("href", "/");
+  } finally {
+    await context.close();
+  }
+});
+
+test("hydrated welcome keeps its modal on Escape and releases it for real navigation", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("Missing navigation Web URL");
+  await context.addCookies([await welcomeCookie(baseURL)]);
+  await page.goto("/welcome");
+  const dialog = page.getByRole("dialog", { name: "Добро пожаловать" });
+  await expect(dialog).toBeVisible();
+  const retained = await dialog.elementHandle();
+  await expect
+    .poll(() => retained.evaluate((element) => element.matches(":modal")))
+    .toBe(true);
+  const action = dialog.getByRole("link", { name: "На главную" });
+  await expect(action).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect
+    .poll(() => retained.evaluate((element) => element.matches(":modal")))
+    .toBe(true);
+  await action.click();
+  await expect(page).toHaveURL(baseURL + "/");
+  await expect
+    .poll(() => retained.evaluate((element) => element.matches(":modal")))
+    .toBe(false);
+  await page.goBack();
+  await expect(dialog).toBeVisible();
+  await expect
+    .poll(() => dialog.evaluate((element) => element.matches(":modal")))
+    .toBe(true);
+});
+
 for (const initialValue of [null, "prior-edition"] as const) {
   test(`acknowledging storage notice works without persistence (${initialValue === null ? "empty storage" : "non-current stored value"})`, async ({
     page,
