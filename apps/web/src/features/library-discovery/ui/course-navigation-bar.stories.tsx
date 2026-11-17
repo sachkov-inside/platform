@@ -183,8 +183,20 @@ export const StorageNoticeClearance: Story = {
           nav.getBoundingClientRect().height -
           Number.parseFloat(getComputedStyle(nav).bottom),
       );
+    const geometry = () => ({
+      navHeight: nav.getBoundingClientRect().height,
+      navBottom: getComputedStyle(nav).bottom,
+      flowHeight: region.getBoundingClientRect().height,
+      noticeSpace: document.documentElement.style.getPropertyValue(
+        "--storage-notice-space",
+      ),
+      navConnected: nav.isConnected,
+      regionConnected: region.isConnected,
+      fonts: document.fonts.status,
+    });
     await expect(nav).toBeVisible();
     await waitFor(() => expect(clearance()).toBe(12));
+    const initial = geometry();
     try {
       // Synthetic storage delivery reaches the real shell subscriber; actual cross-document delivery is a separate Next check.
       localStorage.removeItem(storageNoticeKey);
@@ -206,7 +218,11 @@ export const StorageNoticeClearance: Story = {
           ),
         ).toBeGreaterThan(0),
       );
-      await waitFor(() => expect(clearance()).toBe(12));
+      await waitFor(() =>
+        expect(clearance(), JSON.stringify({ initial, now: geometry() })).toBe(
+          12,
+        ),
+      );
     } finally {
       localStorage.setItem(
         storageNoticeKey,
