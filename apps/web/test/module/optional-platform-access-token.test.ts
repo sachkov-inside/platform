@@ -1,15 +1,19 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 import { realBffSession } from "../support/real-bff-session";
 
 const unexpectedRequests: string[] = [];
+beforeEach(() => {
+  vi.setSystemTime(new Date("2026-11-16T12:00:00.000Z"));
+});
 afterEach(() => {
   try {
     expect(unexpectedRequests).toEqual([]);
   } finally {
     unexpectedRequests.length = 0;
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   }
 });
 
