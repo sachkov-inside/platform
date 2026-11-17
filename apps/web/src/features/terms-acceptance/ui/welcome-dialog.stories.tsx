@@ -107,6 +107,7 @@ export const ReleasesHiddenModal: Story = {
     if (hide === null || show === null || unmount === null)
       throw new Error("Missing fixture lifetime controls");
     hide.click();
+    await expect(dialog).not.toBeVisible();
     await expect(dialog.isConnected).toBe(true);
     await expect(dialog.matches(":modal")).toBe(false);
     await expect(dialog.open).toBe(false);
