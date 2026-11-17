@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { lessonInteractions } from "../../../../scenarios/lesson-interactions.mjs";
 import { realBffSession } from "../support/real-bff-session";
 const backend = vi.fn<(request: Request) => Promise<Response>>();
 let session: Awaited<ReturnType<typeof realBffSession>>;
@@ -15,15 +16,8 @@ const handleExerciseAttempts = (request: Request) =>
 const handleRecordExerciseAttempt = (request: Request) =>
   session(() => realHandleRecordExerciseAttempt(request));
 
-const materialId = "6d155605-f852-461a-bdeb-df68b0b441c4";
-const attempt = {
-  exerciseId: "rag-wrong-platform",
-  fingerprint: "669258ca11c32c41",
-  answer: { kind: "options", optionIds: ["prompt"] },
-  result: "correct",
-  firstForVersion: true,
-  attemptedAt: "2026-11-13T09:00:00.000Z",
-};
+const materialId = lessonInteractions.materialId;
+const attempt = lessonInteractions.attempt;
 
 function request(
   path: string,
@@ -39,8 +33,8 @@ function request(
 
 const recordBody = {
   materialId,
-  exerciseId: "rag-wrong-platform",
-  answer: { kind: "options", optionIds: ["prompt"] },
+  exerciseId: lessonInteractions.exercise.id,
+  answer: lessonInteractions.attempt.answer,
 };
 
 beforeEach(async () => {
