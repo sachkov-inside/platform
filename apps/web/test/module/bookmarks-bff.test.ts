@@ -1,32 +1,22 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  states: vi.fn(),
-  add: vi.fn(),
-  remove: vi.fn(),
-  list: vi.fn(),
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestBookmarks: fakes.list,
-  requestBookmarkStates: fakes.states,
-  requestAddBookmark: fakes.add,
-  requestRemoveBookmark: fakes.remove,
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
-}));
+import { realBffSession } from "../support/real-bff-session";
+
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import {
-  handleBookmarkList,
-  handleBookmarkStates,
-  handleSetBookmark,
+  handleBookmarkList as realHandleBookmarkList,
+  handleBookmarkStates as realHandleBookmarkStates,
+  handleSetBookmark as realHandleSetBookmark,
 } from "@/features/bookmarks.server";
+
+const handleBookmarkList = (request: Request) =>
+  session(() => realHandleBookmarkList(request));
+const handleBookmarkStates = (request: Request) =>
+  session(() => realHandleBookmarkStates(request));
+const handleSetBookmark = (request: Request) =>
+  session(() => realHandleSetBookmark(request));
 
 const materialId = "10000000-0000-4000-8000-000000000001";
 const state = {
@@ -66,9 +56,10 @@ function mutation(
   });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
+  session = await realBffSession();
+  vi.stubGlobal("fetch", backend);
 });
 
 it("rejects cross-origin writes before authentication or backend calls", async () => {
@@ -76,31 +67,25 @@ it("rejects cross-origin writes before authentication or backend calls", async (
     mutation({ materialId, bookmarked: true }, "https://outside.test"),
   );
   expect(response.status).toBe(403);
-  expect(fakes.token).not.toHaveBeenCalled();
-  expect(fakes.add).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
   expect(response.headers.get("cache-control")).toBe("no-store, private");
 });
 
 it("routes the desired bookmark state to add or remove without trusting posted identity", async () => {
-  fakes.add.mockResolvedValue({
-    ok: true,
-    body: state,
-    response: new Response(),
-  });
-  fakes.remove.mockResolvedValue({
-    ok: true,
-    body: { materialId, bookmarked: false, bookmarkedAt: null },
-    response: new Response(),
-  });
+  backend
+    .mockResolvedValueOnce(Response.json(state))
+    .mockResolvedValueOnce(
+      Response.json({ materialId, bookmarked: false, bookmarkedAt: null }),
+    );
   const added = await handleSetBookmark(
     mutation({ materialId, bookmarked: true, accountId: "untrusted" }),
   );
-  expect(fakes.add).toHaveBeenCalledWith(materialId, "trusted-token");
+  expectBackendRequest(0, "PUT", `/bookmarks/materials/${materialId}`);
   expect(await added.json()).toEqual({ kind: "ready", state });
   const removed = await handleSetBookmark(
     mutation({ materialId, bookmarked: false }),
   );
-  expect(fakes.remove).toHaveBeenCalledWith(materialId, "trusted-token");
+  expectBackendRequest(1, "DELETE", `/bookmarks/materials/${materialId}`);
   expect(await removed.json()).toEqual({
     kind: "ready",
     state: { materialId, bookmarked: false, bookmarkedAt: null },
@@ -108,23 +93,17 @@ it("routes the desired bookmark state to add or remove without trusting posted i
 });
 
 it("reports denied and unavailable without claiming a saved bookmark", async () => {
-  fakes.add.mockResolvedValueOnce({
-    ok: false,
-    problem: { code: "access_denied" },
-    response: new Response(null, { status: 403 }),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json({ code: "access_denied" }, { status: 403 }),
+  );
   expect(
     await (
       await handleSetBookmark(mutation({ materialId, bookmarked: true }))
     ).json(),
   ).toEqual({ kind: "denied" });
-  fakes.add
+  backend
     .mockRejectedValueOnce(new Error("lost response"))
-    .mockResolvedValueOnce({
-      ok: true,
-      body: { bookmarked: true },
-      response: new Response(),
-    });
+    .mockResolvedValueOnce(Response.json({ bookmarked: true }));
   for (let index = 0; index < 2; index += 1) {
     expect(
       await (
@@ -135,16 +114,13 @@ it("reports denied and unavailable without claiming a saved bookmark", async () 
 });
 
 it("bounds and validates bookmark state batches", async () => {
-  fakes.states.mockResolvedValue({
-    ok: true,
-    body: [state],
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(Response.json([state]));
   const response = await handleBookmarkStates(
     mutation({ materialIds: [materialId] }),
   );
   expect(await response.json()).toEqual({ kind: "ready", states: [state] });
-  expect(fakes.states).toHaveBeenCalledWith([materialId], "trusted-token");
+  const sent = expectBackendRequest(0, "POST", "/bookmarks/materials/query");
+  expect(await sent.json()).toEqual({ materialIds: [materialId] });
   const body = JSON.stringify({
     materialIds: Array.from({ length: 101 }, () => materialId),
   });
@@ -162,19 +138,18 @@ it("bounds and validates bookmark state batches", async () => {
       )
     ).json(),
   ).toEqual({ kind: "invalid_input" });
-  expect(fakes.states).toHaveBeenCalledTimes(1);
+  expect(backend).toHaveBeenCalledTimes(1);
 });
 
 it("maps the bookmark list into safe material previews and requires a session", async () => {
-  fakes.list.mockResolvedValue({
-    ok: true,
-    body: { items: [projection], nextCursor: null },
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json({ items: [projection], nextCursor: null }),
+  );
   const response = await handleBookmarkList(
     new Request("https://inside.example.test/api/bookmarks"),
   );
-  expect(fakes.list).toHaveBeenCalledWith({}, "trusted-token");
+  const sent = expectBackendRequest(0, "POST", "/bookmarks/query");
+  expect(await sent.json()).toEqual({ first: 12 });
   expect(response.headers.get("cache-control")).toBe("no-store, private");
   const body: unknown = await response.json();
   expect(body).toMatchObject({
@@ -192,10 +167,24 @@ it("maps the bookmark list into safe material previews and requires a session", 
 });
 
 it("returns 401 for the bookmark list without a session", async () => {
-  fakes.token.mockRejectedValueOnce(new fakes.LogtoSessionUnavailableError());
+  session = await realBffSession(null);
   const response = await handleBookmarkList(
     new Request("https://inside.example.test/api/bookmarks"),
   );
   expect(response.status).toBe(401);
-  expect(fakes.list).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
+
+function expectBackendRequest(
+  index: number,
+  method: string,
+  path: string,
+): Request {
+  const request = backend.mock.calls[index]?.[0];
+  expect(request).toBeInstanceOf(Request);
+  if (request === undefined) throw new Error("Expected backend request");
+  expect(request.method).toBe(method);
+  expect(request.url).toBe(`https://platform-api.example.test${path}`);
+  expect(request.headers.get("authorization")).toBe("Bearer trusted-token");
+  return request;
+}
