@@ -99,7 +99,9 @@ export const QueuedNativeClose: Story = {
     });
     const close = within(dialog).getByRole("button", { name: "Закрыть поиск" });
     const nativeClose = Promise.withResolvers<undefined>();
+    let closeEvents = 0;
     const onClose = () => {
+      closeEvents += 1;
       nativeClose.resolve(undefined);
     };
     dialog.addEventListener("close", onClose, { once: true });
@@ -107,11 +109,15 @@ export const QueuedNativeClose: Story = {
       flushSync(() => {
         close.click();
       });
-      await expect(dialog.open).toBe(false);
+      const closedBeforeReopen = !dialog.open;
+      const deliveredBeforeReopen = closeEvents;
       flushSync(() => {
         trigger.click();
       });
-      await expect(dialog.matches(":modal")).toBe(true);
+      const reopenedBeforeNativeClose = dialog.matches(":modal");
+      await expect(closedBeforeReopen).toBe(true);
+      await expect(deliveredBeforeReopen).toBe(0);
+      await expect(reopenedBeforeNativeClose).toBe(true);
       await nativeClose.promise;
       await expect(dialog.matches(":modal")).toBe(true);
       await userEvent.keyboard("{Escape}");
