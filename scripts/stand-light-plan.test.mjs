@@ -184,7 +184,7 @@ test("instance memory counts the supervisor and every descendant, not other proc
   assert.equal(treeResidentKiB(table, 99), 0);
 });
 
-test("named roles accept the terms, get a fictional name, and the holder its product", async () => {
+test("named roles accept the terms and get a fictional name without a pre-existing Product dependency", async () => {
   /** @type {{ call: string; body: unknown }[]} */
   const calls = [];
   const terms = "/accounts/current/legal-acceptances/terms";
@@ -244,17 +244,9 @@ test("named roles accept the terms, get a fictional name, and the holder its pro
       call: "light-learner POST /account/profile",
       body: { displayName: "Участник Тестов" },
     },
-    {
-      call: "fullstack-owner POST /admin/access/products/issue",
-      body: {
-        accountId: "11111111-1111-4111-8111-111111111111",
-        productId: lightRoles.holder.productId,
-        reason: "Тестовый набор ролей лёгкого экземпляра",
-        sourceRef: "stand-light:holder",
-      },
-    },
   ]);
   assert.equal(lightRoles.newcomer.name, null);
+  assert.equal(Object.hasOwn(lightRoles.holder, "productId"), false);
   assert.deepEqual([...lightRoleNames], Object.keys(lightRoles));
 });
 
