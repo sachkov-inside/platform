@@ -1,24 +1,28 @@
 import { beforeEach, expect, test, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ visit: vi.fn() }));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestCommunicationVisit: mocks.visit,
-}));
+import { configureWebRuntime } from "../support/web-runtime";
+import {
+  interceptBackendHttp,
+  expectSingleBackendRequest,
+} from "../support/backend-http";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+
 import {
   handleTrackingVisit,
   handleTrackingHead,
   classifyTrackingTraffic,
 } from "@/_pages/communication-tracking/api/tracking-route.server";
 beforeEach(() => {
-  vi.clearAllMocks();
+  backend.mockReset();
+  configureWebRuntime();
+  interceptBackendHttp(backend);
 });
 test("redirect records known previews, ignores caller URLs, disables cache/referrer and does not grant content access", async () => {
-  mocks.visit.mockResolvedValue({
-    ok: true,
-    body: {
+  backend.mockResolvedValue(
+    Response.json({
       kind: "resolved",
       safeUrl: "https://inside.test/materials/protected",
-    },
-  });
+    }),
+  );
   const response = await handleTrackingVisit(
     new Request(
       `https://inside.test/communications/visit?token=${"a".repeat(43)}&url=https://evil.test`,
@@ -31,7 +35,14 @@ test("redirect records known previews, ignores caller URLs, disables cache/refer
   );
   expect(response.headers.get("referrer-policy")).toBe("no-referrer");
   expect(response.headers.get("cache-control")).toContain("no-store");
-  expect(mocks.visit).toHaveBeenCalledWith({
+  expect(
+    await expectSingleBackendRequest(
+      backend,
+      "POST",
+      "/communications/tracking/resolve",
+      null,
+    ).json(),
+  ).toEqual({
     token: "a".repeat(43),
     traffic: "known_automation",
   });
@@ -46,8 +57,8 @@ test("invalid or unresolved tokens have a safe failure with no arbitrary redirec
       )
     ).status,
   ).toBe(404);
-  expect(mocks.visit).not.toHaveBeenCalled();
-  mocks.visit.mockResolvedValue({ ok: true, body: { kind: "unavailable" } });
+  expect(backend).not.toHaveBeenCalled();
+  backend.mockResolvedValue(Response.json({ kind: "unavailable" }));
   expect(
     (
       await handleTrackingVisit(

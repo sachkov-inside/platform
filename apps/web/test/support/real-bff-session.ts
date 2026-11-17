@@ -6,7 +6,7 @@ import { createRequestStoreForAPI } from "next/dist/server/async-storage/request
 import { createWorkStore } from "next/dist/server/async-storage/work-store";
 import { workUnitAsyncStorage } from "next/dist/server/app-render/work-unit-async-storage.external";
 import { workAsyncStorage } from "next/dist/server/app-render/work-async-storage.external";
-import { vi } from "vitest";
+import { configureWebRuntime } from "./web-runtime";
 
 const appId = "web-module-integration";
 const cookieSecret = "web-module-integration-cookie-secret";
@@ -16,13 +16,7 @@ const audience = "https://platform-api.example.test";
 export async function realBffSession(
   token: string | null | { readonly refreshToken: string } = "trusted-token",
 ) {
-  vi.stubEnv("WEB_BASE_URL", "https://inside.example.test");
-  vi.stubEnv("BACKEND_BASE_URL", audience);
-  vi.stubEnv("LOGTO_ENDPOINT", "https://identity.example.test");
-  vi.stubEnv("LOGTO_AUDIENCE", audience);
-  vi.stubEnv("LOGTO_APP_ID", appId);
-  vi.stubEnv("LOGTO_APP_SECRET", "module-confidential-app-secret");
-  vi.stubEnv("LOGTO_COOKIE_SECRET", cookieSecret);
+  configureWebRuntime();
   const cookie =
     token === null
       ? null

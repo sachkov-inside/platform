@@ -1,3 +1,4 @@
+import { configureWebRuntime } from "../support/web-runtime";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const pending = vi.hoisted(() => ({ work: [] as (() => Promise<void>)[] }));
@@ -6,17 +7,7 @@ vi.mock("next/server", () => ({
     pending.work.push(work);
   },
 }));
-vi.mock("@/shared/auth/index.server", async () => {
-  const origin = await import("@/shared/auth/same-origin-mutation.server");
-  return {
-    isSameOriginMutation: origin.isSameOriginMutation,
-    readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-  };
-});
-vi.mock("@/shared/config/index.server", () => ({
-  readWebRuntimeMode: () => "development",
-  readWebRuntimeConfig: () => ({ backendBaseUrl: "http://api:3001" }),
-}));
+
 import {
   handleWebVitalsReport,
   handleRenderErrorReport,
@@ -24,6 +15,8 @@ import {
 
 afterEach(() => vi.unstubAllGlobals());
 beforeEach(() => {
+  configureWebRuntime();
+  vi.stubEnv("NODE_ENV", "development");
   pending.work = [];
   vi.restoreAllMocks();
   vi.spyOn(console, "info").mockImplementation(() => undefined);
@@ -52,8 +45,9 @@ it("returns before persistence and forwards only telemetry data with a server-de
   expect(pending.work).toHaveLength(1);
   await pending.work[0]?.();
   expect(fetch).toHaveBeenCalledWith(
-    "http://api:3001/internal/web-telemetry",
+    "https://platform-api.example.test/internal/web-telemetry",
     expect.objectContaining({
+      method: "POST",
       body: JSON.stringify({
         kind: "vitals",
         route: "/materials/secret",
