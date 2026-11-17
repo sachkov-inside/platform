@@ -1,21 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({
-  token: vi.fn<() => Promise<string>>(),
-  manage: vi.fn(),
-  orderEmail: vi.fn(),
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestManageBilling: fakes.manage,
-  requestOwnerOrderEmail: fakes.orderEmail,
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: (): Promise<string> => fakes.token(),
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
+import { realBffSession } from "../support/real-bff-session";
+import { ownerBillingBackend } from "../support/owner-billing-backend";
+let backend: ReturnType<typeof ownerBillingBackend>;
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import { handleOrderEmailRequest } from "@/_pages/sales-payment.server";
 import {
@@ -32,12 +20,9 @@ const productId = "77000000-0000-4000-8000-0000000000f1";
 const purchaseRef = "77000000-0000-4000-8000-0000000000b1";
 const email = "buyer.order@example.test";
 
-const ok = (body: unknown) => ({ ok: true, body, response: new Response() });
-const problem = (code: string, status: number) => ({
-  ok: false,
-  problem: { code },
-  response: new Response(null, { status }),
-});
+const ok = (body: unknown) => Response.json(body);
+const problem = (code: string, status: number) =>
+  Response.json({ code }, { status });
 /** Чтение не пишет receipt: ссылка операции у каждого вызова своя. */
 const anyOperationId: unknown = expect.any(String);
 const get = (path: string) => new Request(`${origin}${path}`);
@@ -47,39 +32,44 @@ function expectPrivate(response: Response) {
   expect(response.headers.get("vary")).toContain("cookie");
 }
 
-beforeEach(() => {
-  vi.resetAllMocks();
-  fakes.token.mockResolvedValue("owner-token");
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  session = await realBffSession("owner-token");
+  backend = ownerBillingBackend();
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("payments list BFF", () => {
   it("sends state, product and the instant range to payments.list", async () => {
     const payment = ownerPayment(0);
-    fakes.manage.mockResolvedValue(
-      ok({
-        operationRef,
-        result: { outcome: "payments", items: [payment], nextCursor: null },
-      }),
-    );
-
-    const response = await handleOwnerPaymentsRequest(
-      get(
-        `/api/authoring/billing/owner-payments?limit=50&state=unknown&state=failed&productId=${productId}&from=2026-09-30T21%3A00%3A00.000Z&to=2026-10-20T21%3A00%3A00.000Z`,
+    backend.command.mockImplementation(() =>
+      Promise.resolve(
+        ok({
+          operationRef,
+          result: { outcome: "payments", items: [payment], nextCursor: null },
+        }),
       ),
     );
 
-    expect(fakes.manage).toHaveBeenCalledWith(
-      {
-        operation: "payments.list",
-        operationId: anyOperationId,
-        limit: 50,
-        states: ["unknown", "failed"],
-        productId,
-        from: "2026-09-30T21:00:00.000Z",
-        to: "2026-10-20T21:00:00.000Z",
-      },
-      "owner-token",
+    const response = await session(() =>
+      handleOwnerPaymentsRequest(
+        get(
+          `/api/authoring/billing/owner-payments?limit=50&state=unknown&state=failed&productId=${productId}&from=2026-09-30T21%3A00%3A00.000Z&to=2026-10-20T21%3A00%3A00.000Z`,
+        ),
+      ),
     );
+
+    expect(await commandBody(backend.command.mock.calls.at(-1)?.[0])).toEqual({
+      operation: "payments.list",
+      operationId: anyOperationId,
+      limit: 50,
+      states: ["unknown", "failed"],
+      productId,
+      from: "2026-09-30T21:00:00.000Z",
+      to: "2026-10-20T21:00:00.000Z",
+    });
     expect(response.status).toBe(200);
     expectPrivate(response);
     await expect(response.json()).resolves.toEqual({
@@ -89,11 +79,13 @@ describe("payments list BFF", () => {
   });
 
   it("refuses a filter outside the schema without calling billing", async () => {
-    const response = await handleOwnerPaymentsRequest(
-      get("/api/authoring/billing/owner-payments?state=paid"),
+    const response = await session(() =>
+      handleOwnerPaymentsRequest(
+        get("/api/authoring/billing/owner-payments?state=paid"),
+      ),
     );
 
-    expect(fakes.manage).not.toHaveBeenCalled();
+    expect(backend.command).not.toHaveBeenCalled();
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       ok: false,
@@ -102,10 +94,12 @@ describe("payments list BFF", () => {
   });
 
   it("keeps another role's refusal a refusal, not an empty list", async () => {
-    fakes.manage.mockResolvedValue(problem("forbidden", 403));
+    backend.command.mockImplementation(() =>
+      Promise.resolve(problem("forbidden", 403)),
+    );
 
-    const response = await handleOwnerPaymentsRequest(
-      get("/api/authoring/billing/owner-payments"),
+    const response = await session(() =>
+      handleOwnerPaymentsRequest(get("/api/authoring/billing/owner-payments")),
     );
 
     expect(response.status).toBe(403);
@@ -117,59 +111,59 @@ describe("payments list BFF", () => {
   });
 
   it("asks for a sign-in without a session", async () => {
-    const { LogtoSessionUnavailableError } =
-      await import("@/shared/auth/session-adapter.server");
-    fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
+    session = await realBffSession(null);
 
-    const response = await handleOwnerPaymentsRequest(
-      get("/api/authoring/billing/owner-payments"),
+    const response = await session(() =>
+      handleOwnerPaymentsRequest(get("/api/authoring/billing/owner-payments")),
     );
 
     expect(response.status).toBe(401);
-    expect(fakes.manage).not.toHaveBeenCalled();
+    expect(backend.command).not.toHaveBeenCalled();
   });
 });
 
 describe("product choices BFF", () => {
   it("offers products by name, without materials, sorted for Russian", async () => {
-    fakes.manage.mockResolvedValue(
-      ok({
-        operationRef,
-        result: {
-          outcome: "content",
-          items: [
-            {
-              kind: "product",
-              id: productId,
-              title: "Разработка с агентами",
-              slug: null,
-              available: true,
-            },
-            {
-              kind: "material",
-              id: purchaseRef,
-              title: "Ревью кода",
-              slug: null,
-              available: true,
-            },
-            {
-              kind: "product",
-              id: operationRef,
-              title: "Архитектура",
-              slug: "architecture",
-              available: false,
-            },
-          ],
-        },
-      }),
+    backend.command.mockImplementation(() =>
+      Promise.resolve(
+        ok({
+          operationRef,
+          result: {
+            outcome: "content",
+            items: [
+              {
+                kind: "product",
+                id: productId,
+                title: "Разработка с агентами",
+                slug: null,
+                available: true,
+              },
+              {
+                kind: "material",
+                id: purchaseRef,
+                title: "Ревью кода",
+                slug: null,
+                available: true,
+              },
+              {
+                kind: "product",
+                id: operationRef,
+                title: "Архитектура",
+                slug: "architecture",
+                available: false,
+              },
+            ],
+          },
+        }),
+      ),
     );
 
-    const response = await handleOwnerPaymentProductsRequest();
+    const response = await session(() => handleOwnerPaymentProductsRequest());
 
-    expect(fakes.manage).toHaveBeenCalledWith(
-      { operation: "content.list", operationId: anyOperationId },
-      "owner-token",
-    );
+    expect(await commandBody(backend.command.mock.calls.at(-1)?.[0])).toEqual({
+      operation: "content.list",
+      operationId: anyOperationId,
+    });
     await expect(response.json()).resolves.toEqual({
       ok: true,
       value: [
@@ -194,24 +188,23 @@ describe("payment read BFF", () => {
   };
 
   it("continues the audit of the same payment only", async () => {
-    fakes.manage.mockResolvedValue(ok(page));
+    backend.command.mockImplementation(() => Promise.resolve(ok(page)));
 
-    const response = await handleOwnerPaymentRequest(
-      get(
-        `/api/authoring/billing/owner-payments/${purchaseRef}?auditAfter=100`,
+    const response = await session(() =>
+      handleOwnerPaymentRequest(
+        get(
+          `/api/authoring/billing/owner-payments/${purchaseRef}?auditAfter=100`,
+        ),
+        purchaseRef.toUpperCase(),
       ),
-      purchaseRef.toUpperCase(),
     );
 
-    expect(fakes.manage).toHaveBeenCalledWith(
-      {
-        operation: "payments.read",
-        operationId: anyOperationId,
-        purchaseRef,
-        auditCursor: { purchaseRef, afterSequence: "100" },
-      },
-      "owner-token",
-    );
+    expect(await commandBody(backend.command.mock.calls.at(-1)?.[0])).toEqual({
+      operation: "payments.read",
+      operationId: anyOperationId,
+      purchaseRef,
+      auditCursor: { purchaseRef, afterSequence: "100" },
+    });
     await expect(response.json()).resolves.toMatchObject({
       ok: true,
       value: { nextAuditAfter: "100" },
@@ -223,23 +216,29 @@ describe("payment read BFF", () => {
       ["not-a-ref", null],
       [purchaseRef, "0"],
     ] as const) {
-      const response = await handleOwnerPaymentRequest(
-        get(
-          `/api/authoring/billing/owner-payments/${ref}${after === null ? "" : `?auditAfter=${after}`}`,
+      const response = await session(() =>
+        handleOwnerPaymentRequest(
+          get(
+            `/api/authoring/billing/owner-payments/${ref}${after === null ? "" : `?auditAfter=${after}`}`,
+          ),
+          ref,
         ),
-        ref,
       );
       expect(response.status).toBe(400);
     }
-    expect(fakes.manage).not.toHaveBeenCalled();
+    expect(backend.command).not.toHaveBeenCalled();
   });
 
   it("keeps a missing payment a missing payment", async () => {
-    fakes.manage.mockResolvedValue(problem("not_found", 404));
+    backend.command.mockImplementation(() =>
+      Promise.resolve(problem("not_found", 404)),
+    );
 
-    const response = await handleOwnerPaymentRequest(
-      get(`/api/authoring/billing/owner-payments/${purchaseRef}`),
-      purchaseRef,
+    const response = await session(() =>
+      handleOwnerPaymentRequest(
+        get(`/api/authoring/billing/owner-payments/${purchaseRef}`),
+        purchaseRef,
+      ),
     );
 
     expect(response.status).toBe(404);
@@ -252,12 +251,21 @@ describe("payment read BFF", () => {
 
 describe("order email BFF", () => {
   it("answers the order email privately and never through the list command", async () => {
-    fakes.orderEmail.mockResolvedValue(ok({ email }));
+    backend.orderEmail.mockResolvedValue(ok({ email }));
 
-    const response = await handleOrderEmailRequest(purchaseRef.toUpperCase());
+    const response = await session(() =>
+      handleOrderEmailRequest(purchaseRef.toUpperCase()),
+    );
 
-    expect(fakes.orderEmail).toHaveBeenCalledWith(purchaseRef, "owner-token");
-    expect(fakes.manage).not.toHaveBeenCalled();
+    expect(backend.orderEmail).toHaveBeenCalledOnce();
+    const sent = backend.orderEmail.mock.calls[0]?.[0];
+    expect(sent?.url).toBe(
+      `https://platform-api.example.test/billing/admin/payments/${purchaseRef}/order-email`,
+    );
+    expect(sent?.method).toBe("GET");
+    expect(sent?.headers.get("authorization")).toBe("Bearer owner-token");
+    expect(sent?.body).toBeNull();
+    expect(backend.command).not.toHaveBeenCalled();
     expect(response.status).toBe(200);
     expectPrivate(response);
     await expect(response.json()).resolves.toEqual({
@@ -267,9 +275,9 @@ describe("order email BFF", () => {
   });
 
   it("says when the order has no email", async () => {
-    fakes.orderEmail.mockResolvedValue(ok({ email: null }));
+    backend.orderEmail.mockResolvedValue(ok({ email: null }));
 
-    const response = await handleOrderEmailRequest(purchaseRef);
+    const response = await session(() => handleOrderEmailRequest(purchaseRef));
 
     await expect(response.json()).resolves.toEqual({
       ok: true,
@@ -281,9 +289,9 @@ describe("order email BFF", () => {
     [403, "forbidden"],
     [404, "not_found"],
   ])("keeps a %i refusal as %s", async (status, code) => {
-    fakes.orderEmail.mockResolvedValue(problem(code, status));
+    backend.orderEmail.mockResolvedValue(problem(code, status));
 
-    const response = await handleOrderEmailRequest(purchaseRef);
+    const response = await session(() => handleOrderEmailRequest(purchaseRef));
 
     expect(response.status).toBe(status);
     expectPrivate(response);
@@ -291,9 +299,11 @@ describe("order email BFF", () => {
   });
 
   it("reports an unavailable dependency as such, with no address in the answer", async () => {
-    fakes.orderEmail.mockResolvedValue(problem("dependency_unavailable", 503));
+    backend.orderEmail.mockResolvedValue(
+      problem("dependency_unavailable", 503),
+    );
 
-    const response = await handleOrderEmailRequest(purchaseRef);
+    const response = await session(() => handleOrderEmailRequest(purchaseRef));
 
     expect(response.status).toBe(503);
     expectPrivate(response);
@@ -303,16 +313,18 @@ describe("order email BFF", () => {
   });
 
   it("refuses a malformed address without asking billing", async () => {
-    const response = await handleOrderEmailRequest("../payments");
+    const response = await session(() =>
+      handleOrderEmailRequest("../payments"),
+    );
 
     expect(response.status).toBe(404);
-    expect(fakes.orderEmail).not.toHaveBeenCalled();
+    expect(backend.orderEmail).not.toHaveBeenCalled();
   });
 
   it("does not accept a body outside the contract as an email", async () => {
-    fakes.orderEmail.mockResolvedValue(ok({ email: "not an email" }));
+    backend.orderEmail.mockResolvedValue(ok({ email: "not an email" }));
 
-    const response = await handleOrderEmailRequest(purchaseRef);
+    const response = await session(() => handleOrderEmailRequest(purchaseRef));
 
     expect(response.status).toBe(502);
     expect(await response.text()).not.toContain("not an email");
@@ -329,20 +341,24 @@ describe("reconcile BFF", () => {
     });
 
   it("asks billing to reconcile with the bank budget and returns the payment", async () => {
+    const deadline = vi.spyOn(AbortSignal, "timeout");
     const payment = ownerPayment(3, { purchaseRef, state: "confirmed" });
-    fakes.manage.mockResolvedValue(
-      ok({ operationRef, result: { outcome: "reconciled", value: payment } }),
+    backend.command.mockImplementation(() =>
+      Promise.resolve(
+        ok({ operationRef, result: { outcome: "reconciled", value: payment } }),
+      ),
     );
 
-    const response = await handleReconcilePayment(
-      post({ operationId, purchaseRef }),
+    const response = await session(() =>
+      handleReconcilePayment(post({ operationId, purchaseRef })),
     );
 
-    expect(fakes.manage).toHaveBeenCalledWith(
-      { operation: "payments.reconcile", operationId, purchaseRef },
-      "owner-token",
-      { bankCommand: true },
-    );
+    expect(await commandBody(backend.command.mock.calls.at(-1)?.[0])).toEqual({
+      operation: "payments.reconcile",
+      operationId,
+      purchaseRef,
+    });
+    expect(deadline).toHaveBeenCalledWith(30_000);
     await expect(response.json()).resolves.toEqual({
       ok: true,
       value: {
@@ -353,10 +369,12 @@ describe("reconcile BFF", () => {
   });
 
   it("keeps the bank's refusal as a closed code", async () => {
-    fakes.manage.mockResolvedValue(problem("provider_unavailable", 503));
+    backend.command.mockImplementation(() =>
+      Promise.resolve(problem("provider_unavailable", 503)),
+    );
 
-    const response = await handleReconcilePayment(
-      post({ operationId, purchaseRef }),
+    const response = await session(() =>
+      handleReconcilePayment(post({ operationId, purchaseRef })),
     );
 
     await expect(response.json()).resolves.toEqual({
@@ -365,3 +383,10 @@ describe("reconcile BFF", () => {
     });
   });
 });
+
+async function commandBody(request: Request | undefined): Promise<unknown> {
+  if (request === undefined)
+    throw new Error("Expected owner Billing HTTP request");
+  expect(request.headers.get("authorization")).toBe("Bearer owner-token");
+  return request.clone().json();
+}
