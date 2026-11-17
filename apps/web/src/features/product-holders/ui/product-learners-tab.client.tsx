@@ -12,6 +12,7 @@ import {
   announceEnrollmentChange,
   subscribeEnrollmentChange,
 } from "@/entities/subscription";
+import { refreshAnnouncedQueries } from "@/shared/api/announced-query-refresh";
 import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 import { internalRoute } from "@/shared/routing/internal-route";
 
@@ -22,7 +23,6 @@ import {
   type HoldersAddress,
 } from "../model/product-holders";
 import {
-  invalidateProductHolders,
   productHoldersQueryOptions,
   productHoldersQueryKey,
 } from "../model/product-holders-query-options";
@@ -97,8 +97,12 @@ export function ProductLearnersTab({
       />
       <BulkGrantProductDialog
         onGranted={() => {
-          void invalidateProductHolders(queryClient, productId);
-          announceEnrollmentChange();
+          const announcementId = announceEnrollmentChange();
+          void refreshAnnouncedQueries(
+            queryClient,
+            productHoldersQueryKey(productId),
+            announcementId,
+          );
         }}
         onOpenChange={setGranting}
         open={granting}

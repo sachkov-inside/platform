@@ -216,18 +216,22 @@ test("an enrollment announcement replaces the learners read held before the gran
   const release = Promise.withResolvers<undefined>();
   const started = Promise.withResolvers<undefined>();
   const finished = Promise.withResolvers<undefined>();
-  let held = false;
+  const responseState = { held: false };
   await page.route(
     `**/api/authoring/products/${productId}/holders*`,
     async (route) => {
-      if (held) {
+      if (responseState.held) {
         await route.continue();
         return;
       }
-      held = true;
+      responseState.held = true;
       try {
         const response = await route.fetch();
         expect(response.status()).toBe(200);
+        expect(await response.json()).toMatchObject({
+          kind: "ready",
+          items: [{ accountId: annaId }, { accountId: contactlessId }],
+        });
         started.resolve(undefined);
         await release.promise;
         try {
@@ -251,7 +255,7 @@ test("an enrollment announcement replaces the learners read held before the gran
     ).toBeVisible();
   } finally {
     release.resolve(undefined);
-    if (held) await finished.promise;
+    if (responseState.held) await finished.promise;
   }
 });
 

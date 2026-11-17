@@ -559,16 +559,16 @@ test("an enrollment announcement replaces the People read held before a grant in
   const release = Promise.withResolvers<undefined>();
   const started = Promise.withResolvers<undefined>();
   const finished = Promise.withResolvers<undefined>();
-  let held = false;
+  const responseState = { held: false };
   await page.route("**/api/authoring/people**", async (route) => {
     if (
-      held ||
+      responseState.held ||
       new URL(route.request().url()).pathname !== "/api/authoring/people"
     ) {
       await route.continue();
       return;
     }
-    held = true;
+    responseState.held = true;
     try {
       const response = await route.fetch();
       expect(response.status()).toBe(200);
@@ -610,7 +610,7 @@ test("an enrollment announcement replaces the People read held before a grant in
     await expect(personRow(page, anna.name)).toBeVisible();
   } finally {
     release.resolve(undefined);
-    if (held) await finished.promise;
+    if (responseState.held) await finished.promise;
     await card.close();
   }
 });
