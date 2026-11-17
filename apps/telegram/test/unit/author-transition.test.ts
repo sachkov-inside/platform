@@ -966,6 +966,25 @@ describe("sequence settings", () => {
     });
   });
 
+  it("opens delayed message controls without sending another post or menu", () => {
+    const dialog = card(
+      sequence({
+        steps: [
+          {
+            stepId: uuid(803),
+            delaySeconds: 3600,
+            delayAnchor: "entry",
+            parts: [{ partId: uuid(804), content: text("Урок") }],
+          },
+        ],
+      }),
+    )
+      .click("Сообщения")
+      .click("2. Через 1 ч · 📝 Текст · Урок");
+    expect(dialog.kinds()).toEqual(["menu"]);
+    expect(dialog.labels()).toContain("Когда отправить");
+  });
+
   it("shows a complete entry link directly from the funnel card", () => {
     const dialog = card(
       sequence({

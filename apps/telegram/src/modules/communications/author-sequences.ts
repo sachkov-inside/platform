@@ -479,7 +479,6 @@ function performSelection(
       const index = current.findIndex((p) => p.partId === a.id);
       const part = current[index];
       if (!part) throw new CommunicationsError("not_found");
-      t.preview(part.content);
       return t.reply(
         `Сообщение ${index + 1} · ${part.content.type}\n${part.content.text.slice(0, 1000)}\nКнопок: ${part.content.buttons.length}`,
         [
