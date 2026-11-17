@@ -91,7 +91,7 @@ const cover = {
  * }} Product
  * @typedef {(typeof lessons)[number]} Lesson
  * @typedef {{ status: number; value: unknown; contentType?: undefined }} JsonResult
- * @typedef {{ status: number; value: Buffer; contentType: string; headers?: Record<string, string> }} ImageResult
+ * @typedef {{ status: number; value: Buffer; contentType: string; headers?: Record<string, string> }} BinaryResult
  */
 
 const archivedProductSlug = "navigation-archive";
@@ -532,7 +532,7 @@ function collection(entitled) {
  * @param {string | undefined} method
  * @param {URL} url
  * @param {boolean} entitled
- * @returns {JsonResult | ImageResult | undefined}
+ * @returns {JsonResult | BinaryResult | undefined}
  */
 function route(method, url, entitled) {
   const learning = learningScenarioRoute(method, url, entitled);
@@ -1075,7 +1075,7 @@ function route(method, url, entitled) {
  * Однотонная PNG нужного размера: браузеру важны размер и то, что картинка настоящая.
  *
  * @param {{ height: number; width: number }} size
- * @returns {ImageResult}
+ * @returns {BinaryResult}
  */
 function image({ height, width }) {
   const crcTable = Array.from({ length: 256 }, (_, n) => {
