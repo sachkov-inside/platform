@@ -106,3 +106,78 @@ export const KeepsChoiceAcrossRetention: Story = {
     await waitFor(() => expect(expand.isConnected).toBe(false));
   },
 };
+
+export const KeepsUnpersistedChoiceAcrossRetention: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const descriptor = Object.getOwnPropertyDescriptor(
+      Storage.prototype,
+      "setItem",
+    );
+    if (descriptor === undefined)
+      throw new Error("Missing native storage writer");
+    const local = localStorage;
+    const session = sessionStorage;
+    const writeLocal = local.setItem.bind(local);
+    const writeSession = session.setItem.bind(session);
+    const collapse = canvas.getByRole("button", {
+      name: "Свернуть меню уроков",
+    });
+    await expect(collapse).toBeVisible();
+    try {
+      // Named synthetic native quota fault for the course-menu key only, not a real privacy setting.
+      Object.defineProperty(Storage.prototype, "setItem", {
+        ...descriptor,
+        value: function (this: Storage, key: string, value: string) {
+          if (this === local) {
+            if (key === courseMenuStorageKey)
+              throw new DOMException(
+                "Synthetic full storage",
+                "QuotaExceededError",
+              );
+            writeLocal(key, value);
+          } else if (this === session) {
+            writeSession(key, value);
+          } else {
+            throw new TypeError("Unexpected native storage receiver");
+          }
+        },
+      });
+      await userEvent.click(collapse);
+      const expand = canvas.getByRole("button", {
+        name: "Развернуть меню уроков",
+      });
+      await expect(expand).toBeVisible();
+      await expect(expand).toHaveFocus();
+      await expect(localStorage.getItem(courseMenuStorageKey)).toBeNull();
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть страницу курса" }),
+      );
+      await waitFor(() => expect(expand).not.toBeVisible());
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть страницу курса" }),
+      );
+      await waitFor(() => expect(expand).toBeVisible());
+      await expect(
+        canvas.getByRole("button", { name: "Развернуть меню уроков" }),
+      ).toBe(expand);
+    } finally {
+      Object.defineProperty(Storage.prototype, "setItem", descriptor);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть страницу курса" }),
+      );
+      localStorage.removeItem(courseMenuStorageKey);
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: courseMenuStorageKey,
+          storageArea: localStorage,
+        }),
+      );
+      await waitFor(() =>
+        expect(
+          canvas.getByRole("button", { name: "Свернуть меню уроков" }),
+        ).toBeVisible(),
+      );
+    }
+  },
+};
