@@ -23,8 +23,10 @@ const fade =
  */
 export function MaterialTableScroll({
   children,
+  label = "Таблица в материале",
 }: {
   readonly children: ReactNode;
+  readonly label?: string;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [overflow, setOverflow] = useState<Overflow>("none");
@@ -55,7 +57,7 @@ export function MaterialTableScroll({
       data-reader-block="table"
     >
       <div
-        aria-label="Таблица в материале"
+        aria-label={label}
         className="max-w-full overflow-x-auto overscroll-x-contain [scrollbar-color:var(--muted-foreground)_var(--muted)]"
         data-table-scroll=""
         ref={scroller}
