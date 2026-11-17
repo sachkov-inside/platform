@@ -17,6 +17,7 @@ const fixtureName = z.enum([
   "body-fragments",
   "reader-history",
   "cabinet-facts",
+  "course-film",
 ]);
 const budget = z.number().int().positive().max(30_000);
 const configuration = z.object({
@@ -272,7 +273,9 @@ async function runHost(config: Configuration) {
             ],
       root: webRoot,
       cacheDir: `node_modules/.cache/${config.name}-browser`,
-      ...(config.name === "body-fragments" || config.name === "cabinet-facts"
+      ...(config.name === "body-fragments" ||
+      config.name === "cabinet-facts" ||
+      config.name === "course-film"
         ? { define: { "process.env": "{}" } }
         : {}),
       resolve: {
