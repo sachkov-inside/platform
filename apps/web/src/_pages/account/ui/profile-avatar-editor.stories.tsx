@@ -68,11 +68,13 @@ export const LeaveBeforeImageDecodes: Story = {
       flushSync(() => {
         canvas.getByRole("button", { name: "Уйти со страницы" }).click();
       });
+      const ownedUrl: unknown = created.mock.results[0]?.value;
+      const releasedBeforeYield = released.mock.calls.some(
+        ([url]) => url === ownedUrl,
+      );
       await expect(canvas.getByText("Другая страница")).toBeVisible();
       await expect(created).toHaveBeenCalledTimes(1);
-      await expect(released).toHaveBeenCalledWith(
-        created.mock.results[0]?.value,
-      );
+      await expect(releasedBeforeYield).toBe(true);
     } finally {
       const results = [...created.mock.results];
       created.mockRestore();
