@@ -189,3 +189,87 @@ test("learners tab lists holders by name and grants several people with one retr
   await expect(rows.getByRole("link", { name: failingEmail })).toBeVisible();
   await expectAccessibleWithoutOverflow(page);
 });
+
+async function grantKonstantin(page: Page) {
+  await page
+    .getByRole("button", { name: "Выдать продукт", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: `Выдать «${productName}»`,
+  });
+  await dialog.getByRole("searchbox", { name: "Найти человека" }).fill("конст");
+  await dialog
+    .getByRole("button", { name: new RegExp(`${konstantin}.*Добавить`) })
+    .click();
+  await dialog.getByRole("radio", { name: "Подарок" }).check();
+  await dialog.getByRole("button", { name: "Выдать 1 человеку" }).click();
+  await expect(dialog.getByRole("status").first()).toHaveText(
+    "Готово: выдано 1.",
+  );
+  await dialog.getByRole("button", { name: "Готово", exact: true }).click();
+  await expect(dialog).toBeHidden();
+}
+
+test("an enrollment announcement replaces the learners read held before the grant (#2379)", async ({
+  page,
+}, info) => {
+  const release = Promise.withResolvers<undefined>();
+  const started = Promise.withResolvers<undefined>();
+  const finished = Promise.withResolvers<undefined>();
+  let held = false;
+  await page.route(
+    `**/api/authoring/products/${productId}/holders*`,
+    async (route) => {
+      if (held) {
+        await route.continue();
+        return;
+      }
+      held = true;
+      try {
+        const response = await route.fetch();
+        expect(response.status()).toBe(200);
+        started.resolve(undefined);
+        await release.promise;
+        try {
+          await route.fulfill({ response });
+        } catch (error: unknown) {
+          if (route.request().failure() === null) throw error;
+        }
+      } finally {
+        finished.resolve(undefined);
+      }
+    },
+  );
+  try {
+    await page.goto(`/authoring/products/${productId}?tab=learners`);
+    await started.promise;
+    await grantKonstantin(page);
+    // The pre-grant response is still held; only a read after the real command can contain the new holder.
+    await expect(learnerRows(page, info)).toHaveCount(3);
+    await expect(
+      learnerRows(page, info).getByRole("link", { name: konstantin }),
+    ).toBeVisible();
+  } finally {
+    release.resolve(undefined);
+    if (held) await finished.promise;
+  }
+});
+
+test("one local grant shares one learners reread with its announcement (#2379)", async ({
+  page,
+}, info) => {
+  await page.goto(`/authoring/products/${productId}?tab=learners`);
+  await expect(learnerRows(page, info)).toHaveCount(2);
+  let reads = 0;
+  await page.route(
+    `**/api/authoring/products/${productId}/holders*`,
+    async (route) => {
+      if (!new URL(route.request().url()).searchParams.has("accountIds"))
+        reads++;
+      await route.continue();
+    },
+  );
+  await grantKonstantin(page);
+  await expect(learnerRows(page, info)).toHaveCount(3);
+  expect(reads).toBe(1);
+});

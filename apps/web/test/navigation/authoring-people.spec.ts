@@ -549,3 +549,68 @@ test("the «Люди» group of the global search opens the person card", async 
     page.getByRole("heading", { level: 1, name: anna.name }),
   ).toBeVisible();
 });
+
+test("an enrollment announcement replaces the People read held before a grant in another tab (#2379)", async ({
+  baseURL,
+  context,
+  page,
+}) => {
+  await signIn(context, baseURL);
+  const release = Promise.withResolvers<undefined>();
+  const started = Promise.withResolvers<undefined>();
+  const finished = Promise.withResolvers<undefined>();
+  let held = false;
+  await page.route("**/api/authoring/people**", async (route) => {
+    if (
+      held ||
+      new URL(route.request().url()).pathname !== "/api/authoring/people"
+    ) {
+      await route.continue();
+      return;
+    }
+    held = true;
+    try {
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      expect(await response.json()).toMatchObject({
+        kind: "ready",
+        items: [],
+        total: 0,
+      });
+      started.resolve(undefined);
+      await release.promise;
+      try {
+        await route.fulfill({ response });
+      } catch (error: unknown) {
+        if (route.request().failure() === null) throw error;
+      }
+    } finally {
+      finished.resolve(undefined);
+    }
+  });
+  const card = await context.newPage();
+  try {
+    await page.goto(
+      `/authoring/people?q=${encodeURIComponent(anna.name)}&product=${products.practice.productId}&state=active`,
+    );
+    await started.promise;
+    await openCard(card, anna.accountId, anna.name);
+    await card
+      .getByRole("button", { name: "Выдать продукт", exact: true })
+      .click();
+    const grant = card.getByRole("dialog", { name: "Выдать продукт" });
+    await grant.getByRole("radio", { name: products.practice.name }).check();
+    await grant.getByRole("radio", { name: "Подарок" }).check();
+    await grant
+      .getByRole("button", { name: "Выдать продукт", exact: true })
+      .click();
+    await expect(card.getByText("Доступ выдан.")).toBeVisible();
+    await expect(grant).toBeHidden();
+    // The held response is still empty; the new row must come from the announced post-write read.
+    await expect(personRow(page, anna.name)).toBeVisible();
+  } finally {
+    release.resolve(undefined);
+    if (held) await finished.promise;
+    await card.close();
+  }
+});

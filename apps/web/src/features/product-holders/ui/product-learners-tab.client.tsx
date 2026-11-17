@@ -6,12 +6,13 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   announceEnrollmentChange,
   subscribeEnrollmentChange,
 } from "@/entities/subscription";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 import { internalRoute } from "@/shared/routing/internal-route";
 
 import type { BulkGrantSend } from "../model/bulk-grant";
@@ -23,6 +24,7 @@ import {
 import {
   invalidateProductHolders,
   productHoldersQueryOptions,
+  productHoldersQueryKey,
 } from "../model/product-holders-query-options";
 import {
   BulkGrantProductDialog,
@@ -32,6 +34,8 @@ import {
   ProductHoldersTable,
   type ProductHoldersViewState,
 } from "./product-holders-table.client";
+
+const enrollmentChanges = { subscribe: subscribeEnrollmentChange };
 
 export interface ProductLearnersTabProps {
   readonly productId: string;
@@ -66,14 +70,7 @@ export function ProductLearnersTab({
     placeholderData: keepPreviousData,
   });
 
-  // Выдача, отзыв и восстановление в карточке человека объявляют изменение доступа.
-  useEffect(
-    () =>
-      subscribeEnrollmentChange(() => {
-        void invalidateProductHolders(queryClient, productId);
-      }),
-    [productId, queryClient],
-  );
+  useAnnouncedRefresh(enrollmentChanges, productHoldersQueryKey(productId));
 
   const hrefFor = (next: HoldersAddress) =>
     internalRoute(

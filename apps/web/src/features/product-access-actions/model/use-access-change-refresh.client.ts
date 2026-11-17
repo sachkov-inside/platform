@@ -1,22 +1,13 @@
 "use client";
 
-import { useQueryClient, type QueryKey } from "@tanstack/react-query";
-import { useEffect } from "react";
+import type { QueryKey } from "@tanstack/react-query";
 
 import { subscribeEnrollmentChange } from "@/entities/subscription";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
-/**
- * Перечитывает чтения под `queryKey`, когда любая поверхность этого браузера записала доступ к
- * продукту. Сброс присоединяется к уже начатому перечитыванию: объявление слышит и сама вкладка,
- * которая записала доступ. `queryKey` передаётся постоянным значением модуля.
- */
+const enrollmentChanges = { subscribe: subscribeEnrollmentChange };
+
+/** Keeps People access reads current across the browser's access writes (#2379). */
 export function useAccessChangeRefresh(queryKey: QueryKey): void {
-  const client = useQueryClient();
-  useEffect(
-    () =>
-      subscribeEnrollmentChange(() => {
-        void client.invalidateQueries({ queryKey }, { cancelRefetch: false });
-      }),
-    [client, queryKey],
-  );
+  useAnnouncedRefresh(enrollmentChanges, queryKey);
 }
