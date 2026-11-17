@@ -163,9 +163,25 @@ test("storage notice reserves its rendered height across responsive changes and 
     )
     .toBe(`${String(Math.round(initial.height))}px`);
   await page.setViewportSize({ width: 1440, height: 900 });
+  // The notice Button animates its resize; the first changed box can be an intermediate height (#2400).
   await expect
-    .poll(async () => (await notice.boundingBox())?.height)
-    .not.toBe(initial.height);
+    .poll(() =>
+      notice.evaluate((element, previousHeight) => {
+        const button = element.querySelector("button");
+        if (button === null) throw new Error("Missing notice acknowledgement");
+        const changed =
+          element.getBoundingClientRect().height !== previousHeight;
+        const resizing = button
+          .getAnimations()
+          .some(
+            (animation) =>
+              animation instanceof CSSTransition &&
+              (animation.pending || animation.playState === "running"),
+          );
+        return changed && !resizing;
+      }, initial.height),
+    )
+    .toBe(true);
   const changed = await notice.boundingBox();
   if (changed === null) throw new Error("Missing resized rendered notice");
   await expect
