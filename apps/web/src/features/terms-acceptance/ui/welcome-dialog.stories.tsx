@@ -8,8 +8,10 @@ import {
   legalDocumentPath,
   legalEditionPath,
 } from "@/shared/routing/public-page-path";
+import { Button } from "@/shared/ui/button";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
+import { WelcomeDialog } from "./welcome-dialog.client";
 import { WelcomeView } from "./welcome-view";
 
 const terms = currentLegalEdition("terms");
@@ -66,6 +68,20 @@ function RetainedWelcome() {
         }}
       >
         Удалить приветствие
+      </button>
+      <button
+        id="blink-welcome"
+        type="button"
+        onClick={() => {
+          flushSync(() => {
+            setVisible(false);
+          });
+          flushSync(() => {
+            setVisible(true);
+          });
+        }}
+      >
+        Скрыть и сразу вернуть приветствие
       </button>
       <output aria-label="Native close events">{closeEvents}</output>
       <Activity mode={visible ? "visible" : "hidden"}>
@@ -141,5 +157,63 @@ export const ReleasesHiddenModal: Story = {
     unmount.click();
     await waitFor(() => expect(dialog.isConnected).toBe(false));
     await expect(dialog.matches(":modal")).toBe(false);
+  },
+};
+
+export const LateCloseAfterReturn: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const dialog = await canvas.findByRole<HTMLDialogElement>("dialog", {
+      name: "Добро пожаловать",
+    });
+    const closes = canvas.getByLabelText("Native close events");
+    await waitFor(() => expect(dialog.matches(":modal")).toBe(true));
+    await waitFor(() => expect(closes).toHaveTextContent("1"));
+    const blink =
+      canvasElement.querySelector<HTMLButtonElement>("#blink-welcome");
+    if (blink === null)
+      throw new Error("Missing immediate return fixture control");
+    blink.click();
+    await expect(closes).toHaveTextContent("1");
+    await expect(dialog.matches(":modal")).toBe(true);
+    await waitFor(() => expect(closes).toHaveTextContent("2"));
+    await expect(dialog.matches(":modal")).toBe(true);
+    dialog.close();
+    await waitFor(() => expect(closes).toHaveTextContent("3"));
+    await waitFor(() => expect(dialog.matches(":modal")).toBe(true));
+    const cancel = new Event("cancel", { cancelable: true });
+    dialog.dispatchEvent(cancel);
+    await expect(cancel.defaultPrevented).toBe(true);
+    await expect(dialog.matches(":modal")).toBe(true);
+  },
+};
+
+function focusExisting(element: HTMLButtonElement | null) {
+  element?.focus();
+}
+
+export const KeepsExistingFocus: Story = {
+  render: () => (
+    <WelcomeDialog labelledBy="welcome-focus-title">
+      <div className="p-6">
+        <h1 id="welcome-focus-title">Проверка сохранения фокуса</h1>
+        <Button type="button" data-dialog-initial-focus>
+          Начальное действие
+        </Button>
+        <Button type="button" ref={focusExisting}>
+          Уже выбранное действие
+        </Button>
+      </div>
+    </WelcomeDialog>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const dialog = await canvas.findByRole<HTMLDialogElement>("dialog", {
+      name: "Проверка сохранения фокуса",
+    });
+    await waitFor(() => expect(dialog.matches(":modal")).toBe(true));
+    await expect(
+      within(dialog).getByRole("button", { name: "Уже выбранное действие" }),
+    ).toHaveFocus();
   },
 };
