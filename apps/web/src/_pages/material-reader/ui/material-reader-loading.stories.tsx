@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { expect, within } from "storybook/test";
@@ -48,7 +49,7 @@ const material = {
       ordinal: 3,
       product: {
         id: "72000000-0000-4000-8000-000000000005",
-        name: "Создание Platform Inside",
+        name: legacyCatalogueScenario.product.name,
         slug: "ai-engineering",
       },
     },

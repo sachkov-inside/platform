@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../scenarios/legacy-catalog.mjs";
 import { productCapability } from "@inside/access-capabilities";
 
 import type { CommunityEntry } from "@/features/community-entry";
@@ -76,14 +77,14 @@ export const supportOffer: PriceSnapshot = {
 export const productOnlyOffer: PriceSnapshot = {
   product: {
     id: uuid("f01"),
-    name: "Создание Platform Inside",
+    name: legacyCatalogueScenario.product.name,
     priceRevision: 1,
   },
   supportMonths: 3,
   offer: {
     id: uuid("103"),
     revision: 1,
-    name: "Руководство «Создание Platform Inside»",
+    name: legacyCatalogueScenario.offer.name,
     benefits: [productCapability(uuid("f01"))],
     benefitPeriods: [
       { capability: productCapability(uuid("f01")), months: null },
@@ -111,14 +112,14 @@ export const productOnlyOffer: PriceSnapshot = {
 export const productWithSupportOffer: PriceSnapshot = {
   product: {
     id: uuid("f01"),
-    name: "Создание Platform Inside",
+    name: legacyCatalogueScenario.product.name,
     priceRevision: 1,
   },
   supportMonths: 3,
   offer: {
     id: uuid("104"),
     revision: 1,
-    name: "Руководство «Создание Platform Inside» с сопровождением",
+    name: legacyCatalogueScenario.offer.withSupportName,
     benefits: [productCapability(uuid("f01")), "support"],
     benefitPeriods: [
       { capability: productCapability(uuid("f01")), months: null },
@@ -152,7 +153,7 @@ export const fixedTermProductOffer: PriceSnapshot = {
   offer: {
     ...productWithSupportOffer.offer,
     id: uuid("105"),
-    name: "Руководство «Создание Platform Inside» на два года",
+    name: legacyCatalogueScenario.offer.twoYearName,
     benefitPeriods: [
       { capability: productCapability(uuid("f01")), months: 24 },
       { capability: "support", months: 12 },
@@ -287,8 +288,8 @@ export const courseEnrollment: Enrollment = {
     {
       kind: "product",
       id: uuid("f01"),
-      title: "Создание Platform Inside",
-      slug: "platform-inside",
+      title: legacyCatalogueScenario.product.name,
+      slug: legacyCatalogueScenario.product.slug,
       available: true,
     },
   ],
@@ -371,7 +372,7 @@ export const ownPayments: readonly OwnPayment[] = [
     kind: "one_time",
     state: "confirmed",
     amountKopecks: 250_000,
-    offerName: "Руководство «Создание Platform Inside»",
+    offerName: legacyCatalogueScenario.offer.name,
     months: 1,
     fiscalization: "confirmed",
     confirmedAt: "2026-08-20T12:00:00.000Z",

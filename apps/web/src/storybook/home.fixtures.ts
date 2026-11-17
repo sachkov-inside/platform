@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../scenarios/legacy-catalog.mjs";
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 import type { HomeView } from "@/_pages/home";
 
@@ -10,7 +11,7 @@ function cover(index: number, wide = false): ContentCover {
 }
 
 const topics = [
-  { name: "Архитектура", slug: "platform", artwork: 1 },
+  { ...legacyCatalogueScenario.illustrated.primaryTopic, artwork: 1 },
   { name: "Backend", slug: "backend", artwork: 2 },
   { name: "Frontend", slug: "frontend", artwork: 3 },
   { name: "Поставка", slug: "delivery", artwork: 4 },
@@ -35,8 +36,7 @@ function material(
       : { primaryVideoDurationSeconds: duration }),
     productMemberships: [],
     slug,
-    summary:
-      "Практический разбор: от понятных границ к работающему приложению.",
+    summary: legacyCatalogueScenario.illustrated.materialSummary,
     tags: [],
     title,
     topic: topic.name,
@@ -46,39 +46,44 @@ function material(
 
 const videos = [
   material(
-    "produkt-i-inzhenernyy-kontekst",
-    "Продукт и инженерный контекст",
+    legacyCatalogueScenario.videos.productContext.slugVariants.illustrated,
+    legacyCatalogueScenario.videos.productContext.title,
     0,
     5,
-    754,
+    legacyCatalogueScenario.videos.productContext.durationSeconds,
   ),
   material(
-    "glubokie-moduli-na-praktike",
-    "Глубокие модули на практике",
+    legacyCatalogueScenario.videos.deepModules.slugVariants.illustrated,
+    legacyCatalogueScenario.videos.deepModules.title,
     1,
     6,
-    481,
+    legacyCatalogueScenario.videos.deepModules.durationSeconds,
   ),
   material(
-    "video-pro-developer-pipeline",
-    "От задачи до релиза: Developer Pipeline",
+    legacyCatalogueScenario.videos.pipeline.slug,
+    legacyCatalogueScenario.videos.pipeline.titleVariants.illustrated,
     3,
     7,
-    628,
+    legacyCatalogueScenario.videos.pipeline.durationSeconds,
   ),
 ] as const satisfies readonly MaterialPreview[];
 const guides = [
   {
     ...material(
-      "developer-pipeline-bez-poteri-konteksta",
-      "Developer Pipeline без потери контекста",
+      legacyCatalogueScenario.closedGuide.slug,
+      legacyCatalogueScenario.closedGuide.title,
       3,
       11,
     ),
     access: "closed",
     availability: "locked",
   },
-  material("kak-ustroen-inside-platform", "Как устроен Inside Platform", 0, 1),
+  material(
+    legacyCatalogueScenario.overview.slug,
+    legacyCatalogueScenario.overview.title,
+    0,
+    1,
+  ),
   material(
     "arkhitekturnaya-zametka-11",
     "Границы модулей: где провести линию",
@@ -140,10 +145,10 @@ export const illustratedHome: HomeView = {
       count: 2,
       cover: cover(1),
       id: "27100000-0000-4000-9000-000000000006",
-      name: "Создание Platform Inside",
+      name: legacyCatalogueScenario.product.name,
       previewItems: [guides[1], guides[0]],
-      slug: "platform-inside",
-      summary: "Путь от продуктовой идеи до работающей Platform.",
+      slug: legacyCatalogueScenario.product.slug,
+      summary: legacyCatalogueScenario.product.summary,
     },
   ],
   notes: [
