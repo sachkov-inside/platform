@@ -84,6 +84,7 @@ async function verifyDiagram(
 
   // Chromium delivers real touch/pointer events and capture; no own-module or browser API double.
   const touch = await page.context().newCDPSession(page);
+  let touching = false;
   try {
     await touch.send("Input.dispatchTouchEvent", {
       type: "touchStart",
@@ -92,6 +93,7 @@ async function verifyDiagram(
         { id: 2, x: center.x + 40, y: center.y },
       ],
     });
+    touching = true;
     await touch.send("Input.dispatchTouchEvent", {
       type: "touchMove",
       touchPoints: [
@@ -100,15 +102,106 @@ async function verifyDiagram(
       ],
     });
     await expect(scale).toHaveText("200%");
-  } finally {
     await touch.send("Input.dispatchTouchEvent", {
       type: "touchEnd",
       touchPoints: [],
     });
-    await touch.detach();
+    touching = false;
+    await page.keyboard.press("0");
+    await expect(scale).toHaveText("100%");
+    // Fixed external-input timestamps model a real 150ms double tap, independent of CLI latency.
+    const tapAtSeconds = 1_800_000_000;
+    for (const offset of [0, 0.15]) {
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        timestamp: tapAtSeconds + offset,
+        touchPoints: [{ id: 1, x: center.x, y: center.y }],
+      });
+      touching = true;
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchEnd",
+        timestamp: tapAtSeconds + offset + 0.05,
+        touchPoints: [],
+      });
+      touching = false;
+    }
+    await expect(scale).toHaveText("250%");
+  } finally {
+    try {
+      if (touching)
+        await touch.send("Input.dispatchTouchEvent", {
+          type: "touchEnd",
+          touchPoints: [],
+        });
+    } finally {
+      await touch.detach();
+    }
   }
   await page.keyboard.press("0");
   await expect(scale).toHaveText("100%");
+
+  // Keep a real pointer down until after Next has hidden this retained reader/task.
+  await stage.evaluate((node) => {
+    node.addEventListener(
+      "pointerdown",
+      (event) => {
+        node.dataset["heldPointer"] = String(event.pointerId);
+      },
+      { once: true },
+    );
+  });
+  const capturedStage = await stage.elementHandle();
+  const retainedDialog = await dialog.elementHandle();
+  if (capturedStage === null || retainedDialog === null)
+    throw new Error("Missing retained viewer nodes");
+  const returnUrl = page.url();
+  await page.mouse.move(center.x, center.y);
+  await page.mouse.down();
+  try {
+    await expect
+      .poll(() =>
+        capturedStage.evaluate((node) =>
+          node.hasPointerCapture(Number(node.dataset["heldPointer"])),
+        ),
+      )
+      .toBe(true);
+    await page
+      .locator('a[href="/"]')
+      .first()
+      .evaluate((node: HTMLAnchorElement) => {
+        node.click();
+      });
+    await page.waitForURL((url) => url.pathname === "/");
+    await expect
+      .poll(() => retainedDialog.evaluate((node) => node.hasAttribute("open")))
+      .toBe(false);
+    await expect(
+      capturedStage.evaluate((node) => node.isConnected),
+    ).resolves.toBe(true);
+    await expect
+      .poll(() =>
+        capturedStage.evaluate((node) =>
+          node.hasPointerCapture(Number(node.dataset["heldPointer"])),
+        ),
+      )
+      .toBe(false);
+  } finally {
+    await page.mouse.up();
+    await capturedStage.dispose();
+    await retainedDialog.dispose();
+  }
+  await page.goBack();
+  await expect(page).toHaveURL(returnUrl);
+  await expect(dialog).toHaveAttribute("open", "");
+  await expect
+    .poll(() =>
+      dialog
+        .getByRole("img")
+        .evaluate(
+          (node: HTMLImageElement) => node.complete && node.naturalWidth > 0,
+        ),
+    )
+    .toBe(true);
   await dialog.getByRole("button", { name: "Закрыть" }).click();
   await figure.evaluate((node) => {
     node.classList.remove("dark");
