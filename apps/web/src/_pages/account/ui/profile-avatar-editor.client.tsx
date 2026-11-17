@@ -182,6 +182,7 @@ export function ProfileAvatarEditor({
 
   const upload = () => {
     if (image === null) return;
+    imageReader.current?.cancel();
     setClientError(null);
     setUploadStatus({ kind: "hashing" });
     avatarMutation.mutate({
