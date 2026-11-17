@@ -100,7 +100,7 @@ test("a changed persisted choice remains authoritative after a hidden menu and r
   );
   await page
     .getByRole("banner")
-    .getByRole("link", { name: "sachkov.dev, Главная" })
+    .getByRole("link", { name: "sachkov.dev", exact: true })
     .click();
   await expect(page).toHaveURL("/");
   await expect(expand).toBeHidden();
