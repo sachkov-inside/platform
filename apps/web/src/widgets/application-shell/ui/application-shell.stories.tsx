@@ -125,6 +125,10 @@ export const DirectionAndFocus: Story = {
         expect(header.getBoundingClientRect().top).toBeGreaterThanOrEqual(0),
       );
       await expect(window.scrollY).toBe(700);
+      await scrollDocument(900);
+      await waitFor(() =>
+        expect(header.getBoundingClientRect().top).toBeGreaterThanOrEqual(0),
+      );
     } finally {
       await scrollDocument(0);
     }

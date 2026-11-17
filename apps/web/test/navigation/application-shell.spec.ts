@@ -94,4 +94,11 @@ test("public mobile header follows scroll direction and remains reachable by foc
     )
     .toBeGreaterThanOrEqual(0);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
+  await scrollDocument(page, 900);
+  await expect(home).toBeFocused();
+  await expect
+    .poll(() =>
+      header.evaluate((element) => element.getBoundingClientRect().top),
+    )
+    .toBeGreaterThanOrEqual(0);
 });
