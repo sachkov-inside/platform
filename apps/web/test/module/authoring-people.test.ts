@@ -1,15 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({ token: vi.fn() }));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
+import { realBffSession } from "../support/real-bff-session";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
-import { handlePeopleListRequest } from "@/_pages/authoring-people.server";
+import { handlePeopleListRequest as realHandlePeopleListRequest } from "@/_pages/authoring-people.server";
 import {
   parsePeopleListQuery,
   peopleFilterChips,
@@ -17,7 +12,7 @@ import {
   serializePeopleListQuery,
   withPeopleListFilter,
 } from "@/_pages/authoring-people/model/people-list";
-import { handlePersonCardRequest } from "@/_pages/authoring-person.server";
+import { handlePersonCardRequest as realHandlePersonCardRequest } from "@/_pages/authoring-person.server";
 import {
   historyActorLabel,
   joinRemindersText,
@@ -25,7 +20,7 @@ import {
   telegramFacts,
   telegramHref,
 } from "@/_pages/authoring-person/model/person-card-presentation";
-import { handleAccessProductCatalogRequest } from "@/features/product-access-actions.server";
+import { handleAccessProductCatalogRequest as realHandleAccessProductCatalogRequest } from "@/features/product-access-actions.server";
 import {
   searchGroupEntries,
   searchGroupNote,
@@ -35,17 +30,21 @@ import { annaCard, annaRow, storyProducts } from "@/storybook/people.fixtures";
 
 const productId = storyProducts[0].productId;
 
-function backendAnswer(status: number, body: unknown) {
-  const response = new Response(null, { status });
-  return status === 200
-    ? ({ ok: true, body, response } as const)
-    : ({ ok: false, problem: body, response } as const);
-}
+const handlePeopleListRequest = (request: Request) =>
+  session(() => realHandlePeopleListRequest(request));
+const handlePersonCardRequest = (accountId: string) =>
+  session(() => realHandlePersonCardRequest(accountId));
+const handleAccessProductCatalogRequest = () =>
+  session(() => realHandleAccessProductCatalogRequest());
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("owner-token");
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  session = await realBffSession("owner-token");
+  vi.stubGlobal("fetch", backend);
 });
+afterEach(() => vi.useRealTimers());
 
 describe("people list address", () => {
   it("keeps q, product, origin, state and cursor and drops values outside the schema", () => {
@@ -103,70 +102,61 @@ describe("people list address", () => {
 
 describe("people list BFF", () => {
   it("passes the filters to Nest with the page size and validates the answer", async () => {
-    const list = vi.fn(() =>
-      Promise.resolve(
-        backendAnswer(200, {
-          items: [annaRow],
-          total: 1,
-          nextCursor: null,
-          nameSearch: "available",
-        }),
-      ),
+    backend.mockResolvedValueOnce(
+      Response.json({
+        items: [annaRow],
+        total: 1,
+        nextCursor: null,
+        nameSearch: "available",
+      }),
     );
     const response = await handlePeopleListRequest(
       new Request(
         `https://inside.example.test/api/authoring/people?query=anna&product=${productId}&state=active&cursor=o%3A25`,
       ),
-      { list },
     );
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toMatchObject({ kind: "ready", total: 1 });
-    expect(list).toHaveBeenCalledWith(
-      { limit: 25, query: "anna", productId, state: "active", cursor: "o:25" },
-      "owner-token",
-    );
+    expectRequest("/authoring/people", {
+      limit: "25",
+      query: "anna",
+      productId,
+      state: "active",
+      cursor: "o:25",
+    });
   });
-
   it("refuses with 403 and no personal data, and reads a malformed body as a failed dependency", async () => {
+    backend.mockResolvedValueOnce(
+      Response.json({ code: "forbidden" }, { status: 403 }),
+    );
     const forbidden = await handlePeopleListRequest(
       new Request("https://inside.example.test/api/authoring/people"),
-      {
-        list: () => Promise.resolve(backendAnswer(403, { code: "forbidden" })),
-      },
     );
     expect(forbidden.status).toBe(403);
     expect(await forbidden.json()).toEqual({ kind: "forbidden" });
+    backend.mockResolvedValueOnce(
+      Response.json({ items: [{ accountId: "x" }], total: 1 }),
+    );
     const malformed = await handlePeopleListRequest(
       new Request("https://inside.example.test/api/authoring/people"),
-      {
-        list: () =>
-          Promise.resolve(
-            backendAnswer(200, { items: [{ accountId: "x" }], total: 1 }),
-          ),
-      },
     );
-    // The read boundary answers a failed dependency in its own closed shape; nothing reads as empty.
     expect(malformed.status).toBe(503);
     expect(await malformed.json()).not.toHaveProperty("items");
   });
 });
-
 describe("people list name truncation", () => {
   it("passes a truncated name search through as its own state", async () => {
+    backend.mockResolvedValueOnce(
+      Response.json({
+        items: [annaRow],
+        total: 50,
+        nextCursor: "o:25",
+        nameSearch: "truncated",
+      }),
+    );
     const response = await handlePeopleListRequest(
       new Request("https://inside.example.test/api/authoring/people?query=a"),
-      {
-        list: () =>
-          Promise.resolve(
-            backendAnswer(200, {
-              items: [annaRow],
-              total: 50,
-              nextCursor: "o:25",
-              nameSearch: "truncated",
-            }),
-          ),
-      },
     );
     expect(await response.json()).toMatchObject({
       kind: "ready",
@@ -175,45 +165,41 @@ describe("people list name truncation", () => {
     });
   });
 });
-
 describe("people list BFF refusal", () => {
   it("answers a Nest 400 (stale or foreign cursor) as a refused query, not as an outage", async () => {
+    backend.mockResolvedValueOnce(
+      Response.json({ code: "invalid_request" }, { status: 400 }),
+    );
     const response = await handlePeopleListRequest(
       new Request(
         "https://inside.example.test/api/authoring/people?cursor=stale-cursor",
       ),
-      {
-        list: () =>
-          Promise.resolve(backendAnswer(400, { code: "invalid_request" })),
-      },
     );
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ kind: "invalid_query" });
   });
 });
-
 describe("person card BFF", () => {
   it("answers a ready card, a 404 for an unknown or malformed ID and keeps blocks independent", async () => {
-    const read = vi.fn((accountId: string) =>
+    backend.mockImplementation((request) =>
       Promise.resolve(
-        accountId === annaCard.person.accountId
-          ? backendAnswer(200, annaCard)
-          : backendAnswer(404, { code: "not_found" }),
+        new URL(request.url).pathname ===
+          `/authoring/people/${annaCard.person.accountId}`
+          ? Response.json(annaCard)
+          : Response.json({ code: "not_found" }, { status: 404 }),
       ),
     );
-    const ready = await handlePersonCardRequest(annaCard.person.accountId, {
-      read,
-    });
+    const ready = await handlePersonCardRequest(annaCard.person.accountId);
     expect(ready.status).toBe(200);
     expect(await ready.json()).toEqual({ kind: "ready", card: annaCard });
+    expectRequest(`/authoring/people/${annaCard.person.accountId}`, {});
     const missing = await handlePersonCardRequest(
       "96000000-0000-4000-8000-0000000009ff",
-      { read },
     );
     expect(missing.status).toBe(404);
-    const malformed = await handlePersonCardRequest("not-a-uuid", { read });
+    const malformed = await handlePersonCardRequest("not-a-uuid");
     expect(malformed.status).toBe(404);
-    expect(read).toHaveBeenCalledTimes(2);
+    expect(backend).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -289,17 +275,15 @@ describe("person card presentation", () => {
 
 describe("product choices BFF", () => {
   it("returns Products sorted with archived last and keeps a refusal a refusal", async () => {
-    const ready = await handleAccessProductCatalogRequest({
-      choices: () =>
-        Promise.resolve(
-          backendAnswer(200, {
-            items: [
-              { productId, name: "Яндекс-практикум", archived: true },
-              { productId, name: "Архитектура", archived: false },
-            ],
-          }),
-        ),
-    });
+    backend.mockResolvedValueOnce(
+      Response.json({
+        items: [
+          { productId, name: "Яндекс-практикум", archived: true },
+          { productId, name: "Архитектура", archived: false },
+        ],
+      }),
+    );
+    const ready = await handleAccessProductCatalogRequest();
     expect(await ready.json()).toEqual({
       kind: "ready",
       products: [
@@ -307,9 +291,11 @@ describe("product choices BFF", () => {
         { productId, name: "Яндекс-практикум", archived: true },
       ],
     });
-    const forbidden = await handleAccessProductCatalogRequest({
-      choices: () => Promise.resolve(backendAnswer(403, { code: "forbidden" })),
-    });
+    expectRequest("/authoring/people/product-choices", {});
+    backend.mockResolvedValueOnce(
+      Response.json({ code: "forbidden" }, { status: 403 }),
+    );
+    const forbidden = await handleAccessProductCatalogRequest();
     expect(forbidden.status).toBe(403);
   });
 });
@@ -371,3 +357,16 @@ describe("«Люди» search group", () => {
     ).toEqual({ kind: "people", state: "unavailable" });
   });
 });
+
+function expectRequest(path: string, query: Readonly<Record<string, string>>) {
+  const request = backend.mock.calls.at(-1)?.[0];
+  if (request === undefined)
+    throw new Error("Expected owner People HTTP request");
+  const url = new URL(request.url);
+  expect(url.origin + url.pathname).toBe(
+    `https://platform-api.example.test${path}`,
+  );
+  expect(request.method).toBe("GET");
+  expect(Object.fromEntries(url.searchParams)).toEqual(query);
+  expect(request.headers.get("authorization")).toBe("Bearer owner-token");
+}

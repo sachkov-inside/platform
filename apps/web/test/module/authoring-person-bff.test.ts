@@ -1,61 +1,50 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const fakes = vi.hoisted(() => ({ token: vi.fn() }));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { peopleScenario } from "../../../../scenarios/people.mjs";
+import { realBffSession } from "../support/real-bff-session";
 import {
   handlePeopleIdentitiesRequest,
   handlePeopleSearchRequest,
-  type PeopleReadsDependencies,
 } from "@/entities/authoring-person.server";
 import { personLabel } from "@/entities/authoring-person";
 
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 const anna = {
   accountId: "d1210000-0000-4000-8000-000000000001",
-  displayName: "Анна Петрова",
-  username: "anna_petrova",
-  email: "anna.petrova@example.test",
-  contactsState: "complete",
-} as const;
-
-function dependencies(
-  answer: Awaited<ReturnType<PeopleReadsDependencies["search"]>>,
-) {
-  return {
-    search: vi.fn(() => Promise.resolve(answer)),
-    identities: vi.fn(() => Promise.resolve(answer)),
-  } satisfies PeopleReadsDependencies;
-}
-
-function backendAnswer(status: number, body: unknown) {
-  const response = new Response(null, { status });
-  return status === 200
-    ? ({ ok: true, body, response } as const)
-    : ({ ok: false, problem: body, response } as const);
-}
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("owner-token");
+  ...peopleScenario.anna,
+};
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  session = await realBffSession("owner-token");
+  vi.stubGlobal("fetch", backend);
 });
+afterEach(() => vi.useRealTimers());
+
+const search = (query: string) =>
+  session(() =>
+    handlePeopleSearchRequest(
+      new Request(
+        `https://inside.example.test/api/authoring/people/search?${query}`,
+      ),
+    ),
+  );
+const identities = (ids: string) =>
+  session(() =>
+    handlePeopleIdentitiesRequest(
+      new Request(
+        `https://inside.example.test/api/authoring/people/identities?accountIds=${ids}`,
+      ),
+    ),
+  );
 
 describe("people search BFF", () => {
   it("passes the normalized query and limit and answers privately", async () => {
-    const read = dependencies(
-      backendAnswer(200, { items: [anna], nameSearch: "available" }),
+    backend.mockResolvedValueOnce(
+      Response.json({ items: [anna], nameSearch: "available" }),
     );
-    const response = await handlePeopleSearchRequest(
-      new Request(
-        "https://inside.example.test/api/authoring/people/search?query=%20%20Анна%20%20Петрова%20&limit=5",
-      ),
-      read,
-    );
+    const response = await search("query=%20%20Анна%20%20Петрова%20&limit=5");
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toEqual({
@@ -63,105 +52,71 @@ describe("people search BFF", () => {
       items: [anna],
       nameSearch: "available",
     });
-    expect(read.search).toHaveBeenCalledExactlyOnceWith(
-      { text: "Анна Петрова", limit: 5 },
-      "owner-token",
-    );
+    expect(backend).toHaveBeenCalledOnce();
+    expectRequest("/authoring/people/search", {
+      query: "Анна Петрова",
+      limit: "5",
+    });
   });
-
   it("keeps an unavailable name search distinct from an empty answer", async () => {
-    const response = await handlePeopleSearchRequest(
-      new Request(
-        "https://inside.example.test/api/authoring/people/search?query=anna",
-      ),
-      dependencies(
-        backendAnswer(200, { items: [], nameSearch: "unavailable" }),
-      ),
+    backend.mockResolvedValueOnce(
+      Response.json({ items: [], nameSearch: "unavailable" }),
     );
+    const response = await search("query=anna");
     expect(await response.json()).toEqual({
       kind: "ready",
       items: [],
       nameSearch: "unavailable",
     });
   });
-
   it("maps a refusal to 403 and rejects a blank query or a limit above 20 before the backend", async () => {
-    const refused = await handlePeopleSearchRequest(
-      new Request(
-        "https://inside.example.test/api/authoring/people/search?query=anna",
-      ),
-      dependencies(backendAnswer(403, { code: "forbidden" })),
+    backend.mockResolvedValueOnce(
+      Response.json({ code: "forbidden" }, { status: 403 }),
     );
+    const refused = await search("query=anna");
     expect(refused.status).toBe(403);
     expect(await refused.json()).toEqual({ kind: "forbidden" });
-    for (const search of ["query=%20", "query=anna&limit=21"]) {
-      const read = dependencies(backendAnswer(200, {}));
-      const rejected = await handlePeopleSearchRequest(
-        new Request(
-          `https://inside.example.test/api/authoring/people/search?${search}`,
-        ),
-        read,
-      );
+    for (const query of ["query=%20", "query=anna&limit=21"]) {
+      backend.mockReset();
+      const rejected = await search(query);
       expect(rejected.status).toBe(400);
-      expect(read.search).not.toHaveBeenCalled();
+      expect(backend).not.toHaveBeenCalled();
     }
   });
-
   it("does not pass a malformed backend body on", async () => {
-    const response = await handlePeopleSearchRequest(
-      new Request(
-        "https://inside.example.test/api/authoring/people/search?query=anna",
-      ),
-      dependencies(
-        backendAnswer(200, {
-          items: [{ ...anna, profileName: "Профиль" }],
-          nameSearch: "available",
-        }),
-      ),
+    backend.mockResolvedValueOnce(
+      Response.json({
+        items: [{ ...anna, profileName: "Профиль" }],
+        nameSearch: "available",
+      }),
     );
-    // The shared read boundary answers every 503 alike and keeps the reference in its header.
+    const response = await search("query=anna");
     expect(response.status).toBe(503);
     expect(response.headers.get("x-correlation-id")).toBe("malformed-response");
     expect(await response.json()).toEqual({ kind: "dependency_unavailable" });
   });
 });
-
 describe("people identities BFF", () => {
   it("reads up to 100 account IDs and rejects more or a malformed ID", async () => {
-    const read = dependencies(backendAnswer(200, { items: [anna] }));
-    const response = await handlePeopleIdentitiesRequest(
-      new Request(
-        `https://inside.example.test/api/authoring/people/identities?accountIds=${anna.accountId}`,
-      ),
-      read,
-    );
+    backend.mockResolvedValueOnce(Response.json({ items: [anna] }));
+    const response = await identities(anna.accountId);
     expect(await response.json()).toEqual({ kind: "ready", items: [anna] });
-    expect(read.identities).toHaveBeenCalledExactlyOnceWith(
-      [anna.accountId],
-      "owner-token",
-    );
+    expect(backend).toHaveBeenCalledOnce();
+    expectRequest("/authoring/people/identities", {
+      accountIds: "d1210000-0000-4000-8000-000000000001",
+    });
     const tooMany = Array.from(
       { length: 101 },
       (_, index) =>
         `d1210000-0000-4000-8000-${String(index).padStart(12, "0")}`,
     ).join(",");
     for (const ids of [tooMany, "not-an-id"]) {
-      const rejected = dependencies(backendAnswer(200, {}));
-      expect(
-        (
-          await handlePeopleIdentitiesRequest(
-            new Request(
-              `https://inside.example.test/api/authoring/people/identities?accountIds=${ids}`,
-            ),
-            rejected,
-          )
-        ).status,
-      ).toBe(400);
-      expect(rejected.identities).not.toHaveBeenCalled();
+      backend.mockReset();
+      expect((await identities(ids)).status).toBe(400);
+      expect(backend).not.toHaveBeenCalled();
     }
   });
 });
-
 describe("person label", () => {
   it("orders name, @username and email, and never titles a person by ID", () => {
     expect(personLabel(anna)).toEqual({
@@ -191,3 +146,14 @@ describe("person label", () => {
     });
   });
 });
+function expectRequest(path: string, query: Readonly<Record<string, string>>) {
+  const request = backend.mock.calls.at(-1)?.[0];
+  if (request === undefined) throw new Error("Expected People HTTP request");
+  const url = new URL(request.url);
+  expect(url.origin + url.pathname).toBe(
+    `https://platform-api.example.test${path}`,
+  );
+  expect(request.method).toBe("GET");
+  expect(Object.fromEntries(url.searchParams)).toEqual(query);
+  expect(request.headers.get("authorization")).toBe("Bearer owner-token");
+}
